@@ -11,6 +11,8 @@ export type {
   BridgeTabRequest,
   BridgeTabResponse,
   BridgeTabType,
+  CacheEntryWire,
+  CacheStorageCacheWire,
   DomStorageAreaWire,
   DomStorageEntryWire,
   EnvironmentsSnapshot,

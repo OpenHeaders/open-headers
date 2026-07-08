@@ -10,6 +10,8 @@
  */
 
 import type {
+  CacheEntriesPage,
+  CacheSummary,
   DomStorageArea,
   DomStorageFullValue,
   DomStorageSnapshot,
@@ -148,6 +150,31 @@ setStorageInspectorHost({
     } catch (err) {
       logger.info('StorageInspectorHost', `deleteIndexedDbDatabase ✗ tab ${tabId}: ${(err as Error).message}`);
       return false;
+    }
+  },
+  async listCaches(tabId: number, frameId: number): Promise<readonly CacheSummary[] | null> {
+    try {
+      const res = await call('listCacheStorageCaches', { tabId, frameId });
+      return res?.caches ?? null;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `listCaches ✗ tab ${tabId}: ${(err as Error).message}`);
+      return null;
+    }
+  },
+  async readCacheEntries(
+    tabId: number,
+    frameId: number,
+    cache: string,
+    page: number,
+    pageSize: number,
+  ): Promise<CacheEntriesPage | null> {
+    try {
+      const res = await call('getCacheStorageEntries', { tabId, frameId, cache, page, pageSize });
+      if (!res?.entries) return null;
+      return { entries: res.entries, truncated: res.truncated ?? false };
+    } catch (err) {
+      logger.info('StorageInspectorHost', `readCacheEntries ✗ tab ${tabId}: ${(err as Error).message}`);
+      return null;
     }
   },
   subscribeIdbInvalidations(tabId: number, listener: () => void): () => void {

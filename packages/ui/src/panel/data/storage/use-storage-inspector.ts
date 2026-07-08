@@ -49,9 +49,9 @@ function scopesEqual(a: ReadonlyArray<StorageScope>, b: ReadonlyArray<StorageSco
 
 /** The storage types the tool window's navigation rail offers. Local
  *  and Session are the two DOM storage areas; Cookies rides the jar
- *  plane; IndexedDB has its own browser hook (`use-idb-browser`). Later
- *  slices add Cache Storage / quota. */
-export type StorageSection = 'local' | 'session' | 'cookies' | 'indexeddb';
+ *  plane; IndexedDB and Cache Storage have their own browser hooks
+ *  (`use-idb-browser` / `use-cache-browser`). A later slice adds quota. */
+export type StorageSection = 'local' | 'session' | 'cookies' | 'indexeddb' | 'cachestorage';
 
 export interface StorageInspectorState {
   /** A host is installed and the inspected tab is resolvable. */

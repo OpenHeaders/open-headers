@@ -2,8 +2,9 @@
  * SW-side application-storage inspector for the DevTools panel's Storage
  * tool window. Scope discovery in `scopes.ts`; DOM storage reads and
  * writes via injection in `standard-plane.ts`; IndexedDB paged reads in
- * `standard-plane-idb.ts`. Later slices add Cache Storage readers and
- * CDP-backed invalidation tracking.
+ * `standard-plane-idb.ts`; Cache Storage paged reads in
+ * `standard-plane-caches.ts`. CDP-backed invalidation tracking in
+ * `cdp-tier.ts`.
  */
 
 export { armIdbTracking, registerStorageCdpAccess, type StorageCdpAccess } from './cdp-tier';
@@ -15,6 +16,7 @@ export {
   removeDomStorageItem,
   setDomStorageItem,
 } from './standard-plane';
+export { getCacheStorageEntries, listCacheStorageCaches } from './standard-plane-caches';
 export {
   clearIndexedDbStore,
   deleteIndexedDbDatabase,

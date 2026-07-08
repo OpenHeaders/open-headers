@@ -16,9 +16,15 @@ import {
   __seedCookieJarForTests,
   getJarCookiesForUrl,
 } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
+import { useCacheBrowser } from '@openheaders/ui/panel/data/storage/use-cache-browser';
 import { useIdbBrowser } from '@openheaders/ui/panel/data/storage/use-idb-browser';
 import { type StorageSection, useStorageInspector } from '@openheaders/ui/panel/data/storage/use-storage-inspector';
-import type { IdbDatabase, IdbRecordsPage, StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
+import type {
+  CacheEntriesPage,
+  IdbDatabase,
+  IdbRecordsPage,
+  StorageInspectorHost,
+} from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -50,6 +56,13 @@ const IDB_PAGE: IdbRecordsPage = {
   truncated: false,
 };
 
+const CACHE_LIST = [{ name: 'oh-assets-v1' }];
+
+const CACHE_PAGE: CacheEntriesPage = {
+  entries: [{ url: 'https://openheaders.io/asset-0.js', method: 'GET' }],
+  truncated: false,
+};
+
 function installHost() {
   // Fresh arrays + fresh objects on every call — exactly what the wire
   // produces; the hooks own deduplication.
@@ -62,6 +75,8 @@ function installHost() {
   const deleteIndexedDbRecord = vi.fn(() => Promise.resolve(true));
   const clearIndexedDbStore = vi.fn(() => Promise.resolve(true));
   const deleteIndexedDbDatabase = vi.fn(() => Promise.resolve(true));
+  const listCaches = vi.fn((): Promise<Array<{ name: string }> | null> => Promise.resolve(structuredClone(CACHE_LIST)));
+  const readCacheEntries = vi.fn(() => Promise.resolve(structuredClone(CACHE_PAGE)));
   const idbInvalidationListeners = new Set<() => void>();
   const host: StorageInspectorHost = {
     listScopes,
@@ -75,6 +90,8 @@ function installHost() {
     deleteIndexedDbRecord,
     clearIndexedDbStore,
     deleteIndexedDbDatabase,
+    listCaches,
+    readCacheEntries,
     subscribeIdbInvalidations: (_tabId: number, listener: () => void) => {
       idbInvalidationListeners.add(listener);
       return () => {
@@ -91,6 +108,8 @@ function installHost() {
     deleteIndexedDbRecord,
     clearIndexedDbStore,
     deleteIndexedDbDatabase,
+    listCaches,
+    readCacheEntries,
     pushIdbInvalidation: () => {
       for (const listener of idbInvalidationListeners) listener();
     },
@@ -352,5 +371,72 @@ describe('useIdbBrowser poll stability', () => {
     listIndexedDb.mockImplementation(() => Promise.resolve([]));
     await flush(5000);
     expect(result.current.selection).toBeNull();
+  });
+});
+
+describe('useCacheBrowser poll stability', () => {
+  it('does nothing while inactive', async () => {
+    const { listCaches, readCacheEntries } = installHost();
+    renderHook(() => useCacheBrowser(false, 0));
+
+    await flush(15_000);
+    expect(listCaches).not.toHaveBeenCalled();
+    expect(readCacheEntries).not.toHaveBeenCalled();
+  });
+
+  it('keeps state identities across unchanged re-lists and re-reads', async () => {
+    const { listCaches, readCacheEntries } = installHost();
+    const { result } = renderHook(() => useCacheBrowser(true, 0));
+
+    await flush();
+    await flush();
+    const caches = result.current.caches;
+    expect(caches).toEqual([{ name: 'oh-assets-v1' }]);
+
+    act(() => {
+      result.current.selectCache('oh-assets-v1');
+    });
+    await flush();
+    const page = result.current.entriesPage;
+    expect(page).not.toBeNull();
+
+    // Two poll ticks (5s each) return fresh-but-equal data — identities
+    // must hold, and reads must be one per tick, not a reset storm.
+    const listsBefore = listCaches.mock.calls.length;
+    const readsBefore = readCacheEntries.mock.calls.length;
+    await flush(10_000);
+    expect(result.current.caches).toBe(caches);
+    expect(result.current.entriesPage).toBe(page);
+    expect(listCaches.mock.calls.length).toBe(listsBefore + 2);
+    expect(readCacheEntries.mock.calls.length).toBe(readsBefore + 2);
+  });
+
+  it('renders unreadable (null) as terminal once loading settles, keeping the last list on later failures', async () => {
+    const { listCaches } = installHost();
+    listCaches.mockImplementation(() => Promise.resolve(null));
+    const { result } = renderHook(() => useCacheBrowser(true, 0));
+
+    await flush();
+    await flush();
+    expect(result.current.caches).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('drops the selection when a re-list no longer has the cache', async () => {
+    const { listCaches, readCacheEntries } = installHost();
+    const { result } = renderHook(() => useCacheBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectCache('oh-assets-v1');
+    });
+    await flush();
+    expect(readCacheEntries).toHaveBeenCalledWith(42, 0, 'oh-assets-v1', 0, 50);
+    expect(result.current.selectedCache).toBe('oh-assets-v1');
+
+    listCaches.mockImplementation(() => Promise.resolve([]));
+    await flush(5000);
+    expect(result.current.selectedCache).toBeNull();
+    expect(result.current.page).toBe(0);
   });
 });

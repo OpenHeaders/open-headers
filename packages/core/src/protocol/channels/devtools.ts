@@ -123,6 +123,23 @@ export interface IdbRecordWire {
   primaryKeyWire?: string;
 }
 
+/** One named cache of a scope's Cache Storage. */
+export interface CacheStorageCacheWire {
+  name: string;
+}
+
+/**
+ * One Cache Storage entry, derived from the cache's `Request` keys only —
+ * the entry list never touches the stored responses (a response preview
+ * is a separate lazy fetch). `headersPreview` is a bounded `name: value`
+ * join of the request headers, omitted when the request carries none.
+ */
+export interface CacheEntryWire {
+  url: string;
+  method: string;
+  headersPreview?: string;
+}
+
 export interface DevToolsRpc {
   // ── DevTools panel: source-map resolution ──────────────────────
   /**
@@ -322,5 +339,28 @@ export interface DevToolsRpc {
   deleteIndexedDbDatabase: {
     req: { tabId: number; frameId: number; database: string };
     res: { ok: boolean };
+  };
+
+  /**
+   * Enumerate one scope's Cache Storage caches. `caches` is `null` when
+   * injection fails or the frame has no `caches` reach — the API exists
+   * in secure contexts only, so an http: scope always reads `null` (the
+   * panel renders an explanatory empty state, not an error).
+   */
+  listCacheStorageCaches: {
+    req: { tabId: number; frameId: number };
+    res: { caches: ReadonlyArray<CacheStorageCacheWire> | null };
+  };
+
+  /**
+   * Paged read of one cache's entries via `cache.keys()`. `page` is
+   * zero-based; `pageSize` is clamped SW-side. Entries carry request
+   * metadata only (see {@link CacheEntryWire}); `truncated` means more
+   * entries exist past this page. `entries` is `null` when injection
+   * fails or the cache is gone.
+   */
+  getCacheStorageEntries: {
+    req: { tabId: number; frameId: number; cache: string; page: number; pageSize: number };
+    res: { entries: ReadonlyArray<CacheEntryWire> | null; truncated?: boolean };
   };
 }

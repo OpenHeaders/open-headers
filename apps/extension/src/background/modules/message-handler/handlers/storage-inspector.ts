@@ -1,4 +1,4 @@
-/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads/deletes. */
+/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads/deletes + Cache Storage reads. */
 
 import type { DomStorageAreaWire } from '@openheaders/core/bridge';
 import { logger } from '@utils/logger';
@@ -7,9 +7,11 @@ import {
   clearIndexedDbStore as clearIndexedDbStoreHandler,
   deleteIndexedDbDatabase as deleteIndexedDbDatabaseHandler,
   deleteIndexedDbRecord as deleteIndexedDbRecordHandler,
+  getCacheStorageEntries as getCacheStorageEntriesHandler,
   getDomStorageEntries as getDomStorageEntriesHandler,
   getDomStorageValue as getDomStorageValueHandler,
   getIndexedDbRecords as getIndexedDbRecordsHandler,
+  listCacheStorageCaches as listCacheStorageCachesHandler,
   listIndexedDbDatabases as listIndexedDbDatabasesHandler,
   listStorageScopes as listStorageScopesHandler,
   removeDomStorageItem as removeDomStorageItemHandler,
@@ -158,6 +160,32 @@ export const storageInspectorHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('StorageIdb', `handler threw: ${err.message}`);
         respond({ ok: false });
+      });
+    return true;
+  },
+
+  listCacheStorageCaches: ({ message, respond }) => {
+    listCacheStorageCachesHandler(message.tabId as number, message.frameId as number)
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageCaches', `handler threw: ${err.message}`);
+        respond({ caches: null });
+      });
+    return true;
+  },
+
+  getCacheStorageEntries: ({ message, respond }) => {
+    getCacheStorageEntriesHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.cache as string,
+      message.page as number,
+      message.pageSize as number,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageCaches', `handler threw: ${err.message}`);
+        respond({ entries: null });
       });
     return true;
   },

@@ -160,6 +160,13 @@
   font-style: italic;
 }
 
+/* Cache Storage entries — same grid family, two columns:
+ * Request URL (wide) · Method. */
+.dt-storage-grid--caches .dt-storage-grid-header,
+.dt-storage-grid--caches .dt-storage-row {
+  grid-template-columns: minmax(0, 1fr) 60px;
+}
+
 /* Cookies section — same grid family, five columns:
  * Name · Value · Domain·Path · Expires · Sec. */
 .dt-storage-grid--cookies .dt-storage-grid-header,
@@ -253,7 +260,7 @@
   text-overflow: ellipsis;
 }
 
-.dt-storage-idb-meta {
+.dt-storage-meta {
   margin-left: 6px;
   color: var(--dt-text-muted);
   font-weight: 400;
@@ -263,7 +270,9 @@
   padding: 1px 8px 1px 20px;
 }
 
-.dt-storage-idb-crumb {
+/* Drill-in chrome shared by the IndexedDB and Cache Storage sections —
+ * breadcrumb back to the listing plus the ‹ › pager. */
+.dt-storage-crumb {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -272,23 +281,57 @@
   font-size: 11px;
 }
 
-.dt-storage-idb-crumb-path {
+.dt-storage-crumb-path {
   color: var(--dt-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.dt-storage-idb-pager {
+.dt-storage-pager {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-.dt-storage-idb-pager .dt-storage-action:disabled {
+.dt-storage-pager .dt-storage-action:disabled {
   color: var(--dt-border);
   cursor: default;
+}
+
+/* Cache Storage — flat cache list (no tree level above it). */
+.dt-storage-cache-list {
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.dt-storage-cache-row {
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+}
+
+.dt-storage-cache-row:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-storage-cache-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font: inherit;
+  text-align: left;
+  padding: 2px 8px;
+  border: none;
+  background: transparent;
+  color: var(--dt-text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Hover action lane — floats over the value cell's right edge, revealed

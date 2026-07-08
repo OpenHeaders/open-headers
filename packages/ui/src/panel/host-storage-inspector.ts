@@ -10,6 +10,9 @@
  */
 
 export type {
+  CacheEntriesPage,
+  CacheEntry,
+  CacheSummary,
   DomStorageArea,
   DomStorageEntry,
   DomStorageFullValue,

@@ -83,6 +83,28 @@ export interface IdbRecordsPage {
   truncated: boolean;
 }
 
+/** One named cache of the scope's Cache Storage. */
+export interface CacheSummary {
+  name: string;
+}
+
+/**
+ * One Cache Storage entry — request metadata only (the list never
+ * touches stored responses). `headersPreview` is a bounded join of the
+ * request headers, absent when the request carries none.
+ */
+export interface CacheEntry {
+  url: string;
+  method: string;
+  headersPreview?: string;
+}
+
+/** `truncated` means more entries exist past this page. */
+export interface CacheEntriesPage {
+  entries: ReadonlyArray<CacheEntry>;
+  truncated: boolean;
+}
+
 export interface StorageInspectorHost {
   listScopes(tabId: number): Promise<ReadonlyArray<StorageScope> | null>;
   readDomStorage(tabId: number, frameId: number, area: DomStorageArea): Promise<DomStorageSnapshot | null>;
@@ -118,6 +140,17 @@ export interface StorageInspectorHost {
   clearIndexedDbStore(tabId: number, frameId: number, database: string, store: string): Promise<boolean>;
   /** `false` covers errors AND a blocked delete (page holds connections). */
   deleteIndexedDbDatabase(tabId: number, frameId: number, database: string): Promise<boolean>;
+  /** Enumerate the scope's Cache Storage caches; `null` when unreadable
+   *  (including a non-secure context, where the API doesn't exist). */
+  listCaches(tabId: number, frameId: number): Promise<ReadonlyArray<CacheSummary> | null>;
+  /** Paged read of one cache's entries — request metadata only. */
+  readCacheEntries(
+    tabId: number,
+    frameId: number,
+    cache: string,
+    page: number,
+    pageSize: number,
+  ): Promise<CacheEntriesPage | null>;
   /**
    * Subscribe to host-pushed IndexedDB invalidations for the tab (fired
    * while the host's CDP tier tracks it; never fired on a fetcher-less

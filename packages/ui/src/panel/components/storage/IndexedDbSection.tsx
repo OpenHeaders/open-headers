@@ -95,7 +95,7 @@ export function IndexedDbSection({ idb, filter }: IndexedDbSectionProps) {
               <span className="dt-storage-idb-db-name" title={db.name}>
                 {db.name}
               </span>
-              <span className="dt-storage-idb-meta">
+              <span className="dt-storage-meta">
                 v{db.version} · {db.objectStores.length} {db.objectStores.length === 1 ? 'store' : 'stores'}
               </span>
               <ArmedIconButton
@@ -115,7 +115,7 @@ export function IndexedDbSection({ idb, filter }: IndexedDbSectionProps) {
                   title={`Open ${db.name} › ${s.name}`}
                 >
                   {s.name}
-                  <span className="dt-storage-idb-meta">{storeMeta(s)}</span>
+                  <span className="dt-storage-meta">{storeMeta(s)}</span>
                 </button>
                 <ArmedIconButton
                   icon={<ClearOutlined />}
@@ -126,7 +126,7 @@ export function IndexedDbSection({ idb, filter }: IndexedDbSectionProps) {
                 />
               </div>
             ))}
-            {db.objectStores.length === 0 && <div className="dt-storage-idb-meta dt-storage-idb-empty">no object stores</div>}
+            {db.objectStores.length === 0 && <div className="dt-storage-meta dt-storage-idb-empty">no object stores</div>}
           </div>
         );
       })}
@@ -149,14 +149,14 @@ function RecordsView({ idb, filter }: IndexedDbSectionProps) {
 
   return (
     <>
-      <div className="dt-storage-idb-crumb">
+      <div className="dt-storage-crumb">
         <button type="button" className="dt-storage-action" title="Back to databases" aria-label="Back to databases" onClick={idb.closeStore}>
           <LeftOutlined />
         </button>
-        <span className="dt-storage-idb-crumb-path" title={`${selection.database} › ${selection.store}`}>
+        <span className="dt-storage-crumb-path" title={`${selection.database} › ${selection.store}`}>
           {selection.database} › {selection.store}
         </span>
-        <span className="dt-storage-idb-pager">
+        <span className="dt-storage-pager">
           <button
             type="button"
             className="dt-storage-action"
@@ -167,7 +167,7 @@ function RecordsView({ idb, filter }: IndexedDbSectionProps) {
           >
             <LeftOutlined />
           </button>
-          <span className="dt-storage-idb-meta">page {idb.page + 1}</span>
+          <span className="dt-storage-meta">page {idb.page + 1}</span>
           <button
             type="button"
             className="dt-storage-action"

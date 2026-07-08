@@ -26,6 +26,7 @@ import {
 import { useCookieJarSticky } from '../../data/cookies/use-cookie-jar';
 import type { DomStorageEntry } from '../../data/storage/storage-inspector-host';
 import { parseStorageKey } from '../../data/storage/storage-key';
+import { useCacheBrowser } from '../../data/storage/use-cache-browser';
 import { useIdbBrowser } from '../../data/storage/use-idb-browser';
 import {
   type StorageInspectorState,
@@ -33,6 +34,7 @@ import {
   useStorageInspector,
 } from '../../data/storage/use-storage-inspector';
 import { CookieEditPopover } from '../detail/cookies/CookieEditPopover';
+import { CacheStorageSection } from './CacheStorageSection';
 import { CookiesSection } from './CookiesSection';
 import { IndexedDbSection } from './IndexedDbSection';
 import { StorageGrid } from './StorageGrid';
@@ -46,6 +48,7 @@ const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string }> = [
   { value: 'session', label: 'Session storage' },
   { value: 'cookies', label: 'Cookies' },
   { value: 'indexeddb', label: 'IndexedDB' },
+  { value: 'cachestorage', label: 'Cache Storage' },
 ];
 
 function areaName(section: StorageSection): string {
@@ -77,8 +80,9 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
   const selectedScope = inspector.scopes.find((s) => s.origin === inspector.selectedOrigin) ?? null;
   const partition = selectedScope?.storageKey ? parseStorageKey(selectedScope.storageKey) : null;
 
-  // ── IndexedDB section data (own hook, own poll) ────────────────────
+  // ── IndexedDB / Cache Storage section data (own hooks, own polls) ──
   const idb = useIdbBrowser(section === 'indexeddb', selectedScope?.frameId ?? null);
+  const cacheStorage = useCacheBrowser(section === 'cachestorage', selectedScope?.frameId ?? null);
 
   // ── Cookies section data + write plumbing (jar plane reuse) ────────
   const scopeUrl = selectedScope?.url ?? '';
@@ -139,7 +143,11 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
             idb.databases ? `${idb.databases.length} ${idb.databases.length === 1 ? 'database' : 'databases'}` : '',
             idb.mutationFailed ? ' · delete failed' : '',
           ].join('')
-        : [
+        : section === 'cachestorage'
+          ? cacheStorage.caches
+            ? `${cacheStorage.caches.length} ${cacheStorage.caches.length === 1 ? 'cache' : 'caches'}`
+            : ''
+          : [
             inspector.snapshot ? `${filtered.length} of ${entries.length} items` : '',
             inspector.snapshot?.truncated ? ' · list truncated' : '',
             inspector.readFailed ? ' · read failed — showing last data' : '',
@@ -172,13 +180,13 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
                   <PlusOutlined />
                 </button>
               </CookieEditPopover>
-            ) : section === 'indexeddb' ? (
+            ) : section === 'indexeddb' || section === 'cachestorage' ? (
               <button
                 type="button"
                 className="dt-toolbar-icon"
                 disabled
-                title="IndexedDB is read-only here"
-                aria-label="IndexedDB is read-only"
+                title={section === 'indexeddb' ? 'IndexedDB is read-only here' : 'Cache Storage is read-only here'}
+                aria-label={section === 'indexeddb' ? 'IndexedDB is read-only' : 'Cache Storage is read-only'}
               >
                 <PlusOutlined />
               </button>
@@ -200,6 +208,7 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
               onClick={() => {
                 inspector.refresh();
                 if (section === 'indexeddb') idb.refresh();
+                if (section === 'cachestorage') cacheStorage.refresh();
               }}
               title="Refresh"
               aria-label="Refresh storage"
@@ -266,9 +275,13 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
                 onApplyEdit={applyCookieEdit}
                 onDelete={deleteCookie}
               />
-            ) : section === 'indexeddb' ? (
+            ) : section === 'indexeddb' || section === 'cachestorage' ? (
               inspector.available && inspector.scopes.length > 0 ? (
-                <IndexedDbSection idb={idb} filter={textFilter} />
+                section === 'indexeddb' ? (
+                  <IndexedDbSection idb={idb} filter={textFilter} />
+                ) : (
+                  <CacheStorageSection cache={cacheStorage} filter={textFilter} />
+                )
               ) : (
                 <div className="dt-empty-hero">
                   <strong>No inspectable origins</strong>

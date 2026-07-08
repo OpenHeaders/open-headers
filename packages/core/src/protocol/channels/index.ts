@@ -47,6 +47,8 @@ import type { WorkspaceRpc } from './workspace';
 export type { BridgeBroadcastContract } from './broadcast';
 export type { FolderDescriptor, WorkspaceSnapshot } from './common';
 export type {
+  CacheEntryWire,
+  CacheStorageCacheWire,
   DomStorageAreaWire,
   DomStorageEntryWire,
   IdbDatabaseWire,
