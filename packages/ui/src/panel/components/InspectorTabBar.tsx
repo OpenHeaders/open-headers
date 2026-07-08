@@ -377,7 +377,10 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
     if (isLastTab) {
       container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
     } else {
-      const el = container.querySelector(`[data-tab-id="${activeTabId}"]`);
+      // CSS.escape (window-qualified — `CSS` here is dnd-kit's utility):
+      // storage-record tab ids embed the JSON key wire (quotes,
+      // backslashes) — raw interpolation is an invalid selector.
+      const el = container.querySelector(`[data-tab-id="${window.CSS.escape(activeTabId)}"]`);
       el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
   }, [activeTabId, tabs]);

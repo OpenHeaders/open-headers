@@ -10,12 +10,16 @@
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IdbRecordInspectorTab } from '../../data/inspector-tab';
 import type { IdbRecordDocument } from '../../data/storage/storage-inspector-host';
 import { getStorageInspectorHost } from '../../data/storage/storage-inspector-host';
-import CodeViewer from '../detail/CodeViewer';
+import Skeleton from '../detail/Skeleton';
 import { JsonTree } from '../JsonTree';
+
+// Lazy like every other Monaco consumer — a static import here would
+// pull Monaco back into the panel's initial chunk.
+const CodeViewer = lazy(() => import('../detail/CodeViewer'));
 
 type DocumentSlot = 'loading' | 'unavailable' | IdbRecordDocument;
 
@@ -140,7 +144,9 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
         </div>
       ) : (
         <div className="dt-idbdoc-source">
-          <CodeViewer value={slot.text} language={slot.editable ? 'json' : 'javascript'} />
+          <Suspense fallback={<Skeleton />}>
+            <CodeViewer value={slot.text} language={slot.editable ? 'json' : 'javascript'} />
+          </Suspense>
         </div>
       )}
     </div>
