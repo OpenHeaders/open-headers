@@ -7,21 +7,15 @@
  *   - secretSet emits an addToSet envelope at the secrets set path
  *     keyed by secret.uid, carrying the whole record (kind included)
  *   - secretRemove emits a removeFromSet envelope keyed by uid
- *   - replacement folds add / edit / remove into one batch keyed by
- *     uid; byte-identical entries (compared via the kind-aware
- *     fingerprint) are skipped; empty-name entries are dropped
+ *   - replacement folds add / edit / remove / reorder into one batch
+ *     keyed by uid; structurally-identical entries are skipped;
+ *     empty-name entries are dropped
  *   - the apply pipe never sends a snapshot to the bridge for an
  *     empty diff (no INVALIDATE_RESOLVER spam on no-op saves)
  */
 
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import {
-  advanceHlc,
-  initialHlc,
-  VAULT_ENTITY_TYPE,
-  VAULT_ID,
-  VAULT_PATH,
-} from '@openheaders/core/sync';
+import { advanceHlc, initialHlc, VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH } from '@openheaders/core/sync';
 import type { VaultSecret } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -41,13 +35,13 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type { RendererContextHandle } from '@openheaders/ui/context';
+import type { VaultSyncMirror } from '@openheaders/ui/shared/sync/vault-write-client';
 import {
   applyVaultReplacement,
   applyVaultSecretRemove,
   applyVaultSecretSet,
 } from '@openheaders/ui/shared/sync/vault-write-client';
-import type { VaultSyncMirror } from '@openheaders/ui/shared/sync/vault-write-client';
-import type { RendererContextHandle } from '@openheaders/ui/context';
 
 /** Minimal VaultSyncMirror stub — supplies the current per-uid order keys
  *  the replacement helper reads to preserve row position. Keys are a
@@ -178,11 +172,12 @@ describe('applyVaultReplacement', () => {
 
   it('emits one INVALIDATE_RESOLVER side-effect on a non-empty diff', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    await applyVaultReplacement(
-      [stringSecret('s1', 'API_KEY', 'abc')],
-      [],
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), mirror: mockMirror([]) },
-    );
+    await applyVaultReplacement([stringSecret('s1', 'API_KEY', 'abc')], [], {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+      mirror: mockMirror([]),
+    });
     const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch; sideEffects: SideEffectIntent[] };
     expect(payload.sideEffects).toHaveLength(1);
   });
@@ -246,7 +241,7 @@ describe('applyVaultReplacement', () => {
     expect(adds[0].body).toMatchObject({ itemId: 's1', orderKey: 'm' });
   });
 
-  it('a reorder persists the new row order — materialized key order follows the editor', async () => {
+  it('a pure reorder emits a single moveBefore (LIS-optimal) — materialized key order follows the editor', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const rows = (order: string[]) => order.map((u) => stringSecret(u, u.toUpperCase(), u));
     const oldSecrets = rows(['s1', 's2', 's3']);
@@ -258,28 +253,26 @@ describe('applyVaultReplacement', () => {
       mirror: mockMirror(['s1', 's2', 's3']), // s1='m' < s2='n' < s3='o'
     });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
-    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
-    for (const m of adds) expect(typeof (m.body as { orderKey?: string }).orderKey).toBe('string');
+    // s1+s2 form the LIS and stay put — only the dragged row moves.
+    expect(batch.mutations).toHaveLength(1);
+    expect(batch.mutations[0].body).toMatchObject({ kind: 'moveBefore', itemId: 's3' });
     const finalKeys = new Map<string, string>([
       ['s1', 'm'],
       ['s2', 'n'],
-      ['s3', 'o'],
+      ['s3', (batch.mutations[0].body as { orderKey: string }).orderKey],
     ]);
-    for (const m of adds) {
-      const body = m.body as { itemId: string; orderKey: string };
-      finalKeys.set(body.itemId, body.orderKey);
-    }
     const materialized = [...finalKeys.entries()].sort((a, b) => (a[1] < b[1] ? -1 : 1)).map(([uid]) => uid);
     expect(materialized).toEqual(['s3', 's1', 's2']);
   });
 
   it('drops new entries whose trimmed name is empty', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    await applyVaultReplacement(
-      [stringSecret('s-blank', '   ', 'value'), stringSecret('s-keep', 'OK', 'value')],
-      [],
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), mirror: mockMirror([]) },
-    );
+    await applyVaultReplacement([stringSecret('s-blank', '   ', 'value'), stringSecret('s-keep', 'OK', 'value')], [], {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+      mirror: mockMirror([]),
+    });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const ids = batch.mutations
       .filter((m) => m.body.kind === 'addToSet')

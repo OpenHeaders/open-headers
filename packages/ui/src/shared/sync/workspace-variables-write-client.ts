@@ -15,7 +15,25 @@
  * `applyWorkspaceVariablesReplacement` diffs two lists by uid.
  */
 
+import {
+  type MutationEnvelope,
+  mintBatch,
+  type SideEffectIntent,
+  WORKSPACE_VARIABLES_ENTITY_TYPE,
+  WORKSPACE_VARIABLES_ID,
+  WORKSPACE_VARIABLES_PATH,
+  workspaceVariablesInvalidateResolverIntent,
+} from '@openheaders/core/sync';
+import { synthesizeSetDiff, toLiveSetEntries } from '@openheaders/core/sync-builders';
+import {
+  buildRemoveWorkspaceVarBatch,
+  buildSetWorkspaceVarBatch,
+} from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
 import type { Variable } from '@openheaders/core/types';
+import {
+  getWorkspaceVariablesSyncMirrorForWorkspace,
+  type WorkspaceVariablesSyncMirror,
+} from '../../context/mirrors/workspace-variables-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -23,31 +41,10 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import {
-  keyBetween,
-  mintBatch,
-  type MutationBody,
-  type MutationEnvelope,
-  seedKey,
-  type SideEffectIntent,
-  WORKSPACE_VARIABLES_ENTITY_TYPE,
-  WORKSPACE_VARIABLES_ID,
-  WORKSPACE_VARIABLES_PATH,
-  workspaceVariablesInvalidateResolverIntent,
-} from '@openheaders/core/sync';
-import {
-  createWorkspaceVariablesSyncMirror,
-  getWorkspaceVariablesSyncMirrorForWorkspace,
-  type WorkspaceVariablesSyncMirror,
-} from '../../context/mirrors/workspace-variables-sync-mirror';
-import {
-  buildRemoveWorkspaceVarBatch,
-  buildSetWorkspaceVarBatch,
-} from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
 
+export type { WorkspaceVariablesSyncMirror } from '../../context/mirrors/workspace-variables-sync-mirror';
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createWorkspaceVariablesSyncMirror } from '../../context/mirrors/workspace-variables-sync-mirror';
-export type { WorkspaceVariablesSyncMirror } from '../../context/mirrors/workspace-variables-sync-mirror';
 
 export type WorkspaceVariablesSimpleResult = SyncSimpleResult;
 
@@ -86,14 +83,14 @@ export async function applyWorkspaceVarRemove(
  * editor's row ORDER as fractional-index `orderKey`s (§23.5) so the set
  * materializes back in the same order the user sees — not uid-sorted.
  *
- * Identity is `variable.uid`. Adds + content edits + reorders emit
- * `addToSet`; deletions emit `removeFromSet` by uid. Each surviving row's
- * `orderKey` is assigned LSEQ-style: reuse the row's current key while it
- * keeps the running order monotonic, and mint a fresh `keyBetween` only
- * where the order breaks (a moved row) or a row is new. A row unchanged in
- * both content AND position emits nothing — so a plain value edit re-keys
- * nothing and a pure content save no longer trips the order-sensitive
- * dirty check. Empty diff → `{ ok: true }` (no fire). Mirrors
+ * Identity is `variable.uid`. The diff is {@link synthesizeSetDiff} —
+ * the same LIS-optimal synthesizer the rule / request / template set
+ * paths use: `removeFromSet` for deleted uids, `addToSet` (with
+ * `orderKey`) for adds + content edits, a minimal set of `moveBefore`
+ * envelopes for pure reorders. A row unchanged in both content AND
+ * position emits nothing — so a plain value edit re-keys nothing and a
+ * pure content save doesn't trip the order-sensitive dirty check.
+ * Empty diff → `{ ok: true }` (no fire). Mirrors
  * `applyEnvVariablesReplacement`.
  */
 export async function applyWorkspaceVariablesReplacement(
@@ -101,65 +98,22 @@ export async function applyWorkspaceVariablesReplacement(
   oldVars: readonly Variable[],
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
-  const oldByUid = new Map<string, Variable>();
-  for (const v of oldVars) oldByUid.set(v.uid, v);
-  const survivors = newVars.filter((v) => v.name.trim());
-  const newUids = new Set(survivors.map((v) => v.uid));
-
-  // Current persisted order keys (fractional-index order). The write
+  // Current persisted order keys (fractional-index order). The diff
   // reuses them to keep unmoved rows byte-stable across saves.
   const mirror = resolveMirror(opts, getWorkspaceVariablesSyncMirrorForWorkspace);
   await mirror.hydrated;
   const currentKeys = new Map(mirror.liveVarOrderKeys().map((e) => [e.itemId, e.orderKey] as const));
 
-  // Assign each survivor an orderKey in editor order: reuse the existing
-  // key when it stays strictly greater than the previous assignment,
-  // otherwise mint a fresh one after `prev` (seed for the first mint).
-  const assigned = new Map<string, string>();
-  let prevKey: string | null = null;
-  for (const v of survivors) {
-    const cur = currentKeys.get(v.uid);
-    const reuse = cur !== undefined && (prevKey === null || cur > prevKey);
-    const key: string = reuse ? cur : prevKey === null ? seedKey() : keyBetween(prevKey, null);
-    assigned.set(v.uid, key);
-    prevKey = key;
-  }
+  const bodies = synthesizeSetDiff({
+    type: WORKSPACE_VARIABLES_ENTITY_TYPE,
+    id: WORKSPACE_VARIABLES_ID,
+    path: WORKSPACE_VARIABLES_PATH,
+    live: toLiveSetEntries(oldVars, currentKeys),
+    newItems: newVars.filter((v) => v.name.trim()),
+  });
+  if (bodies.length === 0) return { ok: true };
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `workspace-vars-replace` });
-
-  const bodies: MutationBody[] = [];
-  for (const [uid] of oldByUid) {
-    if (newUids.has(uid)) continue;
-    bodies.push({
-      kind: 'removeFromSet',
-      type: WORKSPACE_VARIABLES_ENTITY_TYPE,
-      id: WORKSPACE_VARIABLES_ID,
-      path: WORKSPACE_VARIABLES_PATH,
-      itemId: uid,
-    });
-  }
-  for (const variable of survivors) {
-    const prev = oldByUid.get(variable.uid);
-    const key = assigned.get(variable.uid)!;
-    const contentSame =
-      prev &&
-      prev.name === variable.name &&
-      prev.value === variable.value &&
-      (prev.type ?? 'default') === (variable.type ?? 'default');
-    const keySame = currentKeys.get(variable.uid) === key;
-    if (contentSame && keySame) continue;
-    bodies.push({
-      kind: 'addToSet',
-      type: WORKSPACE_VARIABLES_ENTITY_TYPE,
-      id: WORKSPACE_VARIABLES_ID,
-      path: WORKSPACE_VARIABLES_PATH,
-      itemId: variable.uid,
-      item: variable,
-      orderKey: key,
-    });
-  }
-
-  if (bodies.length === 0) return { ok: true };
 
   const sideEffects: SideEffectIntent[] = [workspaceVariablesInvalidateResolverIntent(ctx.hlc)];
   const batch = mintBatch(ctx, bodies);

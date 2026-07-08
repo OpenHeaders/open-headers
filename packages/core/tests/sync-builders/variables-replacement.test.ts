@@ -2,10 +2,10 @@
  * Order-preserving diff behavior of the shared `buildVariablesReplacement`
  * builder — the collection (rule / request / template) variable scopes all
  * fold through it. Variable rows persist as a uid-keyed set that
- * materializes back in fractional-index (orderKey) order, so the builder
- * assigns each surviving row an `orderKey` LSEQ-style: reuse the current
- * key while the running order stays monotonic, mint a fresh `keyBetween`
- * only for moved / new rows. A row unchanged in both content AND position
+ * materializes back in fractional-index (orderKey) order; the builder
+ * delegates to the LIS-optimal `synthesizeSetDiff`, so a content edit
+ * re-emits at the row's existing key, a pure reorder emits the minimal
+ * `moveBefore` set, and a row unchanged in both content AND position
  * emits nothing.
  */
 
@@ -84,7 +84,7 @@ describe('buildVariablesReplacement — order keys', () => {
     expect(a[0].body).toMatchObject({ itemId: 'v1', orderKey: 'm' });
   });
 
-  it('a reorder persists the new row order — materialized key order follows the editor', () => {
+  it('a pure reorder emits a single moveBefore (LIS-optimal) — materialized key order follows the editor', () => {
     const rows = (order: string[]) => order.map((u) => variable(u, u.toUpperCase(), u));
     const payload = buildVariablesReplacement(bindings, ctx(), {
       entityUid: 'coll-1',
@@ -92,17 +92,15 @@ describe('buildVariablesReplacement — order keys', () => {
       oldVars: rows(['v1', 'v2', 'v3']),
       currentKeys: keys(['v1', 'v2', 'v3']), // v1='m' < v2='n' < v3='o'
     });
-    const a = adds(payload);
-    for (const m of a) expect(typeof (m.body as { orderKey?: string }).orderKey).toBe('string');
+    const mutations = payload?.batch.mutations ?? [];
+    // v1+v2 form the LIS and stay put — only the dragged row moves.
+    expect(mutations).toHaveLength(1);
+    expect(mutations[0].body).toMatchObject({ kind: 'moveBefore', itemId: 'v3' });
     const finalKeys = new Map<string, string>([
       ['v1', 'm'],
       ['v2', 'n'],
-      ['v3', 'o'],
+      ['v3', (mutations[0].body as { orderKey: string }).orderKey],
     ]);
-    for (const m of a) {
-      const body = m.body as { itemId: string; orderKey: string };
-      finalKeys.set(body.itemId, body.orderKey);
-    }
     const materialized = [...finalKeys.entries()].sort((a, b) => (a[1] < b[1] ? -1 : 1)).map(([uid]) => uid);
     expect(materialized).toEqual(['v3', 'v1', 'v2']);
   });

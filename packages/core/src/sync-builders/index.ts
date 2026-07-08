@@ -15,6 +15,7 @@ export {
   type LiveSetEntry,
   type SetDiffArgs,
   synthesizeSetDiff,
+  toLiveSetEntries,
 } from './set-diff';
 export {
   buildVariablesReplacement,

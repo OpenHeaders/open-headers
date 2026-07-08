@@ -18,38 +18,32 @@
  */
 
 import {
-  applySyncPayload,
-  type BaseSyncWriteOptions,
-  resolveMirror,
-  resolveRendererContext,
-  type SyncSimpleResult,
-} from './apply-payload';
-import {
-  keyBetween,
-  mintBatch,
-  type MutationBody,
   type MutationEnvelope,
-  seedKey,
+  mintBatch,
   type SideEffectIntent,
   VAULT_ENTITY_TYPE,
   VAULT_ID,
   VAULT_PATH,
   vaultInvalidateResolverIntent,
 } from '@openheaders/core/sync';
-import type { VaultSecret } from '@openheaders/core/types';
-import {
-  createVaultSyncMirror,
-  getVaultSyncMirrorForWorkspace,
-  type VaultSyncMirror,
-} from '../../context/mirrors/vault-sync-mirror';
+import { synthesizeSetDiff, toLiveSetEntries } from '@openheaders/core/sync-builders';
 import {
   buildRemoveVaultSecretBatch,
   buildSetVaultSecretBatch,
 } from '@openheaders/core/sync-builders/mutations/vault-mutations';
+import type { VaultSecret } from '@openheaders/core/types';
+import { getVaultSyncMirrorForWorkspace, type VaultSyncMirror } from '../../context/mirrors/vault-sync-mirror';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveMirror,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from './apply-payload';
 
+export type { VaultSyncMirror } from '../../context/mirrors/vault-sync-mirror';
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createVaultSyncMirror } from '../../context/mirrors/vault-sync-mirror';
-export type { VaultSyncMirror } from '../../context/mirrors/vault-sync-mirror';
 
 export type VaultSimpleResult = SyncSimpleResult;
 
@@ -88,13 +82,14 @@ export async function applyVaultSecretRemove(
  * editor's row ORDER as fractional-index `orderKey`s (§23.5) so the set
  * materializes back in the same order the user sees — not uid-sorted.
  *
- * Identity is `secret.uid`. Adds + content edits (rename / value /
- * kind-transition / totp fields) + reorders emit `addToSet`; deletions
- * emit `removeFromSet` by uid. Each surviving row's `orderKey` is assigned
- * LSEQ-style: reuse the row's current key while it keeps the running order
- * monotonic, and mint a fresh `keyBetween` only where the order breaks (a
- * moved row) or a row is new. A row unchanged in both content AND position
- * emits nothing. Empty diff → `{ ok: true }` (no fire). Mirrors
+ * Identity is `secret.uid`. The diff is {@link synthesizeSetDiff} — the
+ * same LIS-optimal synthesizer the rule / request / template set paths
+ * use: `removeFromSet` for deleted uids, `addToSet` (with `orderKey`) for
+ * adds + content edits (rename / value / kind-transition / totp fields —
+ * structural equality over the whole record, matching the editor's dirty
+ * fingerprint), a minimal set of `moveBefore` envelopes for pure
+ * reorders. A row unchanged in both content AND position emits nothing.
+ * Empty diff → `{ ok: true }` (no fire). Mirrors
  * `applyWorkspaceVariablesReplacement`.
  */
 export async function applyVaultReplacement(
@@ -102,61 +97,22 @@ export async function applyVaultReplacement(
   oldSecrets: readonly VaultSecret[],
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
-  const oldByUid = new Map<string, VaultSecret>();
-  for (const s of oldSecrets) oldByUid.set(s.uid, s);
-  const survivors = newSecrets.filter((s) => s.name.trim());
-  const newUids = new Set(survivors.map((s) => s.uid));
-
-  // Current persisted order keys (fractional-index order). The write
+  // Current persisted order keys (fractional-index order). The diff
   // reuses them to keep unmoved rows byte-stable across saves.
   const mirror = resolveMirror(opts, getVaultSyncMirrorForWorkspace);
   await mirror.hydrated;
   const currentKeys = new Map(mirror.liveSecretOrderKeys().map((e) => [e.itemId, e.orderKey] as const));
 
-  // Assign each survivor an orderKey in editor order: reuse the existing
-  // key when it stays strictly greater than the previous assignment,
-  // otherwise mint a fresh one after `prev` (seed for the first mint).
-  const assigned = new Map<string, string>();
-  let prevKey: string | null = null;
-  for (const s of survivors) {
-    const cur = currentKeys.get(s.uid);
-    const reuse = cur !== undefined && (prevKey === null || cur > prevKey);
-    const key: string = reuse ? cur : prevKey === null ? seedKey() : keyBetween(prevKey, null);
-    assigned.set(s.uid, key);
-    prevKey = key;
-  }
+  const bodies = synthesizeSetDiff({
+    type: VAULT_ENTITY_TYPE,
+    id: VAULT_ID,
+    path: VAULT_PATH,
+    live: toLiveSetEntries(oldSecrets, currentKeys),
+    newItems: newSecrets.filter((s) => s.name.trim()),
+  });
+  if (bodies.length === 0) return { ok: true };
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `vault-replace` });
-
-  const bodies: MutationBody[] = [];
-  for (const [uid] of oldByUid) {
-    if (newUids.has(uid)) continue;
-    bodies.push({
-      kind: 'removeFromSet',
-      type: VAULT_ENTITY_TYPE,
-      id: VAULT_ID,
-      path: VAULT_PATH,
-      itemId: uid,
-    });
-  }
-  for (const secret of survivors) {
-    const prev = oldByUid.get(secret.uid);
-    const key = assigned.get(secret.uid)!;
-    const contentSame = prev && fingerprintSecret(prev) === fingerprintSecret(secret);
-    const keySame = currentKeys.get(secret.uid) === key;
-    if (contentSame && keySame) continue;
-    bodies.push({
-      kind: 'addToSet',
-      type: VAULT_ENTITY_TYPE,
-      id: VAULT_ID,
-      path: VAULT_PATH,
-      itemId: secret.uid,
-      item: secret,
-      orderKey: key,
-    });
-  }
-
-  if (bodies.length === 0) return { ok: true };
 
   const sideEffects: SideEffectIntent[] = [vaultInvalidateResolverIntent(ctx.hlc)];
   const batch = mintBatch(ctx, bodies);
@@ -167,12 +123,4 @@ export type { MutationEnvelope };
 
 export function activeMirror(workspaceId: string): VaultSyncMirror {
   return getVaultSyncMirrorForWorkspace(workspaceId);
-}
-
-// ── Internals ─────────────────────────────────────────────────────
-
-function fingerprintSecret(s: VaultSecret): string {
-  return s.kind === 'totp'
-    ? JSON.stringify(['totp', s.name, s.seed, s.algorithm, s.digits, s.period, s.issuer ?? ''])
-    : JSON.stringify(['string', s.name, s.value]);
 }

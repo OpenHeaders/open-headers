@@ -38,13 +38,13 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type { RendererContextHandle } from '@openheaders/ui/context';
+import type { WorkspaceVariablesSyncMirror } from '@openheaders/ui/shared/sync/workspace-variables-write-client';
 import {
   applyWorkspaceVariablesReplacement,
   applyWorkspaceVarRemove,
   applyWorkspaceVarSet,
 } from '@openheaders/ui/shared/sync/workspace-variables-write-client';
-import type { WorkspaceVariablesSyncMirror } from '@openheaders/ui/shared/sync/workspace-variables-write-client';
-import type { RendererContextHandle } from '@openheaders/ui/context';
 
 /** Minimal WorkspaceVariablesSyncMirror stub — supplies the current
  *  per-uid order keys the replacement helper reads to preserve row
@@ -144,11 +144,7 @@ describe('applyWorkspaceVariablesReplacement', () => {
 
   it('emits removeFromSet per vanished uid + addToSet per added/edited uid + one INVALIDATE_RESOLVER side-effect', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const oldVars = [
-      variable('v1', 'KEEP', 'keep'),
-      variable('v2', 'GONE', 'gone'),
-      variable('v3', 'RENAMED', 'val'),
-    ];
+    const oldVars = [variable('v1', 'KEEP', 'keep'), variable('v2', 'GONE', 'gone'), variable('v3', 'RENAMED', 'val')];
     const newVars = [
       variable('v1', 'KEEP', 'keep'),
       // v3 rename: same uid, new name — edit, not remove+add
@@ -185,7 +181,7 @@ describe('applyWorkspaceVariablesReplacement', () => {
     expect(adds[0].body).toMatchObject({ itemId: 'v1', orderKey: 'm' });
   });
 
-  it('a reorder persists the new row order — materialized key order follows the editor', async () => {
+  it('a pure reorder emits a single moveBefore (LIS-optimal) — materialized key order follows the editor', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const rows = (order: string[]) => order.map((u) => variable(u, u.toUpperCase(), u));
     const oldVars = rows(['v1', 'v2', 'v3']);
@@ -197,19 +193,16 @@ describe('applyWorkspaceVariablesReplacement', () => {
       mirror: mockMirror(['v1', 'v2', 'v3']), // v1='m' < v2='n' < v3='o'
     });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
-    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
-    for (const m of adds) expect(typeof (m.body as { orderKey?: string }).orderKey).toBe('string');
-    // Reconstruct the final per-uid key (mirror keys overridden by emitted
-    // ones) and confirm the lex sort matches the editor's row order.
+    // v1+v2 form the LIS and stay put — only the dragged row moves.
+    expect(batch.mutations).toHaveLength(1);
+    expect(batch.mutations[0].body).toMatchObject({ kind: 'moveBefore', itemId: 'v3' });
+    // Reconstruct the final per-uid key (mirror keys overridden by the
+    // emitted one) and confirm the lex sort matches the editor's row order.
     const finalKeys = new Map<string, string>([
       ['v1', 'm'],
       ['v2', 'n'],
-      ['v3', 'o'],
+      ['v3', (batch.mutations[0].body as { orderKey: string }).orderKey],
     ]);
-    for (const m of adds) {
-      const body = m.body as { itemId: string; orderKey: string };
-      finalKeys.set(body.itemId, body.orderKey);
-    }
     const materialized = [...finalKeys.entries()].sort((a, b) => (a[1] < b[1] ? -1 : 1)).map(([uid]) => uid);
     expect(materialized).toEqual(['v3', 'v1', 'v2']);
   });

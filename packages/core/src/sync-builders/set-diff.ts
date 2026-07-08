@@ -43,17 +43,31 @@
  *   pre-populate (the schema makes `uid` required).
  */
 
-import {
-  type EntityType,
-  keyBetween,
-  type MutationBody,
-} from '@openheaders/core/sync';
+import { type EntityType, keyBetween, type MutationBody, seedKey } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
 
 export interface LiveSetEntry {
   itemId: string;
   orderKey: string;
   item: unknown;
+}
+
+/**
+ * Join an editor's canonical pre-image with the mirror's live orderKeys
+ * into the `live` entries {@link synthesizeSetDiff} consumes. Rows the
+ * mirror doesn't carry a key for fall back to `seedKey()` — the same
+ * default the store applies to an `addToSet` without an explicit key,
+ * so the diff sees the position the row actually materializes at.
+ */
+export function toLiveSetEntries<T extends { uid: string }>(
+  oldItems: readonly T[],
+  currentKeys: ReadonlyMap<string, string>,
+): LiveSetEntry[] {
+  return oldItems.map((item) => ({
+    itemId: item.uid,
+    orderKey: currentKeys.get(item.uid) ?? seedKey(),
+    item,
+  }));
 }
 
 export interface SetDiffArgs {
