@@ -8,6 +8,7 @@ export {
 } from './host-storage';
 export {
   type BackendOrgConflict,
+  type BackendReachMap,
   isSensitiveKey,
   type JoinedOrgRecord,
   OH,
@@ -16,6 +17,7 @@ export {
   type PersistedPanelLayout,
   type PersistedPopupState,
   type PersistedTabSession,
+  SELF_BACKEND_REACH_KEY,
   type StorageArea,
   type StorageKey,
   type StorageKeyOptions,

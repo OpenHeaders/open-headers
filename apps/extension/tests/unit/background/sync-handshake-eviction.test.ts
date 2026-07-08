@@ -50,7 +50,6 @@ vi.mock('@openheaders/core/identity', () => ({
   claimJoinedOrg: vi.fn(async () => ({ outcome: 'joined', snapshot: null, firstJoin: false })),
   getOrgBackendBindings: () => new Map<string, string>(),
 }));
-vi.mock('@openheaders/core/storage', () => ({ getHostStorage: () => null, OH: { backendReach: 'oh.backendReach' } }));
 vi.mock('@/background/modules/workspace/workspace-store', () => ({
   getWorkspace: () => null,
   listWorkspaces: () => [],

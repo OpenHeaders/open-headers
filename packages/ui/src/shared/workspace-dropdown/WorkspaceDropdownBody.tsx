@@ -147,7 +147,9 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   popoverPlacement = 'right',
 }) => {
   const { token } = theme.useToken();
-  const reach = useBackendReach();
+  // widest drives the "extend your reach" ladder (a step already reached
+  // anywhere drops out); self labels the home Org's host-kind hint.
+  const { widest: reach, self: selfReach } = useBackendReach();
   const annotateOrg = useOrgSyncAnnotations();
   const [searchText, setSearchText] = useState('');
   const searchRef = useRef<InputRef>(null);
@@ -412,7 +414,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
     // A null descriptor in grouped mode means the Org left the identity
     // snapshot — its backend record was removed with local copies kept.
-    const label = descriptor ? orgFullLabel(descriptor, reach) : 'No longer syncing';
+    const label = descriptor ? orgFullLabel(descriptor, selfReach) : 'No longer syncing';
     const annotation: OrgSyncAnnotation | null = descriptor ? annotateOrg(orgId) : orphanedOrgAnnotation();
     // Name the workspace the switch lands on — the header shows the Org's
     // intent; the tooltip makes the concrete consequence visible.

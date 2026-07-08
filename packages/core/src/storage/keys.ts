@@ -150,6 +150,20 @@ export interface JoinedOrgRecord {
 }
 
 /**
+ * Reach tiers keyed per connection: `OH.backends` record ids for client
+ * wires, {@link SELF_BACKEND_REACH_KEY} for the host's own server bind.
+ */
+export type BackendReachMap = Record<string, BackendReach>;
+
+/**
+ * `OH.backendReach` key for the host's OWN server-bind tier — tier zero
+ * publishing how far it is reachable (the node ws-server writes it at
+ * listen time). Not an `OH.backends` record id: the local engine is
+ * never a registry entry.
+ */
+export const SELF_BACKEND_REACH_KEY = 'self';
+
+/**
  * One persisted row of `OH.backendOrgConflicts` — a WELCOME refused
  * under the Org-uniqueness invariant (one Org, one backend). Keyed by
  * `(backendId, orgId)`; the writers live in
@@ -284,13 +298,16 @@ export const OH = {
    */
   orgActiveWorkspace: storageKey<Record<string, string>>('oh.orgActiveWorkspace'),
   /**
-   * Reach tier of the currently-connected backend ({@link BackendReach}),
-   * or null when nothing is connected. Live connection state, not a
-   * preference: the extension SW rewrites it from each handshake WELCOME
-   * and clears it on disconnect. Renderer surfaces read it (via
-   * `useBackendReach`) to render accurate "extend your reach" guidance.
+   * Reach tiers, keyed per connection ({@link BackendReachMap}): one
+   * entry per connected backend record (from its handshake WELCOME) plus
+   * the host's own server-bind tier under {@link SELF_BACKEND_REACH_KEY}.
+   * Live connection state, not a preference — each wire's entry clears
+   * on its disconnect and the whole slot resets at SW init. Renderer
+   * surfaces read it (via `useBackendReach`) to render accurate "extend
+   * your reach" guidance and home-Org host hints; the writers live in
+   * `@openheaders/core/backends` (`reach.ts`).
    */
-  backendReach: storageKey<BackendReach | null>('oh.backendReach'),
+  backendReach: storageKey<BackendReachMap>('oh.backendReach'),
   /**
    * Durable Org-conflict rows ({@link BackendOrgConflict}) — WELCOMEs
    * refused because the claimed Org is bound to another backend. One row

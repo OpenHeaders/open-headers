@@ -71,7 +71,9 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   const canDelete = api.workspaces.length > 1;
 
   const snapshot = useIdentitySnapshot();
-  const reach = useBackendReach();
+  // Org labels only read reach for the home Org's host hint — the
+  // host's OWN bind tier (self entry).
+  const { self: reach } = useBackendReach();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
 
   // Org is the top-level container — group the workspace list by Org so a

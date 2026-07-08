@@ -20,6 +20,7 @@ export {
   updatePrimaryBackend,
   watchBackendsInHostStorage,
 } from './registry';
+export { resetBackendReach, setBackendReach, widestBackendReach } from './reach';
 export {
   clearBackendOrgConflict,
   pruneBackendOrgConflictsForBackend,

@@ -1,7 +1,11 @@
-import { clearBackendOrgConflict, getBackend, recordBackendOrgConflict } from '@openheaders/core/backends';
+import {
+  clearBackendOrgConflict,
+  getBackend,
+  recordBackendOrgConflict,
+  setBackendReach,
+} from '@openheaders/core/backends';
 import { claimJoinedOrg, getOrgBackendBindings } from '@openheaders/core/identity';
 import { type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
-import { getHostStorage, OH } from '@openheaders/core/storage';
 import { applyWorkspaceSnapshot, readWorkspaceStateVector } from '@openheaders/oracle/sync';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { runtime } from '@utils/browser-api';
@@ -126,9 +130,11 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
       logger.warn('Background', `sync handshake rejected: ${reason}${detail ? ` — ${detail}` : ''}`);
     },
     onReach: (reach) => {
-      void getHostStorage()
-        ?.set(OH.backendReach, reach)
-        .catch((err: unknown) => logger.warn('Background', 'backendReach write failed', err));
+      // Keyed by THIS wire's record — each backend's WELCOME owns only
+      // its own entry, so two backends' tiers never clobber each other.
+      void setBackendReach(wire.backendId, reach).catch((err: unknown) =>
+        logger.warn('Background', 'backendReach write failed', err),
+      );
     },
     // First-join only — a reconnect must NOT re-adopt, otherwise the
     // re-sent WELCOME would overwrite a local active-workspace switch

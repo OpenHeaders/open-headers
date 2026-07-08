@@ -1,9 +1,10 @@
 // ── Server lifecycle — bind, heartbeat sweep, broadcast fan-out ─────
 
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
+import { setBackendReach } from '@openheaders/core/backends';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { WS_PORT } from '@openheaders/core/protocol';
-import { getHostStorage, OH } from '@openheaders/core/storage';
+import { SELF_BACKEND_REACH_KEY } from '@openheaders/core/storage';
 import { WebSocket, WebSocketServer } from 'ws';
 import { bindReach, isLoopbackRemote } from './classify';
 import { handleConnection } from './connection';
@@ -97,12 +98,13 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   // Surface this host's reach as live state so its OWN renderer surfaces
   // (desktop workbench / popup) light up the right contextual rows in
   // `useBackendReach` — without piping through the WELCOME path, which
-  // only fires for external peers. A bind-change restart overwrites the
-  // slot, so flipping the LAN setting flows through automatically.
+  // only fires for external peers. Keyed under the reserved self entry;
+  // a bind-change restart overwrites it, so flipping the LAN setting
+  // flows through automatically.
   const reach = bindReach(host);
-  void getHostStorage()
-    ?.set(OH.backendReach, reach)
-    .catch((err: unknown) => logger.warn(SCOPE, 'failed to publish backendReach', err));
+  void setBackendReach(SELF_BACKEND_REACH_KEY, reach).catch((err: unknown) =>
+    logger.warn(SCOPE, 'failed to publish backendReach', err),
+  );
 
   const registry = createPeerRegistry();
   const { ready, peerBySocket, summaryBySocket, peerChangeListeners, alive } = registry;

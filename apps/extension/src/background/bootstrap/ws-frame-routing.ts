@@ -1,4 +1,4 @@
-import { getHostStorage, OH } from '@openheaders/core/storage';
+import { setBackendReach } from '@openheaders/core/backends';
 import { handleIncomingAwarenessFrame } from '../awareness-receiver';
 import { handleIncomingMutationFrame } from '../sync-mutation-receiver';
 import {
@@ -83,11 +83,10 @@ export function installWsFrameRouting(): SyncWiring {
   });
   subscribeOnWebSocketClose((wire) => {
     handshakes.get(wire.backendId)?.initiator.reset();
-    void getHostStorage()
-      ?.set(OH.backendReach, null)
-      .catch(() => {
-        /* best-effort — next WELCOME re-converges it */
-      });
+    // Only this wire's entry — the other backends' tiers stay live.
+    void setBackendReach(wire.backendId, null).catch(() => {
+      /* best-effort — next WELCOME re-converges it */
+    });
   });
 
   return {

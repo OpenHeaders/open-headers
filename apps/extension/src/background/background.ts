@@ -21,9 +21,13 @@ import '@/host/install-cdp-capability';
 import '@/host/install-lifeline-server';
 import './modules/live-chain-adapter';
 
-import { getBackends, refreshBackendsFromHostStorage, watchBackendsInHostStorage } from '@openheaders/core/backends';
+import {
+  getBackends,
+  refreshBackendsFromHostStorage,
+  resetBackendReach,
+  watchBackendsInHostStorage,
+} from '@openheaders/core/backends';
 import { getIdentitySnapshot } from '@openheaders/core/identity';
-import { getHostStorage, OH } from '@openheaders/core/storage';
 import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
@@ -304,14 +308,12 @@ async function initializeExtension(): Promise<void> {
     didInitialApply = true;
   }
 
-  // Reach is live connection state; clear any value left over from a prior
-  // SW lifetime so a stale tier never outlives its socket. A WELCOME
-  // repopulates it; modes with no socket correctly leave it null.
-  void getHostStorage()
-    ?.set(OH.backendReach, null)
-    .catch(() => {
-      /* best-effort */
-    });
+  // Reach is live connection state; clear any entries left over from a
+  // prior SW lifetime so a stale tier never outlives its socket. Each
+  // WELCOME repopulates its own entry; no socket correctly leaves none.
+  void resetBackendReach().catch(() => {
+    /* best-effort */
+  });
 
   if (shouldAttemptBackendConnection()) {
     await connectWebSocket();

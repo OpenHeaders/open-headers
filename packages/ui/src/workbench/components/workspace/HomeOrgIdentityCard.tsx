@@ -34,7 +34,8 @@ const { Text } = Typography;
 const HomeOrgIdentityCard: React.FC = () => {
   const { token } = theme.useToken();
   const snapshot = useIdentitySnapshot();
-  const reach = useBackendReach();
+  // Home-Org host hint reads the host's OWN bind tier (self entry).
+  const { self: reach } = useBackendReach();
   const [renameOpen, setRenameOpen] = useState(false);
 
   const home = useMemo(() => orgCatalogue(snapshot).find((d) => d.isHome) ?? null, [snapshot]);

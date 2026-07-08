@@ -28,7 +28,9 @@ export interface WorkspaceOrgBadgeProps {
 }
 
 export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor, compact }) => {
-  const reach = useBackendReach();
+  // The scope description reads the host's OWN bind tier (self) — how
+  // far this host's server reaches, not a joined backend's tier.
+  const { self: reach } = useBackendReach();
   const mode = useBackendMode();
   if (!descriptor) return null;
 
