@@ -28,9 +28,6 @@ const SECTION_VIEW_OWNERSHIP: Record<string, SidebarView | 'multi'> = {
   templates: 'http-rules',
   'api-requests': 'api-requests',
   workflows: 'workflows',
-  vault: 'variables',
-  'workspace-vars': 'variables',
-  'live-variables': 'variables',
   'script-packages': 'api-requests',
   environments: 'multi',
 };
@@ -154,19 +151,12 @@ export function useSelectOpenedTab({
       }
       return false;
     } else if (activeTabId === 'vault' && view === 'variables') {
-      if (shouldAutoExpandSection('vault', view)) {
-        setSectionsExpanded((prev) => ({ ...prev, vault: true }));
-      }
-      setFocusedId('vault-row');
+      // Singleton opener rows — always visible (no section to expand).
       setTimeout(() => {
         containerRef.current?.querySelector(`[data-item-id="vault-row"]`)?.scrollIntoView({ block: 'nearest' });
       }, 50);
       return true;
     } else if (activeTabId === 'workspace-vars' && view === 'variables') {
-      if (shouldAutoExpandSection('workspace-vars', view)) {
-        setSectionsExpanded((prev) => ({ ...prev, 'workspace-vars': true }));
-      }
-      setFocusedId('workspace-vars-row');
       setTimeout(() => {
         containerRef.current
           ?.querySelector(`[data-item-id="workspace-vars-row"]`)
@@ -174,10 +164,6 @@ export function useSelectOpenedTab({
       }, 50);
       return true;
     } else if (activeTabId === 'live-vars' && view === 'variables') {
-      if (shouldAutoExpandSection('live-variables', view)) {
-        setSectionsExpanded((prev) => ({ ...prev, 'live-variables': true }));
-      }
-      setFocusedId('live-vars-row');
       setTimeout(() => {
         containerRef.current?.querySelector(`[data-item-id="live-vars-row"]`)?.scrollIntoView({ block: 'nearest' });
       }, 50);

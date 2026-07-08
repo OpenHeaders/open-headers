@@ -113,6 +113,7 @@ export function useSidebarInteraction({
       return (
         (id === 'vault-row' && activeTabId === 'vault') ||
         (id === 'workspace-vars-row' && activeTabId === 'workspace-vars') ||
+        (id === 'live-vars-row' && activeTabId === 'live-vars') ||
         (id === 'script-packages-row' && activeTabId === 'script-packages')
       );
     },

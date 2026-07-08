@@ -64,8 +64,20 @@ export function PanelSection({ title, info, docId, defaultExpanded = true, isLas
           }}
         />
         <Text
-          strong
-          style={{ fontSize: 12, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          style={{
+            // Same typography as the sidebar section headers
+            // (`.rules-sidebar-section-title`) so top-level section titles
+            // read identically across the app.
+            fontWeight: 600,
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.8px',
+            color: token.colorTextSecondary,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
           title={typeof title === 'string' ? title : undefined}
         >
           {title}

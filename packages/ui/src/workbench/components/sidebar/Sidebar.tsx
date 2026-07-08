@@ -491,9 +491,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else if (view === 'workflows') {
       if (sectionsExpanded.workflows) items.push(...workflowNodes);
     } else {
-      if (sectionsExpanded.vault) items.push(vaultNode);
-      if (sectionsExpanded['workspace-vars']) items.push(workspaceVarsNode);
-      if (sectionsExpanded['live-variables']) items.push(liveVarsNode);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     }
     return items;
@@ -504,11 +501,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     systemTemplateNodes,
     templateNodes,
     environmentNodes,
-    liveVarsNode,
     workflowNodes,
     requestNodes,
-    vaultNode,
-    workspaceVarsNode,
     scriptPackagesNode,
   ]);
 
@@ -682,13 +676,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {view === 'variables' && (
           <VariablesSection
-            sectionsExpanded={sectionsExpanded}
-            toggleSection={toggleSection}
             filterText={filterText}
             vaultNode={vaultNode}
             workspaceVarsNode={workspaceVarsNode}
             liveVarsNode={liveVarsNode}
-            renderNodes={renderNodes}
+            isSelected={isSelected}
           />
         )}
 

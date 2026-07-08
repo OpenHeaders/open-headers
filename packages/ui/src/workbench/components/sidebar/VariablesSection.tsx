@@ -1,70 +1,67 @@
 /**
  * VariablesSection — the `variables` view's VAULT / WORKSPACE VARIABLES /
- * LIVE VARIABLES sections, each a single opener row. Owns the filter-match
- * visibility rule: with an active filter, a section hides when neither its
- * title nor its row label matches the query, and force-expands when it
- * does so a filter never hides a match behind a collapsed chevron. The
- * three singleton nodes, the filter text, and the expansion state arrive
- * as props.
+ * LIVE VARIABLES rows. Each singleton is a single header-styled opener:
+ * scope badge + section-title typography, and clicking opens the editor
+ * tab directly (the old caret header wrapping one nested leaf was
+ * redundant). ENVIRONMENTS keeps the collapsible section shape — it
+ * lists many entries. With an active filter, a row hides when its label
+ * doesn't match the query.
  */
 
+import { theme } from 'antd';
 import type React from 'react';
-import { SectionHeader } from './SectionHeader';
 import type { TreeNode } from './types';
-import type { SidebarNodeRenderers } from './useSidebarNodeRenderers';
 
 interface VariablesSectionProps {
-  sectionsExpanded: Record<string, boolean>;
-  toggleSection: (key: string) => void;
   filterText: string;
   vaultNode: TreeNode;
   workspaceVarsNode: TreeNode;
   liveVarsNode: TreeNode;
-  renderNodes: SidebarNodeRenderers['renderNodes'];
+  isSelected: (id: string) => boolean;
+}
+
+function OpenerRow({ title, node, selected }: { title: string; node: TreeNode; selected: boolean }) {
+  const { token } = theme.useToken();
+  return (
+    <div
+      className="rules-sidebar-section"
+      data-item-id={node.id}
+      style={{
+        color: token.colorTextSecondary,
+        backgroundColor: selected ? 'rgba(24, 144, 255, 0.08)' : undefined,
+      }}
+      onClick={() => node.onOpen?.()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') node.onOpen?.();
+      }}
+      role="button"
+      tabIndex={-1}
+    >
+      <span className="rules-sidebar-section-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {node.icon}
+        {title}
+      </span>
+    </div>
+  );
 }
 
 const VariablesSection: React.FC<VariablesSectionProps> = ({
-  sectionsExpanded,
-  toggleSection,
   filterText,
   vaultNode,
   workspaceVarsNode,
   liveVarsNode,
-  renderNodes,
+  isSelected,
 }) => {
   const lower = filterText.toLowerCase();
   const matches = (label: string) => !lower || label.toLowerCase().includes(lower);
-  const showVault = matches('vault') || matches('Vault');
-  const showWorkspace = matches('workspace variables');
-  const showLive = matches('live variables');
-  const vaultOpen = sectionsExpanded.vault || (lower !== '' && showVault);
-  const wsOpen = sectionsExpanded['workspace-vars'] || (lower !== '' && showWorkspace);
-  const liveOpen = sectionsExpanded['live-variables'] || (lower !== '' && showLive);
   return (
     <>
-      {showVault && (
-        <>
-          <SectionHeader title="VAULT" expanded={vaultOpen} onToggle={() => toggleSection('vault')} />
-          {vaultOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([vaultNode])}</div>}
-        </>
+      {matches('vault') && <OpenerRow title="VAULT" node={vaultNode} selected={isSelected(vaultNode.id)} />}
+      {matches('workspace variables') && (
+        <OpenerRow title="WORKSPACE VARIABLES" node={workspaceVarsNode} selected={isSelected(workspaceVarsNode.id)} />
       )}
-
-      {showWorkspace && (
-        <>
-          <SectionHeader
-            title="WORKSPACE VARIABLES"
-            expanded={wsOpen}
-            onToggle={() => toggleSection('workspace-vars')}
-          />
-          {wsOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([workspaceVarsNode])}</div>}
-        </>
-      )}
-
-      {showLive && (
-        <>
-          <SectionHeader title="LIVE VARIABLES" expanded={liveOpen} onToggle={() => toggleSection('live-variables')} />
-          {liveOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([liveVarsNode])}</div>}
-        </>
+      {matches('live variables') && (
+        <OpenerRow title="LIVE VARIABLES" node={liveVarsNode} selected={isSelected(liveVarsNode.id)} />
       )}
     </>
   );
