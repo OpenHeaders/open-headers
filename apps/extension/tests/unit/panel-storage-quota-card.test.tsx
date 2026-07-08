@@ -6,13 +6,22 @@
  * frame gone) instead of an error.
  */
 
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { StorageQuotaCard } from '@openheaders/ui/panel/components/storage/StorageQuotaCard';
 import type { StorageQuotaState } from '@openheaders/ui/panel/data/storage/use-storage-quota';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+beforeEach(() => {
+  // The Chromium-family posture; capability-gate tests drop these.
+  registerCapability('cdpInspection', () => true);
+  registerCapability('originDataClearing', () => true);
+});
 
 afterEach(() => {
   cleanup();
+  unregisterCapability('cdpInspection');
+  unregisterCapability('originDataClearing');
 });
 
 function makeQuota(overrides: Partial<StorageQuotaState> = {}): StorageQuotaState {
@@ -87,5 +96,17 @@ describe('StorageQuotaCard', () => {
   it('notes a failed clear', () => {
     render(<StorageQuotaCard quota={makeQuota({ clearFailed: true })} />);
     expect(screen.getByText('clear failed')).toBeDefined();
+  });
+
+  it('drops the Debug-mode hint on hosts without CDP capability', () => {
+    unregisterCapability('cdpInspection');
+    render(<StorageQuotaCard quota={makeQuota()} />);
+    expect(screen.queryByText('Enable Debug mode to see the per-type breakdown.')).toBeNull();
+  });
+
+  it('hides the clear gesture on hosts without origin-clearing capability', () => {
+    unregisterCapability('originDataClearing');
+    render(<StorageQuotaCard quota={makeQuota()} />);
+    expect(screen.queryByText('Clear site data')).toBeNull();
   });
 });

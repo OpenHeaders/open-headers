@@ -19,6 +19,7 @@ import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
 import './install-cdp-capability';
 import './install-csp-exempt-capability';
+import { getBrowserAPI } from '@/types/browser';
 import { pairWithCode } from './pair-with-code';
 
 registerCapability('getActiveWorkspaceId', () =>
@@ -50,6 +51,15 @@ registerCapability('openExternalUrl', (url) =>
 
 // Debug mode (opt-in CDP path) is registered by `install-cdp-capability`
 // imported above — gated on the runtime exposing the debugging protocol.
+
+// Origin-scoped site-data clearing (the Storage tool window's "Clear
+// site data"). Gated on the MANIFEST permission, not the namespace — a
+// devtools page doesn't see the browsing-data namespace even where the
+// SW-side RPC works fine; the manifest is the honest signal (absent on
+// Safari, where the button would only ever fail).
+if (getBrowserAPI().runtime.getManifest().permissions?.includes('browsingData')) {
+  registerCapability('originDataClearing', () => true);
+}
 
 // In-app daemon pairing (WS-A2): exchange a typed 6-digit code for an
 // auth token over a direct localhost/LAN HTTP fetch. Unlike the caps

@@ -165,6 +165,19 @@ export interface Capabilities {
   cdpInspection?: () => boolean;
 
   /**
+   * Marker capability for origin-scoped site-data clearing (the Storage
+   * tool window's "Clear site data" gesture). Present only on hosts
+   * whose runtime can wipe an origin's cookies / DOM storage /
+   * IndexedDB / Cache Storage / service workers in one call (the
+   * extension surfaces whose manifest holds the browsing-data
+   * permission — Chrome / Edge / Firefox); absent elsewhere (Safari),
+   * where shared UI hides the clear affordance instead of offering a
+   * button that can only fail. Presence is the whole signal, like
+   * {@link Capabilities.cdpInspection}.
+   */
+  originDataClearing?: () => boolean;
+
+  /**
    * Report a newer app build than the one running, or `null` when
    * up to date. Registered only by hosts that own their update story
    * (the desktop app checking its release feed); extension surfaces

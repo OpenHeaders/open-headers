@@ -7,8 +7,14 @@
  * `navigator.storage` is a secure-context API, so an http: scope
  * legitimately has no reach — that renders as an explanatory empty
  * state, not an error.
+ *
+ * Capability-gated: the Debug-mode hint only renders where the host can
+ * do CDP at all (`cdpInspection`), and the clear gesture only where the
+ * host can actually wipe an origin (`originDataClearing`) — a button
+ * that can only fail is worse than no button.
  */
 
+import { hasCapability } from '@openheaders/core/capabilities';
 import { useState } from 'react';
 import type { StorageQuotaState } from '../../data/storage/use-storage-quota';
 import { formatSize } from '../traffic/formatters';
@@ -83,17 +89,17 @@ export function StorageQuotaCard({ quota }: StorageQuotaCardProps) {
             </div>
           ))}
         </div>
-      ) : (
-        <div className="dt-storage-quota-hint">
-          {snapshot.breakdown
-            ? 'No per-type usage reported for this origin.'
-            : 'Enable Debug mode to see the per-type breakdown.'}
+      ) : snapshot.breakdown ? (
+        <div className="dt-storage-quota-hint">No per-type usage reported for this origin.</div>
+      ) : hasCapability('cdpInspection') ? (
+        <div className="dt-storage-quota-hint">Enable Debug mode to see the per-type breakdown.</div>
+      ) : null}
+      {hasCapability('originDataClearing') && (
+        <div className="dt-storage-quota-actions">
+          <ClearSiteDataButton onClear={quota.clearSiteData} />
+          {quota.clearFailed && <span className="dt-storage-quota-clear-failed">clear failed</span>}
         </div>
       )}
-      <div className="dt-storage-quota-actions">
-        <ClearSiteDataButton onClear={quota.clearSiteData} />
-        {quota.clearFailed && <span className="dt-storage-quota-clear-failed">clear failed</span>}
-      </div>
     </div>
   );
 }
