@@ -105,6 +105,9 @@ export interface CacheEntriesPage {
   truncated: boolean;
 }
 
+/** Which storage type a host-pushed invalidation says went stale. */
+export type StorageInvalidationKind = 'indexeddb' | 'cachestorage';
+
 export interface StorageInspectorHost {
   listScopes(tabId: number): Promise<ReadonlyArray<StorageScope> | null>;
   readDomStorage(tabId: number, frameId: number, area: DomStorageArea): Promise<DomStorageSnapshot | null>;
@@ -151,14 +154,18 @@ export interface StorageInspectorHost {
     page: number,
     pageSize: number,
   ): Promise<CacheEntriesPage | null>;
+  /** Delete a whole named cache; `false` on any failure. */
+  deleteCache(tabId: number, frameId: number, cache: string): Promise<boolean>;
+  /** Delete one cache entry by its request URL (+ method, see the read shape). */
+  deleteCacheEntry(tabId: number, frameId: number, cache: string, url: string, method: string): Promise<boolean>;
   /**
-   * Subscribe to host-pushed IndexedDB invalidations for the tab (fired
-   * while the host's CDP tier tracks it; never fired on a fetcher-less
-   * or detached host — the poll stays the fallback). The note carries no
-   * data: the consumer refetches through the read methods above.
-   * Returns an unsubscribe function.
+   * Subscribe to host-pushed storage invalidations of one kind for the
+   * tab (fired while the host's CDP tier tracks it; never fired on a
+   * fetcher-less or detached host — the poll stays the fallback). The
+   * note carries no data: the consumer refetches through the read
+   * methods above. Returns an unsubscribe function.
    */
-  subscribeIdbInvalidations(tabId: number, listener: () => void): () => void;
+  subscribeStorageInvalidations(tabId: number, kind: StorageInvalidationKind, listener: () => void): () => void;
 }
 
 let host: StorageInspectorHost | null = null;

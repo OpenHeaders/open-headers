@@ -17,6 +17,7 @@ import type {
   DomStorageSnapshot,
   IdbDatabase,
   IdbRecordsPage,
+  StorageInvalidationKind,
   StorageScope,
 } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
@@ -177,9 +178,27 @@ setStorageInspectorHost({
       return null;
     }
   },
-  subscribeIdbInvalidations(tabId: number, listener: () => void): () => void {
-    return subscribe('idbStorageInvalidated', (payload) => {
-      if (payload.tabId === tabId) listener();
+  async deleteCache(tabId: number, frameId: number, cache: string): Promise<boolean> {
+    try {
+      const res = await call('deleteCacheStorageCache', { tabId, frameId, cache });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `deleteCache ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
+    }
+  },
+  async deleteCacheEntry(tabId: number, frameId: number, cache: string, url: string, method: string): Promise<boolean> {
+    try {
+      const res = await call('deleteCacheStorageEntry', { tabId, frameId, cache, url, method });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `deleteCacheEntry ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
+    }
+  },
+  subscribeStorageInvalidations(tabId: number, kind: StorageInvalidationKind, listener: () => void): () => void {
+    return subscribe('storageInvalidated', (payload) => {
+      if (payload.tabId === tabId && payload.kind === kind) listener();
     });
   },
 });

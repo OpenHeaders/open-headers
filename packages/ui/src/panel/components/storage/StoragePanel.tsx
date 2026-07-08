@@ -144,9 +144,12 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
             idb.mutationFailed ? ' · delete failed' : '',
           ].join('')
         : section === 'cachestorage'
-          ? cacheStorage.caches
-            ? `${cacheStorage.caches.length} ${cacheStorage.caches.length === 1 ? 'cache' : 'caches'}`
-            : ''
+          ? [
+              cacheStorage.caches
+                ? `${cacheStorage.caches.length} ${cacheStorage.caches.length === 1 ? 'cache' : 'caches'}`
+                : '',
+              cacheStorage.mutationFailed ? ' · delete failed' : '',
+            ].join('')
           : [
             inspector.snapshot ? `${filtered.length} of ${entries.length} items` : '',
             inspector.snapshot?.truncated ? ' · list truncated' : '',

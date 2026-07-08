@@ -194,13 +194,14 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     replay: replayWithInjectionRefresh,
   });
   isTabInScope = (tabId) => cdpAttachController.isInScope(tabId);
-  // Storage inspector's CDP tier (storage-key stamping + IDB tracking
-  // invalidations): asks the committed attach state and rides the
-  // root-session sender + event fan — never attaches itself.
+  // Storage inspector's CDP tier (storage-key stamping + storage
+  // tracking invalidations + Cache Storage reads): asks the committed
+  // attach state and rides the root-session sender + event fan — never
+  // attaches itself.
   registerStorageCdpAccess({
     isAttached: (tabId) => cdpAttachController.getState().attachedTabs.includes(tabId),
     send: (tabId, method, params) => lifecycleHost.debuggerSource.sendOnSession(tabId, ROOT_SESSION_ID, method, params),
-    subscribeIdbUpdated: (listener) => lifecycleHost.debuggerSource.subscribeIdbTracking(listener),
+    subscribeStorageUpdated: (listener) => lifecycleHost.debuggerSource.subscribeStorageTracking(listener),
     onDetach: (listener) => lifecycleHost.debuggerSource.onDetach((tabId) => listener(tabId)),
   });
   // Rule changes replay the standing CDP state onto every attached tab —

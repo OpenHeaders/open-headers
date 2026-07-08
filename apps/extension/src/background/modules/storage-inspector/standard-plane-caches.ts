@@ -1,9 +1,10 @@
 /**
- * Standard-plane Cache Storage READS — `chrome.scripting` injection into
- * the scope's frame. Cache Storage also has a full CDP tier
- * (STORAGE_PANEL_PLAN.md §2.3 — the one storage type whose read domain
- * works for extension debugger clients); injection is the transport for
- * detached tabs, chosen SW-side so the panel never sees the difference.
+ * Standard-plane Cache Storage READS and DELETES — `chrome.scripting`
+ * injection into the scope's frame. Cache Storage also has a full CDP
+ * tier (STORAGE_PANEL_PLAN.md §2.3 — the one storage type whose read
+ * domain works for extension debugger clients); the arbitration in
+ * `caches.ts` picks injection for detached tabs, so the panel never
+ * sees the difference.
  *
  * `caches` exists in SECURE CONTEXTS only — a non-secure scope reads
  * `null`, which the panel renders as an explanatory empty state, never
@@ -89,7 +90,30 @@ export async function readCacheEntriesInPage(
   }
 }
 
-export async function listCacheStorageCaches(
+export async function deleteCacheInPage(cache: string): Promise<{ ok: boolean }> {
+  if (typeof caches === 'undefined') return { ok: false };
+  try {
+    return { ok: await caches.delete(cache) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function deleteCacheEntryInPage(cache: string, url: string, method: string): Promise<{ ok: boolean }> {
+  if (typeof caches === 'undefined') return { ok: false };
+  try {
+    // Same ghost guard as the reads — open() creates a missing cache.
+    if (!(await caches.has(cache))) return { ok: false };
+    const opened = await caches.open(cache);
+    // URL strings are the only match key both transports share; a
+    // non-GET entry needs the method check relaxed to match at all.
+    return { ok: await opened.delete(url, { ignoreMethod: method !== 'GET' }) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function listCachesInjected(
   tabId: number,
   frameId: number,
 ): Promise<{ caches: CacheStorageCacheWire[] | null }> {
@@ -98,23 +122,35 @@ export async function listCacheStorageCaches(
   return { caches: result.caches.map((c) => ({ name: c.name })) };
 }
 
-export async function getCacheStorageEntries(
+export async function getCacheEntriesInjected(
   tabId: number,
   frameId: number,
   cache: string,
   page: number,
   pageSize: number,
 ): Promise<{ entries: CacheEntryWire[] | null; truncated?: boolean }> {
-  if (typeof cache !== 'string') return { entries: null };
-  const safePage = Number.isInteger(page) && page > 0 ? page : 0;
-  const safePageSize =
-    Number.isInteger(pageSize) && pageSize > 0 ? Math.min(pageSize, CACHE_PAGE_SIZE_MAX) : CACHE_PAGE_SIZE_DEFAULT;
   const result = await runInFrame(tabId, frameId, readCacheEntriesInPage, [
     cache,
-    safePage,
-    safePageSize,
+    page,
+    pageSize,
     CACHE_HEADERS_PREVIEW_MAX,
   ]);
   if (!result || !Array.isArray(result.entries)) return { entries: null };
   return { entries: result.entries, ...(result.truncated ? { truncated: true } : {}) };
+}
+
+export async function deleteCacheInjected(tabId: number, frameId: number, cache: string): Promise<{ ok: boolean }> {
+  const result = await runInFrame(tabId, frameId, deleteCacheInPage, [cache]);
+  return { ok: result?.ok === true };
+}
+
+export async function deleteCacheEntryInjected(
+  tabId: number,
+  frameId: number,
+  cache: string,
+  url: string,
+  method: string,
+): Promise<{ ok: boolean }> {
+  const result = await runInFrame(tabId, frameId, deleteCacheEntryInPage, [cache, url, method]);
+  return { ok: result?.ok === true };
 }

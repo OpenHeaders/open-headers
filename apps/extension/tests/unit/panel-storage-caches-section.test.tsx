@@ -25,6 +25,9 @@ function makeCache(overrides: Partial<CacheBrowserState> = {}): CacheBrowserStat
     setPage: vi.fn(),
     entriesPage: null,
     refresh: vi.fn(),
+    mutationFailed: false,
+    deleteCache: vi.fn(),
+    deleteEntry: vi.fn(),
     ...overrides,
   };
 }
@@ -41,6 +44,22 @@ describe('CacheStorageSection cache list', () => {
   it('renders the secure-context empty state when the scope is unreadable', () => {
     render(<CacheStorageSection cache={makeCache({ caches: null })} filter="" />);
     expect(screen.getByText('Cache Storage can’t be read')).toBeDefined();
+  });
+
+  it('deletes a cache only on the second (armed) click, and blur disarms', () => {
+    const cache = makeCache();
+    render(<CacheStorageSection cache={cache} filter="" />);
+
+    const del = screen.getByLabelText('Delete cache oh-assets-v1');
+    fireEvent.click(del);
+    expect(cache.deleteCache).not.toHaveBeenCalled();
+
+    fireEvent.blur(del);
+    fireEvent.click(del);
+    expect(cache.deleteCache).not.toHaveBeenCalled();
+
+    fireEvent.click(del);
+    expect(cache.deleteCache).toHaveBeenCalledWith('oh-assets-v1');
   });
 });
 
@@ -68,6 +87,20 @@ describe('CacheStorageSection entries view', () => {
 
     fireEvent.click(screen.getByLabelText('Back to caches'));
     expect(cache.closeCache).toHaveBeenCalled();
+  });
+
+  it('deletes an entry single-click through the hover lane', () => {
+    const cache = makeCache({
+      selectedCache: 'oh-assets-v1',
+      entriesPage: {
+        entries: [{ url: 'https://openheaders.io/api/data', method: 'POST' }],
+        truncated: false,
+      },
+    });
+    render(<CacheStorageSection cache={cache} filter="" />);
+
+    fireEvent.click(screen.getByLabelText('Delete entry https://openheaders.io/api/data'));
+    expect(cache.deleteEntry).toHaveBeenCalledWith('https://openheaders.io/api/data', 'POST');
   });
 
   it('filters entries by URL', () => {

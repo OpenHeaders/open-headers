@@ -171,10 +171,10 @@ describe('storage-key stamping (CDP tier)', () => {
         if (method === 'Storage.getStorageKey') {
           return Promise.resolve({ storageKey: KEYS[params?.frameId as string] });
         }
-        if (method === 'Storage.trackIndexedDBForStorageKey') return Promise.resolve({});
+        if (method.startsWith('Storage.track')) return Promise.resolve({});
         return Promise.reject(new Error(`unexpected ${method}`));
       },
-      subscribeIdbUpdated: () => () => {},
+      subscribeStorageUpdated: () => () => {},
       onDetach: () => () => {},
       ...overrides,
     };
@@ -234,7 +234,7 @@ describe('storage-key stamping (CDP tier)', () => {
   });
 });
 
-describe('idb tracking invalidations (CDP tier)', () => {
+describe('storage tracking invalidations (CDP tier)', () => {
   const FRAMES = [frame({ frameId: 0, url: 'https://app.openheaders.io/dashboard' })];
   const TREE = { frameTree: { frame: { id: 'F-MAIN', url: 'https://app.openheaders.io/dashboard' } } };
   const KEY = 'https://app.openheaders.io/';
@@ -243,21 +243,21 @@ describe('idb tracking invalidations (CDP tier)', () => {
     chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
 
   function trackingHarness(overrides: Partial<StorageCdpAccess> = {}) {
-    const trackCalls: Array<Record<string, unknown> | undefined> = [];
-    let fireUpdate: (tabId: number, storageKey: string) => void = () => {};
+    const trackCalls: Array<{ method: string; storageKey: unknown }> = [];
+    let fireUpdate: (tabId: number, storageKey: string, kind: 'indexeddb' | 'cachestorage') => void = () => {};
     let fireDetach: (tabId: number) => void = () => {};
     registerStorageCdpAccess({
       isAttached: () => true,
       send: (_tabId, method, params) => {
         if (method === 'Page.getFrameTree') return Promise.resolve(TREE);
         if (method === 'Storage.getStorageKey') return Promise.resolve({ storageKey: KEY });
-        if (method === 'Storage.trackIndexedDBForStorageKey') {
-          trackCalls.push(params);
+        if (method.startsWith('Storage.track')) {
+          trackCalls.push({ method, storageKey: params?.storageKey });
           return Promise.resolve({});
         }
         return Promise.reject(new Error(`unexpected ${method}`));
       },
-      subscribeIdbUpdated: (listener) => {
+      subscribeStorageUpdated: (listener) => {
         fireUpdate = listener;
         return () => {};
       },
@@ -269,7 +269,8 @@ describe('idb tracking invalidations (CDP tier)', () => {
     });
     return {
       trackCalls,
-      fireUpdate: (tabId: number, key: string) => fireUpdate(tabId, key),
+      fireUpdate: (tabId: number, key: string, kind: 'indexeddb' | 'cachestorage' = 'indexeddb') =>
+        fireUpdate(tabId, key, kind),
       fireDetach: (tabId: number) => fireDetach(tabId),
     };
   }
@@ -282,17 +283,49 @@ describe('idb tracking invalidations (CDP tier)', () => {
     sendMessageSpy().mockClear();
   });
 
-  it('arms tracking once per stamped key across repeated listings', async () => {
+  it('arms both track commands once per stamped key across repeated listings', async () => {
     getAllFramesSpy().mockResolvedValue(FRAMES);
     const { trackCalls } = trackingHarness();
 
     await listStorageScopes(42);
     await settle();
-    expect(trackCalls).toEqual([{ storageKey: KEY }]);
+    expect(trackCalls).toEqual([
+      { method: 'Storage.trackIndexedDBForStorageKey', storageKey: KEY },
+      { method: 'Storage.trackCacheStorageForStorageKey', storageKey: KEY },
+    ]);
 
     await listStorageScopes(42);
     await settle();
-    expect(trackCalls).toHaveLength(1);
+    expect(trackCalls).toHaveLength(2);
+  });
+
+  it('retries the whole arm pass next listing when one track command fails', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    let failCacheTrack = true;
+    const { trackCalls } = trackingHarness({
+      send: (_tabId, method, params) => {
+        if (method === 'Page.getFrameTree') return Promise.resolve(TREE);
+        if (method === 'Storage.getStorageKey') return Promise.resolve({ storageKey: KEY });
+        if (method === 'Storage.trackCacheStorageForStorageKey' && failCacheTrack) {
+          return Promise.reject(new Error('flaky'));
+        }
+        if (method.startsWith('Storage.track')) {
+          trackCalls.push({ method, storageKey: params?.storageKey });
+          return Promise.resolve({});
+        }
+        return Promise.reject(new Error(`unexpected ${method}`));
+      },
+    });
+
+    await listStorageScopes(42);
+    await settle();
+    // The idb leg succeeded but the key stayed un-armed.
+    expect(trackCalls).toEqual([{ method: 'Storage.trackIndexedDBForStorageKey', storageKey: KEY }]);
+
+    failCacheTrack = false;
+    await listStorageScopes(42);
+    await settle();
+    expect(trackCalls).toHaveLength(3);
   });
 
   it('arms nothing on a detached tab', async () => {
@@ -304,7 +337,7 @@ describe('idb tracking invalidations (CDP tier)', () => {
     expect(trackCalls).toHaveLength(0);
   });
 
-  it('relays a tracking update for an armed tab as one invalidation broadcast', async () => {
+  it('relays a tracking update for an armed tab as one kind-carrying broadcast', async () => {
     getAllFramesSpy().mockResolvedValue(FRAMES);
     const { fireUpdate } = trackingHarness();
 
@@ -312,10 +345,16 @@ describe('idb tracking invalidations (CDP tier)', () => {
     await settle();
     sendMessageSpy().mockClear();
 
-    fireUpdate(42, KEY);
+    fireUpdate(42, KEY, 'indexeddb');
     expect(sendMessageSpy()).toHaveBeenCalledTimes(1);
     expect(sendMessageSpy()).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'idbStorageInvalidated', tabId: 42 }),
+      expect.objectContaining({ type: 'storageInvalidated', tabId: 42, kind: 'indexeddb' }),
+    );
+
+    fireUpdate(42, KEY, 'cachestorage');
+    expect(sendMessageSpy()).toHaveBeenCalledTimes(2);
+    expect(sendMessageSpy()).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'storageInvalidated', tabId: 42, kind: 'cachestorage' }),
     );
   });
 
@@ -331,7 +370,7 @@ describe('idb tracking invalidations (CDP tier)', () => {
 
     await listStorageScopes(42);
     await settle();
-    expect(trackCalls).toHaveLength(1);
+    expect(trackCalls).toHaveLength(2);
 
     fireDetach(42);
     sendMessageSpy().mockClear();
@@ -340,7 +379,7 @@ describe('idb tracking invalidations (CDP tier)', () => {
 
     await listStorageScopes(42);
     await settle();
-    expect(trackCalls).toHaveLength(2);
+    expect(trackCalls).toHaveLength(4);
     fireUpdate(42, KEY);
     expect(sendMessageSpy()).toHaveBeenCalledTimes(1);
   });

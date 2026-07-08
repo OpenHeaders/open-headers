@@ -22,6 +22,7 @@ export type {
   IdbRecord,
   IdbRecordsPage,
   StorageInspectorHost,
+  StorageInvalidationKind,
   StorageScope,
 } from './data/storage/storage-inspector-host';
 export { getStorageInspectorHost, setStorageInspectorHost } from './data/storage/storage-inspector-host';

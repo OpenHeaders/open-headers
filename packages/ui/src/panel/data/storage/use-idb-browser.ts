@@ -163,7 +163,7 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
   useEffect(() => {
     if (!active || !host || tabId === null) return;
     let coalesce: ReturnType<typeof setTimeout> | null = null;
-    const unsubscribe = host.subscribeIdbInvalidations(tabId, () => {
+    const unsubscribe = host.subscribeStorageInvalidations(tabId, 'indexeddb', () => {
       if (coalesce !== null) return;
       coalesce = setTimeout(() => {
         coalesce = null;

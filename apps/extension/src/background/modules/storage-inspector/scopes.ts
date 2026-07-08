@@ -14,7 +14,7 @@
 
 import type { StorageScopeWire } from '@openheaders/core/bridge';
 import { logger } from '@utils/logger';
-import { armIdbTracking, stampStorageKeys } from './cdp-tier';
+import { armStorageTracking, stampStorageKeys } from './cdp-tier';
 
 export async function listStorageScopes(tabId: number): Promise<{ scopes: StorageScopeWire[] | null }> {
   if (typeof tabId !== 'number' || !chrome.webNavigation?.getAllFrames) return { scopes: null };
@@ -50,8 +50,8 @@ export async function listStorageScopes(tabId: number): Promise<{ scopes: Storag
     a.isMainFrame !== b.isMainFrame ? (a.isMainFrame ? -1 : 1) : a.origin.localeCompare(b.origin),
   );
   const stamped = await stampStorageKeys(tabId, scopes);
-  // Arm IDB change tracking for the stamped keys off the listing's
+  // Arm storage change tracking for the stamped keys off the listing's
   // critical path — the response never waits on the arm commands.
-  void armIdbTracking(tabId, stamped);
+  void armStorageTracking(tabId, stamped);
   return { scopes: stamped };
 }

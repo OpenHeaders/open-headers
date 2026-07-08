@@ -360,9 +360,10 @@ export interface RawFrameStoppedLoading {
   readonly frameId: string;
 }
 
-/** `Storage.indexedDBListUpdated` / `Storage.indexedDBContentUpdated` —
- *  the shared fields the storage inspector consumes. */
-export interface RawIndexedDbUpdated {
+/** `Storage.indexedDB*Updated` / `Storage.cacheStorage*Updated` — the
+ *  shared fields the storage inspector consumes from either tracking
+ *  event family. */
+export interface RawStorageUpdated {
   readonly origin: string;
   readonly storageKey: string;
 }

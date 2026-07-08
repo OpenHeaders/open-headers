@@ -2,15 +2,17 @@
  * The Storage tool window's Cache Storage section. Two levels: the
  * scope's named caches, then an opened cache's paged entry grid —
  * request metadata only (URL + method + a bounded request-headers
- * preview), never the stored responses. Read-only in this slice; the
- * CDP tier adds live invalidations and deletes.
+ * preview), never the stored responses. Deletes are in scope: a whole
+ * cache uses the two-step arm/confirm idiom (bulk destruction); an
+ * entry is a single-click hover lane like the DOM grid's.
  *
  * `caches` is a secure-context API, so an http: scope legitimately has
  * no reach — that renders as an explanatory empty state, not an error.
  */
 
-import { LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type { CacheBrowserState } from '../../data/storage/use-cache-browser';
+import { ArmedIconButton } from './ArmedIconButton';
 
 interface CacheStorageSectionProps {
   cache: CacheBrowserState;
@@ -55,6 +57,13 @@ export function CacheStorageSection({ cache, filter }: CacheStorageSectionProps)
           >
             {c.name}
           </button>
+          <ArmedIconButton
+            icon={<DeleteOutlined />}
+            title={`Delete the ${c.name} cache`}
+            confirmTitle={`Deletes ${c.name} and every entry in it`}
+            ariaLabel={`Delete cache ${c.name}`}
+            onConfirm={() => cache.deleteCache(c.name)}
+          />
         </div>
       ))}
     </div>
@@ -137,6 +146,17 @@ function EntriesView({ cache, filter }: CacheStorageSectionProps) {
               </span>
               <span className="dt-storage-value" role="cell">
                 {e.method}
+              </span>
+              <span className="dt-storage-row-actions">
+                <button
+                  type="button"
+                  className="dt-storage-action"
+                  title="Delete this entry"
+                  aria-label={`Delete entry ${e.url}`}
+                  onClick={() => cache.deleteEntry(e.url, e.method)}
+                >
+                  <DeleteOutlined />
+                </button>
               </span>
             </div>
           ))}

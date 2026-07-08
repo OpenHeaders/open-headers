@@ -44,6 +44,9 @@ import type {
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
 
+/** Which storage type a `storageInvalidated` push says went stale. */
+export type StorageInvalidationKind = 'indexeddb' | 'cachestorage';
+
 /**
  * Broadcast contract: map of message-type → payload shape (without `type`).
  *
@@ -61,12 +64,12 @@ export interface BridgeBroadcastContract {
   connectionStatus: { connected: boolean };
   trackedUrlsUpdated: { tabId?: number };
   /**
-   * Storage tool window: a CDP-attached tab's tracked IndexedDB changed
-   * (`Storage.indexedDBListUpdated` / `indexedDBContentUpdated`).
-   * Invalidation only — it says WHAT went stale; the panel refetches
+   * Storage tool window: a CDP-attached tab's tracked storage changed
+   * (`Storage.indexedDB*Updated` / `Storage.cacheStorage*Updated`).
+   * Invalidation only — `kind` says WHAT went stale; the panel refetches
    * through the same read RPCs it polls with.
    */
-  idbStorageInvalidated: { tabId: number };
+  storageInvalidated: { tabId: number; kind: StorageInvalidationKind };
   /**
    * Fires on any workspace list mutation (create/rename/delete/reorder)
    * AND on active-workspace switch. UI surfaces re-read rules, templates,

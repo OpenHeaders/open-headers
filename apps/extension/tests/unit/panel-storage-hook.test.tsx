@@ -77,7 +77,9 @@ function installHost() {
   const deleteIndexedDbDatabase = vi.fn(() => Promise.resolve(true));
   const listCaches = vi.fn((): Promise<Array<{ name: string }> | null> => Promise.resolve(structuredClone(CACHE_LIST)));
   const readCacheEntries = vi.fn(() => Promise.resolve(structuredClone(CACHE_PAGE)));
-  const idbInvalidationListeners = new Set<() => void>();
+  const deleteCache = vi.fn(() => Promise.resolve(true));
+  const deleteCacheEntry = vi.fn(() => Promise.resolve(true));
+  const invalidationListeners = { indexeddb: new Set<() => void>(), cachestorage: new Set<() => void>() };
   const host: StorageInspectorHost = {
     listScopes,
     readDomStorage,
@@ -92,10 +94,12 @@ function installHost() {
     deleteIndexedDbDatabase,
     listCaches,
     readCacheEntries,
-    subscribeIdbInvalidations: (_tabId: number, listener: () => void) => {
-      idbInvalidationListeners.add(listener);
+    deleteCache,
+    deleteCacheEntry,
+    subscribeStorageInvalidations: (_tabId: number, kind: 'indexeddb' | 'cachestorage', listener: () => void) => {
+      invalidationListeners[kind].add(listener);
       return () => {
-        idbInvalidationListeners.delete(listener);
+        invalidationListeners[kind].delete(listener);
       };
     },
   };
@@ -110,8 +114,10 @@ function installHost() {
     deleteIndexedDbDatabase,
     listCaches,
     readCacheEntries,
-    pushIdbInvalidation: () => {
-      for (const listener of idbInvalidationListeners) listener();
+    deleteCache,
+    deleteCacheEntry,
+    pushInvalidation: (kind: 'indexeddb' | 'cachestorage') => {
+      for (const listener of invalidationListeners[kind]) listener();
     },
   };
 }
@@ -275,7 +281,7 @@ describe('useIdbBrowser poll stability', () => {
   });
 
   it('coalesces a host invalidation burst into one refetch pass with stable identities', async () => {
-    const { listIndexedDb, readIndexedDbRecords, pushIdbInvalidation } = installHost();
+    const { listIndexedDb, readIndexedDbRecords, pushInvalidation } = installHost();
     const { result } = renderHook(() => useIdbBrowser(true, 0));
 
     await flush();
@@ -290,9 +296,9 @@ describe('useIdbBrowser poll stability', () => {
     const listsBefore = listIndexedDb.mock.calls.length;
     const readsBefore = readIndexedDbRecords.mock.calls.length;
     act(() => {
-      pushIdbInvalidation();
-      pushIdbInvalidation();
-      pushIdbInvalidation();
+      pushInvalidation('indexeddb');
+      pushInvalidation('indexeddb');
+      pushInvalidation('indexeddb');
     });
     await flush(300);
     expect(listIndexedDb.mock.calls.length).toBe(listsBefore + 1);
@@ -438,5 +444,79 @@ describe('useCacheBrowser poll stability', () => {
     await flush(5000);
     expect(result.current.selectedCache).toBeNull();
     expect(result.current.page).toBe(0);
+  });
+
+  it('coalesces a cache invalidation burst into one refetch pass, ignoring the idb kind', async () => {
+    const { listCaches, readCacheEntries, pushInvalidation } = installHost();
+    const { result } = renderHook(() => useCacheBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectCache('oh-assets-v1');
+    });
+    await flush();
+    const caches = result.current.caches;
+    const page = result.current.entriesPage;
+    expect(page).not.toBeNull();
+
+    const listsBefore = listCaches.mock.calls.length;
+    const readsBefore = readCacheEntries.mock.calls.length;
+    act(() => {
+      pushInvalidation('cachestorage');
+      pushInvalidation('cachestorage');
+      pushInvalidation('indexeddb');
+    });
+    await flush(300);
+    expect(listCaches.mock.calls.length).toBe(listsBefore + 1);
+    expect(readCacheEntries.mock.calls.length).toBe(readsBefore + 1);
+    expect(result.current.caches).toBe(caches);
+    expect(result.current.entriesPage).toBe(page);
+  });
+
+  it('routes deletes through the host and refetches via the same read path', async () => {
+    const { listCaches, readCacheEntries, deleteCache, deleteCacheEntry } = installHost();
+    const { result } = renderHook(() => useCacheBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectCache('oh-assets-v1');
+    });
+    await flush();
+    expect(result.current.entriesPage).not.toBeNull();
+
+    const readsBefore = readCacheEntries.mock.calls.length;
+    act(() => {
+      result.current.deleteEntry('https://openheaders.io/asset-0.js', 'GET');
+    });
+    await flush();
+    expect(deleteCacheEntry).toHaveBeenCalledWith(42, 0, 'oh-assets-v1', 'https://openheaders.io/asset-0.js', 'GET');
+    expect(readCacheEntries.mock.calls.length).toBe(readsBefore + 1);
+    expect(result.current.mutationFailed).toBe(false);
+
+    const listsBefore = listCaches.mock.calls.length;
+    act(() => {
+      result.current.deleteCache('oh-assets-v1');
+    });
+    await flush();
+    expect(deleteCache).toHaveBeenCalledWith(42, 0, 'oh-assets-v1');
+    expect(listCaches.mock.calls.length).toBe(listsBefore + 1);
+  });
+
+  it('flags a failed delete', async () => {
+    const { deleteCacheEntry } = installHost();
+    deleteCacheEntry.mockImplementation(() => Promise.resolve(false));
+    const { result } = renderHook(() => useCacheBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectCache('oh-assets-v1');
+    });
+    await flush();
+
+    act(() => {
+      result.current.deleteEntry('https://openheaders.io/asset-0.js', 'GET');
+    });
+    await flush();
+    expect(result.current.mutationFailed).toBe(true);
   });
 });

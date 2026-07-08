@@ -4,12 +4,14 @@
  * Mounted alongside `useStorageInspector` and gated by `active` (hooks
  * can't be conditional); inactive means no fetches and no polling.
  *
- * Reads are read-only in this slice; the CDP tier (live invalidations,
- * deletes) rides the same seam later. Standard-plane reads have no
- * change events, so this polls while active — same poll-loop discipline
- * as the IDB browser: token-guarded fetches, structural dedupe before
- * every `setState` (RPCs return fresh identities), callbacks keyed on
- * primitives.
+ * The host arbitrates transports (CDP when attached, injection
+ * otherwise) invisibly; on tracked tabs it also pushes invalidation
+ * notes, which coalesce into a refetch through the SAME read callbacks
+ * the poll uses. Polling stays the fallback tier. Same poll-loop
+ * discipline as the IDB browser: token-guarded fetches, structural
+ * dedupe before every `setState` (RPCs return fresh identities),
+ * callbacks keyed on primitives. Mutations (cache delete, entry delete)
+ * refetch through the read path — never trust the local outcome.
  */
 
 import { hostNavigation } from '@openheaders/core/navigation';
@@ -19,6 +21,8 @@ import { getStorageInspectorHost } from './storage-inspector-host';
 
 const CACHE_POLL_MS = 5000;
 const CACHE_PAGE_SIZE = 50;
+/** Host invalidation notes can burst; coalesce the refetch. */
+const CACHE_INVALIDATION_COALESCE_MS = 250;
 
 function cachesEqual(a: ReadonlyArray<CacheSummary>, b: ReadonlyArray<CacheSummary>): boolean {
   if (a.length !== b.length) return false;
@@ -48,6 +52,11 @@ export interface CacheBrowserState {
   /** `null` while the opened cache's page is in flight. */
   entriesPage: CacheEntriesPage | null;
   refresh: () => void;
+  /** Last delete failed — cleared by the next successful one. */
+  mutationFailed: boolean;
+  deleteCache: (cache: string) => void;
+  /** Delete one entry of the OPENED cache by its request URL + method. */
+  deleteEntry: (url: string, method: string) => void;
 }
 
 export function useCacheBrowser(active: boolean, frameId: number | null): CacheBrowserState {
@@ -59,6 +68,7 @@ export function useCacheBrowser(active: boolean, frameId: number | null): CacheB
   const [selectedCache, setSelectedCache] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [entriesPage, setEntriesPage] = useState<CacheEntriesPage | null>(null);
+  const [mutationFailed, setMutationFailed] = useState(false);
   const tokenRef = useRef(0);
 
   // Scope or activation change → drop everything from the old scope.
@@ -70,6 +80,7 @@ export function useCacheBrowser(active: boolean, frameId: number | null): CacheB
     setSelectedCache(null);
     setPage(0);
     setEntriesPage(null);
+    setMutationFailed(false);
   }, [active, frameId]);
 
   const listCaches = useCallback(async () => {
@@ -117,6 +128,26 @@ export function useCacheBrowser(active: boolean, frameId: number | null): CacheB
     return () => clearInterval(timer);
   }, [active, listCaches, readEntries]);
 
+  // Host-pushed invalidations (CDP tracking, attached tabs) — refetch
+  // through the SAME read paths the poll uses, coalesced against event
+  // bursts. Purely additive over the poll.
+  useEffect(() => {
+    if (!active || !host || tabId === null) return;
+    let coalesce: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = host.subscribeStorageInvalidations(tabId, 'cachestorage', () => {
+      if (coalesce !== null) return;
+      coalesce = setTimeout(() => {
+        coalesce = null;
+        void listCaches();
+        void readEntries();
+      }, CACHE_INVALIDATION_COALESCE_MS);
+    });
+    return () => {
+      unsubscribe();
+      if (coalesce !== null) clearTimeout(coalesce);
+    };
+  }, [active, host, tabId, listCaches, readEntries]);
+
   const selectCache = useCallback((cache: string) => {
     setSelectedCache(cache);
     setPage(0);
@@ -132,6 +163,32 @@ export function useCacheBrowser(active: boolean, frameId: number | null): CacheB
     void readEntries();
   }, [listCaches, readEntries]);
 
+  // Mutations refetch through the same read path (invalidation
+  // discipline) — the grid never trusts a delete's local outcome.
+  const deleteCache = useCallback(
+    (cache: string) => {
+      if (!host || tabId === null || frameId === null) return;
+      void host.deleteCache(tabId, frameId, cache).then((ok) => {
+        setMutationFailed(!ok);
+        // The stale-selection effect closes an entries view inside the
+        // deleted cache once the re-list lands.
+        void listCaches();
+      });
+    },
+    [host, tabId, frameId, listCaches],
+  );
+
+  const deleteEntry = useCallback(
+    (url: string, method: string) => {
+      if (!host || tabId === null || frameId === null || selectedCache === null) return;
+      void host.deleteCacheEntry(tabId, frameId, selectedCache, url, method).then((ok) => {
+        setMutationFailed(!ok);
+        void readEntries();
+      });
+    },
+    [host, tabId, frameId, selectedCache, readEntries],
+  );
+
   return {
     caches,
     loading,
@@ -142,5 +199,8 @@ export function useCacheBrowser(active: boolean, frameId: number | null): CacheB
     setPage,
     entriesPage,
     refresh,
+    mutationFailed,
+    deleteCache,
+    deleteEntry,
   };
 }

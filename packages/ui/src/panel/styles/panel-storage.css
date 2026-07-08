@@ -316,6 +316,19 @@
   background: var(--dt-row-hover);
 }
 
+/* Cache delete lane — same reveal-on-hover posture as the IDB rows
+ * (visibility, not display, keeps it keyboard-reachable). */
+.dt-storage-cache-row > .dt-storage-action {
+  visibility: hidden;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.dt-storage-cache-row:hover > .dt-storage-action,
+.dt-storage-cache-row:focus-within > .dt-storage-action {
+  visibility: visible;
+}
+
 .dt-storage-cache-open {
   flex: 1 1 auto;
   min-width: 0;

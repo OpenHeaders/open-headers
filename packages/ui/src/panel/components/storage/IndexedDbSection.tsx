@@ -9,9 +9,9 @@
  */
 
 import { ClearOutlined, DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
-import { useState } from 'react';
 import type { IdbDatabase } from '../../data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '../../data/storage/use-idb-browser';
+import { ArmedIconButton } from './ArmedIconButton';
 
 interface IndexedDbSectionProps {
   idb: IdbBrowserState;
@@ -21,42 +21,6 @@ interface IndexedDbSectionProps {
 function storeMeta(store: IdbDatabase['objectStores'][number]): string {
   const key = store.keyPath ? `key: ${store.keyPath}` : store.autoIncrement ? 'auto-increment keys' : 'out-of-line keys';
   return store.indexNames.length > 0 ? `${key} · ${store.indexNames.length} ${store.indexNames.length === 1 ? 'index' : 'indexes'}` : key;
-}
-
-/** Two-step icon button — first click arms (red), second commits. */
-function ArmedIconButton({
-  icon,
-  title,
-  confirmTitle,
-  ariaLabel,
-  onConfirm,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  confirmTitle: string;
-  ariaLabel: string;
-  onConfirm: () => void;
-}) {
-  const [armed, setArmed] = useState(false);
-  return (
-    <button
-      type="button"
-      className={`dt-storage-action${armed ? ' dt-storage-action--armed' : ''}`}
-      title={armed ? confirmTitle : title}
-      aria-label={armed ? `${ariaLabel} — click again to confirm` : ariaLabel}
-      onClick={() => {
-        if (!armed) {
-          setArmed(true);
-          return;
-        }
-        setArmed(false);
-        onConfirm();
-      }}
-      onBlur={() => setArmed(false)}
-    >
-      {icon}
-    </button>
-  );
 }
 
 export function IndexedDbSection({ idb, filter }: IndexedDbSectionProps) {

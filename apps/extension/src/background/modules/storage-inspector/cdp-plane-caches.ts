@@ -1,0 +1,126 @@
+/**
+ * CDP plane of the Cache Storage browser — the one storage type whose
+ * CDP read domain works for extension debugger clients (probe-verified,
+ * STORAGE_PANEL_PLAN.md §2.3): `CacheStorage.requestCacheNames` /
+ * `requestEntries` (natively paged) / `deleteCache` / `deleteEntry`.
+ *
+ * Every op resolves `null` on any CDP failure (detached mid-flight,
+ * unknown cache, command error) — the arbitration in `caches.ts` then
+ * degrades to the injected plane, so a race never surfaces as an error.
+ *
+ * Caches are addressed by name on the wire; the CDP domain keys them by
+ * `cacheId`, so ops resolve the id through `requestCacheNames` per call
+ * — ids aren't stable across cache deletion/recreation, and caching
+ * them would just re-derive this lookup's failure modes.
+ */
+
+import type { CacheEntryWire, CacheStorageCacheWire } from '@openheaders/core/bridge';
+import { CACHE_HEADERS_PREVIEW_MAX } from './standard-plane-caches';
+
+export type CdpSend = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
+
+interface RawCdpCache {
+  cacheId: string;
+  cacheName: string;
+}
+
+interface RawCdpHeader {
+  name: string;
+  value: string;
+}
+
+interface RawCdpCacheEntry {
+  requestURL: string;
+  requestMethod: string;
+  requestHeaders?: RawCdpHeader[];
+}
+
+async function requestCaches(send: CdpSend, securityOrigin: string): Promise<RawCdpCache[] | null> {
+  try {
+    const res = (await send('CacheStorage.requestCacheNames', { securityOrigin })) as
+      | { caches?: RawCdpCache[] }
+      | undefined;
+    return Array.isArray(res?.caches) ? res.caches : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveCacheId(send: CdpSend, securityOrigin: string, cache: string): Promise<string | null> {
+  const caches = await requestCaches(send, securityOrigin);
+  return caches?.find((c) => c.cacheName === cache)?.cacheId ?? null;
+}
+
+export async function listCachesViaCdp(
+  send: CdpSend,
+  securityOrigin: string,
+  maxCaches: number,
+): Promise<CacheStorageCacheWire[] | null> {
+  const caches = await requestCaches(send, securityOrigin);
+  if (caches === null) return null;
+  return caches.slice(0, maxCaches).map((c) => ({ name: c.cacheName }));
+}
+
+export async function getCacheEntriesViaCdp(
+  send: CdpSend,
+  securityOrigin: string,
+  cache: string,
+  page: number,
+  pageSize: number,
+): Promise<{ entries: CacheEntryWire[]; truncated: boolean } | null> {
+  const cacheId = await resolveCacheId(send, securityOrigin, cache);
+  if (cacheId === null) return null;
+  try {
+    const skipCount = page * pageSize;
+    const res = (await send('CacheStorage.requestEntries', { cacheId, skipCount, pageSize })) as
+      | { cacheDataEntries?: RawCdpCacheEntry[]; returnCount?: number }
+      | undefined;
+    if (!Array.isArray(res?.cacheDataEntries)) return null;
+    const entries = res.cacheDataEntries.map((entry) => {
+      const joined = (entry.requestHeaders ?? []).map((h) => `${h.name}: ${h.value}`).join(', ');
+      const headersPreview =
+        joined.length > CACHE_HEADERS_PREVIEW_MAX ? `${joined.slice(0, CACHE_HEADERS_PREVIEW_MAX)}…` : joined;
+      return {
+        url: entry.requestURL,
+        method: entry.requestMethod,
+        ...(headersPreview.length > 0 ? { headersPreview } : {}),
+      };
+    });
+    // `returnCount` is the total matching the query, not the page.
+    const total = typeof res.returnCount === 'number' ? res.returnCount : skipCount + entries.length;
+    return { entries, truncated: skipCount + entries.length < total };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteCacheViaCdp(
+  send: CdpSend,
+  securityOrigin: string,
+  cache: string,
+): Promise<{ ok: boolean } | null> {
+  const cacheId = await resolveCacheId(send, securityOrigin, cache);
+  if (cacheId === null) return null;
+  try {
+    await send('CacheStorage.deleteCache', { cacheId });
+    return { ok: true };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteCacheEntryViaCdp(
+  send: CdpSend,
+  securityOrigin: string,
+  cache: string,
+  url: string,
+): Promise<{ ok: boolean } | null> {
+  const cacheId = await resolveCacheId(send, securityOrigin, cache);
+  if (cacheId === null) return null;
+  try {
+    await send('CacheStorage.deleteEntry', { cacheId, request: url });
+    return { ok: true };
+  } catch {
+    return null;
+  }
+}

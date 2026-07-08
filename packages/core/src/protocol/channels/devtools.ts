@@ -363,4 +363,21 @@ export interface DevToolsRpc {
     req: { tabId: number; frameId: number; cache: string; page: number; pageSize: number };
     res: { entries: ReadonlyArray<CacheEntryWire> | null; truncated?: boolean };
   };
+
+  /** Delete a whole named cache. */
+  deleteCacheStorageCache: {
+    req: { tabId: number; frameId: number; cache: string };
+    res: { ok: boolean };
+  };
+
+  /**
+   * Delete one cache entry by its request URL. `method` is the entry's
+   * request method as the read RPC returned it — a non-GET entry is
+   * matched with the method check relaxed, since URL strings are the
+   * only match key both transports share.
+   */
+  deleteCacheStorageEntry: {
+    req: { tabId: number; frameId: number; cache: string; url: string; method: string };
+    res: { ok: boolean };
+  };
 }

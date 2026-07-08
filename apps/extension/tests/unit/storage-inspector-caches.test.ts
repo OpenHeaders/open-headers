@@ -1,23 +1,37 @@
 /**
- * Cache Storage standard read plane (STORAGE_PANEL_PLAN.md §5, slice 5)
- * — the injected enumeration/paging funcs run against a Map-backed
- * `caches` stub (Node's real `Request`/`Headers` globals), plus the SW
- * wrappers' clamps and wire mapping over the mocked `chrome.scripting`
- * transport.
+ * Cache Storage data plane (STORAGE_PANEL_PLAN.md §5, slice 5) — the
+ * injected read/delete funcs run against a Map-backed `caches` stub
+ * (Node's real `Request`/`Headers` globals); the arbitrated RPC surface
+ * is exercised over both transports: injected via the mocked
+ * `chrome.scripting`, CDP via a fake cdp-tier access seam (the one
+ * storage type with a working CDP read domain).
  */
 
 import { afterEach, beforeEach, describe, expect, it, type vi } from 'vitest';
 import {
-  CACHE_PAGE_SIZE_DEFAULT,
-  CACHE_PAGE_SIZE_MAX,
+  deleteCacheStorageCache,
+  deleteCacheStorageEntry,
   getCacheStorageEntries,
   listCacheStorageCaches,
+} from '@/background/modules/storage-inspector/caches';
+import {
+  __resetStorageCdpAccessForTests,
+  registerStorageCdpAccess,
+  type StorageCdpAccess,
+} from '@/background/modules/storage-inspector/cdp-tier';
+import {
+  CACHE_PAGE_SIZE_DEFAULT,
+  CACHE_PAGE_SIZE_MAX,
+  deleteCacheEntryInPage,
+  deleteCacheInPage,
   listCachesInPage,
   readCacheEntriesInPage,
 } from '@/background/modules/storage-inspector/standard-plane-caches';
 
 const executeScriptSpy = (): ReturnType<typeof vi.fn> =>
   chrome.scripting.executeScript as unknown as ReturnType<typeof vi.fn>;
+const getFrameSpy = (): ReturnType<typeof vi.fn> =>
+  chrome.webNavigation.getFrame as unknown as ReturnType<typeof vi.fn>;
 
 /** Minimal secure-context CacheStorage: named caches holding Request keys. */
 function installCachesStub(seed: Record<string, Request[]>): Map<string, Request[]> {
@@ -25,11 +39,22 @@ function installCachesStub(seed: Record<string, Request[]>): Map<string, Request
   const stub = {
     keys: () => Promise.resolve([...store.keys()]),
     has: (name: string) => Promise.resolve(store.has(name)),
+    delete: (name: string) => Promise.resolve(store.delete(name)),
     open: (name: string) => {
       // Mirrors the platform: open() CREATES a missing cache.
       if (!store.has(name)) store.set(name, []);
       const requests = store.get(name) as Request[];
-      return Promise.resolve({ keys: () => Promise.resolve([...requests]) });
+      return Promise.resolve({
+        keys: () => Promise.resolve([...requests]),
+        delete: (url: string, options?: { ignoreMethod?: boolean }) => {
+          const before = requests.length;
+          for (let i = requests.length - 1; i >= 0; i--) {
+            const matches = requests[i].url === url && (options?.ignoreMethod || requests[i].method === 'GET');
+            if (matches) requests.splice(i, 1);
+          }
+          return Promise.resolve(requests.length < before);
+        },
+      });
     },
   };
   Object.defineProperty(globalThis, 'caches', { value: stub, configurable: true, writable: true });
@@ -42,10 +67,13 @@ function removeCachesGlobal(): void {
 
 beforeEach(() => {
   executeScriptSpy().mockReset();
+  getFrameSpy().mockReset();
+  getFrameSpy().mockResolvedValue(null);
 });
 
 afterEach(() => {
   removeCachesGlobal();
+  __resetStorageCdpAccessForTests();
 });
 
 describe('listCachesInPage', () => {
@@ -113,7 +141,38 @@ describe('readCacheEntriesInPage', () => {
   });
 });
 
-describe('SW wrappers over the injection transport', () => {
+describe('injected delete plane', () => {
+  it('deletes a whole cache and reports a missing one as failure', async () => {
+    const store = installCachesStub({ 'oh-assets-v1': [], 'oh-keep': [] });
+    expect(await deleteCacheInPage('oh-assets-v1')).toEqual({ ok: true });
+    expect([...store.keys()]).toEqual(['oh-keep']);
+    expect(await deleteCacheInPage('oh-gone')).toEqual({ ok: false });
+  });
+
+  it('deletes a GET entry by URL and a non-GET entry with the method check relaxed', async () => {
+    const store = installCachesStub({
+      'oh-api-v2': [
+        new Request('https://openheaders.io/api/data'),
+        new Request('https://openheaders.io/api/submit', { method: 'POST' }),
+      ],
+    });
+
+    expect(await deleteCacheEntryInPage('oh-api-v2', 'https://openheaders.io/api/data', 'GET')).toEqual({ ok: true });
+    expect(await deleteCacheEntryInPage('oh-api-v2', 'https://openheaders.io/api/submit', 'POST')).toEqual({
+      ok: true,
+    });
+    expect(store.get('oh-api-v2')).toHaveLength(0);
+  });
+
+  it('reports a missing cache or entry as failure and never creates a ghost', async () => {
+    const store = installCachesStub({ 'oh-assets-v1': [] });
+    expect(await deleteCacheEntryInPage('oh-gone', 'https://openheaders.io/x', 'GET')).toEqual({ ok: false });
+    expect(await deleteCacheEntryInPage('oh-assets-v1', 'https://openheaders.io/x', 'GET')).toEqual({ ok: false });
+    expect([...store.keys()]).toEqual(['oh-assets-v1']);
+  });
+});
+
+describe('arbitrated RPC surface — injected transport (detached)', () => {
   it('clamps page and pageSize before injecting', async () => {
     executeScriptSpy().mockResolvedValue([{ result: { entries: [], truncated: false } }]);
     await getCacheStorageEntries(1, 0, 'oh-assets-v1', -5, 99_999);
@@ -142,6 +201,19 @@ describe('SW wrappers over the injection transport', () => {
     expect(page.truncated).toBe(true);
   });
 
+  it('routes deletes through injection and forwards their args', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
+    expect(await deleteCacheStorageCache(1, 0, 'oh-assets-v1')).toEqual({ ok: true });
+    expect(executeScriptSpy().mock.calls[0][0].args).toEqual(['oh-assets-v1']);
+
+    executeScriptSpy().mockClear();
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
+    expect(await deleteCacheStorageEntry(1, 0, 'oh-assets-v1', 'https://openheaders.io/a.js', 'GET')).toEqual({
+      ok: true,
+    });
+    expect(executeScriptSpy().mock.calls[0][0].args).toEqual(['oh-assets-v1', 'https://openheaders.io/a.js', 'GET']);
+  });
+
   it('reports injection failure as null and bad args without injecting', async () => {
     executeScriptSpy().mockRejectedValue(new Error('No frame with id'));
     expect((await listCacheStorageCaches(1, 0)).caches).toBeNull();
@@ -150,6 +222,117 @@ describe('SW wrappers over the injection transport', () => {
 
     executeScriptSpy().mockClear();
     expect((await getCacheStorageEntries(1, 0, undefined as unknown as string, 0, 50)).entries).toBeNull();
+    expect((await deleteCacheStorageCache(1, 0, undefined as unknown as string)).ok).toBe(false);
+    expect((await deleteCacheStorageEntry(1, 0, 'c', undefined as unknown as string, 'GET')).ok).toBe(false);
     expect(executeScriptSpy()).not.toHaveBeenCalled();
+  });
+});
+
+describe('arbitrated RPC surface — CDP transport (attached)', () => {
+  const ORIGIN = 'https://openheaders.io';
+  const RAW_CACHES = [{ cacheId: 'id-assets', cacheName: 'oh-assets-v1' }];
+
+  function installCdp(send: StorageCdpAccess['send'], attached = true): Array<{ method: string; params: unknown }> {
+    const calls: Array<{ method: string; params: unknown }> = [];
+    registerStorageCdpAccess({
+      isAttached: () => attached,
+      send: (tabId, method, params) => {
+        calls.push({ method, params });
+        return send(tabId, method, params);
+      },
+      subscribeStorageUpdated: () => () => {},
+      onDetach: () => () => {},
+    });
+    return calls;
+  }
+
+  beforeEach(() => {
+    getFrameSpy().mockResolvedValue({ url: `${ORIGIN}/app` });
+  });
+
+  it('lists caches through CacheStorage.requestCacheNames without injecting', async () => {
+    installCdp((_tabId, method) => {
+      if (method === 'CacheStorage.requestCacheNames') return Promise.resolve({ caches: RAW_CACHES });
+      return Promise.reject(new Error(`unexpected ${method}`));
+    });
+
+    expect((await listCacheStorageCaches(1, 0)).caches).toEqual([{ name: 'oh-assets-v1' }]);
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
+  });
+
+  it('reads entries through requestEntries with native paging and total-count truncation', async () => {
+    const calls = installCdp((_tabId, method) => {
+      if (method === 'CacheStorage.requestCacheNames') return Promise.resolve({ caches: RAW_CACHES });
+      if (method === 'CacheStorage.requestEntries') {
+        return Promise.resolve({
+          cacheDataEntries: [
+            {
+              requestURL: 'https://openheaders.io/a.js',
+              requestMethod: 'GET',
+              requestHeaders: [{ name: 'accept', value: '*/*' }],
+            },
+          ],
+          returnCount: 7,
+        });
+      }
+      return Promise.reject(new Error(`unexpected ${method}`));
+    });
+
+    const page = await getCacheStorageEntries(1, 0, 'oh-assets-v1', 2, 1);
+    expect(page.entries).toEqual([
+      { url: 'https://openheaders.io/a.js', method: 'GET', headersPreview: 'accept: */*' },
+    ]);
+    expect(page.truncated).toBe(true);
+    expect(calls.find((c) => c.method === 'CacheStorage.requestEntries')?.params).toEqual({
+      cacheId: 'id-assets',
+      skipCount: 2,
+      pageSize: 1,
+    });
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
+  });
+
+  it('deletes through the CDP domain by resolved cacheId', async () => {
+    const calls = installCdp((_tabId, method) => {
+      if (method === 'CacheStorage.requestCacheNames') return Promise.resolve({ caches: RAW_CACHES });
+      if (method === 'CacheStorage.deleteCache' || method === 'CacheStorage.deleteEntry') return Promise.resolve({});
+      return Promise.reject(new Error(`unexpected ${method}`));
+    });
+
+    expect(await deleteCacheStorageCache(1, 0, 'oh-assets-v1')).toEqual({ ok: true });
+    expect(calls.find((c) => c.method === 'CacheStorage.deleteCache')?.params).toEqual({ cacheId: 'id-assets' });
+
+    expect(await deleteCacheStorageEntry(1, 0, 'oh-assets-v1', 'https://openheaders.io/a.js', 'GET')).toEqual({
+      ok: true,
+    });
+    expect(calls.find((c) => c.method === 'CacheStorage.deleteEntry')?.params).toEqual({
+      cacheId: 'id-assets',
+      request: 'https://openheaders.io/a.js',
+    });
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
+  });
+
+  it('degrades to injection when a CDP op fails or the cache is unknown', async () => {
+    installCdp(() => Promise.reject(new Error('detached mid-flight')));
+    executeScriptSpy().mockResolvedValue([{ result: { caches: [{ name: 'oh-assets-v1' }] } }]);
+
+    expect((await listCacheStorageCaches(1, 0)).caches).toEqual([{ name: 'oh-assets-v1' }]);
+    expect(executeScriptSpy()).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses injection when the tab is not attached', async () => {
+    installCdp(() => Promise.reject(new Error('must not be called')), false);
+    executeScriptSpy().mockResolvedValue([{ result: { caches: [] } }]);
+
+    expect((await listCacheStorageCaches(1, 0)).caches).toEqual([]);
+    expect(executeScriptSpy()).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses injection when the frame origin cannot be derived', async () => {
+    getFrameSpy().mockResolvedValue(null);
+    installCdp(() => Promise.reject(new Error('must not be called')));
+    executeScriptSpy().mockResolvedValue([{ result: { caches: [] } }]);
+
+    expect((await listCacheStorageCaches(1, 0)).caches).toEqual([]);
+    expect(executeScriptSpy()).toHaveBeenCalledTimes(1);
   });
 });

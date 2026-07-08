@@ -107,6 +107,7 @@ const webNavigationMock = {
   onTabReplaced: { addListener: vi.fn() },
   onDOMContentLoaded: { addListener: vi.fn() },
   getAllFrames: vi.fn(() => Promise.resolve([])),
+  getFrame: vi.fn(() => Promise.resolve(null)),
 };
 
 const actionMock = {

@@ -44,7 +44,7 @@ import type { TemplateRpc } from './templates';
 import type { TestRunRpc } from './test-runs';
 import type { WorkspaceRpc } from './workspace';
 
-export type { BridgeBroadcastContract } from './broadcast';
+export type { BridgeBroadcastContract, StorageInvalidationKind } from './broadcast';
 export type { FolderDescriptor, WorkspaceSnapshot } from './common';
 export type {
   CacheEntryWire,

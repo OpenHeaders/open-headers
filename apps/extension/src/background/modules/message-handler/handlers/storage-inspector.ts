@@ -5,6 +5,8 @@ import { logger } from '@utils/logger';
 import {
   clearDomStorage as clearDomStorageHandler,
   clearIndexedDbStore as clearIndexedDbStoreHandler,
+  deleteCacheStorageCache as deleteCacheStorageCacheHandler,
+  deleteCacheStorageEntry as deleteCacheStorageEntryHandler,
   deleteIndexedDbDatabase as deleteIndexedDbDatabaseHandler,
   deleteIndexedDbRecord as deleteIndexedDbRecordHandler,
   getCacheStorageEntries as getCacheStorageEntriesHandler,
@@ -186,6 +188,32 @@ export const storageInspectorHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('StorageCaches', `handler threw: ${err.message}`);
         respond({ entries: null });
+      });
+    return true;
+  },
+
+  deleteCacheStorageCache: ({ message, respond }) => {
+    deleteCacheStorageCacheHandler(message.tabId as number, message.frameId as number, message.cache as string)
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageCaches', `handler threw: ${err.message}`);
+        respond({ ok: false });
+      });
+    return true;
+  },
+
+  deleteCacheStorageEntry: ({ message, respond }) => {
+    deleteCacheStorageEntryHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.cache as string,
+      message.url as string,
+      message.method as string,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageCaches', `handler threw: ${err.message}`);
+        respond({ ok: false });
       });
     return true;
   },
