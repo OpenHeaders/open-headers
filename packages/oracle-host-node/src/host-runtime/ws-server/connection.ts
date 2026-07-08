@@ -70,8 +70,11 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
   // cross-user on a shared box and TCP blocks OS peer-cred, so
   // trust-by-process is not a sound floor — every peer presents a
   // paired token. `isLoopback` is kept for reporting + reach, not auth.
-  const isLoopback = classifyLoopback(request.socket.remoteAddress);
+  // It classifies the RESOLVED peer, not the socket: behind a trusted
+  // reverse proxy every socket is loopback, and the same-device vault
+  // reach gate must not treat a forwarded WAN client as same-device.
   const remoteAddress = admission?.resolvePeer(request) ?? request.socket.remoteAddress ?? 'unknown';
+  const isLoopback = classifyLoopback(remoteAddress);
   const requireAuth = true;
   // Phase-3 admission — Origin/Host matrix + brute-force throttle,
   // evaluated before any protocol state exists. `ws` has already

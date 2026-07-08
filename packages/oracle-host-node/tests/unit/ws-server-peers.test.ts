@@ -331,6 +331,41 @@ describe('OracleWsServer — WS-B reach gate (loopbackOnly broadcast)', () => {
 
     expect(received).toEqual(['test.rule']);
   });
+
+  it('classifies a proxied peer by its resolved address, not the loopback socket', async () => {
+    const port = await freePort();
+    // Behind a trusted reverse proxy every socket is loopback; admission
+    // resolves the real client from X-Forwarded-For. The same-device
+    // classification (and with it the vault reach gate) must follow the
+    // resolved peer, not the proxy's socket.
+    server = await startOracleWsServer({
+      host: '127.0.0.1',
+      port,
+      handshakeIdentity: IDENTITY,
+      admission: {
+        admitUpgrade: () => ({ ok: true }),
+        recordAuthFailure: () => {},
+        resolvePeer: () => '203.0.113.7',
+      },
+    });
+
+    const connected = nextEvent(server, 'connect');
+    const client = await connectAccepted(port, hello());
+    expect((await connected).peer.isLoopback).toBe(false);
+
+    const received: string[] = [];
+    client.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === 'test.vault' || msg.type === 'test.rule') received.push(msg.type);
+    });
+
+    const sentinel = waitForFrame(client, 'test.rule');
+    server.broadcastFrame({ type: 'test.vault', secret: 'seed' }, { loopbackOnly: true });
+    server.broadcastFrame({ type: 'test.rule', id: 'r1' }, { loopbackOnly: false });
+    await sentinel;
+
+    expect(received).toEqual(['test.rule']);
+  });
 });
 
 describe('OracleWsServer — closePeersByTokenId (revocation eviction)', () => {
