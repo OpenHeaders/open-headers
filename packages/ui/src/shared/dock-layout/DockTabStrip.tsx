@@ -263,7 +263,12 @@ function DockTabStripInner<T extends string>({
         key: 'labels',
         label: (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 12, display: 'inline-block' }}>{showLabels ? '\u2713' : ''}</span>
+            {/* visibility (not conditional render) keeps the glyph's line box
+                when unchecked, so the row height and text position are
+                identical in both states. */}
+            <span style={{ width: 12, display: 'inline-block', visibility: showLabels ? 'visible' : 'hidden' }}>
+              {'\u2713'}
+            </span>
             Show Tool Window Names
           </span>
         ),

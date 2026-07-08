@@ -87,7 +87,9 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
       key: 'labels',
       label: (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 12, display: 'inline-block' }}>{showLabels ? '✓' : ''}</span>
+          {/* visibility (not conditional render) keeps the glyph's line box
+              when unchecked, so the row height and text position never shift. */}
+          <span style={{ width: 12, display: 'inline-block', visibility: showLabels ? 'visible' : 'hidden' }}>✓</span>
           Show Category Names
         </span>
       ),

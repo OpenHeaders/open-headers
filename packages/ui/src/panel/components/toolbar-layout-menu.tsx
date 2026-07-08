@@ -28,7 +28,9 @@ export const menuIconWrap = (node: React.ReactNode): React.ReactNode => (
 
 export const menuLabel = (checked: boolean, text: React.ReactNode): React.ReactNode => (
   <Space size={6}>
-    <span style={{ width: 12, display: 'inline-block' }}>{checked ? '✓' : ''}</span>
+    {/* visibility (not conditional render) keeps the glyph's line box when
+        unchecked, so the row height and text position never shift. */}
+    <span style={{ width: 12, display: 'inline-block', visibility: checked ? 'visible' : 'hidden' }}>✓</span>
     {text}
   </Space>
 );
