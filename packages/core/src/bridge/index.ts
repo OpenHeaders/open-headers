@@ -27,6 +27,8 @@ export type {
   LiveWorkflowRunSnapshot,
   StartTestRunResult,
   StorageInvalidationKind,
+  StorageQuotaBreakdownWire,
+  StorageQuotaWire,
   StorageScopeWire,
   WorkspaceSnapshot,
 } from '../protocol/channels';

@@ -19,11 +19,13 @@ import {
 import { useCacheBrowser } from '@openheaders/ui/panel/data/storage/use-cache-browser';
 import { useIdbBrowser } from '@openheaders/ui/panel/data/storage/use-idb-browser';
 import { type StorageSection, useStorageInspector } from '@openheaders/ui/panel/data/storage/use-storage-inspector';
+import { useStorageQuota } from '@openheaders/ui/panel/data/storage/use-storage-quota';
 import type {
   CacheEntriesPage,
   IdbDatabase,
   IdbRecordsPage,
   StorageInspectorHost,
+  StorageQuota,
 } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { act, cleanup, renderHook } from '@testing-library/react';
@@ -63,6 +65,12 @@ const CACHE_PAGE: CacheEntriesPage = {
   truncated: false,
 };
 
+const QUOTA: StorageQuota = {
+  usage: 4096,
+  quota: 120_000_000,
+  breakdown: [{ storageType: 'indexeddb', usage: 4096 }],
+};
+
 function installHost() {
   // Fresh arrays + fresh objects on every call — exactly what the wire
   // produces; the hooks own deduplication.
@@ -79,6 +87,7 @@ function installHost() {
   const readCacheEntries = vi.fn(() => Promise.resolve(structuredClone(CACHE_PAGE)));
   const deleteCache = vi.fn(() => Promise.resolve(true));
   const deleteCacheEntry = vi.fn(() => Promise.resolve(true));
+  const readQuota = vi.fn((): Promise<StorageQuota | null> => Promise.resolve(structuredClone(QUOTA)));
   const invalidationListeners = { indexeddb: new Set<() => void>(), cachestorage: new Set<() => void>() };
   const host: StorageInspectorHost = {
     listScopes,
@@ -94,6 +103,7 @@ function installHost() {
     deleteIndexedDbDatabase,
     listCaches,
     readCacheEntries,
+    readQuota,
     deleteCache,
     deleteCacheEntry,
     subscribeStorageInvalidations: (_tabId: number, kind: 'indexeddb' | 'cachestorage', listener: () => void) => {
@@ -114,6 +124,7 @@ function installHost() {
     deleteIndexedDbDatabase,
     listCaches,
     readCacheEntries,
+    readQuota,
     deleteCache,
     deleteCacheEntry,
     pushInvalidation: (kind: 'indexeddb' | 'cachestorage') => {
@@ -518,5 +529,71 @@ describe('useCacheBrowser poll stability', () => {
     });
     await flush();
     expect(result.current.mutationFailed).toBe(true);
+  });
+});
+
+describe('useStorageQuota poll stability', () => {
+  it('does nothing while inactive', async () => {
+    const { readQuota } = installHost();
+    renderHook(() => useStorageQuota(false, 0));
+
+    await flush(30_000);
+    expect(readQuota).not.toHaveBeenCalled();
+  });
+
+  it('keeps the snapshot identity across fresh-but-equal polls', async () => {
+    const { readQuota } = installHost();
+    const { result } = renderHook(() => useStorageQuota(true, 0));
+
+    await flush();
+    await flush();
+    const snapshot = result.current.quota;
+    expect(snapshot).toEqual(QUOTA);
+    expect(result.current.loading).toBe(false);
+
+    // Two poll ticks (10s each) return fresh-but-equal data — the
+    // identity must hold and reads must be one per tick.
+    const readsBefore = readQuota.mock.calls.length;
+    await flush(20_000);
+    expect(result.current.quota).toBe(snapshot);
+    expect(readQuota.mock.calls.length).toBe(readsBefore + 2);
+  });
+
+  it('renders unreadable (null) as terminal once loading settles, keeping the last snapshot on later failures', async () => {
+    const { readQuota } = installHost();
+    readQuota.mockImplementation(() => Promise.resolve(null));
+    const { result } = renderHook(() => useStorageQuota(true, 0));
+
+    await flush();
+    await flush();
+    expect(result.current.quota).toBeNull();
+    expect(result.current.loading).toBe(false);
+
+    readQuota.mockImplementation(() => Promise.resolve(structuredClone(QUOTA)));
+    await flush(10_000);
+    expect(result.current.quota).toEqual(QUOTA);
+
+    readQuota.mockImplementation(() => Promise.resolve(null));
+    await flush(10_000);
+    expect(result.current.quota).toEqual(QUOTA);
+  });
+
+  it('drops the old scope snapshot when the frame changes', async () => {
+    installHost();
+    const { result, rerender } = renderHook(({ frameId }: { frameId: number }) => useStorageQuota(true, frameId), {
+      initialProps: { frameId: 0 },
+    });
+
+    await flush();
+    await flush();
+    expect(result.current.quota).toEqual(QUOTA);
+
+    rerender({ frameId: 7 });
+    expect(result.current.quota).toBeNull();
+    expect(result.current.loading).toBe(true);
+
+    await flush();
+    await flush();
+    expect(result.current.quota).toEqual(QUOTA);
   });
 });

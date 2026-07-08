@@ -105,6 +105,23 @@ export interface CacheEntriesPage {
   truncated: boolean;
 }
 
+/** One per-type row of a storage usage breakdown (attached tabs only). */
+export interface StorageQuotaBreakdownRow {
+  storageType: string;
+  usage: number;
+}
+
+/**
+ * A scope's storage usage against its origin quota, in bytes.
+ * `breakdown` is present only when the host's CDP tier answered — the
+ * standard plane reports totals only.
+ */
+export interface StorageQuota {
+  usage: number;
+  quota: number;
+  breakdown?: ReadonlyArray<StorageQuotaBreakdownRow>;
+}
+
 /** Which storage type a host-pushed invalidation says went stale. */
 export type StorageInvalidationKind = 'indexeddb' | 'cachestorage';
 
@@ -154,6 +171,9 @@ export interface StorageInspectorHost {
     page: number,
     pageSize: number,
   ): Promise<CacheEntriesPage | null>;
+  /** Read the scope's storage usage against its origin quota; `null`
+   *  when neither transport can answer (non-secure context, frame gone). */
+  readQuota(tabId: number, frameId: number): Promise<StorageQuota | null>;
   /** Delete a whole named cache; `false` on any failure. */
   deleteCache(tabId: number, frameId: number, cache: string): Promise<boolean>;
   /** Delete one cache entry by its request URL (+ method, see the read shape). */

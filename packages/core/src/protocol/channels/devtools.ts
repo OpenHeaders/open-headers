@@ -140,6 +140,23 @@ export interface CacheEntryWire {
   headersPreview?: string;
 }
 
+/** One per-type row of a storage usage breakdown (CDP tier only). */
+export interface StorageQuotaBreakdownWire {
+  storageType: string;
+  usage: number;
+}
+
+/**
+ * A scope's storage usage against its origin quota, in bytes.
+ * `breakdown` is present only when the CDP tier answered — the standard
+ * plane (`navigator.storage.estimate()`) reports totals only.
+ */
+export interface StorageQuotaWire {
+  usage: number;
+  quota: number;
+  breakdown?: ReadonlyArray<StorageQuotaBreakdownWire>;
+}
+
 export interface DevToolsRpc {
   // ── DevTools panel: source-map resolution ──────────────────────
   /**
@@ -362,6 +379,19 @@ export interface DevToolsRpc {
   getCacheStorageEntries: {
     req: { tabId: number; frameId: number; cache: string; page: number; pageSize: number };
     res: { entries: ReadonlyArray<CacheEntryWire> | null; truncated?: boolean };
+  };
+
+  /**
+   * Read one scope's storage usage against its origin quota. Arbitrated
+   * like the Cache Storage reads: `Storage.getUsageAndQuota` (with the
+   * per-type breakdown) when the tab is CDP-attached, degrading to an
+   * injected `navigator.storage.estimate()` (totals only, secure
+   * contexts) on any failure. `quota` is `null` when neither transport
+   * can answer.
+   */
+  getStorageQuota: {
+    req: { tabId: number; frameId: number };
+    res: { quota: StorageQuotaWire | null };
   };
 
   /** Delete a whole named cache. */

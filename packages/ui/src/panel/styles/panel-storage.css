@@ -347,6 +347,80 @@
   text-overflow: ellipsis;
 }
 
+/* Usage section — the scope's usage-vs-quota card with the per-type
+ * breakdown rows (present only while the CDP tier answers). */
+.dt-storage-quota {
+  padding: 10px 12px;
+  font-size: 11px;
+  max-width: 420px;
+}
+
+.dt-storage-quota-total {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.dt-storage-quota-usage {
+  color: var(--dt-text);
+  font-weight: 600;
+}
+
+.dt-storage-quota-limit {
+  color: var(--dt-text-muted);
+}
+
+.dt-storage-quota-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--dt-pill-active-bg);
+  overflow: hidden;
+}
+
+.dt-storage-quota-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--dt-pill-active-text);
+}
+
+.dt-storage-quota-rows {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 3px;
+}
+
+.dt-storage-quota-row {
+  display: contents;
+}
+
+.dt-storage-quota-row-label {
+  color: var(--dt-text);
+  white-space: nowrap;
+}
+
+.dt-storage-quota-row-size {
+  color: var(--dt-text-muted);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.dt-storage-quota-row-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--dt-pill-active-bg);
+  overflow: hidden;
+}
+
+.dt-storage-quota-hint {
+  margin-top: 10px;
+  color: var(--dt-text-muted);
+}
+
 /* Hover action lane — floats over the value cell's right edge, revealed
  * on row hover (focused-content affordance stays reachable by keyboard:
  * focus-within reveals it too). Pinned variant (add/edit rows) is always

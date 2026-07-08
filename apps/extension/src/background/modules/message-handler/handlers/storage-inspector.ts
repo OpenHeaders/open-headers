@@ -1,4 +1,4 @@
-/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads/deletes + Cache Storage reads. */
+/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads/deletes + Cache Storage reads + quota. */
 
 import type { DomStorageAreaWire } from '@openheaders/core/bridge';
 import { logger } from '@utils/logger';
@@ -13,6 +13,7 @@ import {
   getDomStorageEntries as getDomStorageEntriesHandler,
   getDomStorageValue as getDomStorageValueHandler,
   getIndexedDbRecords as getIndexedDbRecordsHandler,
+  getStorageQuota as getStorageQuotaHandler,
   listCacheStorageCaches as listCacheStorageCachesHandler,
   listIndexedDbDatabases as listIndexedDbDatabasesHandler,
   listStorageScopes as listStorageScopesHandler,
@@ -198,6 +199,16 @@ export const storageInspectorHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('StorageCaches', `handler threw: ${err.message}`);
         respond({ ok: false });
+      });
+    return true;
+  },
+
+  getStorageQuota: ({ message, respond }) => {
+    getStorageQuotaHandler(message.tabId as number, message.frameId as number)
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageQuota', `handler threw: ${err.message}`);
+        respond({ quota: null });
       });
     return true;
   },

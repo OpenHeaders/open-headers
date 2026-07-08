@@ -8,7 +8,7 @@
  * visibility-gated polling; writes ride the same plane and refetch
  * through the read path. Cookies reuse the shipped jar plane — the poll
  * tick invalidates the jar cache and the sticky hook refetches.
- * IndexedDB / Cache Storage / quota arrive in later slices.
+ * IndexedDB, Cache Storage and Usage (quota) ride their own hooks.
  */
 
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -28,6 +28,7 @@ import type { DomStorageEntry } from '../../data/storage/storage-inspector-host'
 import { parseStorageKey } from '../../data/storage/storage-key';
 import { useCacheBrowser } from '../../data/storage/use-cache-browser';
 import { useIdbBrowser } from '../../data/storage/use-idb-browser';
+import { useStorageQuota } from '../../data/storage/use-storage-quota';
 import {
   type StorageInspectorState,
   type StorageSection,
@@ -38,6 +39,7 @@ import { CacheStorageSection } from './CacheStorageSection';
 import { CookiesSection } from './CookiesSection';
 import { IndexedDbSection } from './IndexedDbSection';
 import { StorageGrid } from './StorageGrid';
+import { StorageQuotaCard } from './StorageQuotaCard';
 
 interface StoragePanelProps {
   onHide: () => void;
@@ -49,11 +51,18 @@ const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string }> = [
   { value: 'cookies', label: 'Cookies' },
   { value: 'indexeddb', label: 'IndexedDB' },
   { value: 'cachestorage', label: 'Cache Storage' },
+  { value: 'quota', label: 'Usage' },
 ];
 
 function areaName(section: StorageSection): string {
   return section === 'session' ? 'sessionStorage' : 'localStorage';
 }
+
+const READ_ONLY_ADD_TITLES = {
+  indexeddb: 'IndexedDB is read-only here',
+  cachestorage: 'Cache Storage is read-only here',
+  quota: 'Usage is read-only',
+} as const;
 
 export function StoragePanel({ onHide }: StoragePanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
@@ -80,9 +89,10 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
   const selectedScope = inspector.scopes.find((s) => s.origin === inspector.selectedOrigin) ?? null;
   const partition = selectedScope?.storageKey ? parseStorageKey(selectedScope.storageKey) : null;
 
-  // ── IndexedDB / Cache Storage section data (own hooks, own polls) ──
+  // ── IndexedDB / Cache Storage / Usage section data (own hooks, own polls) ──
   const idb = useIdbBrowser(section === 'indexeddb', selectedScope?.frameId ?? null);
   const cacheStorage = useCacheBrowser(section === 'cachestorage', selectedScope?.frameId ?? null);
+  const quota = useStorageQuota(section === 'quota', selectedScope?.frameId ?? null);
 
   // ── Cookies section data + write plumbing (jar plane reuse) ────────
   const scopeUrl = selectedScope?.url ?? '';
@@ -183,13 +193,13 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
                   <PlusOutlined />
                 </button>
               </CookieEditPopover>
-            ) : section === 'indexeddb' || section === 'cachestorage' ? (
+            ) : section === 'indexeddb' || section === 'cachestorage' || section === 'quota' ? (
               <button
                 type="button"
                 className="dt-toolbar-icon"
                 disabled
-                title={section === 'indexeddb' ? 'IndexedDB is read-only here' : 'Cache Storage is read-only here'}
-                aria-label={section === 'indexeddb' ? 'IndexedDB is read-only' : 'Cache Storage is read-only'}
+                title={READ_ONLY_ADD_TITLES[section]}
+                aria-label={READ_ONLY_ADD_TITLES[section]}
               >
                 <PlusOutlined />
               </button>
@@ -212,6 +222,7 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
                 inspector.refresh();
                 if (section === 'indexeddb') idb.refresh();
                 if (section === 'cachestorage') cacheStorage.refresh();
+                if (section === 'quota') quota.refresh();
               }}
               title="Refresh"
               aria-label="Refresh storage"
@@ -278,12 +289,14 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
                 onApplyEdit={applyCookieEdit}
                 onDelete={deleteCookie}
               />
-            ) : section === 'indexeddb' || section === 'cachestorage' ? (
+            ) : section === 'indexeddb' || section === 'cachestorage' || section === 'quota' ? (
               inspector.available && inspector.scopes.length > 0 ? (
                 section === 'indexeddb' ? (
                   <IndexedDbSection idb={idb} filter={textFilter} />
-                ) : (
+                ) : section === 'cachestorage' ? (
                   <CacheStorageSection cache={cacheStorage} filter={textFilter} />
+                ) : (
+                  <StorageQuotaCard quota={quota} />
                 )
               ) : (
                 <div className="dt-empty-hero">

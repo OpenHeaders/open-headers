@@ -4,8 +4,9 @@
  * writes via injection in `standard-plane.ts`; IndexedDB paged reads in
  * `standard-plane-idb.ts`; Cache Storage arbitrated in `caches.ts` over
  * the injected (`standard-plane-caches.ts`) and CDP
- * (`cdp-plane-caches.ts`) transports. CDP-backed storage-key stamping +
- * invalidation tracking in `cdp-tier.ts`.
+ * (`cdp-plane-caches.ts`) transports; quota arbitrated the same way in
+ * `quota.ts`. CDP-backed storage-key stamping + invalidation tracking in
+ * `cdp-tier.ts`.
  */
 
 export {
@@ -15,6 +16,7 @@ export {
   listCacheStorageCaches,
 } from './caches';
 export { armStorageTracking, registerStorageCdpAccess, type StorageCdpAccess } from './cdp-tier';
+export { getStorageQuota } from './quota';
 export { listStorageScopes } from './scopes';
 export {
   clearDomStorage,

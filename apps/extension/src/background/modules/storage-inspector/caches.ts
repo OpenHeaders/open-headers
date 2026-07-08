@@ -8,14 +8,15 @@
  * instead of erroring.
  *
  * The CDP domain addresses caches per security origin, derived SW-side
- * from the target frame (`webNavigation.getFrame`) — never trusted from
- * the panel. Page/pageSize clamps live here so both transports see the
- * same bounds.
+ * through the shared `frame-origin.ts` helper — never trusted from the
+ * panel. Page/pageSize clamps live here so both transports see the same
+ * bounds.
  */
 
 import type { CacheEntryWire, CacheStorageCacheWire } from '@openheaders/core/bridge';
 import { deleteCacheEntryViaCdp, deleteCacheViaCdp, getCacheEntriesViaCdp, listCachesViaCdp } from './cdp-plane-caches';
 import { getAttachedStorageCdpSend } from './cdp-tier';
+import { frameSecurityOrigin } from './frame-origin';
 import {
   CACHE_PAGE_SIZE_DEFAULT,
   CACHE_PAGE_SIZE_MAX,
@@ -25,18 +26,6 @@ import {
   getCacheEntriesInjected,
   listCachesInjected,
 } from './standard-plane-caches';
-
-async function frameSecurityOrigin(tabId: number, frameId: number): Promise<string | null> {
-  if (!chrome.webNavigation?.getFrame) return null;
-  try {
-    const frame = await chrome.webNavigation.getFrame({ tabId, frameId });
-    if (!frame?.url) return null;
-    const url = new URL(frame.url);
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : null;
-  } catch {
-    return null;
-  }
-}
 
 export async function listCacheStorageCaches(
   tabId: number,

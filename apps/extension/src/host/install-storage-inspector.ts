@@ -18,6 +18,7 @@ import type {
   IdbDatabase,
   IdbRecordsPage,
   StorageInvalidationKind,
+  StorageQuota,
   StorageScope,
 } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
@@ -175,6 +176,15 @@ setStorageInspectorHost({
       return { entries: res.entries, truncated: res.truncated ?? false };
     } catch (err) {
       logger.info('StorageInspectorHost', `readCacheEntries ✗ tab ${tabId}: ${(err as Error).message}`);
+      return null;
+    }
+  },
+  async readQuota(tabId: number, frameId: number): Promise<StorageQuota | null> {
+    try {
+      const res = await call('getStorageQuota', { tabId, frameId });
+      return res?.quota ?? null;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `readQuota ✗ tab ${tabId}: ${(err as Error).message}`);
       return null;
     }
   },

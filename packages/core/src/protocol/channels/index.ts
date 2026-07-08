@@ -57,6 +57,8 @@ export type {
   JarCookieEditWire,
   JarCookieKeyWire,
   JarCookieWire,
+  StorageQuotaBreakdownWire,
+  StorageQuotaWire,
   StorageScopeWire,
 } from './devtools';
 export type { EnvironmentsSnapshot } from './environments';
