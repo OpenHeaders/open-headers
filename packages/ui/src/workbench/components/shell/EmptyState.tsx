@@ -16,6 +16,7 @@ import type React from 'react';
 import { forwardRef } from 'react';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import { useSettingValue } from '../../settings/hooks';
+import CappedMenuPopup from '../shared/CappedMenuPopup';
 import { scopeBadge } from '../shared/scope-colors';
 
 const { Text } = Typography;
@@ -119,11 +120,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <div className="oh-empty-heading-spacer" aria-hidden="true" />
       <div className="oh-empty-actions">
         <Dropdown
-          menu={{
-            items: buildRuleTypeMenuItems(onCreateRule),
-            className: 'oh-persistent-scroll',
-            style: ruleMenuFit.maxHeight != null ? { maxHeight: ruleMenuFit.maxHeight } : undefined,
-          }}
+          menu={{ items: buildRuleTypeMenuItems(onCreateRule) }}
+          popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={ruleMenuFit.maxHeight} />}
           trigger={['click']}
           autoAdjustOverflow={false}
           onOpenChange={ruleMenuFit.onOpenChange}
@@ -138,11 +136,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           />
         </Dropdown>
         <Dropdown
-          menu={{
-            items: buildVariableScopeMenuItems(onCreateVariable),
-            className: 'oh-persistent-scroll',
-            style: variableMenuFit.maxHeight != null ? { maxHeight: variableMenuFit.maxHeight } : undefined,
-          }}
+          menu={{ items: buildVariableScopeMenuItems(onCreateVariable) }}
+          popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={variableMenuFit.maxHeight} />}
           trigger={['click']}
           autoAdjustOverflow={false}
           onOpenChange={variableMenuFit.onOpenChange}

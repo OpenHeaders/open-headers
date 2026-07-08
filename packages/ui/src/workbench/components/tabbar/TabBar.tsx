@@ -27,6 +27,7 @@ import { useDragIntent } from '../../drag-intent';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import type { ClosedTab, WorkbenchTab } from '../../types';
+import CappedMenuPopup from '../shared/CappedMenuPopup';
 import CrossLeafInsertionMarker from './CrossLeafInsertionMarker';
 import OverlayScrollThumb from './OverlayScrollThumb';
 import SortableTab from './SortableTab';
@@ -297,9 +298,20 @@ const TabBar: React.FC<TabBarProps> = ({
     onOpenChange: measureCreateMenu,
     maxHeight: createMenuMaxHeight,
   } = usePopoverViewportFit<HTMLDivElement>();
+  // Horizontal side: open rightward by default (`bottomLeft`), flip to
+  // extend leftward only when the right side lacks room — with the
+  // sidebar collapsed the `+` sits near the viewport's left edge, where
+  // a left-extending menu would run off-screen. Width is an estimate of
+  // the widest row since the menu isn't rendered at measure time.
+  const [createMenuPlacement, setCreateMenuPlacement] = useState<'bottomLeft' | 'bottomRight'>('bottomLeft');
   useEffect(() => {
     measureCreateMenu(createMenuOpen === true);
-  }, [createMenuOpen, measureCreateMenu]);
+    if (createMenuOpen !== true) return;
+    const rect = createTriggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const CREATE_MENU_WIDTH_PX = 320;
+    setCreateMenuPlacement(window.innerWidth - rect.left >= CREATE_MENU_WIDTH_PX ? 'bottomLeft' : 'bottomRight');
+  }, [createMenuOpen, measureCreateMenu, createTriggerRef]);
 
   // "Create API Request" leads the menu; the fixed-width icon slot
   // matches the rule rows' 48px code badges so labels stay aligned.
@@ -420,13 +432,10 @@ const TabBar: React.FC<TabBarProps> = ({
           last tab; when tabs overflow, the strip shrinks and + stays
           anchored at the strip's right edge (visually "sticky"). */}
       <Dropdown
-        menu={{
-          items: createMenuItems,
-          className: 'oh-persistent-scroll',
-          style: createMenuMaxHeight != null ? { maxHeight: createMenuMaxHeight } : undefined,
-        }}
+        menu={{ items: createMenuItems }}
+        popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={createMenuMaxHeight} />}
         trigger={['click']}
-        placement="bottomRight"
+        placement={createMenuPlacement}
         autoAdjustOverflow={false}
         open={createMenuOpen}
         onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
