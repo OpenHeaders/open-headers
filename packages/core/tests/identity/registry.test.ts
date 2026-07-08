@@ -35,6 +35,7 @@ import {
   recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
   renameHomeOrg,
+  setPinnedBackendIds,
 } from '../../src/identity';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { type JoinedOrgRecord, OH } from '../../src/storage/keys';
@@ -370,6 +371,26 @@ describe('identity registry — Org→backend bindings + claimJoinedOrg (MULTI_B
     expect(result.outcome).toBe('joined');
     expect(result.outcome === 'joined' && result.firstJoin).toBe(false);
     expect(await hostStorage.get(OH.joinedOrgs)).toBeUndefined();
+  });
+
+  it('folds Orgs bound to a pinned backend id with no OH.backends record (cipher-less web host)', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    setPinnedBackendIds([BACKEND_A]);
+    // No seedBackends — the slot stays absent, as on a host whose
+    // sensitive OH.backends slot refuses reads.
+    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_A);
+    expect(result.outcome).toBe('joined');
+    const snapshot = await refreshIdentitySnapshotFromHostStorage();
+    expect(authorizedOrgIds(snapshot).has(BACKEND_ORG.id)).toBe(true);
+    expect(getOrgBackendBindings().get(BACKEND_ORG.id)).toBe(BACKEND_A);
+  });
+
+  it('never treats a binding to a pinned backend as stale — a claim from another id is refused', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    setPinnedBackendIds([BACKEND_A]);
+    await claimJoinedOrg(BACKEND_ORG, BACKEND_A);
+    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_B);
+    expect(result).toEqual({ outcome: 'refused', boundBackendId: BACKEND_A });
   });
 
   it('serializes two concurrent claims of the same Org — exactly one wins', async () => {

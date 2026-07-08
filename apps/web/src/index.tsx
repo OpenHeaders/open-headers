@@ -14,7 +14,10 @@ import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { bootWebHost } from '@/host/boot-web-host';
+import { installDaemonWire } from '@/host/daemon-wire';
+import { decideGate } from '@/host/join-gate';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
+import { LoginGate } from '@/LoginGate';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
 import '@openheaders/ui/workbench/styles/rule-flow.less';
@@ -34,15 +37,41 @@ await bootWebHost();
 // full rationale.
 eagerInitRendererMirrors();
 
+const wire = installDaemonWire();
+
 const container = document.getElementById('root');
 const root = createRoot(container!);
 
-root.render(
-  <SettingsProvider>
-    <ThemeProvider>
-      <AntApp>
-        <Workbench resolveIdentity={resolveWorkbenchIdentity} />
-      </AntApp>
-    </ThemeProvider>
-  </SettingsProvider>,
-);
+function renderShell(children: React.ReactNode): void {
+  root.render(
+    <SettingsProvider>
+      <ThemeProvider>
+        <AntApp>{children}</AntApp>
+      </ThemeProvider>
+    </SettingsProvider>,
+  );
+}
+
+function mountWorkbench(): void {
+  // Latch the wire on (idempotent — the gate's accepted handshake is
+  // already this same connection) and mount.
+  wire.start();
+  renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />);
+}
+
+// Login gate: a reachable daemon with no stored pairing token gates the
+// mount; the entered token is validated by a real HELLO/WELCOME before
+// it persists. An unreachable daemon (or a stored token) mounts
+// straight away — the tab is offline-first, the wire joins in the
+// background. "Skip" keeps the tab local without dialing.
+if ((await decideGate()) === 'gate') {
+  renderShell(
+    <LoginGate
+      wire={wire}
+      onJoined={mountWorkbench}
+      onSkip={() => renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />)}
+    />,
+  );
+} else {
+  mountWorkbench();
+}

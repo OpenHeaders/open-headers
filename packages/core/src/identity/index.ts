@@ -84,6 +84,7 @@ export {
   recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
   renameHomeOrg,
+  setPinnedBackendIds,
 } from './registry';
 export {
   authorizedOrgIds,

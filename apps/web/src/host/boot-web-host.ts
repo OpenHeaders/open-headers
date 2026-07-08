@@ -22,6 +22,7 @@ import {
   getIdentitySnapshot,
   refreshIdentitySnapshotFromHostStorage,
   setAuditSink,
+  setPinnedBackendIds,
 } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { hostStorage, OH } from '@openheaders/core/storage';
@@ -32,7 +33,13 @@ import {
 } from '@openheaders/core/sync';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
-import { setActivityMuteStore, setOracleHostHooks } from '@openheaders/oracle/sync';
+import {
+  hasRecentlyApplied,
+  setActivityMuteStore,
+  setOracleHostHooks,
+  setOutboundEchoGuard,
+  setOutboundReachGuard,
+} from '@openheaders/oracle/sync';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import {
   bootstrap as bootstrapWorkspaces,
@@ -47,7 +54,11 @@ import { IdbBlobBackend } from '@openheaders/oracle-host-browser/files/idb-blob-
 import { IdbAuditLog } from '@openheaders/oracle-host-browser/sync/idb-audit-log';
 import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-browser/sync/idb-sync-persistence';
 import { getStatusSnapshot, report, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
+import { hydrateDaemonToken } from './daemon-token';
+import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 import { broadcastLocal } from './web-broadcast';
+import { isServedOriginLoopback } from './wire-inbound';
+import { forwardAwarenessOverWire, forwardMutationOverWire, setWirePendingOutQueue } from './wire-outbound';
 
 const SCOPE = 'boot-web-host';
 
@@ -59,6 +70,19 @@ export async function bootWebHost(): Promise<void> {
   const syncPersistence = createIdbSyncPersistenceProvider();
   setSyncPersistenceProvider(syncPersistence);
   setActivityMuteStore(syncPersistence.createActivityMuteStore?.() ?? null);
+
+  // Single-wire seams (Phase 4b B2). The serving daemon is the tab's
+  // one backend, present by construction — pin its fixed id so joined
+  // Orgs fold without an `OH.backends` record (that slot is sensitive
+  // and this cipher-less host refuses it). Echo guard pairs with the
+  // inbound bridge's seen-set; the reach guard keeps same-device-only
+  // mutations off a non-loopback daemon's wire (no vault can be minted
+  // here yet, but the floor is the law, not the current entity set).
+  setPinnedBackendIds([WEB_DAEMON_BACKEND_ID]);
+  setOutboundEchoGuard(hasRecentlyApplied);
+  setOutboundReachGuard(() => !isServedOriginLoopback());
+  setWirePendingOutQueue(syncPersistence.createPendingOutQueue?.() ?? null);
+  await hydrateDaemonToken();
 
   // U1.6 / U1.7 — materialize the synthetic identity-row tuple before
   // any privileged-path code runs. Idempotent across boots; failures
@@ -87,16 +111,18 @@ export async function bootWebHost(): Promise<void> {
   // 2. Oracle host hooks. The tab has no rule engine and no resolver
   //    cache to invalidate; every optional hook the oracle calls
   //    degrades gracefully when absent. Broadcasts fan out to the
-  //    in-tab surfaces only — cross-host forwarding is Phase 4b's WS
-  //    join.
+  //    in-tab surfaces AND up the single wire — the outbound gate
+  //    inside the forwarder decides what may cross.
   setOracleHostHooks({
     getActiveWorkspaceId,
     peekActiveWorkspaceId,
     broadcastSyncEvent: (event) => {
       broadcastLocal('syncBroadcast', event);
+      forwardMutationOverWire(event);
     },
     broadcastAwareness: (event) => {
       broadcastLocal('awarenessBroadcast', event);
+      forwardAwarenessOverWire(event);
     },
     reportStatus: (entry) =>
       report({

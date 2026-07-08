@@ -291,6 +291,16 @@ export const OH = {
    */
   backends: storageKey<BackendConnection[]>('oh.backends', { sensitive: true }),
   /**
+   * The web tab's paired daemon access token. The tab has exactly one
+   * backend — the daemon that served it (`wss://<location.host>`) — so
+   * a single origin-scoped slot replaces the {@link OH.backends}
+   * registry there. Deliberately NOT a sensitive slot: the web host has
+   * no at-rest cipher (sensitive slots refuse writes), and the token
+   * lives in the same origin-scoped IDB the daemon's own data already
+   * occupies — the tab's trust boundary IS the origin.
+   */
+  webBackendToken: storageKey<string>('oh.webBackendToken'),
+  /**
    * Per-Org remembered active workspace — `orgId → workspaceId` (Phase
    * U5.9, the org switcher). Each Org keeps its own last-active
    * workspace; switching the active Org restores its entry here so the

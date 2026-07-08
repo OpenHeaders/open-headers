@@ -33,6 +33,25 @@ export function getOrgBackendBindings(): ReadonlyMap<string, string> {
   return orgBackendBindings;
 }
 
+/**
+ * Backend ids that exist on this host by construction rather than as
+ * `OH.backends` records. The fold-by-presence filter treats them as
+ * always present, and {@link claimJoinedOrg} never classifies a binding
+ * to one of them as stale.
+ *
+ * The web host is the motivating case: its single backend is the daemon
+ * that served the tab — there is nothing to configure and nothing to
+ * remove, so no registry record represents it. `OH.backends` is also a
+ * sensitive slot, unreadable on a cipher-less host, which would
+ * otherwise unfold every joined Org on refresh.
+ */
+let pinnedBackendIds: ReadonlySet<string> = new Set();
+
+/** Declare the host's by-construction backend ids. Host boot wiring only. */
+export function setPinnedBackendIds(ids: readonly string[]): void {
+  pinnedBackendIds = new Set(ids);
+}
+
 export interface InstallIdentitySnapshotInput {
   record: SyntheticIdentityRecord;
   wras: ReadonlyArray<WorkspaceRoleAssignment>;
@@ -80,6 +99,7 @@ export function getIdentitySnapshot(): IdentitySnapshot | null {
 export function clearIdentitySnapshot(): void {
   current = null;
   orgBackendBindings = new Map();
+  pinnedBackendIds = new Set();
 }
 
 /**
@@ -113,6 +133,7 @@ export function refreshIdentitySnapshotFromHostStorage(): Promise<IdentitySnapsh
     const wras = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
     const joinedRecords = (await hostStorage.get(OH.joinedOrgs)) ?? [];
     const backendIds = new Set(((await hostStorage.get(OH.backends)) ?? []).map((b) => b.id));
+    for (const id of pinnedBackendIds) backendIds.add(id);
     // Fold-by-presence: an Org stays folded while its backend record
     // exists in `OH.backends`, enabled or not — the kill switch stops
     // the wire, never the local usability of already-synced workspaces.
@@ -254,7 +275,7 @@ export async function claimJoinedOrg(org: Org, backendId: string): Promise<Claim
     const known = existing.find((row) => row?.org?.id === normalized.id);
     if (known && known.backendId !== backendId) {
       const backends = (await hostStorage.get(OH.backends)) ?? [];
-      if (backends.some((b) => b.id === known.backendId)) {
+      if (pinnedBackendIds.has(known.backendId) || backends.some((b) => b.id === known.backendId)) {
         boundBackendId = known.backendId;
         return;
       }
