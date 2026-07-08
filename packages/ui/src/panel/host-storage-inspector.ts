@@ -22,6 +22,8 @@ export type {
   IdbObjectStore,
   IdbRecord,
   IdbRecordDocument,
+  IdbRecordPreviewEntry,
+  IdbRecordPreviewNode,
   IdbRecordsPage,
   IdbRecordWriteFailure,
   IdbRecordWriteResult,

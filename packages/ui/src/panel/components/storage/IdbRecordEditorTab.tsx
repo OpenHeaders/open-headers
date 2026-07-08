@@ -4,8 +4,9 @@
  * host seam (independent of the Storage tool window, which may be
  * hidden) and renders it full-width: Source is a Monaco view of the
  * exact JSON (or the read-only JSON-ish rendering for non-JSON values),
- * Preview is a collapsible tree over the parsed JSON. The breadcrumb's
- * "Reveal in Storage" links back to the originating store.
+ * Preview is a collapsible tree — parsed JSON for editable documents,
+ * the host-serialized preview tree for everything else. The
+ * breadcrumb's "Reveal in Storage" links back to the originating store.
  *
  * Editing: exact-JSON documents (`editable: true`) edit in place in the
  * Source view. Dirty derives from draft-vs-document equality; Save puts
@@ -24,6 +25,7 @@ import { getStorageInspectorHost } from '../../data/storage/storage-inspector-ho
 import Skeleton from '../detail/Skeleton';
 import { JsonTree } from '../JsonTree';
 import { ArmedIconButton } from './ArmedIconButton';
+import { IdbPreviewTree } from './IdbPreviewTree';
 
 // Lazy like every other Monaco consumer — a static import here would
 // pull Monaco back into the panel's initial chunk.
@@ -43,9 +45,15 @@ const WRITE_FAILURE_NOTES: Record<IdbRecordWriteFailure, string> = {
 interface IdbRecordEditorTabProps {
   tab: IdbRecordInspectorTab;
   onRevealInStorage: (database: string, store: string) => void;
+  /** Mirrors the derived dirty state up into the tab (pill dot, close guard). */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Registers this tab's save action for the close guard's "Save
+   *  changes" path; called with `null` on unmount. Resolves whether the
+   *  save committed. */
+  registerSave?: (save: (() => Promise<boolean>) | null) => void;
 }
 
-export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTabProps) {
+export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, registerSave }: IdbRecordEditorTabProps) {
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
   // The Source edit buffer; null ⇒ pristine (mirrors the document).
@@ -80,10 +88,14 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
   const sourceText = draftText ?? doc?.text ?? '';
   const dirty = doc?.editable === true && draftText !== null && draftText !== doc.text;
 
-  const handleSave = useCallback(async () => {
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  const handleSave = useCallback(async (): Promise<boolean> => {
     const host = getStorageInspectorHost();
     const tabId = hostNavigation.inspectedTabId();
-    if (!host || tabId === null || draftText === null) return;
+    if (!host || tabId === null || draftText === null) return false;
     setSaving(true);
     const result = await host.writeIndexedDbRecord(tabId, frameId, database, store, primaryKeyWire, draftText);
     setSaving(false);
@@ -91,10 +103,16 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
       // Commit-then-refetch through the read path — the document becomes
       // the store's truth again (the list poll picks up the preview).
       await fetchDocument();
-    } else {
-      setSaveError(result.reason ?? 'write');
+      return true;
     }
+    setSaveError(result.reason ?? 'write');
+    return false;
   }, [draftText, frameId, database, store, primaryKeyWire, fetchDocument]);
+
+  useEffect(() => {
+    registerSave?.(handleSave);
+    return () => registerSave?.(null);
+  }, [registerSave, handleSave]);
 
   // Preview parses what's on screen — the draft while editing — so it
   // never shows stale content; mid-edit invalid JSON just disables it.
@@ -106,7 +124,9 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
       return undefined;
     }
   }, [doc, sourceText]);
-  const canPreview = doc !== null && previewValue !== undefined;
+  // Editable documents preview the parsed draft; read-only documents
+  // preview the host-serialized bounded tree.
+  const canPreview = doc !== null && (previewValue !== undefined || doc.preview !== undefined);
   const effectiveMode: ViewMode = mode === 'preview' && canPreview ? 'preview' : 'source';
 
   const note =
@@ -134,7 +154,7 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
             aria-selected={effectiveMode === 'preview'}
             data-active={effectiveMode === 'preview'}
             disabled={!canPreview}
-            title={canPreview ? 'Collapsible tree over the record value' : 'Preview needs an exact-JSON record value'}
+            title={canPreview ? 'Collapsible tree over the record value' : 'Preview needs a well-formed document'}
             onClick={() => setMode('preview')}
           >
             Preview
@@ -207,7 +227,11 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
         </div>
       ) : effectiveMode === 'preview' ? (
         <div className="dt-idbdoc-preview" aria-label="Record value tree">
-          <JsonTree value={previewValue} defaultExpandedDepth={2} />
+          {previewValue !== undefined ? (
+            <JsonTree value={previewValue} defaultExpandedDepth={2} />
+          ) : slot.preview !== undefined ? (
+            <IdbPreviewTree node={slot.preview} defaultExpandedDepth={2} />
+          ) : null}
         </div>
       ) : (
         <div className="dt-idbdoc-source">

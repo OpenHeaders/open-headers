@@ -137,19 +137,47 @@ export interface IdbRecordWire {
 }
 
 /**
+ * One entry of a preview container: `key` is the full display prefix
+ * (property name with separator — `"name": `, `0: `, `"a" => `),
+ * already rendered in-page so map keys and object props share one
+ * channel.
+ */
+export interface IdbRecordPreviewEntryWire {
+  key: string;
+  node: IdbRecordPreviewNodeWire;
+}
+
+/**
+ * Bounded, type-tagged preview tree of a record value that can't ship
+ * as JSON — what the editor's Preview mode expands, mirroring the
+ * browser's own object-tree view of an IndexedDB record. `atom` leaves
+ * are real JSON scalars (`type` picks the syntax color) or console
+ * vocabulary (`tag`: `Date("…")`, `ArrayBuffer(8 B)`, `undefined`,
+ * `[Circular]`, cap stubs); `container` nodes carry a summary label
+ * (`{3}`, `Array(2)`, `Map(1)`) plus their entries. Serialized in-page
+ * with depth/entry/node budgets, never the value itself.
+ */
+export type IdbRecordPreviewNodeWire =
+  | { kind: 'atom'; type: 'string' | 'number' | 'boolean' | 'null' | 'tag'; text: string }
+  | { kind: 'container'; label: string; entries: ReadonlyArray<IdbRecordPreviewEntryWire> };
+
+/**
  * One record's value as a full text document, serialized in-page.
  * A strictly JSON-safe value (the common case) ships as canonical
  * pretty-printed JSON with `editable: true` — the text round-trips
  * exactly through `JSON.parse`. A value carrying non-JSON
  * structured-clone types (Date, Map, Set, binary, Blob, `undefined`,
  * cycles…) ships as a readable JSON-ish rendering with
- * `editable: false` — never silently coerced into lossy JSON.
- * `truncated` marks a document cut at the size cap (always read-only).
+ * `editable: false` — never silently coerced into lossy JSON — plus
+ * `preview`, the bounded tree Preview mode expands.
+ * `truncated` marks a document cut at the size cap (always read-only,
+ * also carries `preview` so the value stays explorable).
  */
 export interface IdbRecordDocumentWire {
   text: string;
   editable: boolean;
   truncated?: boolean;
+  preview?: IdbRecordPreviewNodeWire;
 }
 
 /**

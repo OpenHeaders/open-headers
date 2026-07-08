@@ -83,17 +83,37 @@ export interface IdbRecordsPage {
   truncated: boolean;
 }
 
+/** One entry of a preview container — `key` is the full display prefix
+ *  (`"name": `, `0: `, `"a" => `), rendered host-side. */
+export interface IdbRecordPreviewEntry {
+  key: string;
+  node: IdbRecordPreviewNode;
+}
+
+/**
+ * Bounded, type-tagged preview tree of a non-JSON record value — what
+ * the editor's Preview mode expands. `atom` leaves are real JSON
+ * scalars (`type` picks the syntax color) or console vocabulary
+ * (`tag`); `container` nodes carry a summary label plus entries,
+ * already capped host-side.
+ */
+export type IdbRecordPreviewNode =
+  | { kind: 'atom'; type: 'string' | 'number' | 'boolean' | 'null' | 'tag'; text: string }
+  | { kind: 'container'; label: string; entries: ReadonlyArray<IdbRecordPreviewEntry> };
+
 /**
  * One record's value as a full text document, serialized host-side (the
  * value itself never crosses the seam). `editable: true` means the text
  * is exact JSON that round-trips through `JSON.parse`; `false` marks a
- * readable JSON-ish rendering of non-JSON structured-clone content.
+ * readable JSON-ish rendering of non-JSON structured-clone content,
+ * accompanied by `preview` — the bounded tree Preview mode expands.
  * `truncated` marks a document cut at the host's size cap.
  */
 export interface IdbRecordDocument {
   text: string;
   editable: boolean;
   truncated?: boolean;
+  preview?: IdbRecordPreviewNode;
 }
 
 /**

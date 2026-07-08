@@ -138,18 +138,17 @@ export function updateTabInLeaf(
     const idx = leaf.tabs.findIndex((t) => t.id === tabId);
     if (idx < 0) return leaf;
     const tab = leaf.tabs[idx];
-    // Patch fields exist on request tabs only — other kinds are inert.
-    if (tab.kind !== 'request') return leaf;
-    let hasChange = false;
-    for (const key of Object.keys(updates) as Array<keyof InspectorTabPatch>) {
-      if (tab[key] !== updates[key]) {
-        hasChange = true;
-        break;
-      }
+    // Each patch field applies to one tab kind — foreign fields drop.
+    let nextTab: InspectorTab;
+    if (tab.kind === 'request') {
+      if (updates.activeSection === undefined || tab.activeSection === updates.activeSection) return leaf;
+      nextTab = { ...tab, activeSection: updates.activeSection };
+    } else {
+      if (updates.dirty === undefined || (tab.dirty ?? false) === updates.dirty) return leaf;
+      nextTab = { ...tab, dirty: updates.dirty };
     }
-    if (!hasChange) return leaf;
     const nextTabs = leaf.tabs.slice();
-    nextTabs[idx] = { ...tab, ...updates };
+    nextTabs[idx] = nextTab;
     return { ...leaf, tabs: nextTabs };
   });
 }

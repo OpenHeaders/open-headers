@@ -33,6 +33,16 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dt-storage-nav-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.8;
 }
 
 .dt-storage-nav-item:hover {
@@ -372,21 +382,23 @@
   background: var(--dt-row-hover);
 }
 
+/* Enabled ⇔ dirty, so the fill is the app-wide unsaved-changes orange
+ * (the workbench Save accent), not the primary blue. */
 .dt-idbdoc-save {
   flex: 0 0 auto;
   font: inherit;
   padding: 1px 10px;
-  border: 1px solid var(--dt-btn-primary-bg);
+  border: 1px solid #f5722d;
   border-radius: 4px;
-  background: var(--dt-btn-primary-bg);
-  color: var(--dt-btn-primary-text);
+  background: #f5722d;
+  color: #fff;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .dt-idbdoc-save:hover:not(:disabled) {
-  border-color: var(--dt-btn-primary-bg-hover);
-  background: var(--dt-btn-primary-bg-hover);
+  border-color: #e2621f;
+  background: #e2621f;
 }
 
 .dt-idbdoc-save:disabled {

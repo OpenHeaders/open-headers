@@ -13,6 +13,7 @@
 
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { emptyEditForm, jarCookieToKey } from '../../data/cookies/cookie-edit';
 import {
@@ -42,6 +43,7 @@ import { CacheStorageSection } from './CacheStorageSection';
 import { CookiesSection } from './CookiesSection';
 import { IndexedDbSection, type OpenIdbRecordRequest } from './IndexedDbSection';
 import { StorageGrid } from './StorageGrid';
+import { CookieIcon, DatabaseIcon, TableIcon, UsagePieIcon } from './StorageNavIcons';
 import { StorageQuotaCard } from './StorageQuotaCard';
 
 /** An editor-tab "Reveal in Storage" jump target. */
@@ -61,13 +63,13 @@ interface StoragePanelProps {
   onRevealConsumed: () => void;
 }
 
-const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string }> = [
-  { value: 'local', label: 'Local storage' },
-  { value: 'session', label: 'Session storage' },
-  { value: 'cookies', label: 'Cookies' },
-  { value: 'indexeddb', label: 'IndexedDB' },
-  { value: 'cachestorage', label: 'Cache Storage' },
-  { value: 'quota', label: 'Usage' },
+const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string; icon: React.ReactNode }> = [
+  { value: 'local', label: 'Local storage', icon: <TableIcon /> },
+  { value: 'session', label: 'Session storage', icon: <TableIcon /> },
+  { value: 'cookies', label: 'Cookies', icon: <CookieIcon /> },
+  { value: 'indexeddb', label: 'IndexedDB', icon: <DatabaseIcon /> },
+  { value: 'cachestorage', label: 'Cache Storage', icon: <DatabaseIcon /> },
+  { value: 'quota', label: 'Usage', icon: <UsagePieIcon /> },
 ];
 
 function areaName(section: StorageSection): string {
@@ -289,6 +291,7 @@ export function StoragePanel({ onHide, onOpenIdbRecord, revealIdb, onRevealConsu
               data-active={section === s.value}
               onClick={() => setSection(s.value)}
             >
+              <span className="dt-storage-nav-icon">{s.icon}</span>
               {s.label}
             </button>
           ))}

@@ -114,6 +114,8 @@ const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contex
       {tab.kind === 'request' && tab.statusCode != null && (
         <span className={`dt-editor-tab-status${tab.statusCode >= 400 ? ' error' : ''}`}>{tab.statusCode}</span>
       )}
+      {/* Unsaved-draft dot — same signal as the workspace tab bar. */}
+      {tab.kind === 'idb-record' && tab.dirty && <span className="dt-editor-tab-dirty" aria-label="Unsaved changes" />}
       <button
         type="button"
         className="dt-editor-tab-close"
@@ -265,6 +267,9 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 {tabBadge(tab).text}
               </span>
               <span className="dt-tab-search-item-label">{tab.label}</span>
+              {tab.kind === 'idb-record' && tab.dirty && (
+                <span className="dt-editor-tab-dirty" aria-label="Unsaved changes" />
+              )}
             </div>
           ))}
           {recentlyClosed.length > 0 && (

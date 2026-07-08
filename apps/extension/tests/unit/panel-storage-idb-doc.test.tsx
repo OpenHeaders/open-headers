@@ -127,7 +127,7 @@ describe('IdbRecordEditorTab', () => {
     expect(screen.queryByTestId('code-viewer')).toBeNull();
   });
 
-  it('renders a JSON-ish document read-only: note shown, Preview disabled, non-json language', async () => {
+  it('renders a JSON-ish document read-only: note shown, non-json language, Preview disabled without a tree', async () => {
     installHost(
       vi.fn(() =>
         Promise.resolve<IdbRecordDocument | null>({ text: '{\n  "when": Date("2026-07-08")\n}', editable: false }),
@@ -139,6 +139,75 @@ describe('IdbRecordEditorTab', () => {
     expect(viewer.getAttribute('data-language')).toBe('javascript');
     expect(screen.getByText(/Contains non-JSON types/)).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Preview' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('previews a JSON-ish document through the host-serialized tree', async () => {
+    installHost(
+      vi.fn(() =>
+        Promise.resolve<IdbRecordDocument | null>({
+          text: '{\n  "when": Date("2026-07-08")\n}',
+          editable: false,
+          preview: {
+            kind: 'container',
+            label: '{2}',
+            entries: [
+              { key: '"when": ', node: { kind: 'atom', type: 'tag', text: 'Date("2026-07-08T00:00:00.000Z")' } },
+              {
+                key: '"lookup": ',
+                node: {
+                  kind: 'container',
+                  label: 'Map(1)',
+                  entries: [{ key: '"a" => ', node: { kind: 'atom', type: 'number', text: '1' } }],
+                },
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    render(<IdbRecordEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const preview = await screen.findByRole('tab', { name: 'Preview' });
+    expect(preview.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(preview);
+    expect(screen.getByText('Date("2026-07-08T00:00:00.000Z")')).toBeTruthy();
+    expect(screen.getByText('Map(1)')).toBeTruthy();
+    expect(screen.getByText('"a" =>')).toBeTruthy();
+    expect(screen.queryByTestId('code-viewer')).toBeNull();
+  });
+
+  it('mirrors dirty up through onDirtyChange and registers its save action', async () => {
+    const write = vi.fn(() => Promise.resolve({ ok: true }));
+    installHost(
+      vi.fn(() => Promise.resolve<IdbRecordDocument | null>({ text: '{\n  "seq": 1\n}', editable: true })),
+      write,
+    );
+    const onDirtyChange = vi.fn();
+    const saves = new Map<string, () => Promise<boolean>>();
+    render(
+      <IdbRecordEditorTab
+        tab={TAB}
+        onRevealInStorage={vi.fn()}
+        onDirtyChange={onDirtyChange}
+        registerSave={(save) => {
+          if (save) saves.set(TAB.id, save);
+          else saves.delete(TAB.id);
+        }}
+      />,
+    );
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+    fireEvent.change(viewer, { target: { value: '{\n  "seq": 2\n}' } });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+
+    // The registered save action commits the draft and reports success.
+    const save = saves.get(TAB.id);
+    expect(save).toBeDefined();
+    const ok = save ? await save() : false;
+    expect(ok).toBe(true);
+    expect(write).toHaveBeenCalledWith(42, 0, 'oh-store-app', 'orders', TAB.primaryKeyWire, '{\n  "seq": 2\n}');
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
   });
 
   it('notes a truncated document', async () => {

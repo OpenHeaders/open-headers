@@ -158,6 +158,15 @@
   color: var(--dt-status-red);
 }
 
+/* Unsaved-draft dot — same orange signal as the workspace tab bar. */
+.dt-editor-tab-dirty {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff7875;
+  flex-shrink: 0;
+}
+
 .dt-editor-tab-close {
   display: flex;
   align-items: center;

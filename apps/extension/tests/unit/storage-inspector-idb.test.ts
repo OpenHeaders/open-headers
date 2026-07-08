@@ -302,7 +302,7 @@ describe('readIdbRecordDocumentInPage', () => {
     expect(nothingDoc?.text).toBe('undefined');
   });
 
-  it('cuts the text at the size cap and turns the document read-only', async () => {
+  it('cuts the text at the size cap and turns the document read-only (value stays explorable)', async () => {
     await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
     await putRecords('oh-app', 'kv', [{ key: 'big', value: { blob: 'x'.repeat(500) } }]);
 
@@ -311,6 +311,81 @@ describe('readIdbRecordDocumentInPage', () => {
     expect(document?.editable).toBe(false);
     expect(document?.text.length).toBe(101);
     expect(document?.text.endsWith('…')).toBe(true);
+    // The bounded preview tree still carries the whole (small) value.
+    expect(document?.preview?.kind).toBe('container');
+  });
+
+  it('ships a bounded preview tree alongside read-only documents; editable ones carry none', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords('oh-app', 'kv', [
+      { key: 'plain', value: { id: 1 } },
+      {
+        key: 'rich',
+        value: {
+          when: new Date('2026-07-08T00:00:00.000Z'),
+          lookup: new Map<string, number>([['a', 1]]),
+          tags: new Set(['x']),
+          items: [1, 'two'],
+          missing: undefined,
+        },
+      },
+    ]);
+
+    const plain = (await readIdbRecordDocumentInPage('oh-app', 'kv', '{"s":"plain"}', 1_000_000)).document;
+    expect(plain?.editable).toBe(true);
+    expect(plain?.preview).toBeUndefined();
+
+    const rich = (await readIdbRecordDocumentInPage('oh-app', 'kv', '{"s":"rich"}', 1_000_000)).document;
+    const root = rich?.preview;
+    if (root?.kind !== 'container') throw new Error('expected a container root');
+    expect(root.label).toBe('{5}');
+    const byKey = new Map(root.entries.map((e) => [e.key, e.node]));
+
+    expect(byKey.get('"when": ')).toEqual({ kind: 'atom', type: 'tag', text: 'Date("2026-07-08T00:00:00.000Z")' });
+    expect(byKey.get('"missing": ')).toEqual({ kind: 'atom', type: 'tag', text: 'undefined' });
+
+    const lookup = byKey.get('"lookup": ');
+    if (lookup?.kind !== 'container') throw new Error('expected a Map container');
+    expect(lookup.label).toBe('Map(1)');
+    expect(lookup.entries).toEqual([{ key: '"a" => ', node: { kind: 'atom', type: 'number', text: '1' } }]);
+
+    const tags = byKey.get('"tags": ');
+    if (tags?.kind !== 'container') throw new Error('expected a Set container');
+    expect(tags.label).toBe('Set(1)');
+    expect(tags.entries).toEqual([{ key: '', node: { kind: 'atom', type: 'string', text: 'x' } }]);
+
+    const items = byKey.get('"items": ');
+    if (items?.kind !== 'container') throw new Error('expected an Array container');
+    expect(items.label).toBe('Array(2)');
+    expect(items.entries).toEqual([
+      { key: '0: ', node: { kind: 'atom', type: 'number', text: '1' } },
+      { key: '1: ', node: { kind: 'atom', type: 'string', text: 'two' } },
+    ]);
+  });
+
+  it('caps preview containers and marks cycles', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    const wide: Record<string, unknown> = { when: new Date('2026-07-08T00:00:00.000Z') };
+    for (let i = 0; i < 150; i++) wide[`k${i}`] = i;
+    const cyclic: { name: string; self?: unknown; when?: Date } = { name: 'loop' };
+    cyclic.self = cyclic;
+    cyclic.when = new Date('2026-07-08T00:00:00.000Z');
+    await putRecords('oh-app', 'kv', [
+      { key: 'wide', value: wide },
+      { key: 'cyclic', value: cyclic },
+    ]);
+
+    const wideDoc = (await readIdbRecordDocumentInPage('oh-app', 'kv', '{"s":"wide"}', 1_000_000)).document;
+    const wideRoot = wideDoc?.preview;
+    if (wideRoot?.kind !== 'container') throw new Error('expected a container root');
+    expect(wideRoot.entries).toHaveLength(101);
+    expect(wideRoot.entries[100]).toEqual({ key: '', node: { kind: 'atom', type: 'tag', text: '… +51 more' } });
+
+    const cyclicDoc = (await readIdbRecordDocumentInPage('oh-app', 'kv', '{"s":"cyclic"}', 1_000_000)).document;
+    const cyclicRoot = cyclicDoc?.preview;
+    if (cyclicRoot?.kind !== 'container') throw new Error('expected a container root');
+    const self = cyclicRoot.entries.find((e) => e.key === '"self": ');
+    expect(self?.node).toEqual({ kind: 'atom', type: 'tag', text: '[Circular]' });
   });
 
   it('reports a gone record, an undecodable key and a ghost database as null', async () => {

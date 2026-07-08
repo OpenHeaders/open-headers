@@ -21,6 +21,8 @@ export type {
   IdbDatabaseWire,
   IdbObjectStoreWire,
   IdbRecordDocumentWire,
+  IdbRecordPreviewEntryWire,
+  IdbRecordPreviewNodeWire,
   IdbRecordWire,
   IdbRecordWriteFailureWire,
   JarCookieEditWire,

@@ -75,6 +75,7 @@ import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windo
 import { useConsoleClient } from './data/stores/use-console-client';
 import { useFireClient } from './data/stores/use-fire-client';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
+import { type TabSaveRefMap, useTabCloseGuard } from './data/use-tab-close-guard';
 import { useLifecycleClient } from './data/stores/use-lifecycle-client';
 import { useNavClearFloor } from './data/use-nav-clear-floor';
 import { useRecordingWindows } from './data/use-recording-windows';
@@ -426,6 +427,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   } = useInspectorTabJumps({ lookupByRequestId: data.lookupByRequestId, groups, tl });
 
   // ── Storage-record editor tabs (open + reveal-back) ───────
+  // Save actions the editor bodies register — the close guard's
+  // "Save changes" path routes through them.
+  const idbSaveRefs = useRef<TabSaveRefMap>(new Map());
+  const closeGuard = useTabCloseGuard(groups, idbSaveRefs);
   const [revealIdb, setRevealIdb] = useState<IdbRevealRequest | null>(null);
   const openIdbRecord = useCallback(
     (request: OpenIdbRecordRequest & { frameId: number }) => {
@@ -447,7 +452,17 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const renderTabBody = useCallback(
     ({ tab }: { tab: InspectorTab; leafId: string; isFocusedLeaf: boolean }) => {
       if (tab.kind === 'idb-record') {
-        return <IdbRecordEditorTab tab={tab} onRevealInStorage={revealInStorage} />;
+        return (
+          <IdbRecordEditorTab
+            tab={tab}
+            onRevealInStorage={revealInStorage}
+            onDirtyChange={(dirty) => groups.updateTab(tab.id, { dirty })}
+            registerSave={(save) => {
+              if (save) idbSaveRefs.current.set(tab.id, save);
+              else idbSaveRefs.current.delete(tab.id);
+            }}
+          />
+        );
       }
       const row = data.lookupByRequestId.get(tab.requestId);
       if (!row) {
@@ -675,15 +690,15 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         groups={groups}
         renderTabBody={renderTabBody}
         renderEmpty={renderEmpty}
-        onCloseTab={groups.closeTab}
-        onCloseOther={groups.closeOtherTabs}
-        onCloseAll={groups.closeAllTabs}
-        onCloseToLeft={groups.closeTabsToLeft}
-        onCloseToRight={groups.closeTabsToRight}
+        onCloseTab={closeGuard.closeTab}
+        onCloseOther={closeGuard.closeOtherTabs}
+        onCloseAll={closeGuard.closeAllTabs}
+        onCloseToLeft={closeGuard.closeTabsToLeft}
+        onCloseToRight={closeGuard.closeTabsToRight}
         recentlyClosed={groups.recentlyClosed}
       />
     ),
-    [groups, renderTabBody, renderEmpty],
+    [groups, closeGuard, renderTabBody, renderEmpty],
   );
 
   const renderEditorTabDragPreview = useCallback(

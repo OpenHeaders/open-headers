@@ -31,6 +31,8 @@
 import type {
   IdbDatabaseWire,
   IdbRecordDocumentWire,
+  IdbRecordPreviewEntryWire,
+  IdbRecordPreviewNodeWire,
   IdbRecordWire,
   IdbRecordWriteFailureWire,
 } from '@openheaders/core/bridge';
@@ -64,6 +66,7 @@ interface InjectedIdbRecordDocument {
   text: string;
   editable: boolean;
   truncated?: boolean;
+  preview?: IdbRecordPreviewNodeWire;
 }
 
 /** Tagged node of the lossless primary-key wire encoding. */
@@ -454,6 +457,130 @@ export async function readIdbRecordDocumentInPage(
     }
   }
 
+  // Preview-tree budgets: depth backstop, per-container entry cap, and
+  // a global node budget — past any of them a container collapses to
+  // its size stub so the payload stays bounded.
+  const PREVIEW_DEPTH_MAX = 20;
+  const PREVIEW_ENTRIES_MAX = 100;
+  const PREVIEW_NODES_MAX = 5000;
+
+  // One-line rendering of a Map key for its entry prefix.
+  function previewKeyText(k: unknown): string {
+    if (k === null) return 'null';
+    if (k === undefined) return 'undefined';
+    const t = typeof k;
+    if (t === 'string') return JSON.stringify(k);
+    if (t === 'number' || t === 'boolean' || t === 'bigint') return String(k);
+    if (k instanceof Date) return `Date(${Number.isNaN(k.getTime()) ? 'invalid' : JSON.stringify(k.toISOString())})`;
+    if (Array.isArray(k)) return `[…${k.length}]`;
+    if (t === 'object') return '{…}';
+    return Object.prototype.toString.call(k);
+  }
+
+  // Bounded, type-tagged tree of the value for the editor's Preview
+  // mode — real JSON scalars keep their type, everything else ships as
+  // console-vocabulary `tag` atoms (same vocabulary as `renderLoose`).
+  function toPreview(v: unknown, depth: number, seen: Set<object>, budget: { left: number }): IdbRecordPreviewNodeWire {
+    budget.left--;
+    if (v === null) return { kind: 'atom', type: 'null', text: 'null' };
+    if (v === undefined) return { kind: 'atom', type: 'tag', text: 'undefined' };
+    const t = typeof v;
+    if (t === 'string') return { kind: 'atom', type: 'string', text: v as string };
+    if (t === 'number') return { kind: 'atom', type: 'number', text: String(v) };
+    if (t === 'boolean') return { kind: 'atom', type: 'boolean', text: String(v) };
+    if (t === 'bigint') return { kind: 'atom', type: 'tag', text: `${String(v)}n` };
+    if (t !== 'object') return { kind: 'atom', type: 'tag', text: Object.prototype.toString.call(v) };
+    if (v instanceof Date) {
+      return {
+        kind: 'atom',
+        type: 'tag',
+        text: `Date(${Number.isNaN(v.getTime()) ? 'invalid' : JSON.stringify(v.toISOString())})`,
+      };
+    }
+    if (Object.prototype.toString.call(v) === '[object ArrayBuffer]') {
+      return { kind: 'atom', type: 'tag', text: `ArrayBuffer(${(v as ArrayBuffer).byteLength} B)` };
+    }
+    if (ArrayBuffer.isView(v)) {
+      return { kind: 'atom', type: 'tag', text: `${v.constructor.name}(${(v as ArrayBufferView).byteLength} B)` };
+    }
+    if (typeof Blob !== 'undefined' && v instanceof Blob) {
+      const name = typeof File !== 'undefined' && v instanceof File ? `${JSON.stringify(v.name)}, ` : '';
+      return {
+        kind: 'atom',
+        type: 'tag',
+        text: `${v.constructor.name}(${name}${v.size} B${v.type ? `, ${v.type}` : ''})`,
+      };
+    }
+    if (v instanceof RegExp) return { kind: 'atom', type: 'tag', text: String(v) };
+    const obj = v as object;
+    if (seen.has(obj)) return { kind: 'atom', type: 'tag', text: '[Circular]' };
+
+    function containerEntries(
+      size: number,
+      label: string,
+      build: (limit: number) => IdbRecordPreviewEntryWire[],
+    ): IdbRecordPreviewNodeWire {
+      if (depth >= PREVIEW_DEPTH_MAX || budget.left <= 0) return { kind: 'atom', type: 'tag', text: label };
+      seen.add(obj);
+      try {
+        const entries = build(Math.min(size, PREVIEW_ENTRIES_MAX));
+        if (size > PREVIEW_ENTRIES_MAX) {
+          entries.push({ key: '', node: { kind: 'atom', type: 'tag', text: `… +${size - PREVIEW_ENTRIES_MAX} more` } });
+        }
+        return { kind: 'container', label, entries };
+      } finally {
+        seen.delete(obj);
+      }
+    }
+
+    if (Array.isArray(obj)) {
+      const arr = obj as unknown[];
+      return containerEntries(arr.length, `Array(${arr.length})`, (limit) => {
+        const entries: IdbRecordPreviewEntryWire[] = [];
+        for (let i = 0; i < limit; i++)
+          entries.push({ key: `${i}: `, node: toPreview(arr[i], depth + 1, seen, budget) });
+        return entries;
+      });
+    }
+    if (obj instanceof Map) {
+      return containerEntries(obj.size, `Map(${obj.size})`, (limit) => {
+        const entries: IdbRecordPreviewEntryWire[] = [];
+        for (const [k, val] of obj.entries()) {
+          if (entries.length >= limit) break;
+          entries.push({ key: `${previewKeyText(k)} => `, node: toPreview(val, depth + 1, seen, budget) });
+        }
+        return entries;
+      });
+    }
+    if (obj instanceof Set) {
+      return containerEntries(obj.size, `Set(${obj.size})`, (limit) => {
+        const entries: IdbRecordPreviewEntryWire[] = [];
+        for (const item of obj.values()) {
+          if (entries.length >= limit) break;
+          entries.push({ key: '', node: toPreview(item, depth + 1, seen, budget) });
+        }
+        return entries;
+      });
+    }
+    const keys = Object.keys(obj);
+    const proto = Object.getPrototypeOf(obj);
+    const ctorName =
+      proto !== Object.prototype && proto !== null && proto?.constructor?.name && proto.constructor.name !== 'Object'
+        ? `${proto.constructor.name} `
+        : '';
+    return containerEntries(keys.length, `${ctorName}{${keys.length}}`, (limit) => {
+      const entries: IdbRecordPreviewEntryWire[] = [];
+      for (let i = 0; i < limit; i++) {
+        const k = keys[i];
+        entries.push({
+          key: `${JSON.stringify(k)}: `,
+          node: toPreview((obj as Record<string, unknown>)[k], depth + 1, seen, budget),
+        });
+      }
+      return entries;
+    });
+  }
+
   function toDocument(value: unknown): InjectedIdbRecordDocument {
     let text: string;
     let editable: boolean;
@@ -465,9 +592,17 @@ export async function readIdbRecordDocumentInPage(
       editable = false;
     }
     if (text.length > textMax) {
-      return { text: `${text.slice(0, textMax)}…`, editable: false, truncated: true };
+      return {
+        text: `${text.slice(0, textMax)}…`,
+        editable: false,
+        truncated: true,
+        preview: toPreview(value, 0, new Set(), { left: PREVIEW_NODES_MAX }),
+      };
     }
-    return { text, editable };
+    if (editable) return { text, editable };
+    // Read-only documents also ship the bounded preview tree — the
+    // Source text stays the exact rendering, Preview stays explorable.
+    return { text, editable, preview: toPreview(value, 0, new Set(), { left: PREVIEW_NODES_MAX }) };
   }
 
   let decoded: { key: IDBValidKey } | null;

@@ -90,10 +90,15 @@ interface RecordsResult {
   truncated?: boolean;
 }
 
+type PreviewNodeWire =
+  | { kind: 'atom'; type: string; text: string }
+  | { kind: 'container'; label: string; entries: Array<{ key: string; node: PreviewNodeWire }> };
+
 interface RecordDocumentWire {
   text: string;
   editable: boolean;
   truncated?: boolean;
+  preview?: PreviewNodeWire;
 }
 
 test('IndexedDB reads, previews, key wire, writes and deletes ride the plane end-to-end', async () => {
@@ -251,6 +256,26 @@ test('IndexedDB reads, previews, key wire, writes and deletes ride the plane end
   // The full document carries the whole 2000-char member — no preview clip.
   expect(richText).toContain('y'.repeat(2000));
 
+  // The read-only document also carries the bounded preview tree —
+  // real structured-clone types against a REAL browser.
+  const richPreview = richDoc.document?.preview;
+  expect(richPreview?.kind).toBe('container');
+  if (richPreview?.kind === 'container') {
+    const byKey = new Map(richPreview.entries.map((e) => [e.key, e.node]));
+    expect(byKey.get('"when": ')).toEqual({ kind: 'atom', type: 'tag', text: 'Date("2026-03-04T05:06:07.000Z")' });
+    expect(byKey.get('"buf": ')).toEqual({ kind: 'atom', type: 'tag', text: 'ArrayBuffer(8 B)' });
+    expect(byKey.get('"view": ')).toEqual({ kind: 'atom', type: 'tag', text: 'Uint8Array(3 B)' });
+    const mapNode = byKey.get('"map": ');
+    expect(mapNode?.kind).toBe('container');
+    if (mapNode?.kind === 'container') {
+      expect(mapNode.label).toBe('Map(1)');
+      expect(mapNode.entries).toEqual([{ key: '"a" => ', node: { kind: 'atom', type: 'number', text: '1' } }]);
+    }
+    const setNode = byKey.get('"set": ');
+    expect(setNode?.kind).toBe('container');
+    if (setNode?.kind === 'container') expect(setNode.label).toBe('Set(2)');
+  }
+
   // A plain-JSON record ⇒ exact pretty JSON that round-trips (editable).
   const bulkWire = page0.records?.[0]?.primaryKeyWire;
   const bulkDoc = await rpc<{ document: RecordDocumentWire | null }>('getIndexedDbRecordDocument', {
@@ -260,6 +285,7 @@ test('IndexedDB reads, previews, key wire, writes and deletes ride the plane end
     primaryKeyWire: bulkWire,
   });
   expect(bulkDoc.document?.editable).toBe(true);
+  expect(bulkDoc.document?.preview).toBeUndefined();
   expect(JSON.parse(bulkDoc.document?.text ?? '')).toEqual({ id: 0, label: 'bulk-0' });
 
   const goneDoc = await rpc<{ document: RecordDocumentWire | null }>('getIndexedDbRecordDocument', {

@@ -48,10 +48,19 @@ export interface IdbRecordInspectorTab {
   primaryKeyWire: string;
   keyPreview: string;
   timestamp: number;
+  /** Mirror of the editor body's unsaved-draft state — drives the tab
+   *  pill's dirty dot and the close guard. Never persisted (drafts are
+   *  component state and don't survive a reload). */
+  dirty?: boolean;
 }
 
-/** Per-tab view state callers patch in place (request tabs only today). */
-export type InspectorTabPatch = Partial<Pick<RequestInspectorTab, 'activeSection'>>;
+/** Per-tab view state callers patch in place. Each field applies to one
+ *  tab kind only (`activeSection` → request, `dirty` → idb-record);
+ *  the tree transform drops fields foreign to the tab's kind. */
+export interface InspectorTabPatch {
+  activeSection?: DetailSection;
+  dirty?: boolean;
+}
 
 export interface ClosedTab {
   tab: InspectorTab;

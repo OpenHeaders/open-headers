@@ -8,9 +8,9 @@
  */
 
 import { DndContext } from '@dnd-kit/core';
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import InspectorTabBar from '@openheaders/ui/panel/components/InspectorTabBar';
 import { buildIdbRecordTab, buildInspectorTab, type InspectorTab } from '@openheaders/ui/panel/data/inspector-tab';
-import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -87,5 +87,14 @@ describe('InspectorTabBar tab kinds', () => {
     // querySelector this regression guards.
     expect(() => renderBar([IDB_TAB, REQUEST_TAB], IDB_TAB.id)).not.toThrow();
     expect(screen.getByText('IDB')).toBeTruthy();
+  });
+
+  it('shows the unsaved dot only on a dirty record tab', () => {
+    renderBar([{ ...IDB_TAB, dirty: true }, REQUEST_TAB], REQUEST_TAB.id);
+    expect(screen.getByLabelText('Unsaved changes')).toBeTruthy();
+
+    cleanup();
+    renderBar([IDB_TAB, REQUEST_TAB], REQUEST_TAB.id);
+    expect(screen.queryByLabelText('Unsaved changes')).toBeNull();
   });
 });

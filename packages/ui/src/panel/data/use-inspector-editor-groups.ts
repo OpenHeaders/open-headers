@@ -182,7 +182,9 @@ export function useInspectorEditorGroups({
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
     persistTimerRef.current = setTimeout(() => {
       const projection: PersistedInspectorTabSession = {
-        tabs: treeAllTabs(state.root),
+        // Dirty mirrors an in-memory draft — a reload can't restore the
+        // draft, so a persisted dot would lie.
+        tabs: treeAllTabs(state.root).map((t) => (t.kind === 'idb-record' && t.dirty ? { ...t, dirty: false } : t)),
         activeTabId: findLeaf(state.root, state.focusedLeafId)?.activeTabId ?? null,
         sessionToken: liveSessionTokenRef.current ?? undefined,
       };
