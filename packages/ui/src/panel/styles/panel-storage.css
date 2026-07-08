@@ -347,6 +347,46 @@
   text-overflow: ellipsis;
 }
 
+/* Stored-response preview strip — expands INSIDE the entry row (spans
+ * every grid column, so the zebra striping stays on the row itself). */
+.dt-storage-response-strip {
+  grid-column: 1 / -1;
+  padding: 4px 8px 6px 16px;
+  border-top: 1px dashed var(--dt-border);
+  min-width: 0;
+}
+
+.dt-storage-response-status {
+  color: var(--dt-text);
+  padding-bottom: 2px;
+}
+
+.dt-storage-response-headers {
+  color: var(--dt-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-bottom: 2px;
+}
+
+.dt-storage-response-body {
+  margin: 0;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--dt-text);
+  background: var(--dt-header-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+
+.dt-storage-response-note {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+
 /* Usage section — the scope's usage-vs-quota card with the per-type
  * breakdown rows (present only while the CDP tier answers). */
 .dt-storage-quota {

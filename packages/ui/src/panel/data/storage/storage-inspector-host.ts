@@ -105,6 +105,23 @@ export interface CacheEntriesPage {
   truncated: boolean;
 }
 
+/**
+ * One cache entry's stored response, preview-serialized host-side —
+ * status line, a bounded response-headers join, and a byte-capped body
+ * slice (`bodyBase64` marks a binary body shipped base64;
+ * `bodyTruncated` marks a preview that stopped at the cap while
+ * `bodyLength` carries the full byte size).
+ */
+export interface CacheEntryResponsePreview {
+  status: number;
+  statusText: string;
+  headersPreview?: string;
+  bodyPreview: string;
+  bodyBase64?: boolean;
+  bodyLength: number;
+  bodyTruncated?: boolean;
+}
+
 /** One per-type row of a storage usage breakdown (attached tabs only). */
 export interface StorageQuotaBreakdownRow {
   storageType: string;
@@ -171,6 +188,15 @@ export interface StorageInspectorHost {
     page: number,
     pageSize: number,
   ): Promise<CacheEntriesPage | null>;
+  /** Lazy one-shot fetch of one cache entry's stored-response preview;
+   *  `null` when the entry is gone or the frame can't be read. */
+  readCacheEntryResponse(
+    tabId: number,
+    frameId: number,
+    cache: string,
+    url: string,
+    method: string,
+  ): Promise<CacheEntryResponsePreview | null>;
   /** Read the scope's storage usage against its origin quota; `null`
    *  when neither transport can answer (non-secure context, frame gone). */
   readQuota(tabId: number, frameId: number): Promise<StorageQuota | null>;

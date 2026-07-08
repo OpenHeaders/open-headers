@@ -140,6 +140,24 @@ export interface CacheEntryWire {
   headersPreview?: string;
 }
 
+/**
+ * One cache entry's stored response, preview-serialized — the status
+ * line, a bounded `name: value` join of the response headers, and a
+ * byte-capped body slice. `bodyPreview` is UTF-8 text for textual
+ * content types and base64 otherwise (`bodyBase64: true`);
+ * `bodyLength` is the stored body's full byte size, `bodyTruncated`
+ * marks a preview that stopped at the cap.
+ */
+export interface CacheEntryResponsePreviewWire {
+  status: number;
+  statusText: string;
+  headersPreview?: string;
+  bodyPreview: string;
+  bodyBase64?: boolean;
+  bodyLength: number;
+  bodyTruncated?: boolean;
+}
+
 /** One per-type row of a storage usage breakdown (CDP tier only). */
 export interface StorageQuotaBreakdownWire {
   storageType: string;
@@ -404,6 +422,21 @@ export interface DevToolsRpc {
   clearSiteData: {
     req: { tabId: number; frameId: number };
     res: { ok: boolean };
+  };
+
+  /**
+   * Fetch one cache entry's stored-response preview — a SEPARATE lazy
+   * RPC so the entry list never touches responses. Arbitrated like the
+   * other Cache Storage ops: the CDP tier resolves the entry and its
+   * base64 body when the tab is attached, degrading to an injected
+   * `cache.match` on any failure. Bounds live SW-side (see
+   * {@link CacheEntryResponsePreviewWire}); `method` relaxes the match
+   * for non-GET entries, as on delete. `preview` is `null` when the
+   * entry is gone or neither transport can read it.
+   */
+  getCacheStorageEntryResponse: {
+    req: { tabId: number; frameId: number; cache: string; url: string; method: string };
+    res: { preview: CacheEntryResponsePreviewWire | null };
   };
 
   /** Delete a whole named cache. */

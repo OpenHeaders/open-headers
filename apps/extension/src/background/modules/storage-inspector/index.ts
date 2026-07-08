@@ -13,6 +13,7 @@ export {
   deleteCacheStorageCache,
   deleteCacheStorageEntry,
   getCacheStorageEntries,
+  getCacheStorageEntryResponse,
   listCacheStorageCaches,
 } from './caches';
 export { armStorageTracking, registerStorageCdpAccess, type StorageCdpAccess } from './cdp-tier';

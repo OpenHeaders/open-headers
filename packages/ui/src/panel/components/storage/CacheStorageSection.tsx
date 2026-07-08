@@ -10,8 +10,11 @@
  * no reach — that renders as an explanatory empty state, not an error.
  */
 
-import { DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EyeOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { useEffect, useRef, useState } from 'react';
+import type { CacheEntryResponsePreview } from '../../data/storage/storage-inspector-host';
 import type { CacheBrowserState } from '../../data/storage/use-cache-browser';
+import { formatSize } from '../traffic/formatters';
 import { ArmedIconButton } from './ArmedIconButton';
 
 interface CacheStorageSectionProps {
@@ -70,9 +73,44 @@ export function CacheStorageSection({ cache, filter }: CacheStorageSectionProps)
   );
 }
 
+type PreviewSlot = 'loading' | 'failed' | CacheEntryResponsePreview;
+
 function EntriesView({ cache, filter }: CacheStorageSectionProps) {
+  // The expanded entry's stored-response preview — a lazy one-shot fetch
+  // held here, keyed on the entry's url+method; never polled state. The
+  // ref mirrors the key so a late fetch for a since-collapsed row drops.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewSlot | null>(null);
+  const expandedRef = useRef<string | null>(null);
+
   const name = cache.selectedCache;
+  const { readEntryResponse } = cache;
+
+  // Cache or page change → the expanded row is gone; drop the preview.
+  useEffect(() => {
+    expandedRef.current = null;
+    setExpandedKey(null);
+    setPreview(null);
+  }, [name, cache.page]);
+
   if (name === null) return null;
+
+  const togglePreview = (url: string, method: string) => {
+    const key = `${url}\n${method}`;
+    if (expandedKey === key) {
+      expandedRef.current = null;
+      setExpandedKey(null);
+      setPreview(null);
+      return;
+    }
+    expandedRef.current = key;
+    setExpandedKey(key);
+    setPreview('loading');
+    void readEntryResponse(url, method).then((result) => {
+      if (expandedRef.current === key) setPreview(result ?? 'failed');
+    });
+  };
+
   const pageData = cache.entriesPage;
   const needle = filter.trim().toLowerCase();
   const entries = pageData
@@ -135,33 +173,81 @@ function EntriesView({ cache, filter }: CacheStorageSectionProps) {
             <span role="columnheader">Request</span>
             <span role="columnheader">Method</span>
           </div>
-          {entries.map((e, i) => (
-            <div className="dt-storage-row" role="row" key={`${cache.page}:${i}:${e.url}`}>
-              <span
-                className="dt-storage-key"
-                role="cell"
-                title={e.headersPreview ? `${e.url}\n${e.headersPreview}` : e.url}
-              >
-                {e.url}
-              </span>
-              <span className="dt-storage-value" role="cell">
-                {e.method}
-              </span>
-              <span className="dt-storage-row-actions">
-                <button
-                  type="button"
-                  className="dt-storage-action"
-                  title="Delete this entry"
-                  aria-label={`Delete entry ${e.url}`}
-                  onClick={() => cache.deleteEntry(e.url, e.method)}
+          {entries.map((e, i) => {
+            const expanded = expandedKey === `${e.url}\n${e.method}`;
+            return (
+              <div className="dt-storage-row" role="row" key={`${cache.page}:${i}:${e.url}`}>
+                <span
+                  className="dt-storage-key"
+                  role="cell"
+                  title={e.headersPreview ? `${e.url}\n${e.headersPreview}` : e.url}
                 >
-                  <DeleteOutlined />
-                </button>
-              </span>
-            </div>
-          ))}
+                  {e.url}
+                </span>
+                <span className="dt-storage-value" role="cell">
+                  {e.method}
+                </span>
+                <span className="dt-storage-row-actions">
+                  <button
+                    type="button"
+                    className="dt-storage-action"
+                    title={expanded ? 'Hide the stored response' : 'Preview the stored response'}
+                    aria-label={`Preview response for ${e.url}`}
+                    aria-expanded={expanded}
+                    onClick={() => togglePreview(e.url, e.method)}
+                  >
+                    <EyeOutlined />
+                  </button>
+                  <button
+                    type="button"
+                    className="dt-storage-action"
+                    title="Delete this entry"
+                    aria-label={`Delete entry ${e.url}`}
+                    onClick={() => cache.deleteEntry(e.url, e.method)}
+                  >
+                    <DeleteOutlined />
+                  </button>
+                </span>
+                {expanded && preview !== null ? <ResponsePreviewStrip preview={preview} /> : null}
+              </div>
+            );
+          })}
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The expanded entry's stored response — status line, the bounded
+ * response-headers join, and the byte-capped body slice. A binary body
+ * arrives base64 and renders a note instead of the encoded noise.
+ */
+function ResponsePreviewStrip({ preview }: { preview: PreviewSlot }) {
+  if (preview === 'loading') {
+    return <div className="dt-storage-response-strip dt-storage-response-note">Loading…</div>;
+  }
+  if (preview === 'failed') {
+    return (
+      <div className="dt-storage-response-strip dt-storage-response-note">
+        The stored response can’t be read — the entry may be gone.
+      </div>
+    );
+  }
+  return (
+    <div className="dt-storage-response-strip">
+      <div className="dt-storage-response-status">
+        {preview.status} {preview.statusText || ''} · {formatSize(preview.bodyLength)}
+        {preview.bodyTruncated ? ' (preview truncated)' : ''}
+      </div>
+      {preview.headersPreview ? <div className="dt-storage-response-headers">{preview.headersPreview}</div> : null}
+      {preview.bodyBase64 ? (
+        <div className="dt-storage-response-note">Binary body — {formatSize(preview.bodyLength)} stored.</div>
+      ) : preview.bodyPreview.length > 0 ? (
+        <pre className="dt-storage-response-body">{preview.bodyPreview}</pre>
+      ) : (
+        <div className="dt-storage-response-note">Empty body.</div>
+      )}
+    </div>
   );
 }

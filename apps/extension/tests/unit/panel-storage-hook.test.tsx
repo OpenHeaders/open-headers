@@ -22,6 +22,7 @@ import { type StorageSection, useStorageInspector } from '@openheaders/ui/panel/
 import { useStorageQuota } from '@openheaders/ui/panel/data/storage/use-storage-quota';
 import type {
   CacheEntriesPage,
+  CacheEntryResponsePreview,
   IdbDatabase,
   IdbRecordsPage,
   StorageInspectorHost,
@@ -71,6 +72,13 @@ const QUOTA: StorageQuota = {
   breakdown: [{ storageType: 'indexeddb', usage: 4096 }],
 };
 
+const RESPONSE_PREVIEW: CacheEntryResponsePreview = {
+  status: 200,
+  statusText: 'OK',
+  bodyPreview: '{"a":1}',
+  bodyLength: 7,
+};
+
 function installHost() {
   // Fresh arrays + fresh objects on every call — exactly what the wire
   // produces; the hooks own deduplication.
@@ -85,6 +93,9 @@ function installHost() {
   const deleteIndexedDbDatabase = vi.fn(() => Promise.resolve(true));
   const listCaches = vi.fn((): Promise<Array<{ name: string }> | null> => Promise.resolve(structuredClone(CACHE_LIST)));
   const readCacheEntries = vi.fn(() => Promise.resolve(structuredClone(CACHE_PAGE)));
+  const readCacheEntryResponse = vi.fn((): Promise<CacheEntryResponsePreview | null> =>
+    Promise.resolve(structuredClone(RESPONSE_PREVIEW)),
+  );
   const deleteCache = vi.fn(() => Promise.resolve(true));
   const deleteCacheEntry = vi.fn(() => Promise.resolve(true));
   const readQuota = vi.fn((): Promise<StorageQuota | null> => Promise.resolve(structuredClone(QUOTA)));
@@ -104,6 +115,7 @@ function installHost() {
     deleteIndexedDbDatabase,
     listCaches,
     readCacheEntries,
+    readCacheEntryResponse,
     readQuota,
     clearSiteData,
     deleteCache,
@@ -126,6 +138,7 @@ function installHost() {
     deleteIndexedDbDatabase,
     listCaches,
     readCacheEntries,
+    readCacheEntryResponse,
     readQuota,
     clearSiteData,
     deleteCache,
@@ -485,6 +498,24 @@ describe('useCacheBrowser poll stability', () => {
     expect(readCacheEntries.mock.calls.length).toBe(readsBefore + 1);
     expect(result.current.caches).toBe(caches);
     expect(result.current.entriesPage).toBe(page);
+  });
+
+  it('routes the one-shot response preview through the host for the OPENED cache', async () => {
+    const { readCacheEntryResponse } = installHost();
+    const { result } = renderHook(() => useCacheBrowser(true, 0));
+
+    await flush();
+    // No cache opened yet — resolves null without touching the host.
+    expect(await result.current.readEntryResponse('https://openheaders.io/asset-0.js', 'GET')).toBeNull();
+    expect(readCacheEntryResponse).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.selectCache('oh-assets-v1');
+    });
+    await flush();
+    const preview = await result.current.readEntryResponse('https://openheaders.io/asset-0.js', 'GET');
+    expect(preview).toEqual(RESPONSE_PREVIEW);
+    expect(readCacheEntryResponse).toHaveBeenCalledWith(42, 0, 'oh-assets-v1', 'https://openheaders.io/asset-0.js', 'GET');
   });
 
   it('routes deletes through the host and refetches via the same read path', async () => {

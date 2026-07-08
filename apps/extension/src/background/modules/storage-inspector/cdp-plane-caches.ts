@@ -14,8 +14,8 @@
  * them would just re-derive this lookup's failure modes.
  */
 
-import type { CacheEntryWire, CacheStorageCacheWire } from '@openheaders/core/bridge';
-import { CACHE_HEADERS_PREVIEW_MAX } from './standard-plane-caches';
+import type { CacheEntryResponsePreviewWire, CacheEntryWire, CacheStorageCacheWire } from '@openheaders/core/bridge';
+import { CACHE_BODY_PREVIEW_MAX, CACHE_HEADERS_PREVIEW_MAX, CACHE_PAGE_SIZE_MAX } from './standard-plane-caches';
 
 export type CdpSend = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 
@@ -33,7 +33,13 @@ interface RawCdpCacheEntry {
   requestURL: string;
   requestMethod: string;
   requestHeaders?: RawCdpHeader[];
+  responseStatus?: number;
+  responseStatusText?: string;
+  responseHeaders?: RawCdpHeader[];
 }
+
+/** Content types whose body preview ships as text instead of base64. */
+const TEXTUAL_CONTENT_TYPE = /^text\/|json|javascript|xml|svg|x-www-form-urlencoded/i;
 
 async function requestCaches(send: CdpSend, securityOrigin: string): Promise<RawCdpCache[] | null> {
   try {
@@ -89,6 +95,63 @@ export async function getCacheEntriesViaCdp(
     // `returnCount` is the total matching the query, not the page.
     const total = typeof res.returnCount === 'number' ? res.returnCount : skipCount + entries.length;
     return { entries, truncated: skipCount + entries.length < total };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * One cache entry's stored-response preview: the entry's status line and
+ * response headers come from `requestEntries` (path-filtered on the
+ * URL), the body from `requestCachedResponse` — which returns the WHOLE
+ * body base64-encoded, so it is decoded and re-capped here before it
+ * ever rides the bridge. `null` on any miss (entry not found, command
+ * error) — the arbitration degrades to the injected `cache.match`.
+ */
+export async function getCacheEntryResponseViaCdp(
+  send: CdpSend,
+  securityOrigin: string,
+  cache: string,
+  url: string,
+  method: string,
+): Promise<CacheEntryResponsePreviewWire | null> {
+  const cacheId = await resolveCacheId(send, securityOrigin, cache);
+  if (cacheId === null) return null;
+  try {
+    const res = (await send('CacheStorage.requestEntries', {
+      cacheId,
+      skipCount: 0,
+      pageSize: CACHE_PAGE_SIZE_MAX,
+      pathFilter: url,
+    })) as { cacheDataEntries?: RawCdpCacheEntry[] } | undefined;
+    const entry = res?.cacheDataEntries?.find((e) => e.requestURL === url && e.requestMethod === method);
+    if (!entry || typeof entry.responseStatus !== 'number') return null;
+    const body = (await send('CacheStorage.requestCachedResponse', {
+      cacheId,
+      requestURL: url,
+      requestHeaders: entry.requestHeaders ?? [],
+    })) as { response?: { body?: string } } | undefined;
+    if (typeof body?.response?.body !== 'string') return null;
+    const bytes = atob(body.response.body);
+    const bodyTruncated = bytes.length > CACHE_BODY_PREVIEW_MAX;
+    const slice = bytes.slice(0, CACHE_BODY_PREVIEW_MAX);
+    const joined = (entry.responseHeaders ?? []).map((h) => `${h.name}: ${h.value}`).join(', ');
+    const headersPreview =
+      joined.length > CACHE_HEADERS_PREVIEW_MAX ? `${joined.slice(0, CACHE_HEADERS_PREVIEW_MAX)}…` : joined;
+    const contentType = (entry.responseHeaders ?? []).find((h) => h.name.toLowerCase() === 'content-type')?.value ?? '';
+    const textual = TEXTUAL_CONTENT_TYPE.test(contentType);
+    const bodyPreview = textual
+      ? new TextDecoder().decode(Uint8Array.from(slice, (c) => c.charCodeAt(0)))
+      : btoa(slice);
+    return {
+      status: entry.responseStatus,
+      statusText: entry.responseStatusText ?? '',
+      ...(headersPreview.length > 0 ? { headersPreview } : {}),
+      bodyPreview,
+      ...(textual ? {} : { bodyBase64: true }),
+      bodyLength: bytes.length,
+      ...(bodyTruncated ? { bodyTruncated: true } : {}),
+    };
   } catch {
     return null;
   }

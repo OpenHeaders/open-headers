@@ -13,7 +13,8 @@
  * Payload discipline: the entry list is derived from the cache's
  * `Request` keys only — bounded url/method/header-preview strings, paged
  * with a clamped page size. The list NEVER calls `cache.match`; a stored
- * response's preview is a separate lazy fetch (slice 5 tail / polish).
+ * response's preview is the separate lazy fetch below, byte-capped and
+ * serialized in-page (text for textual content types, base64 otherwise).
  *
  * `caches.open()` CREATES a missing cache, so every entry read is
  * guarded by `caches.has()` first — a cache deleted since enumeration
@@ -21,7 +22,7 @@
  * the IDB plane's abort-upgrade open).
  */
 
-import type { CacheEntryWire, CacheStorageCacheWire } from '@openheaders/core/bridge';
+import type { CacheEntryResponsePreviewWire, CacheEntryWire, CacheStorageCacheWire } from '@openheaders/core/bridge';
 import { runInFrame } from './standard-plane';
 
 /** Cache-count cap per enumeration (an origin rarely has more). */
@@ -31,6 +32,8 @@ export const CACHE_PAGE_SIZE_MAX = 200;
 export const CACHE_PAGE_SIZE_DEFAULT = 50;
 /** Per-entry request-headers preview cap (chars). */
 export const CACHE_HEADERS_PREVIEW_MAX = 512;
+/** Stored-response body preview cap (bytes) for the lazy fetch. */
+export const CACHE_BODY_PREVIEW_MAX = 16 * 1024;
 
 interface InjectedCacheEntry {
   url: string;
@@ -90,6 +93,58 @@ export async function readCacheEntriesInPage(
   }
 }
 
+export async function readCacheEntryResponseInPage(
+  cache: string,
+  url: string,
+  method: string,
+  headersPreviewMax: number,
+  bodyPreviewMax: number,
+): Promise<{ preview: CacheEntryResponsePreviewWire | null }> {
+  if (typeof caches === 'undefined') return { preview: null };
+  try {
+    // Same ghost guard as the reads — open() creates a missing cache.
+    if (!(await caches.has(cache))) return { preview: null };
+    const opened = await caches.open(cache);
+    const response = await opened.match(url, { ignoreMethod: method !== 'GET' });
+    if (!response) return { preview: null };
+    const pairs: string[] = [];
+    response.headers.forEach((value, name) => {
+      pairs.push(`${name}: ${value}`);
+    });
+    const joined = pairs.join(', ');
+    const headersPreview = joined.length > headersPreviewMax ? `${joined.slice(0, headersPreviewMax)}…` : joined;
+    const contentType = response.headers.get('content-type') ?? '';
+    const textual = /^text\/|json|javascript|xml|svg|x-www-form-urlencoded/i.test(contentType);
+    const blob = await response.blob();
+    const bodyLength = blob.size;
+    const bodyTruncated = blob.size > bodyPreviewMax;
+    const bytes = new Uint8Array(await blob.slice(0, bodyPreviewMax).arrayBuffer());
+    let bodyPreview: string;
+    if (textual) {
+      bodyPreview = new TextDecoder().decode(bytes);
+    } else {
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      }
+      bodyPreview = btoa(binary);
+    }
+    return {
+      preview: {
+        status: response.status,
+        statusText: response.statusText,
+        ...(headersPreview.length > 0 ? { headersPreview } : {}),
+        bodyPreview,
+        ...(textual ? {} : { bodyBase64: true }),
+        bodyLength,
+        ...(bodyTruncated ? { bodyTruncated: true } : {}),
+      },
+    };
+  } catch {
+    return { preview: null };
+  }
+}
+
 export async function deleteCacheInPage(cache: string): Promise<{ ok: boolean }> {
   if (typeof caches === 'undefined') return { ok: false };
   try {
@@ -137,6 +192,24 @@ export async function getCacheEntriesInjected(
   ]);
   if (!result || !Array.isArray(result.entries)) return { entries: null };
   return { entries: result.entries, ...(result.truncated ? { truncated: true } : {}) };
+}
+
+export async function getCacheEntryResponseInjected(
+  tabId: number,
+  frameId: number,
+  cache: string,
+  url: string,
+  method: string,
+): Promise<{ preview: CacheEntryResponsePreviewWire | null }> {
+  const result = await runInFrame(tabId, frameId, readCacheEntryResponseInPage, [
+    cache,
+    url,
+    method,
+    CACHE_HEADERS_PREVIEW_MAX,
+    CACHE_BODY_PREVIEW_MAX,
+  ]);
+  if (!result || typeof result.preview?.bodyPreview !== 'string') return { preview: null };
+  return { preview: result.preview };
 }
 
 export async function deleteCacheInjected(tabId: number, frameId: number, cache: string): Promise<{ ok: boolean }> {

@@ -12,6 +12,7 @@
 export type {
   CacheEntriesPage,
   CacheEntry,
+  CacheEntryResponsePreview,
   CacheSummary,
   DomStorageArea,
   DomStorageEntry,
