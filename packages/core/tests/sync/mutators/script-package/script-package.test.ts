@@ -143,11 +143,12 @@ describe('seedScriptPackage / projectScriptPackage', () => {
       type: SCRIPT_PACKAGE_ENTITY_TYPE,
       id: entity.uid,
       data: body.payload as Record<string, unknown>,
+      fieldOrigins: {},
     });
     expect(projected).toEqual(entity);
   });
 
   it('returns null for a foreign entity type', () => {
-    expect(projectScriptPackage({ type: 'rule', id: 'r1', data: {} })).toBeNull();
+    expect(projectScriptPackage({ type: 'rule', id: 'r1', data: {}, fieldOrigins: {} })).toBeNull();
   });
 });
