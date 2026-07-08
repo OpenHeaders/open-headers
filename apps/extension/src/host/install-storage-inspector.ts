@@ -19,6 +19,7 @@ import type {
   IdbDatabase,
   IdbRecordsPage,
   IdbValueNode,
+  SiteDataType,
   StorageInvalidationKind,
   StorageQuota,
   StorageScope,
@@ -221,12 +222,25 @@ setStorageInspectorHost({
       return null;
     }
   },
-  async clearSiteData(tabId: number, frameId: number): Promise<boolean> {
+  async clearSiteData(tabId: number, frameId: number, types?: ReadonlyArray<SiteDataType>): Promise<boolean> {
     try {
-      const res = await call('clearSiteData', { tabId, frameId });
+      const res = await call('clearSiteData', { tabId, frameId, ...(types ? { types } : {}) });
       return res?.ok === true;
     } catch (err) {
       logger.info('StorageInspectorHost', `clearSiteData ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
+    }
+  },
+  async setQuotaOverride(tabId: number, frameId: number, quotaBytes: number | null): Promise<boolean> {
+    try {
+      const res = await call('setStorageQuotaOverride', {
+        tabId,
+        frameId,
+        ...(quotaBytes === null ? {} : { quotaBytes }),
+      });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `setQuotaOverride ✗ tab ${tabId}: ${(err as Error).message}`);
       return false;
     }
   },

@@ -23,6 +23,7 @@ export type {
   IdbRecord,
   IdbRecordsPage,
   IdbValueNode,
+  SiteDataType,
   StorageInspectorHost,
   StorageInvalidationKind,
   StorageQuota,

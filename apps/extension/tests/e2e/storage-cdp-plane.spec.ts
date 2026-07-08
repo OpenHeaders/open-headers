@@ -96,6 +96,7 @@ interface QuotaWireShape {
   usage: number;
   quota: number;
   breakdown?: Array<{ storageType: string; usage: number }>;
+  overrideActive?: boolean;
 }
 
 interface InvalidationMessage {
@@ -163,6 +164,19 @@ test('CDP tier: stamping, breakdown, CDP cache ops, invalidation pushes, detach 
   expect(attachedQuota.quota?.breakdown).toBeDefined();
   const breakdownTypes = (attachedQuota.quota?.breakdown ?? []).map((row) => row.storageType);
   expect(breakdownTypes).toContain('indexeddb');
+
+  // ── Quota simulation rides CDP: override reflected, reset restores ─
+  const overridden = await rpc<{ ok: boolean }>('setStorageQuotaOverride', { ...base, quotaBytes: 20_000_000 });
+  expect(overridden.ok).toBe(true);
+  const simulated = await rpc<{ quota: QuotaWireShape | null }>('getStorageQuota', base);
+  expect(simulated.quota?.quota).toBe(20_000_000);
+  expect(simulated.quota?.overrideActive).toBe(true);
+
+  const overrideCleared = await rpc<{ ok: boolean }>('setStorageQuotaOverride', base);
+  expect(overrideCleared.ok).toBe(true);
+  const restored = await rpc<{ quota: QuotaWireShape | null }>('getStorageQuota', base);
+  expect(restored.quota?.overrideActive).toBeUndefined();
+  expect(restored.quota?.quota).not.toBe(20_000_000);
 
   // ── Cache reads ride CDP transparently ─────────────────────────────
   const listed = await rpc<{ caches: Array<{ name: string }> | null }>('listCacheStorageCaches', base);
@@ -260,6 +274,13 @@ test('CDP tier: stamping, breakdown, CDP cache ops, invalidation pushes, detach 
   const degradedQuota = await rpc<{ quota: QuotaWireShape | null }>('getStorageQuota', base);
   expect(degradedQuota.quota).not.toBeNull();
   expect(degradedQuota.quota?.breakdown).toBeUndefined();
+
+  // No injected leg for simulation — a detached override fails honestly.
+  const degradedOverride = await rpc<{ ok: boolean }>('setStorageQuotaOverride', {
+    ...base,
+    quotaBytes: 20_000_000,
+  });
+  expect(degradedOverride.ok).toBe(false);
 
   const degradedEntries = await rpc<{ entries: CacheEntryWireShape[] | null }>('getCacheStorageEntries', {
     ...base,

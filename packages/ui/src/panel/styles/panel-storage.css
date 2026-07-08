@@ -524,8 +524,68 @@ span.dt-storage-idb-tree-toggle {
   color: var(--dt-text-muted);
 }
 
-.dt-storage-quota-actions {
+/* Quota-simulation control — attached tabs only (rides the CDP tier
+ * like the breakdown above it). */
+.dt-storage-quota-simulate {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dt-storage-quota-simulate-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dt-text);
+  white-space: nowrap;
+}
+
+.dt-storage-quota-simulate-label input {
+  width: 72px;
+  font: inherit;
+  color: var(--dt-text);
+  background: var(--dt-header-bg);
+  border: 1px solid var(--dt-input-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.dt-storage-quota-simulate-reset {
+  font: inherit;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  background: transparent;
+  border: 1px solid var(--dt-input-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-storage-quota-simulate-reset:hover {
+  color: var(--dt-text);
+}
+
+/* Per-type clear checkboxes — parameterize the clear button below. */
+.dt-storage-quota-clear-types {
   margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.dt-storage-quota-clear-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dt-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-storage-quota-actions {
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -635,6 +695,11 @@ span.dt-storage-idb-tree-toggle {
 
 .dt-storage-clear:hover {
   color: var(--dt-text);
+}
+
+.dt-storage-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .dt-storage-clear--armed {

@@ -9,10 +9,15 @@
  *
  * Clear-site-data rides `browsingData.remove({ origins })` — an
  * extension API (permission already held), so ONE transport that works
- * in both inspection modes; no CDP leg needed.
+ * in both inspection modes; no CDP leg needed. The optional `types`
+ * subset parameterizes the SAME call's dataTypes map.
+ *
+ * Quota simulation (`Storage.overrideQuotaForOrigin`) is CDP-tier-only
+ * — the page-side API has no such control, so a detached tab reads a
+ * failed override, never a silent no-op.
  */
 
-import type { StorageQuotaBreakdownWire, StorageQuotaWire } from '@openheaders/core/bridge';
+import type { SiteDataTypeWire, StorageQuotaBreakdownWire, StorageQuotaWire } from '@openheaders/core/bridge';
 import type { CdpSend } from './cdp-plane-caches';
 import { getAttachedStorageCdpSend } from './cdp-tier';
 import { frameSecurityOrigin } from './frame-origin';
@@ -26,7 +31,7 @@ interface RawUsageBreakdownRow {
 async function getQuotaViaCdp(send: CdpSend, origin: string): Promise<StorageQuotaWire | null> {
   try {
     const res = (await send('Storage.getUsageAndQuota', { origin })) as
-      | { usage?: number; quota?: number; usageBreakdown?: RawUsageBreakdownRow[] }
+      | { usage?: number; quota?: number; usageBreakdown?: RawUsageBreakdownRow[]; overrideActive?: boolean }
       | undefined;
     if (typeof res?.usage !== 'number' || typeof res.quota !== 'number') return null;
     const breakdown: StorageQuotaBreakdownWire[] = (res.usageBreakdown ?? []).flatMap((row) =>
@@ -34,30 +39,62 @@ async function getQuotaViaCdp(send: CdpSend, origin: string): Promise<StorageQuo
         ? [{ storageType: row.storageType, usage: row.usage }]
         : [],
     );
-    return { usage: res.usage, quota: res.quota, ...(breakdown.length > 0 ? { breakdown } : {}) };
+    return {
+      usage: res.usage,
+      quota: res.quota,
+      ...(breakdown.length > 0 ? { breakdown } : {}),
+      ...(res.overrideActive === true ? { overrideActive: true } : {}),
+    };
   } catch {
     return null;
   }
 }
 
-/** The origin-scoped site-data types one clear removes (plan §5 row 6). */
-const SITE_DATA_TO_REMOVE = {
-  cacheStorage: true,
-  cookies: true,
-  indexedDB: true,
-  localStorage: true,
-  serviceWorkers: true,
-} as const;
+/** The origin-scoped site-data types one clear can remove (plan §5 row 6). */
+const SITE_DATA_TYPES: ReadonlyArray<SiteDataTypeWire> = [
+  'cacheStorage',
+  'cookies',
+  'indexedDB',
+  'localStorage',
+  'serviceWorkers',
+];
 
-export async function clearSiteData(tabId: number, frameId: number): Promise<{ ok: boolean }> {
+export async function clearSiteData(
+  tabId: number,
+  frameId: number,
+  types?: ReadonlyArray<SiteDataTypeWire>,
+): Promise<{ ok: boolean }> {
   if (!chrome.browsingData?.remove) return { ok: false };
+  // Clamp to the known set; a provided-but-empty selection is a failed
+  // clear, never a silent no-op claiming success.
+  const selected = types === undefined ? SITE_DATA_TYPES : SITE_DATA_TYPES.filter((type) => types.includes(type));
+  if (selected.length === 0) return { ok: false };
   const origin = await frameSecurityOrigin(tabId, frameId);
   if (origin === null) return { ok: false };
+  const toRemove: Partial<Record<SiteDataTypeWire, boolean>> = {};
+  for (const type of selected) toRemove[type] = true;
   try {
-    await chrome.browsingData.remove({ origins: [origin] }, SITE_DATA_TO_REMOVE);
+    await chrome.browsingData.remove({ origins: [origin] }, toRemove);
     return { ok: true };
   } catch {
     // Permission denied / enterprise policy — surfaced as a failed clear.
+    return { ok: false };
+  }
+}
+
+export async function setQuotaOverride(tabId: number, frameId: number, quotaBytes?: number): Promise<{ ok: boolean }> {
+  if (quotaBytes !== undefined && !(Number.isFinite(quotaBytes) && quotaBytes >= 0)) return { ok: false };
+  const send = getAttachedStorageCdpSend(tabId);
+  if (!send) return { ok: false };
+  const origin = await frameSecurityOrigin(tabId, frameId);
+  if (origin === null) return { ok: false };
+  try {
+    await send(
+      'Storage.overrideQuotaForOrigin',
+      quotaBytes === undefined ? { origin } : { origin, quotaSize: quotaBytes },
+    );
+    return { ok: true };
+  } catch {
     return { ok: false };
   }
 }

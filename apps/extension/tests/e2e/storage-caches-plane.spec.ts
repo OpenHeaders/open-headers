@@ -187,10 +187,15 @@ test('Cache Storage reads, response preview, deletes, quota and clear ride the p
   expect(quota.quota!.usage).toBeGreaterThanOrEqual(0);
   expect(quota.quota!.breakdown).toBeUndefined();
 
-  // ── Clear site data wipes the origin's caches AND DOM storage ─────
+  // ── Per-type clear honors the subset: the unticked type survives ───
+  const subsetCleared = await rpc<{ ok: boolean }>('clearSiteData', { ...base, types: ['cacheStorage'] });
+  expect(subsetCleared.ok).toBe(true);
+  expect(await page.evaluate(async () => (await caches.keys()).length)).toBe(0);
+  expect(await page.evaluate(() => localStorage.getItem('oh-e2e-clear-probe'))).toBe('present');
+
+  // ── Full clear (types absent) wipes DOM storage too ────────────────
   const cleared = await rpc<{ ok: boolean }>('clearSiteData', base);
   expect(cleared.ok).toBe(true);
-  expect(await page.evaluate(async () => (await caches.keys()).length)).toBe(0);
   expect(await page.evaluate(() => localStorage.getItem('oh-e2e-clear-probe'))).toBeNull();
 
   await page.close();

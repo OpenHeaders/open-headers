@@ -1,6 +1,6 @@
 /** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads/deletes + Cache Storage reads + quota. */
 
-import type { DomStorageAreaWire } from '@openheaders/core/bridge';
+import type { DomStorageAreaWire, SiteDataTypeWire } from '@openheaders/core/bridge';
 import { logger } from '@utils/logger';
 import {
   clearDomStorage as clearDomStorageHandler,
@@ -22,6 +22,7 @@ import {
   listStorageScopes as listStorageScopesHandler,
   removeDomStorageItem as removeDomStorageItemHandler,
   setDomStorageItem as setDomStorageItemHandler,
+  setQuotaOverride as setQuotaOverrideHandler,
 } from '../../storage-inspector';
 import type { HandlerMap } from '../types';
 
@@ -250,7 +251,25 @@ export const storageInspectorHandlers: HandlerMap = {
   },
 
   clearSiteData: ({ message, respond }) => {
-    clearSiteDataHandler(message.tabId as number, message.frameId as number)
+    clearSiteDataHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.types as ReadonlyArray<SiteDataTypeWire> | undefined,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageQuota', `handler threw: ${err.message}`);
+        respond({ ok: false });
+      });
+    return true;
+  },
+
+  setStorageQuotaOverride: ({ message, respond }) => {
+    setQuotaOverrideHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.quotaBytes as number | undefined,
+    )
       .then((res) => respond(res))
       .catch((err: Error) => {
         logger.info('StorageQuota', `handler threw: ${err.message}`);

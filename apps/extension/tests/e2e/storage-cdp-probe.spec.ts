@@ -7,7 +7,7 @@
  *   - DOMStorage.getDOMStorageItems  (+ live domStorageItem* event check)
  *   - IndexedDB.requestDatabaseNames
  *   - CacheStorage.requestCacheNames
- *   - Storage.getUsageAndQuota / Storage.getStorageKey
+ *   - Storage.getUsageAndQuota / Storage.getStorageKey / Storage.overrideQuotaForOrigin
  *
  * The whole probe runs inside the extension service worker — the exact
  * production context the storage-inspector CDP plane will use. Verdicts
@@ -37,6 +37,7 @@ interface ProbeReport {
   indexedDb: ProbeVerdict;
   cacheStorage: ProbeVerdict;
   usageAndQuota: ProbeVerdict;
+  quotaOverride: ProbeVerdict;
   idbTrackingEvents: ProbeVerdict;
   cacheTrackingEvents: ProbeVerdict;
 }
@@ -192,6 +193,30 @@ test('storage CDP domains dispatch over chrome.debugger', async () => {
           return { usage: res.usage, quota: res.quota, breakdown: res.usageBreakdown };
         });
 
+        // Quota simulation: set a custom quota for the origin, confirm the
+        // next read reports it (with overrideActive), then clear the
+        // override (omitted quotaSize) and confirm the real quota returns.
+        const quotaOverride = await probe(async () => {
+          const overrideBytes = 20 * 1024 * 1024;
+          await send('Storage.overrideQuotaForOrigin', { origin, quotaSize: overrideBytes });
+          const overridden = (await send('Storage.getUsageAndQuota', { origin })) as {
+            quota: number;
+            overrideActive: boolean;
+          };
+          if (!overridden.overrideActive || overridden.quota !== overrideBytes) {
+            throw new Error(`override not reflected: ${JSON.stringify(overridden)}`);
+          }
+          await send('Storage.overrideQuotaForOrigin', { origin });
+          const restored = (await send('Storage.getUsageAndQuota', { origin })) as {
+            quota: number;
+            overrideActive: boolean;
+          };
+          if (restored.overrideActive || restored.quota === overrideBytes) {
+            throw new Error(`override not cleared: ${JSON.stringify(restored)}`);
+          }
+          return { overriddenQuota: overridden.quota, restoredQuota: restored.quota };
+        });
+
         // Hybrid check: the Storage domain (allowed) owns the tracking
         // events for IndexedDB / CacheStorage. If these fire, CDP mode can
         // deliver live invalidations even where the read domains are blocked.
@@ -254,6 +279,7 @@ test('storage CDP domains dispatch over chrome.debugger', async () => {
           indexedDb,
           cacheStorage,
           usageAndQuota,
+          quotaOverride,
           idbTrackingEvents,
           cacheTrackingEvents,
         };
@@ -276,6 +302,7 @@ test('storage CDP domains dispatch over chrome.debugger', async () => {
   console.log(`storage-cdp-probe report: ${JSON.stringify(report, null, 2)}`);
   expect.soft(report.storageKey, JSON.stringify(report.storageKey)).toMatchObject({ ok: true });
   expect.soft(report.usageAndQuota, JSON.stringify(report.usageAndQuota)).toMatchObject({ ok: true });
+  expect.soft(report.quotaOverride, JSON.stringify(report.quotaOverride)).toMatchObject({ ok: true });
   expect.soft(report.cacheStorage, JSON.stringify(report.cacheStorage)).toMatchObject({ ok: true });
   expect.soft(report.idbTrackingEvents, JSON.stringify(report.idbTrackingEvents)).toMatchObject({ ok: true });
   expect.soft(report.cacheTrackingEvents, JSON.stringify(report.cacheTrackingEvents)).toMatchObject({ ok: true });

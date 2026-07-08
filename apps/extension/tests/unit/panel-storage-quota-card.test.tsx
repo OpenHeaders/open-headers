@@ -9,7 +9,7 @@
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { StorageQuotaCard } from '@openheaders/ui/panel/components/storage/StorageQuotaCard';
 import type { StorageQuotaState } from '@openheaders/ui/panel/data/storage/use-storage-quota';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 beforeEach(() => {
@@ -31,8 +31,26 @@ function makeQuota(overrides: Partial<StorageQuotaState> = {}): StorageQuotaStat
     refresh: vi.fn(),
     clearFailed: false,
     clearSiteData: vi.fn(),
+    overrideFailed: false,
+    setQuotaOverride: vi.fn(),
     ...overrides,
   };
+}
+
+/** The attached posture: a breakdown arrived (simulation renders). */
+function makeAttachedQuota(
+  overrides: Partial<StorageQuotaState> = {},
+  quotaOverrides: Partial<NonNullable<StorageQuotaState['quota']>> = {},
+): StorageQuotaState {
+  return makeQuota({
+    quota: {
+      usage: 4096,
+      quota: 120 * 1024 * 1024,
+      breakdown: [{ storageType: 'indexeddb', usage: 4096 }],
+      ...quotaOverrides,
+    },
+    ...overrides,
+  });
 }
 
 describe('StorageQuotaCard', () => {
@@ -54,11 +72,14 @@ describe('StorageQuotaCard', () => {
         ],
       },
     });
-    render(<StorageQuotaCard quota={quota} />);
+    const { container } = render(<StorageQuotaCard quota={quota} />);
 
-    expect(screen.getByText('IndexedDB')).toBeDefined();
-    expect(screen.getByText('Cache Storage')).toBeDefined();
-    expect(screen.queryByText('Service workers')).toBeNull();
+    // Scoped to the breakdown grid — the clear checkboxes reuse the labels.
+    const rows = container.querySelector('.dt-storage-quota-rows') as HTMLElement;
+    expect(rows).not.toBeNull();
+    expect(within(rows).getByText('IndexedDB')).toBeDefined();
+    expect(within(rows).getByText('Cache Storage')).toBeDefined();
+    expect(within(rows).queryByText('Service workers')).toBeNull();
   });
 
   it('hints at the Debug-mode upgrade when no breakdown arrived', () => {
@@ -91,6 +112,38 @@ describe('StorageQuotaCard', () => {
 
     fireEvent.click(clear);
     expect(quota.clearSiteData).toHaveBeenCalledTimes(1);
+    // Default all-on selection ⇒ types absent (the all-five clear).
+    expect(quota.clearSiteData).toHaveBeenCalledWith(undefined);
+  });
+
+  it('renders the five type checkboxes all-on and narrows the clear to the checked subset', () => {
+    const quota = makeQuota();
+    render(<StorageQuotaCard quota={quota} />);
+
+    for (const label of ['Cookies', 'DOM storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
+      expect((screen.getByLabelText(label) as HTMLInputElement).checked).toBe(true);
+    }
+
+    fireEvent.click(screen.getByLabelText('Cookies'));
+    fireEvent.click(screen.getByLabelText('Service workers'));
+    const clear = screen.getByText('Clear site data');
+    fireEvent.click(clear);
+    fireEvent.click(clear);
+    expect(quota.clearSiteData).toHaveBeenCalledWith(['localStorage', 'indexedDB', 'cacheStorage']);
+  });
+
+  it('disables the clear gesture when every type is unchecked', () => {
+    const quota = makeQuota();
+    render(<StorageQuotaCard quota={quota} />);
+
+    for (const label of ['Cookies', 'DOM storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
+      fireEvent.click(screen.getByLabelText(label));
+    }
+    const clear = screen.getByText('Clear site data') as HTMLButtonElement;
+    expect(clear.disabled).toBe(true);
+    fireEvent.click(clear);
+    fireEvent.click(clear);
+    expect(quota.clearSiteData).not.toHaveBeenCalled();
   });
 
   it('notes a failed clear', () => {
@@ -108,5 +161,59 @@ describe('StorageQuotaCard', () => {
     unregisterCapability('originDataClearing');
     render(<StorageQuotaCard quota={makeQuota()} />);
     expect(screen.queryByText('Clear site data')).toBeNull();
+    expect(screen.queryByLabelText('Cookies')).toBeNull();
+  });
+
+  it('renders the simulation control only while the breakdown is present (attached)', () => {
+    render(<StorageQuotaCard quota={makeQuota()} />);
+    expect(screen.queryByLabelText('Simulate custom quota')).toBeNull();
+    cleanup();
+
+    render(<StorageQuotaCard quota={makeAttachedQuota()} />);
+    expect(screen.getByLabelText('Simulate custom quota')).toBeDefined();
+  });
+
+  it('commits an MB value on Enter (decimal MB, like the usage figures)', () => {
+    const quota = makeAttachedQuota();
+    render(<StorageQuotaCard quota={quota} />);
+
+    const input = screen.getByLabelText('Simulate custom quota');
+    fireEvent.change(input, { target: { value: '20' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(quota.setQuotaOverride).toHaveBeenCalledWith(20_000_000);
+  });
+
+  it('clears the simulation on an empty commit and via Reset', () => {
+    const quota = makeAttachedQuota({}, { overrideActive: true });
+    render(<StorageQuotaCard quota={quota} />);
+
+    const input = screen.getByLabelText('Simulate custom quota');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(quota.setQuotaOverride).toHaveBeenCalledWith(null);
+
+    fireEvent.click(screen.getByText('Reset'));
+    expect(quota.setQuotaOverride).toHaveBeenCalledTimes(2);
+    expect(quota.setQuotaOverride).toHaveBeenLastCalledWith(null);
+  });
+
+  it('shows Reset only while an override is active', () => {
+    render(<StorageQuotaCard quota={makeAttachedQuota()} />);
+    expect(screen.queryByText('Reset')).toBeNull();
+  });
+
+  it('rejects a malformed MB value without committing', () => {
+    const quota = makeAttachedQuota();
+    render(<StorageQuotaCard quota={quota} />);
+
+    const input = screen.getByLabelText('Simulate custom quota');
+    fireEvent.change(input, { target: { value: '-5' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(quota.setQuotaOverride).not.toHaveBeenCalled();
+    expect(screen.getByText('enter a non-negative number')).toBeDefined();
+  });
+
+  it('notes a failed simulation', () => {
+    render(<StorageQuotaCard quota={makeAttachedQuota({ overrideFailed: true })} />);
+    expect(screen.getByText('simulation failed')).toBeDefined();
   });
 });

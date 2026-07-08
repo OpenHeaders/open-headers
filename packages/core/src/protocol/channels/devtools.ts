@@ -204,12 +204,18 @@ export interface StorageQuotaBreakdownWire {
  * A scope's storage usage against its origin quota, in bytes.
  * `breakdown` is present only when the CDP tier answered — the standard
  * plane (`navigator.storage.estimate()`) reports totals only.
+ * `overrideActive` marks a simulated quota (CDP tier only, see
+ * `setStorageQuotaOverride`).
  */
 export interface StorageQuotaWire {
   usage: number;
   quota: number;
   breakdown?: ReadonlyArray<StorageQuotaBreakdownWire>;
+  overrideActive?: boolean;
 }
+
+/** The origin-scoped site-data types `clearSiteData` can remove. */
+export type SiteDataTypeWire = 'cacheStorage' | 'cookies' | 'indexedDB' | 'localStorage' | 'serviceWorkers';
 
 export interface DevToolsRpc {
   // ── DevTools panel: source-map resolution ──────────────────────
@@ -503,9 +509,22 @@ export interface DevToolsRpc {
    * the browser's own origin-scoped clearing API (a background-only
    * surface), so it works in both inspection modes; `ok` is `false` when
    * the origin can't be derived or the API is unavailable/denied.
+   * `types` narrows the clear to a subset; absent means all five.
    */
   clearSiteData: {
-    req: { tabId: number; frameId: number };
+    req: { tabId: number; frameId: number; types?: ReadonlyArray<SiteDataTypeWire> };
+    res: { ok: boolean };
+  };
+
+  /**
+   * Simulate a custom storage quota for the scope's origin (CDP tier
+   * only — the standard plane has no such control). `quotaBytes` sets
+   * the override; omitting it clears the simulation. `ok` is `false`
+   * when the tab isn't attached, the origin can't be derived, or the
+   * value is malformed.
+   */
+  setStorageQuotaOverride: {
+    req: { tabId: number; frameId: number; quotaBytes?: number };
     res: { ok: boolean };
   };
 

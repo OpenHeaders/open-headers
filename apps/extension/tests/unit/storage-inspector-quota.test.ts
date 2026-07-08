@@ -7,13 +7,14 @@
  * `chrome.scripting`.
  */
 
+import type { SiteDataTypeWire } from '@openheaders/core/bridge';
 import { afterEach, beforeEach, describe, expect, it, type vi } from 'vitest';
 import {
   __resetStorageCdpAccessForTests,
   registerStorageCdpAccess,
   type StorageCdpAccess,
 } from '@/background/modules/storage-inspector/cdp-tier';
-import { clearSiteData, getStorageQuota } from '@/background/modules/storage-inspector/quota';
+import { clearSiteData, getStorageQuota, setQuotaOverride } from '@/background/modules/storage-inspector/quota';
 import { readStorageEstimateInPage } from '@/background/modules/storage-inspector/standard-plane-quota';
 
 const executeScriptSpy = (): ReturnType<typeof vi.fn> =>
@@ -104,6 +105,24 @@ describe('clearSiteData', () => {
     browsingDataRemoveSpy().mockRejectedValue(new Error('policy denied'));
     expect(await clearSiteData(1, 0)).toEqual({ ok: false });
   });
+
+  it('narrows the clear to a provided types subset, dropping unknown entries', async () => {
+    getFrameSpy().mockResolvedValue({ url: 'https://openheaders.io/app' });
+    const withUnknown = ['cacheStorage', 'localStorage', 'passwords'] as ReadonlyArray<SiteDataTypeWire>;
+    expect(await clearSiteData(1, 0, withUnknown)).toEqual({ ok: true });
+    expect(browsingDataRemoveSpy()).toHaveBeenCalledWith(
+      { origins: ['https://openheaders.io'] },
+      { cacheStorage: true, localStorage: true },
+    );
+  });
+
+  it('fails a provided-but-empty selection without touching the API', async () => {
+    getFrameSpy().mockResolvedValue({ url: 'https://openheaders.io/app' });
+    expect(await clearSiteData(1, 0, [])).toEqual({ ok: false });
+    const unknownOnly: ReadonlyArray<string> = ['passwords'];
+    expect(await clearSiteData(1, 0, unknownOnly as ReadonlyArray<SiteDataTypeWire>)).toEqual({ ok: false });
+    expect(browsingDataRemoveSpy()).not.toHaveBeenCalled();
+  });
 });
 
 describe('arbitrated RPC surface — CDP transport (attached)', () => {
@@ -161,6 +180,14 @@ describe('arbitrated RPC surface — CDP transport (attached)', () => {
     expect((await getStorageQuota(1, 0)).quota).toEqual({ usage: 10, quota: 100 });
   });
 
+  it('marks an active quota override on the snapshot, omitting the field otherwise', async () => {
+    installCdp(() => Promise.resolve({ usage: 10, quota: 20_000_000, overrideActive: true }));
+    expect((await getStorageQuota(1, 0)).quota).toEqual({ usage: 10, quota: 20_000_000, overrideActive: true });
+
+    installCdp(() => Promise.resolve({ usage: 10, quota: 100, overrideActive: false }));
+    expect((await getStorageQuota(1, 0)).quota).toEqual({ usage: 10, quota: 100 });
+  });
+
   it('degrades to injection when the CDP op fails', async () => {
     installCdp(() => Promise.reject(new Error('detached mid-flight')));
     executeScriptSpy().mockResolvedValue([{ result: { usage: 1, quota: 2 } }]);
@@ -180,5 +207,44 @@ describe('arbitrated RPC surface — CDP transport (attached)', () => {
     executeScriptSpy().mockResolvedValue([{ result: { usage: 1, quota: 2 } }]);
     expect((await getStorageQuota(1, 0)).quota).toEqual({ usage: 1, quota: 2 });
     expect(executeScriptSpy()).toHaveBeenCalledTimes(1);
+  });
+
+  describe('setQuotaOverride (CDP-only, no injected leg)', () => {
+    it('sets the override through Storage.overrideQuotaForOrigin', async () => {
+      const calls = installCdp(() => Promise.resolve({}));
+      expect(await setQuotaOverride(1, 0, 20_000_000)).toEqual({ ok: true });
+      expect(calls).toEqual([
+        { method: 'Storage.overrideQuotaForOrigin', params: { origin: ORIGIN, quotaSize: 20_000_000 } },
+      ]);
+    });
+
+    it('clears the override by omitting quotaSize', async () => {
+      const calls = installCdp(() => Promise.resolve({}));
+      expect(await setQuotaOverride(1, 0)).toEqual({ ok: true });
+      expect(calls).toEqual([{ method: 'Storage.overrideQuotaForOrigin', params: { origin: ORIGIN } }]);
+    });
+
+    it('fails on a detached tab or an underivable origin without sending', async () => {
+      const detachedCalls = installCdp(() => Promise.resolve({}), false);
+      expect(await setQuotaOverride(1, 0, 20_000_000)).toEqual({ ok: false });
+      expect(detachedCalls).toEqual([]);
+
+      getFrameSpy().mockResolvedValue(null);
+      const attachedCalls = installCdp(() => Promise.resolve({}));
+      expect(await setQuotaOverride(1, 0, 20_000_000)).toEqual({ ok: false });
+      expect(attachedCalls).toEqual([]);
+    });
+
+    it('rejects a malformed quota without sending', async () => {
+      const calls = installCdp(() => Promise.resolve({}));
+      expect(await setQuotaOverride(1, 0, -1)).toEqual({ ok: false });
+      expect(await setQuotaOverride(1, 0, Number.NaN)).toEqual({ ok: false });
+      expect(calls).toEqual([]);
+    });
+
+    it('surfaces a rejected send as a failed override', async () => {
+      installCdp(() => Promise.reject(new Error('detached mid-flight')));
+      expect(await setQuotaOverride(1, 0, 20_000_000)).toEqual({ ok: false });
+    });
   });
 });

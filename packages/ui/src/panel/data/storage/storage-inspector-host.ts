@@ -151,13 +151,18 @@ export interface StorageQuotaBreakdownRow {
 /**
  * A scope's storage usage against its origin quota, in bytes.
  * `breakdown` is present only when the host's CDP tier answered — the
- * standard plane reports totals only.
+ * standard plane reports totals only. `overrideActive` marks a
+ * simulated quota (attached tabs only, see `setQuotaOverride`).
  */
 export interface StorageQuota {
   usage: number;
   quota: number;
   breakdown?: ReadonlyArray<StorageQuotaBreakdownRow>;
+  overrideActive?: boolean;
 }
+
+/** The origin-scoped site-data types the clear gesture can remove. */
+export type SiteDataType = 'cacheStorage' | 'cookies' | 'indexedDB' | 'localStorage' | 'serviceWorkers';
 
 /** Which storage type a host-pushed invalidation says went stale. */
 export type StorageInvalidationKind = 'indexeddb' | 'cachestorage';
@@ -234,8 +239,13 @@ export interface StorageInspectorHost {
    *  when neither transport can answer (non-secure context, frame gone). */
   readQuota(tabId: number, frameId: number): Promise<StorageQuota | null>;
   /** Clear the scope origin's site data (cookies, DOM storage,
-   *  IndexedDB, Cache Storage, service workers); `false` on any failure. */
-  clearSiteData(tabId: number, frameId: number): Promise<boolean>;
+   *  IndexedDB, Cache Storage, service workers); `types` narrows the
+   *  clear to a subset, absent means all five. `false` on any failure. */
+  clearSiteData(tabId: number, frameId: number, types?: ReadonlyArray<SiteDataType>): Promise<boolean>;
+  /** Simulate a custom storage quota for the scope's origin (attached
+   *  tabs only); `null` clears the simulation. `false` on any failure —
+   *  including a detached tab, which has no override control. */
+  setQuotaOverride(tabId: number, frameId: number, quotaBytes: number | null): Promise<boolean>;
   /** Delete a whole named cache; `false` on any failure. */
   deleteCache(tabId: number, frameId: number, cache: string): Promise<boolean>;
   /** Delete one cache entry by its request URL (+ method, see the read shape). */

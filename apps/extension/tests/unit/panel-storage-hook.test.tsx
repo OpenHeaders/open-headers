@@ -106,6 +106,7 @@ function installHost() {
   const deleteCacheEntry = vi.fn(() => Promise.resolve(true));
   const readQuota = vi.fn((): Promise<StorageQuota | null> => Promise.resolve(structuredClone(QUOTA)));
   const clearSiteData = vi.fn(() => Promise.resolve(true));
+  const setQuotaOverride = vi.fn(() => Promise.resolve(true));
   const invalidationListeners = { indexeddb: new Set<() => void>(), cachestorage: new Set<() => void>() };
   const host: StorageInspectorHost = {
     listScopes,
@@ -125,6 +126,7 @@ function installHost() {
     readCacheEntryResponse,
     readQuota,
     clearSiteData,
+    setQuotaOverride,
     deleteCache,
     deleteCacheEntry,
     subscribeStorageInvalidations: (_tabId: number, kind: 'indexeddb' | 'cachestorage', listener: () => void) => {
@@ -149,6 +151,7 @@ function installHost() {
     readCacheEntryResponse,
     readQuota,
     clearSiteData,
+    setQuotaOverride,
     deleteCache,
     deleteCacheEntry,
     pushInvalidation: (kind: 'indexeddb' | 'cachestorage') => {
@@ -689,6 +692,21 @@ describe('useStorageQuota poll stability', () => {
     expect(readQuota.mock.calls.length).toBe(readsBefore + 2);
   });
 
+  it('adopts a poll whose only change is the override flag', async () => {
+    const { readQuota } = installHost();
+    const { result } = renderHook(() => useStorageQuota(true, 0));
+
+    await flush();
+    await flush();
+    const snapshot = result.current.quota;
+    expect(snapshot).not.toBeNull();
+
+    readQuota.mockImplementation(() => Promise.resolve({ ...structuredClone(QUOTA), overrideActive: true }));
+    await flush(10_000);
+    expect(result.current.quota).not.toBe(snapshot);
+    expect(result.current.quota?.overrideActive).toBe(true);
+  });
+
   it('renders unreadable (null) as terminal once loading settles, keeping the last snapshot on later failures', async () => {
     const { readQuota } = installHost();
     readQuota.mockImplementation(() => Promise.resolve(null));
@@ -721,9 +739,16 @@ describe('useStorageQuota poll stability', () => {
       result.current.clearSiteData();
     });
     await flush();
-    expect(clearSiteData).toHaveBeenCalledWith(42, 0);
+    expect(clearSiteData).toHaveBeenCalledWith(42, 0, undefined);
     expect(readQuota.mock.calls.length).toBe(readsBefore + 1);
     expect(result.current.clearFailed).toBe(false);
+
+    // A types subset threads through the seam untouched.
+    act(() => {
+      result.current.clearSiteData(['cacheStorage', 'cookies']);
+    });
+    await flush();
+    expect(clearSiteData).toHaveBeenCalledWith(42, 0, ['cacheStorage', 'cookies']);
   });
 
   it('flags a failed clear', async () => {
@@ -737,6 +762,41 @@ describe('useStorageQuota poll stability', () => {
     });
     await flush();
     expect(result.current.clearFailed).toBe(true);
+  });
+
+  it('routes the quota override through the host and refetches via the same read path', async () => {
+    const { readQuota, setQuotaOverride } = installHost();
+    const { result } = renderHook(() => useStorageQuota(true, 0));
+
+    await flush();
+    await flush();
+    const readsBefore = readQuota.mock.calls.length;
+    act(() => {
+      result.current.setQuotaOverride(20_000_000);
+    });
+    await flush();
+    expect(setQuotaOverride).toHaveBeenCalledWith(42, 0, 20_000_000);
+    expect(readQuota.mock.calls.length).toBe(readsBefore + 1);
+    expect(result.current.overrideFailed).toBe(false);
+
+    act(() => {
+      result.current.setQuotaOverride(null);
+    });
+    await flush();
+    expect(setQuotaOverride).toHaveBeenCalledWith(42, 0, null);
+  });
+
+  it('flags a failed override (detached tabs have no simulation control)', async () => {
+    const { setQuotaOverride } = installHost();
+    setQuotaOverride.mockImplementation(() => Promise.resolve(false));
+    const { result } = renderHook(() => useStorageQuota(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.setQuotaOverride(20_000_000);
+    });
+    await flush();
+    expect(result.current.overrideFailed).toBe(true);
   });
 
   it('drops the old scope snapshot when the frame changes', async () => {

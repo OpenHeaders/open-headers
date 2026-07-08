@@ -27,6 +27,7 @@ export type {
   JarCookieWire,
   ListedTestRun,
   LiveWorkflowRunSnapshot,
+  SiteDataTypeWire,
   SiteJarCookieWire,
   StartTestRunResult,
   StorageInvalidationKind,

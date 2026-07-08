@@ -1,8 +1,10 @@
 /**
  * The Storage tool window's Usage section — the scope's storage usage
  * against its origin quota, with the per-type breakdown when the host's
- * CDP tier answered (attached tabs), and the clear-site-data gesture
- * (bulk destruction ⇒ the two-step arm/confirm idiom, blur disarms).
+ * CDP tier answered (attached tabs), a quota-simulation control riding
+ * the same tier, and the clear-site-data gesture (bulk destruction ⇒
+ * the two-step arm/confirm idiom, blur disarms) parameterized by
+ * per-type checkboxes (default all-on).
  *
  * `navigator.storage` is a secure-context API, so an http: scope
  * legitimately has no reach — that renders as an explanatory empty
@@ -16,6 +18,7 @@
 
 import { hasCapability } from '@openheaders/core/capabilities';
 import { useState } from 'react';
+import type { SiteDataType } from '../../data/storage/storage-inspector-host';
 import type { StorageQuotaState } from '../../data/storage/use-storage-quota';
 import { formatSize } from '../traffic/formatters';
 
@@ -27,6 +30,17 @@ const STORAGE_TYPE_LABELS: Record<string, string> = {
   websql: 'WebSQL',
   other: 'Other',
 };
+
+const SITE_DATA_CHOICES: ReadonlyArray<{ type: SiteDataType; label: string }> = [
+  { type: 'cookies', label: 'Cookies' },
+  { type: 'localStorage', label: 'DOM storage' },
+  { type: 'indexedDB', label: 'IndexedDB' },
+  { type: 'cacheStorage', label: 'Cache Storage' },
+  { type: 'serviceWorkers', label: 'Service workers' },
+];
+
+/** MB the way the browser reads it — decimal, not 1024-based. */
+const BYTES_PER_MB = 1_000_000;
 
 function storageTypeLabel(storageType: string): string {
   return STORAGE_TYPE_LABELS[storageType] ?? storageType.replace(/_/g, ' ');
@@ -42,6 +56,7 @@ interface StorageQuotaCardProps {
 }
 
 export function StorageQuotaCard({ quota }: StorageQuotaCardProps) {
+  const [excluded, setExcluded] = useState<ReadonlySet<SiteDataType>>(new Set());
   const snapshot = quota.quota;
   if (snapshot === null) {
     return quota.loading ? (
@@ -62,6 +77,16 @@ export function StorageQuotaCard({ quota }: StorageQuotaCardProps) {
   const fillPercent = Math.max(usedPercent, snapshot.usage > 0 ? 0.5 : 0);
   const percentLabel = snapshot.usage > 0 && usedPercent < 0.1 ? '<0.1' : usedPercent.toFixed(1);
   const rows = (snapshot.breakdown ?? []).filter((row) => row.usage > 0);
+
+  const toggleType = (type: SiteDataType) => {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
+  const selected = SITE_DATA_CHOICES.filter(({ type }) => !excluded.has(type)).map(({ type }) => type);
 
   return (
     <div className="dt-storage-quota">
@@ -94,27 +119,118 @@ export function StorageQuotaCard({ quota }: StorageQuotaCardProps) {
       ) : hasCapability('cdpInspection') ? (
         <div className="dt-storage-quota-hint">Enable Debug mode to see the per-type breakdown.</div>
       ) : null}
+      {snapshot.breakdown && (
+        <QuotaSimulationRow
+          overrideActive={snapshot.overrideActive === true}
+          overrideFailed={quota.overrideFailed}
+          onOverride={quota.setQuotaOverride}
+        />
+      )}
       {hasCapability('originDataClearing') && (
-        <div className="dt-storage-quota-actions">
-          <ClearSiteDataButton onClear={quota.clearSiteData} />
-          {quota.clearFailed && <span className="dt-storage-quota-clear-failed">clear failed</span>}
-        </div>
+        <>
+          <div className="dt-storage-quota-clear-types">
+            {SITE_DATA_CHOICES.map(({ type, label }) => (
+              <label className="dt-storage-quota-clear-type" key={type}>
+                <input type="checkbox" checked={!excluded.has(type)} onChange={() => toggleType(type)} />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div className="dt-storage-quota-actions">
+            <ClearSiteDataButton
+              disabled={selected.length === 0}
+              onClear={() =>
+                quota.clearSiteData(selected.length === SITE_DATA_CHOICES.length ? undefined : selected)
+              }
+            />
+            {quota.clearFailed && <span className="dt-storage-quota-clear-failed">clear failed</span>}
+          </div>
+        </>
       )}
     </div>
   );
 }
 
+/**
+ * Simulate-custom-quota control — attached tabs only (the caller gates
+ * on the breakdown's presence). The value is MB like the browser's own
+ * control; Enter commits, an empty commit or Reset clears the override.
+ */
+function QuotaSimulationRow({
+  overrideActive,
+  overrideFailed,
+  onOverride,
+}: {
+  overrideActive: boolean;
+  overrideFailed: boolean;
+  onOverride: (quotaBytes: number | null) => void;
+}) {
+  const [value, setValue] = useState('');
+  const [invalid, setInvalid] = useState(false);
+
+  const commit = () => {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      setInvalid(false);
+      onOverride(null);
+      return;
+    }
+    const mb = Number(trimmed);
+    if (!Number.isFinite(mb) || mb < 0) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    onOverride(Math.round(mb * BYTES_PER_MB));
+  };
+
+  return (
+    <div className="dt-storage-quota-simulate">
+      <label className="dt-storage-quota-simulate-label">
+        Simulate custom quota
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder="MB"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit();
+          }}
+        />
+      </label>
+      {overrideActive && (
+        <button
+          type="button"
+          className="dt-storage-quota-simulate-reset"
+          onClick={() => {
+            setValue('');
+            setInvalid(false);
+            onOverride(null);
+          }}
+        >
+          Reset
+        </button>
+      )}
+      {invalid ? (
+        <span className="dt-storage-quota-clear-failed">enter a non-negative number</span>
+      ) : overrideFailed ? (
+        <span className="dt-storage-quota-clear-failed">simulation failed</span>
+      ) : null}
+    </div>
+  );
+}
+
 /** Two-step inline confirm — first click arms, second commits. */
-function ClearSiteDataButton({ onClear }: { onClear: () => void }) {
+function ClearSiteDataButton({ onClear, disabled }: { onClear: () => void; disabled: boolean }) {
   const [armed, setArmed] = useState(false);
   return (
     <button
       type="button"
       className={`dt-storage-clear${armed ? ' dt-storage-clear--armed' : ''}`}
+      disabled={disabled}
       title={
-        armed
-          ? 'Deletes cookies, DOM storage, IndexedDB, Cache Storage and service workers for this origin'
-          : 'Clear all site data for this origin'
+        armed ? 'Deletes the checked data types for this origin' : 'Clear the checked site data for this origin'
       }
       onClick={() => {
         if (!armed) {
