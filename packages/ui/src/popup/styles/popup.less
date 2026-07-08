@@ -775,6 +775,12 @@ body {
   z-index: 1060;
 }
 
+// Tooltips dismiss instantly on mouse-out — suppress the zoom/fade-out
+// so pointer sweeps across dense chrome don't leave trailing ghosts.
+.ant-tooltip.ant-zoom-big-fast-leave {
+  display: none;
+}
+
 .ant-modal-mask {
   z-index: 1000;
 }
