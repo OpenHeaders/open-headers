@@ -7,7 +7,7 @@
  * Edits reuse the shipped CookieEditPopover + jar write path.
  */
 
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, WarningOutlined } from '@ant-design/icons';
 import { jarCookieToEditForm } from '../../data/cookies/cookie-edit';
 import { formatAbsoluteExpiry, formatRelativeExpiry } from '../../data/cookies/cookie-format';
 import type { JarCookie, JarCookieEdit } from '../../data/cookies/cookie-jar-cache';
@@ -18,16 +18,26 @@ interface CookieJarRowProps {
   cookie: JarCookie;
   writable: boolean;
   now: number;
+  /** Set on site-jar rows the browser would NOT attach to a request to
+   *  the inspected scope — renders the not-sent badge with this reason. */
+  notSentReason?: string;
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: (cookie: JarCookie) => void;
 }
 
-export function CookieJarRow({ cookie, writable, now, onApplyEdit, onDelete }: CookieJarRowProps) {
+export function CookieJarRow({ cookie, writable, now, notSentReason, onApplyEdit, onDelete }: CookieJarRowProps) {
   const scope = `${cookie.domain}${cookie.path && cookie.path !== '/' ? ` ${cookie.path}` : ''}`;
   const scopeTitle = `${cookie.domain}${cookie.path || '/'}${cookie.partitionKey ? `\nPartitioned under ${cookie.partitionKey}` : ''}`;
   return (
     <div className="dt-storage-row" role="row">
       <span className="dt-storage-key" role="cell" title={cookie.name}>
+        {notSentReason !== undefined && (
+          <WarningOutlined
+            className="dt-storage-cookie-warn"
+            title={`Not sent to this page — ${notSentReason}`}
+            aria-label={`Cookie ${cookie.name} is not sent to this page: ${notSentReason}`}
+          />
+        )}
         {cookie.name}
       </span>
       <span className="dt-storage-value" role="cell" title={cookie.value}>

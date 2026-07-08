@@ -5,6 +5,8 @@ import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import { logger } from '@utils/logger';
 import { getBackendSyncStatusSnapshot } from '../../../sync-status-aggregate';
 import {
+  clearCookiesForSite as clearCookiesForSiteHandler,
+  fetchCookieJarForSite as fetchCookieJarForSiteHandler,
   fetchCookieJarForUrl as fetchCookieJarForUrlHandler,
   removeCookieForUrl as removeCookieForUrlHandler,
   setCookieForUrl as setCookieForUrlHandler,
@@ -29,6 +31,26 @@ export const miscHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('CookieJarFetch', `handler threw: ${err.message}`);
         respond({ cookies: null });
+      });
+    return true;
+  },
+
+  fetchCookieJarForSite: ({ message, respond }) => {
+    fetchCookieJarForSiteHandler(message.url as string)
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('CookieJarFetch', `site handler threw: ${err.message}`);
+        respond({ cookies: null });
+      });
+    return true;
+  },
+
+  clearCookiesForSite: ({ message, respond }) => {
+    clearCookiesForSiteHandler(message.url as string)
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('CookieJarWrite', `clear handler threw: ${err.message}`);
+        respond({ ok: false });
       });
     return true;
   },

@@ -105,17 +105,24 @@ export function parseSetCookieLine(line: string, now: number = Date.now()): Cook
 
 /**
  * Compute the per-row filteredReason for a jar cookie that the
- * request didn't carry. The reasons are heuristic — the browser's
+ * request didn't carry (also the Storage tool window's not-sent badge
+ * reason for site-jar rows). The reasons are heuristic — the browser's
  * actual decision can hinge on partition-key / 3P-CHIPS / page
  * embedding state we can't see from a panel — but they're correct in
- * the common cases (path / scheme / expiry).
+ * the common cases (domain / path / scheme / expiry).
  */
-function explainFilteredOut(c: JarCookie, parsedUrl: URL, now: number): string {
+export function explainFilteredOut(c: JarCookie, parsedUrl: URL, now: number): string {
   if (c.expirationDate != null && c.expirationDate * 1000 <= now) {
     return 'expired';
   }
   if (c.secure && parsedUrl.protocol !== 'https:') {
     return 'Secure cookie on http';
+  }
+  const host = parsedUrl.hostname;
+  const cookieDomain = c.domain.replace(/^\./, '');
+  const domainMatches = c.hostOnly ? host === cookieDomain : host === cookieDomain || host.endsWith(`.${cookieDomain}`);
+  if (!domainMatches) {
+    return `domain mismatch (cookie domain ${c.domain})`;
   }
   const path = parsedUrl.pathname || '/';
   if (c.path && !path.startsWith(c.path)) {

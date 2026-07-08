@@ -17,9 +17,12 @@ export type {
   JarCookie,
   JarCookieEdit,
   JarCookieKey,
+  SiteCookieJarFetcher,
+  SiteJarCookie,
 } from './data/cookies/cookie-jar-cache';
 export {
   invalidateJarCache,
   setCookieJarFetcher,
   setCookieJarWriter,
+  setSiteCookieJarFetcher,
 } from './data/cookies/cookie-jar-cache';

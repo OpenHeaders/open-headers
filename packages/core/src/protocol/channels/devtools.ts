@@ -55,6 +55,18 @@ export interface JarCookieKeyWire {
   storeId?: string;
 }
 
+/**
+ * One cookie of a SITE-scoped jar lookup ({@link fetchCookieJarForSite}).
+ * `sendable` is the browser's own decision — whether the jar would
+ * attach this cookie to a request to the queried URL — so the panel can
+ * badge rows the page never actually receives (path-scoped elsewhere,
+ * Secure-only on an http scope, subdomain-scoped) without re-deriving
+ * the matching rules itself.
+ */
+export interface SiteJarCookieWire extends JarCookieWire {
+  sendable: boolean;
+}
+
 /** Which DOM storage area a storage-inspector read targets. */
 export type DomStorageAreaWire = 'local' | 'session';
 
@@ -250,6 +262,31 @@ export interface DevToolsRpc {
    */
   removeCookieForUrl: {
     req: JarCookieKeyWire;
+    res: { ok: boolean };
+  };
+
+  /**
+   * Fetch the SITE-wide jar for a URL — the browser's Application-panel
+   * view: every cookie scoped to the URL's host or its subdomains, PLUS
+   * the sendable set for the URL itself (parent-domain cookies live
+   * there), deduped by identity. Each row carries `sendable` — the
+   * browser's own would-it-be-attached verdict for the queried URL — so
+   * the Storage tool window can list cookies the page never receives
+   * and badge them. `cookies` is `null` on lookup failure.
+   */
+  fetchCookieJarForSite: {
+    req: { url: string };
+    res: { cookies: ReadonlyArray<SiteJarCookieWire> | null };
+  };
+
+  /**
+   * Delete every cookie of the URL's site-wide jar (the same set
+   * {@link fetchCookieJarForSite} enumerates) — the Cookies section's
+   * "Clear all". `ok` is `false` when any single remove failed, so the
+   * panel can surface a partial clear.
+   */
+  clearCookiesForSite: {
+    req: { url: string };
     res: { ok: boolean };
   };
 

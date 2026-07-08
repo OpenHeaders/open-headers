@@ -180,6 +180,24 @@ test('cookie jar reads and writes ride the plane end-to-end, HttpOnly included',
   expect(finalJar.some((c) => c.name === 'oh_jar_write')).toBe(false);
   expect(finalJar.some((c) => c.name === 'oh_store_http')).toBe(true);
 
+  // ── Site-wide jar: the path-scoped cookie appears with the browser's
+  // own not-sendable verdict at the root URL ─────────────────────────
+  const site = await rpc<{ cookies: Array<JarCookie & { sendable: boolean }> | null }>('fetchCookieJarForSite', {
+    url: 'http://127.0.0.1:3000/',
+  });
+  const siteByName = new Map((site.cookies ?? []).map((c) => [c.name, c]));
+  expect(siteByName.get('oh_store_scoped')?.sendable).toBe(false);
+  expect(siteByName.get('oh_store_http')?.sendable).toBe(true);
+  expect(siteByName.get('oh_store_plain')?.sendable).toBe(true);
+
+  // ── Clear all removes the whole site jar, page-side truth included ─
+  const cleared = await rpc<{ ok: boolean }>('clearCookiesForSite', { url: 'http://127.0.0.1:3000/' });
+  expect(cleared.ok).toBe(true);
+  expect(
+    (await rpc<{ cookies: unknown[] | null }>('fetchCookieJarForSite', { url: 'http://127.0.0.1:3000/' })).cookies,
+  ).toEqual([]);
+  expect(await page.evaluate(() => document.cookie)).toBe('');
+
   await page.evaluate(() => window.ohStorage.reset());
   await page.close();
 });

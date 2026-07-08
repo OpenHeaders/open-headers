@@ -24,12 +24,16 @@
  * edit.
  */
 
-import type { JarCookieEditWire, JarCookieKeyWire, JarCookieWire } from '@openheaders/core/bridge';
+import type { JarCookieEditWire, JarCookieKeyWire, JarCookieWire, SiteJarCookieWire } from '@openheaders/core/bridge';
 import { cookies as cookiesApi } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 
 export interface FetchCookieJarResult {
   cookies: ReadonlyArray<JarCookieWire> | null;
+}
+
+export interface FetchSiteCookieJarResult {
+  cookies: ReadonlyArray<SiteJarCookieWire> | null;
 }
 
 export interface SetCookieResult {
@@ -114,6 +118,85 @@ export async function fetchCookieJarForUrl(url: string): Promise<FetchCookieJarR
       resolve({ cookies: null });
     }
   });
+}
+
+function getAllCookies(details: chrome.cookies.GetAllDetails): Promise<chrome.cookies.Cookie[] | null> {
+  const api = cookiesApi;
+  if (!api) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      api.getAll(details, (raw) => resolve(raw ?? []));
+    } catch (e) {
+      logger.info('CookieJarFetch', `getAll threw: ${(e as Error).message}`);
+      resolve(null);
+    }
+  });
+}
+
+function cookieIdentity(c: chrome.cookies.Cookie): string {
+  const partition = normalizePartitionKey((c as { partitionKey?: unknown }).partitionKey) ?? '';
+  return `${c.name}|${c.domain}|${c.path}|${c.storeId ?? ''}|${partition}`;
+}
+
+/**
+ * The site-wide jar for a URL — the browser's Application-panel view.
+ * `getAll({ domain: host })` covers cookies scoped to the host or its
+ * subdomains, `getAll({ url })` adds the sendable set (parent-domain
+ * cookies only appear there); the union is deduped by identity and each
+ * row stamped `sendable` by membership in the URL set — the browser's
+ * own attach verdict, never re-derived here.
+ */
+export async function fetchCookieJarForSite(url: string): Promise<FetchSiteCookieJarResult> {
+  if (!url) return { cookies: null };
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return { cookies: null };
+  }
+
+  const [byDomain, byUrl] = await Promise.all([getAllCookies({ domain: host }), getAllCookies({ url })]);
+  if (byDomain === null || byUrl === null) return { cookies: null };
+
+  const sendableKeys = new Set(byUrl.map(cookieIdentity));
+  const seen = new Set<string>();
+  const cookies: SiteJarCookieWire[] = [];
+  try {
+    for (const raw of [...byDomain, ...byUrl]) {
+      const key = cookieIdentity(raw);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cookies.push({ ...normalizeCookie(raw), sendable: sendableKeys.has(key) });
+    }
+  } catch (e) {
+    logger.info('CookieJarFetch', `site normalise threw: ${(e as Error).message}`);
+    return { cookies: null };
+  }
+  return { cookies };
+}
+
+/**
+ * Delete every cookie of the URL's site-wide jar (the same set
+ * {@link fetchCookieJarForSite} enumerates). `ok` is `false` when the
+ * enumeration failed or any single remove did — a partial clear is
+ * surfaced, never silently absorbed.
+ */
+export async function clearCookiesForSite(url: string): Promise<{ ok: boolean }> {
+  const { cookies } = await fetchCookieJarForSite(url);
+  if (cookies === null) return { ok: false };
+  const results = await Promise.all(
+    cookies.map((c) =>
+      removeCookieForUrl({
+        name: c.name,
+        domain: c.domain,
+        path: c.path,
+        secure: c.secure,
+        ...(c.partitionKey ? { partitionKey: c.partitionKey } : {}),
+        ...(c.storeId ? { storeId: c.storeId } : {}),
+      }),
+    ),
+  );
+  return { ok: results.every((r) => r.ok) };
 }
 
 export async function setCookieForUrl(cookie: JarCookieEditWire): Promise<SetCookieResult> {

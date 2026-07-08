@@ -6,11 +6,15 @@
  * plumbing it passes down.
  */
 
-import { cookieEditKey, type JarCookie, type JarCookieEdit } from '../../data/cookies/cookie-jar-cache';
+import { explainFilteredOut } from '../../data/cookies/cookie-enrich';
+import { cookieEditKey, type JarCookie, type JarCookieEdit, type SiteJarCookie } from '../../data/cookies/cookie-jar-cache';
 import { CookieJarRow } from './CookieJarRow';
 
 interface CookiesSectionProps {
-  cookies: ReadonlyArray<JarCookie>;
+  cookies: ReadonlyArray<SiteJarCookie>;
+  /** The inspected scope's URL — the not-sent badge explains a row
+   *  against it ("why doesn't this page receive this cookie?"). */
+  scopeUrl: string;
   writable: boolean;
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: (cookie: JarCookie) => void;
@@ -20,8 +24,17 @@ function rowKey(c: JarCookie): string {
   return `${cookieEditKey(c.name, c.domain, c.path)}|${c.partitionKey ?? ''}`;
 }
 
-export function CookiesSection({ cookies, writable, onApplyEdit, onDelete }: CookiesSectionProps) {
+function safeParseUrl(url: string): URL | null {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
+  }
+}
+
+export function CookiesSection({ cookies, scopeUrl, writable, onApplyEdit, onDelete }: CookiesSectionProps) {
   const now = Date.now();
+  const parsedScope = safeParseUrl(scopeUrl);
   return (
     <div className="dt-storage-grid dt-storage-grid--cookies" role="table" aria-label="Cookies">
       <div className="dt-storage-grid-header" role="row">
@@ -37,6 +50,7 @@ export function CookiesSection({ cookies, writable, onApplyEdit, onDelete }: Coo
           cookie={c}
           writable={writable}
           now={now}
+          notSentReason={!c.sendable && parsedScope ? explainFilteredOut(c, parsedScope, now) : undefined}
           onApplyEdit={onApplyEdit}
           onDelete={onDelete}
         />

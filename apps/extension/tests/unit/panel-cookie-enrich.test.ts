@@ -1,5 +1,9 @@
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { enrichCookies, parseSetCookieLine } from '@openheaders/ui/panel/data/cookies/cookie-enrich';
+import {
+  enrichCookies,
+  explainFilteredOut,
+  parseSetCookieLine,
+} from '@openheaders/ui/panel/data/cookies/cookie-enrich';
 import { cookieEditKey } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
 import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
 import { describe, expect, it } from 'vitest';
@@ -304,7 +308,10 @@ describe('enrichCookies', () => {
           headers: [{ name: 'Set-Cookie', value: 'sid=x' }],
         },
       }),
-      jar: [jar({ name: 'sid', domain: '.openheaders.io' }), jar({ name: 'sid', domain: 'openheaders.io', hostOnly: true })],
+      jar: [
+        jar({ name: 'sid', domain: '.openheaders.io' }),
+        jar({ name: 'sid', domain: 'openheaders.io', hostOnly: true }),
+      ],
       showFilteredOut: false,
       now: NOW,
     });
@@ -372,5 +379,35 @@ describe('enrichCookies — edited cookies', () => {
     expect(row?.edited).toBe(true);
     expect(row?.value).toBe('GH1.1.x.4');
     expect(row?.sentValue).toBeUndefined();
+  });
+});
+
+describe('explainFilteredOut', () => {
+  const url = new URL('https://openheaders.io/account/settings');
+
+  it('orders expiry before scheme before domain before path', () => {
+    expect(explainFilteredOut(jar({ expirationDate: Math.floor(NOW / 1000) - 10 }), url, NOW)).toBe('expired');
+    expect(explainFilteredOut(jar({ secure: true }), new URL('http://openheaders.io/'), NOW)).toBe(
+      'Secure cookie on http',
+    );
+  });
+
+  it('explains a host-only cookie scoped to another host as a domain mismatch', () => {
+    expect(explainFilteredOut(jar({ hostOnly: true, domain: 'app.openheaders.io', secure: false }), url, NOW)).toBe(
+      'domain mismatch (cookie domain app.openheaders.io)',
+    );
+  });
+
+  it('accepts a parent-domain cookie for a subdomain host', () => {
+    const subUrl = new URL('https://app.openheaders.io/');
+    expect(
+      explainFilteredOut(jar({ domain: '.openheaders.io', secure: false, sameSite: 'unspecified' }), subUrl, NOW),
+    ).toBe('not sent');
+  });
+
+  it('explains a path-scoped cookie against the scope path', () => {
+    expect(explainFilteredOut(jar({ path: '/admin', secure: false }), url, NOW)).toBe(
+      'path mismatch (cookie path /admin)',
+    );
   });
 });

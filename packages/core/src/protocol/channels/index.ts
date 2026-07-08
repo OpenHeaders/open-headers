@@ -58,6 +58,7 @@ export type {
   JarCookieEditWire,
   JarCookieKeyWire,
   JarCookieWire,
+  SiteJarCookieWire,
   StorageQuotaBreakdownWire,
   StorageQuotaWire,
   StorageScopeWire,

@@ -8,7 +8,13 @@
  */
 
 import { useEffect, useReducer, useRef } from 'react';
-import { getJarCookiesForUrl, type JarCookie, subscribeCookieJar } from './cookie-jar-cache';
+import {
+  getJarCookiesForUrl,
+  getSiteJarCookiesForUrl,
+  type JarCookie,
+  type SiteJarCookie,
+  subscribeCookieJar,
+} from './cookie-jar-cache';
 
 export function useCookieJar(url: string): readonly JarCookie[] | null {
   const [, force] = useReducer((n: number) => n + 1, 0);
@@ -52,6 +58,31 @@ export function useCookieJarSticky(url: string): readonly JarCookie[] | null {
   const held = heldRef.current;
   if (live !== null) {
     if (!(held && held.url === url && jarCookiesEqual(held.cookies, live))) {
+      heldRef.current = { url, cookies: live };
+    }
+    return heldRef.current?.cookies ?? live;
+  }
+  return held && held.url === url ? held.cookies : null;
+}
+
+function siteJarCookiesEqual(a: readonly SiteJarCookie[], b: readonly SiteJarCookie[]): boolean {
+  return jarCookiesEqual(a, b) && a.every((c, i) => c.sendable === b[i].sendable);
+}
+
+/**
+ * Site-scoped twin of {@link useCookieJarSticky} — the Storage tool
+ * window's Cookies section reads the site-wide jar (with per-row
+ * `sendable`) through the same hold-through-invalidation and stable-
+ * identity discipline.
+ */
+export function useSiteCookieJarSticky(url: string): readonly SiteJarCookie[] | null {
+  const [, force] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => subscribeCookieJar(force), [force]);
+  const live = getSiteJarCookiesForUrl(url);
+  const heldRef = useRef<{ url: string; cookies: readonly SiteJarCookie[] } | null>(null);
+  const held = heldRef.current;
+  if (live !== null) {
+    if (!(held && held.url === url && siteJarCookiesEqual(held.cookies, live))) {
       heldRef.current = { url, cookies: live };
     }
     return heldRef.current?.cookies ?? live;

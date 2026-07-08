@@ -16,14 +16,17 @@ import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/doc
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { emptyEditForm, jarCookieToKey } from '../../data/cookies/cookie-edit';
 import {
+  clearSiteJarCookies,
   isCookieJarReadable,
+  isCookieJarSiteClearable,
   isCookieJarWritable,
   type JarCookie,
   type JarCookieEdit,
   removeJarCookie,
+  type SiteJarCookie,
   writeJarCookie,
 } from '../../data/cookies/cookie-jar-cache';
-import { useCookieJarSticky } from '../../data/cookies/use-cookie-jar';
+import { useSiteCookieJarSticky } from '../../data/cookies/use-cookie-jar';
 import type { DomStorageEntry } from '../../data/storage/storage-inspector-host';
 import { parseStorageKey } from '../../data/storage/storage-key';
 import { useCacheBrowser } from '../../data/storage/use-cache-browser';
@@ -96,14 +99,14 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
 
   // ── Cookies section data + write plumbing (jar plane reuse) ────────
   const scopeUrl = selectedScope?.url ?? '';
-  const jar = useCookieJarSticky(section === 'cookies' ? scopeUrl : '');
-  const sortedCookies = useMemo<ReadonlyArray<JarCookie> | null>(() => {
+  const jar = useSiteCookieJarSticky(section === 'cookies' ? scopeUrl : '');
+  const sortedCookies = useMemo<ReadonlyArray<SiteJarCookie> | null>(() => {
     if (!jar) return jar;
     return [...jar].sort(
       (a, b) => a.name.localeCompare(b.name) || a.domain.localeCompare(b.domain) || a.path.localeCompare(b.path),
     );
   }, [jar]);
-  const filteredCookies = useMemo<ReadonlyArray<JarCookie>>(() => {
+  const filteredCookies = useMemo<ReadonlyArray<SiteJarCookie>>(() => {
     if (!sortedCookies) return [];
     const needle = textFilter.trim().toLowerCase();
     if (!needle) return sortedCookies;
@@ -129,6 +132,12 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
       setCookieWriteFailed(!ok);
     });
   }, []);
+
+  const clearCookies = useCallback(async (): Promise<boolean> => {
+    const ok = await clearSiteJarCookies(scopeUrl);
+    setCookieWriteFailed(!ok);
+    return ok;
+  }, [scopeUrl]);
 
   const addCookieCanonical = useMemo(() => {
     let domain = '';
@@ -273,9 +282,11 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
                 </span>
               )}
               <span className="dt-storage-scope-note">{scopeNote}</span>
-              {section !== 'cookies' && canWrite && entries.length > 0 && (
-                <ClearAllButton section={section} onClear={inspector.clearArea} />
-              )}
+              {section === 'cookies'
+                ? cookiesWritable &&
+                  isCookieJarSiteClearable() &&
+                  (sortedCookies?.length ?? 0) > 0 && <ClearAllButton section={section} onClear={clearCookies} />
+                : canWrite && entries.length > 0 && <ClearAllButton section={section} onClear={inspector.clearArea} />}
             </div>
           )}
 
@@ -285,6 +296,7 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
                 inspector={inspector}
                 cookies={sortedCookies}
                 filteredCookies={filteredCookies}
+                scopeUrl={scopeUrl}
                 writable={cookiesWritable}
                 onApplyEdit={applyCookieEdit}
                 onDelete={deleteCookie}
@@ -326,13 +338,12 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
 /** Two-step inline confirm — first click arms, second commits. */
 function ClearAllButton({ section, onClear }: { section: StorageSection; onClear: () => Promise<boolean> }) {
   const [armed, setArmed] = useState(false);
+  const noun = section === 'cookies' ? 'cookie in this site’s jar' : `${areaName(section)} entry`;
   return (
     <button
       type="button"
       className={`dt-storage-clear${armed ? ' dt-storage-clear--armed' : ''}`}
-      title={
-        armed ? `Deletes every ${areaName(section)} entry for this origin` : `Clear all ${areaName(section)} entries`
-      }
+      title={armed ? `Deletes every ${noun} for this origin` : `Clear every ${noun}`}
       onClick={() => {
         if (!armed) {
           setArmed(true);
@@ -418,14 +429,23 @@ function StorageBody({ inspector, section, entries, totalCount, adding, onCloseA
 interface CookiesBodyProps {
   inspector: StorageInspectorState;
   /** `null` while the first jar lookup for this scope is in flight. */
-  cookies: ReadonlyArray<JarCookie> | null;
-  filteredCookies: ReadonlyArray<JarCookie>;
+  cookies: ReadonlyArray<SiteJarCookie> | null;
+  filteredCookies: ReadonlyArray<SiteJarCookie>;
+  scopeUrl: string;
   writable: boolean;
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: (cookie: JarCookie) => void;
 }
 
-function CookiesBody({ inspector, cookies, filteredCookies, writable, onApplyEdit, onDelete }: CookiesBodyProps) {
+function CookiesBody({
+  inspector,
+  cookies,
+  filteredCookies,
+  scopeUrl,
+  writable,
+  onApplyEdit,
+  onDelete,
+}: CookiesBodyProps) {
   const hasScopes = inspector.scopes.length > 0;
 
   if (!isCookieJarReadable()) {
@@ -455,5 +475,13 @@ function CookiesBody({ inspector, cookies, filteredCookies, writable, onApplyEdi
   if (filteredCookies.length === 0) {
     return <div className="dt-empty">No cookies match your filter.</div>;
   }
-  return <CookiesSection cookies={filteredCookies} writable={writable} onApplyEdit={onApplyEdit} onDelete={onDelete} />;
+  return (
+    <CookiesSection
+      cookies={filteredCookies}
+      scopeUrl={scopeUrl}
+      writable={writable}
+      onApplyEdit={onApplyEdit}
+      onDelete={onDelete}
+    />
+  );
 }

@@ -192,6 +192,14 @@
   white-space: nowrap;
 }
 
+/* Not-sent badge — a site-jar cookie the browser wouldn't attach to a
+ * request to the inspected scope (path-scoped elsewhere, Secure-only on
+ * http, subdomain-scoped). */
+.dt-storage-cookie-warn {
+  color: var(--dt-status-yellow);
+  margin-right: 4px;
+}
+
 /* IndexedDB section — database groups with store rows, then the paged
  * records grid (reuses the default two-column grid). */
 .dt-storage-idb-list {
