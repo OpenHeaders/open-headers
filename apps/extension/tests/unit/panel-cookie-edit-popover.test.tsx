@@ -14,18 +14,17 @@ import {
   CookieEditPopover,
   type CookieEditPopoverDocument,
 } from '@openheaders/ui/panel/components/detail/cookies/CookieEditPopover';
-import {
-  deleteKeyForRow,
-  emptyEditForm,
-  jarCookieToEditForm,
-} from '@openheaders/ui/panel/data/cookies/cookie-edit';
-import { jarToRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
+import { deleteKeyForRow, emptyEditForm, jarCookieToEditForm } from '@openheaders/ui/panel/data/cookies/cookie-edit';
 import {
   __resetCookieJarCacheForTests,
   invalidateJarCache,
   type SiteJarCookie,
   setSiteCookieJarFetcher,
 } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
+import { jarToRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
+// The popover's save chord reads `keyboard.save` from the settings
+// registry — import the schema barrel for its side effects.
+import '@openheaders/ui/workbench/settings/schema';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -164,6 +163,22 @@ describe('Open in new tab link', () => {
   });
 });
 
+describe('save chord', () => {
+  it('saves via Cmd/Ctrl+S while savable — and the chord is inert while clean', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    renderEditPopover(bindingFor(), onSubmit);
+
+    await waitFor(() => expect(valueInput().value).toBe('abc'));
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.change(valueInput(), { target: { value: 'rotated' } });
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ name: 'sid', value: 'rotated' });
+  });
+});
+
 describe('live jar sync', () => {
   it('silently re-seeds a clean form when the jar changes underneath; Save stays disabled', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
@@ -175,7 +190,7 @@ describe('live jar sync', () => {
     invalidateJarCache();
 
     await waitFor(() => expect(valueInput().value).toBe('rotated-elsewhere'));
-    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: /Save$/ }).hasAttribute('disabled')).toBe(true);
   });
 
   it('catches up untouched fields under a dirty form while preserving the touched draft', async () => {
@@ -223,7 +238,7 @@ describe('live jar sync', () => {
 
     expect(await screen.findByText(/deleted in the browser/)).toBeTruthy();
     expect(valueInput().value).toBe('abc');
-    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: /Save$/ }).hasAttribute('disabled')).toBe(false);
   });
 
   it('never syncs without a document binding — the open-time canonical stands', async () => {

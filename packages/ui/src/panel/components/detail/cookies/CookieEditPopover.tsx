@@ -26,8 +26,11 @@
  * boolean controls — nothing to template.
  */
 
+import { SaveOutlined } from '@ant-design/icons';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
-import { Button, Popover } from 'antd';
+import { Button, Popover, Tooltip } from 'antd';
 import type { TooltipRef } from 'antd/es/tooltip';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
@@ -169,6 +172,12 @@ function CookieEditFormBody({
   // A gone cookie is savable even when clean — Save re-creates it.
   const canSave = valid && !anyUnresolved && (mode === 'add' || dirty || gone);
 
+  // Cmd/Ctrl+S while the popover is open — the body mounts per open
+  // (destroyOnHidden), so the claim-stack registration tracks exactly
+  // the popover's lifetime and outranks the surfaces beneath it.
+  const { saveLabel, handleSaveRef } = useSaveShortcut();
+  handleSaveRef.current = canSave && !busy ? () => onSave(formToEdit(resolvedForm)) : null;
+
   const openDocument = binding?.onOpen;
 
   return (
@@ -219,15 +228,23 @@ function CookieEditFormBody({
         <Button size="small" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
-        <Button
-          size="small"
-          type="primary"
-          onClick={() => onSave(formToEdit(resolvedForm))}
-          disabled={!canSave}
-          loading={busy}
+        <Tooltip
+          title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>}
+          placement="bottomRight"
+          zIndex={1090}
         >
-          Save
-        </Button>
+          <Button
+            size="small"
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={() => onSave(formToEdit(resolvedForm))}
+            disabled={!canSave}
+            loading={busy}
+            style={{ fontSize: 11, ...(canSave ? { background: '#f5722d', borderColor: '#f5722d' } : {}) }}
+          >
+            Save
+          </Button>
+        </Tooltip>
       </div>
     </div>
   );
