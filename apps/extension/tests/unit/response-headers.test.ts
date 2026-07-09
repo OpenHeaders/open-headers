@@ -1,6 +1,5 @@
 import {
   filterHeaderRows,
-  HEADER_FILTER_THRESHOLD,
   serializeHeaderLines,
   withWireCookieHeaders,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-headers';
@@ -51,12 +50,6 @@ describe('serializeHeaderLines', () => {
 
   it('serializes an empty list to an empty string', () => {
     expect(serializeHeaderLines([])).toBe('');
-  });
-});
-
-describe('HEADER_FILTER_THRESHOLD', () => {
-  it('is the agreed ~10-row cutoff', () => {
-    expect(HEADER_FILTER_THRESHOLD).toBe(10);
   });
 });
 

@@ -3,12 +3,12 @@
  * headers, matching the request-editor tab grids. Each row carries a
  * hover-revealed (i) doc popover (shared http-headers corpus — every
  * name gets content, unknown ones an honest fallback) and a hover
- * copy of its `name: value` line; a filter box appears once the
- * response has enough rows to need one. The tab label keeps the
- * unfiltered count — filtering narrows the view, not the response.
+ * copy of its `name: value` line; a filter box is always offered. The
+ * tab label keeps the unfiltered count — filtering narrows the view,
+ * not the response.
  */
 
-import { CheckOutlined, CopyOutlined, SearchOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, FilterOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { getHeaderInfoContentForRow } from '@openheaders/ui/shared/info-popover/data/http-headers';
@@ -19,12 +19,7 @@ import {
 import { Button, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import {
-  filterHeaderRows,
-  HEADER_FILTER_THRESHOLD,
-  type ResponseHeaderRow,
-  serializeHeaderLines,
-} from './response-headers';
+import { filterHeaderRows, type ResponseHeaderRow, serializeHeaderLines } from './response-headers';
 import './response-headers.css';
 
 const { Text } = Typography;
@@ -62,7 +57,7 @@ function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
-      <span style={{ ...cellFont, padding: '6px 10px', display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+      <span style={{ ...cellFont, padding: '3px 8px', display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
         <span style={{ fontWeight: 600, wordBreak: 'break-all', minWidth: 0 }}>{row.key}</span>
         <span style={{ marginLeft: 'auto', display: 'inline-flex' }}>
           <InfoTrigger content={content} className="oh-resp-hdr-info" />
@@ -71,7 +66,7 @@ function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
       <span
         style={{
           ...cellFont,
-          padding: '6px 10px',
+          padding: '3px 8px',
           borderLeft: `1px solid ${token.colorBorderSecondary}`,
           color: token.colorTextSecondary,
           whiteSpace: 'pre-wrap',
@@ -81,11 +76,12 @@ function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
       >
         {row.value}
       </span>
-      <span style={{ display: 'flex', justifyContent: 'center', paddingTop: 2 }}>
+      <span style={{ display: 'flex', justifyContent: 'center' }}>
         <Button
           className="oh-resp-hdr-copy"
           size="small"
           type="text"
+          style={{ height: 22 }}
           icon={copied ? <CheckOutlined /> : <CopyOutlined />}
           aria-label={copied ? 'Copied' : `Copy ${row.key}`}
           title={copied ? 'Copied' : 'Copy header'}
@@ -108,7 +104,6 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
   }, [headers]);
 
   const visible = filterHeaderRows(headers, query);
-  const showFilter = headers.length > HEADER_FILTER_THRESHOLD;
 
   if (headers.length === 0) {
     return (
@@ -123,18 +118,17 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
-        {showFilter && (
-          <Input
-            size="small"
-            allowClear
-            prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-            placeholder="Filter headers"
-            aria-label="Filter headers"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{ width: 220 }}
-          />
-        )}
+        <Input
+          size="small"
+          allowClear
+          prefix={<FilterOutlined style={{ color: token.colorTextTertiary }} />}
+          placeholder="Filter headers"
+          aria-label="Filter headers"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ width: 220 }}
+        />
+
         <Tooltip title={allCopied ? 'Copied' : 'Copy all headers'} placement="bottom">
           <Button
             size="small"
@@ -172,8 +166,8 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
             zIndex: 2,
           }}
         >
-          <span style={{ padding: '6px 10px' }}>Name</span>
-          <span style={{ padding: '6px 10px', borderLeft: `1px solid ${token.colorBorderSecondary}` }}>Value</span>
+          <span style={{ padding: '4px 8px' }}>Name</span>
+          <span style={{ padding: '4px 8px', borderLeft: `1px solid ${token.colorBorderSecondary}` }}>Value</span>
           <span />
         </div>
         {visible.map((h, i) => (

@@ -11,9 +11,6 @@ import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 
 export type ResponseHeaderRow = ExecutedRequestSnapshot['headers'][number];
 
-/** Row count above which the Headers tab offers the filter box. */
-export const HEADER_FILTER_THRESHOLD = 10;
-
 /**
  * Merge the wire capture's raw `Set-Cookie` lines into the header rows.
  * `Set-Cookie` is a forbidden response header for `fetch()`, so the
