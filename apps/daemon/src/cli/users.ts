@@ -18,12 +18,15 @@ import * as path from 'node:path';
 import {
   createDaemonUser,
   deactivateDaemonUser,
+  grantWorkspaceRole,
   listDaemonAuthTokens,
   listDaemonUsers,
+  listWorkspaceRolesForPrincipal,
   revokeDaemonAuthToken,
+  revokeWorkspaceRole,
 } from '@openheaders/core/identity';
 import { setHostStorage } from '@openheaders/core/storage';
-import type { DaemonUserRecord } from '@openheaders/core/types';
+import type { DaemonUserRecord, WorkspaceRole, WorkspaceRoleAssignment } from '@openheaders/core/types';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import type { DaemonConfig } from '../config';
 import { noCipherYet } from '../no-cipher';
@@ -86,6 +89,65 @@ export async function deactivateUser(config: DaemonConfig, idOrEmail: string): P
     revokedTokenIds.push(token.id);
   }
   return { revokedTokenIds };
+}
+
+/** Roles the grant surface accepts; mirrors `WorkspaceRoleSchema`. */
+export const WORKSPACE_ROLES: readonly WorkspaceRole[] = ['owner', 'editor', 'viewer'];
+
+export function isWorkspaceRole(value: string): value is WorkspaceRole {
+  return (WORKSPACE_ROLES as readonly string[]).includes(value);
+}
+
+export interface GrantUserRoleOutcome {
+  readonly record: DaemonUserRecord;
+  /** True when an existing grant's role was changed in place. */
+  readonly updated: boolean;
+}
+
+/**
+ * Grant a workspace role to a directory user (by id or unique email) —
+ * the offline twin of `oh.daemon.users.grant`. Workspace existence
+ * cannot be verified offline (workspaces live in `oracle.db`, not
+ * `storage.json`); a grant against an id that never materializes is
+ * dropped by the boot WRA reconcile — the caller prints that advisory.
+ */
+export async function grantUserRole(
+  config: DaemonConfig,
+  idOrEmail: string,
+  workspaceId: string,
+  role: WorkspaceRole,
+): Promise<GrantUserRoleOutcome> {
+  installStorage(config);
+  const record = await findUser(idOrEmail);
+  if (record.deactivatedAt !== null) {
+    throw new Error(`user '${record.user.displayName}' is deactivated — reactivation is not supported; add anew.`);
+  }
+  const result = await grantWorkspaceRole({ principalId: record.principal.id, workspaceId, role });
+  if (!result.ok) throw new Error(`grant refused: ${result.reason}.`);
+  return { record, updated: result.updated };
+}
+
+/**
+ * Drop a directory user's grant on one workspace — the offline twin of
+ * `oh.daemon.users.revokeGrant`.
+ */
+export async function revokeUserGrant(
+  config: DaemonConfig,
+  idOrEmail: string,
+  workspaceId: string,
+): Promise<DaemonUserRecord> {
+  installStorage(config);
+  const record = await findUser(idOrEmail);
+  const result = await revokeWorkspaceRole(record.principal.id, workspaceId);
+  if (!result.ok) {
+    throw new Error(`no grant for '${record.user.displayName}' on workspace ${workspaceId}.`);
+  }
+  return record;
+}
+
+/** Every grant of one directory user, for the list projection. */
+export function listUserGrants(record: DaemonUserRecord): Promise<WorkspaceRoleAssignment[]> {
+  return listWorkspaceRolesForPrincipal(record.principal.id);
 }
 
 /**

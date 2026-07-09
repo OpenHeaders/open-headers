@@ -80,6 +80,7 @@ export {
   applyInboundMutationBatch,
   applyInboundMutationEnvelope,
   hasRecentlyApplied,
+  type InboundMutationActor,
 } from './mutation-stream-bridge';
 export {
   __resetOutboundGateForTests,

@@ -46,14 +46,24 @@
  * doc; tests in `mutation-id-dedup.test.ts` pin the WS-redelivery path.
  */
 
-import { authorizedOrgIds, emitAuditEntry, getIdentitySnapshot, hasCapability } from '@openheaders/core/identity';
+import {
+  authorizedOrgIds,
+  emitAuditEntry,
+  getIdentitySnapshot,
+  hasCapability,
+  type IdentitySnapshot,
+} from '@openheaders/core/identity';
 import {
   compareHlc,
   computeInverseSpec,
   deriveSideEffectsForEnvelope,
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  EXTENSION_WORKSPACES_SET_PATH,
   filterEnvelopesByOrg,
   isHostLocalMutation,
   type MutationBatch,
+  type MutationBody,
   type MutationEnvelope,
 } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
@@ -112,22 +122,39 @@ export function forgetRecentlyApplied(mutationIds: Iterable<string>): void {
 }
 
 /**
- * Per-batch inbound workspace.write gate (Phase U2.3) — symmetric with
- * the extension SW receiver's `isReceiveAllowed`. The local user must
- * hold `workspace.write` on the envelope's workspaceId before this host
- * applies a peer-sourced envelope. Synthetic LocalAdmin always allows;
- * post-promotion this becomes the real WRA check.
+ * The identity an inbound batch is applied AS (Phase 5 slice 2). Absent
+ * on client hosts (extension SW / desktop-as-client / web tab consuming
+ * a backend) — there the local user's own snapshot gates the receive,
+ * today's behavior. A hub host (the daemon) resolves the SENDING peer's
+ * snapshot per frame and threads it here, so a viewer-grant peer cannot
+ * write through the daemon's own LocalAdmin.
+ */
+export interface InboundMutationActor {
+  /** The peer user's capability snapshot; null denies fail-closed. */
+  readonly snapshot: IdentitySnapshot | null;
+  /** Audit subject — the peer user's id. */
+  readonly userId: string;
+}
+
+/**
+ * Per-batch inbound workspace.write gate (Phase U2.3 / Phase 5 slice 2)
+ * — symmetric with the extension SW receiver's `isReceiveAllowed`. The
+ * subject is the `actor` when the caller resolved one (a hub gating a
+ * peer), otherwise the local user; either must hold `workspace.write`
+ * on the envelope's workspaceId before this host applies a peer-sourced
+ * envelope. LocalAdmin allows; a directory user resolves through their
+ * WRA grants.
  *
  * Deny is silent + audited — a single disallowed batch never tears the
  * socket down (a future newer-protocol sender may ship a workspace the
  * local user no longer has access to mid-revocation). The audit log is
  * the forensic record.
  */
-function isReceiveAllowed(workspaceId: string): boolean {
-  const snapshot = getIdentitySnapshot();
+function isReceiveAllowed(workspaceId: string, actor?: InboundMutationActor): boolean {
+  const snapshot = actor ? actor.snapshot : getIdentitySnapshot();
   const decision = hasCapability(snapshot, 'workspace.write', { workspaceId });
   emitAuditEntry({
-    actorUserId: snapshot?.user.id ?? 'unknown',
+    actorUserId: actor?.userId ?? snapshot?.user.id ?? 'unknown',
     capability: 'workspace.write',
     workspaceId,
     decision,
@@ -135,6 +162,53 @@ function isReceiveAllowed(workspaceId: string): boolean {
   if (!decision.allow) {
     logger.info('MutationStreamBridge', `inbound batch dropped: ${decision.reason ?? 'denied'} on ws ${workspaceId}`);
     return false;
+  }
+  return true;
+}
+
+/**
+ * The workspace a `__global__`-scope body writes, when one is nameable.
+ * The workspace-list singleton's set entries are keyed by workspace id,
+ * so a slot replace (rename/recolor) or removal names its subject via
+ * `itemId`. Scalar writes on the singleton (the `activeId` pointer) and
+ * anything else in the global scope have no per-workspace subject.
+ */
+function globalScopeWriteSubject(body: MutationBody): string | null {
+  if (body.type !== EXTENSION_WORKSPACE_ENTITY_TYPE) return null;
+  if (body.kind !== 'addToSet' && body.kind !== 'removeFromSet' && body.kind !== 'moveBefore') return null;
+  if (body.path !== EXTENSION_WORKSPACES_SET_PATH) return null;
+  return body.itemId;
+}
+
+/**
+ * Peer write gate for the `__global__` scope (Phase 5 slice 2). The
+ * scope itself carries no WRA, so a batch-level `workspace.write` check
+ * against `'__global__'` would deny every directory user — including an
+ * editor renaming a workspace they hold a grant on. Instead each body
+ * resolves to its real subject: workspace-list slot writes gate on the
+ * slotted workspace's id; subject-less bodies (the `activeId` pointer,
+ * unknown global entities) stay operator-only via `daemon.admin`. The
+ * batch applies all-or-nothing, so one denied body refuses the batch.
+ */
+function isGlobalScopeBatchAllowed(batch: MutationBatch, actor: InboundMutationActor): boolean {
+  for (const env of batch.mutations) {
+    const subject = globalScopeWriteSubject(env.body);
+    const decision = subject
+      ? hasCapability(actor.snapshot, 'workspace.write', { workspaceId: subject })
+      : hasCapability(actor.snapshot, 'daemon.admin');
+    emitAuditEntry({
+      actorUserId: actor.userId,
+      capability: subject ? 'workspace.write' : 'daemon.admin',
+      ...(subject ? { workspaceId: subject } : {}),
+      decision,
+    });
+    if (!decision.allow) {
+      logger.info(
+        'MutationStreamBridge',
+        `inbound global-scope batch dropped: ${decision.reason ?? 'denied'} (subject=${subject ?? 'operator-only'})`,
+      );
+      return false;
+    }
   }
   return true;
 }
@@ -156,10 +230,13 @@ export function __seenMutationStreamCountForTests(): number {
  * also idempotent at apply time, but the early return saves the
  * round-trip + redundant broadcast).
  */
-export async function applyInboundMutationEnvelope(envelope: MutationEnvelope): Promise<void> {
+export async function applyInboundMutationEnvelope(
+  envelope: MutationEnvelope,
+  actor?: InboundMutationActor,
+): Promise<void> {
   if (SEEN_MUTATION_IDS.has(envelope.mutationId)) return;
   const batch: MutationBatch = { batchId: `wire-${envelope.mutationId}`, mutations: [envelope] };
-  await applyInboundMutationBatch(batch);
+  await applyInboundMutationBatch(batch, actor);
 }
 
 /**
@@ -193,7 +270,7 @@ export async function applyInboundMutationEnvelope(envelope: MutationEnvelope): 
  * observed — non-negotiable for cross-host LWW convergence when
  * the local wall clock has drifted (machine sleep, NTP step, etc.).
  */
-export async function applyInboundMutationBatch(input: MutationBatch): Promise<void> {
+export async function applyInboundMutationBatch(input: MutationBatch, actor?: InboundMutationActor): Promise<void> {
   const allKnown = input.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
   if (allKnown) return;
 
@@ -221,9 +298,16 @@ export async function applyInboundMutationBatch(input: MutationBatch): Promise<v
     accepted.length === input.mutations.length ? input : { batchId: input.batchId, mutations: accepted };
 
   // All envelopes in a batch share one workspaceId per the mutation-log
-  // invariant; gate the batch on the first.
+  // invariant; gate the batch on the first. The global scope resolves
+  // per-body subjects when a peer actor is being gated — see
+  // `isGlobalScopeBatchAllowed`; without an actor (client hosts) the
+  // local user's LocalAdmin covers the scope as before.
   const ws = batch.mutations[0]?.workspaceId;
-  if (ws && !isReceiveAllowed(ws)) return;
+  if (ws && actor && ws === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
+    if (!isGlobalScopeBatchAllowed(batch, actor)) return;
+  } else if (ws && !isReceiveAllowed(ws, actor)) {
+    return;
+  }
 
   capturePriorsForActivity(batch);
   // Side effects are HOST-LOCAL runtime concerns that need to fire on

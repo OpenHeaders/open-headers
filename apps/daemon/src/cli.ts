@@ -29,7 +29,16 @@ import {
 import { probeHealthz } from './cli/healthz-probe';
 import { installServiceUnit, type ServiceHost, startService, stopService } from './cli/service-manager';
 import { mintBootstrapToken } from './cli/show-token';
-import { addUser, deactivateUser, listUsers, resolveTokenUserBinding } from './cli/users';
+import {
+  addUser,
+  deactivateUser,
+  grantUserRole,
+  isWorkspaceRole,
+  listUserGrants,
+  listUsers,
+  resolveTokenUserBinding,
+  revokeUserGrant,
+} from './cli/users';
 import { type DaemonConfig, resolveDaemonConfig } from './config';
 
 const cliVersion: string = (createRequire(import.meta.url)('../package.json') as { version: string }).version;
@@ -63,9 +72,14 @@ Commands:
   user add <name> [--email <address>]
                 Admit a user to the daemon's directory (requires the daemon
                 to be stopped; the daemon must have booted once)
-  user list     Read the user directory
+  user list     Read the user directory (grants included)
   user deactivate <id-or-email>
                 Deactivate a user + revoke their tokens (daemon stopped)
+  user grant <id-or-email> <workspaceId> <owner|editor|viewer>
+                Grant a workspace role (daemon stopped; editors write,
+                viewers read, no grant = no access)
+  user revoke-grant <id-or-email> <workspaceId>
+                Drop a user's grant on one workspace (daemon stopped)
 
 Settable keys (booleans, default off):
   ${DAEMON_SETTING_KEYS.join(', ')}
@@ -288,6 +302,9 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     }
     for (const record of users) {
       console.log(formatUserLine(record));
+      for (const grant of await listUserGrants(record)) {
+        console.log(`    ${grant.role.padEnd(6)}  ${grant.workspaceId}`);
+      }
     }
     return;
   }
@@ -300,7 +317,29 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     console.log("Applies from the daemon's next start; their next HELLO/MCP call is refused.");
     return;
   }
-  throw new Error('usage: oh daemon user <add|list|deactivate>');
+  if (sub === 'grant') {
+    const [idOrEmail, workspaceId, role] = positionals;
+    if (idOrEmail === undefined || workspaceId === undefined || role === undefined || !isWorkspaceRole(role)) {
+      throw new Error('usage: oh daemon user grant <id-or-email> <workspaceId> <owner|editor|viewer>');
+    }
+    await assertDaemonStopped(config, 'a grant', 'manage grants');
+    const { record, updated } = await grantUserRole(config, idOrEmail, workspaceId, role);
+    console.log(`${updated ? 'Grant updated' : 'Granted'}: ${record.user.displayName} is ${role} on ${workspaceId}.`);
+    console.log('Workspace ids are not verifiable offline — a grant on an id that never');
+    console.log('materializes is dropped by the reconcile on the next start.');
+    return;
+  }
+  if (sub === 'revoke-grant') {
+    const [idOrEmail, workspaceId] = positionals;
+    if (idOrEmail === undefined || workspaceId === undefined) {
+      throw new Error('usage: oh daemon user revoke-grant <id-or-email> <workspaceId>');
+    }
+    await assertDaemonStopped(config, 'a grant revocation', 'manage grants');
+    const record = await revokeUserGrant(config, idOrEmail, workspaceId);
+    console.log(`Grant revoked: ${record.user.displayName} on ${workspaceId}.`);
+    return;
+  }
+  throw new Error('usage: oh daemon user <add|list|deactivate|grant|revoke-grant>');
 }
 
 async function main(): Promise<void> {

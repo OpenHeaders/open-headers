@@ -118,7 +118,7 @@ export interface DaemonRpc {
     res: { ok: true; userId: string } | { ok: false; error: string };
   };
 
-  /** Flat directory projection for admin surfaces. */
+  /** Flat directory projection for admin surfaces, grants included. */
   'oh.daemon.users.list': {
     req: Record<string, never>;
     res: {
@@ -128,6 +128,7 @@ export interface DaemonRpc {
         email: string | null;
         createdAt: number;
         deactivatedAt: number | null;
+        grants: ReadonlyArray<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer' }>;
       }>;
     };
   };
@@ -140,6 +141,31 @@ export interface DaemonRpc {
    */
   'oh.daemon.users.deactivate': {
     req: { userId: string };
+    res: { ok: true } | { ok: false; error: string };
+  };
+
+  // ── Workspace grants (Phase 5 team tier, slice 2) ────────────────
+  //
+  // Admin-only. Grants are `WorkspaceRoleAssignment` rows for the
+  // directory user's principal, sharing `OH.workspaceRoleAssignments`
+  // (and its writer lock) with the boot reconcile. Enforcement reads
+  // them per frame, so a grant/revoke takes effect on live connections
+  // immediately — no eviction required.
+
+  /**
+   * Grant (or update in place — `updated: true`) a workspace role for a
+   * directory user. Refuses unknown/deactivated users and workspaces
+   * not in the live set (a dangling grant would only be dropped by the
+   * next WRA reconcile).
+   */
+  'oh.daemon.users.grant': {
+    req: { userId: string; workspaceId: string; role: 'owner' | 'editor' | 'viewer' };
+    res: { ok: true; updated: boolean } | { ok: false; error: string };
+  };
+
+  /** Drop a directory user's grant on one workspace. */
+  'oh.daemon.users.revokeGrant': {
+    req: { userId: string; workspaceId: string };
     res: { ok: true } | { ok: false; error: string };
   };
 }

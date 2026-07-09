@@ -122,8 +122,17 @@ export interface OracleWsServer {
    * `opts.excludeNodeId` skips the peer whose HELLO nodeId matches —
    * the hub relay's "don't bounce a mutation back to its sender" gate.
    * A nodeId that matches no peer (e.g. this host's own) is a no-op.
+   *
+   * `opts.filterPeer` is the per-peer authorization filter (Phase 5
+   * slice 2): the caller classifies the frame (it owns the typed
+   * envelope + capability resolution) and this transport applies the
+   * verdict per socket. A peer whose summary returns `false` is
+   * skipped. Absent = every ready peer receives the frame.
    */
-  broadcastFrame(frame: Record<string, unknown>, opts?: { loopbackOnly?: boolean; excludeNodeId?: string }): void;
+  broadcastFrame(
+    frame: Record<string, unknown>,
+    opts?: { loopbackOnly?: boolean; excludeNodeId?: string; filterPeer?: (peer: PeerSummary) => boolean },
+  ): void;
   /** Number of connected peers past handshake — used for status logs. */
   connectedCount(): number;
   /**

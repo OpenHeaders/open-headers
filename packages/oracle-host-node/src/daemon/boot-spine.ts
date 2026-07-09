@@ -51,11 +51,14 @@ import {
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
+  grantWorkspaceRole,
   listDaemonAuthTokens,
   listDaemonUsers,
+  listWorkspaceRolesForPrincipal,
   mintDaemonAuthToken,
   refreshIdentitySnapshotFromHostStorage,
   revokeDaemonAuthToken,
+  revokeWorkspaceRole,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
@@ -105,6 +108,7 @@ import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
+import { createFilteredPeerBroadcast } from './peer-read-filter';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
 import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
@@ -231,6 +235,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // moves the daemon.
   let boundPort: number = WS_PORT;
 
+  // Read-filtered awareness fan-out (Phase 5 slice 2) — same queue
+  // discipline as the mutation forwarder's, against the same live
+  // server slot.
+  const awarenessBroadcast = createFilteredPeerBroadcast(() => wsServer);
+
   // 1. Cross-host seams. Order: logger first (so subsequent installs
   //    can log), then storage, lock, persistence.
   setHostLogger(consoleLogger);
@@ -328,14 +337,19 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       // Cross-host: forward only presence THIS host originated onto the
       // wire. Peer-received states (e.g. extension surfaces folded into
       // the local store from an inbound frame) are filtered out by
-      // `identity.appId` so the wire never loops.
+      // `identity.appId` so the wire never loops. Fan-out rides the
+      // read-filtered queue: a peer without `workspace.read` on the
+      // frame's workspace learns nothing from presence either.
       const localOnly = event.presence.filter((s: AwarenessState) => s.identity.appId === config.localAppId);
       if (localOnly.length > 0 || event.presence.length === 0) {
-        wsServer?.broadcastFrame({
-          type: SYNC_AWARENESS_PRESENCE_TYPE,
-          workspaceId: event.workspaceId,
-          presence: localOnly,
-        });
+        awarenessBroadcast.enqueue(
+          {
+            type: SYNC_AWARENESS_PRESENCE_TYPE,
+            workspaceId: event.workspaceId,
+            presence: localOnly,
+          },
+          event.workspaceId,
+        );
       }
       // Client role (MULTI_BACKEND_PLAN.md §5): the same emission is
       // offered to the backend forwarder, which applies its own appId
@@ -568,14 +582,55 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     if (type === 'oh.daemon.users.list') {
       const users = await listDaemonUsers();
       return {
-        users: users.map((r) => ({
-          userId: r.user.id,
-          displayName: r.user.displayName,
-          email: r.userIdentity.kind === 'email' ? r.userIdentity.value : null,
-          createdAt: r.createdAt,
-          deactivatedAt: r.deactivatedAt,
-        })),
+        users: await Promise.all(
+          users.map(async (r) => ({
+            userId: r.user.id,
+            displayName: r.user.displayName,
+            email: r.userIdentity.kind === 'email' ? r.userIdentity.value : null,
+            createdAt: r.createdAt,
+            deactivatedAt: r.deactivatedAt,
+            grants: (await listWorkspaceRolesForPrincipal(r.principal.id)).map((wra) => ({
+              workspaceId: wra.workspaceId,
+              role: wra.role,
+            })),
+          })),
+        ),
       };
+    }
+    if (type === 'oh.daemon.users.grant') {
+      const userId = typeof message.userId === 'string' ? message.userId : '';
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      const role = typeof message.role === 'string' ? message.role : '';
+      if (!userId || !workspaceId) return { ok: false, error: 'missing userId or workspaceId' };
+      if (role !== 'owner' && role !== 'editor' && role !== 'viewer') {
+        return { ok: false, error: 'role must be owner, editor or viewer' };
+      }
+      const record = (await listDaemonUsers()).find((r) => r.user.id === userId);
+      if (!record) return { ok: false, error: 'unknown user' };
+      if (record.deactivatedAt !== null) return { ok: false, error: 'user is deactivated' };
+      // Validate against the live workspace set — a grant for a
+      // non-existent workspace would only be silently dropped by the
+      // next WRA reconcile; refuse it up front instead.
+      if (!getWorkspace(workspaceId)) return { ok: false, error: 'unknown workspace' };
+      try {
+        const result = await grantWorkspaceRole({ principalId: record.principal.id, workspaceId, role });
+        return result.ok ? { ok: true, updated: result.updated } : { ok: false, error: result.reason };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'oh.daemon.users.revokeGrant') {
+      const userId = typeof message.userId === 'string' ? message.userId : '';
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      if (!userId || !workspaceId) return { ok: false, error: 'missing userId or workspaceId' };
+      const record = (await listDaemonUsers()).find((r) => r.user.id === userId);
+      if (!record) return { ok: false, error: 'unknown user' };
+      try {
+        const result = await revokeWorkspaceRole(record.principal.id, workspaceId);
+        return result.ok ? { ok: true } : { ok: false, error: result.reason };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
     }
     if (type === 'oh.daemon.users.deactivate') {
       const userId = typeof message.userId === 'string' ? message.userId : '';

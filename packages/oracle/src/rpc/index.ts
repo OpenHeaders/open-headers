@@ -7,4 +7,10 @@ export {
   handleStateVector,
   type LocalHandshakeIdentity,
 } from './handshake-dispatch';
-export { dispatchSyncRpc, PermissionDeniedError, restampApplyOrgIds, type SyncRpcResult } from './sync-rpc';
+export {
+  dispatchSyncRpc,
+  PermissionDeniedError,
+  restampApplyOrgIds,
+  type SyncRpcPeerContext,
+  type SyncRpcResult,
+} from './sync-rpc';

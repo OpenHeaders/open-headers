@@ -269,7 +269,16 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
         return;
       }
 
-      const dispatched = dispatchSyncRpc(parsed as Record<string, unknown>);
+      // RBAC subject (Phase 5 slice 2): every capability decision for a
+      // peer-originated frame runs as the user the peer authenticated as
+      // — never this host's own LocalAdmin. `claims` is absent only on
+      // the `requireAuth`-off test seam, which keeps local-subject
+      // semantics.
+      const peerUserId = peerBySocket.get(socket)?.claims?.userId;
+      const dispatched = dispatchSyncRpc(
+        parsed as Record<string, unknown>,
+        peerUserId ? { userId: peerUserId } : undefined,
+      );
       if (dispatched === null) {
         // Channel outside the 22 sync+awareness ones. Silently ignore —
         // matches the chrome adapter's pass-through semantics.

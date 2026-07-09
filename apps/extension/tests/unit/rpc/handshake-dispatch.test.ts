@@ -7,7 +7,7 @@
  * so the test stays isolated from the per-workspace service registry.
  */
 
-import { clearIdentitySnapshot } from '@openheaders/core/identity';
+import { clearIdentitySnapshot, type IdentitySnapshot } from '@openheaders/core/identity';
 import {
   BACKEND_REACH,
   HANDSHAKE_REJECT_REASONS,
@@ -346,5 +346,106 @@ describe('handleStateVector', () => {
     await expect(
       handleStateVector({ type: SYNC_HELLO_TYPE } as unknown as Record<string, unknown>, conn),
     ).rejects.toThrow();
+  });
+
+  describe('per-scope read gate (Phase 5 slice 2)', () => {
+    function makeClaimedPeer(workspaceId = 'ws-1') {
+      const send = vi.fn(() => true);
+      const conn = createPeerConnection({
+        peerId: 'peer-2',
+        nodeId: 'sw-2',
+        role: HANDSHAKE_ROLES.EXTENSION,
+        agent: '@openheaders/extension@0.0.0-test',
+        workspaceId,
+        protocolVersion: PROTOCOL_VERSION,
+        claims: { userId: 'user-42', deviceId: 'token-9', capabilities: new Set<string>() },
+        send,
+        close: vi.fn(),
+      });
+      return { conn, send };
+    }
+
+    const viewerSnapshot = (workspaceId: string): IdentitySnapshot => ({
+      user: { id: 'user-42', displayName: 'Peer', homeOrgId: 'org-d', isStandalone: false },
+      principal: { id: 'p-42', userId: 'user-42', orgId: 'org-d' },
+      membership: { id: 'm-42', userId: 'user-42', orgId: 'org-d', primaryRole: 'member', functionalRoles: [] },
+      wraByWorkspaceId: new Map([
+        [workspaceId, { id: 'wra-42', principalId: 'p-42', workspaceId, role: 'viewer' as const }],
+      ]),
+      orgs: new Map(),
+    });
+
+    const okResult = {
+      sentSnapshot: false,
+      deltasSent: 0,
+      syncedSent: true,
+      stateVectorAfter: {},
+    };
+
+    it('a viewer grant admits the scope catch-up', async () => {
+      const { conn } = makeClaimedPeer('ws-1');
+      const respond = vi.fn(async () => okResult);
+      const outcome = await handleStateVector(stateVector as unknown as Record<string, unknown>, conn, {
+        respond,
+        resolveSnapshot: async () => viewerSnapshot('ws-1'),
+      });
+      expect(outcome.kind).toBe('ok');
+      expect(respond).toHaveBeenCalledTimes(1);
+    });
+
+    it('no grant on the scope answers an EMPTY SYNCED and never reads the log', async () => {
+      const { conn, send } = makeClaimedPeer('ws-1');
+      const respond = vi.fn(async () => okResult);
+      const outcome = await handleStateVector(
+        { ...stateVector, workspaceId: 'ws-secret' } as unknown as Record<string, unknown>,
+        conn,
+        { respond, resolveSnapshot: async () => viewerSnapshot('ws-1') },
+      );
+      expect(outcome.kind).toBe('rejected');
+      if (outcome.kind === 'rejected') expect(outcome.reason).toBe('permission-denied');
+      expect(respond).not.toHaveBeenCalled();
+      // The peer's scope loop is answered — SYNCED with an empty vector,
+      // leaking neither node ids nor history depth.
+      expect(send).toHaveBeenCalledWith({
+        type: 'oh.sync.synced',
+        workspaceId: 'ws-secret',
+        stateVectorAfter: {},
+      });
+    });
+
+    it('a deactivated user (null snapshot) is refused fail-closed', async () => {
+      const { conn } = makeClaimedPeer('ws-1');
+      const respond = vi.fn(async () => okResult);
+      const outcome = await handleStateVector(stateVector as unknown as Record<string, unknown>, conn, {
+        respond,
+        resolveSnapshot: async () => null,
+      });
+      expect(outcome.kind).toBe('rejected');
+      expect(respond).not.toHaveBeenCalled();
+    });
+
+    it('the __global__ scope rides workspace.list — any admitted user', async () => {
+      const { conn } = makeClaimedPeer('ws-1');
+      const respond = vi.fn(async () => okResult);
+      const outcome = await handleStateVector(
+        { ...stateVector, workspaceId: '__global__' } as unknown as Record<string, unknown>,
+        conn,
+        { respond, resolveSnapshot: async () => viewerSnapshot('ws-1') },
+      );
+      expect(outcome.kind).toBe('ok');
+      expect(respond).toHaveBeenCalledTimes(1);
+    });
+
+    it('claims-less connections (requireAuth-off test seam) stay ungated', async () => {
+      const { conn } = makePeer('ws-1');
+      const respond = vi.fn(async () => okResult);
+      const resolveSnapshot = vi.fn(async () => null);
+      const outcome = await handleStateVector(stateVector as unknown as Record<string, unknown>, conn, {
+        respond,
+        resolveSnapshot,
+      });
+      expect(outcome.kind).toBe('ok');
+      expect(resolveSnapshot).not.toHaveBeenCalled();
+    });
   });
 });

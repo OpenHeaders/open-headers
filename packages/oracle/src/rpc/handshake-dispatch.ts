@@ -34,7 +34,10 @@
 import {
   emitAuditEntry,
   getIdentitySnapshot,
+  hasCapability,
+  type IdentitySnapshot,
   type ResolveDaemonPeerUserResult,
+  resolveDaemonPeerIdentitySnapshot,
   resolveDaemonPeerUser,
   type ValidateDaemonAuthTokenResult,
   validateDaemonAuthToken,
@@ -54,8 +57,10 @@ import {
   SyncHelloMessageSchema,
   type SyncStateVectorMessage,
   SyncStateVectorMessageSchema,
+  type SyncSyncedMessage,
   type SyncWelcomeMessage,
 } from '@openheaders/core/protocol';
+import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
@@ -261,7 +266,7 @@ export type HandleStateVectorOutcome =
     }
   | {
       readonly kind: 'rejected';
-      readonly reason: 'schema-invalid' | 'connection-closed';
+      readonly reason: 'schema-invalid' | 'connection-closed' | 'permission-denied';
       readonly detail?: string;
     };
 
@@ -270,6 +275,8 @@ export interface HandleStateVectorOptions {
   readonly responder?: RespondToStateVectorOptions;
   /** Test seam — swap out the responder for unit coverage of dispatch wiring. */
   readonly respond?: typeof respondToStateVector;
+  /** Test seam — mirrors `respond`; defaults to `resolveDaemonPeerIdentitySnapshot`. */
+  readonly resolveSnapshot?: (userId: string) => Promise<IdentitySnapshot | null>;
 }
 
 /**
@@ -302,6 +309,41 @@ export async function handleStateVector(
   // the guard is per-frame (the scope on the message) — never the
   // connection's HELLO workspace.
   const message = parseResult.output;
+
+  // Per-scope read gate (Phase 5 slice 2). The catch-up subject is the
+  // user the peer acts as — resolved fresh per frame so a revoked grant
+  // bites the NEXT scope request, not just the next connection. The
+  // `__global__` scope carries workspace-list metadata and gates on
+  // `workspace.list` (any admitted user); real scopes need a
+  // `workspace.read` grant. `claims` is null only on the
+  // `requireAuth`-off test seam, which keeps its ungated behavior. A
+  // deny answers SYNCED with an EMPTY vector — "caught up against an
+  // empty workspace" — mirroring the cross-org shape, so the peer's
+  // scope loop proceeds without stalling and without learning the
+  // scope's node ids or history depth.
+  if (peerConn.claims) {
+    const resolveSnapshot = options.resolveSnapshot ?? resolveDaemonPeerIdentitySnapshot;
+    const snapshot = await resolveSnapshot(peerConn.claims.userId);
+    const isGlobalScope = message.workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE;
+    const capability = isGlobalScope ? ('workspace.list' as const) : ('workspace.read' as const);
+    const decision = hasCapability(snapshot, capability, isGlobalScope ? {} : { workspaceId: message.workspaceId });
+    emitAuditEntry({
+      actorUserId: peerConn.claims.userId,
+      capability,
+      ...(isGlobalScope ? {} : { workspaceId: message.workspaceId }),
+      decision,
+    });
+    if (!decision.allow) {
+      const syncedFrame: SyncSyncedMessage = {
+        type: SYNC_SYNCED_TYPE,
+        workspaceId: message.workspaceId,
+        stateVectorAfter: {},
+      };
+      peerConn.reply(syncedFrame);
+      return { kind: 'rejected', reason: 'permission-denied', detail: decision.reason };
+    }
+  }
+
   const respond = options.respond ?? respondToStateVector;
   const result = await respond(message, { send: (f) => peerConn.reply(f) }, options.responder);
   return { kind: 'ok', message, result };

@@ -13,8 +13,10 @@
 
 import {
   clearIdentitySnapshot,
+  createDaemonUser,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
+  grantWorkspaceRole,
   type ResolvedAuditEntry,
   refreshIdentitySnapshotFromHostStorage,
   resetAuditSink,
@@ -161,6 +163,93 @@ describe('sync-rpc permission gate', () => {
     expect(audits).toHaveLength(1);
     expect(audits[0]?.capability).toBe('workspace.list');
     expect(audits[0]?.decision.allow).toBe(true);
+  });
+
+  describe('peer context (Phase 5 slice 2)', () => {
+    it('gates a peer renderer-shaped channel as the PEER — a no-grant user is denied where LocalAdmin would allow', async () => {
+      await ensureSyntheticIdentity({ hostKind: 'daemon', now: NOW });
+      await ensureWorkspaceRoleAssignments([WS]);
+      await refreshIdentitySnapshotFromHostStorage();
+      const created = await createDaemonUser({ displayName: 'Alice' });
+      if (!created.ok) throw new Error('setup failed');
+
+      const result = dispatchSyncRpc(
+        { type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] },
+        { userId: created.record.user.id },
+      );
+      expect(result?.kind).toBe('async');
+      if (result?.kind !== 'async') return;
+      await expect(result.promise).rejects.toBeInstanceOf(PermissionDeniedError);
+      const gate = audits.find((a) => a.capability === 'workspace.write');
+      expect(gate?.actorUserId).toBe(created.record.user.id);
+      expect(gate?.decision).toEqual({ allow: false, reason: 'no-workspace-role-assignment' });
+    });
+
+    it('an editor grant admits the same channel', async () => {
+      await ensureSyntheticIdentity({ hostKind: 'daemon', now: NOW });
+      await ensureWorkspaceRoleAssignments([WS]);
+      await refreshIdentitySnapshotFromHostStorage();
+      const created = await createDaemonUser({ displayName: 'Alice' });
+      if (!created.ok) throw new Error('setup failed');
+      await grantWorkspaceRole({ principalId: created.record.principal.id, workspaceId: WS, role: 'editor' });
+
+      const result = dispatchSyncRpc(
+        { type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] },
+        { userId: created.record.user.id },
+      );
+      expect(result?.kind).toBe('async');
+      if (result?.kind !== 'async') return;
+      // Underlying handler may fail (no oracle in this rig); the gate is the pin.
+      await result.promise.catch((err: unknown) => {
+        expect(err).not.toBeInstanceOf(PermissionDeniedError);
+      });
+      const gate = audits.find((a) => a.capability === 'workspace.write');
+      expect(gate?.decision.allow).toBe(true);
+      expect(gate?.actorUserId).toBe(created.record.user.id);
+    });
+
+    it('the operator peer resolves to the real snapshot — LocalAdmin allows', async () => {
+      const record = await ensureSyntheticIdentity({ hostKind: 'daemon', now: NOW });
+      await ensureWorkspaceRoleAssignments([WS]);
+      await refreshIdentitySnapshotFromHostStorage();
+
+      const result = dispatchSyncRpc(
+        { type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] },
+        { userId: record.user.id },
+      );
+      expect(result?.kind).toBe('async');
+      if (result?.kind !== 'async') return;
+      await result.promise.catch((err: unknown) => {
+        expect(err).not.toBeInstanceOf(PermissionDeniedError);
+      });
+      const gate = audits.find((a) => a.capability === 'workspace.write');
+      expect(gate?.decision.allow).toBe(true);
+      expect(gate?.actorUserId).toBe(record.user.id);
+    });
+
+    it('unowned channels return null synchronously regardless of peer context', () => {
+      expect(dispatchSyncRpc({ type: 'chrome.tabs.query' }, { userId: 'someone' })).toBeNull();
+    });
+
+    it('a peer mutation batch is gated as the peer actor, not skipped', async () => {
+      const record = await ensureSyntheticIdentity({ hostKind: 'daemon', now: NOW });
+      await ensureWorkspaceRoleAssignments([WS]);
+      await refreshIdentitySnapshotFromHostStorage();
+      const created = await createDaemonUser({ displayName: 'Alice' });
+      if (!created.ok) throw new Error('setup failed');
+
+      const batch = makeApplyBatch(WS);
+      // Ride the daemon's own Org so the ingest org filter admits the
+      // envelope and the decision under test is the write gate.
+      batch.mutations[0] = { ...batch.mutations[0], orgId: record.org.id };
+      const result = dispatchSyncRpc({ type: 'oh.sync.mutationBatch', batch }, { userId: created.record.user.id });
+      expect(result?.kind).toBe('async');
+      if (result?.kind !== 'async') return;
+      await result.promise.catch(() => undefined);
+      const gate = audits.find((a) => a.capability === 'workspace.write' && a.workspaceId === WS);
+      expect(gate?.actorUserId).toBe(created.record.user.id);
+      expect(gate?.decision).toEqual({ allow: false, reason: 'no-workspace-role-assignment' });
+    });
   });
 
   it('audit entry carries the synthetic user id once the snapshot is installed', async () => {

@@ -8,7 +8,7 @@ import { SELF_BACKEND_REACH_KEY } from '@openheaders/core/storage';
 import { WebSocket, WebSocketServer } from 'ws';
 import { bindReach, isLoopbackRemote } from './classify';
 import { handleConnection } from './connection';
-import type { OracleWsServer, OracleWsServerOptions } from './contract';
+import type { OracleWsServer, OracleWsServerOptions, PeerSummary } from './contract';
 import { createPeerRegistry } from './peer-registry';
 import { SCOPE } from './shared';
 
@@ -143,7 +143,12 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   }, heartbeatIntervalMs);
   heartbeatTimer.unref();
 
-  function sendFrameToReady(serialized: string, loopbackOnly: boolean, excludeNodeId?: string): void {
+  function sendFrameToReady(
+    serialized: string,
+    loopbackOnly: boolean,
+    excludeNodeId?: string,
+    filterPeer?: (peer: PeerSummary) => boolean,
+  ): void {
     for (const socket of ready) {
       if (socket.readyState !== WebSocket.OPEN) continue;
       const summary = summaryBySocket.get(socket);
@@ -156,6 +161,11 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
       if (excludeNodeId !== undefined && summary?.nodeId === excludeNodeId) {
         // Hub relay: never bounce a mutation back to the peer that
         // minted it. Per-socket identity is only known here.
+        continue;
+      }
+      if (filterPeer !== undefined && summary !== undefined && !filterPeer(summary)) {
+        // RBAC read gate (Phase 5 slice 2): the caller resolved which
+        // peers may read this frame's workspace; skip the rest.
         continue;
       }
       try {
@@ -173,7 +183,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     },
     broadcastFrame(frame, opts) {
       if (closed) return;
-      sendFrameToReady(JSON.stringify(frame), opts?.loopbackOnly ?? false, opts?.excludeNodeId);
+      sendFrameToReady(JSON.stringify(frame), opts?.loopbackOnly ?? false, opts?.excludeNodeId, opts?.filterPeer);
     },
     connectedCount() {
       return ready.size;

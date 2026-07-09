@@ -7,10 +7,20 @@
  * test but invoked at the oracle-package layer.
  */
 
-import { type ResolvedAuditEntry, resetAuditSink, setAuditSink } from '@openheaders/core/identity';
 import {
+  type IdentitySnapshot,
+  type ResolvedAuditEntry,
+  resetAuditSink,
+  setAuditSink,
+} from '@openheaders/core/identity';
+import {
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  EXTENSION_WORKSPACE_ID,
+  EXTENSION_WORKSPACES_SET_PATH,
   LAYOUT_STATE_ENTITY_TYPE,
   LAYOUT_STATE_ID,
+  type MutationEnvelope,
   type MutatorContext,
   RULE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
@@ -47,6 +57,40 @@ const ctx = (ms: number, nodeId = 'peer'): MutatorContext => ({
   surfaceId: 's',
   deviceId: 'peer-device',
 });
+
+const PEER_USER_ID = '01900000-0000-7000-8000-0000000000fe';
+const PEER_PRINCIPAL_ID = '01900000-0000-7000-8000-0000000000fd';
+
+/**
+ * Directory-user snapshot the daemon's per-frame resolution would hand
+ * the bridge: the peer principal's grants only, no localAdmin, the
+ * daemon's own Org as the sole org.
+ */
+function makePeerSnapshot(role: 'owner' | 'editor' | 'viewer' | null): IdentitySnapshot {
+  const wraByWorkspaceId = new Map(
+    role === null
+      ? []
+      : [
+          [
+            wsId,
+            { id: '01900000-0000-7000-8000-0000000000fc', principalId: PEER_PRINCIPAL_ID, workspaceId: wsId, role },
+          ],
+        ],
+  );
+  return {
+    user: { id: PEER_USER_ID, displayName: 'Peer', homeOrgId: TEST_ORG_ID, isStandalone: false },
+    principal: { id: PEER_PRINCIPAL_ID, userId: PEER_USER_ID, orgId: TEST_ORG_ID },
+    membership: {
+      id: '01900000-0000-7000-8000-0000000000fb',
+      userId: PEER_USER_ID,
+      orgId: TEST_ORG_ID,
+      primaryRole: 'member',
+      functionalRoles: [],
+    },
+    wraByWorkspaceId,
+    orgs: new Map([[TEST_ORG_ID, { id: TEST_ORG_ID, name: 'Test Org', hostKind: 'daemon', isPrivate: false }]]),
+  };
+}
 
 const makeRule = (uid: string): Rule =>
   ({
@@ -184,6 +228,146 @@ describe('applyInboundMutationBatch', () => {
     expect(hasRecentlyApplied(layoutEnvelope.mutationId)).toBe(false);
     const oracle = getOracleForCurrentWorkspace();
     expect(oracle?.materializeOne(LAYOUT_STATE_ENTITY_TYPE, LAYOUT_STATE_ID)).toBeFalsy();
+  });
+
+  it('applies as the PEER actor when one is threaded — an editor grant admits the batch', async () => {
+    const audits: ResolvedAuditEntry[] = [];
+    setAuditSink((entry) => audits.push(entry));
+    try {
+      const r = makeRule(generateUid());
+      const batch = seedRule(r, ctx(9_000));
+      await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('editor'), userId: PEER_USER_ID });
+
+      const writeGate = audits.find((a) => a.capability === 'workspace.write' && a.workspaceId === wsId);
+      expect(writeGate?.decision.allow).toBe(true);
+      expect(writeGate?.actorUserId).toBe(PEER_USER_ID);
+      for (const env of batch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
+    } finally {
+      resetAuditSink();
+    }
+  });
+
+  it('silently drops + audits a viewer actor batch — the daemon LocalAdmin never substitutes', async () => {
+    const audits: ResolvedAuditEntry[] = [];
+    setAuditSink((entry) => audits.push(entry));
+    try {
+      const r = makeRule(generateUid());
+      const batch = seedRule(r, ctx(10_000));
+      await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('viewer'), userId: PEER_USER_ID });
+
+      const writeGate = audits.find((a) => a.capability === 'workspace.write' && a.workspaceId === wsId);
+      expect(writeGate?.decision).toEqual({ allow: false, reason: 'insufficient-workspace-role' });
+      expect(writeGate?.actorUserId).toBe(PEER_USER_ID);
+      for (const env of batch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(false);
+      const oracle = getOracleForCurrentWorkspace();
+      expect(oracle?.materializeOne(RULE_ENTITY_TYPE, r.uid)).toBeFalsy();
+    } finally {
+      resetAuditSink();
+    }
+  });
+
+  it('a null actor snapshot denies fail-closed (deactivated/wiped mid-connection)', async () => {
+    const audits: ResolvedAuditEntry[] = [];
+    setAuditSink((entry) => audits.push(entry));
+    try {
+      const r = makeRule(generateUid());
+      const batch = seedRule(r, ctx(11_000));
+      await applyInboundMutationBatch(batch, { snapshot: null, userId: PEER_USER_ID });
+
+      const writeGate = audits.find((a) => a.capability === 'workspace.write');
+      expect(writeGate?.decision).toEqual({ allow: false, reason: 'no-current-user' });
+      for (const env of batch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(false);
+    } finally {
+      resetAuditSink();
+    }
+  });
+
+  describe('global-scope subject gate (peer actor)', () => {
+    const globalEnvelope = (ms: number, body: MutationEnvelope['body']): MutationEnvelope => ({
+      mutationId: `m-global-${ms}`,
+      hlc: { physicalMs: ms, logical: 0, nodeId: 'peer' },
+      origin: { surfaceId: 's', deviceId: 'peer-device' },
+      workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+      orgId: TEST_ORG_ID,
+      mutatorVersion: 1,
+      body,
+    });
+
+    const slotReplace = (ms: number): MutationEnvelope =>
+      globalEnvelope(ms, {
+        kind: 'addToSet',
+        type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+        id: EXTENSION_WORKSPACE_ID,
+        path: EXTENSION_WORKSPACES_SET_PATH,
+        itemId: wsId,
+        item: { id: wsId, name: 'renamed' },
+      });
+
+    const activeFlip = (ms: number): MutationEnvelope =>
+      globalEnvelope(ms, {
+        kind: 'setField',
+        type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+        id: EXTENSION_WORKSPACE_ID,
+        path: 'activeId',
+        value: wsId,
+      });
+
+    it('an editor of the slotted workspace may replace its slot (rename rides the grant)', async () => {
+      const audits: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => audits.push(entry));
+      try {
+        const batch = { batchId: 'b-global-1', mutations: [slotReplace(12_000)] };
+        await applyInboundMutationBatch(batch, {
+          snapshot: makePeerSnapshot('editor'),
+          userId: PEER_USER_ID,
+        }).catch(() => undefined); // no __global__ oracle in this rig; the gate decision is the pin
+        const gate = audits.find((a) => a.capability === 'workspace.write' && a.workspaceId === wsId);
+        expect(gate?.decision.allow).toBe(true);
+        expect(gate?.actorUserId).toBe(PEER_USER_ID);
+      } finally {
+        resetAuditSink();
+      }
+    });
+
+    it('a viewer cannot replace the slot', async () => {
+      const audits: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => audits.push(entry));
+      try {
+        const batch = { batchId: 'b-global-2', mutations: [slotReplace(13_000)] };
+        await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('viewer'), userId: PEER_USER_ID });
+        const gate = audits.find((a) => a.capability === 'workspace.write' && a.workspaceId === wsId);
+        expect(gate?.decision).toEqual({ allow: false, reason: 'insufficient-workspace-role' });
+        expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
+      } finally {
+        resetAuditSink();
+      }
+    });
+
+    it('subject-less global bodies (activeId flip) stay operator-only', async () => {
+      const audits: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => audits.push(entry));
+      try {
+        const batch = { batchId: 'b-global-3', mutations: [activeFlip(14_000)] };
+        await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('editor'), userId: PEER_USER_ID });
+        const gate = audits.find((a) => a.capability === 'daemon.admin');
+        expect(gate?.decision).toEqual({ allow: false, reason: 'not-daemon-admin' });
+        expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
+      } finally {
+        resetAuditSink();
+      }
+    });
+
+    it('one denied body refuses the whole batch (all-or-nothing)', async () => {
+      const audits: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => audits.push(entry));
+      try {
+        const batch = { batchId: 'b-global-4', mutations: [slotReplace(15_000), activeFlip(16_000)] };
+        await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('editor'), userId: PEER_USER_ID });
+        for (const env of batch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(false);
+      } finally {
+        resetAuditSink();
+      }
+    });
   });
 
   it('runs the receiver-side workspace.write gate and audits the decision', async () => {

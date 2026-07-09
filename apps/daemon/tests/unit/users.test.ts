@@ -16,7 +16,15 @@ import { setHostStorage } from '@openheaders/core/storage';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import { afterEach, describe, expect, it } from 'vitest';
 import { mintBootstrapToken } from '../../src/cli/show-token';
-import { addUser, deactivateUser, listUsers, resolveTokenUserBinding } from '../../src/cli/users';
+import {
+  addUser,
+  deactivateUser,
+  grantUserRole,
+  listUserGrants,
+  listUsers,
+  resolveTokenUserBinding,
+  revokeUserGrant,
+} from '../../src/cli/users';
 import type { DaemonConfig } from '../../src/config';
 import { noCipherYet } from '../../src/no-cipher';
 
@@ -131,5 +139,38 @@ describe('oh daemon user', () => {
     const users = await listUsers(config);
     expect(users[0].deactivatedAt).not.toBeNull();
     await expect(deactivateUser(config, 'nobody@openheaders.io')).rejects.toThrow('no user');
+  });
+
+  it('grants a workspace role by email, updates it in place, and revokes it', async () => {
+    const config = makeConfig();
+    await seedDaemonIdentity(config);
+    const record = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+    const wsId = '01900000-aaaa-7000-8000-000000000001';
+
+    const granted = await grantUserRole(config, 'alice@openheaders.io', wsId, 'viewer');
+    expect(granted.updated).toBe(false);
+    let grants = await listUserGrants(record);
+    expect(grants).toHaveLength(1);
+    expect(grants[0]).toMatchObject({ principalId: record.principal.id, workspaceId: wsId, role: 'viewer' });
+
+    const regranted = await grantUserRole(config, record.user.id, wsId, 'editor');
+    expect(regranted.updated).toBe(true);
+    grants = await listUserGrants(record);
+    expect(grants).toHaveLength(1);
+    expect(grants[0].role).toBe('editor');
+
+    await revokeUserGrant(config, 'alice@openheaders.io', wsId);
+    expect(await listUserGrants(record)).toHaveLength(0);
+  });
+
+  it('grant refuses deactivated users; revoke refuses a grant that does not exist', async () => {
+    const config = makeConfig();
+    await seedDaemonIdentity(config);
+    const record = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+    const wsId = '01900000-aaaa-7000-8000-000000000002';
+
+    await expect(revokeUserGrant(config, record.user.id, wsId)).rejects.toThrow('no grant');
+    await deactivateUser(config, record.user.id);
+    await expect(grantUserRole(config, record.user.id, wsId, 'viewer')).rejects.toThrow('deactivated');
   });
 });

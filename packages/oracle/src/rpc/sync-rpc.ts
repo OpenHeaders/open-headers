@@ -26,7 +26,14 @@
  *                                       continues its own dispatcher chain
  */
 
-import { type Capability, emitAuditEntry, getIdentitySnapshot, hasCapability } from '@openheaders/core/identity';
+import {
+  type Capability,
+  emitAuditEntry,
+  getIdentitySnapshot,
+  hasCapability,
+  type IdentitySnapshot,
+  resolveDaemonPeerIdentitySnapshot,
+} from '@openheaders/core/identity';
 import type {
   AwarenessPublishRequest,
   AwarenessPublishResponse,
@@ -46,11 +53,19 @@ import type { InverseEnvelopeContext } from '@openheaders/core/sync';
 import { resolveWorkspaceOrgId } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import { peekActiveWorkspaceId, requireActiveWorkspaceId } from '../sync';
-import { listMutedActivityEntities, muteActivityEntity, unmuteActivityEntity } from '../sync/activity/activity-mute-cache';
+import {
+  listMutedActivityEntities,
+  muteActivityEntity,
+  unmuteActivityEntity,
+} from '../sync/activity/activity-mute-cache';
 import { generateInverseMutation } from '../sync/activity/activity-revert';
 import { applyInboundAwarenessFrame } from '../sync/awareness/awareness-inbound';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
-import { applyInboundMutationBatch, applyInboundMutationEnvelope } from '../sync/mutation-stream-bridge';
+import {
+  applyInboundMutationBatch,
+  applyInboundMutationEnvelope,
+  type InboundMutationActor,
+} from '../sync/mutation-stream-bridge';
 import {
   applySyncRequest,
   getAwarenessStoreForWorkspace,
@@ -83,6 +98,20 @@ import {
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
 
 export type SyncRpcResult = { kind: 'sync'; response: unknown } | { kind: 'async'; promise: Promise<unknown> };
+
+/**
+ * The authenticated peer a frame arrived from (Phase 5 slice 2). When
+ * present, every capability decision in this dispatcher — the renderer-
+ * shaped gate table AND the peer-driven mutation/awareness channels —
+ * resolves against THIS user's snapshot (re-read per frame so grant
+ * changes bite immediately), never the host's own LocalAdmin. Absent on
+ * local-surface dispatch (renderer → SW / ipcMain) and on the
+ * `requireAuth`-off test seam, where today's local-subject behavior is
+ * unchanged.
+ */
+export interface SyncRpcPeerContext {
+  readonly userId: string;
+}
 
 /**
  * Surfaced when the host-neutral resolver denies a privileged RPC. The
@@ -195,7 +224,23 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
   ['oh.awareness.snapshot', { capability: 'workspace.read', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
 ]);
 
-function gateDispatch(message: Record<string, unknown>): void {
+/**
+ * The identity a gate decision is made AS. Local dispatch derives it
+ * from the registry snapshot; peer dispatch resolves the sending user's
+ * own snapshot and threads it here so the decision subject is the peer,
+ * not this host's operator.
+ */
+interface GateSubject {
+  readonly snapshot: IdentitySnapshot | null;
+  readonly actorUserId: string;
+}
+
+function localGateSubject(): GateSubject {
+  const snapshot = getIdentitySnapshot();
+  return { snapshot, actorUserId: snapshot?.user.id ?? 'unknown' };
+}
+
+function gateDispatch(message: Record<string, unknown>, subject: GateSubject): void {
   const type = message.type;
   if (typeof type !== 'string') return;
   const rule = GATE_RULES.get(type);
@@ -210,11 +255,10 @@ function gateDispatch(message: Record<string, unknown>): void {
     return;
   }
 
-  const snapshot = getIdentitySnapshot();
   const ctx = workspaceId === null ? {} : { workspaceId };
-  const decision = hasCapability(snapshot, rule.capability, ctx);
+  const decision = hasCapability(subject.snapshot, rule.capability, ctx);
   emitAuditEntry({
-    actorUserId: snapshot?.user.id ?? 'unknown',
+    actorUserId: subject.actorUserId,
     capability: rule.capability,
     ...(workspaceId ? { workspaceId } : {}),
     decision,
@@ -282,15 +326,102 @@ const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries
 };
 
 /**
+ * True when `type` is a channel this dispatcher owns — the gate table's
+ * renderer-shaped channels plus the three peer-driven ones. Must stay
+ * in lockstep with {@link routeSyncRpc}'s branches so peer dispatch can
+ * decide ownership synchronously before its async capability gate runs.
+ */
+function ownsSyncRpcChannel(type: string): boolean {
+  return (
+    GATE_RULES.has(type) ||
+    type === SYNC_MUTATION_TYPE ||
+    type === SYNC_MUTATION_BATCH_TYPE ||
+    type === SYNC_AWARENESS_PRESENCE_TYPE
+  );
+}
+
+/**
+ * Gate + route a frame received from an authenticated WS peer. The
+ * capability subject is the PEER's user, re-resolved from the directory
+ * per frame (the operator resolves to the real snapshot, LocalAdmin
+ * intact — the solo tier is unchanged by construction). Peer-driven
+ * mutation channels thread the actor into the inbound bridge, whose
+ * per-batch gate + audit run as that user; a denied awareness frame is
+ * dropped silently (presence is best-effort), a denied renderer-shaped
+ * channel throws the same {@link PermissionDeniedError} the local gate
+ * uses so the host surfaces a uniform error frame.
+ */
+async function dispatchSyncRpcAsPeer(message: Record<string, unknown>, peer: SyncRpcPeerContext): Promise<unknown> {
+  const snapshot = await resolveDaemonPeerIdentitySnapshot(peer.userId);
+  const type = message.type as string;
+
+  if (type === SYNC_AWARENESS_PRESENCE_TYPE) {
+    const msg = message as unknown as SyncAwarenessPresenceMessage;
+    const decision = hasCapability(snapshot, 'workspace.read', { workspaceId: msg.workspaceId });
+    emitAuditEntry({
+      actorUserId: peer.userId,
+      capability: 'workspace.read',
+      workspaceId: msg.workspaceId,
+      decision,
+    });
+    if (!decision.allow) return { ok: true };
+    applyInboundAwarenessFrame(msg, { resolveStore: getAwarenessStoreForWorkspace });
+    return { ok: true };
+  }
+
+  const actor: InboundMutationActor = { snapshot, userId: peer.userId };
+  if (type === SYNC_MUTATION_TYPE) {
+    const msg = message as unknown as SyncMutationMessage;
+    await applyInboundMutationEnvelope(msg.envelope, actor);
+    return { ok: true };
+  }
+  if (type === SYNC_MUTATION_BATCH_TYPE) {
+    const msg = message as unknown as SyncMutationBatchMessage;
+    await applyInboundMutationBatch(msg.batch, actor);
+    return { ok: true };
+  }
+
+  gateDispatch(message, { snapshot, actorUserId: peer.userId });
+  const routed = routeSyncRpc(message);
+  if (routed === null) {
+    // Unreachable by construction — ownership was checked before this
+    // promise was minted; keep the throw so a future routing/ownership
+    // drift fails loudly instead of returning undefined.
+    throw new Error(`dispatchSyncRpcAsPeer: unrouted channel '${type}'`);
+  }
+  return routed.kind === 'sync' ? routed.response : await routed.promise;
+}
+
+/**
  * Dispatch a sync/awareness message. Returns `null` when `message.type`
  * is not a channel this dispatcher owns; the caller routes those onward
  * through its host-specific message chain.
+ *
+ * `peer` names the authenticated WS peer a frame arrived from; when
+ * present every capability decision runs as that user (see
+ * {@link SyncRpcPeerContext}). Ownership is still decided synchronously
+ * so unowned channels return `null` either way.
  */
-export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult | null {
+export function dispatchSyncRpc(message: Record<string, unknown>, peer?: SyncRpcPeerContext): SyncRpcResult | null {
   const type = message.type;
   if (typeof type !== 'string') return null;
 
-  gateDispatch(message);
+  if (peer) {
+    if (!ownsSyncRpcChannel(type)) return null;
+    return { kind: 'async', promise: dispatchSyncRpcAsPeer(message, peer) };
+  }
+
+  gateDispatch(message, localGateSubject());
+  return routeSyncRpc(message);
+}
+
+/**
+ * Route an already-gated frame to its handler. Every branch here must
+ * be reflected in {@link ownsSyncRpcChannel}.
+ */
+function routeSyncRpc(message: Record<string, unknown>): SyncRpcResult | null {
+  const type = message.type;
+  if (typeof type !== 'string') return null;
 
   if (type === SYNC_MUTATION_TYPE) {
     const msg = message as unknown as SyncMutationMessage;

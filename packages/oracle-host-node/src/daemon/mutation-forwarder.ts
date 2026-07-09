@@ -31,6 +31,7 @@ import { SYNC_MUTATION_TYPE, type SyncMutationMessage } from '@openheaders/core/
 import { isHostLocalMutation, isSameDeviceOnlyMutation } from '@openheaders/core/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import type { OracleWsServer } from '../host-runtime/ws-server';
+import { createFilteredPeerBroadcast } from './peer-read-filter';
 
 let wsServer: OracleWsServer | null = null;
 
@@ -38,6 +39,15 @@ let wsServer: OracleWsServer | null = null;
 export function setMutationForwarderWsServer(server: OracleWsServer | null): void {
   wsServer = server;
 }
+
+/**
+ * RBAC read gate on the fan-out (Phase 5 slice 2): each frame resolves
+ * which peer users hold `workspace.read` on its workspace before it
+ * leaves; the queue keeps frames in commit order across the async
+ * resolution. The server is re-read at send time so bind-supervisor
+ * swaps flow through.
+ */
+const filteredBroadcast = createFilteredPeerBroadcast(() => wsServer);
 
 export function forwardMutationToWsPeers(event: OracleSyncBroadcastEvent): void {
   if (!wsServer) return;
@@ -58,7 +68,7 @@ export function forwardMutationToWsPeers(event: OracleSyncBroadcastEvent): void 
   // go to every peer EXCEPT the one that minted them (its HELLO nodeId
   // matches the envelope's hlc.nodeId). A local mint's nodeId is this
   // host's own, which never matches a peer, so passing it is a no-op.
-  wsServer.broadcastFrame(frame as unknown as Record<string, unknown>, {
+  filteredBroadcast.enqueue(frame as unknown as Record<string, unknown>, event.envelope.workspaceId, {
     loopbackOnly,
     excludeNodeId: event.envelope.hlc.nodeId,
   });

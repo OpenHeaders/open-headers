@@ -16,7 +16,12 @@ import type { OracleWsServer } from '../../../src/host-runtime/ws-server';
 
 interface RecordedBroadcast {
   frame: Record<string, unknown>;
-  opts?: { loopbackOnly?: boolean; excludeNodeId?: string };
+  opts?: { loopbackOnly?: boolean; excludeNodeId?: string; filterPeer?: unknown };
+}
+
+/** The forwarder queues sends behind an async read-filter resolution. */
+function flushForwarderQueue(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 function makeRecordingServer(): { server: OracleWsServer; broadcasts: RecordedBroadcast[] } {
@@ -55,7 +60,7 @@ afterEach(() => {
 });
 
 describe('forwardMutationToWsPeers', () => {
-  it('never puts a host-local (layout) mutation on the wire', () => {
+  it('never puts a host-local (layout) mutation on the wire', async () => {
     const { server, broadcasts } = makeRecordingServer();
     setMutationForwarderWsServer(server);
 
@@ -64,10 +69,11 @@ describe('forwardMutationToWsPeers', () => {
       outcome: APPLIED,
       applyOrigin: 'local',
     });
+    await flushForwarderQueue();
     expect(broadcasts).toHaveLength(0);
   });
 
-  it('forwards a synced entity with the originator excluded', () => {
+  it('forwards a synced entity with the originator excluded and the read filter attached', async () => {
     const { server, broadcasts } = makeRecordingServer();
     setMutationForwarderWsServer(server);
 
@@ -76,11 +82,13 @@ describe('forwardMutationToWsPeers', () => {
       outcome: APPLIED,
       applyOrigin: 'inbound',
     });
+    await flushForwarderQueue();
     expect(broadcasts).toHaveLength(1);
-    expect(broadcasts[0]?.opts).toEqual({ loopbackOnly: false, excludeNodeId: 'peer-a' });
+    expect(broadcasts[0]?.opts).toMatchObject({ loopbackOnly: false, excludeNodeId: 'peer-a' });
+    expect(typeof broadcasts[0]?.opts?.filterPeer).toBe('function');
   });
 
-  it('keeps the vault loopback-only (reach tier, not host-local)', () => {
+  it('keeps the vault loopback-only (reach tier, not host-local)', async () => {
     const { server, broadcasts } = makeRecordingServer();
     setMutationForwarderWsServer(server);
 
@@ -89,7 +97,30 @@ describe('forwardMutationToWsPeers', () => {
       outcome: APPLIED,
       applyOrigin: 'local',
     });
+    await flushForwarderQueue();
     expect(broadcasts).toHaveLength(1);
     expect(broadcasts[0]?.opts?.loopbackOnly).toBe(true);
+  });
+
+  it('preserves commit order across queued sends', async () => {
+    const { server, broadcasts } = makeRecordingServer();
+    setMutationForwarderWsServer(server);
+
+    forwardMutationToWsPeers({
+      envelope: makeEnvelope(RULE_ENTITY_TYPE, 'r-1'),
+      outcome: APPLIED,
+      applyOrigin: 'local',
+    });
+    forwardMutationToWsPeers({
+      envelope: makeEnvelope(RULE_ENTITY_TYPE, 'r-2'),
+      outcome: APPLIED,
+      applyOrigin: 'local',
+    });
+    await flushForwarderQueue();
+    const bodyIds = broadcasts.map((b) => {
+      const envelope = (b.frame as unknown as { envelope: MutationEnvelope }).envelope;
+      return envelope.body.id;
+    });
+    expect(bodyIds).toEqual(['r-1', 'r-2']);
   });
 });
