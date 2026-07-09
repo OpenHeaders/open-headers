@@ -126,6 +126,28 @@ describe('wrapHttpHandler', () => {
   });
 });
 
+describe('live webEnabled getter', () => {
+  it('consults the getter per request — desktop toggles posture without a re-boot', async () => {
+    let webEnabled = false;
+    const { baseUrl } = await startHarness(createAdmissionControl({ webEnabled: () => webEnabled }));
+    const ownOrigin = `http://${new URL(baseUrl).host}`;
+    // Off: an unclaimed path keeps the `default` posture — a browser
+    // Origin (even the own served one) is rejected, exactly the
+    // web-less daemon/desktop baseline.
+    const off = await fetch(`${baseUrl}/`, { headers: { origin: ownOrigin } });
+    expect(off.status).toBe(403);
+    // On (no new admission control): the same request takes the `web`
+    // posture and reaches the handler chain (400 = the harness fallback).
+    webEnabled = true;
+    const on = await fetch(`${baseUrl}/`, { headers: { origin: ownOrigin } });
+    expect(on.status).toBe(400);
+    // …and back off.
+    webEnabled = false;
+    const offAgain = await fetch(`${baseUrl}/`, { headers: { origin: ownOrigin } });
+    expect(offAgain.status).toBe(403);
+  });
+});
+
 describe('wsHooks', () => {
   /**
    * Probe server OUTSIDE the HTTP wrapper — each request's live

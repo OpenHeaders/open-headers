@@ -43,8 +43,14 @@ export interface AdmissionControlOptions {
   trustedProxy?: boolean;
   /** Hostnames (beyond IP literals / localhost / `*.local`) the daemon answers as. */
   allowedHosts?: readonly string[];
-  /** The daemon serves the web bundle — unclaimed paths take the `web` posture. */
-  webEnabled?: boolean;
+  /**
+   * The daemon serves the web bundle — unclaimed paths take the `web`
+   * posture. A getter is consulted per request so a host whose serving
+   * flag is a live setting (desktop `backend.serveWebApp`) flips posture
+   * without a re-boot; a plain boolean stays fixed for the process
+   * lifetime (the standalone daemon's config).
+   */
+  webEnabled?: boolean | (() => boolean);
   /** Limiter tuning override — tests only; production takes the defaults. */
   limiter?: RateLimiterOptions;
 }
@@ -68,7 +74,11 @@ function factsFromRequest(req: IncomingMessage, upgrade: boolean): AdmissionRequ
 export function createAdmissionControl(options: AdmissionControlOptions = {}): AdmissionControl {
   const trustedProxy = options.trustedProxy ?? false;
   const allowedHosts = options.allowedHosts ?? [];
-  const matrixOptions = { webEnabled: options.webEnabled ?? false };
+  const webEnabled = options.webEnabled;
+  const matrixOptions =
+    typeof webEnabled === 'function'
+      ? () => ({ webEnabled: webEnabled() })
+      : () => ({ webEnabled: webEnabled ?? false });
   const limiter: PeerRateLimiter = createPeerRateLimiter(options.limiter);
 
   function resolvePeer(req: IncomingMessage): string {
@@ -114,13 +124,14 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
     wrapHttpHandler(next) {
       return (req, res) => {
         const facts = factsFromRequest(req, false);
-        const posture = routePostureFor(facts, matrixOptions);
+        const requestMatrixOptions = matrixOptions();
+        const posture = routePostureFor(facts, requestMatrixOptions);
         const peer = resolvePeer(req);
         if (posture.rateLimited && limiter.isBlocked(peer)) {
           respondTooMany(res, peer);
           return true;
         }
-        const verdict = evaluateAdmission(facts, allowedHosts, matrixOptions);
+        const verdict = evaluateAdmission(facts, allowedHosts, requestMatrixOptions);
         if (!verdict.ok) {
           logger.info(
             SCOPE,
@@ -142,7 +153,7 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
         const facts = factsFromRequest(request, true);
         const peer = resolvePeer(request);
         if (limiter.isBlocked(peer)) return { ok: false, reason: 'rate-limited' };
-        const verdict = evaluateAdmission(facts, allowedHosts, matrixOptions);
+        const verdict = evaluateAdmission(facts, allowedHosts, matrixOptions());
         if (!verdict.ok) return { ok: false, reason: verdict.reason };
         return { ok: true };
       },

@@ -39,15 +39,20 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import { setHostLogger } from '@openheaders/core/logger';
+import { OH } from '@openheaders/core/storage';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow } from 'electron';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
+import { readServeWebApp, webAppRootCandidate } from './web-app-root';
 
+const SCOPE = 'install-rpc-host';
 const BROADCAST_CHANNEL = 'oh:broadcast';
 
 export type OhRpcDispatcher = (raw: unknown) => Promise<unknown>;
@@ -115,6 +120,25 @@ export async function installRpcHost(): Promise<void> {
   const { backend: hostStorage } = installHostStorage();
   installLifelineServer();
 
+  // Web bundle serving (Phase 4) — the desktop-as-daemon hands out the
+  // Workbench web app on its own bind when `backend.serveWebApp` is on.
+  // The root is fixed at boot (extraResource / monorepo sibling); the
+  // flag is a live gate the spine consults per request, so the settings
+  // toggle takes effect without an app restart.
+  const webRoot = webAppRootCandidate({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    appPath: app.getAppPath(),
+  });
+  const webRootPresent = existsSync(path.join(webRoot, 'index.html'));
+  if (!webRootPresent) {
+    consoleLogger.info(SCOPE, `web bundle not found at ${webRoot}; the serve-web-app setting stays inert`);
+  }
+  let serveWebApp = readServeWebApp((await hostStorage.get(OH.settingsUser)) ?? undefined);
+  hostStorage.subscribe(OH.settingsUser, (next) => {
+    serveWebApp = readServeWebApp(next);
+  });
+
   const spine = await bootDaemonSpine({
     dataDir: app.getPath('userData'),
     appVersion: app.getVersion(),
@@ -138,6 +162,7 @@ export async function installRpcHost(): Promise<void> {
     hostStorage,
     status: { report, getSnapshot: getStatusSnapshot, subscribe, clear: clearStatus },
     broadcastLocal: broadcastToAllRenderers,
+    staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
   });
 
   rpcDispatcher = spine.dispatchRpc;

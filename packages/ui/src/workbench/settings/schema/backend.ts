@@ -93,6 +93,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'backend.bindAddress': BackendBindAddress;
     'backend.bindPort': number;
+    'backend.serveWebApp': boolean;
     'backend.reconnectDelayMs': number;
     'backend.maxReconnectDelayMs': number;
     'backend.pingIntervalMs': number;
@@ -158,6 +159,23 @@ registerSetting({
   // daemon-side rows it renders; search hits + SettingRow still honor it.
   when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
   customEditor: BackendBindPortFieldEditor,
+});
+
+registerSetting({
+  key: 'backend.serveWebApp',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  label: 'Serve the web app',
+  description:
+    'Serve the Workbench as a web page on the daemon port, so a browser tab can open it straight from this app — no extension needed. Anyone who can reach the port sees the login gate; a paired token is still required to access data.',
+  category: 'backend',
+  subcategory: 'lan-peers',
+  tags: ['web', 'serve', 'workbench', 'browser', 'tab', 'daemon', 'host'],
+  scope: 'user',
+  // Same (host, mode) gate as the other daemon-side rows — this process
+  // serves the bundle only where it IS the daemon.
+  when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
 });
 
 registerSetting({

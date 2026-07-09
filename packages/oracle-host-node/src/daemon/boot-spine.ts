@@ -151,6 +151,14 @@ export interface DaemonSpineConfig {
    */
   staticWeb?: {
     rootDir: string;
+    /**
+     * Live serving gate, consulted per request alongside the admission
+     * matrix's `web` posture. Absent = always on (the standalone
+     * daemon's static config). The desktop passes its
+     * `backend.serveWebApp` setting here so the toggle takes effect
+     * without an app restart, exactly like the bind settings.
+     */
+    enabled?: () => boolean;
   };
 }
 
@@ -358,10 +366,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // 4a'. Phase-3 admission — one Origin/Host matrix + brute-force
   //      limiter for every plane on the composed bind. Wraps the HTTP
   //      chain below and gates WS upgrades through the supervisor.
+  const staticWebConfig = config.staticWeb;
+  const staticWebEnabled = (): boolean => staticWebConfig !== undefined && (staticWebConfig.enabled?.() ?? true);
   const admission = createAdmissionControl({
     trustedProxy: config.admission?.trustedProxy,
     allowedHosts: config.admission?.allowedHosts,
-    webEnabled: config.staticWeb !== undefined,
+    webEnabled: staticWebEnabled,
   });
 
   // 4b. Daemon device-flow pairing surface (U3.3). One service instance
@@ -389,7 +399,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //      composed LAST so every claimed route (healthz, pairing, mcp)
   //      wins its path first. Absent config = no route; the 400
   //      fallback keeps answering unclaimed paths.
-  const staticWebHandler = config.staticWeb ? createStaticWebHandler({ rootDir: config.staticWeb.rootDir }) : null;
+  const staticWebHandler = staticWebConfig ? createStaticWebHandler({ rootDir: staticWebConfig.rootDir }) : null;
 
   // 5. RPC dispatch for local surfaces. Pairing channels are intercepted
   //    ahead of `dispatchSyncRpc` — they're admin-only surface RPCs, not
@@ -523,7 +533,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           healthzHandler(req, res) ||
           pairingHttpHandler(req, res) ||
           mcpInstall.handler(req, res) ||
-          (staticWebHandler?.(req, res) ?? false),
+          (staticWebHandler !== null && staticWebEnabled() ? staticWebHandler(req, res) : false),
       ),
       admission: admission.wsHooks,
       onServerChange: (next) => {

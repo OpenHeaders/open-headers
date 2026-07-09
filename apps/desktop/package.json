@@ -22,7 +22,8 @@
     "dev": "electron-vite dev",
     "build": "cross-env NODE_ENV=production electron-vite build",
     "build:dev": "cross-env NODE_ENV=development electron-vite build",
-    "predist": "pnpm run build",
+    "build:web-bundle": "pnpm -w exec turbo build --filter=@openheaders/web",
+    "predist": "pnpm run build && pnpm run build:web-bundle",
     "dist": "electron-builder --publish never",
     "dist:all": "pnpm run predist && electron-builder -mwl --x64 --arm64 --publish never",
     "dist:mac": "pnpm run predist && electron-builder --mac --publish never",
@@ -33,7 +34,7 @@
     "dist:linux": "pnpm run predist && electron-builder --linux --x64 --arm64 --publish never",
     "dist:linux:rpm:x64": "pnpm run predist && electron-builder --linux --x64 --config.linux.target=rpm --publish never",
     "dist:linux:rpm:arm64": "pnpm run predist && electron-builder --linux --arm64 --config.linux.target=rpm --publish never",
-    "predist:win": "pnpm run build && pnpm run download-portable-git && pnpm run build:minimal-git",
+    "predist:win": "pnpm run build && pnpm run build:web-bundle && pnpm run download-portable-git && pnpm run build:minimal-git",
     "download-portable-git": "node scripts/build/download-portable-git.js",
     "build:minimal-git": "node scripts/build/build-minimal-git.js",
     "build:dmg-bg": "node scripts/build/build-dmg-background.js",
@@ -90,6 +91,10 @@
         "filter": [
           "*.png"
         ]
+      },
+      {
+        "from": "../web/dist",
+        "to": "web"
       }
     ],
     "asarUnpack": [
