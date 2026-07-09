@@ -67,6 +67,7 @@ import { type TabKey, buildRequestTabItems } from './request-tab-items';
 import RequestTabContent from './RequestTabContent';
 import RequestUrlBar from './RequestUrlBar';
 import { takeHandoffResponse } from './response-handoff';
+import { detectBodyLanguage, prettyBody } from './response/response-format';
 import ResponsePanel from './response/ResponsePanel';
 import { useRequestEditorLayout } from './useRequestEditorLayout';
 import { useSectionUnresolved } from './useSectionUnresolved';
@@ -443,7 +444,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             statusText: response.statusText,
             url: response.url,
             headers: response.headers,
-            body: response.body,
+            // Examples are documentation — JSON bodies store pretty-
+            // printed (sync + lossless modulo whitespace); `bodyBytes`
+            // keeps the true wire size. Other languages store the wire
+            // text; the example editor's Format action covers them.
+            body: prettyBody(response.body, detectBodyLanguage(response.headers)),
             bodyTruncated: response.bodyTruncated,
             bodyCapBytes: response.bodyCapBytes,
             bodyBytes: response.bodyBytes,
