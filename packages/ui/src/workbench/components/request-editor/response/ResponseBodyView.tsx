@@ -63,9 +63,7 @@ const ENCODING_VIEWS: ReadonlyArray<{ mode: 'raw' | 'hex' | 'base64'; label: str
 function PickerLabel({ icon, text }: { icon: string; text: string }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-      <span style={{ opacity: 0.75, display: 'inline-flex' }}>
-        <ViewPickerIcon id={icon} size={14} />
-      </span>
+      <ViewPickerIcon id={icon} size={16} />
       {text}
     </span>
   );
@@ -262,9 +260,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
               style={pickerSelected ? { background: token.colorBgTextActive } : undefined}
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ opacity: 0.75, display: 'inline-flex' }}>
-                  <ViewPickerIcon id={pickerIcon} size={13} />
-                </span>
+                <ViewPickerIcon id={pickerIcon} size={14} />
                 {pickerLabel}
                 {pickerSelected && <DownOutlined style={{ fontSize: 9, opacity: 0.65 }} />}
               </span>
