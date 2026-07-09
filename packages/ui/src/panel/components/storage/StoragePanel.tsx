@@ -28,7 +28,7 @@ import {
   writeJarCookie,
 } from '../../data/cookies/cookie-jar-cache';
 import { useSiteCookieJarSticky } from '../../data/cookies/use-cookie-jar';
-import { cookieTabId, domStorageEntryTabId, idbRecordTabId } from '../../data/inspector-tab';
+import { cacheEntryTabId, cookieTabId, domStorageEntryTabId, idbRecordTabId } from '../../data/inspector-tab';
 import type { DomStorageArea, DomStorageEntry } from '../../data/storage/storage-inspector-host';
 import { parseStorageKey } from '../../data/storage/storage-key';
 import { useCacheBrowser } from '../../data/storage/use-cache-browser';
@@ -48,12 +48,13 @@ import { CookieIcon, DatabaseIcon, TableIcon, UsagePieIcon } from './StorageNavI
 import { StorageQuotaCard } from './StorageQuotaCard';
 
 /** An editor-tab "Reveal in Storage" jump target — back to the record's
- *  IndexedDB store, the entry's DOM storage area, or the Cookies
- *  section. */
+ *  IndexedDB store, the entry's DOM storage area, the Cookies section,
+ *  or a Cache Storage cache's entry grid. */
 export type StorageRevealRequest =
   | { kind: 'idb'; database: string; store: string }
   | { kind: 'dom'; area: DomStorageArea }
-  | { kind: 'cookies' };
+  | { kind: 'cookies' }
+  | { kind: 'cache'; cache: string };
 
 /** What an editor-tab open needs from a DOM storage row (plus the
  *  scope's frame, which the panel shell adds). */
@@ -70,6 +71,14 @@ export interface OpenCookieRequest {
   scopeUrl: string;
 }
 
+/** What an editor-tab open needs from a Cache Storage entry row (plus
+ *  the scope's frame, which the panel shell adds). */
+export interface OpenCacheEntryRequest {
+  cache: string;
+  url: string;
+  method: string;
+}
+
 interface StoragePanelProps {
   onHide: () => void;
   /** Open one IndexedDB record as an editor tab (scope frame attached). */
@@ -78,6 +87,8 @@ interface StoragePanelProps {
   onOpenDomEntry: (request: OpenDomStorageEntryRequest & { frameId: number }) => void;
   /** Open one jar cookie as an editor tab. */
   onOpenCookie: (request: OpenCookieRequest) => void;
+  /** Open one Cache Storage entry's stored response as an editor tab. */
+  onOpenCacheEntry: (request: OpenCacheEntryRequest & { frameId: number }) => void;
   /** Pending editor-tab jump back into a storage section — consumed
    *  exactly once via `onRevealConsumed` (a re-mount or section
    *  round-trip must not replay it). */
@@ -112,6 +123,7 @@ export function StoragePanel({
   onOpenIdbRecord,
   onOpenDomEntry,
   onOpenCookie,
+  onOpenCacheEntry,
   reveal,
   onRevealConsumed,
   activeStorageTabId,
@@ -151,16 +163,26 @@ export function StoragePanel({
   // idb hook's selection (its own scope-reset effect runs first — hook
   // call order — so the select lands after it).
   const revealSection: StorageSection | null =
-    reveal === null ? null : reveal.kind === 'idb' ? 'indexeddb' : reveal.kind === 'cookies' ? 'cookies' : reveal.area;
+    reveal === null
+      ? null
+      : reveal.kind === 'idb'
+        ? 'indexeddb'
+        : reveal.kind === 'cookies'
+          ? 'cookies'
+          : reveal.kind === 'cache'
+            ? 'cachestorage'
+            : reveal.area;
   useEffect(() => {
     if (revealSection !== null) setSection(revealSection);
   }, [revealSection]);
   const selectIdbStore = idb.selectStore;
+  const selectCache = cacheStorage.selectCache;
   useEffect(() => {
     if (!reveal || section !== revealSection) return;
     if (reveal.kind === 'idb') selectIdbStore(reveal.database, reveal.store);
+    if (reveal.kind === 'cache') selectCache(reveal.cache);
     onRevealConsumed();
-  }, [reveal, revealSection, section, selectIdbStore, onRevealConsumed]);
+  }, [reveal, revealSection, section, selectIdbStore, selectCache, onRevealConsumed]);
 
   const selectedFrameId = selectedScope?.frameId ?? null;
   const openIdbRecord = useCallback(
@@ -176,6 +198,22 @@ export function StoragePanel({
       activeStorageTabId != null &&
       activeStorageTabId === idbRecordTabId(selectedFrameId, database, store, primaryKeyWire),
     [activeStorageTabId, selectedFrameId],
+  );
+  const selectedCacheName = cacheStorage.selectedCache;
+  const openCacheEntry = useCallback(
+    (url: string, method: string) => {
+      if (selectedFrameId === null || selectedCacheName === null) return;
+      onOpenCacheEntry({ cache: selectedCacheName, url, method, frameId: selectedFrameId });
+    },
+    [onOpenCacheEntry, selectedFrameId, selectedCacheName],
+  );
+  const isCacheEntryActive = useCallback(
+    (url: string, method: string) =>
+      selectedFrameId !== null &&
+      selectedCacheName !== null &&
+      activeStorageTabId != null &&
+      activeStorageTabId === cacheEntryTabId(selectedFrameId, selectedCacheName, url, method),
+    [activeStorageTabId, selectedFrameId, selectedCacheName],
   );
   const domArea: DomStorageArea = section === 'session' ? 'session' : 'local';
   const openDomEntry = useCallback(
@@ -420,7 +458,12 @@ export function StoragePanel({
                     isRecordActive={isIdbRecordActive}
                   />
                 ) : section === 'cachestorage' ? (
-                  <CacheStorageSection cache={cacheStorage} filter={textFilter} />
+                  <CacheStorageSection
+                    cache={cacheStorage}
+                    filter={textFilter}
+                    onOpenEntry={openCacheEntry}
+                    isEntryActive={isCacheEntryActive}
+                  />
                 ) : (
                   <StorageQuotaCard quota={quota} />
                 )

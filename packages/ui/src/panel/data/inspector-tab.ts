@@ -26,7 +26,8 @@ export type InspectorTab =
   | RequestInspectorTab
   | IdbRecordInspectorTab
   | DomStorageEntryInspectorTab
-  | CookieInspectorTab;
+  | CookieInspectorTab
+  | CacheEntryInspectorTab;
 
 export interface RequestInspectorTab {
   kind: 'request';
@@ -95,6 +96,21 @@ export interface CookieInspectorTab {
   dirty?: boolean;
 }
 
+/** One Cache Storage entry's stored response opened as a read-only
+ *  editor document. No draft, no dirty — Cache Storage has no write
+ *  seam; delete is the only mutation. */
+export interface CacheEntryInspectorTab {
+  kind: 'cache-entry';
+  id: string;
+  label: string;
+  frameId: number;
+  /** The entry's fetch identity: cache name + request URL + method. */
+  cache: string;
+  url: string;
+  method: string;
+  timestamp: number;
+}
+
 /** Per-tab view state callers patch in place. Each field applies to
  *  matching tab kinds only (`activeSection` → request, `dirty` →
  *  document kinds, `entryKey` → dom-storage-entry, `cookieKey` →
@@ -110,9 +126,10 @@ export interface InspectorTabPatch {
   cookieKey?: JarCookieKey;
 }
 
-/** Does this tab carry an unsaved editor draft? (Request tabs never do.) */
+/** Does this tab carry an unsaved editor draft? (Request tabs never do,
+ *  and cache-entry documents are read-only.) */
 export function tabIsDirty(tab: InspectorTab): boolean {
-  return tab.kind !== 'request' && tab.dirty === true;
+  return tab.kind !== 'request' && tab.kind !== 'cache-entry' && tab.dirty === true;
 }
 
 export interface ClosedTab {
@@ -241,6 +258,48 @@ export function buildCookieTab(input: BuildCookieTabInput): CookieInspectorTab {
   };
 }
 
+export interface BuildCacheEntryTabInput {
+  frameId: number;
+  cache: string;
+  url: string;
+  method: string;
+  timestamp: number;
+}
+
+/** Entry identity IS the tab identity — shared with the Storage window
+ *  so an open entry's row can light up in the cache's entry grid. */
+export function cacheEntryTabId(frameId: number, cache: string, url: string, method: string): string {
+  return `cacheentry:${frameId}:${cache}:${method}:${url}`;
+}
+
+/** The pill label for a cache entry — the URL's last path segment,
+ *  falling back to the hostname for root URLs. */
+export function cacheEntryLabel(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split('/').filter((s) => s.length > 0);
+    const last = segments[segments.length - 1];
+    return last !== undefined ? `${last}${parsed.search}` : parsed.hostname;
+  } catch {
+    return url;
+  }
+}
+
+export function buildCacheEntryTab(input: BuildCacheEntryTabInput): CacheEntryInspectorTab {
+  return {
+    kind: 'cache-entry',
+    // Re-opening the same entry activates the existing tab instead of
+    // spawning a duplicate.
+    id: cacheEntryTabId(input.frameId, input.cache, input.url, input.method),
+    label: cacheEntryLabel(input.url),
+    frameId: input.frameId,
+    cache: input.cache,
+    url: input.url,
+    method: input.method,
+    timestamp: input.timestamp,
+  };
+}
+
 /** The DOM storage area's display name (`localStorage` / `sessionStorage`). */
 export function domStorageAreaName(area: DomStorageArea): string {
   return area === 'session' ? 'sessionStorage' : 'localStorage';
@@ -251,6 +310,7 @@ export function tabTitle(tab: InspectorTab): string {
   if (tab.kind === 'request') return tab.url;
   if (tab.kind === 'idb-record') return `${tab.database} › ${tab.store} › ${tab.keyPreview}`;
   if (tab.kind === 'cookie') return `${tab.cookieKey.domain}${tab.cookieKey.path} › ${tab.cookieKey.name}`;
+  if (tab.kind === 'cache-entry') return `${tab.cache} › ${tab.url}`;
   return `${domStorageAreaName(tab.area)} › ${tab.entryKey}`;
 }
 
@@ -264,5 +324,6 @@ export function tabSearchText(tab: InspectorTab): string {
   if (tab.kind === 'request') return tab.url;
   if (tab.kind === 'idb-record') return `${tab.database} ${tab.store} ${tab.keyPreview}`;
   if (tab.kind === 'cookie') return `${tab.cookieKey.name} ${tab.cookieKey.domain} ${tab.cookieKey.path}`;
+  if (tab.kind === 'cache-entry') return `${tab.cache} ${tab.url} ${tab.method}`;
   return `${domStorageAreaName(tab.area)} ${tab.entryKey}`;
 }

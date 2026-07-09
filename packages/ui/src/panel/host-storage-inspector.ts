@@ -12,6 +12,8 @@
 export type {
   CacheEntriesPage,
   CacheEntry,
+  CacheEntryDocument,
+  CacheEntryHeader,
   CacheEntryResponsePreview,
   CacheSummary,
   DomStorageArea,

@@ -11,6 +11,7 @@
 
 import type {
   CacheEntriesPage,
+  CacheEntryDocument,
   CacheEntryResponsePreview,
   CacheSummary,
   DomStorageArea,
@@ -246,6 +247,21 @@ setStorageInspectorHost({
       return res?.preview ?? null;
     } catch (err) {
       logger.info('StorageInspectorHost', `readCacheEntryResponse ✗ tab ${tabId}: ${(err as Error).message}`);
+      return null;
+    }
+  },
+  async readCacheEntryDocument(
+    tabId: number,
+    frameId: number,
+    cache: string,
+    url: string,
+    method: string,
+  ): Promise<CacheEntryDocument | null> {
+    try {
+      const res = await call('getCacheStorageEntryDocument', { tabId, frameId, cache, url, method });
+      return res?.document ?? null;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `readCacheEntryDocument ✗ tab ${tabId}: ${(err as Error).message}`);
       return null;
     }
   },

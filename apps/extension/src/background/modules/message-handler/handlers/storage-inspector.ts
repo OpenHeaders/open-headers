@@ -11,6 +11,7 @@ import {
   deleteIndexedDbDatabase as deleteIndexedDbDatabaseHandler,
   deleteIndexedDbRecord as deleteIndexedDbRecordHandler,
   getCacheStorageEntries as getCacheStorageEntriesHandler,
+  getCacheStorageEntryDocument as getCacheStorageEntryDocumentHandler,
   getCacheStorageEntryResponse as getCacheStorageEntryResponseHandler,
   getDomStorageEntries as getDomStorageEntriesHandler,
   getDomStorageValue as getDomStorageValueHandler,
@@ -262,6 +263,22 @@ export const storageInspectorHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('StorageCaches', `handler threw: ${err.message}`);
         respond({ preview: null });
+      });
+    return true;
+  },
+
+  getCacheStorageEntryDocument: ({ message, respond }) => {
+    getCacheStorageEntryDocumentHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.cache as string,
+      message.url as string,
+      message.method as string,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageCaches', `handler threw: ${err.message}`);
+        respond({ document: null });
       });
     return true;
   },

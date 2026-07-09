@@ -13,11 +13,17 @@
  * bounds.
  */
 
-import type { CacheEntryResponsePreviewWire, CacheEntryWire, CacheStorageCacheWire } from '@openheaders/core/bridge';
+import type {
+  CacheEntryDocumentWire,
+  CacheEntryResponsePreviewWire,
+  CacheEntryWire,
+  CacheStorageCacheWire,
+} from '@openheaders/core/bridge';
 import {
   deleteCacheEntryViaCdp,
   deleteCacheViaCdp,
   getCacheEntriesViaCdp,
+  getCacheEntryDocumentViaCdp,
   getCacheEntryResponseViaCdp,
   listCachesViaCdp,
 } from './cdp-plane-caches';
@@ -30,6 +36,7 @@ import {
   deleteCacheEntryInjected,
   deleteCacheInjected,
   getCacheEntriesInjected,
+  getCacheEntryDocumentInjected,
   getCacheEntryResponseInjected,
   listCachesInjected,
 } from './standard-plane-caches';
@@ -88,6 +95,25 @@ export async function getCacheStorageEntryResponse(
     }
   }
   return getCacheEntryResponseInjected(tabId, frameId, cache, url, method);
+}
+
+export async function getCacheStorageEntryDocument(
+  tabId: number,
+  frameId: number,
+  cache: string,
+  url: string,
+  method: string,
+): Promise<{ document: CacheEntryDocumentWire | null }> {
+  if (typeof cache !== 'string' || typeof url !== 'string' || typeof method !== 'string') return { document: null };
+  const send = getAttachedStorageCdpSend(tabId);
+  if (send) {
+    const origin = await frameSecurityOrigin(tabId, frameId);
+    if (origin !== null) {
+      const viaCdp = await getCacheEntryDocumentViaCdp(send, origin, cache, url, method);
+      if (viaCdp !== null) return { document: viaCdp };
+    }
+  }
+  return getCacheEntryDocumentInjected(tabId, frameId, cache, url, method);
 }
 
 export async function deleteCacheStorageCache(tabId: number, frameId: number, cache: string): Promise<{ ok: boolean }> {

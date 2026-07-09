@@ -26,7 +26,12 @@
  * the IDB plane's abort-upgrade open).
  */
 
-import type { CacheEntryResponsePreviewWire, CacheEntryWire, CacheStorageCacheWire } from '@openheaders/core/bridge';
+import type {
+  CacheEntryDocumentWire,
+  CacheEntryResponsePreviewWire,
+  CacheEntryWire,
+  CacheStorageCacheWire,
+} from '@openheaders/core/bridge';
 import { runInFrame } from './standard-plane';
 
 /** Cache-count cap per enumeration (an origin rarely has more). */
@@ -38,6 +43,8 @@ export const CACHE_PAGE_SIZE_DEFAULT = 50;
 export const CACHE_HEADERS_PREVIEW_MAX = 512;
 /** Stored-response body preview cap (bytes) for the lazy fetch. */
 export const CACHE_BODY_PREVIEW_MAX = 16 * 1024;
+/** Stored-response body cap (bytes) for the editor-tab document read. */
+export const CACHE_BODY_DOCUMENT_MAX = 1024 * 1024;
 
 interface InjectedCacheEntry {
   url: string;
@@ -162,6 +169,55 @@ export async function readCacheEntryResponseInPage(
   }
 }
 
+export async function readCacheEntryDocumentInPage(
+  cache: string,
+  url: string,
+  method: string,
+  bodyMax: number,
+): Promise<{ document: CacheEntryDocumentWire | null }> {
+  if (typeof caches === 'undefined') return { document: null };
+  try {
+    // Same ghost guard as the reads — open() creates a missing cache.
+    if (!(await caches.has(cache))) return { document: null };
+    const opened = await caches.open(cache);
+    const response = await opened.match(url, { ignoreMethod: method !== 'GET' });
+    if (!response) return { document: null };
+    const headers: Array<{ name: string; value: string }> = [];
+    response.headers.forEach((value, name) => {
+      headers.push({ name, value });
+    });
+    const contentType = response.headers.get('content-type') ?? '';
+    const textual = /^text\/|json|javascript|xml|svg|x-www-form-urlencoded/i.test(contentType);
+    const blob = await response.blob();
+    const bodyLength = blob.size;
+    const bodyTruncated = blob.size > bodyMax;
+    const bytes = new Uint8Array(await blob.slice(0, bodyMax).arrayBuffer());
+    let body: string;
+    if (textual) {
+      body = new TextDecoder().decode(bytes);
+    } else {
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      }
+      body = btoa(binary);
+    }
+    return {
+      document: {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+        body,
+        ...(textual ? {} : { bodyBase64: true }),
+        bodyLength,
+        ...(bodyTruncated ? { bodyTruncated: true } : {}),
+      },
+    };
+  } catch {
+    return { document: null };
+  }
+}
+
 export async function deleteCacheInPage(cache: string): Promise<{ ok: boolean }> {
   if (typeof caches === 'undefined') return { ok: false };
   try {
@@ -227,6 +283,23 @@ export async function getCacheEntryResponseInjected(
   ]);
   if (!result || typeof result.preview?.bodyPreview !== 'string') return { preview: null };
   return { preview: result.preview };
+}
+
+export async function getCacheEntryDocumentInjected(
+  tabId: number,
+  frameId: number,
+  cache: string,
+  url: string,
+  method: string,
+): Promise<{ document: CacheEntryDocumentWire | null }> {
+  const result = await runInFrame(tabId, frameId, readCacheEntryDocumentInPage, [
+    cache,
+    url,
+    method,
+    CACHE_BODY_DOCUMENT_MAX,
+  ]);
+  if (!result || typeof result.document?.body !== 'string') return { document: null };
+  return { document: result.document };
 }
 
 export async function deleteCacheInjected(tabId: number, frameId: number, cache: string): Promise<{ ok: boolean }> {

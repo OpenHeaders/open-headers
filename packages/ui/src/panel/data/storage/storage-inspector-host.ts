@@ -192,6 +192,30 @@ export interface CacheEntryResponsePreview {
   bodyTruncated?: boolean;
 }
 
+/** One stored-response header pair, order-preserved. */
+export interface CacheEntryHeader {
+  name: string;
+  value: string;
+}
+
+/**
+ * One cache entry's stored response as a full editor document — the
+ * status line, the REAL response-header pairs (unlike the preview's
+ * bounded join), and the body at the host's document cap. `body` is
+ * UTF-8 text for textual content types and base64 otherwise
+ * (`bodyBase64`); `bodyLength` carries the full byte size and
+ * `bodyTruncated` marks a document cut at the cap.
+ */
+export interface CacheEntryDocument {
+  status: number;
+  statusText: string;
+  headers: ReadonlyArray<CacheEntryHeader>;
+  body: string;
+  bodyBase64?: boolean;
+  bodyLength: number;
+  bodyTruncated?: boolean;
+}
+
 /** One per-type row of a storage usage breakdown (attached tabs only). */
 export interface StorageQuotaBreakdownRow {
   storageType: string;
@@ -305,6 +329,16 @@ export interface StorageInspectorHost {
     url: string,
     method: string,
   ): Promise<CacheEntryResponsePreview | null>;
+  /** Lazy one-shot fetch of one cache entry's stored response as a full
+   *  editor document; `null` when the entry is gone or the frame can't
+   *  be read. */
+  readCacheEntryDocument(
+    tabId: number,
+    frameId: number,
+    cache: string,
+    url: string,
+    method: string,
+  ): Promise<CacheEntryDocument | null>;
   /** Read the scope's storage usage against its origin quota; `null`
    *  when neither transport can answer (non-secure context, frame gone). */
   readQuota(tabId: number, frameId: number): Promise<StorageQuota | null>;

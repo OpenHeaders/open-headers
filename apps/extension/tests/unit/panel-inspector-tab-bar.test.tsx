@@ -11,6 +11,7 @@ import { DndContext } from '@dnd-kit/core';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import InspectorTabBar from '@openheaders/ui/panel/components/InspectorTabBar';
 import {
+  buildCacheEntryTab,
   buildDomStorageEntryTab,
   buildIdbRecordTab,
   buildInspectorTab,
@@ -115,5 +116,19 @@ describe('InspectorTabBar tab kinds', () => {
     expect(screen.getByText('SS')).toBeTruthy();
     expect(screen.getByText('oh-session-state')).toBeTruthy();
     expect(screen.getByLabelText('Unsaved changes')).toBeTruthy();
+  });
+
+  it('renders the cache-entry pill with its CS chip and URL-tail label, never a dirty dot', () => {
+    const cacheTab = buildCacheEntryTab({
+      frameId: 0,
+      cache: 'oh-assets-v1',
+      url: 'https://openheaders.io/assets/logo.gif',
+      method: 'GET',
+      timestamp: 1_770_000_000_000,
+    });
+    renderBar([cacheTab, REQUEST_TAB], REQUEST_TAB.id);
+    expect(screen.getByText('CS')).toBeTruthy();
+    expect(screen.getByText('logo.gif')).toBeTruthy();
+    expect(screen.queryByLabelText('Unsaved changes')).toBeNull();
   });
 });

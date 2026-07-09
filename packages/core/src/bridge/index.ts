@@ -11,6 +11,8 @@ export type {
   BridgeTabRequest,
   BridgeTabResponse,
   BridgeTabType,
+  CacheEntryDocumentWire,
+  CacheEntryHeaderWire,
   CacheEntryResponsePreviewWire,
   CacheEntryWire,
   CacheStorageCacheWire,

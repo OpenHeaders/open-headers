@@ -183,6 +183,8 @@ export function updateTabInLeaf(
         activeTabId: leaf.activeTabId === tab.id ? nextTab.id : leaf.activeTabId,
       };
     } else {
+      // Cache-entry documents are read-only — no patchable view state.
+      if (tab.kind === 'cache-entry') return leaf;
       if (updates.dirty === undefined || (tab.dirty ?? false) === updates.dirty) return leaf;
       nextTab = { ...tab, dirty: updates.dirty };
     }

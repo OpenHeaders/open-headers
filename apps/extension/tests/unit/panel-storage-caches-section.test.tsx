@@ -185,6 +185,47 @@ describe('CacheStorageSection entries view', () => {
     expect(await screen.findByText(/can’t be read/)).toBeDefined();
   });
 
+  it('opens an entry as an editor document on row click; hover-lane actions never also open', () => {
+    const onOpenEntry = vi.fn();
+    const cache = makeCache({
+      selectedCache: 'oh-assets-v1',
+      entriesPage: {
+        entries: [{ url: 'https://openheaders.io/api/data', method: 'POST' }],
+        truncated: false,
+      },
+    });
+    render(<CacheStorageSection cache={cache} filter="" onOpenEntry={onOpenEntry} />);
+
+    fireEvent.click(screen.getByText('https://openheaders.io/api/data'));
+    expect(onOpenEntry).toHaveBeenCalledWith('https://openheaders.io/api/data', 'POST');
+
+    onOpenEntry.mockClear();
+    fireEvent.click(screen.getByLabelText('Delete entry https://openheaders.io/api/data'));
+    fireEvent.click(screen.getByLabelText('Preview response for https://openheaders.io/api/data'));
+    expect(onOpenEntry).not.toHaveBeenCalled();
+    expect(cache.deleteEntry).toHaveBeenCalled();
+  });
+
+  it('highlights exactly the row whose document is the active editor tab', () => {
+    const cache = makeCache({
+      selectedCache: 'oh-assets-v1',
+      entriesPage: {
+        entries: [
+          { url: 'https://openheaders.io/a.js', method: 'GET' },
+          { url: 'https://openheaders.io/b.js', method: 'GET' },
+        ],
+        truncated: false,
+      },
+    });
+    const { container } = render(
+      <CacheStorageSection cache={cache} filter="" isEntryActive={(url) => url === 'https://openheaders.io/a.js'} />,
+    );
+
+    const active = container.querySelectorAll('.dt-storage-row--active');
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain('https://openheaders.io/a.js');
+  });
+
   it('filters entries across URL, method and the headers preview', () => {
     const entriesPage = {
       entries: [

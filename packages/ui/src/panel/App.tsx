@@ -56,11 +56,13 @@ import { PanelToolbar } from './components/PanelToolbar';
 import { RuleExecutions } from './components/RuleExecutions';
 import { RulePopoverProvider } from './components/RulePopoverHost';
 import { SearchPanel } from './components/SearchPanel';
+import { CacheEntryEditorTab } from './components/storage/CacheEntryEditorTab';
 import { CookieEditorTab } from './components/storage/CookieEditorTab';
 import { DomStorageEntryEditorTab } from './components/storage/DomStorageEntryEditorTab';
 import { IdbRecordEditorTab } from './components/storage/IdbRecordEditorTab';
 import type { OpenIdbRecordRequest } from './components/storage/IndexedDbSection';
 import {
+  type OpenCacheEntryRequest,
   type OpenCookieRequest,
   type OpenDomStorageEntryRequest,
   StoragePanel,
@@ -76,6 +78,7 @@ import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filte
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/stores/focus-store';
 import type { InspectorRowWithFires } from './data/inspector-row-projection';
 import {
+  buildCacheEntryTab,
   buildCookieTab,
   buildDomStorageEntryTab,
   buildIdbRecordTab,
@@ -471,6 +474,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     [groups],
   );
+  const openCacheEntry = useCallback(
+    (request: OpenCacheEntryRequest & { frameId: number }) => {
+      groups.addTab(buildCacheEntryTab({ ...request, timestamp: Date.now() }));
+    },
+    [groups],
+  );
   // The ACTIVE editor tab's document identity — the Storage window
   // highlights exactly that one row, tracking tab switches.
   const activeStorageTabId = useMemo(() => {
@@ -499,6 +508,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     showStorageWindow();
     setRevealStorage({ kind: 'cookies' });
   }, [showStorageWindow]);
+  const revealCacheInStorage = useCallback(
+    (cache: string) => {
+      showStorageWindow();
+      setRevealStorage({ kind: 'cache', cache });
+    },
+    [showStorageWindow],
+  );
   const handleRevealConsumed = useCallback(() => setRevealStorage(null), []);
 
   // ── Editor group tab body ──────────────────────────────────
@@ -534,6 +550,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
             }}
           />
         );
+      }
+      if (tab.kind === 'cache-entry') {
+        return <CacheEntryEditorTab tab={tab} onRevealInStorage={revealCacheInStorage} />;
       }
       if (tab.kind === 'cookie') {
         return (
@@ -606,6 +625,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       revealInStorage,
       revealDomInStorage,
       revealCookiesInStorage,
+      revealCacheInStorage,
       searchHighlight,
       searchSection,
       searchLineNumber,
@@ -691,6 +711,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onOpenIdbRecord={openIdbRecord}
               onOpenDomEntry={openDomStorageEntry}
               onOpenCookie={openCookieDocument}
+              onOpenCacheEntry={openCacheEntry}
               reveal={revealStorage}
               onRevealConsumed={handleRevealConsumed}
               activeStorageTabId={activeStorageTabId}

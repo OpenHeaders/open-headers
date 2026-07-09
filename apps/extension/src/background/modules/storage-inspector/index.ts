@@ -13,6 +13,7 @@ export {
   deleteCacheStorageCache,
   deleteCacheStorageEntry,
   getCacheStorageEntries,
+  getCacheStorageEntryDocument,
   getCacheStorageEntryResponse,
   listCacheStorageCaches,
 } from './caches';

@@ -15,7 +15,7 @@
  */
 
 import { DeleteOutlined, EyeOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
-import { useEffect, useRef, useState } from 'react';
+import { type MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react';
 import type { CacheEntryResponsePreview } from '../../data/storage/storage-inspector-host';
 import type { CacheBrowserState } from '../../data/storage/use-cache-browser';
 import { formatDateTime, formatSize } from '../traffic/formatters';
@@ -24,11 +24,15 @@ import { ArmedIconButton } from './ArmedIconButton';
 interface CacheStorageSectionProps {
   cache: CacheBrowserState;
   filter: string;
+  /** Open one entry's stored response as an editor-tab document. */
+  onOpenEntry?: (url: string, method: string) => void;
+  /** Is this entry the ACTIVE editor tab? Exactly that row highlights. */
+  isEntryActive?: (url: string, method: string) => boolean;
 }
 
-export function CacheStorageSection({ cache, filter }: CacheStorageSectionProps) {
+export function CacheStorageSection({ cache, filter, onOpenEntry, isEntryActive }: CacheStorageSectionProps) {
   if (cache.selectedCache !== null) {
-    return <EntriesView cache={cache} filter={filter} />;
+    return <EntriesView cache={cache} filter={filter} onOpenEntry={onOpenEntry} isEntryActive={isEntryActive} />;
   }
   if (cache.caches === null) {
     return cache.loading ? (
@@ -79,7 +83,7 @@ export function CacheStorageSection({ cache, filter }: CacheStorageSectionProps)
 
 type PreviewSlot = 'loading' | 'failed' | CacheEntryResponsePreview;
 
-function EntriesView({ cache, filter }: CacheStorageSectionProps) {
+function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorageSectionProps) {
   // The expanded entry's stored-response preview — a lazy one-shot fetch
   // held here, keyed on the entry's url+method; never polled state. The
   // ref mirrors the key so a late fetch for a since-collapsed row drops.
@@ -187,7 +191,13 @@ function EntriesView({ cache, filter }: CacheStorageSectionProps) {
           {entries.map((e, i) => {
             const expanded = expandedKey === `${e.url}\n${e.method}`;
             return (
-              <div className="dt-storage-row" role="row" key={`${cache.page}:${i}:${e.url}`}>
+              // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance
+              <div
+                className={`dt-storage-row${isEntryActive?.(e.url, e.method) ? ' dt-storage-row--active' : ''}`}
+                role="row"
+                key={`${cache.page}:${i}:${e.url}`}
+                onClick={() => onOpenEntry?.(e.url, e.method)}
+              >
                 <span
                   className="dt-storage-key"
                   role="cell"
@@ -211,7 +221,10 @@ function EntriesView({ cache, filter }: CacheStorageSectionProps) {
                     title={expanded ? 'Hide the stored response' : 'Preview the stored response'}
                     aria-label={`Preview response for ${e.url}`}
                     aria-expanded={expanded}
-                    onClick={() => togglePreview(e.url, e.method)}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      togglePreview(e.url, e.method);
+                    }}
                   >
                     <EyeOutlined />
                   </button>
@@ -220,7 +233,10 @@ function EntriesView({ cache, filter }: CacheStorageSectionProps) {
                     className="dt-storage-action"
                     title="Delete this entry"
                     aria-label={`Delete entry ${e.url}`}
-                    onClick={() => cache.deleteEntry(e.url, e.method)}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      cache.deleteEntry(e.url, e.method);
+                    }}
                   >
                     <DeleteOutlined />
                   </button>
@@ -241,18 +257,28 @@ function EntriesView({ cache, filter }: CacheStorageSectionProps) {
  * arrives base64 and renders a note instead of the encoded noise.
  */
 function ResponsePreviewStrip({ preview }: { preview: PreviewSlot }) {
+  // The strip lives inside the row, whose click opens the entry as a
+  // document — interacting with the preview (selecting text) must not.
+  const swallow = (ev: ReactMouseEvent) => ev.stopPropagation();
   if (preview === 'loading') {
-    return <div className="dt-storage-response-strip dt-storage-response-note">Loading…</div>;
+    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: swallows the row's open-click
+    return (
+      <div className="dt-storage-response-strip dt-storage-response-note" onClick={swallow}>
+        Loading…
+      </div>
+    );
   }
   if (preview === 'failed') {
+    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: swallows the row's open-click
     return (
-      <div className="dt-storage-response-strip dt-storage-response-note">
+      <div className="dt-storage-response-strip dt-storage-response-note" onClick={swallow}>
         The stored response can’t be read — the entry may be gone.
       </div>
     );
   }
   return (
-    <div className="dt-storage-response-strip">
+    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: swallows the row's open-click
+    <div className="dt-storage-response-strip" onClick={swallow}>
       <div className="dt-storage-response-status">
         {preview.status} {preview.statusText || ''} · {formatSize(preview.bodyLength)}
         {preview.bodyTruncated ? ' (preview truncated)' : ''}

@@ -241,6 +241,31 @@ export interface CacheEntryResponsePreviewWire {
   bodyTruncated?: boolean;
 }
 
+/** One stored-response header pair, order-preserved. */
+export interface CacheEntryHeaderWire {
+  name: string;
+  value: string;
+}
+
+/**
+ * One cache entry's stored response as a full editor document — the
+ * status line, the REAL response-header pairs (the preview's bounded
+ * join can't be parsed back; header values contain commas), and the
+ * body at the document cap. `body` is UTF-8 text for textual content
+ * types and base64 otherwise (`bodyBase64: true`); `bodyLength` is the
+ * stored body's full byte size, `bodyTruncated` marks a document cut
+ * at the cap.
+ */
+export interface CacheEntryDocumentWire {
+  status: number;
+  statusText: string;
+  headers: CacheEntryHeaderWire[];
+  body: string;
+  bodyBase64?: boolean;
+  bodyLength: number;
+  bodyTruncated?: boolean;
+}
+
 /** One per-type row of a storage usage breakdown (CDP tier only). */
 export interface StorageQuotaBreakdownWire {
   storageType: string;
@@ -620,6 +645,19 @@ export interface DevToolsRpc {
   getCacheStorageEntryResponse: {
     req: { tabId: number; frameId: number; cache: string; url: string; method: string };
     res: { preview: CacheEntryResponsePreviewWire | null };
+  };
+
+  /**
+   * Fetch one cache entry's stored response as a full editor document —
+   * structured header pairs and the body at the document cap (see
+   * {@link CacheEntryDocumentWire}); the preview RPC above stays the
+   * section popover's byte-capped read. Same arbitration and `method`
+   * semantics. `document` is `null` when the entry is gone or neither
+   * transport can read it.
+   */
+  getCacheStorageEntryDocument: {
+    req: { tabId: number; frameId: number; cache: string; url: string; method: string };
+    res: { document: CacheEntryDocumentWire | null };
   };
 
   /** Delete a whole named cache. */

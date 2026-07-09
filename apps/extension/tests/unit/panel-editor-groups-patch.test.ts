@@ -11,12 +11,18 @@ import type { EditorLeaf, EditorNode } from '@openheaders/ui/panel/data/editor-g
 import { insertTabIntoLeaf, makeLeaf, updateTabInLeaf } from '@openheaders/ui/panel/data/editor-groups';
 import type { InspectorTab } from '@openheaders/ui/panel/data/inspector-tab';
 import {
+  buildCacheEntryTab,
   buildCookieTab,
   buildDomStorageEntryTab,
   buildInspectorTab,
+  cacheEntryLabel,
+  cacheEntryTabId,
   cookieTabId,
   domStorageEntryTabId,
   tabIsDirty,
+  tabPillLabel,
+  tabSearchText,
+  tabTitle,
 } from '@openheaders/ui/panel/data/inspector-tab';
 import { describe, expect, it } from 'vitest';
 
@@ -96,5 +102,47 @@ describe('updateTabInLeaf over the tab union', () => {
     const root = leafWith(REQUEST_TAB);
     const next = updateTabInLeaf(root, 'leaf-root', REQUEST_TAB.id, { entryKey: 'oh-x' });
     expect(next).toBe(root);
+  });
+
+  it('a cache-entry tab is patch-inert — read-only documents carry no view state', () => {
+    const root = leafWith(CACHE_TAB);
+    expect(updateTabInLeaf(root, 'leaf-root', CACHE_TAB.id, { dirty: true })).toBe(root);
+    expect(updateTabInLeaf(root, 'leaf-root', CACHE_TAB.id, { entryKey: 'oh-x' })).toBe(root);
+    expect(tabIsDirty(CACHE_TAB)).toBe(false);
+  });
+});
+
+const CACHE_TAB = buildCacheEntryTab({
+  frameId: 0,
+  cache: 'oh-assets-v1',
+  url: 'https://openheaders.io/assets/logo.gif',
+  method: 'GET',
+  timestamp: 1_770_000_000_000,
+});
+
+describe('cache-entry tab union arm', () => {
+  it('derives identity from frame + cache + method + url, so re-opens dedupe', () => {
+    expect(CACHE_TAB.id).toBe(cacheEntryTabId(0, 'oh-assets-v1', 'https://openheaders.io/assets/logo.gif', 'GET'));
+    const again = buildCacheEntryTab({
+      frameId: 0,
+      cache: 'oh-assets-v1',
+      url: 'https://openheaders.io/assets/logo.gif',
+      method: 'GET',
+      timestamp: 1_770_000_000_999,
+    });
+    expect(again.id).toBe(CACHE_TAB.id);
+  });
+
+  it('labels with the URL tail: last path segment + query, hostname for roots, raw for unparsable', () => {
+    expect(CACHE_TAB.label).toBe('logo.gif');
+    expect(cacheEntryLabel('https://openheaders.io/api/data?page=2')).toBe('data?page=2');
+    expect(cacheEntryLabel('https://openheaders.io/')).toBe('openheaders.io');
+    expect(cacheEntryLabel('not a url')).toBe('not a url');
+  });
+
+  it('feeds the per-kind helpers: title, pill label and search haystack', () => {
+    expect(tabTitle(CACHE_TAB)).toBe('oh-assets-v1 › https://openheaders.io/assets/logo.gif');
+    expect(tabPillLabel(CACHE_TAB)).toBe('logo.gif');
+    expect(tabSearchText(CACHE_TAB)).toBe('oh-assets-v1 https://openheaders.io/assets/logo.gif GET');
   });
 });

@@ -127,6 +127,7 @@ function installHost() {
     listCaches,
     readCacheEntries,
     readCacheEntryResponse,
+    readCacheEntryDocument: vi.fn(() => Promise.resolve(null)),
     readQuota,
     clearSiteData,
     setQuotaOverride,
