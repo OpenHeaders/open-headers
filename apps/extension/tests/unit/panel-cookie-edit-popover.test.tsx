@@ -14,7 +14,12 @@ import {
   CookieEditPopover,
   type CookieEditPopoverDocument,
 } from '@openheaders/ui/panel/components/detail/cookies/CookieEditPopover';
-import { emptyEditForm, jarCookieToEditForm, jarCookieToKey } from '@openheaders/ui/panel/data/cookies/cookie-edit';
+import {
+  deleteKeyForRow,
+  emptyEditForm,
+  jarCookieToEditForm,
+} from '@openheaders/ui/panel/data/cookies/cookie-edit';
+import { jarToRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
 import {
   __resetCookieJarCacheForTests,
   invalidateJarCache,
@@ -72,6 +77,9 @@ function makeJarCookie(over: Partial<SiteJarCookie> = {}): SiteJarCookie {
     sameSite: 'lax',
     session: true,
     sendable: true,
+    // Chrome jar entries always carry a storeId — the identity match
+    // must survive it on both the storage- and detail-derived keys.
+    storeId: '0',
     ...over,
   };
 }
@@ -90,7 +98,11 @@ function renderEditPopover(document?: CookieEditPopoverDocument, onSubmit = vi.f
 }
 
 function bindingFor(onOpen?: () => void): CookieEditPopoverDocument {
-  return { scopeUrl: SCOPE_URL, cookieKey: jarCookieToKey(COOKIE), ...(onOpen ? { onOpen } : {}) };
+  // The key exactly as the request-detail Cookies tab derives it (from
+  // the enriched ROW, not the jar entry) — the sync's identity match
+  // must hold across that derivation (the storeId regression).
+  const cookieKey = deleteKeyForRow(jarToRow(COOKIE, 'request', 'request-jar'));
+  return { scopeUrl: SCOPE_URL, cookieKey, ...(onOpen ? { onOpen } : {}) };
 }
 
 function valueInput(): HTMLInputElement {

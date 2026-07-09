@@ -54,6 +54,9 @@ export interface CookieRow {
   sameSite?: CookieSameSite | string;
   session?: boolean;
   partitionKey?: string;
+  /** The jar's cookie-store id — part of jar identity (the live-sync
+   *  match in the edit popover compares it), carried like partitionKey. */
+  storeId?: string;
   /** Cookie size in bytes (name + '=' + value), matches what browsers
    *  cap per-cookie. */
   size: number;
@@ -102,6 +105,7 @@ export function jarToRow(c: JarCookie, direction: CookieDirection, attribution: 
     ...(c.sameSite ? { sameSite: c.sameSite } : {}),
     session: c.session,
     ...(c.partitionKey ? { partitionKey: c.partitionKey } : {}),
+    ...(c.storeId ? { storeId: c.storeId } : {}),
     size: c.name.length + 1 + c.value.length,
   };
 }

@@ -86,6 +86,7 @@ export function rowToEditForm(row: CookieRow): CookieEditFormValues {
     session: row.expirationDate == null,
     ...(row.expirationDate != null ? { expirationDate: row.expirationDate } : {}),
     ...(row.partitionKey ? { partitionKey: row.partitionKey } : {}),
+    ...(row.storeId ? { storeId: row.storeId } : {}),
   };
 }
 
@@ -194,6 +195,7 @@ export function rowToKey(row: CookieRow): JarCookieKey {
     path: row.path || '/',
     secure: !!row.secure,
     ...(row.partitionKey ? { partitionKey: row.partitionKey } : {}),
+    ...(row.storeId ? { storeId: row.storeId } : {}),
   };
 }
 

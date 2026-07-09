@@ -12,11 +12,12 @@ import {
   isJarEditableRow,
   jarCookieToEditForm,
   jarCookieToKey,
+  jarKeysSameCookie,
   mergeEditFormWithCanonical,
   rowToEditForm,
   rowToKey,
 } from '@openheaders/ui/panel/data/cookies/cookie-edit';
-import type { CookieRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
+import { type CookieRow, jarToRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
 import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
 import { describe, expect, it } from 'vitest';
 
@@ -130,6 +131,27 @@ describe('rowToKey', () => {
       secure: true,
       partitionKey: 'https://embed.openheaders.io',
     });
+  });
+
+  it('a row derived from a jar cookie round-trips to the SAME identity (storeId carried)', () => {
+    // Chrome jar entries always carry a storeId ('0'); a row-derived key
+    // that drops it fails jarKeysSameCookie against the live jar entry —
+    // the edit popover's live sync then falsely reports the cookie gone.
+    const jar: JarCookie = {
+      name: 'sid',
+      value: 'abc',
+      domain: 'openheaders.io',
+      path: '/',
+      hostOnly: true,
+      httpOnly: true,
+      secure: true,
+      session: true,
+      storeId: '0',
+    };
+    const row = jarToRow(jar, 'request', 'request-jar');
+    expect(rowToKey(row).storeId).toBe('0');
+    expect(jarKeysSameCookie(deleteKeyForRow(row), jarCookieToKey(jar))).toBe(true);
+    expect(editCanonicalForRow(row).storeId).toBe('0');
   });
 });
 
