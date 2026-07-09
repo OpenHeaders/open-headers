@@ -2,84 +2,81 @@
  * ResponseExampleView — editor tab for a saved response example.
  *
  * An example starts as a capture of one executed exchange and stays
- * editable afterwards: the captured request (method, URL, params,
- * headers, body) and response (status, headers, body) are authored
- * content, so a real exchange can be reworked into a documentation
- * template. `capturedAt` stays the historical capture moment; auth and
- * scripts never appear — the capture doesn't hold them and an example
- * never runs. Running it goes through "Try", which forks the example's
- * current request shape into a fresh scratch draft.
+ * editable afterwards: it doubles as an authored documentation
+ * template. The surface deliberately mirrors the request editor —
+ * same URL bar in the header, same Params/Headers/Body tabbed grids,
+ * same request/response Allotment split with the shared orientation
+ * preference — narrowed to what an example holds: no Docs, Auth,
+ * Scripts, or Settings tabs (the capture excludes those and an example
+ * never runs), and the response half's meta is editable (status code,
+ * status text, final URL). Running the shape goes through "Open as
+ * Request", which forks the current draft into a fresh scratch.
  *
  * Editor mechanics follow the house recipe: draft state, structural
- * dirty via `useReprime` (form-vs-canonical fingerprints), Save through
- * the response-example write client (each captured block patches as one
- * LWW value), shell wiring via `useEditorShell`.
+ * dirty via `useReprime` (uid-free fingerprints — see example-draft),
+ * Save through the response-example write client (each captured block
+ * patches as one LWW value), shell wiring via `useEditorShell`.
  */
 
 import { ExportOutlined, LoadingOutlined } from '@ant-design/icons';
 import { RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { CapturedRequest, CapturedResponse, Request, ResponseExample } from '@openheaders/core/types';
-import { App, Button, Tooltip, Typography, theme } from 'antd';
+import type { Request, ResponseExample } from '@openheaders/core/types';
+import { Allotment } from 'allotment';
+import { App, Button, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
-import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useResponseExample } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { applyResponseExampleUpdate } from '@openheaders/ui/shared/sync/response-example-write-client';
 import EditorHeader from '../shell/EditorHeader';
-import CapturedRequestEditor from './CapturedRequestEditor';
-import CapturedResponseEditor from './CapturedResponseEditor';
+import type { Draft } from '../request-editor/draft';
+import { type TabKey, buildRequestTabItems } from '../request-editor/request-tab-items';
+import RequestTabContent from '../request-editor/RequestTabContent';
+import RequestUrlBar from '../request-editor/RequestUrlBar';
+import { useRequestEditorLayout } from '../request-editor/useRequestEditorLayout';
+import type { SectionUnresolved } from '../request-editor/useSectionUnresolved';
+import {
+  type ExampleDraft,
+  capturedRequestFromDraft,
+  capturedResponseFromDraft,
+  exampleDraftFingerprint,
+  exampleSignature,
+  exampleToDraft,
+} from './example-draft';
+import ExampleResponsePanel from './ExampleResponsePanel';
 
 const { Text } = Typography;
 
-interface ExampleDraft {
-  request: CapturedRequest;
-  response: CapturedResponse;
-}
+/** Example content is authored literal values — the unresolved-ref
+ *  plumbing never applies, so every section reads resolved. */
+const NO_UNRESOLVED: SectionUnresolved = { url: false, params: false, headers: false, auth: false, body: false };
 
-const cloneDraft = (example: ResponseExample): ExampleDraft =>
-  JSON.parse(JSON.stringify({ request: example.request, response: example.response })) as ExampleDraft;
-
-const draftSignature = (example: ResponseExample): string =>
-  stableStringify({ request: example.request, response: example.response });
-
-/**
- * Byte-accurate size for the edited body. An edited body is exactly
- * what's stored — clear any capture-time truncation stamp with it.
- */
-function withRecomputedBodyMeta(response: CapturedResponse, canonical: CapturedResponse): CapturedResponse {
-  if (response.body === canonical.body) return response;
-  const next: CapturedResponse = {
-    ...response,
-    bodyBytes: new TextEncoder().encode(response.body).length,
-    bodyTruncated: false,
-  };
-  delete next.bodyCapBytes;
-  return next;
-}
+/** The request-editor tabs an example carries content for. */
+const EXAMPLE_TAB_KEYS: readonly TabKey[] = ['params', 'headers', 'body'];
 
 function buildTrySeed(draft: ExampleDraft, requestName: string): Omit<Request, 'uid' | 'path' | 'schemaVersion'> {
+  const captured = capturedRequestFromDraft(draft.request);
   return {
     name: requestName,
-    method: draft.request.method,
-    url: draft.request.url,
-    headers: draft.request.headers,
-    params: draft.request.params,
+    method: captured.method,
+    url: captured.url,
+    headers: captured.headers,
+    params: captured.params,
     // The capture holds no auth (secrets never ride examples) — the
     // fork starts on the collection/folder default like a new request.
     auth: { type: 'inherit' },
-    body: draft.request.body,
+    body: captured.body,
   };
 }
 
 interface ResponseExampleViewProps {
   exampleUid: string;
   workspaceId: string | null;
-  /** "Try" — fork the example's current request shape into a fresh
-   *  scratch draft. `content` is the seeded draft; `exampleName` rides
-   *  the new tab as chrome-only provenance. */
+  /** "Open as Request" — fork the example's current request shape into
+   *  a fresh scratch draft. `content` is the seeded draft; `exampleName`
+   *  rides the new tab as chrome-only provenance. */
   onTry: (content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>, exampleName: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
@@ -92,7 +89,6 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
   onDirtyChange,
   registerSaveRef,
 }) => {
-  const { token } = theme.useToken();
   const { message } = App.useApp();
   const { example, hydrated } = useResponseExample(workspaceId, exampleUid);
   const { requests } = useRequests();
@@ -103,14 +99,27 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
   );
 
   const [draft, setDraft] = useState<ExampleDraft | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('params');
+  const [layout, setLayout] = useRequestEditorLayout();
+
+  // Adapter so the request editor's own components (URL bar, tab
+  // panes), which speak `Dispatch<SetStateAction<Draft>>`, edit the
+  // request half of the example draft in place.
+  const setRequestDraft = useCallback<React.Dispatch<React.SetStateAction<Draft>>>((action) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const request = typeof action === 'function' ? action(prev.request) : action;
+      return { ...prev, request };
+    });
+  }, []);
 
   const reprime = useReprime<ResponseExample>({
     liveEntity: example,
     scope: { entityType: RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: exampleUid },
     enabled: hydrated,
-    formFingerprint: draft ? stableStringify(draft) : '',
-    signature: draftSignature,
-    populate: (e) => setDraft(cloneDraft(e)),
+    formFingerprint: draft ? exampleDraftFingerprint(draft) : '',
+    signature: exampleSignature,
+    populate: (e) => setDraft(exampleToDraft(e)),
   });
   const isDirty = reprime.isDirty;
 
@@ -119,8 +128,8 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
     const result = await applyResponseExampleUpdate(
       exampleUid,
       {
-        request: draft.request,
-        response: withRecomputedBodyMeta(draft.response, example.response),
+        request: capturedRequestFromDraft(draft.request),
+        response: capturedResponseFromDraft(draft.response, example.response),
       },
       { workspaceId, surfaceId: 'workbench' },
     );
@@ -162,54 +171,66 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
     );
   }
 
-  const capturedAt = new Date(example.capturedAt);
+  const tabItems = buildRequestTabItems(draft.request, NO_UNRESOLVED).filter((item) =>
+    EXAMPLE_TAB_KEYS.includes(item.key),
+  );
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         <EditorHeader
           title={
-            <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-              <span
-                style={{
-                  fontFamily: "'SF Mono', monospace",
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: token.colorTextTertiary,
-                }}
-              >
-                e.g.
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {example.name}
-              </span>
-              <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                {parentRequest ? `${parentRequest.name} · ` : ''}
-                captured {Number.isNaN(capturedAt.getTime()) ? example.capturedAt : capturedAt.toLocaleString()}
-              </Text>
-            </span>
+            <RequestUrlBar draft={draft.request} setDraft={setRequestDraft} urlUnresolved={false} onSend={() => {}} />
           }
           actions={
-            <Tooltip title="Fork this example's request into a new draft" placement="bottom">
+            <Tooltip title="Creates a new request draft seeded from this example's request" placement="bottom">
               <Button
                 size="small"
                 type="primary"
                 icon={<ExportOutlined />}
                 onClick={() => onTry(buildTrySeed(draft, parentRequest?.name ?? example.name), example.name)}
               >
-                Try
+                Open as Request
               </Button>
             </Tooltip>
           }
           shell={shell.headerProps}
         />
-        <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 16px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
-            <CapturedRequestEditor value={draft.request} onChange={(request) => setDraft({ ...draft, request })} />
-          </div>
-          <div style={{ padding: '10px 16px 12px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <CapturedResponseEditor value={draft.response} onChange={(response) => setDraft({ ...draft, response })} />
-          </div>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <Allotment key={layout} vertical={layout === 'vertical'} proportionalLayout separator>
+            <Allotment.Pane minSize={layout === 'vertical' ? 140 : 320} preferredSize="55%">
+              <div
+                className="rules-thin-scrollbar"
+                style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
+              >
+                <div style={{ padding: '8px 16px 0' }}>
+                  <Tabs
+                    size="small"
+                    activeKey={activeTab}
+                    onChange={(k) => setActiveTab(k as TabKey)}
+                    items={tabItems}
+                    className="rules-request-tabs"
+                    tabBarStyle={{ marginBottom: 0 }}
+                  />
+                </div>
+                <div style={{ flex: 1, overflow: 'auto', padding: '0 16px' }}>
+                  <div style={{ padding: '10px 0' }}>
+                    <RequestTabContent tab={activeTab} draft={draft.request} setDraft={setRequestDraft} />
+                  </div>
+                </div>
+              </div>
+            </Allotment.Pane>
+            <Allotment.Pane minSize={layout === 'vertical' ? 120 : 280}>
+              <ExampleResponsePanel
+                value={draft.response}
+                onChange={(response) => setDraft({ ...draft, response })}
+                meta={{ bodyBytes: example.response.bodyBytes, durationMs: example.response.durationMs }}
+                capturedAt={example.capturedAt}
+                layout={layout}
+                onLayoutChange={setLayout}
+              />
+            </Allotment.Pane>
+          </Allotment>
         </div>
       </div>
     </EntityScopeProvider>
