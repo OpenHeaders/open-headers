@@ -18,6 +18,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { formatBuildStamp, getBuildInfo } from './build-info';
 import {
   DAEMON_SETTING_KEYS,
   parseDaemonSettingKey,
@@ -237,7 +238,7 @@ async function commandConfig(argv: readonly string[]): Promise<void> {
 async function main(): Promise<void> {
   const [group, command, ...rest] = process.argv.slice(2);
   if (group === '--version' || group === '-v') {
-    console.log(cliVersion);
+    console.log(`${cliVersion}${formatBuildStamp(getBuildInfo())}`);
     return;
   }
   if (group !== 'daemon' || command === undefined || command === 'help') {

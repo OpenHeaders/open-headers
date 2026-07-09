@@ -12,9 +12,36 @@
  * distribution.
  */
 
+import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { defineConfig } from 'vite';
 
+const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')) as { version: string };
+
+// Build metadata captured once at config-load time. Reading git is
+// best-effort — dev clones without git (rare) get placeholders
+// instead of crashing the build.
+function git(cmd: string, fallback: string): string {
+  try {
+    return execSync(`git ${cmd}`, { cwd: __dirname, encoding: 'utf8' }).trim();
+  } catch {
+    return fallback;
+  }
+}
+const buildInfo = {
+  version: pkg.version,
+  commit: git('rev-parse --short=7 HEAD', '0000000'),
+  commitFull: git('rev-parse HEAD', '0'.repeat(40)),
+  build: Number.parseInt(git('rev-list --count HEAD', '0'), 10) || 0,
+  date: new Date().toISOString(),
+  channel: 'stable' as const,
+};
+
 export default defineConfig({
+  define: {
+    __BUILD_INFO__: JSON.stringify(buildInfo),
+  },
   build: {
     target: 'node22',
     ssr: true,

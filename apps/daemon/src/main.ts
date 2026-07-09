@@ -28,6 +28,7 @@ import { type HostLogger, setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
+import { formatBuildStamp, getBuildInfo } from './build-info';
 import { resolveDaemonConfig } from './config';
 import { createDaemonLogger } from './logger';
 import { noCipherYet } from './no-cipher';
@@ -105,7 +106,7 @@ async function main(): Promise<void> {
   const webNote = staticWeb ? `, web ui from ${staticWeb.rootDir}` : '';
   log.info(
     SCOPE,
-    `starting v${appVersion} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}`,
+    `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}`,
   );
 
   const spine = await bootDaemonSpine({
