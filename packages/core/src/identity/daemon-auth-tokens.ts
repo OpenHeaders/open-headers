@@ -31,6 +31,12 @@ const HASH_ALGORITHM = 'SHA-256';
 export interface MintDaemonAuthTokenInput {
   /** Optional admin-supplied label (e.g. "alice's phone", "CI runner"). */
   label?: string;
+  /**
+   * Directory user this token authenticates (`OH.daemonUsers`). Omitted
+   * → an unbound token that resolves to the daemon operator at
+   * admission time (the solo tier's every mint).
+   */
+  userId?: string;
   /** Test seam — defaults to `Date.now()`. */
   now?: () => number;
 }
@@ -46,6 +52,8 @@ export interface ValidateDaemonAuthTokenSuccess {
   readonly ok: true;
   readonly tokenId: string;
   readonly label?: string;
+  /** The token's directory-user binding; absent on unbound tokens. */
+  readonly userId?: string;
 }
 
 export interface ValidateDaemonAuthTokenFailure {
@@ -132,6 +140,7 @@ export async function mintDaemonAuthToken(input: MintDaemonAuthTokenInput = {}):
     id: uuidv7(),
     tokenHash,
     label: input.label,
+    ...(input.userId !== undefined ? { userId: input.userId } : {}),
     createdAt: now,
     lastUsedAt: null,
     revokedAt: null,
@@ -204,6 +213,11 @@ export async function validateDaemonAuthToken(
     const next = current.slice();
     next[matchIdx] = { ...match, lastUsedAt: now() };
     await writeTokens(next).catch(() => undefined);
-    return { ok: true, tokenId: match.id, label: match.label };
+    return {
+      ok: true,
+      tokenId: match.id,
+      label: match.label,
+      ...(match.userId !== undefined ? { userId: match.userId } : {}),
+    };
   });
 }

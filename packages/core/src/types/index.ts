@@ -44,6 +44,8 @@ export { errorMessage, toError } from './common';
 export type { DaemonAuthToken } from './daemon-auth-token';
 // ── Daemon config (per-host configuration; carries host-install-id) ────
 export type { DaemonConfig } from './daemon-config';
+// ── Daemon-local users (the daemon's directory; Phase 5 team tier) ──
+export type { DaemonUserRecord } from './daemon-users';
 // ── Editing-scope view state (per-tab snapshots + donor record) ──
 export type {
   DonorRecord,

@@ -2,6 +2,7 @@ export { BackendConnectionSchema } from './backend-connection';
 export { CollectionSchema, FolderSchema } from './collection';
 export { MIN_SCHEMA_VERSION, RelativePathSchema, SchemaVersionSchema, UidSchema, UuidV7Schema } from './common';
 export { DaemonConfigSchema } from './daemon-config';
+export { DaemonUserRecordSchema } from './daemon-users';
 export type { ParsedDocument, WriteableDocument } from './document';
 export { freshDocument, makeParsed, mergePatch } from './document';
 export {

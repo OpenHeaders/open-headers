@@ -1,0 +1,31 @@
+/**
+ * `DaemonUserRecord` — one daemon-local user in the daemon's directory
+ * (`OH.daemonUsers`, Daemon Phase 5 / `UNIFIED_ORACLE_MODEL.md` §5.6:
+ * "OrgMemberships live on the daemons, not the app-instance").
+ *
+ * Each record reuses the universal §5 identity rows verbatim — User +
+ * UserIdentity + OrgMembership + Principal, all anchored in the daemon's
+ * own Org — so the capability resolver consumes daemon users through the
+ * exact shapes it already resolves. The daemon's own operator identity
+ * stays in `OH.syntheticIdentity` and is NOT duplicated here.
+ *
+ * Deactivation is record-level (`deactivatedAt`), not a field on the
+ * universal User row: it is a daemon-directory fact ("this daemon no
+ * longer admits this user"), and it must survive without touching the
+ * schema every host's synthetic bootstrap validates against.
+ */
+
+import * as v from 'valibot';
+import { UserIdentitySchema, UserSchema } from './identity';
+import { OrgMembershipSchema, PrincipalSchema } from './identity-acl';
+
+export const DaemonUserRecordSchema = v.object({
+  user: UserSchema,
+  userIdentity: UserIdentitySchema,
+  membership: OrgMembershipSchema,
+  principal: PrincipalSchema,
+  /** ms-since-epoch of directory admission. */
+  createdAt: v.pipe(v.number(), v.integer()),
+  /** ms-since-epoch of deactivation; null while active. */
+  deactivatedAt: v.union([v.pipe(v.number(), v.integer()), v.null()]),
+});

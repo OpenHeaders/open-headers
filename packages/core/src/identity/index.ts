@@ -50,6 +50,16 @@ export {
   type StartPairInput,
   type StartPairResult,
 } from './daemon-pairing';
+export {
+  type CreateDaemonUserInput,
+  type CreateDaemonUserResult,
+  createDaemonUser,
+  type DeactivateDaemonUserResult,
+  deactivateDaemonUser,
+  listDaemonUsers,
+  type ResolveDaemonPeerUserResult,
+  resolveDaemonPeerUser,
+} from './daemon-users';
 export { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
 export { ensureDaemonConfig } from './ensure-daemon-config';
 export {

@@ -22,6 +22,13 @@ export const DaemonAuthTokenSchema = v.object({
   tokenHash: v.pipe(v.string(), v.minLength(1)),
   /** Optional admin-supplied label (e.g. "alice's phone", "CI runner"). */
   label: v.optional(v.string()),
+  /**
+   * The daemon-local user this token authenticates (`OH.daemonUsers`).
+   * Absent on unbound tokens (every pre-team mint, plain `show-token`) —
+   * those resolve to the daemon operator's own user at admission time,
+   * so the solo tier's behavior is unchanged.
+   */
+  userId: v.optional(v.string()),
   /** ms-since-epoch of mint. */
   createdAt: v.pipe(v.number(), v.integer()),
   /** ms-since-epoch of the most recent successful HELLO validation; null until first use. */

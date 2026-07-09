@@ -26,6 +26,7 @@ import type {
   Collection,
   DaemonAuthToken,
   DaemonConfig,
+  DaemonUserRecord,
   Environment,
   ExtensionWorkspace,
   LiveFallbackPrioritySnapshot,
@@ -264,6 +265,18 @@ export const OH = {
    * (the headless daemon) or pairing and token validation break.
    */
   daemonAuthTokens: storageKey<DaemonAuthToken[]>('oh.daemonAuthTokens'),
+  /**
+   * The daemon's directory of daemon-local users (Phase 5 team tier).
+   * Each record reuses the §5 identity rows (User + UserIdentity +
+   * OrgMembership + Principal) anchored in the daemon's own Org; auth
+   * tokens bind to a directory user via `DaemonAuthToken.userId`. The
+   * operator's own identity stays in {@link OH.syntheticIdentity} and is
+   * never duplicated here. Daemon-local by design (§5.6 — memberships
+   * live on the daemons); never syncs. Not sensitive: names + membership
+   * rows, no secret material, and it must stay writable on cipher-less
+   * hosts (the headless daemon).
+   */
+  daemonUsers: storageKey<DaemonUserRecord[]>('oh.daemonUsers'),
   /**
    * Per-user org-binding preferences (UNIFIED_ORACLE_MODEL.md §6.2 / U3.6)
    * — the two-personal-Orgs onboarding acknowledgement + the default Org
