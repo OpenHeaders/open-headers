@@ -3,9 +3,8 @@
  * of back-end is being joined. Tier zero (`in-browser` on the extension,
  * the embedded engine on desktop) is never a scenario here: it is always
  * on and never a connections-list entry, so only the three joinable
- * kinds appear. The two daemon tiers stay preview-only ("Soon") until
- * the standalone daemon ships — their tiles render the tier diagrams but
- * can't proceed.
+ * kinds appear. All three are joinable — the standalone daemon serves
+ * the Local / LAN and Remote / WAN tiers.
  */
 
 import type { Host } from '../../../shared/host-vocabulary';
@@ -39,7 +38,7 @@ export const ADD_SCENARIOS: readonly ScenarioDescriptor[] = [
     icon: 'daemon',
     title: 'Local / LAN',
     hint: 'A server on this machine or your network',
-    soon: true,
+    soon: false,
     validHosts: ['extension', 'desktop', 'web'],
   },
   {
@@ -47,7 +46,7 @@ export const ADD_SCENARIOS: readonly ScenarioDescriptor[] = [
     icon: 'vm',
     title: 'Remote / WAN',
     hint: 'A server you self-host on your own VM',
-    soon: true,
+    soon: false,
     validHosts: ['extension', 'desktop', 'web'],
   },
 ];

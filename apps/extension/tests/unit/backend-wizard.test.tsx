@@ -20,8 +20,8 @@ import {
 import { type HostStorage, setHostStorage } from '@openheaders/core/storage';
 import type { BackendConnection } from '@openheaders/core/types';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
-import type { BackendEnableSwitchHandle } from '@openheaders/ui/workbench/settings/components/use-backend-enable-switch';
 import { BackendWizard } from '@openheaders/ui/workbench/settings/components/backend-wizard';
+import type { BackendEnableSwitchHandle } from '@openheaders/ui/workbench/settings/components/use-backend-enable-switch';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import type React from 'react';
@@ -180,6 +180,18 @@ describe('BackendWizard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     expect(screen.queryByText(/This is an additional back-end/)).toBeNull();
+  });
+
+  it('the daemon scenario tiles are joinable — selecting one keeps Next enabled', async () => {
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137' });
+    renderWizard(record.id, 'add', createEnableSwitchStub());
+
+    for (const title of ['Local / LAN', 'Remote / WAN']) {
+      fireEvent.click(screen.getByRole('radio', { name: new RegExp(title) }));
+      const next = screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement;
+      expect(next.disabled).toBe(false);
+    }
+    expect(screen.queryByText('Soon')).toBeNull();
   });
 
   it('a probe abort keeps the wizard open', async () => {
