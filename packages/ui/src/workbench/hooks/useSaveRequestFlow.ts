@@ -9,8 +9,18 @@
  * post-save state matches "opened an existing request".
  */
 
-import type { AuthConfig, CredentialsMode, HttpMethod, QueryParam, Request, RequestBody, RequestHeader } from '@openheaders/core/types';
+import type {
+  AuthConfig,
+  CredentialsMode,
+  ExecutedRequestSnapshot,
+  HttpMethod,
+  QueryParam,
+  Request,
+  RequestBody,
+  RequestHeader,
+} from '@openheaders/core/types';
 import { useCallback, useState } from 'react';
+import { stashHandoffResponse } from '../components/request-editor/response-handoff';
 import type { WorkbenchTab } from '../types';
 
 interface UseSaveRequestFlowOptions {
@@ -50,6 +60,9 @@ export interface DraftData {
   followRedirects?: boolean;
   preRequestScript?: string;
   postResponseScript?: string;
+  /** Draft's last response, carried across the tab swap so the
+   *  response panel survives the save (never persisted). */
+  response?: ExecutedRequestSnapshot | null;
 }
 
 function buildEditTab(
@@ -104,7 +117,9 @@ export function useSaveRequestFlow({
             postResponseScript: draftData.postResponseScript,
           },
         }).then((created) => {
-          if (created) buildEditTab(tabId, created, replaceTab);
+          if (!created) return;
+          if (draftData.response) stashHandoffResponse(created.uid, draftData.response);
+          buildEditTab(tabId, created, replaceTab);
         });
         return;
       }
@@ -139,7 +154,10 @@ export function useSaveRequestFlow({
           postResponseScript: saveModalDraftData.postResponseScript,
         },
       });
-      if (created) buildEditTab(saveModalTabId, created, replaceTab);
+      if (created) {
+        if (saveModalDraftData.response) stashHandoffResponse(created.uid, saveModalDraftData.response);
+        buildEditTab(saveModalTabId, created, replaceTab);
+      }
       setSaveModalOpen(false);
       setSaveModalTabId(null);
       setSaveModalDraftData(null);

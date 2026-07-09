@@ -62,6 +62,7 @@ import {
 import { type TabKey, buildRequestTabItems } from './request-tab-items';
 import RequestTabContent from './RequestTabContent';
 import RequestUrlBar from './RequestUrlBar';
+import { takeHandoffResponse } from './response-handoff';
 import ResponsePanel from './response/ResponsePanel';
 import { useRequestEditorLayout } from './useRequestEditorLayout';
 import { useSectionUnresolved } from './useSectionUnresolved';
@@ -159,7 +160,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const [liveRequest, setLiveRequest] = useState<Request | null>(null);
 
   const [sending, setSending] = useState(false);
-  const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
+  // Edit-mode mounts check the handoff stash: a draft saved to a
+  // collection swaps tabs (remounting this editor) and parks its last
+  // response there so the response panel survives the save.
+  const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(() =>
+    !isCreateMode && requestUid ? takeHandoffResponse(requestUid) : null,
+  );
 
   // Request/response split orientation — global, persisted preference
   // (see useRequestEditorLayout). `horizontal` = side-by-side,
@@ -337,6 +343,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         followRedirects: draft.followRedirects,
         preRequestScript: draft.preRequestScript,
         postResponseScript: draft.postResponseScript,
+        response,
       });
       return;
     }
@@ -363,6 +370,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     draftName,
     isDirty,
     liveRequest,
+    response,
     updateRequest,
     onSaveDraft,
     conflicts,
