@@ -69,7 +69,12 @@ import { setLockRuntime } from '@openheaders/oracle/coordination';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
-import { setActivityMuteStore, setOracleHostHooks, subscribeActivityMuteChanges } from '@openheaders/oracle/sync';
+import {
+  type OracleSyncBroadcastEvent,
+  setActivityMuteStore,
+  setOracleHostHooks,
+  subscribeActivityMuteChanges,
+} from '@openheaders/oracle/sync';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import {
   bootstrap as bootstrapWorkspaces,
@@ -80,6 +85,7 @@ import {
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
+import { evictConsumedWorkspace } from '@openheaders/oracle/workspace/workspace-eviction';
 import { FileSystemBlobBackend } from '../files/fs-blob-backend';
 import { createPairingHttpHandler } from '../host-runtime/pairing-http';
 import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-server';
@@ -132,6 +138,15 @@ export interface DaemonSpineConfig {
    * NOT the caller's concern — the spine forwards to them itself.
    */
   broadcastLocal: (type: string, payload: unknown) => void;
+  /**
+   * Optional outbound seam for a host that is ALSO a client of daemon
+   * backends (MULTI_BACKEND_PLAN.md §5): every committed envelope is
+   * offered to the client plane's forwarder, whose own gates (echo,
+   * consumed-Org tenancy, Org→backend routing) decide whether anything
+   * leaves. The desktop passes the shared mutation forwarder; the
+   * headless daemon omits it.
+   */
+  forwardMutationToBackends?: (event: OracleSyncBroadcastEvent) => void;
   /**
    * WAN-hardening posture (Phase 3). Absent = defaults: no trusted
    * proxy, no extra allowed hosts — the matrix still admits IP
@@ -280,6 +295,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       // shared seen-set).
       broadcastLocal('syncBroadcast', event);
       forwardMutationToWsPeers(event);
+      config.forwardMutationToBackends?.(event);
       observeForActivityFeed(event);
     },
     broadcastAwareness: (event) => {
@@ -413,6 +429,21 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // workspace id (or null on a fresh install).
     if (type === 'getActiveWorkspaceId') {
       return { activeWorkspaceId: getActiveWorkspaceId() ?? null };
+    }
+    // Host-local eviction of one consumed workspace (Discard on a
+    // removed backend, MULTI_BACKEND_STATUS.md S11) — no synced delete,
+    // and it must run host-side: it purges IDB/SQLite log stripes and
+    // per-workspace services the surface can't reach. Same channel the
+    // extension SW serves; the shared remove flow calls it blind.
+    if (type === 'evictWorkspace') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      if (!workspaceId) return { success: false, error: 'missing workspaceId' };
+      try {
+        const result = await evictConsumedWorkspace(workspaceId);
+        return result.ok ? { success: true } : { success: false, error: result.reason };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
     }
     // Universal host-bridge RPCs — every Node host genuinely has these,
     // so they ride the same seam as the extension SW (no capability

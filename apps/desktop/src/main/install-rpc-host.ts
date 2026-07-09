@@ -45,10 +45,12 @@ import * as path from 'node:path';
 import { setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import { logger as consoleLogger } from '@openheaders/core/utils';
+import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow } from 'electron';
 import { createElectronUpdaterPort, updaterSupported } from './electron-updater-port';
+import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
 import { createUpdateService, readUpdatePreferences } from './update-service';
@@ -188,8 +190,18 @@ export async function installRpcHost(): Promise<void> {
     hostStorage,
     status: { report, getSnapshot: getStatusSnapshot, subscribe, clear: clearStatus },
     broadcastLocal: broadcastToAllRenderers,
+    // Desktop-as-client (MULTI_BACKEND_PLAN.md §5): local commits are
+    // also offered to the client plane's Org-routed forwarder — its own
+    // gates decide whether anything leaves for a joined daemon.
+    forwardMutationToBackends: forwardMutationToBackend,
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
   });
+
+  // The outbound client role — the desktop joining daemon backends
+  // through the same host-neutral plane the extension SW runs. Installed
+  // after the spine so the persistence provider and workspace store the
+  // plane composes over are live.
+  await installBackendClient({ hostStorage, appVersion: app.getVersion() });
 
   // Desktop-shell RPCs (`oh.updates.*`) answer ahead of the engine
   // dispatcher — they are Electron concerns the spine never learns.
