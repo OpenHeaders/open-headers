@@ -37,6 +37,7 @@ import {
   parseOrThrow,
   requireStringArg,
   requireWorkspace,
+  resolveWorkspaceIdArg,
   WORKSPACE_ID_PROPERTY,
 } from './common';
 import { resolveRequestParentPath } from './write-tools';
@@ -141,10 +142,7 @@ export function createImportToolDefinitions(): McpToolDefinition[] {
         additionalProperties: false,
       },
       tier: 'write',
-      resolveWorkspaceId: (args) => {
-        const raw = args.workspaceId;
-        return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
-      },
+      resolveWorkspaceId: resolveWorkspaceIdArg,
       handler: async (args) => {
         const workspaceId = requireWorkspace(args);
         const format = requireStringArg(args, 'format');

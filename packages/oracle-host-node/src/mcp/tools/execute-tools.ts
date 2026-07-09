@@ -33,6 +33,7 @@ import {
   requireStringArg,
   requireWorkspace,
   resolveEnvironmentArg,
+  resolveWorkspaceIdArg,
   WORKSPACE_ID_PROPERTY,
 } from './common';
 
@@ -87,10 +88,9 @@ function findWorkflow(workspaceId: string, uid: string): LiveWorkflow {
 export function createExecuteToolDefinitions(deps: McpExecuteToolDeps): McpToolDefinition[] {
   const workspaceScoped: Pick<McpToolDefinition, 'tier' | 'resolveWorkspaceId'> = {
     tier: 'execute',
-    resolveWorkspaceId: (args) => {
-      const raw = args.workspaceId;
-      return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
-    },
+    // Arg-or-active — the same resolution the handler's `requireWorkspace`
+    // applies, so the gate always sees the workspace the run targets.
+    resolveWorkspaceId: resolveWorkspaceIdArg,
   };
 
   return [

@@ -15,7 +15,10 @@ import {
   createDaemonUser,
   deactivateDaemonUser,
   ensureSyntheticIdentity,
+  grantWorkspaceRole,
   mintDaemonAuthToken,
+  refreshIdentitySnapshotFromHostStorage,
+  revokeWorkspaceRole,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
@@ -36,6 +39,18 @@ const ECHO_TOOL: McpToolDefinition = {
   tier: 'read',
   resolveWorkspaceId: () => undefined,
   handler: async (args, ctx) => ({ echoed: args.value, tokenId: ctx.tokenId, userId: ctx.userId }),
+};
+
+const RBAC_WS_ID = 'ws-mcp-rbac';
+
+const WS_READ_TOOL: McpToolDefinition = {
+  name: 'ws_read_stub',
+  title: 'Workspace read stub',
+  description: 'workspace-scoped read, gated as the calling user',
+  inputSchema: { type: 'object', properties: {} },
+  tier: 'read',
+  resolveWorkspaceId: () => RBAC_WS_ID,
+  handler: async () => ({ ok: true }),
 };
 
 const SECRETS_TOOL: McpToolDefinition = {
@@ -114,7 +129,7 @@ describe('MCP HTTP handler', () => {
     const enabled = { value: true };
     const policy: McpPolicy = { enabledTiers: new Set(['read']) };
     const handler = createMcpHttpHandler({
-      registry: createMcpToolRegistry([ECHO_TOOL, SECRETS_TOOL]),
+      registry: createMcpToolRegistry([ECHO_TOOL, WS_READ_TOOL, SECRETS_TOOL]),
       isEnabled: () => enabled.value,
       getPolicy: () => policy,
       serverVersion: '2026.7.0',
@@ -182,7 +197,7 @@ describe('MCP HTTP handler', () => {
   it('lists only tools whose tier is enabled', async () => {
     const { json } = await postRpc(harness.baseUrl, secret, 'tools/list', {});
     const result = json.result as { tools: Array<{ name: string }> };
-    expect(result.tools.map((t) => t.name)).toEqual(['echo_args']);
+    expect(result.tools.map((t) => t.name)).toEqual(['echo_args', 'ws_read_stub']);
   });
 
   it('runs a tool call end-to-end and threads the token identity', async () => {
@@ -214,6 +229,31 @@ describe('MCP HTTP handler', () => {
       arguments: { value: 'refused' },
     });
     expect(second.status).toBe(401);
+  });
+
+  it('gates a workspace tool as the calling user — grant admits, revocation bites the next request', async () => {
+    // The operator path reads the installed registry snapshot.
+    await refreshIdentitySnapshotFromHostStorage();
+    const created = await createDaemonUser({ displayName: 'Bob' });
+    if (!created.ok) throw new Error('directory create failed');
+    const bound = await mintDaemonAuthToken({ label: 'bob device', userId: created.record.user.id });
+
+    const noGrant = await postRpc(harness.baseUrl, bound.secret, 'tools/call', { name: 'ws_read_stub' });
+    const refused = noGrant.json.result as { content: Array<{ text: string }>; isError?: boolean };
+    expect(refused.isError).toBe(true);
+    expect(refused.content[0].text).toContain('permission denied: workspace.read');
+
+    await grantWorkspaceRole({ principalId: created.record.principal.id, workspaceId: RBAC_WS_ID, role: 'viewer' });
+    const granted = await postRpc(harness.baseUrl, bound.secret, 'tools/call', { name: 'ws_read_stub' });
+    expect((granted.json.result as { isError?: boolean }).isError).toBeUndefined();
+
+    await revokeWorkspaceRole(created.record.principal.id, RBAC_WS_ID);
+    const revoked = await postRpc(harness.baseUrl, bound.secret, 'tools/call', { name: 'ws_read_stub' });
+    expect((revoked.json.result as { isError?: boolean }).isError).toBe(true);
+
+    // The operator's unbound token rides localAdmin throughout.
+    const operator = await postRpc(harness.baseUrl, secret, 'tools/call', { name: 'ws_read_stub' });
+    expect((operator.json.result as { isError?: boolean }).isError).toBeUndefined();
   });
 
   it('surfaces a disabled tier as an in-band tool error the agent can read', async () => {

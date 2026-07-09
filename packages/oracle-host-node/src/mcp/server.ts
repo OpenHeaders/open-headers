@@ -78,7 +78,7 @@ export function createMcpServer(options: CreateMcpServerOptions): Server {
     }
     const args: Record<string, unknown> = request.params.arguments ?? {};
     try {
-      gateMcpToolCall(tool, args, getPolicy());
+      await gateMcpToolCall(tool, args, getPolicy(), context);
       const result = await tool.handler(args, context);
       return textResult(result);
     } catch (err) {

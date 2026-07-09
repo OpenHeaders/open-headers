@@ -37,7 +37,7 @@ import {
   setActiveWorkspaceById,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { MCP_SURFACE_ID, type McpToolDefinition, McpToolInputError } from '../registry';
-import { requireStringArg, requireWorkspace, WORKSPACE_ID_PROPERTY } from './common';
+import { requireStringArg, requireWorkspace, resolveWorkspaceIdArg, WORKSPACE_ID_PROPERTY } from './common';
 
 /** How long a switch may take to settle before we report the honest,
  *  possibly still-flipping post-state instead of blocking the client. */
@@ -157,6 +157,9 @@ export function createRuntimeToolDefinitions(): McpToolDefinition[] {
         additionalProperties: false,
       },
       tier: 'write',
+      // The runtime-active pointer is host-global state — operator-only,
+      // the same law the WS plane holds for the `activeId` pointer.
+      capability: 'daemon.admin',
       resolveWorkspaceId: (args) => {
         const raw = args.workspaceId;
         return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
@@ -198,10 +201,7 @@ export function createRuntimeToolDefinitions(): McpToolDefinition[] {
         additionalProperties: false,
       },
       tier: 'write',
-      resolveWorkspaceId: (args) => {
-        const raw = args.workspaceId;
-        return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
-      },
+      resolveWorkspaceId: resolveWorkspaceIdArg,
       handler: async (args) => {
         const workspaceId = requireWorkspace(args);
         if (workspaceId !== peekActiveWorkspaceId()) {

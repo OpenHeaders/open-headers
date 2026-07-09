@@ -1,14 +1,37 @@
 /**
  * Coverage for the MCP tool registry + policy gate: duplicate-name
  * rejection, tier gating, the workspace-resolution contract
- * (`null` = workspace-less capability check, `undefined` = skip), and
- * capability denial against a missing identity snapshot.
+ * (`null` = workspace-less check, array = every id must pass,
+ * `undefined` = skip), and the per-call peer-subject resolution — the
+ * gate decides as the CALLING user (operator localAdmin allow-all,
+ * directory grants, unknown user fail-closed, revocation biting the
+ * very next call) and audits that user as the actor.
  */
 
-import { clearIdentitySnapshot } from '@openheaders/core/identity';
-import { afterEach, describe, expect, it } from 'vitest';
+import {
+  clearIdentitySnapshot,
+  createDaemonUser,
+  ensureSyntheticIdentity,
+  grantWorkspaceRole,
+  type ResolvedAuditEntry,
+  refreshIdentitySnapshotFromHostStorage,
+  resetAuditSink,
+  revokeWorkspaceRole,
+  setAuditSink,
+} from '@openheaders/core/identity';
+import { setHostStorage } from '@openheaders/core/storage';
+import type { DaemonUserRecord } from '@openheaders/core/types';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { gateMcpToolCall, McpPermissionDeniedError, type McpPolicy } from '../../src/mcp/policy';
-import { createMcpToolRegistry, type McpToolDefinition, type McpToolTier } from '../../src/mcp/registry';
+import {
+  createMcpToolRegistry,
+  type McpToolCallContext,
+  type McpToolDefinition,
+  type McpToolTier,
+} from '../../src/mcp/registry';
+import { createHostStorageFake } from './_host-storage-fake';
+
+const WS_ID = 'ws-openheaders-io';
 
 function makeTool(overrides: Partial<McpToolDefinition> = {}): McpToolDefinition {
   return {
@@ -27,6 +50,20 @@ function policyOf(...tiers: McpToolTier[]): McpPolicy {
   return { enabledTiers: new Set(tiers) };
 }
 
+function ctxOf(userId: string): McpToolCallContext {
+  return { tokenId: 'tok-1', userId };
+}
+
+async function reasonOf(gate: Promise<void>): Promise<string> {
+  try {
+    await gate;
+  } catch (err) {
+    expect(err).toBeInstanceOf(McpPermissionDeniedError);
+    return (err as McpPermissionDeniedError).reason;
+  }
+  return 'allowed';
+}
+
 describe('createMcpToolRegistry', () => {
   it('lists registered tools and resolves by name', () => {
     const registry = createMcpToolRegistry([makeTool(), makeTool({ name: 'other_tool' })]);
@@ -41,41 +78,118 @@ describe('createMcpToolRegistry', () => {
 });
 
 describe('gateMcpToolCall', () => {
+  let operatorUserId = '';
+  let audits: ResolvedAuditEntry[] = [];
+
+  async function addUser(name: string, role: 'owner' | 'editor' | 'viewer' | null): Promise<DaemonUserRecord> {
+    const created = await createDaemonUser({ displayName: name });
+    if (!created.ok) throw new Error('directory create failed');
+    if (role !== null) {
+      await grantWorkspaceRole({ principalId: created.record.principal.id, workspaceId: WS_ID, role });
+    }
+    return created.record;
+  }
+
+  beforeEach(async () => {
+    audits = [];
+    setAuditSink((entry) => audits.push(entry));
+    setHostStorage(createHostStorageFake());
+    const record = await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-10T00:00:00.000Z' });
+    operatorUserId = record.user.id;
+    await refreshIdentitySnapshotFromHostStorage();
+  });
+
   afterEach(() => {
+    resetAuditSink();
     clearIdentitySnapshot();
   });
 
-  it('denies a tool whose tier is not enabled', () => {
+  it('denies a tool whose tier is not enabled', async () => {
     const tool = makeTool({ tier: 'secrets' });
-    expect(() => gateMcpToolCall(tool, {}, policyOf('read'))).toThrow(McpPermissionDeniedError);
-    try {
-      gateMcpToolCall(tool, {}, policyOf('read'));
-    } catch (err) {
-      expect((err as McpPermissionDeniedError).reason).toBe('tier-disabled');
-    }
+    expect(await reasonOf(gateMcpToolCall(tool, {}, policyOf('read'), ctxOf(operatorUserId)))).toBe('tier-disabled');
   });
 
-  it('skips the capability check when no workspace context resolves', () => {
-    clearIdentitySnapshot();
+  it('skips the capability check when no workspace context resolves', async () => {
     const tool = makeTool({ resolveWorkspaceId: () => undefined });
-    expect(() => gateMcpToolCall(tool, {}, policyOf('read'))).not.toThrow();
+    await expect(gateMcpToolCall(tool, {}, policyOf('read'), ctxOf('user-unknown'))).resolves.toBeUndefined();
   });
 
-  it('denies a workspace-scoped call when no identity snapshot is installed', () => {
-    clearIdentitySnapshot();
-    const tool = makeTool({ resolveWorkspaceId: () => 'ws-openheaders-io' });
-    try {
-      gateMcpToolCall(tool, {}, policyOf('read'));
-      expect.unreachable('gate should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(McpPermissionDeniedError);
-      expect((err as McpPermissionDeniedError).reason).toBe('no-current-user');
-    }
+  it('allows the operator everywhere via localAdmin', async () => {
+    const tool = makeTool({ tier: 'write', resolveWorkspaceId: () => 'ws-never-granted' });
+    await expect(gateMcpToolCall(tool, {}, policyOf('write'), ctxOf(operatorUserId))).resolves.toBeUndefined();
+    expect(audits.at(-1)).toMatchObject({ actorUserId: operatorUserId, decision: { allow: true } });
   });
 
-  it('denies a workspace-less capability check without a snapshot', () => {
-    clearIdentitySnapshot();
+  it('gates a directory user by their own grants, and audits them as the actor', async () => {
+    const editor = await addUser('Editor', 'editor');
+    const writeTool = makeTool({ tier: 'write', resolveWorkspaceId: () => WS_ID });
+    await expect(gateMcpToolCall(writeTool, {}, policyOf('write'), ctxOf(editor.user.id))).resolves.toBeUndefined();
+    expect(audits.at(-1)).toMatchObject({
+      actorUserId: editor.user.id,
+      capability: 'workspace.write',
+      workspaceId: WS_ID,
+      decision: { allow: true },
+    });
+
+    const elsewhere = makeTool({ tier: 'write', resolveWorkspaceId: () => 'ws-other' });
+    expect(await reasonOf(gateMcpToolCall(elsewhere, {}, policyOf('write'), ctxOf(editor.user.id)))).toBe(
+      'no-workspace-role-assignment',
+    );
+    expect(audits.at(-1)).toMatchObject({ actorUserId: editor.user.id, decision: { allow: false } });
+  });
+
+  it('denies a viewer the write capability but allows the read', async () => {
+    const viewer = await addUser('Viewer', 'viewer');
+    const readTool = makeTool({ tier: 'read', resolveWorkspaceId: () => WS_ID });
+    await expect(gateMcpToolCall(readTool, {}, policyOf('read'), ctxOf(viewer.user.id))).resolves.toBeUndefined();
+
+    const writeTool = makeTool({ tier: 'write', resolveWorkspaceId: () => WS_ID });
+    expect(await reasonOf(gateMcpToolCall(writeTool, {}, policyOf('write'), ctxOf(viewer.user.id)))).toBe(
+      'insufficient-workspace-role',
+    );
+  });
+
+  it('fails closed for an unknown user', async () => {
+    const tool = makeTool({ resolveWorkspaceId: () => WS_ID });
+    expect(await reasonOf(gateMcpToolCall(tool, {}, policyOf('read'), ctxOf('user-never-created')))).toBe(
+      'no-current-user',
+    );
+  });
+
+  it('keeps daemon.admin tools operator-only regardless of grants', async () => {
+    const owner = await addUser('Owner', 'owner');
+    const adminTool = makeTool({ tier: 'write', capability: 'daemon.admin', resolveWorkspaceId: () => WS_ID });
+    await expect(gateMcpToolCall(adminTool, {}, policyOf('write'), ctxOf(operatorUserId))).resolves.toBeUndefined();
+    expect(await reasonOf(gateMcpToolCall(adminTool, {}, policyOf('write'), ctxOf(owner.user.id)))).toBe(
+      'not-daemon-admin',
+    );
+  });
+
+  it('requires every workspace of an array resolution to pass', async () => {
+    const viewer = await addUser('Viewer', 'viewer');
+    const bothGranted = makeTool({ tier: 'read', resolveWorkspaceId: () => [WS_ID, WS_ID] });
+    await expect(gateMcpToolCall(bothGranted, {}, policyOf('read'), ctxOf(viewer.user.id))).resolves.toBeUndefined();
+
+    const oneDenied = makeTool({ tier: 'read', resolveWorkspaceId: () => [WS_ID, 'ws-other'] });
+    expect(await reasonOf(gateMcpToolCall(oneDenied, {}, policyOf('read'), ctxOf(viewer.user.id)))).toBe(
+      'no-workspace-role-assignment',
+    );
+  });
+
+  it('re-resolves the snapshot per call — a revocation bites the next call', async () => {
+    const editor = await addUser('Editor', 'editor');
+    const tool = makeTool({ tier: 'write', resolveWorkspaceId: () => WS_ID });
+    await expect(gateMcpToolCall(tool, {}, policyOf('write'), ctxOf(editor.user.id))).resolves.toBeUndefined();
+    await revokeWorkspaceRole(editor.principal.id, WS_ID);
+    expect(await reasonOf(gateMcpToolCall(tool, {}, policyOf('write'), ctxOf(editor.user.id)))).toBe(
+      'no-workspace-role-assignment',
+    );
+  });
+
+  it('denies a workspace-less capability check for an unknown user', async () => {
     const tool = makeTool({ capability: 'workspace.list', resolveWorkspaceId: () => null });
-    expect(() => gateMcpToolCall(tool, {}, policyOf('read'))).toThrow(/no-current-user/);
+    expect(await reasonOf(gateMcpToolCall(tool, {}, policyOf('read'), ctxOf('user-never-created')))).toBe(
+      'no-current-user',
+    );
   });
 });

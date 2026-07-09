@@ -4,6 +4,9 @@
  * read as name + kind only; `secret`-typed variables read masked).
  *
  * Contract:
+ *   - Operator-only (`daemon.admin`): the vault is host-local and never
+ *     syncs to peers, so its plaintext never crosses to a directory
+ *     user on this plane either — a workspace grant is not enough.
  *   - Vault kind `'string'` only. TOTP entries never reveal their seed,
  *     under any tier — `{{vault.<name>}}` resolves to the current code
  *     at send time, which is the only sanctioned use.
@@ -14,15 +17,14 @@
  *   - A reveal is a terminal read: the value appears in this tool's
  *     result only, never in histories, diffs, or list projections.
  *   - Every reveal logs an info-level line naming the secret and the
- *     calling token — the gate's routine `workspace.read` allow is
- *     demoted to debug, and a plaintext disclosure deserves a durable
- *     signal.
+ *     calling token — a plaintext disclosure deserves a durable signal
+ *     beyond the gate's routine audit emit.
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { getVaultForWorkspace, isVaultLockedForWorkspace } from '@openheaders/oracle/entity/environment-store';
 import { type McpToolDefinition, McpToolInputError } from '../registry';
-import { requireStringArg, requireWorkspace, WORKSPACE_ID_PROPERTY } from './common';
+import { requireStringArg, requireWorkspace, resolveWorkspaceIdArg, WORKSPACE_ID_PROPERTY } from './common';
 
 export function createSecretToolDefinitions(): McpToolDefinition[] {
   return [
@@ -44,10 +46,10 @@ export function createSecretToolDefinitions(): McpToolDefinition[] {
         additionalProperties: false,
       },
       tier: 'secrets',
-      resolveWorkspaceId: (args) => {
-        const raw = args.workspaceId;
-        return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
-      },
+      // Vault plaintext never crosses to directory users on any plane
+      // (the vault never syncs); a reveal is the operator's own act.
+      capability: 'daemon.admin',
+      resolveWorkspaceId: resolveWorkspaceIdArg,
       handler: async (args, ctx) => {
         const workspaceId = requireWorkspace(args);
         const name = requireStringArg(args, 'name');

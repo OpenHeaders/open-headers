@@ -55,11 +55,16 @@ export interface McpToolDefinition {
    */
   readonly capability?: Capability;
   /**
-   * Resolve the workspaceId the gate authorizes against. Return `null`
-   * for workspace-less capabilities, `undefined` when no workspace
-   * context is resolvable (gate skips; handler degrades with intent).
+   * Resolve the workspaceId(s) the gate authorizes against — every
+   * workspace the handler will touch, including the active-workspace
+   * default the handler itself falls back to (a gate that resolves
+   * narrower than the handler is a bypass). Return an array when the
+   * tool reads more than one workspace (all must pass), `null` for
+   * workspace-less capabilities, `undefined` when no workspace context
+   * is resolvable (gate skips; the handler must then fail without
+   * touching workspace state).
    */
-  readonly resolveWorkspaceId: (args: Record<string, unknown>) => string | null | undefined;
+  readonly resolveWorkspaceId: (args: Record<string, unknown>) => string | readonly string[] | null | undefined;
   /**
    * Execute the tool. Throw {@link McpToolInputError} for caller
    * mistakes (bad uid, unknown workspace) — the server surfaces those

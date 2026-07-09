@@ -29,7 +29,13 @@ import {
   snapshotWorkspaceVariablesPostStates,
 } from '@openheaders/oracle/sync/service';
 import type { McpToolDefinition } from '../registry';
-import { assertWorkspaceLoaded, requireStringArg, requireWorkspace, WORKSPACE_ID_PROPERTY } from './common';
+import {
+  assertWorkspaceLoaded,
+  requireStringArg,
+  requireWorkspace,
+  resolveWorkspaceIdArg,
+  WORKSPACE_ID_PROPERTY,
+} from './common';
 
 interface FamilyRow {
   /** Diff identity — entity uid, or name for name-keyed families. */
@@ -182,9 +188,12 @@ export function createDiffToolDefinitions(): McpToolDefinition[] {
         additionalProperties: false,
       },
       tier: 'read',
+      // Both sides of the diff are reads — the gate must clear each.
       resolveWorkspaceId: (args) => {
-        const raw = args.workspaceId;
-        return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
+        const primary = resolveWorkspaceIdArg(args);
+        if (primary === undefined) return undefined;
+        const other = args.otherWorkspaceId;
+        return typeof other === 'string' && other.length > 0 ? [primary, other] : primary;
       },
       handler: async (args) => {
         const workspaceId = requireWorkspace(args);

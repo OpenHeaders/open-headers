@@ -92,8 +92,8 @@ describe('variables_reveal_secret', () => {
     await expect(call({ name: 'apiKey' })).rejects.toThrow(/locked.*re-entered in Open Headers/);
   });
 
-  it('declares the secrets tier with the read capability default', () => {
+  it('declares the secrets tier as operator-only — vault plaintext never crosses to directory users', () => {
     expect(tool.tier).toBe('secrets');
-    expect(tool.capability).toBeUndefined();
+    expect(tool.capability).toBe('daemon.admin');
   });
 });

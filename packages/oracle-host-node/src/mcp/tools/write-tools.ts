@@ -86,6 +86,7 @@ import {
   parseOrThrow,
   requireStringArg,
   requireWorkspace,
+  resolveWorkspaceIdArg,
   WORKSPACE_ID_PROPERTY,
 } from './common';
 
@@ -505,14 +506,10 @@ const VARIABLE_INPUT_SCHEMA = {
 export function createWriteToolDefinitions(): McpToolDefinition[] {
   const workspaceScoped: Pick<McpToolDefinition, 'tier' | 'resolveWorkspaceId'> = {
     tier: 'write',
-    resolveWorkspaceId: (args) => {
-      const raw = args.workspaceId;
-      return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
-    },
+    // Arg-or-active — the same resolution the handler's `requireWorkspace`
+    // applies, so the gate always sees the workspace the write lands on.
+    resolveWorkspaceId: resolveWorkspaceIdArg,
   };
-  // The gate resolves an explicit workspaceId; when the arg is omitted
-  // the handler's `requireWorkspace` falls back to the runtime-active
-  // workspace after the gate has skipped (same contract as reads).
 
   return [
     {
