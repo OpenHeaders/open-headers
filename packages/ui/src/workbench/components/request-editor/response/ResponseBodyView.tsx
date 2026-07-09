@@ -18,7 +18,7 @@
 
 import { CheckOutlined, CopyOutlined, DownOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
+import { Badge, Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
@@ -318,17 +318,25 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
         </Tooltip>
         {filterKind && (
           <Tooltip title={filterKind === 'jsonpath' ? 'Filter body (JSONPath)' : 'Filter body (XPath)'} placement="bottom">
-            <Button
-              size="small"
-              type="text"
-              icon={<FilterOutlined />}
-              aria-label="Filter body"
-              style={filterOpen ? { background: token.colorBgTextActive } : undefined}
-              onClick={() => {
-                if (!filterOpen && mode !== 'pretty') setMode('pretty');
-                setFilterOpen((prev) => !prev);
-              }}
-            />
+            {/* Dot marks an active query — the bar itself can scroll out
+                of mind while its filter still narrows the pane. The
+                transparent colorBorderBg drops the badge's contrast ring
+                (it feeds badgeShadowColor) so only the plain dot shows. */}
+            <ConfigProvider theme={{ token: { colorBorderBg: 'transparent' } }}>
+              <Badge dot={filterApplied} color={token.colorPrimary} offset={[-4, 4]}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<FilterOutlined />}
+                  aria-label="Filter body"
+                  style={filterOpen ? { background: token.colorBgTextActive } : undefined}
+                  onClick={() => {
+                    if (!filterOpen && mode !== 'pretty') setMode('pretty');
+                    setFilterOpen((prev) => !prev);
+                  }}
+                />
+              </Badge>
+            </ConfigProvider>
           </Tooltip>
         )}
         <span
