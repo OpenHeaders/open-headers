@@ -5,15 +5,21 @@
  *
  * Semantics:
  *
- *   - For every workspace id in the input set with no existing WRA →
- *     mint one with `role='owner'` for the synthetic principal. The row
- *     id is derived deterministically from `(hostInstallId,
- *     workspaceId)` so a wipe-and-rebuild reproduces the same WRA id;
- *     orphan data referencing that id reconnects automatically.
- *   - For every persisted WRA whose `workspaceId` is no longer in the
- *     input set → drop it. Workspace deletion is the only WRA-drop path
- *     today; promotion does not touch the principal-id (ADR-3) so WRAs
- *     stay stable across the synthetic-to-real transition.
+ *   - For every workspace id in the input set where the SYNTHETIC
+ *     principal has no WRA → mint one with `role='owner'`. The mint
+ *     check is principal-scoped: another principal's grant on a
+ *     workspace (a daemon directory user's WRA, Phase 5) never
+ *     suppresses the operator's owner row. The row id is derived
+ *     deterministically from `(hostInstallId, workspaceId)` so a
+ *     wipe-and-rebuild reproduces the same WRA id; orphan data
+ *     referencing that id reconnects automatically.
+ *   - For every persisted WRA — any principal's — whose `workspaceId`
+ *     is no longer in the input set → drop it. A deleted workspace's
+ *     grants are meaningless for every principal. Workspace deletion is
+ *     the only WRA-drop path this reconcile owns; directory-user grant
+ *     revocation lives in `workspace-role-grants.ts`, and promotion
+ *     does not touch the principal-id (ADR-3) so WRAs stay stable
+ *     across the synthetic-to-real transition.
  *   - A no-op call (no additions, no deletions) skips the storage write
  *     entirely.
  *
@@ -30,7 +36,7 @@ import { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
 import { ensureDaemonConfig } from './ensure-daemon-config';
 
 /**
- * Serializes the `OH.workspaceRoleAssignments` read-modify-write. Both
+ * Serializes every `OH.workspaceRoleAssignments` read-modify-write. Both
  * hosts fire this reconcile fire-and-forget from `onWorkspaceStoreChange`;
  * a burst of workspace mutations would otherwise overlap two
  * `get`-compute-`set` cycles, and the one that *completes* last wins —
@@ -38,8 +44,19 @@ import { ensureDaemonConfig } from './ensure-daemon-config';
  * stale until the next change. The mutex keeps reconciles strictly
  * ordered, so the last-fired call (which carries the latest list) also
  * writes last.
+ *
+ * Exported (as {@link withWorkspaceRoleAssignmentsLock}) because the slot
+ * has a second writer since Phase 5: the directory-user grant surface in
+ * `workspace-role-grants.ts`. A grant racing a reconcile under separate
+ * mutexes would clobber one side's write; sharing the lock keeps every
+ * writer strictly ordered.
  */
 const reconcileLock = createMutex();
+
+/** Run `fn` holding the `OH.workspaceRoleAssignments` writer lock. */
+export function withWorkspaceRoleAssignmentsLock<T>(fn: () => Promise<T>): Promise<T> {
+  return reconcileLock(fn);
+}
 
 /**
  * Reconcile the persisted WRA list against `workspaceIds`. Returns the
@@ -61,7 +78,11 @@ async function reconcileWorkspaceRoleAssignments(
 
   const liveSet = new Set(workspaceIds);
   const kept = persisted.filter((wra) => liveSet.has(wra.workspaceId));
-  const haveWorkspaceIds = new Set(kept.map((wra) => wra.workspaceId));
+  // Mint-decision set is scoped to the SYNTHETIC principal's rows —
+  // another principal's grant must not suppress the operator's owner WRA.
+  const haveWorkspaceIds = new Set(
+    kept.filter((wra) => wra.principalId === principal.id).map((wra) => wra.workspaceId),
+  );
 
   const additions: WorkspaceRoleAssignment[] = [];
   for (const workspaceId of workspaceIds) {

@@ -191,7 +191,12 @@ describe('identity registry', () => {
 
   it('installIdentitySnapshot wires WRAs onto a workspace-id map', async () => {
     const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
-    const wras = [makeWra(W1, 'owner'), makeWra(W2, 'editor')];
+    // The map holds the record principal's own rows (foreign-principal
+    // grants share the slot since Phase 5 and are filtered out).
+    const wras = [makeWra(W1, 'owner'), makeWra(W2, 'editor')].map((wra) => ({
+      ...wra,
+      principalId: record.principal.id,
+    }));
     const snap = installIdentitySnapshot({ record, wras });
     expect(snap.wraByWorkspaceId.get(W1)?.role).toBe('owner');
     expect(snap.wraByWorkspaceId.get(W2)?.role).toBe('editor');

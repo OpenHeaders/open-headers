@@ -68,6 +68,11 @@ export interface InstallIdentitySnapshotInput {
 export function installIdentitySnapshot(input: InstallIdentitySnapshotInput): IdentitySnapshot {
   const wraByWorkspaceId = new Map<string, WorkspaceRoleAssignment>();
   for (const wra of input.wras) {
+    // The snapshot is one principal's view. `OH.workspaceRoleAssignments`
+    // carries every principal's rows since Phase 5 (daemon directory-user
+    // grants share the slot); folding a foreign principal's grant here
+    // would overwrite the operator's own row in the map.
+    if (wra.principalId !== input.record.principal.id) continue;
     wraByWorkspaceId.set(wra.workspaceId, wra);
   }
   // Multi-org-native: `orgs` is a set on every host. The private

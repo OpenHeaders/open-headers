@@ -50,6 +50,7 @@ export {
   type StartPairInput,
   type StartPairResult,
 } from './daemon-pairing';
+export { resolveDaemonPeerIdentitySnapshot } from './daemon-peer-snapshot';
 export {
   type CreateDaemonUserInput,
   type CreateDaemonUserResult,
@@ -66,7 +67,10 @@ export {
   type EnsureSyntheticIdentityInput,
   ensureSyntheticIdentity,
 } from './ensure-synthetic-identity';
-export { ensureWorkspaceRoleAssignments } from './ensure-workspace-role-assignments';
+export {
+  ensureWorkspaceRoleAssignments,
+  withWorkspaceRoleAssignmentsLock,
+} from './ensure-workspace-role-assignments';
 export { mintHostInstallId } from './host-install-id';
 export {
   defaultNewWorkspaceOrgId,
@@ -106,3 +110,11 @@ export {
   hasCapability,
   type IdentitySnapshot,
 } from './resolver';
+export {
+  type GrantWorkspaceRoleInput,
+  type GrantWorkspaceRoleResult,
+  grantWorkspaceRole,
+  listWorkspaceRolesForPrincipal,
+  type RevokeWorkspaceRoleResult,
+  revokeWorkspaceRole,
+} from './workspace-role-grants';

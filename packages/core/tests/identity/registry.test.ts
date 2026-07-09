@@ -96,6 +96,25 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     clearIdentitySnapshot();
   });
 
+  it("installIdentitySnapshot folds only the record principal's WRAs — a foreign grant never shadows the operator's row", async () => {
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    const workspaceId = '01900000-aaaa-7000-8000-000000000001';
+    const own = {
+      id: '01900000-cccc-7000-8000-000000000001',
+      principalId: record.principal.id,
+      workspaceId,
+      role: 'owner' as const,
+    };
+    const foreign = {
+      id: '01900000-cccc-7000-8000-000000000002',
+      principalId: '01900000-bbbb-7000-8000-000000000009',
+      workspaceId,
+      role: 'viewer' as const,
+    };
+    const snapshot = installIdentitySnapshot({ record, wras: [own, foreign] });
+    expect(snapshot.wraByWorkspaceId.get(workspaceId)).toEqual(own);
+  });
+
   it('installIdentitySnapshot folds joinedOrgs in alongside the home-org', async () => {
     const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     const snapshot = installIdentitySnapshot({ record, wras: [], joinedOrgs: [BACKEND_ORG] });

@@ -16,6 +16,9 @@
  *     pair → same id across re-mints, distinct pairs → distinct ids.
  *   - Calling without a prior `ensureSyntheticIdentity` throws — the
  *     helper does not silently mint a synthetic principal of its own.
+ *   - Principal-aware (Phase 5 slice 2): another principal's grant on a
+ *     workspace never suppresses the synthetic owner mint; foreign rows
+ *     survive reconciles for live workspaces and drop with dead ones.
  */
 
 import * as v from 'valibot';
@@ -134,5 +137,51 @@ describe('ensureWorkspaceRoleAssignments', () => {
     const result = await ensureWorkspaceRoleAssignments([]);
     expect(result).toEqual([]);
     expect(await hostStorage.get(OH.workspaceRoleAssignments)).toBeUndefined();
+  });
+
+  describe('multi-principal rows (Phase 5 grants share the slot)', () => {
+    const FOREIGN_PRINCIPAL = '01900000-bbbb-7000-8000-000000000009';
+
+    it("a foreign principal's grant does not suppress the synthetic owner mint", async () => {
+      await hostStorage.set(OH.workspaceRoleAssignments, [
+        {
+          id: '01900000-cccc-7000-8000-000000000001',
+          principalId: FOREIGN_PRINCIPAL,
+          workspaceId: W1,
+          role: 'viewer',
+        },
+      ]);
+      const record = await hostStorage.get(OH.syntheticIdentity);
+      const wras = await ensureWorkspaceRoleAssignments([W1]);
+      expect(wras).toHaveLength(2);
+      const synthetic = wras.find((w) => w.principalId === record?.principal.id);
+      expect(synthetic?.role).toBe('owner');
+      const foreign = wras.find((w) => w.principalId === FOREIGN_PRINCIPAL);
+      expect(foreign?.role).toBe('viewer');
+    });
+
+    it("foreign rows survive reconciles for live workspaces and drop with dead ones", async () => {
+      await ensureWorkspaceRoleAssignments([W1, W2]);
+      const persisted = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
+      await hostStorage.set(OH.workspaceRoleAssignments, [
+        ...persisted,
+        {
+          id: '01900000-cccc-7000-8000-000000000002',
+          principalId: FOREIGN_PRINCIPAL,
+          workspaceId: W1,
+          role: 'editor',
+        },
+        {
+          id: '01900000-cccc-7000-8000-000000000003',
+          principalId: FOREIGN_PRINCIPAL,
+          workspaceId: W2,
+          role: 'viewer',
+        },
+      ]);
+      // W2 is deleted: its rows — synthetic AND foreign — drop; W1's survive.
+      const next = await ensureWorkspaceRoleAssignments([W1]);
+      expect(next.map((w) => w.workspaceId)).toEqual([W1, W1]);
+      expect(next.some((w) => w.principalId === FOREIGN_PRINCIPAL && w.role === 'editor')).toBe(true);
+    });
   });
 });
