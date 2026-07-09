@@ -5,15 +5,15 @@
  */
 
 import type { MutationEnvelope } from '@openheaders/core/sync';
-import { describe, expect, it } from 'vitest';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { describe, expect, it } from 'vitest';
 
-const env = (id: string, ms: number, nodeId = 'n0'): MutationEnvelope => ({
+const env = (id: string, ms: number, nodeId = 'n0', orgId = 'org-test'): MutationEnvelope => ({
   mutationId: id,
   hlc: { physicalMs: ms, logical: 0, nodeId },
   origin: { surfaceId: 's', deviceId: 'd' },
   workspaceId: 'ws-1',
-  orgId: 'org-test',
+  orgId,
   mutatorVersion: 1,
   body: { kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: id },
 });
@@ -63,5 +63,29 @@ describe('InMemoryMutationLog', () => {
     const remaining = await collect(log.readSince(null));
     expect(remaining.map((e) => e.mutationId)).toEqual(['m2']);
     expect(await log.hasMutation('m1')).toBe(false);
+  });
+
+  it('purgeOrg drops exactly that org, forgets dedup ids, and returns the purged mutationIds', async () => {
+    const log = new InMemoryMutationLog();
+    await log.append(env('m1', 1_000, 'daemon-node', 'org-evicted'));
+    await log.append(env('m2', 2_000, 'n0', 'org-home'));
+    await log.append(env('m3', 3_000, 'daemon-node', 'org-evicted'));
+
+    const purged = await log.purgeOrg('org-evicted');
+
+    expect(purged.sort()).toEqual(['m1', 'm3']);
+    const remaining = await collect(log.readSince(null));
+    expect(remaining.map((e) => e.mutationId)).toEqual(['m2']);
+    // Forgotten dedup — the SAME envelope re-appends on a later re-join.
+    expect(await log.hasMutation('m1')).toBe(false);
+    await log.append(env('m1', 1_000, 'daemon-node', 'org-evicted'));
+    expect(await log.hasMutation('m1')).toBe(true);
+  });
+
+  it('purgeOrg on a scope with no matching rows returns empty', async () => {
+    const log = new InMemoryMutationLog();
+    await log.append(env('m1', 1_000));
+    expect(await log.purgeOrg('org-absent')).toEqual([]);
+    expect((await collect(log.readSince(null))).map((e) => e.mutationId)).toEqual(['m1']);
   });
 });

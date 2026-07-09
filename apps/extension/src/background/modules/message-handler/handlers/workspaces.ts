@@ -1,5 +1,6 @@
-/** Workspace listing / duplication / tab-ordinal RPCs. */
+/** Workspace listing / duplication / eviction / tab-ordinal RPCs. */
 
+import { evictConsumedWorkspace } from '@openheaders/oracle/workspace/workspace-eviction';
 import { duplicateWorkspace as duplicateWorkspaceData } from '../../workspace/workspace-orchestrator';
 import { getActiveWorkspace, getActiveWorkspaceId, listWorkspaces } from '../../workspace/workspace-store';
 import { ordinalForTab, workspaceTabCount } from '../../workspace/workspace-tab-registry';
@@ -23,6 +24,16 @@ export const workspaceHandlers: HandlerMap = {
       .then((workspace) => {
         if (!workspace) respond({ success: false, error: 'Source workspace not found' });
         else respond({ success: true, workspace });
+      })
+      .catch((error: Error) => respond({ success: false, error: error.message }));
+    return true;
+  },
+
+  evictWorkspace: ({ message, respond }) => {
+    evictConsumedWorkspace(message.workspaceId as string)
+      .then((result) => {
+        if (result.ok) respond({ success: true });
+        else respond({ success: false, error: result.reason });
       })
       .catch((error: Error) => respond({ success: false, error: error.message }));
     return true;

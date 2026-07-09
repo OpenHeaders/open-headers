@@ -753,17 +753,13 @@ test('re-joining the discarded backend syncs its workspaces back down', async ()
   expect(rows[0].backendId).not.toBe(orgA.backendId);
 });
 
-// KNOWN DEFECT (found by this gate's first live run): the Discard leg's
-// local delete is a synced remove mutation — its tombstone carries a
-// fresh HLC from this node, permanently outranking the daemon's older
-// workspace state, and the local `__global__` log still folds the
-// daemon's HLCs into the re-join STATE_VECTOR, so catch-up sends
-// nothing. The remove dialog's "re-joining syncs them down again" can
-// never hold through this path. Planned fix: Discard on a consumed
-// workspace becomes a host-local eviction (no mutation) — purge the
-// workspace data, remove the list entity without a tombstone, and drop
-// the org's rows from the local `__global__` log.
-test.fixme('re-joined workspaces sync their data back down after a Discard', async () => {
+// The Discard leg is a host-local EVICTION, not a synced delete (a
+// delete's tombstone would outrank the daemon's older state forever,
+// and retained log rows would make the re-join STATE_VECTOR claim full
+// knowledge). The eviction purges the org's rows from both log stripes
+// and removes the list entity without a tombstone, so this re-join is
+// a genuine first join and the daemon streams everything back down.
+test('re-joined workspaces sync their data back down after a Discard', async () => {
   await expect.poll(() => ruleVisibleInExtension(SEEDED_A), { timeout: 45000 }).toBe(true);
   await expect.poll(() => ruleVisibleInExtension(QUEUED_A), { timeout: 45000 }).toBe(true);
 });

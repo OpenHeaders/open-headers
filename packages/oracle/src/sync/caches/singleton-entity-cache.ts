@@ -110,6 +110,13 @@ export interface SingletonEntityCache<T, I> {
   isLocked(): boolean;
   seedFromPersisted(input: I): Promise<void>;
   /**
+   * Re-project from the oracle outside the broadcast pipeline. Needed
+   * after store surgery that mints no envelope (workspace eviction) —
+   * there is no broadcast to trigger the re-projection, but the
+   * snapshot, persistence sink, and listeners must still converge.
+   */
+  refresh(): void;
+  /**
    * Read this singleton's persisted projection from
    * `chrome.storage.local` (via the configured `loadFromStorage`) and
    * seed the oracle. No-op when no `loadFromStorage` is configured or
@@ -192,6 +199,8 @@ export function createSingletonEntityCache<T, I>(
     isLocked: () => locked,
 
     seedFromPersisted: (input) => seedFromPersisted(input),
+
+    refresh: refreshFromOracle,
 
     async hydrateFromStorage(): Promise<void> {
       if (config.loadGuardedFromStorage) {

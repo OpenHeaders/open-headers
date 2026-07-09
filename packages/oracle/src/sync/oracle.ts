@@ -149,6 +149,20 @@ export class EntityOracle {
     return this.store.liveOrderedSetItems(type, id, setPath);
   }
 
+  /**
+   * Host-local eviction surgery (backend Discard): under the entity
+   * lock, delete one set item's CRDT record without a tombstone and
+   * forget the purged mutation ids so a re-joined peer's replay of
+   * the SAME envelopes re-applies instead of deduping. No broadcast —
+   * nothing was minted; the caller refreshes its cache explicitly.
+   */
+  async evictSetItem(type: string, id: string, setPath: string, itemId: string, forgetIds: string[]): Promise<void> {
+    await this.cfg.lock(this.cfg.workspaceId, type, id, async () => {
+      this.store.evictSetItem(type, id, setPath, itemId);
+      this.store.forgetMutations(forgetIds);
+    });
+  }
+
   // ── internals ────────────────────────────────────────────────────
 
   private async applyUnderLock(

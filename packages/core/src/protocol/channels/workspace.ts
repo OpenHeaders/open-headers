@@ -51,6 +51,19 @@ export interface WorkspaceRpc {
     };
     res: { success: boolean; workspace?: ExtensionWorkspace; error?: string };
   };
+  /**
+   * Host-local eviction of a consumed workspace — the Discard leg of
+   * removing a backend. Unlike the renderer-direct delete (a synced
+   * remove mutation), eviction mints no mutation: it purges the
+   * workspace's data and log rows and removes the list entity without
+   * a tombstone, so re-joining the backend later syncs the workspace
+   * back down. SW-side only — it touches IDB log stripes and
+   * per-workspace services the renderer can't reach.
+   */
+  evictWorkspace: {
+    req: { workspaceId: string };
+    res: { success: boolean; error?: string };
+  };
   exportWorkspace: {
     req: {
       /** Falls back to the active workspace when omitted. */

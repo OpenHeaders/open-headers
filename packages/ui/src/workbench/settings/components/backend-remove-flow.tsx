@@ -10,14 +10,18 @@
  *     prunes its `OH.joinedOrgs` rows; the Orgs stop syncing and their
  *     workspaces stay on this device as offline local data.
  *   - **Discard** — each of those workspaces is exported to a downloaded
- *     backup file, then deleted from this device.
+ *     backup file, then EVICTED from this device: a host-local removal
+ *     (no synced delete mutation) that purges the workspace's data and
+ *     log rows and drops the list entry without a tombstone. A synced
+ *     delete would tombstone the workspace with a fresh local HLC that
+ *     outranks the back-end's state forever — eviction is what makes
+ *     "re-joining later syncs them down again" actually hold.
  *
- * Discard's sequence is export → `removeBackend` → delete, in that
- * order deliberately: once the record is gone the Orgs are unbound, so
- * the delete mutations die at the outbound tenancy gate instead of
- * forwarding to the (still-running) back-end. Removing a backend never
- * touches its own data — re-joining later syncs the workspaces back
- * down.
+ * Discard's sequence is export → `removeBackend` → evict, in that
+ * order deliberately: one failed export aborts with everything intact,
+ * and the record goes before the evictions so the Orgs are already
+ * unbound while their local state is torn down. Removing a backend
+ * never touches its own data.
  */
 
 import { DeleteOutlined } from '@ant-design/icons';
@@ -39,7 +43,8 @@ export interface DiscardRemovalDeps {
   backupWorkspace: (workspace: { id: string; name: string }) => Promise<boolean>;
   /** Delete the backend record + prune its joined-Org rows. */
   removeBackend: () => Promise<void>;
-  deleteWorkspace: (id: string) => Promise<{ success: boolean }>;
+  /** Host-local eviction of one consumed workspace (no synced delete). */
+  evictWorkspace: (id: string) => Promise<{ success: boolean }>;
   onProgress: (text: string) => void;
 }
 
@@ -50,10 +55,11 @@ export type DiscardRemovalResult =
 /**
  * The Discard sequence, in load-bearing order: back up every workspace
  * BEFORE any destructive step (one failed export aborts with record and
- * workspaces intact), then remove the backend record, then delete the
- * local copies. The record goes BEFORE the deletes so the Orgs are
- * unbound and the delete mutations die at the outbound tenancy gate —
- * they must never forward to the still-running back-end.
+ * workspaces intact), then remove the backend record, then EVICT the
+ * local copies. Eviction, not a synced delete: a delete's tombstone
+ * would outrank the back-end's state forever and the retained log rows
+ * would make a re-join's state vector claim full knowledge — the
+ * eviction purges both so re-joining is a genuine first join.
  */
 export async function orchestrateDiscardRemoval(deps: DiscardRemovalDeps): Promise<DiscardRemovalResult> {
   for (const workspace of deps.workspaces) {
@@ -65,7 +71,7 @@ export async function orchestrateDiscardRemoval(deps: DiscardRemovalDeps): Promi
   const failedDeletes: string[] = [];
   for (const workspace of deps.workspaces) {
     deps.onProgress(`Deleting "${workspace.name}"…`);
-    const result = await deps.deleteWorkspace(workspace.id);
+    const result = await deps.evictWorkspace(workspace.id);
     if (!result.success) failedDeletes.push(workspace.name);
   }
   return { ok: true, failedDeletes };
@@ -132,7 +138,7 @@ const BackendRemoveDialog: React.FC<{
 }> = ({ record, label, consumedOrgs, onClose, onRemoved }) => {
   const { token } = theme.useToken();
   const { message, notification } = AntApp.useApp();
-  const { workspaces, deleteWorkspace } = useWorkspaces();
+  const { workspaces } = useWorkspaces();
   const [outcome, setOutcome] = useState<Outcome>('keep');
   const [includeSecrets, setIncludeSecrets] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -173,7 +179,10 @@ const BackendRemoveDialog: React.FC<{
       removeBackend: async () => {
         await removeBackend(record.id);
       },
-      deleteWorkspace,
+      evictWorkspace: async (id) => {
+        const resp = await hostBridge.call('evictWorkspace', { workspaceId: id }).catch(() => null);
+        return { success: resp?.success === true };
+      },
       onProgress: setBusy,
     });
     if (!result.ok) return;

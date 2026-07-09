@@ -22,13 +22,13 @@
  */
 
 import { EXTENSION_WORKSPACE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { InMemoryBroadcast } from '../broadcast';
-import { projectExtensionWorkspaceSingleton } from '../post-state/extension-workspace-post-state';
 import type { EntityOracle } from '../oracle';
-import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
+import { projectExtensionWorkspaceSingleton } from '../post-state/extension-workspace-post-state';
 import type { SwMutatorContextFactory } from '../sw-context';
+import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
 
 export interface ExtensionWorkspaceSnapshot {
   workspaces: ExtensionWorkspace[];
@@ -55,6 +55,12 @@ export interface ExtensionWorkspaceCache {
    * cache satisfies the {@link EntityCacheLike} contract uniformly.
    */
   hydrateFromStorage(): Promise<void>;
+  /**
+   * Re-project from the oracle outside the broadcast pipeline —
+   * required after a workspace eviction's store surgery, which mints
+   * no envelope for the broadcast subscription to react to.
+   */
+  refresh(): void;
   onChange(listener: ExtensionWorkspaceCacheListener): () => void;
   dispose(): void;
 }
@@ -89,6 +95,7 @@ export function createExtensionWorkspaceCache(
     getSnapshot: core.getSnapshot,
     seedFromPersistedState: core.seedFromPersisted,
     hydrateFromStorage: core.hydrateFromStorage,
+    refresh: core.refresh,
     onChange: core.onChange,
     dispose: core.dispose,
   };

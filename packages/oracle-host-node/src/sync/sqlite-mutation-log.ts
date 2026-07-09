@@ -50,8 +50,8 @@
  */
 
 import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
-import type Database from 'better-sqlite3';
 import type { MutationLog } from '@openheaders/oracle/sync/mutation-log';
+import type Database from 'better-sqlite3';
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS mutation_log (
@@ -82,6 +82,8 @@ interface MutationLogStatements {
   readSinceAll: Database.Statement<[string]>;
   readSinceFrom: Database.Statement<[string, string]>;
   truncateBefore: Database.Statement<[string, string]>;
+  purgeOrgSelect: Database.Statement<[string, string]>;
+  purgeOrgDelete: Database.Statement<[string, string]>;
 }
 
 function prepareStatements(db: Database.Database): MutationLogStatements {
@@ -90,9 +92,7 @@ function prepareStatements(db: Database.Database): MutationLogStatements {
       `INSERT OR IGNORE INTO mutation_log (scope, org_id, hlc_key, mutation_id, envelope_json)
        VALUES (?, ?, ?, ?, ?)`,
     ),
-    hasMutation: db.prepare(
-      `SELECT 1 FROM mutation_log WHERE scope = ? AND mutation_id = ? LIMIT 1`,
-    ),
+    hasMutation: db.prepare(`SELECT 1 FROM mutation_log WHERE scope = ? AND mutation_id = ? LIMIT 1`),
     readSinceAll: db.prepare(
       `SELECT envelope_json FROM mutation_log WHERE scope = ? ORDER BY hlc_key ASC, mutation_id ASC`,
     ),
@@ -100,9 +100,9 @@ function prepareStatements(db: Database.Database): MutationLogStatements {
       `SELECT envelope_json FROM mutation_log WHERE scope = ? AND hlc_key > ?
        ORDER BY hlc_key ASC, mutation_id ASC`,
     ),
-    truncateBefore: db.prepare(
-      `DELETE FROM mutation_log WHERE scope = ? AND hlc_key < ?`,
-    ),
+    truncateBefore: db.prepare(`DELETE FROM mutation_log WHERE scope = ? AND hlc_key < ?`),
+    purgeOrgSelect: db.prepare(`SELECT mutation_id FROM mutation_log WHERE scope = ? AND org_id = ?`),
+    purgeOrgDelete: db.prepare(`DELETE FROM mutation_log WHERE scope = ? AND org_id = ?`),
   };
 }
 
@@ -163,5 +163,12 @@ export class SqliteMutationLog implements MutationLog {
   async truncateBefore(beforeHlcKey: string): Promise<void> {
     const stmts = statementsFor(this.db);
     stmts.truncateBefore.run(this.scope, beforeHlcKey);
+  }
+
+  async purgeOrg(orgId: string): Promise<string[]> {
+    const stmts = statementsFor(this.db);
+    const rows = stmts.purgeOrgSelect.all(this.scope, orgId) as Array<{ mutation_id: string }>;
+    stmts.purgeOrgDelete.run(this.scope, orgId);
+    return rows.map((row) => row.mutation_id);
   }
 }

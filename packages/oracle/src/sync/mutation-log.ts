@@ -45,6 +45,17 @@ export interface MutationLog {
    * problem; this layer is dumb storage.
    */
   truncateBefore(beforeHlcKey: string): Promise<void>;
+
+  /**
+   * Drop every envelope in this scope whose `orgId` matches — the
+   * backend-eviction primitive (Discard on a consumed workspace). The
+   * evicted org's rows must stop folding into the scope's state
+   * vector so a later re-join is a genuine first join. Returns the
+   * purged `mutationId`s so the caller can clear the document store's
+   * dedup set — the re-joined peer streams the SAME envelopes again
+   * and they must not read as duplicates.
+   */
+  purgeOrg(orgId: string): Promise<string[]>;
 }
 
 /** Test/seed implementation. Production callers use {@link openIdbMutationLog}. */
@@ -83,5 +94,16 @@ export class InMemoryMutationLog implements MutationLog {
         this.entries.delete(key);
       }
     }
+  }
+
+  async purgeOrg(orgId: string): Promise<string[]> {
+    const purged: string[] = [];
+    for (const [key, env] of [...this.entries]) {
+      if (env.orgId !== orgId) continue;
+      purged.push(env.mutationId);
+      this.seen.delete(env.mutationId);
+      this.entries.delete(key);
+    }
+    return purged;
   }
 }

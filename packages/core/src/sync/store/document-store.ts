@@ -124,6 +124,33 @@ export class InMemoryDocumentStore {
   }
 
   /**
+   * Host-local eviction surgery: delete one set item's entire CRDT
+   * record — live entry, tombstone, and order key — without minting a
+   * `removeFromSet`. Unlike a tombstone (delete-wins forever, §7.2),
+   * an evicted item re-materializes when any peer's `addToSet`
+   * arrives, whatever its HLC. Returns true when a live entry or
+   * tombstone existed for the itemId.
+   */
+  evictSetItem(type: EntityType, id: string, setPath: string, itemId: string): boolean {
+    const state = this.entities.get(entityKey(type, id));
+    if (!state) return false;
+    const hadItem = state.setItems.get(setPath)?.delete(itemId) ?? false;
+    const hadTombstone = state.setTombstones.get(setPath)?.delete(itemId) ?? false;
+    state.setOrder.get(setPath)?.delete(itemId);
+    return hadItem || hadTombstone;
+  }
+
+  /**
+   * Drop mutation ids from the dedup set so the SAME envelopes can
+   * re-apply later. Pairs with a mutation-log purge: after an evicted
+   * scope's rows are dropped, a re-joined peer streams the original
+   * envelopes again and they must not read as duplicates.
+   */
+  forgetMutations(mutationIds: Iterable<string>): void {
+    for (const id of mutationIds) this.appliedMutationIds.delete(id);
+  }
+
+  /**
    * Canonical JSON of the full materialized snapshot. Two stores that
    * applied the same mutation set in different orders must agree on
    * this string — that's the property-test invariant.

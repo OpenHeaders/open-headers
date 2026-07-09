@@ -138,6 +138,27 @@ export class IdbMutationLog implements MutationLog {
       tx.onerror = () => reject(tx.error ?? new Error('truncate tx failed'));
     });
   }
+
+  async purgeOrg(orgId: string): Promise<string[]> {
+    const db = await openDb();
+    const tx = db.transaction(STORE, 'readwrite');
+    const index = tx.objectStore(STORE).index(IDX_WORKSPACE_ORG);
+    const cursorReq = index.openCursor(IDBKeyRange.only([this.workspaceId, orgId]));
+    const purged: string[] = [];
+    await new Promise<void>((resolve, reject) => {
+      cursorReq.onsuccess = () => {
+        const cursor = cursorReq.result;
+        if (!cursor) return;
+        purged.push((cursor.value as StoredEntry).mutationId);
+        cursor.delete();
+        cursor.continue();
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error('purgeOrg tx failed'));
+      tx.onabort = () => reject(tx.error ?? new Error('purgeOrg tx aborted'));
+    });
+    return purged;
+  }
 }
 
 async function* readCursor(req: IDBRequest<IDBCursorWithValue | null>): AsyncIterable<MutationEnvelope> {
