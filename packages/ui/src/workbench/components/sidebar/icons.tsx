@@ -1,6 +1,7 @@
 import type { StopOutlined } from '@ant-design/icons';
 import type React from 'react';
 import { createElement } from 'react';
+import { ExampleChip } from '../shared/ExampleChip';
 
 export function iconEl(Icon: typeof StopOutlined, color: string, size = 12): React.ReactNode {
   return createElement(Icon, { style: { color, fontSize: size } });
@@ -51,11 +52,8 @@ export function methodTag(method: string, muted = false): React.ReactNode {
   );
 }
 
-/** Compact "e.g." chip for response-example rows in the API Requests
- *  tree — grey-bordered square-ish badge (same visual family as the
- *  scope badges), right-aligned inside the {@link methodTag} footprint
- *  so example labels align with sibling request labels. Tertiary-tinted
- *  so examples read as records rather than runnable requests. */
+/** The shared "e.g." chip, right-aligned inside the {@link methodTag}
+ *  footprint so example labels align with sibling request labels. */
 export function exampleTag(): React.ReactNode {
   return createElement(
     'span',
@@ -68,25 +66,7 @@ export function exampleTag(): React.ReactNode {
         flexShrink: 0,
       },
     },
-    createElement(
-      'span',
-      {
-        style: {
-          display: 'inline-flex',
-          alignItems: 'center',
-          height: 14,
-          padding: '0 3px',
-          borderRadius: 3,
-          border: '1px solid var(--ant-color-border, #d9d9d9)',
-          fontSize: 8,
-          fontWeight: 700,
-          lineHeight: 1,
-          color: 'var(--ant-color-text-tertiary, #999)',
-          fontFamily: "'SF Mono', monospace",
-        },
-      },
-      'e.g.',
-    ),
+    createElement(ExampleChip),
   );
 }
 

@@ -18,12 +18,12 @@ import {
   DownOutlined,
   DownloadOutlined,
   EllipsisOutlined,
-  SaveOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
-import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { Button, Dropdown, Tabs, Typography, theme } from 'antd';
+import type { ExecutedRequestSnapshot, LiveWorkflow } from '@openheaders/core/types';
+import { Button, Dropdown, Tabs, Tooltip, Typography, theme } from 'antd';
+import { ExampleChip } from '../../shared/ExampleChip';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
@@ -43,6 +43,59 @@ import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 const { Text } = Typography;
 
 type ResponseTabKey = 'body' | 'headers' | 'cookies' | 'assertions' | 'script-log';
+
+/**
+ * "Create workflow" — seeds a live-workflow step from this request so
+ * response values can be captured into `{{live.*}}` variables. The
+ * action needs only the saved request, so it's offered before the
+ * first Send too; `tooltip` carries the explainer in that state.
+ */
+const CreateWorkflowDropdown: React.FC<{
+  onExtractToWorkflow: (target: 'new' | { workflowUid: string }) => void;
+  liveWorkflows: LiveWorkflow[];
+  tooltip?: string;
+}> = ({ onExtractToWorkflow, liveWorkflows, tooltip }) => {
+  const button = (
+    <Button size="small" icon={<SisternodeOutlined />}>
+      Create workflow <DownOutlined style={{ fontSize: 10 }} />
+    </Button>
+  );
+  return (
+    <Dropdown
+      trigger={['click']}
+      menu={{
+        items: [
+          {
+            key: 'new',
+            label: 'Create new workflow',
+            onClick: () => onExtractToWorkflow('new'),
+          },
+          {
+            key: 'attach',
+            label: 'Attach to existing workflow',
+            disabled: liveWorkflows.length === 0,
+            children:
+              liveWorkflows.length === 0
+                ? undefined
+                : liveWorkflows.map((w) => ({
+                    key: `attach-${w.uid}`,
+                    label: w.name,
+                    onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
+                  })),
+          },
+        ],
+      }}
+    >
+      {tooltip ? (
+        <Tooltip title={tooltip} placement="bottom">
+          {button}
+        </Tooltip>
+      ) : (
+        button
+      )}
+    </Dropdown>
+  );
+};
 
 interface ResponsePanelProps {
   response: ExecutedRequestSnapshot | null;
@@ -153,6 +206,13 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               Response
             </Text>
             <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {onExtractToWorkflow && (
+                <CreateWorkflowDropdown
+                  onExtractToWorkflow={onExtractToWorkflow}
+                  liveWorkflows={liveWorkflows}
+                  tooltip="Create a response and use it in a workflow"
+                />
+              )}
               {response && (
                 <Button size="small" type="text" icon={<ClearOutlined />} onClick={onClear}>
                   Clear
@@ -182,40 +242,12 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
                 <ResponseMetaStrip response={response} statusColor={statusColor} />
                 {onSaveResponse && (
-                  <Button size="small" icon={<SaveOutlined />} onClick={onSaveResponse} disabled={sending}>
+                  <Button size="small" icon={<ExampleChip />} onClick={onSaveResponse} disabled={sending}>
                     Save Response
                   </Button>
                 )}
                 {onExtractToWorkflow && (
-                  <Dropdown
-                    trigger={['click']}
-                    menu={{
-                      items: [
-                        {
-                          key: 'new',
-                          label: 'Create new workflow',
-                          onClick: () => onExtractToWorkflow('new'),
-                        },
-                        {
-                          key: 'attach',
-                          label: 'Attach to existing workflow',
-                          disabled: liveWorkflows.length === 0,
-                          children:
-                            liveWorkflows.length === 0
-                              ? undefined
-                              : liveWorkflows.map((w) => ({
-                                  key: `attach-${w.uid}`,
-                                  label: w.name,
-                                  onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
-                                })),
-                        },
-                      ],
-                    }}
-                  >
-                    <Button size="small" icon={<SisternodeOutlined />}>
-                      Use response in workflow <DownOutlined style={{ fontSize: 10 }} />
-                    </Button>
-                  </Dropdown>
+                  <CreateWorkflowDropdown onExtractToWorkflow={onExtractToWorkflow} liveWorkflows={liveWorkflows} />
                 )}
                 <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
                 <Dropdown

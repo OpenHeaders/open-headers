@@ -25,6 +25,7 @@ import { isRequestComplete, isRuleComplete, isRuleDraft } from '@openheaders/cor
 import { theme } from 'antd';
 import type React from 'react';
 import type { WorkbenchTab } from '../../types';
+import { ExampleChip } from '../shared/ExampleChip';
 import { buildRuleIcon } from '../shared/rule-icon';
 import { METHOD_COLORS } from '../sidebar/icons';
 import { scopeBadge } from '../shared/scope-colors';
@@ -127,33 +128,11 @@ export function tabIcon(
   )
     return scopeBadge('collection');
   if (tab.mode === 'response-example') {
-    // Example marker — same "e.g." chip as the sidebar's example rows
-    // (grey-bordered badge), tertiary-tinted because examples are
-    // records, not runnable requests.
+    // Example marker — the shared "e.g." chip, tertiary-tinted because
+    // examples are records, not runnable requests.
     return (
-      <span
-        style={{
-          display: 'inline-flex',
-          minWidth: options?.compact ? undefined : 36,
-        }}
-      >
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            height: 14,
-            padding: '0 3px',
-            borderRadius: 3,
-            border: '1px solid var(--ant-color-border, #d9d9d9)',
-            fontSize: 8,
-            fontWeight: 700,
-            lineHeight: 1,
-            color: TAB_ICON_GRAY,
-            fontFamily: "'SF Mono', monospace",
-          }}
-        >
-          e.g.
-        </span>
+      <span style={{ display: 'inline-flex', minWidth: options?.compact ? undefined : 36 }}>
+        <ExampleChip color={TAB_ICON_GRAY} />
       </span>
     );
   }
