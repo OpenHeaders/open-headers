@@ -18,10 +18,10 @@
 
 import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useState } from 'react';
-import { editCanonicalForRow } from '../../../data/cookies/cookie-edit';
+import { deleteKeyForRow, editCanonicalForRow } from '../../../data/cookies/cookie-edit';
 import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookies/cookie-format';
 import { cookieRowIndicator } from '../../../data/cookies/cookie-indicators';
-import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';
+import type { JarCookieEdit, JarCookieKey } from '../../../data/cookies/cookie-jar-cache';
 import type { CookieRow as CookieRowModel } from '../../../data/cookies/cookie-model';
 import type { CookieRole } from '../../../data/cookies/cookie-role';
 import { introspectionHint, type ValueIntrospection } from '../../../data/value-introspect';
@@ -60,6 +60,12 @@ interface Props {
    *  from the jar, and response rows whose Set-Cookie mapped to a jar
    *  entry. Jar-less rows don't (nothing to write). */
   canEdit: boolean;
+  /** The inspected request's URL — the edit popover's live jar sync
+   *  reads through it. */
+  scopeUrl: string;
+  /** Open this cookie as an editor-tab document (the popover footer's
+   *  "Open in new tab" link). */
+  onOpenDocument?: (cookieKey: JarCookieKey) => void;
   /** Persists an edit from the row's popover; resolves `true` on success. */
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: () => void;
@@ -92,6 +98,8 @@ export function CookieRow({
   onMakeRule,
   ruleTouched,
   canEdit,
+  scopeUrl,
+  onOpenDocument,
   onApplyEdit,
   onDelete,
 }: Props) {
@@ -100,6 +108,7 @@ export function CookieRow({
   // its value differs from what this row captured, say so in the form
   // instead of silently showing a value the row doesn't display.
   const editCanonical = canEdit ? editCanonicalForRow(row) : null;
+  const jarKey = editCanonical ? deleteKeyForRow(row) : null;
   const editValueNote =
     editCanonical && editCanonical.value !== row.value
       ? `${row.direction === 'response' ? 'This response set' : 'This request sent'}: ${row.value} — the jar value has changed since.`
@@ -217,9 +226,19 @@ export function CookieRow({
             >
               Override
             </button>
-            {canEdit && editCanonical && (
+            {canEdit && editCanonical && jarKey && (
               <>
-                <CookieEditPopover mode="edit" canonical={editCanonical} valueNote={editValueNote} onSubmit={onApplyEdit}>
+                <CookieEditPopover
+                  mode="edit"
+                  canonical={editCanonical}
+                  valueNote={editValueNote}
+                  document={{
+                    scopeUrl,
+                    cookieKey: jarKey,
+                    ...(onOpenDocument ? { onOpen: () => onOpenDocument(jarKey) } : {}),
+                  }}
+                  onSubmit={onApplyEdit}
+                >
                   <button
                     type="button"
                     className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"

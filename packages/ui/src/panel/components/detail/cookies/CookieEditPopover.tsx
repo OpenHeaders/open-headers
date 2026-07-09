@@ -11,6 +11,13 @@
  * HttpOnly is the headline capability — page JS can't set it, the
  * extension's cookies permission can.
  *
+ * Edit mode with a {@link CookieEditPopoverDocument} binding is LIVE:
+ * the canonical tracks the jar while the popover is open (clean fields
+ * silently adopt external changes, touched fields keep their drafts)
+ * and genuine both-sides divergence surfaces through the same conflict
+ * tier the editor-tab document uses — chips, banner, merge review. The
+ * footer's "Open in new tab" link escalates to that full document.
+ *
  * Name, Value, Domain and Path accept `{{var}}` templates, resolved
  * ONCE at Save into the concrete strings the jar stores (static — later
  * variable changes never rewrite the jar; a Cookie override rule is the
@@ -29,9 +36,32 @@ import {
   editFormsEqual,
   formToEdit,
   isEditFormValid,
+  jarCookieToEditForm,
+  jarCookieToKey,
+  jarKeysSameCookie,
+  mergeEditFormWithCanonical,
 } from '../../../data/cookies/cookie-edit';
-import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';
+import {
+  fetchSiteJarCookiesOnce,
+  type JarCookieEdit,
+  type JarCookieKey,
+  subscribeCookieJar,
+} from '../../../data/cookies/cookie-jar-cache';
+import { useDocumentSync } from '../../../data/storage/use-document-sync';
 import { CookieEditFields, useCookieFieldResolution } from './CookieEditFields';
+import { useCookieConflictTier } from './useCookieConflictTier';
+
+/** Live-document binding for edit mode — identifies the jar row the
+ *  popover edits so the form can sync against it while open, and (via
+ *  `onOpen`) escalate to the full editor-tab document. */
+export interface CookieEditPopoverDocument {
+  /** The inspected scope's URL — the jar is read through it. */
+  scopeUrl: string;
+  /** The cookie's jar identity at popover open. */
+  cookieKey: JarCookieKey;
+  /** Open the cookie as an editor-tab document (footer link). */
+  onOpen?: () => void;
+}
 
 interface FormBodyProps {
   mode: 'add' | 'edit';
@@ -44,14 +74,87 @@ interface FormBodyProps {
    *  changed" tag in the title row, with this text as its tooltip (e.g.
    *  "This response set: …" while newer traffic re-set the cookie). */
   valueNote?: string;
+  document?: CookieEditPopoverDocument;
   onCancel: () => void;
   onSave: (edit: JarCookieEdit) => void;
 }
 
 // Mounted fresh each time the popover opens (destroyOnHidden), so its
 // local state seeds from the current canonical without an effect.
-function CookieEditFormBody({ mode, canonical, busy, maxHeight, valueNote, onCancel, onSave }: FormBodyProps) {
-  const [values, setValues] = useState<CookieEditFormValues>(canonical);
+function CookieEditFormBody({
+  mode,
+  canonical: openCanonical,
+  busy,
+  maxHeight,
+  valueNote,
+  document: binding,
+  onCancel,
+  onSave,
+}: FormBodyProps) {
+  const [values, setValues] = useState<CookieEditFormValues>(openCanonical);
+  // Live canonical — advances while the popover is open (jar sync);
+  // dirty always compares against the CURRENT jar truth, so a form the
+  // catch-up realigned reads clean again.
+  const [canonical, setCanonical] = useState<CookieEditFormValues>(openCanonical);
+  // The cookie vanished from the jar under the open form — an honest
+  // note replaces the chips; Save still writes the drafts back.
+  const [gone, setGone] = useState(false);
+
+  const live = binding !== undefined && mode === 'edit';
+
+  const conflictTier = useCookieConflictTier({
+    enabled: live && !gone,
+    values,
+    setValues,
+    canonical,
+  });
+  const seedConflicts = conflictTier.seed;
+  // Seed once from the open-time canonical — the body mounts fresh on
+  // every open (destroyOnHidden), so mount IS popover-open.
+  useEffect(() => {
+    if (live) seedConflicts(openCanonical);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: seed only from the open-time canonical, once per mount
+  }, []);
+
+  // Latest-state mirrors for the sync path — it lands after an await
+  // and must merge against the CURRENT canonical + form.
+  const canonicalRef = useRef(canonical);
+  canonicalRef.current = canonical;
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+  const syncTokenRef = useRef(0);
+
+  // Live canonical catch-up while the popover is open — same free-tier
+  // merge as the editor-tab document: clean fields silently adopt the
+  // jar's new value, touched fields keep their drafts (the conflict
+  // tier surfaces genuine both-sides divergence).
+  const syncFromJar = useCallback(async () => {
+    if (binding === undefined) return;
+    const token = ++syncTokenRef.current;
+    const site = await fetchSiteJarCookiesOnce(binding.scopeUrl);
+    if (token !== syncTokenRef.current || site === null) return;
+    const jar = site.find((c) => jarKeysSameCookie(jarCookieToKey(c), binding.cookieKey)) ?? null;
+    if (jar === null) {
+      setGone(true);
+      return;
+    }
+    setGone(false);
+    const next = jarCookieToEditForm(jar);
+    const current = canonicalRef.current;
+    if (editFormsEqual(next, current)) return;
+    setValues(mergeEditFormWithCanonical(current, valuesRef.current, next));
+    setCanonical(next);
+  }, [binding]);
+
+  const runSync = useCallback(() => {
+    void syncFromJar();
+  }, [syncFromJar]);
+
+  useDocumentSync({
+    enabled: live && !busy,
+    sync: runSync,
+    subscribe: subscribeCookieJar,
+  });
 
   const set = <K extends keyof CookieEditFormValues>(key: K, val: CookieEditFormValues[K]): void => {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -63,7 +166,10 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, valueNote, onCan
   // Validity runs on the RESOLVED form — a `{{var}}` resolving to '' in
   // Name / Domain must block like a literal empty would.
   const valid = isEditFormValid(resolvedForm);
-  const canSave = valid && !anyUnresolved && (mode === 'add' || dirty);
+  // A gone cookie is savable even when clean — Save re-creates it.
+  const canSave = valid && !anyUnresolved && (mode === 'add' || dirty || gone);
+
+  const openDocument = binding?.onOpen;
 
   return (
     <div
@@ -78,9 +184,38 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, valueNote, onCan
           </span>
         )}
       </div>
-      <CookieEditFields values={values} fields={fields} set={set} busy={busy} />
+      {conflictTier.banner}
+      {conflictTier.dialog}
+      {gone && (
+        <div className="dt-cookie-edit-note">
+          This cookie was deleted in the browser while the form was open — Save writes it back.
+        </div>
+      )}
+      <CookieEditFields values={values} fields={fields} set={set} busy={busy} affixes={conflictTier.affixes} />
 
       <div className="dt-cookie-edit-actions">
+        {openDocument !== undefined && (
+          <span
+            className="dt-cookie-edit-open"
+            title={
+              dirty
+                ? 'Save or cancel your edits first — the document opens from the browser jar'
+                : 'Open this cookie as a document tab'
+            }
+          >
+            <Button
+              type="link"
+              size="small"
+              disabled={busy || dirty}
+              onClick={() => {
+                openDocument();
+                onCancel();
+              }}
+            >
+              Open in new tab →
+            </Button>
+          </span>
+        )}
         <Button size="small" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
@@ -103,13 +238,24 @@ interface Props {
   canonical: CookieEditFormValues;
   /** See {@link FormBodyProps.valueNote}. */
   valueNote?: string;
+  /** Edit-mode live binding — jar sync + conflict tier + the footer's
+   *  "Open in new tab" escalation. */
+  document?: CookieEditPopoverDocument;
   /** Persists the edit; resolves `true` on success so the popover closes. */
   onSubmit: (edit: JarCookieEdit) => Promise<boolean>;
   placement?: 'bottomRight' | 'bottomLeft' | 'leftTop';
   children: ReactNode;
 }
 
-export function CookieEditPopover({ mode, canonical, valueNote, onSubmit, placement = 'bottomRight', children }: Props) {
+export function CookieEditPopover({
+  mode,
+  canonical,
+  valueNote,
+  document,
+  onSubmit,
+  placement = 'bottomRight',
+  children,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   // Height-aware like the View / toolbar menus: measure the room around the
@@ -143,7 +289,7 @@ export function CookieEditPopover({ mode, canonical, valueNote, onSubmit, placem
   // instead of floating in `<body>` where nothing contains it.
   const resolveContainer = useInfoPopoverContainer();
   const getPopupContainer = useCallback(
-    (node: HTMLElement) => resolveContainer?.(node) ?? document.body,
+    (node: HTMLElement) => resolveContainer?.(node) ?? window.document.body,
     [resolveContainer],
   );
 
@@ -181,6 +327,7 @@ export function CookieEditPopover({ mode, canonical, valueNote, onSubmit, placem
             busy={busy}
             maxHeight={maxHeight}
             valueNote={valueNote}
+            document={document}
             onCancel={() => setOpen(false)}
             onSave={handleSave}
           />

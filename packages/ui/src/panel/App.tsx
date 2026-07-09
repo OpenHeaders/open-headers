@@ -86,6 +86,7 @@ import {
   tabPillLabel,
 } from './data/inspector-tab';
 import { jarCookieToKey } from './data/cookies/cookie-edit';
+import type { JarCookieKey } from './data/cookies/cookie-jar-cache';
 import type { DomStorageArea } from './data/storage/storage-inspector-host';
 import { tabBadge } from './components/method-color';
 import { TabToolIcon } from './components/TabToolIcon';
@@ -475,6 +476,14 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     [groups],
   );
+  // Key-shaped twin for surfaces that hold a jar identity but not the
+  // full jar row (the Cookies tab's edit-popover escalation).
+  const openCookieDocumentByKey = useCallback(
+    (cookieKey: JarCookieKey, scopeUrl: string) => {
+      groups.addTab(buildCookieTab({ cookieKey, scopeUrl, timestamp: Date.now() }));
+    },
+    [groups],
+  );
   const openCacheEntry = useCallback(
     (request: OpenCacheEntryRequest & { frameId: number }) => {
       groups.addTab(buildCacheEntryTab({ ...request, timestamp: Date.now() }));
@@ -599,6 +608,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           source={lifecycleClient.source}
           requestResponseBody={lifecycleClient.requestResponseBody}
           onShowMatchedRules={showMatchedRules}
+          onOpenCookieDocument={openCookieDocumentByKey}
           searchHighlight={isActiveTab ? searchHighlight : undefined}
           searchSection={isActiveTab ? searchSection : undefined}
           searchLineNumber={isActiveTab ? searchLineNumber : undefined}
@@ -623,6 +633,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       lifecycleClient.source,
       lifecycleClient.requestResponseBody,
       showMatchedRules,
+      openCookieDocumentByKey,
       revealInStorage,
       revealDomInStorage,
       revealCookiesInStorage,

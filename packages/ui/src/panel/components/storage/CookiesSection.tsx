@@ -61,6 +61,7 @@ export function CookiesSection({
         <CookieJarRow
           key={rowKey(c)}
           cookie={c}
+          scopeUrl={scopeUrl}
           writable={writable}
           now={now}
           notSentReason={!c.sendable && parsedScope ? explainFilteredOut(c, parsedScope, now) : undefined}

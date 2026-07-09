@@ -545,6 +545,24 @@
   background: var(--ant-color-bg-elevated, var(--dt-bg));
   border-top: 1px solid var(--dt-border);
 }
+/* Footer's "Open in new tab" escalation — pinned to the left edge with
+ * Cancel / Save keeping the right (quick-editor footer anatomy). The
+ * wrapper span carries the tooltip: a disabled antd button swallows
+ * pointer events, so the title must live one level up. */
+.dt-cookie-edit-open {
+  margin-right: auto;
+}
+.dt-cookie-edit-open .ant-btn {
+  padding: 0;
+  font-size: 11px;
+}
+/* Whole-document note (cookie deleted under the open form) — replaces
+ * the per-field chips while it applies. */
+.dt-cookie-edit-note {
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
 .dt-cookie-edit-form {
   display: grid;
   grid-template-columns: 1fr 1fr;

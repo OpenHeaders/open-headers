@@ -11,6 +11,7 @@ import type { BlockRuleDraft, DelayRuleDraft, RedirectRuleDraft, Rule } from '@o
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useEffect, useMemo, useRef } from 'react';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
+import type { JarCookieKey } from '../data/cookies/cookie-jar-cache';
 import { deriveFireEvidenceByRule } from '../data/fire-evidence';
 import { type AnnotatedHeader, attributeHeaders } from '../data/headers/header-attribution';
 import type { DetailSection } from '../data/inspector-tab';
@@ -70,6 +71,9 @@ interface InspectorDetailContentProps {
   requestResponseBody: (requestId: string, hopIndex: number) => void;
   /** Open (or switch to) the Matched Rules tool window. */
   onShowMatchedRules: () => void;
+  /** Open a jar cookie as an editor-tab document (the Cookies tab's
+   *  edit popover escalation). */
+  onOpenCookieDocument?: (cookieKey: JarCookieKey, scopeUrl: string) => void;
   searchHighlight?: string;
   searchSection?: string;
   searchLineNumber?: number;
@@ -217,6 +221,7 @@ export function InspectorDetailContent({
   source,
   requestResponseBody,
   onShowMatchedRules,
+  onOpenCookieDocument,
   searchHighlight,
   searchSection,
   searchLineNumber,
@@ -547,7 +552,12 @@ export function InspectorDetailContent({
         )}
 
         {section === 'cookies' && (
-          <CookiesView row={row} pageOrigin={pageOrigin} onOverrideHeader={overrideHeader} />
+          <CookiesView
+            row={row}
+            pageOrigin={pageOrigin}
+            onOverrideHeader={overrideHeader}
+            onOpenCookieDocument={onOpenCookieDocument}
+          />
         )}
 
         {section === 'rawdata' && (

@@ -12,7 +12,7 @@ import { useMemo, useRef, type RefObject } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { isJarEditableRow } from '../../../data/cookies/cookie-edit';
-import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';
+import type { JarCookieEdit, JarCookieKey } from '../../../data/cookies/cookie-jar-cache';
 import type { CookieRow as CookieRowModel } from '../../../data/cookies/cookie-model';
 import type { CookieFilterToken, CookieRowMeta } from '../../../data/cookies/cookie-filter';
 import { matchesCookieQuery } from '../../../data/cookies/cookie-filter';
@@ -63,6 +63,11 @@ interface Props {
   /** A rule that fired on this request modifies this direction's cookie
    *  header — drives the blue status square on every row. */
   ruleTouched: boolean;
+  /** The inspected request's URL — the edit popover's live jar sync
+   *  reads through it. */
+  scopeUrl: string;
+  /** Open a cookie as an editor-tab document (popover footer link). */
+  onOpenDocument?: (cookieKey: JarCookieKey) => void;
   /** Persists an add/edit; resolves `true` on success. */
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: (row: CookieRowModel) => void;
@@ -152,6 +157,8 @@ export function CookieSection({
   onMakeRule,
   writable,
   ruleTouched,
+  scopeUrl,
+  onOpenDocument,
   onApplyEdit,
   onDelete,
 }: Props) {
@@ -220,6 +227,8 @@ export function CookieSection({
       onMakeRule={(anchorEl) => onMakeRule(p.row, anchorEl)}
       ruleTouched={ruleTouched}
       canEdit={writable && isJarEditableRow(p.row)}
+      scopeUrl={scopeUrl}
+      onOpenDocument={onOpenDocument}
       onApplyEdit={onApplyEdit}
       onDelete={() => onDelete(p.row)}
     />

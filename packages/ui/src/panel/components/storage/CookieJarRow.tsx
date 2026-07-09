@@ -9,7 +9,7 @@
  */
 
 import { DeleteOutlined, EditOutlined, WarningOutlined } from '@ant-design/icons';
-import { jarCookieToEditForm } from '../../data/cookies/cookie-edit';
+import { jarCookieToEditForm, jarCookieToKey } from '../../data/cookies/cookie-edit';
 import { formatAbsoluteExpiry, formatRelativeExpiry } from '../../data/cookies/cookie-format';
 import type { JarCookie, JarCookieEdit } from '../../data/cookies/cookie-jar-cache';
 import { CookieEditPopover } from '../detail/cookies/CookieEditPopover';
@@ -17,6 +17,9 @@ import { SecurityGlyphs } from '../detail/cookies/SecurityGlyphs';
 
 interface CookieJarRowProps {
   cookie: JarCookie;
+  /** The inspected scope's URL — the edit popover's live jar sync
+   *  reads through it. */
+  scopeUrl: string;
   writable: boolean;
   now: number;
   /** Set on site-jar rows the browser would NOT attach to a request to
@@ -33,6 +36,7 @@ interface CookieJarRowProps {
 
 export function CookieJarRow({
   cookie,
+  scopeUrl,
   writable,
   now,
   notSentReason,
@@ -79,7 +83,16 @@ export function CookieJarRow({
       {writable && (
         // biome-ignore lint/a11y/noStaticElementInteractions: swallows row-open clicks under the action lane
         <span className="dt-storage-row-actions" onClick={(ev) => ev.stopPropagation()}>
-          <CookieEditPopover mode="edit" canonical={jarCookieToEditForm(cookie)} onSubmit={onApplyEdit}>
+          <CookieEditPopover
+            mode="edit"
+            canonical={jarCookieToEditForm(cookie)}
+            document={{
+              scopeUrl,
+              cookieKey: jarCookieToKey(cookie),
+              ...(onOpen ? { onOpen: () => onOpen(cookie) } : {}),
+            }}
+            onSubmit={onApplyEdit}
+          >
             <button
               type="button"
               className="dt-storage-action"

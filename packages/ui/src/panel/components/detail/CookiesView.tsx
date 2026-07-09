@@ -40,6 +40,7 @@ import {
   getEditedCookieKeys,
   isCookieJarWritable,
   type JarCookieEdit,
+  type JarCookieKey,
   removeJarCookie,
   writeJarCookie,
 } from '../../data/cookies/cookie-jar-cache';
@@ -74,6 +75,9 @@ export interface CookiesViewProps {
     value: string | undefined,
     anchorEl: HTMLElement,
   ) => void;
+  /** Open a jar cookie as an editor-tab document (the edit popover's
+   *  "Open in new tab" link). */
+  onOpenCookieDocument?: (cookieKey: JarCookieKey, scopeUrl: string) => void;
 }
 
 // Empty HAR placeholder for lifecycles that haven't landed a HAR shell yet —
@@ -109,7 +113,7 @@ const ADD_COOKIE_INFO: InfoPopoverContent = {
     'It persists beyond this request and the browser attaches it wherever its domain, path and flags match — no rule involved. This is also the way to create HttpOnly cookies, which page scripts can’t set. The value accepts {{variable}} references, resolved once when you save — the jar keeps that snapshot even if the variable changes later; use Override Cookies when the value should track the variable.',
 };
 
-export default function CookiesView({ row, pageOrigin, onOverrideHeader }: CookiesViewProps) {
+export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenCookieDocument }: CookiesViewProps) {
   const lc = row.lifecycle;
   const har = currentHarEntry(lc) ?? EMPTY_HAR;
 
@@ -262,6 +266,11 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader }: Cooki
     else onOverrideHeader('response', 'Set-Cookie', seedResponseCookieOverride([cookie], lc.url), anchorEl);
   };
 
+  const onOpenDocument = useCallback(
+    (cookieKey: JarCookieKey) => onOpenCookieDocument?.(cookieKey, lc.url),
+    [onOpenCookieDocument, lc.url],
+  );
+
   // ── Measured sticky offsets ────────────────────────────────────
   const paneRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -368,6 +377,8 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader }: Cooki
         onMakeRule={onMakeRule}
         writable={writable}
         ruleTouched={responseRuleTouched}
+        scopeUrl={lc.url}
+        onOpenDocument={onOpenCookieDocument ? onOpenDocument : undefined}
         onApplyEdit={onApplyEdit}
         onDelete={onDeleteCookie}
       />
@@ -389,6 +400,8 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader }: Cooki
         onMakeRule={onMakeRule}
         writable={writable}
         ruleTouched={requestRuleTouched}
+        scopeUrl={lc.url}
+        onOpenDocument={onOpenCookieDocument ? onOpenDocument : undefined}
         onApplyEdit={onApplyEdit}
         onDelete={onDeleteCookie}
       />
