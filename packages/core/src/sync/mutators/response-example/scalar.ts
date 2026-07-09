@@ -1,18 +1,22 @@
 /**
  * Scalar `setField` intent factory for response-example entities.
  *
- * The path union is deliberately narrow: examples are frozen snapshots,
- * so only `name` (rename) and `path` (parent request rename cascades
- * the folder path) are writable. The captured `request` / `response`
- * blocks are immutable by construction — no factory can address them.
+ * Writable paths: `name` (rename), `path` (parent request rename
+ * cascades the folder path), and the captured `request` / `response`
+ * blocks — examples start as captures but stay editable afterwards, so
+ * users can turn a real exchange into an authored documentation
+ * template. Each block writes as one LWW value: rows inside a capture
+ * are not set-modeled, so concurrent edits resolve per block, not per
+ * row.
  */
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
 import { RESPONSE_EXAMPLE_ENTITY_TYPE } from './types';
 
-/** Writable scalars — everything else on the entity is frozen. */
-export type ResponseExampleScalarPath = 'name' | 'path';
+/** Writable paths — identity (`uid`) and `capturedAt` (a historical
+ *  fact) stay frozen. */
+export type ResponseExampleScalarPath = 'name' | 'path' | 'request' | 'response';
 
 export interface SetResponseExampleFieldArgs {
   responseExampleUid: string;

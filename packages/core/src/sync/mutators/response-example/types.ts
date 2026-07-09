@@ -1,11 +1,12 @@
 /**
  * Response-example mutator catalog — routing constant.
  *
- * Examples are frozen snapshots: the captured `request` / `response`
- * blocks never change after create. The only scalar that moves is
- * `name` (rename) — duplicate is a fresh create, and everything else
- * is lifecycle. No side effects: examples are documentation-tier
- * records, so no DNR recompile and no resolver invalidation.
+ * Examples are captured snapshots that stay editable after capture:
+ * `name` renames, and the `request` / `response` blocks patch as whole
+ * LWW values so a capture can be reworked into an authored template.
+ * Duplicate is a fresh create; everything else is lifecycle. No side
+ * effects: examples are documentation-tier records, so no DNR
+ * recompile and no resolver invalidation.
  */
 
 /** Routing key carried on every response-example mutation envelope. */

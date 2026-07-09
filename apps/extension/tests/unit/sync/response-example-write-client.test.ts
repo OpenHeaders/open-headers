@@ -1,13 +1,14 @@
 /**
  * Renderer-side write client for ResponseExample mutations.
  *
- * Examples are frozen snapshots, so the write surface is create /
- * rename / duplicate / delete only. We verify:
+ * We verify:
  *   - nextExampleName stacks "Name", "Name 2", "Name 3" without gaps
  *   - create mints identity (uid + `<requestPath>/examples/<slug>-<uid>`
  *     path) and emits a create envelope on the response-example entity
  *   - rename returns `not-found` when the mirror has no entry; success
  *     emits one setField at path="name"
+ *   - update patches the captured `request` / `response` blocks as
+ *     whole-block setFields, only for the keys provided
  *   - duplicate re-creates the captured blocks under a fresh identity
  *     with the next free name
  *   - delete short-circuits to `not-found` when the mirror has no entry
@@ -40,6 +41,7 @@ import {
   applyResponseExampleDelete,
   applyResponseExampleDuplicate,
   applyResponseExampleRename,
+  applyResponseExampleUpdate,
   nextExampleName,
 } from '@openheaders/ui/shared/sync/response-example-write-client';
 
@@ -200,6 +202,65 @@ describe('applyResponseExampleRename', () => {
       path: 'name',
       value: 'Renamed',
     });
+  });
+});
+
+describe('applyResponseExampleUpdate', () => {
+  it('returns not-found and does not fire the bridge when the mirror has no entry', async () => {
+    const result = await applyResponseExampleUpdate(
+      'missing',
+      { response: makeExample('unused').response },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror: makeMirror([]), context: makeContextHandle() },
+    );
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('emits one whole-block setField per provided captured block', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const source = makeExample('rex-1');
+    const editedRequest = { ...source.request, url: 'https://api.openheaders.io/users?active=1' };
+    const editedResponse = { ...source.response, status: 404, statusText: 'Not Found' };
+    const result = await applyResponseExampleUpdate(
+      'rex-1',
+      { request: editedRequest, response: editedResponse },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror: makeMirror([source]), context: makeContextHandle() },
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.responseExample.request).toEqual(editedRequest);
+    expect(result.responseExample.response).toEqual(editedResponse);
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations).toHaveLength(2);
+    expect(batch.mutations[0].body).toMatchObject({
+      kind: 'setField',
+      type: RESPONSE_EXAMPLE_ENTITY_TYPE,
+      id: 'rex-1',
+      path: 'request',
+      value: editedRequest,
+    });
+    expect(batch.mutations[1].body).toMatchObject({
+      kind: 'setField',
+      type: RESPONSE_EXAMPLE_ENTITY_TYPE,
+      id: 'rex-1',
+      path: 'response',
+      value: editedResponse,
+    });
+  });
+
+  it('patches only the provided block', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const source = makeExample('rex-1');
+    const editedResponse = { ...source.response, body: '{"edited":true}' };
+    const result = await applyResponseExampleUpdate(
+      'rex-1',
+      { response: editedResponse },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror: makeMirror([source]), context: makeContextHandle() },
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.responseExample.request).toEqual(source.request);
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations).toHaveLength(1);
+    expect(batch.mutations[0].body).toMatchObject({ kind: 'setField', path: 'response' });
   });
 });
 

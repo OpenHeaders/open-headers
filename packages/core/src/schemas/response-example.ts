@@ -1,11 +1,12 @@
 /**
- * Response Example schema — a frozen snapshot of one executed exchange,
- * saved under a request ("Save Response"). Captures the request shape
- * as it was sent (method, URL, params, headers, body) plus the response
- * (status, headers, body, duration/size meta). Examples are immutable
- * records: the write layer supports rename/duplicate/delete, never
- * content edits — iterating on a captured exchange goes through "Try",
- * which forks the captured request shape into a fresh draft.
+ * Response Example schema — a snapshot of one executed exchange, saved
+ * under a request ("Save Response"). Captures the request shape as it
+ * was sent (method, URL, params, headers, body) plus the response
+ * (status, headers, body, duration/size meta). After capture the
+ * `request` / `response` blocks stay editable — an example doubles as
+ * an authored documentation template — while `capturedAt` records the
+ * original capture moment as a historical fact. "Try" forks the
+ * example's request shape into a fresh draft for actually running it.
  *
  * Deliberately excluded from the capture:
  *   - auth config — may hold secrets; the example records the exchange,

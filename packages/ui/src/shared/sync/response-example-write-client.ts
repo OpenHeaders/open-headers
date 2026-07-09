@@ -5,16 +5,18 @@
  * `MutationBatch` via the shared catalog factories and fire
  * `oh.sync.apply` directly — no SW round-trip per write.
  *
- * Examples are frozen snapshots, so the write surface is deliberately
- * narrow: create (each "Save Response" mints a new example), rename,
- * duplicate (fresh create from an existing capture), and delete. The
- * captured `request` / `response` blocks are never patchable.
+ * Write surface: create (each "Save Response" mints a new example),
+ * rename, content update (the captured `request` / `response` blocks
+ * patch as whole LWW values — examples double as authored templates),
+ * duplicate (fresh create from an existing capture), and delete.
  */
 
 import {
   buildAddResponseExampleBatch,
   buildDeleteResponseExampleBatch,
   buildRenameResponseExampleBatch,
+  buildUpdateResponseExampleBatch,
+  type ResponseExampleContentUpdates,
 } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import type { ResponseExample } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
@@ -95,6 +97,24 @@ export async function applyResponseExampleRename(
   const payload = buildRenameResponseExampleBatch(exampleUid, { name }, ctx);
   const ack = await applySyncPayload(payload);
   if (ack.ok) return { ok: true, responseExample: { ...entry.responseExample, name } };
+  if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
+  return { ok: false, reason: 'other', message: ack.message };
+}
+
+/** Patch the captured `request` / `response` blocks (whole-block LWW). */
+export async function applyResponseExampleUpdate(
+  exampleUid: string,
+  updates: ResponseExampleContentUpdates,
+  opts: ResponseExampleWriteOptions,
+): Promise<ResponseExampleMutationResult> {
+  const mirror = resolveMirror(opts, getResponseExampleSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  const entry = mirror.getResponseExampleMirror(exampleUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const payload = buildUpdateResponseExampleBatch(exampleUid, updates, ctx);
+  const ack = await applySyncPayload(payload);
+  if (ack.ok) return { ok: true, responseExample: { ...entry.responseExample, ...updates } };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
 }

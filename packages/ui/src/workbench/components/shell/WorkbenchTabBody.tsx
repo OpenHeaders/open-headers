@@ -408,6 +408,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         exampleUid={tab.responseExampleUid}
         workspaceId={editingScopeWorkspaceId}
         onTry={(content, exampleName) => openDuplicateRequestScratch(content, { fromExampleName: exampleName })}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
     );
   }
