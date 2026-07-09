@@ -47,55 +47,57 @@ type ResponseTabKey = 'body' | 'headers' | 'cookies' | 'assertions' | 'script-lo
 /**
  * "Create workflow" — seeds a live-workflow step from this request so
  * response values can be captured into `{{live.*}}` variables. The
- * action needs only the saved request, so it's offered before the
- * first Send too; `tooltip` carries the explainer in that state.
+ * action needs only a SAVED request (a stable uid to reference), not a
+ * response — so it's offered before the first Send too. On unsaved
+ * drafts the host renders the disabled variant below instead.
  */
 const CreateWorkflowDropdown: React.FC<{
   onExtractToWorkflow: (target: 'new' | { workflowUid: string }) => void;
   liveWorkflows: LiveWorkflow[];
-  tooltip?: string;
-}> = ({ onExtractToWorkflow, liveWorkflows, tooltip }) => {
-  const button = (
+}> = ({ onExtractToWorkflow, liveWorkflows }) => (
+  <Dropdown
+    trigger={['click']}
+    menu={{
+      items: [
+        {
+          key: 'new',
+          label: 'Create new workflow',
+          onClick: () => onExtractToWorkflow('new'),
+        },
+        {
+          key: 'attach',
+          label: 'Attach to existing workflow',
+          disabled: liveWorkflows.length === 0,
+          children:
+            liveWorkflows.length === 0
+              ? undefined
+              : liveWorkflows.map((w) => ({
+                  key: `attach-${w.uid}`,
+                  label: w.name,
+                  onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
+                })),
+        },
+      ],
+    }}
+  >
     <Button size="small" icon={<SisternodeOutlined />}>
       Create workflow <DownOutlined style={{ fontSize: 10 }} />
     </Button>
-  );
-  return (
-    <Dropdown
-      trigger={['click']}
-      menu={{
-        items: [
-          {
-            key: 'new',
-            label: 'Create new workflow',
-            onClick: () => onExtractToWorkflow('new'),
-          },
-          {
-            key: 'attach',
-            label: 'Attach to existing workflow',
-            disabled: liveWorkflows.length === 0,
-            children:
-              liveWorkflows.length === 0
-                ? undefined
-                : liveWorkflows.map((w) => ({
-                    key: `attach-${w.uid}`,
-                    label: w.name,
-                    onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
-                  })),
-          },
-        ],
-      }}
-    >
-      {tooltip ? (
-        <Tooltip title={tooltip} placement="bottom">
-          {button}
-        </Tooltip>
-      ) : (
-        button
-      )}
-    </Dropdown>
-  );
-};
+  </Dropdown>
+);
+
+/** Draft-tab placeholder for the action above — a workflow step needs
+ *  a persisted request uid to reference. Wrapper span keeps the
+ *  tooltip alive over the disabled button. */
+const CreateWorkflowNeedsSave: React.FC = () => (
+  <Tooltip title="Save the request and use it in a workflow" placement="bottom">
+    <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
+      <Button size="small" icon={<SisternodeOutlined />} disabled>
+        Create workflow <DownOutlined style={{ fontSize: 10 }} />
+      </Button>
+    </span>
+  </Tooltip>
+);
 
 interface ResponsePanelProps {
   response: ExecutedRequestSnapshot | null;
@@ -121,6 +123,12 @@ interface ResponsePanelProps {
    * saves the request first.
    */
   onSaveResponse?: () => void;
+  /**
+   * Draft (request-create) tabs: `onExtractToWorkflow` is unavailable
+   * (no persisted uid to reference), but the action stays visible as a
+   * disabled button whose tooltip explains that saving unlocks it.
+   */
+  extractRequiresSave?: boolean;
 }
 
 const ResponsePanel: React.FC<ResponsePanelProps> = ({
@@ -131,6 +139,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   onClear,
   onExtractToWorkflow,
   onSaveResponse,
+  extractRequiresSave,
 }) => {
   const { token } = theme.useToken();
   // Pull the list of existing workflows so the Extract dropdown can
@@ -206,13 +215,11 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               Response
             </Text>
             <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              {onExtractToWorkflow && (
-                <CreateWorkflowDropdown
-                  onExtractToWorkflow={onExtractToWorkflow}
-                  liveWorkflows={liveWorkflows}
-                  tooltip="Create a response and use it in a workflow"
-                />
-              )}
+              {onExtractToWorkflow ? (
+                <CreateWorkflowDropdown onExtractToWorkflow={onExtractToWorkflow} liveWorkflows={liveWorkflows} />
+              ) : extractRequiresSave ? (
+                <CreateWorkflowNeedsSave />
+              ) : null}
               {response && (
                 <Button size="small" type="text" icon={<ClearOutlined />} onClick={onClear}>
                   Clear
@@ -246,9 +253,11 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                     Save Response
                   </Button>
                 )}
-                {onExtractToWorkflow && (
+                {onExtractToWorkflow ? (
                   <CreateWorkflowDropdown onExtractToWorkflow={onExtractToWorkflow} liveWorkflows={liveWorkflows} />
-                )}
+                ) : extractRequiresSave ? (
+                  <CreateWorkflowNeedsSave />
+                ) : null}
                 <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
                 <Dropdown
                   trigger={['click']}
