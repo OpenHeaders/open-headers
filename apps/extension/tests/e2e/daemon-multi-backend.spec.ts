@@ -376,6 +376,14 @@ async function toggleBackendEnabled(label: string, on: boolean): Promise<void> {
 }
 
 async function openWorkspaceDropdown(): Promise<void> {
+  // A wide ant-message toast (long WAN org names) can overlap the
+  // trigger, and the click's own retries then park the mouse ON the
+  // toast — rc-notification pauses its dismiss timer on hover, so the
+  // toast that blocks the click is kept alive BY the click (the S10
+  // "switcher-open flake", mechanism proven via trace). Park the mouse
+  // away and let any toast expire before clicking.
+  await workbench.mouse.move(0, 0);
+  await expect(workbench.locator('.ant-message-notice')).toHaveCount(0, { timeout: 10000 });
   // Aim at the trigger's left edge — its center is the Org badge, whose
   // own tooltip swallows the click and the dropdown never opens.
   await workbench.getByRole('button', { name: /is editing workspace/ }).click({ position: { x: 12, y: 12 } });
