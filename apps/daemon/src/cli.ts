@@ -18,6 +18,13 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import {
+  DAEMON_SETTING_KEYS,
+  parseDaemonSettingKey,
+  parseDaemonSettingValue,
+  readDaemonSettings,
+  setDaemonSetting,
+} from './cli/config-settings';
 import { probeHealthz } from './cli/healthz-probe';
 import { installServiceUnit, type ServiceHost, startService, stopService } from './cli/service-manager';
 import { mintBootstrapToken } from './cli/show-token';
@@ -47,8 +54,15 @@ Commands:
   status        Probe the daemon's /healthz
   show-token    Mint a client auth token against the daemon's data dir
                 (first-boot bootstrap; requires the daemon to be stopped)
+  config set <key> <true|false>
+                Set a daemon setting offline (requires the daemon to be stopped)
+  config get <key>
+  config list   Read daemon settings
 
-Options (install / status / show-token):
+Settable keys (booleans, default off):
+  ${DAEMON_SETTING_KEYS.join(', ')}
+
+Options (install / status / show-token / config):
   --config <path>          daemon.json location
   --data-dir <path>        Data directory (storage.json, oracle.db, blobs/)
   --bind-address <addr>    127.0.0.1 (loopback) or 0.0.0.0 (LAN)
@@ -117,7 +131,7 @@ function parseConfigCommand(argv: readonly string[]): ParsedConfigCommand {
 async function commandInstall(argv: readonly string[]): Promise<void> {
   const { config, unitArgs } = parseConfigCommand(argv);
   const mainJs = path.join(path.dirname(fileURLToPath(import.meta.url)), 'main.js');
-  const unitPath = await installServiceUnit(serviceHost(), {
+  const { unitPath, notes } = await installServiceUnit(serviceHost(), {
     nodeBin: process.execPath,
     mainJs,
     args: unitArgs,
@@ -126,6 +140,9 @@ async function commandInstall(argv: readonly string[]): Promise<void> {
   console.log(`Installed ${unitPath}`);
   console.log(`  exec: ${process.execPath} ${mainJs}${unitArgs.length ? ` ${unitArgs.join(' ')}` : ''}`);
   console.log(`  bind: ${config.bindAddress}:${config.bindPort}, data dir: ${config.dataDir}`);
+  for (const note of notes) {
+    console.log(`  ${note}`);
+  }
   console.log('');
   console.log('Next: mint the first client token, then start the service:');
   console.log('  oh daemon show-token');
@@ -143,17 +160,26 @@ async function commandStatus(argv: readonly string[]): Promise<void> {
   }
 }
 
+/**
+ * `storage.json` is single-writer — the running daemon holds the whole
+ * envelope in memory and its next flush would clobber an offline write
+ * invisibly. Every offline-mutation command guards through here.
+ */
+async function assertDaemonStopped(config: DaemonConfig, wouldBeLost: string, instead: string): Promise<void> {
+  if (await probeHealthz(config.bindPort)) {
+    throw new Error(
+      `the daemon is running on port ${config.bindPort} — stop it first (oh daemon stop). ` +
+        `storage.json is single-writer; ${wouldBeLost} under a live daemon would be lost. ` +
+        `While it runs, ${instead} from a connected admin surface instead.`,
+    );
+  }
+}
+
 async function commandShowToken(argv: readonly string[]): Promise<void> {
   const { values } = parseArgs({ args: [...argv], options: { ...CONFIG_OPTIONS, label: { type: 'string' } } });
   const { config } = resolveConfigFlags(values);
   const label = values.label;
-  if (await probeHealthz(config.bindPort)) {
-    throw new Error(
-      `the daemon is running on port ${config.bindPort} — stop it first (oh daemon stop). ` +
-        'storage.json is single-writer; a mint under a live daemon would be lost. ' +
-        'While it runs, mint from a connected admin surface instead.',
-    );
-  }
+  await assertDaemonStopped(config, 'a mint', 'mint');
   const minted = await mintBootstrapToken(config, label);
   console.log(`Token minted (id ${minted.tokenId}${label ? `, label "${label}"` : ''}).`);
   console.log('');
@@ -167,6 +193,45 @@ async function commandShowToken(argv: readonly string[]): Promise<void> {
   if (config.bindAddress !== '0.0.0.0') {
     console.log('The daemon is loopback-only; set bind-address 0.0.0.0 to make it LAN-reachable.');
   }
+}
+
+function formatSettingValue(value: boolean | undefined): string {
+  return value === undefined ? 'false (default)' : String(value);
+}
+
+async function commandConfig(argv: readonly string[]): Promise<void> {
+  const [sub, ...rest] = argv;
+  const { values, positionals } = parseArgs({ args: [...rest], options: CONFIG_OPTIONS, allowPositionals: true });
+  const { config } = resolveConfigFlags(values);
+  if (sub === 'set') {
+    const [rawKey, rawValue] = positionals;
+    if (rawKey === undefined || rawValue === undefined) {
+      throw new Error('usage: oh daemon config set <key> <true|false>');
+    }
+    const key = parseDaemonSettingKey(rawKey);
+    const value = parseDaemonSettingValue(key, rawValue);
+    await assertDaemonStopped(config, 'a setting written', 'change settings');
+    await setDaemonSetting(config, key, value);
+    console.log(`${key} = ${value}`);
+    console.log('Applies when the daemon starts (oh daemon start).');
+    return;
+  }
+  if (sub === 'get') {
+    const [rawKey] = positionals;
+    if (rawKey === undefined) throw new Error('usage: oh daemon config get <key>');
+    const key = parseDaemonSettingKey(rawKey);
+    const settings = await readDaemonSettings(config);
+    console.log(`${key} = ${formatSettingValue(settings[key])}`);
+    return;
+  }
+  if (sub === 'list') {
+    const settings = await readDaemonSettings(config);
+    for (const key of DAEMON_SETTING_KEYS) {
+      console.log(`${key} = ${formatSettingValue(settings[key])}`);
+    }
+    return;
+  }
+  throw new Error('usage: oh daemon config <set|get|list>');
 }
 
 async function main(): Promise<void> {
@@ -193,6 +258,8 @@ async function main(): Promise<void> {
       return commandStatus(rest);
     case 'show-token':
       return commandShowToken(rest);
+    case 'config':
+      return commandConfig(rest);
     default:
       console.log(USAGE);
       process.exitCode = 1;

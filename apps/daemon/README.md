@@ -47,6 +47,12 @@ oh daemon install --bind-address 0.0.0.0
 Tokens are required on every non-loopback connection; pairing and token
 administration beyond the first token happen from a connected client.
 
+On Linux, `install` also enables the unit for boot and turns on user
+lingering (`systemctl --user enable oh-daemon.service`,
+`loginctl enable-linger`) so the daemon survives reboots and outlives the
+SSH session that installed it; if either command needs privileges, the exact
+manual command is printed instead. On macOS the LaunchAgent starts at login.
+
 ## Configuration
 
 Precedence, highest first: argv → env → `daemon.json` → defaults.
@@ -64,6 +70,22 @@ Precedence, highest first: argv → env → `daemon.json` → defaults.
 
 Everything the daemon persists (`storage.json`, `oracle.db`, blobs) lives under
 the data dir.
+
+## Settings
+
+Runtime settings live in `storage.json` (not `daemon.json`). The CLI exposes
+the MCP switches, all off by default:
+
+```sh
+oh daemon config set mcp.enabled true   # requires the daemon to be stopped
+oh daemon config get mcp.enabled
+oh daemon config list
+```
+
+Settable keys: `mcp.enabled`, `mcp.allowWrite`, `mcp.allowExecute`,
+`mcp.allowSecrets`. `config set` refuses while the daemon runs —
+`storage.json` is single-writer, like `show-token`; a running daemon takes
+settings changes from a connected admin surface instead. Reads work anytime.
 
 ## Web app
 

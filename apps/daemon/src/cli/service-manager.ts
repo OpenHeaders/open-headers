@@ -29,6 +29,14 @@ export interface ServiceHost {
   uid: number;
 }
 
+export type CommandRunner = (command: string, args: readonly string[]) => Promise<{ ok: boolean; detail: string }>;
+
+export interface InstallResult {
+  unitPath: string;
+  /** Boot-persistence outcome lines for the CLI to print, in order. */
+  notes: string[];
+}
+
 export function serviceUnitPath(host: ServiceHost): string {
   if (host.platform === 'darwin') {
     return path.join(host.homedir, 'Library', 'LaunchAgents', `${LAUNCHD_LABEL}.plist`);
@@ -49,18 +57,45 @@ async function run(command: string, args: readonly string[]): Promise<{ ok: bool
   }
 }
 
-/** Write the unit file (and on Linux, reload the user manager). Returns the unit path. */
-export async function installServiceUnit(host: ServiceHost, def: ServiceDefinition): Promise<string> {
+/**
+ * Write the unit file and make the daemon survive reboots. On macOS the
+ * LaunchAgent's `RunAtLoad` covers this by itself (agents load at
+ * login). On Linux the unit must be enabled AND the user must linger —
+ * without lingering, systemd kills the user manager (and the daemon)
+ * when the login session ends, e.g. on SSH disconnect. Both are run
+ * here; a failure degrades to an advisory note carrying the exact
+ * manual command and its consequence, so install never half-fails.
+ */
+export async function installServiceUnit(
+  host: ServiceHost,
+  def: ServiceDefinition,
+  exec: CommandRunner = run,
+): Promise<InstallResult> {
   const unitPath = serviceUnitPath(host);
   await fs.mkdir(path.dirname(unitPath), { recursive: true });
   await fs.mkdir(path.dirname(def.logFile), { recursive: true });
   const body = host.platform === 'darwin' ? renderLaunchdPlist(def) : renderSystemdUnit(def);
   await fs.writeFile(unitPath, body, 'utf-8');
+  const notes: string[] = [];
   if (host.platform === 'linux') {
-    const reload = await run('systemctl', ['--user', 'daemon-reload']);
+    const reload = await exec('systemctl', ['--user', 'daemon-reload']);
     if (!reload.ok) throw new Error(`systemctl --user daemon-reload failed: ${reload.detail}`);
+    const enable = await exec('systemctl', ['--user', 'enable', SYSTEMD_UNIT_NAME]);
+    notes.push(
+      enable.ok
+        ? `unit enabled for boot (systemctl --user enable ${SYSTEMD_UNIT_NAME})`
+        : `could not enable the unit for boot (${enable.detail}) — run manually: ` +
+            `systemctl --user enable ${SYSTEMD_UNIT_NAME} (without it a reboot will not bring the daemon back)`,
+    );
+    const linger = await exec('loginctl', ['enable-linger']);
+    notes.push(
+      linger.ok
+        ? 'lingering enabled (loginctl enable-linger) — the daemon survives logout and SSH disconnect'
+        : `could not enable lingering (${linger.detail}) — run manually: loginctl enable-linger ` +
+            '(without it the daemon dies when your login session ends, e.g. on SSH disconnect)',
+    );
   }
-  return unitPath;
+  return { unitPath, notes };
 }
 
 export async function startService(host: ServiceHost): Promise<void> {
