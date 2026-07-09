@@ -34,7 +34,7 @@ import { createWriteToolDefinitions } from '../../src/mcp/tools/write-tools';
 import { createHostStorageFake } from './_host-storage-fake';
 
 const wsId = 'ws-mcp-execute';
-const CTX = { tokenId: 'token-1' };
+const CTX = { tokenId: 'token-1', userId: 'user-1' };
 
 // ── Loopback echo server ─────────────────────────────────────────────
 

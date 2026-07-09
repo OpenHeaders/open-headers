@@ -199,6 +199,7 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
           workspaceId: outcome.hello.workspaceId,
           protocolVersion: outcome.hello.protocolVersion,
           tokenId: outcome.tokenId,
+          claims: outcome.claims,
           send: (frame) => {
             if (socket.readyState !== WebSocket.OPEN) return false;
             try {
@@ -225,6 +226,7 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
           workspaceId: peerConn.workspaceId,
           nodeId: peerConn.nodeId,
           tokenId: peerConn.tokenId,
+          userId: peerConn.claims?.userId ?? null,
           isLoopback,
         };
         summaryBySocket.set(socket, summary);
@@ -233,7 +235,7 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
         ready.add(socket);
         logger.info(
           SCOPE,
-          `peer connected (role=${peerConn.role} agent=${peerConn.agent} ws=${peerConn.workspaceId} node=${peerConn.nodeId} protocol=v${peerConn.protocolVersion})`,
+          `peer connected (role=${peerConn.role} agent=${peerConn.agent} ws=${peerConn.workspaceId} node=${peerConn.nodeId} protocol=v${peerConn.protocolVersion} user=${peerConn.claims?.userId ?? 'none'})`,
         );
         registry.emitPeerChange({ kind: 'connect', peer: summary });
         return;

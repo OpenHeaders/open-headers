@@ -46,7 +46,7 @@ import { createRuntimeToolDefinitions } from '../../src/mcp/tools/runtime-tools'
 import { createWriteToolDefinitions } from '../../src/mcp/tools/write-tools';
 import { createHostStorageFake } from './_host-storage-fake';
 
-const CTX = { tokenId: 'token-1' };
+const CTX = { tokenId: 'token-1', userId: 'user-1' };
 
 const tools = new Map<string, McpToolDefinition>(
   [...createRuntimeToolDefinitions(), ...createWriteToolDefinitions()].map((t) => [t.name, t]),

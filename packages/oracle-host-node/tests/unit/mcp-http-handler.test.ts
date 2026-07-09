@@ -9,7 +9,14 @@
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { networkInterfaces } from 'node:os';
-import { clearIdentitySnapshot, createDaemonPairingService, mintDaemonAuthToken } from '@openheaders/core/identity';
+import {
+  clearIdentitySnapshot,
+  createDaemonPairingService,
+  createDaemonUser,
+  deactivateDaemonUser,
+  ensureSyntheticIdentity,
+  mintDaemonAuthToken,
+} from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -28,7 +35,7 @@ const ECHO_TOOL: McpToolDefinition = {
   inputSchema: { type: 'object', properties: { value: { type: 'string' } } },
   tier: 'read',
   resolveWorkspaceId: () => undefined,
-  handler: async (args, ctx) => ({ echoed: args.value, tokenId: ctx.tokenId }),
+  handler: async (args, ctx) => ({ echoed: args.value, tokenId: ctx.tokenId, userId: ctx.userId }),
 };
 
 const SECRETS_TOOL: McpToolDefinition = {
@@ -99,6 +106,10 @@ describe('MCP HTTP handler', () => {
     setHostLogger(consoleLogger);
     setHostStorage(createHostStorageFake());
     clearIdentitySnapshot();
+    // The auth gate resolves the token's user post-validation; an
+    // unbound token maps to the operator's synthetic identity, which
+    // every production host seeds at boot before the bind comes up.
+    await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-09T00:00:00.000Z' });
     secret = (await mintDaemonAuthToken({ label: 'test client' })).secret;
     const enabled = { value: true };
     const policy: McpPolicy = { enabledTiers: new Set(['read']) };
@@ -181,9 +192,28 @@ describe('MCP HTTP handler', () => {
     });
     const result = json.result as { content: Array<{ type: string; text: string }>; isError?: boolean };
     expect(result.isError).toBeUndefined();
-    const payload = JSON.parse(result.content[0].text) as { echoed: string; tokenId: string };
+    const payload = JSON.parse(result.content[0].text) as { echoed: string; tokenId: string; userId: string };
     expect(payload.echoed).toBe('openheaders.io');
     expect(payload.tokenId).toMatch(/^[0-9a-f-]+$/i);
+    // Unbound token → the call acts as the daemon operator (slice 1).
+    expect(payload.userId).toMatch(/^[0-9a-f-]+$/i);
+  });
+
+  it('answers 401 when the token user is deactivated (bound token, directory refusal)', async () => {
+    const created = await createDaemonUser({ displayName: 'Alice' });
+    if (!created.ok) throw new Error('directory create failed');
+    const bound = await mintDaemonAuthToken({ label: 'alice', userId: created.record.user.id });
+    const first = await postRpc(harness.baseUrl, bound.secret, 'tools/call', {
+      name: 'echo_args',
+      arguments: { value: 'ok' },
+    });
+    expect(first.status).toBe(200);
+    await deactivateDaemonUser(created.record.user.id);
+    const second = await postRpc(harness.baseUrl, bound.secret, 'tools/call', {
+      name: 'echo_args',
+      arguments: { value: 'refused' },
+    });
+    expect(second.status).toBe(401);
   });
 
   it('surfaces a disabled tier as an in-band tool error the agent can read', async () => {
@@ -251,6 +281,7 @@ describe('MCP HTTP handler on a 0.0.0.0 bind (LAN matrix)', () => {
     setHostLogger(consoleLogger);
     setHostStorage(createHostStorageFake());
     clearIdentitySnapshot();
+    await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-09T00:00:00.000Z' });
     secret = (await mintDaemonAuthToken({ label: 'lan client' })).secret;
 
     const pairing = createDaemonPairingService();

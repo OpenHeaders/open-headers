@@ -16,7 +16,12 @@
  */
 
 import { createServer } from 'node:net';
-import { mintDaemonAuthToken } from '@openheaders/core/identity';
+import {
+  createDaemonUser,
+  deactivateDaemonUser,
+  ensureSyntheticIdentity,
+  mintDaemonAuthToken,
+} from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import { PROTOCOL_VERSION, SYNC_HELLO_TYPE, SYNC_WELCOME_TYPE } from '@openheaders/core/protocol';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -36,6 +41,7 @@ let server: OracleWsServer | null = null;
 const clients: WebSocket[] = [];
 let authSecret = '';
 let authTokenId = '';
+let operatorUserId = '';
 
 async function freePort(): Promise<number> {
   return new Promise<number>((resolve, reject) => {
@@ -112,8 +118,11 @@ beforeEach(async () => {
   server = null;
   clients.length = 0;
   // Mandatory auth: provision a fresh token ledger + one paired token
-  // whose secret the test clients present in HELLO.
+  // whose secret the test clients present in HELLO. The gate resolves
+  // the token's user post-validation — an unbound token maps to the
+  // operator's synthetic identity, seeded at boot on every real host.
   setHostStorage(createHostStorageFake());
+  operatorUserId = (await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-09T00:00:00.000Z' })).user.id;
   const minted = await mintDaemonAuthToken({ label: 'peer-test' });
   authSecret = minted.secret;
   authTokenId = minted.record.id;
@@ -144,6 +153,8 @@ describe('OracleWsServer — peer registry', () => {
     expect(event.peer.role).toBe('extension');
     expect(event.peer.isLoopback).toBe(true);
     expect(event.peer.tokenId).toBe(authTokenId);
+    // Unbound token → the peer acts as the daemon operator (slice 1).
+    expect(event.peer.userId).toBe(operatorUserId);
 
     const peers = server.listConnectedPeers();
     expect(peers).toHaveLength(1);
@@ -192,6 +203,41 @@ describe('OracleWsServer — peer registry', () => {
     expect(peers).toHaveLength(2);
     expect(peers.every((p) => p.isLoopback)).toBe(true);
     expect(new Set(peers.map((p) => p.workspaceId))).toEqual(new Set(['ws-1', 'ws-2']));
+  });
+
+  it('connects a bound-token peer as its directory user; deactivation refuses the next HELLO', async () => {
+    const created = await createDaemonUser({ displayName: 'Alice' });
+    if (!created.ok) throw new Error('directory create failed');
+    const bound = await mintDaemonAuthToken({ label: 'alice laptop', userId: created.record.user.id });
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const connected = nextEvent(server, 'connect');
+    const client = await connectAccepted(port, hello({ authToken: bound.secret }));
+    const event = await connected;
+    expect(event.peer.tokenId).toBe(bound.record.id);
+    expect(event.peer.userId).toBe(created.record.user.id);
+    client.close();
+
+    // Deactivate the directory user — the same (still-unrevoked) token
+    // must stop authenticating at the gate.
+    await deactivateDaemonUser(created.record.user.id);
+    const rejected = new WebSocket(`ws://127.0.0.1:${port}`);
+    clients.push(rejected);
+    await new Promise<void>((resolve, reject) => {
+      rejected.once('open', () => resolve());
+      rejected.once('error', reject);
+    });
+    const welcome = await new Promise<{ accepted: boolean; reason?: string; detail?: string }>((resolve) => {
+      rejected.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_WELCOME_TYPE) resolve(msg);
+      });
+      rejected.send(hello({ authToken: bound.secret }));
+    });
+    expect(welcome.accepted).toBe(false);
+    expect(welcome.reason).toBe('auth-required');
+    expect(welcome.detail).toBe('user-deactivated');
   });
 
   it('rejects a loopback HELLO that presents no paired token (mandatory auth)', async () => {

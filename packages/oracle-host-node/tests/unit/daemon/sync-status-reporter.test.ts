@@ -77,6 +77,7 @@ function loopbackPeer(i: number): PeerSummary {
     workspaceId: 'ws-1',
     nodeId: `node-${i}`,
     tokenId: null,
+    userId: null,
     isLoopback: true,
   };
 }

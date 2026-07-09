@@ -205,18 +205,62 @@ describe('evaluateHello', () => {
     });
 
     it('accepts when the peer presents a valid daemon auth token', async () => {
+      const resolveUser = vi.fn(async () => ({ ok: true as const, userId: 'operator-1', displayName: 'Operator' }));
       const outcome = await evaluateHello(
         { ...validHello, authToken: 'oh_valid' } as unknown as Record<string, unknown>,
         localIdentity,
         {
           requireAuth: true,
           validate: async () => ({ ok: true, tokenId: 'token-123', label: 'phone' }),
+          resolveUser,
         },
       );
       expect(outcome.kind).toBe('accept');
       // The validated token id is threaded onto the accept outcome so
       // the host can stamp it on the PeerConnection (U3.4 join key).
-      if (outcome.kind === 'accept') expect(outcome.tokenId).toBe('token-123');
+      if (outcome.kind === 'accept') {
+        expect(outcome.tokenId).toBe('token-123');
+        // An unbound token resolves through the seam with no binding;
+        // the resolved user lands on the claims (Phase 5 slice 1).
+        expect(resolveUser).toHaveBeenCalledWith(undefined);
+        expect(outcome.claims).toEqual({ userId: 'operator-1', deviceId: 'token-123', capabilities: new Set() });
+      }
+    });
+
+    it('threads a bound token userId into the user resolution and the claims', async () => {
+      const resolveUser = vi.fn(async () => ({ ok: true as const, userId: 'user-42', displayName: 'Alice' }));
+      const outcome = await evaluateHello(
+        { ...validHello, authToken: 'oh_valid' } as unknown as Record<string, unknown>,
+        localIdentity,
+        {
+          requireAuth: true,
+          validate: async () => ({ ok: true, tokenId: 'token-9', userId: 'user-42' }),
+          resolveUser,
+        },
+      );
+      expect(outcome.kind).toBe('accept');
+      if (outcome.kind === 'accept') {
+        expect(resolveUser).toHaveBeenCalledWith('user-42');
+        expect(outcome.claims?.userId).toBe('user-42');
+        expect(outcome.claims?.deviceId).toBe('token-9');
+      }
+    });
+
+    it('rejects with AUTH_REQUIRED when the token user is deactivated', async () => {
+      const outcome = await evaluateHello(
+        { ...validHello, authToken: 'oh_valid' } as unknown as Record<string, unknown>,
+        localIdentity,
+        {
+          requireAuth: true,
+          validate: async () => ({ ok: true, tokenId: 'token-9', userId: 'user-42' }),
+          resolveUser: async () => ({ ok: false, reason: 'user-deactivated' }),
+        },
+      );
+      expect(outcome.kind).toBe('reject');
+      if (outcome.kind === 'reject') {
+        expect(outcome.reason).toBe(HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED);
+        if (!outcome.welcome.accepted) expect(outcome.welcome.detail).toBe('user-deactivated');
+      }
     });
 
     it('is a no-op when requireAuth is false even without a token', async () => {
@@ -224,7 +268,10 @@ describe('evaluateHello', () => {
         requireAuth: false,
       });
       expect(outcome.kind).toBe('accept');
-      if (outcome.kind === 'accept') expect(outcome.tokenId).toBeNull();
+      if (outcome.kind === 'accept') {
+        expect(outcome.tokenId).toBeNull();
+        expect(outcome.claims).toBeNull();
+      }
     });
   });
 });

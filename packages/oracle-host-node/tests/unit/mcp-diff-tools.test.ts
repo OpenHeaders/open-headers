@@ -26,7 +26,7 @@ import { createHostStorageFake } from './_host-storage-fake';
 
 const wsA = 'ws-diff-a';
 const wsB = 'ws-diff-b';
-const CTX = { tokenId: 'token-1' };
+const CTX = { tokenId: 'token-1', userId: 'user-1' };
 
 const tools = new Map<string, McpToolDefinition>(
   [...createWriteToolDefinitions(), ...createDiffToolDefinitions()].map((t) => [t.name, t]),

@@ -25,7 +25,7 @@ import { createSecretToolDefinitions } from '../../src/mcp/tools/secret-tools';
 import { createHostStorageFake } from './_host-storage-fake';
 
 const wsId = 'ws-mcp-secrets';
-const CTX = { tokenId: 'token-1' };
+const CTX = { tokenId: 'token-1', userId: 'user-1' };
 
 const VAULT: Vault = {
   schemaVersion: 5,

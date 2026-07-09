@@ -18,7 +18,7 @@ import { createReadToolDefinitions } from '../../src/mcp/tools/read-tools';
 import { createHostStorageFake } from './_host-storage-fake';
 
 const wsId = 'ws-mcp-import';
-const CTX = { tokenId: 'token-1' };
+const CTX = { tokenId: 'token-1', userId: 'user-1' };
 
 const tools = new Map<string, McpToolDefinition>(
   [...createReadToolDefinitions(), ...createImportToolDefinitions()].map((t) => [t.name, t]),

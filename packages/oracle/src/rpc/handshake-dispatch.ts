@@ -34,6 +34,8 @@
 import {
   emitAuditEntry,
   getIdentitySnapshot,
+  type ResolveDaemonPeerUserResult,
+  resolveDaemonPeerUser,
   type ValidateDaemonAuthTokenResult,
   validateDaemonAuthToken,
 } from '@openheaders/core/identity';
@@ -57,7 +59,7 @@ import {
 import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
-import type { PeerConnection } from '../host-runtime/peer-connection';
+import type { PeerClaims, PeerConnection } from '../host-runtime/peer-connection';
 import { peekActiveWorkspaceId } from '../sync';
 import {
   type RespondToStateVectorOptions,
@@ -90,6 +92,14 @@ export type EvaluateHelloOutcome =
        * admin "Known devices" surface can join live peers to the ledger.
        */
       readonly tokenId: string | null;
+      /**
+       * The user the peer acts as, resolved from the token's directory
+       * binding (unbound token → the daemon operator's own user). Null
+       * only on the `requireAuth`-off test seam. `deviceId` is the
+       * token id — tokens are per-device credentials; `capabilities`
+       * stays empty until the RBAC vocabulary lands (Phase 5 slice 2).
+       */
+      readonly claims: PeerClaims | null;
     }
   | {
       readonly kind: 'reject';
@@ -116,6 +126,8 @@ export type EvaluateHelloOutcome =
 export interface EvaluateHelloOptions {
   readonly requireAuth?: boolean;
   readonly validate?: (token: string | undefined) => Promise<ValidateDaemonAuthTokenResult>;
+  /** Test seam — mirrors `validate`; defaults to `resolveDaemonPeerUser`. */
+  readonly resolveUser?: (tokenUserId: string | undefined) => Promise<ResolveDaemonPeerUserResult>;
   /**
    * This backend's reach tier, derived by the host from its own listen
    * binding (loopback vs lan) or deployment (wan). Stamped onto the
@@ -171,24 +183,32 @@ export async function evaluateHello(
     return { kind: 'reject', welcome, reason };
   }
   let tokenId: string | null = null;
+  let claims: PeerClaims | null = null;
   if (options.requireAuth) {
     const snapshot = getIdentitySnapshot();
     const validate = options.validate ?? validateDaemonAuthToken;
     const result = await validate(hello.authToken);
+    // The token proves the credential; the user resolution proves the
+    // credential still maps to an admitted identity — a bound token
+    // whose directory user was deactivated (or wiped) fails here even
+    // though its hash still matches the ledger.
+    const resolveUser = options.resolveUser ?? resolveDaemonPeerUser;
+    const resolved: ResolveDaemonPeerUserResult | null = result.ok ? await resolveUser(result.userId) : null;
+    const admittedUserId = resolved?.ok ? resolved.userId : null;
     // Audit the gate decision. `daemon.admin` is the capability the
     // local resolver maps the gate to — successful peer auth means the
     // peer is permitted to operate against this daemon; a miss is a
     // denial recorded against the local synthetic actor for ledger
-    // continuity. The token id (if any) goes on the audit context
-    // rather than the actor — the peer's identity isn't resolved until
-    // after handshake.
+    // continuity. On admit the actor IS the resolved peer user — the
+    // gate is the first point where the peer's identity is known.
     emitAuditEntry({
-      actorUserId: snapshot?.user.id ?? 'unknown',
+      actorUserId: admittedUserId ?? snapshot?.user.id ?? 'unknown',
       capability: 'daemon.admin',
-      decision: result.ok ? { allow: true } : { allow: false, reason: 'auth-required' },
+      decision: admittedUserId !== null ? { allow: true } : { allow: false, reason: 'auth-required' },
     });
-    if (!result.ok) {
-      logger.info(SCOPE, `HELLO rejected: auth required (${result.reason})`);
+    if (!result.ok || !resolved?.ok) {
+      const detail = !result.ok ? result.reason : resolved && !resolved.ok ? resolved.reason : 'unknown-user';
+      logger.info(SCOPE, `HELLO rejected: auth required (${detail})`);
       const welcome: SyncWelcomeMessage = {
         type: SYNC_WELCOME_TYPE,
         accepted: false,
@@ -196,12 +216,13 @@ export async function evaluateHello(
         protocolVersion: PROTOCOL_VERSION,
         // Never echo the presented secret. `reason` is a coarse enum
         // safe for the client to render ("paired token revoked",
-        // "unknown token", "no token presented").
-        detail: result.reason,
+        // "unknown token", "no token presented", "user deactivated").
+        detail,
       };
       return { kind: 'reject', welcome, reason: HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED };
     }
     tokenId = result.tokenId;
+    claims = { userId: resolved.userId, deviceId: result.tokenId, capabilities: new Set() };
   }
 
   // U5.2 — carry this backend's home `Org` so the joining peer folds it
@@ -229,7 +250,7 @@ export async function evaluateHello(
     ...(backendActiveWorkspaceId ? { activeWorkspaceId: backendActiveWorkspaceId } : {}),
     ...(options.reach ? { reach: options.reach } : {}),
   };
-  return { kind: 'accept', hello, welcome, tokenId };
+  return { kind: 'accept', hello, welcome, tokenId, claims };
 }
 
 export type HandleStateVectorOutcome =

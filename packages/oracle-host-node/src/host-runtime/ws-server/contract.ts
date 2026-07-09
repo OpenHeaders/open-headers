@@ -86,6 +86,10 @@ export interface PeerSummary {
    *  relayed mutation never bounces straight back to its sender. */
   readonly nodeId: string;
   readonly tokenId: string | null;
+  /** The user the peer acts as (resolved at HELLO from the token's
+   *  directory binding; unbound tokens resolve to the daemon operator).
+   *  Null only on the `requireAuth`-off test seam. */
+  readonly userId: string | null;
   readonly isLoopback: boolean;
 }
 

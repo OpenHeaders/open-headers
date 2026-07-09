@@ -30,7 +30,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { validateDaemonAuthToken } from '@openheaders/core/identity';
+import { resolveDaemonPeerUser, validateDaemonAuthToken } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
 import type { McpPolicy } from './policy';
@@ -125,6 +125,17 @@ export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHan
           });
           return;
         }
+        // The token proves the credential; the user resolution proves
+        // it still maps to an admitted identity — a deactivated (or
+        // wiped) directory user's token fails here, same as the WS gate.
+        const resolved = await resolveDaemonPeerUser(validation.userId);
+        if (!resolved.ok) {
+          logger.info(SCOPE, `rejected request: ${resolved.reason} (peer=${remoteAddress})`);
+          jsonError(res, 401, 'a paired access token is required — mint one in Open Headers → Settings → MCP', {
+            'WWW-Authenticate': 'Bearer',
+          });
+          return;
+        }
 
         const server = createMcpServer({
           registry,
@@ -133,6 +144,7 @@ export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHan
           context: {
             tokenId: validation.tokenId,
             ...(validation.label !== undefined ? { tokenLabel: validation.label } : {}),
+            userId: resolved.userId,
           },
         });
         const transport = new StreamableHTTPServerTransport({

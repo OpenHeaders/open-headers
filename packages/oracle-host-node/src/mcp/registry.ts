@@ -32,6 +32,9 @@ export const MCP_SURFACE_ID = 'mcp';
 export interface McpToolCallContext {
   readonly tokenId: string;
   readonly tokenLabel?: string;
+  /** The user the token acts as (directory binding; unbound → the
+   *  daemon operator). Resolved once per request at the auth gate. */
+  readonly userId: string;
 }
 
 export interface McpToolDefinition {
