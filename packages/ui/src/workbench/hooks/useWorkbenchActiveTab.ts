@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useMemo } from 'react';
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
@@ -6,6 +5,7 @@ import {
   LIVE_WORKFLOW_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
@@ -22,13 +22,15 @@ import type {
   LiveVariable,
   LiveWorkflow,
   Request,
+  ResponseExample,
   Rule,
   Template,
 } from '@openheaders/core/types';
 import { findCollectionByPath } from '@openheaders/ui/shared/variables';
+import { useCallback, useEffect, useMemo } from 'react';
 import { computeBreadcrumbs, scratchLabelForMode } from '../breadcrumbs';
 import type { EditorLeaf } from '../editor-groups';
-import { type EnvSwitcherCollectionContext } from '../services/env-switcher';
+import type { EnvSwitcherCollectionContext } from '../services/env-switcher';
 import { useSettingValue } from '../settings/hooks';
 import { type TabDisplayLookups, tabDisplayLabel } from '../tab-display';
 import type { WorkbenchTab } from '../types';
@@ -48,6 +50,7 @@ interface UseWorkbenchActiveTabOptions {
   templateCollectionTrees: CollectionTree[];
   liveVariables: LiveVariable[];
   liveWorkflows: LiveWorkflow[];
+  responseExamples: readonly ResponseExample[];
   workspaces: ExtensionWorkspace[];
   editingScopeWorkspaceId: string | null;
   /** Tab patcher from `useEditorGroups` — backs the env-switcher's
@@ -88,6 +91,7 @@ export function useWorkbenchActiveTab({
   templateCollectionTrees,
   liveVariables,
   liveWorkflows,
+  responseExamples,
   workspaces,
   editingScopeWorkspaceId,
   updateTab,
@@ -99,10 +103,7 @@ export function useWorkbenchActiveTab({
   const { setBase: setTabTitleBase } = useWorkspaceTabTitle();
 
   // ── Active tab + breadcrumbs ──────────────────────────────────
-  const activeTab = useMemo(
-    () => focusedLeaf.tabs.find((t) => t.id === focusedLeaf.activeTabId),
-    [focusedLeaf],
-  );
+  const activeTab = useMemo(() => focusedLeaf.tabs.find((t) => t.id === focusedLeaf.activeTabId), [focusedLeaf]);
 
   // The active tab's backing entity, expressed as a generic
   // `(entityType, entityId)` pair the breadcrumb wraps its inline-rename
@@ -117,6 +118,10 @@ export function useWorkbenchActiveTab({
         return activeTab.ruleUid ? { entityType: RULE_ENTITY_TYPE, entityId: activeTab.ruleUid } : null;
       case 'request-edit':
         return activeTab.requestUid ? { entityType: REQUEST_ENTITY_TYPE, entityId: activeTab.requestUid } : null;
+      case 'response-example':
+        return activeTab.responseExampleUid
+          ? { entityType: RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: activeTab.responseExampleUid }
+          : null;
       case 'template-edit':
         return activeTab.templateUid ? { entityType: TEMPLATE_ENTITY_TYPE, entityId: activeTab.templateUid } : null;
       case 'live-variable-edit':
@@ -180,6 +185,7 @@ export function useWorkbenchActiveTab({
       templateCollectionTrees,
       liveVariables,
       liveWorkflows,
+      responseExamples,
     }),
     [
       rules,
@@ -191,6 +197,7 @@ export function useWorkbenchActiveTab({
       templateCollectionTrees,
       liveVariables,
       liveWorkflows,
+      responseExamples,
     ],
   );
   const getTabDisplayLabel = useCallback(

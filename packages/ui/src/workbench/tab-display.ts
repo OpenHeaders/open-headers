@@ -24,7 +24,17 @@
  * cleanup remains there.
  */
 
-import type { CollectionTree, Environment, LiveVariable, LiveWorkflow, Request, Rule, Template, TreeNode } from '@openheaders/core/types';
+import type {
+  CollectionTree,
+  Environment,
+  LiveVariable,
+  LiveWorkflow,
+  Request,
+  ResponseExample,
+  Rule,
+  Template,
+  TreeNode,
+} from '@openheaders/core/types';
 import type { WorkbenchTab } from './types';
 
 export interface TabDisplayLookups {
@@ -37,6 +47,7 @@ export interface TabDisplayLookups {
   templateCollectionTrees: readonly CollectionTree[];
   liveVariables: readonly LiveVariable[];
   liveWorkflows: readonly LiveWorkflow[];
+  responseExamples: readonly ResponseExample[];
 }
 
 function findFolderNameInTrees(trees: readonly CollectionTree[], uid: string): string | null {
@@ -73,6 +84,11 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups): 
       if (!tab.requestUid) return tab.label;
       const req = lookups.requests.find((r) => r.uid === tab.requestUid);
       return req ? req.name : tab.label;
+    }
+    case 'response-example': {
+      if (!tab.responseExampleUid) return tab.label;
+      const example = lookups.responseExamples.find((e) => e.uid === tab.responseExampleUid);
+      return example ? example.name : tab.label;
     }
     case 'live-variable-edit': {
       if (!tab.liveVariableUid) return tab.label;

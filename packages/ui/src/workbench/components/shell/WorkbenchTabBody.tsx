@@ -26,6 +26,7 @@ import LiveWorkflowEditor from '../live/LiveWorkflowEditor';
 import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
 import RequestEditor from '../request-editor/RequestEditor';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
+import ResponseExampleView from '../response-example/ResponseExampleView';
 import RuleEditor from '../rule/RuleEditor';
 import RuleFlow from '../rule-flow/RuleFlow';
 import RunReportView from '../runs/RunReportView';
@@ -73,6 +74,7 @@ interface WorkbenchTabBodyProps {
   openCreateLiveVariable: UseTabOpenersApi['openCreateLiveVariable'];
   openCreateLiveWorkflow: UseTabOpenersApi['openCreateLiveWorkflow'];
   openScriptPackages: UseTabOpenersApi['openScriptPackages'];
+  openDuplicateRequestScratch: UseTabOpenersApi['openDuplicateRequestScratch'];
 
   // Shell-local handlers and slices.
   openTestRunsPanel: () => void;
@@ -118,6 +120,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openCreateLiveVariable,
   openCreateLiveWorkflow,
   openScriptPackages,
+  openDuplicateRequestScratch,
   openTestRunsPanel,
   handleRunReportDeleted,
   handleSwitchWorkspace,
@@ -393,6 +396,15 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
         onSaveDraft={(draftData) => onRequestSaveDraft(tab.id, draftData)}
+      />
+    );
+  }
+  if (tab.mode === 'response-example' && tab.responseExampleUid) {
+    return (
+      <ResponseExampleView
+        exampleUid={tab.responseExampleUid}
+        workspaceId={editingScopeWorkspaceId}
+        onTry={(content, exampleName) => openDuplicateRequestScratch(content, { fromExampleName: exampleName })}
       />
     );
   }

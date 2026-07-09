@@ -112,6 +112,8 @@ interface SidebarProps {
   onCreateWorkflow?: (seedStep?: { requestUid: string; requestName: string; method: string }) => void;
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
+  /** Open a saved response example in its read-only viewer tab. */
+  onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   onImportCurl?: (context?: { collectionId?: string }) => void;
   onImportHar?: (context?: { collectionId?: string }) => void;
   onImportPostman?: () => void;
@@ -166,6 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateWorkflow,
   onSelectRequest,
   onCreateRequest,
+  onSelectResponseExample,
   onImportCurl,
   onImportHar,
   onImportPostman,
@@ -455,6 +458,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteRequestCollectionRpc,
     onSelectRequest,
     onCreateRequest,
+    onSelectResponseExample,
     onExportEntity,
     onOpenCollectionVariables: onOpenRequestCollectionVariables,
     onOpenRequestCollectionOverview,

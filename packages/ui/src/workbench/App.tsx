@@ -23,6 +23,7 @@ import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnviron
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useAllResponseExamples } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import {
@@ -294,6 +295,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // same seam. Equals the global default in global mode; the tab's
   // slice binding in per-tab mode (MWPT § 6.2).
   const editingScopeWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
+  // All examples in the editing-scope workspace — feeds the live tab
+  // display-label lookup for response-example viewer tabs.
+  const responseExamples = useAllResponseExamples(editingScopeWorkspaceId);
   // ── Editor groups (recursive split tree) ──────────────────────
   const groups = useEditorGroups({ perTab });
   // ── Sidebar tree-expansion state (lifted into the per-tab snapshot) ─
@@ -477,6 +481,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openTemplateCollectionVariables,
     openRequestEditTab: openRequestEditTabRaw,
     openCreateRequestTab,
+    openResponseExampleTab,
     openDuplicateRuleScratch,
     openDuplicateRequestScratch,
     openLiveVariableEdit,
@@ -747,6 +752,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     templateCollectionTrees,
     liveVariables: liveVarsApi.variables,
     liveWorkflows: liveWorkflowsApi.workflows,
+    responseExamples,
     workspaces: workspacesApi.workspaces,
     editingScopeWorkspaceId,
     updateTab,
@@ -927,6 +933,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateLiveVariable={openCreateLiveVariable}
         openCreateLiveWorkflow={openCreateLiveWorkflow}
         openScriptPackages={openScriptPackages}
+        openDuplicateRequestScratch={openDuplicateRequestScratch}
         openTestRunsPanel={openTestRunsPanel}
         handleRunReportDeleted={handleRunReportDeleted}
         handleSwitchWorkspace={handleSwitchWorkspace}
@@ -966,6 +973,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openLiveVariableEdit,
       openCreateLiveVariable,
       openCreateLiveWorkflow,
+      openDuplicateRequestScratch,
       liveWorkflowsApi.workflows,
       replaceTab,
       editingScopeWorkspaceId,
@@ -1078,6 +1086,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateLiveWorkflow={openCreateLiveWorkflow}
         openRequestEditTab={openRequestEditTab}
         openCreateRequestTab={openCreateRequestTab}
+        openResponseExampleTab={openResponseExampleTab}
         openLiveVariableEdit={openLiveVariableEdit}
         openRunReport={openRunReport}
         handleDeleteRule={handleDeleteRule}
@@ -1122,6 +1131,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openTemplateCollectionVariables,
       openRequestEditTab,
       openCreateRequestTab,
+      openResponseExampleTab,
       openLiveWorkflowEdit,
       openCreateLiveWorkflow,
       liveWorkflowsApi.workflows,
@@ -1296,6 +1306,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 : undefined
             }
             segments={activeBreadcrumbSegments}
+            provenance={
+              activeTab?.mode === 'request-create' && activeTab.seedFromExampleName
+                ? `from “${activeTab.seedFromExampleName}”`
+                : undefined
+            }
             onRename={
               activeTab &&
               (activeTab.mode === 'edit' ||

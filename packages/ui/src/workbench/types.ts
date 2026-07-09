@@ -22,6 +22,7 @@ export type TabMode =
   | 'template-collection-vars'
   | 'request-edit'
   | 'request-create'
+  | 'response-example'
   | 'rule-create'
   | 'live-variable-edit'
   | 'live-variable-create'
@@ -125,8 +126,20 @@ export interface WorkbenchTab {
   environmentUid?: string;
   /** For collection-vars tabs: the collection uid whose variables are being edited. */
   collectionUid?: string;
-  /** For request-edit tabs: the Request uid being edited. */
+  /** For request-edit tabs: the Request uid being edited. For
+   *  response-example tabs: the parent request's uid (drives the
+   *  breadcrumb trail through the request tree). */
   requestUid?: string;
+  /** For response-example tabs: the frozen example being viewed. */
+  responseExampleUid?: string;
+  /**
+   * For request-create tabs minted by an example's "Try" action: the
+   * source example's name at fork time. Chrome-only provenance — it
+   * rides the tab tooltip and footer breadcrumb ("from ‹example›") and
+   * is dropped when the draft is saved; the created Request carries no
+   * provenance field.
+   */
+  seedFromExampleName?: string;
   /** For live-variable-edit tabs: the LV uid being edited. */
   liveVariableUid?: string;
   /** For live-workflow-edit tabs: the workflow uid being edited. */

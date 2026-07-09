@@ -111,13 +111,21 @@ export interface UseTabOpenersApi {
   openDuplicateRuleScratch: (content: Omit<Rule, 'uid' | 'path'>, opts?: { pinnedEnvId?: string | null }) => void;
   /**
    * Open a fresh `request-create` scratch seeded with another tab's
-   * current request content ("Duplicate Tab"). Mirrors
+   * current request content ("Duplicate Tab") or a frozen example's
+   * captured request shape ("Try" — `opts.fromExampleName` carries the
+   * chrome-only provenance shown in the tab tooltip + footer). Mirrors
    * {@link openDuplicateRuleScratch} for the request family.
    */
   openDuplicateRequestScratch: (
     content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>,
-    opts?: { pinnedEnvId?: string | null },
+    opts?: { pinnedEnvId?: string | null; fromExampleName?: string },
   ) => void;
+  /**
+   * Open a saved response example in its read-only viewer tab. Tab id
+   * `resp-example-<uid>` matches the sidebar node id so selection
+   * highlight follows the active tab.
+   */
+  openResponseExampleTab: (uid: string, name: string, requestUid: string) => void;
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
   /**

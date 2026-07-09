@@ -29,6 +29,10 @@ interface StatusBarProps {
   workspace?: { name: string; icon?: string; color?: string };
   /** Breadcrumb path of the focused-leaf active tab (excluding workspace). */
   segments: string[];
+  /** Chrome-only provenance rendered after the last segment (e.g.
+   *  `from “‹example›”` on a Try-forked draft). Not part of the path —
+   *  stays outside the renameable segment list. */
+  provenance?: string;
   onRename?: (newName: string) => void;
   autoRenameKey?: string | null;
 }
@@ -42,6 +46,7 @@ const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string }> 
 const StatusBar: React.FC<StatusBarProps> = ({
   workspace,
   segments,
+  provenance,
   onRename,
   autoRenameKey,
 }) => {
@@ -104,7 +109,25 @@ const StatusBar: React.FC<StatusBarProps> = ({
           segments={segments}
           onRename={onRename}
           autoRenameKey={autoRenameKey}
-          trailingNode={lifecycle?.status ? <LifecyclePill status={lifecycle.status} placement="top" /> : null}
+          trailingNode={
+            provenance || lifecycle?.status ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                {provenance && (
+                  <span
+                    style={{
+                      color: token.colorTextTertiary,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {provenance}
+                  </span>
+                )}
+                {lifecycle?.status ? <LifecyclePill status={lifecycle.status} placement="top" /> : null}
+              </span>
+            ) : null
+          }
         />
       </div>
 

@@ -88,6 +88,19 @@ export function computeBreadcrumbs(
     }
     return ['API Requests', displayLabel];
   }
+  if (tab.mode === 'response-example') {
+    // Frozen example under a request — extend the parent request's
+    // trail with the example's own label.
+    if (tab.requestUid) {
+      const req = requests.find((r) => r.uid === tab.requestUid);
+      if (req) {
+        const hit = computeRequestTrail(req.uid, requestCollectionTrees);
+        if (hit) return ['API Requests', hit.collectionName, ...hit.folderTrail, req.name, displayLabel];
+        return ['API Requests', req.name, displayLabel];
+      }
+    }
+    return ['API Requests', displayLabel];
+  }
   if (tab.mode === 'request-create') {
     const colId = tab.preferredCollectionId;
     const col = colId ? requestCollectionTrees.find((c) => c.uid === colId) : null;
@@ -275,7 +288,7 @@ export function computeBreadcrumbs(
  */
 export function computeRequestTrail(
   requestUid: string,
-  collectionTrees: CollectionTree[],
+  collectionTrees: readonly CollectionTree[],
 ): { collectionName: string; folderTrail: string[] } | null {
   for (const col of collectionTrees) {
     const folderTrail: string[] = [];

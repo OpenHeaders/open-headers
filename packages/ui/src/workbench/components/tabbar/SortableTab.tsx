@@ -174,6 +174,11 @@ const SortableTab: React.FC<SortableTabProps> = ({
       if (scratchLabel) tooltipSegments.push({ label: scratchLabel, kind: 'scratch' });
       tooltipSegments.push({ label: tabPath[tabPath.length - 1], kind: 'entity' });
     }
+    // "Try"-forked drafts carry chrome-only provenance — a quiet
+    // trailing segment naming the example the draft was forked from.
+    if (tab.seedFromExampleName) {
+      tooltipSegments.push({ label: `from “${tab.seedFromExampleName}”`, kind: 'scratch' });
+    }
   }
   const tooltipTitle =
     tooltipSegments.length > 0 ? (

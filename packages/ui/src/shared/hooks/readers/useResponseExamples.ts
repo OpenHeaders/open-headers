@@ -33,6 +33,69 @@ export function useResponseExamples(workspaceId: string | null, requestUid: stri
   return examples;
 }
 
+const EMPTY_EXAMPLES: readonly ResponseExample[] = [];
+
+/**
+ * Every example in the workspace, live. Feeds workspace-wide
+ * projections (tab display labels) that resolve examples by uid.
+ */
+export function useAllResponseExamples(workspaceId: string | null): readonly ResponseExample[] {
+  const [examples, setExamples] = useState<readonly ResponseExample[]>(EMPTY_EXAMPLES);
+  useEffect(() => {
+    if (!workspaceId) {
+      setExamples(EMPTY_EXAMPLES);
+      return;
+    }
+    const mirror = getResponseExampleSyncMirrorForWorkspace(workspaceId);
+    let alive = true;
+    const refresh = () => {
+      if (alive) setExamples(mirror.listResponseExamples());
+    };
+    void mirror.hydrated.then(refresh);
+    const unsubscribe = mirror.subscribeAny(refresh);
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, [workspaceId]);
+  return examples;
+}
+
+/**
+ * One example by uid, live. `hydrated` distinguishes "still loading the
+ * snapshot" from "the example is gone" so the viewer tab can show a
+ * loading state before falling to its not-found empty state (same
+ * contract as the request editor's summary lookup).
+ */
+export function useResponseExample(
+  workspaceId: string | null,
+  exampleUid: string | null,
+): { example: ResponseExample | null; hydrated: boolean } {
+  const [state, setState] = useState<{ example: ResponseExample | null; hydrated: boolean }>({
+    example: null,
+    hydrated: false,
+  });
+  useEffect(() => {
+    if (!workspaceId || !exampleUid) {
+      setState({ example: null, hydrated: true });
+      return;
+    }
+    const mirror = getResponseExampleSyncMirrorForWorkspace(workspaceId);
+    let alive = true;
+    const refresh = () => {
+      if (!alive) return;
+      setState({ example: mirror.getResponseExampleMirror(exampleUid)?.responseExample ?? null, hydrated: true });
+    };
+    void mirror.hydrated.then(refresh);
+    const unsubscribe = mirror.subscribeResponseExampleMirror(exampleUid, refresh);
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, [workspaceId, exampleUid]);
+  return state;
+}
+
 const EMPTY_BY_REQUEST: ReadonlyMap<string, ResponseExample[]> = new Map();
 
 /**

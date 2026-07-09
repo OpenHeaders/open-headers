@@ -126,6 +126,25 @@ export function tabIcon(
     tab.mode === 'template-collection-vars'
   )
     return scopeBadge('collection');
+  if (tab.mode === 'response-example') {
+    // Frozen-example marker — same "e.g." vocabulary as the sidebar's
+    // example rows, tertiary-tinted because examples are records, not
+    // runnable requests.
+    return (
+      <span
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color: TAB_ICON_GRAY,
+          fontFamily: "'SF Mono', monospace",
+          minWidth: options?.compact ? undefined : 36,
+          display: 'inline-block',
+        }}
+      >
+        e.g.
+      </span>
+    );
+  }
   if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
     // Request tabs carry the HTTP method as their "icon" — compact
     // color-coded marker readable at tab-strip density.

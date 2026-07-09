@@ -28,6 +28,7 @@ export type RequestOpeners = Pick<
   | 'openRequestEditTab'
   | 'openCreateRequestTab'
   | 'openDuplicateRequestScratch'
+  | 'openResponseExampleTab'
 >;
 
 export function useRequestOpeners(
@@ -159,7 +160,10 @@ export function useRequestOpeners(
   );
 
   const openDuplicateRequestScratch = useCallback(
-    (content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>, opts?: { pinnedEnvId?: string | null }) => {
+    (
+      content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>,
+      opts?: { pinnedEnvId?: string | null; fromExampleName?: string },
+    ) => {
       const tabId = `req-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       addTab({
         id: tabId,
@@ -173,9 +177,33 @@ export function useRequestOpeners(
         // Duplicate carries the source tab's env pin — the prod/staging
         // duplicate flow pins each copy to its own environment.
         pinnedEnvId: opts?.pinnedEnvId,
+        // "Try" forks from a frozen example — chrome-only provenance.
+        seedFromExampleName: opts?.fromExampleName,
       });
     },
     [addTab],
+  );
+
+  const openResponseExampleTab = useCallback(
+    (uid: string, name: string, requestUid: string) => {
+      // Matches the sidebar example-node id so the active tab drives
+      // the row highlight without extra selection plumbing.
+      const id = `resp-example-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        ruleType: '',
+        dirty: false,
+        mode: 'response-example',
+        responseExampleUid: uid,
+        requestUid,
+      });
+    },
+    [allTabs, addTab, switchTab],
   );
 
   return {
@@ -185,5 +213,6 @@ export function useRequestOpeners(
     openRequestEditTab,
     openCreateRequestTab,
     openDuplicateRequestScratch,
+    openResponseExampleTab,
   };
 }

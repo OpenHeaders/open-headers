@@ -73,6 +73,7 @@ interface WorkbenchToolWindowProps {
   openCreateLiveWorkflow: UseTabOpenersApi['openCreateLiveWorkflow'];
   openRequestEditTab: UseTabOpenersApi['openRequestEditTab'];
   openCreateRequestTab: UseTabOpenersApi['openCreateRequestTab'];
+  openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
   openRunReport: UseTabOpenersApi['openRunReport'];
 
@@ -130,6 +131,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openCreateLiveWorkflow,
   openRequestEditTab,
   openCreateRequestTab,
+  openResponseExampleTab,
   openLiveVariableEdit,
   openRunReport,
   handleDeleteRule,
@@ -183,6 +185,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onCreateWorkflow={(seedStep) => openCreateLiveWorkflow(seedStep ? { seedStep } : undefined)}
           onSelectRequest={openRequestEditTab}
           onCreateRequest={openCreateRequestTab}
+          onSelectResponseExample={openResponseExampleTab}
           onImportCurl={(ctx) => importExportRef.current?.openImportCurl(ctx)}
           onImportHar={(ctx) => importExportRef.current?.openImportHar(ctx)}
           onImportPostman={() => importExportRef.current?.openImportPostman()}

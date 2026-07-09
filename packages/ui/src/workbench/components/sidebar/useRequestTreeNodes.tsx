@@ -51,6 +51,8 @@ interface UseRequestTreeNodesParams {
   deleteRequestCollectionRpc: (uid: string) => Promise<unknown> | unknown;
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
+  /** Open a saved response example in its read-only viewer tab. */
+  onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   onExportEntity?: (entity: SidebarExportEntity) => void;
   /** Open the request-collection variables editor tab. */
   onOpenCollectionVariables?: (uid: string, name: string) => void;
@@ -217,6 +219,9 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                 canRename: true,
                 canDelete: true,
                 canAddChild: false,
+                onOpen: () => {
+                  p.onSelectResponseExample?.(example.uid, example.name, example.requestUid);
+                },
                 onRename: async (name: string) => {
                   void p.renameResponseExample(example.uid, name);
                 },
@@ -250,6 +255,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.confirmDelete,
       p.onSelectRequest,
       p.onCreateRequest,
+      p.onSelectResponseExample,
       p.dirtyRequestUids,
       p.scriptsReviewPendingUids,
       p.responseExamplesByRequest,
