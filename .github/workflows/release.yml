@@ -19,6 +19,9 @@ jobs:
     if: ${{ !contains(github.ref_name, '-ext') }}
     runs-on: ${{ matrix.os }}
     strategy:
+      # One OS leg failing must not cancel the others — the release job
+      # publishes whatever legs produced artifacts.
+      fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
 
@@ -261,7 +264,9 @@ jobs:
             apps/desktop/dist/install-open-headers.sh
 
   build-extension:
-    if: ${{ !contains(github.ref_name, '-ext') }}
+    # Public-repo releases only: the desktop release loop on a private
+    # mirror doesn't need extension zips (the store owns distribution).
+    if: ${{ !contains(github.ref_name, '-ext') && github.repository == 'OpenHeaders/open-headers-app' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -331,7 +336,10 @@ jobs:
             apps/extension/releases/EXT_VERSION.txt
 
   release:
-    if: ${{ !contains(github.ref_name, '-ext') }}
+    # Runs as long as the workflow wasn't cancelled — a failed OS leg or
+    # a skipped extension job still yields a release from the legs that
+    # produced artifacts.
+    if: ${{ !contains(github.ref_name, '-ext') && !cancelled() && needs.build-desktop.result != 'cancelled' }}
     needs: [build-desktop, build-extension]
     runs-on: ubuntu-latest
 
@@ -357,6 +365,7 @@ jobs:
 
       - name: Read extension version
         id: ext_ver
+        if: needs.build-extension.result == 'success'
         run: |
           EXT_VERSION=$(cat dist/extension-packages/EXT_VERSION.txt)
           echo "version=$EXT_VERSION" >> $GITHUB_OUTPUT
@@ -431,14 +440,19 @@ jobs:
             echo "- [Fedora/RHEL x64](${DL}/open-headers-${VERSION}.x86_64.rpm)"
             echo "- [Fedora/RHEL ARM64](${DL}/open-headers-${VERSION}.aarch64.rpm)"
             echo "- [Install Script](${DL}/install-open-headers.sh)"
-            echo ""
-            echo "## Browser Extension (v${EXT_VERSION})"
-            echo ""
-            echo "- [Chrome](${DL}/open-headers-chrome-v${EXT_VERSION}.zip)"
-            echo "- [Firefox](${DL}/open-headers-firefox-v${EXT_VERSION}.zip)"
-            echo "- [Edge](${DL}/open-headers-edge-v${EXT_VERSION}.zip)"
-            echo "- [Safari](${DL}/open-headers-safari-v${EXT_VERSION}.zip)"
           } >> release_body.md
+
+          if [ -n "$EXT_VERSION" ]; then
+            {
+              echo ""
+              echo "## Browser Extension (v${EXT_VERSION})"
+              echo ""
+              echo "- [Chrome](${DL}/open-headers-chrome-v${EXT_VERSION}.zip)"
+              echo "- [Firefox](${DL}/open-headers-firefox-v${EXT_VERSION}.zip)"
+              echo "- [Edge](${DL}/open-headers-edge-v${EXT_VERSION}.zip)"
+              echo "- [Safari](${DL}/open-headers-safari-v${EXT_VERSION}.zip)"
+            } >> release_body.md
+          fi
 
       # Artifacts + the electron-updater feed files (latest*.yml) land on
       # the public releases repo — the app's update check stays anonymous
@@ -462,7 +476,7 @@ jobs:
       # repo — it must never fire from a private/mirror build of this
       # workflow.
       - name: Generate extension release body
-        if: github.repository == 'OpenHeaders/open-headers-app'
+        if: github.repository == 'OpenHeaders/open-headers-app' && needs.build-extension.result == 'success'
         run: |
           EXT_VERSION="${{ steps.ext_ver.outputs.version }}"
           IS_PRERELEASE="${{ steps.release_type.outputs.is_prerelease }}"
@@ -490,7 +504,7 @@ jobs:
           } >> ext_release_body.md
 
       - name: Publish extension to browser extension repo
-        if: github.repository == 'OpenHeaders/open-headers-app'
+        if: github.repository == 'OpenHeaders/open-headers-app' && needs.build-extension.result == 'success'
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.EXTENSION_REPO_PAT }}
