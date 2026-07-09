@@ -833,6 +833,12 @@
     center / contain no-repeat;
 }
 
+/* Hover wakes the mark up to its full brand colors — a quiet reward
+   that doubles as feedback on the otherwise-neutral button. */
+.dt-btn--oh:hover:not(:disabled)::before {
+  filter: none;
+}
+
 /* Plain dt-btn has no disabled treatment — keep the one these buttons
    had as primaries (the row Override CTA disables on protected headers). */
 .dt-btn--oh:disabled {
