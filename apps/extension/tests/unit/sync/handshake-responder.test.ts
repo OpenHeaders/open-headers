@@ -13,7 +13,7 @@
  * main and the future daemon depend on.
  */
 import { SYNC_MUTATION_TYPE, SYNC_SNAPSHOT_TYPE, SYNC_SYNCED_TYPE } from '@openheaders/core/protocol';
-import { type MutatorContext, type StateVector } from '@openheaders/core/sync';
+import type { MutatorContext, StateVector } from '@openheaders/core/sync';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -97,11 +97,11 @@ describe('respondToStateVector — delta path', () => {
     );
 
     expect(result.sentSnapshot).toBe(false);
-    expect(result.deltasSent).toBe(2);
+    expect(result.deltasSent).toBe(r1.mutations.length + r2.mutations.length);
     expect(result.syncedSent).toBe(true);
 
     const types = frames.map((f) => (f as { type: string }).type);
-    expect(types).toEqual([SYNC_MUTATION_TYPE, SYNC_MUTATION_TYPE, SYNC_SYNCED_TYPE]);
+    expect(types).toEqual([...frames.slice(0, -1).map(() => SYNC_MUTATION_TYPE), SYNC_SYNCED_TYPE]);
   });
 
   it('emits only SYNCED when the peer is already caught up', async () => {

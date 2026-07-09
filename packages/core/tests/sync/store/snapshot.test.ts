@@ -9,11 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryDocumentStore, type MutationEnvelope, newMutationId } from '../../../src/sync';
 
-const env = (
-  body: MutationEnvelope['body'],
-  ms: number,
-  mutationId = newMutationId(),
-): MutationEnvelope => ({
+const env = (body: MutationEnvelope['body'], ms: number, mutationId = newMutationId()): MutationEnvelope => ({
   mutationId,
   hlc: { physicalMs: ms, logical: 0, nodeId: 'n0' },
   origin: { surfaceId: 's', deviceId: 'd' },
@@ -26,7 +22,9 @@ const env = (
 describe('document store snapshot / restore', () => {
   it('snapshot is a deep copy — mutating the original does not bleed into the snapshot', () => {
     const store = new InMemoryDocumentStore();
-    store.apply(env({ kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'a' }, 1_000));
+    // Materialization is create-gated — entities exist observably only
+    // after their create applies.
+    store.apply(env({ kind: 'create', type: 'rule', id: 'r1', payload: { name: 'a' } }, 1_000));
     const snap = store.snapshot();
     store.apply(env({ kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'b' }, 2_000));
     expect((store.materializeAll()[0].data as { name: string }).name).toBe('b');
@@ -49,9 +47,9 @@ describe('document store snapshot / restore', () => {
 
   it('restore wipes new entities created after the snapshot', () => {
     const store = new InMemoryDocumentStore();
-    store.apply(env({ kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'a' }, 1_000));
+    store.apply(env({ kind: 'create', type: 'rule', id: 'r1', payload: { name: 'a' } }, 1_000));
     const snap = store.snapshot();
-    store.apply(env({ kind: 'setField', type: 'rule', id: 'r2', path: 'name', value: 'b' }, 2_000));
+    store.apply(env({ kind: 'create', type: 'rule', id: 'r2', payload: { name: 'b' } }, 2_000));
     expect(store.materializeAll()).toHaveLength(2);
     store.restore(snap);
     expect(store.materializeAll()).toHaveLength(1);

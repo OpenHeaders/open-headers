@@ -53,12 +53,21 @@ import type { EntityType } from '../envelope';
  * resolver receives the entity's field-value-only partial materialized
  * data so it can branch on the discriminant.
  */
-export type SetPathsResolver =
-  | readonly string[]
-  | ((partial: unknown) => readonly string[]);
+export type SetPathsResolver = readonly string[] | ((partial: unknown) => readonly string[]);
 
 export interface EntitySchema {
   readonly setPaths: SetPathsResolver;
+  /**
+   * Singletons with a well-known id (vault, layout-state, the
+   * workspace-list) exist a priori — their empty state is meaningful
+   * and mutations may legitimately arrive before any `create` (e.g.
+   * re-entering a secret over an undecryptable vault baseline). Set
+   * this to keep them observable without a create. Flat entities,
+   * whose identity and required scalars are minted AT create, must
+   * leave it unset so a mutation replayed ahead of its create can't
+   * materialize a half-shaped entity.
+   */
+  readonly observableWithoutCreate?: boolean;
 }
 
 /**

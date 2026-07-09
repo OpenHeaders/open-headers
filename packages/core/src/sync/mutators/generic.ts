@@ -13,6 +13,7 @@
  */
 
 import type { MutationEnvelope } from '../envelope';
+import { compareHlc } from '../hlc';
 import { seedKey } from '../order';
 import { flattenToLeaves } from './flatten';
 import {
@@ -40,6 +41,11 @@ export function applyMutation(
 
   switch (body.kind) {
     case 'create': {
+      // Record the earliest create so materialization can gate on it —
+      // even when every leaf is superseded, the entity IS created.
+      if (!state.createHlc || compareHlc(hlc, state.createHlc) < 0) {
+        state.createHlc = hlc;
+      }
       const leaves = flattenToLeaves(body.payload);
       let any = false;
       for (const { path, value } of leaves) {

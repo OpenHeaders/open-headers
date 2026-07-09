@@ -30,8 +30,10 @@
  */
 
 import {
+  compareHlc,
   type EntitySchemaRegistry,
   type FieldOrigin,
+  type HLC,
   InMemoryDocumentStore,
   type MutationBatch,
   type MutationEnvelope,
@@ -72,6 +74,16 @@ export interface OracleConfig {
    *  empty set-modeled paths to `[]`. Optional; absent registry keeps
    *  the legacy "untouched paths are absent" shape. */
   schemas?: EntitySchemaRegistry;
+  /**
+   * Fired with the batch's highest HLC after every successful commit.
+   * Wired to the owning sequencer's `observe()` at construction so the
+   * NEXT local mint strictly exceeds every envelope of a
+   * multi-envelope batch — `mintBatch` ticks each envelope's logical
+   * component past the context's base HLC, and without this fold a
+   * same-millisecond follow-up mint could collide with a ticked
+   * envelope and lose the LWW compare it should win.
+   */
+  onBatchApplied?: (maxHlc: HLC) => void;
 }
 
 export class EntityOracle {
@@ -167,6 +179,13 @@ export class EntityOracle {
 
     for (const { envelope, outcome } of outcomes) {
       this.cfg.broadcast.publish({ envelope, outcome, batchId: batch.batchId, applyOrigin });
+    }
+    if (this.cfg.onBatchApplied) {
+      let max: HLC | null = null;
+      for (const env of batch.mutations) {
+        if (!max || compareHlc(env.hlc, max) > 0) max = env.hlc;
+      }
+      if (max) this.cfg.onBatchApplied(max);
     }
     return { ok: true, outcomes };
   }

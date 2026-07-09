@@ -63,6 +63,9 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
     intents: deps.intents,
     broadcast,
     schemas: buildSchemaRegistry(WORKSPACE_REGISTRY),
+    // Fold every committed batch's max HLC into the sequencer so the
+    // next mint strictly exceeds the batch's ticked envelopes.
+    onBatchApplied: (hlc) => context.observe(hlc),
   });
 
   // Build caches via the registry's createCache. Each cache is owned

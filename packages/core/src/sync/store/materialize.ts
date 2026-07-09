@@ -53,6 +53,13 @@ export interface MaterializedEntity {
 
 export function materializeEntity(state: EntityState, schema?: EntitySchema): MaterializedEntity | null {
   if (state.tombstone) return null;
+  // Unobservable until created: the store mints implicit state for any
+  // mutation kind, so a non-create replayed ahead of its entity's
+  // `create` (a peer's log interleaving) would otherwise materialize a
+  // half-shaped entity into every projection. The state converges the
+  // moment the create lands. Well-known singletons opt out — their
+  // empty state exists a priori (see EntitySchema.observableWithoutCreate).
+  if (!state.createHlc && !schema?.observableWithoutCreate) return null;
 
   const fieldLeaves: Leaf[] = [];
   const fieldOrigins: Record<string, FieldOrigin> = {};

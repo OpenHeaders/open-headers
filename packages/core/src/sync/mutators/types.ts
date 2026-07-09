@@ -70,6 +70,15 @@ export interface EntityState {
   /** Tombstone HLC if this entity has been deleted. Permanent under v1 (§7.2). */
   tombstone: HLC | null;
   /**
+   * HLC of the earliest applied `create`, or null while none has
+   * applied. Gates observability: the store mints implicit state for
+   * any mutation kind (a non-create can replay ahead of its batch's
+   * `create`), and `materializeEntity` keeps such states invisible
+   * until the create lands. "Any create applied" is a set-OR, so the
+   * gate is order-independent and convergence is unaffected.
+   */
+  createHlc: HLC | null;
+  /**
    * Per-path field values; max-HLC-wins. Path is a dotted string (§7.3).
    *
    * `origin` records whether the last successful write at this path

@@ -7,21 +7,29 @@
  */
 
 import { addFileRef, type FileRefSlot, removeFileRef } from '@openheaders/core/sync';
-import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { createFilesCache } from '@openheaders/oracle/sync/caches/files-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
-const ctxFactory = () => ({
-  workspaceId: 'ws-1',
-  hlc: { physicalMs: Date.now(), logical: 0, nodeId: 'n0' },
-  surfaceId: 's',
-  deviceId: 'd',
-});
+// Strictly increasing per mint — production sequencers advance past
+// every applied envelope (mintBatch ticks the logical component per
+// envelope; the oracle's onBatchApplied observe covers the follow-up
+// mint), which a bare same-millisecond Date.now() can't reproduce.
+let mintClock = 0;
+const ctxFactory = () => {
+  mintClock += 1_000;
+  return {
+    workspaceId: 'ws-1',
+    hlc: { physicalMs: mintClock, logical: 0, nodeId: 'n0' },
+    surfaceId: 's',
+    deviceId: 'd',
+  };
+};
 
 const slot = (overrides: Partial<FileRefSlot> = {}): FileRefSlot => ({
   fileId: 'file:a',

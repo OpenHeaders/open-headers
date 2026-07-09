@@ -98,9 +98,26 @@ const cases: Array<{ label: string; payload: MutatorIntent }> = [
   { label: 'rule.buildDeleteBatch', payload: buildDeleteBatch('rule-1', ctx()) },
   {
     label: 'rule.buildUpdateBatch',
-    payload: buildUpdateBatch('rule-1', 'header', { name: 'Renamed' }, ctx(), () => [], () => undefined),
+    payload: buildUpdateBatch(
+      'rule-1',
+      'header',
+      { name: 'Renamed' },
+      ctx(),
+      () => [],
+      () => undefined,
+    ),
   },
-  { label: 'rule.buildUpdateBatch (empty patch)', payload: buildUpdateBatch('rule-1', 'header', {}, ctx(), () => [], () => undefined) },
+  {
+    label: 'rule.buildUpdateBatch (empty patch)',
+    payload: buildUpdateBatch(
+      'rule-1',
+      'header',
+      {},
+      ctx(),
+      () => [],
+      () => undefined,
+    ),
+  },
   {
     label: 'env.buildAddEnvironmentBatch (no vars)',
     payload: buildAddEnvironmentBatch({ environment: environment([]) }, ctx()),
@@ -155,7 +172,14 @@ describe('sync-builders side effects — content', () => {
     for (const payload of [
       buildAddBatch(headerRule(), ctx()),
       buildDeleteBatch('rule-1', ctx()),
-      buildUpdateBatch('rule-1', 'header', { name: 'Renamed' }, ctx(), () => [], () => undefined),
+      buildUpdateBatch(
+        'rule-1',
+        'header',
+        { name: 'Renamed' },
+        ctx(),
+        () => [],
+        () => undefined,
+      ),
     ]) {
       expect(payload.sideEffects.length).toBeGreaterThan(0);
       for (const intent of payload.sideEffects) {
@@ -165,7 +189,14 @@ describe('sync-builders side effects — content', () => {
   });
 
   it('an empty rule update derives no side effect', () => {
-    const payload = buildUpdateBatch('rule-1', 'header', {}, ctx(), () => [], () => undefined);
+    const payload = buildUpdateBatch(
+      'rule-1',
+      'header',
+      {},
+      ctx(),
+      () => [],
+      () => undefined,
+    );
     expect(payload.batch.mutations).toEqual([]);
     expect(payload.sideEffects).toEqual([]);
   });
@@ -183,7 +214,9 @@ describe('sync-builders side effects — content', () => {
         { environment: environment([{ uid: 'v1', name: 'API', value: 'x', type: 'default' }]) },
         ctx(),
       ).sideEffects,
-    ).toEqual([{ kind: INVALIDATE_RESOLVER, key: 'env-1', hlc }]);
+      // The intent derives from the addToSet envelope — the second in
+      // the batch, so its HLC is ticked past the context's base.
+    ).toEqual([{ kind: INVALIDATE_RESOLVER, key: 'env-1', hlc: { ...hlc, logical: hlc.logical + 1 } }]);
   });
 
   it('every live-variable builder invalidates keyed by the LV uid', () => {
@@ -211,7 +244,13 @@ describe('sync-builders side effects — content', () => {
     ]) {
       expect(payload.sideEffects.length).toBeGreaterThan(0);
       for (const intent of payload.sideEffects) {
-        expect(intent).toEqual({ kind: INVALIDATE_RESOLVER, key: 'wf-1', hlc });
+        // Multi-envelope batches tick the logical component per
+        // envelope; the key + kind are the load-bearing content here.
+        expect(intent).toEqual({
+          kind: INVALIDATE_RESOLVER,
+          key: 'wf-1',
+          hlc: { ...hlc, logical: expect.any(Number) as number },
+        });
       }
     }
   });

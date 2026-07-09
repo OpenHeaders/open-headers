@@ -6,12 +6,19 @@
  * testable without IDB or chrome.runtime. R3.
  */
 
-import { addHeaderMod, newBatchId, type MutatorContext, toggleEnabled } from '@openheaders/core/sync';
-import { describe, expect, it } from 'vitest';
+import {
+  addHeaderMod,
+  type MutatorContext,
+  mintBatch,
+  newBatchId,
+  RULE_ENTITY_TYPE,
+  toggleEnabled,
+} from '@openheaders/core/sync';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { describe, expect, it } from 'vitest';
 
 const wsId = 'ws-1';
 
@@ -23,6 +30,12 @@ const ctx = (physicalMs: number, nodeId = 'node-a'): MutatorContext => ({
 });
 
 const sequentialLock: LockAcquirer = async (_ws, _type, _id, fn) => fn();
+
+/** Entities materialize only after their create — seed r1 first. */
+const createR1 = (ms: number) =>
+  mintBatch(ctx(ms, 'node-seed'), [
+    { kind: 'create', type: RULE_ENTITY_TYPE, id: 'r1', payload: { uid: 'r1', name: 'seeded', type: 'header' } },
+  ]);
 
 interface Harness {
   oracle: EntityOracle;
@@ -66,6 +79,7 @@ describe('EntityOracle.apply', () => {
 
   it('respects HLC LWW across two batches on the same field', async () => {
     const h = makeHarness();
+    await h.oracle.apply(createR1(500), []);
     const earlier = toggleEnabled(ctx(1_000, 'node-a'), { ruleUid: 'r1', enabled: false });
     const later = toggleEnabled(ctx(2_000, 'node-b'), { ruleUid: 'r1', enabled: true });
 
@@ -80,10 +94,16 @@ describe('EntityOracle.apply', () => {
 
   it('multi-mutation batch (addHeaderMod + toggleEnabled) commits as one unit', async () => {
     const h = makeHarness();
+    await h.oracle.apply(createR1(500), []);
     const sharedBatch = newBatchId();
     const headerIntent = addHeaderMod(
       { ...ctx(1_000), batchId: sharedBatch },
-      { ruleUid: 'r1', side: 'request', mod: { uid: 'thm00095', operation: 'override', headerName: 'X-A', value: '1' }, itemId: 'h-1' },
+      {
+        ruleUid: 'r1',
+        side: 'request',
+        mod: { uid: 'thm00095', operation: 'override', headerName: 'X-A', value: '1' },
+        itemId: 'h-1',
+      },
     );
     const toggleIntent = toggleEnabled({ ...ctx(1_001), batchId: sharedBatch }, { ruleUid: 'r1', enabled: true });
 
@@ -94,8 +114,8 @@ describe('EntityOracle.apply', () => {
 
     const result = await h.oracle.apply(headerIntent.batch, headerIntent.sideEffects);
     expect(result.ok).toBe(true);
-    expect(h.events).toHaveLength(2);
-    expect(h.events.every((e) => e.batchId === sharedBatch)).toBe(true);
+    const batchEvents = h.events.filter((e) => e.batchId === sharedBatch);
+    expect(batchEvents).toHaveLength(2);
 
     const snap = h.oracle.materializeAll();
     const data = snap[0].data as { enabled?: boolean; action?: { requestHeaders?: unknown[] } };
@@ -150,4 +170,3 @@ describe('EntityOracle.apply', () => {
     expect(h.events).toHaveLength(2);
   });
 });
-

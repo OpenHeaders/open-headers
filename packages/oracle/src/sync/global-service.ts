@@ -32,6 +32,7 @@ import { logger } from '@openheaders/core/utils';
 import { getOracleHostHooks } from '@openheaders/oracle/sync';
 import { wireBroadcastToSink } from './bridge';
 import { InMemoryBroadcast } from './broadcast';
+import { type ExtensionWorkspaceCache, setActiveExtensionWorkspaceCache } from './caches/extension-workspace-cache';
 import {
   buildCaches,
   buildProjectorPipeline,
@@ -42,7 +43,6 @@ import {
   GLOBAL_REGISTRY,
   singletonSnapshot,
 } from './entity-registry';
-import { type ExtensionWorkspaceCache, setActiveExtensionWorkspaceCache } from './caches/extension-workspace-cache';
 import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
 import { EntityOracle, type LockAcquirer } from './oracle';
@@ -206,6 +206,9 @@ function wire(deps: WireDeps): GlobalServiceState {
     intents: deps.intents,
     broadcast,
     schemas: buildSchemaRegistry(GLOBAL_REGISTRY),
+    // Fold every committed batch's max HLC into the sequencer so the
+    // next mint strictly exceeds the batch's ticked envelopes.
+    onBatchApplied: (hlc) => context.observe(hlc),
   });
   const caches = buildCaches(EXTENSION_WORKSPACE_GLOBAL_SCOPE, oracle, broadcast, context, GLOBAL_REGISTRY);
   // GLOBAL_REGISTRY only contains EXTENSION_WORKSPACE_REGISTRATION today;

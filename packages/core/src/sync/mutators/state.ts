@@ -18,6 +18,7 @@ export function newEntityState(type: EntityType, id: string): EntityState {
     type,
     id,
     tombstone: null,
+    createHlc: null,
     fieldValues: new Map(),
     fieldTombstones: new Map(),
     setItems: new Map(),
@@ -84,13 +85,7 @@ export function writeEntityTombstone(state: EntityState, hlc: HLC): boolean {
  * Used by both `moveBefore` (explicit) and `addToSet` (seed). Returns
  * true if the write applied.
  */
-export function writeSetOrderIfNewer(
-  state: EntityState,
-  path: string,
-  itemId: string,
-  key: string,
-  hlc: HLC,
-): boolean {
+export function writeSetOrderIfNewer(state: EntityState, path: string, itemId: string, key: string, hlc: HLC): boolean {
   let bucket = state.setOrder.get(path);
   if (!bucket) {
     bucket = new Map();

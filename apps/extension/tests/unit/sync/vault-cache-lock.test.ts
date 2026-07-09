@@ -12,10 +12,11 @@ import { setHostStorage, wsKeys } from '@openheaders/core/storage';
 import { setVaultSecret } from '@openheaders/core/sync';
 import type { Vault } from '@openheaders/core/types';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { createVaultCache } from '@openheaders/oracle/sync/caches/vault-cache';
+import { buildSchemaRegistry, VAULT_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { createVaultCache } from '@openheaders/oracle/sync/caches/vault-cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrowserSecretCipher } from '@/host/browser-secret-cipher';
 import { ExtensionStorage } from '@/host/extension-storage';
@@ -101,6 +102,10 @@ describe('VaultCache — undecryptable-baseline lock', () => {
       log: new InMemoryMutationLog(),
       intents: new InMemoryPendingIntents(),
       broadcast,
+      // Production-faithful: the vault singleton's schema keeps it
+      // observable without a create (the undecryptable-baseline
+      // recovery writes into a never-seeded oracle).
+      schemas: buildSchemaRegistry([VAULT_REGISTRATION]),
     });
   });
 

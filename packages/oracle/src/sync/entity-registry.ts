@@ -508,8 +508,16 @@ export const GLOBAL_REGISTRY: EntityRegistration[] = [EXTENSION_WORKSPACE_REGIST
 export function buildSchemaRegistry(registry: EntityRegistration[]): EntitySchemaRegistry {
   const out = new Map<string, EntitySchema>();
   for (const reg of registry) {
-    if (reg.setPaths !== undefined) {
-      out.set(reg.entityType, { setPaths: reg.setPaths });
+    // Singletons are observable without a create — their well-known
+    // identity exists a priori, and mutations may legitimately precede
+    // any create (e.g. a secret re-entered over an undecryptable vault
+    // baseline). Flat entities stay create-gated.
+    const observableWithoutCreate = reg.kind === 'singleton' || undefined;
+    if (reg.setPaths !== undefined || observableWithoutCreate) {
+      out.set(reg.entityType, {
+        setPaths: reg.setPaths ?? [],
+        ...(observableWithoutCreate ? { observableWithoutCreate } : {}),
+      });
     }
   }
   return out;

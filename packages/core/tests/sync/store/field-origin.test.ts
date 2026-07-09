@@ -9,11 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  InMemoryDocumentStore,
-  type MutationEnvelope,
-  newMutationId,
-} from '../../../src/sync';
+import { InMemoryDocumentStore, type MutationEnvelope, newMutationId } from '../../../src/sync';
 
 const env = (body: MutationEnvelope['body'], ms: number): MutationEnvelope => ({
   mutationId: newMutationId(),
@@ -53,6 +49,7 @@ describe('field origin tracking', () => {
 
   it('does not overwrite the origin when a stale setField (older HLC) drops', () => {
     const store = new InMemoryDocumentStore();
+    store.apply(env({ kind: 'create', type: 'rule', id: 'r1', payload: {} }, 100), 'inbound');
     store.apply(env({ kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'a' }, 2_000), 'local');
     // Stale write at lower HLC — `local` origin must survive.
     store.apply(env({ kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'b' }, 1_000), 'inbound');

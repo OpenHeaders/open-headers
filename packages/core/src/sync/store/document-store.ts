@@ -157,6 +157,7 @@ function cloneEntityState(state: EntityState): EntityState {
     type: state.type,
     id: state.id,
     tombstone: state.tombstone,
+    createHlc: state.createHlc,
     fieldValues: new Map(state.fieldValues),
     fieldTombstones: new Map(state.fieldTombstones),
     setItems: cloneNestedMap(state.setItems),

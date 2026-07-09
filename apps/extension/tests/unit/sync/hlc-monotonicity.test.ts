@@ -8,21 +8,22 @@
  * `observe()` after a successful apply.
  */
 
-import { type MutatorContext, compareHlc } from '@openheaders/core/sync';
+import { compareHlc, type MutatorContext } from '@openheaders/core/sync';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
-import {
-  __initSyncServiceForTests,
-  dispose as disposeSyncService,
-  getOrCreateWorkspaceService,
-  releaseWorkspaceService,
-} from '@openheaders/oracle/sync/service';
 import {
   __resetMutationStreamBridgeForTests,
   applyInboundMutationBatch,
   applyInboundMutationEnvelope,
 } from '@openheaders/oracle/sync';
+import {
+  __initSyncServiceForTests,
+  applySyncRequest,
+  dispose as disposeSyncService,
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
+} from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const wsId = 'ws-monotonic';
@@ -92,6 +93,24 @@ describe('C12: HLC monotonicity on inbound apply', () => {
     const localAfter = peekServiceHlc();
     // Must exceed the highest of the three (b at 2_000_000).
     expect(compareHlc(localAfter, b.hlc)).toBeGreaterThan(0);
+  });
+
+  it('advances the sequencer past a locally-minted multi-envelope batch', async () => {
+    // `mintBatch` ticks each envelope's logical component past the
+    // context's base HLC; without the post-apply observe, the NEXT
+    // same-millisecond mint could collide with a ticked envelope.
+    const svc = getOrCreateWorkspaceService(wsId);
+    try {
+      const batch = seedRule(makeRule(generateUid()), svc.context.next());
+      const last = batch.mutations[batch.mutations.length - 1]!;
+      expect(compareHlc(last.hlc, batch.mutations[0]!.hlc)).toBeGreaterThan(0);
+
+      await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [], applyOrigin: 'local' });
+
+      expect(compareHlc(svc.context.next().hlc, last.hlc)).toBeGreaterThan(0);
+    } finally {
+      releaseWorkspaceService(wsId);
+    }
   });
 
   it('does not regress the sequencer on a lower inbound HLC', async () => {

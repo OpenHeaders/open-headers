@@ -9,16 +9,16 @@
  */
 
 import { type MutatorContext, mintBatch, RULE_ENTITY_TYPE, type StateVector } from '@openheaders/core/sync';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { readWorkspaceDeltaStream, readWorkspaceStateVector } from '@openheaders/oracle/sync';
 import {
   __initSyncServiceForTests,
   applySyncRequest,
   dispose as disposeSyncService,
 } from '@openheaders/oracle/sync/service';
-import { readWorkspaceDeltaStream, readWorkspaceStateVector } from '@openheaders/oracle/sync';
-import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-delta';
@@ -65,9 +65,7 @@ describe('readWorkspaceDeltaStream', () => {
   it('yields nothing for an empty workspace regardless of peer vector', async () => {
     expect(await collect(readWorkspaceDeltaStream(wsId, {}))).toEqual([]);
     expect(
-      await collect(
-        readWorkspaceDeltaStream(wsId, { sw: { physicalMs: 100, logical: 0, nodeId: 'sw' } }),
-      ),
+      await collect(readWorkspaceDeltaStream(wsId, { sw: { physicalMs: 100, logical: 0, nodeId: 'sw' } })),
     ).toEqual([]);
   });
 
@@ -82,11 +80,13 @@ describe('readWorkspaceDeltaStream', () => {
     await applySyncRequest({ type: 'oh.sync.apply', batch: r2, sideEffects: [] });
     await applySyncRequest({ type: 'oh.sync.apply', batch: fromDesktop, sideEffects: [] });
 
-    // Peer has seen sw@1_000 only — should receive sw@2_000 + desktop-main@5_000.
-    const peer: StateVector = { sw: { physicalMs: 1_000, logical: 0, nodeId: 'sw' } };
+    // Peer has seen r1's whole batch only (its envelopes tick the
+    // logical component, so "seen" means the batch's LAST hlc) —
+    // should receive sw@2_000 + desktop-main@5_000.
+    const peer: StateVector = { sw: r1.mutations[r1.mutations.length - 1].hlc };
     const delta = await collect(readWorkspaceDeltaStream(wsId, peer));
     const physMs = delta.map((e) => e.hlc.physicalMs).sort((a, b) => a - b);
-    expect(physMs).toEqual([2_000, 5_000]);
+    expect(physMs).toEqual([...r2.mutations.map(() => 2_000), 5_000]);
   });
 
   it('round-trips through state vector → delta → caught up', async () => {

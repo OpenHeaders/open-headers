@@ -1,4 +1,4 @@
-export { advanceHlc, initialHlc } from './advance';
+export { advanceHlc, initialHlc, tickHlc } from './advance';
 export { createDefaultWallClock, createManualClock, type WallClock } from './clock';
 export { hlcToString, parseHlc } from './codec';
 export { compareHlc, equalHlc, maxHlc } from './compare';
