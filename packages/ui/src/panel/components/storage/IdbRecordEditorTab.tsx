@@ -19,6 +19,7 @@
 import { ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
 import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
+import { App } from 'antd';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IdbRecordInspectorTab } from '../../data/inspector-tab';
 import { clipConflictValue, useStorageDocConflicts } from '../../data/storage/doc-conflicts';
@@ -32,8 +33,11 @@ import { IdbPreviewTree } from './IdbPreviewTree';
 import { StorageDocSaveButton } from './StorageDocSaveButton';
 
 // Lazy like every other Monaco consumer — a static import here would
-// pull Monaco back into the panel's initial chunk.
+// pull Monaco back into the panel's initial chunk. The review dialog is
+// a file-path import for the same reason: the conflicts barrel pulls
+// the merge editor (and Monaco) transitively.
 const CodeViewer = lazy(() => import('../detail/CodeViewer'));
+const EntityConflictDialog = lazy(() => import('@openheaders/ui/shared/conflicts/EntityConflictDialog'));
 
 /** `gone` marks a canonical that vanished (or stopped being readable
  *  as before) under a dirty editor — the draft stays visible with an
@@ -73,6 +77,7 @@ export function IdbRecordEditorTab({
   registerSave,
   isActiveDocument,
 }: IdbRecordEditorTabProps) {
+  const { message } = App.useApp();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
   // The Source edit buffer; null ⇒ pristine (mirrors the document).
@@ -100,6 +105,7 @@ export function IdbRecordEditorTab({
     canonical: conflictCanonical,
   });
   const textConflict = conflicts.get('text') ?? null;
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const fetchDocument = useCallback(async () => {
     const host = getStorageInspectorHost();
@@ -226,6 +232,19 @@ export function IdbRecordEditorTab({
   const canPreview = doc !== null && (previewValue !== undefined || doc.preview !== undefined);
   const effectiveMode: ViewMode = mode === 'preview' && canPreview ? 'preview' : 'source';
 
+  // Merge commit: the merged text becomes the draft — the editor stays
+  // dirty and Save commits it to the record. Dismissing keeps the note
+  // quiet until the browser diverges again.
+  const handleResolveReview = useCallback(
+    (text: string) => {
+      setDraftText(text);
+      setSaveError(null);
+      dismissConflict('text');
+      message.success('Merge applied to the draft — Save writes it to the record');
+    },
+    [dismissConflict, message],
+  );
+
   const note =
     doc === null
       ? null
@@ -320,7 +339,23 @@ export function IdbRecordEditorTab({
             onTakeTheirs={() => setDraftText(null)}
             onKeepMine={() => dismissConflict('text')}
           />
+          <button type="button" className="dt-storagedoc-note-action" onClick={() => setReviewOpen(true)}>
+            Open merge view
+          </button>
         </div>
+      )}
+      {reviewOpen && textConflict !== null && (
+        <Suspense fallback={null}>
+          <EntityConflictDialog
+            open
+            savedText={textConflict.theirs}
+            mineText={sourceText}
+            baseText={textConflict.base}
+            language="json"
+            onResolveText={handleResolveReview}
+            onClose={() => setReviewOpen(false)}
+          />
+        </Suspense>
       )}
       {doc?.gone === true && (
         <div className="dt-storagedoc-note">

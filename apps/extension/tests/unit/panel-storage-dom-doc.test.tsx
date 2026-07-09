@@ -17,6 +17,7 @@ import { notifyDomStorageWrite } from '@openheaders/ui/panel/data/storage/dom-st
 import type { DomStorageFullValue, StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { App as AntApp } from 'antd';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The conflict chip's resolve popover rides antd Popover →
@@ -52,6 +53,47 @@ vi.mock('@openheaders/ui/panel/components/detail/CodeViewer', () => ({
       value={value}
       onChange={(e) => onChange?.(e.target.value)}
     />
+  ),
+}));
+
+// The review dialog is a Monaco 3-pane merge — out of scope in jsdom.
+// The mock exposes the three pane payloads and drives the same
+// onResolveText/onClose seam, so the editor's wiring (pane payloads,
+// commit funnel, dismissal) stays under test.
+vi.mock('@openheaders/ui/shared/conflicts/EntityConflictDialog', () => ({
+  default: ({
+    savedText,
+    mineText,
+    baseText,
+    language,
+    onResolveText,
+    onClose,
+  }: {
+    savedText: string;
+    mineText: string;
+    baseText?: string;
+    language?: string;
+    onResolveText: (text: string) => Promise<void> | void;
+    onClose: () => void;
+  }) => (
+    <div data-testid="merge-dialog" data-language={language}>
+      <pre data-testid="merge-saved">{savedText}</pre>
+      <pre data-testid="merge-mine">{mineText}</pre>
+      <pre data-testid="merge-base">{baseText ?? ''}</pre>
+      <textarea aria-label="Merge result" defaultValue={mineText} />
+      <button
+        type="button"
+        onClick={(e) => {
+          const result = e.currentTarget.parentElement?.querySelector('textarea')?.value ?? '';
+          void Promise.resolve(onResolveText(result)).then(onClose);
+        }}
+      >
+        Complete merge
+      </button>
+      <button type="button" onClick={onClose}>
+        Cancel merge
+      </button>
+    </div>
   ),
 }));
 
@@ -435,6 +477,66 @@ describe('DomStorageEntryEditorTab', () => {
     await waitFor(() => expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('theirs-2'));
     expect(screen.queryByTitle('External change available — click to resolve')).toBeNull();
     expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('Open merge view resolves a value conflict through the 3-pane dialog — the merged text becomes the draft', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValue({ value: 'theirs', tooLarge: false } as DomStorageFullValue | null);
+    installHost(read);
+    // The merge commit toasts via App.useApp() — the provider must exist.
+    render(
+      <AntApp>
+        <DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />
+      </AntApp>,
+    );
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'my-draft' } });
+    notifyDomStorageWrite();
+    await screen.findByText(/value changed in the browser/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open merge view' }));
+    await screen.findByTestId('merge-dialog');
+    // The panes carry the REAL values (base = seed-time baseline,
+    // mine = draft, saved = live canonical), never the clipped chips.
+    expect(screen.getByTestId('merge-base').textContent).toBe('dark');
+    expect(screen.getByTestId('merge-mine').textContent).toBe('my-draft');
+    expect(screen.getByTestId('merge-saved').textContent).toBe('theirs');
+
+    fireEvent.change(screen.getByLabelText('Merge result'), { target: { value: 'merged-by-hand' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Complete merge' }));
+
+    await waitFor(() => expect(screen.queryByTestId('merge-dialog')).toBeNull());
+    expect(await screen.findByText(/Merge applied to the draft/)).toBeTruthy();
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('merged-by-hand');
+    // The merge lands in the DRAFT — Save still commits to the browser —
+    // and the conflict is dismissed until the next divergence.
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByText(/value changed in the browser/)).toBeNull();
+  });
+
+  it('cancelling the merge dialog is inert — the draft and the conflict note stay', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValue({ value: 'theirs', tooLarge: false } as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'my-draft' } });
+    notifyDomStorageWrite();
+    await screen.findByText(/value changed in the browser/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open merge view' }));
+    await screen.findByTestId('merge-dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel merge' }));
+
+    expect(screen.queryByTestId('merge-dialog')).toBeNull();
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('my-draft');
+    expect(screen.getByText(/value changed in the browser/)).toBeTruthy();
   });
 
   it('a convergent edit (draft equals the new live value) never chips', async () => {

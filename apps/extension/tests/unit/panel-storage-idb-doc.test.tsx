@@ -14,6 +14,7 @@ import { buildIdbRecordTab } from '@openheaders/ui/panel/data/inspector-tab';
 import type { IdbRecordDocument, StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { App as AntApp } from 'antd';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The conflict chip's resolve popover rides antd Popover →
@@ -49,6 +50,47 @@ vi.mock('@openheaders/ui/panel/components/detail/CodeViewer', () => ({
       value={value}
       onChange={(e) => onChange?.(e.target.value)}
     />
+  ),
+}));
+
+// The review dialog is a Monaco 3-pane merge — out of scope in jsdom.
+// The mock exposes the three pane payloads and drives the same
+// onResolveText/onClose seam, so the editor's wiring (pane payloads,
+// commit funnel, dismissal) stays under test.
+vi.mock('@openheaders/ui/shared/conflicts/EntityConflictDialog', () => ({
+  default: ({
+    savedText,
+    mineText,
+    baseText,
+    language,
+    onResolveText,
+    onClose,
+  }: {
+    savedText: string;
+    mineText: string;
+    baseText?: string;
+    language?: string;
+    onResolveText: (text: string) => Promise<void> | void;
+    onClose: () => void;
+  }) => (
+    <div data-testid="merge-dialog" data-language={language}>
+      <pre data-testid="merge-saved">{savedText}</pre>
+      <pre data-testid="merge-mine">{mineText}</pre>
+      <pre data-testid="merge-base">{baseText ?? ''}</pre>
+      <textarea aria-label="Merge result" defaultValue={mineText} />
+      <button
+        type="button"
+        onClick={(e) => {
+          const result = e.currentTarget.parentElement?.querySelector('textarea')?.value ?? '';
+          void Promise.resolve(onResolveText(result)).then(onClose);
+        }}
+      >
+        Complete merge
+      </button>
+      <button type="button" onClick={onClose}>
+        Cancel merge
+      </button>
+    </div>
   ),
 }));
 
@@ -496,6 +538,77 @@ describe('IdbRecordEditorTab', () => {
     await waitFor(() => expect(read).toHaveBeenCalledTimes(3));
     expect(screen.queryByTitle('External change available — click to resolve')).toBeNull();
     expect(viewer.value).toBe('{\n  "seq": 5\n}');
+  });
+
+  it('Open merge view resolves a record conflict through the 3-pane dialog — the merged text becomes the draft', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '{\n  "seq": 1\n}', editable: true })
+      .mockResolvedValue({ text: '{\n  "seq": 9\n}', editable: true } as IdbRecordDocument | null);
+    const captured: { invalidate: (() => void) | null } = { invalidate: null };
+    installHost(read, undefined, (_tabId, _kind, listener) => {
+      captured.invalidate = listener;
+      return () => {};
+    });
+    // The merge commit toasts via App.useApp() — the provider must exist.
+    render(
+      <AntApp>
+        <IdbRecordEditorTab tab={TAB} onRevealInStorage={vi.fn()} />
+      </AntApp>,
+    );
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: '{\n  "seq": 5\n}' } });
+    await waitFor(() => expect(captured.invalidate).not.toBeNull());
+    captured.invalidate?.();
+    await screen.findByText(/record changed in the browser/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open merge view' }));
+    const dialog = await screen.findByTestId('merge-dialog');
+    expect(dialog.getAttribute('data-language')).toBe('json');
+    // The panes carry the REAL texts (base = seed-time baseline,
+    // mine = draft, saved = live canonical), never the clipped chips.
+    expect(screen.getByTestId('merge-base').textContent).toBe('{\n  "seq": 1\n}');
+    expect(screen.getByTestId('merge-mine').textContent).toBe('{\n  "seq": 5\n}');
+    expect(screen.getByTestId('merge-saved').textContent).toBe('{\n  "seq": 9\n}');
+
+    fireEvent.change(screen.getByLabelText('Merge result'), { target: { value: '{\n  "seq": 14\n}' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Complete merge' }));
+
+    await waitFor(() => expect(screen.queryByTestId('merge-dialog')).toBeNull());
+    expect(await screen.findByText(/Merge applied to the draft/)).toBeTruthy();
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('{\n  "seq": 14\n}');
+    // The merge lands in the DRAFT — Save still commits to the record —
+    // and the conflict is dismissed until the next divergence.
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByText(/record changed in the browser/)).toBeNull();
+  });
+
+  it('cancelling the merge dialog is inert — the draft and the conflict note stay', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '{\n  "seq": 1\n}', editable: true })
+      .mockResolvedValue({ text: '{\n  "seq": 9\n}', editable: true } as IdbRecordDocument | null);
+    const captured: { invalidate: (() => void) | null } = { invalidate: null };
+    installHost(read, undefined, (_tabId, _kind, listener) => {
+      captured.invalidate = listener;
+      return () => {};
+    });
+    render(<IdbRecordEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: '{\n  "seq": 5\n}' } });
+    await waitFor(() => expect(captured.invalidate).not.toBeNull());
+    captured.invalidate?.();
+    await screen.findByText(/record changed in the browser/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open merge view' }));
+    await screen.findByTestId('merge-dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel merge' }));
+
+    expect(screen.queryByTestId('merge-dialog')).toBeNull();
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('{\n  "seq": 5\n}');
+    expect(screen.getByText(/record changed in the browser/)).toBeTruthy();
   });
 
   it('deleted-under-you: Discard my edits drops the draft to the honest empty state', async () => {

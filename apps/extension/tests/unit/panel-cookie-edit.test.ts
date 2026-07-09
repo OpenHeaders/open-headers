@@ -4,6 +4,7 @@ import {
   deleteKeyForRow,
   editCanonicalForRow,
   editFormConflictProjection,
+  editFormFromConflictText,
   editFormsEqual,
   emptyEditForm,
   formToEdit,
@@ -380,5 +381,60 @@ describe('applyConflictFieldFromCanonical', () => {
     const toSession = applyConflictFieldFromCanonical(dated, 'expires', form);
     expect(toSession.session).toBe(true);
     expect(toSession.expirationDate).toBeUndefined();
+  });
+});
+
+describe('editFormFromConflictText (merge-dialog parse-back)', () => {
+  const form: CookieEditFormValues = {
+    ...emptyEditForm({ domain: 'openheaders.io' }),
+    name: 'sid',
+    value: 'my-draft',
+    partitionKey: 'https://openheaders.io',
+    storeId: '1',
+  };
+
+  function textOf(values: CookieEditFormValues): string {
+    return JSON.stringify(editFormConflictProjection(values), null, 2);
+  }
+
+  it('round-trips its own projection, session and dated', () => {
+    expect(editFormFromConflictText(form, textOf(form))).toEqual(form);
+    const dated = { ...form, session: false, expirationDate: 4102444800 };
+    expect(editFormFromConflictText(form, textOf(dated))).toEqual(dated);
+  });
+
+  it('parses the display vocabulary back to typed fields', () => {
+    const merged = editFormFromConflictText(
+      form,
+      textOf({ ...form, value: 'theirs', httpOnly: true, secure: false, sameSite: 'strict' }),
+    );
+    expect(merged.value).toBe('theirs');
+    expect(merged.httpOnly).toBe(true);
+    expect(merged.secure).toBe(false);
+    expect(merged.sameSite).toBe('strict');
+  });
+
+  it('a Session expires drops a stale expirationDate', () => {
+    const dated = { ...form, session: false, expirationDate: 4102444800 };
+    const merged = editFormFromConflictText(dated, textOf(form));
+    expect(merged.session).toBe(true);
+    expect(merged.expirationDate).toBeUndefined();
+  });
+
+  it('carries non-projected fields (partitionKey, storeId) from the form', () => {
+    const merged = editFormFromConflictText(form, textOf({ ...form, value: 'theirs' }));
+    expect(merged.partitionKey).toBe('https://openheaders.io');
+    expect(merged.storeId).toBe('1');
+  });
+
+  it('throws honest messages on malformed input', () => {
+    expect(() => editFormFromConflictText(form, 'not json')).toThrow(/valid JSON/);
+    expect(() => editFormFromConflictText(form, '[]')).toThrow(/JSON object/);
+    const proj = editFormConflictProjection(form) as Record<string, string>;
+    const { name: _dropped, ...missing } = proj;
+    expect(() => editFormFromConflictText(form, JSON.stringify(missing))).toThrow(/"name"/);
+    expect(() => editFormFromConflictText(form, JSON.stringify({ ...proj, httpOnly: 'yes' }))).toThrow(/"On" or "Off"/);
+    expect(() => editFormFromConflictText(form, JSON.stringify({ ...proj, sameSite: 'Laxish' }))).toThrow(/sameSite/);
+    expect(() => editFormFromConflictText(form, JSON.stringify({ ...proj, expires: 'someday' }))).toThrow(/expires/);
   });
 });

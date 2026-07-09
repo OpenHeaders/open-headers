@@ -1,0 +1,42 @@
+/* Modal body column — height clamps to the viewport so the whole
+ * modal always fits (devtools panels can be a few hundred px tall);
+ * when the clamp wins, the column scrolls INSIDE the modal. ~220px
+ * covers the modal chrome (title, paddings, footer) plus breathing
+ * room around a centered modal.
+ *
+ * The scrollbar is styled explicitly: `overflow-y: scroll` plus a
+ * styled `::-webkit-scrollbar` opts out of the platform's auto-hiding
+ * overlay bar (same rationale as the panel's `.dt-scrollbar`), and the
+ * negative right margin tucks the bar into the modal body's padding so
+ * it hugs the modal edge instead of overlapping the toolbar's last
+ * controls. No `scrollbar-width` here — Chromium ignores the webkit
+ * pseudo styling (and reverts to the auto-hiding overlay bar) when the
+ * standard property is set. */
+.oh-merge__modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: min(calc(85vh - 120px), calc(100vh - 220px));
+  min-height: min(480px, calc(100vh - 220px));
+  overflow-y: scroll;
+  overflow-x: hidden;
+  margin-right: -18px;
+  padding-right: 12px;
+}
+
+.oh-merge__modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.oh-merge__modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.oh-merge__modal-body::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.55);
+  border-radius: 3px;
+}
+
+.oh-merge__modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.75);
+}

@@ -19,6 +19,7 @@
 import { ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
 import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
+import { App } from 'antd';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type DomStorageEntryInspectorTab, domStorageAreaName } from '../../data/inspector-tab';
 import { clipConflictValue, useStorageDocConflicts } from '../../data/storage/doc-conflicts';
@@ -32,8 +33,11 @@ import { ArmedIconButton } from './ArmedIconButton';
 import { StorageDocSaveButton } from './StorageDocSaveButton';
 
 // Lazy like every other Monaco consumer — a static import here would
-// pull Monaco back into the panel's initial chunk.
+// pull Monaco back into the panel's initial chunk. The review dialog is
+// a file-path import for the same reason: the conflicts barrel pulls
+// the merge editor (and Monaco) transitively.
 const CodeViewer = lazy(() => import('../detail/CodeViewer'));
+const EntityConflictDialog = lazy(() => import('@openheaders/ui/shared/conflicts/EntityConflictDialog'));
 
 interface EntryDocument {
   value: string;
@@ -82,6 +86,7 @@ export function DomStorageEntryEditorTab({
   registerSave,
   isActiveDocument,
 }: DomStorageEntryEditorTabProps) {
+  const { message } = App.useApp();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
   // Edit buffers; null ⇒ pristine (mirrors the document).
@@ -111,6 +116,7 @@ export function DomStorageEntryEditorTab({
     canonical: conflictCanonical,
   });
   const valueConflict = conflicts.get('value') ?? null;
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const fetchDocument = useCallback(async () => {
     const host = getStorageInspectorHost();
@@ -261,6 +267,19 @@ export function DomStorageEntryEditorTab({
     }
   }, [doc]);
 
+  // Merge commit: the merged text becomes the value draft — the editor
+  // stays dirty and Save commits it to the browser. Dismissing keeps
+  // the note quiet until the browser diverges again.
+  const handleResolveReview = useCallback(
+    (text: string) => {
+      setValueDraft(text);
+      setSaveError(null);
+      dismissConflict('value');
+      message.success('Merge applied to the draft — Save writes it to the browser');
+    },
+    [dismissConflict, message],
+  );
+
   const errorNote = saveError === null ? null : SAVE_FAILURE_NOTES[saveError];
   const crumbTitle = `${domStorageAreaName(area)} › ${entryKey}`;
 
@@ -363,7 +382,23 @@ export function DomStorageEntryEditorTab({
             onTakeTheirs={() => setValueDraft(null)}
             onKeepMine={() => dismissConflict('value')}
           />
+          <button type="button" className="dt-storagedoc-note-action" onClick={() => setReviewOpen(true)}>
+            Open merge view
+          </button>
         </div>
+      )}
+      {reviewOpen && valueConflict !== null && (
+        <Suspense fallback={null}>
+          <EntityConflictDialog
+            open
+            savedText={valueConflict.theirs}
+            mineText={sourceText}
+            baseText={valueConflict.base}
+            language={language}
+            onResolveText={handleResolveReview}
+            onClose={() => setReviewOpen(false)}
+          />
+        </Suspense>
       )}
       {doc?.gone === true && (
         <div className="dt-storagedoc-note">

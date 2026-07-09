@@ -20,12 +20,14 @@
 import { ReloadOutlined } from '@ant-design/icons';
 import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
 import EntityConflictBanner from '@openheaders/ui/shared/conflicts/EntityConflictBanner';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { App } from 'antd';
+import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   applyConflictFieldFromCanonical,
   type CookieConflictField,
   type CookieEditFormValues,
   editFormConflictProjection,
+  editFormFromConflictText,
   editFormsEqual,
   emptyEditForm,
   formToEdit,
@@ -51,6 +53,11 @@ import { useDocumentSync } from '../../data/storage/use-document-sync';
 import { CookieEditFields, useCookieFieldResolution } from '../detail/cookies/CookieEditFields';
 import { ArmedIconButton } from './ArmedIconButton';
 import { StorageDocSaveButton } from './StorageDocSaveButton';
+
+// Lazy like every other Monaco consumer — the review dialog rides the
+// merge editor, and a static import would pull Monaco into the panel's
+// initial chunk (also why this is a file-path import, not the barrel).
+const EntityConflictDialog = lazy(() => import('@openheaders/ui/shared/conflicts/EntityConflictDialog'));
 
 interface CookieDocument {
   jar: SiteJarCookie;
@@ -97,6 +104,7 @@ export function CookieEditorTab({
   registerSave,
   isActiveDocument,
 }: CookieEditorTabProps) {
+  const { message } = App.useApp();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [values, setValues] = useState<CookieEditFormValues>(emptyEditForm);
   const [saving, setSaving] = useState(false);
@@ -118,6 +126,7 @@ export function CookieEditorTab({
     conflicts,
     seed: seedConflicts,
     dismiss: dismissConflict,
+    getBaseline: getConflictBaseline,
   } = useStorageDocConflicts<CookieConflictField>({
     enabled: doc !== null && doc.gone !== true && writable,
     form: doc === null ? null : conflictForm,
@@ -243,6 +252,41 @@ export function CookieEditorTab({
     return out;
   }, [conflicts, conflictForm, takeTheirs, dismissConflict]);
 
+  const [reviewOpen, setReviewOpen] = useState(false);
+
+  // Review panes, computed at open — all three are the same flat JSON
+  // projection the conflict comparison runs on, so the merge diff
+  // lights up exactly the conflicted lines.
+  const reviewSavedText = useMemo(
+    () => (reviewOpen && conflictCanonical !== null ? JSON.stringify(conflictCanonical, null, 2) : ''),
+    [reviewOpen, conflictCanonical],
+  );
+  const reviewMineText = useMemo(
+    () => (reviewOpen ? JSON.stringify(conflictForm, null, 2) : ''),
+    [reviewOpen, conflictForm],
+  );
+  const reviewBaseText = useMemo(() => {
+    if (!reviewOpen) return undefined;
+    const baseline = getConflictBaseline();
+    return baseline === null ? undefined : JSON.stringify(baseline, null, 2);
+  }, [reviewOpen, getConflictBaseline]);
+
+  // Merge commit: parse the merged projection back onto the form (a
+  // throw renders inline in the modal) and dismiss the remaining
+  // conflicts — fields merged to the saved value fall out via the
+  // baseline catch-up, kept-mine fields stay quiet until the browser
+  // diverges again. The form stays dirty; Save commits to the jar.
+  const handleResolveReview = useCallback(
+    (text: string) => {
+      const next = editFormFromConflictText(valuesRef.current, text);
+      setValues(next);
+      setSaveError(null);
+      for (const field of conflicts.keys()) dismissConflict(field);
+      message.success('Merge applied to the form — Save writes it to the browser');
+    },
+    [conflicts, dismissConflict, message],
+  );
+
   const handleSave = useCallback(async (): Promise<boolean> => {
     if (doc === null || !savable) return false;
     const edit = formToEdit(resolvedForm);
@@ -360,6 +404,7 @@ export function CookieEditorTab({
       </div>
       <EntityConflictBanner
         count={conflicts.size}
+        onReview={() => setReviewOpen(true)}
         onKeepAllMine={() => {
           for (const field of conflicts.keys()) dismissConflict(field);
         }}
@@ -368,6 +413,19 @@ export function CookieEditorTab({
         }}
         style={{ marginBottom: 0 }}
       />
+      {reviewOpen && (
+        <Suspense fallback={null}>
+          <EntityConflictDialog
+            open
+            savedText={reviewSavedText}
+            mineText={reviewMineText}
+            baseText={reviewBaseText}
+            language="json"
+            onResolveText={handleResolveReview}
+            onClose={() => setReviewOpen(false)}
+          />
+        </Suspense>
+      )}
       {doc !== null && !writable && (
         <div className="dt-storagedoc-note">
           This host’s cookie jar is read-only — the document reflects the jar but can’t write back.

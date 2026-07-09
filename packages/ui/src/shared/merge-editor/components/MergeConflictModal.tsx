@@ -21,6 +21,7 @@ import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
 import MergeFileList, { type MergeFileRowState } from './MergeFileList';
 import MergePane, { type HunkStats, type MergeLayout, type MergePaneHandle } from './MergePane';
+import './merge-conflict-modal.css';
 
 const { Text } = Typography;
 
@@ -348,6 +349,7 @@ const MergeConflictModal = ({
       onCancel={handleCancel}
       title={session.title}
       width="min(1600px, 95vw)"
+      centered
       destroyOnClose
       zIndex={1100}
       footer={[
@@ -360,15 +362,10 @@ const MergeConflictModal = ({
         </Button>,
       ]}
     >
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          height: 'calc(85vh - 120px)',
-          minHeight: 480,
-        }}
-      >
+      {/* Viewport-clamped scroll column — sizing + scrollbar treatment
+          in merge-conflict-modal.css. The editor keeps a usable floor
+          via its own minHeight below. */}
+      <div className="oh-merge__modal-body">
         {headerSlot}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Space size={6}>
@@ -539,7 +536,10 @@ const MergeConflictModal = ({
         <div
           style={{
             flex: 1,
-            minHeight: 0,
+            // A short viewport shrinks the editor before the toolbar;
+            // the floor keeps the panes usable and lets the column
+            // scroll inside the modal instead of crushing Monaco.
+            minHeight: 240,
             border: `1px solid ${token.colorBorderSecondary}`,
             borderRadius: 4,
             overflow: 'hidden',

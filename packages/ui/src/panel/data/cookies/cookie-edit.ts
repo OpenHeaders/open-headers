@@ -304,6 +304,70 @@ export function editFormConflictProjection(v: CookieEditFormValues): Record<Cook
   };
 }
 
+/**
+ * Inverse of {@link editFormConflictProjection} — parses the review
+ * dialog's merged JSON result back onto the form. The panes render the
+ * display vocabulary ('On'/'Off', sameSite labels, 'Session' or a
+ * datetime-local value), so the parse accepts exactly that vocabulary
+ * and throws an honest message on anything else; the merge modal
+ * renders the thrown message inline and stays open.
+ */
+export function editFormFromConflictText(form: CookieEditFormValues, text: string): CookieEditFormValues {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('The merged result isn’t valid JSON — fix the syntax and complete the merge again.');
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('The merged result must be a JSON object with the cookie’s fields.');
+  }
+  const record = parsed as Record<string, unknown>;
+  const fieldText = (field: CookieConflictField): string => {
+    const value = record[field];
+    if (typeof value !== 'string') throw new Error(`"${field}" must be present as a string.`);
+    return value;
+  };
+  const fieldFlag = (field: 'httpOnly' | 'secure' | 'hostOnly'): boolean => {
+    const value = fieldText(field);
+    if (value !== 'On' && value !== 'Off') throw new Error(`"${field}" must be "On" or "Off".`);
+    return value === 'On';
+  };
+  const sameSiteText = fieldText('sameSite');
+  const sameSite = (Object.keys(COOKIE_SAME_SITE_LABELS) as CookieSameSiteValue[]).find(
+    (value) => COOKIE_SAME_SITE_LABELS[value] === sameSiteText,
+  );
+  if (sameSite === undefined) {
+    const labels = Object.values(COOKIE_SAME_SITE_LABELS)
+      .map((l) => `"${l}"`)
+      .join(', ');
+    throw new Error(`"sameSite" must be one of ${labels}.`);
+  }
+  const expiresText = fieldText('expires');
+  const next: CookieEditFormValues = {
+    ...form,
+    name: fieldText('name'),
+    value: fieldText('value'),
+    domain: fieldText('domain'),
+    path: fieldText('path'),
+    sameSite,
+    httpOnly: fieldFlag('httpOnly'),
+    secure: fieldFlag('secure'),
+    hostOnly: fieldFlag('hostOnly'),
+    session: expiresText === 'Session',
+  };
+  if (expiresText === 'Session') {
+    delete next.expirationDate;
+    return next;
+  }
+  const expiration = expirationFromLocalInput(expiresText);
+  if (expiration === undefined) {
+    throw new Error('"expires" must be "Session" or a date like 2026-07-09T14:30.');
+  }
+  next.expirationDate = expiration;
+  return next;
+}
+
 /** Take-theirs write: the canonical's value at one conflict field into
  *  the form. `expires` carries the session/expirationDate pair. */
 export function applyConflictFieldFromCanonical(

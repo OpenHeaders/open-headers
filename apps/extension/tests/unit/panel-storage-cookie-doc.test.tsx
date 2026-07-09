@@ -23,6 +23,7 @@ import {
 } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
 import { buildCookieTab } from '@openheaders/ui/panel/data/inspector-tab';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { App as AntApp } from 'antd';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The conflict chip's resolve popover rides antd Popover →
@@ -57,6 +58,47 @@ vi.mock('@openheaders/ui/workbench/components/template-input', () => ({
 
 vi.mock('@openheaders/ui/shared/hooks/variables/useVariableResolver', () => ({
   useVariableResolver: () => ({ resolveTemplate: (raw: string) => ({ result: raw }) }),
+}));
+
+// The review dialog is a Monaco 3-pane merge — out of scope in jsdom.
+// The mock exposes the three pane payloads and drives the same
+// onResolveText/onClose seam, so the editor's wiring (pane projections,
+// commit funnel, dismissals) stays under test.
+vi.mock('@openheaders/ui/shared/conflicts/EntityConflictDialog', () => ({
+  default: ({
+    savedText,
+    mineText,
+    baseText,
+    language,
+    onResolveText,
+    onClose,
+  }: {
+    savedText: string;
+    mineText: string;
+    baseText?: string;
+    language?: string;
+    onResolveText: (text: string) => Promise<void> | void;
+    onClose: () => void;
+  }) => (
+    <div data-testid="merge-dialog" data-language={language}>
+      <pre data-testid="merge-saved">{savedText}</pre>
+      <pre data-testid="merge-mine">{mineText}</pre>
+      <pre data-testid="merge-base">{baseText ?? ''}</pre>
+      <textarea aria-label="Merge result" defaultValue={mineText} />
+      <button
+        type="button"
+        onClick={(e) => {
+          const result = e.currentTarget.parentElement?.querySelector('textarea')?.value ?? '';
+          void Promise.resolve(onResolveText(result)).then(onClose);
+        }}
+      >
+        Complete merge
+      </button>
+      <button type="button" onClick={onClose}>
+        Cancel merge
+      </button>
+    </div>
+  ),
 }));
 
 const SCOPE_URL = 'https://openheaders.io/';
@@ -514,8 +556,7 @@ describe('CookieEditorTab', () => {
 
     await divergeValueAndExpires(container, rows);
     expect(screen.getByText(/changed externally while you were editing/)).toBeTruthy();
-    // The review tier is slice C — no dead button until it exists.
-    expect(screen.queryByRole('button', { name: 'Review changes' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Use all saved' }));
     await waitFor(() => expect(valueInput().value).toBe('their-value'));
@@ -535,6 +576,63 @@ describe('CookieEditorTab', () => {
     await waitFor(() => expect(screen.queryByTitle('External change available — click to resolve')).toBeNull());
     expect(valueInput().value).toBe('my-value-draft');
     expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('Review opens the merge dialog over the 9-field JSON projections; completing writes the merged form and settles the conflicts', async () => {
+    const rows = { current: [COOKIE] as readonly SiteJarCookie[] };
+    setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows.current)));
+    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    // The merge commit toasts via App.useApp() — the provider must exist.
+    const { container } = render(
+      <AntApp>
+        <CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />
+      </AntApp>,
+    );
+
+    await divergeValueAndExpires(container, rows);
+    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+
+    const dialog = await screen.findByTestId('merge-dialog');
+    expect(dialog.getAttribute('data-language')).toBe('json');
+    const saved = JSON.parse(screen.getByTestId('merge-saved').textContent ?? '');
+    const mine = JSON.parse(screen.getByTestId('merge-mine').textContent ?? '');
+    const base = JSON.parse(screen.getByTestId('merge-base').textContent ?? '');
+    expect(saved).toMatchObject({ name: 'sid', value: 'their-value' });
+    expect(mine).toMatchObject({ value: 'my-value-draft', expires: '2099-01-01T00:00' });
+    expect(base).toMatchObject({ value: 'abc', expires: 'Session' });
+
+    // Hand-merge: the saved value, my expires.
+    fireEvent.change(screen.getByLabelText('Merge result'), {
+      target: { value: JSON.stringify({ ...mine, value: 'their-value' }) },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Complete merge' }));
+
+    await waitFor(() => expect(screen.queryByTestId('merge-dialog')).toBeNull());
+    expect(await screen.findByText(/Merge applied to the form/)).toBeTruthy();
+    expect(valueInput().value).toBe('their-value');
+    expect((container.querySelector('.dt-cookie-edit-datetime') as HTMLInputElement).value).toBe('2099-01-01T00:00');
+    // Merged-to-saved falls out via catch-up; kept-mine is dismissed.
+    await waitFor(() => expect(screen.queryByTitle('External change available — click to resolve')).toBeNull());
+    expect(screen.queryByText(/changed externally while you were editing/)).toBeNull();
+    // The merge lands in the FORM — Save still commits to the jar.
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('cancelling the merge dialog is inert — drafts and conflicts stay', async () => {
+    const rows = { current: [COOKIE] as readonly SiteJarCookie[] };
+    setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows.current)));
+    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    const { container } = render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await divergeValueAndExpires(container, rows);
+    fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+    await screen.findByTestId('merge-dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel merge' }));
+
+    expect(screen.queryByTestId('merge-dialog')).toBeNull();
+    expect(valueInput().value).toBe('my-value-draft');
+    expect(screen.getAllByTitle('External change available — click to resolve').length).toBe(2);
+    expect(screen.getByText(/changed externally while you were editing/)).toBeTruthy();
   });
 
   it('deleted-under-you: Discard my edits drops the drafts to the honest empty state', async () => {

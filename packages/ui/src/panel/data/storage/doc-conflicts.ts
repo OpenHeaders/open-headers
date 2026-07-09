@@ -63,6 +63,10 @@ export interface StorageDocConflictsApi<F extends string> {
   seed: (canonical: Readonly<Record<F, string>>) => void;
   /** Hide the field's chip until the canonical diverges again. */
   dismiss: (field: F) => void;
+  /** Snapshot of the full baseline — the review surfaces' base pane
+   *  reads it at open time (the conflict map only carries the
+   *  conflicted fields' bases). */
+  getBaseline: () => Readonly<Record<F, string>> | null;
 }
 
 export function useStorageDocConflicts<F extends string>({
@@ -77,6 +81,8 @@ export function useStorageDocConflicts<F extends string>({
     baselineRef.current = { ...next };
     setDismissed((prev) => (prev.size === 0 ? prev : new Map()));
   }, []);
+
+  const getBaseline = useCallback(() => (baselineRef.current === null ? null : { ...baselineRef.current }), []);
 
   const dismiss = useCallback(
     (field: F) => {
@@ -132,7 +138,7 @@ export function useStorageDocConflicts<F extends string>({
     return out;
   }, [enabled, form, canonical, dismissed]);
 
-  return useMemo(() => ({ conflicts, seed, dismiss }), [conflicts, seed, dismiss]);
+  return useMemo(() => ({ conflicts, seed, dismiss, getBaseline }), [conflicts, seed, dismiss, getBaseline]);
 }
 
 /** Chip-popover display cap for value documents — a multi-kilobyte
