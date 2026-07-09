@@ -9,6 +9,11 @@ permissions:
   contents: write
   packages: read
 
+# The vite production builds need more than the runners' ~2GB default
+# Node heap.
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
 jobs:
   build-desktop:
     if: ${{ !contains(github.ref_name, '-ext') }}
