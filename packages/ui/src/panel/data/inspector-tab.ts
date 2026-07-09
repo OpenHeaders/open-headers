@@ -35,6 +35,10 @@ export interface RequestInspectorTab {
   label: string;
   method: string;
   statusCode?: number;
+  /** The lifecycle's resource type at open time — lets the pill carry
+   *  the same type icon as the request's network row. Correlator vocab
+   *  (`websocket` vs `ws`) — never compare raw without both spellings. */
+  resourceType?: string;
   url: string;
   activeSection: DetailSection;
   requestId: string;
@@ -166,6 +170,7 @@ export function buildInspectorTab(input: BuildInspectorTabInput, source: TabSour
     label,
     method: lc.method,
     ...(lc.statusCode != null ? { statusCode: lc.statusCode } : {}),
+    ...(lc.resourceType ? { resourceType: lc.resourceType } : {}),
     url: lc.url,
     activeSection: 'headers',
     requestId: lc.requestId,

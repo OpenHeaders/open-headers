@@ -101,6 +101,23 @@ describe('InspectorTabBar tab kinds', () => {
     expect(screen.getAllByRole('img', { name: 'database' })).toHaveLength(2);
   });
 
+  it('swaps the globe for the network row icon on a websocket pill', () => {
+    const wsTab = buildInspectorTab({
+      lifecycle: {
+        requestId: 'req-ws',
+        url: 'wss://openheaders.io/socket',
+        method: 'GET',
+        statusCode: 101,
+        resourceType: 'websocket',
+        startedAtMs: 1_770_000_000_000,
+      } as unknown as RequestLifecycle,
+      displayId: 2,
+    });
+    const { container } = renderBar([wsTab], wsTab.id);
+    expect(container.querySelector('.dt-resource-icon--websocket')).toBeTruthy();
+    expect(screen.queryByRole('img', { name: 'global' })).toBeNull();
+  });
+
   it('survives activating a record tab whose id embeds the JSON key wire (auto-scroll selector)', () => {
     // The IDB tab must NOT be last — the last-tab branch skips the
     // querySelector this regression guards.
