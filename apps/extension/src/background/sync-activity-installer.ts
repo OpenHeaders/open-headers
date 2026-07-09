@@ -13,7 +13,8 @@
  *      every registered subscriber receives the entry synchronously
  *      (status reporter, future panel mirror).
  *
- * Pattern mirrors {@link sync-mutation-forwarder}: the log is installed
+ * Pattern mirrors the shared mutation forwarder
+ * (`@openheaders/oracle/sync/client/mutation-forwarder`): the log is installed
  * once at boot, the observer is fire-and-forget for the IDB write (so
  * apply latency is unaffected by IDB latency), and a single failed
  * write is logged but never crashes the apply path.

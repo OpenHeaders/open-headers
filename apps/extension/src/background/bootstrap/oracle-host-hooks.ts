@@ -1,16 +1,16 @@
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
+import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { broadcast } from '@utils/bridge';
+import { forwardAwarenessToBackend } from '../awareness-forwarder';
 import { getRulesPaused } from '../dnr-manager';
 import { recordLog } from '../modules/observability-log';
 import { scheduleUpdate as scheduleRuleEngineUpdate } from '../modules/rules/rule-engine';
 import { seedFromWorkspaceSwitch } from '../modules/rules/rule-state-observer';
 import { getCachedTotpCodes } from '../modules/totp-scheduler';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../modules/workspace/workspace-store';
-import { forwardAwarenessToBackend } from '../awareness-forwarder';
 import { observeForActivityFeed } from '../sync-activity-installer';
-import { forwardMutationToBackend } from '../sync-mutation-forwarder';
 
 // Installs the oracle's host-callback port. Must run before bootSyncEngine
 // so the first envelope finds the hooks populated.

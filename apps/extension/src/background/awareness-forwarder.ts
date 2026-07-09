@@ -23,8 +23,8 @@ import { hostLogger as logger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
 import { SYNC_AWARENESS_PRESENCE_TYPE } from '@openheaders/core/protocol';
 import { peekActiveWorkspaceId, snapshotAwarenessPresence } from '@openheaders/oracle/sync';
+import { sendToBackend } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { getWorkspace } from './modules/workspace/workspace-store';
-import { sendToBackend } from './websocket';
 
 const SCOPE = 'AwarenessForwarder';
 

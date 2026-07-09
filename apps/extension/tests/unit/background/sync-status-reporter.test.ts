@@ -15,12 +15,12 @@ import {
   type SyncWelcomeAccept,
 } from '@openheaders/core/protocol';
 import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
-import { describe, expect, it, vi } from 'vitest';
 import {
   describeHandshakeStatus,
   installHandshakeStatusReporter,
   type SyncStatusEntry,
-} from '@/background/sync-status-reporter';
+} from '@openheaders/oracle/sync/client/sync-status-reporter';
+import { describe, expect, it, vi } from 'vitest';
 
 const welcomeAccept: SyncWelcomeAccept = {
   type: SYNC_WELCOME_TYPE,

@@ -3,9 +3,9 @@
  * (`@openheaders/oracle/sync/client/backend-connection-manager`) — the
  * chrome-bound edges live here: the Safari socket adapter, the
  * reachability probe, the settings-store reliability knobs, and the
- * popup `connectionStatus` broadcast. Everything socket-shaped is the
- * shared manager; extension call sites keep importing through this
- * module.
+ * popup `connectionStatus` broadcast. Pure side-effect module —
+ * `background.ts` imports it at eval time; call sites import the
+ * manager API from the canonical oracle path.
  */
 
 import {
@@ -16,26 +16,6 @@ import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/setti
 import { broadcast } from '@utils/bridge';
 import { isSafari } from '@utils/browser-api';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
-
-export {
-  type BackendWireHandle,
-  connectWebSocket,
-  getDefaultWireBackendId,
-  getReconnectAttempts,
-  type InboundFrameHandler,
-  isBackendConnected,
-  isWebSocketConnected,
-  isWebSocketConnecting,
-  reconnectWebSocket,
-  registerInboundFrameHandler,
-  sendToBackend,
-  sendViaWebSocket,
-  shouldAttemptBackendConnection,
-  subscribeOnWebSocketClose,
-  subscribeOnWebSocketOpen,
-  subscribeWireLifecycle,
-  type WireLifecycleEvent,
-} from '@openheaders/oracle/sync/client/backend-connection-manager';
 
 async function checkServerReachable(wsUrl: string): Promise<boolean> {
   try {

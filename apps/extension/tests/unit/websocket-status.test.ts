@@ -69,7 +69,10 @@ async function loadWebsocket() {
   vi.resetModules();
   const status = await import('@openheaders/ui/shared/status');
   status.__resetStatusForTests();
-  const { connectWebSocket } = await import('@/background/websocket');
+  // The chrome-bound deps live in the websocket adapter's install; the
+  // manager API itself is the canonical oracle module.
+  await import('@/background/websocket');
+  const { connectWebSocket } = await import('@openheaders/oracle/sync/client/backend-connection-manager');
   // The roll-up sink lives in the aggregate's extension install — the
   // manager writes slots, this maps them onto the `sync` subsystem.
   await import('@/background/sync-status-aggregate');

@@ -1,16 +1,16 @@
 import { subscribeBackends } from '@openheaders/core/backends';
+import {
+  connectWebSocket,
+  getReconnectAttempts,
+  isWebSocketConnected,
+  shouldAttemptBackendConnection,
+} from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { handleActivityPruneAlarm, isActivityPruneAlarm } from '../activity-prune-scheduler';
 import { handleLiveAlarm, isLiveRefreshAlarm } from '../modules/live-refresh-scheduler';
 import { handleOAuthAlarm, isOAuthRefreshAlarm } from '../modules/oauth-refresh-scheduler';
 import { handleTotpAlarm, isTotpAlarm } from '../modules/totp-scheduler';
-import {
-  connectWebSocket,
-  getReconnectAttempts,
-  isWebSocketConnected,
-  shouldAttemptBackendConnection,
-} from '../websocket';
 import { backgroundReady } from './background-ready';
 import { updateBadgeForCurrentTab } from './badge-update';
 

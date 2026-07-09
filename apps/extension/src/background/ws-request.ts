@@ -26,7 +26,11 @@
  */
 
 import { logger } from '@openheaders/core/utils';
-import { getDefaultWireBackendId, registerInboundFrameHandler, sendToBackend } from './websocket';
+import {
+  getDefaultWireBackendId,
+  registerInboundFrameHandler,
+  sendToBackend,
+} from '@openheaders/oracle/sync/client/backend-connection-manager';
 
 interface PendingSlot {
   resolve: (value: unknown) => void;

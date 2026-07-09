@@ -1,10 +1,13 @@
+import {
+  reportBackendSyncStatus,
+  subscribeBackendSyncStatus,
+} from '@openheaders/oracle/sync/client/sync-status-aggregate';
+import { installHandshakeStatusReporter } from '@openheaders/oracle/sync/client/sync-status-reporter';
 import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { broadcast } from '@utils/bridge';
 import { installActivityStatusReporter } from '../activity-status-reporter';
 import { onActiveWorkspaceChange, peekActiveWorkspaceId } from '../modules/workspace/workspace-store';
 import { countUnreadActivityEntries, subscribeActivityEntries } from '../sync-activity-installer';
-import { reportBackendSyncStatus, subscribeBackendSyncStatus } from '../sync-status-aggregate';
-import { installHandshakeStatusReporter } from '../sync-status-reporter';
 import type { SyncWiring } from './ws-frame-routing';
 
 interface InstallStatusReportersOpts {

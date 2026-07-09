@@ -1,10 +1,10 @@
-import { logger } from '@utils/logger';
+import { isWebSocketConnected, sendViaWebSocket } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { runtime } from '@utils/browser-api';
+import { logger } from '@utils/logger';
 import { markTabForDelayBypass } from '../dnr-manager';
 import { handleGeneralMessage } from '../modules/message-handler';
 import { revalidateTrackedRequests } from '../modules/request-tracker';
 import { scheduleUpdate } from '../modules/rules/rule-engine';
-import { isWebSocketConnected, sendViaWebSocket } from '../websocket';
 import { debouncedUpdateBadge } from './badge-update';
 
 export function installMessageRouting(): void {

@@ -21,7 +21,7 @@ const sendMock = vi.fn<(backendId: string, data: Record<string, unknown>) => boo
 type Handler = (frame: unknown, wire: FakeWire) => boolean | Promise<boolean>;
 const registeredHandlers: Handler[] = [];
 
-vi.mock('@/background/websocket', () => ({
+vi.mock('@openheaders/oracle/sync/client/backend-connection-manager', () => ({
   sendToBackend: (backendId: string, data: Record<string, unknown>) => sendMock(backendId, data),
   getDefaultWireBackendId: () => DEFAULT_BACKEND_ID,
   registerInboundFrameHandler: (handler: Handler) => {

@@ -2,8 +2,9 @@
  * Activity Feed → Status subsystem bridge (Phase C F3).
  *
  * Maps the activity installer's classified-entry stream to the
- * `activity` Status subsystem the UI subscribes to. Same shape as
- * {@link sync-status-reporter}: a pure mapper plus a small wiring
+ * `activity` Status subsystem the UI subscribes to. Same shape as the
+ * shared sync-status reporter
+ * (`@openheaders/oracle/sync/client/sync-status-reporter`): a pure mapper plus a small wiring
  * function that handles install lifecycle (subscribe to entries,
  * subscribe to workspace switches, report the initial baseline).
  *

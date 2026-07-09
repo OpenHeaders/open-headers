@@ -1,12 +1,12 @@
+import { isRuleEffective } from '@openheaders/core/utils';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { getUnresolvableRuleUids } from '@openheaders/oracle/rule-engine/variables-resolver';
-import { isRuleEffective } from '@openheaders/core/utils';
+import { getReconnectAttempts, isWebSocketConnected } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { tabs } from '@utils/browser-api';
 import { updateExtensionBadge } from '../modules/badge-manager';
 import { getActiveRulesForTab } from '../modules/request-tracker';
-import { getReconnectAttempts, isWebSocketConnected } from '../websocket';
 
 export async function updateBadgeForCurrentTab(): Promise<void> {
   const isConnected = isWebSocketConnected();

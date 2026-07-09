@@ -20,6 +20,11 @@ import '@/host/install-host-logger';
 import '@/host/install-cdp-capability';
 import '@/host/install-lifeline-server';
 import './modules/live-chain-adapter';
+// Adapter installs for the shared backend client plane: websocket.ts
+// hands the connection manager its chrome-bound deps; the aggregate
+// module installs the sync-status roll-up sink.
+import './websocket';
+import './sync-status-aggregate';
 
 import {
   getBackends,
@@ -37,6 +42,13 @@ import {
 } from '@openheaders/oracle/live/fallback-priority-store';
 import { __setSyncWarmRunner, hydrateLiveCacheMirror } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
+import {
+  connectWebSocket,
+  isWebSocketConnected,
+  shouldAttemptBackendConnection,
+  subscribeOnWebSocketClose,
+  subscribeOnWebSocketOpen,
+} from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
@@ -92,13 +104,6 @@ import { hydrateActiveWorkspaceStores } from './modules/workspace/workspace-orch
 import { bootstrap as bootstrapWorkspaces, getActiveWorkspaceId } from './modules/workspace/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace/workspace-tab-registry';
 import { selfHostLabel } from './self-host-label';
-import {
-  connectWebSocket,
-  isWebSocketConnected,
-  shouldAttemptBackendConnection,
-  subscribeOnWebSocketClose,
-  subscribeOnWebSocketOpen,
-} from './websocket';
 
 // ── Eval-time wiring ──────────────────────────────────────────────
 

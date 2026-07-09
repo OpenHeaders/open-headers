@@ -28,6 +28,8 @@ import {
   __seenMutationStreamCountForTests,
   hasRecentlyApplied,
 } from '@openheaders/oracle/sync';
+import type { BackendWireHandle } from '@openheaders/oracle/sync/client/backend-connection-manager';
+import { handleIncomingMutationFrame } from '@openheaders/oracle/sync/client/mutation-receiver';
 import {
   __initSyncServiceForTests,
   applySyncRequest,
@@ -35,8 +37,6 @@ import {
   getOracleForCurrentWorkspace,
 } from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { handleIncomingMutationFrame } from '../../src/background/sync-mutation-receiver';
-import type { BackendWireHandle } from '../../src/background/websocket';
 import { installSyntheticIdentityForTests, TEST_BACKEND_ID } from './sync/_identity-test-setup';
 
 const wsId = 'ws-recv';

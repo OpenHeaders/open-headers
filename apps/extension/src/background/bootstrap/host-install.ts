@@ -6,6 +6,7 @@ import {
   setOutboundEchoGuard,
   setOutboundReachGuard,
 } from '@openheaders/oracle/sync';
+import { setPendingOutQueue } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import {
   getSyncPersistenceProvider,
   setSyncPersistenceProvider,
@@ -17,7 +18,6 @@ import { isOrgBackendOffDevice } from '../backend-target';
 import { recordLog } from '../modules/observability-log';
 import { listWorkspaces } from '../modules/workspace/workspace-store';
 import { setActivityLog } from '../sync-activity-installer';
-import { setPendingOutQueue } from '../sync-mutation-forwarder';
 
 // Wires the host-side adapters every other subsystem depends on. MUST run
 // before any oracle / sync code: setBlobBackend in particular gates every

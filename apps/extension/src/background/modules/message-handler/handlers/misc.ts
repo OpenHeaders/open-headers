@@ -1,9 +1,9 @@
 /** Diagnostic + relay RPCs that don't belong to a single entity domain. */
 
 import type { JarCookieEditWire, JarCookieKeyWire } from '@openheaders/core/bridge';
+import { getBackendSyncStatusSnapshot } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import { logger } from '@utils/logger';
-import { getBackendSyncStatusSnapshot } from '../../../sync-status-aggregate';
 import {
   clearCookiesForSite as clearCookiesForSiteHandler,
   fetchCookieJarForSite as fetchCookieJarForSiteHandler,

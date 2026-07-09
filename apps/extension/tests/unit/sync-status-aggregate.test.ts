@@ -12,8 +12,6 @@
 import { __clearBackendsForTests, refreshBackendsFromHostStorage } from '@openheaders/core/backends';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import type { BackendSyncStatusSnapshot, Org } from '@openheaders/core/types';
-import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   __resetSyncStatusAggregateForTests,
   dropBackendSyncStatus,
@@ -21,7 +19,12 @@ import {
   refreshSyncStatusAggregate,
   reportBackendSyncStatus,
   subscribeBackendSyncStatus,
-} from '../../src/background/sync-status-aggregate';
+} from '@openheaders/oracle/sync/client/sync-status-aggregate';
+import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+// Side-effect import — installs the extension's roll-up sink so slot
+// reports fold into the `sync` Status subsystem under test.
+import '../../src/background/sync-status-aggregate';
 import { installSyntheticIdentityForTests, makeTestBackend, TEST_BACKEND_ID } from './sync/_identity-test-setup';
 
 beforeEach(() => {

@@ -2,23 +2,15 @@
  * Extension install of the shared per-backend status aggregate
  * (`@openheaders/oracle/sync/client/sync-status-aggregate`): the
  * roll-up sink writes the `sync` Status subsystem, with the extension's
- * tier-zero copy for the zero-backend case. Call sites keep importing
- * the aggregate API through this module.
+ * tier-zero copy for the zero-backend case. Pure side-effect module —
+ * `background.ts` imports it at eval time; call sites import the
+ * aggregate API from the canonical oracle path.
  */
 import {
   type SyncStatusRollupSink,
   setSyncStatusRollupSink,
 } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
-
-export {
-  __resetSyncStatusAggregateForTests,
-  dropBackendSyncStatus,
-  getBackendSyncStatusSnapshot,
-  refreshSyncStatusAggregate,
-  reportBackendSyncStatus,
-  subscribeBackendSyncStatus,
-} from '@openheaders/oracle/sync/client/sync-status-aggregate';
 
 const rollupSink: SyncStatusRollupSink = (entry) => {
   if (!entry) {

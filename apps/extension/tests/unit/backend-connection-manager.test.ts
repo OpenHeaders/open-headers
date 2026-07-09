@@ -110,7 +110,10 @@ async function loadManager() {
   vi.resetModules();
   const status = await import('@openheaders/ui/shared/status');
   status.__resetStatusForTests();
-  return import('@/background/websocket');
+  // The adapter install wires the chrome-bound deps; the manager API
+  // itself comes from the canonical oracle module.
+  await import('@/background/websocket');
+  return import('@openheaders/oracle/sync/client/backend-connection-manager');
 }
 
 /** Let the `probeReachable` → `openSocket` async chain settle. */

@@ -52,14 +52,14 @@ vi.mock('@openheaders/oracle/sync/client/backend-connection-manager', () => ({
   isBackendConnected: (backendId: string) => connected.has(backendId),
 }));
 
+import type { BackendWireHandle } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import {
   __resetMutationForwarderForTests,
   flushPendingOutToBackend,
   forwardMutationToBackend,
   setPendingOutQueue,
-} from '../../../src/background/sync-mutation-forwarder';
-import { handleIncomingMutationFrame } from '../../../src/background/sync-mutation-receiver';
-import type { BackendWireHandle } from '../../../src/background/websocket';
+} from '@openheaders/oracle/sync/client/mutation-forwarder';
+import { handleIncomingMutationFrame } from '@openheaders/oracle/sync/client/mutation-receiver';
 import { installSyntheticIdentityForTests, type JoinedOrgSeed } from './_identity-test-setup';
 import { stressNumRuns } from './property-stress';
 

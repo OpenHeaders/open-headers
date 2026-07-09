@@ -29,7 +29,7 @@ import {
   flushPendingOutToBackend,
   forwardMutationToBackend,
   setPendingOutQueue,
-} from '../../src/background/sync-mutation-forwarder';
+} from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { installSyntheticIdentityForTests, TEST_BACKEND_ID } from './sync/_identity-test-setup';
 
 // Every test envelope is stamped `orgId: 'org-test'`; the outbound gate
