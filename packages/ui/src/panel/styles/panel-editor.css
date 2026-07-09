@@ -139,6 +139,17 @@
   border-radius: 6px;
 }
 
+/* Source tool-window icon — the pill's first prefix, so a storage
+   document never reads as a network request in a mixed tab bar. */
+.dt-editor-tab-tool-icon {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  flex-shrink: 0;
+}
+
 .dt-method-badge {
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   font-size: 9px;

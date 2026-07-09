@@ -88,6 +88,7 @@ import {
 import { jarCookieToKey } from './data/cookies/cookie-edit';
 import type { DomStorageArea } from './data/storage/storage-inspector-host';
 import { tabBadge } from './components/method-color';
+import { TabToolIcon } from './components/TabToolIcon';
 import { useParityDebugHook } from './data/parity-debug-hook';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
 import { useConsoleClient } from './data/stores/use-console-client';
@@ -825,6 +826,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       const badge = tabBadge(tab);
       return (
         <div className="dt-editor-tab active" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.2)', opacity: 0.9 }}>
+          <TabToolIcon tab={tab} />
           <span className="dt-method-badge" style={{ color: badge.color }}>
             {badge.text}
           </span>

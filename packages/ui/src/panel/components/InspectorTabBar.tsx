@@ -23,6 +23,7 @@ import { useDragIntent } from '../data/drag-intent';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
 import { tabIsDirty, tabPillLabel, tabSearchText, tabTitle } from '../data/inspector-tab';
 import { tabBadge } from './method-color';
+import { TabToolIcon } from './TabToolIcon';
 
 // ── Label helpers ───────────────────────────────────────────────
 
@@ -107,6 +108,7 @@ const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contex
         if (e.key === 'Enter') onSwitch(tab.id);
       }}
     >
+      <TabToolIcon tab={tab} />
       <span className="dt-method-badge" style={{ color: tabBadge(tab).color }}>
         {tabBadge(tab).text}
       </span>
@@ -146,6 +148,7 @@ const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contex
 
 const CrossLeafInsertionMarker: React.FC<{ tab: InspectorTab }> = ({ tab }) => (
   <div aria-hidden="true" className="dt-editor-tab dt-editor-tab-insertion" style={{ pointerEvents: 'none' }}>
+    <TabToolIcon tab={tab} style={{ visibility: 'hidden' }} />
     <span className="dt-method-badge" style={{ color: tabBadge(tab).color, visibility: 'hidden' }}>
       {tabBadge(tab).text}
     </span>
@@ -263,6 +266,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 onClose();
               }}
             >
+              <TabToolIcon tab={tab} style={{ fontSize: 10 }} />
               <span className="dt-method-badge" style={{ color: tabBadge(tab).color, fontSize: 9 }}>
                 {tabBadge(tab).text}
               </span>
@@ -300,6 +304,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                         onClose();
                       }}
                     >
+                      <TabToolIcon tab={closed.tab} style={{ fontSize: 10 }} />
                       <span className="dt-method-badge" style={{ color: tabBadge(closed.tab).color, fontSize: 9 }}>
                         {tabBadge(closed.tab).text}
                       </span>

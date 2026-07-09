@@ -95,6 +95,12 @@ describe('InspectorTabBar tab kinds', () => {
     expect(screen.getByText('IDB')).toBeTruthy();
   });
 
+  it('leads every pill with its source tool-window icon: network globe vs storage database', () => {
+    renderBar([REQUEST_TAB, IDB_TAB, DOM_TAB], REQUEST_TAB.id);
+    expect(screen.getAllByRole('img', { name: 'global' })).toHaveLength(1);
+    expect(screen.getAllByRole('img', { name: 'database' })).toHaveLength(2);
+  });
+
   it('survives activating a record tab whose id embeds the JSON key wire (auto-scroll selector)', () => {
     // The IDB tab must NOT be last — the last-tab branch skips the
     // querySelector this regression guards.
@@ -129,6 +135,7 @@ describe('InspectorTabBar tab kinds', () => {
     renderBar([cacheTab, REQUEST_TAB], REQUEST_TAB.id);
     expect(screen.getByText('CS')).toBeTruthy();
     expect(screen.getByText('logo.gif')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'database' })).toBeTruthy();
     expect(screen.queryByLabelText('Unsaved changes')).toBeNull();
   });
 });
