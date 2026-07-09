@@ -182,7 +182,7 @@ export function HeaderSection({
         </span>
         <button
           type="button"
-          className="dt-btn-primary dt-btn dt-btn--oh dt-header-section-add"
+          className="dt-btn dt-btn--oh dt-header-section-add"
           onClick={(e) => {
             e.preventDefault();
             onOverrideHeader(direction, '', '', e.currentTarget);

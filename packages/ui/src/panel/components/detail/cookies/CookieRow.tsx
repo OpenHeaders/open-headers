@@ -211,7 +211,7 @@ export function CookieRow({
             </button>
             <button
               type="button"
-              className="dt-btn dt-btn-primary dt-btn--oh dt-cookie-action"
+              className="dt-btn dt-btn--oh dt-cookie-action"
               title={row.direction === 'response' ? 'Create a rule to override this Set-Cookie' : 'Create a rule to override this Cookie value'}
               onClick={(e) => onMakeRule(e.currentTarget)}
             >
