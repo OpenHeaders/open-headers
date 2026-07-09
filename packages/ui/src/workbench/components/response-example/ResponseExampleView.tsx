@@ -16,7 +16,7 @@
  * LWW value), shell wiring via `useEditorShell`.
  */
 
-import { ArrowUpOutlined, LoadingOutlined } from '@ant-design/icons';
+import { ExportOutlined, LoadingOutlined } from '@ant-design/icons';
 import { RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { CapturedRequest, CapturedResponse, Request, ResponseExample } from '@openheaders/core/types';
 import { App, Button, Tooltip, Typography, theme } from 'antd';
@@ -194,10 +194,10 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
               <Button
                 size="small"
                 type="primary"
+                icon={<ExportOutlined />}
                 onClick={() => onTry(buildTrySeed(draft, parentRequest?.name ?? example.name), example.name)}
               >
                 Try
-                <ArrowUpOutlined rotate={45} style={{ fontSize: 11 }} />
               </Button>
             </Tooltip>
           }
