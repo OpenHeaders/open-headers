@@ -35,13 +35,17 @@ export interface BootstrapTokenResult {
   readonly joinUrls: readonly JoinUrl[];
 }
 
-export async function mintBootstrapToken(config: DaemonConfig, label?: string): Promise<BootstrapTokenResult> {
+export async function mintBootstrapToken(
+  config: DaemonConfig,
+  label?: string,
+  userId?: string,
+): Promise<BootstrapTokenResult> {
   const storage = new FileBackedHostStorage({
     filePath: path.join(config.dataDir, 'storage.json'),
     secretCipher: noCipherYet,
   });
   setHostStorage(storage);
-  const { record, secret } = await mintDaemonAuthToken({ label });
+  const { record, secret } = await mintDaemonAuthToken({ label, ...(userId !== undefined ? { userId } : {}) });
 
   const joinUrls: JoinUrl[] = [{ host: '127.0.0.1', url: `ws://127.0.0.1:${config.bindPort}` }];
   if (config.bindAddress === '0.0.0.0') {

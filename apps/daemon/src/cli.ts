@@ -29,6 +29,7 @@ import {
 import { probeHealthz } from './cli/healthz-probe';
 import { installServiceUnit, type ServiceHost, startService, stopService } from './cli/service-manager';
 import { mintBootstrapToken } from './cli/show-token';
+import { addUser, deactivateUser, listUsers, resolveTokenUserBinding } from './cli/users';
 import { type DaemonConfig, resolveDaemonConfig } from './config';
 
 const cliVersion: string = (createRequire(import.meta.url)('../package.json') as { version: string }).version;
@@ -59,6 +60,12 @@ Commands:
                 Set a daemon setting offline (requires the daemon to be stopped)
   config get <key>
   config list   Read daemon settings
+  user add <name> [--email <address>]
+                Admit a user to the daemon's directory (requires the daemon
+                to be stopped; the daemon must have booted once)
+  user list     Read the user directory
+  user deactivate <id-or-email>
+                Deactivate a user + revoke their tokens (daemon stopped)
 
 Settable keys (booleans, default off):
   ${DAEMON_SETTING_KEYS.join(', ')}
@@ -76,6 +83,9 @@ Options (install / status / show-token / config):
   --web-root <path>        Directory with the built web app to serve at /
                            (default: the web/ dir shipped beside the daemon)
   --label <text>           show-token only: label for the minted token
+  --user <id-or-email>     show-token only: bind the token to a directory user
+                           (omit for a token that acts as the daemon operator)
+  --email <address>        user add only: contact identity for the new user
 `;
 
 function serviceHost(): ServiceHost {
@@ -177,12 +187,17 @@ async function assertDaemonStopped(config: DaemonConfig, wouldBeLost: string, in
 }
 
 async function commandShowToken(argv: readonly string[]): Promise<void> {
-  const { values } = parseArgs({ args: [...argv], options: { ...CONFIG_OPTIONS, label: { type: 'string' } } });
+  const { values } = parseArgs({
+    args: [...argv],
+    options: { ...CONFIG_OPTIONS, label: { type: 'string' }, user: { type: 'string' } },
+  });
   const { config } = resolveConfigFlags(values);
   const label = values.label;
   await assertDaemonStopped(config, 'a mint', 'mint');
-  const minted = await mintBootstrapToken(config, label);
-  console.log(`Token minted (id ${minted.tokenId}${label ? `, label "${label}"` : ''}).`);
+  const boundUser = values.user !== undefined ? await resolveTokenUserBinding(config, values.user) : undefined;
+  const minted = await mintBootstrapToken(config, label, boundUser?.user.id);
+  const bindingNote = boundUser ? `, user "${boundUser.user.displayName}"` : '';
+  console.log(`Token minted (id ${minted.tokenId}${label ? `, label "${label}"` : ''}${bindingNote}).`);
   console.log('');
   console.log(`  ${minted.secret}`);
   console.log('');
@@ -235,6 +250,59 @@ async function commandConfig(argv: readonly string[]): Promise<void> {
   throw new Error('usage: oh daemon config <set|get|list>');
 }
 
+function formatUserLine(record: {
+  user: { id: string; displayName: string };
+  userIdentity: { kind: string; value: string | null };
+  deactivatedAt: number | null;
+}): string {
+  const email = record.userIdentity.kind === 'email' ? record.userIdentity.value : null;
+  const state = record.deactivatedAt !== null ? '  [deactivated]' : '';
+  return `${record.user.id}  ${record.user.displayName}${email ? `  <${email}>` : ''}${state}`;
+}
+
+async function commandUser(argv: readonly string[]): Promise<void> {
+  const [sub, ...rest] = argv;
+  const { values, positionals } = parseArgs({
+    args: [...rest],
+    options: { ...CONFIG_OPTIONS, email: { type: 'string' } },
+    allowPositionals: true,
+  });
+  const { config } = resolveConfigFlags(values);
+  if (sub === 'add') {
+    const [displayName] = positionals;
+    if (displayName === undefined) throw new Error('usage: oh daemon user add <name> [--email <address>]');
+    await assertDaemonStopped(config, 'a user admitted', 'manage users');
+    const record = await addUser(config, { displayName, ...(values.email ? { email: values.email } : {}) });
+    console.log('User added:');
+    console.log(`  ${formatUserLine(record)}`);
+    console.log('');
+    console.log('Bind a token to them before starting the daemon:');
+    console.log(`  oh daemon show-token --user ${values.email ?? record.user.id}`);
+    return;
+  }
+  if (sub === 'list') {
+    const users = await listUsers(config);
+    if (users.length === 0) {
+      console.log('No directory users — every paired token acts as the daemon operator.');
+      return;
+    }
+    for (const record of users) {
+      console.log(formatUserLine(record));
+    }
+    return;
+  }
+  if (sub === 'deactivate') {
+    const [idOrEmail] = positionals;
+    if (idOrEmail === undefined) throw new Error('usage: oh daemon user deactivate <id-or-email>');
+    await assertDaemonStopped(config, 'a deactivation', 'manage users');
+    const { revokedTokenIds } = await deactivateUser(config, idOrEmail);
+    console.log(`User deactivated; ${revokedTokenIds.length} token(s) revoked.`);
+    console.log("Applies from the daemon's next start; their next HELLO/MCP call is refused.");
+    return;
+  }
+  throw new Error('usage: oh daemon user <add|list|deactivate>');
+}
+
 async function main(): Promise<void> {
   const [group, command, ...rest] = process.argv.slice(2);
   if (group === '--version' || group === '-v') {
@@ -261,6 +329,8 @@ async function main(): Promise<void> {
       return commandShowToken(rest);
     case 'config':
       return commandConfig(rest);
+    case 'user':
+      return commandUser(rest);
     default:
       console.log(USAGE);
       process.exitCode = 1;
