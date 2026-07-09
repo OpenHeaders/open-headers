@@ -20,15 +20,20 @@
  *     worst-of instead of racing latest-wins. A null roll-up only
  *     happens before the first bind-state emission — stay silent.
  *   - agent/role: `desktop` HELLO role, `@openheaders/desktop@<version>`.
- *
- * Awareness over client wires is deliberately not wired yet — this
- * slice ships the sync plane; presence follows as its own row.
+ *   - awareness: the shared presence pair — snapshot push on SYNCED and
+ *     the awareness receiver as an extra inbound handler. Inbound
+ *     presence folds into the oracle awareness store, whose re-emission
+ *     reaches every renderer window through the spine's
+ *     `broadcastAwareness` hook; outbound rides the spine's
+ *     `forwardAwarenessToBackends` seam (wired in `install-rpc-host.ts`).
  */
 
 import { refreshBackendsFromHostStorage, watchBackendsInHostStorage } from '@openheaders/core/backends';
 import { HANDSHAKE_ROLES } from '@openheaders/core/protocol';
 import type { HostStorage } from '@openheaders/core/storage';
 import { OH } from '@openheaders/core/storage';
+import { forwardCurrentAwarenessOnConnect } from '@openheaders/oracle/sync/client/awareness-forwarder';
+import { handleIncomingAwarenessFrame } from '@openheaders/oracle/sync/client/awareness-receiver';
 import {
   connectWebSocket,
   installBackendConnectionManager,
@@ -111,6 +116,8 @@ export async function installBackendClient(config: InstallBackendClientConfig): 
   const syncWiring = installBackendSyncPlane({
     role: HANDSHAKE_ROLES.DESKTOP,
     getAgent: () => `@openheaders/desktop@${config.appVersion}`,
+    onSyncedPresencePush: () => forwardCurrentAwarenessOnConnect('desktop'),
+    extraInboundHandlers: [(frame) => handleIncomingAwarenessFrame(frame)],
   });
 
   // Sole `sync` writer: the roll-up composes the spine reporter's

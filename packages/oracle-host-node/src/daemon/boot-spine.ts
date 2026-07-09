@@ -70,6 +70,7 @@ import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import {
+  type OracleAwarenessBroadcast,
   type OracleSyncBroadcastEvent,
   setActivityMuteStore,
   setOracleHostHooks,
@@ -147,6 +148,14 @@ export interface DaemonSpineConfig {
    * headless daemon omits it.
    */
   forwardMutationToBackends?: (event: OracleSyncBroadcastEvent) => void;
+  /**
+   * Optional awareness sibling of `forwardMutationToBackends`: every
+   * awareness emission is offered to the client plane's forwarder,
+   * whose own appId filter and Org→backend routing decide whether a
+   * presence frame leaves for a joined daemon. The desktop passes the
+   * shared awareness forwarder; the headless daemon omits it.
+   */
+  forwardAwarenessToBackends?: (event: OracleAwarenessBroadcast) => void;
   /**
    * Optional sink for the spine's server-side `sync` reporter (bind
    * lifecycle + peer set). Defaults to `status.report`. A host that is
@@ -324,6 +333,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           presence: localOnly,
         });
       }
+      // Client role (MULTI_BACKEND_PLAN.md §5): the same emission is
+      // offered to the backend forwarder, which applies its own appId
+      // filter and routes by the workspace's Org binding.
+      config.forwardAwarenessToBackends?.(event);
     },
   });
 

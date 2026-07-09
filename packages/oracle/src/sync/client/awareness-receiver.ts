@@ -1,11 +1,12 @@
 /**
- * Cross-host awareness — extension SW inbound.
+ * Cross-host awareness — client-plane inbound.
  *
  * Frame router companion to `awareness-forwarder.ts`. Parses
- * `oh.awareness.presence` frames arriving from the desktop peer and
- * folds the carried presence into the local SW awareness store via the
+ * `oh.awareness.presence` frames arriving from a backend wire and folds
+ * the carried presence into the local awareness store via the
  * host-neutral `applyInboundAwarenessFrame` helper. Symmetric to the
- * shared mutation receiver (`@openheaders/oracle/sync/client/mutation-receiver`).
+ * shared mutation receiver (`mutation-receiver.ts`); hosts pass it into
+ * `installBackendSyncPlane`'s `extraInboundHandlers`.
  *
  * No own-echo dedup here: each host only forwards states whose
  * `identity.appId` matches its own, so a frame arriving over the wire
@@ -13,15 +14,15 @@
  * `identity.instanceId`, which is globally unique per surface mount.
  */
 
+import { hostLogger as logger } from '@openheaders/core/logger';
 import {
   SYNC_AWARENESS_PRESENCE_TYPE,
   type SyncAwarenessPresenceMessage,
   SyncAwarenessPresenceMessageSchema,
 } from '@openheaders/core/protocol';
-import { applyInboundAwarenessFrame, getAwarenessStoreForWorkspace } from '@openheaders/oracle/sync';
-
-import { logger } from '@utils/logger';
 import * as v from 'valibot';
+import { applyInboundAwarenessFrame } from '../awareness/awareness-inbound';
+import { getAwarenessStoreForWorkspace } from '../service';
 
 const SCOPE = 'AwarenessReceiver';
 

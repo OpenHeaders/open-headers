@@ -1,9 +1,9 @@
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
+import { forwardAwarenessToBackend } from '@openheaders/oracle/sync/client/awareness-forwarder';
 import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { broadcast } from '@utils/bridge';
-import { forwardAwarenessToBackend } from '../awareness-forwarder';
 import { getRulesPaused } from '../dnr-manager';
 import { recordLog } from '../modules/observability-log';
 import { scheduleUpdate as scheduleRuleEngineUpdate } from '../modules/rules/rule-engine';
@@ -27,7 +27,7 @@ export function installOracleHostHooks(): void {
     },
     broadcastAwareness: (event) => {
       broadcast('awarenessBroadcast', event);
-      forwardAwarenessToBackend(event);
+      forwardAwarenessToBackend(event, 'extension');
     },
     reportStatus: (entry) =>
       reportStatus({

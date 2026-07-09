@@ -45,6 +45,7 @@ import * as path from 'node:path';
 import { setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import { logger as consoleLogger } from '@openheaders/core/utils';
+import { forwardAwarenessToBackend } from '@openheaders/oracle/sync/client/awareness-forwarder';
 import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { reportBaselineSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
@@ -195,6 +196,10 @@ export async function installRpcHost(): Promise<void> {
     // also offered to the client plane's Org-routed forwarder — its own
     // gates decide whether anything leaves for a joined daemon.
     forwardMutationToBackends: forwardMutationToBackend,
+    // Awareness sibling: presence emissions offered to the client
+    // plane's forwarder, which filters to this host's own surfaces and
+    // routes by the workspace's Org binding.
+    forwardAwarenessToBackends: (event) => forwardAwarenessToBackend(event, 'desktop'),
     // Server slot of the composed `sync` pill: the spine's bind/peer
     // reporter feeds the client plane's baseline slot so it joins the
     // per-backend slots in one worst-of aggregate — the roll-up sink in

@@ -1,30 +1,32 @@
 /**
- * Cross-host awareness — extension SW outbound.
+ * Cross-host awareness — client-plane outbound.
  *
- * Wraps the local oracle's `broadcastAwareness` hook with a WS send.
- * Mirrors the desktop's `wsServer?.broadcastFrame(...)` path: every
- * canonical-presence emission for a workspace also goes onto the wire
- * as a typed `oh.awareness.presence` frame so the peer host can fold
- * extension surfaces into its local awareness store.
+ * Wraps the local oracle's `broadcastAwareness` hook with a WS send:
+ * every canonical-presence emission for a workspace also goes onto the
+ * owning backend's wire as a typed `oh.awareness.presence` frame so the
+ * peer host can fold this host's surfaces into its local awareness
+ * store.
  *
  * Echo prevention rides on `identity.appId`: only states whose appId
- * matches `'extension'` get forwarded. Peer-received states are
- * filtered out before send, so the wire never loops.
+ * matches the calling host's own (`localAppId`) get forwarded.
+ * Peer-received states are filtered out before send, so the wire never
+ * loops.
  *
  * No queueing on disconnect — awareness is ephemeral. If the WS is
- * down, the desktop will rebuild its view of extension surfaces from
- * the next emission after reconnect (each local awareness publish
- * triggers a fresh `broadcastAwareness`, and the TTL on the desktop
- * side ages out stale rows).
+ * down, the peer rebuilds its view of this host's surfaces from the
+ * next emission after reconnect (each local awareness publish triggers
+ * a fresh `broadcastAwareness`, and the TTL on the peer side ages out
+ * stale rows).
  */
 
 import { getOrgBackendBindings } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import type { AwarenessState } from '@openheaders/core/protocol';
+import type { AppKind, AwarenessState } from '@openheaders/core/protocol';
 import { SYNC_AWARENESS_PRESENCE_TYPE } from '@openheaders/core/protocol';
-import { peekActiveWorkspaceId, snapshotAwarenessPresence } from '@openheaders/oracle/sync';
-import { sendToBackend } from '@openheaders/oracle/sync/client/backend-connection-manager';
-import { getWorkspace } from './modules/workspace/workspace-store';
+import { getWorkspace } from '../../workspace/extension-workspace-store';
+import { peekActiveWorkspaceId } from '../host-hooks';
+import { snapshotAwarenessPresence } from '../service';
+import { sendToBackend } from './backend-connection-manager';
 
 const SCOPE = 'AwarenessForwarder';
 
@@ -33,10 +35,10 @@ export interface AwarenessForwarderEvent {
   presence: readonly AwarenessState[];
 }
 
-export function forwardAwarenessToBackend(event: AwarenessForwarderEvent): void {
-  const localOnly = event.presence.filter((s) => s.identity.appId === 'extension');
+export function forwardAwarenessToBackend(event: AwarenessForwarderEvent, localAppId: AppKind): void {
+  const localOnly = event.presence.filter((s) => s.identity.appId === localAppId);
   // An empty presence frame is meaningful — it tells the peer "no
-  // extension surfaces here anymore" so its mirror can age them out
+  // surfaces of mine here anymore" so its mirror can age them out
   // proactively rather than waiting for TTL. But we only send empty
   // frames when the original event was also empty; otherwise the
   // filter-down-to-empty case means peer-received states exist locally
@@ -68,11 +70,14 @@ export function forwardAwarenessToBackend(event: AwarenessForwarderEvent): void 
  * local surface activity to learn that we're here. No-op when there's
  * no active workspace yet.
  */
-export function forwardCurrentAwarenessOnConnect(): void {
+export function forwardCurrentAwarenessOnConnect(localAppId: AppKind): void {
   const workspaceId = peekActiveWorkspaceId();
   if (!workspaceId) return;
-  forwardAwarenessToBackend({
-    workspaceId,
-    presence: snapshotAwarenessPresence(),
-  });
+  forwardAwarenessToBackend(
+    {
+      workspaceId,
+      presence: snapshotAwarenessPresence(),
+    },
+    localAppId,
+  );
 }
