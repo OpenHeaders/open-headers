@@ -15,7 +15,7 @@
  * appear — the capture holds no wire/script data to back them.
  */
 
-import { ForkOutlined, LoadingOutlined } from '@ant-design/icons';
+import { ArrowUpOutlined, LoadingOutlined } from '@ant-design/icons';
 import type { CapturedRequest, Request, ResponseExample } from '@openheaders/core/types';
 import { Button, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -228,10 +228,11 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({ exampleUid, w
           <Tooltip title="Fork this captured request into a new draft" placement="bottom">
             <Button
               size="small"
-              icon={<ForkOutlined />}
+              type="primary"
               onClick={() => onTry(buildTrySeed(example, parentRequest?.name ?? example.name), example.name)}
             >
               Try
+              <ArrowUpOutlined rotate={45} style={{ fontSize: 11 }} />
             </Button>
           </Tooltip>
         }
