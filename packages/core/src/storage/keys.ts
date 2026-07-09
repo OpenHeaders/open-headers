@@ -34,6 +34,7 @@ import type {
   LogEntry,
   Org,
   Request,
+  ResponseExample,
   Rule,
   ScriptPackage,
   SyntheticIdentityRecord,
@@ -402,6 +403,11 @@ export interface WorkspaceKeys {
    */
   scriptPackages: StorageKey<ScriptPackage[]>;
   /**
+   * Response examples — frozen request/response exchange snapshots
+   * saved under a request via "Save Response".
+   */
+  responseExamples: StorageKey<ResponseExample[]>;
+  /**
    * Live workflow-run cache. Blob keyed by `(workflowUid, environmentId)`
    * holds the most recent extraction per workflow per active env.
    * Opaque at storage layer — shape in `live-cache-store.ts`.
@@ -536,6 +542,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     liveWorkflows: storageKey<LiveWorkflow[]>(`${p}.liveWorkflows`),
     liveVariables: storageKey<LiveVariable[]>(`${p}.liveVariables`),
     scriptPackages: storageKey<ScriptPackage[]>(`${p}.scriptPackages`),
+    responseExamples: storageKey<ResponseExample[]>(`${p}.responseExamples`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     liveFallbackPriority: storageKey<LiveFallbackPrioritySnapshot>(`${p}.liveFallbackPriority`),
     variableRecents: storageKey<unknown>(`${p}.variableRecents`),

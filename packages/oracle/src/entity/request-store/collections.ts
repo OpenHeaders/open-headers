@@ -14,6 +14,7 @@ import {
   applyRequestFolderMutationOrThrow,
   applyRequestMutationOrThrow,
 } from './apply';
+import { deleteResponseExamplesForRequests } from './response-examples';
 import { assertLoaded, collections, folders, requests, setCollections } from './state';
 
 const DEFAULT_COLLECTION_NAME = 'My Requests';
@@ -85,6 +86,7 @@ export async function deleteRequestCollection(uid: string): Promise<boolean> {
   // are deleted by uid through the oracle.
   const cascadingRequestUids = requests.filter((r) => r.path.startsWith(collection.path)).map((r) => r.uid);
   const cascadingFolderUids = folders.filter((f) => f.path.startsWith(collection.path)).map((f) => f.uid);
+  await deleteResponseExamplesForRequests(cascadingRequestUids);
   for (const reqUid of cascadingRequestUids) {
     await applyRequestMutationOrThrow((ctx) => buildDeleteBatch(reqUid, ctx), 'deleteRequestCollection-cascade');
   }

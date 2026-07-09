@@ -22,6 +22,7 @@ import type {
   LiveVariable,
   LiveWorkflow,
   Request,
+  ResponseExample,
   Rule,
   ScriptPackage,
   Template,
@@ -347,6 +348,15 @@ export interface SyncScriptPackagePostState {
 }
 
 /**
+ * Post-commit projection for a response-example envelope. Frozen flat
+ * record (no set-modeled paths), so the payload carries only the
+ * projected entity.
+ */
+export interface SyncResponseExamplePostState {
+  responseExample: ResponseExample;
+}
+
+/**
  * Post-commit projection for a live-value envelope. Singleton entity per
  * workspace — one materialized record at the fixed id `live-value`. The
  * single set-modeled path `values` is projected back into a Record keyed
@@ -612,6 +622,12 @@ export interface SyncBroadcastEvent {
    * batches leave it `undefined`.
    */
   scriptPackagePostState?: SyncScriptPackagePostState;
+  /**
+   * Populated for response-example envelopes whose batch left a
+   * materialized example in place. Tombstoned examples and rolled-back
+   * batches leave it `undefined`.
+   */
+  responseExamplePostState?: SyncResponseExamplePostState;
   /**
    * Populated for live-value envelopes whose batch left a materialized
    * record in place. Tombstoned (singleton deletion is a workspace-level

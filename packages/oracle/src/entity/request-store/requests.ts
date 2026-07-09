@@ -1,18 +1,23 @@
 // ── Requests ────────────────────────────────────────────────────────
 
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import {
+  buildAddBatch,
+  buildDeleteBatch,
+  buildUpdateBatch,
+} from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { Collection, Request } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { REQUEST_COLLECTION_REGISTRATION, REQUEST_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { RequestCache } from '@openheaders/oracle/sync/caches/request-cache';
 import type { RequestCollectionCache } from '@openheaders/oracle/sync/caches/request-collection-cache';
+import { REQUEST_COLLECTION_REGISTRATION, REQUEST_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import {
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service';
 import { applyRequestMutationOrThrow } from './apply';
+import { deleteResponseExamplesForRequests } from './response-examples';
 import { assertLoaded, collections, loadedWorkspaceId, requests } from './state';
 
 /** Seed shape for a fresh request — name + minimal defaults. */
@@ -171,6 +176,7 @@ export async function updateRequest(
 export async function deleteRequest(uid: string): Promise<boolean> {
   assertLoaded();
   if (!requests.some((r) => r.uid === uid)) return false;
+  await deleteResponseExamplesForRequests([uid]);
   await applyRequestMutationOrThrow((ctx) => buildDeleteBatch(uid, ctx), 'deleteRequest');
   return true;
 }

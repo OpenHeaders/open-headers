@@ -14,6 +14,7 @@ import {
 import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { applyRequestFolderMutationOrThrow, applyRequestMutationOrThrow } from './apply';
+import { deleteResponseExamplesForRequests } from './response-examples';
 import { assertLoaded, collections, folders, type LocalFolder, requests } from './state';
 
 /**
@@ -69,6 +70,7 @@ export async function deleteRequestFolder(uid: string): Promise<boolean> {
   const cascadingNestedFolderUids = folders
     .filter((f) => f.uid !== uid && f.path.startsWith(`${folder.path}/`))
     .map((f) => f.uid);
+  await deleteResponseExamplesForRequests(cascadingRequestUids);
   for (const reqUid of cascadingRequestUids) {
     await applyRequestMutationOrThrow((ctx) => buildDeleteBatch(reqUid, ctx), 'deleteRequestFolder-cascade-request');
   }

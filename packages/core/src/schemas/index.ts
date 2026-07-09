@@ -56,6 +56,7 @@ export {
   RequestHeaderSchema,
   RequestSchema,
 } from './request';
+export { CapturedRequestSchema, CapturedResponseSchema, ResponseExampleSchema } from './response-example';
 export {
   ApiResourceTypeSchema,
   AuthActionSchema,

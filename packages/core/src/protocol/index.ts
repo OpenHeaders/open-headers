@@ -66,13 +66,16 @@ export {
   SyncMutationStreamMessageSchema,
 } from './mutation-stream';
 export type {
+  HostLocalSnapshotKey,
   SameDeviceOnlySnapshotKey,
   SensitiveSnapshotKey,
   SyncSnapshotMessage,
   WorkspaceSnapshot,
 } from './snapshot';
 export {
+  HOST_LOCAL_SNAPSHOT_KEYS,
   MIN_SNAPSHOT_SCHEMA_VERSION,
+  redactHostLocalSnapshotKeys,
   redactSameDeviceOnlySnapshotKeys,
   redactSensitiveSnapshotKeys,
   SAME_DEVICE_ONLY_SNAPSHOT_KEYS,
@@ -104,6 +107,7 @@ export type {
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,
+  SyncResponseExamplePostState,
   SyncRulePostState,
   SyncScriptPackagePostState,
   SyncTemplateCollectionPostState,

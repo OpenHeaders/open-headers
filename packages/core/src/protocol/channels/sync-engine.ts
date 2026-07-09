@@ -21,6 +21,7 @@ import type {
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,
+  SyncResponseExamplePostState,
   SyncRulePostState,
   SyncScriptPackagePostState,
   SyncTemplateCollectionPostState,
@@ -195,6 +196,15 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotScriptPackages': {
     req: { workspaceId?: string };
     res: { entries: SyncScriptPackagePostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full response-example oracle state.
+   * Each entry carries `{ responseExample }` — frozen flat record so no
+   * itemId map rides along.
+   */
+  'oh.sync.snapshotResponseExamples': {
+    req: { workspaceId?: string };
+    res: { entries: SyncResponseExamplePostState[] };
   };
   /**
    * Snapshot the active workspace's singleton oauth-bundle oracle

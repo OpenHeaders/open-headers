@@ -227,6 +227,17 @@ export {
   type RequestFolderSlot,
   renameRequestFolder,
 } from './request-folder';
+export {
+  type CreateResponseExampleArgs,
+  createResponseExample,
+  type DeleteResponseExampleArgs,
+  deleteResponseExample,
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
+  RESPONSE_EXAMPLE_MUTATOR_VERSION,
+  type ResponseExampleScalarPath,
+  type SetResponseExampleFieldArgs,
+  setResponseExampleField,
+} from './response-example';
 export * from './rule';
 export {
   type CreateScriptPackageArgs,
