@@ -22,7 +22,10 @@
  *      audited: a denial here is a privilege failure, not a routing
  *      decision, and belongs in the forensic record.
  *
- * Ahead of those three is a **reach floor (WS-B B1)**: a same-device-only
+ * Ahead of those three are a **host-local floor** — per-surface UI state
+ * (the dock layout singleton) never crosses any wire, either direction
+ * (`isHostLocalMutation`; the inbound bridge holds the mirror drop) —
+ * and a **reach floor (WS-B B1)**: a same-device-only
  * mutation (a vault root secret) must never cross the wire to an
  * off-device backend. This is the client→backend mirror of the host-side
  * `loopbackOnly` broadcast + `offDevicePeer` catch-up gates (which cover
@@ -37,10 +40,10 @@
  */
 
 import { consumedOrgIds, emitAuditEntry, getIdentitySnapshot, hasCapability } from '@openheaders/core/identity';
-import { isSameDeviceOnlyMutation, type MutationEnvelope } from '@openheaders/core/sync';
+import { isHostLocalMutation, isSameDeviceOnlyMutation, type MutationEnvelope } from '@openheaders/core/sync';
 
 /** Which layer withheld the envelope — drives caller logging + queue handling. */
-export type OutboundDropLayer = 'reach' | 'echo' | 'tenancy' | 'authz';
+export type OutboundDropLayer = 'local' | 'reach' | 'echo' | 'tenancy' | 'authz';
 
 export type OutboundVerdict =
   | { readonly allow: true }
@@ -88,6 +91,13 @@ export function setOutboundReachGuard(predicate: (orgId: string) => boolean): vo
  * echo + tenancy layers are silent (routing decisions, not denials).
  */
 export function evaluateOutboundEnvelope(envelope: MutationEnvelope): OutboundVerdict {
+  // Host-local floor: per-surface UI state (the dock layout singleton)
+  // never crosses any wire — an ownership boundary, not a reach one, so
+  // it needs no host predicate and runs before everything.
+  if (isHostLocalMutation(envelope)) {
+    return { allow: false, layer: 'local', reason: `${envelope.body.type} is host-local` };
+  }
+
   // Reach floor (WS-B B1): a same-device-only mutation (vault root secret)
   // must not cross the wire to an off-device backend — the client→backend
   // mirror of the host-side loopbackOnly broadcast + offDevicePeer catch-up

@@ -28,7 +28,7 @@
  */
 
 import { SYNC_MUTATION_TYPE, type SyncMutationMessage } from '@openheaders/core/protocol';
-import { isSameDeviceOnlyMutation } from '@openheaders/core/sync';
+import { isHostLocalMutation, isSameDeviceOnlyMutation } from '@openheaders/core/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 
@@ -41,6 +41,9 @@ export function setMutationForwarderWsServer(server: OracleWsServer | null): voi
 
 export function forwardMutationToWsPeers(event: OracleSyncBroadcastEvent): void {
   if (!wsServer) return;
+  // Host-local UI state (layout) never rides the wire — same floor as
+  // the client outbound gate and the catch-up responder.
+  if (isHostLocalMutation(event.envelope)) return;
   const frame: SyncMutationMessage = {
     type: SYNC_MUTATION_TYPE,
     workspaceId: event.envelope.workspaceId,

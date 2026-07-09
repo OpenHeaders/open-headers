@@ -19,7 +19,7 @@
 
 import { clearIdentitySnapshot, installIdentitySnapshot } from '@openheaders/core/identity';
 import { PRE_BOOTSTRAP_ORG_ID } from '@openheaders/core/sync';
-import type { SyntheticIdentityRecord, WorkspaceRoleAssignment } from '@openheaders/core/types';
+import type { Org, SyntheticIdentityRecord, WorkspaceRoleAssignment } from '@openheaders/core/types';
 
 const FIXED_NOW = '2025-01-01T00:00:00.000Z';
 
@@ -30,7 +30,10 @@ const TEST_USER_IDENTITY_ID = '01900000-0000-7000-8000-000000000013';
 const TEST_SESSION_ID = '01900000-0000-7000-8000-000000000014';
 const TEST_LOCAL_ADMIN_ID = '01900000-0000-7000-8000-000000000015';
 
-export function installTestIdentitySnapshot(homeOrgId: string = PRE_BOOTSTRAP_ORG_ID): void {
+export function installTestIdentitySnapshot(
+  homeOrgId: string = PRE_BOOTSTRAP_ORG_ID,
+  joinedOrgs: readonly Org[] = [],
+): void {
   const record: SyntheticIdentityRecord = {
     user: { id: TEST_USER_ID, displayName: 'Test', homeOrgId, isStandalone: true },
     org: { id: homeOrgId, name: 'Test Org', hostKind: 'browser', isPrivate: true },
@@ -60,7 +63,7 @@ export function installTestIdentitySnapshot(homeOrgId: string = PRE_BOOTSTRAP_OR
     localAdmin: { id: TEST_LOCAL_ADMIN_ID, userId: TEST_USER_ID, isLocal: true },
   };
   const wras: ReadonlyArray<WorkspaceRoleAssignment> = [];
-  installIdentitySnapshot({ record, wras });
+  installIdentitySnapshot({ record, wras, joinedOrgs });
 }
 
 export function clearTestIdentitySnapshot(): void {

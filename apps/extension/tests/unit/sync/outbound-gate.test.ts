@@ -8,7 +8,13 @@
  */
 
 import { getIdentitySnapshot } from '@openheaders/core/identity';
-import { type MutationEnvelope, VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
+import {
+  LAYOUT_STATE_ENTITY_TYPE,
+  LAYOUT_STATE_ID,
+  type MutationEnvelope,
+  VAULT_ENTITY_TYPE,
+  VAULT_ID,
+} from '@openheaders/core/sync';
 import type { Org } from '@openheaders/core/types';
 import {
   __resetOutboundGateForTests,
@@ -101,5 +107,24 @@ describe('evaluateOutboundEnvelope', () => {
     setOutboundEchoGuard(() => true);
     const verdict = evaluateOutboundEnvelope(vaultEnvelope());
     expect(verdict.allow === false && verdict.layer).toBe('reach');
+  });
+
+  const layoutEnvelope = (): MutationEnvelope =>
+    envelope({
+      body: { kind: 'setField', type: LAYOUT_STATE_ENTITY_TYPE, id: LAYOUT_STATE_ID, path: 'layout', value: {} },
+    });
+
+  it('withholds a host-local (layout) mutation on every wire, loopback included', () => {
+    // No reach guard installed → backend is same-device — host-local is an
+    // ownership boundary, not a reach one, so it still never crosses.
+    const verdict = evaluateOutboundEnvelope(layoutEnvelope());
+    expect(verdict.allow).toBe(false);
+    expect(verdict.allow === false && verdict.layer).toBe('local');
+  });
+
+  it('runs the host-local floor before echo — an echoed layout mutation reports the local layer', () => {
+    setOutboundEchoGuard(() => true);
+    const verdict = evaluateOutboundEnvelope(layoutEnvelope());
+    expect(verdict.allow === false && verdict.layer).toBe('local');
   });
 });

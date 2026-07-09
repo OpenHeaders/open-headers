@@ -8,7 +8,12 @@
  */
 
 import { type ResolvedAuditEntry, resetAuditSink, setAuditSink } from '@openheaders/core/identity';
-import { type MutatorContext, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  LAYOUT_STATE_ENTITY_TYPE,
+  LAYOUT_STATE_ID,
+  type MutatorContext,
+  RULE_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -157,6 +162,28 @@ describe('applyInboundMutationBatch', () => {
     await expect(applyInboundMutationBatch(mixed)).rejects.toThrow();
     for (const env of mixed.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(false);
     expect(__seenMutationStreamCountForTests()).toBe(0);
+  });
+
+  it('drops a host-local (layout) envelope at ingest — a peer cannot overwrite this host layout', async () => {
+    // Mirror of the outbound gate's host-local floor: even if a peer
+    // (old build, hostile) puts a layout-state envelope on the wire,
+    // ingest refuses it before apply.
+    const layoutEnvelope = {
+      ...seedRule(makeRule(generateUid()), ctx(8_000)).mutations[0]!,
+      mutationId: 'm-layout-inbound',
+      body: {
+        kind: 'setField' as const,
+        type: LAYOUT_STATE_ENTITY_TYPE,
+        id: LAYOUT_STATE_ID,
+        path: 'layout',
+        value: { panes: [] },
+      },
+    };
+
+    await applyInboundMutationEnvelope(layoutEnvelope);
+    expect(hasRecentlyApplied(layoutEnvelope.mutationId)).toBe(false);
+    const oracle = getOracleForCurrentWorkspace();
+    expect(oracle?.materializeOne(LAYOUT_STATE_ENTITY_TYPE, LAYOUT_STATE_ID)).toBeFalsy();
   });
 
   it('runs the receiver-side workspace.write gate and audits the decision', async () => {

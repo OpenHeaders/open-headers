@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { MutationEnvelope } from '../../src/sync';
 import {
+  isHostLocalEntityType,
+  isHostLocalMutation,
   isSameDeviceOnlyEntityType,
   isSameDeviceOnlyMutation,
+  LAYOUT_STATE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
 } from '../../src/sync';
@@ -48,5 +51,28 @@ describe('isSameDeviceOnlyMutation', () => {
 
   it('is false for a non-vault mutation envelope', () => {
     expect(isSameDeviceOnlyMutation(makeEnvelope(RULE_ENTITY_TYPE))).toBe(false);
+  });
+});
+
+describe('isHostLocalEntityType', () => {
+  it('classifies the layout singleton as host-local', () => {
+    expect(isHostLocalEntityType(LAYOUT_STATE_ENTITY_TYPE)).toBe(true);
+  });
+
+  it('does not classify synced entities (rule) or the vault as host-local', () => {
+    // The vault is reach-scoped (same-device), not host-local — a loopback
+    // peer on the same device still receives it.
+    expect(isHostLocalEntityType(RULE_ENTITY_TYPE)).toBe(false);
+    expect(isHostLocalEntityType(VAULT_ENTITY_TYPE)).toBe(false);
+  });
+});
+
+describe('isHostLocalMutation', () => {
+  it('is true for a layout-state mutation envelope', () => {
+    expect(isHostLocalMutation(makeEnvelope(LAYOUT_STATE_ENTITY_TYPE))).toBe(true);
+  });
+
+  it('is false for a synced-entity mutation envelope', () => {
+    expect(isHostLocalMutation(makeEnvelope(RULE_ENTITY_TYPE))).toBe(false);
   });
 });

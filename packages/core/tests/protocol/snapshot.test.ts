@@ -2,7 +2,9 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
 import {
+  HOST_LOCAL_SNAPSHOT_KEYS,
   MIN_SNAPSHOT_SCHEMA_VERSION,
+  redactHostLocalSnapshotKeys,
   redactSameDeviceOnlySnapshotKeys,
   redactSensitiveSnapshotKeys,
   SAME_DEVICE_ONLY_SNAPSHOT_KEYS,
@@ -176,6 +178,32 @@ describe('redactSameDeviceOnlySnapshotKeys', () => {
     });
     const before = JSON.parse(JSON.stringify(snap));
     redactSameDeviceOnlySnapshotKeys(snap);
+    expect(snap).toEqual(before);
+  });
+});
+
+describe('redactHostLocalSnapshotKeys', () => {
+  it('only lists the layout singleton as host-local', () => {
+    expect(HOST_LOCAL_SNAPSHOT_KEYS).toEqual(['layoutState']);
+  });
+
+  it('blanks the layout but keeps synced entities flowing', () => {
+    const rules = [{ uid: 'r-1' }] as unknown as WorkspaceSnapshot['rules'];
+    const snap = makeSnapshot({
+      layoutState: [{ layout: { panes: [] } } as unknown as WorkspaceSnapshot['layoutState'][number]],
+      rules,
+    });
+    const redacted = redactHostLocalSnapshotKeys(snap);
+    expect(redacted.layoutState).toEqual([]);
+    expect(redacted.rules).toBe(rules);
+  });
+
+  it('does not mutate the input', () => {
+    const snap = makeSnapshot({
+      layoutState: [{ layout: {} } as unknown as WorkspaceSnapshot['layoutState'][number]],
+    });
+    const before = JSON.parse(JSON.stringify(snap));
+    redactHostLocalSnapshotKeys(snap);
     expect(snap).toEqual(before);
   });
 });

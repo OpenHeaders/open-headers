@@ -52,6 +52,7 @@ import {
   computeInverseSpec,
   deriveSideEffectsForEnvelope,
   filterEnvelopesByOrg,
+  isHostLocalMutation,
   type MutationBatch,
   type MutationEnvelope,
 } from '@openheaders/core/sync';
@@ -186,12 +187,22 @@ export async function applyInboundMutationBatch(input: MutationBatch): Promise<v
   if (allKnown) return;
 
   const authorized = authorizedOrgIds(getIdentitySnapshot());
-  const accepted = [...filterEnvelopesByOrg(input.mutations, authorized)];
-  if (accepted.length < input.mutations.length) {
-    const dropped = input.mutations.length - accepted.length;
+  const orgAccepted = [...filterEnvelopesByOrg(input.mutations, authorized)];
+  if (orgAccepted.length < input.mutations.length) {
+    const dropped = input.mutations.length - orgAccepted.length;
     logger.info(
       'MutationStreamBridge',
       `inbound batch ${input.batchId}: dropped ${dropped}/${input.mutations.length} envelope(s) outside the host's authorized Org set`,
+    );
+  }
+  // Host-local UI state (layout) never rides the wire — mirror of the
+  // outbound gate's floor, so a peer that predates the rule (or a
+  // hostile one) can't overwrite this host's layout.
+  const accepted = orgAccepted.filter((env) => !isHostLocalMutation(env));
+  if (accepted.length < orgAccepted.length) {
+    logger.info(
+      'MutationStreamBridge',
+      `inbound batch ${input.batchId}: dropped ${orgAccepted.length - accepted.length} host-local envelope(s)`,
     );
   }
   if (accepted.length === 0) return;

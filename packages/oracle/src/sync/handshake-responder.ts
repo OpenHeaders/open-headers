@@ -44,6 +44,7 @@
  *     SYNCED; this responder is the responding peer
  */
 import {
+  redactHostLocalSnapshotKeys,
   redactSameDeviceOnlySnapshotKeys,
   redactSensitiveSnapshotKeys,
   SYNC_MUTATION_TYPE,
@@ -57,6 +58,7 @@ import {
 } from '@openheaders/core/protocol';
 import {
   DEFAULT_SNAPSHOT_THRESHOLDS,
+  isHostLocalMutation,
   isSameDeviceOnlyMutation,
   type SnapshotThresholds,
   shouldBootstrapWithSnapshot,
@@ -141,7 +143,9 @@ export async function respondToStateVector(
   if (wantsSnapshot) {
     const built = await buildSnapshotForWorkspace(workspaceId);
     if (built !== null) {
-      let snapshot: WorkspaceSnapshot = built;
+      // Host-local UI state (layout) never rides the wire — every peer
+      // keeps its own; unconditional, unlike the reach/trust strips.
+      let snapshot: WorkspaceSnapshot = redactHostLocalSnapshotKeys(built);
       if (options.redactSensitive) snapshot = redactSensitiveSnapshotKeys(snapshot);
       else if (options.offDevicePeer) snapshot = redactSameDeviceOnlySnapshotKeys(snapshot);
       const snapshotFrame: SyncSnapshotMessage = {
@@ -158,6 +162,8 @@ export async function respondToStateVector(
   }
 
   for await (const envelope of readWorkspaceDeltaStream(workspaceId, resumeFromVector)) {
+    // Host-local UI state (layout) never rides the wire, any peer.
+    if (isHostLocalMutation(envelope)) continue;
     // WS-B reach gate: an off-device peer's catch-up delta must omit
     // same-device-only secrets (vault), matching the snapshot strip above
     // and the live-broadcast gate — otherwise a reconnecting LAN peer

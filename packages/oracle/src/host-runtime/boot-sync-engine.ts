@@ -84,8 +84,9 @@ export async function bootSyncEngine(): Promise<BootSyncEngineResult> {
   await reseedAllPerWorkspaceBridges();
 
   // 5. Seed the default "User Templates" collection so the Templates
-  //    section is non-empty on first run. Idempotent.
-  await ensureDefaultTemplateCollection().catch((err: unknown) => {
+  //    section is non-empty on first run. Idempotent; a consumed
+  //    workspace is skipped — its backend owns the default.
+  await ensureDefaultTemplateCollection('initialization').catch((err: unknown) => {
     logger.warn('HostRuntime', 'ensureDefaultTemplateCollection at boot failed', err);
   });
 
@@ -103,7 +104,7 @@ export async function bootSyncEngine(): Promise<BootSyncEngineResult> {
         logger.warn('HostRuntime', `workspace-coord setRuntimeActive(${newId}) failed: ${result.reason}`);
       }
       await reseedAllPerWorkspaceBridges();
-      await ensureDefaultTemplateCollection().catch((err: unknown) => {
+      await ensureDefaultTemplateCollection('initialization').catch((err: unknown) => {
         logger.warn('HostRuntime', 'ensureDefaultTemplateCollection on workspace switch failed', err);
       });
     },

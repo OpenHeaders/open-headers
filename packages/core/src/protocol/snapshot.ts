@@ -217,3 +217,30 @@ export function redactSameDeviceOnlySnapshotKeys(snapshot: WorkspaceSnapshot): W
   for (const key of SAME_DEVICE_ONLY_SNAPSHOT_KEYS) out[key] = [];
   return out;
 }
+
+/**
+ * Snapshot keys carrying *host-local* entity post-states — per-surface
+ * UI state (the dock layout singleton) that only makes sense to the
+ * host that wrote it. Not a secrecy boundary: an ownership one — a
+ * peer bootstrapping from this snapshot must start with its own blank
+ * layout, not inherit the sender's. Mirrors `isHostLocalEntityType` in
+ * `@openheaders/core/sync` at the snapshot-array granularity.
+ */
+export const HOST_LOCAL_SNAPSHOT_KEYS = ['layoutState'] as const satisfies ReadonlyArray<keyof WorkspaceSnapshot>;
+
+export type HostLocalSnapshotKey = (typeof HOST_LOCAL_SNAPSHOT_KEYS)[number];
+
+/**
+ * Return a copy of `snapshot` with every {@link HOST_LOCAL_SNAPSHOT_KEYS}
+ * array replaced by an empty array. Pure; the input is not mutated.
+ *
+ * Call site: the state-vector catch-up responder, unconditionally on
+ * the wire path — every peer, loopback included, keeps its own layout.
+ * The local snapshot pipeline (workspace duplicate) is not a wire and
+ * does not strip.
+ */
+export function redactHostLocalSnapshotKeys(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
+  const out = { ...snapshot };
+  for (const key of HOST_LOCAL_SNAPSHOT_KEYS) out[key] = [];
+  return out;
+}

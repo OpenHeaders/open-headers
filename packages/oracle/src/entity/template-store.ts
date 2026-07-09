@@ -15,6 +15,7 @@
  *   - `oh.ws.<id>.templateFolders`      (cache-owned)
  */
 
+import { consumedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
 import { CollectionSchema, FolderSchema, TemplateSchema } from '@openheaders/core/schemas';
 import {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
@@ -23,21 +24,30 @@ import {
   TEMPLATE_FOLDER_ENTITY_TYPE,
   type TemplateFolderParentRef,
 } from '@openheaders/core/sync';
-import type { Collection, CollectionTree, RuleType, Template, TreeNode } from '@openheaders/core/types';
-import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
-import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteTemplateCollectionBatch,
   buildRenameTemplateCollectionBatch,
 } from '@openheaders/core/sync-builders/mutations/template-collection-mutations';
-import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import {
   buildCreateTemplateFolderBatch,
   buildDeleteTemplateFolderBatch,
   buildDeleteTemplateFolderEntityBatch,
   buildRenameTemplateFolderBatch,
 } from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
-import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
+import {
+  buildAddBatch,
+  buildDeleteBatch,
+  buildUpdateBatch,
+} from '@openheaders/core/sync-builders/mutations/template-mutations';
+import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
+import type { Collection, CollectionTree, RuleType, Template, TreeNode } from '@openheaders/core/types';
+import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
+import type { LocalFolder } from '@openheaders/oracle/entity/rule-store';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
+import type { TemplateCache } from '@openheaders/oracle/sync/caches/template-cache';
+import type { TemplateCollectionCache } from '@openheaders/oracle/sync/caches/template-collection-cache';
+import type { TemplateFolderCache } from '@openheaders/oracle/sync/caches/template-folder-cache';
 import {
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,
@@ -49,12 +59,8 @@ import {
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service';
-import type { TemplateCache } from '@openheaders/oracle/sync/caches/template-cache';
-import type { TemplateCollectionCache } from '@openheaders/oracle/sync/caches/template-collection-cache';
-import type { TemplateFolderCache } from '@openheaders/oracle/sync/caches/template-folder-cache';
-import type { LocalFolder } from '@openheaders/oracle/entity/rule-store';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
+import { getWorkspace } from '../workspace/extension-workspace-store';
 
 // ── In-memory state (scoped to active workspace) ────────────────────
 
@@ -180,9 +186,31 @@ function assertLoaded(): string {
   return loadedWorkspaceId;
 }
 
-export async function ensureDefaultTemplateCollection(): Promise<Collection> {
+/**
+ * Ensure the "User Templates" default collection exists in the loaded
+ * workspace, minting it when absent.
+ *
+ * Initialization callers (boot, the workspace-coord swap) pass
+ * `'initialization'` and get `null` instead of a mint when the
+ * workspace's Org is a consumed Org: defaults in a joined backend's
+ * workspace are that backend's own boot's job, and minting here races
+ * the catch-up stream into a duplicate (both sides end up owning a
+ * "User Templates" under different uids). The lazy edit path (first
+ * template create) keeps the mint — a real user gesture, by which time
+ * catch-up has landed the backend's copy and the find-by-name hits.
+ */
+export async function ensureDefaultTemplateCollection(): Promise<Collection>;
+export async function ensureDefaultTemplateCollection(purpose: 'initialization'): Promise<Collection | null>;
+export async function ensureDefaultTemplateCollection(purpose?: 'initialization'): Promise<Collection | null> {
   const existing = templateCollections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
+
+  if (purpose === 'initialization') {
+    const workspace = getWorkspace(loadedWorkspaceId ?? '');
+    if (workspace && consumedOrgIds(getIdentitySnapshot()).has(workspace.orgId)) {
+      return null;
+    }
+  }
 
   const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);

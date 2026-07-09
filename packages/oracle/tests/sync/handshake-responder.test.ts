@@ -19,7 +19,7 @@ import {
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
 import type { MutationEnvelope } from '@openheaders/core/sync';
-import { RULE_ENTITY_TYPE, VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
+import { LAYOUT_STATE_ENTITY_TYPE, RULE_ENTITY_TYPE, VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const VAULT_SNAPSHOT_ROW = { vault: { uid: 'v' }, secretUids: ['s1'] } as unknown as WorkspaceSnapshot['vault'][number];
@@ -34,6 +34,7 @@ const OAUTH_SNAPSHOT_ROW = {
   refreshErrors: {},
   credentialRefs: ['ref1'],
 } as unknown as WorkspaceSnapshot['oauthBundles'][number];
+const LAYOUT_SNAPSHOT_ROW = { layout: { panes: [] } } as unknown as WorkspaceSnapshot['layoutState'][number];
 
 function emptySnapshot(): WorkspaceSnapshot {
   return {
@@ -58,7 +59,7 @@ function emptySnapshot(): WorkspaceSnapshot {
     liveFallbackPriority: [],
     oauthBundles: [OAUTH_SNAPSHOT_ROW],
     pauseMarkers: [],
-    layoutState: [],
+    layoutState: [LAYOUT_SNAPSHOT_ROW],
     files: [],
   };
 }
@@ -146,5 +147,37 @@ describe('respondToStateVector — WS-B reach gate (offDevicePeer)', () => {
     const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
     expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-vault', 'm-rule']);
     expect(result.deltasSent).toBe(2);
+  });
+});
+
+describe('respondToStateVector — host-local strip (layout)', () => {
+  beforeEach(() => {
+    deltaEnvelopes.length = 0;
+    deltaEnvelopes.push(makeEnvelope(LAYOUT_STATE_ENTITY_TYPE, 'm-layout'), makeEnvelope(RULE_ENTITY_TYPE, 'm-rule'));
+  });
+
+  it('strips the layout from the snapshot and the delta stream for a same-device peer', async () => {
+    // Host-local is an ownership boundary, not a reach one — the strip is
+    // unconditional on the wire path, loopback peers included.
+    const reply = collectingReply();
+    const result = await respondToStateVector(MESSAGE, reply, { offDevicePeer: false });
+
+    const snapshotFrame = reply.frames.find((f) => f.type === SYNC_SNAPSHOT_TYPE);
+    expect(snapshotFrame?.snapshot?.layoutState).toEqual([]);
+    expect(snapshotFrame?.snapshot?.rules).toEqual([RULE_SNAPSHOT_ROW]);
+
+    const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
+    expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-rule']);
+    expect(result.deltasSent).toBe(1);
+  });
+
+  it('strips the layout for an off-device peer too', async () => {
+    const reply = collectingReply();
+    await respondToStateVector(MESSAGE, reply, { offDevicePeer: true });
+
+    const snapshotFrame = reply.frames.find((f) => f.type === SYNC_SNAPSHOT_TYPE);
+    expect(snapshotFrame?.snapshot?.layoutState).toEqual([]);
+    const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
+    expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-rule']);
   });
 });
