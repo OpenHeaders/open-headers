@@ -399,7 +399,7 @@ jobs:
           VERSION=${GITHUB_REF_NAME/v/}
           EXT_VERSION="${{ steps.ext_ver.outputs.version }}"
           IS_PRERELEASE="${{ steps.release_type.outputs.is_prerelease }}"
-          REPO="${{ github.repository }}"
+          REPO="OpenHeaders/open-headers-releases"
           TAG="$GITHUB_REF_NAME"
 
           if [ "$IS_PRERELEASE" = "true" ]; then
@@ -435,21 +435,29 @@ jobs:
             echo "- [Safari](${DL}/open-headers-safari-v${EXT_VERSION}.zip)"
           } >> release_body.md
 
+      # Artifacts + the electron-updater feed files (latest*.yml) land on
+      # the public releases repo — the app's update check stays anonymous
+      # (no token) while the source repo stays private.
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.RELEASES_PAT }}
+          repository: OpenHeaders/open-headers-releases
+          tag_name: "${{ github.ref_name }}"
           draft: false
           prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
           name: "${{ github.ref_name }}"
           files: processed_files/*
           fail_on_unmatched_files: false
           body_path: release_body.md
-          generate_release_notes: true
+          generate_release_notes: false
           append_body: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The extension mirror-publish targets the real public extension
+      # repo — it must never fire from a private/mirror build of this
+      # workflow.
       - name: Generate extension release body
+        if: github.repository == 'OpenHeaders/open-headers-app'
         run: |
           EXT_VERSION="${{ steps.ext_ver.outputs.version }}"
           IS_PRERELEASE="${{ steps.release_type.outputs.is_prerelease }}"
@@ -477,6 +485,7 @@ jobs:
           } >> ext_release_body.md
 
       - name: Publish extension to browser extension repo
+        if: github.repository == 'OpenHeaders/open-headers-app'
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.EXTENSION_REPO_PAT }}

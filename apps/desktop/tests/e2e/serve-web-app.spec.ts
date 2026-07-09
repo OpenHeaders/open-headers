@@ -178,7 +178,7 @@ test.beforeAll(async () => {
 
   electronApp = await _electron.launch({
     args: [APP_ROOT],
-    env: { ...process.env, OPENHEADERS_USER_DATA_DIR: userData },
+    env: { ...process.env, OPENHEADERS_USER_DATA_DIR: userData, OH_DISABLE_UPDATE_CHECKS: '1' },
   });
   workbench = await electronApp.firstWindow();
 
