@@ -9,6 +9,7 @@ import {
   isJarEditableRow,
   jarCookieToEditForm,
   jarCookieToKey,
+  mergeEditFormWithCanonical,
   rowToEditForm,
   rowToKey,
 } from '@openheaders/ui/panel/data/cookies/cookie-edit';
@@ -281,5 +282,41 @@ describe('isEditFormValid', () => {
     const form = { ...emptyEditForm({ domain: 'openheaders.io' }), name: 'x', session: false };
     expect(isEditFormValid(form)).toBe(false);
     expect(isEditFormValid({ ...form, expirationDate: 4102444800 })).toBe(true);
+  });
+});
+
+describe('mergeEditFormWithCanonical', () => {
+  const baseline: CookieEditFormValues = {
+    ...emptyEditForm({ domain: 'openheaders.io' }),
+    name: 'sid',
+    value: 'abc',
+  };
+
+  it('re-seeds a clean form wholesale', () => {
+    const next = { ...baseline, value: 'rotated', httpOnly: true };
+    expect(mergeEditFormWithCanonical(baseline, baseline, next)).toEqual(next);
+  });
+
+  it('catches up untouched fields and keeps touched drafts', () => {
+    const form = { ...baseline, name: 'sid-draft' };
+    const next = { ...baseline, value: 'rotated' };
+    expect(mergeEditFormWithCanonical(baseline, form, next)).toEqual({
+      ...baseline,
+      name: 'sid-draft',
+      value: 'rotated',
+    });
+  });
+
+  it('never overwrites a touched field even when the canonical moved on the same field', () => {
+    const form = { ...baseline, value: 'my-draft' };
+    const next = { ...baseline, value: 'theirs' };
+    expect(mergeEditFormWithCanonical(baseline, form, next).value).toBe('my-draft');
+  });
+
+  it('carries optional-field transitions (expiration appearing) into untouched forms', () => {
+    const next = { ...baseline, session: false, expirationDate: 4102444800 };
+    const merged = mergeEditFormWithCanonical(baseline, baseline, next);
+    expect(merged.session).toBe(false);
+    expect(merged.expirationDate).toBe(4102444800);
   });
 });

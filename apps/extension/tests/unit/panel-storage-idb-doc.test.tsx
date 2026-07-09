@@ -55,6 +55,7 @@ const NAV: HostNavigation = {
 function installHost(
   readIndexedDbRecordDocument: StorageInspectorHost['readIndexedDbRecordDocument'],
   writeIndexedDbRecord: StorageInspectorHost['writeIndexedDbRecord'] = vi.fn(() => Promise.resolve({ ok: false })),
+  subscribeStorageInvalidations: StorageInspectorHost['subscribeStorageInvalidations'] = () => () => {},
 ) {
   const host: StorageInspectorHost = {
     listScopes: vi.fn(() => Promise.resolve(null)),
@@ -79,7 +80,7 @@ function installHost(
     setQuotaOverride: vi.fn(() => Promise.resolve(false)),
     deleteCache: vi.fn(() => Promise.resolve(false)),
     deleteCacheEntry: vi.fn(() => Promise.resolve(false)),
-    subscribeStorageInvalidations: () => () => {},
+    subscribeStorageInvalidations,
   };
   setStorageInspectorHost(host);
 }
@@ -336,5 +337,91 @@ describe('IdbRecordEditorTab', () => {
     await waitFor(() =>
       expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('{\n  "seq": 1\n}'),
     );
+  });
+
+  it('silently adopts an external change on a host invalidation push while pristine', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '{\n  "seq": 1\n}', editable: true })
+      .mockResolvedValue({ text: '{\n  "seq": 2\n}', editable: true } as IdbRecordDocument | null);
+    const captured: { invalidate: (() => void) | null } = { invalidate: null };
+    installHost(read, undefined, (tabId, kind, listener) => {
+      expect(tabId).toBe(42);
+      expect(kind).toBe('indexeddb');
+      captured.invalidate = listener;
+      return () => {};
+    });
+    render(<IdbRecordEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(viewer.value).toBe('{\n  "seq": 1\n}');
+    await waitFor(() => expect(captured.invalidate).not.toBeNull());
+    captured.invalidate?.();
+
+    await waitFor(() => expect(viewer.value).toBe('{\n  "seq": 2\n}'));
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('keeps a touched draft while the canonical underneath advances', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '{\n  "seq": 1\n}', editable: true })
+      .mockResolvedValue({ text: '{\n  "seq": 9\n}', editable: true } as IdbRecordDocument | null);
+    const captured: { invalidate: (() => void) | null } = { invalidate: null };
+    installHost(read, undefined, (_tabId, _kind, listener) => {
+      captured.invalidate = listener;
+      return () => {};
+    });
+    render(<IdbRecordEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: '{\n  "seq": 5\n}' } });
+    await waitFor(() => expect(captured.invalidate).not.toBeNull());
+    captured.invalidate?.();
+
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    expect(viewer.value).toBe('{\n  "seq": 5\n}');
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('keeps a dirty editor with an honest note when the record is deleted underneath', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '{\n  "seq": 1\n}', editable: true })
+      .mockResolvedValue(null as IdbRecordDocument | null);
+    const captured: { invalidate: (() => void) | null } = { invalidate: null };
+    installHost(read, undefined, (_tabId, _kind, listener) => {
+      captured.invalidate = listener;
+      return () => {};
+    });
+    render(<IdbRecordEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: '{\n  "seq": 5\n}' } });
+    await waitFor(() => expect(captured.invalidate).not.toBeNull());
+    captured.invalidate?.();
+
+    expect(await screen.findByText(/deleted or changed shape/)).toBeTruthy();
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('{\n  "seq": 5\n}');
+    expect(screen.queryByText('Record no longer available')).toBeNull();
+  });
+
+  it('re-seeds a clean editor to the honest empty state when the record is deleted underneath', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ text: '{\n  "seq": 1\n}', editable: true })
+      .mockResolvedValue(null as IdbRecordDocument | null);
+    const captured: { invalidate: (() => void) | null } = { invalidate: null };
+    installHost(read, undefined, (_tabId, _kind, listener) => {
+      captured.invalidate = listener;
+      return () => {};
+    });
+    render(<IdbRecordEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await screen.findByTestId('code-viewer');
+    await waitFor(() => expect(captured.invalidate).not.toBeNull());
+    captured.invalidate?.();
+
+    expect(await screen.findByText('Record no longer available')).toBeTruthy();
   });
 });

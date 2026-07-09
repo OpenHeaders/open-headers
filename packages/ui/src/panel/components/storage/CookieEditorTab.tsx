@@ -28,6 +28,7 @@ import {
   jarCookieToEditForm,
   jarCookieToKey,
   jarKeysSameCookie,
+  mergeEditFormWithCanonical,
   predictedJarKey,
 } from '../../data/cookies/cookie-edit';
 import {
@@ -36,15 +37,22 @@ import {
   type JarCookieKey,
   removeJarCookie,
   type SiteJarCookie,
+  subscribeCookieJar,
   writeJarCookie,
 } from '../../data/cookies/cookie-jar-cache';
 import type { CookieInspectorTab } from '../../data/inspector-tab';
+import { useDocumentSync } from '../../data/storage/use-document-sync';
 import { CookieEditFields, useCookieFieldResolution } from '../detail/cookies/CookieEditFields';
 import { ArmedIconButton } from './ArmedIconButton';
+import { StorageDocSaveButton } from './StorageDocSaveButton';
 
 interface CookieDocument {
   jar: SiteJarCookie;
   canonical: CookieEditFormValues;
+  /** The canonical vanished under a dirty form — the drafts stay
+   *  visible with an honest note instead of blanking (a clean form
+   *  re-seeds to the unavailable state instead). */
+  gone?: boolean;
 }
 
 type DocumentSlot = 'loading' | 'unavailable' | CookieDocument;
@@ -70,9 +78,19 @@ interface CookieEditorTabProps {
    *  changes" path; called with `null` on unmount. Resolves whether the
    *  save committed. */
   registerSave?: (save: (() => Promise<boolean>) | null) => void;
+  /** Whether this document is the focused group's active tab — gates
+   *  the Save keyboard chord when a split shows two documents. */
+  isActiveDocument?: boolean;
 }
 
-export function CookieEditorTab({ tab, onRevealInStorage, onDirtyChange, onRekeyed, registerSave }: CookieEditorTabProps) {
+export function CookieEditorTab({
+  tab,
+  onRevealInStorage,
+  onDirtyChange,
+  onRekeyed,
+  registerSave,
+  isActiveDocument,
+}: CookieEditorTabProps) {
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [values, setValues] = useState<CookieEditFormValues>(emptyEditForm);
   const [saving, setSaving] = useState(false);
@@ -105,6 +123,50 @@ export function CookieEditorTab({ tab, onRevealInStorage, onDirtyChange, onRekey
   const doc = typeof slot === 'object' ? slot : null;
   const { fields, anyUnresolved, resolvedForm } = useCookieFieldResolution(values);
   const dirty = doc !== null && !editFormsEqual(values, doc.canonical);
+
+  // Latest-state mirrors for the silent sync path — it lands after an
+  // await and must merge against the CURRENT document + form, not the
+  // ones captured when the fetch started.
+  const docRef = useRef(doc);
+  docRef.current = doc;
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+
+  // Live canonical catch-up: on a jar notify or a poll tick, re-read
+  // the jar and fold the fresh canonical into the open form — clean
+  // fields silently adopt it, touched fields keep their drafts. Never
+  // flips the document back to loading.
+  const syncDocument = useCallback(async () => {
+    if (docRef.current === null) return;
+    const token = ++fetchTokenRef.current;
+    const site = await fetchSiteJarCookiesOnce(scopeUrl);
+    if (token !== fetchTokenRef.current) return;
+    const current = docRef.current;
+    if (current === null || site === null) return;
+    const jar = site.find((c) => jarKeysSameCookie(jarCookieToKey(c), cookieKey)) ?? null;
+    const form = valuesRef.current;
+    if (jar === null) {
+      // Deleted under the document: a clean form re-seeds to the honest
+      // empty state; a dirty form keeps the drafts with a note.
+      if (editFormsEqual(form, current.canonical)) setSlot('unavailable');
+      else if (current.gone !== true) setSlot({ ...current, gone: true });
+      return;
+    }
+    const next = jarCookieToEditForm(jar);
+    if (current.gone !== true && editFormsEqual(next, current.canonical)) return;
+    setValues(mergeEditFormWithCanonical(current.canonical, form, next));
+    setSlot({ jar, canonical: next });
+  }, [scopeUrl, cookieKey]);
+
+  const runSync = useCallback(() => {
+    void syncDocument();
+  }, [syncDocument]);
+
+  useDocumentSync({
+    enabled: doc !== null && !saving,
+    sync: runSync,
+    subscribe: subscribeCookieJar,
+  });
   // Validity runs on the RESOLVED form — a `{{var}}` resolving to '' in
   // Name / Domain must block like a literal empty would.
   const savable = dirty && writable && !anyUnresolved && isEditFormValid(resolvedForm);
@@ -195,21 +257,15 @@ export function CookieEditorTab({ tab, onRevealInStorage, onDirtyChange, onRekey
         </span>
         <span className="dt-storagedoc-toolbar-spacer" />
         {doc !== null && writable && (
-          <button
-            type="button"
-            className="dt-storagedoc-save"
-            disabled={!savable || saving}
-            title={
-              savable
-                ? 'Write the edited cookie back to the browser jar'
-                : dirty
-                  ? 'The form is incomplete or a reference doesn’t resolve'
-                  : 'No changes to save'
-            }
-            onClick={() => void handleSave()}
-          >
-            Save
-          </button>
+          <StorageDocSaveButton
+            savable={savable}
+            saving={saving}
+            dirty={dirty}
+            saveHint="Write the edited cookie back to the browser jar"
+            blockedHint="The form is incomplete or a reference doesn’t resolve"
+            isActiveDocument={isActiveDocument}
+            onSave={() => void handleSave()}
+          />
         )}
         {dirty ? (
           <ArmedIconButton
@@ -242,6 +298,11 @@ export function CookieEditorTab({ tab, onRevealInStorage, onDirtyChange, onRekey
       {doc !== null && !writable && (
         <div className="dt-storagedoc-note">
           This host’s cookie jar is read-only — the document reflects the jar but can’t write back.
+        </div>
+      )}
+      {doc?.gone === true && (
+        <div className="dt-storagedoc-note">
+          This cookie was deleted in the browser — your unsaved edits are kept. Save writes it back.
         </div>
       )}
       {errorNote !== null && (

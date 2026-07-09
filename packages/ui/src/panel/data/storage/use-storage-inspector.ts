@@ -20,6 +20,7 @@
 import { hostNavigation } from '@openheaders/core/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invalidateJarCache } from '../cookies/cookie-jar-cache';
+import { notifyDomStorageWrite } from './dom-storage-write-notifier';
 import type { DomStorageArea, DomStorageFullValue, DomStorageSnapshot, StorageScope } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
 
@@ -196,6 +197,7 @@ export function useStorageInspector(section: StorageSection): StorageInspectorSt
         ok = await host.removeDomStorage(tabId, selectedFrameId, area, originalKey);
       }
       setWriteFailed(!ok);
+      notifyDomStorageWrite();
       void readEntries();
       return ok;
     },
@@ -207,6 +209,7 @@ export function useStorageInspector(section: StorageSection): StorageInspectorSt
       if (!host || tabId === null || selectedFrameId === null) return false;
       const ok = await host.removeDomStorage(tabId, selectedFrameId, area, key);
       setWriteFailed(!ok);
+      notifyDomStorageWrite();
       void readEntries();
       return ok;
     },
@@ -217,6 +220,7 @@ export function useStorageInspector(section: StorageSection): StorageInspectorSt
     if (!host || tabId === null || selectedFrameId === null) return false;
     const ok = await host.clearDomStorage(tabId, selectedFrameId, area);
     setWriteFailed(!ok);
+    notifyDomStorageWrite();
     void readEntries();
     return ok;
   }, [host, tabId, selectedFrameId, area, readEntries]);

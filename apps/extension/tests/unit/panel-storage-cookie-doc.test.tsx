@@ -13,6 +13,7 @@ import { CookieEditorTab } from '@openheaders/ui/panel/components/storage/Cookie
 import { jarCookieToKey } from '@openheaders/ui/panel/data/cookies/cookie-edit';
 import {
   __resetCookieJarCacheForTests,
+  invalidateJarCache,
   type JarCookie,
   type JarCookieEdit,
   type JarCookieKey,
@@ -288,6 +289,99 @@ describe('CookieEditorTab', () => {
     expect(ok).toBe(true);
     expect(set).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it('silently re-seeds a clean form when the jar changes underneath (live canonical)', async () => {
+    let rows: readonly SiteJarCookie[] = [COOKIE];
+    setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
+    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await waitFor(() => expect(valueInput().value).toBe('abc'));
+    rows = [makeJarCookie({ value: 'rotated-elsewhere' })];
+    invalidateJarCache();
+
+    await waitFor(() => expect(valueInput().value).toBe('rotated-elsewhere'));
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('catches up untouched fields under a dirty form while preserving the touched draft', async () => {
+    let rows: readonly SiteJarCookie[] = [COOKIE];
+    setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
+    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await waitFor(() => expect(nameInput().value).toBe('sid'));
+    fireEvent.change(nameInput(), { target: { value: 'sid-draft' } });
+    rows = [makeJarCookie({ value: 'xyz' })];
+    invalidateJarCache();
+
+    await waitFor(() => expect(valueInput().value).toBe('xyz'));
+    expect(nameInput().value).toBe('sid-draft');
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('never overwrites a touched leaf even when the same field changed in the jar', async () => {
+    let rows: readonly SiteJarCookie[] = [COOKIE];
+    setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
+    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await waitFor(() => expect(valueInput().value).toBe('abc'));
+    fireEvent.change(valueInput(), { target: { value: 'my-draft' } });
+    rows = [makeJarCookie({ value: 'theirs', httpOnly: false })];
+    invalidateJarCache();
+
+    // The untouched HttpOnly toggle catching up proves the sync ran…
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: /HttpOnly/ }).getAttribute('aria-checked')).toBe('false'),
+    );
+    // …while the touched value keeps the draft (the conflict stays pending).
+    expect(valueInput().value).toBe('my-draft');
+  });
+
+  it('keeps a dirty form with an honest note when the cookie is deleted underneath', async () => {
+    let rows: readonly SiteJarCookie[] = [COOKIE];
+    setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
+    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await waitFor(() => expect(valueInput().value).toBe('abc'));
+    fireEvent.change(valueInput(), { target: { value: 'my-draft' } });
+    rows = [];
+    invalidateJarCache();
+
+    expect(await screen.findByText(/deleted in the browser/)).toBeTruthy();
+    expect(valueInput().value).toBe('my-draft');
+    expect(screen.queryByText('Cookie no longer in the jar')).toBeNull();
+  });
+
+  it('re-seeds a clean form to the honest empty state when the cookie is deleted underneath', async () => {
+    let rows: readonly SiteJarCookie[] = [COOKIE];
+    setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
+    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await waitFor(() => expect(valueInput().value).toBe('abc'));
+    rows = [];
+    invalidateJarCache();
+
+    expect(await screen.findByText('Cookie no longer in the jar')).toBeTruthy();
+  });
+
+  it('saves via the keyboard chord — and the chord is inert while clean', async () => {
+    const set = vi.fn((edit: JarCookieEdit) => Promise.resolve<JarCookie | null>({ ...COOKIE, value: edit.value }));
+    installJar([COOKIE], { set });
+    render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await waitFor(() => expect(nameInput().value).toBe('sid'));
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    expect(set).not.toHaveBeenCalled();
+
+    fireEvent.change(valueInput(), { target: { value: 'rotated' } });
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    expect(set.mock.calls[0][0]).toMatchObject({ name: 'sid', value: 'rotated' });
   });
 
   it('routes Reveal in Storage back to the Cookies section', async () => {

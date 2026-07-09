@@ -509,6 +509,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           <IdbRecordEditorTab
             tab={tab}
             onRevealInStorage={revealInStorage}
+            isActiveDocument={tab.id === groups.activeTabId}
             onDirtyChange={(dirty) => groups.updateTab(tab.id, { dirty })}
             registerSave={(save) => {
               if (save) storageSaveRefs.current.set(tab.id, save);
@@ -522,6 +523,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           <DomStorageEntryEditorTab
             tab={tab}
             onRevealInStorage={revealDomInStorage}
+            isActiveDocument={tab.id === groups.activeTabId}
             onDirtyChange={(dirty) => groups.updateTab(tab.id, { dirty })}
             // A committed rename moved the entry — re-key the tab so its
             // id/label follow (the body remounts and re-fetches).
@@ -538,6 +540,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           <CookieEditorTab
             tab={tab}
             onRevealInStorage={revealCookiesInStorage}
+            isActiveDocument={tab.id === groups.activeTabId}
             onDirtyChange={(dirty) => groups.updateTab(tab.id, { dirty })}
             // A committed identity change moved the cookie — re-key the
             // tab so its id/label follow (the body remounts and re-fetches).

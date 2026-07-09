@@ -188,6 +188,51 @@ export function editFormsEqual(a: CookieEditFormValues, b: CookieEditFormValues)
   );
 }
 
+const EDIT_FORM_FIELDS: ReadonlyArray<keyof CookieEditFormValues> = [
+  'name',
+  'value',
+  'domain',
+  'path',
+  'hostOnly',
+  'httpOnly',
+  'secure',
+  'sameSite',
+  'session',
+  'expirationDate',
+  'partitionKey',
+  'storeId',
+];
+
+/**
+ * Per-field catch-up of a live canonical into an open form — the free
+ * tier of the document-sync model. A field the user hasn't touched
+ * (form === baseline) silently adopts the new canonical value; a
+ * touched field keeps the draft (a genuine conflict stays pending for
+ * the conflict tier to surface). A fully clean form falls out as a
+ * whole re-seed. Never overwrites a user edit.
+ */
+export function mergeEditFormWithCanonical(
+  baseline: CookieEditFormValues,
+  form: CookieEditFormValues,
+  next: CookieEditFormValues,
+): CookieEditFormValues {
+  const merged = { ...form };
+  for (const field of EDIT_FORM_FIELDS) {
+    if (form[field] === baseline[field]) {
+      mergeField(merged, field, next);
+    }
+  }
+  return merged;
+}
+
+function mergeField<K extends keyof CookieEditFormValues>(
+  out: CookieEditFormValues,
+  field: K,
+  next: CookieEditFormValues,
+): void {
+  out[field] = next[field];
+}
+
 /** Add affordances and per-row Edit/Delete only make sense for cookies
  *  that actually live in the browser jar — request rows joined from the
  *  jar, jar cookies shown as filtered-out, and response Set-Cookie rows

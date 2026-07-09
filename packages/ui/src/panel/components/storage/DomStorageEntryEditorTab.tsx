@@ -20,17 +20,28 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type DomStorageEntryInspectorTab, domStorageAreaName } from '../../data/inspector-tab';
+import { notifyDomStorageWrite, subscribeDomStorageWrites } from '../../data/storage/dom-storage-write-notifier';
 import type { DomStorageArea, DomStorageRenameFailure } from '../../data/storage/storage-inspector-host';
 import { getStorageInspectorHost } from '../../data/storage/storage-inspector-host';
+import { useDocumentSync } from '../../data/storage/use-document-sync';
 import Skeleton from '../detail/Skeleton';
 import { JsonTree } from '../JsonTree';
 import { ArmedIconButton } from './ArmedIconButton';
+import { StorageDocSaveButton } from './StorageDocSaveButton';
 
 // Lazy like every other Monaco consumer — a static import here would
 // pull Monaco back into the panel's initial chunk.
 const CodeViewer = lazy(() => import('../detail/CodeViewer'));
 
-type DocumentSlot = 'loading' | 'unavailable' | 'too-large' | { value: string };
+interface EntryDocument {
+  value: string;
+  /** The canonical vanished under a dirty editor — the drafts stay
+   *  visible with an honest note instead of blanking (a clean editor
+   *  re-seeds to the unavailable state instead). */
+  gone?: boolean;
+}
+
+type DocumentSlot = 'loading' | 'unavailable' | 'too-large' | EntryDocument;
 
 type ViewMode = 'source' | 'preview';
 
@@ -56,6 +67,9 @@ interface DomStorageEntryEditorTabProps {
    *  changes" path; called with `null` on unmount. Resolves whether the
    *  save committed. */
   registerSave?: (save: (() => Promise<boolean>) | null) => void;
+  /** Whether this document is the focused group's active tab — gates
+   *  the Save keyboard chord when a split shows two documents. */
+  isActiveDocument?: boolean;
 }
 
 export function DomStorageEntryEditorTab({
@@ -64,6 +78,7 @@ export function DomStorageEntryEditorTab({
   onDirtyChange,
   onRenamed,
   registerSave,
+  isActiveDocument,
 }: DomStorageEntryEditorTabProps) {
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
@@ -111,6 +126,57 @@ export function DomStorageEntryEditorTab({
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
 
+  // Latest-state mirrors for the silent sync path — it lands after an
+  // await and must merge against the CURRENT document + drafts, not
+  // the ones captured when the fetch started.
+  const docRef = useRef(doc);
+  docRef.current = doc;
+  const keyDraftRef = useRef(keyDraft);
+  keyDraftRef.current = keyDraft;
+  const valueDraftRef = useRef(valueDraft);
+  valueDraftRef.current = valueDraft;
+
+  // Live canonical catch-up: on a write notify or a poll tick, re-read
+  // the entry and fold the fresh value in — a pristine editor adopts
+  // it, a touched value draft is kept while the canonical underneath
+  // advances. Never flips the document back to loading.
+  const syncDocument = useCallback(async () => {
+    if (docRef.current === null) return;
+    const host = getStorageInspectorHost();
+    const tabId = hostNavigation.inspectedTabId();
+    if (!host || tabId === null) return;
+    const token = ++fetchTokenRef.current;
+    const full = await host.readDomStorageValue(tabId, frameId, area, entryKey);
+    if (token !== fetchTokenRef.current) return;
+    const current = docRef.current;
+    if (current === null) return;
+    const keyTouched = keyDraftRef.current !== null && keyDraftRef.current !== entryKey;
+    const valueTouched = valueDraftRef.current !== null && valueDraftRef.current !== current.value;
+    if (full === null || full.value === null) {
+      // Deleted under the document: a clean editor re-seeds to the
+      // honest empty state; drafts stay visible with a note.
+      if (keyTouched || valueTouched) {
+        if (current.gone !== true) setSlot({ ...current, gone: true });
+      } else {
+        setSlot(full?.tooLarge ? 'too-large' : 'unavailable');
+      }
+      return;
+    }
+    if (current.gone !== true && full.value === current.value) return;
+    setSlot({ value: full.value });
+    if (!valueTouched) setValueDraft(null);
+  }, [frameId, area, entryKey]);
+
+  const runSync = useCallback(() => {
+    void syncDocument();
+  }, [syncDocument]);
+
+  useDocumentSync({
+    enabled: doc !== null && !saving,
+    sync: runSync,
+    subscribe: subscribeDomStorageWrites,
+  });
+
   const handleSave = useCallback(async (): Promise<boolean> => {
     const host = getStorageInspectorHost();
     const tabId = hostNavigation.inspectedTabId();
@@ -127,6 +193,7 @@ export function DomStorageEntryEditorTab({
       }
       // Commit-then-refetch through the read path — the document becomes
       // the area's truth again (the grid's poll picks it up).
+      notifyDomStorageWrite();
       await fetchDocument();
       return true;
     }
@@ -136,6 +203,7 @@ export function DomStorageEntryEditorTab({
       setSaveError(result.reason ?? 'write');
       return false;
     }
+    notifyDomStorageWrite();
     // The entry identity moved — re-keying the tab remounts this editor
     // under the new key, which re-fetches through the read path.
     onRenamed?.(nextKey);
@@ -210,21 +278,15 @@ export function DomStorageEntryEditorTab({
         </span>
         <span className="dt-storagedoc-toolbar-spacer" />
         {doc !== null && (
-          <button
-            type="button"
-            className="dt-storagedoc-save"
-            disabled={!savable || saving}
-            title={
-              savable
-                ? 'Write the edited entry back to storage'
-                : dirty
-                  ? 'The key can’t be empty'
-                  : 'No changes to save'
-            }
-            onClick={() => void handleSave()}
-          >
-            Save
-          </button>
+          <StorageDocSaveButton
+            savable={savable}
+            saving={saving}
+            dirty={dirty}
+            saveHint="Write the edited entry back to storage"
+            blockedHint="The key can’t be empty"
+            isActiveDocument={isActiveDocument}
+            onSave={() => void handleSave()}
+          />
         )}
         {dirty ? (
           <ArmedIconButton
@@ -267,6 +329,11 @@ export function DomStorageEntryEditorTab({
               setSaveError(null);
             }}
           />
+        </div>
+      )}
+      {doc?.gone === true && (
+        <div className="dt-storagedoc-note">
+          This entry was deleted in the browser — your unsaved edits are kept. Save writes it back.
         </div>
       )}
       {errorNote !== null && (

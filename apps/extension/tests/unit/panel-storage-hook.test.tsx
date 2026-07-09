@@ -16,6 +16,7 @@ import {
   __seedCookieJarForTests,
   getJarCookiesForUrl,
 } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
+import { subscribeDomStorageWrites } from '@openheaders/ui/panel/data/storage/dom-storage-write-notifier';
 import { useCacheBrowser } from '@openheaders/ui/panel/data/storage/use-cache-browser';
 import { useIdbBrowser } from '@openheaders/ui/panel/data/storage/use-idb-browser';
 import { type StorageSection, useStorageInspector } from '@openheaders/ui/panel/data/storage/use-storage-inspector';
@@ -215,6 +216,29 @@ describe('useStorageInspector poll stability', () => {
     expect(readDomStorage.mock.calls.length).toBe(readsBefore + 5);
     expect(result.current.loading).toBe(false);
     expect(result.current.snapshot?.entries).toEqual([{ key: 'theme', value: 'dark', valueLength: 4 }]);
+  });
+
+  it('taps the write notifier on every DOM write path so open documents catch up', async () => {
+    installHost();
+    const { result } = renderHook(() => useStorageInspector('local'));
+    await flush();
+    await flush();
+
+    const notified = vi.fn();
+    const unsubscribe = subscribeDomStorageWrites(notified);
+    await act(async () => {
+      await result.current.applyEdit(null, 'theme', 'light');
+    });
+    expect(notified).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await result.current.removeEntry('theme');
+    });
+    expect(notified).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await result.current.clearArea();
+    });
+    expect(notified).toHaveBeenCalledTimes(3);
+    unsubscribe();
   });
 });
 

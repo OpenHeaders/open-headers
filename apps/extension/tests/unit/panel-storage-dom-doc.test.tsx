@@ -13,6 +13,7 @@ import type { HostNavigation } from '@openheaders/core/navigation';
 import { setHostNavigation } from '@openheaders/core/navigation';
 import { DomStorageEntryEditorTab } from '@openheaders/ui/panel/components/storage/DomStorageEntryEditorTab';
 import { buildDomStorageEntryTab } from '@openheaders/ui/panel/data/inspector-tab';
+import { notifyDomStorageWrite } from '@openheaders/ui/panel/data/storage/dom-storage-write-notifier';
 import type { DomStorageFullValue, StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -323,6 +324,70 @@ describe('DomStorageEntryEditorTab', () => {
     expect(ok).toBe(true);
     expect(write).toHaveBeenCalledWith(42, 0, 'local', 'oh-theme', 'light');
     await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it('silently adopts an external value change while pristine (live canonical)', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValue({ value: 'light', tooLarge: false } as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(viewer.value).toBe('dark');
+    notifyDomStorageWrite();
+
+    await waitFor(() => expect(viewer.value).toBe('light'));
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('keeps a touched value draft while the canonical underneath advances', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValue({ value: 'theirs', tooLarge: false } as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'my-draft' } });
+    notifyDomStorageWrite();
+
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    expect(viewer.value).toBe('my-draft');
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('keeps a dirty editor with an honest note when the entry is deleted underneath', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValue(null as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'my-draft' } });
+    notifyDomStorageWrite();
+
+    expect(await screen.findByText(/deleted in the browser/)).toBeTruthy();
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('my-draft');
+    expect(screen.queryByText('Entry no longer available')).toBeNull();
+  });
+
+  it('re-seeds a clean editor to the honest empty state when the entry is deleted underneath', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValue(null as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await screen.findByTestId('code-viewer');
+    notifyDomStorageWrite();
+
+    expect(await screen.findByText('Entry no longer available')).toBeTruthy();
   });
 
   it('routes Reveal in Storage back to the originating area', async () => {

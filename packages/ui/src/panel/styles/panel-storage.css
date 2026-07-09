@@ -417,10 +417,20 @@
   background: var(--dt-row-hover);
 }
 
+/* The tooltip anchor around the Save button — hover must keep working
+ * while the button itself is disabled. */
+.dt-storagedoc-save-wrap {
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
 /* Enabled ⇔ dirty, so the fill is the app-wide unsaved-changes orange
  * (the workbench Save accent), not the primary blue. */
 .dt-storagedoc-save {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font: inherit;
   padding: 1px 10px;
   border: 1px solid #f5722d;

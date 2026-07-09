@@ -22,16 +22,24 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { IdbRecordInspectorTab } from '../../data/inspector-tab';
 import type { IdbRecordDocument, IdbRecordWriteFailure } from '../../data/storage/storage-inspector-host';
 import { getStorageInspectorHost } from '../../data/storage/storage-inspector-host';
+import { useDocumentSync } from '../../data/storage/use-document-sync';
 import Skeleton from '../detail/Skeleton';
 import { JsonTree } from '../JsonTree';
 import { ArmedIconButton } from './ArmedIconButton';
 import { IdbPreviewTree } from './IdbPreviewTree';
+import { StorageDocSaveButton } from './StorageDocSaveButton';
 
 // Lazy like every other Monaco consumer — a static import here would
 // pull Monaco back into the panel's initial chunk.
 const CodeViewer = lazy(() => import('../detail/CodeViewer'));
 
-type DocumentSlot = 'loading' | 'unavailable' | IdbRecordDocument;
+/** `gone` marks a canonical that vanished (or stopped being readable
+ *  as before) under a dirty editor — the draft stays visible with an
+ *  honest note instead of blanking (a clean editor re-seeds to the
+ *  unavailable state instead). */
+type RecordDocument = IdbRecordDocument & { gone?: boolean };
+
+type DocumentSlot = 'loading' | 'unavailable' | RecordDocument;
 
 type ViewMode = 'source' | 'preview';
 
@@ -51,9 +59,18 @@ interface IdbRecordEditorTabProps {
    *  changes" path; called with `null` on unmount. Resolves whether the
    *  save committed. */
   registerSave?: (save: (() => Promise<boolean>) | null) => void;
+  /** Whether this document is the focused group's active tab — gates
+   *  the Save keyboard chord when a split shows two documents. */
+  isActiveDocument?: boolean;
 }
 
-export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, registerSave }: IdbRecordEditorTabProps) {
+export function IdbRecordEditorTab({
+  tab,
+  onRevealInStorage,
+  onDirtyChange,
+  registerSave,
+  isActiveDocument,
+}: IdbRecordEditorTabProps) {
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
   // The Source edit buffer; null ⇒ pristine (mirrors the document).
@@ -91,6 +108,68 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+
+  // Latest-state mirrors for the silent sync path — it lands after an
+  // await and must merge against the CURRENT document + draft, not the
+  // ones captured when the fetch started.
+  const docRef = useRef(doc);
+  docRef.current = doc;
+  const draftTextRef = useRef(draftText);
+  draftTextRef.current = draftText;
+
+  // Live canonical catch-up: on a host invalidation push or a poll
+  // tick, re-read the record and fold the fresh document in — a
+  // pristine editor adopts it, a touched draft is kept while the
+  // canonical underneath advances. Never flips back to loading.
+  const syncDocument = useCallback(async () => {
+    if (docRef.current === null) return;
+    const host = getStorageInspectorHost();
+    const tabId = hostNavigation.inspectedTabId();
+    if (!host || tabId === null) return;
+    const token = ++fetchTokenRef.current;
+    const next = await host.readIndexedDbRecordDocument(tabId, frameId, database, store, primaryKeyWire);
+    if (token !== fetchTokenRef.current) return;
+    const current = docRef.current;
+    if (current === null) return;
+    const touched = current.editable && draftTextRef.current !== null && draftTextRef.current !== current.text;
+    if (next === null) {
+      // Deleted under the document: a clean editor re-seeds to the
+      // honest empty state; the draft stays visible with a note.
+      if (touched) {
+        if (current.gone !== true) setSlot({ ...current, gone: true });
+      } else {
+        setSlot('unavailable');
+      }
+      return;
+    }
+    if (touched && !next.editable) {
+      // The record stopped being an editable JSON document under the
+      // draft — adopting it would hide the draft and Save; keep the
+      // document with the honest note instead.
+      if (current.gone !== true) setSlot({ ...current, gone: true });
+      return;
+    }
+    if (current.gone !== true && next.text === current.text && next.editable === current.editable) return;
+    setSlot(next);
+    if (!touched) setDraftText(null);
+  }, [frameId, database, store, primaryKeyWire]);
+
+  const runSync = useCallback(() => {
+    void syncDocument();
+  }, [syncDocument]);
+
+  const subscribeInvalidations = useCallback((listener: () => void) => {
+    const host = getStorageInspectorHost();
+    const tabId = hostNavigation.inspectedTabId();
+    if (!host || tabId === null) return () => {};
+    return host.subscribeStorageInvalidations(tabId, 'indexeddb', listener);
+  }, []);
+
+  useDocumentSync({
+    enabled: doc !== null && !saving,
+    sync: runSync,
+    subscribe: subscribeInvalidations,
+  });
 
   const handleSave = useCallback(async (): Promise<boolean> => {
     const host = getStorageInspectorHost();
@@ -175,15 +254,14 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
         </span>
         <span className="dt-storagedoc-toolbar-spacer" />
         {doc?.editable === true && (
-          <button
-            type="button"
-            className="dt-storagedoc-save"
-            disabled={!dirty || saving}
-            title={dirty ? 'Write the edited value back to the record' : 'No changes to save'}
-            onClick={() => void handleSave()}
-          >
-            Save
-          </button>
+          <StorageDocSaveButton
+            savable={dirty}
+            saving={saving}
+            dirty={dirty}
+            saveHint="Write the edited value back to the record"
+            isActiveDocument={isActiveDocument}
+            onSave={() => void handleSave()}
+          />
         )}
         {dirty ? (
           <ArmedIconButton
@@ -214,6 +292,11 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
         </button>
       </div>
       {note !== null && <div className="dt-storagedoc-note">{note}</div>}
+      {doc?.gone === true && (
+        <div className="dt-storagedoc-note">
+          This record was deleted or changed shape in the browser — your unsaved edits are kept. Save writes them back.
+        </div>
+      )}
       {errorNote !== null && (
         <div className="dt-storagedoc-note dt-storagedoc-note--error" role="alert">
           {errorNote}
