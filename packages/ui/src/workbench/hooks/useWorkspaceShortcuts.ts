@@ -444,7 +444,12 @@ function isInputFocused(): boolean {
   const tag = el.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if ((el as HTMLElement).isContentEditable) return true;
-  return false;
+  // Monaco with EditContext (Chrome default) focuses a plain
+  // <div class="native-edit-context"> — neither a form control nor
+  // contentEditable — so tag/contentEditable checks miss it and
+  // single-char shortcuts (`/`, `?`) would swallow keystrokes typed
+  // into any Monaco surface.
+  return el.closest('.monaco-editor') !== null;
 }
 
 // ── Hook ──────────────────────────────────────────────────────────
