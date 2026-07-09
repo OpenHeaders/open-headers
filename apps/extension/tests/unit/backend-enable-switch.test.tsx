@@ -12,11 +12,13 @@ import {
   __clearBackendsForTests,
   createBackend,
   getBackend,
+  recordBackendOrgConflict,
   refreshBackendsFromHostStorage,
   updateBackend,
 } from '@openheaders/core/backends';
 import { type HostStorage, setHostStorage } from '@openheaders/core/storage';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
+import { SurfaceWorkspaceAdoptProvider } from '@openheaders/ui/workbench/hooks/SurfaceWorkspaceAdoptContext';
 import { act, renderHook } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import type { ReactNode } from 'react';
@@ -32,6 +34,10 @@ import { useBackendEnableSwitch } from '@openheaders/ui/workbench/settings/compo
 
 function createHostStorageFake(): HostStorage {
   const map = new Map<string, unknown>();
+  const listeners = new Map<string, Set<() => void>>();
+  const notify = (key: string): void => {
+    for (const fn of listeners.get(key) ?? []) fn();
+  };
   return {
     get: async (spec) => map.get(spec.key) as never,
     getMany: async (specs) => {
@@ -41,17 +47,33 @@ function createHostStorageFake(): HostStorage {
     },
     set: async (spec, value) => {
       map.set(spec.key, value);
+      notify(spec.key);
     },
     setMany: async (writes) => {
-      for (const [spec, value] of writes) map.set(spec.key, value);
+      for (const [spec, value] of writes) {
+        map.set(spec.key, value);
+        notify(spec.key);
+      }
     },
     remove: async (specs) => {
       const list = Array.isArray(specs) ? specs : [specs];
-      for (const spec of list) map.delete(spec.key);
+      for (const spec of list) {
+        map.delete(spec.key);
+        notify(spec.key);
+      }
     },
     getValidated: async () => null,
     getValidatedArray: async () => [],
-    subscribe: () => () => undefined,
+    subscribe: (spec, handler) => {
+      let bucket = listeners.get(spec.key);
+      if (!bucket) {
+        bucket = new Set();
+        listeners.set(spec.key, bucket);
+      }
+      const fn = (): void => handler(map.get(spec.key) as never);
+      bucket.add(fn);
+      return () => bucket?.delete(fn);
+    },
   };
 }
 
@@ -128,6 +150,37 @@ describe('useBackendEnableSwitch.setEnabled', () => {
       'ws://127.0.0.1:9999',
       expect.objectContaining({ authToken: 'tok-123', role: 'extension' }),
     );
+  });
+
+  it('ends the overlay dwell as soon as a WELCOME refusal lands (never adopts)', async () => {
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137' });
+    mockProbe.mockResolvedValue({ ok: true, latencyMs: 5, protocolVersion: 1, role: 'extension', agent: 'x' });
+    // Adoption never settles — a refused join has nothing to adopt. The
+    // flip must resolve via the refusal race, not the settle timeout.
+    const hangingAdopt = () => new Promise<void>(() => {});
+    const refusedWrapper = ({ children }: { children: ReactNode }): ReactNode => (
+      <AntApp>
+        <SurfaceWorkspaceAdoptProvider adopt={hangingAdopt}>{children}</SurfaceWorkspaceAdoptProvider>
+      </AntApp>
+    );
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useBackendEnableSwitch(), { wrapper: refusedWrapper });
+
+    await act(async () => {
+      const pending = result.current.setEnabled(record, true);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await recordBackendOrgConflict({
+        backendId: record.id,
+        orgId: 'org-refused',
+        orgName: 'Refused Org',
+        boundBackendId: 'backend-original',
+      });
+      await vi.advanceTimersByTimeAsync(100);
+      await pending;
+    });
+
+    expect(getBackend(record.id)?.enabled).toBe(true);
+    expect(result.current.busy).toBe(false);
   });
 
   it('a same-state flip is a no-op', async () => {

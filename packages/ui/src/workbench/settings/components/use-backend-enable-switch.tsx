@@ -22,6 +22,7 @@
 
 import { updateBackend } from '@openheaders/core/backends';
 import { getOrgBackendBindings } from '@openheaders/core/identity';
+import { getHostStorage, OH } from '@openheaders/core/storage';
 import type { BackendConnection } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { App as AntApp } from 'antd';
@@ -38,6 +39,35 @@ const MIN_OVERLAY_MS = 1_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Resolves the moment a WELCOME refusal lands for `backendId` (a fresh
+ * `OH.backendOrgConflicts` row stamped at/after `sinceMs`). A refused
+ * join never adopts, so without this the enable overlay would sit out
+ * the full adopt-settle timeout before closing. Never resolves when no
+ * refusal arrives — always race it against the settle, and `cancel()`
+ * in a finally.
+ */
+function watchOrgConflictRefusal(backendId: string, sinceMs: number): { refused: Promise<void>; cancel: () => void } {
+  let cancel = (): void => {};
+  const refused = new Promise<void>((resolve) => {
+    const storage = getHostStorage();
+    if (!storage) return;
+    let unsubscribe: (() => void) | undefined;
+    const check = (): void => {
+      void storage.get(OH.backendOrgConflicts).then((rows) => {
+        if ((rows ?? []).some((c) => c.backendId === backendId && Date.parse(c.at) >= sinceMs)) {
+          unsubscribe?.();
+          resolve();
+        }
+      });
+    };
+    unsubscribe = storage.subscribe(OH.backendOrgConflicts, check);
+    cancel = () => unsubscribe?.();
+    check();
+  });
+  return { refused, cancel };
 }
 
 export interface BackendEnableSwitchHandle {
@@ -96,16 +126,37 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
     // Orgs are already bound reconnects without repointing the active
     // workspace, so waiting would just burn the adopt settle timeout.
     const isRejoin = [...getOrgBackendBindings().values()].includes(record.id);
+    const flippedAtMs = Date.now();
     await updateBackend(record.id, { enabled: true });
     // First join promotes the backend's active workspace; hold the
     // overlay until this surface has followed onto it so the user never
-    // sees the previous workspace flash through.
-    await Promise.all([
-      sleep(MIN_OVERLAY_MS),
-      adoptActiveWorkspaceIntoSurface && !isRejoin ? adoptActiveWorkspaceIntoSurface() : Promise.resolve(),
-    ]);
+    // sees the previous workspace flash through. A refused WELCOME
+    // (Org-uniqueness conflict) never adopts — end the dwell the moment
+    // the refusal row lands instead of sitting out the settle timeout.
+    const refusal = watchOrgConflictRefusal(record.id, flippedAtMs);
+    let refusedEarly = false;
+    try {
+      const adopt =
+        adoptActiveWorkspaceIntoSurface && !isRejoin ? adoptActiveWorkspaceIntoSurface() : Promise.resolve();
+      await Promise.all([
+        sleep(MIN_OVERLAY_MS),
+        Promise.race([
+          adopt,
+          refusal.refused.then(() => {
+            refusedEarly = true;
+          }),
+        ]),
+      ]);
+    } finally {
+      refusal.cancel();
+    }
     setOverlay(null);
-    message.success(`Connected to ${toLabel}.`);
+    if (refusedEarly) {
+      // The connection row's conflict strip carries the full reason.
+      message.warning(`${toLabel} connected, but its Org wasn't joined — see the connection row.`);
+    } else {
+      message.success(`Connected to ${toLabel}.`);
+    }
     return true;
   };
 
