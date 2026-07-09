@@ -12,6 +12,7 @@ import type { Collection, CollectionTree, Rule } from '@openheaders/core/types';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { NEW_RULES_COLLECTION_NAME, uniqueName } from '@openheaders/ui/shared/naming';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { renderCollectionRows, renderNodeRows } from './save-browser-rows';
 import { useSaveBrowser } from './use-save-browser';
@@ -33,6 +34,10 @@ interface SaveToCollectionModalProps {
   rules?: Rule[];
   pausedUids?: Set<string>;
   unresolvableRuleUids?: Set<string>;
+  /** Base name for the Enter-from-Name prefilled collection create — the
+   *  entity family's default ("New Requests Collection", "User Templates").
+   *  Deduped with the shared `(2)` scheme against existing collections. */
+  defaultNewCollectionName?: string;
 }
 
 const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
@@ -47,6 +52,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   onCreateCollection,
   onCreateFolder,
   onCancel,
+  defaultNewCollectionName = NEW_RULES_COLLECTION_NAME,
 }) => {
   const { token } = theme.useToken();
   const saveLabel = useShortcutLabel('save');
@@ -80,6 +86,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
     currentParentPath,
     browserRef,
     handleNavKeyDown,
+    drillIntoFocusedRow,
   } = useSaveBrowser({ collections, collectionTrees, setCreatingFolder });
 
   useEffect(() => {
@@ -98,7 +105,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   }, [open, entityName]);
 
   useEffect(() => {
-    if (creatingCollection) setTimeout(() => newCollectionInputRef.current?.focus(), 50);
+    if (creatingCollection) setTimeout(() => newCollectionInputRef.current?.focus({ cursor: 'end' }), 50);
   }, [creatingCollection]);
 
   useEffect(() => {
@@ -139,6 +146,39 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       setTimeout(() => searchInputRef.current?.focus(), 50);
     }
   }, [newFolderName, currentParentPath, onCreateFolder]);
+
+  // Enter in the Name input walks the fastest save path instead of dead-ending:
+  // with a collection selected it saves; at the root it drills into the focused
+  // (first) collection and moves focus to the folder search; on an empty
+  // workspace it opens the inline create row prefilled with the deduped
+  // default collection name, so Enter-Enter-Enter completes a first save.
+  const handleNameEnter = useCallback(() => {
+    if (canSave) {
+      handleSave();
+      return;
+    }
+    if (selectedCollectionId || !name.trim()) return;
+    if (collections.length === 0) {
+      setNewCollectionName(uniqueName(defaultNewCollectionName, new Set(collections.map((c) => c.name))));
+      setCreatingCollection(true);
+      return;
+    }
+    if (drillIntoFocusedRow()) setTimeout(() => searchInputRef.current?.focus(), 50);
+  }, [canSave, handleSave, selectedCollectionId, name, collections, defaultNewCollectionName, drillIntoFocusedRow]);
+
+  // Search input + browser share nav keys; Enter on an empty folder view
+  // (nothing left to drill into) saves right where the user is standing.
+  const handleBrowseKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && selectedCollectionId && effectiveFocusId === null) {
+        e.preventDefault();
+        if (canSave) handleSave();
+        return;
+      }
+      handleNavKeyDown(e);
+    },
+    [selectedCollectionId, effectiveFocusId, canSave, handleSave, handleNavKeyDown],
+  );
 
   // Global key handling while modal is open:
   //   Cmd/Ctrl+S — save
@@ -256,8 +296,12 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
           ref={nameInputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onPressEnter={() => {
-            if (canSave) handleSave();
+          onPressEnter={handleNameEnter}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              searchInputRef.current?.focus();
+            }
           }}
           size="small"
           style={{ fontSize: 12 }}
@@ -313,7 +357,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
         placeholder={selectedCollectionId ? 'Search folders' : 'Search for collection'}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        onKeyDown={handleNavKeyDown}
+        onKeyDown={handleBrowseKeyDown}
         size="small"
         allowClear
         style={{ marginBottom: 8, fontSize: 12 }}
@@ -325,7 +369,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: container hosts keyboard nav for its rows */}
       <div
         ref={browserRef}
-        onKeyDown={handleNavKeyDown}
+        onKeyDown={handleBrowseKeyDown}
         tabIndex={-1}
         style={{
           border: `1px solid ${token.colorBorderSecondary}`,

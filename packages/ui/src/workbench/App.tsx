@@ -58,6 +58,7 @@ import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
+import { NEW_REQUESTS_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
 import { computeBreadcrumbs } from './breadcrumbs';
 import CommandPalette from './components/shell/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/shell/EditorGroupRenderer';
@@ -1340,6 +1341,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onCreateCollection={requestsApi.createCollection}
             onCreateFolder={requestsApi.createFolder}
             onCancel={requestSaveFlow.closeSaveModal}
+            defaultNewCollectionName={NEW_REQUESTS_COLLECTION_NAME}
           />
 
           <SaveToCollectionModal

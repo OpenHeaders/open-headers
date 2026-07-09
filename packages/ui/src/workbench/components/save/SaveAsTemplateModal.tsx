@@ -6,6 +6,7 @@
  */
 
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
+import { NEW_TEMPLATE_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
 import type { RuleCondition, RuleType, Template } from '@openheaders/core/types';
 import { Checkbox, Input, Modal, Typography, theme } from 'antd';
 import type React from 'react';
@@ -121,6 +122,7 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
         onCreateCollection={createTemplateCollection}
         onCreateFolder={createTemplateFolder}
         onCancel={() => setStep('metadata')}
+        defaultNewCollectionName={NEW_TEMPLATE_COLLECTION_NAME}
       />
     );
   }

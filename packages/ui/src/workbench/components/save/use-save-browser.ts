@@ -106,6 +106,13 @@ export function useSaveBrowser({ collections, collectionTrees, setCreatingFolder
     [setCreatingFolder],
   );
 
+  const drillIntoFocusedRow = useCallback((): boolean => {
+    const row = selectableRows.find((r) => r.id === effectiveFocusId);
+    if (!row) return false;
+    drillIntoRow(row);
+    return true;
+  }, [selectableRows, effectiveFocusId, drillIntoRow]);
+
   const drillBack = useCallback(() => {
     if (selectedFolderPath && selectedTree) {
       // Use the breadcrumb trail to derive the parent path — same source the
@@ -146,10 +153,8 @@ export function useSaveBrowser({ collections, collectionTrees, setCreatingFolder
         return;
       }
       if (e.key === 'Enter' || e.key === 'ArrowRight') {
-        const row = selectableRows.find((r) => r.id === effectiveFocusId);
-        if (!row) return;
+        if (!drillIntoFocusedRow()) return;
         e.preventDefault();
-        drillIntoRow(row);
         return;
       }
       if (e.key === 'ArrowLeft' || (e.key === 'Backspace' && search === '')) {
@@ -163,7 +168,7 @@ export function useSaveBrowser({ collections, collectionTrees, setCreatingFolder
       selectableRows,
       effectiveFocusId,
       scrollToId,
-      drillIntoRow,
+      drillIntoFocusedRow,
       drillBack,
       search,
       selectedCollectionId,
@@ -186,5 +191,6 @@ export function useSaveBrowser({ collections, collectionTrees, setCreatingFolder
     currentParentPath,
     browserRef,
     handleNavKeyDown,
+    drillIntoFocusedRow,
   };
 }
