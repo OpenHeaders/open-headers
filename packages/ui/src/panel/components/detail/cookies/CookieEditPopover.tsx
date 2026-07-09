@@ -225,9 +225,6 @@ function CookieEditFormBody({
             </Button>
           </span>
         )}
-        <Button size="small" onClick={onCancel} disabled={busy}>
-          Cancel
-        </Button>
         <Tooltip
           title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>}
           placement="bottomRight"
