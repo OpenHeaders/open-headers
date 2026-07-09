@@ -90,11 +90,12 @@ const SortableTab: React.FC<SortableTabProps> = ({
   // the bar and gain a neutral grey pill on hover (CSS). Focused-leaf
   // active tabs use the primary tint so you can tell which editor
   // group owns focus at a glance; unfocused active tabs use a neutral
-  // fill so two splits don't fight for attention.
+  // fill so two splits don't fight for attention. Text stays the
+  // default color on both — the background tint alone carries focus.
   const visualStyle: React.CSSProperties = isDragging
     ? emptyPlaceholderStyle(token)
     : isActive && isFocusedLeaf
-      ? { color: token.colorPrimary, background: token.colorPrimaryBg }
+      ? { color: token.colorText, background: token.colorPrimaryBg }
       : isActive
         ? { color: token.colorText, background: token.colorFillSecondary }
         : { color: token.colorTextSecondary };
