@@ -42,6 +42,7 @@ function makeDeps(overrides: Partial<Parameters<typeof createConnectionHandshake
   const onRejected = vi.fn<(reason: string, detail?: string) => void>();
   const deps = {
     send,
+    role: HANDSHAKE_ROLES.EXTENSION,
     getActiveWorkspaceId: () => 'ws-1' as string | null,
     getExtensionNodeId: () => 'sw-1',
     getExtensionAgent: () => '@openheaders/extension@0.0.0-test',

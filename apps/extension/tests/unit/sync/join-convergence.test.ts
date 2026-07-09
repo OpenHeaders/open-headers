@@ -173,6 +173,7 @@ async function runJoin(opts: {
   const backend = makeFakeBackend(opts.backendWorkspaces, opts.backendActiveWorkspaceId);
 
   const initiator = createSyncHandshakeInitiator({
+    role: HANDSHAKE_ROLES.EXTENSION,
     send: (frame) => {
       sent.push(frame as WireFrame);
       return true;

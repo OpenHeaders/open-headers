@@ -24,8 +24,8 @@
  */
 import {
   type BackendReach,
-  HANDSHAKE_ROLES,
   type HandshakeRejectReason,
+  type HandshakeRole,
   PROTOCOL_VERSION,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
@@ -54,6 +54,8 @@ export const DEFAULT_CONNECTION_TIMEOUT_MS = 10_000;
 export interface ConnectionHandshakeDeps {
   /** Write one frame to the backend. Returns false if the wire is gone. */
   readonly send: (frame: object) => boolean;
+  /** The role this client announces in HELLO (extension, web, cli, …). */
+  readonly role: HandshakeRole;
   /** Active workspace id; null when no workspace is selected. */
   readonly getActiveWorkspaceId: () => string | null;
   /** The SW's HLC writer identity for `workspaceId`. */
@@ -171,7 +173,7 @@ export function createConnectionHandshake(deps: ConnectionHandshakeDeps): Connec
     const hello: SyncHelloMessage = {
       type: SYNC_HELLO_TYPE,
       protocolVersion: PROTOCOL_VERSION,
-      role: HANDSHAKE_ROLES.EXTENSION,
+      role: deps.role,
       nodeId: deps.getExtensionNodeId(workspaceId),
       workspaceId,
       agent: deps.getExtensionAgent(),

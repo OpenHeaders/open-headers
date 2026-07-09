@@ -12,6 +12,7 @@
  */
 
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
+import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hasDaemonToken, persistDaemonToken, setCandidateDaemonToken } from './daemon-token';
 import type { DaemonWire } from './daemon-wire';
 
@@ -89,6 +90,37 @@ export function awaitJoinOutcome(wire: DaemonWire, budgetMs: number = JOIN_OUTCO
     evaluateHandshake(wire.handshakeState());
   });
 }
+
+/**
+ * After a gate-flow pairing, wait for the join → adopt flip before the
+ * Workbench mounts. Workbench tabs pin their editing-scope workspace at
+ * mount (by design — per-tab bindings never follow ACTIVE), so mounting
+ * at WELCOME would pin the first tab to the pre-join local workspace a
+ * beat before the daemon's workspace is promoted. The `__global__`
+ * catch-up reaching `synced` means the daemon's workspace rows have
+ * applied; the short grace covers the async promotion that follows. A
+ * daemon with no active workspace (nothing to adopt) just runs the
+ * budget out and mounts on the local workspace.
+ */
+export async function awaitPostJoinAdoption(wire: DaemonWire, budgetMs = 5000): Promise<void> {
+  const before = peekActiveWorkspaceId();
+  const deadline = Date.now() + budgetMs;
+  while (Date.now() < deadline) {
+    if (peekActiveWorkspaceId() !== before) return;
+    if (wire.handshakeState() === 'synced') {
+      // Rows are applied — give the promotion one short grace window.
+      const graceDeadline = Math.min(deadline, Date.now() + 1000);
+      while (Date.now() < graceDeadline) {
+        if (peekActiveWorkspaceId() !== before) return;
+        await sleep(50);
+      }
+      return;
+    }
+    await sleep(100);
+  }
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Outcome of one token submission from the gate UI. */
 export type TokenSubmitResult = { ok: true } | { ok: false; reason: 'rejected' | 'offline' };

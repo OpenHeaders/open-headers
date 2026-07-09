@@ -67,6 +67,7 @@ function makeDeps(overrides: Partial<Parameters<typeof createSyncHandshakeInitia
   const onJoinedOrg = vi.fn<(org: unknown, activeWorkspaceId?: string) => Promise<void>>(async () => {});
   const deps = {
     send,
+    role: HANDSHAKE_ROLES.EXTENSION,
     getActiveWorkspaceId: () => 'ws-1',
     getExtensionNodeId: () => 'sw-1',
     getExtensionAgent: () => '@openheaders/extension@0.0.0-test',

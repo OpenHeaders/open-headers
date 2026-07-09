@@ -24,7 +24,7 @@
 
 import { getOrgBackendBindings, recordJoinedOrg } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import type { HandshakeRejectReason } from '@openheaders/core/protocol';
+import { HANDSHAKE_ROLES, type HandshakeRejectReason } from '@openheaders/core/protocol';
 import { applyWorkspaceSnapshot, readWorkspaceStateVector, snapshotAwarenessPresence } from '@openheaders/oracle/sync';
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
@@ -119,6 +119,7 @@ export function installDaemonWire(): DaemonWire {
 
   const initiator = createSyncHandshakeInitiator({
     send: (frame) => transport.send(frame as Record<string, unknown>),
+    role: HANDSHAKE_ROLES.WEB,
     getActiveWorkspaceId: () => peekActiveWorkspaceId(),
     getExtensionNodeId: (workspaceId) => {
       const svc = getOrCreateWorkspaceService(workspaceId);

@@ -30,7 +30,7 @@
  *     `websocket.ts`.
  *   - Mode-switch / workspace-collision UX.
  */
-import type { BackendReach, HandshakeRejectReason, WorkspaceSnapshot } from '@openheaders/core/protocol';
+import type { BackendReach, HandshakeRejectReason, HandshakeRole, WorkspaceSnapshot } from '@openheaders/core/protocol';
 import type { StateVector } from '@openheaders/core/sync';
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import type { Org } from '@openheaders/core/types';
@@ -60,6 +60,8 @@ export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 10_000;
 export interface SyncHandshakeInitiatorDeps {
   /** Write one frame to the backend. Returns false if the wire is gone. */
   readonly send: (frame: object) => boolean;
+  /** The role this client announces in HELLO (extension, web, cli, …). */
+  readonly role: HandshakeRole;
   /** Reads the active workspace id; returns null when no workspace is selected. */
   readonly getActiveWorkspaceId: () => string | null;
   /** Reads the SW's HLC writer identity for `workspaceId`. */
@@ -220,6 +222,7 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
 
   const connection = createConnectionHandshake({
     send: deps.send,
+    role: deps.role,
     getActiveWorkspaceId: deps.getActiveWorkspaceId,
     getExtensionNodeId: deps.getExtensionNodeId,
     getExtensionAgent: deps.getExtensionAgent,

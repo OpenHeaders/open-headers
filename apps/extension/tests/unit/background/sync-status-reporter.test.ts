@@ -7,6 +7,7 @@
  */
 import {
   HANDSHAKE_REJECT_REASONS,
+  HANDSHAKE_ROLES,
   PROTOCOL_VERSION,
   SNAPSHOT_SCHEMA_VERSION,
   SYNC_SYNCED_TYPE,
@@ -92,6 +93,7 @@ describe('installHandshakeStatusReporter', () => {
   function makeInitiatorDeps() {
     return {
       send: vi.fn<(frame: object) => boolean>(() => true),
+      role: HANDSHAKE_ROLES.EXTENSION,
       getActiveWorkspaceId: () => 'ws-1',
       getExtensionNodeId: () => 'sw-1',
       getExtensionAgent: () => '@openheaders/extension@0.0.0-test',

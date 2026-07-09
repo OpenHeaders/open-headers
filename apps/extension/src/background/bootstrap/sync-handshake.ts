@@ -5,7 +5,7 @@ import {
   setBackendReach,
 } from '@openheaders/core/backends';
 import { claimJoinedOrg, getOrgBackendBindings } from '@openheaders/core/identity';
-import { type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
+import { HANDSHAKE_ROLES, type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
 import { applyWorkspaceSnapshot, readWorkspaceStateVector } from '@openheaders/oracle/sync';
 import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
@@ -70,6 +70,7 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
 
   const initiator = createSyncHandshakeInitiator({
     send: (frame) => wire.send(frame as Record<string, unknown>),
+    role: HANDSHAKE_ROLES.EXTENSION,
     getActiveWorkspaceId: () => peekActiveWorkspaceId(),
     getExtensionNodeId: (workspaceId) => {
       const svc = getOrCreateWorkspaceService(workspaceId);

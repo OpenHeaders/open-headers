@@ -15,8 +15,9 @@ import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { bootWebHost } from '@/host/boot-web-host';
 import { installDaemonWire } from '@/host/daemon-wire';
-import { decideGate } from '@/host/join-gate';
+import { awaitPostJoinAdoption, decideGate } from '@/host/join-gate';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
+import { InsecureContextNotice } from '@/InsecureContextNotice';
 import { LoginGate } from '@/LoginGate';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
@@ -25,19 +26,6 @@ import '@openheaders/ui/workbench/styles/rule-flow.less';
 // Declare the web host BEFORE any UI renders so user-facing strings
 // read from the right vocabulary on first paint.
 setCurrentHost('web');
-
-// Boot the tab oracle to completion BEFORE the mirrors seed and React
-// mounts: every snapshot RPC and capability probe below must land on a
-// live engine with the active workspace hydrated, or first paint would
-// race the boot and render empty mirrors that never re-seed.
-await bootWebHost();
-
-// Subscribe every entity mirror to `syncBroadcast` and kick off each
-// snapshot RPC before React mounts — see `eager-mirror-init.ts` for the
-// full rationale.
-eagerInitRendererMirrors();
-
-const wire = installDaemonWire();
 
 const container = document.getElementById('root');
 const root = createRoot(container!);
@@ -52,26 +40,51 @@ function renderShell(children: React.ReactNode): void {
   );
 }
 
-function mountWorkbench(): void {
-  // Latch the wire on (idempotent — the gate's accepted handshake is
-  // already this same connection) and mount.
-  wire.start();
-  renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />);
-}
-
-// Login gate: a reachable daemon with no stored pairing token gates the
-// mount; the entered token is validated by a real HELLO/WELCOME before
-// it persists. An unreachable daemon (or a stored token) mounts
-// straight away — the tab is offline-first, the wire joins in the
-// background. "Skip" keeps the tab local without dialing.
-if ((await decideGate()) === 'gate') {
-  renderShell(
-    <LoginGate
-      wire={wire}
-      onJoined={mountWorkbench}
-      onSkip={() => renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />)}
-    />,
-  );
+if (!window.isSecureContext) {
+  // A plain-http origin off loopback: the platform withholds
+  // `crypto.subtle` / `crypto.randomUUID`, so the tab oracle cannot
+  // boot. Explain the supported ways in instead of dying blank.
+  root.render(<InsecureContextNotice />);
 } else {
-  mountWorkbench();
+  // Boot the tab oracle to completion BEFORE the mirrors seed and React
+  // mounts: every snapshot RPC and capability probe below must land on a
+  // live engine with the active workspace hydrated, or first paint would
+  // race the boot and render empty mirrors that never re-seed.
+  await bootWebHost();
+
+  // Subscribe every entity mirror to `syncBroadcast` and kick off each
+  // snapshot RPC before React mounts — see `eager-mirror-init.ts` for the
+  // full rationale.
+  eagerInitRendererMirrors();
+
+  const wire = installDaemonWire();
+
+  const mountWorkbench = (): void => {
+    // Latch the wire on (idempotent — the gate's accepted handshake is
+    // already this same connection) and mount.
+    wire.start();
+    renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />);
+  };
+
+  // Login gate: a reachable daemon with no stored pairing token gates the
+  // mount; the entered token is validated by a real HELLO/WELCOME before
+  // it persists. An unreachable daemon (or a stored token) mounts
+  // straight away — the tab is offline-first, the wire joins in the
+  // background. "Skip" keeps the tab local without dialing.
+  if ((await decideGate()) === 'gate') {
+    renderShell(
+      <LoginGate
+        wire={wire}
+        onJoined={() => {
+          // Mount only after join → adopt promoted the daemon's workspace
+          // so the first workbench tab pins to the adopted scope, not the
+          // pre-join local workspace.
+          void awaitPostJoinAdoption(wire).then(mountWorkbench);
+        }}
+        onSkip={() => renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />)}
+      />,
+    );
+  } else {
+    mountWorkbench();
+  }
 }
