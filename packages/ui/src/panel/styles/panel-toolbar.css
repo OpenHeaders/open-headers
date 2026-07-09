@@ -810,12 +810,6 @@
   cursor: not-allowed;
 }
 
-/* OH-branded action mark — buttons that create or edit Open Headers
-   rules lead with the product logo (original colors, the extension
-   icon's own tile/letters/smile, shadow filter dropped — invisible at
-   12px) so they read as OH actions, not native inspection chrome. A
-   hairline divider in translucent currentColor separates the mark from
-   the label on blue and neutral buttons alike. */
 /* OH-branded action — buttons that create or edit Open Headers rules
    use the neutral grey button field (not the primary blue) and lead
    with the product logo at its original colors, so they read as OH
