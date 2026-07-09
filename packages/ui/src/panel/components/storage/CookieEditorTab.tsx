@@ -18,9 +18,14 @@
  */
 
 import { ReloadOutlined } from '@ant-design/icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
+import EntityConflictBanner from '@openheaders/ui/shared/conflicts/EntityConflictBanner';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  applyConflictFieldFromCanonical,
+  type CookieConflictField,
   type CookieEditFormValues,
+  editFormConflictProjection,
   editFormsEqual,
   emptyEditForm,
   formToEdit,
@@ -41,6 +46,7 @@ import {
   writeJarCookie,
 } from '../../data/cookies/cookie-jar-cache';
 import type { CookieInspectorTab } from '../../data/inspector-tab';
+import { useStorageDocConflicts } from '../../data/storage/doc-conflicts';
 import { useDocumentSync } from '../../data/storage/use-document-sync';
 import { CookieEditFields, useCookieFieldResolution } from '../detail/cookies/CookieEditFields';
 import { ArmedIconButton } from './ArmedIconButton';
@@ -100,6 +106,24 @@ export function CookieEditorTab({
   const { cookieKey, scopeUrl } = tab;
   const writable = isCookieJarWritable();
 
+  const doc = typeof slot === 'object' ? slot : null;
+
+  // Conflict tier — compares the form and the live canonical on their
+  // flat string projections against a seed-time baseline the wholesale
+  // canonical advance never touches. Suppressed while the document is
+  // gone (the whole-document note supersedes per-field chips).
+  const conflictForm = useMemo(() => editFormConflictProjection(values), [values]);
+  const conflictCanonical = useMemo(() => (doc === null ? null : editFormConflictProjection(doc.canonical)), [doc]);
+  const {
+    conflicts,
+    seed: seedConflicts,
+    dismiss: dismissConflict,
+  } = useStorageDocConflicts<CookieConflictField>({
+    enabled: doc !== null && doc.gone !== true && writable,
+    form: doc === null ? null : conflictForm,
+    canonical: conflictCanonical,
+  });
+
   const fetchDocument = useCallback(async () => {
     const token = ++fetchTokenRef.current;
     setSlot('loading');
@@ -112,15 +136,15 @@ export function CookieEditorTab({
       const canonical = jarCookieToEditForm(jar);
       setSlot({ jar, canonical });
       setValues(canonical);
+      seedConflicts(editFormConflictProjection(canonical));
     }
     setSaveError(null);
-  }, [scopeUrl, cookieKey]);
+  }, [scopeUrl, cookieKey, seedConflicts]);
 
   useEffect(() => {
     void fetchDocument();
   }, [fetchDocument]);
 
-  const doc = typeof slot === 'object' ? slot : null;
   const { fields, anyUnresolved, resolvedForm } = useCookieFieldResolution(values);
   const dirty = doc !== null && !editFormsEqual(values, doc.canonical);
 
@@ -179,6 +203,45 @@ export function CookieEditorTab({
     setValues((prev) => ({ ...prev, [key]: val }));
     setSaveError(null);
   }, []);
+
+  // Take-theirs: write the live canonical's value at the field into the
+  // form — the field falls out as form === canonical and the tracker's
+  // catch-up advances its baseline. No separate accept bookkeeping.
+  const takeTheirs = useCallback((field: CookieConflictField): void => {
+    const current = docRef.current;
+    if (current === null) return;
+    setValues((prev) => applyConflictFieldFromCanonical(prev, field, current.canonical));
+  }, []);
+
+  // Chip per conflicted field, mounted on the field's label. The
+  // wrapper mirrors InfoTrigger's guard — inside the toggle labels a
+  // plain click would forward to the Switch and flip it.
+  const conflictAffixes = useMemo(() => {
+    if (conflicts.size === 0) return undefined;
+    const out: Partial<Record<CookieConflictField, ReactNode>> = {};
+    for (const [field, conflict] of conflicts) {
+      out[field] = (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: click guard keeps toggle labels from flipping their Switch
+        // biome-ignore lint/a11y/noStaticElementInteractions: click guard keeps toggle labels from flipping their Switch
+        <span
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <ConflictDiffChip
+            theirs={conflict.theirs}
+            base={conflict.base}
+            local={conflictForm[field]}
+            onTakeTheirs={() => takeTheirs(field)}
+            onKeepMine={() => dismissConflict(field)}
+            style={{ marginLeft: 4 }}
+          />
+        </span>
+      );
+    }
+    return out;
+  }, [conflicts, conflictForm, takeTheirs, dismissConflict]);
 
   const handleSave = useCallback(async (): Promise<boolean> => {
     if (doc === null || !savable) return false;
@@ -295,6 +358,16 @@ export function CookieEditorTab({
           Reveal in Storage
         </button>
       </div>
+      <EntityConflictBanner
+        count={conflicts.size}
+        onKeepAllMine={() => {
+          for (const field of conflicts.keys()) dismissConflict(field);
+        }}
+        onUseAllSaved={() => {
+          for (const field of conflicts.keys()) takeTheirs(field);
+        }}
+        style={{ marginBottom: 0 }}
+      />
       {doc !== null && !writable && (
         <div className="dt-storagedoc-note">
           This host’s cookie jar is read-only — the document reflects the jar but can’t write back.
@@ -303,6 +376,9 @@ export function CookieEditorTab({
       {doc?.gone === true && (
         <div className="dt-storagedoc-note">
           This cookie was deleted in the browser — your unsaved edits are kept. Save writes it back.
+          <button type="button" className="dt-storagedoc-note-action" onClick={() => setSlot('unavailable')}>
+            Discard my edits
+          </button>
         </div>
       )}
       {errorNote !== null && (
@@ -321,7 +397,14 @@ export function CookieEditorTab({
         </div>
       ) : (
         <div className="dt-storagedoc-cookieform dt-scrollbar">
-          <CookieEditFields values={values} fields={fields} set={set} busy={saving} readOnly={!writable} />
+          <CookieEditFields
+            values={values}
+            fields={fields}
+            set={set}
+            busy={saving}
+            readOnly={!writable}
+            affixes={conflictAffixes}
+          />
         </div>
       )}
     </div>

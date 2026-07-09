@@ -13,6 +13,15 @@ import { type CookieRow, jarToRow } from './cookie-model';
 
 export type CookieSameSiteValue = 'unspecified' | 'no_restriction' | 'lax' | 'strict';
 
+/** Display vocabulary for the SameSite enum — the edit grid's options
+ *  and the conflict chips read the same labels. */
+export const COOKIE_SAME_SITE_LABELS: Record<CookieSameSiteValue, string> = {
+  unspecified: 'Unspecified',
+  no_restriction: 'None (cross-site)',
+  lax: 'Lax',
+  strict: 'Strict',
+};
+
 export interface CookieEditFormValues {
   name: string;
   value: string;
@@ -31,6 +40,25 @@ export interface CookieEditFormValues {
    *  partition; not surfaced as an input in v1. */
   partitionKey?: string;
   storeId?: string;
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** Unix seconds → `datetime-local` value in the user's local zone. Both
+ *  the edit grid's date input and the Expires conflict projection use
+ *  this rendering, so the two can never disagree on what a date "is". */
+export function expirationToLocalInput(sec: number | undefined): string {
+  if (sec == null) return '';
+  const d = new Date(sec * 1000);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function expirationFromLocalInput(s: string): number | undefined {
+  if (!s) return undefined;
+  const ms = new Date(s).getTime();
+  return Number.isNaN(ms) ? undefined : Math.floor(ms / 1000);
 }
 
 function normalizeSameSite(raw: string | undefined): CookieSameSiteValue {
@@ -231,6 +259,67 @@ function mergeField<K extends keyof CookieEditFormValues>(
   next: CookieEditFormValues,
 ): void {
   out[field] = next[field];
+}
+
+/**
+ * The flat field vocabulary the conflict tier compares and anchors
+ * chips on. `session` + `expirationDate` fold into one `expires` leaf —
+ * they are one user-facing control, and a Session↔date flip plus a
+ * date change must read as ONE conflict, not two.
+ */
+export const COOKIE_CONFLICT_FIELDS = [
+  'name',
+  'value',
+  'domain',
+  'path',
+  'expires',
+  'sameSite',
+  'httpOnly',
+  'secure',
+  'hostOnly',
+] as const;
+
+export type CookieConflictField = (typeof COOKIE_CONFLICT_FIELDS)[number];
+
+function expiresDisplay(v: CookieEditFormValues): string {
+  return v.session ? 'Session' : expirationToLocalInput(v.expirationDate);
+}
+
+/**
+ * Project the form onto the conflict vocabulary — display-comparable
+ * strings, so the same projection drives both the three-way comparison
+ * and the chip popover's base/theirs rendering.
+ */
+export function editFormConflictProjection(v: CookieEditFormValues): Record<CookieConflictField, string> {
+  return {
+    name: v.name,
+    value: v.value,
+    domain: v.domain,
+    path: v.path,
+    expires: expiresDisplay(v),
+    sameSite: COOKIE_SAME_SITE_LABELS[v.sameSite],
+    httpOnly: v.httpOnly ? 'On' : 'Off',
+    secure: v.secure ? 'On' : 'Off',
+    hostOnly: v.hostOnly ? 'On' : 'Off',
+  };
+}
+
+/** Take-theirs write: the canonical's value at one conflict field into
+ *  the form. `expires` carries the session/expirationDate pair. */
+export function applyConflictFieldFromCanonical(
+  form: CookieEditFormValues,
+  field: CookieConflictField,
+  canonical: CookieEditFormValues,
+): CookieEditFormValues {
+  if (field === 'expires') {
+    const next = { ...form, session: canonical.session };
+    if (canonical.expirationDate != null) next.expirationDate = canonical.expirationDate;
+    else delete next.expirationDate;
+    return next;
+  }
+  const next = { ...form };
+  mergeField(next, field, canonical);
+  return next;
 }
 
 /** Add affordances and per-row Edit/Delete only make sense for cookies

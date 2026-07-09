@@ -17,34 +17,21 @@
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { Radio, Select, Switch } from 'antd';
-import { useMemo } from 'react';
-import type { CookieEditFormValues, CookieSameSiteValue } from '../../../data/cookies/cookie-edit';
+import { type ReactNode, useMemo } from 'react';
+import {
+  COOKIE_SAME_SITE_LABELS,
+  type CookieConflictField,
+  type CookieEditFormValues,
+  type CookieSameSiteValue,
+  expirationFromLocalInput,
+  expirationToLocalInput,
+} from '../../../data/cookies/cookie-edit';
 import { containsUnresolvedRef } from '../../../data/rule-create/rule-applicability';
 import { CookieEditFieldInfo } from './CookieEditFieldInfo';
 
-const SAME_SITE_OPTIONS: Array<{ value: CookieSameSiteValue; label: string }> = [
-  { value: 'unspecified', label: 'Unspecified' },
-  { value: 'no_restriction', label: 'None (cross-site)' },
-  { value: 'lax', label: 'Lax' },
-  { value: 'strict', label: 'Strict' },
-];
-
-function pad(n: number): string {
-  return String(n).padStart(2, '0');
-}
-
-/** Unix seconds → `datetime-local` value in the user's local zone. */
-function toLocalInput(sec: number | undefined): string {
-  if (sec == null) return '';
-  const d = new Date(sec * 1000);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function fromLocalInput(s: string): number | undefined {
-  if (!s) return undefined;
-  const ms = new Date(s).getTime();
-  return Number.isNaN(ms) ? undefined : Math.floor(ms / 1000);
-}
+const SAME_SITE_OPTIONS: Array<{ value: CookieSameSiteValue; label: string }> = (
+  Object.keys(COOKIE_SAME_SITE_LABELS) as CookieSameSiteValue[]
+).map((value) => ({ value, label: COOKIE_SAME_SITE_LABELS[value] }));
 
 export interface ResolvedField {
   isTemplate: boolean;
@@ -109,9 +96,12 @@ interface CookieEditFieldsProps {
   busy: boolean;
   /** Static render — text fields become plain values, controls disable. */
   readOnly?: boolean;
+  /** Per-field label affix — the document editor mounts its conflict
+   *  chips here so they sit on the row they belong to. */
+  affixes?: Partial<Record<CookieConflictField, ReactNode>>;
 }
 
-export function CookieEditFields({ values, fields, set, busy, readOnly = false }: CookieEditFieldsProps) {
+export function CookieEditFields({ values, fields, set, busy, readOnly = false, affixes }: CookieEditFieldsProps) {
   const textField = (
     key: 'name' | 'value' | 'domain' | 'path',
     placeholder: string,
@@ -138,6 +128,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
         <span className="dt-cookie-edit-label">
           Name
           <CookieEditFieldInfo infoKey="name" />
+          {affixes?.name}
         </span>
         {textField('name', 'cookie name')}
       </div>
@@ -146,6 +137,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
         <span className="dt-cookie-edit-label">
           Value
           <CookieEditFieldInfo infoKey="value" />
+          {affixes?.value}
         </span>
         {textField('value', 'value or {{variable}}', { wrap: true, maxRows: 3 })}
       </div>
@@ -154,6 +146,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
         <span className="dt-cookie-edit-label">
           Domain
           <CookieEditFieldInfo infoKey="domain" />
+          {affixes?.domain}
         </span>
         {textField('domain', 'openheaders.io')}
       </div>
@@ -162,6 +155,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
         <span className="dt-cookie-edit-label">
           Path
           <CookieEditFieldInfo infoKey="path" />
+          {affixes?.path}
         </span>
         {textField('path', '/')}
       </div>
@@ -170,6 +164,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
         <span className="dt-cookie-edit-label">
           Expires
           <CookieEditFieldInfo infoKey="expires" />
+          {affixes?.expires}
         </span>
         <Radio.Group
           value={values.session ? 'session' : 'date'}
@@ -186,8 +181,8 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
           <input
             type="datetime-local"
             className="dt-cookie-edit-datetime"
-            value={toLocalInput(values.expirationDate)}
-            onChange={(e) => set('expirationDate', fromLocalInput(e.target.value))}
+            value={expirationToLocalInput(values.expirationDate)}
+            onChange={(e) => set('expirationDate', expirationFromLocalInput(e.target.value))}
             disabled={busy || readOnly}
           />
         )}
@@ -197,6 +192,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
         <span className="dt-cookie-edit-label">
           SameSite
           <CookieEditFieldInfo infoKey="samesite" />
+          {affixes?.sameSite}
         </span>
         <Select<CookieSameSiteValue>
           value={values.sameSite}
@@ -214,6 +210,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
           <span>
             HttpOnly
             <CookieEditFieldInfo infoKey="httponly" />
+            {affixes?.httpOnly}
           </span>
         </label>
         <label className="dt-cookie-edit-toggle">
@@ -221,6 +218,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
           <span>
             Secure
             <CookieEditFieldInfo infoKey="secure" />
+            {affixes?.secure}
           </span>
         </label>
         <label className="dt-cookie-edit-toggle">
@@ -228,6 +226,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false }
           <span>
             Host-only
             <CookieEditFieldInfo infoKey="hostonly" />
+            {affixes?.hostOnly}
           </span>
         </label>
       </div>

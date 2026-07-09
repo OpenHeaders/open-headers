@@ -466,6 +466,33 @@
   font-style: normal;
 }
 
+/* Conflict-tier note line — hosts the resolve chip inline with the
+ * honest one-liner, so the affordance sits where the message is. */
+.dt-storagedoc-note--conflict {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-style: normal;
+}
+
+/* Inline action inside a note ("Discard my edits" on the gone note). */
+.dt-storagedoc-note-action {
+  font: inherit;
+  font-style: normal;
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dt-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-storagedoc-note-action:hover {
+  background: var(--dt-row-hover);
+}
+
 /* Identity row for document kinds with an editable key — sits under
  * the toolbar so a rename commits through the same Save as the value. */
 .dt-storagedoc-key-row {

@@ -1,7 +1,9 @@
 import {
+  applyConflictFieldFromCanonical,
   type CookieEditFormValues,
   deleteKeyForRow,
   editCanonicalForRow,
+  editFormConflictProjection,
   editFormsEqual,
   emptyEditForm,
   formToEdit,
@@ -318,5 +320,65 @@ describe('mergeEditFormWithCanonical', () => {
     const merged = mergeEditFormWithCanonical(baseline, baseline, next);
     expect(merged.session).toBe(false);
     expect(merged.expirationDate).toBe(4102444800);
+  });
+});
+
+describe('editFormConflictProjection', () => {
+  const form: CookieEditFormValues = {
+    ...emptyEditForm({ domain: 'openheaders.io' }),
+    name: 'sid',
+    value: 'abc',
+    httpOnly: true,
+    sameSite: 'no_restriction',
+  };
+
+  it('projects text fields raw and flags/enums to their display vocabulary', () => {
+    const proj = editFormConflictProjection(form);
+    expect(proj.name).toBe('sid');
+    expect(proj.value).toBe('abc');
+    expect(proj.domain).toBe('openheaders.io');
+    expect(proj.path).toBe('/');
+    expect(proj.httpOnly).toBe('On');
+    expect(proj.secure).toBe('On');
+    expect(proj.hostOnly).toBe('On');
+    expect(proj.sameSite).toBe('None (cross-site)');
+    expect(proj.expires).toBe('Session');
+  });
+
+  it('folds session + expirationDate into ONE expires leaf', () => {
+    const dated = editFormConflictProjection({ ...form, session: false, expirationDate: 4102444800 });
+    expect(dated.expires).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    expect(dated.expires).not.toBe(editFormConflictProjection(form).expires);
+  });
+});
+
+describe('applyConflictFieldFromCanonical', () => {
+  const form: CookieEditFormValues = {
+    ...emptyEditForm({ domain: 'openheaders.io' }),
+    name: 'sid',
+    value: 'my-draft',
+  };
+
+  it('writes one scalar field from the canonical, leaving the rest of the drafts', () => {
+    const canonical = { ...form, value: 'theirs', domain: 'other.openheaders.io' };
+    const next = applyConflictFieldFromCanonical(form, 'value', canonical);
+    expect(next.value).toBe('theirs');
+    expect(next.domain).toBe('openheaders.io');
+    expect(next.name).toBe('sid');
+  });
+
+  it('writes flags typed, not stringified', () => {
+    const canonical = { ...form, httpOnly: true };
+    expect(applyConflictFieldFromCanonical({ ...form, httpOnly: false }, 'httpOnly', canonical).httpOnly).toBe(true);
+  });
+
+  it('expires carries the session/expirationDate pair both directions', () => {
+    const dated = { ...form, session: false, expirationDate: 4102444800 };
+    const toDated = applyConflictFieldFromCanonical(form, 'expires', dated);
+    expect(toDated.session).toBe(false);
+    expect(toDated.expirationDate).toBe(4102444800);
+    const toSession = applyConflictFieldFromCanonical(dated, 'expires', form);
+    expect(toSession.session).toBe(true);
+    expect(toSession.expirationDate).toBeUndefined();
   });
 });

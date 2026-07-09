@@ -17,7 +17,21 @@ import { notifyDomStorageWrite } from '@openheaders/ui/panel/data/storage/dom-st
 import type { DomStorageFullValue, StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The conflict chip's resolve popover rides antd Popover →
+// rc-resize-observer; jsdom doesn't ship a ResizeObserver.
+beforeAll(() => {
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
 
 vi.mock('@openheaders/ui/panel/components/detail/CodeViewer', () => ({
   default: ({
@@ -388,6 +402,74 @@ describe('DomStorageEntryEditorTab', () => {
     notifyDomStorageWrite();
 
     expect(await screen.findByText('Entry no longer available')).toBeTruthy();
+  });
+
+  it('chips a touched draft when the value ALSO changed in the browser — Use saved adopts, Keep mine dismisses until the next divergence', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValueOnce({ value: 'theirs', tooLarge: false })
+      .mockResolvedValue({ value: 'theirs-2', tooLarge: false } as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'my-draft' } });
+    expect(screen.queryByTitle('External change available — click to resolve')).toBeNull();
+    notifyDomStorageWrite();
+
+    const chip = await screen.findByTitle('External change available — click to resolve');
+    expect(screen.getByText(/value changed in the browser/)).toBeTruthy();
+    fireEvent.click(chip);
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep mine' }));
+    await waitFor(() => expect(screen.queryByTitle('External change available — click to resolve')).toBeNull());
+    expect(viewer.value).toBe('my-draft');
+
+    // A further external change re-surfaces the dismissed conflict…
+    notifyDomStorageWrite();
+    const chip2 = await screen.findByTitle('External change available — click to resolve');
+
+    // …and Use saved adopts the live value, going clean.
+    fireEvent.click(chip2);
+    fireEvent.click(await screen.findByRole('button', { name: 'Use saved' }));
+    await waitFor(() => expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('theirs-2'));
+    expect(screen.queryByTitle('External change available — click to resolve')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('a convergent edit (draft equals the new live value) never chips', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValue({ value: 'same', tooLarge: false } as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'same' } });
+    notifyDomStorageWrite();
+
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true));
+    expect(screen.queryByTitle('External change available — click to resolve')).toBeNull();
+  });
+
+  it('deleted-under-you: Discard my edits drops the drafts to the honest empty state', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValue(null as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'my-draft' } });
+    notifyDomStorageWrite();
+
+    expect(await screen.findByText(/deleted in the browser/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard my edits' }));
+    expect(await screen.findByText('Entry no longer available')).toBeTruthy();
+    expect(screen.queryByText(/deleted in the browser/)).toBeNull();
   });
 
   it('routes Reveal in Storage back to the originating area', async () => {

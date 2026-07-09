@@ -38,7 +38,11 @@ export function hasDialogOnlyConflict(conflicts: ReadonlyMap<string, PathConflic
 
 export interface EntityConflictBannerProps {
   count: number;
-  onReview: () => void;
+  /** Opens the entity-level review surface (diff dialog / merge
+   *  editor). Optional — editors without one (the storage documents
+   *  until their review tier lands) drop the Review button and keep
+   *  the two whole-form resolutions. */
+  onReview?: () => void;
   onKeepAllMine: () => void;
   onUseAllSaved: () => void;
   /** Override the default copy noun ("fields"). e.g. "headers", "params". */
@@ -67,9 +71,11 @@ const EntityConflictBanner: React.FC<EntityConflictBannerProps> = ({
         <strong>{count}</strong> {fieldNoun} changed externally while you were editing.
       </Text>
       <Space size={6} wrap>
-        <Button size="small" onClick={onReview}>
-          Review changes
-        </Button>
+        {onReview && (
+          <Button size="small" onClick={onReview}>
+            Review changes
+          </Button>
+        )}
         <Button size="small" onClick={onKeepAllMine}>
           Keep all mine
         </Button>

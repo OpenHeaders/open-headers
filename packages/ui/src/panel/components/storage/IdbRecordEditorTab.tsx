@@ -18,8 +18,10 @@
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
+import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IdbRecordInspectorTab } from '../../data/inspector-tab';
+import { clipConflictValue, useStorageDocConflicts } from '../../data/storage/doc-conflicts';
 import type { IdbRecordDocument, IdbRecordWriteFailure } from '../../data/storage/storage-inspector-host';
 import { getStorageInspectorHost } from '../../data/storage/storage-inspector-host';
 import { useDocumentSync } from '../../data/storage/use-document-sync';
@@ -81,6 +83,24 @@ export function IdbRecordEditorTab({
 
   const { frameId, database, store, primaryKeyWire } = tab;
 
+  const doc = slot !== 'loading' && slot !== 'unavailable' ? slot : null;
+  const sourceText = draftText ?? doc?.text ?? '';
+
+  // Conflict tier over the single document-text leaf. Suppressed while
+  // gone (deleted or turned non-editable) — the note supersedes it.
+  const conflictForm = useMemo(() => ({ text: sourceText }), [sourceText]);
+  const conflictCanonical = useMemo(() => (doc === null ? null : { text: doc.text }), [doc]);
+  const {
+    conflicts,
+    seed: seedConflicts,
+    dismiss: dismissConflict,
+  } = useStorageDocConflicts<'text'>({
+    enabled: doc !== null && doc.gone !== true && doc.editable,
+    form: doc === null ? null : conflictForm,
+    canonical: conflictCanonical,
+  });
+  const textConflict = conflicts.get('text') ?? null;
+
   const fetchDocument = useCallback(async () => {
     const host = getStorageInspectorHost();
     const tabId = hostNavigation.inspectedTabId();
@@ -93,16 +113,14 @@ export function IdbRecordEditorTab({
     const doc = await host.readIndexedDbRecordDocument(tabId, frameId, database, store, primaryKeyWire);
     if (token !== fetchTokenRef.current) return;
     setSlot(doc ?? 'unavailable');
+    if (doc) seedConflicts({ text: doc.text });
     setDraftText(null);
     setSaveError(null);
-  }, [frameId, database, store, primaryKeyWire]);
+  }, [frameId, database, store, primaryKeyWire, seedConflicts]);
 
   useEffect(() => {
     void fetchDocument();
   }, [fetchDocument]);
-
-  const doc = slot !== 'loading' && slot !== 'unavailable' ? slot : null;
-  const sourceText = draftText ?? doc?.text ?? '';
   const dirty = doc?.editable === true && draftText !== null && draftText !== doc.text;
 
   useEffect(() => {
@@ -292,9 +310,31 @@ export function IdbRecordEditorTab({
         </button>
       </div>
       {note !== null && <div className="dt-storagedoc-note">{note}</div>}
+      {textConflict !== null && (
+        <div className="dt-storagedoc-note dt-storagedoc-note--conflict">
+          The record changed in the browser while you were editing.
+          <ConflictDiffChip
+            theirs={clipConflictValue(textConflict.theirs)}
+            base={clipConflictValue(textConflict.base)}
+            local={clipConflictValue(sourceText)}
+            onTakeTheirs={() => setDraftText(null)}
+            onKeepMine={() => dismissConflict('text')}
+          />
+        </div>
+      )}
       {doc?.gone === true && (
         <div className="dt-storagedoc-note">
           This record was deleted or changed shape in the browser — your unsaved edits are kept. Save writes them back.
+          <button
+            type="button"
+            className="dt-storagedoc-note-action"
+            onClick={() => {
+              setDraftText(null);
+              setSlot('unavailable');
+            }}
+          >
+            Discard my edits
+          </button>
         </div>
       )}
       {errorNote !== null && (

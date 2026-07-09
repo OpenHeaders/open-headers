@@ -18,8 +18,10 @@
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
+import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type DomStorageEntryInspectorTab, domStorageAreaName } from '../../data/inspector-tab';
+import { clipConflictValue, useStorageDocConflicts } from '../../data/storage/doc-conflicts';
 import { notifyDomStorageWrite, subscribeDomStorageWrites } from '../../data/storage/dom-storage-write-notifier';
 import type { DomStorageArea, DomStorageRenameFailure } from '../../data/storage/storage-inspector-host';
 import { getStorageInspectorHost } from '../../data/storage/storage-inspector-host';
@@ -91,6 +93,25 @@ export function DomStorageEntryEditorTab({
 
   const { frameId, area, entryKey } = tab;
 
+  const doc = typeof slot === 'object' ? slot : null;
+  const sourceText = valueDraft ?? doc?.value ?? '';
+
+  // Conflict tier over the single value leaf — the entry key can't
+  // conflict (a key change under the document reads as deleted-under-
+  // you). Suppressed while gone; the note supersedes the chip.
+  const conflictForm = useMemo(() => ({ value: sourceText }), [sourceText]);
+  const conflictCanonical = useMemo(() => (doc === null ? null : { value: doc.value }), [doc]);
+  const {
+    conflicts,
+    seed: seedConflicts,
+    dismiss: dismissConflict,
+  } = useStorageDocConflicts<'value'>({
+    enabled: doc !== null && doc.gone !== true,
+    form: doc === null ? null : conflictForm,
+    canonical: conflictCanonical,
+  });
+  const valueConflict = conflicts.get('value') ?? null;
+
   const fetchDocument = useCallback(async () => {
     const host = getStorageInspectorHost();
     const tabId = hostNavigation.inspectedTabId();
@@ -103,18 +124,19 @@ export function DomStorageEntryEditorTab({
     const full = await host.readDomStorageValue(tabId, frameId, area, entryKey);
     if (token !== fetchTokenRef.current) return;
     if (full === null || full.value === null) setSlot(full?.tooLarge ? 'too-large' : 'unavailable');
-    else setSlot({ value: full.value });
+    else {
+      setSlot({ value: full.value });
+      seedConflicts({ value: full.value });
+    }
     setKeyDraft(null);
     setValueDraft(null);
     setSaveError(null);
-  }, [frameId, area, entryKey]);
+  }, [frameId, area, entryKey, seedConflicts]);
 
   useEffect(() => {
     void fetchDocument();
   }, [fetchDocument]);
 
-  const doc = typeof slot === 'object' ? slot : null;
-  const sourceText = valueDraft ?? doc?.value ?? '';
   const keyText = keyDraft ?? entryKey;
   const dirty =
     doc !== null &&
@@ -331,9 +353,32 @@ export function DomStorageEntryEditorTab({
           />
         </div>
       )}
+      {valueConflict !== null && (
+        <div className="dt-storagedoc-note dt-storagedoc-note--conflict">
+          The value changed in the browser while you were editing.
+          <ConflictDiffChip
+            theirs={clipConflictValue(valueConflict.theirs)}
+            base={clipConflictValue(valueConflict.base)}
+            local={clipConflictValue(sourceText)}
+            onTakeTheirs={() => setValueDraft(null)}
+            onKeepMine={() => dismissConflict('value')}
+          />
+        </div>
+      )}
       {doc?.gone === true && (
         <div className="dt-storagedoc-note">
           This entry was deleted in the browser — your unsaved edits are kept. Save writes it back.
+          <button
+            type="button"
+            className="dt-storagedoc-note-action"
+            onClick={() => {
+              setKeyDraft(null);
+              setValueDraft(null);
+              setSlot('unavailable');
+            }}
+          >
+            Discard my edits
+          </button>
         </div>
       )}
       {errorNote !== null && (
