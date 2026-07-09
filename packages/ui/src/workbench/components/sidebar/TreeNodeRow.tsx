@@ -284,7 +284,13 @@ export function TreeNodeRow({
                   ...(node.canRename
                     ? [{ key: 'rename', icon: <EditOutlined />, label: 'Rename', onClick: () => onStartRename() }]
                     : []),
-                  { key: 'duplicate', icon: <CopyOutlined />, label: 'Duplicate', disabled: true },
+                  {
+                    key: 'duplicate',
+                    icon: <CopyOutlined />,
+                    label: 'Duplicate',
+                    disabled: !node.onDuplicate,
+                    onClick: () => node.onDuplicate?.(),
+                  },
                   ...(node.onExport
                     ? [{ key: 'export', icon: <ExportOutlined />, label: 'Export…', onClick: () => node.onExport?.() }]
                     : []),

@@ -4,13 +4,14 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { Request, TreeNode as CoreTreeNode } from '@openheaders/core/types';
+import type { Request, ResponseExample, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
-import { composeBadge, iconEl, methodTag } from './icons';
+import { composeBadge, exampleTag, iconEl, methodTag } from './icons';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
@@ -25,6 +26,11 @@ interface UseRequestTreeNodesParams {
    *  reviewed in the inspector yet. Surfaces as a "scripts" badge that
    *  clears on first inspector open. */
   scriptsReviewPendingUids?: ReadonlySet<string>;
+  /** Saved response examples grouped by parent request uid, capture order. */
+  responseExamplesByRequest: ReadonlyMap<string, ResponseExample[]>;
+  renameResponseExample: (uid: string, name: string) => Promise<unknown> | unknown;
+  duplicateResponseExample: (uid: string) => Promise<unknown> | unknown;
+  deleteResponseExample: (uid: string) => Promise<unknown> | unknown;
   draftsByLocationRequest: Map<string, WorkbenchTab[]>;
   buildRequestDraftNode: (tab: WorkbenchTab, depth: number, parentId: string) => TreeNode;
   expandedKeys: ReadonlySet<string>;
@@ -168,19 +174,26 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               ]
             : undefined;
           const badge = composeBadge(textBadge, p.dirtyRequestUids?.has(node.uid) ?? false, extras);
+          const examples = p.responseExamplesByRequest.get(node.uid) ?? [];
+          const hasExamples = examples.length > 0;
           items.push({
             id: rid,
             kind: 'leaf',
             label: node.name,
             depth,
-            expandable: false,
+            expandable: hasExamples,
             parentId,
             icon: methodTag(node.method, !complete || !requestResolvable),
             badge,
             canRename: true,
             canDelete: true,
             canAddChild: false,
-            onOpen: () => p.onSelectRequest?.(node.uid, node.name, node.method),
+            // Same idiom as folder rows: opening also toggles the
+            // example children when the request has any.
+            onOpen: () => {
+              if (hasExamples) p.toggleExpand(rid);
+              p.onSelectRequest?.(node.uid, node.name, node.method);
+            },
             onRename: async (name: string) => {
               void p.updateRequestData(node.uid, { name });
             },
@@ -191,6 +204,33 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             ...exportNodeFields({ kind: 'request', uid: node.uid, name: node.name }, p.onExportEntity),
             awareness: { entityType: REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
+          if (hasExamples && (p.expandedKeys.has(rid) || lowerFilter !== '')) {
+            for (const example of examples) {
+              items.push({
+                id: `resp-example-${example.uid}`,
+                kind: 'leaf',
+                label: example.name,
+                depth: depth + 1,
+                expandable: false,
+                parentId: rid,
+                icon: exampleTag(),
+                canRename: true,
+                canDelete: true,
+                canAddChild: false,
+                onRename: async (name: string) => {
+                  void p.renameResponseExample(example.uid, name);
+                },
+                onDuplicate: () => {
+                  void p.duplicateResponseExample(example.uid);
+                },
+                onDelete: () =>
+                  p.confirmDelete(example.name, () => {
+                    void p.deleteResponseExample(example.uid);
+                  }),
+                awareness: { entityType: RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: example.uid },
+              });
+            }
+          }
         }
       }
       return items;
@@ -212,6 +252,10 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.onCreateRequest,
       p.dirtyRequestUids,
       p.scriptsReviewPendingUids,
+      p.responseExamplesByRequest,
+      p.renameResponseExample,
+      p.duplicateResponseExample,
+      p.deleteResponseExample,
       p.draftsByLocationRequest,
       p.buildRequestDraftNode,
       p.setExpandedKeys,

@@ -36,7 +36,11 @@ import { App, Button, Tabs, Tooltip, Typography, theme } from 'antd';
 import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getRequestSyncMirrorForWorkspace } from '@openheaders/ui/context';
+import { getRequestSyncMirrorForWorkspace, getResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context';
+import {
+  applyResponseExampleCreate,
+  nextExampleName,
+} from '@openheaders/ui/shared/sync/response-example-write-client';
 import { EntityScopeProvider, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { EntityConflictBanner, EntityConflictDialog, hasDialogOnlyConflict } from '@openheaders/ui/shared/conflicts';
@@ -405,6 +409,52 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     registerSaveRef,
   });
 
+  // Save Response — freeze the current exchange as an example under
+  // this request. Captures the AUTHORED request shape (draft rows as
+  // edited, variable refs unresolved) plus the executed response
+  // snapshot; auth and scripts are deliberately excluded (see the
+  // ResponseExample schema).
+  const handleSaveResponse = useCallback(async () => {
+    if (!summary || !requestUid || !editingScopeWorkspaceId || !response || response.error !== null) return;
+    const mirror = getResponseExampleSyncMirrorForWorkspace(editingScopeWorkspaceId);
+    await mirror.hydrated;
+    const name = nextExampleName(mirror, requestUid, summary.name);
+    const result = await applyResponseExampleCreate(
+      {
+        requestPath: summary.path,
+        example: {
+          requestUid,
+          name,
+          capturedAt: new Date().toISOString(),
+          request: {
+            method: draft.method,
+            url: draft.url,
+            headers: rowsToHeaders(draft.headers),
+            params: rowsToParams(draft.params),
+            body: draft.body,
+          },
+          response: {
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+            headers: response.headers,
+            body: response.body,
+            bodyTruncated: response.bodyTruncated,
+            bodyCapBytes: response.bodyCapBytes,
+            bodyBytes: response.bodyBytes,
+            durationMs: response.durationMs,
+          },
+        },
+      },
+      { workspaceId: editingScopeWorkspaceId, surfaceId: 'workbench' },
+    );
+    if (result.ok) {
+      message.success(`Saved example "${name}"`);
+    } else {
+      message.error(`Failed to save example${'message' in result && result.message ? `: ${result.message}` : ''}`);
+    }
+  }, [summary, requestUid, editingScopeWorkspaceId, response, draft, message]);
+
   const handleSend = useCallback(async () => {
     if (sending) return;
     setSending(true);
@@ -645,6 +695,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                             method: draft.method,
                           })
                       : undefined
+                  }
+                  onSaveResponse={
+                    mode === 'request-edit' && summary ? () => void handleSaveResponse() : undefined
                   }
                 />
               </Allotment.Pane>

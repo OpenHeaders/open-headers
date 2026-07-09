@@ -51,6 +51,30 @@ export function methodTag(method: string, muted = false): React.ReactNode {
   );
 }
 
+/** Compact "e.g." marker for response-example rows in the API Requests
+ *  tree — same footprint as {@link methodTag} so example labels align
+ *  with sibling request labels, but tertiary-tinted so examples read as
+ *  frozen records rather than runnable requests. */
+export function exampleTag(): React.ReactNode {
+  return createElement(
+    'span',
+    {
+      key: 'example',
+      style: {
+        display: 'inline-block',
+        minWidth: 44,
+        fontSize: 9,
+        fontWeight: 700,
+        color: 'var(--ant-color-text-tertiary, #999)',
+        fontFamily: "'SF Mono', monospace",
+        textAlign: 'right',
+        flexShrink: 0,
+      },
+    },
+    'e.g.',
+  );
+}
+
 /** Small orange dot — visual twin of the tab-bar dirty indicator. */
 export function dirtyDot(): React.ReactNode {
   return createElement('span', {

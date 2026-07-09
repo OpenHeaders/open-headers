@@ -40,6 +40,7 @@ export * from './mirrors/per-workspace-mirror-registry';
 export * from './mirrors/request-collection-sync-mirror';
 export * from './mirrors/request-folder-sync-mirror';
 export * from './mirrors/request-sync-mirror';
+export * from './mirrors/response-example-sync-mirror';
 export * from './mirrors/rule-sync-mirror';
 export * from './mirrors/singleton-entity-mirror';
 export * from './mirrors/template-collection-sync-mirror';

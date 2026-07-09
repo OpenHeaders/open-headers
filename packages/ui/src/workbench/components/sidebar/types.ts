@@ -59,6 +59,8 @@ export interface TreeNode {
   onOpen?: () => void;
   onRename?: (newName: string) => Promise<void> | void;
   onDelete?: () => void;
+  /** Duplicate this leaf — enables the leaf context menu's Duplicate item. */
+  onDuplicate?: () => void;
   onAddItem?: () => void;
   /**
    * Open the workspace-export modal for this leaf. Wired only for rule

@@ -21,8 +21,14 @@ import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCa
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
+import {
+  applyResponseExampleDelete,
+  applyResponseExampleDuplicate,
+  applyResponseExampleRename,
+} from '@openheaders/ui/shared/sync/response-example-write-client';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { isRuleResolvable } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
@@ -313,6 +319,42 @@ const Sidebar: React.FC<SidebarProps> = ({
     [message, ruleMutator],
   );
 
+  // ── Response examples (child nodes under request rows) ───────────
+  const responseExamplesByRequest = useResponseExamplesByRequest(activeWorkspaceId);
+  const renameResponseExample = useCallback(
+    async (uid: string, name: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyResponseExampleRename(uid, name, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error('Failed to rename example');
+    },
+    [activeWorkspaceId, message],
+  );
+  const duplicateResponseExample = useCallback(
+    async (uid: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyResponseExampleDuplicate(uid, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error('Failed to duplicate example');
+    },
+    [activeWorkspaceId, message],
+  );
+  const deleteResponseExample = useCallback(
+    async (uid: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyResponseExampleDelete(uid, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error('Failed to delete example');
+    },
+    [activeWorkspaceId, message],
+  );
+
   // ── Folder reorder dnd configs (one per tree) ─────────────────────
   const { rulesFolderDndConfig, requestFolderDndConfig, templateFolderDndConfig } = useFolderDndConfigs({
     activeWorkspaceId,
@@ -392,6 +434,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     resolver,
     dirtyRequestUids,
     scriptsReviewPendingUids,
+    responseExamplesByRequest,
+    renameResponseExample,
+    duplicateResponseExample,
+    deleteResponseExample,
     draftsByLocationRequest: draftsByLocation.request,
     buildRequestDraftNode,
     expandedKeys,

@@ -18,6 +18,7 @@ import {
   DownOutlined,
   DownloadOutlined,
   EllipsisOutlined,
+  SaveOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
@@ -60,6 +61,13 @@ interface ResponsePanelProps {
    * saved (no stable uid to reference).
    */
   onExtractToWorkflow?: (target: 'new' | { workflowUid: string }) => void;
+  /**
+   * "Save Response" — snapshot the current exchange as a frozen example
+   * under the request. Undefined on draft (request-create) tabs: an
+   * example needs a persisted parent request to nest under, so the user
+   * saves the request first.
+   */
+  onSaveResponse?: () => void;
 }
 
 const ResponsePanel: React.FC<ResponsePanelProps> = ({
@@ -69,6 +77,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   onLayoutChange,
   onClear,
   onExtractToWorkflow,
+  onSaveResponse,
 }) => {
   const { token } = theme.useToken();
   // Pull the list of existing workflows so the Extract dropdown can
@@ -172,6 +181,11 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             right: (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
                 <ResponseMetaStrip response={response} statusColor={statusColor} />
+                {onSaveResponse && (
+                  <Button size="small" icon={<SaveOutlined />} onClick={onSaveResponse} disabled={sending}>
+                    Save Response
+                  </Button>
+                )}
                 {onExtractToWorkflow && (
                   <Dropdown
                     trigger={['click']}
