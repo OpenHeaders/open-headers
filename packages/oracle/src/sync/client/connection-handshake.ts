@@ -58,10 +58,10 @@ export interface ConnectionHandshakeDeps {
   readonly role: HandshakeRole;
   /** Active workspace id; null when no workspace is selected. */
   readonly getActiveWorkspaceId: () => string | null;
-  /** The SW's HLC writer identity for `workspaceId`. */
-  readonly getExtensionNodeId: (workspaceId: string) => string;
+  /** This host's HLC writer identity for `workspaceId`. */
+  readonly getNodeId: (workspaceId: string) => string;
   /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
-  readonly getExtensionAgent: () => string;
+  readonly getAgent: () => string;
   /**
    * The long-lived daemon auth token from settings, or null. Sent on
    * HELLO so non-loopback daemons can validate the peer (U3.2).
@@ -174,9 +174,9 @@ export function createConnectionHandshake(deps: ConnectionHandshakeDeps): Connec
       type: SYNC_HELLO_TYPE,
       protocolVersion: PROTOCOL_VERSION,
       role: deps.role,
-      nodeId: deps.getExtensionNodeId(workspaceId),
+      nodeId: deps.getNodeId(workspaceId),
       workspaceId,
-      agent: deps.getExtensionAgent(),
+      agent: deps.getAgent(),
       ...(authToken ? { authToken } : {}),
     };
     if (!deps.send(hello)) {

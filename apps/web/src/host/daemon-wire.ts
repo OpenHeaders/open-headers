@@ -121,7 +121,7 @@ export function installDaemonWire(): DaemonWire {
     send: (frame) => transport.send(frame as Record<string, unknown>),
     role: HANDSHAKE_ROLES.WEB,
     getActiveWorkspaceId: () => peekActiveWorkspaceId(),
-    getExtensionNodeId: (workspaceId) => {
+    getNodeId: (workspaceId) => {
       const svc = getOrCreateWorkspaceService(workspaceId);
       try {
         return svc.context.nodeId;
@@ -129,7 +129,7 @@ export function installDaemonWire(): DaemonWire {
         releaseWorkspaceService(workspaceId);
       }
     },
-    getExtensionAgent: () => `@openheaders/web@${__APP_VERSION__}`,
+    getAgent: () => `@openheaders/web@${__APP_VERSION__}`,
     getAuthToken: () => peekDaemonToken(),
     readStateVector: (workspaceId) => readWorkspaceStateVector(workspaceId),
     applySnapshot: async (snapshot) => {

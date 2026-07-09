@@ -179,8 +179,8 @@ async function runJoin(opts: {
       return true;
     },
     getActiveWorkspaceId: () => opts.joinerWorkspaces[0]?.id ?? 'joiner-ws',
-    getExtensionNodeId: () => 'sw-joiner',
-    getExtensionAgent: () => '@openheaders/extension@0.0.0-test',
+    getNodeId: () => 'sw-joiner',
+    getAgent: () => '@openheaders/extension@0.0.0-test',
     readStateVector: async () => ({}),
     applySnapshot: async (snapshot) => {
       dataApplied.add(snapshot.workspaceId);

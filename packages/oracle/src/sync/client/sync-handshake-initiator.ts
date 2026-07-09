@@ -64,10 +64,10 @@ export interface SyncHandshakeInitiatorDeps {
   readonly role: HandshakeRole;
   /** Reads the active workspace id; returns null when no workspace is selected. */
   readonly getActiveWorkspaceId: () => string | null;
-  /** Reads the SW's HLC writer identity for `workspaceId`. */
-  readonly getExtensionNodeId: (workspaceId: string) => string;
+  /** Reads this host's HLC writer identity for `workspaceId`. */
+  readonly getNodeId: (workspaceId: string) => string;
   /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
-  readonly getExtensionAgent: () => string;
+  readonly getAgent: () => string;
   /**
    * Returns the long-lived daemon auth token the user pasted into
    * settings, or null when none is configured. Sent on HELLO so
@@ -224,8 +224,8 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
     send: deps.send,
     role: deps.role,
     getActiveWorkspaceId: deps.getActiveWorkspaceId,
-    getExtensionNodeId: deps.getExtensionNodeId,
-    getExtensionAgent: deps.getExtensionAgent,
+    getNodeId: deps.getNodeId,
+    getAgent: deps.getAgent,
     getAuthToken: deps.getAuthToken,
     onJoinedOrg: deps.onJoinedOrg,
     onReach: deps.onReach,

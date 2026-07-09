@@ -72,7 +72,7 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
     send: (frame) => wire.send(frame as Record<string, unknown>),
     role: HANDSHAKE_ROLES.EXTENSION,
     getActiveWorkspaceId: () => peekActiveWorkspaceId(),
-    getExtensionNodeId: (workspaceId) => {
+    getNodeId: (workspaceId) => {
       const svc = getOrCreateWorkspaceService(workspaceId);
       try {
         return svc.context.nodeId;
@@ -80,7 +80,7 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
         releaseWorkspaceService(workspaceId);
       }
     },
-    getExtensionAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
+    getAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
     getAuthToken: () => {
       const raw = wire.record().authToken;
       return raw && raw.length > 0 ? raw : null;
