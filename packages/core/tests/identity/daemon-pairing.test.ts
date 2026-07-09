@@ -51,6 +51,24 @@ describe('daemon pairing service', () => {
     expect(after[0].label).toBe('bob');
   });
 
+  it('confirm binds the minted token to the userId given at startPair', async () => {
+    const svc = createDaemonPairingService({ generateCode: () => '555333' });
+    svc.startPair({ deviceLabel: 'alice phone', userId: 'user-42' });
+    const result = await svc.confirm('555333');
+    expect(result.ok).toBe(true);
+    const after = await listDaemonAuthTokens();
+    expect(after[0].userId).toBe('user-42');
+  });
+
+  it('confirm mints an unbound token when no userId was given', async () => {
+    const svc = createDaemonPairingService({ generateCode: () => '555444' });
+    svc.startPair({ deviceLabel: 'solo' });
+    const result = await svc.confirm('555444');
+    expect(result.ok).toBe(true);
+    const after = await listDaemonAuthTokens();
+    expect(after[0].userId).toBeUndefined();
+  });
+
   it('confirm propagates a label override from the confirm form', async () => {
     const svc = createDaemonPairingService({ generateCode: () => '555111' });
     svc.startPair({ deviceLabel: 'alice-default' });

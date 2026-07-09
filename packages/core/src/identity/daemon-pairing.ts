@@ -56,6 +56,8 @@ export type PendingPairStatus = 'pending' | 'confirmed' | 'expired' | 'consumed'
 export interface PendingPair {
   readonly code: string;
   readonly deviceLabel?: string;
+  /** Directory user the confirmed token will bind to; absent → unbound. */
+  readonly userId?: string;
   readonly createdAt: number;
   readonly expiresAt: number;
   readonly status: PendingPairStatus;
@@ -64,6 +66,12 @@ export interface PendingPair {
 export interface StartPairInput {
   /** Optional admin-supplied hint for which device this code is for. */
   deviceLabel?: string;
+  /**
+   * Directory user (`OH.daemonUsers`) the minted token binds to on
+   * confirm. Omitted → an unbound token that acts as the daemon
+   * operator (the solo tier's every pairing).
+   */
+  userId?: string;
 }
 
 export interface StartPairResult {
@@ -221,6 +229,7 @@ export function createDaemonPairingService(options: DaemonPairingServiceOptions 
       const entry: PendingPair = {
         code,
         deviceLabel: input?.deviceLabel,
+        ...(input?.userId !== undefined ? { userId: input.userId } : {}),
         createdAt: t,
         expiresAt: t + ttlMs,
         status: 'pending',
@@ -263,7 +272,8 @@ export function createDaemonPairingService(options: DaemonPairingServiceOptions 
       pending.set(code, { ...entry, status: 'confirmed' });
       try {
         const label = input?.deviceLabel ?? entry.deviceLabel;
-        const minted = await mintToken({ label });
+        const userId = input?.userId ?? entry.userId;
+        const minted = await mintToken({ label, ...(userId !== undefined ? { userId } : {}) });
         // After the token is durably persisted, mark consumed so a
         // late retry from the same browser tab sees "consumed" rather
         // than "unknown" — it gives the admin a clearer log entry.

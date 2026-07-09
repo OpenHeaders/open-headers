@@ -23,7 +23,7 @@ export interface DaemonRpc {
    * the admin can pair a same-machine browser.
    */
   'oh.daemon.pairing.start': {
-    req: { deviceLabel?: string };
+    req: { deviceLabel?: string; userId?: string };
     res:
       | {
           ok: true;
@@ -90,7 +90,7 @@ export interface DaemonRpc {
    * token-store mutex.
    */
   'oh.daemon.tokens.mint': {
-    req: { label?: string };
+    req: { label?: string; userId?: string };
     res: { ok: true; tokenId: string; secret: string } | { ok: false; error: string };
   };
 
@@ -102,6 +102,44 @@ export interface DaemonRpc {
    */
   'oh.daemon.tokens.revoke': {
     req: { tokenId: string };
+    res: { ok: true } | { ok: false; error: string };
+  };
+
+  // ── Daemon-local user directory (Phase 5 team tier, slice 1) ────
+  //
+  // Admin-only. The directory (`OH.daemonUsers`) reuses the §5
+  // identity rows per user; tokens bind to a user via
+  // `DaemonAuthToken.userId`. Mutations route through the daemon's
+  // main realm for the same mutex reasons as the token RPCs above.
+
+  /** Admit a user to the directory. `email` optional (local identity). */
+  'oh.daemon.users.create': {
+    req: { displayName: string; email?: string };
+    res: { ok: true; userId: string } | { ok: false; error: string };
+  };
+
+  /** Flat directory projection for admin surfaces. */
+  'oh.daemon.users.list': {
+    req: Record<string, never>;
+    res: {
+      users: ReadonlyArray<{
+        userId: string;
+        displayName: string;
+        email: string | null;
+        createdAt: number;
+        deactivatedAt: number | null;
+      }>;
+    };
+  };
+
+  /**
+   * Deactivate a directory user: the record stays (forensic shape),
+   * every token bound to the user is revoked, and live peers riding
+   * those tokens are force-disconnected — same persist-before-evict
+   * ordering as `tokens.revoke`.
+   */
+  'oh.daemon.users.deactivate': {
+    req: { userId: string };
     res: { ok: true } | { ok: false; error: string };
   };
 }

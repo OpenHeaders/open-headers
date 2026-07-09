@@ -46,9 +46,13 @@ import * as path from 'node:path';
 import { setHostBridge } from '@openheaders/core/bridge';
 import {
   createDaemonPairingService,
+  createDaemonUser,
+  deactivateDaemonUser,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
+  listDaemonAuthTokens,
+  listDaemonUsers,
   mintDaemonAuthToken,
   refreshIdentitySnapshotFromHostStorage,
   revokeDaemonAuthToken,
@@ -484,7 +488,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       try {
         const deviceLabel =
           typeof message.deviceLabel === 'string' ? message.deviceLabel.trim() || undefined : undefined;
-        const { code, expiresAt } = pairingService.startPair({ deviceLabel });
+        const userId = typeof message.userId === 'string' ? message.userId.trim() || undefined : undefined;
+        const { code, expiresAt } = pairingService.startPair({ deviceLabel, ...(userId ? { userId } : {}) });
         const addresses = listLanIpv4Addresses();
         const pairingUrls = [
           { host: '127.0.0.1', url: `http://127.0.0.1:${boundPort}/pair/${code}` },
@@ -528,7 +533,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       // mutex can't).
       try {
         const label = typeof message.label === 'string' ? message.label.trim() || undefined : undefined;
-        const minted = await mintDaemonAuthToken({ label });
+        const userId = typeof message.userId === 'string' ? message.userId.trim() || undefined : undefined;
+        const minted = await mintDaemonAuthToken({ label, ...(userId ? { userId } : {}) });
         return { ok: true, tokenId: minted.record.id, secret: minted.secret };
       } catch (err) {
         return { ok: false, error: (err as Error).message };
@@ -544,6 +550,48 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         // fresh connection past a not-yet-written revoke.
         await revokeDaemonAuthToken(tokenId);
         wsServer?.closePeersByTokenId(tokenId);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'oh.daemon.users.create') {
+      const displayName = typeof message.displayName === 'string' ? message.displayName : '';
+      const email = typeof message.email === 'string' ? message.email.trim() || undefined : undefined;
+      try {
+        const created = await createDaemonUser({ displayName, ...(email ? { email } : {}) });
+        return created.ok ? { ok: true, userId: created.record.user.id } : { ok: false, error: created.reason };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'oh.daemon.users.list') {
+      const users = await listDaemonUsers();
+      return {
+        users: users.map((r) => ({
+          userId: r.user.id,
+          displayName: r.user.displayName,
+          email: r.userIdentity.kind === 'email' ? r.userIdentity.value : null,
+          createdAt: r.createdAt,
+          deactivatedAt: r.deactivatedAt,
+        })),
+      };
+    }
+    if (type === 'oh.daemon.users.deactivate') {
+      const userId = typeof message.userId === 'string' ? message.userId : '';
+      if (!userId) return { ok: false, error: 'missing userId' };
+      try {
+        const result = await deactivateDaemonUser(userId);
+        if (!result.ok) return { ok: false, error: result.reason };
+        // Kill the user's access now, not on their next HELLO: revoke
+        // every token bound to the user, then evict live peers riding
+        // them — same persist-before-evict ordering as tokens.revoke.
+        const tokens = await listDaemonAuthTokens();
+        for (const token of tokens) {
+          if (token.userId !== userId || token.revokedAt !== null) continue;
+          await revokeDaemonAuthToken(token.id);
+          wsServer?.closePeersByTokenId(token.id);
+        }
         return { ok: true };
       } catch (err) {
         return { ok: false, error: (err as Error).message };
