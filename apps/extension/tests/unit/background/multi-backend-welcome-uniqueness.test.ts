@@ -26,21 +26,17 @@ vi.mock('@openheaders/oracle/sync/client/sync-handshake-initiator', () => ({
   },
 }));
 
-vi.mock('@/background/sync-mutation-forwarder', () => ({
+vi.mock('@openheaders/oracle/sync/client/mutation-forwarder', () => ({
   applyPeerStateVectorToPendingOut: vi.fn(async () => {}),
   flushPendingOutToBackend: vi.fn(async () => {}),
 }));
-vi.mock('@/background/awareness-forwarder', () => ({
-  forwardCurrentAwarenessOnConnect: vi.fn(),
-}));
-vi.mock('@utils/logger', () => ({ logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
-vi.mock('@utils/browser-api', () => ({ runtime: { getManifest: () => ({ version: '0.0.0' }) } }));
-vi.mock('@openheaders/oracle/sync', () => ({ applyWorkspaceSnapshot: vi.fn(), readWorkspaceStateVector: vi.fn() }));
+vi.mock('@openheaders/oracle/sync/snapshot-applier', () => ({ applyWorkspaceSnapshot: vi.fn() }));
+vi.mock('@openheaders/oracle/sync/state-vector-reader', () => ({ readWorkspaceStateVector: vi.fn() }));
 vi.mock('@openheaders/oracle/sync/service', () => ({
   getOrCreateWorkspaceService: () => ({ context: { nodeId: 'n', next: () => ({}) }, hydrated: Promise.resolve() }),
   releaseWorkspaceService: vi.fn(),
 }));
-vi.mock('@/background/modules/workspace/workspace-store', () => ({
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   getWorkspace: () => null,
   listWorkspaces: () => [],
   peekActiveWorkspaceId: () => null,
@@ -48,10 +44,16 @@ vi.mock('@/background/modules/workspace/workspace-store', () => ({
 }));
 
 import { clearIdentitySnapshot, ensureSyntheticIdentity, getOrgBackendBindings } from '@openheaders/core/identity';
+import { HANDSHAKE_ROLES } from '@openheaders/core/protocol';
 import { hostStorage, OH, setHostStorage } from '@openheaders/core/storage';
 import type { BackendConnection, Org } from '@openheaders/core/types';
-import { createSyncHandshakeForWire } from '@/background/bootstrap/sync-handshake';
-import type { BackendWireHandle } from '@/background/websocket';
+import type { BackendWireHandle } from '@openheaders/oracle/sync/client/backend-connection-manager';
+import { createSyncHandshakeForWire } from '@openheaders/oracle/sync/client/backend-wire-handshake';
+
+const WIRE_DEPS = {
+  role: HANDSHAKE_ROLES.EXTENSION,
+  getAgent: () => '@openheaders/extension@0.0.0',
+} as const;
 
 const NOW = '2026-07-08T00:00:00.000Z';
 const BACKEND_A = 'backend-aaaa';
@@ -125,8 +127,8 @@ beforeEach(async () => {
 
 describe('WELCOME Org-uniqueness guard (per-wire onJoinedOrg)', () => {
   it('refuses a WELCOME claiming an Org bound to a different backend — the binding never moves', async () => {
-    createSyncHandshakeForWire(makeWire(BACKEND_A));
-    createSyncHandshakeForWire(makeWire(BACKEND_B));
+    createSyncHandshakeForWire(makeWire(BACKEND_A), WIRE_DEPS);
+    createSyncHandshakeForWire(makeWire(BACKEND_B), WIRE_DEPS);
 
     await joinedOrgOf(0)(ORG); // A joins first
     expect(getOrgBackendBindings().get(ORG.id)).toBe(BACKEND_A);
@@ -147,8 +149,8 @@ describe('WELCOME Org-uniqueness guard (per-wire onJoinedOrg)', () => {
   });
 
   it('accepts distinct Orgs on distinct wires', async () => {
-    createSyncHandshakeForWire(makeWire(BACKEND_A));
-    createSyncHandshakeForWire(makeWire(BACKEND_B));
+    createSyncHandshakeForWire(makeWire(BACKEND_A), WIRE_DEPS);
+    createSyncHandshakeForWire(makeWire(BACKEND_B), WIRE_DEPS);
 
     await joinedOrgOf(0)(ORG);
     await joinedOrgOf(1)(OTHER_ORG);
@@ -158,8 +160,8 @@ describe('WELCOME Org-uniqueness guard (per-wire onJoinedOrg)', () => {
   });
 
   it('rebinds when the previously-bound record was deleted (stale binding, legitimate re-join)', async () => {
-    createSyncHandshakeForWire(makeWire(BACKEND_A));
-    createSyncHandshakeForWire(makeWire(BACKEND_B));
+    createSyncHandshakeForWire(makeWire(BACKEND_A), WIRE_DEPS);
+    createSyncHandshakeForWire(makeWire(BACKEND_B), WIRE_DEPS);
 
     await joinedOrgOf(0)(ORG);
     // B's claim while A is present is refused and recorded durably.
@@ -175,7 +177,7 @@ describe('WELCOME Org-uniqueness guard (per-wire onJoinedOrg)', () => {
   });
 
   it('a reconnect re-sending WELCOME over the same wire stays idempotent', async () => {
-    createSyncHandshakeForWire(makeWire(BACKEND_A));
+    createSyncHandshakeForWire(makeWire(BACKEND_A), WIRE_DEPS);
     await joinedOrgOf(0)(ORG);
     await joinedOrgOf(0)(ORG);
     expect((await hostStorage.get(OH.joinedOrgs))?.length).toBe(1);

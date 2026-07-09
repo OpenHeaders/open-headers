@@ -70,6 +70,9 @@ async function loadWebsocket() {
   const status = await import('@openheaders/ui/shared/status');
   status.__resetStatusForTests();
   const { connectWebSocket } = await import('@/background/websocket');
+  // The roll-up sink lives in the aggregate's extension install — the
+  // manager writes slots, this maps them onto the `sync` subsystem.
+  await import('@/background/sync-status-aggregate');
   return { connectWebSocket, syncEntry: () => status.getStatusSnapshot().sync };
 }
 

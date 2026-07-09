@@ -10,7 +10,7 @@
  * `isBackendEvictingReason` classifier runs end-to-end.
  */
 
-import { HANDSHAKE_REJECT_REASONS } from '@openheaders/core/protocol';
+import { HANDSHAKE_REJECT_REASONS, HANDSHAKE_ROLES } from '@openheaders/core/protocol';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Capture the config the SUT passes to `createSyncHandshakeInitiator` so the
@@ -28,20 +28,15 @@ vi.mock('@openheaders/oracle/sync/client/sync-handshake-initiator', () => ({
 }));
 
 // Functions `onSynced` calls — trivial stubs (the clear happens before them).
-vi.mock('@/background/sync-mutation-forwarder', () => ({
+vi.mock('@openheaders/oracle/sync/client/mutation-forwarder', () => ({
   applyPeerStateVectorToPendingOut: vi.fn(async () => {}),
   flushPendingOutToBackend: vi.fn(async () => {}),
 }));
-vi.mock('@/background/awareness-forwarder', () => ({
-  forwardCurrentAwarenessOnConnect: vi.fn(),
-}));
-vi.mock('@/background/websocket', () => ({ sendToBackend: vi.fn() }));
 
 // Module-level imports referenced only by closures the test never invokes —
 // stubbed so the SUT loads in isolation (no heavy oracle/ui graph).
-vi.mock('@utils/logger', () => ({ logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
-vi.mock('@utils/browser-api', () => ({ runtime: { getManifest: () => ({ version: '0.0.0' }) } }));
-vi.mock('@openheaders/oracle/sync', () => ({ applyWorkspaceSnapshot: vi.fn(), readWorkspaceStateVector: vi.fn() }));
+vi.mock('@openheaders/oracle/sync/snapshot-applier', () => ({ applyWorkspaceSnapshot: vi.fn() }));
+vi.mock('@openheaders/oracle/sync/state-vector-reader', () => ({ readWorkspaceStateVector: vi.fn() }));
 vi.mock('@openheaders/oracle/sync/service', () => ({
   getOrCreateWorkspaceService: () => ({ context: { nodeId: 'n', next: () => ({}) }, hydrated: Promise.resolve() }),
   releaseWorkspaceService: vi.fn(),
@@ -50,7 +45,7 @@ vi.mock('@openheaders/core/identity', () => ({
   claimJoinedOrg: vi.fn(async () => ({ outcome: 'joined', snapshot: null, firstJoin: false })),
   getOrgBackendBindings: () => new Map<string, string>(),
 }));
-vi.mock('@/background/modules/workspace/workspace-store', () => ({
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   getWorkspace: () => null,
   listWorkspaces: () => [],
   peekActiveWorkspaceId: () => null,
@@ -65,23 +60,30 @@ describe('createSyncHandshakeForWire — isBackendEvicting (audit X-1)', () => {
   beforeEach(async () => {
     vi.resetModules();
     capturedConfig = {};
-    const mod = await import('@/background/bootstrap/sync-handshake');
-    handles = mod.createSyncHandshakeForWire({
-      backendId: 'backend-evict-test',
-      record: () => ({
-        id: 'backend-evict-test',
-        label: '',
-        url: 'ws://127.0.0.1:59210',
-        authToken: '',
-        autoConnect: true,
-        enabled: true,
-        addedAt: '2026-07-01T00:00:00.000Z',
-        lastConnectedAt: null,
-      }),
-      isLoopback: () => true,
-      isConnected: () => true,
-      send: () => true,
-    });
+    const mod = await import('@openheaders/oracle/sync/client/backend-wire-handshake');
+    handles = mod.createSyncHandshakeForWire(
+      {
+        backendId: 'backend-evict-test',
+        record: () => ({
+          id: 'backend-evict-test',
+          label: '',
+          url: 'ws://127.0.0.1:59210',
+          authToken: '',
+          autoConnect: true,
+          enabled: true,
+          addedAt: '2026-07-01T00:00:00.000Z',
+          lastConnectedAt: null,
+        }),
+        isLoopback: () => true,
+        isConnected: () => true,
+        send: () => true,
+      },
+      {
+        role: HANDSHAKE_ROLES.EXTENSION,
+        getAgent: () => '@openheaders/extension@0.0.0',
+        onSyncedPresencePush: vi.fn(),
+      },
+    );
   });
 
   it('starts not-evicting before any handshake outcome', () => {

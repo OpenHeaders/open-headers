@@ -18,7 +18,7 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/background/websocket', () => ({
+vi.mock('@openheaders/oracle/sync/client/backend-connection-manager', () => ({
   sendToBackend: (backendId: string, data: Record<string, unknown>) => sendMock(backendId, data),
   isBackendConnected: (backendId: string) => isConnectedMock(backendId),
 }));

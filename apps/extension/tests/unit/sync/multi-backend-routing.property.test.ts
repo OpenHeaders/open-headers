@@ -43,7 +43,7 @@ vi.mock('@utils/logger', () => ({
 const connected = new Set<string>();
 const sent: Array<{ backendId: string; frame: Record<string, unknown> }> = [];
 
-vi.mock('@/background/websocket', () => ({
+vi.mock('@openheaders/oracle/sync/client/backend-connection-manager', () => ({
   sendToBackend: (backendId: string, frame: Record<string, unknown>) => {
     if (!connected.has(backendId)) return false;
     sent.push({ backendId, frame });

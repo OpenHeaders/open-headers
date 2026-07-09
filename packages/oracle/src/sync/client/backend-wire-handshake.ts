@@ -5,22 +5,43 @@ import {
   setBackendReach,
 } from '@openheaders/core/backends';
 import { claimJoinedOrg, getOrgBackendBindings } from '@openheaders/core/identity';
-import { HANDSHAKE_ROLES, type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
-import { applyWorkspaceSnapshot, readWorkspaceStateVector } from '@openheaders/oracle/sync';
-import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
-import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
-import { runtime } from '@utils/browser-api';
-import { logger } from '@utils/logger';
-import { forwardCurrentAwarenessOnConnect } from '../awareness-forwarder';
+import { type HandshakeRejectReason, type HandshakeRole, isBackendEvictingReason } from '@openheaders/core/protocol';
+import { logger } from '@openheaders/core/utils';
 import {
   getWorkspace,
   listWorkspaces,
   peekActiveWorkspaceId,
   setActiveWorkspaceById,
-} from '../modules/workspace/workspace-store';
-import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from '../sync-mutation-forwarder';
-import { reportBackendSyncStatus } from '../sync-status-aggregate';
-import type { BackendWireHandle } from '../websocket';
+} from '../../workspace/extension-workspace-store';
+import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../service';
+import { applyWorkspaceSnapshot } from '../snapshot-applier';
+import { readWorkspaceStateVector } from '../state-vector-reader';
+import type { BackendWireHandle } from './backend-connection-manager';
+import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from './mutation-forwarder';
+import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
+import { reportBackendSyncStatus } from './sync-status-aggregate';
+
+const SCOPE = 'BackendWireHandshake';
+
+/**
+ * The host-bound edges of the per-wire handshake wiring. Everything
+ * else — workspace store, identity, pending-out flush, status slots —
+ * is shared oracle/core state reached directly.
+ */
+export interface BackendWireHandshakeDeps {
+  /** The role this host announces in HELLO (extension, desktop, …). */
+  readonly role: HandshakeRole;
+  /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
+  readonly getAgent: () => string;
+  /**
+   * Optional host hook fired after each scope's SYNCED, once the
+   * pending-out queue has flushed. The extension pushes its current
+   * awareness presence snapshot here so the peer folds this host's
+   * surfaces immediately rather than on next activity; a host without
+   * an awareness client plane omits it.
+   */
+  readonly onSyncedPresencePush?: () => void;
+}
 
 export interface SyncHandshakeHandles {
   initiator: ReturnType<typeof createSyncHandshakeInitiator>;
@@ -45,7 +66,10 @@ export interface SyncHandshakeHandles {
  * send path, the auth token, the Org provenance stamp, and the fan-out
  * enumeration (only workspaces whose Org is bound to THIS backend).
  */
-export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandshakeHandles {
+export function createSyncHandshakeForWire(
+  wire: BackendWireHandle,
+  deps: BackendWireHandshakeDeps,
+): SyncHandshakeHandles {
   // Backend's active workspace id from WELCOME, held until that workspace
   // syncs down. The handshake fires before the joined Org's workspaces
   // arrive, so adoption is deferred to a later workspace-store change.
@@ -64,13 +88,13 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
     const id = pendingAdoptWorkspaceId;
     pendingAdoptWorkspaceId = null;
     void setActiveWorkspaceById(id).catch((err: unknown) => {
-      logger.warn('Background', 'join → adopt: could not promote the backend workspace to active', err);
+      logger.warn(SCOPE, 'join → adopt: could not promote the backend workspace to active', err);
     });
   };
 
   const initiator = createSyncHandshakeInitiator({
     send: (frame) => wire.send(frame as Record<string, unknown>),
-    role: HANDSHAKE_ROLES.EXTENSION,
+    role: deps.role,
     getActiveWorkspaceId: () => peekActiveWorkspaceId(),
     getNodeId: (workspaceId) => {
       const svc = getOrCreateWorkspaceService(workspaceId);
@@ -80,7 +104,7 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
         releaseWorkspaceService(workspaceId);
       }
     },
-    getAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
+    getAgent: deps.getAgent,
     getAuthToken: () => {
       const raw = wire.record().authToken;
       return raw && raw.length > 0 ? raw : null;
@@ -89,8 +113,8 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
     // Only workspaces whose Org is bound to THIS backend — the fan-out
     // never pulls another backend's scopes over this wire (routing
     // invariant 1's read-side mirror). Adopted workspace is sequenced
-    // first so a mid-fan-out SW death still leaves the user on a synced
-    // workspace.
+    // first so a mid-fan-out host death still leaves the user on a
+    // synced workspace.
     listConsumedWorkspaceIds: () => {
       const bindings = getOrgBackendBindings();
       const ids = listWorkspaces()
@@ -120,21 +144,22 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
       await flushPendingOutToBackend(wire.backendId);
       tryAdoptPendingWorkspace();
       // Awareness is ephemeral and only flows on local publish events.
-      // Push the current snapshot now so the peer folds extension surfaces
-      // into its store immediately rather than waiting for next activity.
-      forwardCurrentAwarenessOnConnect();
+      // The host pushes its current snapshot now so the peer folds this
+      // host's surfaces into its store immediately rather than waiting
+      // for next activity.
+      deps.onSyncedPresencePush?.();
     },
     onRejected: (reason, detail) => {
       // Remember the rejection (audit X-1) so the offline-fallback election
       // can tell "backend evicted me" from "backend is down."
       lastRejectReason = reason;
-      logger.warn('Background', `sync handshake rejected: ${reason}${detail ? ` — ${detail}` : ''}`);
+      logger.warn(SCOPE, `sync handshake rejected: ${reason}${detail ? ` — ${detail}` : ''}`);
     },
     onReach: (reach) => {
       // Keyed by THIS wire's record — each backend's WELCOME owns only
       // its own entry, so two backends' tiers never clobber each other.
       void setBackendReach(wire.backendId, reach).catch((err: unknown) =>
-        logger.warn('Background', 'backendReach write failed', err),
+        logger.warn(SCOPE, 'backendReach write failed', err),
       );
     },
     // First-join only — a reconnect must NOT re-adopt, otherwise the
@@ -169,7 +194,7 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
           boundBackendId: result.boundBackendId,
         });
         logger.warn(
-          'Background',
+          SCOPE,
           `backend ${wire.backendId} claims Org ${org.id}, already provided by backend ${result.boundBackendId} — join refused`,
         );
         return;
@@ -181,7 +206,7 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
         pendingAdoptWorkspaceId = backendActiveWorkspaceId;
         tryAdoptPendingWorkspace();
       }
-      logger.info('Background', `joined backend Org ${org.id} — its workspaces will sync down`);
+      logger.info(SCOPE, `joined backend Org ${org.id} — its workspaces will sync down`);
     },
   });
 
