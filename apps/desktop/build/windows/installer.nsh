@@ -1,5 +1,4 @@
 ; Custom NSIS installer script for Open Headers
-; Includes information about bundled Portable Git
 
 !macro customInstall
   ; Show progress messages during installation
@@ -33,18 +32,6 @@
   WriteRegStr HKCU "Software\Classes\openheaders\shell\open\command" "" '"$INSTDIR\OpenHeaders.exe" "%1"'
   
   DetailPrint "Protocol handler registered successfully."
-  
-  ; Inform user about bundled Portable Git
-  DetailPrint "Open Headers includes Portable Git for team workspace features."
-  DetailPrint "No additional Git installation is required."
-  
-  ; Verify portable Git was bundled correctly
-  ${If} ${FileExists} "$INSTDIR\resources\git\bin\git.exe"
-    DetailPrint "Portable Git successfully bundled at: $INSTDIR\resources\git"
-  ${Else}
-    DetailPrint "Warning: Portable Git not found in bundle. Team workspaces may not work correctly."
-    DetailPrint "Please ensure the installer was built with 'npm run download-portable-git' before packaging."
-  ${EndIf}
 !macroend
 
 !macro customUnInstall

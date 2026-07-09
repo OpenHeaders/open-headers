@@ -45,9 +45,6 @@ coverage/
 apps/extension/dist/
 apps/extension/releases/
 
-# Desktop portable git (downloaded at build time)
-apps/desktop/build/windows/portable/
-
 # OS files
 Thumbs.db
 

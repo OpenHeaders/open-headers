@@ -29,14 +29,11 @@
     "dist:mac": "pnpm run predist && electron-builder --mac --publish never",
     "dist:mac:unsigned": "pnpm run predist && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --publish never",
     "dist:mac:unsigned:arm64": "pnpm run predist && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --config.mac.target=dmg --publish never",
-    "dist:win": "pnpm run predist:win && electron-builder --win --publish never",
-    "dist:win:unsigned": "pnpm run predist:win && cross-env WIN_CSC_LINK='' electron-builder --win --publish never",
+    "dist:win": "pnpm run predist && electron-builder --win --publish never",
+    "dist:win:unsigned": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win --publish never",
     "dist:linux": "pnpm run predist && electron-builder --linux --x64 --arm64 --publish never",
     "dist:linux:rpm:x64": "pnpm run predist && electron-builder --linux --x64 --config.linux.target=rpm --publish never",
     "dist:linux:rpm:arm64": "pnpm run predist && electron-builder --linux --arm64 --config.linux.target=rpm --publish never",
-    "predist:win": "pnpm run build && pnpm run build:web-bundle && pnpm run download-portable-git && pnpm run build:minimal-git",
-    "download-portable-git": "node scripts/build/download-portable-git.js",
-    "build:minimal-git": "node scripts/build/build-minimal-git.js",
     "build:dmg-bg": "node scripts/build/build-dmg-background.js",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs run",
     "test:watch": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs",
@@ -124,16 +121,7 @@
       "target": "nsis",
       "artifactName": "${productName}-${version}-Setup.${ext}",
       "icon": "build/icon.ico",
-      "forceCodeSigning": false,
-      "extraResources": [
-        {
-          "from": "build/windows/portable/MinimalGit",
-          "to": "git",
-          "filter": [
-            "**/*"
-          ]
-        }
-      ]
+      "forceCodeSigning": false
     },
     "mac": {
       "category": "public.app-category.developer-tools",
