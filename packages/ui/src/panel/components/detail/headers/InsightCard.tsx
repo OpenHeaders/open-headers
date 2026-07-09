@@ -21,7 +21,7 @@ export function InsightCard({
       {insight.action && (
         <button
           type="button"
-          className="dt-btn dt-btn-primary dt-header-insight-action"
+          className="dt-btn dt-btn-primary dt-btn--oh dt-header-insight-action"
           onClick={(e) => onAction(insight.action!, e.currentTarget)}
         >
           {insight.action.label}

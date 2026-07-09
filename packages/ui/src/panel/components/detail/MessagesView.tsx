@@ -301,7 +301,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
         action={
           <button
             type="button"
-            className="dt-btn dt-btn-primary"
+            className="dt-btn dt-btn-primary dt-btn--oh"
             title="Create a message rule for this connection"
             onClick={openConnectionOverride}
           >
@@ -452,7 +452,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       </button>
                       <button
                         type="button"
-                        className="dt-btn dt-btn-primary dt-ws-action"
+                        className="dt-btn dt-btn-primary dt-btn--oh dt-ws-action"
                         title={
                           editRuleForFrame(m)
                             ? 'Edit the message rule that acted on this frame'

@@ -19,7 +19,7 @@ interface OverrideBodyButtonProps {
 
 export default function OverrideBodyButton({ label, title, onClick }: OverrideBodyButtonProps) {
   return (
-    <button type="button" className="dt-btn dt-btn-primary dt-body-override-cta" onClick={onClick} title={title}>
+    <button type="button" className="dt-btn dt-btn-primary dt-btn--oh dt-body-override-cta" onClick={onClick} title={title}>
       {label}
     </button>
   );

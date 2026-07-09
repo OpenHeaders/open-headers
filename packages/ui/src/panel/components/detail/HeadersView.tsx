@@ -321,7 +321,7 @@ export function HeadersView({
             />
             <button
               type="button"
-              className="dt-btn dt-btn-primary"
+              className="dt-btn dt-btn-primary dt-btn--oh"
               onClick={(e) => {
                 e.preventDefault();
                 onOverrideQueryParams(e.currentTarget);
@@ -332,7 +332,7 @@ export function HeadersView({
             </button>
             <button
               type="button"
-              className="dt-btn dt-btn-primary"
+              className="dt-btn dt-btn-primary dt-btn--oh"
               onClick={(e) => {
                 e.preventDefault();
                 onCreateDelay(e.currentTarget);
@@ -343,7 +343,7 @@ export function HeadersView({
             </button>
             <button
               type="button"
-              className="dt-btn dt-btn-primary"
+              className="dt-btn dt-btn-primary dt-btn--oh"
               onClick={(e) => {
                 e.preventDefault();
                 onCreateCancel(e.currentTarget);

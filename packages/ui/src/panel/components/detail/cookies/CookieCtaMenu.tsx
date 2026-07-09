@@ -80,7 +80,7 @@ export function CookieCtaMenu({
       <button
         ref={triggerRef}
         type="button"
-        className="dt-btn dt-btn-primary"
+        className="dt-btn dt-btn-primary dt-btn--oh"
         title="Create a rule that changes the cookies on matching requests"
       >
         Override Cookies

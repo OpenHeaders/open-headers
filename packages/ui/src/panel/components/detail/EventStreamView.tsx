@@ -279,7 +279,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
         action={
           <button
             type="button"
-            className="dt-btn dt-btn-primary"
+            className="dt-btn dt-btn-primary dt-btn--oh"
             title="Create a message rule for this stream"
             onClick={openStreamOverride}
           >
@@ -418,7 +418,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
                       </button>
                       <button
                         type="button"
-                        className="dt-btn dt-btn-primary dt-ws-action"
+                        className="dt-btn dt-btn-primary dt-btn--oh dt-ws-action"
                         title={
                           editRuleForEvent(ev)
                             ? 'Edit the message rule that acted on this event'

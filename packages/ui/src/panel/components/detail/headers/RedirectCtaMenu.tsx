@@ -83,7 +83,7 @@ export function RedirectCtaMenu({
       <button
         ref={triggerRef}
         type="button"
-        className="dt-btn dt-btn-primary"
+        className="dt-btn dt-btn-primary dt-btn--oh"
         /* The trigger may sit inside a <details> summary (General section) —
          * preventDefault stops the disclosure toggle; the Popover still opens
          * because antd merges this handler with its own. */

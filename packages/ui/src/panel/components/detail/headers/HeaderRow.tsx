@@ -325,7 +325,7 @@ export function AttributedHeaderRow({
           {ruleCtx && (
             <button
               type="button"
-              className="dt-btn dt-btn-primary dt-kv-action"
+              className="dt-btn dt-btn-primary dt-btn--oh dt-kv-action"
               title="Edit the rule that set this header"
               onClick={openEditPopover}
             >
@@ -334,7 +334,7 @@ export function AttributedHeaderRow({
           )}
           <button
             type="button"
-            className="dt-btn dt-btn-primary dt-kv-action"
+            className="dt-btn dt-btn-primary dt-btn--oh dt-kv-action"
             disabled={overrideDisabled}
             aria-disabled={overrideDisabled || undefined}
             title={overrideTitle}
