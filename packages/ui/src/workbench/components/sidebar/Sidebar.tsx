@@ -357,6 +357,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
     [activeWorkspaceId, message],
   );
+  // Parent lookup for the reveal-on-focus path (an example tab going
+  // active expands its request row so the child node is visible).
+  const resolveResponseExampleParent = useCallback(
+    (exampleUid: string): string | null => {
+      for (const [requestUid, examples] of responseExamplesByRequest) {
+        if (examples.some((e) => e.uid === exampleUid)) return requestUid;
+      }
+      return null;
+    },
+    [responseExamplesByRequest],
+  );
 
   // ── Folder reorder dnd configs (one per tree) ─────────────────────
   const { rulesFolderDndConfig, requestFolderDndConfig, templateFolderDndConfig } = useFolderDndConfigs({
@@ -581,6 +592,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     localCollectionTrees,
     templateCollectionTrees,
     requestCollectionTrees,
+    resolveResponseExampleParent,
     containerRef,
     toggleExpand,
     setRenamingId,

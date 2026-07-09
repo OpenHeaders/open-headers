@@ -41,6 +41,10 @@ interface UseSelectOpenedTabParams {
   localCollectionTrees: readonly { uid: string; tree: TreeNode[] }[];
   templateCollectionTrees: readonly { uid: string; tree: TreeNode[] }[];
   requestCollectionTrees: readonly { uid: string; tree: TreeNode[] }[];
+  /** Parent request uid for a response-example uid — null while the
+   *  example isn't in the mirror yet (the auto-select retry covers the
+   *  create-broadcast race). */
+  resolveResponseExampleParent?: (exampleUid: string) => string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   setSectionsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -70,6 +74,7 @@ export function useSelectOpenedTab({
   localCollectionTrees,
   templateCollectionTrees,
   requestCollectionTrees,
+  resolveResponseExampleParent,
   containerRef,
   setExpandedKeys,
   setSectionsExpanded,
@@ -111,9 +116,19 @@ export function useSelectOpenedTab({
         containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
       }, 50);
       return true;
-    } else if (activeTabId.startsWith('request-') && view === 'api-requests') {
+    } else if (
+      (activeTabId.startsWith('request-') || activeTabId.startsWith('resp-example-')) &&
+      view === 'api-requests'
+    ) {
       nodeId = activeTabId;
-      const targetUid = activeTabId.replace('request-', '');
+      // Example nodes nest under their parent request row — reveal the
+      // request's ancestor chain AND expand the request row itself so
+      // the example child is visible (e.g. right after Save Response).
+      const isExample = activeTabId.startsWith('resp-example-');
+      const targetUid = isExample
+        ? (resolveResponseExampleParent?.(activeTabId.replace('resp-example-', '')) ?? null)
+        : activeTabId.replace('request-', '');
+      if (!targetUid) return false;
       let found: { ancestors: string[] } | null = null;
       for (const col of requestCollectionTrees) {
         const colKey = `req-col-${col.uid}`;
@@ -129,7 +144,7 @@ export function useSelectOpenedTab({
         };
         const result = walk(col.tree, [colKey]);
         if (result) {
-          found = { ancestors: result };
+          found = { ancestors: isExample ? [...result, `request-${targetUid}`] : result };
           break;
         }
       }
@@ -248,6 +263,7 @@ export function useSelectOpenedTab({
     localCollectionTrees,
     templateCollectionTrees,
     requestCollectionTrees,
+    resolveResponseExampleParent,
     view,
     containerRef,
     setExpandedKeys,

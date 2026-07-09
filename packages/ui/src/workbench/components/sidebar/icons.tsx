@@ -51,27 +51,42 @@ export function methodTag(method: string, muted = false): React.ReactNode {
   );
 }
 
-/** Compact "e.g." marker for response-example rows in the API Requests
- *  tree — same footprint as {@link methodTag} so example labels align
- *  with sibling request labels, but tertiary-tinted so examples read as
- *  frozen records rather than runnable requests. */
+/** Compact "e.g." chip for response-example rows in the API Requests
+ *  tree — grey-bordered square-ish badge (same visual family as the
+ *  scope badges), right-aligned inside the {@link methodTag} footprint
+ *  so example labels align with sibling request labels. Tertiary-tinted
+ *  so examples read as records rather than runnable requests. */
 export function exampleTag(): React.ReactNode {
   return createElement(
     'span',
     {
       key: 'example',
       style: {
-        display: 'inline-block',
+        display: 'inline-flex',
         minWidth: 44,
-        fontSize: 9,
-        fontWeight: 700,
-        color: 'var(--ant-color-text-tertiary, #999)',
-        fontFamily: "'SF Mono', monospace",
-        textAlign: 'right',
+        justifyContent: 'flex-end',
         flexShrink: 0,
       },
     },
-    'e.g.',
+    createElement(
+      'span',
+      {
+        style: {
+          display: 'inline-flex',
+          alignItems: 'center',
+          height: 14,
+          padding: '0 3px',
+          borderRadius: 3,
+          border: '1px solid var(--ant-color-border, #d9d9d9)',
+          fontSize: 8,
+          fontWeight: 700,
+          lineHeight: 1,
+          color: 'var(--ant-color-text-tertiary, #999)',
+          fontFamily: "'SF Mono', monospace",
+        },
+      },
+      'e.g.',
+    ),
   );
 }
 

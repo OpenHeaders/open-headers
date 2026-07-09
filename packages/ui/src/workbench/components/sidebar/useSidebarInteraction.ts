@@ -42,6 +42,8 @@ interface UseSidebarInteractionParams {
   localCollectionTrees: readonly { uid: string; tree: CoreTreeNode[] }[];
   templateCollectionTrees: readonly { uid: string; tree: CoreTreeNode[] }[];
   requestCollectionTrees: readonly { uid: string; tree: CoreTreeNode[] }[];
+  /** Parent request uid for a response-example uid — see useSelectOpenedTab. */
+  resolveResponseExampleParent?: (exampleUid: string) => string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
   toggleExpand: (key: string) => void;
   setRenamingId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -78,6 +80,7 @@ export function useSidebarInteraction({
   localCollectionTrees,
   templateCollectionTrees,
   requestCollectionTrees,
+  resolveResponseExampleParent,
   containerRef,
   toggleExpand,
   setRenamingId,
@@ -197,6 +200,7 @@ export function useSidebarInteraction({
     localCollectionTrees,
     templateCollectionTrees,
     requestCollectionTrees,
+    resolveResponseExampleParent,
     containerRef,
     setExpandedKeys,
     setSectionsExpanded,
