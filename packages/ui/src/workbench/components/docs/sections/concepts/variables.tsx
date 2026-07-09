@@ -257,7 +257,7 @@ export const VariablesSection: React.FC = () => (
       <VariablesCreationMapDiagram />
     </DiagramFrame>
     <DocParagraph>
-      The <strong>Variables</strong> tool window is the inspection surface. <em>In context</em> lists the variables the
+      The <strong>Variables</strong> tool window is the inspection surface. <em>In scope</em> lists the variables the
       focused rule, request, or template actually references — each resolved through the full ladder so you see the
       exact value that will apply. <em>All scopes</em> lists everything defined anywhere, grouped by priority. In any
       templatable field, typing <code>{'{{'}</code> opens the suggester with every resolvable name, and hovering a

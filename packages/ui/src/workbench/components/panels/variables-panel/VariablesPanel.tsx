@@ -3,7 +3,7 @@
  * users as "Variable Scope"). One scrolling panel with two collapsible
  * sections:
  *
- *   - "In ‹rule/request/template›" — the variables the focused entity
+ *   - "In scope: ‹entity›" — the variables the focused entity
  *     references, resolved against every scope so the user sees the exact
  *     value that will hit DNR / the executor. A hint stands in when no
  *     variable-referencing tab is focused.
@@ -40,8 +40,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const vm = useVariablesPanel(activeTab, props);
 
-  const noun = vm.scopeKind === 'request' ? 'request' : vm.scopeKind === 'template' ? 'template' : 'rule';
-  const inContextTitle = vm.contextEntityName ? `In ${noun}: ${vm.contextEntityName}` : 'In context';
+  const inContextTitle = vm.contextEntityName ? `In scope: ${vm.contextEntityName}` : 'In scope';
 
   return (
     <div
@@ -50,7 +49,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
     >
       <PanelHeader wiring={headerWiring} title={<strong>Variable Scope</strong>} info={info} />
 
-      <div style={{ padding: '0 12px', flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
         <PanelSection title={inContextTitle} info={IN_CONTEXT_INFO} docId="variables-inspecting">
           <InContextView
             vars={vm.inContextVars}

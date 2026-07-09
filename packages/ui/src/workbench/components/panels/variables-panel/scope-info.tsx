@@ -23,7 +23,7 @@ const BARE_PRECEDENCE: readonly DisplayScope[] = ['vault', 'environment', 'colle
 /** `(i)` content for the panel's two top-level sections, so each one is
  *  self-explanatory next to its caret. */
 export const IN_CONTEXT_INFO: InfoPopoverContent = {
-  title: 'In context',
+  title: 'In scope',
   summary:
     'The variables the active rule, request, or template references — each resolved through every scope so you see the exact value that will apply. Empty until you open one.',
 };

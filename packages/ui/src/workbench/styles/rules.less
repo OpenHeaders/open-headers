@@ -1855,6 +1855,14 @@ body {
 // never reflows the header — the same hover-reveal the network table's (i)
 // affordances use.
 .vp-scope-head {
+  border-radius: 4px;
+  transition: background-color 0.12s ease;
+
+  // Same hover wash as the sidebar section headers / tree rows.
+  &:hover {
+    background-color: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+  }
+
   .vp-scope-reveal {
     opacity: 0;
     transition: opacity 80ms linear;
@@ -1871,6 +1879,10 @@ body {
   .oh-info-trigger {
     margin: 0;
   }
+}
+
+[data-theme='dark'] .vp-scope-head:hover {
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 // ── Regions (focus-aware containers) ──────────────────────────────

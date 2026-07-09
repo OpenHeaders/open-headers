@@ -2,7 +2,7 @@
  * Shared read-only Variable | Value table used by both Scope-panel
  * views. The "All scopes" view renders one table per scope (the scope is
  * already named in the section header, so no glyph column); the
- * "In context" view renders a single mixed-scope table and turns on the
+ * "In scope" view renders a single mixed-scope table and turns on the
  * leading scope-glyph column so each row shows which scope it resolved
  * from. Sensitive values mask to bullets with a hover/focus reveal;
  * TOTP rows mount a live preview. Rows are static — the value is

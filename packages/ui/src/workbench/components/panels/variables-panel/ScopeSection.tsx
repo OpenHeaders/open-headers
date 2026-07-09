@@ -54,7 +54,7 @@ export function ScopeSection({ scope, variables, subtitle, action, isLast }: Sco
   const showTable = expanded && hasVariables;
   const showDivider = !showTable && !isLast;
   return (
-    <div style={{ borderBottom: showDivider ? `1px solid ${token.colorBorderSecondary}` : undefined, padding: '8px 0' }}>
+    <div style={{ borderBottom: showDivider ? `1px solid ${token.colorBorderSecondary}` : undefined, padding: '4px 0' }}>
       <div
         className="vp-scope-head"
         role="button"
@@ -73,7 +73,11 @@ export function ScopeSection({ scope, variables, subtitle, action, isLast }: Sco
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          marginBottom: expanded ? 6 : 0,
+          // Horizontal padding pulled back out by the negative margin so the
+          // hover wash gets breathing room without shifting the text.
+          padding: '4px 6px',
+          margin: '0 -6px',
+          marginBottom: expanded ? 2 : 0,
           cursor: 'pointer',
         }}
       >
