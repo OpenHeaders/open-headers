@@ -270,12 +270,20 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
               {tabIsDirty(tab) && <span className="dt-editor-tab-dirty" aria-label="Unsaved changes" />}
             </div>
           ))}
+          {/* Open-tabs empty state — the region must always answer the
+              search, even when only closed tabs (or nothing) match. */}
+          {filtered.length === 0 && (
+            <div className="dt-tab-search-empty">{search ? 'No open tabs match your search' : 'No open tabs'}</div>
+          )}
           {recentlyClosed.length > 0 && (
             <>
               {/* biome-ignore lint/a11y/useKeyWithClickEvents: toggle */}
               {/* biome-ignore lint/a11y/noStaticElementInteractions: toggle */}
               <div className="dt-tab-search-section" onClick={() => setClosedExpanded((v) => !v)}>
-                {closedExpanded ? '▼' : '▶'} Recently Closed ({recentlyClosed.length})
+                {/* While searching, surface the match count in the header so
+                    the collapsed section still answers the query. */}
+                {closedExpanded ? '▼' : '▶'} Recently Closed (
+                {search ? `${filteredClosed.length} of ${recentlyClosed.length}` : recentlyClosed.length})
               </div>
               {closedExpanded &&
                 filteredClosed.map((closed, idx) => {
@@ -299,10 +307,11 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                     </div>
                   );
                 })}
+              {/* Closed-region empty state — mirrors the open region's. */}
+              {closedExpanded && filteredClosed.length === 0 && (
+                <div className="dt-tab-search-empty">No closed tabs match your search</div>
+              )}
             </>
-          )}
-          {filtered.length === 0 && filteredClosed.length === 0 && (
-            <div className="dt-tab-search-empty">No matching tabs</div>
           )}
         </div>
       </div>
