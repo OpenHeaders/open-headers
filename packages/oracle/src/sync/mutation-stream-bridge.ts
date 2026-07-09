@@ -101,6 +101,17 @@ export function hasRecentlyApplied(mutationId: string): boolean {
 }
 
 /**
+ * Drop ids from the receive-side seen set — the wire-level third of a
+ * workspace eviction's dedup teardown (log purge + store forget are
+ * the other two). Without this, a same-session re-join's redelivery
+ * of the backend's ORIGINAL envelopes early-returns here and the
+ * evicted data can never sync back down.
+ */
+export function forgetRecentlyApplied(mutationIds: Iterable<string>): void {
+  for (const id of mutationIds) SEEN_MUTATION_IDS.delete(id);
+}
+
+/**
  * Per-batch inbound workspace.write gate (Phase U2.3) — symmetric with
  * the extension SW receiver's `isReceiveAllowed`. The local user must
  * hold `workspace.write` on the envelope's workspaceId before this host

@@ -37,6 +37,7 @@ import {
 import { logger } from '@openheaders/core/utils';
 import { getActiveExtensionWorkspaceCache } from '../sync/caches/extension-workspace-cache';
 import { getGlobalMutationLog, getGlobalOracle } from '../sync/global-service';
+import { forgetRecentlyApplied } from '../sync/mutation-stream-bridge';
 import { acquireScopeLog } from '../sync/scope-log-accessor';
 import { disposeWorkspace } from '../sync/service';
 import {
@@ -72,22 +73,28 @@ export async function evictConsumedWorkspace(id: string): Promise<EvictWorkspace
   await purgeWorkspaceData([id]);
 
   const scopeHandle = acquireScopeLog(id);
+  let scopeForgotten: string[];
   try {
     await scopeHandle.hydrated;
-    await scopeHandle.log.purgeOrg(target.orgId);
+    scopeForgotten = await scopeHandle.log.purgeOrg(target.orgId);
   } finally {
     scopeHandle.release();
   }
   disposeWorkspace(id);
 
-  const forgotten = await globalLog.purgeOrg(target.orgId);
+  const globalForgotten = await globalLog.purgeOrg(target.orgId);
   await oracle.evictSetItem(
     EXTENSION_WORKSPACE_ENTITY_TYPE,
     EXTENSION_WORKSPACE_ID,
     EXTENSION_WORKSPACES_SET_PATH,
     id,
-    forgotten,
+    globalForgotten,
   );
+  // Third dedup layer: the wire-level echo seen set. The log purge and
+  // store forget cover storage + document dedup; without this one a
+  // same-session re-join's redelivery of the backend's original
+  // envelopes dies at the bridge's early return.
+  forgetRecentlyApplied([...scopeForgotten, ...globalForgotten]);
   cache.refresh();
 
   logger.info('WorkspaceEviction', `Evicted workspace ${id} "${target.name}" (org=${target.orgId})`);

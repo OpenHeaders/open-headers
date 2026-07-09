@@ -27,12 +27,13 @@ import {
 import type { Org } from '@openheaders/core/types';
 import { type BlobBackend, setBlobBackend } from '@openheaders/oracle/files';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
-import {
-  __initGlobalSyncServiceForTests,
-  disposeGlobal,
-  getGlobalOracle,
-} from '@openheaders/oracle/sync/global-service';
+import { __initGlobalSyncServiceForTests, disposeGlobal } from '@openheaders/oracle/sync/global-service';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import {
+  __resetMutationStreamBridgeForTests,
+  applyInboundMutationBatch,
+  applyInboundMutationEnvelope,
+} from '@openheaders/oracle/sync/mutation-stream-bridge';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import {
   __initSyncServiceForTests,
@@ -138,16 +139,16 @@ async function boot(activeWorkspaceId: string): Promise<void> {
   globalLog = new InMemoryMutationLog();
   __initGlobalSyncServiceForTests({ log: globalLog });
   await bridgeExtensionWorkspaceSyncEngine();
+  __initSyncServiceForTests(activeWorkspaceId);
 
-  // The backend's list entry arrives inbound and lands in the log.
-  const oracle = getGlobalOracle();
-  if (!oracle) throw new Error('global oracle not initialized');
-  const applied = await oracle.apply({ batchId: 'daemon-b1', mutations: [daemonAddEnvelope()] }, [], 'inbound');
-  expect(applied.ok).toBe(true);
+  // The backend's list entry arrives through the REAL inbound bridge —
+  // this is what populates the wire-level echo seen set the eviction
+  // must also clear (the gate's re-join failure mode).
+  await applyInboundMutationBatch({ batchId: 'daemon-b1', mutations: [daemonAddEnvelope()] });
+  expect(getWorkspace('ws-adopted')).not.toBeNull();
 
   // Per-workspace services get their own logs; ws-adopted's stripe
   // carries a daemon envelope that must be purged by the eviction.
-  __initSyncServiceForTests(activeWorkspaceId);
   scopeLogs = new Map();
   __setWireDepsFactoryForTests((id) => {
     let log = scopeLogs.get(id);
@@ -189,6 +190,7 @@ beforeEach(async () => {
   await installHostStorage();
   setBlobBackend(noopBlobBackend);
   resetWorkspaceStore();
+  __resetMutationStreamBridgeForTests();
   installTestIdentitySnapshot(HOME_ORG_ID, [CONSUMED_ORG]);
 });
 
@@ -197,6 +199,7 @@ afterEach(() => {
   disposeGlobal();
   setOracleHostHooks({});
   resetWorkspaceStore();
+  __resetMutationStreamBridgeForTests();
   clearTestIdentitySnapshot();
 });
 
@@ -214,12 +217,11 @@ describe('evictConsumedWorkspace', () => {
     expect(listWorkspaces().map((w) => w.id)).toEqual(['ws-home']);
     expect(getWorkspace('ws-adopted')).toBeNull();
 
-    // Re-join replays the SAME envelope — it must re-materialize the
-    // workspace (a tombstoned delete would swallow it forever).
-    const oracle = getGlobalOracle();
-    const replay = await oracle?.apply({ batchId: 'daemon-b2', mutations: [daemonAddEnvelope()] }, [], 'inbound');
-    expect(replay?.ok).toBe(true);
-    expect(replay?.outcomes[0]?.outcome.status).toBe('applied');
+    // Re-join redelivers the SAME envelope through the REAL bridge —
+    // all three dedup layers (wire echo seen set, document store, log)
+    // must have forgotten it, and it must re-materialize the workspace
+    // (a tombstoned delete would swallow it forever).
+    await applyInboundMutationEnvelope(daemonAddEnvelope());
     expect(
       listWorkspaces()
         .map((w) => w.id)
