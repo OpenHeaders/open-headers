@@ -19,20 +19,25 @@ export function useAppUpdateNotification(): void {
     let cancelled = false;
     void probe().then((info) => {
       if (cancelled || !info) return;
+      const { url } = info;
       pushNotification({
         severity: 'info',
         title: `Open Headers ${info.version} available`,
         dedupeKey: `app-update:${info.version}`,
-        actions: [
-          {
-            label: 'Download…',
-            run: () => {
-              const openUrl = getCapability('openExternalUrl');
-              if (openUrl) void openUrl(info.url);
-              else window.open(info.url, '_blank', 'noopener');
-            },
-          },
-        ],
+        // In-app updater hosts omit `url` — the gear dot + Settings
+        // update row own the flow there, so the entry is informational.
+        actions: url
+          ? [
+              {
+                label: 'Download…',
+                run: () => {
+                  const openUrl = getCapability('openExternalUrl');
+                  if (openUrl) void openUrl(url);
+                  else window.open(url, '_blank', 'noopener');
+                },
+              },
+            ]
+          : [],
       });
     });
     return () => {

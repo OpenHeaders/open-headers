@@ -45,6 +45,7 @@ import type {
 } from '../sync-bridge';
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
+import type { AppUpdateState } from './updates';
 
 /** Which storage type a `storageInvalidated` push says went stale. */
 export type StorageInvalidationKind = 'indexeddb' | 'cachestorage';
@@ -105,6 +106,14 @@ export interface BridgeBroadcastContract {
    * arrives via `statusUpdated`.
    */
   backendSyncStatusUpdated: BackendSyncStatusSnapshot;
+  /**
+   * Fires on every updater state transition (check started, update
+   * available, download progress, downloaded, error) — the settings
+   * dot's + update row's feed. Payload is the full state so listeners
+   * never re-query. Desktop-only today; hosts without an updater
+   * simply never emit it.
+   */
+  appUpdateState: AppUpdateState;
 
   /**
    * Phase C F5 — live tail for the Activity Feed panel. Fires per

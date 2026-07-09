@@ -15,6 +15,7 @@
  */
 
 import { DownloadOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
+import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import type { AppUpdateInfo } from '@openheaders/core/capabilities';
 import { Button, Input, type InputRef, Popover, Tooltip, theme } from 'antd';
@@ -74,8 +75,16 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     void probe().then((info) => {
       if (!cancelled) setUpdate(info);
     });
+    // Hosts with an in-app updater also push live transitions — a
+    // check that lands mid-session lights the dot without a remount.
+    // Hosts that never emit `appUpdateState` just keep the probe value.
+    const unsubscribe = getHostBridge()?.subscribe('appUpdateState', (state) => {
+      const pending = state.phase === 'available' || state.phase === 'downloading' || state.phase === 'downloaded';
+      setUpdate(pending && state.availableVersion !== null ? { version: state.availableVersion } : null);
+    });
     return () => {
       cancelled = true;
+      unsubscribe?.();
     };
   }, []);
 
@@ -93,9 +102,15 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
           accent: true,
           run: () => {
             close();
-            const openUrl = getCapability('openExternalUrl');
-            if (openUrl) void openUrl(update.url);
-            else window.open(update.url, '_blank', 'noopener');
+            if (update.url) {
+              const openUrl = getCapability('openExternalUrl');
+              if (openUrl) void openUrl(update.url);
+              else window.open(update.url, '_blank', 'noopener');
+            } else {
+              // In-app updater host — the Settings update row owns
+              // download/restart.
+              onOpenSettings({ categoryId: 'about' });
+            }
           },
         },
       ]);

@@ -1,4 +1,6 @@
 export type {
+  AppUpdatePhase,
+  AppUpdateState,
   BridgeBroadcastContract,
   BridgeBroadcastPayload,
   BridgeBroadcastType,

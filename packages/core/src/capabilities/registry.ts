@@ -75,11 +75,13 @@ export type PairWithCodeResult =
 /**
  * A newer app build the host knows about. `version` is the display
  * string ("2026.7.2"); `url` is where the user gets it (release page
- * or direct installer download).
+ * or direct installer download). Hosts with an in-app updater (the
+ * desktop app) omit `url` — the affordance then routes to the
+ * Settings update row, where download/restart run in-app.
  */
 export interface AppUpdateInfo {
   readonly version: string;
-  readonly url: string;
+  readonly url?: string;
 }
 
 /**

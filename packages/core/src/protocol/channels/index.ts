@@ -42,6 +42,7 @@ import type { RuleRpc } from './rules';
 import type { SyncEngineRpc } from './sync-engine';
 import type { TemplateRpc } from './templates';
 import type { TestRunRpc } from './test-runs';
+import type { UpdatesRpc } from './updates';
 import type { WorkspaceRpc } from './workspace';
 
 export type { BridgeBroadcastContract, StorageInvalidationKind } from './broadcast';
@@ -74,6 +75,7 @@ export type {
 export type { EnvironmentsSnapshot } from './environments';
 export type { LiveWorkflowRunSnapshot } from './live';
 export type { ListedTestRun, StartTestRunResult } from './test-runs';
+export type { AppUpdatePhase, AppUpdateState } from './updates';
 
 /**
  * RPC contract: map of message-type → { req, res }.
@@ -101,7 +103,8 @@ export interface BridgeRpcContract
     SyncEngineRpc,
     AwarenessRpc,
     DevToolsRpc,
-    DaemonRpc {}
+    DaemonRpc,
+    UpdatesRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages

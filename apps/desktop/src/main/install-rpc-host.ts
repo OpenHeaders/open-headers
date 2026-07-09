@@ -48,8 +48,10 @@ import { logger as consoleLogger } from '@openheaders/core/utils';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow } from 'electron';
+import { createElectronUpdaterPort, updaterSupported } from './electron-updater-port';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
+import { createUpdateService, readUpdatePreferences } from './update-service';
 import { readServeWebApp, webAppRootCandidate } from './web-app-root';
 
 const SCOPE = 'install-rpc-host';
@@ -135,9 +137,33 @@ export async function installRpcHost(): Promise<void> {
     consoleLogger.info(SCOPE, `web bundle not found at ${webRoot}; the serve-web-app setting stays inert`);
   }
   let serveWebApp = readServeWebApp((await hostStorage.get(OH.settingsUser)) ?? undefined);
+  let updatePreferences = readUpdatePreferences((await hostStorage.get(OH.settingsUser)) ?? undefined);
   hostStorage.subscribe(OH.settingsUser, (next) => {
     serveWebApp = readServeWebApp(next);
+    updatePreferences = readUpdatePreferences(next);
+    updateService.preferencesChanged();
   });
+
+  // Check-and-notify updates (docs/UPDATES_PLAN.md): the service only
+  // ever checks and stages; installing takes the user's explicit
+  // restart action (or the next natural quit applying a staged
+  // download). Unsupported where no updater can run — dev builds,
+  // deb/rpm — so it never dials a feed from a test harness.
+  const updateService = createUpdateService({
+    updater: createElectronUpdaterPort(),
+    currentVersion: app.getVersion(),
+    supported: updaterSupported(),
+    getPreferences: () => updatePreferences,
+    broadcast: (state) => broadcastToAllRenderers('appUpdateState', state),
+    now: Date.now,
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (handle) => clearTimeout(handle),
+    log: {
+      info: (msg) => consoleLogger.info(SCOPE, msg),
+      warn: (msg, err) => consoleLogger.warn(SCOPE, msg, err),
+    },
+  });
+  updateService.start();
 
   const spine = await bootDaemonSpine({
     dataDir: app.getPath('userData'),
@@ -165,13 +191,20 @@ export async function installRpcHost(): Promise<void> {
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
   });
 
-  rpcDispatcher = spine.dispatchRpc;
+  // Desktop-shell RPCs (`oh.updates.*`) answer ahead of the engine
+  // dispatcher — they are Electron concerns the spine never learns.
+  rpcDispatcher = async (raw) => {
+    const type = ((raw ?? {}) as Record<string, unknown>).type;
+    const updateState = await updateService.dispatchRpc(type);
+    return updateState !== undefined ? updateState : spine.dispatchRpc(raw);
+  };
 
   // Clean up engine-owned resources on app quit. The `oh:rpc` channel
   // is registered in `main.ts` (so it can queue pre-engine calls) and
   // is removed there.
   app.on('before-quit', () => {
     rpcDispatcher = null;
+    updateService.dispose();
     void spine.dispose();
   });
 }
