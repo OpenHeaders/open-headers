@@ -412,8 +412,10 @@ async function switchToOrg(hasText: string): Promise<void> {
 async function createRuleInScope(name: string): Promise<void> {
   await deliverIntent({ kind: 'create-rule', ruleType: 'block' });
   // Element handle, not a locator — the rename invalidates the
-  // value-attribute selector the moment fill() lands.
-  const nameInput = await workbench.waitForSelector('input[value="New Block Rule"]', { timeout: 10000 });
+  // value-attribute selector the moment fill() lands. Prefix match:
+  // the draft name dedups against existing rules ("New Block Rule (2)"
+  // when the backend already carries one — the WAN daemon does).
+  const nameInput = await workbench.waitForSelector('input[value^="New Block Rule"]', { timeout: 10000 });
   await nameInput.fill(name);
   await workbench.keyboard.press('Tab');
   await workbench
@@ -509,6 +511,13 @@ test.beforeAll(async () => {
 
   workbench = await context.newPage();
   workbench.on('download', (download) => downloads.push(download));
+  // Surface UI crashes in the runner log — a crashed page otherwise
+  // reads as an opaque locator timeout (how the create-less-entity
+  // replay defect was found).
+  workbench.on('console', (msg) => {
+    if (msg.type() === 'error') console.log(`[workbench console.error] ${msg.text()}`);
+  });
+  workbench.on('pageerror', (err) => console.log(`[workbench pageerror] ${err.message}`));
   await workbench.goto(`chrome-extension://${extensionId}/workbench.html`);
   await workbench.waitForFunction(() => {
     const root = document.getElementById('root');
