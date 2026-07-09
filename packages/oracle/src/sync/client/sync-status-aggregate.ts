@@ -15,6 +15,13 @@
  * contributes a synthetic yellow candidate: its local workspaces exist
  * and aren't syncing, which is a warning, not a healthy green.
  *
+ * A host that is ALSO a server (desktop, daemon) contributes its own
+ * server role — bind lifecycle + peer set — as the BASELINE slot
+ * ({@link reportBaselineSyncStatus}): one more worst-of candidate, so a
+ * failed bind (red) outranks healthy client wires and a client re-pair
+ * (red) outranks an idle server, instead of the two racing the `sync`
+ * subsystem latest-wins.
+ *
  * The slots themselves are also observable per backend
  * ({@link getBackendSyncStatusSnapshot} / {@link subscribeBackendSyncStatus})
  * — the feed behind the connections-list row dots, broadcast as
@@ -30,8 +37,8 @@ const RANK: Record<SyncStatusEntry['state'], number> = { green: 0, yellow: 1, re
 
 /**
  * Host seam for the aggregate roll-up. The host maps the chosen entry
- * onto its `sync` Status subsystem; `null` means zero slots and no
- * synthetic candidates — the local engine IS the back-end, and the host
+ * onto its `sync` Status subsystem; `null` means zero slots, no
+ * synthetic candidates, no baseline — the local engine IS the back-end, and the host
  * supplies its own tier-zero copy ("Running in this browser" / "Running
  * in this app"). Installing the sink replays the current roll-up so a
  * publish that fired before boot wiring isn't lost.
@@ -51,12 +58,26 @@ interface Slot {
 }
 
 const slots = new Map<string, Slot>();
+let baseline: Slot | null = null;
 let seqCounter = 0;
 const slotSubscribers = new Set<(snapshot: BackendSyncStatusSnapshot) => void>();
 
 /** Install a backend's latest entry (wire-level or handshake-phase). */
 export function reportBackendSyncStatus(backendId: string, entry: SyncStatusEntry): void {
   slots.set(backendId, { entry, seq: ++seqCounter });
+  publish();
+}
+
+/**
+ * Install/update the host's baseline slot — the server-role entry of a
+ * host that is both server and client (the desktop's bind-lifecycle +
+ * peer-set reporter). Joins the worst-of roll-up exactly like a backend
+ * slot (latest-wins on rank ties) but never appears in the per-backend
+ * snapshot — row dots are backend rows. A host that never reports one
+ * (extension, web) keeps the null → tier-zero sink behavior.
+ */
+export function reportBaselineSyncStatus(entry: SyncStatusEntry): void {
+  baseline = { entry, seq: ++seqCounter };
   publish();
 }
 
@@ -127,7 +148,9 @@ function publish(): void {
   const perBackend = getBackendSyncStatusSnapshot();
   for (const fn of [...slotSubscribers]) fn(perBackend);
   let chosen: Slot | null = null;
-  for (const slot of [...slots.values(), ...disabledBoundCandidates()]) {
+  const candidates = [...slots.values(), ...disabledBoundCandidates()];
+  if (baseline) candidates.push(baseline);
+  for (const slot of candidates) {
     if (
       !chosen ||
       RANK[slot.entry.state] > RANK[chosen.entry.state] ||
@@ -142,6 +165,7 @@ function publish(): void {
 /** Test-only — drop every slot between cases. */
 export function __resetSyncStatusAggregateForTests(): void {
   slots.clear();
+  baseline = null;
   seqCounter = 0;
   slotSubscribers.clear();
 }

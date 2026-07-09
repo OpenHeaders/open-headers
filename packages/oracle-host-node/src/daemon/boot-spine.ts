@@ -102,7 +102,7 @@ import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutati
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
-import type { SpineStatusStore } from './status-seam';
+import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
 import { installSyncStatusReporter, type SyncStatusReporter } from './sync-status-reporter';
 
 const SCOPE = 'boot-spine';
@@ -147,6 +147,15 @@ export interface DaemonSpineConfig {
    * headless daemon omits it.
    */
   forwardMutationToBackends?: (event: OracleSyncBroadcastEvent) => void;
+  /**
+   * Optional sink for the spine's server-side `sync` reporter (bind
+   * lifecycle + peer set). Defaults to `status.report`. A host that is
+   * ALSO a client of daemon backends routes this into the client
+   * plane's baseline slot (`reportBaselineSyncStatus`) so the server
+   * entry and the per-backend client slots compose worst-of in one
+   * aggregate instead of racing the subsystem latest-wins.
+   */
+  reportSyncStatus?: SpineStatusReporter;
   /**
    * WAN-hardening posture (Phase 3). Absent = defaults: no trusted
    * proxy, no extra allowed hosts — the matrix still admits IP
@@ -555,7 +564,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // bind lifecycle (binding / bound / failed) and the active server's peer
   // set into a single `sync` status entry, so a failed bind shows RED and
   // a healthy rebind shows a transient YELLOW rather than going silent.
-  const syncStatusReporter: SyncStatusReporter = installSyncStatusReporter(status.report);
+  const syncStatusReporter: SyncStatusReporter = installSyncStatusReporter(config.reportSyncStatus ?? status.report);
   try {
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: config.handshakeIdentity,

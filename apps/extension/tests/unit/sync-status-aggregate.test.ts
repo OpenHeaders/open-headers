@@ -6,7 +6,9 @@
  *   - worst-of across slots wins the `sync` pill; within a state, most
  *     recent report wins; zero slots reads "Running in this browser";
  *   - the slot snapshot keys by backend id and drops torn-down backends;
- *   - subscribers fire on every report and drop with the full map.
+ *   - subscribers fire on every report and drop with the full map;
+ *   - the host baseline slot (a server+client host's own server role)
+ *     joins the worst-of roll-up but never the per-backend snapshot.
  */
 
 import { __clearBackendsForTests, refreshBackendsFromHostStorage } from '@openheaders/core/backends';
@@ -18,6 +20,7 @@ import {
   getBackendSyncStatusSnapshot,
   refreshSyncStatusAggregate,
   reportBackendSyncStatus,
+  reportBaselineSyncStatus,
   subscribeBackendSyncStatus,
 } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
@@ -87,6 +90,45 @@ describe('sync-status aggregate', () => {
     expect(seen).toHaveLength(2);
     expect(Object.keys(seen[0])).toEqual(['backend-a']);
     expect(seen[1]).toEqual({});
+  });
+});
+
+describe('host baseline slot', () => {
+  it('a red baseline outranks healthy client slots', () => {
+    reportBackendSyncStatus('backend-a', { state: 'green', message: 'Synced with back-end' });
+    reportBaselineSyncStatus({ state: 'red', message: 'Extension pipe offline — port 8137 is already in use.' });
+
+    const sync = getStatusSnapshot().sync;
+    expect(sync?.state).toBe('red');
+    expect(sync?.message).toBe('Extension pipe offline — port 8137 is already in use.');
+  });
+
+  it('a red client slot outranks a healthy baseline', () => {
+    reportBaselineSyncStatus({ state: 'green', message: 'Idle — no extensions connected' });
+    reportBackendSyncStatus('backend-a', { state: 'red', message: 'Back-end requires authentication' });
+
+    const sync = getStatusSnapshot().sync;
+    expect(sync?.state).toBe('red');
+    expect(sync?.message).toBe('Back-end requires authentication');
+  });
+
+  it('rank ties between baseline and client slots go to the latest report', () => {
+    reportBackendSyncStatus('backend-a', { state: 'green', message: 'Synced with back-end' });
+    reportBaselineSyncStatus({ state: 'green', message: 'Connected to 1 extension on this device' });
+
+    expect(getStatusSnapshot().sync?.message).toBe('Connected to 1 extension on this device');
+
+    reportBackendSyncStatus('backend-a', { state: 'green', message: 'Synced with back-end' });
+    expect(getStatusSnapshot().sync?.message).toBe('Synced with back-end');
+  });
+
+  it('the baseline wins at zero client slots and never enters the per-backend snapshot', () => {
+    reportBaselineSyncStatus({ state: 'green', message: 'Idle — no extensions connected' });
+
+    const sync = getStatusSnapshot().sync;
+    expect(sync?.state).toBe('green');
+    expect(sync?.message).toBe('Idle — no extensions connected');
+    expect(getBackendSyncStatusSnapshot()).toEqual({});
   });
 });
 

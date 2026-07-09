@@ -46,6 +46,7 @@ import { setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
+import { reportBaselineSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow } from 'electron';
@@ -194,6 +195,12 @@ export async function installRpcHost(): Promise<void> {
     // also offered to the client plane's Org-routed forwarder — its own
     // gates decide whether anything leaves for a joined daemon.
     forwardMutationToBackends: forwardMutationToBackend,
+    // Server slot of the composed `sync` pill: the spine's bind/peer
+    // reporter feeds the client plane's baseline slot so it joins the
+    // per-backend slots in one worst-of aggregate — the roll-up sink in
+    // `install-backend-client.ts` is the subsystem's sole writer.
+    reportSyncStatus: (entry) =>
+      reportBaselineSyncStatus({ state: entry.state, message: entry.message, context: entry.context }),
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
   });
 

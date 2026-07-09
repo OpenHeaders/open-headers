@@ -13,10 +13,12 @@
  *   - reliability knobs: plain-values reads off `OH.settingsUser`
  *     (same idiom as `web-app-root.ts`), kept live by a storage
  *     subscription — no renderer settings store runs in main.
- *   - status roll-up: non-empty client roll-ups write the shared `sync`
- *     Status subsystem. The zero-backend case stays silent — on desktop
- *     the spine's server-side reporter (bind lifecycle + peers) owns the
- *     subsystem's baseline entry.
+ *   - status roll-up: the aggregate's roll-up is the `sync` subsystem's
+ *     SOLE writer on desktop. The spine's server-side reporter (bind
+ *     lifecycle + peers) feeds the aggregate's baseline slot (wired in
+ *     `install-rpc-host.ts`), so server and client entries compose
+ *     worst-of instead of racing latest-wins. A null roll-up only
+ *     happens before the first bind-state emission — stay silent.
  *   - agent/role: `desktop` HELLO role, `@openheaders/desktop@<version>`.
  *
  * Awareness over client wires is deliberately not wired yet — this
@@ -111,11 +113,11 @@ export async function installBackendClient(config: InstallBackendClientConfig): 
     getAgent: () => `@openheaders/desktop@${config.appVersion}`,
   });
 
-  // The spine's server-side reporter owns the `sync` subsystem's
-  // baseline (bind lifecycle + peer set); the client roll-up overlays it
-  // only while backend connections exist. Latest-write-wins between the
-  // two — the same temporal semantics the per-wire reporters already
-  // have among themselves.
+  // Sole `sync` writer: the roll-up composes the spine reporter's
+  // baseline slot with the per-backend client slots, worst-of. Null
+  // means no slot of any kind yet (pre-bind boot window) — stay silent
+  // rather than inventing a tier-zero entry the server reporter is
+  // about to own.
   setSyncStatusRollupSink((entry) => {
     if (!entry) return;
     reportStatus({ subsystem: 'sync', state: entry.state, message: entry.message, context: entry.context });
