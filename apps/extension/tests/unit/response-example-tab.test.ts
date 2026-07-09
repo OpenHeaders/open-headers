@@ -18,6 +18,7 @@ import {
   exampleDraftFingerprint,
   exampleSignature,
   exampleToDraft,
+  parseStatusInput,
 } from '@openheaders/ui/workbench/components/response-example/example-draft';
 import { type TabDisplayLookups, tabDisplayLabel } from '@openheaders/ui/workbench/tab-display';
 import type { WorkbenchTab } from '@openheaders/ui/workbench/types';
@@ -158,6 +159,30 @@ describe('example-draft projections', () => {
     expect(saved.bodyTruncated).toBe(true);
     expect(saved.bodyCapBytes).toBe(1024);
     expect(saved.bodyBytes).toBe(4096);
+  });
+});
+
+describe('parseStatusInput', () => {
+  it('fills the canonical phrase for a bare curated code', () => {
+    expect(parseStatusInput('404')).toEqual({ status: 404, statusText: 'Not Found' });
+  });
+
+  it('accepts a picker option verbatim', () => {
+    expect(parseStatusInput('201 Created')).toEqual({ status: 201, statusText: 'Created' });
+  });
+
+  it('keeps a typed custom phrase', () => {
+    expect(parseStatusInput('299 Custom Thing')).toEqual({ status: 299, statusText: 'Custom Thing' });
+  });
+
+  it('clears the phrase for an unknown bare code', () => {
+    expect(parseStatusInput('599')).toEqual({ status: 599, statusText: '' });
+  });
+
+  it('rejects input without a three-digit code', () => {
+    expect(parseStatusInput('OK')).toBeNull();
+    expect(parseStatusInput('20')).toBeNull();
+    expect(parseStatusInput('')).toBeNull();
   });
 });
 

@@ -1,34 +1,104 @@
 /**
  * ExampleResponsePanel — the response half of the example editor's
  * split. Mirrors the live ResponsePanel's shell (one tab-bar row: Body ·
- * Headers tabs left, meta + layout toggle right) with the meta made
- * editable: status code, status text, and final URL are inputs; size ·
- * duration stay read-only facts (size recomputes from the edited body
- * at save; duration is the captured measurement).
+ * Headers tabs left, meta + layout toggle right). The status chip looks
+ * exactly like the live meta strip's; clicking it swaps in a searchable
+ * code picker (curated codes + canonical reason phrases) that commits
+ * code + phrase together. Size · duration stay read-only facts — size
+ * recomputes from the edited body at save; duration is the captured
+ * measurement. The captured final URL is carried through untouched.
  */
 
 import type { CapturedResponse } from '@openheaders/core/types';
-import { Input, InputNumber, Tabs, Tooltip, Typography, theme } from 'antd';
+import { AutoComplete, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { listStatusCodes } from '@openheaders/ui/shared/info-popover/data/http-status';
 import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 import KeyValueTable from '../request-editor/KeyValueTable';
 import { detectBodyLanguage, formatBytes } from '../request-editor/response/response-format';
 import type { RequestEditorLayout } from '../request-editor/useRequestEditorLayout';
 import CodeEditor from '../shared/CodeEditor';
-import type { ExampleResponseDraft } from './example-draft';
+import { type ExampleResponseDraft, parseStatusInput } from './example-draft';
 
 const { Text } = Typography;
 
-const monoFont: React.CSSProperties = {
-  fontFamily: "'SF Mono', 'Fira Code', monospace",
-  fontSize: 12,
+const StatusCodePicker: React.FC<{
+  status: number;
+  statusText: string;
+  onCommit: (next: { status: number; statusText: string }) => void;
+}> = ({ status, statusText, onCommit }) => {
+  const { token } = theme.useToken();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState('');
+
+  const statusColor =
+    status >= 500
+      ? token.colorError
+      : status >= 400
+        ? token.colorWarning
+        : status >= 200 && status < 300
+          ? token.colorSuccess
+          : token.colorTextSecondary;
+
+  const options = useMemo(() => listStatusCodes().map(({ code, phrase }) => ({ value: `${code} ${phrase}` })), []);
+
+  const commit = (input: string) => {
+    setEditing(false);
+    const parsed = parseStatusInput(input);
+    if (parsed) onCommit(parsed);
+  };
+
+  if (!editing) {
+    return (
+      <Tooltip title="Edit status code" placement="bottom">
+        <Tag
+          color="default"
+          role="button"
+          tabIndex={0}
+          style={{ color: statusColor, borderColor: statusColor, marginInlineEnd: 0, cursor: 'pointer' }}
+          onClick={() => {
+            setText('');
+            setEditing(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              setText('');
+              setEditing(true);
+            }
+          }}
+        >
+          {status} {statusText}
+        </Tag>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <AutoComplete
+      autoFocus
+      defaultOpen
+      size="small"
+      style={{ width: 210 }}
+      placeholder="Enter response code"
+      value={text}
+      onChange={setText}
+      options={options}
+      filterOption={(input, option) => (option?.value ?? '').toLowerCase().includes(input.toLowerCase())}
+      onSelect={(value: string) => commit(value)}
+      onBlur={() => commit(text)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit(text);
+        if (e.key === 'Escape') setEditing(false);
+      }}
+    />
+  );
 };
 
 interface ExampleResponsePanelProps {
   value: ExampleResponseDraft;
   onChange: (next: ExampleResponseDraft) => void;
-  /** Captured meta shown read-only beside the editable status fields. */
+  /** Captured meta shown read-only beside the status chip. */
   meta: Pick<CapturedResponse, 'bodyBytes' | 'durationMs'>;
   capturedAt: string;
   layout: RequestEditorLayout;
@@ -46,15 +116,6 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
   const { token } = theme.useToken();
   const [activeTab, setActiveTab] = useState<'body' | 'headers'>('body');
   const patch = (p: Partial<ExampleResponseDraft>) => onChange({ ...value, ...p });
-
-  const statusColor =
-    value.status >= 500
-      ? token.colorError
-      : value.status >= 400
-        ? token.colorWarning
-        : value.status >= 200 && value.status < 300
-          ? token.colorSuccess
-          : token.colorTextSecondary;
 
   const headerRows = value.headers.filter((r) => r.key.trim()).map((r) => ({ key: r.key, value: r.value }));
   const capturedAtDate = new Date(capturedAt);
@@ -81,35 +142,17 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
         tabBarExtraContent={{
           right: (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-              <InputNumber
-                size="small"
-                min={0}
-                max={999}
-                value={value.status}
-                onChange={(status) => patch({ status: status ?? 0 })}
-                style={{ width: 72, color: statusColor }}
-                aria-label="Status code"
-              />
-              <Input
-                size="small"
-                value={value.statusText}
-                placeholder="Status text"
-                onChange={(e) => patch({ statusText: e.target.value })}
-                style={{ width: 110 }}
-              />
-              <Input
-                size="small"
-                value={value.url}
-                placeholder="Final URL"
-                onChange={(e) => patch({ url: e.target.value })}
-                style={{ ...monoFont, width: 200 }}
+              <StatusCodePicker
+                status={value.status}
+                statusText={value.statusText}
+                onCommit={(next) => patch(next)}
               />
               <Tooltip
                 title={`Captured ${Number.isNaN(capturedAtDate.getTime()) ? capturedAt : capturedAtDate.toLocaleString()}`}
                 placement="bottom"
               >
                 <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' }}>
-                  {formatBytes(meta.bodyBytes)} · {meta.durationMs} ms
+                  {meta.durationMs} ms · {formatBytes(meta.bodyBytes)}
                 </Text>
               </Tooltip>
               <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
@@ -122,7 +165,9 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
             label: 'Body',
             children: (
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 0' }}>
-                <div style={{ flex: 1, minHeight: 0, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4 }}>
+                <div
+                  style={{ flex: 1, minHeight: 0, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4 }}
+                >
                   <CodeEditor
                     value={value.body}
                     language={detectBodyLanguage(headerRows)}
@@ -138,7 +183,10 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
             key: 'headers',
             label: `Headers (${headerRows.length})`,
             children: (
-              <div className="rules-thin-scrollbar" style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 0' }}>
+              <div
+                className="rules-thin-scrollbar"
+                style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 0' }}
+              >
                 <KeyValueTable
                   rows={value.headers}
                   onChange={(headers) => patch({ headers })}

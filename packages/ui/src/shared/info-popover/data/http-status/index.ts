@@ -484,3 +484,16 @@ export function getStatusCodeInfoContent(status: number, statusText: string): In
 export function statusCodeInfoCount(): number {
   return STATUS_INFO.size;
 }
+
+/** Canonical reason phrase for a curated code, null otherwise. */
+export function statusCodePhrase(status: number): string | null {
+  return STATUS_INFO.get(status)?.display ?? null;
+}
+
+/**
+ * Every curated code with its canonical phrase, ascending — feeds
+ * status-code pickers (e.g. the example editor's editable status chip).
+ */
+export function listStatusCodes(): ReadonlyArray<{ code: number; phrase: string }> {
+  return Array.from(STATUS_INFO, ([code, entry]) => ({ code, phrase: entry.display })).sort((a, b) => a.code - b.code);
+}

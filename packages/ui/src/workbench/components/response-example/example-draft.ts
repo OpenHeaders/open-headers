@@ -15,6 +15,7 @@
 
 import type { CapturedRequest, CapturedResponse, ResponseExample } from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
+import { statusCodePhrase } from '@openheaders/ui/shared/info-popover/data/http-status';
 import { type Draft, draftFromRequest, rowsToHeaders, rowsToParams } from '../request-editor/draft';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
@@ -122,4 +123,17 @@ export function exampleDraftFingerprint(draft: ExampleDraft): string {
 /** Canonical-side fingerprint — same projection path as the form's. */
 export function exampleSignature(example: ResponseExample): string {
   return exampleDraftFingerprint(exampleToDraft(example));
+}
+
+/**
+ * Parse a status-picker commit — `"404"`, `"404 Not Found"`, or free
+ * text after a code. Unknown codes keep the typed phrase (or clear
+ * it); curated codes without a typed phrase get the canonical one.
+ */
+export function parseStatusInput(input: string): { status: number; statusText: string } | null {
+  const match = /^\s*(\d{3})\s*(.*)$/.exec(input);
+  if (!match) return null;
+  const status = Number(match[1]);
+  const typedPhrase = match[2].trim();
+  return { status, statusText: typedPhrase || (statusCodePhrase(status) ?? '') };
 }
