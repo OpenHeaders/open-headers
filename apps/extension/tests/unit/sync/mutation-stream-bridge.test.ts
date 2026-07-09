@@ -18,6 +18,7 @@ import {
   applyInboundMutationBatch,
   applyInboundMutationEnvelope,
   hasRecentlyApplied,
+  setOracleHostHooks,
 } from '@openheaders/oracle/sync';
 import {
   __initSyncServiceForTests,
@@ -109,6 +110,53 @@ describe('applyInboundMutationBatch', () => {
     const before = __seenMutationStreamCountForTests();
     await applyInboundMutationBatch(batch);
     expect(__seenMutationStreamCountForTests()).toBe(before);
+  });
+
+  it('marks the batch as an echo DURING the apply broadcast (catch-up stream is not re-forwarded)', async () => {
+    // The oracle publishes each broadcast synchronously inside the
+    // apply — the exact moment every host's outbound forwarder consults
+    // hasRecentlyApplied. The in-flight bracket must make the inbound
+    // batch read as an echo right there, or the catch-up stream bounces
+    // back to the backend once per envelope.
+    const echoAtBroadcast: boolean[] = [];
+    const originsAtBroadcast: Array<string | undefined> = [];
+    setOracleHostHooks({
+      broadcastSyncEvent: (event) => {
+        echoAtBroadcast.push(hasRecentlyApplied(event.envelope.mutationId));
+        originsAtBroadcast.push(event.applyOrigin);
+      },
+    });
+    try {
+      const r = makeRule(generateUid());
+      const batch = seedRule(r, ctx(6_000));
+      await applyInboundMutationBatch(batch);
+
+      expect(echoAtBroadcast).toHaveLength(batch.mutations.length);
+      expect(echoAtBroadcast.every(Boolean)).toBe(true);
+      // Forwarders route by provenance: every event of a peer-sourced
+      // apply must carry the inbound origin.
+      expect(originsAtBroadcast.every((origin) => origin === 'inbound')).toBe(true);
+      // Post-apply the ids live in the seen set proper.
+      for (const env of batch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
+    } finally {
+      setOracleHostHooks({});
+    }
+  });
+
+  it('leaves no echo marker behind when the apply throws (redelivery can retry)', async () => {
+    // A mixed-workspace batch makes applySyncRequest throw after the
+    // in-flight bracket opened — the finally must clear it so a later
+    // redelivery of the same ids is not misread as an echo.
+    const r = makeRule(generateUid());
+    const batch = seedRule(r, ctx(7_000));
+    const mixed = {
+      batchId: batch.batchId,
+      mutations: batch.mutations.map((env, i) => (i === 0 ? env : { ...env, workspaceId: 'ws-other' })),
+    };
+
+    await expect(applyInboundMutationBatch(mixed)).rejects.toThrow();
+    for (const env of mixed.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(false);
+    expect(__seenMutationStreamCountForTests()).toBe(0);
   });
 
   it('runs the receiver-side workspace.write gate and audits the decision', async () => {

@@ -130,6 +130,7 @@ export function wireBroadcastToSink(
       envelope: e.envelope,
       outcome: e.outcome,
       batchId: e.batchId,
+      applyOrigin: e.applyOrigin,
       ...(projected ?? {}),
     });
   });

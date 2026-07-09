@@ -55,6 +55,10 @@ function envelopeToFrame(envelope: MutationEnvelope): SyncMutationMessage {
 
 /** Forward one locally-committed envelope up the wire (or queue it). */
 export function forwardMutationOverWire(event: OracleSyncBroadcastEvent): void {
+  // Peer-sourced content (live delta via the bridge, snapshot bootstrap
+  // re-seed) must never bounce back to the daemon — only local edits go
+  // up. The gate's echo layer stays for the pending-out flush path.
+  if (event.applyOrigin === 'inbound') return;
   const verdict = evaluateOutboundEnvelope(event.envelope);
   if (!verdict.allow) {
     if (verdict.layer !== 'echo') {

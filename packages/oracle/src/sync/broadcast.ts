@@ -9,13 +9,21 @@
  * production wiring (R4 — bridge RPC) plugs in a chrome.runtime impl.
  */
 
-import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
+import type { FieldOrigin, MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 
 export interface BroadcastEvent {
   envelope: MutationEnvelope;
   outcome: MutatorOutcome;
   /** Set when this event corresponds to a batch — surfaces use it for ack-by-batch. */
   batchId?: string;
+  /**
+   * Provenance of the apply that committed this envelope. `'inbound'`
+   * marks peer-sourced content (mutation-stream bridge, snapshot
+   * bootstrap re-seed); forwarders use it to decide direction: client
+   * hosts never send inbound content back up the wire, the hub host
+   * relays it to its other peers.
+   */
+  applyOrigin?: FieldOrigin;
 }
 
 export interface MutationBroadcast {

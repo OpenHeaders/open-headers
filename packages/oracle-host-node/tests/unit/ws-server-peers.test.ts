@@ -368,6 +368,50 @@ describe('OracleWsServer — WS-B reach gate (loopbackOnly broadcast)', () => {
   });
 });
 
+describe('OracleWsServer — originator exclusion (excludeNodeId broadcast)', () => {
+  it('relays a frame to every peer except the one whose HELLO nodeId matches', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const firstConnected = nextEvent(server, 'connect');
+    const originator = await connectAccepted(port, hello({ nodeId: 'ext-a' }));
+    await firstConnected;
+    const secondConnected = nextEvent(server, 'connect');
+    const neighbor = await connectAccepted(port, hello({ nodeId: 'ext-b' }));
+    await secondConnected;
+
+    const originatorGot: string[] = [];
+    originator.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === 'test.rule') originatorGot.push(msg.id as string);
+    });
+
+    // Excluded frame first; the unexcluded sentinel follows on the same
+    // ordered socket. If the gate holds, the originator sees only the
+    // sentinel while the neighbor sees both.
+    const neighborGot = waitForFrame(neighbor, 'test.rule');
+    const sentinel = waitForFrame(originator, 'test.rule');
+    server.broadcastFrame({ type: 'test.rule', id: 'relayed' }, { excludeNodeId: 'ext-a' });
+    server.broadcastFrame({ type: 'test.rule', id: 'sentinel' });
+    expect((await neighborGot).id).toBe('relayed');
+    await sentinel;
+    expect(originatorGot).toEqual(['sentinel']);
+  });
+
+  it('delivers to every peer when the excluded nodeId matches none (a local mint)', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const connected = nextEvent(server, 'connect');
+    const client = await connectAccepted(port, hello({ nodeId: 'ext-a' }));
+    await connected;
+
+    const got = waitForFrame(client, 'test.rule');
+    server.broadcastFrame({ type: 'test.rule', id: 'local-mint' }, { excludeNodeId: IDENTITY.nodeId });
+    expect((await got).id).toBe('local-mint');
+  });
+});
+
 describe('OracleWsServer — closePeersByTokenId (revocation eviction)', () => {
   it('evicts the live peer authenticated with the given token and fires disconnect', async () => {
     const port = await freePort();

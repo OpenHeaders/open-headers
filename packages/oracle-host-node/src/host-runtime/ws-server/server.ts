@@ -143,13 +143,19 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   }, heartbeatIntervalMs);
   heartbeatTimer.unref();
 
-  function sendFrameToReady(serialized: string, loopbackOnly: boolean): void {
+  function sendFrameToReady(serialized: string, loopbackOnly: boolean, excludeNodeId?: string): void {
     for (const socket of ready) {
       if (socket.readyState !== WebSocket.OPEN) continue;
-      if (loopbackOnly && !summaryBySocket.get(socket)?.isLoopback) {
+      const summary = summaryBySocket.get(socket);
+      if (loopbackOnly && !summary?.isLoopback) {
         // WS-B reach gate: a same-device-only frame (vault mutation)
         // must not reach an off-device peer. Per-socket reach is only
         // known here, at the transport.
+        continue;
+      }
+      if (excludeNodeId !== undefined && summary?.nodeId === excludeNodeId) {
+        // Hub relay: never bounce a mutation back to the peer that
+        // minted it. Per-socket identity is only known here.
         continue;
       }
       try {
@@ -167,7 +173,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     },
     broadcastFrame(frame, opts) {
       if (closed) return;
-      sendFrameToReady(JSON.stringify(frame), opts?.loopbackOnly ?? false);
+      sendFrameToReady(JSON.stringify(frame), opts?.loopbackOnly ?? false, opts?.excludeNodeId);
     },
     connectedCount() {
       return ready.size;

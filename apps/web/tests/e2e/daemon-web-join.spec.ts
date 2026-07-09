@@ -323,6 +323,27 @@ test('the daemon rule synced down and an MCP rename replicates live', async () =
   await expect.poll(() => ruleInTabIdb(page, 'Daemon web rule v2'), { timeout: 30_000 }).toBe(true);
 });
 
+// ── No inbound echo of the catch-up stream ──────────────────────────
+
+test('the catch-up stream is not echoed back to the daemon', async () => {
+  // Up to here the tab has only CONSUMED: the join's catch-up plus the
+  // live rename came down, and the user created nothing in the tab.
+  // Every inbound envelope the daemon applies stamps a workspace.write
+  // audit line. A couple of lines are legitimate — the tab's
+  // post-adoption bookkeeping (per-workspace singleton seeds) are local
+  // mints that sync up. Before origin-aware forwarding, the tab also
+  // re-uploaded the ENTIRE catch-up stream (snapshot re-seed + delta
+  // echo) — 15+ lines in a burst right after the join. The bound
+  // catches that class of regression without pinning the exact
+  // bookkeeping count, which varies with hydration timing.
+  await page.waitForTimeout(500);
+  const audits = daemonLog
+    .join('')
+    .split('\n')
+    .filter((line) => line.includes('workspace.write'));
+  expect(audits.length, audits.join('\n')).toBeLessThan(5);
+});
+
 // ── Join → adopt + upward sync through the real editor flow ─────────
 
 test('join adopted the daemon workspace and a tab-created rule syncs up', async () => {

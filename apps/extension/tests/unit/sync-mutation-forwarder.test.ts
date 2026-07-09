@@ -85,6 +85,13 @@ describe('forwardMutationToBackend', () => {
     expect((sent.envelope as { mutationId: string }).mutationId).toBe('m-1');
   });
 
+  it('drops an inbound-origin event outright — peer content never bounces back up the wire', () => {
+    const queue = new InMemoryPendingOutQueue();
+    setPendingOutQueue(queue);
+    forwardMutationToBackend(event({ applyOrigin: 'inbound' }));
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
   it('skips an envelope the outbound gate flags as a wire echo (C11)', () => {
     setOutboundEchoGuard(() => true);
     forwardMutationToBackend(event());

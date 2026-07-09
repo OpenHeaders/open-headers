@@ -223,6 +223,7 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
           role: peerConn.role,
           agent: peerConn.agent,
           workspaceId: peerConn.workspaceId,
+          nodeId: peerConn.nodeId,
           tokenId: peerConn.tokenId,
           isLoopback,
         };

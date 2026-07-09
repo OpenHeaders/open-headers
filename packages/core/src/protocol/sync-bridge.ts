@@ -509,6 +509,14 @@ export interface SyncBroadcastEvent {
   outcome: MutatorOutcome;
   batchId?: string;
   /**
+   * Provenance of the apply that committed this envelope — mirrors
+   * {@link SyncApplyRequest.applyOrigin}. `'inbound'` marks peer-sourced
+   * content (mutation-stream bridge, snapshot bootstrap re-seed); host
+   * forwarders route by it (clients never send inbound content back up
+   * the wire, the hub relays it to its other peers).
+   */
+  applyOrigin?: FieldOrigin;
+  /**
    * Populated for Rule envelopes whose batch left a materialized rule
    * in place (i.e. not a `delete`). Other entity types and rolled-back
    * batches leave it `undefined`.

@@ -3,6 +3,7 @@
  * injection, synchronous Active binding, and grace-window overrides.
  */
 
+import { getOracleHostHooks } from '../host-hooks';
 import { InMemoryMutationLog, type MutationLog } from '../mutation-log';
 import type { LockAcquirer } from '../oracle';
 import { InMemoryPendingIntents, type PendingIntents } from '../pending-intents';
@@ -53,7 +54,9 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     intents: deps.intents ?? new InMemoryPendingIntents(),
     lock: deps.lock ?? ((_ws, _t, _id, fn) => Promise.resolve().then(fn)),
     recompile: deps.recompile ?? (() => {}),
-    sink: () => {},
+    // Production-faithful sink (see `build.ts`): routes through the
+    // host hooks, a no-op while a test leaves them unset.
+    sink: (event) => getOracleHostHooks().broadcastSyncEvent?.(event),
     awarenessSink: () => {},
   }));
 

@@ -75,6 +75,7 @@ function loopbackPeer(i: number): PeerSummary {
     role: 'extension',
     agent: '@openheaders/extension@5.0.0',
     workspaceId: 'ws-1',
+    nodeId: `node-${i}`,
     tokenId: null,
     isLoopback: true,
   };

@@ -81,6 +81,10 @@ export interface PeerSummary {
   readonly role: string;
   readonly agent: string;
   readonly workspaceId: string;
+  /** The peer's HELLO nodeId — its HLC minting identity. Broadcast
+   *  exclusion matches an envelope's `hlc.nodeId` against this so a
+   *  relayed mutation never bounces straight back to its sender. */
+  readonly nodeId: string;
   readonly tokenId: string | null;
   readonly isLoopback: boolean;
 }
@@ -110,8 +114,12 @@ export interface OracleWsServer {
    * secret (vault mutations). Off-device (LAN/WAN) peers are skipped.
    * Defaults to all peers; the caller classifies the frame (it owns the
    * typed envelope) and this transport enforces per-socket reach.
+   *
+   * `opts.excludeNodeId` skips the peer whose HELLO nodeId matches —
+   * the hub relay's "don't bounce a mutation back to its sender" gate.
+   * A nodeId that matches no peer (e.g. this host's own) is a no-op.
    */
-  broadcastFrame(frame: Record<string, unknown>, opts?: { loopbackOnly?: boolean }): void;
+  broadcastFrame(frame: Record<string, unknown>, opts?: { loopbackOnly?: boolean; excludeNodeId?: string }): void;
   /** Number of connected peers past handshake — used for status logs. */
   connectedCount(): number;
   /**

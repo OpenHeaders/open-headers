@@ -16,18 +16,20 @@
  *    channel; only the cross-host wire gets the new `oh.sync.mutation`
  *    framing. Splitting routes here keeps that mapping explicit.
  *
- * **Echo prevention.** The forwarder consults
- * {@link hasRecentlyApplied} (from the shared mutation-stream bridge
- * the receive path populates) so an envelope that arrived from a
- * peer and was applied locally does not bounce back to that peer's
- * neighbors as a fresh broadcast. The seen-set is host-process-wide,
- * shared between receive + forward sides.
+ * **Hub relay semantics.** This host is the fan-out hub: an envelope
+ * that arrived from one peer and was applied locally (`applyOrigin ===
+ * 'inbound'`) IS relayed to the other connected peers — that's how a
+ * mutation minted in one front-end reaches every other front-end live.
+ * The originating peer is excluded by its HELLO `nodeId` (the envelope's
+ * `hlc.nodeId` names the minting node), so nothing bounces straight
+ * back to its sender. Client hosts hold the inverse policy: their
+ * forwarders drop inbound-origin events, which is what terminates the
+ * relay instead of a seen-set race.
  */
 
 import { SYNC_MUTATION_TYPE, type SyncMutationMessage } from '@openheaders/core/protocol';
 import { isSameDeviceOnlyMutation } from '@openheaders/core/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
-import { hasRecentlyApplied } from '@openheaders/oracle/sync';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 
 let wsServer: OracleWsServer | null = null;
@@ -39,7 +41,6 @@ export function setMutationForwarderWsServer(server: OracleWsServer | null): voi
 
 export function forwardMutationToWsPeers(event: OracleSyncBroadcastEvent): void {
   if (!wsServer) return;
-  if (hasRecentlyApplied(event.envelope.mutationId)) return;
   const frame: SyncMutationMessage = {
     type: SYNC_MUTATION_TYPE,
     workspaceId: event.envelope.workspaceId,
@@ -50,5 +51,12 @@ export function forwardMutationToWsPeers(event: OracleSyncBroadcastEvent): void 
   // Classify here (we hold the typed envelope); the transport enforces
   // the per-socket reach.
   const loopbackOnly = isSameDeviceOnlyMutation(event.envelope);
-  wsServer.broadcastFrame(frame as unknown as Record<string, unknown>, { loopbackOnly });
+  // Hub relay: local mints go to every peer; inbound-applied envelopes
+  // go to every peer EXCEPT the one that minted them (its HELLO nodeId
+  // matches the envelope's hlc.nodeId). A local mint's nodeId is this
+  // host's own, which never matches a peer, so passing it is a no-op.
+  wsServer.broadcastFrame(frame as unknown as Record<string, unknown>, {
+    loopbackOnly,
+    excludeNodeId: event.envelope.hlc.nodeId,
+  });
 }

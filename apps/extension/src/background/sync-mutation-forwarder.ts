@@ -70,6 +70,11 @@ function envelopeToFrame(envelope: MutationEnvelope): SyncMutationMessage {
 }
 
 export function forwardMutationToBackend(event: OracleSyncBroadcastEvent): void {
+  // Peer-sourced content (live delta via the bridge, snapshot bootstrap
+  // re-seed) must never bounce back up the wire — only local edits go
+  // out. The gate's echo layer stays for the pending-out flush path,
+  // which re-evaluates envelopes without a broadcast event in hand.
+  if (event.applyOrigin === 'inbound') return;
   const verdict = evaluateOutboundEnvelope(event.envelope);
   if (!verdict.allow) {
     // Echo drops are high-frequency and benign — stay silent. Tenancy +

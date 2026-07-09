@@ -32,7 +32,7 @@ import type {
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
-import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
+import type { FieldOrigin, MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { LogEntry, Rule } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import type { TotpRegistry } from '@openheaders/core/variables';
@@ -47,6 +47,14 @@ export interface OracleSyncBroadcastEvent {
   envelope: MutationEnvelope;
   outcome: MutatorOutcome;
   batchId?: string;
+  /**
+   * Provenance of the apply that committed this envelope. `'inbound'`
+   * marks peer-sourced content (mutation-stream bridge, snapshot
+   * bootstrap re-seed). Client-host forwarders drop inbound events —
+   * peer content must never bounce back up the wire; the hub host's
+   * forwarder relays them to its other peers (fan-out).
+   */
+  applyOrigin?: FieldOrigin;
   rulePostState?: SyncRulePostState;
   environmentPostState?: SyncEnvironmentPostState;
   collectionPostState?: SyncCollectionPostState;

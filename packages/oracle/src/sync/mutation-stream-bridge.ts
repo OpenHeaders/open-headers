@@ -69,6 +69,18 @@ import {
 const SEEN_MUTATION_IDS = new Set<string>();
 const SEEN_CAP = 10_000;
 
+/**
+ * Inbound ids whose apply is in flight. The oracle publishes each
+ * broadcast synchronously INSIDE the apply — before the seen-set write
+ * lands — so the outbound forwarders' echo check must also see the
+ * batch currently being applied, or every inbound envelope re-forwards
+ * to the backend once (audit-log spam; store-level dedup absorbs
+ * correctness). Bracketed add/remove around `applySyncRequest`; a
+ * failed apply leaves no trace here, preserving the redelivery-retry
+ * contract of the seen set.
+ */
+const INBOUND_IN_FLIGHT = new Set<string>();
+
 function rememberApplied(envelope: MutationEnvelope): void {
   SEEN_MUTATION_IDS.add(envelope.mutationId);
   if (SEEN_MUTATION_IDS.size > SEEN_CAP) {
@@ -77,9 +89,14 @@ function rememberApplied(envelope: MutationEnvelope): void {
   }
 }
 
-/** True if this mutationId is in the per-host receive-side seen set. */
+/**
+ * True if this mutationId is in the per-host receive-side seen set or
+ * its inbound apply is currently in flight. The in-flight half is what
+ * lets the forwarders (which run during the apply's own synchronous
+ * broadcast) recognize the echo.
+ */
 export function hasRecentlyApplied(mutationId: string): boolean {
-  return SEEN_MUTATION_IDS.has(mutationId);
+  return SEEN_MUTATION_IDS.has(mutationId) || INBOUND_IN_FLIGHT.has(mutationId);
 }
 
 /**
@@ -113,6 +130,7 @@ function isReceiveAllowed(workspaceId: string): boolean {
 /** Test-only — clear state between cases. */
 export function __resetMutationStreamBridgeForTests(): void {
   SEEN_MUTATION_IDS.clear();
+  INBOUND_IN_FLIGHT.clear();
 }
 
 /** Test-only — peek the seen set. */
@@ -195,15 +213,20 @@ export async function applyInboundMutationBatch(input: MutationBatch): Promise<v
   // so multiple inbound envelopes touching the active-flip path
   // collapse to a single drain whose latest HLC wins.
   const sideEffects = batch.mutations.flatMap(deriveSideEffectsForEnvelope);
-  const response = await applySyncRequest({
-    type: 'oh.sync.apply',
-    batch,
-    sideEffects,
-    applyOrigin: 'inbound',
-  });
-  if (!response.ok) return;
-  for (const env of batch.mutations) rememberApplied(env);
-  observeHighestPerWorkspace(batch);
+  for (const env of batch.mutations) INBOUND_IN_FLIGHT.add(env.mutationId);
+  try {
+    const response = await applySyncRequest({
+      type: 'oh.sync.apply',
+      batch,
+      sideEffects,
+      applyOrigin: 'inbound',
+    });
+    if (!response.ok) return;
+    for (const env of batch.mutations) rememberApplied(env);
+    observeHighestPerWorkspace(batch);
+  } finally {
+    for (const env of batch.mutations) INBOUND_IN_FLIGHT.delete(env.mutationId);
+  }
 }
 
 /**

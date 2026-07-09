@@ -166,7 +166,7 @@ export class EntityOracle {
     if (sideEffects.length > 0) await this.cfg.intents.enqueueAll(sideEffects);
 
     for (const { envelope, outcome } of outcomes) {
-      this.cfg.broadcast.publish({ envelope, outcome, batchId: batch.batchId });
+      this.cfg.broadcast.publish({ envelope, outcome, batchId: batch.batchId, applyOrigin });
     }
     return { ok: true, outcomes };
   }
