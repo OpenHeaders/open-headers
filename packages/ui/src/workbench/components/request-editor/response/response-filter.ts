@@ -97,17 +97,39 @@ export function evaluateJsonPath(root: unknown, path: string): JsonPathResult {
   return { ok: true, matches: nodes };
 }
 
+/**
+ * Forgiving form of a mid-edit query: a trailing separator (`/` for
+ * XPath, `.` / `[` for JSONPath) means "descend from here", not an
+ * error — evaluate the base the user has typed so far, and let the
+ * suggest list offer what comes next.
+ */
+export function normalizeFilterQuery(query: string, kind: 'jsonpath' | 'xpath'): string {
+  const q = query.trim();
+  if (kind === 'xpath') return q.replace(/\/+$/, '') || '/';
+  return q.replace(/[.[]+$/, '') || '$';
+}
+
 /** Cap on lookahead suggestions — a completion list, not an index. */
 const SUGGEST_LIMIT = 50;
 
 const IDENTIFIER_KEY = /^[A-Za-z_$][\w$-]*$/;
+
+/** The separator that continues a path below `value` — appended to a
+ *  suggestion so accepting it re-opens the next level's lookahead.
+ *  Empty for leaves (primitives, empty containers). */
+function jsonChildSeparator(value: unknown): string {
+  if (Array.isArray(value) && value.length > 0) return '[';
+  if (isRecord(value) && Object.keys(value).length > 0) return '.';
+  return '';
+}
 
 /**
  * Contextual JSONPath completion: evaluate the query up to its last
  * separator against the body, then offer THAT level's members — object
  * keys (dot form when they fit the grammar, bracket-quoted otherwise)
  * and `[0]` / `[*]` for arrays — filtered by the trailing fragment.
- * Each suggestion is the full replacement string.
+ * Each suggestion is the full replacement string; members with
+ * children carry a trailing separator so the drill-down continues.
  */
 export function suggestJsonPathCompletions(root: unknown, query: string): string[] {
   const q = query.trim();
@@ -135,15 +157,19 @@ export function suggestJsonPathCompletions(root: unknown, query: string): string
   for (const node of evaluated.matches) {
     if (Array.isArray(node)) {
       if (node.length === 0) continue;
+      // The first element stands in for the level below `[*]` too —
+      // response arrays are near-universally homogeneous.
+      const sep = jsonChildSeparator(node[0]);
       for (const index of ['0', '*']) {
         if (partial !== '' && !(bracketContext && index.startsWith(partial))) continue;
-        push(`${base}[${index}]`);
+        push(`${base}[${index}]${sep}`);
       }
     } else if (isRecord(node)) {
       for (const key of Object.keys(node)) {
         if (partial !== '' && !key.toLowerCase().startsWith(partial)) continue;
         const safeKey = key.replaceAll("'", '');
-        push(bracketContext || !IDENTIFIER_KEY.test(key) ? `${base}['${safeKey}']` : `${base}.${key}`);
+        const sep = jsonChildSeparator(node[key]);
+        push(bracketContext || !IDENTIFIER_KEY.test(key) ? `${base}['${safeKey}']${sep}` : `${base}.${key}${sep}`);
       }
     }
     if (out.length >= SUGGEST_LIMIT) break;
@@ -155,60 +181,62 @@ export function suggestJsonPathCompletions(root: unknown, query: string): string
  * Contextual XPath completion: element-name lookahead for the segment
  * being typed. A bare fragment offers `//tag` over the document's
  * distinct tags; after a `/` the base path is evaluated and its
- * children's tags offered. Empty for a document that doesn't parse.
+ * children's tags offered. Tags with element children carry a trailing
+ * `/` so the drill-down continues. Empty for a document that doesn't
+ * parse. Candidate maps are tag → "has element children anywhere".
  */
 export function suggestXPathCompletions(body: string, kind: 'xml' | 'html', query: string): string[] {
   const doc = new DOMParser().parseFromString(body, kind === 'xml' ? 'text/xml' : 'text/html');
   if ((kind === 'xml' && doc.getElementsByTagName('parsererror').length > 0) || !doc.documentElement) return [];
   const q = query.trim();
 
+  const mergeTag = (tags: Map<string, boolean>, el: Element) => {
+    const tag = el.tagName.toLowerCase();
+    const prev = tags.get(tag);
+    if (prev === undefined) {
+      if (tags.size < SUGGEST_LIMIT) tags.set(tag, el.children.length > 0);
+    } else if (!prev && el.children.length > 0) {
+      tags.set(tag, true);
+    }
+  };
+
   const allTags = () => {
-    const tags = new Set<string>();
+    const tags = new Map<string, boolean>();
     const walk = (el: Element) => {
-      if (tags.size >= SUGGEST_LIMIT) return;
-      tags.add(el.tagName.toLowerCase());
+      mergeTag(tags, el);
       for (const child of Array.from(el.children)) walk(child);
     };
     walk(doc.documentElement);
-    return Array.from(tags);
+    return tags;
   };
 
-  const lastSlash = q.lastIndexOf('/');
-  if (lastSlash === -1) {
-    return allTags()
-      .filter((t) => t.startsWith(q.toLowerCase()))
-      .map((t) => `//${t}`)
+  const toPaths = (tags: Map<string, boolean>, prefix: string, partial: string) =>
+    Array.from(tags)
+      .filter(([tag]) => tag.startsWith(partial))
+      .map(([tag, hasChildren]) => `${prefix}${tag}${hasChildren ? '/' : ''}`)
       .slice(0, SUGGEST_LIMIT);
-  }
+
+  const lastSlash = q.lastIndexOf('/');
+  if (lastSlash === -1) return toPaths(allTags(), '//', q.toLowerCase());
   const base = q.slice(0, lastSlash);
   const partial = q.slice(lastSlash + 1).toLowerCase();
 
-  let candidates: string[];
-  let prefix: string;
   if (base === '') {
-    candidates = [doc.documentElement.tagName.toLowerCase()];
-    prefix = '/';
-  } else if (base === '/') {
-    candidates = allTags();
-    prefix = '//';
-  } else {
-    try {
-      const result = doc.evaluate(base, doc, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
-      const tags = new Set<string>();
-      for (let node = result.iterateNext(); node !== null; node = result.iterateNext()) {
-        if (node.nodeType !== Node.ELEMENT_NODE) continue;
-        for (const child of Array.from((node as Element).children)) tags.add(child.tagName.toLowerCase());
-      }
-      candidates = Array.from(tags);
-      prefix = `${base}/`;
-    } catch {
-      return [];
-    }
+    const root = doc.documentElement;
+    return toPaths(new Map([[root.tagName.toLowerCase(), root.children.length > 0]]), '/', partial);
   }
-  return candidates
-    .filter((t) => t.startsWith(partial))
-    .map((t) => `${prefix}${t}`)
-    .slice(0, SUGGEST_LIMIT);
+  if (base === '/') return toPaths(allTags(), '//', partial);
+  try {
+    const result = doc.evaluate(base, doc, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
+    const tags = new Map<string, boolean>();
+    for (let node = result.iterateNext(); node !== null; node = result.iterateNext()) {
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      for (const child of Array.from((node as Element).children)) mergeTag(tags, child);
+    }
+    return toPaths(tags, `${base}/`, partial);
+  } catch {
+    return [];
+  }
 }
 
 export type XPathResultText = { ok: true; matches: string[] } | { ok: false };

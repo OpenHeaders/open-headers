@@ -1,6 +1,7 @@
 import {
   evaluateJsonPath,
   evaluateXPath,
+  normalizeFilterQuery,
   suggestJsonPathCompletions,
   suggestXPathCompletions,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-filter';
@@ -105,10 +106,32 @@ describe('evaluateXPath', () => {
   });
 });
 
+describe('normalizeFilterQuery', () => {
+  it('strips trailing XPath slashes down to the typed base', () => {
+    expect(normalizeFilterQuery('//html/head/', 'xpath')).toBe('//html/head');
+    expect(normalizeFilterQuery('//html', 'xpath')).toBe('//html');
+  });
+
+  it('falls back to the document root for slash-only queries', () => {
+    expect(normalizeFilterQuery('/', 'xpath')).toBe('/');
+    expect(normalizeFilterQuery('//', 'xpath')).toBe('/');
+  });
+
+  it('strips trailing JSONPath separators down to the typed base', () => {
+    expect(normalizeFilterQuery('$.headers.', 'jsonpath')).toBe('$.headers');
+    expect(normalizeFilterQuery('$.items[', 'jsonpath')).toBe('$.items');
+    expect(normalizeFilterQuery('$.count', 'jsonpath')).toBe('$.count');
+  });
+
+  it('falls back to the JSON root for separator-only queries', () => {
+    expect(normalizeFilterQuery('..', 'jsonpath')).toBe('$');
+  });
+});
+
 describe('suggestJsonPathCompletions', () => {
-  it('offers root members for an empty or bare-$ query', () => {
-    expect(suggestJsonPathCompletions(DOC, '')).toEqual(['$.url', '$.headers', '$.items', '$.count']);
-    expect(suggestJsonPathCompletions(DOC, '$')).toEqual(['$.url', '$.headers', '$.items', '$.count']);
+  it('offers root members, separator-suffixed when they have children', () => {
+    expect(suggestJsonPathCompletions(DOC, '')).toEqual(['$.url', '$.headers.', '$.items[', '$.count']);
+    expect(suggestJsonPathCompletions(DOC, '$')).toEqual(['$.url', '$.headers.', '$.items[', '$.count']);
   });
 
   it('offers only the current level after a trailing dot', () => {
@@ -120,12 +143,12 @@ describe('suggestJsonPathCompletions', () => {
     expect(suggestJsonPathCompletions(DOC, '$.c')).toEqual(['$.count']);
   });
 
-  it('offers [0] and [*] on an array level', () => {
-    expect(suggestJsonPathCompletions(DOC, '$.items[')).toEqual(['$.items[0]', '$.items[*]']);
+  it('offers [0] and [*] on an array level, suffixed for element children', () => {
+    expect(suggestJsonPathCompletions(DOC, '$.items[')).toEqual(['$.items[0].', '$.items[*].']);
   });
 
   it('completes through wildcards and indices', () => {
-    expect(suggestJsonPathCompletions(DOC, '$.items[0].')).toEqual(['$.items[0].name', '$.items[0].tags']);
+    expect(suggestJsonPathCompletions(DOC, '$.items[0].')).toEqual(['$.items[0].name', '$.items[0].tags[']);
     expect(suggestJsonPathCompletions(DOC, '$.items[*].na')).toEqual(['$.items[*].name']);
   });
 
@@ -142,22 +165,22 @@ describe('suggestJsonPathCompletions', () => {
 describe('suggestXPathCompletions', () => {
   const XML = '<root><item><name>x</name></item><meta/></root>';
 
-  it('offers //tag for a bare fragment', () => {
-    expect(suggestXPathCompletions(XML, 'xml', 'it')).toEqual(['//item']);
-    expect(suggestXPathCompletions(XML, 'xml', '')).toEqual(['//root', '//item', '//name', '//meta']);
+  it('offers //tag for a bare fragment, slash-suffixed when it has children', () => {
+    expect(suggestXPathCompletions(XML, 'xml', 'it')).toEqual(['//item/']);
+    expect(suggestXPathCompletions(XML, 'xml', '')).toEqual(['//root/', '//item/', '//name', '//meta']);
   });
 
   it('offers the document element after a single slash', () => {
-    expect(suggestXPathCompletions(XML, 'xml', '/')).toEqual(['/root']);
+    expect(suggestXPathCompletions(XML, 'xml', '/')).toEqual(['/root/']);
   });
 
   it('offers all tags after a double slash', () => {
-    expect(suggestXPathCompletions(XML, 'xml', '//')).toEqual(['//root', '//item', '//name', '//meta']);
+    expect(suggestXPathCompletions(XML, 'xml', '//')).toEqual(['//root/', '//item/', '//name', '//meta']);
   });
 
   it('offers child tags of the evaluated base path', () => {
-    expect(suggestXPathCompletions(XML, 'xml', '/root/')).toEqual(['/root/item', '/root/meta']);
-    expect(suggestXPathCompletions(XML, 'xml', '/root/i')).toEqual(['/root/item']);
+    expect(suggestXPathCompletions(XML, 'xml', '/root/')).toEqual(['/root/item/', '/root/meta']);
+    expect(suggestXPathCompletions(XML, 'xml', '/root/i')).toEqual(['/root/item/']);
     expect(suggestXPathCompletions(XML, 'xml', '//item/')).toEqual(['//item/name']);
   });
 

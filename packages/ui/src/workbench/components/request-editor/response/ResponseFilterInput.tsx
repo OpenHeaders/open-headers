@@ -20,13 +20,18 @@ import '../../monaco/bootstrap';
 
 const FILTER_LANGUAGE = 'oh-path-filter';
 
+/** A suggestion ending in a separator descends further — accepting it
+ *  re-opens the lookahead for the next level. */
+const CONTINUES_PATH = /[/.[]$/;
+
 /** The segment a suggestion appends — what the list shows as its label
- *  (the full path is the insert text). */
+ *  (the full path is the insert text, minus any trailing separator). */
 function suggestionLabel(path: string): string {
-  const cut = Math.max(path.lastIndexOf('.'), path.lastIndexOf('/'));
-  const bracket = path.lastIndexOf('[');
-  if (bracket > cut) return path.slice(bracket);
-  return cut === -1 ? path : path.slice(cut + 1);
+  const p = path.replace(/[/.[]+$/, '');
+  const cut = Math.max(p.lastIndexOf('.'), p.lastIndexOf('/'));
+  const bracket = p.lastIndexOf('[');
+  if (bracket > cut) return p.slice(bracket);
+  return cut === -1 ? p : p.slice(cut + 1);
 }
 
 interface ResponseFilterInputProps {
@@ -109,6 +114,11 @@ const ResponseFilterInput: React.FC<ResponseFilterInputProps> = ({
             filterText: query,
             sortText: String(i).padStart(4, '0'),
             range,
+            // Descending suggestions end in a separator — accepting one
+            // immediately surfaces the next level's lookahead.
+            command: CONTINUES_PATH.test(path)
+              ? { id: 'editor.action.triggerSuggest', title: 'Continue path' }
+              : undefined,
           })),
         };
       },

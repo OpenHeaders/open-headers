@@ -31,6 +31,7 @@ import { buildHexDump, encodeBodyBytes, toBase64 } from './response-encoding';
 import {
   evaluateJsonPath,
   evaluateXPath,
+  normalizeFilterQuery,
   suggestJsonPathCompletions,
   suggestXPathCompletions,
 } from './response-filter';
@@ -82,6 +83,8 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const [wrapLines, setWrapLines] = useState(true);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
+  // The last successful filter match — see the sticky display below.
+  const [lastMatch, setLastMatch] = useState<string | null>(null);
 
   // Each new response re-detects: a JSON override on the previous send
   // must not stick to the HTML page the next send returned.
@@ -90,6 +93,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     setLangOverride(null);
     setFilterOpen(false);
     setFilterQuery('');
+    setLastMatch(null);
   }, [response]);
 
   const language = langOverride ?? detectBodyLanguage(response.headers);
@@ -136,17 +140,19 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const filterApplied = filterOpen && filterKind !== null && filterQuery.trim() !== '';
   const filterResult = useMemo(() => {
     if (!filterApplied || !filterKind) return null;
-    const query = filterQuery.trim();
+    // Normalized: a trailing separator means "descend", not an error.
+    const query = normalizeFilterQuery(filterQuery, filterKind);
     if (filterKind === 'jsonpath') return evaluateJsonPath(parsedJson, query);
     return evaluateXPath(response.body, query, language === 'xml' ? 'xml' : 'html');
   }, [filterApplied, filterKind, filterQuery, parsedJson, response.body, language]);
 
   // What Pretty shows while the filter matches: the single match, or
   // the match list (JSON as an array, markup joined line-wise and
-  // pretty-printed — XPath matches serialize single-line).
+  // pretty-printed — XPath matches serialize single-line). Null while
+  // the query is invalid or hits nothing.
   const filteredDisplay = useFormattedBody(
     useMemo(() => {
-      if (!filterResult?.ok) return null;
+      if (!filterResult?.ok || filterResult.matches.length === 0) return null;
       if (filterKind === 'jsonpath') {
         const m = filterResult.matches;
         return JSON.stringify(m.length === 1 ? m[0] : m, null, 2) ?? '';
@@ -155,6 +161,17 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     }, [filterResult, filterKind]),
     language,
   );
+
+  // The last successful match sticks: mid-edit queries (invalid or
+  // matchless) keep showing it — the message under the bar says why —
+  // instead of collapsing the pane back to the full body.
+  useEffect(() => {
+    if (filteredDisplay !== null) setLastMatch(filteredDisplay);
+  }, [filteredDisplay]);
+  useEffect(() => {
+    setLastMatch(null);
+  }, [filterKind]);
+  const shownFiltered = filterApplied ? (filteredDisplay ?? lastMatch) : null;
 
   // Byte views are computed only while active — encoding is linear in
   // body size and wasted on every other mode.
@@ -212,9 +229,10 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   };
 
   // Copies what the pane is showing: the filtered result while the
-  // filter matches, the wire body otherwise.
+  // filter bar is active (the last match while the query is mid-edit),
+  // the wire body otherwise.
   const copyBody = () => {
-    void navigator.clipboard.writeText(filteredDisplay ?? response.body).then(() => {
+    void navigator.clipboard.writeText(shownFiltered ?? response.body).then(() => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     });
@@ -349,11 +367,12 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
               {filterKind === 'jsonpath'
                 ? 'Invalid JSONPath expression.'
                 : 'Invalid XPath expression, or the document does not parse.'}
+              {lastMatch !== null && ' Showing the last match.'}
             </Text>
           )}
           {filterResult?.ok && filterResult.matches.length === 0 && (
             <Text type="secondary" style={{ fontSize: 11 }}>
-              No matches for this path.
+              No matches for this path.{lastMatch !== null && ' Showing the last match.'}
             </Text>
           )}
         </div>
@@ -361,7 +380,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
       {mode === 'pretty' && (
         <div style={{ flex: 1, minHeight: 0 }}>
           <CodeEditor
-            value={filteredDisplay ?? pretty}
+            value={shownFiltered ?? pretty}
             language={language}
             readOnly
             fill
