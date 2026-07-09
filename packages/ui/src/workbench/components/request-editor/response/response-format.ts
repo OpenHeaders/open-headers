@@ -24,9 +24,10 @@ export function detectBodyLanguage(headers: ReadonlyArray<{ key: string; value: 
 }
 
 /**
- * Body text for the Pretty view. JSON re-indents (falling back to the
- * wire text on parse failure); every other language renders verbatim —
- * Monaco's highlighting is the "pretty" part.
+ * Synchronous half of the Pretty view. JSON re-indents (falling back
+ * to the wire text on parse failure); every other language passes
+ * through — markup/code languages are pretty-printed asynchronously on
+ * top of this by `useFormattedBody`.
  */
 export function prettyBody(body: string, language: LanguageId): string {
   if (language === 'json') {

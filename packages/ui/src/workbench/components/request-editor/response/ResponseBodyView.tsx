@@ -35,6 +35,7 @@ import {
   suggestXPathCompletions,
 } from './response-filter';
 import { detectBodyLanguage, formatBytes, prettyBody } from './response-format';
+import { useFormattedBody } from './use-formatted-body';
 
 const { Text } = Typography;
 
@@ -92,7 +93,12 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   }, [response]);
 
   const language = langOverride ?? detectBodyLanguage(response.headers);
-  const pretty = useMemo(() => prettyBody(response.body, language), [response.body, language]);
+  // JSON re-indents synchronously; markup/code languages swap in the
+  // Prettier result when it resolves (wire text paints first).
+  const pretty = useFormattedBody(
+    useMemo(() => prettyBody(response.body, language), [response.body, language]),
+    language,
+  );
 
   // Parsed body for the JSON tree preview — `undefined` when the viewer
   // language isn't JSON or the body doesn't parse.
@@ -136,15 +142,19 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   }, [filterApplied, filterKind, filterQuery, parsedJson, response.body, language]);
 
   // What Pretty shows while the filter matches: the single match, or
-  // the match list (JSON as an array, markup joined line-wise).
-  const filteredDisplay = useMemo(() => {
-    if (!filterResult?.ok) return null;
-    if (filterKind === 'jsonpath') {
-      const m = filterResult.matches;
-      return JSON.stringify(m.length === 1 ? m[0] : m, null, 2) ?? '';
-    }
-    return filterResult.matches.join('\n');
-  }, [filterResult, filterKind]);
+  // the match list (JSON as an array, markup joined line-wise and
+  // pretty-printed — XPath matches serialize single-line).
+  const filteredDisplay = useFormattedBody(
+    useMemo(() => {
+      if (!filterResult?.ok) return null;
+      if (filterKind === 'jsonpath') {
+        const m = filterResult.matches;
+        return JSON.stringify(m.length === 1 ? m[0] : m, null, 2) ?? '';
+      }
+      return filterResult.matches.join('\n');
+    }, [filterResult, filterKind]),
+    language,
+  );
 
   // Byte views are computed only while active — encoding is linear in
   // body size and wasted on every other mode.
