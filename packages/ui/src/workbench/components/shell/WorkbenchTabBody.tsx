@@ -75,6 +75,7 @@ interface WorkbenchTabBodyProps {
   openCreateLiveWorkflow: UseTabOpenersApi['openCreateLiveWorkflow'];
   openScriptPackages: UseTabOpenersApi['openScriptPackages'];
   openDuplicateRequestScratch: UseTabOpenersApi['openDuplicateRequestScratch'];
+  openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
 
   // Shell-local handlers and slices.
   openTestRunsPanel: () => void;
@@ -121,6 +122,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openCreateLiveWorkflow,
   openScriptPackages,
   openDuplicateRequestScratch,
+  openResponseExampleTab,
   openTestRunsPanel,
   handleRunReportDeleted,
   handleSwitchWorkspace,
@@ -348,6 +350,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         requestUid={tab.requestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenPackageLibrary={openScriptPackages}
+        onOpenResponseExample={openResponseExampleTab}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}

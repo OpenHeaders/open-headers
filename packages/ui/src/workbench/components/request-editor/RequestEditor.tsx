@@ -113,6 +113,10 @@ interface RequestEditorProps {
   workspaceId?: string | null;
   /** Open the Package Library tab (Scripts tab's Packages popover). */
   onOpenPackageLibrary?: () => void;
+  /** Open a saved response example in its viewer tab — called right
+   *  after "Save Response" mints one so the frozen exchange is
+   *  immediately inspectable. */
+  onOpenResponseExample?: (uid: string, name: string, requestUid: string) => void;
 }
 
 /** Payload the request editor hands the extract action. */
@@ -138,6 +142,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   onExtractToWorkflow,
   workspaceId = null,
   onOpenPackageLibrary,
+  onOpenResponseExample,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -450,10 +455,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     );
     if (result.ok) {
       message.success(`Saved example "${name}"`);
+      onOpenResponseExample?.(result.responseExample.uid, name, requestUid);
     } else {
       message.error(`Failed to save example${'message' in result && result.message ? `: ${result.message}` : ''}`);
     }
-  }, [summary, requestUid, editingScopeWorkspaceId, response, draft, message]);
+  }, [summary, requestUid, editingScopeWorkspaceId, response, draft, message, onOpenResponseExample]);
 
   const handleSend = useCallback(async () => {
     if (sending) return;

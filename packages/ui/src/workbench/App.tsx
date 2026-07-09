@@ -934,6 +934,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateLiveWorkflow={openCreateLiveWorkflow}
         openScriptPackages={openScriptPackages}
         openDuplicateRequestScratch={openDuplicateRequestScratch}
+        openResponseExampleTab={openResponseExampleTab}
         openTestRunsPanel={openTestRunsPanel}
         handleRunReportDeleted={handleRunReportDeleted}
         handleSwitchWorkspace={handleSwitchWorkspace}
@@ -974,6 +975,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateLiveVariable,
       openCreateLiveWorkflow,
       openDuplicateRequestScratch,
+      openResponseExampleTab,
       liveWorkflowsApi.workflows,
       replaceTab,
       editingScopeWorkspaceId,
