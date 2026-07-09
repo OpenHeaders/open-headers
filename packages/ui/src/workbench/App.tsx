@@ -455,6 +455,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     allTabs,
     addTab,
     switchTab,
+    updateTab,
   });
   const {
     pendingRenameTabId,

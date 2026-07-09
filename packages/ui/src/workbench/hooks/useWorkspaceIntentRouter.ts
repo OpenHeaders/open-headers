@@ -54,7 +54,12 @@ interface UseWorkspaceIntentRouterOptions {
   openDocs: (sectionId: string) => void;
   /** `open-notifications` — activate the Notifications tool window. */
   openNotifications: () => void;
-  openRuleFlow: (scope: RuleFlowScope, entityId?: string, label?: string, tabUrl?: string) => void;
+  openRuleFlow: (
+    scope: RuleFlowScope,
+    entityId?: string,
+    label?: string,
+    page?: { url: string; tabId?: number },
+  ) => void;
   openRunReport: (
     runId: string,
     owner?: { type: 'rule' | 'folder' | 'collection' | 'workspace'; id: string },
@@ -214,7 +219,12 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           o.openRequestEditTab(intent.uid, 'Request', 'GET');
           return;
         case 'open-rule-flow':
-          o.openRuleFlow(intent.scope, intent.entityId, undefined, intent.url);
+          o.openRuleFlow(
+            intent.scope,
+            intent.entityId,
+            undefined,
+            intent.url ? { url: intent.url, tabId: intent.tabId } : undefined,
+          );
           return;
         case 'open-run-report':
           // Recover the owner stamp from the persisted run so the bottom
@@ -340,7 +350,12 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         o.openRequestEditTab(pending.uid, 'Request', 'GET');
         return;
       case 'open-rule-flow':
-        o.openRuleFlow(pending.scope, pending.entityId, undefined, pending.url);
+        o.openRuleFlow(
+          pending.scope,
+          pending.entityId,
+          undefined,
+          pending.url ? { url: pending.url, tabId: pending.tabId } : undefined,
+        );
         return;
       case 'open-run-report':
         hostBridge

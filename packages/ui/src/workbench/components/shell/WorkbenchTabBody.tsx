@@ -248,6 +248,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         scope={tab.flowScope ?? 'all-active'}
         entityId={tab.entityId}
         initialTabUrl={tab.flowTabUrl}
+        initialBrowserTabId={tab.flowBrowserTabId}
         onSelectRule={openEditTab}
         onCreateRule={openCreateTab}
       />

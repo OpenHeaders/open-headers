@@ -20,10 +20,19 @@ export type WorkspaceOpeners = Pick<
   | 'openScriptPackages'
 >;
 
+function hostnameOf(url: string): string | null {
+  try {
+    return new URL(url).hostname || null;
+  } catch {
+    return null;
+  }
+}
+
 export function useWorkspaceOpeners({
   allTabs,
   addTab,
   switchTab,
+  updateTab,
   setPendingRenameTabId,
 }: TabOpenerContext): WorkspaceOpeners {
   const openRunReport = useCallback(
@@ -53,17 +62,22 @@ export function useWorkspaceOpeners({
   );
 
   const openRuleFlow = useCallback(
-    (scope: RuleFlowScope, entityId?: string, label?: string, tabUrl?: string) => {
+    (scope: RuleFlowScope, entityId?: string, label?: string, page?: { url: string; tabId?: number }) => {
       const id = entityId ? `flow-${entityId}` : `flow-${scope}`;
-      if (allTabs.some((t) => t.id === id)) {
-        switchTab(id);
-        return;
-      }
+      const pageHost = scope === 'this-page' && page ? hostnameOf(page.url) : null;
       const flowLabel = label
         ? `Flow — ${label}`
         : scope === 'all-active'
           ? 'Flow — All Active Rules'
-          : 'Flow — This Page';
+          : `Flow — ${pageHost ?? 'This Page'}`;
+      if (allTabs.some((t) => t.id === id)) {
+        // Reused this-page flow tab: retarget it to the page the gesture
+        // came from — the URL (and hence the matched rule set) may have
+        // changed since the tab was first opened.
+        if (page) updateTab(id, { label: flowLabel, flowTabUrl: page.url, flowBrowserTabId: page.tabId });
+        switchTab(id);
+        return;
+      }
       addTab({
         id,
         label: flowLabel,
@@ -72,10 +86,11 @@ export function useWorkspaceOpeners({
         mode: 'rule-flow',
         entityId,
         flowScope: scope,
-        flowTabUrl: tabUrl,
+        flowTabUrl: page?.url,
+        flowBrowserTabId: page?.tabId,
       });
     },
-    [allTabs, addTab, switchTab],
+    [allTabs, addTab, switchTab, updateTab],
   );
 
   const openSettingsTab = useCallback(

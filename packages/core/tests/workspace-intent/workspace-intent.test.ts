@@ -62,6 +62,10 @@ describe('WorkspaceIntentSchema — accepts every kind', () => {
     ['open-run-report', { kind: 'open-run-report', runId: UID_A }],
     ['open-rule-flow (bare)', { kind: 'open-rule-flow', scope: 'all-active' }],
     ['open-rule-flow (url)', { kind: 'open-rule-flow', scope: 'this-page', url: 'https://api.openheaders.io/v1' }],
+    [
+      'open-rule-flow (url + tabId)',
+      { kind: 'open-rule-flow', scope: 'this-page', url: 'https://api.openheaders.io/v1', tabId: 42 },
+    ],
   ];
 
   it.each(cases)('accepts %s', (_label, intent) => {
@@ -193,6 +197,12 @@ describe('intentToHash / hashToIntent — round-trip', () => {
       kind: 'open-rule-flow',
       scope: 'this-page',
       url: 'https://api.openheaders.io/v1/resource?q=1',
+    },
+    {
+      kind: 'open-rule-flow',
+      scope: 'this-page',
+      url: 'https://api.openheaders.io/v1/resource?q=1',
+      tabId: 1387,
     },
     { kind: 'edit-live-variable', uid: UID_A },
     { kind: 'edit-live-workflow', uid: UID_B },

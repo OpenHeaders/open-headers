@@ -12,6 +12,7 @@ export interface TabOpenerContext {
   allTabs: WorkbenchTab[];
   addTab: (tab: WorkbenchTab) => void;
   switchTab: (tabId: string) => void;
+  updateTab: (tabId: string, updates: Partial<WorkbenchTab>) => void;
   setPendingRenameTabId: (id: string | null) => void;
 }
 
@@ -81,7 +82,12 @@ export interface UseTabOpenersApi {
     owner?: { type: 'rule' | 'folder' | 'collection' | 'workspace'; id: string },
     ownerName?: string,
   ) => void;
-  openRuleFlow: (scope: RuleFlowScope, entityId?: string, label?: string, tabUrl?: string) => void;
+  openRuleFlow: (
+    scope: RuleFlowScope,
+    entityId?: string,
+    label?: string,
+    page?: { url: string; tabId?: number },
+  ) => void;
   openSettingsTab: (options?: { settingKey?: string; categoryId?: string }) => void;
   openWorkspaceManager: () => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;

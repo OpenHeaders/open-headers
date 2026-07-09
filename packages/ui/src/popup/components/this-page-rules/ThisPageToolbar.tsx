@@ -307,7 +307,12 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
               icon={<ApartmentOutlined />}
               onClick={() => {
                 if (currentTab?.url) {
-                  openRulesIntent({ kind: 'open-rule-flow', scope: 'this-page', url: currentTab.url });
+                  openRulesIntent({
+                    kind: 'open-rule-flow',
+                    scope: 'this-page',
+                    url: currentTab.url,
+                    tabId: currentTab.id,
+                  });
                 }
               }}
               style={{ fontSize: 11 }}

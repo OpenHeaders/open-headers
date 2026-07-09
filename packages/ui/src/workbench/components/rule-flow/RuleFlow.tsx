@@ -24,6 +24,9 @@ interface RuleFlowProps {
   entityId?: string;
   /** Pre-set tab URL for "This Page" scope (passed from popup via hash). */
   initialTabUrl?: string;
+  /** Browser tab id the "This Page" gesture came from — joins tab-scoped
+   *  evidence (tracked subresources + fire telemetry) into the query. */
+  initialBrowserTabId?: number;
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }) => void;
 }
@@ -32,6 +35,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
   scope: initialScope,
   entityId,
   initialTabUrl,
+  initialBrowserTabId,
   onSelectRule,
   onCreateRule,
 }) => {
@@ -39,6 +43,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
   const { rules, localCollectionTrees } = useRules();
   const [scope, setScope] = useState<RuleFlowScope>(initialScope);
   const [tabUrl, setTabUrl] = useState<string>(initialTabUrl ?? '');
+  const [browserTabId, setBrowserTabId] = useState<number | undefined>(initialBrowserTabId);
   const [thisPageRuleIds, setThisPageRuleIds] = useState<Set<string> | null>(null);
   const [showDrafts, setShowDrafts] = useState(false);
   const [showEnabled, setShowEnabled] = useState(true);
@@ -54,9 +59,17 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
   // Resolve the tab URL — either provided via prop or fetched from the
   // host's active browsing tab. The host filters out its own UI surfaces
   // and browser-internal pages, so an empty answer just means "no real
-  // page in focus" and "This Page" scope stays hidden.
+  // page in focus" and "This Page" scope stays hidden. The prop can
+  // change after mount when a new "view flow" gesture retargets this
+  // (reused) tab to a different page — resync and snap back to the
+  // This Page scope so the view reflects the page the gesture came from.
   useEffect(() => {
-    if (initialTabUrl) return;
+    if (initialTabUrl) {
+      setTabUrl(initialTabUrl);
+      setBrowserTabId(initialBrowserTabId);
+      setScope('this-page');
+      return;
+    }
     let cancelled = false;
     void hostNavigation.activeTabUrl().then((url) => {
       if (!cancelled && url) setTabUrl(url);
@@ -64,7 +77,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [initialTabUrl]);
+  }, [initialTabUrl, initialBrowserTabId]);
 
   // Ask the background for which rules match the tab URL.
   // This uses the same matching engine as the popup and badge — no client-side reimplementation.
@@ -78,7 +91,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
       setThisPageRuleIds(null);
       return;
     }
-    hostBridge.call('getActiveRulesForTab', { tabId: undefined, tabUrl })
+    hostBridge.call('getActiveRulesForTab', { tabId: browserTabId, tabUrl })
       .then((data) => {
         // Keep strict semantics here: "This Page" means rules whose
         // pattern actually matches this page or an observed subresource,
@@ -88,7 +101,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
         setThisPageRuleIds(new Set((data.activeRules ?? []).filter((r) => r.verdict !== 'related').map((r) => r.id)));
       })
       .catch(() => setThisPageRuleIds(new Set()));
-  }, [tabUrl, rulesFingerprint]);
+  }, [tabUrl, browserTabId, rulesFingerprint]);
 
   // Build available scope options based on context
   const availableScopes = useMemo((): Array<{ label: string; value: RuleFlowScope }> => {

@@ -103,6 +103,10 @@ export interface WorkbenchTab {
   flowScope?: RuleFlowScope;
   /** For rule-flow tabs with "this-page" scope: the tab URL to filter against. */
   flowTabUrl?: string;
+  /** For rule-flow tabs with "this-page" scope: the browser tab id the
+   *  gesture came from — lets the flow query tab-scoped evidence
+   *  (tracked subresources + fire telemetry). Ephemeral. */
+  flowBrowserTabId?: number;
   /** For run-report tabs: the run id to load from storage. */
   testRunId?: string;
   /**
