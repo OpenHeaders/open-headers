@@ -10,9 +10,9 @@
  * The bridge owns the apply pipeline shared by every host (extension
  * SW, desktop main, future daemon) — the seen-set echo dedup, the
  * receiver-side org filter, the `workspace.write` gate, side-effect
- * derivation, and the C12 HLC fold. This module is purely the extension
- * SW's WS boundary: validate the frame shape, gate it against the
- * delivering connection, then delegate.
+ * derivation, and the C12 HLC fold. This module is purely the client
+ * WS boundary shared by every consuming host: validate the frame
+ * shape, gate it against the delivering connection, then delegate.
  *
  * **Per-connection gates** (MULTI_BACKEND_PLAN.md §3, invariants 2 + 4):
  *
@@ -50,9 +50,19 @@ import {
 import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 import { applyInboundMutationBatch, applyInboundMutationEnvelope } from '../mutation-stream-bridge';
-import type { BackendWireHandle } from './backend-connection-manager';
 
 const SCOPE = 'SyncReceiver';
+
+/**
+ * The delivering connection as the gates see it — the structural
+ * subset of the connection manager's `BackendWireHandle` the receiver
+ * actually reads. A single-wire host (the web tab) passes a fixed
+ * port instead of a managed wire.
+ */
+export interface MutationWirePort {
+  readonly backendId: string;
+  isLoopback(): boolean;
+}
 
 /**
  * True for the `extensionWorkspace` singleton's `activeId` `setField` —
@@ -88,7 +98,7 @@ function isLocalOnlyInbound(env: MutationEnvelope): boolean {
 }
 
 /** The envelope's Org is bound to the delivering connection's backend. */
-function isOwnedByWire(env: MutationEnvelope, wire: BackendWireHandle): boolean {
+function isOwnedByWire(env: MutationEnvelope, wire: MutationWirePort): boolean {
   return getOrgBackendBindings().get(env.orgId) === wire.backendId;
 }
 
@@ -98,7 +108,7 @@ function isOwnedByWire(env: MutationEnvelope, wire: BackendWireHandle): boolean 
  * delegated to the bridge or dropped by a gate / parse failure),
  * `false` otherwise so the caller can route to other handlers.
  */
-export async function handleIncomingMutationFrame(raw: unknown, wire: BackendWireHandle): Promise<boolean> {
+export async function handleIncomingMutationFrame(raw: unknown, wire: MutationWirePort): Promise<boolean> {
   if (!isMutationStreamFrame(raw)) return false;
 
   if (raw.type === SYNC_MUTATION_TYPE) {
@@ -132,7 +142,7 @@ export async function handleIncomingMutationFrame(raw: unknown, wire: BackendWir
  * ({@link isLocalOnlyInbound}). A loopback desktop's own-Org batch
  * passes through untouched.
  */
-function gateBatch(batch: MutationBatch, wire: BackendWireHandle): MutationBatch {
+function gateBatch(batch: MutationBatch, wire: MutationWirePort): MutationBatch {
   const loopback = wire.isLoopback();
   const kept = batch.mutations.filter((e) => isOwnedByWire(e, wire) && (loopback || !isLocalOnlyInbound(e)));
   if (kept.length === batch.mutations.length) return batch;
