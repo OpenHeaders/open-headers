@@ -19,6 +19,7 @@ import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMut
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
+import { DetectedValueInput } from '@openheaders/ui/workbench/components/value-editors';
 import { App, Button, Select, theme } from 'antd';
 import { useMemo } from 'react';
 import {
@@ -190,7 +191,8 @@ export function HeaderQuickEditor({
               {row.operation !== 'remove' && (
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <TemplateInput
+                    <DetectedValueInput
+                      editorVariant="compact"
                       size="small"
                       wrap
                       maxRows={4}

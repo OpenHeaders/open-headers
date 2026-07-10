@@ -14,7 +14,7 @@ import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useAc
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
-import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
+import { DetectedValueInput } from '@openheaders/ui/workbench/components/value-editors';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Typography, theme } from 'antd';
 import { useMemo, useRef, useState } from 'react';
@@ -135,7 +135,8 @@ export function RedirectQuickCreate({
         Redirects to
       </Text>
       <div style={{ width: '100%', minWidth: 0 }}>
-        <TemplateInput
+        <DetectedValueInput
+          editorVariant="compact"
           size="small"
           wrap
           maxRows={4}

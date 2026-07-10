@@ -1,16 +1,18 @@
 /**
  * useValueEditAction — per-field wiring for the value editors. Runs
  * the detector registry over the field's value and, on a hit, hands
- * the caller the TemplateInput rail props plus the mounted editor
- * modal for that value type (JWT modal, or the shared encoded-value
- * modal for base64 / URL-encoding). TemplateInput itself stays
- * presentation-only — detection and modal state live here, at the
+ * the caller the TemplateInput rail props plus the mounted editor for
+ * that value type: the modals (JWT modal, or the shared encoded-value
+ * modal) by default, or the inline `CompactValueEditor` in the
+ * `compact` variant for popover hosts. TemplateInput itself stays
+ * presentation-only — detection and editor state live here, at the
  * caller.
  */
 
 import type React from 'react';
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import {
+  decodeJWT,
   detectValueType,
   encodeAcceptList,
   encodeAuthParams,
@@ -25,10 +27,14 @@ import {
   encodeHttpDate,
   encodeJsonString,
   encodeJsonValue,
+  encodeJWT,
   encodeLinkHeader,
   encodeQueryString,
   encodeTimestamp,
+  formatJSON,
+  validateJSON,
 } from '@openheaders/ui/shared/value-detection';
+import { CompactValueEditor } from './CompactValueEditor';
 
 // Lazy so the modals (Monaco via the shared CodeEditor) stay out of
 // every TemplateInput caller's bundle; they load on first edit-icon
@@ -43,6 +49,16 @@ export interface ValueEditActionResult {
   /** Render alongside the field (always safe — mounts nothing until
    *  the icon is clicked, and `null` when no detector matched). */
   editorModal: React.ReactNode;
+}
+
+export interface ValueEditActionOptions {
+  /** `modal` (default) mounts the full editor modals (JWT / encoded
+   *  value, Monaco-backed). `compact` mounts the inline
+   *  `CompactValueEditor` instead — for hosts that live inside a
+   *  popover where a portal modal can't (the panel's rule
+   *  quick-editor). JWTs edit payload-only in compact; header and
+   *  signature carry over unchanged. */
+  variant?: 'modal' | 'compact';
 }
 
 const EDIT_TOOLTIPS = {
@@ -86,7 +102,15 @@ const MODAL_TITLES = {
   'accept-list': 'Accept list',
 } as const;
 
-export function useValueEditAction(value: string | undefined, onChange: (next: string) => void): ValueEditActionResult {
+// The compact variant edits JWTs payload-only, so it titles them too.
+const COMPACT_TITLES = { ...MODAL_TITLES, jwt: 'JWT payload' } as const;
+
+export function useValueEditAction(
+  value: string | undefined,
+  onChange: (next: string) => void,
+  options?: ValueEditActionOptions,
+): ValueEditActionResult {
+  const variant = options?.variant ?? 'modal';
   const [open, setOpen] = useState(false);
   const detected = useMemo(() => detectValueType(value), [value]);
 
@@ -110,6 +134,20 @@ export function useValueEditAction(value: string | undefined, onChange: (next: s
   const encodeCurrent = useCallback(
     (text: string): string | null => {
       switch (detected?.type) {
+        case 'jwt': {
+          // Compact variant only — the modal variant routes JWTs to the
+          // dedicated JWT editor instead. Payload-only edit: header and
+          // signature carry over verbatim, unsigned (same write-back
+          // the modal does).
+          try {
+            const payload = validateJSON(text);
+            if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
+            const { header, signature } = decodeJWT(detected.token);
+            return `${detected.prefix}${encodeJWT(header, payload, signature)}`;
+          } catch {
+            return null;
+          }
+        }
         case 'base64':
           return `${detected.prefix}${encodeBase64(text, detected)}`;
         case 'hex':
@@ -159,8 +197,31 @@ export function useValueEditAction(value: string | undefined, onChange: (next: s
     [onChange, encodeCurrent],
   );
 
+  // Compact seed text — JWTs edit payload-only there (the two-pane
+  // header/payload split belongs to the modal).
+  const compactDecoded = useMemo(() => {
+    if (!detected) return '';
+    if (detected.type === 'jwt') return formatJSON(decodeJWT(detected.token).payload);
+    return detected.type === 'timestamp' || detected.type === 'http-date' ? detected.iso : detected.decoded;
+  }, [detected]);
+
   if (!detected) {
     return { editProps: {}, editorModal: null };
+  }
+
+  if (variant === 'compact') {
+    return {
+      editProps: { onValueEdit: openModal, editTooltip: EDIT_TOOLTIPS[detected.type] },
+      editorModal: open ? (
+        <CompactValueEditor
+          title={COMPACT_TITLES[detected.type]}
+          decoded={compactDecoded}
+          encode={encodeCurrent}
+          onSave={handleEncodedSave}
+          onCancel={closeModal}
+        />
+      ) : null,
+    };
   }
 
   return {

@@ -12,14 +12,24 @@
 
 import type React from 'react';
 import { TemplateInput, type TemplateInputProps } from '../template-input';
-import { useValueEditAction } from './useValueEditAction';
+import { useValueEditAction, type ValueEditActionOptions } from './useValueEditAction';
 
-export type DetectedValueInputProps = Omit<TemplateInputProps, 'onValueEdit' | 'editTooltip'>;
+export type DetectedValueInputProps = Omit<TemplateInputProps, 'onValueEdit' | 'editTooltip'> & {
+  /** `compact` swaps the editor modals for the inline
+   *  `CompactValueEditor` — for popover hosts (the panel's rule
+   *  quick-editor) where a portal modal can't live. */
+  editorVariant?: ValueEditActionOptions['variant'];
+};
 
 const noopChange = (): void => {};
 
-export const DetectedValueInput: React.FC<DetectedValueInputProps> = ({ value, onChange, ...rest }) => {
-  const { editProps, editorModal } = useValueEditAction(value, onChange ?? noopChange);
+export const DetectedValueInput: React.FC<DetectedValueInputProps> = ({
+  value,
+  onChange,
+  editorVariant,
+  ...rest
+}) => {
+  const { editProps, editorModal } = useValueEditAction(value, onChange ?? noopChange, { variant: editorVariant });
   return (
     <>
       <TemplateInput {...rest} {...editProps} value={value} onChange={onChange} />

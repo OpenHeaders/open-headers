@@ -8,6 +8,7 @@
 
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
+import { DetectedValueInput } from '@openheaders/ui/workbench/components/value-editors';
 import { Button, Select, Typography, theme } from 'antd';
 import {
   appendQueryParamQuickRow,
@@ -79,7 +80,8 @@ export function QueryParamQuickRows({ rows, setRows, collectionId }: QueryParamQ
               </div>
               {row.operation !== 'remove' && (
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <TemplateInput
+                  <DetectedValueInput
+                    editorVariant="compact"
                     size="small"
                     wrap
                     maxRows={4}

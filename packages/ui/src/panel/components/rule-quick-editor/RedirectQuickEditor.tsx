@@ -19,7 +19,7 @@ import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMut
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
+import { DetectedValueInput } from '@openheaders/ui/workbench/components/value-editors';
 import { App, Typography, theme } from 'antd';
 import { useMemo } from 'react';
 import { buildRedirectRuleUpdate, type RedirectQuickEditDraft } from '../../data/rule-create/redirect-rule-edit';
@@ -143,7 +143,8 @@ export function RedirectQuickEditor({
           </Text>
           <div style={{ width: '100%', minWidth: 0 }}>
             <EntityField path={RULE_FIELD.redirectTo}>
-              <TemplateInput
+              <DetectedValueInput
+                editorVariant="compact"
                 size="small"
                 wrap
                 maxRows={4}

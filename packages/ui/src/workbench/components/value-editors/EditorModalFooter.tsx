@@ -14,7 +14,7 @@ import type React from 'react';
 export const SAVE_SHORTCUT = isMac ? '⌘S' : 'Ctrl+S';
 // Same accent the editor-shell Save button uses when there are unsaved
 // changes (EditorHeader's `saveAccent`).
-const SAVE_ACCENT = '#f5722d';
+export const SAVE_ACCENT = '#f5722d';
 
 interface EditorModalFooterProps {
   saveDisabled: boolean;

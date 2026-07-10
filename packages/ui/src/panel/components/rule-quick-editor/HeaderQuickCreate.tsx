@@ -17,6 +17,7 @@ import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useAc
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
+import { DetectedValueInput } from '@openheaders/ui/workbench/components/value-editors';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Button, Select, Tag, theme } from 'antd';
 import { useRef, useState } from 'react';
@@ -176,7 +177,8 @@ export function HeaderQuickCreate({
       </div>
       {quick.operation !== 'remove' && (
         <div style={{ marginTop: 6, width: '100%', minWidth: 0 }}>
-          <TemplateInput
+          <DetectedValueInput
+            editorVariant="compact"
             size="small"
             wrap
             maxRows={4}
