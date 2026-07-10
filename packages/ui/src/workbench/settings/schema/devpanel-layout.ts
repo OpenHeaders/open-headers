@@ -178,7 +178,7 @@ registerSetting({
 registerSetting({
   key: 'devpanelLayout.bottomPanelAlignment',
   type: 'enum',
-  default: 'center',
+  default: 'right',
   schema: bottomPanelAlignmentSchema,
   label: 'Bottom Panel Alignment',
   description:

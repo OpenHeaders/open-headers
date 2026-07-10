@@ -35,21 +35,25 @@ export type PanelToolLayoutState = GenericToolLayoutState<PanelToolWindowId>;
 export type PanelToolWindowDef = GenericToolWindowDef<PanelToolWindowId>;
 
 export const PANEL_TOOL_WINDOWS: readonly PanelToolWindowDef[] = [
+  // Registry order within a slot is the slot's tab order on first
+  // open. Left rail: `network` alone on top, then `storage` /
+  // `console` / `search`, with `matched-rules` on the bottom dock.
+  // Right rail: `notifications` on top, `docs` below, `rules` on the
+  // bottom dock.
   { id: 'network', label: 'Network', icon: <GlobalOutlined />, core: true, defaultSlot: 'left-top' },
-  { id: 'console', label: 'Console', icon: <ConsoleIcon />, core: false, defaultSlot: 'left-bottom' },
   { id: 'storage', label: 'Storage', icon: <DatabaseOutlined />, core: false, defaultSlot: 'left-bottom' },
-  { id: 'rules', label: 'Rule Activity', icon: <AuditOutlined />, core: false, defaultSlot: 'left-bottom' },
+  { id: 'console', label: 'Console', icon: <ConsoleIcon />, core: false, defaultSlot: 'left-bottom' },
   { id: 'search', label: 'Search', icon: <SearchOutlined />, core: false, defaultSlot: 'left-bottom' },
-  // `notifications` sits above `docs` in right-top tab order.
   { id: 'notifications', label: 'Notifications', icon: <NotificationsIcon />, core: false, defaultSlot: 'right-top' },
-  { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
+  { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-bottom' },
   {
     id: 'matched-rules',
     label: 'Request Rules',
     icon: <RequestRulesIcon />,
     core: false,
-    defaultSlot: 'bottom-right',
+    defaultSlot: 'bottom-left',
   },
+  { id: 'rules', label: 'Rule Activity', icon: <AuditOutlined />, core: false, defaultSlot: 'bottom-right' },
 ];
 
 export const PANEL_TOOL_WINDOW_MAP: Record<PanelToolWindowId, PanelToolWindowDef> = PANEL_TOOL_WINDOWS.reduce(

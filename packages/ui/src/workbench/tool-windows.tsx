@@ -25,12 +25,11 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
 
 /**
  * Default slot layout:
- *   - Left pane hosts the authoring surfaces: `http-rules` (core) on
- *     `left-top`, with `workflows` on `left-bottom`.
+ *   - Left pane hosts the authoring surfaces: `http-rules` (core) and
+ *     `api-requests` on `left-top`, with `workflows` on `left-bottom`.
  *   - Right pane hosts the inspectors that annotate the active tab:
- *     `right-top` stacks `docs`, `var-scope` (active by default), and
- *     `variables` as sibling tabs; `right-bottom` is reserved for
- *     `api-requests`.
+ *     `right-top` stacks `notifications` and `docs`; `right-bottom`
+ *     stacks `var-scope` (active by default) and `variables`.
  *
  * `var-scope` is the inspector that shows variables referenced in the
  * active rule + all scopes resolved against current env/workspace/vault
@@ -39,17 +38,19 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  * Variable Scope is what's actually in scope for the current tab.
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
+  // Left-top pairs the two authoring surfaces: rules first, then the
+  // API-request builder.
   { id: 'http-rules', label: 'HTTP Rules', icon: <RequestRulesIcon />, core: true, defaultSlot: 'left-top' },
+  { id: 'api-requests', label: 'API Requests', icon: <ApiRequestsIcon />, core: false, defaultSlot: 'left-top' },
   // A Workflow is the scheduled-refresh variable producer: a request
   // chain + extraction rule. Its output surfaces as a `{{live.X}}`
   // reference in the Scope panel's Live category via a Live Variable
   // binding. First-class left-bottom tab so users see it as a feature
   // rather than a Variables sub-section.
   { id: 'workflows', label: 'Workflows', icon: <SisternodeOutlined />, core: false, defaultSlot: 'left-bottom' },
-  // Right-top tab order matters — it is the slot's tab order on
-  // first open. `notifications` sits first, then `docs`, then
-  // `var-scope` (active by default), then `variables`. `api-requests`
-  // lives alone on `right-bottom`.
+  // Registry order within a slot is the slot's tab order on first
+  // open. `right-top` runs `notifications` then `docs`; `right-bottom`
+  // runs `var-scope` (active by default) then `variables`.
   {
     id: 'notifications',
     label: 'Notifications',
@@ -60,17 +61,8 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'right-top',
   },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
-  { id: 'var-scope', label: 'Variable Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-top' },
-  { id: 'variables', label: 'Variables', icon: <VariablesIcon />, core: false, defaultSlot: 'right-top' },
-  { id: 'api-requests', label: 'API Requests', icon: <ApiRequestsIcon />, core: false, defaultSlot: 'right-bottom' },
-  {
-    id: 'deep-network-inspection',
-    label: 'Deep Network Inspection',
-    icon: <FundViewOutlined />,
-    core: false,
-    defaultSlot: 'bottom-right',
-    openByDefault: false,
-  },
+  { id: 'var-scope', label: 'Variable Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-bottom' },
+  { id: 'variables', label: 'Variables', icon: <VariablesIcon />, core: false, defaultSlot: 'right-bottom' },
   // Per-workflow circuit-breaker dashboard (state, consecutive
   // failures, openings, next-attempt countdown, manual Retry /
   // Reset-circuit actions).
@@ -92,6 +84,14 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     label: 'Activity',
     tooltip: 'Activity Feed — inbound changes from peers',
     icon: <ActivityFeedIcon />,
+    core: false,
+    defaultSlot: 'bottom-right',
+    openByDefault: false,
+  },
+  {
+    id: 'deep-network-inspection',
+    label: 'Deep Network Inspection',
+    icon: <FundViewOutlined />,
     core: false,
     defaultSlot: 'bottom-right',
     openByDefault: false,

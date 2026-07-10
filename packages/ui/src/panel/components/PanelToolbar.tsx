@@ -341,7 +341,6 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
                 <Dropdown
                   placement="bottomRight"
                   trigger={['click']}
-                  overlayClassName="dt-layout-menu"
                   open={bottomAlignDropdownOpen}
                   onOpenChange={handleBottomAlignOpenChange}
                   menu={{
@@ -398,7 +397,6 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
                 }}
                 placement="bottomRight"
                 trigger={['click']}
-                overlayClassName="dt-layout-menu"
                 open={layoutMenuOpen}
                 onOpenChange={handleLayoutOpenChange}
               >

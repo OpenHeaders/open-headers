@@ -47,8 +47,8 @@ export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
 /**
  * Section-expansion state is per-view: each `SidebarView` owns its
  * own slice keyed by section name. Multiple Sidebar instances can
- * render at the same time (e.g. `http-rules` in left-top and
- * `api-requests` in right-bottom), and shared section names
+ * render at the same time (e.g. `http-rules` and `api-requests`
+ * split across docks), and shared section names
  * (ENVIRONMENTS appears in three views; collection roots can recur)
  * would otherwise leak collapse state across panels. Per-view slices
  * remove the leak at the schema layer — no string-prefix gymnastics
@@ -89,13 +89,14 @@ export interface WorkbenchViewState {
 
 /**
  * Fresh-profile seed (design § 8). On first open:
- *   - `http-rules` is active in `left-top`
- *   - `right-top` stacks `docs` (active) + `variables`. Docs leads
+ *   - `left-top` stacks `http-rules` (active) + `api-requests` — the
+ *     two authoring surfaces side by side.
+ *   - `right-top` stacks `notifications` + `docs` (active). Docs leads
  *     because it's the orientation surface users reach for first on a
  *     fresh profile.
- *   - `right-bottom` stacks `var-scope` (active) + `api-requests`.
- *     Scope sits below Docs because it annotates the active editor tab
- *     and the smaller bottom pane is the right size for its inspector
+ *   - `right-bottom` stacks `var-scope` (active) + `variables`. Scope
+ *     sits below Docs because it annotates the active editor tab and
+ *     the smaller bottom pane is the right size for its inspector
  *     density.
  * The shared normalizer fills in remaining `defaultSlot` registry
  * entries without activating them.
@@ -103,14 +104,14 @@ export interface WorkbenchViewState {
 const WORKSPACE_FRESH_DOCK_LAYOUT: ToolLayoutState<ToolWindowId> = normalizeDockLayout(
   {
     docks: {
-      'left-top': { windows: ['http-rules'], active: 'http-rules' },
+      'left-top': { windows: ['http-rules', 'api-requests'], active: 'http-rules' },
       'left-bottom': { windows: [], active: null },
       'right-top': {
-        windows: ['docs', 'variables'],
+        windows: ['notifications', 'docs'],
         active: 'docs',
       },
       'right-bottom': {
-        windows: ['var-scope', 'api-requests'],
+        windows: ['var-scope', 'variables'],
         active: 'var-scope',
       },
       'bottom-left': { windows: [], active: null },
