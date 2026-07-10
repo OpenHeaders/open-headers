@@ -15,6 +15,9 @@
  *      backend, not a synthetic network switch) and reload — the
  *      cached shell serves the document, the boot probe fails, and the
  *      Workbench mounts offline-first on the tab's local IDB oracle.
+ *   5. The same law behind a reverse proxy: a proxy fronting the dead
+ *      daemon resolves the navigation with 502 instead of a network
+ *      error — the worker must still answer with the cached shell.
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
  * and `pnpm turbo build --filter=@openheaders/web`.
@@ -23,6 +26,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtemp, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
@@ -189,4 +193,25 @@ test('a reload with the daemon gone serves the cached shell and mounts offline-f
     timeout: 30_000,
   });
   expect(await page.$('[data-testid=login-gate]')).toBeNull();
+});
+
+test('a reload behind a proxy answering 502 for the dead daemon serves the cached shell too', async () => {
+  // A fronted daemon never fails with a network error: the proxy keeps
+  // resolving fetches with a gateway status. Stand one in on the
+  // daemon's port and reload — the worker must read 502 as "daemon
+  // unreachable" and answer with the cached shell.
+  const proxy = createServer((_req, res) => {
+    res.writeHead(502, { 'content-type': 'text/html' });
+    res.end('<html><body>502 Bad Gateway</body></html>');
+  });
+  await new Promise<void>((resolve) => proxy.listen(DAEMON_PORT, '127.0.0.1', resolve));
+  try {
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Create rule', exact: false }).first()).toBeVisible({
+      timeout: 30_000,
+    });
+    expect(await page.$('[data-testid=login-gate]')).toBeNull();
+  } finally {
+    await new Promise<void>((resolve, reject) => proxy.close((error) => (error ? reject(error) : resolve())));
+  }
 });

@@ -14,7 +14,11 @@
  *                 bodies a cache must never answer for.
  *   - `shell`   — a top-level navigation: network-first so a redeploy
  *                 is picked up while online, cached entry document when
- *                 the daemon is unreachable.
+ *                 the daemon is unreachable — a thrown fetch, or a
+ *                 reverse proxy answering 502/503/504 for the dead
+ *                 upstream (a fronted daemon never fails with a network
+ *                 error; the proxy resolves the fetch with a gateway
+ *                 status instead).
  *   - `asset`   — everything else same-origin: cache-first (the bundle
  *                 is content-hashed and precached in full at install),
  *                 network on a miss.
@@ -40,6 +44,18 @@ const RESERVED_PREFIXES: readonly string[] = ['/pair/', '/auth/'];
 export function isReservedDaemonPath(path: string): boolean {
   if (RESERVED_EXACT.includes(path)) return true;
   return RESERVED_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+const GATEWAY_DOWN_STATUSES: readonly number[] = [502, 503, 504];
+
+/**
+ * A resolved navigation response that still means "the daemon is gone":
+ * a reverse proxy fronting the daemon answers for a dead upstream with
+ * a gateway status instead of letting the fetch throw. Anything else —
+ * including daemon-served errors — is a live answer and passes through.
+ */
+export function isDaemonUnreachableStatus(status: number): boolean {
+  return GATEWAY_DOWN_STATUSES.includes(status);
 }
 
 export function classifyFetch(facts: FetchFacts, ownOrigin: string): FetchDecision {

@@ -21,7 +21,7 @@
  * daemon-owned routes are never intercepted.
  */
 
-import { classifyFetch } from './fetch-strategy';
+import { classifyFetch, isDaemonUnreachableStatus } from './fetch-strategy';
 
 declare const self: ServiceWorkerGlobalScope;
 declare const __OH_SW_CACHE_KEY__: string;
@@ -56,10 +56,18 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-/** Network-first entry document: online picks up a redeploy, offline serves the precached shell. */
+/**
+ * Network-first entry document: online picks up a redeploy, offline
+ * serves the precached shell. "Offline" is a thrown fetch on a direct
+ * connection, or a gateway status from a reverse proxy whose daemon
+ * upstream is gone — either way the cached shell answers, and with
+ * nothing cached yet the network's own outcome stands.
+ */
 async function serveShell(request: Request): Promise<Response> {
   try {
-    return await fetch(request);
+    const response = await fetch(request);
+    if (!isDaemonUnreachableStatus(response.status)) return response;
+    return (await caches.match('/')) ?? response;
   } catch {
     const cached = await caches.match('/');
     if (cached) return cached;

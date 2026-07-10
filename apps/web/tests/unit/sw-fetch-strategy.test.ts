@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { classifyFetch, isReservedDaemonPath } from '../../src/sw/fetch-strategy';
+import { classifyFetch, isDaemonUnreachableStatus, isReservedDaemonPath } from '../../src/sw/fetch-strategy';
 
 const OWN = 'https://daemon.openheaders.io:8137';
 
@@ -30,6 +30,22 @@ describe('isReservedDaemonPath', () => {
     expect(isReservedDaemonPath('/assets/index-abc123.js')).toBe(false);
     expect(isReservedDaemonPath('/manifest.webmanifest')).toBe(false);
     expect(isReservedDaemonPath('/healthz-lookalike')).toBe(false);
+  });
+});
+
+describe('isDaemonUnreachableStatus', () => {
+  it('reads a proxy answering for a dead upstream as unreachable', () => {
+    expect(isDaemonUnreachableStatus(502)).toBe(true);
+    expect(isDaemonUnreachableStatus(503)).toBe(true);
+    expect(isDaemonUnreachableStatus(504)).toBe(true);
+  });
+
+  it('passes every live answer through, daemon-served errors included', () => {
+    expect(isDaemonUnreachableStatus(200)).toBe(false);
+    expect(isDaemonUnreachableStatus(304)).toBe(false);
+    expect(isDaemonUnreachableStatus(401)).toBe(false);
+    expect(isDaemonUnreachableStatus(404)).toBe(false);
+    expect(isDaemonUnreachableStatus(500)).toBe(false);
   });
 });
 
