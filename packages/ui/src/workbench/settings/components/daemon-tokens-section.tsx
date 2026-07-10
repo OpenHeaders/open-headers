@@ -10,32 +10,52 @@
  * connected right now and offers a per-device rotate (mint a
  * replacement, revoke the old one).
  *
- * The connected-peer set is runtime ws-server state, polled over the
- * `oh.daemon.tokens.connected` RPC. The token ledger lives in
- * `hostStorage`; this UI *reads* it directly (list + subscription) but
- * *mutates* it through the `oh.daemon.tokens.mint` / `.revoke` RPCs so
- * the writes run in the daemon's main realm, sharing one mutex with HELLO
- * validation (a renderer-side write would race main's `lastUsedAt`
- * write-back and could silently undo a revoke). Revoke also evicts the
- * peer's live socket, so a kill takes effect immediately rather than on
- * the peer's next HELLO.
+ * Every read and mutation rides `oh.daemon.tokens.*` RPCs, so the same
+ * component serves the desktop settings pane (IPC) and the daemon-admin
+ * console on a served web tab (the wire) — the ledger is only local on
+ * one of those hosts. Reads poll `tokens.list` on the same cadence as
+ * the connected set, which also keeps out-of-band writes (a pairing
+ * confirm, another admin surface) visible without a storage
+ * subscription. Mutations run in the daemon's main realm, sharing one
+ * mutex with HELLO validation (a surface-side write would race main's
+ * `lastUsedAt` write-back and could silently undo a revoke). Revoke
+ * also evicts the peer's live socket, so a kill takes effect
+ * immediately rather than on the peer's next HELLO.
+ *
+ * Tokens can bind to a directory user at mint time (`userId`) — the
+ * bind select appears once the directory has active users, so the solo
+ * tier sees no change. Rotation carries the binding over.
  *
  * Minted secrets are shown exactly once. The "Copy this token" dialog
  * is deliberately styled so the admin can't dismiss it accidentally;
  * once closed, only the hash remains on disk.
  */
 
-import { App as AntApp, Button, Form, Input, List, Modal, Popconfirm, Tag, Typography, theme } from 'antd';
+import { App as AntApp, Button, Form, Input, List, Modal, Popconfirm, Select, Tag, Typography, theme } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
-import { hostStorage, OH } from '@openheaders/core/storage';
-import { listDaemonAuthTokens } from '@openheaders/core/identity';
-import type { DaemonAuthToken } from '@openheaders/core/types';
 import PairDeviceModal from './pair-device-modal';
 
-/** How often the connected-peer set is re-polled while this pane is open. */
-const CONNECTED_POLL_INTERVAL_MS = 3_000;
+/** How often the ledger + connected-peer set are re-polled while this pane is open. */
+const POLL_INTERVAL_MS = 3_000;
+
+/** One `tokens.list` row — the ledger projection, hash excluded. */
+interface TokenRow {
+  id: string;
+  label?: string;
+  userId?: string;
+  expiresAt?: number;
+  createdAt: number;
+  lastUsedAt: number | null;
+  revokedAt: number | null;
+}
+
+/** Active directory users offered by the bind-to-user select. */
+interface BindableUser {
+  userId: string;
+  displayName: string;
+}
 
 interface MintModalState {
   open: boolean;
@@ -62,9 +82,10 @@ function shortenId(id: string): string {
 const DaemonTokensSection: React.FC = () => {
   const { token: themeToken } = theme.useToken();
   const { message } = AntApp.useApp();
-  const [tokens, setTokens] = useState<readonly DaemonAuthToken[]>([]);
+  const [tokens, setTokens] = useState<readonly TokenRow[]>([]);
   const [connectedIds, setConnectedIds] = useState<ReadonlySet<string>>(new Set());
-  const [mintForm] = Form.useForm<{ label: string }>();
+  const [bindableUsers, setBindableUsers] = useState<readonly BindableUser[]>([]);
+  const [mintForm] = Form.useForm<{ label: string; userId?: string }>();
   const [minting, setMinting] = useState(false);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [mintResult, setMintResult] = useState<MintModalState>({
@@ -76,23 +97,31 @@ const DaemonTokensSection: React.FC = () => {
   const [pairOpen, setPairOpen] = useState(false);
 
   const refresh = useCallback(async () => {
-    const current = await listDaemonAuthTokens();
-    setTokens(current);
+    const resp = await hostBridge.call('oh.daemon.tokens.list');
+    setTokens(resp.tokens);
+  }, []);
+
+  const loadBindableUsers = useCallback(async () => {
+    try {
+      const resp = await hostBridge.call('oh.daemon.users.list');
+      setBindableUsers(
+        resp.users.filter((u) => u.deactivatedAt === null).map((u) => ({ userId: u.userId, displayName: u.displayName })),
+      );
+    } catch {
+      setBindableUsers([]);
+    }
   }, []);
 
   useEffect(() => {
-    void refresh();
-    // Subscribe so any out-of-band write (e.g. another window) keeps
-    // this list current.
-    const unsubscribe = hostStorage.subscribe(OH.daemonAuthTokens, (next) => {
-      setTokens(next ?? []);
-    });
-    return unsubscribe;
-  }, [refresh]);
+    void loadBindableUsers();
+  }, [loadBindableUsers]);
 
-  // Poll the live connected-peer set. The daemon doesn't broadcast
-  // connect/disconnect events; polling keeps the IPC surface tiny and a
-  // 3s lag on the "Connected" badge is imperceptible for an admin view.
+  // Poll the ledger and the live connected-peer set together. The
+  // daemon doesn't broadcast connect/disconnect or ledger events;
+  // polling keeps the RPC surface tiny, works identically over IPC and
+  // the wire, and a 3s lag on the "Connected" badge or on an
+  // out-of-band row (a pairing confirm, another admin surface) is
+  // imperceptible for an admin view.
   useEffect(() => {
     let cancelled = false;
     const poll = (): void => {
@@ -102,19 +131,28 @@ const DaemonTokensSection: React.FC = () => {
           if (!cancelled) setConnectedIds(new Set(resp.tokenIds));
         })
         .catch(() => undefined);
+      void hostBridge
+        .call('oh.daemon.tokens.list')
+        .then((resp) => {
+          if (!cancelled) setTokens(resp.tokens);
+        })
+        .catch(() => undefined);
     };
     poll();
-    const interval = window.setInterval(poll, CONNECTED_POLL_INTERVAL_MS);
+    const interval = window.setInterval(poll, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
   }, []);
 
-  async function handleMint(values: { label: string }): Promise<void> {
+  async function handleMint(values: { label: string; userId?: string }): Promise<void> {
     setMinting(true);
     try {
-      const result = await hostBridge.call('oh.daemon.tokens.mint', { label: values.label?.trim() || undefined });
+      const result = await hostBridge.call('oh.daemon.tokens.mint', {
+        label: values.label?.trim() || undefined,
+        userId: values.userId || undefined,
+      });
       if (!result.ok) throw new Error(result.error);
       mintForm.resetFields();
       setMintResult({ open: true, secret: result.secret, tokenId: result.tokenId, rotated: false });
@@ -137,15 +175,15 @@ const DaemonTokensSection: React.FC = () => {
     }
   }
 
-  // Rotate = mint a replacement carrying the same label, THEN revoke the
-  // old one. Mint-first means a mid-rotation failure leaves the device's
-  // existing token still valid rather than locking it out. The revoke
-  // disconnects the device's live socket, so it must reconnect with the
-  // new token.
-  async function handleRotate(t: DaemonAuthToken): Promise<void> {
+  // Rotate = mint a replacement carrying the same label and user
+  // binding, THEN revoke the old one. Mint-first means a mid-rotation
+  // failure leaves the device's existing token still valid rather than
+  // locking it out. The revoke disconnects the device's live socket, so
+  // it must reconnect with the new token.
+  async function handleRotate(t: TokenRow): Promise<void> {
     setRotatingId(t.id);
     try {
-      const minted = await hostBridge.call('oh.daemon.tokens.mint', { label: t.label });
+      const minted = await hostBridge.call('oh.daemon.tokens.mint', { label: t.label, userId: t.userId });
       if (!minted.ok) throw new Error(minted.error);
       const revoked = await hostBridge.call('oh.daemon.tokens.revoke', { tokenId: t.id });
       if (!revoked.ok) throw new Error(revoked.error);
@@ -208,10 +246,28 @@ const DaemonTokensSection: React.FC = () => {
           style={{ marginBottom: tokens.length > 0 ? 12 : 0 }}
         >
           <Form.Item name="label" style={{ flex: 1, marginRight: 8 }}>
-            <Input placeholder="Label (optional) — e.g. 'alice's phone'" maxLength={64} />
+            <Input
+              placeholder="Label (optional) — e.g. 'alice's phone'"
+              maxLength={64}
+              data-testid="daemon-tokens-mint-label"
+            />
           </Form.Item>
+          {bindableUsers.length > 0 && (
+            <Form.Item name="userId" style={{ minWidth: 180, marginRight: 8 }}>
+              <Select
+                placeholder="Bind to user (optional)"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                options={bindableUsers.map((u) => ({ value: u.userId, label: u.displayName }))}
+                onOpenChange={(open) => {
+                  if (open) void loadBindableUsers();
+                }}
+              />
+            </Form.Item>
+          )}
           <Form.Item style={{ marginBottom: 0 }}>
-            <Button type="primary" htmlType="submit" loading={minting}>
+            <Button type="primary" htmlType="submit" loading={minting} data-testid="daemon-tokens-mint">
               Generate token
             </Button>
           </Form.Item>
@@ -236,8 +292,10 @@ const DaemonTokensSection: React.FC = () => {
             renderItem={(t) => {
               const isRevoked = t.revokedAt !== null;
               const isConnected = !isRevoked && connectedIds.has(t.id);
+              const boundUser = t.userId ? (bindableUsers.find((u) => u.userId === t.userId)?.displayName ?? shortenId(t.userId)) : null;
               return (
                 <List.Item
+                  data-testid={`daemon-token-row-${t.id}`}
                   actions={
                     isRevoked
                       ? [
@@ -267,7 +325,7 @@ const DaemonTokensSection: React.FC = () => {
                             okButtonProps={{ danger: true }}
                             onConfirm={() => handleRevoke(t.id)}
                           >
-                            <Button type="link" size="small" danger>
+                            <Button type="link" size="small" danger data-testid={`daemon-token-revoke-${t.id}`}>
                               Revoke
                             </Button>
                           </Popconfirm>,
@@ -291,6 +349,7 @@ const DaemonTokensSection: React.FC = () => {
                       <span style={{ fontSize: 11, color: themeToken.colorTextTertiary }}>
                         id {shortenId(t.id)} · created {formatTimestamp(t.createdAt)} · last used{' '}
                         {formatTimestamp(t.lastUsedAt)}
+                        {boundUser && <> · user {boundUser}</>}
                       </span>
                     }
                   />
@@ -312,7 +371,7 @@ const DaemonTokensSection: React.FC = () => {
           <Button key="copy" type="default" onClick={copySecret}>
             Copy
           </Button>,
-          <Button key="done" type="primary" onClick={dismissMintModal}>
+          <Button key="done" type="primary" onClick={dismissMintModal} data-testid="daemon-tokens-secret-saved">
             I've saved it
           </Button>,
         ]}
@@ -331,6 +390,7 @@ const DaemonTokensSection: React.FC = () => {
           autoSize
           style={{ fontFamily: 'monospace', fontSize: 12 }}
           onFocus={(e) => e.currentTarget.select()}
+          data-testid="daemon-tokens-secret"
         />
       </Modal>
 

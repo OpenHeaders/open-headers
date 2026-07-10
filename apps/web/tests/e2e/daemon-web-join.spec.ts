@@ -20,9 +20,11 @@
  *   6. A reload skips the gate (token persisted origin-scoped) and
  *      rejoins; a non-loopback (LAN IP) origin gates and joins too.
  *   7. The operator administers the daemon FROM the tab (settings CTA →
- *      admin console → user admitted); a directory user joining with a
- *      bound token sees no admin affordance (probe-gated), while the
- *      server-side gate stands regardless.
+ *      admin console → user admitted; token minted in the UI with its
+ *      show-once secret, then revoked — evicting the live peer riding
+ *      it); a directory user joining with a bound token sees no admin
+ *      affordance (probe-gated), while the server-side gate stands
+ *      regardless.
  *   8. Zero console errors across every leg; SIGTERM exits clean.
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
@@ -483,7 +485,7 @@ async function openBackendSettings(target: Page): Promise<void> {
   await target.click('.settings-category-nav button:has-text("Backend")');
 }
 
-test('admin console: the operator manages users from the tab; a directory user sees no admin CTA', async () => {
+test('admin console: the operator manages users and devices from the tab; a directory user sees no admin CTA', async () => {
   // Operator context — fresh storage, gate with the operator token.
   const operatorContext = await browser.newContext();
   const operatorPage = await operatorContext.newPage();
@@ -506,6 +508,62 @@ test('admin console: the operator manages users from the tab; a directory user s
   );
   await operatorPage.click('[data-testid=daemon-admin-add-user]');
   await expect(operatorPage.locator('[data-testid=daemon-admin-console]')).toContainText('Alice');
+
+  // Device management in the same console: mint a token in the UI —
+  // the secret surfaces exactly once — then revoke it and watch the
+  // daemon evict the live peer riding it.
+  await operatorPage.fill(
+    'input[data-testid=daemon-tokens-mint-label], [data-testid=daemon-tokens-mint-label] input',
+    'console device',
+  );
+  await operatorPage.click('[data-testid=daemon-tokens-mint]');
+  const secretField = operatorPage.locator('[data-testid=daemon-tokens-secret]');
+  await expect(secretField).toBeVisible();
+  const consoleSecret = await secretField.inputValue();
+  expect(consoleSecret.length).toBeGreaterThan(0);
+  await operatorPage.click('[data-testid=daemon-tokens-secret-saved]');
+  await expect(secretField).not.toBeVisible();
+
+  // The UI-minted secret admits a real peer over a raw wire.
+  const [consoleTokens] = await adminOverWire([{ type: 'oh.daemon.tokens.list' }]);
+  const consoleRow = (consoleTokens.payload as { tokens: Array<{ id: string; label?: string }> }).tokens.find(
+    (t) => t.label === 'console device',
+  );
+  expect(consoleRow).toBeDefined();
+  const deviceSocket = new WebSocket(`ws://127.0.0.1:${DAEMON_PORT}`);
+  const deviceWelcome = new Promise<{ accepted?: boolean }>((resolve) => {
+    deviceSocket.addEventListener('message', (event) => {
+      const frame = JSON.parse(String(event.data)) as { type: string; accepted?: boolean };
+      if (frame.type === 'oh.sync.welcome') resolve(frame);
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    deviceSocket.addEventListener('open', () => resolve(), { once: true });
+    deviceSocket.addEventListener('error', () => reject(new Error('device wire failed to open')), { once: true });
+  });
+  deviceSocket.send(
+    JSON.stringify({
+      type: 'oh.sync.hello',
+      protocolVersion: 1,
+      role: 'web',
+      nodeId: 'e2e-console-minted-device',
+      workspaceId: 'e2e-console-minted-device',
+      agent: '@openheaders/web@e2e',
+      authToken: consoleSecret,
+    }),
+  );
+  expect((await deviceWelcome).accepted).toBe(true);
+  const deviceClosed = new Promise<void>((resolve) => {
+    deviceSocket.addEventListener('close', () => resolve(), { once: true });
+  });
+
+  // Revoke from the console — the row flips to Revoked and the live
+  // socket is evicted (persist-before-evict on the daemon side).
+  await operatorPage.click(`[data-testid=daemon-token-revoke-${consoleRow?.id}]`);
+  await operatorPage.click('.ant-popconfirm button:has-text("Revoke")');
+  await deviceClosed;
+  await expect(operatorPage.locator(`[data-testid=daemon-token-row-${consoleRow?.id}]`)).toContainText('Revoked');
+
   await operatorContext.close();
 
   // Grant + bound mint over the RAW wire as the operator — a directory

@@ -675,6 +675,37 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     expect(server.connectedCount()).toBe(1);
   });
 
+  it('tokens.list projects the ledger to an operator — revoked rows kept, hash excluded; a directory user gets the uniform deny', async () => {
+    const viewer = await addUserWithGrant('Bob', 'viewer');
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+    const viewerClient = await connectAs(port, viewer, 'ext-bob');
+
+    // Mint-then-revoke over the wire so the projection carries a
+    // revoked row beside the two live connection tokens.
+    const minted = await callOverWire(operator, { type: 'oh.daemon.tokens.mint', label: 'retired device' });
+    expect(minted.payload?.ok).toBe(true);
+    const revoked = await callOverWire(operator, { type: 'oh.daemon.tokens.revoke', tokenId: minted.payload?.tokenId });
+    expect(revoked.payload?.ok).toBe(true);
+
+    const listed = await callOverWire(operator, { type: 'oh.daemon.tokens.list' });
+    const rows = listed.payload?.tokens as Array<Record<string, unknown>>;
+    expect(rows.map((r) => r.label)).toEqual(
+      expect.arrayContaining(['operator device', 'Bob device', 'retired device']),
+    );
+    const retired = rows.find((r) => r.label === 'retired device');
+    expect(retired?.revokedAt).not.toBeNull();
+    const bobRow = rows.find((r) => r.label === 'Bob device');
+    expect(bobRow?.userId).toBe(viewer.user.id);
+    // The secret hash never crosses the projection.
+    expect(rows.every((r) => !('tokenHash' in r))).toBe(true);
+
+    const denied = await callOverWire(viewerClient, { type: 'oh.daemon.tokens.list' });
+    expect(denied.__error).toBe(ADMIN_DENIED_MESSAGE);
+    expect(denied.payload).toBeUndefined();
+  });
+
   it('an unowned oh.daemon.* channel stays silently ignored', async () => {
     const port = await freePort();
     server = await startServerWithAdminPlane(port);

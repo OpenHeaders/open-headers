@@ -104,6 +104,23 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     return { tokenIds: ids ? [...ids] : [] };
   });
 
+  handlers.set('oh.daemon.tokens.list', async () => {
+    // Ledger projection minus the secret hash — revoked rows included
+    // so admin surfaces keep the forensic view.
+    const tokens = await listDaemonAuthTokens();
+    return {
+      tokens: tokens.map((t) => ({
+        id: t.id,
+        label: t.label,
+        userId: t.userId,
+        expiresAt: t.expiresAt,
+        createdAt: t.createdAt,
+        lastUsedAt: t.lastUsedAt,
+        revokedAt: t.revokedAt,
+      })),
+    };
+  });
+
   handlers.set('oh.daemon.tokens.mint', async (message) => {
     // Mint in the host process so the persist shares this realm's
     // token-store mutex with HELLO validation (a surface's separate
