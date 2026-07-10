@@ -157,6 +157,84 @@ describe('StorageGrid', () => {
     expect(rows[1]?.className).not.toContain('dt-storage-row--active');
   });
 
+  it('commits an edit through the Save button', () => {
+    const onCommit = vi.fn().mockResolvedValue(true);
+    renderGrid([entry({ key: 'theme', value: 'dark', valueLength: 4 })], false, { onCommit });
+
+    fireEvent.doubleClick(screen.getByTitle('theme'));
+    fireEvent.change(screen.getByLabelText('Entry value'), { target: { value: 'light' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    expect(onCommit).toHaveBeenCalledWith('theme', 'theme', 'light');
+  });
+
+  it('commits an edit on the save chord from either input', () => {
+    const onCommit = vi.fn().mockResolvedValue(true);
+    renderGrid([entry({ key: 'theme', value: 'dark', valueLength: 4 })], false, { onCommit });
+
+    fireEvent.doubleClick(screen.getByTitle('theme'));
+    const keyInput = screen.getByLabelText('Entry key');
+    fireEvent.change(keyInput, { target: { value: 'theme2' } });
+    fireEvent.keyDown(keyInput, { key: 's', ctrlKey: true });
+    expect(onCommit).toHaveBeenCalledWith('theme', 'theme2', 'dark');
+  });
+
+  it('keeps Save disabled while clean and re-disables it on revert to the base', () => {
+    renderGrid([entry({ key: 'theme', value: 'dark', valueLength: 4 })]);
+
+    fireEvent.doubleClick(screen.getByTitle('theme'));
+    const save = screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+
+    const valueInput = screen.getByLabelText('Entry value');
+    fireEvent.change(valueInput, { target: { value: 'light' } });
+    expect(save.disabled).toBe(false);
+
+    fireEvent.change(valueInput, { target: { value: 'dark' } });
+    expect(save.disabled).toBe(true);
+  });
+
+  it('closes a clean edit on Enter without a phantom write', () => {
+    const onCommit = vi.fn().mockResolvedValue(true);
+    renderGrid([entry({ key: 'theme', value: 'dark', valueLength: 4 })], false, { onCommit });
+
+    fireEvent.doubleClick(screen.getByTitle('theme'));
+    fireEvent.keyDown(screen.getByLabelText('Entry value'), { key: 'Enter' });
+    expect(screen.queryByLabelText('Entry value')).toBeNull();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('undoes and redoes edits in the value input via the owned history chords', () => {
+    renderGrid([entry({ key: 'theme', value: 'dark', valueLength: 4 })]);
+
+    fireEvent.doubleClick(screen.getByTitle('theme'));
+    const valueInput = screen.getByLabelText('Entry value') as HTMLInputElement;
+    fireEvent.change(valueInput, { target: { value: 'light' } });
+    expect(valueInput.value).toBe('light');
+
+    fireEvent.keyDown(valueInput, { key: 'z', ctrlKey: true });
+    expect(valueInput.value).toBe('dark');
+
+    fireEvent.keyDown(valueInput, { key: 'z', ctrlKey: true, shiftKey: true });
+    expect(valueInput.value).toBe('light');
+
+    fireEvent.keyDown(valueInput, { key: 'y', ctrlKey: true });
+    expect(valueInput.value).toBe('light');
+  });
+
+  it('keeps per-input undo stacks independent between key and value', () => {
+    renderGrid([entry({ key: 'theme', value: 'dark', valueLength: 4 })]);
+
+    fireEvent.doubleClick(screen.getByTitle('theme'));
+    const keyInput = screen.getByLabelText('Entry key') as HTMLInputElement;
+    const valueInput = screen.getByLabelText('Entry value') as HTMLInputElement;
+    fireEvent.change(keyInput, { target: { value: 'theme2' } });
+    fireEvent.change(valueInput, { target: { value: 'light' } });
+
+    fireEvent.keyDown(keyInput, { key: 'z', ctrlKey: true });
+    expect(keyInput.value).toBe('theme');
+    expect(valueInput.value).toBe('light');
+  });
+
   it('cancels an edit on Escape without committing', () => {
     const onCommit = vi.fn().mockResolvedValue(true);
     renderGrid([entry({ key: 'k', value: 'v', valueLength: 1 })], false, { onCommit });

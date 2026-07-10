@@ -3,6 +3,9 @@
  * an add row (pinned under the header while adding), inline row editing
  * (double-click or the pencil — key change = rename, committed as
  * write-new-then-remove-old by the hook), and a per-row hover delete.
+ * Edit/add rows carry the shared storage Save button (orange ⇔ dirty
+ * against the base, grey when clean or reverted) plus the ✕ cancel; a
+ * commit lands on the button, Enter, or ⌘S from either input.
  * A single click on a row opens the entry as a full editor-tab document
  * (IDB-record parity); the inline edit stays for quick tweaks.
  *
@@ -12,8 +15,11 @@
  */
 
 import { CloseOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { isMac } from '@openheaders/ui/shared/platform';
 import { useEffect, useRef, useState } from 'react';
 import type { DomStorageEntry, DomStorageFullValue } from '../../data/storage/storage-inspector-host';
+import { StorageDocSaveButton } from './StorageDocSaveButton';
+import { UndoableCellInput } from './UndoableCellInput';
 
 function formatLength(chars: number): string {
   if (chars < 1024) return `${chars} chars`;
@@ -24,9 +30,19 @@ type EditPhase = 'ready' | 'loading' | 'too-large' | 'fetch-failed';
 
 interface EditState {
   originalKey: string;
+  /** The base value the draft is diffed against for the dirty state —
+   *  a clipped entry's base is the lazily fetched FULL value. */
+  originalValue: string;
   key: string;
   value: string;
   phase: EditPhase;
+}
+
+/** ⌘S / Ctrl+S inside the row's inputs — scoped to the field (not the
+ *  window) so it can't race a document editor's own chord; stopping
+ *  propagation keeps it from reaching those window-level handlers. */
+function isSaveChord(e: React.KeyboardEvent): boolean {
+  return (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's';
 }
 
 interface StorageGridProps {
@@ -55,27 +71,31 @@ export function StorageGrid({
   isEntryActive,
 }: StorageGridProps) {
   const [editing, setEditing] = useState<EditState | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const startEdit = (entry: DomStorageEntry): void => {
     if (!entry.clipped) {
-      setEditing({ originalKey: entry.key, key: entry.key, value: entry.value, phase: 'ready' });
+      setEditing({ originalKey: entry.key, originalValue: entry.value, key: entry.key, value: entry.value, phase: 'ready' });
       return;
     }
-    setEditing({ originalKey: entry.key, key: entry.key, value: '', phase: 'loading' });
+    setEditing({ originalKey: entry.key, originalValue: '', key: entry.key, value: '', phase: 'loading' });
     void fetchFullValue(entry.key).then((full) => {
       setEditing((prev) => {
         if (!prev || prev.originalKey !== entry.key || prev.phase !== 'loading') return prev;
-        if (full?.value != null) return { ...prev, value: full.value, phase: 'ready' };
+        if (full?.value != null) return { ...prev, originalValue: full.value, value: full.value, phase: 'ready' };
         return { ...prev, phase: full?.tooLarge ? 'too-large' : 'fetch-failed' };
       });
     });
   };
 
   const commitEdit = (): void => {
-    if (!editing || editing.phase !== 'ready' || !editing.key) return;
-    void onCommit(editing.originalKey, editing.key, editing.value).then((ok) => {
-      if (ok) setEditing(null);
-    });
+    if (!editing || editing.phase !== 'ready' || !editing.key || saving) return;
+    setSaving(true);
+    void onCommit(editing.originalKey, editing.key, editing.value)
+      .then((ok) => {
+        if (ok) setEditing(null);
+      })
+      .finally(() => setSaving(false));
   };
 
   return (
@@ -99,6 +119,7 @@ export function StorageGrid({
           <EditRow
             key={e.key}
             editing={editing}
+            saving={saving}
             onChange={setEditing}
             onCommit={commitEdit}
             onCancel={() => setEditing(null)}
@@ -166,36 +187,48 @@ function AddRow({ onCancel, onCommit }: AddRowProps) {
     keyRef.current?.focus();
   }, []);
 
+  const savable = key.length > 0;
+  const dirty = key.length > 0 || value.length > 0;
   const commit = (): void => {
-    if (key) onCommit(key, value);
+    if (savable) onCommit(key, value);
   };
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter') commit();
     if (e.key === 'Escape') onCancel();
+    if (isSaveChord(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      commit();
+    }
   };
 
   return (
     <div className="dt-storage-row dt-storage-row--editing" role="row">
-      <input
-        ref={keyRef}
-        type="text"
-        className="dt-storage-cell-input"
+      <UndoableCellInput
+        inputRef={keyRef}
         placeholder="Key"
         aria-label="New entry key"
         value={key}
-        onChange={(e) => setKey(e.target.value)}
+        onValueChange={setKey}
         onKeyDown={onKeyDown}
       />
-      <input
-        type="text"
-        className="dt-storage-cell-input"
+      <UndoableCellInput
         placeholder="Value"
         aria-label="New entry value"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onValueChange={setValue}
         onKeyDown={onKeyDown}
       />
       <span className="dt-storage-row-actions dt-storage-row-actions--pinned">
+        <StorageDocSaveButton
+          savable={savable}
+          saving={false}
+          dirty={dirty}
+          saveHint="Write the new entry to storage"
+          blockedHint="The key can't be empty"
+          isActiveDocument={false}
+          onSave={commit}
+        />
         <button type="button" className="dt-storage-action" title="Cancel" aria-label="Cancel add" onClick={onCancel}>
           <CloseOutlined />
         </button>
@@ -206,28 +239,40 @@ function AddRow({ onCancel, onCommit }: AddRowProps) {
 
 interface EditRowProps {
   editing: EditState;
+  saving: boolean;
   onChange: (next: EditState) => void;
   onCommit: () => void;
   onCancel: () => void;
 }
 
-function EditRow({ editing, onChange, onCommit, onCancel }: EditRowProps) {
+function EditRow({ editing, saving, onChange, onCommit, onCancel }: EditRowProps) {
   const busy = editing.phase === 'loading';
   const blocked = editing.phase === 'too-large' || editing.phase === 'fetch-failed';
+  const dirty =
+    editing.phase === 'ready' && (editing.key !== editing.originalKey || editing.value !== editing.originalValue);
+  const savable = dirty && editing.key.length > 0;
   const onKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter') onCommit();
+    // Enter on a clean draft just closes the edit — there is nothing
+    // to write, and re-committing the base would be a phantom write.
+    if (e.key === 'Enter') {
+      if (savable) onCommit();
+      else if (!dirty) onCancel();
+    }
     if (e.key === 'Escape') onCancel();
+    if (isSaveChord(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (savable) onCommit();
+    }
   };
 
   return (
     <div className="dt-storage-row dt-storage-row--editing" role="row">
-      <input
-        type="text"
-        className="dt-storage-cell-input"
+      <UndoableCellInput
         aria-label="Entry key"
         value={editing.key}
         disabled={busy || blocked}
-        onChange={(e) => onChange({ ...editing, key: e.target.value })}
+        onValueChange={(key) => onChange({ ...editing, key })}
         onKeyDown={onKeyDown}
       />
       {blocked ? (
@@ -237,24 +282,29 @@ function EditRow({ editing, onChange, onCommit, onCancel }: EditRowProps) {
             : 'The full value can’t be read right now.'}
         </span>
       ) : (
-        <input
-          type="text"
-          className="dt-storage-cell-input"
+        // Keyed by phase so the clipped-entry input remounts once the
+        // full value lands — its undo history seeds from the real base,
+        // not the loading placeholder.
+        <UndoableCellInput
+          key={editing.phase}
           aria-label="Entry value"
           value={busy ? 'Loading full value…' : editing.value}
           disabled={busy}
-          onChange={(e) => onChange({ ...editing, value: e.target.value })}
+          onValueChange={(value) => onChange({ ...editing, value })}
           onKeyDown={onKeyDown}
         />
       )}
       <span className="dt-storage-row-actions dt-storage-row-actions--pinned">
-        <button
-          type="button"
-          className="dt-storage-action"
-          title="Cancel"
-          aria-label="Cancel edit"
-          onClick={onCancel}
-        >
+        <StorageDocSaveButton
+          savable={savable && !saving}
+          saving={saving}
+          dirty={dirty}
+          saveHint="Write the edited entry back to storage"
+          blockedHint="The key can't be empty"
+          isActiveDocument={false}
+          onSave={onCommit}
+        />
+        <button type="button" className="dt-storage-action" title="Cancel" aria-label="Cancel edit" onClick={onCancel}>
           <CloseOutlined />
         </button>
       </span>

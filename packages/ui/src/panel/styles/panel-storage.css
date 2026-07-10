@@ -875,10 +875,17 @@
   color: var(--dt-status-red);
 }
 
+/* Right padding reserves the pinned Save + ✕ lane so the value input
+ * never runs under it. */
 .dt-storage-row--editing {
   background: var(--dt-row-selected);
   align-items: center;
-  padding-right: 30px;
+  padding-right: 104px;
+}
+
+.dt-storage-row--editing .dt-storage-row-actions {
+  gap: 4px;
+  background: transparent;
 }
 
 .dt-storage-cell-input {
