@@ -11,8 +11,17 @@
  * instead of re-signing (deferred until a key-entry flow exists).
  */
 
-import { CheckCircleOutlined, CloseCircleOutlined, CodeOutlined, CopyOutlined, FileTextOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  CodeOutlined,
+  CopyOutlined,
+  FileTextOutlined,
+  SaveOutlined,
+} from '@ant-design/icons';
 import type { JsonObject } from '@openheaders/core/types';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { isMac } from '@openheaders/ui/shared/platform';
 import { Alert, App, Button, Input, Modal, Segmented, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -23,6 +32,11 @@ const { TextArea } = Input;
 const { Text } = Typography;
 
 type EditMode = 'decoded' | 'encoded';
+
+const SAVE_SHORTCUT = isMac ? '⌘S' : 'Ctrl+S';
+// Same accent the editor-shell Save button uses when there are unsaved
+// changes (EditorHeader's `saveAccent`).
+const SAVE_ACCENT = '#f5722d';
 
 interface JWTEditorModalProps {
   open: boolean;
@@ -43,8 +57,14 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
   const [headerError, setHeaderError] = useState<string | null>(null);
   const [payloadError, setPayloadError] = useState<string | null>(null);
   const [expirationInfo, setExpirationInfo] = useState<JWTExpirationInfo | null>(null);
-  const [isModified, setIsModified] = useState(false);
   const [originalToken, setOriginalToken] = useState('');
+  // Canonical re-encode of the original token (same header/payload
+  // objects, same signature). The original's own base64 may carry
+  // padding or JSON-formatting differences that our encoder
+  // normalizes away — an edit-then-revert lands on THIS string, not
+  // necessarily the verbatim original, so dirtiness compares against
+  // both. Null when the original doesn't decode.
+  const [canonicalBaseline, setCanonicalBaseline] = useState<string | null>(null);
   const [editMode, setEditMode] = useState<EditMode>('decoded');
   const [encodedInput, setEncodedInput] = useState('');
   const [encodedInputError, setEncodedInputError] = useState<string | null>(null);
@@ -57,17 +77,18 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
     setHeaderError(null);
     setPayloadError(null);
     setEncodedInputError(null);
-    setIsModified(false);
     try {
       const decoded = decodeJWT(initialToken);
       setDecodedHeader(formatJSON(decoded.header));
       setDecodedPayload(formatJSON(decoded.payload));
       setSignature(decoded.signature);
+      setCanonicalBaseline(encodeJWT(decoded.header, decoded.payload, decoded.signature));
       setExpirationInfo(getJWTExpiration(decoded.payload));
       setError(null);
       setEditMode('decoded');
     } catch (err) {
       // Undecodable value — fall back to raw token editing.
+      setCanonicalBaseline(null);
       setError(err instanceof Error ? err.message : String(err));
       setEditMode('encoded');
     }
@@ -75,11 +96,9 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
 
   const applyEdit = useCallback(
     (headerObj: JsonObject, payloadObj: JsonObject) => {
-      const next = encodeJWT(headerObj, payloadObj, signature);
-      setEncodedToken(next);
-      setIsModified(next !== originalToken);
+      setEncodedToken(encodeJWT(headerObj, payloadObj, signature));
     },
-    [signature, originalToken],
+    [signature],
   );
 
   const handleHeaderChange = useCallback(
@@ -90,7 +109,6 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
         setHeaderError(null);
       } catch (err) {
         setHeaderError(err instanceof Error ? err.message : String(err));
-        setIsModified(true);
       }
     },
     [applyEdit, decodedPayload],
@@ -106,7 +124,6 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
         setExpirationInfo(getJWTExpiration(payloadObj));
       } catch (err) {
         setPayloadError(err instanceof Error ? err.message : String(err));
-        setIsModified(true);
       }
     },
     [applyEdit, decodedHeader],
@@ -117,7 +134,6 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
       const next = e.target.value;
       setEncodedInput(next);
       setEncodedToken(next);
-      setIsModified(next !== originalToken);
       try {
         const decoded = decodeJWT(next);
         setDecodedHeader(formatJSON(decoded.header));
@@ -132,7 +148,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
         setEncodedInputError(err instanceof Error ? err.message : String(err));
       }
     },
-    [originalToken],
+    [],
   );
 
   const handleModeSwitch = useCallback(
@@ -159,10 +175,30 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
 
   const hasErrors = editMode === 'decoded' ? Boolean(headerError || payloadError) : Boolean(encodedInputError);
 
+  // Derived dirtiness — the current encoded form differs from the
+  // original (and from its canonical re-encode, so edit-then-revert
+  // reads clean again). Never tracked imperatively.
+  const isDirty =
+    Boolean(displayToken) && displayToken !== originalToken && (!canonicalBaseline || displayToken !== canonicalBaseline);
+  const isModified = isDirty || hasErrors;
+  const saveDisabled = !isDirty || hasErrors || !displayToken;
+
   const handleSave = useCallback(() => {
-    if (hasErrors || !displayToken) return;
+    if (saveDisabled) return;
     onSave(displayToken);
-  }, [hasErrors, displayToken, onSave]);
+  }, [saveDisabled, displayToken, onSave]);
+
+  // ⌘S / Ctrl+S saves from anywhere inside the modal — matches the
+  // shortcut hint on the Save button's tooltip.
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    },
+    [handleSave],
+  );
 
   const segmentColors = [token.colorError, token.colorSuccess, token.colorPrimary];
   const previewParts = displayToken.split('.');
@@ -185,11 +221,24 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
         </Space>
       }
       open={open}
-      onOk={handleSave}
       onCancel={onCancel}
       width={980}
-      okText="Save"
-      okButtonProps={{ disabled: hasErrors || !displayToken }}
+      footer={
+        <>
+          <Button onClick={onCancel}>Cancel</Button>
+          <Tooltip title={<ShortcutHintTitle label={SAVE_SHORTCUT}>Save</ShortcutHintTitle>} placement="top">
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              disabled={saveDisabled}
+              onClick={handleSave}
+              style={saveDisabled ? undefined : { background: SAVE_ACCENT, borderColor: SAVE_ACCENT }}
+            >
+              Save
+            </Button>
+          </Tooltip>
+        </>
+      }
       centered
       destroyOnHidden
     >
@@ -197,7 +246,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
         <Alert type="error" showIcon message="Could not decode token" description={error} style={{ marginBottom: 12 }} />
       )}
 
-      <div style={{ display: 'flex', gap: 16 }}>
+      <div style={{ display: 'flex', gap: 16 }} onKeyDown={handleKeyDown}>
         {/* Left pane — editors */}
         <div style={{ flex: 11, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Segmented
@@ -244,13 +293,18 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
                   variableAutoComplete={false}
                 />
                 {recognizedClaims.length > 0 && (
-                  <div style={{ marginTop: 6 }}>
-                    <Text type="secondary" style={{ fontSize: 12, marginRight: 6 }}>
+                  // Explicit flex gap — a Tooltip-wrapped Tag loses the
+                  // Tag's own end margin, so without it the tags butt
+                  // up against each other.
+                  <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
                       Claims:
                     </Text>
                     {recognizedClaims.map((claim) => (
                       <Tooltip key={claim} title={JWT_CLAIM_DESCRIPTIONS[claim]}>
-                        <Tag color="blue">{claim}</Tag>
+                        <Tag color="blue" style={{ margin: 0 }}>
+                          {claim}
+                        </Tag>
                       </Tooltip>
                     ))}
                   </div>

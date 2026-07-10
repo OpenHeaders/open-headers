@@ -56,6 +56,9 @@ interface EditableStyleParams {
   resizable: boolean;
   manualHeight: number | null;
   maxRows: number;
+  /** Masked field — the collapsed line clips without an ellipsis (a
+   *  `…` after the discs reads as noise, not truncation). */
+  secret: boolean;
   surfaceStyle: React.CSSProperties;
 }
 
@@ -71,6 +74,7 @@ export function buildEditableStyle({
   resizable,
   manualHeight,
   maxRows,
+  secret,
   surfaceStyle,
 }: EditableStyleParams): React.CSSProperties {
   // Derive paddings from `size` — match AntD defaults so we visually
@@ -86,15 +90,18 @@ export function buildEditableStyle({
   const focusShadow =
     status === 'error' ? `0 0 0 2px ${token.colorErrorBorderHover}` : `0 0 0 2px ${token.controlOutline}`;
 
+  // Room reserved for the right-edge action rail (16px per icon: 12px
+  // glyph + 4px gap) — also the clip inset for masked collapsed lines.
+  const railInset = iconCount > 0 ? (displayExpanded || resizable ? 10 : 6) + 16 * iconCount : 0;
+
   return {
     minHeight: sizeMinHeight,
     padding: sizePadding,
     // Reserve just enough room that the last characters don't slide
-    // under the action rail (16px per icon: 12px glyph + 4px gap). A
-    // resizable field uses the wider inset in BOTH display modes — its
-    // rail sits left of the grip column even when collapsed (see
-    // TemplateInput).
-    ...(iconCount > 0 ? { paddingRight: (displayExpanded || resizable ? 10 : 6) + 16 * iconCount } : null),
+    // under the action rail. A resizable field uses the wider inset in
+    // BOTH display modes — its rail sits left of the grip column even
+    // when collapsed (see TemplateInput).
+    ...(railInset > 0 ? { paddingRight: railInset } : null),
     lineHeight: TEMPLATE_INPUT_LINE_HEIGHT,
     fontSize: size === 'small' ? 12 : size === 'large' ? 16 : 14,
     fontFamily: 'inherit',
@@ -115,11 +122,13 @@ export function buildEditableStyle({
     whiteSpace: displayExpanded ? 'pre-wrap' : displayCollapsed ? 'nowrap' : 'pre',
     overflowX: displayExpanded || displayCollapsed ? 'hidden' : 'auto',
     overflowY: displayExpanded ? 'auto' : 'hidden',
-    // Ellipsis for secret values too: plain overflow clipping paints
-    // right through the padding-right gutter, so masked discs run under
-    // the ✕ / grip — the ellipsis truncates at the content edge, which
-    // is the only single-line mode that honors the reserved inset.
-    textOverflow: displayCollapsed ? 'ellipsis' : undefined,
+    // Masked values clip WITHOUT the ellipsis — a `…` after the discs
+    // reads as noise. But plain overflow clipping paints right through
+    // the padding-right gutter (clipping happens at the padding box),
+    // so the discs would run under the ✕ / grip; a clip-path at the
+    // rail inset cuts them at the content edge instead.
+    textOverflow: displayCollapsed && !secret ? 'ellipsis' : undefined,
+    ...(displayCollapsed && secret && railInset > 0 ? { clipPath: `inset(0 ${railInset}px 0 0)` } : null),
     // Auto-grow cap for the wrapped editor (`multiline`, `wrap`, or an
     // expand-on-focus field while active): ~maxRows lines (lineHeight
     // 1.5714) + a little padding allowance; past it the surface

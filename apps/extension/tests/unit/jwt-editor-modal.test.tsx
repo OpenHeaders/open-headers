@@ -86,7 +86,7 @@ describe('JWTEditorModal — decoded mode', () => {
     const nextPayload = { sub: 'user@openheaders.io', scope: 'openid profile email', roles: ['admin'] };
     fireEvent.change(payloadEditor, { target: { value: JSON.stringify(nextPayload) } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
     expect(onSave).toHaveBeenCalledTimes(1);
     const saved = decodeJWT(onSave.mock.calls[0][0]);
     expect(saved.header).toEqual(HEADER);
@@ -107,7 +107,21 @@ describe('JWTEditorModal — decoded mode', () => {
     renderModal({ open: true, token: buildJWT(HEADER, PAYLOAD), onSave: vi.fn(), onCancel: vi.fn() });
     const payloadEditor = (screen.getAllByTestId('code-editor') as HTMLTextAreaElement[])[1];
     fireEvent.change(payloadEditor, { target: { value: '{not json}' } });
-    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('disables Save until something changes, and re-disables on revert to the original', () => {
+    renderModal({ open: true, token: buildJWT(HEADER, PAYLOAD), onSave: vi.fn(), onCancel: vi.fn() });
+    const save = screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+
+    const payloadEditor = (screen.getAllByTestId('code-editor') as HTMLTextAreaElement[])[1];
+    const original = payloadEditor.value;
+    fireEvent.change(payloadEditor, { target: { value: '{"sub":"other@openheaders.io"}' } });
+    expect(save.disabled).toBe(false);
+
+    fireEvent.change(payloadEditor, { target: { value: original } });
+    expect(save.disabled).toBe(true);
   });
 
   it('renders the expiration status from the exp claim', () => {
@@ -127,7 +141,7 @@ describe('JWTEditorModal — encoded mode', () => {
     const pasted = buildJWT(HEADER, { sub: 'pasted@openheaders.io' }, 'newsig');
     fireEvent.change(rawInput, { target: { value: pasted } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
     expect(onSave).toHaveBeenCalledWith(pasted);
   });
 
@@ -139,7 +153,7 @@ describe('JWTEditorModal — encoded mode', () => {
       target: { value: 'not-a-token' },
     });
     expect(screen.getByText('Not a decodable JWT')).not.toBeNull();
-    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
@@ -175,7 +189,7 @@ describe('useJwtEditAction', () => {
     // The modal is lazy-loaded on first open — wait for it to mount.
     const payloadEditor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[1];
     fireEvent.change(payloadEditor, { target: { value: '{"sub":"edited@openheaders.io"}' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     const written = onChange.mock.calls[0][0] as string;
