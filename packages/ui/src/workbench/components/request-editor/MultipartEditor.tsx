@@ -28,8 +28,9 @@ import type { MenuProps } from 'antd';
 import { Dropdown, Select, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef } from 'react';
+import type { GripResizeXHandler } from '../template-input';
 import { EditableGridTable, type EditableRowAdapter } from './EditableGridTable';
-import { TemplateInput } from '../template-input';
+import { GridValueField } from './GridValueField';
 
 // Value column gets a wider proportional share (1.6fr) for the file
 // picker, but no fixed px floor — it flexes down to fit a narrow pane
@@ -143,6 +144,8 @@ const MultipartEditor: React.FC<MultipartEditorProps> = ({ parts, onChange }) =>
           update={update}
           dim={ctx.dim}
           isPlaceholder={ctx.isPlaceholder}
+          expanded={ctx.expanded}
+          onResizeX={ctx.onValueResizeX}
           files={files}
           filesReady={filesReady}
           uploadFile={uploadFile}
@@ -160,6 +163,8 @@ interface ValueCellProps {
   update: (next: IdentifiedPart) => void;
   dim: boolean;
   isPlaceholder: boolean;
+  expanded: boolean;
+  onResizeX?: GripResizeXHandler;
   files: FileRef[];
   filesReady: boolean;
   uploadFile: (file: File, filename: string, mimeType?: string) => Promise<FileRef | null>;
@@ -171,6 +176,8 @@ const ValueCell: React.FC<ValueCellProps> = ({
   update,
   dim,
   isPlaceholder,
+  expanded,
+  onResizeX,
   files,
   filesReady,
   uploadFile,
@@ -210,12 +217,20 @@ const ValueCell: React.FC<ValueCellProps> = ({
         popupMatchSelectWidth={false}
       />
       {row.kind === 'text' ? (
-        <TemplateInput
-          variant="borderless"
+        <GridValueField
+          expanded={expanded}
+          flagUnresolved
           value={row.value}
           placeholder="Value"
           onChange={(next) => update({ ...row, value: next })}
-          style={{ ...cellFont, flex: 1, padding: '4px 6px', color: dim ? token.colorTextQuaternary : token.colorText }}
+          onResizeX={onResizeX}
+          style={{
+            ...cellFont,
+            flex: 1,
+            minWidth: 0,
+            padding: '4px 6px',
+            color: dim ? token.colorTextQuaternary : token.colorText,
+          }}
         />
       ) : (
         <FileValueCell

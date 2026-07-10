@@ -18,8 +18,8 @@ import { generateUid } from '@openheaders/core/utils';
 import { theme } from 'antd';
 import type React from 'react';
 import { useRef } from 'react';
-import { TemplateInput } from '../template-input';
 import { EditableGridTable, type EditableRowAdapter } from './EditableGridTable';
+import { GridValueField } from './GridValueField';
 
 interface FormEditorProps {
   fields: FormField[];
@@ -113,14 +113,17 @@ const FormEditor: React.FC<FormEditorProps> = ({ fields, onChange }) => {
         placeholder: 'key1=value1\nkey2=value2 # description\n//disabled=value',
       }}
       renderValueCell={(row, update, ctx) => (
-        <TemplateInput
-          variant="borderless"
+        <GridValueField
+          expanded={ctx.expanded}
+          flagUnresolved
           value={row.value}
           placeholder="Value"
           onChange={(next) => update({ ...row, value: next })}
+          onResizeX={ctx.onValueResizeX}
           style={{
             ...cellFont,
             flex: 1,
+            minWidth: 0,
             padding: '4px 6px',
             color: ctx.dim ? token.colorTextQuaternary : token.colorText,
           }}

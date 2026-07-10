@@ -23,6 +23,7 @@ import {
   type KeyValueRowConflictBridge,
   type SuggestionRow,
 } from './EditableGridTable';
+import { GridValueField } from './GridValueField';
 
 export type { KeyValueRowConflictBridge, SuggestionRow };
 
@@ -179,17 +180,17 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       renderValueCell={(row, update, ctx) => {
         const warning = rowWarning?.(row) ?? null;
         const cell = (
-          <TemplateInput
-            variant="borderless"
-            expandOnFocus
+          <GridValueField
             expanded={ctx.expanded}
             flagUnresolved
             value={row.value}
             placeholder={valuePlaceholder}
             onChange={(next) => update({ ...row, value: next })}
+            onResizeX={ctx.onValueResizeX}
             style={{
               ...cellFont,
               flex: 1,
+              minWidth: 0,
               padding: `${CELL_VERTICAL_PADDING}px 6px`,
               color: ctx.dim ? token.colorTextQuaternary : token.colorText,
               ...(warning ? { textDecoration: 'line-through', textDecorationThickness: 1 } : null),

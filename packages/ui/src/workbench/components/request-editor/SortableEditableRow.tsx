@@ -12,6 +12,7 @@ import { Button, Input, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { ConflictDiffChip, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
+import type { GripResizeXHandler } from '../template-input';
 import { cellFont, ROW_CONTROL_HEIGHT } from './editable-grid-styles';
 import type {
   EditableGridTableProps,
@@ -33,6 +34,9 @@ interface SortableEditableRowProps<Row> {
   renderDescriptionCell?: EditableGridTableProps<Row>['renderDescriptionCell'];
   rowPath?: EditableGridTableProps<Row>['rowPath'];
   conflictBridge?: KeyValueRowConflictBridge;
+  /** Value-column boundary handler forwarded into the Value cell's
+   *  render context (see `EditableGridTableProps.renderValueCell`). */
+  valueGripResizeX?: GripResizeXHandler;
   /** True for materialized rows (not the trailing ghost). Conflict
    *  chips suppress on placeholder rows since they have no persisted
    *  identity in the canonical baseline. */
@@ -55,6 +59,7 @@ export function SortableEditableRow<Row>({
   renderDescriptionCell,
   rowPath,
   conflictBridge,
+  valueGripResizeX,
   isPersisted,
   onUpdate,
   onRemove,
@@ -218,7 +223,12 @@ export function SortableEditableRow<Row>({
           }}
         >
           <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
-            {renderValueCell(row, onUpdate, { isPlaceholder, dim, expanded: rowFocused })}
+            {renderValueCell(row, onUpdate, {
+              isPlaceholder,
+              dim,
+              expanded: rowFocused,
+              onValueResizeX: valueGripResizeX,
+            })}
           </div>
           {valueConflict && conflictBridge && valuePath && (
             <ConflictDiffChip

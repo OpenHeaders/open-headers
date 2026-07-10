@@ -6,6 +6,7 @@
 
 import type { PathConflict } from '@openheaders/ui/shared/conflicts/types';
 import type React from 'react';
+import type { GripResizeXHandler } from '../template-input';
 
 /** Read-only informational row rendered above user rows — e.g. Headers'
  *  browser-managed auto-generated entries. Not draggable, not part of
@@ -77,11 +78,15 @@ export interface EditableGridTableProps<Row> {
   adapter: EditableRowAdapter<Row>;
   /** Render the Value cell. The shell owns layout + borders; the
    *  caller owns the control inside the cell. `update(next)` commits
-   *  a full row replacement. */
+   *  a full row replacement. `onValueResizeX` is the shell's
+   *  Value-column boundary handler — forward it to the field's 2D
+   *  corner grip so a horizontal drag resizes the column; absent when
+   *  the Value column is the last flexible track (nothing to its
+   *  right to trade width with). */
   renderValueCell: (
     row: Row,
     update: (next: Row) => void,
-    context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
+    context: { isPlaceholder: boolean; dim: boolean; expanded: boolean; onValueResizeX?: GripResizeXHandler },
   ) => React.ReactNode;
   /** Optional override for the Key cell's control. Same contract as
    *  `renderValueCell` — when omitted the shell renders a plain
