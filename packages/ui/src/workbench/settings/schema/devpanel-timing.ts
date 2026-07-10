@@ -27,7 +27,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 registerSetting({
   key: 'devpanelTiming.showInsights',
   type: 'boolean',
-  default: true,
+  default: false,
   schema: v.boolean(),
   label: 'Show Suggestions',
   description:

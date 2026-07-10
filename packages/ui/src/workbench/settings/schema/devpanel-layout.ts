@@ -240,7 +240,7 @@ registerSetting({
 registerSetting({
   key: 'devpanelLayout.sidebarLayout',
   type: 'enum',
-  default: 'dynamic',
+  default: 'proportional',
   schema: sidebarLayoutSchema,
   label: 'Activity Bar Layout',
   description: 'How the activity-bar splits the top and bottom tool-window groups in the DevTools panel.',

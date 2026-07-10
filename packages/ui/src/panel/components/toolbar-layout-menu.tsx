@@ -6,13 +6,13 @@
  * shares with the menu.
  */
 
-import { ReloadOutlined, ShareAltOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
 import { DockSlotIcon, LayoutMenuIcon, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import type { GlobalToken, MenuProps } from 'antd';
-import { Space } from 'antd';
+import { Space, Tooltip } from 'antd';
 import type React from 'react';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
 import type { PanelViewState } from '../data/use-panel-tool-layout';
@@ -115,13 +115,23 @@ export function buildPanelLayoutMenu({
     { type: 'divider' },
     {
       key: 'inheritance-info',
-      icon: menuIconWrap(<ShareAltOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />),
+      icon: menuIconWrap(<LayoutMenuIcon kind="layout-default" />),
       label: (
-        <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'normal', lineHeight: 1.4 }}>
-          {perTab.isDonor
-            ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
-            : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`}
-        </span>
+        <Space size={6}>
+          <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
+            {perTab.isDonor ? `Default layout ${instanceLabel()}` : 'Inherits default layout'}
+          </span>
+          <Tooltip
+            trigger={['hover', 'click']}
+            title={
+              perTab.isDonor
+                ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
+                : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`
+            }
+          >
+            <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+          </Tooltip>
+        </Space>
       ),
       disabled: true,
     },

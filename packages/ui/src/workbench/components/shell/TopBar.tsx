@@ -6,7 +6,7 @@
  * Layout: [Logo] [Title + Workspace] | [⌘K Search] | [Env] [Layout cluster] [Settings]
  */
 
-import { LayoutOutlined, ReloadOutlined, SearchOutlined, ShareAltOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, LayoutOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import type { Collection, Environment, ExtensionWorkspace } from '@openheaders/core/types';
 import { Button, Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -207,13 +207,23 @@ const TopBar: React.FC<TopBarProps> = ({
     { type: 'divider' },
     {
       key: 'inheritance-info',
-      icon: menuIconWrap(<ShareAltOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />),
+      icon: menuIconWrap(<LayoutMenuIcon kind="layout-default" />),
       label: (
-        <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'normal', lineHeight: 1.4 }}>
-          {perTab.isDonor
-            ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
-            : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`}
-        </span>
+        <Space size={6}>
+          <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
+            {perTab.isDonor ? `Default layout ${instanceLabel()}` : 'Inherits default layout'}
+          </span>
+          <Tooltip
+            trigger={['hover', 'click']}
+            title={
+              perTab.isDonor
+                ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
+                : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`
+            }
+          >
+            <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+          </Tooltip>
+        </Space>
       ),
       disabled: true,
     },

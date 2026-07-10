@@ -155,7 +155,7 @@ registerSetting({
 registerSetting({
   key: 'workspaceLayout.sidebarLayout',
   type: 'enum',
-  default: 'dynamic',
+  default: 'proportional',
   schema: sidebarLayoutSchema,
   label: 'Activity Bar Layout',
   description: 'How the activity-bar splits the top and bottom tool-window groups.',

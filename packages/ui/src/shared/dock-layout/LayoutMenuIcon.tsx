@@ -22,7 +22,8 @@ export type LayoutMenuIconKind =
   | 'close-tabs-right'
   | 'close-tabs-other'
   | 'header-top'
-  | 'header-bottom';
+  | 'header-bottom'
+  | 'layout-default';
 
 interface LayoutMenuIconProps {
   kind: LayoutMenuIconKind;
@@ -284,6 +285,19 @@ const LayoutMenuIcon: React.FC<LayoutMenuIconProps> = ({ kind, size = 16 }) => {
         <rect x={0.5} y={bandY} width={15} height={4} fill={fill} stroke="none" fillOpacity={0.35} />
         <line x1={0.5} y1={lineY} x2={15.5} y2={lineY} stroke={stroke} strokeWidth={1} />
       </>
+    );
+  } else if (kind === 'layout-default') {
+    // Default-layout marker: the layout frame with a star badge — this
+    // instance's layout is the one new instances inherit.
+    content = (
+      <polygon
+        points="8,2.4 9.05,5.3 12.15,5.42 9.7,7.32 10.55,10.3 8,8.55 5.45,10.3 6.3,7.32 3.85,5.42 6.95,5.3"
+        fill={fill}
+        fillOpacity={0.35}
+        stroke={stroke}
+        strokeWidth={1}
+        strokeLinejoin="round"
+      />
     );
   } else {
     content = (

@@ -39,7 +39,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 registerSetting({
   key: 'devpanelHeaders.layout',
   type: 'enum',
-  default: 'grouped',
+  default: 'flat',
   schema: layoutSchema,
   label: 'Headers Layout',
   description:
@@ -94,7 +94,7 @@ registerSetting({
 registerSetting({
   key: 'devpanelHeaders.showChips',
   type: 'boolean',
-  default: true,
+  default: false,
   schema: v.boolean(),
   label: 'Show Value Tags',
   description:
@@ -108,7 +108,7 @@ registerSetting({
 registerSetting({
   key: 'devpanelHeaders.showInsights',
   type: 'boolean',
-  default: true,
+  default: false,
   schema: v.boolean(),
   label: 'Show Suggestions',
   description:

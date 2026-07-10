@@ -142,43 +142,53 @@
   min-width: 140px;
 }
 
-/* ── Tab context menu (antd Dropdown, scoped compact) ──────
- * The tab strip right-click menu uses antd's Dropdown so it inherits
- * keyboard nav, submenu positioning, and dismissal semantics — but antd's
- * default 14px font and 8px row padding feel too heavy next to the 11px
- * DevTools-native type scale. Scoping these overrides under
- * `.dt-tab-ctx-menu` keeps every other antd popover in the panel (theme
- * menu, layout menu, Ant dropdowns inside the toolbar) at their defaults. */
-.dt-tab-ctx-menu .ant-dropdown-menu {
+/* ── Compact antd Dropdown menus (scoped) ──────────────────
+ * Menus that use antd's Dropdown inherit keyboard nav, submenu
+ * positioning, and dismissal semantics — but antd's default 14px font
+ * and 8px row padding feel too heavy next to the 11px DevTools-native
+ * type scale. Scoping these overrides under explicit classes keeps
+ * every other antd popover in the panel at its defaults.
+ *   `.dt-tab-ctx-menu`  — editor tab-strip right-click menu.
+ *   `.dt-layout-menu`   — toolbar layout menu + bottom-align dropdown. */
+.dt-tab-ctx-menu .ant-dropdown-menu,
+.dt-layout-menu .ant-dropdown-menu {
   font-size: 11px;
   padding: 4px 0;
   min-width: 200px;
 }
 
 .dt-tab-ctx-menu .ant-dropdown-menu-item,
-.dt-tab-ctx-menu .ant-dropdown-menu-submenu-title {
+.dt-tab-ctx-menu .ant-dropdown-menu-submenu-title,
+.dt-layout-menu .ant-dropdown-menu-item,
+.dt-layout-menu .ant-dropdown-menu-submenu-title {
   padding: 3px 12px;
   line-height: 1.5;
   min-height: 22px;
 }
 
 .dt-tab-ctx-menu .ant-dropdown-menu-item-icon,
-.dt-tab-ctx-menu .ant-dropdown-menu-submenu-title .ant-dropdown-menu-item-icon {
+.dt-tab-ctx-menu .ant-dropdown-menu-submenu-title .ant-dropdown-menu-item-icon,
+.dt-layout-menu .ant-dropdown-menu-item-icon,
+.dt-layout-menu .ant-dropdown-menu-submenu-title .ant-dropdown-menu-item-icon {
   margin-inline-end: 6px;
   font-size: 13px;
   min-width: 18px;
 }
 
-.dt-tab-ctx-menu .ant-dropdown-menu-title-content {
+.dt-tab-ctx-menu .ant-dropdown-menu-title-content,
+.dt-layout-menu .ant-dropdown-menu-title-content {
   font-size: 11px;
 }
 
-.dt-tab-ctx-menu .ant-dropdown-menu-item-divider {
+.dt-tab-ctx-menu .ant-dropdown-menu-item-divider,
+.dt-layout-menu .ant-dropdown-menu-item-divider {
   margin: 3px 0;
 }
 
-/* Same compact treatment for the nested "Split and Move" submenu. */
-.dt-tab-ctx-menu .ant-dropdown-menu-submenu > .ant-dropdown-menu {
+/* Same compact treatment for nested submenus ("Split and Move",
+ * "Bottom Panel Alignment", "Activity Bar Layout", …). */
+.dt-tab-ctx-menu .ant-dropdown-menu-submenu > .ant-dropdown-menu,
+.dt-layout-menu .ant-dropdown-menu-submenu > .ant-dropdown-menu {
   font-size: 11px;
   padding: 4px 0;
   min-width: 120px;
