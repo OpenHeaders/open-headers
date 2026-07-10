@@ -41,6 +41,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     trustedProxy: false,
     allowedHosts: [],
     webRoot: null,
+    oidc: null,
     configPath: path.join(dataDir, 'daemon.json'),
     ...overrides,
   };

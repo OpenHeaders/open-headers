@@ -108,6 +108,9 @@ import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
+import type { DaemonOidcConfig } from './oidc/oidc-config';
+import { createOidcHttpHandler } from './oidc/oidc-http';
+import { createDaemonOidcService, type DaemonOidcService } from './oidc/oidc-service';
 import { createFilteredPeerBroadcast } from './peer-read-filter';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
@@ -190,6 +193,12 @@ export interface DaemonSpineConfig {
    * bind (Phase 4a) — `/` + assets, composed after every claimed route.
    * Absent = no static route; unclaimed paths keep the 400 fallback.
    */
+  /**
+   * OIDC/SSO login (Phase 5 slice 3). Absent = no `/auth/oidc/*` routes;
+   * the token/pairing paths are unaffected either way — SSO is only an
+   * additional way to mint a session credential.
+   */
+  oidc?: DaemonOidcConfig;
   staticWeb?: {
     rootDir: string;
     /**
@@ -428,6 +437,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     trustedProxy: config.admission?.trustedProxy,
     allowedHosts: config.admission?.allowedHosts,
     webEnabled: staticWebEnabled,
+    oidcEnabled: config.oidc !== undefined,
   });
 
   // 4b. Daemon device-flow pairing surface (U3.3). One service instance
@@ -451,7 +461,21 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     resolvePeer: admission.resolvePeer,
   });
 
-  // 4c'. Static web bundle (Phase 4a) — the Workbench front door,
+  // 4c''. OIDC login routes (Phase 5 slice 3) — `/auth/oidc/*`, active
+  //       only when a provider is configured. Composed BEFORE the static
+  //       handler so the SPA fallback never serves HTML under an auth
+  //       path.
+  const oidcService: DaemonOidcService | null = config.oidc ? createDaemonOidcService(config.oidc) : null;
+  const oidcHttpHandler =
+    oidcService && config.oidc
+      ? createOidcHttpHandler({
+          service: oidcService,
+          redirectOrigin: config.oidc.redirectOrigin,
+          trustedProxy: config.admission?.trustedProxy,
+        })
+      : null;
+
+  // 4c'''. Static web bundle (Phase 4a) — the Workbench front door,
   //      composed LAST so every claimed route (healthz, pairing, mcp)
   //      wins its path first. Absent config = no route; the 400
   //      fallback keeps answering unclaimed paths.
@@ -689,6 +713,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           healthzHandler(req, res) ||
           pairingHttpHandler(req, res) ||
           mcpInstall.handler(req, res) ||
+          (oidcHttpHandler !== null && oidcHttpHandler(req, res)) ||
           (staticWebHandler !== null && staticWebEnabled() ? staticWebHandler(req, res) : false),
       ),
       admission: admission.wsHooks,
@@ -726,6 +751,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     setActivityLog(null);
     setActivityMuteStore(null);
     pairingService.dispose();
+    oidcService?.dispose();
     mcpInstall.dispose();
     syncStatusReporter.dispose();
     await bindSupervisor?.dispose();

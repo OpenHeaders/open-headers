@@ -29,6 +29,13 @@ export const DaemonAuthTokenSchema = v.object({
    * so the solo tier's behavior is unchanged.
    */
   userId: v.optional(v.string()),
+  /**
+   * ms-since-epoch after which validation refuses this token. Absent =
+   * never expires (every operator-minted token). OIDC-minted session
+   * tokens carry one so an SSO session cannot outlive its configured
+   * lifetime without re-authenticating against the IdP.
+   */
+  expiresAt: v.optional(v.pipe(v.number(), v.integer())),
   /** ms-since-epoch of mint. */
   createdAt: v.pipe(v.number(), v.integer()),
   /** ms-since-epoch of the most recent successful HELLO validation; null until first use. */

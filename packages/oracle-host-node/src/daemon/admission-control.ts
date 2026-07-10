@@ -51,6 +51,8 @@ export interface AdmissionControlOptions {
    * lifetime (the standalone daemon's config).
    */
   webEnabled?: boolean | (() => boolean);
+  /** SSO is configured — `/auth/oidc/*` takes the `oidc` posture. Fixed for the process lifetime. */
+  oidcEnabled?: boolean;
   /** Limiter tuning override — tests only; production takes the defaults. */
   limiter?: RateLimiterOptions;
 }
@@ -75,10 +77,11 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
   const trustedProxy = options.trustedProxy ?? false;
   const allowedHosts = options.allowedHosts ?? [];
   const webEnabled = options.webEnabled;
+  const oidcEnabled = options.oidcEnabled ?? false;
   const matrixOptions =
     typeof webEnabled === 'function'
-      ? () => ({ webEnabled: webEnabled() })
-      : () => ({ webEnabled: webEnabled ?? false });
+      ? () => ({ webEnabled: webEnabled(), oidcEnabled })
+      : () => ({ webEnabled: webEnabled ?? false, oidcEnabled });
   const limiter: PeerRateLimiter = createPeerRateLimiter(options.limiter);
 
   function resolvePeer(req: IncomingMessage): string {

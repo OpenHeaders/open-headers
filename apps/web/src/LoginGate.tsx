@@ -6,10 +6,11 @@
  * offline-first without pairing.
  */
 
-import { Alert, Button, Input, Typography } from 'antd';
+import { Alert, Button, Divider, Input, Typography } from 'antd';
 import { useState } from 'react';
 import type { DaemonWire } from '@/host/daemon-wire';
 import { submitDaemonToken } from '@/host/join-gate';
+import { startOidcLogin } from '@/host/oidc-login';
 
 const CARD_STYLE: React.CSSProperties = {
   maxWidth: 400,
@@ -26,12 +27,16 @@ export interface LoginGateProps {
   onJoined: () => void;
   /** Called when the user chooses to keep working locally. */
   onSkip: () => void;
+  /** SSO provider label when the daemon has OIDC configured; null/absent = token-only gate. */
+  ssoProvider?: string | null;
+  /** Error carried into the gate (e.g. a failed SSO round-trip). */
+  initialError?: string | null;
 }
 
-export function LoginGate({ wire, onJoined, onSkip }: LoginGateProps): React.JSX.Element {
+export function LoginGate({ wire, onJoined, onSkip, ssoProvider, initialError }: LoginGateProps): React.JSX.Element {
   const [token, setToken] = useState('');
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
 
   const submit = async (): Promise<void> => {
     if (pending || token.trim().length === 0) return;
@@ -59,6 +64,16 @@ export function LoginGate({ wire, onJoined, onSkip }: LoginGateProps): React.JSX
         This OpenHeaders daemon requires a pairing token. Mint one on the machine running it with{' '}
         <Typography.Text code>oh daemon show-token</Typography.Text> and paste it below.
       </Typography.Paragraph>
+      {ssoProvider && (
+        <>
+          <Button block onClick={() => startOidcLogin()} disabled={pending} data-testid="login-gate-sso">
+            Sign in with {ssoProvider}
+          </Button>
+          <Divider plain style={{ margin: 0 }}>
+            or
+          </Divider>
+        </>
+      )}
       <Input.Password
         autoFocus
         data-testid="login-gate-token"

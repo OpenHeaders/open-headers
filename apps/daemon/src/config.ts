@@ -19,6 +19,7 @@ import * as path from 'node:path';
 import { parseArgs } from 'node:util';
 import { WS_PORT } from '@openheaders/core/protocol';
 import { isValidLogLevel, type LogLevel, validatePort } from '@openheaders/core/utils';
+import type { DaemonOidcConfig } from '@openheaders/oracle-host-node/daemon';
 
 export type BindAddress = '127.0.0.1' | '0.0.0.0';
 
@@ -51,6 +52,14 @@ export interface DaemonConfig {
    * daemon bundle, or serves nothing when that is absent too.
    */
   webRoot: string | null;
+  /**
+   * OIDC/SSO login provider (Phase 5 team tier). `null` = SSO off; the
+   * token/pairing login paths work either way. Configured via the
+   * `oidc` object in `daemon.json`; the client secret may instead ride
+   * `OH_DAEMON_OIDC_CLIENT_SECRET` so deployments can keep it out of
+   * the config file.
+   */
+  oidc: DaemonOidcConfig | null;
   /** The `daemon.json` path that was consulted (whether or not it existed). */
   configPath: string;
 }
@@ -64,6 +73,7 @@ interface ConfigFile {
   trustedProxy?: boolean;
   allowedHosts?: string[];
   webRoot?: string;
+  oidc?: DaemonOidcConfig;
 }
 
 export interface ResolveConfigInput {
@@ -125,6 +135,72 @@ function parseAllowedHost(raw: string, source: string): string {
   return trimmed;
 }
 
+function parseHttpUrl(raw: unknown, source: string, field: string): string {
+  if (typeof raw !== 'string' || !raw.trim()) throw new Error(`${source}: oidc.${field} must be a URL string`);
+  let parsed: URL;
+  try {
+    parsed = new URL(raw.trim());
+  } catch {
+    throw new Error(`${source}: oidc.${field} '${raw}' is not a valid URL`);
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`${source}: oidc.${field} must be http(s), got '${parsed.protocol}'`);
+  }
+  return raw.trim().replace(/\/$/, '');
+}
+
+/**
+ * The `oidc` object — issuer + clientId are mandatory; everything else
+ * refuses loudly on a wrong shape so a misconfigured SSO block never
+ * boots into a silently broken login.
+ */
+function parseOidcConfig(raw: unknown, source: string): DaemonOidcConfig {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`${source}: oidc must be a JSON object`);
+  }
+  const record = raw as Record<string, unknown>;
+  const out: DaemonOidcConfig = {
+    issuer: parseHttpUrl(record.issuer, source, 'issuer'),
+    clientId: '',
+  };
+  if (typeof record.clientId !== 'string' || !record.clientId.trim()) {
+    throw new Error(`${source}: oidc.clientId must be a non-empty string`);
+  }
+  out.clientId = record.clientId.trim();
+  if (record.clientSecret !== undefined) {
+    if (typeof record.clientSecret !== 'string') throw new Error(`${source}: oidc.clientSecret must be a string`);
+    out.clientSecret = record.clientSecret;
+  }
+  if (record.scopes !== undefined) {
+    if (!Array.isArray(record.scopes) || record.scopes.some((s) => typeof s !== 'string')) {
+      throw new Error(`${source}: oidc.scopes must be an array of strings`);
+    }
+    out.scopes = record.scopes.filter((s): s is string => typeof s === 'string');
+  }
+  if (record.autoProvision !== undefined) {
+    if (typeof record.autoProvision !== 'boolean') throw new Error(`${source}: oidc.autoProvision must be a boolean`);
+    out.autoProvision = record.autoProvision;
+  }
+  if (record.sessionTtlDays !== undefined) {
+    if (
+      typeof record.sessionTtlDays !== 'number' ||
+      !Number.isFinite(record.sessionTtlDays) ||
+      record.sessionTtlDays <= 0
+    ) {
+      throw new Error(`${source}: oidc.sessionTtlDays must be a positive number`);
+    }
+    out.sessionTtlDays = record.sessionTtlDays;
+  }
+  if (record.redirectOrigin !== undefined) {
+    out.redirectOrigin = parseHttpUrl(record.redirectOrigin, source, 'redirectOrigin');
+  }
+  if (record.providerLabel !== undefined) {
+    if (typeof record.providerLabel !== 'string') throw new Error(`${source}: oidc.providerLabel must be a string`);
+    out.providerLabel = record.providerLabel;
+  }
+  return out;
+}
+
 function readConfigFile(configPath: string): ConfigFile {
   let text: string;
   try {
@@ -167,6 +243,9 @@ function readConfigFile(configPath: string): ConfigFile {
   if (record.webRoot !== undefined) {
     if (typeof record.webRoot !== 'string') throw new Error(`${configPath}: webRoot must be a string`);
     out.webRoot = record.webRoot;
+  }
+  if (record.oidc !== undefined) {
+    out.oidc = parseOidcConfig(record.oidc, configPath);
   }
   return out;
 }
@@ -232,5 +311,18 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
   const rawWebRoot = values['web-root'] ?? input.env.OH_DAEMON_WEB_ROOT ?? file.webRoot;
   const webRoot = rawWebRoot === undefined ? null : path.resolve(rawWebRoot);
 
-  return { dataDir, bindAddress, bindPort, logLevel, trustedProxy, allowedHosts, webRoot, configPath };
+  // The secret env override rides ON TOP of the file's oidc block —
+  // deployments keep issuer/clientId in daemon.json and the secret in
+  // the service unit's environment. The env var without an oidc block
+  // is refused: half a provider config is a misconfiguration.
+  const envClientSecret = input.env.OH_DAEMON_OIDC_CLIENT_SECRET;
+  let oidc: DaemonOidcConfig | null = file.oidc ?? null;
+  if (envClientSecret !== undefined) {
+    if (!oidc) {
+      throw new Error('OH_DAEMON_OIDC_CLIENT_SECRET is set but daemon.json has no oidc block');
+    }
+    oidc = { ...oidc, clientSecret: envClientSecret };
+  }
+
+  return { dataDir, bindAddress, bindPort, logLevel, trustedProxy, allowedHosts, webRoot, oidc, configPath };
 }

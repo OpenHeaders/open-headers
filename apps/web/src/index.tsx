@@ -15,7 +15,8 @@ import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { bootWebHost } from '@/host/boot-web-host';
 import { installDaemonWire } from '@/host/daemon-wire';
-import { awaitPostJoinAdoption, decideGate } from '@/host/join-gate';
+import { awaitPostJoinAdoption, decideGate, submitDaemonToken } from '@/host/join-gate';
+import { claimOidcToken, consumeOidcHash, describeOidcError, fetchOidcMeta } from '@/host/oidc-login';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { InsecureContextNotice } from '@/InsecureContextNotice';
 import { LoginGate } from '@/LoginGate';
@@ -66,19 +67,43 @@ if (!window.isSecureContext) {
     renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />);
   };
 
+  // SSO callback landing: pull the one-shot fragment result out of the
+  // URL before anything else reads it. A claim code swaps for the
+  // session token daemon-side, and the token then rides the exact
+  // pasted-token path — candidate in memory, real HELLO, persisted only
+  // on WELCOME accept.
+  const oidcResult = consumeOidcHash();
+  let ssoJoined = false;
+  let ssoError: string | null = null;
+  if (oidcResult?.kind === 'claim') {
+    const secret = await claimOidcToken(oidcResult.code);
+    if (secret && (await submitDaemonToken(wire, secret)).ok) {
+      ssoJoined = true;
+    } else {
+      ssoError = describeOidcError(secret ? 'rejected' : 'unknown');
+    }
+  } else if (oidcResult?.kind === 'error') {
+    ssoError = describeOidcError(oidcResult.reason);
+  }
+
   // Login gate: a reachable daemon with no stored pairing token gates the
   // mount; the entered token is validated by a real HELLO/WELCOME before
   // it persists. An unreachable daemon (or a stored token) mounts
   // straight away — the tab is offline-first, the wire joins in the
   // background. "Skip" keeps the tab local without dialing.
-  if ((await decideGate()) === 'gate') {
+  if (ssoJoined) {
+    // Mount only after join → adopt promoted the daemon's workspace so
+    // the first workbench tab pins to the adopted scope.
+    await awaitPostJoinAdoption(wire);
+    mountWorkbench();
+  } else if (ssoError !== null || (await decideGate()) === 'gate') {
+    const oidcMeta = await fetchOidcMeta();
     renderShell(
       <LoginGate
         wire={wire}
+        ssoProvider={oidcMeta.enabled ? (oidcMeta.provider ?? 'SSO') : null}
+        initialError={ssoError}
         onJoined={() => {
-          // Mount only after join → adopt promoted the daemon's workspace
-          // so the first workbench tab pins to the adopted scope, not the
-          // pre-join local workspace.
           void awaitPostJoinAdoption(wire).then(mountWorkbench);
         }}
         onSkip={() => renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />)}

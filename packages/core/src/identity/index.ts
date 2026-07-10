@@ -57,6 +57,7 @@ export {
   createDaemonUser,
   type DeactivateDaemonUserResult,
   deactivateDaemonUser,
+  findDaemonUserByEmail,
   listDaemonUsers,
   type ResolveDaemonPeerUserResult,
   resolveDaemonPeerUser,

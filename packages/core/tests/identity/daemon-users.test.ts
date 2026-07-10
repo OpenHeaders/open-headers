@@ -11,6 +11,7 @@ import {
   createDaemonUser,
   deactivateDaemonUser,
   ensureSyntheticIdentity,
+  findDaemonUserByEmail,
   listDaemonUsers,
   mintDaemonAuthToken,
   resolveDaemonPeerUser,
@@ -114,6 +115,26 @@ describe('daemon users', () => {
     const result = await validateDaemonAuthToken(secret);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.userId).toBeUndefined();
+  });
+
+  describe('findDaemonUserByEmail', () => {
+    it('finds a record case-insensitively and returns deactivated ones too', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'Alice@openheaders.io' });
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+      const found = await findDaemonUserByEmail('alice@OPENHEADERS.IO');
+      expect(found?.user.id).toBe(created.record.user.id);
+      await deactivateDaemonUser(created.record.user.id);
+      const foundAfter = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(foundAfter?.user.id).toBe(created.record.user.id);
+      expect(foundAfter?.deactivatedAt).not.toBeNull();
+    });
+
+    it('returns null for unknown, empty, and local-kind identities', async () => {
+      await createDaemonUser({ displayName: 'NoMail' });
+      expect(await findDaemonUserByEmail('nobody@openheaders.io')).toBeNull();
+      expect(await findDaemonUserByEmail('   ')).toBeNull();
+    });
   });
 
   describe('resolveDaemonPeerUser', () => {

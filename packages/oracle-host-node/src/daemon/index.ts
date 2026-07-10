@@ -8,4 +8,5 @@
  */
 
 export { bootDaemonSpine, type DaemonSpineConfig, type DaemonSpineHandle } from './boot-spine';
+export type { DaemonOidcConfig } from './oidc/oidc-config';
 export type { SpineStatusReport, SpineStatusReporter, SpineStatusStore } from './status-seam';

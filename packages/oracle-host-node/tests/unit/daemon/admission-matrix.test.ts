@@ -46,6 +46,16 @@ describe('routePostureFor', () => {
     expect(routePostureFor(facts({ upgrade: true, path: '/' }), webEnabled).route).toBe('ws-upgrade');
   });
 
+  it('oidc-enabled composition claims /auth/oidc/* ahead of the web fallback', () => {
+    const enabled = { webEnabled: true, oidcEnabled: true } as const;
+    expect(routePostureFor(facts({ path: '/auth/oidc/start' }), enabled).route).toBe('oidc');
+    expect(routePostureFor(facts({ path: '/auth/oidc/callback' }), enabled).route).toBe('oidc');
+    expect(routePostureFor(facts({ path: '/auth/oidc/claim' }), enabled).route).toBe('oidc');
+    // Without SSO configured the prefix is just an unclaimed path.
+    expect(routePostureFor(facts({ path: '/auth/oidc/start' }), { webEnabled: true }).route).toBe('web');
+    expect(routePostureFor(facts({ path: '/auth/oidc/start' })).route).toBe('default');
+  });
+
   it('marks the brute-force routes and their failure statuses', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).rateLimited).toBe(false);
     expect(routePostureFor(facts({ path: '/pair/1' })).failureStatuses).toEqual([404]);
@@ -118,6 +128,26 @@ describe('origin posture', () => {
     expect(
       evaluateAdmission(facts({ path: '/', host: 'oh.openheaders.io' }), ['oh.openheaders.io'], webEnabled).ok,
     ).toBe(true);
+  });
+
+  it('oidc route accepts navigations and the own origin, rejects foreign pages, counts claim guesses', () => {
+    const enabled = { oidcEnabled: true } as const;
+    const posture = routePostureFor(facts({ path: '/auth/oidc/claim' }), enabled);
+    expect(posture.rateLimited).toBe(true);
+    expect(posture.failureStatuses).toEqual([404]);
+    // Top-level navigations (start, the IdP's callback redirect) carry no Origin.
+    expect(evaluateAdmission(facts({ path: '/auth/oidc/callback' }), [], enabled).ok).toBe(true);
+    // The SPA's claim POST carries the daemon's own served origin.
+    expect(
+      evaluateAdmission(facts({ path: '/auth/oidc/claim', origin: 'http://192.168.1.20:8137' }), [], enabled).ok,
+    ).toBe(true);
+    expect(
+      evaluateAdmission(facts({ path: '/auth/oidc/claim', origin: 'https://evil.example.com' }), [], enabled),
+    ).toMatchObject({ ok: false, reason: 'origin-forbidden' });
+    // DNS-rebinding guard holds like every browser-facing route.
+    expect(
+      evaluateAdmission(facts({ path: '/auth/oidc/start', host: 'rebound.example.com' }), [], enabled),
+    ).toMatchObject({ ok: false, reason: 'host-forbidden' });
   });
 
   it('default routes reject browser origins', () => {

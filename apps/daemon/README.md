@@ -7,7 +7,8 @@ extension, desktop app, and CLI over one WebSocket/HTTP bind.
 
 Your machine, your LAN, a Raspberry Pi/NAS, or a VM you rent. No account, no
 cloud relay, no telemetry, no phone-home — the daemon makes zero outbound
-connections.
+connections except ones you configure (an OIDC identity provider for SSO
+login, if you set one up).
 
 ## Requirements
 
@@ -67,6 +68,7 @@ Precedence, highest first: argv → env → `daemon.json` → defaults.
 | `--allowed-host` (repeatable) | `OH_DAEMON_ALLOWED_HOSTS` (comma-separated) | `allowedHosts` | none |
 | `--web-root` | `OH_DAEMON_WEB_ROOT` | `webRoot` | `web/` beside the daemon bundle |
 | `--config` | `OH_DAEMON_CONFIG` | — | `<data dir>/daemon.json` |
+| — | `OH_DAEMON_OIDC_CLIENT_SECRET` | `oidc` (object, see below) | SSO off |
 
 Everything the daemon persists (`storage.json`, `oracle.db`, blobs) lives under
 the data dir.
@@ -97,13 +99,50 @@ to serve that instead. An explicitly configured web root must contain an
 `index.html`, or the daemon refuses to boot; without any web root the daemon
 runs headless-only and `/` answers 400 as before.
 
+## SSO login (OIDC)
+
+Team deployments can let users sign in to the served web app through an
+OpenID Connect provider instead of pasting a pairing token. Configure the
+provider in `daemon.json`:
+
+```json
+{
+  "oidc": {
+    "issuer": "https://sso.example.com",
+    "clientId": "openheaders-daemon",
+    "redirectOrigin": "https://oh.example.com",
+    "autoProvision": false,
+    "sessionTtlDays": 30,
+    "providerLabel": "Example SSO"
+  }
+}
+```
+
+Register `<redirectOrigin>/auth/oidc/callback` as the client's redirect URI
+with the provider. For confidential clients, put the client secret in
+`daemon.json` as `oidc.clientSecret` or (better) in the service environment as
+`OH_DAEMON_OIDC_CLIENT_SECRET`; public clients need no secret — the flow
+always runs PKCE. `redirectOrigin` may be omitted for single-hostname
+deployments; the daemon then derives it from the request.
+
+A successful login maps the provider's verified email onto a daemon user
+(`oh daemon user add <name> --email <email>`) and mints a session token bound
+to that user, expiring after `sessionTtlDays` (default 30). Unknown emails are
+refused unless `autoProvision` is `true`, which creates the user with zero
+workspace grants — grant access with `oh daemon user grant`. Daemon-local
+users, pairing, and operator-minted tokens keep working unchanged; SSO is
+additive.
+
 ## Admission and rate limits
 
 Every route on the bind enforces its own Origin/Host posture: `/mcp` refuses
 any browser-originated request outright; the WebSocket sync route accepts
 browser-extension origins and the daemon's own served origin; the pairing
 pages accept only same-origin form posts; the web app pages accept top-level
-navigations and same-origin fetches; `/healthz` stays open. Requests
+navigations and same-origin fetches; the SSO login routes (`/auth/oidc/*`,
+active only when configured) accept top-level navigations and same-origin
+fetches, and claim-code guesses feed the failure budget; `/healthz` stays
+open. Requests
 addressed by a hostname the daemon doesn't answer as are refused on the
 browser-facing routes — IP addresses, `localhost`, and mDNS `*.local` names
 always work; anything else (a reverse-proxy domain, an intranet name) must be

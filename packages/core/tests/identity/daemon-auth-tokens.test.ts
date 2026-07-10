@@ -77,6 +77,29 @@ describe('daemon auth tokens', () => {
     expect(persisted[0].revokedAt).toBe(4242);
   });
 
+  it('accepts a token before its expiresAt and refuses it after with expired reason', async () => {
+    const { secret } = await mintDaemonAuthToken({ expiresAt: 10_000 });
+    const before = await validateDaemonAuthToken(secret, () => 9_999);
+    expect(before.ok).toBe(true);
+    const after = await validateDaemonAuthToken(secret, () => 10_000);
+    expect(after.ok).toBe(false);
+    if (!after.ok) expect(after.reason).toBe('expired');
+  });
+
+  it('a token without expiresAt never expires', async () => {
+    const { secret } = await mintDaemonAuthToken();
+    const result = await validateDaemonAuthToken(secret, () => Number.MAX_SAFE_INTEGER);
+    expect(result.ok).toBe(true);
+  });
+
+  it('revoked wins over expired when both apply', async () => {
+    const { record, secret } = await mintDaemonAuthToken({ expiresAt: 10_000 });
+    await revokeDaemonAuthToken(record.id, () => 5);
+    const result = await validateDaemonAuthToken(secret, () => 20_000);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('revoked');
+  });
+
   it('list returns every token (including revoked) in insertion order', async () => {
     await mintDaemonAuthToken({ label: 'first' });
     await mintDaemonAuthToken({ label: 'second' });

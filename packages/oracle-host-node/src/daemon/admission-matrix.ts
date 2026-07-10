@@ -17,6 +17,12 @@
  *                      forged confirms.
  *   - `/mcp`         — native processes only; any Origin ⇒ reject
  *                      (pinned in the MCP epic, don't re-open).
+ *   - `/auth/oidc/*` — active only when SSO is configured. Top-level
+ *                      navigations (start, the IdP's callback redirect)
+ *                      carry no Origin; the SPA's claim POST carries the
+ *                      own served origin. Foreign browser origins are
+ *                      forged logins. Claim-code guesses (404) feed the
+ *                      brute-force limiter.
  *   - web (Phase 4a) — when the daemon serves the web bundle, every
  *                      path not claimed above is the static front door:
  *                      top-level navigations (no Origin) and the own
@@ -54,12 +60,14 @@ export interface AdmissionRequestFacts {
   readonly host: string | undefined;
 }
 
-export type AdmissionRoute = 'healthz' | 'ws-upgrade' | 'pairing' | 'mcp' | 'web' | 'default';
+export type AdmissionRoute = 'healthz' | 'ws-upgrade' | 'pairing' | 'mcp' | 'oidc' | 'web' | 'default';
 
 /** Matrix-wide switches derived from the daemon's composition, not per-request facts. */
 export interface AdmissionMatrixOptions {
   /** The daemon serves the web bundle — unclaimed paths are the browser-facing `web` route. */
   readonly webEnabled?: boolean;
+  /** SSO is configured — `/auth/oidc/*` takes the `oidc` posture. */
+  readonly oidcEnabled?: boolean;
 }
 
 export type OriginPosture =
@@ -89,6 +97,7 @@ export interface RoutePosture {
 }
 
 const PAIRING_PATH_PREFIX = '/pair/';
+const OIDC_PATH_PREFIX = '/auth/oidc/';
 const HEALTHZ_PATH = '/healthz';
 
 const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
@@ -107,6 +116,10 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   // user racing the 5-minute window, not an attack signal.
   pairing: { route: 'pairing', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [404] },
   mcp: { route: 'mcp', origin: 'non-browser', host: 'any', rateLimited: true, failureStatuses: [401] },
+  // 404 = a claim-code guess (the one-shot code the callback redirect
+  // hands the SPA). Redirect-shaped failures (bad state, refused login)
+  // are 302s into the SPA's error fragment, not attack statuses.
+  oidc: { route: 'oidc', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [404] },
   // Static misses are ordinary navigation noise, not auth signals — no
   // failure statuses; the rate limit still holds the front door against
   // peers already blocked for real failures elsewhere.
@@ -119,6 +132,7 @@ export function routePostureFor(facts: AdmissionRequestFacts, options: Admission
   if (facts.path === HEALTHZ_PATH) return ROUTE_POSTURES.healthz;
   if (facts.path.startsWith(PAIRING_PATH_PREFIX)) return ROUTE_POSTURES.pairing;
   if (facts.path === MCP_HTTP_PATH || facts.path === `${MCP_HTTP_PATH}/`) return ROUTE_POSTURES.mcp;
+  if (options.oidcEnabled && facts.path.startsWith(OIDC_PATH_PREFIX)) return ROUTE_POSTURES.oidc;
   return options.webEnabled ? ROUTE_POSTURES.web : ROUTE_POSTURES.default;
 }
 

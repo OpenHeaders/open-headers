@@ -118,6 +118,33 @@ describe('resolveDaemonConfig — precedence', () => {
     );
     expect(path.isAbsolute(resolve(['--web-root', 'relative/web']).webRoot ?? '')).toBe(true);
   });
+
+  it('reads the oidc block, defaulting to null, with the secret env riding on top', () => {
+    expect(resolve().oidc).toBeNull();
+    const file = writeConfigFile({
+      oidc: {
+        issuer: 'https://sso.openheaders.io/',
+        clientId: 'oh-daemon',
+        scopes: ['openid', 'email', 'profile'],
+        autoProvision: true,
+        sessionTtlDays: 7,
+        redirectOrigin: 'https://oh.openheaders.io',
+        providerLabel: 'ACME SSO',
+      },
+    });
+    const config = resolve(['--config', file]);
+    expect(config.oidc).toMatchObject({
+      issuer: 'https://sso.openheaders.io', // trailing slash trimmed
+      clientId: 'oh-daemon',
+      autoProvision: true,
+      sessionTtlDays: 7,
+      redirectOrigin: 'https://oh.openheaders.io',
+      providerLabel: 'ACME SSO',
+    });
+    expect(config.oidc?.clientSecret).toBeUndefined();
+    const withEnv = resolve(['--config', file], { OH_DAEMON_OIDC_CLIENT_SECRET: 's3cret' });
+    expect(withEnv.oidc?.clientSecret).toBe('s3cret');
+  });
 });
 
 describe('resolveDaemonConfig — validation', () => {
@@ -145,6 +172,26 @@ describe('resolveDaemonConfig — validation', () => {
   it('rejects a non-string webRoot in the config file', () => {
     const file = writeConfigFile({ webRoot: 42 });
     expect(() => resolve(['--config', file])).toThrow(/webRoot/);
+  });
+
+  it('rejects a malformed oidc block rather than booting a broken login', () => {
+    expect(() => resolve(['--config', writeConfigFile({ oidc: { clientId: 'x' } })])).toThrow(/oidc\.issuer/);
+    expect(() => resolve(['--config', writeConfigFile({ oidc: { issuer: 'https://sso.openheaders.io' } })])).toThrow(
+      /oidc\.clientId/,
+    );
+    expect(() => resolve(['--config', writeConfigFile({ oidc: { issuer: 'not-a-url', clientId: 'x' } })])).toThrow(
+      /not a valid URL/,
+    );
+    expect(() =>
+      resolve([
+        '--config',
+        writeConfigFile({ oidc: { issuer: 'https://sso.openheaders.io', clientId: 'x', sessionTtlDays: -1 } }),
+      ]),
+    ).toThrow(/sessionTtlDays/);
+  });
+
+  it('rejects the secret env var without an oidc block (half a provider config)', () => {
+    expect(() => resolve([], { OH_DAEMON_OIDC_CLIENT_SECRET: 's3cret' })).toThrow(/no oidc block/);
   });
 
   it('rejects URL-shaped allowed hosts rather than never matching them', () => {

@@ -1,0 +1,115 @@
+/**
+ * SSO (OIDC) login support for the web tab (Phase 5 slice 3).
+ *
+ * The heavy lifting lives daemon-side (`/auth/oidc/*`): the gate's SSO
+ * button is a plain top-level navigation to `/auth/oidc/start`, the IdP
+ * round-trip ends in a redirect back to `/#oidc=<claim-code>` (or
+ * `/#oidc-error=<reason>`), and this module is the SPA's side of that
+ * contract — probe whether SSO is configured, pull the one-shot result
+ * out of the URL fragment before anything else reads it, and swap the
+ * claim code for the session token. The token then rides the exact
+ * pasted-token path: candidate in memory, real HELLO, persist only on
+ * WELCOME accept.
+ */
+
+import { hostLogger as logger } from '@openheaders/core/logger';
+
+const SCOPE = 'OidcLogin';
+
+const META_PATH = '/auth/oidc/meta';
+const CLAIM_PATH = '/auth/oidc/claim';
+const CLAIM_HASH_PREFIX = '#oidc=';
+const ERROR_HASH_PREFIX = '#oidc-error=';
+const META_PROBE_TIMEOUT_MS = 1500;
+
+export interface OidcMeta {
+  readonly enabled: boolean;
+  readonly provider?: string;
+}
+
+/**
+ * Is SSO configured on the serving daemon? A daemon without OIDC has no
+ * `/auth/oidc/*` routes, so the SPA fallback answers this path with the
+ * app HTML — only a JSON `{ enabled: true }` counts.
+ */
+export async function fetchOidcMeta(): Promise<OidcMeta> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), META_PROBE_TIMEOUT_MS);
+    const response = await fetch(META_PATH, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok || !(response.headers.get('content-type') ?? '').includes('application/json')) {
+      return { enabled: false };
+    }
+    const payload = (await response.json()) as { enabled?: unknown; provider?: unknown };
+    return {
+      enabled: payload.enabled === true,
+      ...(typeof payload.provider === 'string' ? { provider: payload.provider } : {}),
+    };
+  } catch {
+    return { enabled: false };
+  }
+}
+
+export type OidcHashResult = { kind: 'claim'; code: string } | { kind: 'error'; reason: string };
+
+/**
+ * Pull the callback's one-shot result out of `location.hash` and strip
+ * it from the URL (and browser history) immediately — the claim code is
+ * single-use, and a reload must not retry a spent one.
+ */
+export function consumeOidcHash(
+  location: Pick<Location, 'hash'> = window.location,
+  replaceUrl: (url: string) => void = (url) => window.history.replaceState(null, '', url),
+): OidcHashResult | null {
+  const hash = location.hash;
+  if (hash.startsWith(CLAIM_HASH_PREFIX)) {
+    const code = decodeURIComponent(hash.slice(CLAIM_HASH_PREFIX.length));
+    replaceUrl('/');
+    return code ? { kind: 'claim', code } : { kind: 'error', reason: 'state-mismatch' };
+  }
+  if (hash.startsWith(ERROR_HASH_PREFIX)) {
+    const reason = decodeURIComponent(hash.slice(ERROR_HASH_PREFIX.length));
+    replaceUrl('/');
+    return { kind: 'error', reason: reason || 'unknown' };
+  }
+  return null;
+}
+
+/** Swap the one-shot claim code for the session token. Null = spent/expired/offline. */
+export async function claimOidcToken(code: string): Promise<string | null> {
+  try {
+    const response = await fetch(CLAIM_PATH, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { ok?: unknown; secret?: unknown };
+    return payload.ok === true && typeof payload.secret === 'string' ? payload.secret : null;
+  } catch (err) {
+    logger.warn(SCOPE, 'claim failed', err);
+    return null;
+  }
+}
+
+/** Human-readable line for the gate when an SSO attempt failed. */
+export function describeOidcError(reason: string): string {
+  switch (reason) {
+    case 'unknown-user':
+      return 'Signed in, but this daemon has no user for your email. Ask the daemon admin to add you.';
+    case 'user-deactivated':
+      return 'Signed in, but your user on this daemon is deactivated. Ask the daemon admin.';
+    case 'email-unverified':
+      return 'Your identity provider reports the email as unverified. Verify it and try again.';
+    case 'provider-unavailable':
+      return 'The identity provider could not be reached. Try again in a moment.';
+    default:
+      return 'Single sign-on failed. Try again, or connect with a pairing token instead.';
+  }
+}
+
+/** Kick off the SSO round-trip — a full-page navigation, by design. */
+export function startOidcLogin(navigate: (url: string) => void = (url) => window.location.assign(url)): void {
+  navigate('/auth/oidc/start');
+}

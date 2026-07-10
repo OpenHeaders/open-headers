@@ -37,6 +37,12 @@ export interface MintDaemonAuthTokenInput {
    * admission time (the solo tier's every mint).
    */
   userId?: string;
+  /**
+   * ms-since-epoch after which validation refuses the token. Omitted →
+   * never expires (every operator-minted token keeps today's
+   * semantics). OIDC session mints pass one.
+   */
+  expiresAt?: number;
   /** Test seam — defaults to `Date.now()`. */
   now?: () => number;
 }
@@ -58,7 +64,7 @@ export interface ValidateDaemonAuthTokenSuccess {
 
 export interface ValidateDaemonAuthTokenFailure {
   readonly ok: false;
-  readonly reason: 'no-token' | 'unknown' | 'revoked';
+  readonly reason: 'no-token' | 'unknown' | 'revoked' | 'expired';
 }
 
 export type ValidateDaemonAuthTokenResult = ValidateDaemonAuthTokenSuccess | ValidateDaemonAuthTokenFailure;
@@ -141,6 +147,7 @@ export async function mintDaemonAuthToken(input: MintDaemonAuthTokenInput = {}):
     tokenHash,
     label: input.label,
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
+    ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
     createdAt: now,
     lastUsedAt: null,
     revokedAt: null,
@@ -187,6 +194,7 @@ export async function validateDaemonAuthToken(
 ): Promise<ValidateDaemonAuthTokenResult> {
   if (!presented) return { ok: false, reason: 'no-token' };
   const presentedHash = await sha256Hex(presented);
+  const nowMs = now();
   // Inside the store lock so the scan reads — and the lastUsedAt bump
   // writes back — atomically with respect to a concurrent same-realm
   // revoke; otherwise the write-back would resurrect the revoked row.
@@ -194,6 +202,7 @@ export async function validateDaemonAuthToken(
     const current = await readTokens();
     let matchIdx = -1;
     let sawRevokedMatch = false;
+    let sawExpiredMatch = false;
     for (let i = 0; i < current.length; i++) {
       const candidate = current[i];
       if (!constantTimeEqual(candidate.tokenHash, presentedHash)) continue;
@@ -201,17 +210,21 @@ export async function validateDaemonAuthToken(
         sawRevokedMatch = true;
         continue;
       }
+      if (candidate.expiresAt !== undefined && candidate.expiresAt <= nowMs) {
+        sawExpiredMatch = true;
+        continue;
+      }
       matchIdx = i;
       break;
     }
     if (matchIdx === -1) {
-      return { ok: false, reason: sawRevokedMatch ? 'revoked' : 'unknown' };
+      return { ok: false, reason: sawRevokedMatch ? 'revoked' : sawExpiredMatch ? 'expired' : 'unknown' };
     }
     const match = current[matchIdx];
     // Persist the lastUsedAt bump; tolerate write failures so a transient
     // storage hiccup doesn't reject an otherwise-valid peer.
     const next = current.slice();
-    next[matchIdx] = { ...match, lastUsedAt: now() };
+    next[matchIdx] = { ...match, lastUsedAt: nowMs };
     await writeTokens(next).catch(() => undefined);
     return {
       ok: true,

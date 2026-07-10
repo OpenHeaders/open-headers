@@ -115,6 +115,20 @@ export async function listDaemonUsers(): Promise<readonly DaemonUserRecord[]> {
 }
 
 /**
+ * Look up a directory record by its email identity, case-insensitively
+ * — the join an SSO login runs from the IdP's verified email claim.
+ * Deactivated records are returned too; the caller decides how a
+ * deactivated user's login fails (it must not auto-provision a
+ * duplicate).
+ */
+export async function findDaemonUserByEmail(email: string): Promise<DaemonUserRecord | null> {
+  const needle = email.trim().toLowerCase();
+  if (!needle) return null;
+  const users = await readUsers();
+  return users.find((r) => r.userIdentity.kind === 'email' && r.userIdentity.value?.toLowerCase() === needle) ?? null;
+}
+
+/**
  * Deactivate a directory user. Soft — the record stays for audit
  * continuity; admission refuses the user's tokens from the next HELLO
  * on ({@link resolveDaemonPeerUser}). Revoking the user's live tokens

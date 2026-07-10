@@ -104,9 +104,10 @@ async function main(): Promise<void> {
   const proxyNote = config.trustedProxy ? ', behind trusted proxy' : '';
   const hostsNote = config.allowedHosts.length > 0 ? `, allowed hosts ${config.allowedHosts.join(' ')}` : '';
   const webNote = staticWeb ? `, web ui from ${staticWeb.rootDir}` : '';
+  const oidcNote = config.oidc ? `, sso via ${config.oidc.issuer}` : '';
   log.info(
     SCOPE,
-    `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}`,
+    `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}`,
   );
 
   const spine = await bootDaemonSpine({
@@ -129,6 +130,7 @@ async function main(): Promise<void> {
       trustedProxy: config.trustedProxy,
       allowedHosts: config.allowedHosts,
     },
+    ...(config.oidc ? { oidc: config.oidc } : {}),
     staticWeb,
     broadcastLocal: () => {
       // No same-process surfaces yet — the served web app (Phase 4)

@@ -30,6 +30,7 @@ function makeConfig(): DaemonConfig {
     trustedProxy: false,
     allowedHosts: [],
     webRoot: null,
+    oidc: null,
     configPath: path.join(dataDir, 'daemon.json'),
   };
 }
