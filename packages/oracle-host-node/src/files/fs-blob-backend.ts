@@ -176,9 +176,9 @@ export class FileSystemBlobBackend implements BlobBackend {
     const createdAt = new Date().toISOString();
     const bytes = new Uint8Array(await input.blob.arrayBuffer());
 
-    await fs.mkdir(this.workspaceDir(workspaceId), { recursive: true });
+    await fs.mkdir(this.workspaceDir(workspaceId), { recursive: true, mode: 0o700 });
     const filePath = this.blobPath(workspaceId, fileId);
-    await fs.writeFile(filePath, bytes);
+    await fs.writeFile(filePath, bytes, { mode: 0o600 });
 
     try {
       statementsFor(this.db).insert.run(

@@ -274,11 +274,14 @@ export class FileBackedHostStorage implements HostStorage {
   }
 
   private async writeNow(): Promise<void> {
+    // Owner-only at rest: the envelope carries encrypted secrets and
+    // credential hashes. The mode rides the tmp file through the rename,
+    // so a pre-existing wider file tightens on its first flush.
     const dir = path.dirname(this.filePath);
-    await fs.mkdir(dir, { recursive: true });
+    await fs.mkdir(dir, { recursive: true, mode: 0o700 });
     const tmp = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
     const body = JSON.stringify(this.envelope, null, 2);
-    await fs.writeFile(tmp, body, { encoding: 'utf-8' });
+    await fs.writeFile(tmp, body, { encoding: 'utf-8', mode: 0o600 });
     await fs.rename(tmp, this.filePath);
   }
 

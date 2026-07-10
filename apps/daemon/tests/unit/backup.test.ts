@@ -76,6 +76,12 @@ describe('writeSnapshot', () => {
     expect(onDisk.files).toEqual(manifest.files);
   });
 
+  it.runIf(process.platform !== 'win32')('writes the snapshot directory owner-only', async () => {
+    const dataDir = seedDataDir();
+    const { destDir } = await writeSeededSnapshot(dataDir);
+    expect(fs.statSync(destDir).mode & 0o777).toBe(0o700);
+  });
+
   it('routes oracle.db through the injected sqlite snapshot', async () => {
     const dataDir = seedDataDir();
     const calls: Array<[string, string]> = [];

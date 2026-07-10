@@ -107,7 +107,10 @@ export async function writeSnapshot(input: WriteSnapshotInput): Promise<BackupMa
       throw new Error(`destination ${destDir} already exists and is not empty — back up into a fresh directory.`);
     }
   }
-  await fs.mkdir(destDir, { recursive: true });
+  // Owner-only like the data dir it snapshots — the copies carry the
+  // same credential hashes and secrets as the originals.
+  await fs.mkdir(destDir, { recursive: true, mode: 0o700 });
+  await fs.chmod(destDir, 0o700);
 
   const relPaths: string[] = [];
   if (hasStorage) {
@@ -120,7 +123,7 @@ export async function writeSnapshot(input: WriteSnapshotInput): Promise<BackupMa
   }
   for (const relPath of await listBlobFiles(dataDir)) {
     const dest = toNativePath(destDir, relPath);
-    await fs.mkdir(path.dirname(dest), { recursive: true });
+    await fs.mkdir(path.dirname(dest), { recursive: true, mode: 0o700 });
     await fs.copyFile(toNativePath(dataDir, relPath), dest);
     relPaths.push(relPath);
   }
@@ -224,7 +227,7 @@ export async function restoreSnapshot(
   dataDir: string,
   manifest: BackupManifest,
 ): Promise<string[]> {
-  await fs.mkdir(dataDir, { recursive: true });
+  await fs.mkdir(dataDir, { recursive: true, mode: 0o700 });
   for (const relPath of [STORAGE_FILE, ORACLE_DB_FILE, ...ORACLE_DB_SIDECARS]) {
     await fs.rm(path.join(dataDir, relPath), { force: true });
   }
@@ -232,7 +235,7 @@ export async function restoreSnapshot(
   const restored: string[] = [];
   for (const entry of manifest.files) {
     const dest = toNativePath(dataDir, entry.path);
-    await fs.mkdir(path.dirname(dest), { recursive: true });
+    await fs.mkdir(path.dirname(dest), { recursive: true, mode: 0o700 });
     await fs.copyFile(toNativePath(snapshotDir, entry.path), dest);
     restored.push(entry.path);
   }

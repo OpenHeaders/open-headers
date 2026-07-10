@@ -54,8 +54,12 @@ export interface SqliteSyncPersistenceHandle extends SyncPersistenceProvider {
 export function createSqliteSyncPersistence(
   options: SqliteSyncPersistenceOptions,
 ): SqliteSyncPersistenceHandle {
-  fs.mkdirSync(path.dirname(options.dbPath), { recursive: true });
+  fs.mkdirSync(path.dirname(options.dbPath), { recursive: true, mode: 0o700 });
   const db = new Database(options.dbPath, options.verbose ? { verbose: options.verbose } : undefined);
+  // Owner-only at rest — the database holds sync payloads and the audit
+  // log. SQLite creates WAL/SHM sidecars with the database file's mode,
+  // so tightening it here covers them too.
+  fs.chmodSync(options.dbPath, 0o600);
 
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = NORMAL');

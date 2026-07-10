@@ -101,7 +101,12 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     const config = resolveDaemonConfig({ argv, env: process.env });
     log = createDaemonLogger({ level: config.logLevel });
     setHostLogger(log);
-    await fs.mkdir(config.dataDir, { recursive: true });
+    // Owner-only data dir — one 0700 on the root shields everything the
+    // daemon persists (storage.json, oracle.db, blobs/, logs/) from
+    // other local users. chmod tightens installs created before this
+    // gate; on Windows both calls are no-ops and ACLs inherit.
+    await fs.mkdir(config.dataDir, { recursive: true, mode: 0o700 });
+    await fs.chmod(config.dataDir, 0o700);
 
     const appVersion = resolveAppVersion();
     const hostStorage = new FileBackedHostStorage({
