@@ -11,7 +11,21 @@
  * revoked admin sees in-band errors here, never a bypass.
  */
 
-import { App as AntApp, Button, Empty, Form, Input, List, Popconfirm, Select, Spin, Tag, Typography, theme } from 'antd';
+import {
+  App as AntApp,
+  Button,
+  Empty,
+  Form,
+  Input,
+  List,
+  Popconfirm,
+  Select,
+  Spin,
+  Tag,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
@@ -28,7 +42,7 @@ interface DirectoryUser {
   email: string | null;
   createdAt: number;
   deactivatedAt: number | null;
-  grants: ReadonlyArray<{ workspaceId: string; role: DirectoryRole }>;
+  grants: ReadonlyArray<{ workspaceId: string; role: DirectoryRole; origin?: 'idp' }>;
 }
 
 const ROLE_OPTIONS: ReadonlyArray<{ value: DirectoryRole; label: string }> = [
@@ -103,17 +117,27 @@ const GrantsEditor: React.FC<{
           </Typography.Text>
         )}
         {user.grants.map((g) => (
-          <Tag
+          <Tooltip
             key={g.workspaceId}
-            closable={user.deactivatedAt === null}
-            onClose={(e) => {
-              e.preventDefault();
-              void onRevokeGrant(user.userId, g.workspaceId);
-            }}
-            style={{ marginInlineEnd: 0 }}
+            title={
+              g.origin === 'idp'
+                ? 'Granted by the identity-provider mapping. Revoking holds only until their next SSO login re-applies it.'
+                : undefined
+            }
           >
-            {workspaceName(g.workspaceId)} · {g.role}
-          </Tag>
+            <Tag
+              closable={user.deactivatedAt === null}
+              onClose={(e) => {
+                e.preventDefault();
+                void onRevokeGrant(user.userId, g.workspaceId);
+              }}
+              color={g.origin === 'idp' ? 'blue' : undefined}
+              style={{ marginInlineEnd: 0 }}
+            >
+              {workspaceName(g.workspaceId)} · {g.role}
+              {g.origin === 'idp' ? ' · IdP' : ''}
+            </Tag>
+          </Tooltip>
         ))}
       </div>
       {user.deactivatedAt === null && (

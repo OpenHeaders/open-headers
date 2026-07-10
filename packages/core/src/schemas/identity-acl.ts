@@ -52,6 +52,15 @@ export const PrincipalSchema = v.object({
 });
 
 /**
+ * Provenance of a workspace grant. Absent = a manual operator act
+ * (sticky — never touched by automated reconciles); `'idp'` = minted by
+ * the OIDC claims→grant mapping, owned by the per-login reconcile: the
+ * IdP is authoritative for these rows, so one that no longer follows
+ * from the user's claims is dropped on their next login.
+ */
+export const WorkspaceRoleOriginSchema = v.picklist(['idp']);
+
+/**
  * `WorkspaceRoleAssignment` — per-workspace grant. `workspaceId` keys to
  * the canonical workspace id (UUIDv7 per
  * `packages/core/src/utils/workspace-id.ts` — the value that travels on
@@ -64,6 +73,7 @@ export const WorkspaceRoleAssignmentSchema = v.object({
   principalId: UuidV7Schema,
   workspaceId: UuidV7Schema,
   role: WorkspaceRoleSchema,
+  origin: v.optional(WorkspaceRoleOriginSchema),
 });
 
 /**
@@ -98,6 +108,11 @@ export const DaemonAdminSchema = v.object({
  * grantable and never reaches the resolver, so it stays out of the
  * runtime `Capability` union; report surfaces render it as "admission"
  * rather than an enforcement decision.
+ *
+ * `daemon.sso-grant` / `daemon.sso-revoke` are likewise audit-vocabulary
+ * only — one row per workspace grant the OIDC claims→grant mapping adds
+ * (or re-roles) / removes at login, stamped with the logging-in user as
+ * the actor and the affected workspace.
  */
 export const CapabilitySchema = v.picklist([
   'workspace.read',
@@ -105,6 +120,8 @@ export const CapabilitySchema = v.picklist([
   'workspace.list',
   'daemon.admin',
   'daemon.admission',
+  'daemon.sso-grant',
+  'daemon.sso-revoke',
 ]);
 
 export const CapabilityDenyReasonSchema = v.picklist([

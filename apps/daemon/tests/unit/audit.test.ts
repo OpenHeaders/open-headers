@@ -165,6 +165,16 @@ describe('formatLine', () => {
       '2026-07-01T00:00:00.000Z  admission-refused(auth-required)  daemon.admission  user-gone',
     );
   });
+
+  it("labels the claims-mapping's daemon.sso-* rows as sso-grant / sso-revoke", () => {
+    const names = new Map([['user-alice', 'Alice']]);
+    expect(formatLine(makeEntry({ capability: 'daemon.sso-grant' }), names)).toBe(
+      `2026-07-01T00:00:00.000Z  sso-grant  daemon.sso-grant  ws=${WS}  Alice (user-alice)`,
+    );
+    expect(formatLine(makeEntry({ capability: 'daemon.sso-revoke' }), names)).toBe(
+      `2026-07-01T00:00:00.000Z  sso-revoke  daemon.sso-revoke  ws=${WS}  Alice (user-alice)`,
+    );
+  });
 });
 
 describe('resolveAuditDbPath', () => {

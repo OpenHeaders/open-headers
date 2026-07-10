@@ -168,7 +168,7 @@ export interface DaemonRpc {
         email: string | null;
         createdAt: number;
         deactivatedAt: number | null;
-        grants: ReadonlyArray<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer' }>;
+        grants: ReadonlyArray<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer'; origin?: 'idp' }>;
       }>;
     };
   };

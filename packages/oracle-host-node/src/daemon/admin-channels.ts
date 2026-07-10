@@ -201,6 +201,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
           grants: (await listWorkspaceRolesForPrincipal(r.principal.id)).map((wra) => ({
             workspaceId: wra.workspaceId,
             role: wra.role,
+            ...(wra.origin !== undefined ? { origin: wra.origin } : {}),
           })),
         })),
       ),

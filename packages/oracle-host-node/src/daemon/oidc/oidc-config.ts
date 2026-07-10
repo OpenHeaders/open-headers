@@ -6,6 +6,34 @@
  * operator-minted tokens keep working unchanged (§11.4 fallback law).
  */
 
+import type { WorkspaceRole } from '@openheaders/core/types';
+
+/** One claims→grant rule: claim value present ⇒ this workspace role. */
+export interface OidcClaimMappingRule {
+  /** Claim value that activates the rule (exact string match). */
+  value: string;
+  /** Canonical workspace id the role lands on. */
+  workspaceId: string;
+  role: WorkspaceRole;
+}
+
+/**
+ * IdP claims→workspace-grant mapping, applied on EVERY login — the IdP
+ * is authoritative for the grants it maps: a mapped grant whose claim
+ * disappears is dropped on the user's next login. Manual operator
+ * grants are a separate axis (origin-less WRA rows) and stay sticky;
+ * a manual row always wins its `(user, workspace)` pair.
+ */
+export interface OidcClaimMappings {
+  /**
+   * Dot-path into the verified ID token's payload where the mapped
+   * values live (e.g. `groups`, or `realm_access.roles` for Keycloak
+   * realm roles). The leaf may be a string array or a single string.
+   */
+  claimPath: string;
+  rules: readonly OidcClaimMappingRule[];
+}
+
 export interface DaemonOidcConfig {
   /**
    * The provider's issuer URL — discovery runs against
@@ -52,4 +80,9 @@ export interface DaemonOidcConfig {
   redirectOrigin?: string;
   /** Human-readable provider name for the login gate's SSO button. */
   providerLabel?: string;
+  /**
+   * Claims→grant mapping. Absent = no automated grants; every grant is
+   * a manual operator act (the pre-mapping behavior, unchanged).
+   */
+  claimMappings?: OidcClaimMappings;
 }

@@ -13,6 +13,7 @@ import {
   ensureWorkspaceRoleAssignments,
   grantWorkspaceRole,
   listWorkspaceRolesForPrincipal,
+  reconcileIdpWorkspaceRoles,
   revokeWorkspaceRole,
 } from '../../src/identity';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
@@ -109,5 +110,84 @@ describe('workspace role grants', () => {
       grantWorkspaceRole({ principalId: alicePrincipalId, workspaceId: W2, role: 'editor' }),
     ]);
     expect(await listWorkspaceRolesForPrincipal(alicePrincipalId)).toHaveLength(2);
+  });
+
+  it('grant persists the caller origin; a manual upsert strips it (last writer owns provenance)', async () => {
+    const mapped = await grantWorkspaceRole({
+      principalId: alicePrincipalId,
+      workspaceId: W1,
+      role: 'viewer',
+      origin: 'idp',
+    });
+    if (!mapped.ok) throw new Error('grant failed');
+    expect(mapped.record.origin).toBe('idp');
+    const manual = await grantWorkspaceRole({ principalId: alicePrincipalId, workspaceId: W1, role: 'viewer' });
+    if (!manual.ok) throw new Error('grant failed');
+    expect(manual.updated).toBe(true);
+    expect(manual.record.id).toBe(mapped.record.id);
+    expect(manual.record.origin).toBeUndefined();
+  });
+
+  describe('reconcileIdpWorkspaceRoles', () => {
+    it('mints idp rows for fresh desired pairs and reports them granted', async () => {
+      const outcome = await reconcileIdpWorkspaceRoles(alicePrincipalId, [
+        { workspaceId: W1, role: 'editor' },
+        { workspaceId: W2, role: 'viewer' },
+      ]);
+      expect(outcome.granted).toHaveLength(2);
+      expect(outcome.updated).toHaveLength(0);
+      expect(outcome.revoked).toHaveLength(0);
+      const rows = await listWorkspaceRolesForPrincipal(alicePrincipalId);
+      expect(rows.map((r) => r.origin)).toEqual(['idp', 'idp']);
+    });
+
+    it('re-roles an existing idp row in place and drops one the claims no longer justify', async () => {
+      await reconcileIdpWorkspaceRoles(alicePrincipalId, [
+        { workspaceId: W1, role: 'viewer' },
+        { workspaceId: W2, role: 'editor' },
+      ]);
+      const outcome = await reconcileIdpWorkspaceRoles(alicePrincipalId, [{ workspaceId: W1, role: 'editor' }]);
+      expect(outcome.updated).toEqual([{ workspaceId: W1, role: 'editor' }]);
+      expect(outcome.revoked).toEqual([{ workspaceId: W2, role: 'editor' }]);
+      const rows = await listWorkspaceRolesForPrincipal(alicePrincipalId);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ workspaceId: W1, role: 'editor', origin: 'idp' });
+    });
+
+    it('an unchanged desired set is a no-op', async () => {
+      await reconcileIdpWorkspaceRoles(alicePrincipalId, [{ workspaceId: W1, role: 'viewer' }]);
+      const before = await listWorkspaceRolesForPrincipal(alicePrincipalId);
+      const outcome = await reconcileIdpWorkspaceRoles(alicePrincipalId, [{ workspaceId: W1, role: 'viewer' }]);
+      expect(outcome).toEqual({ granted: [], updated: [], revoked: [], skippedManual: [] });
+      expect(await listWorkspaceRolesForPrincipal(alicePrincipalId)).toEqual(before);
+    });
+
+    it('a manual row wins its pair: never re-roled, never dropped, reported skipped', async () => {
+      await grantWorkspaceRole({ principalId: alicePrincipalId, workspaceId: W1, role: 'viewer' });
+      const conflicting = await reconcileIdpWorkspaceRoles(alicePrincipalId, [{ workspaceId: W1, role: 'owner' }]);
+      expect(conflicting.skippedManual).toEqual([{ workspaceId: W1, role: 'owner' }]);
+      expect(conflicting.granted).toHaveLength(0);
+      // The manual row survives a reconcile that desires nothing, too.
+      const empty = await reconcileIdpWorkspaceRoles(alicePrincipalId, []);
+      expect(empty.revoked).toHaveLength(0);
+      const rows = await listWorkspaceRolesForPrincipal(alicePrincipalId);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ workspaceId: W1, role: 'viewer' });
+      expect(rows[0].origin).toBeUndefined();
+    });
+
+    it('a manual row matching the desired role is not reported skipped', async () => {
+      await grantWorkspaceRole({ principalId: alicePrincipalId, workspaceId: W1, role: 'editor' });
+      const outcome = await reconcileIdpWorkspaceRoles(alicePrincipalId, [{ workspaceId: W1, role: 'editor' }]);
+      expect(outcome).toEqual({ granted: [], updated: [], revoked: [], skippedManual: [] });
+    });
+
+    it("scopes strictly to the principal: other principals' idp rows survive", async () => {
+      const bob = await createDaemonUser({ displayName: 'Bob', email: 'bob@openheaders.io' });
+      if (!bob.ok) throw new Error('setup failed');
+      await reconcileIdpWorkspaceRoles(bob.record.principal.id, [{ workspaceId: W1, role: 'viewer' }]);
+      await reconcileIdpWorkspaceRoles(alicePrincipalId, []);
+      expect(await listWorkspaceRolesForPrincipal(bob.record.principal.id)).toHaveLength(1);
+    });
   });
 });

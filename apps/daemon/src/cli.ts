@@ -295,7 +295,9 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     for (const record of users) {
       console.log(formatUserLine(record));
       for (const grant of await listUserGrants(record)) {
-        console.log(`    ${grant.role.padEnd(6)}  ${grant.workspaceId}`);
+        console.log(
+          `    ${grant.role.padEnd(6)}  ${grant.workspaceId}${grant.origin === 'idp' ? '  (idp-mapped)' : ''}`,
+        );
       }
     }
     return;

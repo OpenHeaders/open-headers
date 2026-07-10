@@ -31,19 +31,28 @@
  * directory. No directory record ⇒ refused unless `autoProvision` is
  * on, in which case the user is created with ZERO workspace grants —
  * RBAC deny-by-default makes a fresh SSO user harmless until granted.
+ *
+ * With `claimMappings` configured, every completed login also folds the
+ * token's group/role claims into workspace grants (`claims-mapping.ts`
+ * + the core `idp`-origin WRA reconcile): the IdP is authoritative for
+ * the grants it maps, manual operator grants stay sticky.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   type CreateDaemonUserResult,
   createDaemonUser,
+  emitAuditEntry,
   findDaemonUserByEmail,
   type MintDaemonAuthTokenResult,
   mintDaemonAuthToken,
+  reconcileIdpWorkspaceRoles,
 } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { DaemonUserRecord } from '@openheaders/core/types';
+import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { desiredGrantsFromClaims, extractClaimValues } from './claims-mapping';
 import type { DaemonOidcConfig } from './oidc-config';
 
 const SCOPE = 'OidcLogin';
@@ -62,12 +71,19 @@ export interface OidcProviderMetadata {
   readonly jwksUri: string;
 }
 
-/** The ID-token claims the directory join consumes. */
+/** The ID-token claims the directory join + grant mapping consume. */
 export interface OidcIdTokenClaims {
   readonly nonce?: string;
   readonly email?: string;
   readonly emailVerified?: boolean;
   readonly name?: string;
+  /**
+   * Values found at the configured `claimMappings.claimPath` — the
+   * verified group/role claims the grant mapping folds over. Absent
+   * when no mapping is configured (or the claim is missing, which the
+   * fold treats as "no mapped grants").
+   */
+  readonly mappingValues?: readonly string[];
 }
 
 export type OidcLoginFailureReason =
@@ -97,6 +113,10 @@ export interface OidcServiceDeps {
   mintToken?: typeof mintDaemonAuthToken;
   findUserByEmail?: typeof findDaemonUserByEmail;
   createUser?: typeof createDaemonUser;
+  /** Grant-mapping seams — default to the live WRA reconcile + audit + workspace store. */
+  reconcileGrants?: typeof reconcileIdpWorkspaceRoles;
+  emitAudit?: typeof emitAuditEntry;
+  workspaceExists?: (workspaceId: string) => boolean;
   /**
    * ID-token verification seam. The default verifies signature + `iss` +
    * `aud` + `exp` against the provider's remote JWKS via jose; unit rows
@@ -184,6 +204,9 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
   const mintToken = deps.mintToken ?? mintDaemonAuthToken;
   const findUserByEmail = deps.findUserByEmail ?? findDaemonUserByEmail;
   const createUser = deps.createUser ?? createDaemonUser;
+  const reconcileGrants = deps.reconcileGrants ?? reconcileIdpWorkspaceRoles;
+  const emitAudit = deps.emitAudit ?? emitAuditEntry;
+  const workspaceExists = deps.workspaceExists ?? ((workspaceId: string) => Boolean(getWorkspace(workspaceId)));
 
   const scopes = (() => {
     const requested = config.scopes && config.scopes.length > 0 ? [...config.scopes] : [...DEFAULT_SCOPES];
@@ -239,11 +262,13 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
         issuer: metadata.issuer,
         audience: clientId,
       });
+      const claimPath = config.claimMappings?.claimPath;
       return {
         nonce: typeof payload.nonce === 'string' ? payload.nonce : undefined,
         email: typeof payload.email === 'string' ? payload.email : undefined,
         emailVerified: typeof payload.email_verified === 'boolean' ? payload.email_verified : undefined,
         name: typeof payload.name === 'string' ? payload.name : undefined,
+        ...(claimPath ? { mappingValues: extractClaimValues(payload as Record<string, unknown>, claimPath) } : {}),
       };
     });
 
@@ -273,6 +298,59 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
     }
     logger.info(SCOPE, `auto-provisioned directory user for ${email} (zero grants)`);
     return { ok: true, record: created.record };
+  }
+
+  /**
+   * The claims→grant fold, run on EVERY completed login: reconcile the
+   * user's `idp`-origin WRA rows against what the verified claims map
+   * to, audit each applied change with the logging-in user as the
+   * actor. Best-effort by design — a fold failure logs and the login
+   * proceeds (the session is valid; grants keep their pre-login state).
+   */
+  async function applyClaimMappings(record: DaemonUserRecord, claims: OidcIdTokenClaims): Promise<void> {
+    const mappings = config.claimMappings;
+    if (!mappings) return;
+    try {
+      const { desired, unknownWorkspaceIds } = desiredGrantsFromClaims(
+        claims.mappingValues ?? [],
+        mappings.rules,
+        workspaceExists,
+      );
+      if (unknownWorkspaceIds.length > 0) {
+        logger.warn(SCOPE, `claim mapping skipped unknown workspaces: ${unknownWorkspaceIds.join(', ')}`);
+      }
+      const outcome = await reconcileGrants(record.principal.id, desired);
+      for (const change of [...outcome.granted, ...outcome.updated]) {
+        emitAudit({
+          actorUserId: record.user.id,
+          capability: 'daemon.sso-grant',
+          workspaceId: change.workspaceId,
+          decision: { allow: true },
+        });
+      }
+      for (const change of outcome.revoked) {
+        emitAudit({
+          actorUserId: record.user.id,
+          capability: 'daemon.sso-revoke',
+          workspaceId: change.workspaceId,
+          decision: { allow: true },
+        });
+      }
+      if (outcome.skippedManual.length > 0) {
+        const pairs = outcome.skippedManual.map((s) => s.workspaceId).join(', ');
+        logger.info(SCOPE, `claim mapping deferred to manual grants for user=${record.user.id}: ${pairs}`);
+      }
+      const applied = outcome.granted.length + outcome.updated.length + outcome.revoked.length;
+      if (applied > 0) {
+        logger.info(
+          SCOPE,
+          `claim mapping applied for user=${record.user.id}: +${outcome.granted.length} ` +
+            `~${outcome.updated.length} -${outcome.revoked.length}`,
+        );
+      }
+    } catch (err) {
+      logger.warn(SCOPE, `claim mapping failed for user=${record.user.id}; login proceeds`, err);
+    }
   }
 
   return {
@@ -386,6 +464,10 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
         logger.warn(SCOPE, `SSO login refused: ${resolved.reason} (email=${claims.email ?? 'none'})`);
         return { ok: false, reason: resolved.reason };
       }
+
+      // Grants land before the mint so the session's first join already
+      // sees what the claims map to.
+      await applyClaimMappings(resolved.record, claims);
 
       const email = resolved.record.userIdentity.value ?? claims.email ?? '';
       const minted: MintDaemonAuthTokenResult = await mintToken({

@@ -112,10 +112,13 @@ export {
   type IdentitySnapshot,
 } from './resolver';
 export {
+  type DesiredIdpGrant,
   type GrantWorkspaceRoleInput,
   type GrantWorkspaceRoleResult,
   grantWorkspaceRole,
   listWorkspaceRolesForPrincipal,
+  type ReconcileIdpWorkspaceRolesResult,
   type RevokeWorkspaceRoleResult,
+  reconcileIdpWorkspaceRoles,
   revokeWorkspaceRole,
 } from './workspace-role-grants';

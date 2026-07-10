@@ -89,10 +89,13 @@ export function resolveAuditDbPath(config: DaemonConfig): string {
 
 function formatDecision(entry: AuditLogEntry): string {
   // `daemon.admission` rows are the HELLO gate's per-connect stamps —
-  // label them as admissions, not enforcement decisions.
+  // label them as admissions, not enforcement decisions. The
+  // `daemon.sso-*` rows are the claims→grant mapping's applied changes.
   if (entry.capability === 'daemon.admission') {
     return entry.decision.allow ? 'admission' : `admission-refused(${entry.decision.reason ?? 'unspecified'})`;
   }
+  if (entry.capability === 'daemon.sso-grant') return 'sso-grant';
+  if (entry.capability === 'daemon.sso-revoke') return 'sso-revoke';
   return entry.decision.allow ? 'allow' : `deny(${entry.decision.reason ?? 'unspecified'})`;
 }
 

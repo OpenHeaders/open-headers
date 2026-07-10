@@ -103,6 +103,7 @@ export type {
   Principal,
   WorkspaceRole,
   WorkspaceRoleAssignment,
+  WorkspaceRoleOrigin,
 } from './identity-acl';
 // ── Live Variables + Workflows ────────────────────────────────────
 export type {

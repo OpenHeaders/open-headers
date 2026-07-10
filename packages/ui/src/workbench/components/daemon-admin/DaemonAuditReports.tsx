@@ -62,6 +62,8 @@ interface AuditFilters {
 const CAPABILITY_OPTIONS = [
   { value: 'daemon.admission', label: 'Admission (connect)' },
   { value: 'daemon.admin', label: 'Admin plane' },
+  { value: 'daemon.sso-grant', label: 'SSO grant (mapping)' },
+  { value: 'daemon.sso-revoke', label: 'SSO revoke (mapping)' },
   { value: 'workspace.read', label: 'Workspace read' },
   { value: 'workspace.write', label: 'Workspace write' },
   { value: 'workspace.list', label: 'Workspace list' },
@@ -190,6 +192,8 @@ const DaemonAuditReports: React.FC<{
             </Tooltip>
           );
         }
+        if (row.capability === 'daemon.sso-grant') return <Tag color="blue">SSO grant</Tag>;
+        if (row.capability === 'daemon.sso-revoke') return <Tag color="purple">SSO revoke</Tag>;
         return row.decision.allow ? (
           <Tag color="green">Allow</Tag>
         ) : (

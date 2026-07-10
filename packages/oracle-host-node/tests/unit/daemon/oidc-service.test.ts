@@ -7,11 +7,14 @@
  * HTTP + JWKS + real-socket path is the e2e gate's job.
  */
 
+import type { AuditEntryInput } from '@openheaders/core/identity';
 import {
   createDaemonUser,
   deactivateDaemonUser,
   ensureSyntheticIdentity,
+  grantWorkspaceRole,
   listDaemonUsers,
+  listWorkspaceRolesForPrincipal,
   validateDaemonAuthToken,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
@@ -41,6 +44,8 @@ interface RigOptions {
   tokenEndpointStatus?: number;
   discoveryStatus?: number;
   now?: () => number;
+  /** Extra dep seams (grant mapping: reconcile/audit/workspace store). */
+  deps?: Partial<OidcServiceDeps>;
 }
 
 function jsonResponse(status: number, payload: unknown): Response {
@@ -73,6 +78,7 @@ function buildRig(options: RigOptions = {}) {
       email: 'alice@openheaders.io',
       ...options.claims,
     }),
+    ...options.deps,
   };
   const service = createDaemonOidcService({ issuer: ISSUER, clientId: 'oh-daemon', ...options.config }, deps);
   return {
@@ -304,5 +310,132 @@ describe('daemon OIDC service', () => {
     }
     expect(seen[0]).toBeUndefined();
     expect(seen[1]).toMatch(/^Basic /);
+  });
+
+  describe('claims→grant mapping', () => {
+    const W1 = '01900000-cccc-7000-8000-000000000001';
+    const W2 = '01900000-cccc-7000-8000-000000000002';
+    const MAPPINGS = {
+      claimPath: 'groups',
+      rules: [
+        { value: 'eng', workspaceId: W1, role: 'editor' as const },
+        { value: 'ops', workspaceId: W2, role: 'viewer' as const },
+      ],
+    };
+
+    function mappingRig(options: { values?: readonly string[]; deps?: Partial<OidcServiceDeps> } = {}) {
+      const audited: AuditEntryInput[] = [];
+      const rig = buildRig({
+        config: { claimMappings: MAPPINGS },
+        claims: { mappingValues: options.values ?? [] },
+        deps: {
+          workspaceExists: () => true,
+          emitAudit: (entry) => audited.push(entry),
+          ...options.deps,
+        },
+      });
+      return { rig, audited };
+    }
+
+    async function login(rig: ReturnType<typeof buildRig>) {
+      const { state, bindingNonce } = await begin(rig);
+      return rig.service.completeLogin({ code: 'c', state, bindingNonce });
+    }
+
+    it('lands mapped grants at login, idp-stamped, one sso-grant audit row each', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const { rig, audited } = mappingRig({ values: ['eng', 'ops', 'unmapped-group'] });
+      const completed = await login(rig);
+      expect(completed.ok).toBe(true);
+      const rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows.map((r) => ({ workspaceId: r.workspaceId, role: r.role, origin: r.origin }))).toEqual([
+        { workspaceId: W1, role: 'editor', origin: 'idp' },
+        { workspaceId: W2, role: 'viewer', origin: 'idp' },
+      ]);
+      expect(audited).toHaveLength(2);
+      for (const entry of audited) {
+        expect(entry).toMatchObject({
+          actorUserId: created.record.user.id,
+          capability: 'daemon.sso-grant',
+          decision: { allow: true },
+        });
+      }
+      expect(audited.map((e) => e.workspaceId).sort()).toEqual([W1, W2]);
+    });
+
+    it('re-login reconciles: a grant the claims no longer justify is dropped and audited as sso-revoke', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const first = mappingRig({ values: ['eng', 'ops'] });
+      expect((await login(first.rig)).ok).toBe(true);
+      const second = mappingRig({ values: ['eng'] });
+      expect((await login(second.rig)).ok).toBe(true);
+      const rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ workspaceId: W1, role: 'editor', origin: 'idp' });
+      expect(second.audited).toEqual([
+        expect.objectContaining({ capability: 'daemon.sso-revoke', workspaceId: W2, decision: { allow: true } }),
+      ]);
+    });
+
+    it('a manual grant stays sticky against the mapping and emits no audit row', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      await grantWorkspaceRole({ principalId: created.record.principal.id, workspaceId: W1, role: 'owner' });
+      const { rig, audited } = mappingRig({ values: ['eng'] });
+      expect((await login(rig)).ok).toBe(true);
+      const rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].role).toBe('owner');
+      expect(rows[0].origin).toBeUndefined();
+      expect(audited).toHaveLength(0);
+    });
+
+    it('a rule against a workspace this daemon does not hold is skipped', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const { rig, audited } = mappingRig({
+        values: ['eng', 'ops'],
+        deps: { workspaceExists: (id) => id === W2 },
+      });
+      expect((await login(rig)).ok).toBe(true);
+      const rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].workspaceId).toBe(W2);
+      expect(audited).toHaveLength(1);
+    });
+
+    it('a fold failure logs and the login still completes with a valid session', async () => {
+      await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      const { rig } = mappingRig({
+        values: ['eng'],
+        deps: {
+          reconcileGrants: async () => {
+            throw new Error('storage exploded');
+          },
+        },
+      });
+      const completed = await login(rig);
+      expect(completed.ok).toBe(true);
+      if (!completed.ok) return;
+      const claimed = rig.service.claimToken(completed.claimCode);
+      expect((await validateDaemonAuthToken(claimed?.secret)).ok).toBe(true);
+    });
+
+    it('no mapping configured ⇒ the reconcile never runs', async () => {
+      await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      let reconciled = false;
+      const rig = buildRig({
+        deps: {
+          reconcileGrants: async () => {
+            reconciled = true;
+            return { granted: [], updated: [], revoked: [], skippedManual: [] };
+          },
+        },
+      });
+      expect((await login(rig)).ok).toBe(true);
+      expect(reconciled).toBe(false);
+    });
   });
 });

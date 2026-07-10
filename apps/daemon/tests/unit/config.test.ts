@@ -153,6 +153,46 @@ describe('resolveDaemonConfig — precedence', () => {
     const withEnv = resolve(['--config', file], { OH_DAEMON_OIDC_CLIENT_SECRET: 's3cret' });
     expect(withEnv.oidc?.clientSecret).toBe('s3cret');
   });
+
+  it('reads oidc.claimMappings, trimming values and validating roles', () => {
+    const file = writeConfigFile({
+      oidc: {
+        issuer: 'https://sso.openheaders.io',
+        clientId: 'oh-daemon',
+        claimMappings: {
+          claimPath: ' groups ',
+          rules: [{ value: ' eng ', workspaceId: ' 01900000-aaaa-7000-8000-000000000001 ', role: 'editor' }],
+        },
+      },
+    });
+    expect(resolve(['--config', file]).oidc?.claimMappings).toEqual({
+      claimPath: 'groups',
+      rules: [{ value: 'eng', workspaceId: '01900000-aaaa-7000-8000-000000000001', role: 'editor' }],
+    });
+  });
+
+  it('rejects malformed claimMappings rather than booting a silently grant-less mapping', () => {
+    const oidcWith = (claimMappings: unknown) => ({
+      oidc: { issuer: 'https://sso.openheaders.io', clientId: 'x', claimMappings },
+    });
+    expect(() => resolve(['--config', writeConfigFile(oidcWith('groups'))])).toThrow(/claimMappings must be/);
+    expect(() => resolve(['--config', writeConfigFile(oidcWith({ rules: [] }))])).toThrow(/claimPath/);
+    expect(() => resolve(['--config', writeConfigFile(oidcWith({ claimPath: 'groups', rules: [] }))])).toThrow(
+      /rules must be a non-empty array/,
+    );
+    expect(() =>
+      resolve([
+        '--config',
+        writeConfigFile(oidcWith({ claimPath: 'groups', rules: [{ value: 'eng', workspaceId: 'w' }] })),
+      ]),
+    ).toThrow(/rules\[0\]\.role/);
+    expect(() =>
+      resolve([
+        '--config',
+        writeConfigFile(oidcWith({ claimPath: 'groups', rules: [{ value: '', workspaceId: 'w', role: 'viewer' }] })),
+      ]),
+    ).toThrow(/rules\[0\]\.value/);
+  });
 });
 
 describe('resolveDaemonConfig — audit retention', () => {

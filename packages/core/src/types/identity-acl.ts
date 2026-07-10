@@ -16,11 +16,13 @@ import type {
   OrgPrimaryRoleSchema,
   PrincipalSchema,
   WorkspaceRoleAssignmentSchema,
+  WorkspaceRoleOriginSchema,
   WorkspaceRoleSchema,
 } from '../schemas/identity-acl';
 
 export type OrgPrimaryRole = v.InferOutput<typeof OrgPrimaryRoleSchema>;
 export type WorkspaceRole = v.InferOutput<typeof WorkspaceRoleSchema>;
+export type WorkspaceRoleOrigin = v.InferOutput<typeof WorkspaceRoleOriginSchema>;
 
 export type OrgMembership = v.InferOutput<typeof OrgMembershipSchema>;
 export type Principal = v.InferOutput<typeof PrincipalSchema>;

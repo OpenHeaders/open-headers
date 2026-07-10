@@ -19,7 +19,7 @@ import * as path from 'node:path';
 import { parseArgs } from 'node:util';
 import { WS_PORT } from '@openheaders/core/protocol';
 import { isValidLogLevel, type LogLevel, validatePort } from '@openheaders/core/utils';
-import type { DaemonOidcConfig } from '@openheaders/oracle-host-node/daemon';
+import type { DaemonOidcConfig, OidcClaimMappingRule, OidcClaimMappings } from '@openheaders/oracle-host-node/daemon';
 
 /**
  * §9.1 default retention. Redeclared here rather than imported from the
@@ -222,7 +222,42 @@ function parseOidcConfig(raw: unknown, source: string): DaemonOidcConfig {
     if (typeof record.providerLabel !== 'string') throw new Error(`${source}: oidc.providerLabel must be a string`);
     out.providerLabel = record.providerLabel;
   }
+  if (record.claimMappings !== undefined) {
+    out.claimMappings = parseClaimMappings(record.claimMappings, source);
+  }
   return out;
+}
+
+function parseClaimMappings(raw: unknown, source: string): OidcClaimMappings {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`${source}: oidc.claimMappings must be a JSON object`);
+  }
+  const record = raw as Record<string, unknown>;
+  if (typeof record.claimPath !== 'string' || !record.claimPath.trim()) {
+    throw new Error(`${source}: oidc.claimMappings.claimPath must be a non-empty string`);
+  }
+  if (!Array.isArray(record.rules) || record.rules.length === 0) {
+    throw new Error(`${source}: oidc.claimMappings.rules must be a non-empty array`);
+  }
+  const rules = record.rules.map((entry, i): OidcClaimMappingRule => {
+    const at = `oidc.claimMappings.rules[${i}]`;
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error(`${source}: ${at} must be a JSON object`);
+    }
+    const rule = entry as Record<string, unknown>;
+    if (typeof rule.value !== 'string' || !rule.value.trim()) {
+      throw new Error(`${source}: ${at}.value must be a non-empty string`);
+    }
+    if (typeof rule.workspaceId !== 'string' || !rule.workspaceId.trim()) {
+      throw new Error(`${source}: ${at}.workspaceId must be a non-empty string`);
+    }
+    const role = rule.role;
+    if (role === 'owner' || role === 'editor' || role === 'viewer') {
+      return { value: rule.value.trim(), workspaceId: rule.workspaceId.trim(), role };
+    }
+    throw new Error(`${source}: ${at}.role must be owner, editor or viewer`);
+  });
+  return { claimPath: record.claimPath.trim(), rules };
 }
 
 function readConfigFile(configPath: string): ConfigFile {
