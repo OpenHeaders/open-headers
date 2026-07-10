@@ -357,7 +357,10 @@ test('join adopted the daemon workspace and a tab-created rule syncs up', async 
     .toBe(true);
 
   await page.getByRole('button', { name: 'Create rule', exact: false }).first().click();
+  // 'Block Requests' expands a template submenu; 'Blank Rule' is the
+  // plain editor flow this leg drives.
   await page.getByText('Block Requests', { exact: false }).first().click();
+  await page.getByRole('menuitem', { name: 'Blank Rule' }).click();
   await page.waitForSelector('input[value="New Block Rule"]', { timeout: 10_000 });
   await page
     .locator('button:visible')
@@ -431,10 +434,12 @@ test('a plain-http non-loopback origin explains the secure-context requirement',
 
 test('a TLS non-loopback origin gates and joins over wss through the rig proxy', async () => {
   // A dedicated browser instance so oh.test resolves to loopback
-  // without touching DNS; the rig cert is self-signed, so the context
-  // bypasses cert validation (the origin is still a secure context).
+  // without touching DNS; the rig cert is self-signed, so cert
+  // validation is bypassed at the browser level — the context-level
+  // ignoreHTTPSErrors does not reach service-worker script fetches
+  // (the origin is still a secure context).
   const tlsBrowser = await chromium.launch({
-    args: ['--host-resolver-rules=MAP oh.test 127.0.0.1'],
+    args: ['--host-resolver-rules=MAP oh.test 127.0.0.1', '--ignore-certificate-errors'],
   });
   const tlsContext = await tlsBrowser.newContext({ ignoreHTTPSErrors: true });
   const tlsPage = await tlsContext.newPage();

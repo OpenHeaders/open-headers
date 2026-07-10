@@ -20,6 +20,7 @@ import { claimOidcToken, consumeOidcHash, describeOidcError, fetchOidcMeta } fro
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { InsecureContextNotice } from '@/InsecureContextNotice';
 import { LoginGate } from '@/LoginGate';
+import { registerServiceWorker } from '@/register-sw';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
 
@@ -46,6 +47,10 @@ if (!window.isSecureContext) {
   // boot. Explain the supported ways in instead of dying blank.
   root.render(<InsecureContextNotice />);
 } else {
+  // Install the offline shell early — registration is fire-and-forget
+  // and must not wait on the boot below.
+  registerServiceWorker();
+
   // Boot the tab oracle to completion BEFORE the mirrors seed and React
   // mounts: every snapshot RPC and capability probe below must land on a
   // live engine with the active workspace hydrated, or first paint would

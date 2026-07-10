@@ -1,0 +1,18 @@
+{
+  "name": "Open Headers",
+  "short_name": "Open Headers",
+  "description": "The Open Headers Workbench, served by your daemon",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5890FF",
+  "icons": [
+    {
+      "src": "/images/logo-pixel.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { serviceWorkerPlugin } from './vite.sw-plugin';
 
 const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')) as { version: string };
 
@@ -26,7 +27,7 @@ const buildInfo = {
 };
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), serviceWorkerPlugin({ cacheKey: `oh-web-${buildInfo.version}-${buildInfo.commit}` })],
 
   resolve: {
     alias: {

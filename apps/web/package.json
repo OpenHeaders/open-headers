@@ -13,7 +13,7 @@
     "build": "vite build",
     "dev": "vite",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p src/sw/tsconfig.json --noEmit",
     "clean": "rm -rf dist",
     "test:e2e": "pnpm exec playwright test"
   },
@@ -31,6 +31,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
+    "esbuild": "^0.25.12",
     "fake-indexeddb": "^6.2.5",
     "less": "^4.2.0",
     "typescript": "^5.9.3",
