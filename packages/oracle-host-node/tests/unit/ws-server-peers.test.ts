@@ -333,6 +333,36 @@ describe('OracleWsServer — peer registry', () => {
   });
 });
 
+describe('OracleWsServer — concurrent-connection cap', () => {
+  it('refuses the over-cap socket with 1013 and reclaims capacity after a close', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY, maxConnections: 2 });
+
+    const first = await connectAccepted(port, hello({ nodeId: 'ext-a' }));
+    await connectAccepted(port, hello({ nodeId: 'ext-b', workspaceId: 'ws-2' }));
+    expect(server.connectedCount()).toBe(2);
+
+    // Third socket: the WS handshake still completes (`ws` finishes the
+    // 101 before `'connection'` fires) but the server closes it straight
+    // away with the try-again-later code; it never reaches the HELLO gate.
+    const overCap = new WebSocket(`ws://127.0.0.1:${port}`);
+    clients.push(overCap);
+    const closeCode = await new Promise<number>((resolve, reject) => {
+      overCap.once('close', (code) => resolve(code));
+      overCap.once('error', reject);
+    });
+    expect(closeCode).toBe(1013);
+    expect(server.connectedCount()).toBe(2);
+
+    // Capacity is reclaimed once a held socket closes.
+    const disconnected = nextEvent(server, 'disconnect');
+    first.close();
+    await disconnected;
+    await connectAccepted(port, hello({ nodeId: 'ext-c', workspaceId: 'ws-3' }));
+    expect(server.connectedCount()).toBe(2);
+  });
+});
+
 describe('OracleWsServer — WS-B reach gate (loopbackOnly broadcast)', () => {
   it('delivers a loopback-only frame to a same-device peer', async () => {
     const port = await freePort();

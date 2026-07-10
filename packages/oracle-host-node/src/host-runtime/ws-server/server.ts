@@ -53,6 +53,27 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 const MAX_INBOUND_FRAME_BYTES = 8 * 1024 * 1024;
 
 /**
+ * Max concurrently open WebSocket connections (pre- and post-HELLO).
+ * Without this nothing bounds socket *count* — `maxPayload` bounds frame
+ * size and the heartbeat sweep reaps dead peers, but on a LAN/WAN-
+ * reachable bind an attacker holding sockets open (even ones that never
+ * HELLO) rides until OS file-descriptor exhaustion, which takes the
+ * whole daemon down — HTTP surface included, since it shares the bind.
+ *
+ * 256 is generous headroom: a real fleet is tens of peers (one socket
+ * per paired device/extension), and the 5s handshake timeout already
+ * evicts sockets that never HELLO. An over-cap socket is closed with
+ * 1013 ("try again later"), so a legitimate peer arriving during a
+ * flood retries instead of failing permanently. Counted against
+ * `wss.clients` — the only set that includes pre-HELLO sockets; the
+ * registry tracks admitted peers only.
+ */
+const MAX_CONCURRENT_CONNECTIONS = 256;
+
+/** Close code for an over-cap connection — standard "try again later". */
+const OVER_CAPACITY_CLOSE_CODE = 1013;
+
+/**
  * Start the WS server. Resolves once the underlying socket is bound;
  * rejects if `port` is already in use (callers should surface a clear
  * "another instance running" message rather than crashing).
@@ -64,6 +85,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   const httpRequestHandler = options.httpRequestHandler;
   const classifyLoopback = options.classifyLoopback ?? isLoopbackRemote;
   const heartbeatIntervalMs = options.heartbeatIntervalMs ?? HEARTBEAT_INTERVAL_MS;
+  const maxConnections = options.maxConnections ?? MAX_CONCURRENT_CONNECTIONS;
 
   // Own the underlying http.Server so the pairing surface (U3.3) can
   // attach to non-upgrade `request` events on the same bind. Without
@@ -119,6 +141,22 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   let closed = false;
 
   wss.on('connection', (socket, request) => {
+    // Capacity gate — before any per-socket state is wired. `ws` has
+    // already completed the 101 by the time `'connection'` fires (same
+    // constraint the admission refusal lives with), so refusal is a
+    // close, not an HTTP status. `wss.clients` includes this socket.
+    if (wss.clients.size > maxConnections) {
+      logger.warn(
+        SCOPE,
+        `connection refused: at capacity (${maxConnections}) (peer=${request.socket.remoteAddress ?? 'unknown'})`,
+      );
+      try {
+        socket.close(OVER_CAPACITY_CLOSE_CODE, 'server at capacity');
+      } catch {
+        // ignore
+      }
+      return;
+    }
     handleConnection(socket, request, {
       registry,
       handshakeIdentity,

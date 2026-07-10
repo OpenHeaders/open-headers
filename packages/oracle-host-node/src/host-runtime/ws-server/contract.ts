@@ -64,6 +64,13 @@ export interface OracleWsServerOptions {
    * dead-peer eviction without a 30s wait. Production never sets it.
    */
   heartbeatIntervalMs?: number;
+  /**
+   * Override the concurrent-connection cap. Defaults to
+   * `MAX_CONCURRENT_CONNECTIONS`; tests set a tiny cap to exercise the
+   * over-capacity refusal without opening hundreds of sockets.
+   * Production never sets it.
+   */
+  maxConnections?: number;
 }
 
 /**

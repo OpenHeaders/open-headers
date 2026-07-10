@@ -26,9 +26,9 @@ const servers: Server[] = [];
 
 /**
  * Compose the admission wrapper over a stub chain: `/pair/*` answers
- * 404 (an unknown-code guess), `/mcp` answers 401 (a bad bearer),
- * `/healthz` 200 — the status shapes the real handlers produce on the
- * routes the limiter watches.
+ * 404 (an unknown-code guess), `/mcp` and `/metrics` answer 401 (a bad
+ * bearer), `/healthz` 200 — the status shapes the real handlers produce
+ * on the routes the limiter watches.
  */
 async function startHarness(admission: AdmissionControl): Promise<Harness> {
   const wrapped = admission.wrapHttpHandler((req, res) => {
@@ -36,6 +36,11 @@ async function startHarness(admission: AdmissionControl): Promise<Harness> {
     if (path === '/healthz') {
       res.statusCode = 200;
       res.end('{"ok":true}');
+      return true;
+    }
+    if (path === '/metrics') {
+      res.statusCode = 401;
+      res.end('bad token');
       return true;
     }
     if (path.startsWith('/pair/')) {
@@ -122,6 +127,18 @@ describe('wrapHttpHandler', () => {
     const { baseUrl } = await startHarness(admission);
     expect((await fetch(`${baseUrl}${MCP_HTTP_PATH}`)).status).toBe(401);
     expect((await fetch(`${baseUrl}${MCP_HTTP_PATH}`)).status).toBe(401);
+    expect((await fetch(`${baseUrl}${MCP_HTTP_PATH}`)).status).toBe(429);
+  });
+
+  it('counts /metrics 401s toward the same budget as /mcp (finish-hook feed)', async () => {
+    const admission = createAdmissionControl({ limiter: { maxFailures: 2, windowMs: 60_000, blockMs: 120_000 } });
+    const { baseUrl } = await startHarness(admission);
+    // One bad bearer on each surface — the `on('finish')` hook must feed
+    // the limiter from BOTH routes into one per-peer budget, so the
+    // third attempt is refused before reaching either handler.
+    expect((await fetch(`${baseUrl}/metrics`)).status).toBe(401);
+    expect((await fetch(`${baseUrl}${MCP_HTTP_PATH}`)).status).toBe(401);
+    expect((await fetch(`${baseUrl}/metrics`)).status).toBe(429);
     expect((await fetch(`${baseUrl}${MCP_HTTP_PATH}`)).status).toBe(429);
   });
 });
