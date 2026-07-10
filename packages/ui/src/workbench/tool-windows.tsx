@@ -25,11 +25,11 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
 
 /**
  * Default slot layout:
- *   - Left pane hosts the authoring surfaces: `http-rules` (core) and
- *     `api-requests` on `left-top`, with `workflows` on `left-bottom`.
+ *   - Left pane hosts the authoring surfaces: `http-rules` (core) on
+ *     `left-top`, with `workflows` and `api-requests` on `left-bottom`.
  *   - Right pane hosts the inspectors that annotate the active tab:
  *     `right-top` stacks `notifications` and `docs`; `right-bottom`
- *     stacks `var-scope` (active by default) and `variables`.
+ *     stacks `var-scope` and `variables` (collapsed by default).
  *
  * `var-scope` is the inspector that shows variables referenced in the
  * active rule + all scopes resolved against current env/workspace/vault
@@ -38,16 +38,15 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  * Variable Scope is what's actually in scope for the current tab.
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
-  // Left-top pairs the two authoring surfaces: rules first, then the
-  // API-request builder.
   { id: 'http-rules', label: 'HTTP Rules', icon: <RequestRulesIcon />, core: true, defaultSlot: 'left-top' },
-  { id: 'api-requests', label: 'API Requests', icon: <ApiRequestsIcon />, core: false, defaultSlot: 'left-top' },
   // A Workflow is the scheduled-refresh variable producer: a request
   // chain + extraction rule. Its output surfaces as a `{{live.X}}`
   // reference in the Scope panel's Live category via a Live Variable
   // binding. First-class left-bottom tab so users see it as a feature
-  // rather than a Variables sub-section.
+  // rather than a Variables sub-section. `api-requests` sits below it,
+  // just above the Workflow Status chip on the rail.
   { id: 'workflows', label: 'Workflows', icon: <SisternodeOutlined />, core: false, defaultSlot: 'left-bottom' },
+  { id: 'api-requests', label: 'API Requests', icon: <ApiRequestsIcon />, core: false, defaultSlot: 'left-bottom' },
   // Registry order within a slot is the slot's tab order on first
   // open. `right-top` runs `notifications` then `docs`; `right-bottom`
   // runs `var-scope` (active by default) then `variables`.

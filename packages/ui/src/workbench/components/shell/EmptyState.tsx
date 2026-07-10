@@ -14,7 +14,7 @@ import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 import { Dropdown, type MenuProps, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { forwardRef } from 'react';
-import { buildRuleTypeMenuItems } from '../../rule-type-menu';
+import { buildRuleTypeMenuItems, buildUseTemplateMenuItem } from '../../rule-type-menu';
 import { useSettingValue } from '../../settings/hooks';
 import CappedMenuPopup from '../shared/CappedMenuPopup';
 import { scopeBadge } from '../shared/scope-colors';
@@ -28,6 +28,8 @@ export type VariableCreateScope = 'environment' | 'workspace' | 'live' | 'vault'
 
 interface EmptyStateProps {
   onCreateRule: (type: string) => void;
+  onCreateRuleFromTemplate: (type: string, templateKey: string) => void;
+  onBrowseTemplates: () => void;
   onCreateRequest: () => void;
   onCreateWorkflow: () => void;
   onCreateVariable: (scope: VariableCreateScope) => void;
@@ -102,6 +104,8 @@ ActionRow.displayName = 'ActionRow';
 
 const EmptyState: React.FC<EmptyStateProps> = ({
   onCreateRule,
+  onCreateRuleFromTemplate,
+  onBrowseTemplates,
   onCreateRequest,
   onCreateWorkflow,
   onCreateVariable,
@@ -120,7 +124,16 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <div className="oh-empty-heading-spacer" aria-hidden="true" />
       <div className="oh-empty-actions">
         <Dropdown
-          menu={{ items: buildRuleTypeMenuItems(onCreateRule) }}
+          menu={{
+            items: [
+              // Template cascade leads — the onboarding path into a
+              // working rule (the sidebar's template tree starts
+              // collapsed on a fresh profile).
+              buildUseTemplateMenuItem(onCreateRuleFromTemplate, onBrowseTemplates),
+              { type: 'divider', key: 'use-template-sep' },
+              ...(buildRuleTypeMenuItems(onCreateRule) ?? []),
+            ],
+          }}
           popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={ruleMenuFit.maxHeight} />}
           trigger={['click']}
           autoAdjustOverflow={false}

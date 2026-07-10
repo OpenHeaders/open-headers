@@ -89,30 +89,28 @@ export interface WorkbenchViewState {
 
 /**
  * Fresh-profile seed (design § 8). On first open:
- *   - `left-top` stacks `http-rules` (active) + `api-requests` — the
- *     two authoring surfaces side by side.
+ *   - `http-rules` is active in `left-top`; `left-bottom` stacks
+ *     `workflows` + `api-requests` (collapsed).
  *   - `right-top` stacks `notifications` + `docs` (active). Docs leads
  *     because it's the orientation surface users reach for first on a
  *     fresh profile.
- *   - `right-bottom` stacks `var-scope` (active) + `variables`. Scope
- *     sits below Docs because it annotates the active editor tab and
- *     the smaller bottom pane is the right size for its inspector
- *     density.
+ *   - `right-bottom` stacks `var-scope` + `variables`, collapsed until
+ *     the user opens it from the rail.
  * The shared normalizer fills in remaining `defaultSlot` registry
  * entries without activating them.
  */
 const WORKSPACE_FRESH_DOCK_LAYOUT: ToolLayoutState<ToolWindowId> = normalizeDockLayout(
   {
     docks: {
-      'left-top': { windows: ['http-rules', 'api-requests'], active: 'http-rules' },
-      'left-bottom': { windows: [], active: null },
+      'left-top': { windows: ['http-rules'], active: 'http-rules' },
+      'left-bottom': { windows: ['workflows', 'api-requests'], active: null },
       'right-top': {
         windows: ['notifications', 'docs'],
         active: 'docs',
       },
       'right-bottom': {
         windows: ['var-scope', 'variables'],
-        active: 'var-scope',
+        active: null,
       },
       'bottom-left': { windows: [], active: null },
       'bottom-right': { windows: [], active: null },
@@ -134,28 +132,19 @@ const FACTORY_EDITOR_TABS: PersistedTabSession<WorkbenchTab> = { tabs: [], activ
 /**
  * Factory defaults for sidebar expansions. Dense across every view's
  * section keys so the lifted state covers any Sidebar mount without a
- * second-mount initialization step. The `sys-tpl-*` row keys keep the
- * built-in template collection — and every rule-type folder beneath
- * it — visually expanded on the http-rules view's first open.
+ * second-mount initialization step. Every http-rules section starts
+ * collapsed — a fresh profile reads as a quiet sidebar; the system
+ * templates are surfaced through the empty state's "Use template"
+ * cascade instead of pre-expanded tree rows.
  */
 export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
   sectionsExpanded: {
-    'http-rules': { rules: false, templates: true, environments: false },
+    'http-rules': { rules: false, templates: false, environments: false },
     'api-requests': { 'api-requests': true, environments: false },
     workflows: { workflows: true },
     variables: { environments: true },
   },
-  expandedKeys: [
-    'sys-tpl-col',
-    'sys-tpl-header',
-    'sys-tpl-block',
-    'sys-tpl-redirect',
-    'sys-tpl-query-param',
-    'sys-tpl-inject',
-    'sys-tpl-delay',
-    'sys-tpl-request-body',
-    'sys-tpl-response',
-  ],
+  expandedKeys: [],
 };
 
 /** Read the workspace's legacy `tabSession` shadow as the fall-through

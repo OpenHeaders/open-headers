@@ -110,6 +110,7 @@ import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
 import { useAppUpdateNotification, useSeedNotifications } from '@openheaders/ui/shared/notifications';
+import { TEMPLATES_BY_TYPE } from './rule-templates';
 import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
@@ -963,16 +964,36 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // editor component.
   const renderLeafHeader = useCallback((_: RenderLeafHeaderContext): React.ReactNode => null, []);
 
+  // "Browse all templates…" in the empty state's Use-template cascade —
+  // reveals the sidebar's template tree: focus the HTTP Rules panel,
+  // open its TEMPLATES section, and expand the system collection with
+  // its per-type folders.
+  const handleBrowseTemplates = useCallback(() => {
+    if (tl.state.hidden.includes('http-rules')) tl.restoreWindow('http-rules');
+    tl.activateWindow('http-rules');
+    sidebarState.setSectionsForView('http-rules', (prev) => ({ ...prev, templates: true }));
+    sidebarState.setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      next.add('sys-tpl-col');
+      for (const [ruleType, templates] of Object.entries(TEMPLATES_BY_TYPE)) {
+        if (templates.length > 0) next.add(`sys-tpl-${ruleType}`);
+      }
+      return next;
+    });
+  }, [tl, sidebarState]);
+
   const renderEmpty = useCallback(
     () => (
       <EmptyState
         onCreateRule={openCreateTab}
+        onCreateRuleFromTemplate={(type, templateKey) => openCreateTab(type, undefined, templateKey)}
+        onBrowseTemplates={handleBrowseTemplates}
         onCreateRequest={() => openCreateRequestTab()}
         onCreateWorkflow={() => openCreateLiveWorkflow()}
         onCreateVariable={handleCreateVariable}
       />
     ),
-    [openCreateTab, openCreateRequestTab, openCreateLiveWorkflow, handleCreateVariable],
+    [openCreateTab, handleBrowseTemplates, openCreateRequestTab, openCreateLiveWorkflow, handleCreateVariable],
   );
 
   // Bound `View` handler for ActivityFeedPanel — routes per
