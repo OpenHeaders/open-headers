@@ -198,6 +198,15 @@
   height: 16px;
   padding: 0 6px;
 }
+/* "Create API request" — right edge of the General summary, apart from
+   the OH rule CTAs: it hands off to the API client, not a rule. */
+.dt-header-create-api {
+  float: right;
+  margin-left: 8px;
+  font-size: 10px;
+  height: 16px;
+  padding: 0 6px;
+}
 .dt-header-section-raw {
   margin-left: 6px;
   font-size: 10px;

@@ -319,6 +319,23 @@ export function HeadersView({
           * primary surface for "I see something I want to change → make a
           * rule for it". */}
         <summary ref={firstSummaryRef}>
+          {/* Right-floated (DOM-first so it floats on the CTA line) and
+            * not `dt-btn--oh` — this hands off to the API client, not a
+            * rule; the paper-plane glyph (the workbench's API Requests
+            * mark) is its identity, and the right edge keeps it apart
+            * from the rule CTAs. */}
+          <button
+            type="button"
+            className="dt-btn dt-header-create-api"
+            onClick={(e) => {
+              e.preventDefault();
+              onCreateApiRequest();
+            }}
+            title="Open this request in the workbench's API client as a pre-filled draft — nothing is saved until you save it"
+          >
+            <ApiRequestsIcon style={{ fontSize: 10, marginRight: 4 }} />
+            Create API request
+          </button>
           General
           <span className="dt-header-general-ctas">
             <RedirectCtaMenu
@@ -345,21 +362,6 @@ export function HeadersView({
                 { label: 'Block request', title: 'Block / cancel this request', onPick: onCreateCancel },
               ]}
             />
-            {/* Not `dt-btn--oh` — this hands off to the API client, not a
-              * rule; the paper-plane glyph (the workbench's API Requests
-              * mark) is its identity. */}
-            <button
-              type="button"
-              className="dt-btn"
-              onClick={(e) => {
-                e.preventDefault();
-                onCreateApiRequest();
-              }}
-              title="Open this request in the workbench's API client as a pre-filled draft — nothing is saved until you save it"
-            >
-              <ApiRequestsIcon style={{ fontSize: 10, marginRight: 4 }} />
-              Create API request
-            </button>
           </span>
         </summary>
         <GeneralRow label="Request URL" infoKey="request-url">
