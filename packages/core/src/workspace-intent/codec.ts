@@ -33,6 +33,8 @@
  *   #/live-workflow/<uid>    → edit-live-workflow
  *   #/create-live-variable   → create-live-variable (no seed)
  *   #/create-live-variable/<reqUid> → create-live-variable with seed request
+ *   #/create-api-request     → create-api-request (blank scratch)
+ *   #/create-api-request/draft-<n> → create-api-request with draftNonce
  *
  * Unknown hashes return `null`, not a throw — callers decide whether
  * to treat that as "nothing to dispatch" (valid on any page load) or
@@ -169,6 +171,13 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
       return buildIntent({ kind: 'create-live-variable', seedRequestUid: rest[0] });
     }
 
+    case 'create-api-request': {
+      if (rest[0]?.startsWith('draft-')) {
+        return buildIntent({ kind: 'create-api-request', draftNonce: rest[0].slice('draft-'.length) });
+      }
+      return buildIntent({ kind: 'create-api-request' });
+    }
+
     default:
       return null;
   }
@@ -265,6 +274,11 @@ export function intentToHash(intent: WorkspaceIntent): string {
       return intent.seedRequestUid
         ? `#/create-live-variable/${encodeSegment(intent.seedRequestUid)}`
         : '#/create-live-variable';
+
+    case 'create-api-request':
+      return intent.draftNonce
+        ? `#/create-api-request/draft-${encodeSegment(intent.draftNonce)}`
+        : '#/create-api-request';
   }
 }
 

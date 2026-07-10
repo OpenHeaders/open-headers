@@ -31,16 +31,9 @@
  */
 
 import { placeholderFileRef } from '../files';
+import type { AuthConfig, HttpMethod, MultipartPart, QueryParam, RequestBody, RequestHeader } from '../types/request';
 import { decodeBase64 } from '../utils/base64';
 import { generateUid } from '../utils/workspace';
-import type {
-  AuthConfig,
-  HttpMethod,
-  MultipartPart,
-  QueryParam,
-  RequestBody,
-  RequestHeader,
-} from '../types/request';
 import type { CurlRequest } from './curl';
 import { createReport, type ImportReport, recordDrop, recordTransform } from './report';
 
@@ -57,7 +50,13 @@ interface HarEntry {
   request?: HarRequest;
 }
 
-interface HarRequest {
+/**
+ * The HAR 1.2 `request` object subset the converter reads. Exported so
+ * callers that already hold a HAR-shaped request (the devpanel's
+ * captured entries) can feed it to {@link convertHarRequest} without a
+ * file-level round-trip.
+ */
+export interface HarRequest {
   method?: string;
   url?: string;
   httpVersion?: string;
@@ -139,7 +138,7 @@ export function parseHar(input: string): HarParseResult {
       imported -= 1;
       continue;
     }
-    const result = tryConvertEntry(req, i, report);
+    const result = convertHarRequest(req, i, report);
     if (result === null) {
       imported -= 1;
       continue;
@@ -171,7 +170,15 @@ export function selectHarEntries(result: HarParseResult, indices: readonly numbe
 
 const VALID_METHODS: ReadonlySet<HttpMethod> = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
 
-function tryConvertEntry(req: HarRequest, index: number, report: ImportReport): CurlRequest | null {
+/**
+ * Convert one HAR-shaped request into an authoring-ready request.
+ * The workhorse behind `parseHar`, exported for callers that hold a
+ * single captured entry (devpanel "Create API request"). Drops and
+ * transforms land on the caller-supplied `report`; `index` labels the
+ * report paths (`log.entries[<index>]…`). Returns null when the entry
+ * has no URL.
+ */
+export function convertHarRequest(req: HarRequest, index: number, report: ImportReport): CurlRequest | null {
   const rawUrl = typeof req.url === 'string' ? req.url : '';
   if (rawUrl.length === 0) {
     recordDrop(report, {

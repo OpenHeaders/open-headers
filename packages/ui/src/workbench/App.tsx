@@ -692,6 +692,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openLiveVariableEdit,
     openLiveWorkflowEdit,
     openCreateLiveVariable,
+    // Devpanel "Create API request" handoff: a stashed seed opens the
+    // same pre-filled scratch tab as Duplicate Tab; no seed (expired
+    // nonce) degrades to a blank draft request.
+    openCreateApiRequest: (seed) => {
+      if (seed) openDuplicateRequestScratch(seed);
+      else openCreateRequestTab();
+    },
     openExportModal: () => importExportRef.current?.openExportModal({ kind: 'workspace' }),
     openImportModal: () => importExportRef.current?.openImportSource(),
   });

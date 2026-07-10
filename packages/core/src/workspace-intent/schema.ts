@@ -194,6 +194,19 @@ export const CreateLiveVariableIntentSchema = v.object({
   seedRequestUid: v.optional(UidSchema),
 });
 
+/**
+ * `create-api-request` — open a scratch API-request tab in the
+ * workbench, optionally pre-filled from a stashed `RequestSeed`
+ * (devpanel "Create API request" CTA). Same nonce handoff as
+ * `create-rule`: the payload can carry a full captured body, so it
+ * travels through the background draft store rather than the URL.
+ * Absent/expired nonce degrades to a blank scratch request tab.
+ */
+export const CreateApiRequestIntentSchema = v.object({
+  kind: v.literal('create-api-request'),
+  draftNonce: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(128))),
+});
+
 // ── Union + kind picklist ───────────────────────────────────────────
 
 export const WorkspaceIntentSchema = v.variant('kind', [
@@ -218,6 +231,7 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   CreateLiveVariableIntentSchema,
   OpenExportModalIntentSchema,
   OpenImportModalIntentSchema,
+  CreateApiRequestIntentSchema,
 ]);
 
 export type WorkspaceIntent = v.InferOutput<typeof WorkspaceIntentSchema>;
@@ -249,6 +263,7 @@ export const WORKSPACE_INTENT_KINDS = [
   'create-live-variable',
   'open-export-modal',
   'open-import-modal',
+  'create-api-request',
 ] as const;
 
 export type WorkspaceIntentKind = (typeof WORKSPACE_INTENT_KINDS)[number];

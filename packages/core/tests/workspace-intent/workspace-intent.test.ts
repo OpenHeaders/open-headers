@@ -59,6 +59,8 @@ describe('WorkspaceIntentSchema — accepts every kind', () => {
     ['open-live-variables', { kind: 'open-live-variables' }],
     ['open-export-modal', { kind: 'open-export-modal' }],
     ['open-import-modal', { kind: 'open-import-modal' }],
+    ['create-api-request (bare)', { kind: 'create-api-request' }],
+    ['create-api-request (draft)', { kind: 'create-api-request', draftNonce: 'xyz-123' }],
   ];
 
   it.each(cases)('accepts %s', (_label, intent) => {
@@ -131,6 +133,7 @@ describe('WORKSPACE_INTENT_KINDS', () => {
       'create-live-variable': { kind: 'create-live-variable' },
       'open-export-modal': { kind: 'open-export-modal' },
       'open-import-modal': { kind: 'open-import-modal' },
+      'create-api-request': { kind: 'create-api-request' },
     };
     for (const kind of WORKSPACE_INTENT_KINDS) {
       expect(minimal[kind], `missing minimal-case fixture for kind ${kind}`).toBeDefined();
@@ -176,6 +179,8 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     { kind: 'edit-live-workflow', uid: UID_B },
     { kind: 'create-live-variable' },
     { kind: 'create-live-variable', seedRequestUid: UID_A },
+    { kind: 'create-api-request' },
+    { kind: 'create-api-request', draftNonce: 'nonce-xyz' },
   ];
 
   it.each(roundTripCases)('round-trips %j', (intent) => {

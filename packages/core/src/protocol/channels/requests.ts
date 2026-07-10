@@ -4,7 +4,7 @@
  * the active workspace.
  */
 
-import type { Collection, CollectionTree, ExecutedRequestSnapshot, Request } from '../../types';
+import type { Collection, CollectionTree, ExecutedRequestSnapshot, Request, RequestSeed } from '../../types';
 import type { FolderDescriptor } from './common';
 
 export interface RequestRpc {
@@ -50,6 +50,19 @@ export interface RequestRpc {
   deleteLocalRequest: {
     req: { requestUid: string };
     res: { success: boolean };
+  };
+  /**
+   * Stash / consume a scratch-request pre-fill handed from the devpanel
+   * to the workbench (single-consume nonce, same flow as
+   * `createRuleDraft` / `takeRuleDraft`).
+   */
+  createRequestDraft: {
+    req: { seed: RequestSeed };
+    res: { success: boolean; nonce?: string; error?: string };
+  };
+  takeRequestDraft: {
+    req: { nonce: string };
+    res: { success: boolean; seed: RequestSeed | null };
   };
   createLocalRequestCollection: {
     req: { name: string };

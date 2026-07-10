@@ -56,6 +56,7 @@ export {
   RequestBodySchema,
   RequestHeaderSchema,
   RequestSchema,
+  RequestSeedSchema,
 } from './request';
 export { CapturedRequestSchema, CapturedResponseSchema, ResponseExampleSchema } from './response-example';
 export {

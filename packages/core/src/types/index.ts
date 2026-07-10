@@ -147,6 +147,7 @@ export type {
   Request,
   RequestBody,
   RequestHeader,
+  RequestSeed,
 } from './request';
 
 // ── Request execution ──────────────────────────────────────────────

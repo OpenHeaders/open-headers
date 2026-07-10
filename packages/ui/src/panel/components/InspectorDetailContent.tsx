@@ -10,6 +10,8 @@ import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/reques
 import type { BlockRuleDraft, DelayRuleDraft, RedirectRuleDraft, Rule } from '@openheaders/core/types';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useEffect, useMemo, useRef } from 'react';
+import { handOffApiRequestSeed } from '../data/api-request-handoff';
+import { detectApiResourceType } from '../data/api-resource-type';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
 import type { JarCookieKey } from '../data/cookies/cookie-jar-cache';
 import { deriveFireEvidenceByRule } from '../data/fire-evidence';
@@ -96,33 +98,6 @@ function hasCookies(har: ReturnType<typeof currentHarEntry>): boolean {
   if (!har) return false;
   if (har.request?.cookies && har.request.cookies.length > 0) return true;
   return (har.response?.headers ?? []).some((h) => h.name.toLowerCase() === 'set-cookie');
-}
-
-/**
- * Classify the captured request as REST or GraphQL so the override
- * drafts pre-select the right resource type — GraphQL when the URL
- * path points at a graphql endpoint, or when the outgoing JSON body
- * carries the standard `query` field (single or batched).
- */
-function detectApiResourceType(lc: RequestLifecycle, har: ReturnType<typeof currentHarEntry>): 'rest' | 'graphql' {
-  try {
-    if (new URL(lc.url).pathname.toLowerCase().includes('graphql')) return 'graphql';
-  } catch {
-    // non-URL values fall through to the body check
-  }
-  const text = har?.request?.postData?.text;
-  if (text) {
-    try {
-      const parsed: unknown = JSON.parse(text);
-      const ops = Array.isArray(parsed) ? parsed : [parsed];
-      if (ops.length > 0 && ops.every((op) => typeof (op as { query?: unknown })?.query === 'string')) {
-        return 'graphql';
-      }
-    } catch {
-      // not JSON — REST
-    }
-  }
-  return 'rest';
 }
 
 /**
@@ -504,6 +479,7 @@ export function InspectorDetailContent({
             onOverrideQueryParams={createOverrideQueryParams}
             onCreateDelay={createDelay}
             onCreateCancel={createCancel}
+            onCreateApiRequest={() => void handOffApiRequestSeed(lc)}
             onShowMatchedRules={onShowMatchedRules}
             searchHighlight={searchHighlight}
             searchSection={searchSection}

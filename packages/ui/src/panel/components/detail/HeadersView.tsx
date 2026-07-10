@@ -17,6 +17,8 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
+import { ApiRequestsIcon } from '@openheaders/ui/shared/icons';
+import { CtaMenu } from './headers/CtaMenu';
 import {
   type AnnotatedHeader,
   isAttributionEdited,
@@ -89,6 +91,10 @@ export interface HeadersViewProps {
   onOverrideQueryParams: (anchorEl: HTMLElement) => void;
   onCreateDelay: (anchorEl: HTMLElement) => void;
   onCreateCancel: (anchorEl: HTMLElement) => void;
+  /** Hand this request off to the workbench's API client as a
+   *  pre-filled scratch request (nothing persists until saved). No
+   *  anchor — the gesture navigates away instead of opening a popover. */
+  onCreateApiRequest: () => void;
   /** Open (or switch to) the Matched Rules tool window — the footprint
    *  chip is its discoverable entry point from the request detail. */
   onShowMatchedRules: () => void;
@@ -112,6 +118,7 @@ export function HeadersView({
   onOverrideQueryParams,
   onCreateDelay,
   onCreateCancel,
+  onCreateApiRequest,
   onShowMatchedRules,
   searchHighlight,
   searchSection,
@@ -330,27 +337,28 @@ export function HeadersView({
             >
               Override query params
             </button>
+            <CtaMenu
+              label="More"
+              title="More request actions"
+              items={[
+                { label: 'Delay request', title: 'Delay this request', onPick: onCreateDelay },
+                { label: 'Block request', title: 'Block / cancel this request', onPick: onCreateCancel },
+              ]}
+            />
+            {/* Not `dt-btn--oh` — this hands off to the API client, not a
+              * rule; the paper-plane glyph (the workbench's API Requests
+              * mark) is its identity. */}
             <button
               type="button"
-              className="dt-btn dt-btn--oh"
+              className="dt-btn"
               onClick={(e) => {
                 e.preventDefault();
-                onCreateDelay(e.currentTarget);
+                onCreateApiRequest();
               }}
-              title="Delay this request"
+              title="Open this request in the workbench's API client as a pre-filled draft — nothing is saved until you save it"
             >
-              Delay request
-            </button>
-            <button
-              type="button"
-              className="dt-btn dt-btn--oh"
-              onClick={(e) => {
-                e.preventDefault();
-                onCreateCancel(e.currentTarget);
-              }}
-              title="Block / cancel this request"
-            >
-              Block request
+              <ApiRequestsIcon style={{ fontSize: 10, marginRight: 4 }} />
+              Create API request
             </button>
           </span>
         </summary>

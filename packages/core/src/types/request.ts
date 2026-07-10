@@ -33,6 +33,7 @@ import type {
   RequestBodySchema,
   RequestHeaderSchema,
   RequestSchema,
+  RequestSeedSchema,
 } from '../schemas/request';
 
 // ── HTTP method ────────────────────────────────────────────────────
@@ -96,3 +97,10 @@ export type FormField = v.InferOutput<typeof FormFieldSchema>;
 export type CredentialsMode = v.InferOutput<typeof CredentialsModeSchema>;
 
 export type Request = v.InferOutput<typeof RequestSchema>;
+
+/**
+ * Content-only request shape (no `uid` / `path` / `schemaVersion`) —
+ * the pre-fill handoff unit shared by importers, the devpanel
+ * "Create API request" draft store, and the workbench scratch tab.
+ */
+export type RequestSeed = v.InferOutput<typeof RequestSeedSchema>;

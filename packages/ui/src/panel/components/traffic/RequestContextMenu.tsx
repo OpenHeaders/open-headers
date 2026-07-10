@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { handOffApiRequestSeed } from '../../data/api-request-handoff';
 import { currentResponseBody, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { formatCurl, formatFetch, formatRequestHeaders, formatResponseHeaders } from '../../data/request-formatters';
 import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
@@ -132,6 +133,7 @@ export function RequestContextMenu({
   return (
     <div ref={menuRef} className="dt-ctx-menu" style={{ left: state.x, top: state.y }}>
       {item('Open in new tab', openInNewTab)}
+      {item('Create API request', () => handOffApiRequestSeed(lc))}
       <div className="dt-ctx-sep" />
       {/* Copy submenu */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: hover submenu */}

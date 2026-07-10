@@ -431,3 +431,12 @@ export const RequestSchema = v.object({
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),
 });
+
+/**
+ * Content-only request shape — a `Request` minus its identity fields
+ * (`schemaVersion`, `uid`, `path`). The unit of pre-fill handoff:
+ * importers produce it, the devpanel "Create API request" draft store
+ * validates it, and the workbench scratch tab (`seedRequestContent`)
+ * consumes it. Nothing is persisted until the user saves the scratch.
+ */
+export const RequestSeedSchema = v.omit(RequestSchema, ['schemaVersion', 'uid', 'path']);

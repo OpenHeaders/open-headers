@@ -8,6 +8,7 @@ export {
 } from './codec';
 export type { WorkspaceIntent, WorkspaceIntentKind } from './schema';
 export {
+  CreateApiRequestIntentSchema,
   CreateRuleIntentSchema,
   DocsSectionIdSchema,
   EditEnvironmentIntentSchema,

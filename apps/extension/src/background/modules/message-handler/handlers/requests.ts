@@ -1,6 +1,7 @@
 /** API-request CRUD + execution RPCs (active workspace). */
 
 import type { Request } from '@openheaders/core/types';
+import { createRequestDraft, takeRequestDraft } from '@openheaders/oracle/entity/request-draft-store';
 import {
   addRequest,
   addRequestToCollection,
@@ -78,6 +79,21 @@ export const requestHandlers: HandlerMap = {
       .then((created) => respond({ success: true, request: created }))
       .catch((err: Error) => respond({ success: false, error: err.message }));
     return true;
+  },
+
+  createRequestDraft: ({ message, respond }) => {
+    try {
+      const nonce = createRequestDraft(message.seed);
+      respond({ success: true, nonce });
+    } catch (err) {
+      respond({ success: false, error: (err as Error).message });
+    }
+  },
+
+  takeRequestDraft: ({ message, respond }) => {
+    const nonce = message.nonce as string;
+    const seed = takeRequestDraft(nonce);
+    respond({ success: true, seed });
   },
 
   updateLocalRequest: ({ message, respond }) => {

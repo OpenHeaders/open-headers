@@ -218,6 +218,12 @@
   height: 16px;
   padding: 0 6px;
 }
+/* General-summary CTA dropdowns (Redirect ▾ / More ▾) — same relative
+   anchor as the Copy wrapper, minus its margin (the CTA row gaps). */
+.dt-header-cta-dropdown {
+  position: relative;
+  display: inline-block;
+}
 .dt-header-copy-menu {
   position: absolute;
   right: 0;
@@ -247,6 +253,15 @@
 .dt-header-copy-menu button:disabled {
   color: var(--dt-text-muted);
   cursor: default;
+}
+/* CTA dropdowns open under left-edge triggers — align the menu's left
+   edge with the button so it can't overflow the pane's left side. */
+.dt-header-copy-menu--left {
+  left: 0;
+  right: auto;
+}
+.dt-header-copy-menu--left button {
+  white-space: nowrap;
 }
 
 /* Category groups. */

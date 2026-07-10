@@ -13,7 +13,15 @@ export {
   type ImportSummaryDelta,
   type ReportDiffPartition,
 } from './diff';
-export { type HarParsedEntry, HarParseError, type HarParseResult, parseHar, selectHarEntries } from './har';
+export {
+  convertHarRequest,
+  type HarParsedEntry,
+  HarParseError,
+  type HarParseResult,
+  type HarRequest,
+  parseHar,
+  selectHarEntries,
+} from './har';
 export {
   type PostmanCollectionVariable,
   type PostmanEnvironmentParseResult,

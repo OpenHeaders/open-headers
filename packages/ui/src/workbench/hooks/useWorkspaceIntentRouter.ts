@@ -30,7 +30,7 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import type { RuleDraft } from '@openheaders/core/types';
+import type { RequestSeed, RuleDraft } from '@openheaders/core/types';
 import { hashToBoundIntent, type WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import { useEffect, useRef } from 'react';
 
@@ -71,6 +71,10 @@ interface UseWorkspaceIntentRouterOptions {
   openLiveVariableEdit: (uid: string, name: string) => void;
   openLiveWorkflowEdit: (uid: string, name: string) => void;
   openCreateLiveVariable: () => void;
+  /** `create-api-request` — open a scratch request-create tab,
+   *  pre-filled from the stashed seed when the devpanel handed one off
+   *  (`takeRequestDraft`), blank when the nonce is absent or expired. */
+  openCreateApiRequest: (seed?: RequestSeed) => void;
   /** `open-export-modal` — show the export modal scoped to the active
    *  workspace. Dispatched from popup / sidepanel surfaces. */
   openExportModal: () => void;
@@ -222,6 +226,21 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           // Request editor's "Use response in workflow" dropdown.
           o.openCreateLiveVariable();
           return;
+        case 'create-api-request': {
+          // Same draft-handoff flow as `create-rule`: the devpanel
+          // stashed the seed via `createRequestDraft`; retrieve it and
+          // pre-fill the scratch tab. Absent/expired nonces still open
+          // a blank scratch request — better than a dead click.
+          if (intent.draftNonce) {
+            hostBridge
+              .call('takeRequestDraft', { nonce: intent.draftNonce })
+              .then((res) => o.openCreateApiRequest(res?.seed ?? undefined))
+              .catch(() => o.openCreateApiRequest());
+          } else {
+            o.openCreateApiRequest();
+          }
+          return;
+        }
         case 'open-export-modal':
           o.openExportModal();
           return;
@@ -325,6 +344,16 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'create-live-variable':
         o.openCreateLiveVariable();
+        return;
+      case 'create-api-request':
+        if (pending.draftNonce) {
+          hostBridge
+            .call('takeRequestDraft', { nonce: pending.draftNonce })
+            .then((res) => o.openCreateApiRequest(res?.seed ?? undefined))
+            .catch(() => o.openCreateApiRequest());
+        } else {
+          o.openCreateApiRequest();
+        }
         return;
       case 'open-export-modal':
         o.openExportModal();
