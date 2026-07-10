@@ -115,12 +115,21 @@ export interface WireCaptureOptions {
 export interface WireCapture {
   /** Resolve the capture for this fetch. Unsubscribes from the channel. */
   settle(): Promise<ExecutedWireCapture | undefined>;
+  /**
+   * Error-path settle: the Chromium net-stack code from the chain's
+   * terminal `onErrorOccurred` (e.g. `'net::ERR_NAME_NOT_RESOLVED'`).
+   * `fetch()` opaques every network failure into "Failed to fetch",
+   * but the webRequest layer sees the real error — this is the only
+   * place extension code can recover it. Unsubscribes from the channel.
+   */
+  settleNetError(): Promise<string | undefined>;
   /** Abandon the capture (error path). */
   cancel(): void;
 }
 
 const INERT_CAPTURE: WireCapture = {
   settle: () => Promise.resolve(undefined),
+  settleNetError: () => Promise.resolve(undefined),
   cancel: () => {},
 };
 
@@ -150,21 +159,34 @@ export function startWireCapture(options: WireCaptureOptions): WireCapture {
     unsubscribe = null;
   };
 
+  // Event delivery is a separate task from the fetch's own promise
+  // chain: yield one macrotask, then allow one short grace wait if
+  // the matched chain is still missing its terminal event.
+  const settleChain = async (): Promise<readonly WebRequestEvent[] | undefined> => {
+    if (unsubscribe === null) return undefined;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    let chain = pickWireChain(chains, match);
+    if (chain === undefined || !hasTerminal(chain)) {
+      await new Promise((resolve) => setTimeout(resolve, DELIVERY_GRACE_MS));
+      chain = pickWireChain(chains, match);
+    }
+    cancel();
+    return chain;
+  };
+
   return {
     async settle() {
-      if (unsubscribe === null) return undefined;
-      // Event delivery is a separate task from the fetch's own promise
-      // chain: yield one macrotask, then allow one short grace wait if
-      // the matched chain is still missing its terminal event.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      let chain = pickWireChain(chains, match);
-      if (chain === undefined || !hasTerminal(chain)) {
-        await new Promise((resolve) => setTimeout(resolve, DELIVERY_GRACE_MS));
-        chain = pickWireChain(chains, match);
-      }
-      cancel();
+      const chain = await settleChain();
       if (chain === undefined) return undefined;
       return aggregateWireCapture(chain, options.credentialsMode);
+    },
+    async settleNetError() {
+      const chain = await settleChain();
+      if (chain === undefined) return undefined;
+      for (const event of chain) {
+        if (event.method_kind === 'onErrorOccurred') return event.error;
+      }
+      return undefined;
     },
     cancel,
   };

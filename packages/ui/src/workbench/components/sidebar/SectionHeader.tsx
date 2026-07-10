@@ -24,6 +24,7 @@ export function SectionHeader({
       }}
       role="button"
       tabIndex={-1}
+      aria-expanded={expanded}
     >
       <span className="rules-sidebar-section-title">
         <span

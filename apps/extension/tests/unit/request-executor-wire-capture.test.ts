@@ -199,6 +199,33 @@ describe('startWireCapture', () => {
     await expect(capture.settle()).resolves.toBeUndefined();
   });
 
+  it('settleNetError recovers the net-stack code from the terminal onErrorOccurred', async () => {
+    const emit = installFakeSource();
+    const capture = startWireCapture({ method: 'GET', url: URL_A, credentialsMode: 'omit' });
+    emit(chainStart('10', URL_A, { timeStamp: Date.now() }));
+    emit({
+      method_kind: 'onErrorOccurred',
+      tabId: -1,
+      requestId: '10',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: Date.now(),
+      error: 'net::ERR_NAME_NOT_RESOLVED',
+    } as WebRequestEvent);
+
+    await expect(capture.settleNetError()).resolves.toBe('net::ERR_NAME_NOT_RESOLVED');
+  });
+
+  it('settleNetError yields undefined for a chain that completed normally', async () => {
+    const emit = installFakeSource();
+    const capture = startWireCapture({ method: 'GET', url: URL_A, credentialsMode: 'omit' });
+    emit(chainStart('11', URL_A, { timeStamp: Date.now() }));
+    emit(completed('11', URL_A, '203.0.113.11'));
+
+    await expect(capture.settleNetError()).resolves.toBeUndefined();
+  });
+
   it('is inert when no source is registered', async () => {
     vi.resetModules();
     const fresh = await import('@/background/modules/request-executor/wire-capture');

@@ -77,13 +77,40 @@ export class WorkbenchPage {
    * activating the view auto-expands its section.
    */
   async showRequestsView(): Promise<void> {
-    await this.page.getByLabel('API Requests', { exact: true }).first().click();
+    // State-driven, never toggle-and-hope. The dock strip's tool-window
+    // tabs carry `data-tool-window="<id>"` + `aria-selected` (open/closed)
+    // and the REQUESTS section header carries `aria-expanded` — read the
+    // state, click only when it's wrong.
+    const viewTab = this.dockTab('api-requests');
+    if ((await viewTab.getAttribute('aria-selected')) !== 'true') {
+      await viewTab.click();
+    }
+    // Unanchored name match: the computed accessible name is
+    // "▶ REQUESTS plus" — the caret glyph and the header's `+` action
+    // icon (an antd `img "plus"`) both fold into it.
+    const sectionHeader = this.page
+      .getByRole('button', { name: /REQUESTS/ })
+      .filter({ visible: true })
+      .first();
+    await sectionHeader.waitFor({ state: 'visible', timeout: 10000 });
+    if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
+      await sectionHeader.click();
+    }
     await this.page.locator('[data-item-id^="req-col-"]').first().waitFor({ state: 'visible', timeout: 10000 });
   }
 
-  /** Collapse the Docs/Scope dock panel so the API Requests panel fills the pane. */
+  /** Collapse the Docs/Scope dock panel so the API Requests panel fills
+   *  the pane. No-op when it is already collapsed (`aria-selected`). */
   async collapseDocsPanel(): Promise<void> {
-    await this.page.getByLabel('Docs', { exact: true }).first().click();
+    const docsTab = this.dockTab('docs');
+    if ((await docsTab.getAttribute('aria-selected')) === 'true') {
+      await docsTab.click();
+    }
+  }
+
+  /** A dock-strip tool-window tab by its stable tool-window id. */
+  private dockTab(id: string): Locator {
+    return this.page.locator(`[data-tool-window="${id}"]`).first();
   }
 
   /** Click a request row, expanding its collection first if it's hidden. */
@@ -120,6 +147,20 @@ export class WorkbenchPage {
     return (await tag.textContent())?.trim() ?? '';
   }
 
+  /** Wait for the failed-send error state in the active editor; return
+   *  its message text (the executor's classified failure). */
+  async responseErrorText(): Promise<string> {
+    const msg = this.page.getByTestId('oh-response-error').filter({ visible: true });
+    await msg.waitFor({ state: 'visible', timeout: 15000 });
+    return (await msg.textContent())?.trim() ?? '';
+  }
+
+  /** The error state's "Open in new tab" recovery affordance — rendered
+   *  only when the snapshot carries an `open-in-tab` hint. */
+  responseErrorOpenTabButton(): Locator {
+    return this.page.getByTestId('oh-response-error-open-tab').filter({ visible: true });
+  }
+
   // ── Editor tab navigation ───────────────────────────────────────
 
   /** Open a request-editor tab (Params / Headers / Body / Scripts …) by
@@ -150,25 +191,26 @@ export class WorkbenchPage {
 
   /**
    * Drive a Params/Headers table through its Bulk Edit textarea — far
-   * more robust than per-cell rich inputs. Opens the table-options
-   * popover, switches to Bulk Edit, types the serialized lines, then
-   * switches back (which parses the text into rows and commits them to
-   * the draft). `placeholder` disambiguates the textarea (Params vs
-   * Headers carry different formats/placeholders).
+   * more robust than per-cell rich inputs. The Bulk/Key-Value toggle is
+   * an inline button in the table's last visible column header (the `⋯`
+   * table-options popover only keeps the column toggles): click "Bulk",
+   * type the serialized lines, click "Key-Value" (which parses the text
+   * back into rows and commits them to the draft). `placeholder`
+   * disambiguates the textarea (Params vs Headers carry different
+   * formats/placeholders). Name matching is unanchored-prefix: the
+   * button's accessible name includes its edit icon ("edit Bulk").
    */
   async fillBulkEdit(placeholder: RegExp, text: string): Promise<void> {
-    await this.openTableOptions();
-    await this.page.getByRole('button', { name: 'Bulk Edit' }).click();
+    await this.bulkToggle(/Bulk$/).click();
     const ta = this.page.getByPlaceholder(placeholder);
     await ta.waitFor({ state: 'visible', timeout: 5000 });
     await ta.fill(text);
     // Exit bulk mode → parses the textarea back into rows (the commit point).
-    await this.openTableOptions();
-    await this.page.getByRole('button', { name: 'Key-Value Edit' }).click();
+    await this.bulkToggle(/Key-Value$/).click();
   }
 
-  private async openTableOptions(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Table options' }).filter({ visible: true }).first().click();
+  private bulkToggle(name: RegExp): Locator {
+    return this.page.getByRole('button', { name }).filter({ visible: true }).first();
   }
 
   // ── Body controls ───────────────────────────────────────────────
@@ -203,9 +245,17 @@ export class WorkbenchPage {
       .click();
   }
 
-  /** Pick which script the Scripts tab's shared editor edits. */
+  /** Pick which script the Scripts tab's shared editor edits. The rail
+   *  row's accessible name starts with the label but also folds in its
+   *  inline InfoTrigger ("Pre-request About Pre-request script"), so
+   *  match on the prefix — the ⓘ button itself starts with "About" and
+   *  can't collide. */
   async selectScriptRail(label: 'Pre-request' | 'Post-response'): Promise<void> {
-    await this.page.getByRole('button', { name: label, exact: true }).click();
+    await this.page
+      .getByRole('button', { name: new RegExp(`^${label}`) })
+      .filter({ visible: true })
+      .first()
+      .click();
   }
 
   // ── Scripts tab — snippets popover ──────────────────────────────

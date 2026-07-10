@@ -5,7 +5,7 @@
  * failure) into an `ExecutedRequestSnapshot`.
  */
 
-import type { ExecutedRequestErrorHint, ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
+import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
 import { ensureScheme } from '@openheaders/ui/shared/fetch';
@@ -14,6 +14,7 @@ import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { recordLog } from '../observability-log';
+import { classifyFetchFailure } from './failure-classify';
 import type { ResolvedRequest } from './resolve';
 import {
   estimateMultipartBytes,
@@ -266,30 +267,35 @@ export async function executeResolved(
     };
   } catch (err) {
     capture.cancel();
-    wireCapture.cancel();
     const durationMs = Math.round(performance.now() - startedAt);
     const rawMessage = err instanceof Error ? err.message : String(err);
-    // Chromium's `fetch()` opaques every non-TLS network error — DNS
-    // failure, connection refused, unreachable host, host permission
-    // missing, offline, abort — into the exact same `TypeError:
-    // Failed to fetch`. There is no `err.cause` chain we can unwrap
-    // to get the underlying OS error (unlike Node's `getaddrinfo
-    // ENOTFOUND` / `ECONNREFUSED`). Best we can do is add context the
-    // user can act on: the URL we tried, the fact that it was
-    // `http`/`https`, and a hint about common causes. That's what
-    // Postman (in the browser/SDK variant) also shows.
+    // `fetch()` opaques every network error — DNS failure, connection
+    // refused, bad certificate, missing host permission — into the
+    // exact same `TypeError: Failed to fetch` with no `err.cause`
+    // chain. The webRequest layer sees the real net-stack code for the
+    // SW's own traffic, so for the generic failure the wire capture is
+    // settled (not canceled) to recover it; classification leads with
+    // that code — the same string the browser's own Network panel
+    // shows — and falls back to protocol/host heuristics without it.
     const isGenericFetchFail = err instanceof TypeError && /failed to fetch/i.test(rawMessage);
+    let netError: string | undefined;
+    if (isGenericFetchFail) {
+      netError = await wireCapture.settleNetError();
+    } else {
+      wireCapture.cancel();
+    }
     const { message, hint } = isGenericFetchFail
-      ? classifyFetchFailure(req.url, rawMessage)
+      ? classifyFetchFailure(req.url, rawMessage, netError)
       : { message: rawMessage, hint: undefined };
-    logger.info('RequestExecutor', `fetch failed for ${req.url}: ${rawMessage}`);
+    logger.info('RequestExecutor', `fetch failed for ${req.url}: ${netError ?? rawMessage}`);
     recordLog({
       subsystem: 'request-executor',
       op: 'fetch',
       level: 'error',
-      message: `Fetch failed for ${req.url}: ${rawMessage}`,
+      message: `Fetch failed for ${req.url}: ${netError ?? rawMessage}`,
       context: {
         errorClass: err instanceof Error ? err.name : undefined,
+        ...(netError !== undefined ? { netError } : {}),
         stack: err instanceof Error ? err.stack : undefined,
       },
     });
@@ -321,72 +327,6 @@ export async function executeResolved(
       scripts: null,
     };
   }
-}
-
-/**
- * Produce a user-actionable error for the generic `TypeError: Failed
- * to fetch` that Chromium's fetch returns for every network failure.
- * The browser deliberately withholds the underlying OS error (DNS vs.
- * refused vs. unreachable vs. bad certificate) from extension code, so
- * we can't reproduce native-SDK error strings ("getaddrinfo
- * ENOTFOUND ...") — but we CAN replace the content-free default with
- * a breakdown of the likely causes so the user knows where to look.
- *
- * HTTPS failures additionally carry an `open-in-tab` hint: an
- * untrusted certificate (self-signed dev certs — Spring Boot, local
- * proxies) fails here with no interstitial, and fetch cannot bypass
- * certificate validation. Opening the URL in a regular tab lets the
- * user accept the certificate; the browser remembers the exception
- * for that host:port and the retry succeeds.
- */
-function classifyFetchFailure(
-  url: string,
-  rawMessage: string,
-): { message: string; hint?: ExecutedRequestErrorHint } {
-  let hostname = '';
-  let protocol = '';
-  try {
-    const parsed = new URL(url);
-    hostname = parsed.hostname;
-    protocol = parsed.protocol;
-  } catch {
-    return { message: `${rawMessage} — invalid URL "${url}"` };
-  }
-  // Offline is handled by the pre-flight check; if we got here with
-  // navigator.onLine=false it means the signal flipped during the
-  // fetch. Still worth surfacing cleanly.
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return { message: `Network offline — could not reach ${hostname}.` };
-  }
-  const isHttps = protocol === 'https:';
-  const hint: ExecutedRequestErrorHint | undefined = isHttps ? { kind: 'open-in-tab', url } : undefined;
-  const looksLocal =
-    /^(localhost|127\.)/.test(hostname) ||
-    hostname === '::1' ||
-    hostname.endsWith('.local') ||
-    hostname.endsWith('.localhost') ||
-    (!hostname.includes('.') && !hostname.includes(':'));
-  if (looksLocal && isHttps) {
-    return {
-      message:
-        `Could not reach ${hostname} over HTTPS. Local HTTPS endpoints usually fail here because the ` +
-        'development certificate is self-signed — the browser rejects untrusted certificates before the ' +
-        'request is sent. Open the URL in a new tab, accept the certificate warning, then retry. ' +
-        'If the tab loads cleanly, check that the service is running and serves HTTPS on this port.',
-      hint,
-    };
-  }
-  if (looksLocal) {
-    return {
-      message: `Could not reach ${hostname} (http). Is the service running and listening on this port? If it only serves HTTPS, change the URL to https://.`,
-    };
-  }
-  return {
-    message:
-      `Could not reach ${hostname}. Possible causes: host not found (DNS), connection refused, ` +
-      'TLS certificate error, or missing host permission. Check the URL and retry.',
-    ...(hint ? { hint } : {}),
-  };
 }
 
 /**
