@@ -10,8 +10,12 @@
  * Coverage was chosen for "what does Chrome's Headers tab not interpret
  * for you, that a debugger consistently has to figure out by hand?":
  * Set-Cookie flags, Cache-Control freshness, Content-Type split, HSTS,
- * JWT detection in Authorization.
+ * JWT detection in Authorization. These summaries are presentation
+ * vocabulary for the chips; JWT recognition itself comes from the
+ * shared value-detection library.
  */
+
+import { type DecodedJWT, decodeJWT, isJWT } from '@openheaders/ui/shared/value-detection';
 
 // ── Set-Cookie ────────────────────────────────────────────────
 
@@ -205,20 +209,6 @@ export interface AuthorizationInfo {
   jwtExpSecondsRemaining: number | null;
 }
 
-const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/;
-
-function base64UrlDecode(s: string): string | null {
-  try {
-    const padLen = (4 - (s.length % 4)) % 4;
-    const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(padLen);
-    // Both the browser panel runtime and vitest's jsdom/node test runner
-    // ship `atob`. No Node fallback needed — the helper is pure-browser.
-    return atob(b64);
-  } catch {
-    return null;
-  }
-}
-
 export function parseAuthorization(value: string, nowMs = Date.now()): AuthorizationInfo | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -232,28 +222,18 @@ export function parseAuthorization(value: string, nowMs = Date.now()): Authoriza
     jwtPayload: null,
     jwtExpSecondsRemaining: null,
   };
-  if (!rest || !JWT_RE.test(rest)) return info;
+  if (!rest || !isJWT(rest)) return info;
+  let decoded: DecodedJWT;
+  try {
+    decoded = decodeJWT(rest);
+  } catch {
+    return info;
+  }
   info.isJwt = true;
-  const [h, p] = rest.split('.');
-  const hDecoded = base64UrlDecode(h);
-  const pDecoded = base64UrlDecode(p);
-  if (hDecoded) {
-    try {
-      info.jwtHeader = JSON.parse(hDecoded) as Record<string, unknown>;
-    } catch {
-      // ignore
-    }
-  }
-  if (pDecoded) {
-    try {
-      const payload = JSON.parse(pDecoded) as Record<string, unknown>;
-      info.jwtPayload = payload;
-      const exp = typeof payload.exp === 'number' ? payload.exp : null;
-      if (exp != null) info.jwtExpSecondsRemaining = Math.floor((exp * 1000 - nowMs) / 1000);
-    } catch {
-      // ignore
-    }
-  }
+  info.jwtHeader = decoded.header;
+  info.jwtPayload = decoded.payload;
+  const exp = typeof decoded.payload.exp === 'number' ? decoded.payload.exp : null;
+  if (exp != null) info.jwtExpSecondsRemaining = Math.floor((exp * 1000 - nowMs) / 1000);
   return info;
 }
 

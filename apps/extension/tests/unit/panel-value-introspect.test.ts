@@ -1,4 +1,4 @@
-import { introspectValue, introspectionHasDepth } from '@openheaders/ui/panel/data/value-introspect';
+import { introspectionHasDepth, introspectValue } from '@openheaders/ui/panel/data/value-introspect';
 import { describe, expect, it } from 'vitest';
 
 function b64url(s: string): string {
@@ -47,6 +47,23 @@ describe('introspectValue', () => {
   it('returns plain for boring values', () => {
     expect(introspectValue('xlg').kind).toBe('plain');
     expect(introspectValue('dark').kind).toBe('plain');
+  });
+
+  it('shares the registry JWT policy: typ:JWT with no alg still detects', () => {
+    const token = `${b64url('{"typ":"JWT"}')}.${b64url('{"sub":"u1"}')}.sig`;
+    expect(introspectValue(token).kind).toBe('jwt');
+  });
+
+  it('shares the registry base64 policy: strict UTF-8, no loose printable tier', () => {
+    // Valid base64 whose decode has non-UTF-8 bytes — the removed loose
+    // tier accepted 80%-printable decodes; the shared codec rejects.
+    const binary = Buffer.from([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0xff, 0xfe, 0x68, 0x65, 0x6c, 0x6c, 0x6f]);
+    expect(introspectValue(binary.toString('base64')).kind).toBe('plain');
+  });
+
+  it('maps registry kinds without an expander view to plain', () => {
+    expect(introspectValue('no-cache, max-age=0').kind).toBe('plain');
+    expect(introspectValue('1720000000').kind).toBe('plain');
   });
 
   it('introspectionHasDepth is true only for non-plain', () => {

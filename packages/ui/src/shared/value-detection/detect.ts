@@ -281,36 +281,102 @@ function detectJsonValue(value: string): DetectedJsonValue | null {
   return hit ? { type: 'json', ...hit } : null;
 }
 
-const DETECTORS: Detector[] = [
-  detectJWT,
-  detectDataUri,
-  detectHttpDate,
-  detectCsp,
-  detectHsts,
-  detectContentDisposition,
+/** Character facts gathered in one pass, so each detector's gate is an
+ *  O(1) check instead of that detector's own O(n) scan of a value it
+ *  was never going to claim. Every gate must be IMPLIED by its codec's
+ *  acceptance — a gate may only reject values the codec would reject. */
+interface ValueShape {
+  /** First non-whitespace character ('' when all-whitespace). */
+  first: string;
+  hasDot: boolean;
+  hasPercent: boolean;
+  hasSemicolon: boolean;
+  hasComma: boolean;
+  hasEquals: boolean;
+  /** Any whitespace character (space, tab, newline). */
+  hasSpace: boolean;
+  hasAmpersand: boolean;
+  digitsOnly: boolean;
+}
+
+function scanShape(value: string): ValueShape {
+  const shape: ValueShape = {
+    first: '',
+    hasDot: false,
+    hasPercent: false,
+    hasSemicolon: false,
+    hasComma: false,
+    hasEquals: false,
+    hasSpace: false,
+    hasAmpersand: false,
+    digitsOnly: true,
+  };
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (ch === '.') shape.hasDot = true;
+    else if (ch === '%') shape.hasPercent = true;
+    else if (ch === ';') shape.hasSemicolon = true;
+    else if (ch === ',') shape.hasComma = true;
+    else if (ch === '=') shape.hasEquals = true;
+    else if (ch === '&') shape.hasAmpersand = true;
+    else if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') shape.hasSpace = true;
+    if (!shape.first && ch !== ' ' && ch !== '\t' && ch !== '\n' && ch !== '\r') shape.first = ch;
+    if (ch < '0' || ch > '9') shape.digitsOnly = false;
+  }
+  return shape;
+}
+
+const LETTER_FIRST = /[A-Za-z]/;
+
+const DETECTORS: Array<{ gate: (value: string, shape: ValueShape) => boolean; detect: Detector }> = [
+  // A JWT has dot-separated segments (the optional Bearer prefix adds
+  // a space but never removes the dots).
+  { gate: (_, s) => s.hasDot, detect: detectJWT },
+  { gate: (v) => v.startsWith('data:'), detect: detectDataUri },
+  // IMF-fixdate always carries `, ` after the day name.
+  { gate: (_, s) => s.hasComma && s.hasSpace, detect: detectHttpDate },
+  // Every CSP directive name starts with a letter.
+  { gate: (_, s) => LETTER_FIRST.test(s.first), detect: detectCsp },
+  // HSTS requires `max-age=n` plus a second segment.
+  { gate: (_, s) => s.hasEquals && s.hasSemicolon, detect: detectHsts },
+  // Disposition token plus at least one `;`-delimited parameter.
+  { gate: (_, s) => s.hasSemicolon, detect: detectContentDisposition },
   // Link before cookie: a `<uri?k=v>; rel=…` segment parses as a
   // cookie pair, but no cookie name ever starts with `<`.
-  detectLinkHeader,
-  detectCookie,
-  detectAuthParams,
-  detectQueryString,
-  detectCacheControl,
-  detectAcceptList,
-  detectUrlEncoded,
-  detectTimestamp,
-  detectHex,
-  detectJsonString,
-  detectJsonValue,
-  detectBase64,
+  { gate: (_, s) => s.first === '<', detect: detectLinkHeader },
+  // At least two `;`-delimited segments, the first a `name=value` pair.
+  { gate: (_, s) => s.hasSemicolon && s.hasEquals, detect: detectCookie },
+  // Scheme token, space, then ≥2 comma-delimited `k=v` params.
+  { gate: (_, s) => s.hasSpace && s.hasEquals && s.hasComma, detect: detectAuthParams },
+  // At least two `&`-delimited `k=v` pairs.
+  { gate: (_, s) => s.hasAmpersand && s.hasEquals, detect: detectQueryString },
+  // Every Cache-Control directive name starts with a letter.
+  { gate: (_, s) => LETTER_FIRST.test(s.first), detect: detectCacheControl },
+  // At least two comma-delimited items.
+  { gate: (_, s) => s.hasComma, detect: detectAcceptList },
+  { gate: (_, s) => s.hasPercent, detect: detectUrlEncoded },
+  { gate: (_, s) => s.digitsOnly, detect: detectTimestamp },
+  // Hex/base64 codecs open with their own O(1) length + charset gates.
+  { gate: () => true, detect: detectHex },
+  { gate: (_, s) => s.first === '"', detect: detectJsonString },
+  { gate: (_, s) => s.first === '{' || s.first === '[', detect: detectJsonValue },
+  { gate: () => true, detect: detectBase64 },
 ];
+
+// Values beyond this size skip detection entirely — same ceiling as the
+// Monaco buffer scan. The affordance is a convenience, not worth
+// walking the registry over a multi-hundred-KB value on every render.
+const MAX_DETECT_LENGTH = 512 * 1024;
 
 /** Classifies `value`, returning the first detector hit or null when no
  *  known value type matches (including template values — a `{{ref}}`
  *  never passes any detector's shape check, so refs fall through
  *  naturally). */
 export function detectValueType(value: string | undefined): DetectedValue | null {
-  if (!value) return null;
-  for (const detect of DETECTORS) {
+  if (!value || value.length > MAX_DETECT_LENGTH) return null;
+  const shape = scanShape(value);
+  for (const { gate, detect } of DETECTORS) {
+    if (!gate(value, shape)) continue;
     const hit = detect(value);
     if (hit) return hit;
   }
