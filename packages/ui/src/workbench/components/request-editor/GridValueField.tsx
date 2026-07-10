@@ -2,16 +2,16 @@
  * GridValueField — the shared Value-cell field for the editable grids:
  * user rows in Params / Headers / form bodies and the editable
  * suggestion row (the auth credential). One home for the in-field
- * action rail — allowClear, the JWT edit icon (detection via
- * `useJwtEditAction`), the optional secret eye — plus the
- * expand-on-focus + corner-grip treatment every grid value cell
- * shares. Detection and modal state live here so `TemplateInput`
+ * action rail — allowClear, the value edit icon (JWT / base64 /
+ * URL-encoding via `useValueEditAction`), the optional secret eye —
+ * plus the expand-on-focus + corner-grip treatment every grid value
+ * cell shares. Detection and modal state live here so `TemplateInput`
  * stays presentation-only.
  */
 
 import type React from 'react';
 import { type GripResizeXHandler, TemplateInput } from '../template-input';
-import { useJwtEditAction } from '../value-editors';
+import { useValueEditAction } from '../value-editors';
 
 export interface GridValueFieldProps {
   value: string;
@@ -48,7 +48,7 @@ export const GridValueField: React.FC<GridValueFieldProps> = ({
   ariaLabel,
   style,
 }) => {
-  const { jwtEditProps, jwtModal } = useJwtEditAction(value, onChange);
+  const { editProps, editorModal } = useValueEditAction(value, onChange);
   return (
     <>
       <TemplateInput
@@ -62,14 +62,14 @@ export const GridValueField: React.FC<GridValueFieldProps> = ({
         flagUnresolved={flagUnresolved}
         secret={secret}
         onSecretToggle={onSecretToggle}
-        {...jwtEditProps}
+        {...editProps}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
         aria-label={ariaLabel}
         style={style}
       />
-      {jwtModal}
+      {editorModal}
     </>
   );
 };

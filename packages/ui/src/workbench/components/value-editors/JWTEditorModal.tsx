@@ -11,32 +11,19 @@
  * instead of re-signing (deferred until a key-entry flow exists).
  */
 
-import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  CodeOutlined,
-  CopyOutlined,
-  FileTextOutlined,
-  SaveOutlined,
-} from '@ant-design/icons';
+import { CheckCircleOutlined, CloseCircleOutlined, CodeOutlined, CopyOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { JsonObject } from '@openheaders/core/types';
-import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { isMac } from '@openheaders/ui/shared/platform';
 import { Alert, App, Button, Input, Modal, Segmented, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
+import { EditorModalFooter } from './EditorModalFooter';
 import { decodeJWT, encodeJWT, formatJSON, getJWTExpiration, JWT_CLAIM_DESCRIPTIONS, type JWTExpirationInfo, validateJSON } from './jwt';
 
 const { TextArea } = Input;
 const { Text } = Typography;
 
 type EditMode = 'decoded' | 'encoded';
-
-const SAVE_SHORTCUT = isMac ? '⌘S' : 'Ctrl+S';
-// Same accent the editor-shell Save button uses when there are unsaved
-// changes (EditorHeader's `saveAccent`).
-const SAVE_ACCENT = '#f5722d';
 
 interface JWTEditorModalProps {
   open: boolean;
@@ -223,22 +210,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
       open={open}
       onCancel={onCancel}
       width={980}
-      footer={
-        <>
-          <Button onClick={onCancel}>Cancel</Button>
-          <Tooltip title={<ShortcutHintTitle label={SAVE_SHORTCUT}>Save</ShortcutHintTitle>} placement="top">
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              disabled={saveDisabled}
-              onClick={handleSave}
-              style={saveDisabled ? undefined : { background: SAVE_ACCENT, borderColor: SAVE_ACCENT }}
-            >
-              Save
-            </Button>
-          </Tooltip>
-        </>
-      }
+      footer={<EditorModalFooter saveDisabled={saveDisabled} onSave={handleSave} onCancel={onCancel} />}
       centered
       destroyOnHidden
     >

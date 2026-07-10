@@ -2,11 +2,13 @@
  * Value-type detection — classifies a field's raw value so callers can
  * offer the matching editor on the TemplateInput action rail. Shaped as
  * a detector registry: each detector inspects the value and returns its
- * typed descriptor or null; the first hit wins. JWT is the only
- * registered detector today (base64 / URL-encoded / cookie strings are
- * planned follow-ups).
+ * typed descriptor or null; the first hit wins. Registered today: JWT,
+ * %XX URL-encoding, base64 text (cookie strings are a planned
+ * follow-up). Order matters — a JWT is base64url-shaped, so it must
+ * claim the value before the base64 detector sees it.
  */
 
+import { tryDecodeBase64, tryDecodeUrlComponent } from './encodings';
 import { isJWT } from './jwt';
 
 export interface DetectedJWT {
@@ -18,7 +20,20 @@ export interface DetectedJWT {
   prefix: string;
 }
 
-export type DetectedValue = DetectedJWT;
+export interface DetectedUrlEncoded {
+  type: 'url-encoded';
+  decoded: string;
+}
+
+export interface DetectedBase64 {
+  type: 'base64';
+  decoded: string;
+  /** Alphabet + padding shape of the original — preserved on re-encode. */
+  urlSafe: boolean;
+  padded: boolean;
+}
+
+export type DetectedValue = DetectedJWT | DetectedUrlEncoded | DetectedBase64;
 
 type Detector = (value: string) => DetectedValue | null;
 
@@ -31,11 +46,22 @@ function detectJWT(value: string): DetectedJWT | null {
   return isJWT(candidate) ? { type: 'jwt', token: candidate, prefix } : null;
 }
 
-const DETECTORS: Detector[] = [detectJWT];
+function detectUrlEncoded(value: string): DetectedUrlEncoded | null {
+  const decoded = tryDecodeUrlComponent(value);
+  return decoded !== null ? { type: 'url-encoded', decoded } : null;
+}
+
+function detectBase64(value: string): DetectedBase64 | null {
+  const hit = tryDecodeBase64(value);
+  return hit ? { type: 'base64', ...hit } : null;
+}
+
+const DETECTORS: Detector[] = [detectJWT, detectUrlEncoded, detectBase64];
 
 /** Classifies `value`, returning the first detector hit or null when no
  *  known value type matches (including template values — a `{{ref}}`
- *  never parses as a JWT segment, so refs fall through naturally). */
+ *  never passes any detector's shape check, so refs fall through
+ *  naturally). */
 export function detectValueType(value: string | undefined): DetectedValue | null {
   if (!value) return null;
   for (const detect of DETECTORS) {

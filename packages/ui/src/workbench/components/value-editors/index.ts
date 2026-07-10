@@ -1,8 +1,16 @@
-// JWTEditorModal is deliberately NOT re-exported here: it pulls Monaco
-// (via the shared CodeEditor), and `useJwtEditAction` loads it lazily so
-// TemplateInput callers never eat that dependency at import time. Import
-// it from './JWTEditorModal' directly if a host ever needs it eagerly.
-export { type DetectedJWT, type DetectedValue, detectValueType } from './detect';
+// The editor modals (JWTEditorModal, EncodedValueModal) are deliberately
+// NOT re-exported here: they pull Monaco (via the shared CodeEditor),
+// and `useValueEditAction` loads them lazily so TemplateInput callers
+// never eat that dependency at import time. Import them from their own
+// modules directly if a host ever needs one eagerly.
+export {
+  type DetectedBase64,
+  type DetectedJWT,
+  type DetectedUrlEncoded,
+  type DetectedValue,
+  detectValueType,
+} from './detect';
+export { type DecodedBase64, encodeBase64, tryDecodeBase64, tryDecodeUrlComponent } from './encodings';
 export {
   type DecodedJWT,
   decodeJWT,
@@ -26,5 +34,5 @@ export {
   registerJwtLinkPlane,
 } from './monaco-jwt-links';
 export { type JwtScanHit, scanForJWTs } from './scan';
-export { type JwtEditActionResult, useJwtEditAction } from './useJwtEditAction';
 export { type MonacoJwtEditResult, useMonacoJwtEdit } from './useMonacoJwtEdit';
+export { useValueEditAction, type ValueEditActionResult } from './useValueEditAction';

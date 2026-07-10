@@ -15,7 +15,7 @@
  */
 
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
-import { decodeJWT, useJwtEditAction } from '@openheaders/ui/workbench/components/value-editors';
+import { decodeJWT, useValueEditAction } from '@openheaders/ui/workbench/components/value-editors';
 import JWTEditorModal from '@openheaders/ui/workbench/components/value-editors/JWTEditorModal';
 import '@openheaders/ui/workbench/settings/schema';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -162,16 +162,16 @@ describe('JWTEditorModal — encoded mode', () => {
 // --------------------------------------------------------------------
 
 const Harness: React.FC<{ value: string; onChange: (next: string) => void }> = ({ value, onChange }) => {
-  const { jwtEditProps, jwtModal } = useJwtEditAction(value, onChange);
+  const { editProps, editorModal } = useValueEditAction(value, onChange);
   return (
     <App>
-      <TemplateInput value={value} onChange={onChange} {...jwtEditProps} />
-      {jwtModal}
+      <TemplateInput value={value} onChange={onChange} {...editProps} />
+      {editorModal}
     </App>
   );
 };
 
-describe('useJwtEditAction', () => {
+describe('useValueEditAction', () => {
   it('offers no edit icon for a non-JWT value', () => {
     const { container } = render(<Harness value="ohk_live_4eC39HqLyjWDarjtT1zdp7dc" onChange={vi.fn()} />);
     expect(container.querySelector('.oh-template-input-action[aria-label="Edit as JWT"]')).toBeNull();
@@ -197,5 +197,39 @@ describe('useJwtEditAction', () => {
     const saved = decodeJWT(written.slice('Bearer '.length));
     expect(saved.payload).toEqual({ sub: 'edited@openheaders.io' });
     expect(saved.signature).toBe('origsig');
+  });
+
+  it('opens the encoded-value editor for base64 and writes the re-encoded text back', async () => {
+    const onChange = vi.fn();
+    const value = btoa('user@openheaders.io:hunter2!!'); // padded standard base64
+    const { container } = render(<Harness value={value} onChange={onChange} />);
+
+    const editIcon = container.querySelector('.oh-template-input-action[aria-label="Edit Base64 value"]');
+    expect(editIcon).not.toBeNull();
+    fireEvent.click(editIcon as Element);
+
+    // Lazy modal — a single plaintext editor holding the decoded text.
+    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
+    expect(editor.value).toBe('user@openheaders.io:hunter2!!');
+    fireEvent.change(editor, { target: { value: 'user@openheaders.io:rotated' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+    expect(onChange).toHaveBeenCalledWith(btoa('user@openheaders.io:rotated'));
+  });
+
+  it('opens the encoded-value editor for URL-encoded values and re-encodes on save', async () => {
+    const onChange = vi.fn();
+    const { container } = render(<Harness value="a%20value%20with%20spaces" onChange={onChange} />);
+
+    const editIcon = container.querySelector('.oh-template-input-action[aria-label="Edit URL-encoded value"]');
+    expect(editIcon).not.toBeNull();
+    fireEvent.click(editIcon as Element);
+
+    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
+    expect(editor.value).toBe('a value with spaces');
+    fireEvent.change(editor, { target: { value: 'a different value' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+    expect(onChange).toHaveBeenCalledWith(encodeURIComponent('a different value'));
   });
 });

@@ -16,8 +16,8 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { attachJwtEditTarget, buildJwtDecorations, type JwtLinkTarget, registerJwtLinkPlane } from './monaco-jwt-links';
 import { scanForJWTs } from './scan';
 
-// Same lazy treatment as `useJwtEditAction` — the modal mounts nothing
-// until a token is actually activated.
+// Same lazy treatment as `useValueEditAction` — the modal mounts
+// nothing until a token is actually activated.
 const JWTEditorModalLazy = lazy(() => import('./JWTEditorModal'));
 
 const DECORATION_REFRESH_MS = 300;

@@ -134,7 +134,7 @@ export interface TemplateInputProps {
    *  opens a caller-owned value editor — e.g. the JWT modal when the
    *  caller detected a JWT in the value. Like the eye, the component
    *  stays presentation-only: detection and the editor itself live at
-   *  the caller (see `useJwtEditAction`). Clicking never blurs the
+   *  the caller (see `useValueEditAction`). Clicking never blurs the
    *  field. */
   onValueEdit?: () => void;
   /** Tooltip + accessible label for the edit icon (e.g. "Edit as JWT").
