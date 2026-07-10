@@ -153,13 +153,21 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION_VALUE);
     setBusy(false);
     setDiff(null);
-    // Focus lands where typing starts: on a hub hand-off the source is
-    // already parsed, so the NAME field; otherwise the paste area.
-    setTimeout(() => {
+  }, [open, initialCollectionId, initialSource, collections]);
+
+  // Focus lands where typing starts: on a hub hand-off the source is
+  // already parsed, so the NAME field; otherwise the paste area. Runs
+  // from the Modal's afterOpenChange — a timeout would race the focus
+  // trap (and the hub modal's close-time focus restore), leaving Enter
+  // on the ✕ button.
+  const handleAfterOpenChange = useCallback(
+    (opened: boolean) => {
+      if (!opened) return;
       if (initialSource) nameInputRef.current?.focus();
       else sourceInputRef.current?.focus();
-    }, 100);
-  }, [open, initialCollectionId, initialSource, collections]);
+    },
+    [initialSource],
+  );
 
   // Live parse. Empty input → no state (nothing to show). Parse
   // errors render as an Alert so the user knows what needs fixing.
@@ -330,6 +338,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       open={open}
       title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT FROM CURL</span>}
       onCancel={onCancel}
+      afterOpenChange={handleAfterOpenChange}
       footer={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

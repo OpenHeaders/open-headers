@@ -137,10 +137,20 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
   }, [open, initialText]);
 
   // Keyboard flow starts at the collection-name field once parsed —
-  // Enter there (or ⌘S anywhere) runs the import.
+  // Enter there (or ⌘S anywhere) runs the import. Two triggers: the
+  // file-picker → parsed transition, and afterOpenChange for hub
+  // hand-offs that open on the parsed stage — a timeout there would
+  // race the Modal's focus trap and leave Enter on the ✕ button.
   useEffect(() => {
-    if (open && stage.kind === 'parsed') setTimeout(() => nameInputRef.current?.focus(), 100);
+    if (open && stage.kind === 'parsed') nameInputRef.current?.focus();
   }, [open, stage.kind]);
+
+  const handleAfterOpenChange = useCallback(
+    (opened: boolean) => {
+      if (opened && stage.kind === 'parsed') nameInputRef.current?.focus();
+    },
+    [stage.kind],
+  );
 
   // Re-import-diff lookup on every parse.
   useEffect(() => {
@@ -318,6 +328,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       open={open}
       title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT FROM POSTMAN</span>}
       onCancel={onCancel}
+      afterOpenChange={handleAfterOpenChange}
       footer={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

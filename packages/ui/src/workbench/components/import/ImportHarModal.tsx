@@ -145,9 +145,20 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
 
   // Keyboard flow starts at the picker's search — the HAR modal has no
   // name field, so that's where ↑↓/Enter/⌘S become live after parse.
+  // Two triggers: the file-picker → parsed transition (modal already
+  // open, no focus contention), and afterOpenChange for hub hand-offs
+  // that open on the parsed stage — a timeout there would race the
+  // Modal's focus trap and leave Enter on the ✕ button.
   useEffect(() => {
-    if (open && stage.kind === 'parsed') setTimeout(() => pickerRef.current?.focusSearch(), 100);
+    if (open && stage.kind === 'parsed') pickerRef.current?.focusSearch();
   }, [open, stage.kind]);
+
+  const handleAfterOpenChange = useCallback(
+    (opened: boolean) => {
+      if (opened && stage.kind === 'parsed') pickerRef.current?.focusSearch();
+    },
+    [stage.kind],
+  );
 
   // Hash the parsed HAR text once per file choice and look up a prior
   // report. Unlike curl (which parses on every keystroke) HAR parses
@@ -318,6 +329,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       open={open}
       title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT FROM HAR</span>}
       onCancel={onCancel}
+      afterOpenChange={handleAfterOpenChange}
       footer={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
