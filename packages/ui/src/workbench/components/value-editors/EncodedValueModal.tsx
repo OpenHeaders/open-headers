@@ -12,12 +12,12 @@
  */
 
 import { CopyOutlined } from '@ant-design/icons';
+import { validateJSON } from '@openheaders/ui/shared/value-detection';
 import { App, Button, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import { EditorModalFooter } from './EditorModalFooter';
-import { validateJSON } from './jwt';
 
 const { Text } = Typography;
 

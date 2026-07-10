@@ -18,7 +18,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import { EditorModalFooter } from './EditorModalFooter';
-import { decodeJWT, encodeJWT, formatJSON, getJWTExpiration, JWT_CLAIM_DESCRIPTIONS, type JWTExpirationInfo, validateJSON } from './jwt';
+import { decodeJWT, encodeJWT, formatJSON, getJWTExpiration, JWT_CLAIM_DESCRIPTIONS, type JWTExpirationInfo, validateJSON } from '@openheaders/ui/shared/value-detection';
 
 const { TextArea } = Input;
 const { Text } = Typography;

@@ -10,27 +10,25 @@
 
 import type React from 'react';
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
-import { detectValueType } from './detect';
 import {
+  detectValueType,
+  encodeAcceptList,
+  encodeAuthParams,
   encodeBase64,
+  encodeCacheControl,
+  encodeContentDisposition,
   encodeCookieList,
   encodeCspList,
   encodeDataUri,
   encodeHex,
-  encodeJsonString,
-  encodeJsonValue,
-  encodeTimestamp,
-} from './encodings';
-import {
-  encodeAcceptList,
-  encodeAuthParams,
-  encodeCacheControl,
-  encodeContentDisposition,
   encodeHsts,
   encodeHttpDate,
+  encodeJsonString,
+  encodeJsonValue,
   encodeLinkHeader,
   encodeQueryString,
-} from './header-values';
+  encodeTimestamp,
+} from '@openheaders/ui/shared/value-detection';
 
 // Lazy so the modals (Monaco via the shared CodeEditor) stay out of
 // every TemplateInput caller's bundle; they load on first edit-icon

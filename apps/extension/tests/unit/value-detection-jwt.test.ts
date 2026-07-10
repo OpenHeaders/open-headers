@@ -7,18 +7,16 @@
  */
 
 import type { JsonObject } from '@openheaders/core/types';
-// Direct module imports — the value-editors barrel also exports the
-// modal, whose Monaco dependency can't load under jsdom.
-import { detectValueType } from '@openheaders/ui/workbench/components/value-editors/detect';
 import {
   decodeJWT,
+  detectValueType,
   encodeJWT,
   formatJSON,
   getJWTExpiration,
   isJWT,
   JWT_CLAIM_DESCRIPTIONS,
   validateJSON,
-} from '@openheaders/ui/workbench/components/value-editors/jwt';
+} from '@openheaders/ui/shared/value-detection';
 import { describe, expect, it } from 'vitest';
 
 // Helper: build a minimal valid JWT from header + payload objects

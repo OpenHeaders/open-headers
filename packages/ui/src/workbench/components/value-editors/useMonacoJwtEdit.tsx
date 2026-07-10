@@ -10,11 +10,11 @@
  * double delivery (hover command + mouse listener) harmless.
  */
 
+import { scanForJWTs } from '@openheaders/ui/shared/value-detection';
 import type * as monacoType from 'monaco-editor';
 import type React from 'react';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { attachJwtEditTarget, buildJwtDecorations, type JwtLinkTarget, registerJwtLinkPlane } from './monaco-jwt-links';
-import { scanForJWTs } from './scan';
 
 // Same lazy treatment as `useValueEditAction` — the modal mounts
 // nothing until a token is actually activated.

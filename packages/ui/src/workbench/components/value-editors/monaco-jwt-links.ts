@@ -11,9 +11,8 @@
  */
 
 import { isMac } from '@openheaders/ui/shared/platform';
+import { isJWT, scanForJWTs } from '@openheaders/ui/shared/value-detection';
 import type * as monaco from 'monaco-editor';
-import { isJWT } from './jwt';
-import { scanForJWTs } from './scan';
 
 export const JWT_EDIT_COMMAND = 'oh-jwt.edit';
 

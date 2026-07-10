@@ -29,7 +29,7 @@ import {
   tryDecodeHttpDate,
   tryDecodeLinkHeader,
   tryDecodeQueryString,
-} from '@openheaders/ui/workbench/components/value-editors';
+} from '@openheaders/ui/shared/value-detection';
 import { describe, expect, it } from 'vitest';
 
 describe('tryDecodeHttpDate', () => {

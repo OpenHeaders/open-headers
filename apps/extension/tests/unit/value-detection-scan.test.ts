@@ -9,6 +9,7 @@
  *     model handler with the clicked token.
  */
 
+import { scanForJWTs } from '@openheaders/ui/shared/value-detection';
 import {
   attachJwtEditTarget,
   buildJwtDecorations,
@@ -16,7 +17,6 @@ import {
   JWT_LINK_CLASS,
   type JwtLinkTarget,
   registerJwtLinkPlane,
-  scanForJWTs,
 } from '@openheaders/ui/workbench/components/value-editors';
 import type * as monaco from 'monaco-editor';
 import { describe, expect, it, vi } from 'vitest';

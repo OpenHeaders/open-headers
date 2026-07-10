@@ -3,82 +3,10 @@
 // and `useValueEditAction` loads them lazily so TemplateInput callers
 // never eat that dependency at import time. Import them from their own
 // modules directly if a host ever needs one eagerly.
-export {
-  type DetectedAcceptList,
-  type DetectedAuthParams,
-  type DetectedBase64,
-  type DetectedCacheControl,
-  type DetectedContentDisposition,
-  type DetectedCookie,
-  type DetectedCsp,
-  type DetectedDataUri,
-  type DetectedHex,
-  type DetectedHsts,
-  type DetectedHttpDate,
-  type DetectedJsonString,
-  type DetectedJsonValue,
-  type DetectedJWT,
-  type DetectedLinkHeader,
-  type DetectedQueryString,
-  type DetectedTimestamp,
-  type DetectedUrlEncoded,
-  type DetectedValue,
-  detectValueType,
-} from './detect';
-export {
-  type DecodedBase64,
-  type DecodedDataUri,
-  type DecodedHex,
-  type DecodedJsonValue,
-  type DecodedTimestamp,
-  encodeBase64,
-  encodeCookieList,
-  encodeCspList,
-  encodeDataUri,
-  encodeHex,
-  encodeJsonString,
-  encodeJsonValue,
-  encodeTimestamp,
-  tryDecodeBase64,
-  tryDecodeCookieList,
-  tryDecodeCspList,
-  tryDecodeDataUri,
-  tryDecodeHex,
-  tryDecodeJsonString,
-  tryDecodeJsonValue,
-  tryDecodeTimestamp,
-  tryDecodeUrlComponent,
-} from './encodings';
-export {
-  type DecodedAuthParams,
-  encodeAcceptList,
-  encodeAuthParams,
-  encodeCacheControl,
-  encodeContentDisposition,
-  encodeHsts,
-  encodeHttpDate,
-  encodeLinkHeader,
-  encodeQueryString,
-  tryDecodeAcceptList,
-  tryDecodeAuthParams,
-  tryDecodeCacheControl,
-  tryDecodeContentDisposition,
-  tryDecodeHsts,
-  tryDecodeHttpDate,
-  tryDecodeLinkHeader,
-  tryDecodeQueryString,
-} from './header-values';
-export {
-  type DecodedJWT,
-  decodeJWT,
-  encodeJWT,
-  formatJSON,
-  getJWTExpiration,
-  isJWT,
-  JWT_CLAIM_DESCRIPTIONS,
-  type JWTExpirationInfo,
-  validateJSON,
-} from './jwt';
+//
+// The pure detection/codec layer lives in shared/value-detection and is
+// re-exported here so existing callers keep one import site.
+export * from '@openheaders/ui/shared/value-detection';
 export {
   attachJwtEditTarget,
   buildJwtDecorations,
@@ -90,6 +18,5 @@ export {
   openJwtTarget,
   registerJwtLinkPlane,
 } from './monaco-jwt-links';
-export { type JwtScanHit, scanForJWTs } from './scan';
 export { type MonacoJwtEditResult, useMonacoJwtEdit } from './useMonacoJwtEdit';
 export { useValueEditAction, type ValueEditActionResult } from './useValueEditAction';
