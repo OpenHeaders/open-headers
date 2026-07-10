@@ -93,6 +93,42 @@ describe('TemplateInput — in-field secret eye toggle (onSecretToggle)', () => 
   });
 });
 
+describe('TemplateInput — in-field edit action (onValueEdit)', () => {
+  it('renders no edit icon without onValueEdit', () => {
+    const { container } = render(<TemplateInput value="tok" onChange={vi.fn()} allowClear />);
+    expect(container.querySelector('.oh-template-input-action[aria-label="Edit value"]')).toBeNull();
+  });
+
+  it('shows the edit icon leftmost on the rail and fires the callback on click', () => {
+    const onValueEdit = vi.fn();
+    const { container } = render(
+      <TemplateInput
+        value="tok"
+        onChange={vi.fn()}
+        onValueEdit={onValueEdit}
+        editTooltip="Edit as JWT"
+        secret
+        onSecretToggle={vi.fn()}
+        allowClear
+      />,
+    );
+    const actions = container.querySelectorAll('.oh-template-input-action');
+    // Right-to-left rail: [edit] [eye] [✕], ✕ innermost.
+    expect(Array.from(actions).map((a) => a.getAttribute('aria-label'))).toEqual([
+      'Edit as JWT',
+      'Show value',
+      'Clear value',
+    ]);
+    fireEvent.click(actions[0]);
+    expect(onValueEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the "Edit value" label without editTooltip', () => {
+    const { container } = render(<TemplateInput value="tok" onChange={vi.fn()} onValueEdit={vi.fn()} />);
+    expect(container.querySelector('.oh-template-input-action[aria-label="Edit value"]')).not.toBeNull();
+  });
+});
+
 describe('TemplateInput — two-axis resize grip (onResizeX)', () => {
   it('stays one-dimensional without onResizeX', () => {
     const { container } = render(<TemplateInput value="v" onChange={vi.fn()} multiline resizable />);

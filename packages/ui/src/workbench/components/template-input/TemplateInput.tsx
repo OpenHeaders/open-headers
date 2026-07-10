@@ -21,9 +21,9 @@
  *     unresolved once the caret leaves.
  */
 
-import { CloseCircleFilled, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
+import { CloseCircleFilled, EditOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
-import { theme } from 'antd';
+import { theme, Tooltip } from 'antd';
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -72,6 +72,8 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       status,
       secret = false,
       onSecretToggle,
+      onValueEdit,
+      editTooltip,
       flagUnresolved = false,
     },
     ref,
@@ -263,7 +265,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       status,
       isFocused,
       token,
-      iconCount: (showClear ? 1 : 0) + (onSecretToggle ? 1 : 0),
+      iconCount: (showClear ? 1 : 0) + (onSecretToggle ? 1 : 0) + (onValueEdit ? 1 : 0),
       displayExpanded,
       displayCollapsed,
       resizable,
@@ -330,7 +332,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
             aria-hidden="true"
           />
         )}
-        {(showClear || onSecretToggle) && (
+        {(showClear || onSecretToggle || onValueEdit) && (
           <span
             className="oh-template-input-actions"
             style={{ right: iconInset, ...iconTopStyle }}
@@ -339,6 +341,11 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
             // the user toggled the mask or cleared the value.
             onMouseDown={(e) => e.preventDefault()}
           >
+            {onValueEdit && (
+              <Tooltip title={editTooltip}>
+                <EditOutlined className="oh-template-input-action" aria-label={editTooltip ?? 'Edit value'} onClick={onValueEdit} />
+              </Tooltip>
+            )}
             {onSecretToggle &&
               (secret ? (
                 <EyeOutlined className="oh-template-input-action" aria-label="Show value" onClick={onSecretToggle} />

@@ -15,6 +15,7 @@ import { useCallback, useRef, useState } from 'react';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
 import { type GripResizeXEvent, TemplateInput } from '../template-input';
+import { useJwtEditAction } from '../value-editors';
 
 const { Text } = Typography;
 
@@ -421,25 +422,30 @@ const SecretField: React.FC<{
     if (!drag) return;
     setManualWidth(Math.max(SECRET_FIELD_MIN_WIDTH, drag.startWidth + e.deltaX));
   }, []);
+  const { jwtEditProps, jwtModal } = useJwtEditAction(value, onChange);
   return (
-    <TemplateInput
-      size="small"
-      secret={!revealed}
-      onSecretToggle={() => setRevealed((v) => !v)}
-      expandOnFocus
-      maxRows={7}
-      resizable
-      onResizeX={handleResizeX}
-      allowClear
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      // Default caps at the classic form width; a grip-dragged width
-      // lifts the cap and the field grows into the pane's free space.
-      style={
-        manualWidth != null ? { width: manualWidth, minWidth: 0 } : { minWidth: 0, maxWidth: FIELD_DEFAULT_MAX_WIDTH }
-      }
-    />
+    <>
+      <TemplateInput
+        size="small"
+        secret={!revealed}
+        onSecretToggle={() => setRevealed((v) => !v)}
+        {...jwtEditProps}
+        expandOnFocus
+        maxRows={7}
+        resizable
+        onResizeX={handleResizeX}
+        allowClear
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        // Default caps at the classic form width; a grip-dragged width
+        // lifts the cap and the field grows into the pane's free space.
+        style={
+          manualWidth != null ? { width: manualWidth, minWidth: 0 } : { minWidth: 0, maxWidth: FIELD_DEFAULT_MAX_WIDTH }
+        }
+      />
+      {jwtModal}
+    </>
   );
 };
 

@@ -130,6 +130,16 @@ export interface TemplateInputProps {
    *  flips it. Clicking never blurs the field, so an `expandOnFocus`
    *  surface stays expanded through the toggle. */
   onSecretToggle?: () => void;
+  /** Renders an in-field edit icon (leftmost on the action rail) that
+   *  opens a caller-owned value editor — e.g. the JWT modal when the
+   *  caller detected a JWT in the value. Like the eye, the component
+   *  stays presentation-only: detection and the editor itself live at
+   *  the caller (see `useJwtEditAction`). Clicking never blurs the
+   *  field. */
+  onValueEdit?: () => void;
+  /** Tooltip + accessible label for the edit icon (e.g. "Edit as JWT").
+   *  Only meaningful with `onValueEdit`. */
+  editTooltip?: string;
   /** When true, show a small red dot at the field's right end whenever
    *  its value contains an UNRESOLVED `{{ref}}` (reserved namespaces
    *  excluded). Lets a row flag a missing variable without the user

@@ -47,7 +47,8 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { Button, Checkbox, Input, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import { type GripResizeXEvent, TemplateInput } from '../template-input';
+import { type GripResizeXEvent, type GripResizeXHandler, TemplateInput } from '../template-input';
+import { useJwtEditAction } from '../value-editors';
 import {
   cellFont,
   DEFAULT_COLUMN_WIDTH,
@@ -520,31 +521,22 @@ export function EditableGridTable<Row>({
                     }}
                   >
                     {s.editableValue ? (
-                      <>
-                        <TemplateInput
-                          variant="borderless"
-                          expandOnFocus
-                          maxRows={7}
-                          resizable
-                          onResizeX={showDescriptionColumn ? handleValueGripResizeX : undefined}
-                          allowClear
-                          secret={s.editableValue.secret && !revealedSuggestionKeys.has(s.key)}
-                          onSecretToggle={
-                            s.editableValue.secret ? () => toggleSuggestionRevealed(s.key) : undefined
-                          }
-                          value={s.value}
-                          onChange={s.editableValue.onChange}
-                          aria-label={`${s.key} value`}
-                          style={{
-                            ...cellFont,
-                            flex: 1,
-                            minWidth: 0,
-                            padding: '6px 10px',
-                            color: valueColor,
-                            ...struck,
-                          }}
-                        />
-                      </>
+                      <SuggestionValueField
+                        value={s.value}
+                        onChange={s.editableValue.onChange}
+                        secret={Boolean(s.editableValue.secret) && !revealedSuggestionKeys.has(s.key)}
+                        onSecretToggle={s.editableValue.secret ? () => toggleSuggestionRevealed(s.key) : undefined}
+                        onResizeX={showDescriptionColumn ? handleValueGripResizeX : undefined}
+                        ariaLabel={`${s.key} value`}
+                        style={{
+                          ...cellFont,
+                          flex: 1,
+                          minWidth: 0,
+                          padding: '6px 10px',
+                          color: valueColor,
+                          ...struck,
+                        }}
+                      />
                     ) : (
                       withOverrideTooltip(
                         // Read-only, but still inspectable: clicking a
@@ -639,3 +631,38 @@ export function EditableGridTable<Row>({
     </div>
   );
 }
+
+// Editable suggestion value (the auth row's credential) — its own
+// component so the per-field JWT edit-action hook has a stable home
+// (hooks can't run inside the suggestion-row map).
+const SuggestionValueField: React.FC<{
+  value: string;
+  onChange: (next: string) => void;
+  secret: boolean;
+  onSecretToggle?: () => void;
+  onResizeX?: GripResizeXHandler;
+  ariaLabel: string;
+  style: React.CSSProperties;
+}> = ({ value, onChange, secret, onSecretToggle, onResizeX, ariaLabel, style }) => {
+  const { jwtEditProps, jwtModal } = useJwtEditAction(value, onChange);
+  return (
+    <>
+      <TemplateInput
+        variant="borderless"
+        expandOnFocus
+        maxRows={7}
+        resizable
+        onResizeX={onResizeX}
+        allowClear
+        secret={secret}
+        onSecretToggle={onSecretToggle}
+        {...jwtEditProps}
+        value={value}
+        onChange={onChange}
+        aria-label={ariaLabel}
+        style={style}
+      />
+      {jwtModal}
+    </>
+  );
+};
