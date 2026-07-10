@@ -416,6 +416,36 @@ export class WorkbenchPage {
     return (await ed.locator('.view-lines').innerText()).replace(/\u00a0/g, ' ');
   }
 
+  // ── Grid value rail (value-detection edit icons) ────────────────
+
+  /** The grid value cell (TemplateInput wrapper) whose action rail
+   *  holds the edit icon with the given accessible name — the per-type
+   *  tooltip from `useValueEditAction` (e.g. "Edit Base64 value"),
+   *  which doubles as the icon's `aria-label`. */
+  valueCellByEditIcon(label: string): Locator {
+    return this.page
+      .locator('.oh-template-input-wrapper')
+      .filter({ has: this.page.getByLabel(label, { exact: true }) })
+      .filter({ visible: true })
+      .first();
+  }
+
+  /** Hover a grid value cell (the rail is hover/focus-revealed) and
+   *  click its edit icon — opens that value type's editor modal. */
+  async openValueEditor(label: string): Promise<void> {
+    const cell = this.valueCellByEditIcon(label);
+    await cell.scrollIntoViewIfNeeded();
+    await cell.hover();
+    await cell.getByLabel(label, { exact: true }).click();
+  }
+
+  /** Read the literal text of a grid value cell located by
+   *  {@link valueCellByEditIcon} — TemplateInput renders spaces as
+   *  NBSP; normalize them back. */
+  async valueCellText(cell: Locator): Promise<string> {
+    return (await cell.locator('.oh-template-input-editable').innerText()).replace(/\u00a0/g, ' ').trim();
+  }
+
   /** Toggle a Settings-tab switch by its accessible name (aria-label). */
   async toggleSwitch(name: string): Promise<void> {
     await this.page.getByRole('switch', { name, exact: true }).filter({ visible: true }).first().click();
