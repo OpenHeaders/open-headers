@@ -97,6 +97,17 @@ interface ManagedWire {
   rec: BackendConnection;
   defunct: boolean;
   shapeKey: string;
+  /**
+   * Tail of the per-wire inbound processing chain. Frames on one wire
+   * are processed strictly in arrival order: a catch-up replay streams
+   * one frame per logged mutation, and dispatching them concurrently
+   * races every apply for the same entity onto one FIFO lock — anything
+   * queued past the lock timeout throws and that mutation is dropped
+   * until a reconnect redelivers it. Never rejects: routeInboundFrame
+   * absorbs handler errors, so the chain cannot latch into a failed
+   * state.
+   */
+  inboundTail: Promise<void>;
 }
 
 const wires = new Map<string, ManagedWire>();
@@ -287,11 +298,18 @@ function createWire(rec: BackendConnection): ManagedWire {
         logger.warn(SCOPE, 'Error parsing message:', err);
         return;
       }
-      void routeInboundFrame(parsed, handle);
+      managed.inboundTail = managed.inboundTail.then(() => routeInboundFrame(parsed, handle));
     },
     onStateChange: () => reportWireStatus(managed),
   });
-  managed = { handle, transport, rec, defunct: false, shapeKey: connectionShapeKey(rec) };
+  managed = {
+    handle,
+    transport,
+    rec,
+    defunct: false,
+    shapeKey: connectionShapeKey(rec),
+    inboundTail: Promise.resolve(),
+  };
   return managed;
 }
 

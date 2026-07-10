@@ -195,6 +195,27 @@ export function installDaemonWire(): DaemonWire {
     });
   };
 
+  // Tail of the inbound processing chain — see onMessage below.
+  let inboundTail: Promise<void> = Promise.resolve();
+
+  async function routeFrame(frame: unknown): Promise<void> {
+    try {
+      if (initiator.handles(frame)) {
+        await initiator.handle(frame);
+        return;
+      }
+      // Admin RPC responses — synchronous by-channel correlation, so
+      // check before the async mutation/awareness path.
+      if (handleAdminRpcResponseFrame(frame)) return;
+      const claimed = await handleInboundWireFrame(frame);
+      if (claimed) return;
+      const type = (frame as { type?: unknown })?.type;
+      if (type !== 'pong') logger.debug(SCOPE, `unhandled frame ${String(type)}`);
+    } catch (err) {
+      logger.warn(SCOPE, 'inbound frame processing threw', err);
+    }
+  }
+
   const transport = createTransportConnection({
     getUrl: () => daemonWsUrl(),
     shouldConnect: () => wanted,
@@ -219,18 +240,14 @@ export function installDaemonWire(): DaemonWire {
         logger.warn(SCOPE, 'dropping unparseable frame', err);
         return;
       }
-      if (initiator.handles(frame)) {
-        void initiator.handle(frame);
-        return;
-      }
-      // Admin RPC responses — synchronous by-channel correlation, so
-      // check before the async mutation/awareness path.
-      if (handleAdminRpcResponseFrame(frame)) return;
-      void handleInboundWireFrame(frame).then((claimed) => {
-        if (claimed) return;
-        const type = (frame as { type?: unknown })?.type;
-        if (type !== 'pong') logger.debug(SCOPE, `unhandled frame ${String(type)}`);
-      });
+      // Frames are processed strictly in arrival order: a catch-up
+      // replay streams one frame per logged mutation, and dispatching
+      // them concurrently races every apply for the same entity onto
+      // one FIFO Web Lock — anything queued past the lock timeout
+      // throws and that mutation is dropped until a reconnect
+      // redelivers it. routeFrame absorbs its own errors, so the chain
+      // cannot latch into a failed state.
+      inboundTail = inboundTail.then(() => routeFrame(frame));
     },
     onStateChange: (state) => {
       for (const cb of [...transportSubscribers]) {
