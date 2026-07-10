@@ -1,5 +1,8 @@
+// JWTEditorModal is deliberately NOT re-exported here: it pulls Monaco
+// (via the shared CodeEditor), and `useJwtEditAction` loads it lazily so
+// TemplateInput callers never eat that dependency at import time. Import
+// it from './JWTEditorModal' directly if a host ever needs it eagerly.
 export { type DetectedJWT, type DetectedValue, detectValueType } from './detect';
-export { default as JWTEditorModal } from './JWTEditorModal';
 export {
   type DecodedJWT,
   decodeJWT,

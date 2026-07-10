@@ -163,7 +163,7 @@ describe('useJwtEditAction', () => {
     expect(container.querySelector('.oh-template-input-action[aria-label="Edit as JWT"]')).toBeNull();
   });
 
-  it('opens the editor from the rail icon and restores the Bearer prefix on save', () => {
+  it('opens the editor from the rail icon and restores the Bearer prefix on save', async () => {
     const onChange = vi.fn();
     const token = buildJWT(HEADER, PAYLOAD);
     const { container } = render(<Harness value={`Bearer ${token}`} onChange={onChange} />);
@@ -172,7 +172,8 @@ describe('useJwtEditAction', () => {
     expect(editIcon).not.toBeNull();
     fireEvent.click(editIcon as Element);
 
-    const payloadEditor = (screen.getAllByTestId('code-editor') as HTMLTextAreaElement[])[1];
+    // The modal is lazy-loaded on first open — wait for it to mount.
+    const payloadEditor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[1];
     fireEvent.change(payloadEditor, { target: { value: '{"sub":"edited@openheaders.io"}' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 

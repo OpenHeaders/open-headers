@@ -7,9 +7,13 @@
  */
 
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { detectValueType } from './detect';
-import JWTEditorModal from './JWTEditorModal';
+
+// Lazy so the modal (Monaco via the shared CodeEditor) stays out of
+// every TemplateInput caller's bundle; it loads on first edit-icon
+// click — same treatment as the panel's Monaco-backed surfaces.
+const JWTEditorModalLazy = lazy(() => import('./JWTEditorModal'));
 
 export interface JwtEditActionResult {
   /** Spread onto the TemplateInput. Empty when the value is not a JWT,
@@ -41,6 +45,11 @@ export function useJwtEditAction(
 
   return {
     jwtEditProps: jwt ? { onValueEdit: openModal, editTooltip: 'Edit as JWT' } : {},
-    jwtModal: jwt ? <JWTEditorModal open={open} token={jwt.token} onSave={handleSave} onCancel={closeModal} /> : null,
+    jwtModal:
+      jwt && open ? (
+        <Suspense fallback={null}>
+          <JWTEditorModalLazy open={open} token={jwt.token} onSave={handleSave} onCancel={closeModal} />
+        </Suspense>
+      ) : null,
   };
 }
