@@ -34,7 +34,8 @@
  *     recognizes the channel and returns a response, the server sends
  *     `{ type: '<rpc>:response', ...payload }` back over the same
  *     connection. Channels outside the 22 sync+awareness ones are
- *     silently ignored.
+ *     offered to the optional `peerRpc` seam (the daemon's gated
+ *     admin plane) and silently ignored when unclaimed.
  *   - **Broadcasts.** `broadcast` / `broadcastFrame` fan
  *     an oracle event out to every connected peer past handshake. The
  *     host wires this into `OracleHostHooks.broadcastSyncEvent` /
@@ -62,6 +63,8 @@ export type {
   PeerChangeListener,
   PeerSummary,
   WsAdmissionHooks,
+  WsPeerRpcContext,
+  WsPeerRpcHooks,
   WsUpgradeVerdict,
 } from './contract';
 export { startOracleWsServer } from './server';

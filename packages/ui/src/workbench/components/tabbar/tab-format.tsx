@@ -16,6 +16,7 @@ import {
   FolderOutlined,
   SettingOutlined,
   SisternodeOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { isWorkflowComplete, isWorkflowDraft } from '@openheaders/core/live';
 import type { LiveWorkflow, Request, Rule, Template } from '@openheaders/core/types';
@@ -93,6 +94,7 @@ export function tabIcon(
     );
   }
   if (tab.mode === 'workspace-manager') return <AppstoreOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
+  if (tab.mode === 'daemon-admin') return <TeamOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'env-edit') return scopeBadge('environment');
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');
   if (tab.mode === 'vault') return scopeBadge('vault');

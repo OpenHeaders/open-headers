@@ -51,6 +51,7 @@ export function computeBreadcrumbs(
   if (tab.mode === 'settings') return ['Settings'];
 
   if (tab.mode === 'workspace-manager') return ['Workspaces'];
+  if (tab.mode === 'daemon-admin') return ['Daemon admin'];
   if (tab.mode === 'env-edit') return ['Environments', displayLabel];
   if (tab.mode === 'workspace-vars') return ['Workspace Variables'];
   if (tab.mode === 'vault') return ['Vault'];

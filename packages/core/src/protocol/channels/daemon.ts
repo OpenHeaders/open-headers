@@ -1,12 +1,29 @@
 /**
- * Daemon-admin bridge RPCs — the device-flow pairing surface (U3.3) and
- * the known-devices live connection projection (U3.4).
+ * Daemon-admin bridge RPCs — the device-flow pairing surface (U3.3),
+ * the known-devices live connection projection (U3.4), the user
+ * directory + grants (Phase 5), and the admin-visibility probe.
  *
- * Admin-only. The peer never sees these — they are called only by the
- * daemon's own renderer (Settings → Backend → LAN peers).
+ * Admin-only. Reachable from the daemon's own local surfaces (desktop
+ * renderer over IPC) and, since the admin-console slice, from
+ * authenticated WS peers — where every call is gated per frame on the
+ * `daemon.admin` capability and audited; a denied call answers a
+ * uniform in-band error.
  */
 
 export interface DaemonRpc {
+  /**
+   * Admin-visibility probe: may the calling subject administer this
+   * daemon? Local surfaces are the operator by construction and always
+   * read `true`; a WS peer reads its per-frame `daemon.admin`
+   * resolution. Deliberately NOT audited — it is a visibility
+   * question the UI asks on every connect, not an enforcement
+   * decision; auditing it would bury real deny rows in noise.
+   */
+  'oh.daemon.admin.status': {
+    req: Record<string, never>;
+    res: { admin: boolean };
+  };
+
   // ── Daemon device-flow pairing (U3.3) ──────────────────────────
   //
   // Admin-only surface for issuing a short-lived pairing code that a

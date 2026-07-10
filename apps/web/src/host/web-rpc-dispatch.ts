@@ -12,6 +12,7 @@
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
+import { callDaemonAdminRpc } from './wire-admin-rpc';
 
 export const RPC_NOT_IMPLEMENTED_PREFIX = "web host: RPC '";
 export const RPC_NOT_IMPLEMENTED_SUFFIX = "' is not implemented";
@@ -25,6 +26,12 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   }
   if (type === 'getStatusSnapshot') {
     return { snapshot: getStatusSnapshot() };
+  }
+  // Daemon-admin channels are not the tab oracle's — they administer
+  // the SERVING daemon, so they forward up the wire to its gated peer
+  // admin plane and answer as the authenticated peer.
+  if (typeof type === 'string' && type.startsWith('oh.daemon.')) {
+    return callDaemonAdminRpc(message);
   }
 
   const result = dispatchSyncRpc(message);

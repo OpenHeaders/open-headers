@@ -11,6 +11,7 @@ export type WorkspaceOpeners = Pick<
   UseTabOpenersApi,
   | 'openSettingsTab'
   | 'openWorkspaceManager'
+  | 'openDaemonAdmin'
   | 'openEnvironmentEdit'
   | 'openWorkspaceVariables'
   | 'openVault'
@@ -55,6 +56,21 @@ export function useWorkspaceOpeners({
       ruleType: '',
       dirty: false,
       mode: 'workspace-manager',
+    });
+  }, [allTabs, addTab, switchTab]);
+
+  const openDaemonAdmin = useCallback(() => {
+    const id = 'daemon-admin';
+    if (allTabs.some((t) => t.id === id)) {
+      switchTab(id);
+      return;
+    }
+    addTab({
+      id,
+      label: 'Daemon admin',
+      ruleType: '',
+      dirty: false,
+      mode: 'daemon-admin',
     });
   }, [allTabs, addTab, switchTab]);
 
@@ -127,6 +143,7 @@ export function useWorkspaceOpeners({
   return {
     openSettingsTab,
     openWorkspaceManager,
+    openDaemonAdmin,
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,

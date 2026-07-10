@@ -46,20 +46,11 @@ import * as path from 'node:path';
 import { setHostBridge } from '@openheaders/core/bridge';
 import {
   createDaemonPairingService,
-  createDaemonUser,
-  deactivateDaemonUser,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
-  grantWorkspaceRole,
-  listDaemonAuthTokens,
-  listDaemonUsers,
-  listWorkspaceRolesForPrincipal,
-  mintDaemonAuthToken,
   refreshIdentitySnapshotFromHostStorage,
   resetAuditSink,
-  revokeDaemonAuthToken,
-  revokeWorkspaceRole,
   setAuditSink,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
@@ -103,12 +94,12 @@ import { SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './activity-installer';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
+import { createAdminChannelHandlers } from './admin-channels';
 import { createAdmissionControl } from './admission-control';
 import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
 import { createHealthzHandler } from './healthz';
-import { listLanIpv4Addresses } from './lan-addresses';
 import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
 import { createMdnsAdvertiser } from './mdns/mdns-advertiser';
@@ -119,6 +110,7 @@ import { installObservabilityLog, type ObservabilityLogHandle } from './observab
 import type { DaemonOidcConfig } from './oidc/oidc-config';
 import { createOidcHttpHandler } from './oidc/oidc-http';
 import { createDaemonOidcService, type DaemonOidcService } from './oidc/oidc-service';
+import { createPeerAdminRpc } from './peer-admin-rpc';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
 import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
@@ -495,6 +487,18 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   );
   const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
 
+  // 4b''. Daemon-admin channel table (pairing/tokens/users/grants + the
+  //       admin probe) — ONE implementation for both admission postures:
+  //       the local `dispatchRpc` below (the caller is the operator by
+  //       construction) and the WS peer plane (per-frame `daemon.admin`
+  //       gate + audit in `peer-admin-rpc.ts`), wired into the server
+  //       via the supervisor's `peerRpc` seam.
+  const adminChannels = createAdminChannelHandlers({
+    pairing: pairingService,
+    getBoundPort: () => boundPort,
+    getWsServer: () => wsServer,
+  });
+
   // 4b'. `/healthz` — unauthenticated, data-free liveness for ops
   //      probes (DAEMON_PLAN.md §3). First in the composition below so a
   //      probe never touches the pairing/MCP routing.
@@ -587,159 +591,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       observabilityLog.clear();
       return { success: true };
     }
-    if (type === 'oh.daemon.pairing.start') {
-      try {
-        const deviceLabel =
-          typeof message.deviceLabel === 'string' ? message.deviceLabel.trim() || undefined : undefined;
-        const userId = typeof message.userId === 'string' ? message.userId.trim() || undefined : undefined;
-        const { code, expiresAt } = pairingService.startPair({ deviceLabel, ...(userId ? { userId } : {}) });
-        const addresses = listLanIpv4Addresses();
-        const pairingUrls = [
-          { host: '127.0.0.1', url: `http://127.0.0.1:${boundPort}/pair/${code}` },
-          ...addresses.map((a) => ({
-            host: a.host,
-            iface: a.iface,
-            url: `http://${a.host}:${boundPort}/pair/${code}`,
-          })),
-        ];
-        return { ok: true, code, expiresAt, port: boundPort, pairingUrls };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
-    }
-    if (type === 'oh.daemon.pairing.list') {
-      return {
-        pairs: pairingService.list().map((p) => ({
-          code: p.code,
-          deviceLabel: p.deviceLabel,
-          createdAt: p.createdAt,
-          expiresAt: p.expiresAt,
-          status: p.status,
-        })),
-      };
-    }
-    if (type === 'oh.daemon.pairing.cancel') {
-      const code = typeof message.code === 'string' ? message.code : '';
-      if (code) pairingService.cancel(code);
-      return { ok: true };
-    }
-    if (type === 'oh.daemon.tokens.connected') {
-      // Live ws-server state, not hostStorage — projected for the
-      // "Known devices" admin surface (U3.4). Empty while loopback-only
-      // (`wsServer` non-null but no LAN peers) or mid-rebind (null).
-      const ids = wsServer?.connectedTokenIds();
-      return { tokenIds: ids ? [...ids] : [] };
-    }
-    if (type === 'oh.daemon.tokens.mint') {
-      // Mint in the host process so the persist shares this realm's
-      // token-store mutex with HELLO validation (a surface's separate
-      // mutex can't).
-      try {
-        const label = typeof message.label === 'string' ? message.label.trim() || undefined : undefined;
-        const userId = typeof message.userId === 'string' ? message.userId.trim() || undefined : undefined;
-        const minted = await mintDaemonAuthToken({ label, ...(userId ? { userId } : {}) });
-        return { ok: true, tokenId: minted.record.id, secret: minted.secret };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
-    }
-    if (type === 'oh.daemon.tokens.revoke') {
-      const tokenId = typeof message.tokenId === 'string' ? message.tokenId : '';
-      if (!tokenId) return { ok: false, error: 'missing tokenId' };
-      try {
-        // Persist the revoke BEFORE evicting the live socket: a peer that
-        // reconnects in the eviction window then re-validates against the
-        // already-revoked ledger and is rejected, rather than slipping a
-        // fresh connection past a not-yet-written revoke.
-        await revokeDaemonAuthToken(tokenId);
-        wsServer?.closePeersByTokenId(tokenId);
-        return { ok: true };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
-    }
-    if (type === 'oh.daemon.users.create') {
-      const displayName = typeof message.displayName === 'string' ? message.displayName : '';
-      const email = typeof message.email === 'string' ? message.email.trim() || undefined : undefined;
-      try {
-        const created = await createDaemonUser({ displayName, ...(email ? { email } : {}) });
-        return created.ok ? { ok: true, userId: created.record.user.id } : { ok: false, error: created.reason };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
-    }
-    if (type === 'oh.daemon.users.list') {
-      const users = await listDaemonUsers();
-      return {
-        users: await Promise.all(
-          users.map(async (r) => ({
-            userId: r.user.id,
-            displayName: r.user.displayName,
-            email: r.userIdentity.kind === 'email' ? r.userIdentity.value : null,
-            createdAt: r.createdAt,
-            deactivatedAt: r.deactivatedAt,
-            grants: (await listWorkspaceRolesForPrincipal(r.principal.id)).map((wra) => ({
-              workspaceId: wra.workspaceId,
-              role: wra.role,
-            })),
-          })),
-        ),
-      };
-    }
-    if (type === 'oh.daemon.users.grant') {
-      const userId = typeof message.userId === 'string' ? message.userId : '';
-      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
-      const role = typeof message.role === 'string' ? message.role : '';
-      if (!userId || !workspaceId) return { ok: false, error: 'missing userId or workspaceId' };
-      if (role !== 'owner' && role !== 'editor' && role !== 'viewer') {
-        return { ok: false, error: 'role must be owner, editor or viewer' };
-      }
-      const record = (await listDaemonUsers()).find((r) => r.user.id === userId);
-      if (!record) return { ok: false, error: 'unknown user' };
-      if (record.deactivatedAt !== null) return { ok: false, error: 'user is deactivated' };
-      // Validate against the live workspace set — a grant for a
-      // non-existent workspace would only be silently dropped by the
-      // next WRA reconcile; refuse it up front instead.
-      if (!getWorkspace(workspaceId)) return { ok: false, error: 'unknown workspace' };
-      try {
-        const result = await grantWorkspaceRole({ principalId: record.principal.id, workspaceId, role });
-        return result.ok ? { ok: true, updated: result.updated } : { ok: false, error: result.reason };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
-    }
-    if (type === 'oh.daemon.users.revokeGrant') {
-      const userId = typeof message.userId === 'string' ? message.userId : '';
-      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
-      if (!userId || !workspaceId) return { ok: false, error: 'missing userId or workspaceId' };
-      const record = (await listDaemonUsers()).find((r) => r.user.id === userId);
-      if (!record) return { ok: false, error: 'unknown user' };
-      try {
-        const result = await revokeWorkspaceRole(record.principal.id, workspaceId);
-        return result.ok ? { ok: true } : { ok: false, error: result.reason };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
-    }
-    if (type === 'oh.daemon.users.deactivate') {
-      const userId = typeof message.userId === 'string' ? message.userId : '';
-      if (!userId) return { ok: false, error: 'missing userId' };
-      try {
-        const result = await deactivateDaemonUser(userId);
-        if (!result.ok) return { ok: false, error: result.reason };
-        // Kill the user's access now, not on their next HELLO: revoke
-        // every token bound to the user, then evict live peers riding
-        // them — same persist-before-evict ordering as tokens.revoke.
-        const tokens = await listDaemonAuthTokens();
-        for (const token of tokens) {
-          if (token.userId !== userId || token.revokedAt !== null) continue;
-          await revokeDaemonAuthToken(token.id);
-          wsServer?.closePeersByTokenId(token.id);
-        }
-        return { ok: true };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
+    // Daemon-admin channels (pairing/tokens/users/grants + the admin
+    // probe) — the shared table built above. The local caller is the
+    // operator by construction; WS peers reach the SAME table through
+    // the gated peer plane wired into the supervisor below.
+    const adminHandler = typeof type === 'string' ? adminChannels.get(type) : undefined;
+    if (adminHandler) {
+      return await adminHandler(message);
     }
     const result = dispatchSyncRpc(message);
     if (result === null) {
@@ -780,6 +638,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   try {
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: config.handshakeIdentity,
+      peerRpc: createPeerAdminRpc({ channels: adminChannels }),
       httpRequestHandler: admission.wrapHttpHandler(
         (req, res) =>
           healthzHandler(req, res) ||

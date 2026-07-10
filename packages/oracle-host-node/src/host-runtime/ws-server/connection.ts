@@ -19,7 +19,7 @@ import {
   type LocalHandshakeIdentity,
 } from '@openheaders/oracle/rpc';
 import { type RawData, WebSocket } from 'ws';
-import type { PeerSummary, WsAdmissionHooks } from './contract';
+import type { PeerSummary, WsAdmissionHooks, WsPeerRpcHooks } from './contract';
 import type { PeerRegistry } from './peer-registry';
 import { SCOPE } from './shared';
 
@@ -56,6 +56,8 @@ export interface ConnectionDeps {
   classifyLoopback: (remoteAddress: string | undefined) => boolean;
   /** Optional Phase-3 admission seam — see {@link WsAdmissionHooks}. */
   admission?: WsAdmissionHooks;
+  /** Optional peer-facing RPC seam — see {@link WsPeerRpcHooks}. */
+  peerRpc?: WsPeerRpcHooks;
 }
 
 /**
@@ -64,7 +66,7 @@ export interface ConnectionDeps {
  * cleanup. All shared state lives in `deps.registry`.
  */
 export function handleConnection(socket: WebSocket, request: IncomingMessage, deps: ConnectionDeps): void {
-  const { registry, handshakeIdentity, reach, classifyLoopback, admission } = deps;
+  const { registry, handshakeIdentity, reach, classifyLoopback, admission, peerRpc } = deps;
   const { ready, peerBySocket, summaryBySocket, alive } = registry;
   // Auth is mandatory on every connection. Loopback is reachable
   // cross-user on a shared box and TCP blocks OS peer-cred, so
@@ -279,12 +281,27 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
         parsed as Record<string, unknown>,
         peerClaims ? { userId: peerClaims.userId, deviceId: peerClaims.deviceId } : undefined,
       );
+      const responseChannel = `${(parsed as RpcMessage).type}:response`;
       if (dispatched === null) {
+        // Peer-facing RPC seam (admin-console slice): channels the sync
+        // dispatcher does not own may be claimed here, dispatched as the
+        // authenticated peer. Claims-less connections (the
+        // `requireAuth`-off test seam) have no subject to gate as and
+        // fall through to the silent ignore.
+        const frameType = (parsed as RpcMessage).type;
+        if (peerRpc && peerClaims && peerRpc.owns(frameType)) {
+          void peerRpc
+            .dispatch(parsed as Record<string, unknown>, { userId: peerClaims.userId, deviceId: peerClaims.deviceId })
+            .then((resp) => send(socket, { type: responseChannel, payload: resp }))
+            .catch((err) => {
+              send(socket, { type: responseChannel, __error: (err as Error)?.message ?? String(err) });
+            });
+          return;
+        }
         // Channel outside the 22 sync+awareness ones. Silently ignore —
         // matches the chrome adapter's pass-through semantics.
         return;
       }
-      const responseChannel = `${(parsed as RpcMessage).type}:response`;
       if (dispatched.kind === 'sync') {
         send(socket, { type: responseChannel, payload: dispatched.response });
       } else {

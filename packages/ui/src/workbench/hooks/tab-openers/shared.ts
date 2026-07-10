@@ -78,6 +78,9 @@ export interface UseTabOpenersApi {
   openTemplateFolderOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openSettingsTab: (options?: { settingKey?: string; categoryId?: string }) => void;
   openWorkspaceManager: () => void;
+  /** Open the daemon administration console (singleton tab; the CTA is
+   *  probe-gated, the server gates every call regardless). */
+  openDaemonAdmin: () => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
   openWorkspaceVariables: () => void;
   openVault: () => void;

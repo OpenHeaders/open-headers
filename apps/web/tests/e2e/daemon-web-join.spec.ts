@@ -19,7 +19,11 @@
  *      daemon.
  *   6. A reload skips the gate (token persisted origin-scoped) and
  *      rejoins; a non-loopback (LAN IP) origin gates and joins too.
- *   7. Zero console errors across every leg; SIGTERM exits clean.
+ *   7. The operator administers the daemon FROM the tab (settings CTA →
+ *      admin console → user admitted); a directory user joining with a
+ *      bound token sees no admin affordance (probe-gated), while the
+ *      server-side gate stands regardless.
+ *   8. Zero console errors across every leg; SIGTERM exits clean.
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
  * and `pnpm turbo build --filter=@openheaders/web`. The daemon runs
@@ -414,6 +418,123 @@ test('a reload skips the gate and rejoins with the daemon data present', async (
   expect(await page.$('[data-testid=login-gate]')).toBeNull();
   await expect.poll(() => ruleInTabIdb(page, 'Daemon web rule v2'), { timeout: 30_000 }).toBe(true);
   await context.close();
+});
+
+// ── The admin console (peer admin plane end-to-end) ─────────────────
+
+/**
+ * Drive the daemon's gated peer admin plane over a raw operator wire
+ * (Node's global WebSocket): HELLO with the pre-seeded operator token,
+ * then request/response on the `<type>:response` idiom.
+ */
+async function adminOverWire(calls: Array<Record<string, unknown>>): Promise<Array<Record<string, unknown>>> {
+  const socket = new WebSocket(`ws://127.0.0.1:${DAEMON_PORT}`);
+  const inbox = new Map<string, Array<Record<string, unknown>>>();
+  const waiters = new Map<string, (frame: Record<string, unknown>) => void>();
+  socket.addEventListener('message', (event) => {
+    const frame = JSON.parse(String(event.data)) as Record<string, unknown> & { type: string };
+    const waiter = waiters.get(frame.type);
+    if (waiter) {
+      waiters.delete(frame.type);
+      waiter(frame);
+      return;
+    }
+    const queue = inbox.get(frame.type) ?? [];
+    queue.push(frame);
+    inbox.set(frame.type, queue);
+  });
+  const awaitFrame = (type: string): Promise<Record<string, unknown>> => {
+    const queued = inbox.get(type)?.shift();
+    if (queued) return Promise.resolve(queued);
+    return new Promise((resolve) => waiters.set(type, resolve));
+  };
+  await new Promise<void>((resolve, reject) => {
+    socket.addEventListener('open', () => resolve(), { once: true });
+    socket.addEventListener('error', () => reject(new Error('admin wire failed to open')), { once: true });
+  });
+  const welcomePromise = awaitFrame('oh.sync.welcome');
+  socket.send(
+    JSON.stringify({
+      type: 'oh.sync.hello',
+      protocolVersion: 1,
+      role: 'web',
+      nodeId: 'e2e-admin-wire',
+      workspaceId: 'e2e-admin-wire',
+      agent: '@openheaders/web@e2e',
+      authToken: token,
+    }),
+  );
+  const welcome = (await welcomePromise) as { accepted?: boolean };
+  expect(welcome.accepted).toBe(true);
+  const responses: Array<Record<string, unknown>> = [];
+  for (const call of calls) {
+    const responsePromise = awaitFrame(`${String(call.type)}:response`);
+    socket.send(JSON.stringify(call));
+    responses.push(await responsePromise);
+  }
+  socket.close();
+  return responses;
+}
+
+/** Open Settings → Backend on `target` via the topbar gear menu. */
+async function openBackendSettings(target: Page): Promise<void> {
+  await target.click('[aria-label="Settings menu"]');
+  await target.click('text=Settings…');
+  await target.click('.settings-category-nav button:has-text("Backend")');
+}
+
+test('admin console: the operator manages users from the tab; a directory user sees no admin CTA', async () => {
+  // Operator context — fresh storage, gate with the operator token.
+  const operatorContext = await browser.newContext();
+  const operatorPage = await operatorContext.newPage();
+  watchConsole(operatorPage, 'admin-operator');
+  await operatorPage.goto(ORIGIN);
+  await operatorPage.waitForSelector(TOKEN_INPUT, { timeout: 30_000 });
+  await submitGateToken(operatorPage, token);
+  await operatorPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+
+  // Settings → Backend → the probe-gated CTA → the console tab.
+  await openBackendSettings(operatorPage);
+  await operatorPage.click('[data-testid=open-daemon-admin]');
+  await expect(operatorPage.locator('[data-testid=daemon-admin-console]')).toBeVisible();
+
+  // Admit Alice through the console UI — the whole write path runs
+  // over the wire into the daemon's gated plane.
+  await operatorPage.fill(
+    'input[data-testid=daemon-admin-add-name], [data-testid=daemon-admin-add-name] input',
+    'Alice',
+  );
+  await operatorPage.click('[data-testid=daemon-admin-add-user]');
+  await expect(operatorPage.locator('[data-testid=daemon-admin-console]')).toContainText('Alice');
+  await operatorContext.close();
+
+  // Grant + bound mint over the RAW wire as the operator — a directory
+  // user needs a granted workspace for a clean join → adopt.
+  const [listed] = await adminOverWire([{ type: 'oh.daemon.users.list' }]);
+  const users = (listed.payload as { users: Array<{ userId: string; displayName: string }> }).users;
+  const alice = users.find((u) => u.displayName === 'Alice');
+  expect(alice).toBeDefined();
+  const [granted, minted] = await adminOverWire([
+    { type: 'oh.daemon.users.grant', userId: alice?.userId, workspaceId: daemonWorkspaceIds[0], role: 'viewer' },
+    { type: 'oh.daemon.tokens.mint', label: 'alice device', userId: alice?.userId },
+  ]);
+  expect((granted.payload as { ok: boolean }).ok).toBe(true);
+  const aliceSecret = (minted.payload as { ok: true; secret: string }).secret;
+
+  // Alice's context: her bound token joins, the Workbench mounts on the
+  // granted workspace — and the backend card shows NO admin CTA (the
+  // probe answered false over the same wire).
+  const aliceContext = await browser.newContext();
+  const alicePage = await aliceContext.newPage();
+  watchConsole(alicePage, 'admin-alice');
+  await alicePage.goto(ORIGIN);
+  await alicePage.waitForSelector(TOKEN_INPUT, { timeout: 30_000 });
+  await submitGateToken(alicePage, aliceSecret);
+  await alicePage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  await openBackendSettings(alicePage);
+  await expect(alicePage.locator('text=Always on').first()).toBeVisible();
+  expect(await alicePage.$('[data-testid=open-daemon-admin]')).toBeNull();
+  await aliceContext.close();
 });
 
 // ── Non-loopback origins ────────────────────────────────────────────

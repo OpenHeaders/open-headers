@@ -41,6 +41,7 @@ import {
 import { report } from '@openheaders/ui/shared/status';
 import { peekDaemonToken } from './daemon-token';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
+import { handleAdminRpcResponseFrame, setAdminRpcSender } from './wire-admin-rpc';
 import { handleInboundWireFrame } from './wire-inbound';
 import { applyPeerVectorToPendingOut, flushPendingOut, forwardAwarenessOverWire, setWireSender } from './wire-outbound';
 
@@ -222,6 +223,9 @@ export function installDaemonWire(): DaemonWire {
         void initiator.handle(frame);
         return;
       }
+      // Admin RPC responses — synchronous by-channel correlation, so
+      // check before the async mutation/awareness path.
+      if (handleAdminRpcResponseFrame(frame)) return;
       void handleInboundWireFrame(frame).then((claimed) => {
         if (claimed) return;
         const type = (frame as { type?: unknown })?.type;
@@ -240,6 +244,7 @@ export function installDaemonWire(): DaemonWire {
   });
 
   setWireSender((frame) => transport.send(frame));
+  setAdminRpcSender((frame) => transport.send(frame));
 
   initiator.subscribe((state) => {
     reportWireStatus(state, initiator.rejectReason());

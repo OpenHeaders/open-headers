@@ -22,6 +22,31 @@ export interface WsAdmissionHooks {
   resolvePeer(request: IncomingMessage): string;
 }
 
+/** The authenticated subject a peer-plane RPC runs as — the HELLO
+ *  claims' user + device (token) identity. */
+export interface WsPeerRpcContext {
+  readonly userId: string;
+  readonly deviceId?: string;
+}
+
+/**
+ * Peer-facing RPC seam — declared structurally here (same discipline
+ * as {@link WsAdmissionHooks}) so the transport stays independent of
+ * the daemon spine's admin plane. Consulted for post-handshake frames
+ * the sync dispatcher does not own, BEFORE the silently-ignore
+ * fallback: when `owns(type)` answers true the frame is dispatched as
+ * the peer's authenticated user and the result (or a thrown error)
+ * rides the standard `<type>:response` reply. Claims-less connections
+ * (the `requireAuth`-off test seam) never reach this seam — an
+ * unauthenticated peer has no subject to gate as.
+ */
+export interface WsPeerRpcHooks {
+  /** Does this seam own `type`? Unowned frames stay silently ignored. */
+  owns(type: string): boolean;
+  /** Gate + dispatch one owned frame as the authenticated peer. */
+  dispatch(message: Record<string, unknown>, peer: WsPeerRpcContext): Promise<unknown>;
+}
+
 export interface OracleWsServerOptions {
   /** Bind address — `127.0.0.1` for local-only, `0.0.0.0` for LAN. */
   host?: string;
@@ -50,6 +75,12 @@ export interface OracleWsServerOptions {
    * pre-Phase-3 behavior.
    */
   admission?: WsAdmissionHooks;
+  /**
+   * Optional peer-facing RPC seam (admin-console slice) — see
+   * {@link WsPeerRpcHooks}. Absent = every non-sync channel keeps the
+   * silently-ignore posture.
+   */
+  peerRpc?: WsPeerRpcHooks;
   /**
    * Override the per-connection loopback classification. Defaults to
    * `isLoopbackRemote` over the socket's remote address. A real

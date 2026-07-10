@@ -10,6 +10,7 @@ export type TabMode =
   | 'template-edit'
   | 'settings'
   | 'workspace-manager'
+  | 'daemon-admin'
   | 'env-edit'
   | 'workspace-vars'
   | 'vault'

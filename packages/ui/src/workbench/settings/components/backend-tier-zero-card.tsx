@@ -9,8 +9,11 @@
  * connection below.
  */
 
-import { theme } from 'antd';
+import { TeamOutlined } from '@ant-design/icons';
+import { Button, theme } from 'antd';
 import type React from 'react';
+import { useDaemonAdminStatus } from '../../components/daemon-admin/use-daemon-admin-status';
+import { useOpenDaemonAdmin } from '../../hooks/OpenDaemonAdminContext';
 import type { Host } from '../../../shared/host-vocabulary';
 import { tierZeroMode } from '../schema/backend';
 import SettingRow from '../fields/SettingRow';
@@ -34,6 +37,12 @@ const HOST_COPY: Record<Host, string> = {
 
 export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingDef[] }> = ({ host, defs }) => {
   const { token } = theme.useToken();
+  // Admin-console CTA — rendered only when the probe says this subject
+  // administers the back-end (desktop = its own spine, web = the
+  // serving daemon over the wire) AND the shell provides the opener.
+  // Pure affordance honesty; the server gates every call regardless.
+  const adminStatus = useDaemonAdminStatus();
+  const openDaemonAdmin = useOpenDaemonAdmin();
   // Daemon-side inbound config exists only where this process IS a
   // daemon. Strip each row's `when` — it gates on the derived mode for
   // search hits, but inside the tier-zero card the daemon context is
@@ -83,6 +92,32 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
         {daemonDefs.map((def) => (
           <SettingRow key={def.key} def={def} />
         ))}
+        {adminStatus === 'admin' && openDaemonAdmin && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderTop: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText }}>Daemon administration</div>
+              <div style={{ fontSize: 11, color: token.colorTextTertiary }}>
+                Manage the user directory and per-workspace access grants.
+              </div>
+            </div>
+            <Button
+              size="small"
+              icon={<TeamOutlined />}
+              onClick={() => openDaemonAdmin()}
+              data-testid="open-daemon-admin"
+            >
+              Open admin console
+            </Button>
+          </div>
+        )}
       </div>
       {host === 'desktop' && <DaemonTokensSection />}
     </section>

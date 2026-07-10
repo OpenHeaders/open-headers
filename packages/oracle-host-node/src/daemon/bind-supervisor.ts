@@ -79,6 +79,11 @@ interface SupervisorOptions {
    */
   admission?: OracleWsServerOptions['admission'];
   /**
+   * Optional peer-facing RPC seam (admin-console slice). Passes straight
+   * through to `startOracleWsServer` on every bind the supervisor opens.
+   */
+  peerRpc?: OracleWsServerOptions['peerRpc'];
+  /**
    * Receives every up-to-date server handle (or null while a rebind is
    * in flight). Wires onto `setMutationForwarderWsServer` and the
    * boot-wiring's local `wsServer` reference.
@@ -165,6 +170,7 @@ export async function startDaemonBindSupervisor(options: SupervisorOptions): Pro
         handshakeIdentity: options.handshakeIdentity,
         httpRequestHandler: options.httpRequestHandler,
         admission: options.admission,
+        peerRpc: options.peerRpc,
       });
       if (disposed) {
         await next.close().catch(() => undefined);

@@ -22,6 +22,7 @@
 import { createServer } from 'node:net';
 import {
   clearIdentitySnapshot,
+  createDaemonPairingService,
   createDaemonUser,
   ensureSyntheticIdentity,
   grantWorkspaceRole,
@@ -69,7 +70,9 @@ import { queryAuditEntries, SqliteAuditLog } from '@openheaders/oracle-host-node
 import Database from 'better-sqlite3';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
+import { createAdminChannelHandlers } from '../../src/daemon/admin-channels';
 import { createAwarenessPeerFanOut } from '../../src/daemon/awareness-fan-out';
+import { ADMIN_DENIED_MESSAGE, createPeerAdminRpc } from '../../src/daemon/peer-admin-rpc';
 import { createFilteredPeerBroadcast, makeWorkspaceReadFilter } from '../../src/daemon/peer-read-filter';
 import { type OracleWsServer, startOracleWsServer } from '../../src/host-runtime/ws-server';
 import { createHostStorageFake } from './_host-storage-fake';
@@ -540,5 +543,151 @@ describe('per-row __global__ filtering + same-user presence — two users over r
     await Promise.all(sentinels);
     expect(originFrames).toEqual([]);
     expect(bobFrames).toEqual([]);
+  });
+});
+
+// ── Peer admin plane — gated `oh.daemon.*` over real sockets ────────
+
+/** Send one RPC frame and await its `<type>:response` twin. */
+async function callOverWire(
+  client: WebSocket,
+  message: Record<string, unknown>,
+): Promise<{ payload?: Record<string, unknown>; __error?: string }> {
+  const response = new Promise<{ payload?: Record<string, unknown>; __error?: string }>((resolve) => {
+    client.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === `${String(message.type)}:response`) resolve(msg);
+    });
+  });
+  client.send(JSON.stringify(message));
+  return response;
+}
+
+/** Connect a peer riding an UNBOUND token — resolves to the operator. */
+async function connectOperator(port: number, nodeId: string): Promise<WebSocket> {
+  const minted = await mintDaemonAuthToken({ label: 'operator device' });
+  const client = new WebSocket(`ws://127.0.0.1:${port}`);
+  clients.push(client);
+  await new Promise<void>((resolve, reject) => {
+    client.once('open', () => resolve());
+    client.once('error', reject);
+  });
+  const welcome = new Promise<{ accepted: boolean }>((resolve) => {
+    client.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === SYNC_WELCOME_TYPE) resolve(msg);
+    });
+  });
+  client.send(
+    JSON.stringify({
+      type: SYNC_HELLO_TYPE,
+      protocolVersion: PROTOCOL_VERSION,
+      role: 'web',
+      nodeId,
+      workspaceId: WS_ID,
+      agent: '@openheaders/web@test',
+      authToken: minted.secret,
+    }),
+  );
+  expect((await welcome).accepted).toBe(true);
+  return client;
+}
+
+async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> {
+  const peerRpc = createPeerAdminRpc({
+    channels: createAdminChannelHandlers({
+      pairing: createDaemonPairingService(),
+      getBoundPort: () => port,
+      getWsServer: () => server,
+    }),
+  });
+  return startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY, peerRpc });
+}
+
+describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
+  it('an operator peer administers the directory end-to-end; the probe answers admin without an audit row', async () => {
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+
+    // Baseline AFTER connect — the HELLO admission gate emits its own
+    // `daemon.admin`-vocabulary row (S17/S19 note); the plane's rows
+    // are the delta on top of it.
+    const baseline = audits.filter((a) => a.capability === 'daemon.admin').length;
+    const probe = await callOverWire(operator, { type: 'oh.daemon.admin.status' });
+    expect(probe.payload).toEqual({ admin: true });
+    // The probe is a visibility question, not an enforcement decision.
+    expect(audits.filter((a) => a.capability === 'daemon.admin').length).toBe(baseline);
+
+    const created = await callOverWire(operator, { type: 'oh.daemon.users.create', displayName: 'Carol' });
+    expect(created.payload?.ok).toBe(true);
+    const listed = await callOverWire(operator, { type: 'oh.daemon.users.list' });
+    const users = listed.payload?.users as Array<{ displayName: string }>;
+    expect(users.map((u) => u.displayName)).toContain('Carol');
+
+    // Every enforcement decision is audited as the operator.
+    const record = await ensureSyntheticIdentity({ hostKind: 'daemon' });
+    const allows = audits.filter((a) => a.capability === 'daemon.admin' && a.decision.allow);
+    expect(allows.length).toBe(baseline + 2);
+    expect(new Set(allows.map((a) => a.actorUserId))).toEqual(new Set([record.user.id]));
+  });
+
+  it("a directory user's admin call is denied in-band with the uniform message, audited, and queryable; the probe answers false silently", async () => {
+    const viewer = await addUserWithGrant('Bob', 'viewer');
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const client = await connectAs(port, viewer, 'ext-bob');
+
+    const baseline = audits.filter((a) => a.capability === 'daemon.admin').length;
+    const probe = await callOverWire(client, { type: 'oh.daemon.admin.status' });
+    expect(probe.payload).toEqual({ admin: false });
+    // Probe deny is silent — a directory user's every connect would
+    // otherwise bury real deny rows in noise.
+    expect(audits.filter((a) => a.capability === 'daemon.admin').length).toBe(baseline);
+
+    const denied = await callOverWire(client, { type: 'oh.daemon.users.list' });
+    expect(denied.__error).toBe(ADMIN_DENIED_MESSAGE);
+    expect(denied.payload).toBeUndefined();
+    // Deny never tears the socket down.
+    expect(client.readyState).toBe(WebSocket.OPEN);
+
+    const deny = audits.find((a) => a.capability === 'daemon.admin' && !a.decision.allow);
+    expect(deny?.actorUserId).toBe(viewer.user.id);
+    expect(deny?.decision.reason).toBe('not-daemon-admin');
+    // Slice-4 posture holds: the deny is a QUERYABLE audit row.
+    const rows = queryAuditEntries(auditDb, { allow: false, capability: 'daemon.admin' });
+    expect(rows.map((r) => r.actorUserId)).toContain(viewer.user.id);
+  });
+
+  it('an operator deactivates a connected directory user over the wire — tokens revoked, live socket evicted', async () => {
+    const viewer = await addUserWithGrant('Bob', 'viewer');
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+    const viewerClient = await connectAs(port, viewer, 'ext-bob');
+
+    const closed = new Promise<void>((resolve) => {
+      viewerClient.once('close', () => resolve());
+    });
+    const result = await callOverWire(operator, { type: 'oh.daemon.users.deactivate', userId: viewer.user.id });
+    expect(result.payload?.ok).toBe(true);
+    await closed;
+    expect(server.connectedCount()).toBe(1);
+  });
+
+  it('an unowned oh.daemon.* channel stays silently ignored', async () => {
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+
+    const got: string[] = [];
+    operator.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (typeof msg.type === 'string' && msg.type.endsWith(':response')) got.push(msg.type);
+    });
+    operator.send(JSON.stringify({ type: 'oh.daemon.nonexistent' }));
+    const probe = await callOverWire(operator, { type: 'oh.daemon.admin.status' });
+    expect(probe.payload).toEqual({ admin: true });
+    expect(got).toEqual(['oh.daemon.admin.status:response']);
   });
 });
