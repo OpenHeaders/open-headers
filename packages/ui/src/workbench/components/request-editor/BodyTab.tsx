@@ -28,18 +28,29 @@
  * re-entry — purely local UI state, never persisted.
  */
 
+import { AlignLeftOutlined } from '@ant-design/icons';
 import type { RequestBody } from '@openheaders/core/types';
-import { Radio, Select, Typography, theme } from 'antd';
+import { Button, Radio, Select, Tooltip, Typography, theme } from 'antd';
+import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useMemo, useRef } from 'react';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CodeEditor from '../shared/CodeEditor';
 import MultipartEditor from './MultipartEditor';
 import FormEditor from './FormEditor';
+import { ViewPickerIcon } from './response/ViewPickerIcons';
 
 const { Text } = Typography;
 
 type RawFormat = 'text' | 'javascript' | 'json' | 'html' | 'xml';
+
+const RAW_FORMAT_OPTIONS: ReadonlyArray<{ value: RawFormat; label: string }> = [
+  { value: 'text', label: 'Text' },
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'json', label: 'JSON' },
+  { value: 'html', label: 'HTML' },
+  { value: 'xml', label: 'XML' },
+];
 type RadioValue = 'none' | 'form-data' | 'form-urlencoded' | 'raw' | 'graphql';
 
 interface BodyTabProps {
@@ -117,6 +128,10 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
   // only the active variant; this ref is the editor-local memory of
   // the others. Cleared on unmount (component-scoped useRef).
   const draftCacheRef = useRef<Partial<Record<RadioValue, RequestBody>>>({});
+  // Mounted Monaco instance of the raw-body editor — the Format button
+  // in the picker row dispatches through it (same path as the editor's
+  // own corner action and Shift+Alt+F).
+  const rawEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   // Mirror the live body into the cache on every render so the active
   // variant's edits are captured for return-trips.
   draftCacheRef.current[radio] = body;
@@ -158,16 +173,34 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             size="small"
             value={raw}
             onChange={switchRawFormat}
-            options={[
-              { value: 'text', label: 'Text' },
-              { value: 'javascript', label: 'JavaScript' },
-              { value: 'json', label: 'JSON' },
-              { value: 'html', label: 'HTML' },
-              { value: 'xml', label: 'XML' },
-            ]}
+            options={RAW_FORMAT_OPTIONS.map((opt) => ({
+              value: opt.value,
+              label: (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <ViewPickerIcon id={opt.value} size={14} />
+                  {opt.label}
+                </span>
+              ),
+            }))}
             style={{ width: 140 }}
             popupMatchSelectWidth={false}
           />
+        )}
+        {radio === 'raw' && raw !== 'text' && (
+          <Tooltip title="Format" placement="top">
+            <Button
+              size="small"
+              type="text"
+              icon={<AlignLeftOutlined />}
+              aria-label="Format body"
+              style={{ marginLeft: 'auto' }}
+              onClick={() => {
+                void rawEditorRef.current?.getAction('editor.action.formatDocument')?.run();
+              }}
+            >
+              Beautify
+            </Button>
+          </Tooltip>
         )}
       </div>
 
@@ -204,6 +237,9 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             onChange={(content) => onChange(rawBodyOf(raw, content))}
             language={rawLangForEditor}
             minHeight={240}
+            onEditorMount={(ed) => {
+              rawEditorRef.current = ed;
+            }}
           />
         </div>
       )}
