@@ -29,6 +29,7 @@ import {
 } from './cli/config-settings';
 import { assertDaemonStopped, offlineWriteConsequence } from './cli/daemon-stopped';
 import { probeHealthz } from './cli/healthz-probe';
+import { fetchMetrics, formatMetrics } from './cli/metrics-probe';
 import { installServiceUnit, type ServiceHost, startService, stopService } from './cli/service-manager';
 import { mintBootstrapToken } from './cli/show-token';
 import {
@@ -53,7 +54,9 @@ Commands:
   install       Write the user service unit (launchd/systemd) for the daemon
   start         Start the installed service
   stop          Stop the installed service
-  status        Probe the daemon's /healthz
+  status        Probe the daemon's /healthz; --verbose reads /metrics
+                (peers, throughput, audit counts — needs a paired token
+                via --token or OH_DAEMON_TOKEN)
   show-token    Mint a client auth token against the daemon's data dir
                 (first-boot bootstrap; requires the daemon to be stopped)
   config set <key> <true|false>
@@ -97,6 +100,9 @@ Options (install / status / show-token / config):
                            the reverse proxy's domain; IPs/localhost always work
   --web-root <path>        Directory with the built web app to serve at /
                            (default: the web/ dir shipped beside the daemon)
+  --verbose                status only: read the token-gated /metrics route
+  --token <secret>         status only: paired token for /metrics (or set
+                           the OH_DAEMON_TOKEN environment variable)
   --label <text>           show-token only: label for the minted token
   --user <id-or-email>     show-token only: bind the token to a directory user
                            (omit for a token that acts as the daemon operator)
@@ -140,13 +146,26 @@ async function commandInstall(argv: readonly string[]): Promise<void> {
 }
 
 async function commandStatus(argv: readonly string[]): Promise<void> {
-  const { config } = parseConfigCommand(argv);
+  const { values } = parseArgs({
+    args: [...argv],
+    options: { ...CONFIG_OPTIONS, verbose: { type: 'boolean' }, token: { type: 'string' } },
+  });
+  const { config } = resolveConfigFlags(values);
   const up = await probeHealthz(config.bindPort);
-  if (up) {
-    console.log(`running — /healthz OK on 127.0.0.1:${config.bindPort} (configured bind ${config.bindAddress})`);
-  } else {
+  if (!up) {
     console.log(`not running — no /healthz on 127.0.0.1:${config.bindPort}`);
     process.exitCode = 1;
+    return;
+  }
+  console.log(`running — /healthz OK on 127.0.0.1:${config.bindPort} (configured bind ${config.bindAddress})`);
+  if (values.verbose !== true) return;
+  const token = values.token ?? process.env.OH_DAEMON_TOKEN;
+  if (token === undefined || token === '') {
+    throw new Error('--verbose reads the token-gated /metrics route — pass --token or set OH_DAEMON_TOKEN');
+  }
+  const metrics = await fetchMetrics(config.bindPort, token);
+  for (const metricsLine of formatMetrics(metrics)) {
+    console.log(`  ${metricsLine}`);
   }
 }
 

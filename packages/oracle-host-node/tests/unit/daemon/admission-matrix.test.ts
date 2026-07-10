@@ -29,6 +29,7 @@ function facts(overrides: Partial<AdmissionRequestFacts> = {}): AdmissionRequest
 describe('routePostureFor', () => {
   it('classifies the composed routes', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).route).toBe('healthz');
+    expect(routePostureFor(facts({ path: '/metrics' })).route).toBe('metrics');
     expect(routePostureFor(facts({ path: '/pair/123456' })).route).toBe('pairing');
     expect(routePostureFor(facts({ path: MCP_HTTP_PATH })).route).toBe('mcp');
     expect(routePostureFor(facts({ path: `${MCP_HTTP_PATH}/` })).route).toBe('mcp');
@@ -41,6 +42,7 @@ describe('routePostureFor', () => {
     expect(routePostureFor(facts({ path: '/' }), webEnabled).route).toBe('web');
     expect(routePostureFor(facts({ path: '/assets/index-abc123.js' }), webEnabled).route).toBe('web');
     expect(routePostureFor(facts({ path: '/healthz' }), webEnabled).route).toBe('healthz');
+    expect(routePostureFor(facts({ path: '/metrics' }), webEnabled).route).toBe('metrics');
     expect(routePostureFor(facts({ path: '/pair/123456' }), webEnabled).route).toBe('pairing');
     expect(routePostureFor(facts({ path: MCP_HTTP_PATH }), webEnabled).route).toBe('mcp');
     expect(routePostureFor(facts({ upgrade: true, path: '/' }), webEnabled).route).toBe('ws-upgrade');
@@ -60,6 +62,8 @@ describe('routePostureFor', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).rateLimited).toBe(false);
     expect(routePostureFor(facts({ path: '/pair/1' })).failureStatuses).toEqual([404]);
     expect(routePostureFor(facts({ path: MCP_HTTP_PATH })).failureStatuses).toEqual([401]);
+    expect(routePostureFor(facts({ path: '/metrics' })).rateLimited).toBe(true);
+    expect(routePostureFor(facts({ path: '/metrics' })).failureStatuses).toEqual([401]);
     expect(routePostureFor(facts({ upgrade: true })).rateLimited).toBe(true);
   });
 });
@@ -68,6 +72,13 @@ describe('origin posture', () => {
   it('healthz accepts any Origin', () => {
     const verdict = evaluateAdmission(facts({ path: '/healthz', origin: 'https://evil.example.com' }), []);
     expect(verdict.ok).toBe(true);
+  });
+
+  it('metrics rejects every Origin like /mcp, and ignores the Host header', () => {
+    const withOrigin = evaluateAdmission(facts({ path: '/metrics', origin: 'http://192.168.1.20:8137' }), []);
+    expect(withOrigin).toMatchObject({ ok: false, reason: 'origin-forbidden' });
+    expect(evaluateAdmission(facts({ path: '/metrics' }), []).ok).toBe(true);
+    expect(evaluateAdmission(facts({ path: '/metrics', host: 'rebound.example.com' }), []).ok).toBe(true);
   });
 
   it('mcp rejects every Origin, browser or not', () => {

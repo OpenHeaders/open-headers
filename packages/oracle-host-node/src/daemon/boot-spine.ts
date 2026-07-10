@@ -106,11 +106,13 @@ import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { createAdmissionControl } from './admission-control';
 import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { createAwarenessPeerFanOut } from './awareness-fan-out';
-import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
+import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
 import { createHealthzHandler } from './healthz';
 import { listLanIpv4Addresses } from './lan-addresses';
 import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
+import { createMetricsProvider } from './metrics';
+import { createMetricsHttpHandler } from './metrics-http';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
 import type { DaemonOidcConfig } from './oidc/oidc-config';
@@ -239,6 +241,7 @@ export interface DaemonSpineHandle {
  */
 export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<DaemonSpineHandle> {
   const { status, broadcastLocal } = config;
+  const bootedAtMs = Date.now();
 
   // Captured at boot. The host-hook closures below fan to both local
   // surfaces and connected WS peers; the WS server is null until the
@@ -252,6 +255,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // point at the live port, not the hardcoded default, after the user
   // moves the daemon.
   let boundPort: number = WS_PORT;
+
+  // Last bind lifecycle event — the metrics surface reports it verbatim
+  // (binding / bound / failed) alongside the live peer counts.
+  let lastBindState: DaemonBindState | null = null;
 
   // Same-user awareness fan-out (Phase 5 slice 2) — per-peer tailored
   // frames under the §9 law, same queue discipline as the mutation
@@ -482,6 +489,23 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //     the same bound socket as pairing via handler composition below.
   const mcpInstall = await installMcpServer({
     serverVersion: config.appVersion,
+    resolvePeer: admission.resolvePeer,
+  });
+
+  // 4c'. `/metrics` (Phase 6) — token-gated JSON snapshot of operational
+  //      state: bind lifecycle, peer counts, status subsystems, and row
+  //      counts on the shared SQLite handle. Read-only by construction;
+  //      the CLI's `status --verbose` is its first consumer.
+  const metricsHttpHandler = createMetricsHttpHandler({
+    provider: createMetricsProvider({
+      db: syncPersistence.db,
+      appVersion: config.appVersion,
+      bootedAtMs,
+      getStatusSnapshot: () => status.getSnapshot(),
+      getWsServer: () => wsServer,
+      getBindState: () => lastBindState,
+      listWorkspaceIds: () => listWorkspaces().map((ws) => ws.id),
+    }),
     resolvePeer: admission.resolvePeer,
   });
 
@@ -735,6 +759,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       httpRequestHandler: admission.wrapHttpHandler(
         (req, res) =>
           healthzHandler(req, res) ||
+          metricsHttpHandler(req, res) ||
           pairingHttpHandler(req, res) ||
           mcpInstall.handler(req, res) ||
           (oidcHttpHandler !== null && oidcHttpHandler(req, res)) ||
@@ -751,6 +776,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         // Track the live port so the pairing surface hands out codes for
         // wherever the daemon is actually listening, not the default.
         if (state.kind === 'bound') boundPort = state.port;
+        lastBindState = state;
         syncStatusReporter.setBindState(state);
       },
     });

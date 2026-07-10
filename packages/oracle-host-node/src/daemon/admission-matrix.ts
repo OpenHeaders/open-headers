@@ -6,6 +6,9 @@
  * each handler to invent its own:
  *
  *   - `/healthz`     — open. Liveness probes carry arbitrary headers.
+ *   - `/metrics`     — native processes only (the handler adds the
+ *                      bearer-token gate); any Origin ⇒ reject, same
+ *                      posture as `/mcp`.
  *   - WS upgrade     — non-browser clients (no Origin), browser-extension
  *                      origins (the extension SW dials with its own
  *                      `chrome-extension://` origin), and the daemon's
@@ -60,7 +63,7 @@ export interface AdmissionRequestFacts {
   readonly host: string | undefined;
 }
 
-export type AdmissionRoute = 'healthz' | 'ws-upgrade' | 'pairing' | 'mcp' | 'oidc' | 'web' | 'default';
+export type AdmissionRoute = 'healthz' | 'metrics' | 'ws-upgrade' | 'pairing' | 'mcp' | 'oidc' | 'web' | 'default';
 
 /** Matrix-wide switches derived from the daemon's composition, not per-request facts. */
 export interface AdmissionMatrixOptions {
@@ -99,9 +102,13 @@ export interface RoutePosture {
 const PAIRING_PATH_PREFIX = '/pair/';
 const OIDC_PATH_PREFIX = '/auth/oidc/';
 const HEALTHZ_PATH = '/healthz';
+const METRICS_PATH = '/metrics';
 
 const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   healthz: { route: 'healthz', origin: 'any', host: 'any', rateLimited: false, failureStatuses: [] },
+  // Token-gated like /mcp: native consumers only (the CLI, a scraper),
+  // and a 401 is a token guess.
+  metrics: { route: 'metrics', origin: 'non-browser', host: 'any', rateLimited: true, failureStatuses: [401] },
   // HELLO auth failures are counted through the WS gate's own hook, not
   // an HTTP status — the upgrade has already happened by the time the
   // token is evaluated.
@@ -130,6 +137,7 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
 export function routePostureFor(facts: AdmissionRequestFacts, options: AdmissionMatrixOptions = {}): RoutePosture {
   if (facts.upgrade) return ROUTE_POSTURES['ws-upgrade'];
   if (facts.path === HEALTHZ_PATH) return ROUTE_POSTURES.healthz;
+  if (facts.path === METRICS_PATH) return ROUTE_POSTURES.metrics;
   if (facts.path.startsWith(PAIRING_PATH_PREFIX)) return ROUTE_POSTURES.pairing;
   if (facts.path === MCP_HTTP_PATH || facts.path === `${MCP_HTTP_PATH}/`) return ROUTE_POSTURES.mcp;
   if (options.oidcEnabled && facts.path.startsWith(OIDC_PATH_PREFIX)) return ROUTE_POSTURES.oidc;

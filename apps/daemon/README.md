@@ -224,6 +224,27 @@ oh daemon audit export --since 2026-07-01 > audit.jsonl
 daemon runs — reads are lock-free. `--since`/`--until` take ISO date-times or
 relative forms (`30m`, `24h`, `7d`).
 
+## Metrics
+
+`GET /metrics` on the daemon's bind returns a JSON snapshot of operational
+state: version and uptime, bind lifecycle, connected peers (same-device vs
+LAN), workspace count, per-subsystem status, stored mutations (total and
+last 24h), audit decision counts, and the observability ring size. The
+route is read-only and token-gated — every request presents a paired token,
+loopback included, validated against the same ledger as WebSocket sync and
+MCP.
+
+```sh
+oh daemon status                                  # liveness only (no token)
+oh daemon status --verbose --token oh_…           # + /metrics, human-formatted
+OH_DAEMON_TOKEN=oh_… oh daemon status --verbose   # token via environment
+
+curl -H "Authorization: Bearer oh_…" http://127.0.0.1:8137/metrics
+```
+
+Browser-originated requests are refused outright (same posture as `/mcp`),
+and a wrong token counts toward the per-peer rate limit.
+
 ## Backup and restore
 
 A backup is a plain directory snapshot of the daemon's state —
