@@ -126,6 +126,13 @@ import { installSyncStatusReporter, type SyncStatusReporter } from './sync-statu
 
 const SCOPE = 'boot-spine';
 
+// Pairing service's global unknown-code budget when a trusted proxy
+// fronts the daemon (S30 finding d) — sized so it only trips on a
+// distributed sweep that outruns admission's strict per-peer pairing
+// tier, not on a handful of rotating WAN addresses. Default (50)
+// applies on loopback/LAN where the global-by-design rationale holds.
+const TRUSTED_PROXY_PAIRING_GLOBAL_BUDGET = 250;
+
 export interface DaemonSpineConfig {
   /** Root of everything the spine persists: `oracle.db`, `blobs/`. */
   dataDir: string;
@@ -476,7 +483,16 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //     per process; the HTTP handler is rebuilt with that service and
   //     handed to every bind the supervisor opens. Polling-only local
   //     contract — see `BridgeRpcContract['oh.daemon.pairing.*']`.
-  const pairingService = createDaemonPairingService();
+  //     Under trustedProxy the service's global brute-force budget is
+  //     raised (S30 finding d): admission's strict per-peer pairing
+  //     tier caps each WAN address at 5 guesses per 30-minute block,
+  //     so tripping the raised global takes a ≥50-address-per-minute
+  //     distributed sweep — where failing closed is the right answer —
+  //     instead of a handful of rotating addresses denying pairing to
+  //     everyone. Loopback/LAN keeps the service defaults.
+  const pairingService = createDaemonPairingService(
+    config.admission?.trustedProxy ? { maxFailedLookups: TRUSTED_PROXY_PAIRING_GLOBAL_BUDGET } : {},
+  );
   const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
 
   // 4b'. `/healthz` — unauthenticated, data-free liveness for ops

@@ -7,7 +7,9 @@
  *     (healthz ‖ pairing ‖ mcp): blocked peers get 429 on rate-limited
  *     routes, matrix rejects get 403, and responses whose status is a
  *     brute-force signal for their route (pairing 404, `/mcp` 401) feed
- *     the limiter on finish.
+ *     the limiter on finish. Under `trustedProxy` the pairing route
+ *     carries a second, stricter per-peer tier — see
+ *     {@link TRUSTED_PROXY_PAIRING_LIMITS}.
  *   - `wsHooks` gives the WS gate the same admission: the upgrade is
  *     refused for blocked peers / forbidden Origins before HELLO runs,
  *     and `auth-required` HELLO rejects count as failures.
@@ -26,10 +28,32 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { WsAdmissionHooks, WsUpgradeVerdict } from '../host-runtime/ws-server';
-import { type AdmissionRequestFacts, evaluateAdmission, routePostureFor } from './admission-matrix';
+import {
+  type AdmissionRequestFacts,
+  type AdmissionRoute,
+  evaluateAdmission,
+  routePostureFor,
+} from './admission-matrix';
 import { createPeerRateLimiter, type PeerRateLimiter, type RateLimiterOptions } from './rate-limiter';
 
 const SCOPE = 'Admission';
+
+/**
+ * Stricter pairing-route tier active only under `trustedProxy` (S30
+ * audit finding d). The pairing service's brute-force guard is one
+ * GLOBAL budget — correct on loopback/LAN, but a WAN attacker rotating
+ * a handful of addresses could keep it permanently tripped and deny
+ * pairing to everyone. This tier caps each WAN peer's contribution to
+ * that global budget at 5 unknown-code guesses before a 30-minute
+ * block, so holding the global lockout takes a rotating fleet of
+ * addresses, not a handful. A legitimate peer (one valid GET + one
+ * valid POST) never registers a failure on either tier.
+ */
+const TRUSTED_PROXY_PAIRING_LIMITS: RateLimiterOptions = {
+  maxFailures: 5,
+  windowMs: 60_000,
+  blockMs: 30 * 60_000,
+};
 
 /** Same composition contract as the healthz/pairing/MCP handlers: `true` = response owned. */
 export type ComposedHttpHandler = (req: IncomingMessage, res: ServerResponse) => boolean;
@@ -55,6 +79,8 @@ export interface AdmissionControlOptions {
   oidcEnabled?: boolean;
   /** Limiter tuning override — tests only; production takes the defaults. */
   limiter?: RateLimiterOptions;
+  /** Trusted-proxy pairing-tier override — tests only; production takes {@link TRUSTED_PROXY_PAIRING_LIMITS}. */
+  pairingLimiter?: RateLimiterOptions;
 }
 
 export interface AdmissionControl {
@@ -83,6 +109,16 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
       ? () => ({ webEnabled: webEnabled(), oidcEnabled })
       : () => ({ webEnabled: webEnabled ?? false, oidcEnabled });
   const limiter: PeerRateLimiter = createPeerRateLimiter(options.limiter);
+  // Second, stricter budget for pairing-code guesses behind a trusted
+  // proxy — see TRUSTED_PROXY_PAIRING_LIMITS. Both budgets feed and
+  // both block on the pairing route; elsewhere only the shared one.
+  const pairingLimiter: PeerRateLimiter | null = trustedProxy
+    ? createPeerRateLimiter(options.pairingLimiter ?? TRUSTED_PROXY_PAIRING_LIMITS)
+    : null;
+
+  function limitersFor(route: AdmissionRoute): readonly PeerRateLimiter[] {
+    return route === 'pairing' && pairingLimiter !== null ? [limiter, pairingLimiter] : [limiter];
+  }
 
   function resolvePeer(req: IncomingMessage): string {
     const direct = req.socket.remoteAddress ?? 'unknown';
@@ -98,16 +134,17 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
     return entries.length > 0 ? entries[entries.length - 1] : direct;
   }
 
-  function recordFailure(peer: string, route: string): void {
-    if (!limiter.recordFailure(peer)) return;
+  function recordFailure(tier: PeerRateLimiter, peer: string, route: string): void {
+    if (!tier.recordFailure(peer)) return;
     logger.warn(
       SCOPE,
-      `peer throttled: ${limiter.maxFailures} failed ${route} attempts in ${Math.round(limiter.windowMs / 1000)}s, blocked for ${Math.round(limiter.blockMs / 1000)}s (peer=${peer})`,
+      `peer throttled: ${tier.maxFailures} failed ${route} attempts in ${Math.round(tier.windowMs / 1000)}s, blocked for ${Math.round(tier.blockMs / 1000)}s (peer=${peer})`,
     );
   }
 
-  function respondTooMany(res: ServerResponse, peer: string): void {
-    const retryAfterSeconds = Math.max(1, Math.ceil(limiter.blockedRemainingMs(peer) / 1000));
+  function respondTooMany(res: ServerResponse, peer: string, tiers: readonly PeerRateLimiter[]): void {
+    const remainingMs = Math.max(...tiers.map((tier) => tier.blockedRemainingMs(peer)));
+    const retryAfterSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
     res.statusCode = 429;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
@@ -130,8 +167,9 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
         const requestMatrixOptions = matrixOptions();
         const posture = routePostureFor(facts, requestMatrixOptions);
         const peer = resolvePeer(req);
-        if (posture.rateLimited && limiter.isBlocked(peer)) {
-          respondTooMany(res, peer);
+        const tiers = limitersFor(posture.route);
+        if (posture.rateLimited && tiers.some((tier) => tier.isBlocked(peer))) {
+          respondTooMany(res, peer, tiers);
           return true;
         }
         const verdict = evaluateAdmission(facts, allowedHosts, requestMatrixOptions);
@@ -145,7 +183,8 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
         }
         if (posture.failureStatuses.length > 0) {
           res.on('finish', () => {
-            if (posture.failureStatuses.includes(res.statusCode)) recordFailure(peer, posture.route);
+            if (!posture.failureStatuses.includes(res.statusCode)) return;
+            for (const tier of tiers) recordFailure(tier, peer, posture.route);
           });
         }
         return next(req, res);
@@ -161,7 +200,7 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
         return { ok: true };
       },
       recordAuthFailure(request) {
-        recordFailure(resolvePeer(request), 'ws-auth');
+        recordFailure(limiter, resolvePeer(request), 'ws-auth');
       },
       resolvePeer,
     },

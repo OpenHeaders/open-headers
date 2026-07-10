@@ -9,11 +9,17 @@
 
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { createDaemonPairingService, type DaemonPairingService } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { afterEach, describe, expect, it } from 'vitest';
-import { type AdmissionControl, createAdmissionControl } from '../../../src/daemon/admission-control';
+import {
+  type AdmissionControl,
+  type ComposedHttpHandler,
+  createAdmissionControl,
+} from '../../../src/daemon/admission-control';
+import { createPairingHttpHandler } from '../../../src/host-runtime/pairing-http';
 
 setHostLogger(consoleLogger);
 
@@ -23,6 +29,18 @@ interface Harness {
 }
 
 const servers: Server[] = [];
+
+async function listenWrapped(wrapped: ComposedHttpHandler): Promise<Harness> {
+  const server = createServer((req, res) => {
+    if (wrapped(req, res)) return;
+    res.statusCode = 400;
+    res.end();
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  servers.push(server);
+  const { port } = server.address() as AddressInfo;
+  return { baseUrl: `http://127.0.0.1:${port}`, server };
+}
 
 /**
  * Compose the admission wrapper over a stub chain: `/pair/*` answers
@@ -55,15 +73,28 @@ async function startHarness(admission: AdmissionControl): Promise<Harness> {
     }
     return false;
   });
-  const server = createServer((req, res) => {
-    if (wrapped(req, res)) return;
-    res.statusCode = 400;
-    res.end();
+  return listenWrapped(wrapped);
+}
+
+/**
+ * Compose the admission wrapper over the REAL pairing handler + service
+ * (mint stubbed) so the trusted-proxy pairing tier is exercised against
+ * the actual 404/200/confirm shapes the surface produces, plus an
+ * `/mcp` stub for the cross-route assertions.
+ */
+async function startPairingHarness(admission: AdmissionControl, pairing: DaemonPairingService): Promise<Harness> {
+  const pairingHandler = createPairingHttpHandler({ pairing });
+  const wrapped = admission.wrapHttpHandler((req, res) => {
+    if (pairingHandler(req, res)) return true;
+    const path = (req.url ?? '').split('?', 1)[0];
+    if (path === MCP_HTTP_PATH) {
+      res.statusCode = 401;
+      res.end('bad token');
+      return true;
+    }
+    return false;
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  servers.push(server);
-  const { port } = server.address() as AddressInfo;
-  return { baseUrl: `http://127.0.0.1:${port}`, server };
+  return listenWrapped(wrapped);
 }
 
 afterEach(async () => {
@@ -238,5 +269,84 @@ describe('trusted-proxy peer resolution', () => {
       headers: { 'x-forwarded-for': '198.51.100.7, 203.0.113.1' },
     });
     expect(spoofPrefix.status).toBe(429);
+  });
+});
+
+describe('trusted-proxy pairing tier (S30 finding d)', () => {
+  function makePairing(options: { maxFailedLookups?: number } = {}): DaemonPairingService {
+    const pairing = createDaemonPairingService({
+      generateCode: () => '654321',
+      ...options,
+      mintToken: async (input) => ({
+        secret: 'oh_test_secret',
+        record: {
+          id: 'token-1',
+          tokenHash: 'hash',
+          label: input?.label,
+          createdAt: 0,
+          lastUsedAt: null,
+          revokedAt: null,
+        },
+      }),
+    });
+    pairing.startPair({ deviceLabel: 'alice laptop' });
+    return pairing;
+  }
+
+  it('blocks one WAN peer at the strict tier while a second completes view + confirm', async () => {
+    const admission = createAdmissionControl({ trustedProxy: true });
+    const { baseUrl } = await startPairingHarness(admission, makePairing());
+    const attacker = { 'x-forwarded-for': '203.0.113.66' };
+    for (let i = 0; i < 5; i++) {
+      expect((await fetch(`${baseUrl}/pair/${100000 + i}`, { headers: attacker })).status).toBe(404);
+    }
+    // Strict tier (5/60s) blocks the guessing peer on the pairing route…
+    expect((await fetch(`${baseUrl}/pair/654321`, { headers: attacker })).status).toBe(429);
+    // …but pairing guesses draw only that tier's budget — the shared one
+    // (10) has room, so the same peer still reaches /mcp (401, not 429).
+    expect((await fetch(`${baseUrl}${MCP_HTTP_PATH}`, { headers: attacker })).status).toBe(401);
+    // A different WAN peer is untouched: full view + confirm succeeds.
+    const legit = { 'x-forwarded-for': '198.51.100.20' };
+    expect((await fetch(`${baseUrl}/pair/654321`, { headers: legit })).status).toBe(200);
+    const confirm = await fetch(`${baseUrl}/pair/654321/confirm`, {
+      method: 'POST',
+      headers: { ...legit, accept: 'application/json' },
+    });
+    expect(confirm.status).toBe(200);
+    expect(await confirm.json()).toMatchObject({ ok: true, secret: 'oh_test_secret' });
+  });
+
+  it('keeps the strict tier off without trustedProxy', async () => {
+    const { baseUrl } = await startPairingHarness(createAdmissionControl(), makePairing());
+    for (let i = 0; i < 5; i++) {
+      expect((await fetch(`${baseUrl}/pair/${100000 + i}`)).status).toBe(404);
+    }
+    // Only the shared budget (10) governs — the sixth guess still
+    // reaches the handler instead of a strict-tier 429.
+    expect((await fetch(`${baseUrl}/pair/222222`)).status).toBe(404);
+  });
+
+  it('global backstop still fails closed on a many-address sweep', async () => {
+    const admission = createAdmissionControl({
+      trustedProxy: true,
+      pairingLimiter: { maxFailures: 2, windowMs: 60_000, blockMs: 120_000 },
+    });
+    const { baseUrl } = await startPairingHarness(admission, makePairing({ maxFailedLookups: 8 }));
+    // Four addresses land two guesses apiece — each hits its per-peer
+    // block, but together they exhaust the service's global budget.
+    for (let addr = 0; addr < 4; addr++) {
+      for (let i = 0; i < 2; i++) {
+        const guess = await fetch(`${baseUrl}/pair/${100000 + addr * 10 + i}`, {
+          headers: { 'x-forwarded-for': `203.0.113.${10 + addr}` },
+        });
+        expect(guess.status).toBe(404);
+      }
+    }
+    // Global lockout: even the VALID code answers uniform "unknown" for
+    // a fresh peer — a distributed sweep fails the surface closed.
+    const innocent = await fetch(`${baseUrl}/pair/654321`, {
+      headers: { 'x-forwarded-for': '198.51.100.99' },
+    });
+    expect(innocent.status).toBe(404);
   });
 });
