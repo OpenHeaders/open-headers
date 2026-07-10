@@ -198,6 +198,23 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
   }, [rows]);
   const overrideBy = (key: string): string | undefined => (userRowKeys.has(key.toLowerCase()) ? key : undefined);
 
+  // Auth wins over a same-key user row (the executor replaces it —
+  // see `setAuthHeader`), so the USER row is the one that renders
+  // struck through, via `rowWarning` below. Postman semantics.
+  const authHeaderKeys = useMemo(() => {
+    if (auth.disabled) return new Set<string>();
+    return new Set(authHeaders.map((h) => h.key.toLowerCase()));
+  }, [auth.disabled, authHeaders]);
+  const rowWarning = (row: KeyValueRow) =>
+    row.enabled && row.key.trim() && authHeaderKeys.has(row.key.trim().toLowerCase())
+      ? {
+          message: `Duplicate — replaced on send by the ${row.key.trim()} header generated from the Authorization tab.`,
+          action: onNavigateTab
+            ? { label: 'Go to authorization', onClick: () => onNavigateTab('authorization') }
+            : undefined,
+        }
+      : null;
+
   const authSuggestions: SuggestionRow[] = authHeaders.map((h) => {
     const row: SuggestionRow = {
       key: h.key,
@@ -205,7 +222,6 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
       hint: h.hint,
       enabled: !auth.disabled,
       onToggle: authRowToggle,
-      overriddenBy: overrideBy(h.key),
       action: onNavigateTab ? { label: 'Go to authorization', onClick: () => onNavigateTab('authorization') } : undefined,
     };
     if (auth.type === 'bearer') {
@@ -271,6 +287,7 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
           placeholder: 'Content-Type: application/json\nAuthorization: Bearer {{token}} # auth\n//X-Disabled: value',
         }}
         rowPath={(uid, leaf) => REQUEST_PATHS.header(uid, leaf)}
+        rowWarning={rowWarning}
         conflictBridge={conflictBridge}
       />
     </div>

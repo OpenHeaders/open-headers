@@ -40,7 +40,7 @@
  * presentation constants in `editable-grid-styles.ts`.
  */
 
-import { EditOutlined, InfoCircleOutlined, MoreOutlined, RiseOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeInvisibleOutlined, EyeOutlined, InfoCircleOutlined, MoreOutlined, RiseOutlined } from '@ant-design/icons';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -87,6 +87,17 @@ export function EditableGridTable<Row>({
   const [expandedSuggestionKeys, setExpandedSuggestionKeys] = useState<ReadonlySet<string>>(new Set());
   const toggleSuggestionExpanded = useCallback((key: string) => {
     setExpandedSuggestionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+  // Reveal state for masked editable suggestion values (the auth row's
+  // credential) — the eye button at the value cell's right edge.
+  const [revealedSuggestionKeys, setRevealedSuggestionKeys] = useState<ReadonlySet<string>>(new Set());
+  const toggleSuggestionRevealed = useCallback((key: string) => {
+    setRevealedSuggestionKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -495,23 +506,37 @@ export function EditableGridTable<Row>({
                     }}
                   >
                     {s.editableValue ? (
-                      <TemplateInput
-                        variant="borderless"
-                        expandOnFocus
-                        maxRows={7}
-                        secret={s.editableValue.secret}
-                        value={s.value}
-                        onChange={s.editableValue.onChange}
-                        aria-label={`${s.key} value`}
-                        style={{
-                          ...cellFont,
-                          flex: 1,
-                          minWidth: 0,
-                          padding: '6px 10px',
-                          color: valueColor,
-                          ...struck,
-                        }}
-                      />
+                      <>
+                        <TemplateInput
+                          variant="borderless"
+                          expandOnFocus
+                          maxRows={7}
+                          secret={s.editableValue.secret && !revealedSuggestionKeys.has(s.key)}
+                          value={s.value}
+                          onChange={s.editableValue.onChange}
+                          aria-label={`${s.key} value`}
+                          style={{
+                            ...cellFont,
+                            flex: 1,
+                            minWidth: 0,
+                            padding: '6px 10px',
+                            color: valueColor,
+                            ...struck,
+                          }}
+                        />
+                        {s.editableValue.secret && (
+                          <Button
+                            size="small"
+                            type="text"
+                            icon={
+                              revealedSuggestionKeys.has(s.key) ? <EyeInvisibleOutlined /> : <EyeOutlined />
+                            }
+                            onClick={() => toggleSuggestionRevealed(s.key)}
+                            aria-label={revealedSuggestionKeys.has(s.key) ? 'Hide value' : 'Show value'}
+                            style={{ color: token.colorTextTertiary, flexShrink: 0 }}
+                          />
+                        )}
+                      </>
                     ) : (
                       withOverrideTooltip(
                         // Read-only, but still inspectable: clicking a

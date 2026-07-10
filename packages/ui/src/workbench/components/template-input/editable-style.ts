@@ -55,6 +55,9 @@ interface EditableStyleParams {
   resizable: boolean;
   manualHeight: number | null;
   maxRows: number;
+  /** Masked field — the collapsed state clips without an ellipsis (an
+   *  `…` glyph among the discs reads as garbage, not truncation). */
+  secret: boolean;
   surfaceStyle: React.CSSProperties;
 }
 
@@ -70,6 +73,7 @@ export function buildEditableStyle({
   resizable,
   manualHeight,
   maxRows,
+  secret,
   surfaceStyle,
 }: EditableStyleParams): React.CSSProperties {
   // Derive paddings from `size` — match AntD defaults so we visually
@@ -111,7 +115,7 @@ export function buildEditableStyle({
     whiteSpace: displayExpanded ? 'pre-wrap' : displayCollapsed ? 'nowrap' : 'pre',
     overflowX: displayExpanded || displayCollapsed ? 'hidden' : 'auto',
     overflowY: displayExpanded ? 'auto' : 'hidden',
-    textOverflow: displayCollapsed ? 'ellipsis' : undefined,
+    textOverflow: displayCollapsed && !secret ? 'ellipsis' : undefined,
     // Auto-grow cap for the wrapped editor (`multiline`, `wrap`, or an
     // expand-on-focus field while active): ~maxRows lines (lineHeight
     // 1.5714) + a little padding allowance; past it the surface

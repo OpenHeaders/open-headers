@@ -12,7 +12,7 @@ import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oau
 import type { AuthConfig } from '@openheaders/core/types';
 import { Button, Select, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
 import { TemplateInput } from '../template-input';
@@ -40,8 +40,16 @@ interface AuthorizationTabProps {
   onChange: (auth: AuthConfig) => void;
 }
 
+// Draggable rail bounds — narrow enough to reclaim space for long
+// credentials, wide enough that every auth-type label stays readable.
+const RAIL_MIN = 160;
+const RAIL_MAX = 420;
+const RAIL_DEFAULT = 210;
+
 const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) => {
   const { token } = theme.useToken();
+  const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
+  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   const switchType = (type: AuthKind) => {
     if (type === 'none' || type === 'inherit') {
@@ -66,18 +74,20 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 210px) 1fr', gap: 20, minHeight: 320 }}>
+    <div style={{ display: 'flex', minHeight: 320 }}>
       {/* Left rail — sticks to the top of the scroll container so the
           auth-type picker stays visible while the right pane's long
           OAuth 2.0 form scrolls past it. `align-self: start` keeps
           the rail content-sized so `position: sticky` has something
-          to anchor against; without it the grid cell stretches to the
+          to anchor against; without it the flex item stretches to the
           row's full height and sticky collapses to a no-op. */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 8,
+          width: railWidth,
+          flexShrink: 0,
           position: 'sticky',
           top: 0,
           alignSelf: 'start',
@@ -106,11 +116,45 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         {auth.type === 'oauth2' && <OAuth2LeftRailControls auth={auth} onChange={onChange} />}
       </div>
 
+      {/* Draggable divider — resizes the rail within [RAIL_MIN, RAIL_MAX];
+          double-click resets. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer-drag-only resize affordance */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize auth-type rail"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          dragRef.current = { startX: e.clientX, startWidth: railWidth };
+        }}
+        onPointerMove={(e) => {
+          const drag = dragRef.current;
+          if (!drag) return;
+          const next = drag.startWidth + (e.clientX - drag.startX);
+          setRailWidth(Math.min(RAIL_MAX, Math.max(RAIL_MIN, next)));
+        }}
+        onPointerUp={() => {
+          dragRef.current = null;
+        }}
+        onDoubleClick={() => setRailWidth(RAIL_DEFAULT)}
+        style={{
+          width: 9,
+          margin: '0 6px',
+          flexShrink: 0,
+          cursor: 'col-resize',
+          display: 'flex',
+          justifyContent: 'center',
+          touchAction: 'none',
+        }}
+      >
+        <span style={{ width: 1, background: token.colorBorderSecondary }} />
+      </div>
+
       {/* Right pane */}
       <div
         style={{
-          paddingLeft: 16,
-          borderLeft: `1px solid ${token.colorBorderSecondary}`,
+          flex: 1,
           minWidth: 0,
         }}
       >

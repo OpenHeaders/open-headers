@@ -11,8 +11,9 @@
  * HeadersTab) don't have to change.
  */
 
+import { RiseOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
-import { theme } from 'antd';
+import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
 import {
@@ -58,6 +59,12 @@ interface KeyValueTableProps {
    *  cell can render a `<ConflictDiffChip>` and a per-row
    *  `<SetRowConflictChip>` driven by the entity-level tracker. */
   conflictBridge?: KeyValueRowConflictBridge;
+  /** Per-row duplicate/override warning — a non-null result renders
+   *  the row's value struck through with an explanatory tooltip (e.g.
+   *  a user `Authorization` row that the auth helper replaces on send),
+   *  plus an optional hover-revealed jump link (e.g. "Go to
+   *  authorization") at the cell's right edge. */
+  rowWarning?: (row: KeyValueRow) => { message: string; action?: { label: string; onClick: () => void } } | null;
 }
 
 /**
@@ -111,6 +118,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
   bulkEdit,
   rowPath,
   conflictBridge,
+  rowWarning,
 }) => {
   const { token } = theme.useToken();
 
@@ -168,12 +176,50 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
         keyPlaceholder,
         true,
       )}
-      renderValueCell={cellRenderer(
-        (r) => r.value,
-        (r, v) => ({ ...r, value: v }),
-        valuePlaceholder,
-        true,
-      )}
+      renderValueCell={(row, update, ctx) => {
+        const warning = rowWarning?.(row) ?? null;
+        const cell = (
+          <TemplateInput
+            variant="borderless"
+            expandOnFocus
+            expanded={ctx.expanded}
+            flagUnresolved
+            value={row.value}
+            placeholder={valuePlaceholder}
+            onChange={(next) => update({ ...row, value: next })}
+            style={{
+              ...cellFont,
+              flex: 1,
+              padding: `${CELL_VERTICAL_PADDING}px 6px`,
+              color: ctx.dim ? token.colorTextQuaternary : token.colorText,
+              ...(warning ? { textDecoration: 'line-through', textDecorationThickness: 1 } : null),
+            }}
+          />
+        );
+        if (!warning) return cell;
+        // Tooltip needs a DOM child that accepts its injected hover
+        // handlers — TemplateInput doesn't spread unknown props, so
+        // wrap in a layout-neutral span.
+        return (
+          <span style={{ display: 'flex', flex: 1, minWidth: 0, alignItems: 'center', gap: 4 }}>
+            <Tooltip title={warning.message}>
+              <span style={{ display: 'flex', flex: 1, minWidth: 0 }}>{cell}</span>
+            </Tooltip>
+            {warning.action && (
+              <Button
+                className="editable-grid-suggestion-action"
+                type="link"
+                size="small"
+                icon={<RiseOutlined />}
+                onClick={warning.action.onClick}
+                style={{ fontSize: 12, height: 20, padding: '0 4px', flexShrink: 0 }}
+              >
+                {warning.action.label}
+              </Button>
+            )}
+          </span>
+        );
+      }}
       renderDescriptionCell={cellRenderer(
         (r) => r.description ?? '',
         (r, v) => ({ ...r, description: v }),

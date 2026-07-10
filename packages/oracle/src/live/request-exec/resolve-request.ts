@@ -199,6 +199,20 @@ interface ApplyAuthOptions {
   refreshOAuth?: OAuthRefreshFn;
 }
 
+/**
+ * Auth contributions REPLACE a same-key user header rather than
+ * duplicating it (duplicate `Authorization` values would combine on
+ * the wire into garbage). The Headers tab mirrors this: a user row
+ * that collides with the auth-generated header renders struck through.
+ */
+function setAuthHeader(headers: Array<{ key: string; value: string }>, key: string, value: string): void {
+  const lower = key.toLowerCase();
+  for (let i = headers.length - 1; i >= 0; i--) {
+    if (headers[i].key.toLowerCase() === lower) headers.splice(i, 1);
+  }
+  headers.push({ key, value });
+}
+
 async function applyAuth(
   auth: AuthConfig,
   headers: Array<{ key: string; value: string }>,
@@ -215,17 +229,17 @@ async function applyAuth(
     // RFC 7617 mandates UTF-8. Encode the pair as UTF-8 bytes then
     // base64 the bytes so non-ASCII credentials (`pässwörd`) don't throw.
     const token = encodeBase64Bytes(new TextEncoder().encode(`${u}:${p}`));
-    headers.push({ key: 'Authorization', value: `Basic ${token}` });
+    setAuthHeader(headers, 'Authorization', `Basic ${token}`);
     return;
   }
   if (auth.type === 'bearer') {
-    headers.push({ key: 'Authorization', value: `Bearer ${resolveStr(auth.token)}` });
+    setAuthHeader(headers, 'Authorization', `Bearer ${resolveStr(auth.token)}`);
     return;
   }
   if (auth.type === 'api-key') {
     const k = resolveStr(auth.key);
     const v = resolveStr(auth.value);
-    if (auth.in === 'header') headers.push({ key: k, value: v });
+    if (auth.in === 'header') setAuthHeader(headers, k, v);
     else params.push({ key: k, value: v });
     return;
   }
@@ -245,7 +259,7 @@ async function applyAuth(
       if (auth.sendAs === 'query') {
         params.push({ key: 'access_token', value: bundle.accessToken });
       } else {
-        headers.push({ key: 'Authorization', value: `${bundle.tokenType} ${bundle.accessToken}` });
+        setAuthHeader(headers, 'Authorization', `${bundle.tokenType} ${bundle.accessToken}`);
       }
     }
   }
