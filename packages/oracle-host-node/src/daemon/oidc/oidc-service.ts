@@ -118,6 +118,12 @@ export interface OidcServiceDeps {
   emitAudit?: typeof emitAuditEntry;
   workspaceExists?: (workspaceId: string) => boolean;
   /**
+   * Grant-time workspace offer to the user's already-connected sockets
+   * (the shared re-fan-out seam — same function the manual admin grant
+   * rides). Absent = no live offer; peers converge on reconnect.
+   */
+  offerGrantedWorkspaces?: (userId: string, workspaceIds: readonly string[]) => Promise<number>;
+  /**
    * ID-token verification seam. The default verifies signature + `iss` +
    * `aud` + `exp` against the provider's remote JWKS via jose; unit rows
    * substitute a claims decoder so they don't stand up a signing issuer.
@@ -207,6 +213,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
   const reconcileGrants = deps.reconcileGrants ?? reconcileIdpWorkspaceRoles;
   const emitAudit = deps.emitAudit ?? emitAuditEntry;
   const workspaceExists = deps.workspaceExists ?? ((workspaceId: string) => Boolean(getWorkspace(workspaceId)));
+  const offerGrantedWorkspaces = deps.offerGrantedWorkspaces;
 
   const scopes = (() => {
     const requested = config.scopes && config.scopes.length > 0 ? [...config.scopes] : [...DEFAULT_SCOPES];
@@ -335,6 +342,14 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
           workspaceId: change.workspaceId,
           decision: { allow: true },
         });
+      }
+      if (outcome.granted.length > 0 && offerGrantedWorkspaces) {
+        // A user logging in here may have other tabs already on the
+        // wire — offer the newly visible rows to those sockets live.
+        await offerGrantedWorkspaces(
+          record.user.id,
+          outcome.granted.map((change) => change.workspaceId),
+        );
       }
       if (outcome.skippedManual.length > 0) {
         const pairs = outcome.skippedManual.map((s) => s.workspaceId).join(', ');

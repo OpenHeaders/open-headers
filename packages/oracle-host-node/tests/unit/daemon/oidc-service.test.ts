@@ -429,6 +429,24 @@ describe('daemon OIDC service', () => {
       expect((await validateDaemonAuthToken(claimed?.secret)).ok).toBe(true);
     });
 
+    it("a login that lands new grants offers them to the user's connected sockets; a no-change login offers nothing", async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const offers: Array<{ userId: string; workspaceIds: readonly string[] }> = [];
+      const offerGrantedWorkspaces = async (userId: string, workspaceIds: readonly string[]) => {
+        offers.push({ userId, workspaceIds });
+        return workspaceIds.length;
+      };
+      const first = mappingRig({ values: ['eng', 'ops'], deps: { offerGrantedWorkspaces } });
+      expect((await login(first.rig)).ok).toBe(true);
+      expect(offers).toEqual([{ userId: created.record.user.id, workspaceIds: [W1, W2] }]);
+
+      // Re-login with identical claims: nothing newly granted, no offer.
+      const second = mappingRig({ values: ['eng', 'ops'], deps: { offerGrantedWorkspaces } });
+      expect((await login(second.rig)).ok).toBe(true);
+      expect(offers).toHaveLength(1);
+    });
+
     it('no mapping configured ⇒ the reconcile never runs', async () => {
       await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
       let reconciled = false;

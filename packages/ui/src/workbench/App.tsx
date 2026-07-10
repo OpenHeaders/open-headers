@@ -73,6 +73,7 @@ import TopBar from './components/shell/TopBar';
 import WorkbenchTabBody from './components/shell/WorkbenchTabBody';
 import WorkbenchToolWindow from './components/shell/WorkbenchToolWindow';
 import { VariablePopoverProvider } from './components/template-input/VariablePopoverHost';
+import OrgWorkspaceAccessNotice from './components/workspace/OrgWorkspaceAccessNotice';
 import ImportExportModals, { type ImportExportModalsHandle } from './components/workspace-export/ImportExportModals';
 import { findLeaf } from './editor-groups';
 import {
@@ -1234,6 +1235,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             allCollections={allCollectionsForEnv}
             onSetCollectionPinnedEnvs={setCollectionPinnedEnvsByFamily}
           />
+
+          <OrgWorkspaceAccessNotice workspaces={workspacesApi.workspaces} onSwitchWorkspace={handleSwitchWorkspace} />
 
           <ShellLayout
             tl={tl}

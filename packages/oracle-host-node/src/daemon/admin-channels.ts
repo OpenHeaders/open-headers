@@ -29,6 +29,7 @@ import type { AuditLogEntry } from '@openheaders/core/types';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
+import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { listLanIpv4Addresses } from './lan-addresses';
 
 /** The admin-visibility probe channel — see `peer-admin-rpc.ts`. */
@@ -226,7 +227,11 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     if (!getWorkspace(workspaceId)) return { ok: false, error: 'unknown workspace' };
     try {
       const result = await grantWorkspaceRole({ principalId: record.principal.id, workspaceId, role });
-      return result.ok ? { ok: true, updated: result.updated } : { ok: false, error: result.reason };
+      if (!result.ok) return { ok: false, error: result.reason };
+      // Zero-grant landing (slice 3): the granted user's already-open
+      // tabs learn the workspace now, not on their next reconnect.
+      await offerWorkspaceRowsToUserPeers(record.user.id, [workspaceId], deps.getWsServer);
+      return { ok: true, updated: result.updated };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }

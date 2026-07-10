@@ -24,6 +24,7 @@ import {
   clearIdentitySnapshot,
   createDaemonPairingService,
   createDaemonUser,
+  deactivateDaemonUser,
   ensureSyntheticIdentity,
   grantWorkspaceRole,
   mintDaemonAuthToken,
@@ -54,6 +55,8 @@ import {
   type MutationEnvelope,
   type MutatorContext,
   RULE_ENTITY_TYPE,
+  setWorkspaceOrgResolver,
+  workspaceListRowIdForMutation,
 } from '@openheaders/core/sync';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { DaemonUserRecord, Rule } from '@openheaders/core/types';
@@ -66,12 +69,19 @@ import {
   getAwarenessStoreForWorkspace,
   getOracleForCurrentWorkspace,
 } from '@openheaders/oracle/sync/service';
+import {
+  bootstrap as bootstrapWorkspaceStore,
+  bridgeExtensionWorkspaceSyncEngine,
+  createWorkspace,
+  __resetForTests as resetWorkspaceStore,
+} from '@openheaders/oracle/workspace/extension-workspace-store';
 import { queryAuditEntries, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
 import Database from 'better-sqlite3';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { createAdminChannelHandlers } from '../../src/daemon/admin-channels';
 import { createAwarenessPeerFanOut } from '../../src/daemon/awareness-fan-out';
+import { offerWorkspaceRowsToUserPeers } from '../../src/daemon/grant-workspace-offer';
 import { ADMIN_DENIED_MESSAGE, createPeerAdminRpc } from '../../src/daemon/peer-admin-rpc';
 import { createFilteredPeerBroadcast, makeWorkspaceReadFilter } from '../../src/daemon/peer-read-filter';
 import { type OracleWsServer, startOracleWsServer } from '../../src/host-runtime/ws-server';
@@ -802,5 +812,100 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     const probe = await callOverWire(operator, { type: 'oh.daemon.admin.status' });
     expect(probe.payload).toEqual({ admin: true });
     expect(got).toEqual(['oh.daemon.admin.status:response']);
+  });
+});
+
+// ── Slice 3 — grant-time workspace offer to connected sockets ───────
+
+describe('grant-time workspace offer — a zero-grant peer learns a granted workspace live', () => {
+  afterEach(() => {
+    setWorkspaceOrgResolver(null);
+    disposeGlobal();
+    resetWorkspaceStore();
+  });
+
+  it("an operator grant over the admin plane replays the workspace row to the granted user's open socket only", async () => {
+    __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
+    // The boot spine installs this in production; without it the
+    // `__global__` envelopes stamp the pre-bootstrap sentinel org and
+    // the delta stream's org filter drops them.
+    setWorkspaceOrgResolver(() => daemonOrgId);
+    await bootstrapWorkspaceStore();
+    await bridgeExtensionWorkspaceSyncEngine();
+    const team = await createWorkspace({ name: 'Team A', kind: 'team' });
+
+    const alice = await addUserWithGrant('Alice', null);
+    const mallory = await addUserWithGrant('Mallory', null);
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+    const malloryClient = await connectAs(port, mallory, 'ext-mallory');
+
+    const malloryGot: string[] = [];
+    malloryClient.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === SYNC_MUTATION_TYPE || msg.type === 'test.sentinel') malloryGot.push(msg.type);
+    });
+    const aliceRow = new Promise<MutationEnvelope>((resolve) => {
+      aliceClient.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_MUTATION_TYPE && msg.workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
+          resolve(msg.envelope);
+        }
+      });
+    });
+
+    const granted = await callOverWire(operator, {
+      type: 'oh.daemon.users.grant',
+      userId: alice.user.id,
+      workspaceId: team.id,
+      role: 'viewer',
+    });
+    expect(granted.payload?.ok).toBe(true);
+
+    expect(workspaceListRowIdForMutation(await aliceRow)).toBe(team.id);
+    const malSentinel = new Promise<void>((resolve) => {
+      malloryClient.on('message', (raw) => {
+        if (JSON.parse(raw.toString()).type === 'test.sentinel') resolve();
+      });
+    });
+    server.broadcastFrame({ type: 'test.sentinel' });
+    await malSentinel;
+    expect(malloryGot).toEqual(['test.sentinel']);
+  });
+
+  it('the offer re-judges the fresh snapshot: no grant, a deactivated user, or no connected peer ⇒ nothing rides', async () => {
+    const globalLog = new InMemoryMutationLog();
+    await globalLog.appendAll([makeGlobalRowEnvelope('m-row-a', 'ws-a', 1_000)]);
+    __initGlobalSyncServiceForTests({ log: globalLog });
+
+    const alice = await addUserWithGrant('Alice', null);
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+    const aliceGot: string[] = [];
+    aliceClient.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === SYNC_MUTATION_TYPE || msg.type === 'test.sentinel') aliceGot.push(msg.type);
+    });
+
+    // Ungranted workspace — the fresh resolution refuses the row.
+    expect(await offerWorkspaceRowsToUserPeers(alice.user.id, ['ws-a'], () => server)).toBe(0);
+    // No connected peer for the user — early exit before any read.
+    expect(await offerWorkspaceRowsToUserPeers('no-such-user', ['ws-a'], () => server)).toBe(0);
+    // Granted but deactivated — the snapshot no longer resolves.
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: 'ws-a', role: 'viewer' });
+    await deactivateDaemonUser(alice.user.id);
+    expect(await offerWorkspaceRowsToUserPeers(alice.user.id, ['ws-a'], () => server)).toBe(0);
+
+    const sentinel = new Promise<void>((resolve) => {
+      aliceClient.on('message', (raw) => {
+        if (JSON.parse(raw.toString()).type === 'test.sentinel') resolve();
+      });
+    });
+    server.broadcastFrame({ type: 'test.sentinel' });
+    await sentinel;
+    expect(aliceGot).toEqual(['test.sentinel']);
   });
 });

@@ -604,6 +604,55 @@ test('admin console: the operator manages users and devices from the tab; a dire
   await aliceContext.close();
 });
 
+// ── The zero-grant landing (slice 3) ────────────────────────────────
+
+test('zero-grant landing: the explained notice stands, then a live grant resolves the open tab without a reload', async () => {
+  // A fresh directory user with a bound token and ZERO grants.
+  const [created] = await adminOverWire([{ type: 'oh.daemon.users.create', displayName: 'Zoe' }]);
+  const zoeId = (created.payload as { ok: true; userId: string }).userId;
+  const [minted] = await adminOverWire([{ type: 'oh.daemon.tokens.mint', label: 'zoe device', userId: zoeId }]);
+  const zoeSecret = (minted.payload as { ok: true; secret: string }).secret;
+
+  const zoeContext = await browser.newContext();
+  const zoePage = await zoeContext.newPage();
+  watchConsole(zoePage, 'zero-grant-zoe');
+  await zoePage.goto(ORIGIN);
+  await zoePage.waitForSelector(TOKEN_INPUT, { timeout: 30_000 });
+  await submitGateToken(zoePage, zoeSecret);
+  await zoePage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+
+  // Org-joined with nothing granted: the workbench mounts on a usable
+  // local workspace and the persistent explained notice stands.
+  await expect(zoePage.locator('[data-testid=org-zero-grant-notice]')).toBeVisible({ timeout: 30_000 });
+
+  // Grant viewer while her tab stays open — the daemon's grant-time
+  // offer re-fans the workspace row down the already-connected wire.
+  const grantedWorkspaceId = daemonWorkspaceIds[0];
+  const [granted] = await adminOverWire([
+    { type: 'oh.daemon.users.grant', userId: zoeId, workspaceId: grantedWorkspaceId, role: 'viewer' },
+  ]);
+  expect((granted.payload as { ok: boolean }).ok).toBe(true);
+
+  // The open tab resolves live: notice gone, arrival announced.
+  await expect(zoePage.locator('[data-testid=org-zero-grant-notice]')).toHaveCount(0, { timeout: 30_000 });
+  const openButton = zoePage.locator(`[data-testid=org-workspace-arrival-open-${grantedWorkspaceId}]`);
+  await expect(openButton).toBeVisible({ timeout: 30_000 });
+
+  // No auto-switch happened; the announcement's action switches THIS
+  // tab, and the navigator now carries the granted workspace.
+  const listed = await callTool('workspaces_list', {});
+  const grantedName = (listed.workspaces as Array<{ id: string; name: string }>).find(
+    (ws) => ws.id === grantedWorkspaceId,
+  )?.name;
+  expect(grantedName).toBeTruthy();
+  await openButton.click();
+  await expect(zoePage.locator(`[aria-label*="editing workspace: ${grantedName}"]`)).toBeVisible({
+    timeout: 30_000,
+  });
+
+  await zoeContext.close();
+});
+
 // ── Non-loopback origins ────────────────────────────────────────────
 
 test('a plain-http non-loopback origin explains the secure-context requirement', async () => {

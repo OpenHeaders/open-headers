@@ -99,6 +99,7 @@ import { createAdmissionControl } from './admission-control';
 import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
+import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { createHealthzHandler } from './healthz';
 import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
@@ -537,7 +538,14 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //       only when a provider is configured. Composed BEFORE the static
   //       handler so the SPA fallback never serves HTML under an auth
   //       path.
-  const oidcService: DaemonOidcService | null = config.oidc ? createDaemonOidcService(config.oidc) : null;
+  const oidcService: DaemonOidcService | null = config.oidc
+    ? createDaemonOidcService(config.oidc, {
+        // Shared grant re-fan-out seam — the same offer the manual
+        // admin grant rides, here fed by the IdP claims reconcile.
+        offerGrantedWorkspaces: (userId, workspaceIds) =>
+          offerWorkspaceRowsToUserPeers(userId, workspaceIds, () => wsServer),
+      })
+    : null;
   const oidcHttpHandler =
     oidcService && config.oidc
       ? createOidcHttpHandler({
