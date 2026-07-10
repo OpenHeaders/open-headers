@@ -468,7 +468,7 @@ const ResponseRuleFields: React.FC = () => {
                     </div>
                     <EntityField path={paths.responseBody}>
                       <Form.Item name="responseDynamicBody" style={{ marginBottom: 0 }}>
-                        <CodeEditor language="javascript" minHeight={240} />
+                        <CodeEditor language="javascript" minHeight={240} valueDetection />
                       </Form.Item>
                     </EntityField>
                   </>
@@ -483,6 +483,7 @@ const ResponseRuleFields: React.FC = () => {
                           language="json"
                           placeholder={'{"message": "custom response", "data": []}'}
                           minHeight={160}
+                          valueDetection
                         />
                       </Form.Item>
                     </EntityField>

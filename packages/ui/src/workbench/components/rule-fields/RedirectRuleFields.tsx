@@ -8,7 +8,7 @@ import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { getDocId } from '../docs/doc-ids';
 import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
-import { TemplateInput } from '../template-input';
+import { DetectedValueInput } from '../value-editors';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 
 const { Text } = Typography;
@@ -55,7 +55,7 @@ const RedirectRuleFields: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <EntityField path={paths.redirectTo}>
           <Form.Item name="redirectTo" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-            <TemplateInput
+            <DetectedValueInput
               placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions"
               wrap
               maxRows={4}

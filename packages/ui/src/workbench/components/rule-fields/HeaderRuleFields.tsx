@@ -38,6 +38,7 @@ import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
 import { getDocId } from '../docs/doc-ids';
 import { TemplateInput } from '../template-input';
+import { DetectedValueInput } from '../value-editors';
 import type { ColumnSplit } from './use-column-split';
 import { useColumnSplit } from './use-column-split';
 
@@ -268,7 +269,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                                         name={[field.name, 'value']}
                                         style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                                       >
-                                        <TemplateInput
+                                        <DetectedValueInput
                                           size="small"
                                           placeholder="Value to append"
                                           wrap
@@ -292,7 +293,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                                     name={[field.name, 'value']}
                                     style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                                   >
-                                    <TemplateInput
+                                    <DetectedValueInput
                                       size="small"
                                       placeholder="Header Value"
                                       wrap

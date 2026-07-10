@@ -14,7 +14,7 @@ import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 import { getDocId } from '../docs/doc-ids';
 import SectionInfo from '../shared/SectionInfo';
-import { TemplateInput } from '../template-input';
+import { DetectedValueInput } from '../value-editors';
 
 const { Text } = Typography;
 
@@ -59,7 +59,13 @@ const AuthRuleFields: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
         <EntityField path={paths.authUsername}>
           <Form.Item name="authUsername" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-            <TemplateInput placeholder="e.g. dev-user or {{env.PROXY_USER}}" wrap maxRows={4} resizable allowClear />
+            <DetectedValueInput
+              placeholder="e.g. dev-user or {{env.PROXY_USER}}"
+              wrap
+              maxRows={4}
+              resizable
+              allowClear
+            />
           </Form.Item>
         </EntityField>
         <ScalarConflictChip formName="authUsername" schemaPath={paths.authUsername} />
@@ -73,7 +79,7 @@ const AuthRuleFields: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <EntityField path={paths.authPassword}>
           <Form.Item name="authPassword" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-            <TemplateInput placeholder="e.g. {{vault.STAGING_PW}}" wrap maxRows={4} resizable allowClear />
+            <DetectedValueInput placeholder="e.g. {{vault.STAGING_PW}}" wrap maxRows={4} resizable allowClear />
           </Form.Item>
         </EntityField>
         <ScalarConflictChip formName="authPassword" schemaPath={paths.authPassword} />

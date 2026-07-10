@@ -7,6 +7,7 @@
 // The pure detection/codec layer lives in shared/value-detection and is
 // re-exported here so existing callers keep one import site.
 export * from '@openheaders/ui/shared/value-detection';
+export { DetectedValueInput, type DetectedValueInputProps } from './DetectedValueInput';
 export {
   attachJwtEditTarget,
   buildJwtDecorations,

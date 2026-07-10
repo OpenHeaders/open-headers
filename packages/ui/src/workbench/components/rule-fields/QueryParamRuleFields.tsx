@@ -15,6 +15,7 @@ import { getDocId } from '../docs/doc-ids';
 import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
 import { TemplateInput } from '../template-input';
+import { DetectedValueInput } from '../value-editors';
 import { useColumnSplit } from './use-column-split';
 
 const { Text } = Typography;
@@ -191,7 +192,7 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
                                 name={[field.name, 'value']}
                                 style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                               >
-                                <TemplateInput
+                                <DetectedValueInput
                                   size="small"
                                   placeholder="Param Value"
                                   wrap

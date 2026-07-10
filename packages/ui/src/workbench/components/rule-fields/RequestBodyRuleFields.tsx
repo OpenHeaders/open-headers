@@ -188,7 +188,7 @@ const RequestBodyRuleFields: React.FC = () => {
                     </div>
                     <EntityField path={paths.requestBody}>
                       <Form.Item name="requestDynamicBody" style={{ marginBottom: 0 }}>
-                        <CodeEditor language="javascript" minHeight={240} />
+                        <CodeEditor language="javascript" minHeight={240} valueDetection />
                       </Form.Item>
                     </EntityField>
                   </>
@@ -199,7 +199,7 @@ const RequestBodyRuleFields: React.FC = () => {
                     </div>
                     <EntityField path={paths.requestBody}>
                       <Form.Item name="requestStaticBody" style={{ marginBottom: 0 }}>
-                        <CodeEditor language="json" placeholder={'{"key": "value"}'} minHeight={160} />
+                        <CodeEditor language="json" placeholder={'{"key": "value"}'} minHeight={160} valueDetection />
                       </Form.Item>
                     </EntityField>
                   </>
