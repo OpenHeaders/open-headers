@@ -3,17 +3,16 @@
  *   - `scanForJWTs` finds structurally valid tokens (and only those)
  *     inside larger text with correct offsets;
  *   - dotted runs longer than three segments never match;
- *   - `buildJwtLinks` maps hits onto Monaco ranges + oh-jwt urls;
- *   - `parseJwtLinkUrl` round-trips the url and rejects malformed input;
- *   - the provider/opener registration routes a link click to the
- *     attached model handler with the clicked token.
+ *   - `buildJwtLinks` maps hits onto Monaco ranges + `command:` urls;
+ *   - the provider/command registration routes a link activation to
+ *     the attached model handler with the clicked token.
  */
 
 import {
   attachJwtEditTarget,
   buildJwtLinks,
+  JWT_EDIT_COMMAND,
   type JwtLinkTarget,
-  parseJwtLinkUrl,
   registerJwtLinkPlane,
   scanForJWTs,
 } from '@openheaders/ui/workbench/components/value-editors';
@@ -78,7 +77,7 @@ function makeModelStub(text: string) {
 }
 
 describe('buildJwtLinks', () => {
-  it('maps hits onto ranges and oh-jwt urls carrying the registration id', () => {
+  it('maps hits onto ranges and command urls carrying the registration id + offsets', () => {
     const text = `line one\n"token": "${TOKEN}"`;
     const links = buildJwtLinks(makeModelStub(text), 42);
     expect(links).toHaveLength(1);
@@ -86,24 +85,17 @@ describe('buildJwtLinks', () => {
     expect(links[0].range.startLineNumber).toBe(2);
     expect(links[0].range.endLineNumber).toBe(2);
     expect(links[0].range.startColumn).toBe('"token": "'.length + 1);
-    const parsed = parseJwtLinkUrl(links[0].url.slice('oh-jwt:'.length));
-    expect(parsed).toEqual({ id: 42, start: text.indexOf(TOKEN), end: text.indexOf(TOKEN) + TOKEN.length });
-  });
-});
-
-describe('parseJwtLinkUrl', () => {
-  it('rejects malformed paths', () => {
-    expect(parseJwtLinkUrl('1/2')).toBeNull();
-    expect(parseJwtLinkUrl('a/b/c')).toBeNull();
-    expect(parseJwtLinkUrl('1/10/5')).toBeNull();
-    expect(parseJwtLinkUrl('1/-1/5')).toBeNull();
+    const start = text.indexOf(TOKEN);
+    expect(links[0].url).toBe(
+      `command:${JWT_EDIT_COMMAND}?${encodeURIComponent(JSON.stringify([42, start, start + TOKEN.length]))}`,
+    );
   });
 });
 
 describe('registerJwtLinkPlane + attachJwtEditTarget', () => {
-  it('routes a link click on an attached model to its handler', () => {
+  it('routes the edit command on an attached model to its handler', () => {
     let provider: { provideLinks: (model: unknown) => { links: Array<{ url: string }> } } | undefined;
-    let opener: { open: (resource: { scheme: string; path: string }) => boolean } | undefined;
+    let command: ((accessor: unknown, ...args: number[]) => void) | undefined;
     const fakeMonaco = {
       languages: {
         registerLinkProvider: (_selector: string, p: typeof provider) => {
@@ -112,15 +104,16 @@ describe('registerJwtLinkPlane + attachJwtEditTarget', () => {
         },
       },
       editor: {
-        registerLinkOpener: (o: typeof opener) => {
-          opener = o;
+        registerCommand: (id: string, handler: typeof command) => {
+          expect(id).toBe(JWT_EDIT_COMMAND);
+          command = handler;
           return { dispose: vi.fn() };
         },
       },
     };
     registerJwtLinkPlane(fakeMonaco as unknown as typeof monaco);
     expect(provider).toBeDefined();
-    expect(opener).toBeDefined();
+    expect(command).toBeDefined();
 
     const text = `{"auth": "${TOKEN}"}`;
     const model = makeModelStub(text);
@@ -129,22 +122,23 @@ describe('registerJwtLinkPlane + attachJwtEditTarget', () => {
 
     const { links } = provider!.provideLinks(model);
     expect(links).toHaveLength(1);
+    const args = JSON.parse(decodeURIComponent(links[0].url.split('?')[1])) as number[];
 
-    const handled = opener!.open({ scheme: 'oh-jwt', path: links[0].url.slice('oh-jwt:'.length) });
-    expect(handled).toBe(true);
+    command!(null, ...args);
     expect(onOpen).toHaveBeenCalledTimes(1);
     const target = onOpen.mock.calls[0][0] as JwtLinkTarget;
     expect(target.token).toBe(TOKEN);
     expect(text.slice(target.start, target.end)).toBe(TOKEN);
 
-    // Foreign schemes fall through to the default opener chain.
-    expect(opener!.open({ scheme: 'https', path: '/openheaders.io' })).toBe(false);
+    // Stale offsets (buffer moved under a link) are swallowed.
+    onOpen.mockClear();
+    command!(null, args[0], args[1] + 3, args[2]);
+    expect(onOpen).not.toHaveBeenCalled();
 
-    // A detached model stops producing links and swallows stale clicks.
+    // A detached model stops producing links and swallows stale commands.
     detach();
     expect(provider!.provideLinks(model).links).toHaveLength(0);
-    onOpen.mockClear();
-    opener!.open({ scheme: 'oh-jwt', path: links[0].url.slice('oh-jwt:'.length) });
+    command!(null, ...args);
     expect(onOpen).not.toHaveBeenCalled();
   });
 });

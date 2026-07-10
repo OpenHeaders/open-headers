@@ -7,11 +7,11 @@
  * rides a decoration so edits elsewhere in the buffer can't shift the
  * write-back target.
  *
- * Activation is handled by our own `onMouseUp` listener, NOT the link
- * opener chain: in the extension host Monaco's opener service doesn't
- * deliver link clicks (built-in `https` links are equally dead there),
- * so the registered opener is only a fallback for hosts where it does
- * fire — a pending-edit guard keeps a double delivery harmless.
+ * Activation arrives on two paths: the token's `command:` link (the
+ * hover's clickable "Edit JWT" label and native cmd/ctrl+click both
+ * execute it) and our own `onMouseUp` listener as a belt-and-braces
+ * fallback for hosts where the opener chain doesn't deliver clicks —
+ * a pending-edit guard keeps a double delivery harmless.
  */
 
 import type * as monacoType from 'monaco-editor';

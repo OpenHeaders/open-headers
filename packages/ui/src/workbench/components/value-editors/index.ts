@@ -17,10 +17,10 @@ export {
 export {
   attachJwtEditTarget,
   buildJwtLinks,
-  JWT_LINK_SCHEME,
+  JWT_EDIT_COMMAND,
   type JwtLinkModel,
   type JwtLinkTarget,
-  parseJwtLinkUrl,
+  openJwtTarget,
   registerJwtLinkPlane,
 } from './monaco-jwt-links';
 export { type JwtScanHit, scanForJWTs } from './scan';

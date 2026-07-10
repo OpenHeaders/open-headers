@@ -1,17 +1,19 @@
 /**
  * Monaco link plane for detected JWTs — marks every JWT inside an
- * opted-in model as a link ("Edit JWT" on hover, cmd/ctrl+click to
- * follow) and routes the click to the model's registered handler
- * instead of a browser navigation. Registered once per Monaco
- * instance; models opt in per editor via {@link attachJwtEditTarget}.
- * React glue (modal state + write-back) lives in `useMonacoJwtEdit`.
+ * opted-in model as a `command:` link, which is the one scheme
+ * Monaco's trusted link hover renders as a clickable label ("Edit
+ * JWT" in blue, like the built-in "Follow link") AND executes natively
+ * on cmd/ctrl+click through its CommandOpener. Registered once per
+ * Monaco instance; models opt in per editor via
+ * {@link attachJwtEditTarget}. React glue (modal state + write-back)
+ * lives in `useMonacoJwtEdit`.
  */
 
 import type * as monaco from 'monaco-editor';
 import { isJWT } from './jwt';
 import { scanForJWTs } from './scan';
 
-export const JWT_LINK_SCHEME = 'oh-jwt';
+export const JWT_EDIT_COMMAND = 'oh-jwt.edit';
 
 export interface JwtLinkTarget {
   model: monaco.editor.ITextModel;
@@ -28,10 +30,9 @@ export interface JwtLinkModel {
   getPositionAt(offset: number): { lineNumber: number; column: number };
 }
 
-/** Scans a model and shapes each hit as a Monaco link whose url
- *  round-trips the registration id + offsets through the opener. The
- *  id is numeric — a model uri can't ride in a link url because
- *  `Uri.parse` percent-decodes it back into ambiguity. */
+/** Scans a model and shapes each hit as a Monaco `command:` link. The
+ *  query carries `[registrationId, start, end]` in the encoded-JSON
+ *  form Monaco's CommandOpener spreads back into command arguments. */
 export function buildJwtLinks(
   model: JwtLinkModel,
   registrationId: number,
@@ -46,21 +47,10 @@ export function buildJwtLinks(
         endLineNumber: endPos.lineNumber,
         endColumn: endPos.column,
       },
-      url: `${JWT_LINK_SCHEME}:${registrationId}/${hit.start}/${hit.end}`,
+      url: `command:${JWT_EDIT_COMMAND}?${encodeURIComponent(JSON.stringify([registrationId, hit.start, hit.end]))}`,
       tooltip: 'Edit JWT',
     };
   });
-}
-
-/** Parses an `oh-jwt:` uri path back into id + offsets. Exported for
- *  tests; returns null on any malformed input. */
-export function parseJwtLinkUrl(path: string): { id: number; start: number; end: number } | null {
-  const parts = path.split('/');
-  if (parts.length !== 3) return null;
-  const [id, start, end] = parts.map(Number);
-  if (!Number.isInteger(id) || !Number.isInteger(start) || !Number.isInteger(end)) return null;
-  if (start < 0 || end <= start) return null;
-  return { id, start, end };
 }
 
 type OpenHandler = (target: JwtLinkTarget) => void;
@@ -71,16 +61,29 @@ interface Registration {
   onOpen: OpenHandler;
 }
 
-// Module-global registries — the provider + opener register once per
+// Module-global registries — the provider + command register once per
 // Monaco instance while editors come and go.
 const byUri = new Map<string, Registration>();
 const byId = new Map<number, Registration>();
 let nextRegistrationId = 1;
 const registeredApis = new WeakSet<typeof monaco>();
 
-/** Registers the wildcard link provider + opener on this Monaco
- *  instance (idempotent). Models without a registration get no links,
- *  so the wildcard costs nothing for uninvolved editors. */
+/** Command body — resolves a link's `[id, start, end]` args back to
+ *  the registered model and opens its handler. Exported for tests. */
+export function openJwtTarget(id: number, start: number, end: number): void {
+  const reg = byId.get(id);
+  if (!reg) return;
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return;
+  // Monaco recomputes links debounced — the buffer may have moved
+  // under a stale link. Only open on a still-valid token.
+  const token = reg.model.getValue().slice(start, end);
+  if (!isJWT(token)) return;
+  reg.onOpen({ model: reg.model, start, end, token });
+}
+
+/** Registers the wildcard link provider + the edit command on this
+ *  Monaco instance (idempotent). Models without a registration get no
+ *  links, so the wildcard costs nothing for uninvolved editors. */
 export function registerJwtLinkPlane(monacoApi: typeof monaco): void {
   if (registeredApis.has(monacoApi)) return;
   registeredApis.add(monacoApi);
@@ -93,24 +96,12 @@ export function registerJwtLinkPlane(monacoApi: typeof monaco): void {
     },
   });
 
-  monacoApi.editor.registerLinkOpener({
-    open(resource) {
-      if (resource.scheme !== JWT_LINK_SCHEME) return false;
-      const parsed = parseJwtLinkUrl(resource.path);
-      if (!parsed) return true;
-      const reg = byId.get(parsed.id);
-      if (!reg) return true;
-      // Monaco recomputes links debounced — the buffer may have moved
-      // under a stale link. Only open on a still-valid token.
-      const token = reg.model.getValue().slice(parsed.start, parsed.end);
-      if (!isJWT(token)) return true;
-      reg.onOpen({ model: reg.model, start: parsed.start, end: parsed.end, token });
-      return true;
-    },
+  monacoApi.editor.registerCommand(JWT_EDIT_COMMAND, (_accessor, id: number, start: number, end: number) => {
+    openJwtTarget(Number(id), Number(start), Number(end));
   });
 }
 
-/** Opts a model into JWT links, routing link clicks to `onOpen`.
+/** Opts a model into JWT links, routing link activation to `onOpen`.
  *  Returns the detach function — call it when the editor unmounts. */
 export function attachJwtEditTarget(model: monaco.editor.ITextModel, onOpen: OpenHandler): () => void {
   const reg: Registration = { id: nextRegistrationId++, model, onOpen };

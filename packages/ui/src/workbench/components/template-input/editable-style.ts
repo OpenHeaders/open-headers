@@ -100,8 +100,10 @@ export function buildEditableStyle({
     // Reserve just enough room that the last characters don't slide
     // under the action rail. A resizable field uses the wider inset in
     // BOTH display modes — its rail sits left of the grip column even
-    // when collapsed (see TemplateInput).
-    ...(railInset > 0 ? { paddingRight: railInset } : null),
+    // when collapsed (see TemplateInput). Masked collapsed lines get
+    // 4px extra so the content-box clip below cuts the discs with a
+    // visible gap before the first icon.
+    ...(railInset > 0 ? { paddingRight: railInset + (displayCollapsed && secret ? 4 : 0) } : null),
     lineHeight: TEMPLATE_INPUT_LINE_HEIGHT,
     fontSize: size === 'small' ? 12 : size === 'large' ? 16 : 14,
     fontFamily: 'inherit',
@@ -123,13 +125,13 @@ export function buildEditableStyle({
     overflowX: displayExpanded || displayCollapsed ? 'hidden' : 'auto',
     overflowY: displayExpanded ? 'auto' : 'hidden',
     // Masked values clip WITHOUT the ellipsis — a `…` after the discs
-    // reads as noise. But plain overflow clipping paints right through
-    // the padding-right gutter (clipping happens at the padding box),
-    // so the discs would run under the ✕ / grip; a clip-path cuts them
-    // instead, backed off 4px past the content edge so the last disc
-    // doesn't butt against (or slice under) the first rail icon.
+    // reads as noise. But plain overflow clipping happens at the
+    // padding box, so the discs would run under the ✕ / grip; and a
+    // clip-path/mask would clip the element's own border off with
+    // them. `overflow: clip` scoped to the content box cuts exactly
+    // the discs while the border keeps painting.
     textOverflow: displayCollapsed && !secret ? 'ellipsis' : undefined,
-    ...(displayCollapsed && secret && railInset > 0 ? { clipPath: `inset(0 ${railInset + 4}px 0 0)` } : null),
+    ...(displayCollapsed && secret ? { overflow: 'clip', overflowClipMargin: 'content-box' } : null),
     // Auto-grow cap for the wrapped editor (`multiline`, `wrap`, or an
     // expand-on-focus field while active): ~maxRows lines (lineHeight
     // 1.5714) + a little padding allowance; past it the surface
