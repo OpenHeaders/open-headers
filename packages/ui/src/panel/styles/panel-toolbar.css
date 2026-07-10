@@ -826,13 +826,15 @@
   background: var(--dt-oh-logo) center / contain no-repeat;
 }
 
-/* Inline product mark at full brand colors — flows with surrounding
-   text (empty-state copy naming Open Headers rules, etc.). */
+/* Inline product mark — flows with surrounding text (empty-state copy
+   naming Open Headers rules, etc.). Greyscale like the resting
+   `.dt-btn--oh` CTAs, so it reads as quiet copy, not a highlight. */
 .dt-oh-mark {
   display: inline-block;
   width: 12px;
   height: 12px;
   vertical-align: -2px;
+  filter: grayscale(1);
   background: var(--dt-oh-logo) center / contain no-repeat;
 }
 

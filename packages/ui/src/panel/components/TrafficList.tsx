@@ -556,7 +556,7 @@ export function TrafficList({
           <div className="dt-empty-hero">
             <strong>{recording ? 'Recording network activity…' : 'No network activity recorded'}</strong>
             <span className="dt-empty-hero-sub">
-              {recording ? 'Perform a request or reload the page.' : 'Record network log to display network activity.'}
+              {recording ? 'Perform a request or reload the page' : 'Record network log to display network activity'}
             </span>
             <button
               type="button"

@@ -649,7 +649,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const renderEmpty = useCallback(
     () => (
       <div className="dt-editor-empty">
-        Select a request from the <GlobalOutlined aria-hidden="true" /> network panel to inspect
+        {/* Single span: the container is a flex centerer, which would
+          * swallow the whitespace between its anonymous text items. */}
+        <span>
+          Select a request from the <GlobalOutlined aria-hidden="true" /> Network panel to inspect
+        </span>
       </div>
     ),
     [],
