@@ -608,6 +608,22 @@
   white-space: normal;
   text-overflow: clip;
   display: flex;
+  container-type: inline-size;
+}
+
+/* Panel name leading the filter row ("Network", "Console", "Storage") —
+   same bold 13px as the collapsed plain-title header. On narrow panels
+   the name (and its trailing separator) yields to the filter input. */
+.dt-header-panel-name {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@container (max-width: 440px) {
+  .dt-header-panel-name,
+  .dt-header-panel-name + .dt-filter-separator {
+    display: none;
+  }
 }
 
 .dt-filter-input {

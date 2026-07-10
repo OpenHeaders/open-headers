@@ -326,6 +326,8 @@ export function StoragePanel({
         wiring={wiring}
         title={
           <div className="dt-header-filter-row">
+            <strong className="dt-header-panel-name">Storage</strong>
+            <div className="dt-filter-separator" />
             <input
               type="text"
               className="dt-filter-input dt-filter-input--grow"

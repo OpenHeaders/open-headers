@@ -47,6 +47,8 @@ export function NetworkPanelHeader({
       wiring={headerWiring}
       title={
         <div className="dt-header-filter-row">
+          <strong className="dt-header-panel-name">Network</strong>
+          <div className="dt-filter-separator" />
           <FilterInput
             value={urlFilter}
             onChange={onUrlFilterChange}

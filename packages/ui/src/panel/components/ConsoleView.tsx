@@ -273,6 +273,8 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
         wiring={wiring}
         title={
           <div className="dt-header-filter-row">
+            <strong className="dt-header-panel-name">Console</strong>
+            <div className="dt-filter-separator" />
             <button
               type="button"
               className="dt-toolbar-icon"
