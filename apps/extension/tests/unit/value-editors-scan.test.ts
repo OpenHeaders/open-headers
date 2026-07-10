@@ -3,15 +3,17 @@
  *   - `scanForJWTs` finds structurally valid tokens (and only those)
  *     inside larger text with correct offsets;
  *   - dotted runs longer than three segments never match;
- *   - `buildJwtLinks` maps hits onto Monaco ranges + `command:` urls;
- *   - the provider/command registration routes a link activation to
- *     the attached model handler with the clicked token.
+ *   - `buildJwtDecorations` maps hits onto Monaco ranges + trusted
+ *     hover markdown carrying the edit `command:` link;
+ *   - the command registration routes an activation to the attached
+ *     model handler with the clicked token.
  */
 
 import {
   attachJwtEditTarget,
-  buildJwtLinks,
+  buildJwtDecorations,
   JWT_EDIT_COMMAND,
+  JWT_LINK_CLASS,
   type JwtLinkTarget,
   registerJwtLinkPlane,
   scanForJWTs,
@@ -76,33 +78,26 @@ function makeModelStub(text: string) {
   };
 }
 
-describe('buildJwtLinks', () => {
-  it('maps hits onto ranges and command urls carrying the registration id + offsets', () => {
+describe('buildJwtDecorations', () => {
+  it('maps hits onto ranges with a trusted hover carrying the edit command', () => {
     const text = `line one\n"token": "${TOKEN}"`;
-    const links = buildJwtLinks(makeModelStub(text), 42);
-    expect(links).toHaveLength(1);
-    expect(links[0].tooltip).toBe('Edit JWT');
-    expect(links[0].range.startLineNumber).toBe(2);
-    expect(links[0].range.endLineNumber).toBe(2);
-    expect(links[0].range.startColumn).toBe('"token": "'.length + 1);
+    const decorations = buildJwtDecorations(makeModelStub(text), 42);
+    expect(decorations).toHaveLength(1);
+    expect(decorations[0].options.inlineClassName).toBe(JWT_LINK_CLASS);
+    expect(decorations[0].range.startLineNumber).toBe(2);
+    expect(decorations[0].range.endLineNumber).toBe(2);
+    expect(decorations[0].range.startColumn).toBe('"token": "'.length + 1);
     const start = text.indexOf(TOKEN);
-    expect(links[0].url).toBe(
-      `command:${JWT_EDIT_COMMAND}?${encodeURIComponent(JSON.stringify([42, start, start + TOKEN.length]))}`,
-    );
+    const url = `command:${JWT_EDIT_COMMAND}?${encodeURIComponent(JSON.stringify([42, start, start + TOKEN.length]))}`;
+    expect(decorations[0].options.hoverMessage.isTrusted).toBe(true);
+    expect(decorations[0].options.hoverMessage.value).toContain(`[Edit JWT](${url})`);
   });
 });
 
 describe('registerJwtLinkPlane + attachJwtEditTarget', () => {
   it('routes the edit command on an attached model to its handler', () => {
-    let provider: { provideLinks: (model: unknown) => { links: Array<{ url: string }> } } | undefined;
     let command: ((accessor: unknown, ...args: number[]) => void) | undefined;
     const fakeMonaco = {
-      languages: {
-        registerLinkProvider: (_selector: string, p: typeof provider) => {
-          provider = p;
-          return { dispose: vi.fn() };
-        },
-      },
       editor: {
         registerCommand: (id: string, handler: typeof command) => {
           expect(id).toBe(JWT_EDIT_COMMAND);
@@ -112,17 +107,19 @@ describe('registerJwtLinkPlane + attachJwtEditTarget', () => {
       },
     };
     registerJwtLinkPlane(fakeMonaco as unknown as typeof monaco);
-    expect(provider).toBeDefined();
     expect(command).toBeDefined();
 
     const text = `{"auth": "${TOKEN}"}`;
     const model = makeModelStub(text);
     const onOpen = vi.fn();
-    const detach = attachJwtEditTarget(model as unknown as monaco.editor.ITextModel, onOpen);
+    const { id, detach } = attachJwtEditTarget(model as unknown as monaco.editor.ITextModel, onOpen);
 
-    const { links } = provider!.provideLinks(model);
-    expect(links).toHaveLength(1);
-    const args = JSON.parse(decodeURIComponent(links[0].url.split('?')[1])) as number[];
+    const decorations = buildJwtDecorations(model, id);
+    expect(decorations).toHaveLength(1);
+    const args = JSON.parse(
+      decodeURIComponent(decorations[0].options.hoverMessage.value.match(/command:[^?]+\?([^)]+)\)/)?.[1] ?? ''),
+    ) as number[];
+    expect(args[0]).toBe(id);
 
     command!(null, ...args);
     expect(onOpen).toHaveBeenCalledTimes(1);
@@ -130,14 +127,13 @@ describe('registerJwtLinkPlane + attachJwtEditTarget', () => {
     expect(target.token).toBe(TOKEN);
     expect(text.slice(target.start, target.end)).toBe(TOKEN);
 
-    // Stale offsets (buffer moved under a link) are swallowed.
+    // Stale offsets (buffer moved under a hover) are swallowed.
     onOpen.mockClear();
     command!(null, args[0], args[1] + 3, args[2]);
     expect(onOpen).not.toHaveBeenCalled();
 
-    // A detached model stops producing links and swallows stale commands.
+    // A detached model swallows stale commands.
     detach();
-    expect(provider!.provideLinks(model).links).toHaveLength(0);
     command!(null, ...args);
     expect(onOpen).not.toHaveBeenCalled();
   });

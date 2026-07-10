@@ -1,28 +1,26 @@
 /**
  * useMonacoJwtEdit — per-editor wiring for JWT editing inside a Monaco
- * buffer. Attach from the editor's `onMount`; detected tokens become
- * "Edit JWT" links (cmd/ctrl+click), the click opens the shared JWT
- * modal, and Save replaces just that token in the buffer through the
- * editor's edit stack (undoable, cursor preserved). The clicked range
- * rides a decoration so edits elsewhere in the buffer can't shift the
- * write-back target.
- *
- * Activation arrives on two paths: the token's `command:` link (the
- * hover's clickable "Edit JWT" label and native cmd/ctrl+click both
- * execute it) and our own `onMouseUp` listener as a belt-and-braces
- * fallback for hosts where the opener chain doesn't deliver clicks —
- * a pending-edit guard keeps a double delivery harmless.
+ * buffer. Attach from the editor's `onMount`; detected tokens get an
+ * underline decoration (refreshed debounced on content changes), the
+ * hover's "Edit JWT" command link or a cmd/ctrl+click opens the shared
+ * JWT modal, and Save replaces just that token in the buffer through
+ * the editor's edit stack (undoable, cursor preserved). The clicked
+ * range rides its own decoration so edits elsewhere in the buffer
+ * can't shift the write-back target. A pending-edit guard keeps a
+ * double delivery (hover command + mouse listener) harmless.
  */
 
 import type * as monacoType from 'monaco-editor';
 import type React from 'react';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { attachJwtEditTarget, type JwtLinkTarget, registerJwtLinkPlane } from './monaco-jwt-links';
+import { attachJwtEditTarget, buildJwtDecorations, type JwtLinkTarget, registerJwtLinkPlane } from './monaco-jwt-links';
 import { scanForJWTs } from './scan';
 
 // Same lazy treatment as `useJwtEditAction` — the modal mounts nothing
-// until a link is actually followed.
+// until a token is actually activated.
 const JWTEditorModalLazy = lazy(() => import('./JWTEditorModal'));
+
+const DECORATION_REFRESH_MS = 300;
 
 interface PendingEdit {
   editor: monacoType.editor.IStandaloneCodeEditor;
@@ -35,7 +33,7 @@ export interface MonacoJwtEditResult {
   /** Call from the editor's `onMount`. Idempotent per Monaco instance;
    *  re-attaching (fresh mount) replaces the previous registration. */
   attachJwtDetection: (editor: monacoType.editor.IStandaloneCodeEditor, monacoApi: typeof monacoType) => void;
-  /** Render alongside the editor — mounts nothing until a link opens. */
+  /** Render alongside the editor — mounts nothing until a token opens. */
   jwtModal: React.ReactNode;
 }
 
@@ -59,8 +57,8 @@ export function useMonacoJwtEdit(): MonacoJwtEditResult {
       if (!model) return;
 
       const openTarget = (target: JwtLinkTarget) => {
-        // Double-delivery guard — the mouse listener and (on hosts
-        // where it works) the link opener can both report one click.
+        // Double-delivery guard — the mouse listener and the hover
+        // command can both report one activation.
         if (pendingRef.current) return;
         // Pin the clicked token's range with a decoration so the
         // write-back survives any buffer movement while the modal is up.
@@ -80,9 +78,22 @@ export function useMonacoJwtEdit(): MonacoJwtEditResult {
         setPending(edit);
       };
 
-      const detachLinks = attachJwtEditTarget(model, openTarget);
+      const { id, detach: detachTarget } = attachJwtEditTarget(model, openTarget);
 
-      // Primary activation path — cmd/ctrl+click on a detected token.
+      // Underline decorations over detected tokens, refreshed debounced
+      // while the user types.
+      let underlineIds: string[] = [];
+      let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+      const refresh = () => {
+        underlineIds = model.deltaDecorations(underlineIds, buildJwtDecorations(model, id));
+      };
+      refresh();
+      const contentListener = model.onDidChangeContent(() => {
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(refresh, DECORATION_REFRESH_MS);
+      });
+
+      // Direct activation path — cmd/ctrl+click on a detected token.
       const mouseListener = editor.onMouseUp((e) => {
         if (!(e.event.metaKey || e.event.ctrlKey) || e.event.leftButton === false) return;
         const position = e.target.position;
@@ -96,15 +107,18 @@ export function useMonacoJwtEdit(): MonacoJwtEditResult {
       });
 
       detachRef.current = () => {
-        detachLinks();
+        if (refreshTimer) clearTimeout(refreshTimer);
+        contentListener.dispose();
         mouseListener.dispose();
+        if (!model.isDisposed()) model.deltaDecorations(underlineIds, []);
+        detachTarget();
       };
     },
     [],
   );
 
   const clearPending = useCallback((edit: PendingEdit) => {
-    edit.model.deltaDecorations(edit.decorationIds, []);
+    if (!edit.model.isDisposed()) edit.model.deltaDecorations(edit.decorationIds, []);
     pendingRef.current = null;
     setPending(null);
   }, []);

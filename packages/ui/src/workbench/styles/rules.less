@@ -2189,3 +2189,13 @@ body {
   max-width: 100%;
 }
 
+/*
+ * Detected-JWT underline (value-editors decoration plane). Link
+ * detection is off in our editors, so this is the only "this value is
+ * actionable" cue — hover carries the Edit JWT command link.
+ */
+.rules-code-editor .monaco-editor .oh-jwt-token-link {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+

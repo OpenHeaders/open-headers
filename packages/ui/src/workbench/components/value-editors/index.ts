@@ -16,8 +16,10 @@ export {
 } from './jwt';
 export {
   attachJwtEditTarget,
-  buildJwtLinks,
+  buildJwtDecorations,
   JWT_EDIT_COMMAND,
+  JWT_LINK_CLASS,
+  type JwtDecorationSpec,
   type JwtLinkModel,
   type JwtLinkTarget,
   openJwtTarget,

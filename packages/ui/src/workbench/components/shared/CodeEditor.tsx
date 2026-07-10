@@ -186,6 +186,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const options: monaco.editor.IStandaloneEditorConstructionOptions = {
     minimap: { enabled: false },
+    // No web-url link detection — "Follow link" on urls in a request
+    // body/script adds nothing. The JWT edit affordance doesn't ride
+    // the link machinery (it's decoration-driven, see value-editors),
+    // so it survives this being off.
+    links: false,
     fontFamily,
     fontSize,
     fontLigatures,
