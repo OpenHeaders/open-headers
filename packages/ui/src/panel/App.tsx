@@ -1,4 +1,5 @@
 import 'allotment/dist/style.css';
+import { GlobalOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';
@@ -646,7 +647,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   );
 
   const renderEmpty = useCallback(
-    () => <div className="dt-editor-empty">Select a request from the sidebar to inspect</div>,
+    () => (
+      <div className="dt-editor-empty">
+        Select a request from the <GlobalOutlined aria-hidden="true" /> network panel to inspect
+      </div>
+    ),
     [],
   );
 

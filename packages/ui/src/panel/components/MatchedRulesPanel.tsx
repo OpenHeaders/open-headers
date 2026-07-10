@@ -284,7 +284,8 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
       <div className="dt-matched-rules-panel-body">
         {!row && (
           <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
-            Select a request to see its rules.
+            Select a request to see <span className="dt-oh-mark" role="img" aria-label="Open Headers" /> rules that
+            apply to it.
           </div>
         )}
         {row && (
