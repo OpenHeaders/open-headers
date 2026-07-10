@@ -133,6 +133,13 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       SCOPE,
       `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${auditNote}`,
     );
+    if (config.bindAddress === '0.0.0.0' && !config.trustedProxy) {
+      log.warn(
+        SCOPE,
+        'serving cleartext HTTP/WS on all interfaces (allowInsecureLan) — auth tokens and pairing secrets are ' +
+          'readable by anyone on the network path; use a TLS-terminating reverse proxy for anything beyond a trusted LAN',
+      );
+    }
 
     const spine = await bootDaemonSpine({
       dataDir: config.dataDir,

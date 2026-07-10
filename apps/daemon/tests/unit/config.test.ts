@@ -56,7 +56,7 @@ describe('resolveDaemonConfig — defaults', () => {
 
 describe('resolveDaemonConfig — precedence', () => {
   it('reads the config file when present', () => {
-    const file = writeConfigFile({ bindAddress: '0.0.0.0', bindPort: 9000, dataDir: '/srv/oh' });
+    const file = writeConfigFile({ bindAddress: '0.0.0.0', bindPort: 9000, dataDir: '/srv/oh', trustedProxy: true });
     const config = resolve(['--config', file]);
     expect(config).toMatchObject({ dataDir: '/srv/oh', bindAddress: '0.0.0.0', bindPort: 9000 });
   });
@@ -106,6 +106,14 @@ describe('resolveDaemonConfig — precedence', () => {
         OH_DAEMON_ALLOWED_HOSTS: 'a.openheaders.io',
       }).allowedHosts,
     ).toEqual(['c.openheaders.io', 'd.openheaders.io']);
+  });
+
+  it('resolves allowInsecureLan through the chain, defaulting to off', () => {
+    expect(resolve().allowInsecureLan).toBe(false);
+    const file = writeConfigFile({ allowInsecureLan: true });
+    expect(resolve(['--config', file]).allowInsecureLan).toBe(true);
+    expect(resolve(['--config', file], { OH_DAEMON_ALLOW_INSECURE_LAN: 'false' }).allowInsecureLan).toBe(false);
+    expect(resolve(['--allow-insecure-lan'], { OH_DAEMON_ALLOW_INSECURE_LAN: 'false' }).allowInsecureLan).toBe(true);
   });
 
   it('resolves webRoot through the chain as an absolute path, defaulting to null', () => {
@@ -165,6 +173,25 @@ describe('resolveDaemonConfig — audit retention', () => {
 describe('resolveDaemonConfig — validation', () => {
   it('rejects a bind address that is neither loopback nor all-interfaces', () => {
     expect(() => resolve(['--bind-address', '192.168.1.10'])).toThrow(/bind address/);
+  });
+
+  it('refuses a LAN bind without a TLS proxy or the explicit cleartext acknowledgment', () => {
+    expect(() => resolve(['--bind-address', '0.0.0.0'])).toThrow(/cleartext/);
+    expect(() => resolve(['--config', writeConfigFile({ bindAddress: '0.0.0.0' })])).toThrow(/cleartext/);
+  });
+
+  it('admits a LAN bind behind a trusted proxy or with the acknowledgment', () => {
+    expect(resolve(['--bind-address', '0.0.0.0', '--trusted-proxy']).bindAddress).toBe('0.0.0.0');
+    expect(resolve(['--bind-address', '0.0.0.0', '--allow-insecure-lan']).bindAddress).toBe('0.0.0.0');
+    expect(resolve(['--bind-address', '0.0.0.0'], { OH_DAEMON_ALLOW_INSECURE_LAN: '1' }).allowInsecureLan).toBe(true);
+    expect(
+      resolve(['--config', writeConfigFile({ bindAddress: '0.0.0.0', allowInsecureLan: true })]).allowInsecureLan,
+    ).toBe(true);
+  });
+
+  it('rejects a non-boolean allowInsecureLan in the config file', () => {
+    const file = writeConfigFile({ allowInsecureLan: 'yes' });
+    expect(() => resolve(['--config', file])).toThrow(/allowInsecureLan/);
   });
 
   it('rejects a privileged port', () => {

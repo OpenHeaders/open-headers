@@ -100,6 +100,8 @@ Options (install / status / show-token / config):
                            address from X-Forwarded-For (never set without one)
   --allowed-host <name>    Hostname the daemon answers as (repeatable) — e.g.
                            the reverse proxy's domain; IPs/localhost always work
+  --allow-insecure-lan     Accept serving cleartext HTTP/WS on 0.0.0.0 without
+                           a TLS proxy (tokens ride unencrypted; trusted LANs only)
   --web-root <path>        Directory with the built web app to serve at /
                            (default: the web/ dir shipped beside the daemon)
   --verbose                status only: read the token-gated /metrics route
@@ -210,7 +212,8 @@ async function commandShowToken(argv: readonly string[]): Promise<void> {
     console.log(`  ${join.url}${join.iface ? `   (${join.iface})` : ''}`);
   }
   if (config.bindAddress !== '0.0.0.0') {
-    console.log('The daemon is loopback-only; set bind-address 0.0.0.0 to make it LAN-reachable.');
+    console.log('The daemon is loopback-only; set bind-address 0.0.0.0 to make it LAN-reachable');
+    console.log('(behind a TLS proxy with --trusted-proxy, or cleartext with --allow-insecure-lan).');
   }
 }
 

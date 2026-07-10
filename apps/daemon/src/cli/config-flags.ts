@@ -17,6 +17,7 @@ export const CONFIG_OPTIONS = {
   'log-level': { type: 'string' },
   'trusted-proxy': { type: 'boolean' },
   'allowed-host': { type: 'string', multiple: true },
+  'allow-insecure-lan': { type: 'boolean' },
   'web-root': { type: 'string' },
 } as const;
 
@@ -28,6 +29,7 @@ export interface ConfigFlagValues {
   'log-level'?: string;
   'trusted-proxy'?: boolean;
   'allowed-host'?: string[];
+  'allow-insecure-lan'?: boolean;
   'web-root'?: string;
 }
 
@@ -47,6 +49,7 @@ export function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigComman
   }
   if (values['trusted-proxy']) configArgv.push('--trusted-proxy');
   for (const host of values['allowed-host'] ?? []) configArgv.push('--allowed-host', host);
+  if (values['allow-insecure-lan']) configArgv.push('--allow-insecure-lan');
   const config = resolveDaemonConfig({ argv: configArgv, env: process.env });
   const unitArgs: string[] = [];
   if (values.config !== undefined) unitArgs.push('--config', config.configPath);
@@ -58,6 +61,7 @@ export function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigComman
   if (values['allowed-host'] !== undefined) {
     for (const host of config.allowedHosts) unitArgs.push('--allowed-host', host);
   }
+  if (values['allow-insecure-lan'] !== undefined && config.allowInsecureLan) unitArgs.push('--allow-insecure-lan');
   if (values['web-root'] !== undefined && config.webRoot !== null) unitArgs.push('--web-root', config.webRoot);
   return { config, unitArgs };
 }

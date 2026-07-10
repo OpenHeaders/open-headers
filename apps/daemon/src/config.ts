@@ -54,6 +54,14 @@ export interface DaemonConfig {
    */
   allowedHosts: string[];
   /**
+   * Explicit acknowledgment that a `0.0.0.0` bind without a
+   * TLS-terminating proxy serves everything — WS HELLO tokens, the
+   * pairing secret page, `/mcp` and `/metrics` bearers — as cleartext
+   * to the network. Without it (and without `trustedProxy`) a LAN bind
+   * refuses to boot rather than exposing credentials by accident.
+   */
+  allowInsecureLan: boolean;
+  /**
    * Directory holding the built Workbench web bundle the daemon serves
    * on its bind (Phase 4a). `null` = not explicitly configured; the
    * entry point then falls back to the `web/` dir shipped beside the
@@ -86,6 +94,7 @@ interface ConfigFile {
   logLevel?: string;
   trustedProxy?: boolean;
   allowedHosts?: string[];
+  allowInsecureLan?: boolean;
   webRoot?: string;
   oidc?: DaemonOidcConfig;
   auditRetentionDays?: number;
@@ -255,6 +264,12 @@ function readConfigFile(configPath: string): ConfigFile {
     }
     out.allowedHosts = record.allowedHosts.filter((h): h is string => typeof h === 'string');
   }
+  if (record.allowInsecureLan !== undefined) {
+    if (typeof record.allowInsecureLan !== 'boolean') {
+      throw new Error(`${configPath}: allowInsecureLan must be a boolean`);
+    }
+    out.allowInsecureLan = record.allowInsecureLan;
+  }
   if (record.webRoot !== undefined) {
     if (typeof record.webRoot !== 'string') throw new Error(`${configPath}: webRoot must be a string`);
     out.webRoot = record.webRoot;
@@ -296,6 +311,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
       'log-level': { type: 'string' },
       'trusted-proxy': { type: 'boolean' },
       'allowed-host': { type: 'string', multiple: true },
+      'allow-insecure-lan': { type: 'boolean' },
       'web-root': { type: 'string' },
     },
   });
@@ -336,6 +352,26 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     [];
   const allowedHosts = rawAllowedHosts.map((h) => parseAllowedHost(h, 'allowed host'));
 
+  const envAllowInsecureLan = input.env.OH_DAEMON_ALLOW_INSECURE_LAN;
+  const allowInsecureLan =
+    values['allow-insecure-lan'] ??
+    (envAllowInsecureLan !== undefined ? parseBooleanEnv(envAllowInsecureLan, 'allow insecure lan') : undefined) ??
+    file.allowInsecureLan ??
+    false;
+
+  // The daemon has no native TLS: a network bind serves tokens, the
+  // pairing secret page, and bearer-gated routes as cleartext HTTP/WS.
+  // Refuse that combination unless the deployment terminates TLS in
+  // front (`trustedProxy`) or explicitly accepts cleartext on a
+  // trusted network (`allowInsecureLan`).
+  if (bindAddress === '0.0.0.0' && !trustedProxy && !allowInsecureLan) {
+    throw new Error(
+      'bind address 0.0.0.0 without TLS would expose auth tokens and pairing secrets as cleartext on the network — ' +
+        'front the daemon with a TLS-terminating reverse proxy and set --trusted-proxy, ' +
+        'or accept cleartext on a trusted network with --allow-insecure-lan',
+    );
+  }
+
   const rawWebRoot = values['web-root'] ?? input.env.OH_DAEMON_WEB_ROOT ?? file.webRoot;
   const webRoot = rawWebRoot === undefined ? null : path.resolve(rawWebRoot);
 
@@ -366,6 +402,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     logLevel,
     trustedProxy,
     allowedHosts,
+    allowInsecureLan,
     webRoot,
     oidc,
     auditRetentionDays,

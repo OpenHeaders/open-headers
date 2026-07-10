@@ -26,6 +26,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     logLevel: 'info',
     trustedProxy: false,
     allowedHosts: [],
+    allowInsecureLan: false,
     webRoot: null,
     oidc: null,
     auditRetentionDays: 90,
