@@ -3,10 +3,11 @@
  * offer the matching editor on the TemplateInput action rail. Shaped as
  * a detector registry: each detector inspects the value and returns its
  * typed descriptor or null; the first hit wins. Registered today: JWT,
- * data URIs, cookie strings, CSP directive lists, %XX URL-encoding,
- * Unix timestamps, hex text, JSON string literals, JSON values, base64
- * text. Order matters — a JWT is base64url-shaped, a hex string is
- * base64-charset-valid, and cookie values / data-URI payloads often
+ * data URIs, HTTP dates, header lists (CSP, HSTS, Content-Disposition,
+ * cookies, auth params, Link, query strings, Cache-Control, Accept),
+ * %XX URL-encoding, Unix timestamps, hex text, JSON string literals,
+ * JSON values, base64 text. Order matters — a JWT is base64url-shaped,
+ * a hex string is base64-charset-valid, and header-list values often
  * embed %XX escapes, so each must claim the value before the looser
  * detector sees it.
  */
@@ -22,6 +23,16 @@ import {
   tryDecodeTimestamp,
   tryDecodeUrlComponent,
 } from './encodings';
+import {
+  tryDecodeAcceptList,
+  tryDecodeAuthParams,
+  tryDecodeCacheControl,
+  tryDecodeContentDisposition,
+  tryDecodeHsts,
+  tryDecodeHttpDate,
+  tryDecodeLinkHeader,
+  tryDecodeQueryString,
+} from './header-values';
 import { isJWT } from './jwt';
 
 export interface DetectedJWT {
@@ -100,11 +111,69 @@ export interface DetectedCsp {
   decoded: string;
 }
 
+export interface DetectedHttpDate {
+  type: 'http-date';
+  /** UTC ISO-8601 rendering of the IMF-fixdate value. */
+  iso: string;
+}
+
+export interface DetectedQueryString {
+  type: 'query-string';
+  /** One `k=v` pair per line. */
+  decoded: string;
+}
+
+export interface DetectedCacheControl {
+  type: 'cache-control';
+  /** One directive per line. */
+  decoded: string;
+}
+
+export interface DetectedHsts {
+  type: 'hsts';
+  /** One directive per line. */
+  decoded: string;
+}
+
+export interface DetectedContentDisposition {
+  type: 'content-disposition';
+  /** Disposition token on the first line, parameters after. */
+  decoded: string;
+}
+
+export interface DetectedLinkHeader {
+  type: 'link';
+  /** One `<uri>; params` link per line. */
+  decoded: string;
+}
+
+export interface DetectedAuthParams {
+  type: 'auth-params';
+  /** Scheme token (e.g. `Digest`) — preserved on re-encode. */
+  scheme: string;
+  /** One `param=value` per line. */
+  decoded: string;
+}
+
+export interface DetectedAcceptList {
+  type: 'accept-list';
+  /** One accept item per line. */
+  decoded: string;
+}
+
 export type DetectedValue =
   | DetectedJWT
   | DetectedDataUri
+  | DetectedHttpDate
   | DetectedCookie
   | DetectedCsp
+  | DetectedHsts
+  | DetectedContentDisposition
+  | DetectedAuthParams
+  | DetectedLinkHeader
+  | DetectedQueryString
+  | DetectedCacheControl
+  | DetectedAcceptList
   | DetectedUrlEncoded
   | DetectedBase64
   | DetectedHex
@@ -162,6 +231,46 @@ function detectCsp(value: string): DetectedCsp | null {
   return decoded !== null ? { type: 'csp', decoded } : null;
 }
 
+function detectHttpDate(value: string): DetectedHttpDate | null {
+  const iso = tryDecodeHttpDate(value);
+  return iso !== null ? { type: 'http-date', iso } : null;
+}
+
+function detectHsts(value: string): DetectedHsts | null {
+  const decoded = tryDecodeHsts(value);
+  return decoded !== null ? { type: 'hsts', decoded } : null;
+}
+
+function detectContentDisposition(value: string): DetectedContentDisposition | null {
+  const decoded = tryDecodeContentDisposition(value);
+  return decoded !== null ? { type: 'content-disposition', decoded } : null;
+}
+
+function detectAuthParams(value: string): DetectedAuthParams | null {
+  const hit = tryDecodeAuthParams(value);
+  return hit ? { type: 'auth-params', ...hit } : null;
+}
+
+function detectLinkHeader(value: string): DetectedLinkHeader | null {
+  const decoded = tryDecodeLinkHeader(value);
+  return decoded !== null ? { type: 'link', decoded } : null;
+}
+
+function detectQueryString(value: string): DetectedQueryString | null {
+  const decoded = tryDecodeQueryString(value);
+  return decoded !== null ? { type: 'query-string', decoded } : null;
+}
+
+function detectCacheControl(value: string): DetectedCacheControl | null {
+  const decoded = tryDecodeCacheControl(value);
+  return decoded !== null ? { type: 'cache-control', decoded } : null;
+}
+
+function detectAcceptList(value: string): DetectedAcceptList | null {
+  const decoded = tryDecodeAcceptList(value);
+  return decoded !== null ? { type: 'accept-list', decoded } : null;
+}
+
 function detectJsonString(value: string): DetectedJsonString | null {
   const decoded = tryDecodeJsonString(value);
   return decoded !== null ? { type: 'json-string', decoded } : null;
@@ -175,8 +284,18 @@ function detectJsonValue(value: string): DetectedJsonValue | null {
 const DETECTORS: Detector[] = [
   detectJWT,
   detectDataUri,
+  detectHttpDate,
   detectCsp,
+  detectHsts,
+  detectContentDisposition,
+  // Link before cookie: a `<uri?k=v>; rel=…` segment parses as a
+  // cookie pair, but no cookie name ever starts with `<`.
+  detectLinkHeader,
   detectCookie,
+  detectAuthParams,
+  detectQueryString,
+  detectCacheControl,
+  detectAcceptList,
   detectUrlEncoded,
   detectTimestamp,
   detectHex,

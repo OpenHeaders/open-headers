@@ -4,14 +4,22 @@
 // never eat that dependency at import time. Import them from their own
 // modules directly if a host ever needs one eagerly.
 export {
+  type DetectedAcceptList,
+  type DetectedAuthParams,
   type DetectedBase64,
+  type DetectedCacheControl,
+  type DetectedContentDisposition,
   type DetectedCookie,
   type DetectedCsp,
   type DetectedDataUri,
   type DetectedHex,
+  type DetectedHsts,
+  type DetectedHttpDate,
   type DetectedJsonString,
   type DetectedJsonValue,
   type DetectedJWT,
+  type DetectedLinkHeader,
+  type DetectedQueryString,
   type DetectedTimestamp,
   type DetectedUrlEncoded,
   type DetectedValue,
@@ -41,6 +49,25 @@ export {
   tryDecodeTimestamp,
   tryDecodeUrlComponent,
 } from './encodings';
+export {
+  type DecodedAuthParams,
+  encodeAcceptList,
+  encodeAuthParams,
+  encodeCacheControl,
+  encodeContentDisposition,
+  encodeHsts,
+  encodeHttpDate,
+  encodeLinkHeader,
+  encodeQueryString,
+  tryDecodeAcceptList,
+  tryDecodeAuthParams,
+  tryDecodeCacheControl,
+  tryDecodeContentDisposition,
+  tryDecodeHsts,
+  tryDecodeHttpDate,
+  tryDecodeLinkHeader,
+  tryDecodeQueryString,
+} from './header-values';
 export {
   type DecodedJWT,
   decodeJWT,

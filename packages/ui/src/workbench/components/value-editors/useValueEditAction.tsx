@@ -21,6 +21,16 @@ import {
   encodeJsonValue,
   encodeTimestamp,
 } from './encodings';
+import {
+  encodeAcceptList,
+  encodeAuthParams,
+  encodeCacheControl,
+  encodeContentDisposition,
+  encodeHsts,
+  encodeHttpDate,
+  encodeLinkHeader,
+  encodeQueryString,
+} from './header-values';
 
 // Lazy so the modals (Monaco via the shared CodeEditor) stay out of
 // every TemplateInput caller's bundle; they load on first edit-icon
@@ -48,6 +58,14 @@ const EDIT_TOOLTIPS = {
   'data-uri': 'Edit data URI content',
   cookie: 'Edit cookie pairs',
   csp: 'Edit CSP directives',
+  'http-date': 'Edit HTTP date',
+  'query-string': 'Edit query pairs',
+  'cache-control': 'Edit cache directives',
+  hsts: 'Edit HSTS directives',
+  'content-disposition': 'Edit disposition parameters',
+  link: 'Edit links',
+  'auth-params': 'Edit auth parameters',
+  'accept-list': 'Edit accept list',
 } as const;
 
 const MODAL_TITLES = {
@@ -60,6 +78,14 @@ const MODAL_TITLES = {
   'data-uri': 'Data URI',
   cookie: 'Cookie value',
   csp: 'Content Security Policy',
+  'http-date': 'HTTP date',
+  'query-string': 'Query string',
+  'cache-control': 'Cache-Control',
+  hsts: 'Strict-Transport-Security',
+  'content-disposition': 'Content-Disposition',
+  link: 'Link header',
+  'auth-params': 'Authorization parameters',
+  'accept-list': 'Accept list',
 } as const;
 
 export function useValueEditAction(value: string | undefined, onChange: (next: string) => void): ValueEditActionResult {
@@ -85,15 +111,42 @@ export function useValueEditAction(value: string | undefined, onChange: (next: s
   // disables Save on it.
   const encodeCurrent = useCallback(
     (text: string): string | null => {
-      if (detected?.type === 'base64') return `${detected.prefix}${encodeBase64(text, detected)}`;
-      if (detected?.type === 'hex') return encodeHex(text, detected);
-      if (detected?.type === 'timestamp') return encodeTimestamp(text, detected);
-      if (detected?.type === 'json') return encodeJsonValue(text, detected);
-      if (detected?.type === 'json-string') return encodeJsonString(text);
-      if (detected?.type === 'data-uri') return encodeDataUri(text, detected);
-      if (detected?.type === 'cookie') return encodeCookieList(text);
-      if (detected?.type === 'csp') return encodeCspList(text);
-      return encodeURIComponent(text);
+      switch (detected?.type) {
+        case 'base64':
+          return `${detected.prefix}${encodeBase64(text, detected)}`;
+        case 'hex':
+          return encodeHex(text, detected);
+        case 'timestamp':
+          return encodeTimestamp(text, detected);
+        case 'json':
+          return encodeJsonValue(text, detected);
+        case 'json-string':
+          return encodeJsonString(text);
+        case 'data-uri':
+          return encodeDataUri(text, detected);
+        case 'cookie':
+          return encodeCookieList(text);
+        case 'csp':
+          return encodeCspList(text);
+        case 'http-date':
+          return encodeHttpDate(text);
+        case 'query-string':
+          return encodeQueryString(text);
+        case 'cache-control':
+          return encodeCacheControl(text);
+        case 'hsts':
+          return encodeHsts(text);
+        case 'content-disposition':
+          return encodeContentDisposition(text);
+        case 'link':
+          return encodeLinkHeader(text);
+        case 'auth-params':
+          return encodeAuthParams(text, detected);
+        case 'accept-list':
+          return encodeAcceptList(text);
+        default:
+          return encodeURIComponent(text);
+      }
     },
     [detected],
   );
@@ -122,7 +175,7 @@ export function useValueEditAction(value: string | undefined, onChange: (next: s
           <EncodedValueModalLazy
             open={open}
             title={MODAL_TITLES[detected.type]}
-            decoded={detected.type === 'timestamp' ? detected.iso : detected.decoded}
+            decoded={detected.type === 'timestamp' || detected.type === 'http-date' ? detected.iso : detected.decoded}
             encode={encodeCurrent}
             onSave={handleEncodedSave}
             onCancel={closeModal}

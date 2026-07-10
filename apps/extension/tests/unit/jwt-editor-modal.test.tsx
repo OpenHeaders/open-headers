@@ -302,6 +302,19 @@ describe('useValueEditAction', () => {
     expect(onChange).toHaveBeenCalledWith(JSON.stringify('{"userId":456}'));
   });
 
+  it('edits an HTTP date as ISO and writes back IMF-fixdate', async () => {
+    const onChange = vi.fn();
+    const { container } = render(<Harness value="Wed, 21 Oct 2026 07:28:00 GMT" onChange={onChange} />);
+
+    fireEvent.click(container.querySelector('.oh-template-input-action[aria-label="Edit HTTP date"]') as Element);
+    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
+    expect(editor.value).toBe('2026-10-21T07:28:00Z');
+    fireEvent.change(editor, { target: { value: '2026-12-01T00:00:00Z' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+    expect(onChange).toHaveBeenCalledWith('Tue, 01 Dec 2026 00:00:00 GMT');
+  });
+
   it('edits a cookie string line-per-pair and re-joins on save', async () => {
     const onChange = vi.fn();
     const { container } = render(<Harness value="session=abc123; theme=dark; Secure" onChange={onChange} />);
