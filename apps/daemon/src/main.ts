@@ -29,7 +29,7 @@ import { OH } from '@openheaders/core/storage';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import { formatBuildStamp, getBuildInfo } from './build-info';
-import { resolveDaemonConfig } from './config';
+import { AUDIT_RETENTION_DEFAULT_DAYS, resolveDaemonConfig } from './config';
 import { createDaemonLogger } from './logger';
 import { noCipherYet } from './no-cipher';
 import { createDaemonStatusStore } from './status-store';
@@ -105,9 +105,11 @@ async function main(): Promise<void> {
   const hostsNote = config.allowedHosts.length > 0 ? `, allowed hosts ${config.allowedHosts.join(' ')}` : '';
   const webNote = staticWeb ? `, web ui from ${staticWeb.rootDir}` : '';
   const oidcNote = config.oidc ? `, sso via ${config.oidc.issuer}` : '';
+  const auditNote =
+    config.auditRetentionDays !== AUDIT_RETENTION_DEFAULT_DAYS ? `, audit retention ${config.auditRetentionDays}d` : '';
   log.info(
     SCOPE,
-    `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}`,
+    `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${auditNote}`,
   );
 
   const spine = await bootDaemonSpine({
@@ -131,6 +133,7 @@ async function main(): Promise<void> {
       allowedHosts: config.allowedHosts,
     },
     ...(config.oidc ? { oidc: config.oidc } : {}),
+    auditRetentionDays: config.auditRetentionDays,
     staticWeb,
     broadcastLocal: () => {
       // No same-process surfaces yet — the served web app (Phase 4)

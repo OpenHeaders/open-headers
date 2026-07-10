@@ -21,6 +21,14 @@ import { WS_PORT } from '@openheaders/core/protocol';
 import { isValidLogLevel, type LogLevel, validatePort } from '@openheaders/core/utils';
 import type { DaemonOidcConfig } from '@openheaders/oracle-host-node/daemon';
 
+/**
+ * §9.1 default retention. Redeclared here rather than imported from the
+ * spine: a value import of `@openheaders/oracle-host-node/daemon` would
+ * pull better-sqlite3 into the sqlite-free `cli.js` bundle via this
+ * shared config module.
+ */
+export const AUDIT_RETENTION_DEFAULT_DAYS = 90;
+
 export type BindAddress = '127.0.0.1' | '0.0.0.0';
 
 export interface DaemonConfig {
@@ -60,6 +68,12 @@ export interface DaemonConfig {
    * the config file.
    */
   oidc: DaemonOidcConfig | null;
+  /**
+   * Audit-log retention window in days (UNIFIED_ORACLE_MODEL.md §9.1).
+   * One number for every entry regardless of actor type; default 90,
+   * uncapped upward for compliance deployments.
+   */
+  auditRetentionDays: number;
   /** The `daemon.json` path that was consulted (whether or not it existed). */
   configPath: string;
 }
@@ -74,6 +88,7 @@ interface ConfigFile {
   allowedHosts?: string[];
   webRoot?: string;
   oidc?: DaemonOidcConfig;
+  auditRetentionDays?: number;
 }
 
 export interface ResolveConfigInput {
@@ -247,7 +262,20 @@ function readConfigFile(configPath: string): ConfigFile {
   if (record.oidc !== undefined) {
     out.oidc = parseOidcConfig(record.oidc, configPath);
   }
+  if (record.auditRetentionDays !== undefined) {
+    if (typeof record.auditRetentionDays !== 'number') {
+      throw new Error(`${configPath}: auditRetentionDays must be a number`);
+    }
+    out.auditRetentionDays = record.auditRetentionDays;
+  }
   return out;
+}
+
+function parseAuditRetentionDays(raw: number, source: string): number {
+  if (!Number.isFinite(raw) || raw <= 0) {
+    throw new Error(`${source}: audit retention days must be a positive number, got '${raw}'`);
+  }
+  return raw;
 }
 
 /**
@@ -324,5 +352,23 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     oidc = { ...oidc, clientSecret: envClientSecret };
   }
 
-  return { dataDir, bindAddress, bindPort, logLevel, trustedProxy, allowedHosts, webRoot, oidc, configPath };
+  const envRetention = input.env.OH_DAEMON_AUDIT_RETENTION_DAYS;
+  const rawRetention = envRetention !== undefined ? Number(envRetention) : file.auditRetentionDays;
+  const auditRetentionDays =
+    rawRetention === undefined
+      ? AUDIT_RETENTION_DEFAULT_DAYS
+      : parseAuditRetentionDays(rawRetention, 'audit retention days');
+
+  return {
+    dataDir,
+    bindAddress,
+    bindPort,
+    logLevel,
+    trustedProxy,
+    allowedHosts,
+    webRoot,
+    oidc,
+    auditRetentionDays,
+    configPath,
+  };
 }

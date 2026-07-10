@@ -57,8 +57,10 @@ import {
   listWorkspaceRolesForPrincipal,
   mintDaemonAuthToken,
   refreshIdentitySnapshotFromHostStorage,
+  resetAuditSink,
   revokeDaemonAuthToken,
   revokeWorkspaceRole,
+  setAuditSink,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
@@ -97,10 +99,12 @@ import { evictConsumedWorkspace } from '@openheaders/oracle/workspace/workspace-
 import { FileSystemBlobBackend } from '../files/fs-blob-backend';
 import { createPairingHttpHandler } from '../host-runtime/pairing-http';
 import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-server';
+import { SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './activity-installer';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { createAdmissionControl } from './admission-control';
+import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
 import { createHealthzHandler } from './healthz';
 import { listLanIpv4Addresses } from './lan-addresses';
@@ -199,6 +203,11 @@ export interface DaemonSpineConfig {
    * additional way to mint a session credential.
    */
   oidc?: DaemonOidcConfig;
+  /**
+   * Audit-log retention window in days (UNIFIED_ORACLE_MODEL.md §9.1).
+   * Absent = 90. One knob for every entry regardless of actor type.
+   */
+  auditRetentionDays?: number;
   staticWeb?: {
     rootDir: string;
     /**
@@ -275,6 +284,22 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     db: syncPersistence.db,
     appVersion: config.appVersion,
     broadcast: (type, payload) => broadcastLocal(type, payload),
+  });
+  // Durable audit sink — every capability decision the resolver emits
+  // (WS gates, MCP policy, outbound filter) lands as a queryable
+  // `audit_log` row on the same handle. Append is fire-and-forget so
+  // gate latency never waits on SQLite; a failed write is logged, and
+  // the decision itself is unaffected either way.
+  const auditLog = new SqliteAuditLog(syncPersistence.db);
+  setAuditSink((entry) => {
+    void auditLog.append(entry).catch((err: unknown) => {
+      consoleLogger.warn(SCOPE, 'audit log append failed', err);
+    });
+  });
+  // §9.1 retention — hourly sweep drops rows older than the window.
+  const stopAuditPruneScheduler = installAuditPruneScheduler({
+    db: syncPersistence.db,
+    ...(config.auditRetentionDays !== undefined ? { retentionDays: config.auditRetentionDays } : {}),
   });
   // Status snapshot — the host store is the single vocabulary for the
   // host and its surfaces. The spine owns the writes; surfaces mirror
@@ -742,6 +767,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     disposed = true;
     stopLiveRunner();
     stopActivityPruneScheduler();
+    stopAuditPruneScheduler();
+    resetAuditSink();
     unsubscribeStatus();
     unsubscribeActivityEntries();
     unsubscribeMuteChanges();

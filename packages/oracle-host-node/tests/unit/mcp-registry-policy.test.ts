@@ -21,6 +21,8 @@ import {
 } from '@openheaders/core/identity';
 import { setHostStorage } from '@openheaders/core/storage';
 import type { DaemonUserRecord } from '@openheaders/core/types';
+import { queryAuditEntries, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
+import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { gateMcpToolCall, McpPermissionDeniedError, type McpPolicy } from '../../src/mcp/policy';
 import {
@@ -80,6 +82,7 @@ describe('createMcpToolRegistry', () => {
 describe('gateMcpToolCall', () => {
   let operatorUserId = '';
   let audits: ResolvedAuditEntry[] = [];
+  let auditDb: Database.Database;
 
   async function addUser(name: string, role: 'owner' | 'editor' | 'viewer' | null): Promise<DaemonUserRecord> {
     const created = await createDaemonUser({ displayName: name });
@@ -92,7 +95,15 @@ describe('gateMcpToolCall', () => {
 
   beforeEach(async () => {
     audits = [];
-    setAuditSink((entry) => audits.push(entry));
+    // Dual sink — the array for in-test assertions, the SQLite log for
+    // the slice-4 "denials land as queryable rows" leg (the same sink
+    // shape the boot spine installs).
+    auditDb = new Database(':memory:');
+    const sqliteAudit = new SqliteAuditLog(auditDb);
+    setAuditSink((entry) => {
+      audits.push(entry);
+      void sqliteAudit.append(entry);
+    });
     setHostStorage(createHostStorageFake());
     const record = await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-10T00:00:00.000Z' });
     operatorUserId = record.user.id;
@@ -101,6 +112,7 @@ describe('gateMcpToolCall', () => {
 
   afterEach(() => {
     resetAuditSink();
+    auditDb.close();
     clearIdentitySnapshot();
   });
 
@@ -136,6 +148,18 @@ describe('gateMcpToolCall', () => {
       'no-workspace-role-assignment',
     );
     expect(audits.at(-1)).toMatchObject({ actorUserId: editor.user.id, decision: { allow: false } });
+
+    // Slice 4 — the denied MCP call is a QUERYABLE row in the durable
+    // audit log, filtered exactly the way `oh daemon audit list
+    // --decision deny` reads it, with the calling user as the actor.
+    const deniedRows = queryAuditEntries(auditDb, { allow: false });
+    expect(deniedRows).toHaveLength(1);
+    expect(deniedRows[0]).toMatchObject({
+      actorUserId: editor.user.id,
+      capability: 'workspace.write',
+      workspaceId: 'ws-other',
+      decision: { allow: false, reason: 'no-workspace-role-assignment' },
+    });
   });
 
   it('denies a viewer the write capability but allows the read', async () => {

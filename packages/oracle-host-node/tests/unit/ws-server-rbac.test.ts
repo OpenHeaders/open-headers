@@ -50,6 +50,8 @@ import {
   dispose as disposeSyncService,
   getOracleForCurrentWorkspace,
 } from '@openheaders/oracle/sync/service';
+import { queryAuditEntries, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
+import Database from 'better-sqlite3';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { makeWorkspaceReadFilter } from '../../src/daemon/peer-read-filter';
@@ -63,6 +65,7 @@ let server: OracleWsServer | null = null;
 const clients: WebSocket[] = [];
 let daemonOrgId = '';
 let audits: ResolvedAuditEntry[] = [];
+let auditDb: Database.Database;
 
 async function freePort(): Promise<number> {
   return new Promise<number>((resolve, reject) => {
@@ -161,7 +164,15 @@ beforeEach(async () => {
   server = null;
   clients.length = 0;
   audits = [];
-  setAuditSink((entry) => audits.push(entry));
+  // Dual sink — the array for in-test assertions, the SQLite log for
+  // the slice-4 "denials land as queryable rows" leg (the same sink
+  // shape the boot spine installs).
+  auditDb = new Database(':memory:');
+  const sqliteAudit = new SqliteAuditLog(auditDb);
+  setAuditSink((entry) => {
+    audits.push(entry);
+    void sqliteAudit.append(entry);
+  });
   setHostStorage(createHostStorageFake());
   const record = await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-10T00:00:00.000Z' });
   daemonOrgId = record.org.id;
@@ -186,6 +197,7 @@ afterEach(async () => {
   __resetMutationStreamBridgeForTests();
   disposeSyncService();
   resetAuditSink();
+  auditDb.close();
   clearIdentitySnapshot();
 });
 
@@ -214,6 +226,16 @@ describe('RBAC at the gate — two users over real sockets', () => {
     // Deny never tears the socket down.
     expect(viewerClient.readyState).toBe(WebSocket.OPEN);
     expect(server.connectedCount()).toBe(2);
+
+    // Slice 4 — the denied write is a QUERYABLE row in the durable
+    // audit log, filtered exactly the way `oh daemon audit list
+    // --decision deny` reads it, with the viewer as the actor.
+    const deniedRows = queryAuditEntries(auditDb, { allow: false, capability: 'workspace.write' });
+    expect(deniedRows.map((r) => r.actorUserId)).toContain(viewer.user.id);
+    expect(deniedRows.map((r) => r.actorUserId)).not.toContain(editor.user.id);
+    expect(deniedRows.find((r) => r.actorUserId === viewer.user.id)?.decision.reason).toBe(
+      'insufficient-workspace-role',
+    );
   });
 
   it('a no-grant user cannot write at all', async () => {

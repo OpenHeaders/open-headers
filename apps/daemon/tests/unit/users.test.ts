@@ -42,6 +42,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     allowedHosts: [],
     webRoot: null,
     oidc: null,
+    auditRetentionDays: 90,
     configPath: path.join(dataDir, 'daemon.json'),
     ...overrides,
   };

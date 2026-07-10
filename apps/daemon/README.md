@@ -69,6 +69,7 @@ Precedence, highest first: argv → env → `daemon.json` → defaults.
 | `--web-root` | `OH_DAEMON_WEB_ROOT` | `webRoot` | `web/` beside the daemon bundle |
 | `--config` | `OH_DAEMON_CONFIG` | — | `<data dir>/daemon.json` |
 | — | `OH_DAEMON_OIDC_CLIENT_SECRET` | `oidc` (object, see below) | SSO off |
+| — | `OH_DAEMON_AUDIT_RETENTION_DAYS` | `auditRetentionDays` | `90` |
 
 Everything the daemon persists (`storage.json`, `oracle.db`, blobs) lives under
 the data dir.
@@ -202,6 +203,26 @@ server {
 
 Clients then dial `wss://oh.example.com` with a paired token, exactly like a
 LAN join.
+
+## Audit log
+
+Every permission decision — allowed or denied, over WebSocket sync or MCP —
+is recorded durably in `oracle.db` with the acting user, capability,
+workspace, decision and timestamp. Entries are kept for `auditRetentionDays`
+(default 90; raise it for compliance retention — there is no upper cap) and
+pruned hourly.
+
+```sh
+oh daemon audit list                             # newest first, 50 rows
+oh daemon audit list --decision deny --since 7d
+oh daemon audit list --actor alice@openheaders.io --workspace <id>
+oh daemon audit export --since 2026-07-01 > audit.jsonl
+```
+
+`list` resolves actor names through the current user directory at view time;
+`export` emits the raw rows as JSONL, oldest first. Both work while the
+daemon runs — reads are lock-free. `--since`/`--until` take ISO date-times or
+relative forms (`30m`, `24h`, `7d`).
 
 ## Logs
 

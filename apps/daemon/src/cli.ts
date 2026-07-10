@@ -19,6 +19,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { formatBuildStamp, getBuildInfo } from './build-info';
+import { CONFIG_OPTIONS, parseConfigCommand, resolveConfigFlags } from './cli/config-flags';
 import {
   DAEMON_SETTING_KEYS,
   parseDaemonSettingKey,
@@ -39,20 +40,9 @@ import {
   resolveTokenUserBinding,
   revokeUserGrant,
 } from './cli/users';
-import { type DaemonConfig, resolveDaemonConfig } from './config';
+import type { DaemonConfig } from './config';
 
 const cliVersion: string = (createRequire(import.meta.url)('../package.json') as { version: string }).version;
-
-const CONFIG_OPTIONS = {
-  config: { type: 'string' },
-  'data-dir': { type: 'string' },
-  'bind-address': { type: 'string' },
-  'bind-port': { type: 'string' },
-  'log-level': { type: 'string' },
-  'trusted-proxy': { type: 'boolean' },
-  'allowed-host': { type: 'string', multiple: true },
-  'web-root': { type: 'string' },
-} as const;
 
 const USAGE = `oh v${cliVersion} — Open Headers command line
 
@@ -80,6 +70,9 @@ Commands:
                 viewers read, no grant = no access)
   user revoke-grant <id-or-email> <workspaceId>
                 Drop a user's grant on one workspace (daemon stopped)
+  audit list    Read the audit log, newest first (works while the daemon
+                runs; default --limit 50)
+  audit export  Emit matching audit rows as JSONL, oldest first
 
 Settable keys (booleans, default off):
   ${DAEMON_SETTING_KEYS.join(', ')}
@@ -100,57 +93,19 @@ Options (install / status / show-token / config):
   --user <id-or-email>     show-token only: bind the token to a directory user
                            (omit for a token that acts as the daemon operator)
   --email <address>        user add only: contact identity for the new user
+
+Options (audit list / export):
+  --actor <id-or-email>    Only rows for one directory user
+  --capability <name>      e.g. workspace.write, daemon.admin
+  --decision <allow|deny>  Only allows or only denies
+  --workspace <id>         Only rows scoped to one workspace
+  --since <when>           ISO date/time or relative (30m, 24h, 7d)
+  --until <when>           Upper bound, same forms (exclusive)
+  --limit <n>              Row cap (list defaults to 50; export unbounded)
 `;
 
 function serviceHost(): ServiceHost {
   return { platform: process.platform, homedir: os.homedir(), uid: process.getuid?.() ?? 0 };
-}
-
-interface ConfigFlagValues {
-  config?: string;
-  'data-dir'?: string;
-  'bind-address'?: string;
-  'bind-port'?: string;
-  'log-level'?: string;
-  'trusted-proxy'?: boolean;
-  'allowed-host'?: string[];
-  'web-root'?: string;
-}
-
-interface ParsedConfigCommand {
-  config: DaemonConfig;
-  /** The explicitly-given config flags, resolved — baked into service units. */
-  unitArgs: string[];
-}
-
-function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigCommand {
-  // Re-issue only the config flags — `resolveDaemonConfig` parses
-  // strictly and must not see command-specific ones like --label.
-  const configArgv: string[] = [];
-  for (const flag of ['config', 'data-dir', 'bind-address', 'bind-port', 'log-level', 'web-root'] as const) {
-    const value = values[flag];
-    if (typeof value === 'string') configArgv.push(`--${flag}`, value);
-  }
-  if (values['trusted-proxy']) configArgv.push('--trusted-proxy');
-  for (const host of values['allowed-host'] ?? []) configArgv.push('--allowed-host', host);
-  const config = resolveDaemonConfig({ argv: configArgv, env: process.env });
-  const unitArgs: string[] = [];
-  if (values.config !== undefined) unitArgs.push('--config', config.configPath);
-  if (values['data-dir'] !== undefined) unitArgs.push('--data-dir', config.dataDir);
-  if (values['bind-address'] !== undefined) unitArgs.push('--bind-address', config.bindAddress);
-  if (values['bind-port'] !== undefined) unitArgs.push('--bind-port', String(config.bindPort));
-  if (values['log-level'] !== undefined) unitArgs.push('--log-level', config.logLevel);
-  if (values['trusted-proxy'] !== undefined && config.trustedProxy) unitArgs.push('--trusted-proxy');
-  if (values['allowed-host'] !== undefined) {
-    for (const host of config.allowedHosts) unitArgs.push('--allowed-host', host);
-  }
-  if (values['web-root'] !== undefined && config.webRoot !== null) unitArgs.push('--web-root', config.webRoot);
-  return { config, unitArgs };
-}
-
-function parseConfigCommand(argv: readonly string[]): ParsedConfigCommand {
-  const { values } = parseArgs({ args: [...argv], options: CONFIG_OPTIONS });
-  return resolveConfigFlags(values);
 }
 
 async function commandInstall(argv: readonly string[]): Promise<void> {
@@ -370,6 +325,11 @@ async function main(): Promise<void> {
       return commandConfig(rest);
     case 'user':
       return commandUser(rest);
+    case 'audit':
+      // Loaded lazily: the audit reader is the one CLI path that
+      // reaches better-sqlite3, and the entry bundle must keep loading
+      // on hosts where the native binding failed to build.
+      return (await import('./cli/audit')).commandAudit(rest);
     default:
       console.log(USAGE);
       process.exitCode = 1;

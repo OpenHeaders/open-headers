@@ -166,13 +166,22 @@ export async function findUser(idOrEmail: string): Promise<DaemonUserRecord> {
 }
 
 /**
+ * Resolve a directory user by id or email against the daemon's own
+ * `storage.json`, installing storage first. Deactivated records
+ * resolve too — callers that need an active user check themselves.
+ */
+export async function resolveDirectoryUser(config: DaemonConfig, idOrEmail: string): Promise<DaemonUserRecord> {
+  installStorage(config);
+  return findUser(idOrEmail);
+}
+
+/**
  * Resolve the `--user` binding for `show-token`: id or email of an
  * ACTIVE directory user. Installs storage itself so `show-token` can
  * call it before its own mint (both hit the same `storage.json`).
  */
 export async function resolveTokenUserBinding(config: DaemonConfig, idOrEmail: string): Promise<DaemonUserRecord> {
-  installStorage(config);
-  const record = await findUser(idOrEmail);
+  const record = await resolveDirectoryUser(config, idOrEmail);
   if (record.deactivatedAt !== null) {
     throw new Error(`user '${record.user.displayName}' is deactivated — its tokens would be refused at the gate.`);
   }

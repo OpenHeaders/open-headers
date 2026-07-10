@@ -147,6 +147,21 @@ describe('resolveDaemonConfig — precedence', () => {
   });
 });
 
+describe('resolveDaemonConfig — audit retention', () => {
+  it('defaults to 90 days, reading the file value and the env on top', () => {
+    expect(resolve().auditRetentionDays).toBe(90);
+    const file = writeConfigFile({ auditRetentionDays: 730 });
+    expect(resolve(['--config', file]).auditRetentionDays).toBe(730);
+    expect(resolve(['--config', file], { OH_DAEMON_AUDIT_RETENTION_DAYS: '30' }).auditRetentionDays).toBe(30);
+  });
+
+  it('refuses a non-positive or non-numeric retention', () => {
+    expect(() => resolve(['--config', writeConfigFile({ auditRetentionDays: 0 })])).toThrow(/positive number/);
+    expect(() => resolve(['--config', writeConfigFile({ auditRetentionDays: 'forever' })])).toThrow(/must be a number/);
+    expect(() => resolve([], { OH_DAEMON_AUDIT_RETENTION_DAYS: 'x' })).toThrow(/positive number/);
+  });
+});
+
 describe('resolveDaemonConfig — validation', () => {
   it('rejects a bind address that is neither loopback nor all-interfaces', () => {
     expect(() => resolve(['--bind-address', '192.168.1.10'])).toThrow(/bind address/);

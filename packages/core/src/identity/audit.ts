@@ -3,8 +3,8 @@
  * (allow or deny). The default sink logs through the shared `logger`;
  * hosts swap in durable sinks via {@link setAuditSink} (extension SW
  * installs the IDB-backed `audit_counters` sink at boot per
- * UNIFIED_ORACLE_MODEL.md §9.5; desktop main installs a SQLite sink in
- * a later slice).
+ * UNIFIED_ORACLE_MODEL.md §9.5; the Node daemon spine installs the
+ * SQLite-backed sink for desktop main and the headless daemon).
  */
 
 import { logger } from '../utils/logger';

@@ -31,6 +31,7 @@ function makeConfig(): DaemonConfig {
     allowedHosts: [],
     webRoot: null,
     oidc: null,
+    auditRetentionDays: 90,
     configPath: path.join(dataDir, 'daemon.json'),
   };
 }
