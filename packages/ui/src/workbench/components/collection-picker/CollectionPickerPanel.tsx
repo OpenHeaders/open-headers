@@ -16,7 +16,7 @@ import type { Collection } from '@openheaders/core/types';
 import { Input, type InputRef, Typography, theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 const { Text } = Typography;
 
@@ -35,21 +35,27 @@ export interface CollectionPickerPanelProps {
   /** List panel height bounds — dense host modals pass smaller values. */
   listMaxHeight?: number;
   listMinHeight?: number;
+  /** Fired when Enter lands on the row that is ALREADY selected — the
+   *  host's confirm action, so Enter-Enter walks select → import. */
+  onConfirm?: () => void;
 }
 
-const CollectionPickerPanel: React.FC<CollectionPickerPanelProps> = ({
-  collections,
-  value,
-  onChange,
-  newCollectionName,
-  listMaxHeight = 180,
-  listMinHeight = 120,
-}) => {
+export interface CollectionPickerHandle {
+  /** Focus the search input, so hosts can route keyboard flows here. */
+  focusSearch: () => void;
+}
+
+const CollectionPickerPanel = forwardRef<CollectionPickerHandle, CollectionPickerPanelProps>(function CollectionPickerPanel(
+  { collections, value, onChange, newCollectionName, listMaxHeight = 180, listMinHeight = 120, onConfirm },
+  ref,
+) {
   const { token } = theme.useToken();
   const [search, setSearch] = useState('');
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<InputRef>(null);
+
+  useImperativeHandle(ref, () => ({ focusSearch: () => searchInputRef.current?.focus() }), []);
 
   const filter = search.trim().toLowerCase();
   const filteredCollections = useMemo(
@@ -99,10 +105,12 @@ const CollectionPickerPanel: React.FC<CollectionPickerPanelProps> = ({
       }
       if (e.key === 'Enter' && effectiveFocusId) {
         e.preventDefault();
+        const wasSelected = effectiveFocusId === selectedRowId;
         selectRow(effectiveFocusId);
+        if (wasSelected) onConfirm?.();
       }
     },
-    [rowIds, effectiveFocusId, scrollToId, selectRow],
+    [rowIds, effectiveFocusId, selectedRowId, scrollToId, selectRow, onConfirm],
   );
 
   return (
@@ -184,7 +192,7 @@ const CollectionPickerPanel: React.FC<CollectionPickerPanelProps> = ({
       </div>
     </div>
   );
-};
+});
 
 interface RowRenderOptions {
   rowId: string;

@@ -109,4 +109,29 @@ describe('CollectionPickerPanel', () => {
     fireEvent.keyDown(search, { key: 'Enter' });
     expect(onChange).toHaveBeenCalledWith('col00002');
   });
+
+  it('Enter on the already-selected row fires onConfirm (Enter-Enter imports)', () => {
+    const onChange = vi.fn();
+    const onConfirm = vi.fn();
+    render(
+      <CollectionPickerPanel
+        collections={collections}
+        value="col00001"
+        onChange={onChange}
+        onConfirm={onConfirm}
+        newCollectionName="imported.openheaders.io"
+      />,
+    );
+    const search = screen.getByPlaceholderText('Search for collection');
+    // Focus starts at the selected row — first Enter re-selects AND confirms.
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith('col00001');
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    // A row that is NOT selected only selects; no confirm.
+    onConfirm.mockClear();
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith('col00002');
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });

@@ -35,11 +35,13 @@ import {
   parseCurl,
 } from '@openheaders/core/import';
 import type { Collection, Request } from '@openheaders/core/types';
-import { Alert, App as AntApp, Button, Input, Modal, Tag, Typography, theme } from 'antd';
+import { Alert, App as AntApp, Button, Input, type InputRef, Modal, Tag, Tooltip, Typography, theme } from 'antd';
+import type { TextAreaRef } from 'antd/es/input/TextArea';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CollectionPickerPanel, NEW_COLLECTION_VALUE } from '../collection-picker';
+import { type CollectionPickerHandle, CollectionPickerPanel, NEW_COLLECTION_VALUE } from '../collection-picker';
 import ReimportDiffPanel from './ReimportDiffPanel';
+import { useImportShortcut } from './use-import-shortcut';
 
 const { Text, Paragraph } = Typography;
 
@@ -130,6 +132,9 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
   const [targetCollectionId, setTargetCollectionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [diff, setDiff] = useState<ImportReportDiff | null>(null);
+  const sourceInputRef = useRef<TextAreaRef>(null);
+  const nameInputRef = useRef<InputRef>(null);
+  const pickerRef = useRef<CollectionPickerHandle>(null);
 
   // Reset every time the modal OPENS so repeated imports start clean.
   // Guarded on the closed→open transition — store updates that change
@@ -148,6 +153,12 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION_VALUE);
     setBusy(false);
     setDiff(null);
+    // Focus lands where typing starts: on a hub hand-off the source is
+    // already parsed, so the NAME field; otherwise the paste area.
+    setTimeout(() => {
+      if (initialSource) nameInputRef.current?.focus();
+      else sourceInputRef.current?.focus();
+    }, 100);
   }, [open, initialCollectionId, initialSource, collections]);
 
   // Live parse. Empty input → no state (nothing to show). Parse
@@ -300,6 +311,20 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     }
   }, [parsed, source, name, targetCollectionId, createRequest, createCollection, newCollectionName, onImported, message]);
 
+  const confirmImport = useCallback(() => {
+    if (canImport) void handleImport();
+  }, [canImport, handleImport]);
+
+  const saveLabel = useImportShortcut(open, canImport, confirmImport);
+
+  const importTooltip = !parsed?.ok
+    ? 'Paste a curl command first'
+    : !name.trim()
+      ? 'Enter a name'
+      : saveLabel
+        ? `Import (${saveLabel})`
+        : 'Import';
+
   return (
     <Modal
       open={open}
@@ -311,17 +336,21 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
             <Button onClick={onCancel} size="small" disabled={busy}>
               Cancel
             </Button>
-            <Button
-              color="orange"
-              variant="solid"
-              size="small"
-              icon={<ImportOutlined />}
-              onClick={() => void handleImport()}
-              disabled={!canImport}
-              loading={busy}
-            >
-              Import
-            </Button>
+            <Tooltip title={importTooltip}>
+              <span>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<ImportOutlined />}
+                  onClick={confirmImport}
+                  disabled={!canImport}
+                  loading={busy}
+                  style={canImport ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
+                >
+                  Import
+                </Button>
+              </span>
+            </Tooltip>
           </div>
           {parsed?.ok && (
             <div
@@ -337,6 +366,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
             >
               <span>↑↓ navigate</span>
               <span>↵ select</span>
+              {saveLabel && <span>{saveLabel} import</span>}
               <span style={{ marginLeft: 'auto' }}>esc close</span>
             </div>
           )}
@@ -350,6 +380,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       </Paragraph>
 
       <Input.TextArea
+        ref={sourceInputRef}
         value={source}
         onChange={(e) => setSource(e.target.value)}
         placeholder={`curl -X POST 'https://api.openheaders.io/v1/things' \\
@@ -369,11 +400,19 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
           <div>
             <Text style={labelStyle}>NAME</Text>
             <Input
+              ref={nameInputRef}
               size="small"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
                 setNameDirty(true);
+              }}
+              onPressEnter={confirmImport}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  pickerRef.current?.focusSearch();
+                }
               }}
               placeholder="How this request appears in the sidebar"
               style={{ fontSize: 12 }}
@@ -382,12 +421,14 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
           <div>
             <Text style={labelStyle}>IMPORT TO</Text>
             <CollectionPickerPanel
+              ref={pickerRef}
               collections={collections}
               value={targetCollectionId}
               onChange={setTargetCollectionId}
               newCollectionName={newCollectionName}
               listMaxHeight={160}
               listMinHeight={100}
+              onConfirm={confirmImport}
             />
           </div>
 

@@ -40,10 +40,11 @@ import {
 } from '@openheaders/core/import';
 import type { Request, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { Alert, App as AntApp, Button, Divider, Input, Modal, Space, Tag, Typography, theme } from 'antd';
+import { Alert, App as AntApp, Button, Divider, Input, type InputRef, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ReimportDiffPanel from './ReimportDiffPanel';
+import { useImportShortcut } from './use-import-shortcut';
 
 const { Text, Paragraph } = Typography;
 
@@ -121,6 +122,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
   const [collectionName, setCollectionName] = useState('');
   const [busy, setBusy] = useState(false);
   const [diff, setDiff] = useState<ImportReportDiff | null>(null);
+  const nameInputRef = useRef<InputRef>(null);
 
   // Reset on open. Hub hand-offs arrive with the collection JSON
   // already read — parse straight away so the modal opens on the
@@ -133,6 +135,12 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
     setBusy(false);
     setDiff(null);
   }, [open, initialText]);
+
+  // Keyboard flow starts at the collection-name field once parsed —
+  // Enter there (or ⌘S anywhere) runs the import.
+  useEffect(() => {
+    if (open && stage.kind === 'parsed') setTimeout(() => nameInputRef.current?.focus(), 100);
+  }, [open, stage.kind]);
 
   // Re-import-diff lookup on every parse.
   useEffect(() => {
@@ -290,27 +298,64 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
     }
   }, [stage, collectionName, createCollection, createFolder, createRequest, createEnvironment, onImported, message]);
 
+  const confirmImport = useCallback(() => {
+    if (canImport) void handleImport();
+  }, [canImport, handleImport]);
+
+  const saveLabel = useImportShortcut(open, canImport, confirmImport);
+
+  const importTooltip =
+    stage.kind !== 'parsed'
+      ? 'Choose a collection file first'
+      : !collectionName.trim()
+        ? 'Enter a collection name'
+        : saveLabel
+          ? `Import (${saveLabel})`
+          : 'Import';
+
   return (
     <Modal
       open={open}
       title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT FROM POSTMAN</span>}
       onCancel={onCancel}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button onClick={onCancel} size="small" disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            color="orange"
-            variant="solid"
-            size="small"
-            icon={<ImportOutlined />}
-            onClick={() => void handleImport()}
-            disabled={!canImport}
-            loading={busy}
-          >
-            Import
-          </Button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={onCancel} size="small" disabled={busy}>
+              Cancel
+            </Button>
+            <Tooltip title={importTooltip}>
+              <span>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<ImportOutlined />}
+                  onClick={confirmImport}
+                  disabled={!canImport}
+                  loading={busy}
+                  style={canImport ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
+                >
+                  Import
+                </Button>
+              </span>
+            </Tooltip>
+          </div>
+          {stage.kind === 'parsed' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                fontSize: 10,
+                color: token.colorTextTertiary,
+                borderTop: `1px solid ${token.colorBorderSecondary}`,
+                paddingTop: 6,
+              }}
+            >
+              {saveLabel && <span>{saveLabel} import</span>}
+              <span style={{ marginLeft: 'auto' }}>esc close</span>
+            </div>
+          )}
         </div>
       }
       width={760}
@@ -344,9 +389,11 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
           <div style={{ marginBottom: 12 }}>
             <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>COLLECTION NAME</Text>
             <Input
+              ref={nameInputRef}
               size="small"
               value={collectionName}
               onChange={(e) => setCollectionName(e.target.value)}
+              onPressEnter={confirmImport}
               placeholder="Name for the new Collection"
               style={{ fontSize: 12 }}
             />

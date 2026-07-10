@@ -32,8 +32,9 @@ import type { Collection, Request } from '@openheaders/core/types';
 import { Alert, App as AntApp, Button, Checkbox, Input, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CollectionPickerPanel, NEW_COLLECTION_VALUE } from '../collection-picker';
+import { type CollectionPickerHandle, CollectionPickerPanel, NEW_COLLECTION_VALUE } from '../collection-picker';
 import ReimportDiffPanel from './ReimportDiffPanel';
+import { useImportShortcut } from './use-import-shortcut';
 
 const { Text, Paragraph } = Typography;
 
@@ -122,6 +123,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
   const [diff, setDiff] = useState<ImportReportDiff | null>(null);
+  const pickerRef = useRef<CollectionPickerHandle>(null);
 
   // Reset on OPEN so repeated imports start clean — guarded on the
   // closed→open transition so store updates that change `collections`
@@ -140,6 +142,12 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     setBusy(false);
     setDiff(null);
   }, [open, initialCollectionId, initialText, collections]);
+
+  // Keyboard flow starts at the picker's search — the HAR modal has no
+  // name field, so that's where ↑↓/Enter/⌘S become live after parse.
+  useEffect(() => {
+    if (open && stage.kind === 'parsed') setTimeout(() => pickerRef.current?.focusSearch(), 100);
+  }, [open, stage.kind]);
 
   // Hash the parsed HAR text once per file choice and look up a prior
   // report. Unlike curl (which parses on every keystroke) HAR parses
@@ -290,6 +298,21 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     }
   }, [stage, targetCollectionId, selectedCount, createRequest, createCollection, newCollectionName, onImported, message]);
 
+  const confirmImport = useCallback(() => {
+    if (canImport) void handleImport();
+  }, [canImport, handleImport]);
+
+  const saveLabel = useImportShortcut(open, canImport, confirmImport);
+
+  const importTooltip =
+    stage.kind !== 'parsed'
+      ? 'Choose a .har file first'
+      : selectedCount === 0
+        ? 'Select at least one entry'
+        : saveLabel
+          ? `Import (${saveLabel})`
+          : 'Import';
+
   return (
     <Modal
       open={open}
@@ -307,17 +330,21 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
               <Button onClick={onCancel} size="small" disabled={busy}>
                 Cancel
               </Button>
-              <Button
-                color="orange"
-                variant="solid"
-                size="small"
-                icon={<ImportOutlined />}
-                onClick={() => void handleImport()}
-                disabled={!canImport}
-                loading={busy}
-              >
-                Import {selectedCount > 0 ? `(${selectedCount})` : ''}
-              </Button>
+              <Tooltip title={importTooltip}>
+                <span>
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<ImportOutlined />}
+                    onClick={confirmImport}
+                    disabled={!canImport}
+                    loading={busy}
+                    style={canImport ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
+                  >
+                    Import {selectedCount > 0 ? `(${selectedCount})` : ''}
+                  </Button>
+                </span>
+              </Tooltip>
             </div>
           </div>
           {stage.kind === 'parsed' && (
@@ -334,6 +361,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
             >
               <span>↑↓ navigate</span>
               <span>↵ select</span>
+              {saveLabel && <span>{saveLabel} import</span>}
               <span style={{ marginLeft: 'auto' }}>esc close</span>
             </div>
           )}
@@ -368,12 +396,14 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
           <div style={{ marginBottom: 12 }}>
             <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>IMPORT TO</Text>
             <CollectionPickerPanel
+              ref={pickerRef}
               collections={collections}
               value={targetCollectionId}
               onChange={setTargetCollectionId}
               newCollectionName={newCollectionName}
               listMaxHeight={140}
               listMinHeight={90}
+              onConfirm={confirmImport}
             />
           </div>
 
