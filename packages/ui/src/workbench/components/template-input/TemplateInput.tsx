@@ -63,6 +63,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       style,
       className,
       onPressEnter,
+      onPasteIntercept,
       onFocus,
       onBlur,
       autoFocus,
@@ -144,6 +145,20 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       effectiveDisable,
       classify,
     });
+
+    // Give the caller first claim on a paste — a consumed paste (e.g.
+    // the URL bar routing a curl command into the import flow) never
+    // reaches the field.
+    const handlePasteWithIntercept = useCallback(
+      (e: React.ClipboardEvent<HTMLDivElement>) => {
+        if (onPasteIntercept?.(e.clipboardData.getData('text/plain'))) {
+          e.preventDefault();
+          return;
+        }
+        handlePaste(e);
+      },
+      [onPasteIntercept, handlePaste],
+    );
 
     // Sync external `value` prop → innerHTML. Only writes when the
     // current text content differs from `value` (prevents every
@@ -280,7 +295,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyUpOrMouseUp}
           onMouseUp={handleKeyUpOrMouseUp}
-          onPaste={handlePaste}
+          onPaste={handlePasteWithIntercept}
           onFocus={handleFocus}
           onBlur={handleBlur}
           onMouseOver={handleEditableMouseOver}

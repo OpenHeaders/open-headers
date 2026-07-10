@@ -79,6 +79,7 @@ import {
   EditingScopeWorkspaceProvider,
   useWorkbenchEditingScopeWorkspaceId,
 } from './hooks/EditingScopeWorkspaceContext';
+import { ImportTextProvider } from './hooks/ImportTextContext';
 import { OpenSettingsProvider } from './hooks/OpenSettingsContext';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
@@ -405,6 +406,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // component (mounted at the bottom of the shell); the shell owns only
   // the ref.
   const importExportRef = useRef<ImportExportModalsHandle>(null);
+
+  // Text-import routing for deep components (ImportTextContext) — e.g.
+  // the URL bar hands a pasted curl command to the curl import modal.
+  const importText = useCallback((text: string) => importExportRef.current?.openImportText(text), []);
 
   const focus = useFocusRegion({
     shellRef,
@@ -1135,6 +1140,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   return (
     <EnvSwitcherProvider collectionContext={envSwitcherCollectionContext}>
       <OpenSettingsProvider openSettings={openSettings}>
+      <ImportTextProvider importText={importText}>
       <VariablePopoverProvider>
         <ActiveTabEntityWriter value={activeTabEntity} />
         {/* BC-MWPT-11 — awareness publishes editing-scope so peers see
@@ -1364,6 +1370,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           </ConnectionProvider>
         </div>
       </VariablePopoverProvider>
+      </ImportTextProvider>
       </OpenSettingsProvider>
     </EnvSwitcherProvider>
   );

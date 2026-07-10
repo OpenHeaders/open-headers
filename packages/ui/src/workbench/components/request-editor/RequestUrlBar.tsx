@@ -9,12 +9,14 @@
 
 import { DeleteOutlined } from '@ant-design/icons';
 import { EntityField, REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
+import { detectImportSource } from '@openheaders/core/import';
 import type { HttpMethod } from '@openheaders/core/types';
 import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
 import { Select } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
+import { useImportText } from '../../hooks/ImportTextContext';
 import { METHOD_COLORS } from '../sidebar/icons';
 import { type Draft, draftParamsToQueryParams, mergeParamsFromUrl } from './draft';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
@@ -74,6 +76,7 @@ interface RequestUrlBarProps {
 const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnresolved, onSend }) => {
   const [customMethods, setCustomMethods] = useState<string[]>(readCustomMethods);
   const [methodSearch, setMethodSearch] = useState('');
+  const importText = useImportText();
 
   const removeCustomMethod = (method: string): void => {
     setCustomMethods((prev) => {
@@ -221,6 +224,15 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
             padding: `${(24 - 12 * TEMPLATE_INPUT_LINE_HEIGHT) / 2}px 7px`,
           }}
           onPressEnter={onSend}
+          // Pasting a curl command routes into the curl import flow
+          // pre-filled (the hub's hand-off) instead of landing as a
+          // garbage URL. Only curl is claimed — a pasted plain URL,
+          // template, or anything else still pastes normally.
+          onPasteIntercept={(text) => {
+            if (!importText || detectImportSource(text).kind !== 'curl') return false;
+            importText(text);
+            return true;
+          }}
           onBlur={() => {
             const trimmed = draft.url.trim();
             if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {

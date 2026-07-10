@@ -102,6 +102,11 @@ export interface TemplateInputProps {
   /** `onPressEnter` parity with AntD Input — fires when Enter is
    *  pressed and the popover is not handling it. */
   onPressEnter?: () => void;
+  /** Pre-insertion paste hook. Called with the clipboard's plain text
+   *  before it lands in the field; returning true consumes the paste
+   *  (nothing is inserted) — e.g. the URL bar routing a pasted curl
+   *  command into the import flow. Return false to paste normally. */
+  onPasteIntercept?: (text: string) => boolean;
   /** Forwarded to the editable. */
   onFocus?: (e: React.FocusEvent<HTMLDivElement>) => void;
   /** Forwarded to the editable. */

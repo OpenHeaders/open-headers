@@ -27,6 +27,11 @@ export interface ImportExportModalsHandle {
    *  a `collectionId` (context-menu "import into this collection")
    *  carries through to whichever flow the hub routes to. */
   openImportSource: (ctx?: { collectionId?: string }) => void;
+  /** Routes already-captured text (e.g. a curl command pasted into the
+   *  URL bar) straight to its stage-2 modal — the hub's detection +
+   *  hand-off without the hub modal. Unrecognized text is a no-op;
+   *  callers gate on `detectImportSource` before consuming the paste. */
+  openImportText: (text: string, ctx?: { collectionId?: string }) => void;
 }
 
 interface ImportExportModalsProps {
@@ -209,10 +214,9 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
    * collection context. `unknown` never reaches here — the hub keeps it
    * inline with a hint.
    */
-  const routeDetectedText = useCallback(
-    (detected: DetectedImportSource, text: string) => {
+  const routeText = useCallback(
+    (detected: DetectedImportSource, text: string, collectionId?: string) => {
       setImportSourceModalOpen(false);
-      const collectionId = importSourceContext?.collectionId;
       switch (detected.kind) {
         case 'curl':
           openImportCurl({ collectionId, initialSource: text });
@@ -233,7 +237,21 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           break;
       }
     },
-    [importSourceContext, openImportCurl, openImportHar, openImportPostman],
+    [openImportCurl, openImportHar, openImportPostman],
+  );
+
+  const routeDetectedText = useCallback(
+    (detected: DetectedImportSource, text: string) => routeText(detected, text, importSourceContext?.collectionId),
+    [routeText, importSourceContext],
+  );
+
+  const openImportText = useCallback(
+    (text: string, ctx?: { collectionId?: string }) => {
+      const detected = detectImportSource(text);
+      if (detected.kind === 'unknown') return;
+      routeText(detected, text, ctx?.collectionId);
+    },
+    [routeText],
   );
 
   const onImportFileChosen = useCallback(
@@ -257,7 +275,11 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     [routeDetectedText],
   );
 
-  useImperativeHandle(ref, () => ({ openExportModal, openImportSource }), [openExportModal, openImportSource]);
+  useImperativeHandle(
+    ref,
+    () => ({ openExportModal, openImportSource, openImportText }),
+    [openExportModal, openImportSource, openImportText],
+  );
 
   return (
     <>
