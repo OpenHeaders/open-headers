@@ -125,10 +125,11 @@ export function buildEditableStyle({
     // Masked values clip WITHOUT the ellipsis — a `…` after the discs
     // reads as noise. But plain overflow clipping paints right through
     // the padding-right gutter (clipping happens at the padding box),
-    // so the discs would run under the ✕ / grip; a clip-path at the
-    // rail inset cuts them at the content edge instead.
+    // so the discs would run under the ✕ / grip; a clip-path cuts them
+    // instead, backed off 4px past the content edge so the last disc
+    // doesn't butt against (or slice under) the first rail icon.
     textOverflow: displayCollapsed && !secret ? 'ellipsis' : undefined,
-    ...(displayCollapsed && secret && railInset > 0 ? { clipPath: `inset(0 ${railInset}px 0 0)` } : null),
+    ...(displayCollapsed && secret && railInset > 0 ? { clipPath: `inset(0 ${railInset + 4}px 0 0)` } : null),
     // Auto-grow cap for the wrapped editor (`multiline`, `wrap`, or an
     // expand-on-focus field while active): ~maxRows lines (lineHeight
     // 1.5714) + a little padding allowance; past it the surface
