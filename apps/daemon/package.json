@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "pack": "vite build && node scripts/pack.mjs",
-    "clean": "rm -rf dist dist-package"
+    "pack:sea": "vite build --config vite.config.sea.ts && node scripts/pack-sea.mjs",
+    "clean": "rm -rf dist dist-package dist-sea"
   },
   "dependencies": {
     "@openheaders/core": "workspace:*",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.15",
+    "postject": "^1.0.0-alpha.6",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.1.0"

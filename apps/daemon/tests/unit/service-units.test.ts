@@ -15,8 +15,7 @@ import {
 } from '../../src/cli/service-units';
 
 const def: ServiceDefinition = {
-  nodeBin: '/usr/local/bin/node',
-  mainJs: '/opt/openheaders daemon/dist/main.js',
+  command: ['/usr/local/bin/node', '/opt/openheaders daemon/dist/main.js'],
   args: ['--bind-address', '0.0.0.0', '--bind-port', '9000'],
   logFile: '/home/oh/.local/state/openheaders-daemon/logs/daemon.log',
 };
@@ -24,7 +23,7 @@ const def: ServiceDefinition = {
 describe('renderLaunchdPlist', () => {
   const plist = renderLaunchdPlist(def);
 
-  it('execs node + main.js + the baked flags, in order', () => {
+  it('execs the command + the baked flags, in order', () => {
     const strings = [...plist.matchAll(/<string>([^<]*)<\/string>/g)].map((m) => m[1]);
     expect(strings).toEqual([
       LAUNCHD_LABEL,
@@ -46,7 +45,7 @@ describe('renderLaunchdPlist', () => {
   });
 
   it('escapes XML-special characters in paths', () => {
-    const escaped = renderLaunchdPlist({ ...def, mainJs: '/srv/a&b/main.js' });
+    const escaped = renderLaunchdPlist({ ...def, command: ['/usr/local/bin/node', '/srv/a&b/main.js'] });
     expect(escaped).toContain('<string>/srv/a&amp;b/main.js</string>');
     expect(escaped).not.toContain('/srv/a&b/');
   });

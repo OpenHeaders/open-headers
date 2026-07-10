@@ -1,0 +1,48 @@
+/**
+ * SEA bundle build — one CommonJS file (`dist-sea/oh.cjs`) holding the
+ * whole distribution: the CLI entry plus the daemon spine behind `oh
+ * daemon run`. Node's single-executable injection requires a CJS
+ * entry, and the blob resolves no sibling files, so chunking is off
+ * and every dynamic import is inlined.
+ *
+ * `better-sqlite3` is not external here (nothing beside the blob to
+ * require) — the specifier is aliased to the lazy SEA shim, which
+ * unpacks the embedded native payload on first construction. The
+ * enterprise packing constraint holds: everything the binary runs is
+ * inside the binary.
+ */
+
+import * as path from 'node:path';
+import { defineConfig } from 'vite';
+import { readBuildInfo } from './vite.build-info';
+
+const buildInfo = readBuildInfo(__dirname);
+
+export default defineConfig({
+  define: {
+    __BUILD_INFO__: JSON.stringify(buildInfo),
+  },
+  resolve: {
+    alias: {
+      'better-sqlite3': path.resolve(__dirname, 'src/sea/sqlite-shim.ts'),
+    },
+  },
+  build: {
+    target: 'node22',
+    ssr: true,
+    outDir: 'dist-sea',
+    emptyOutDir: true,
+    minify: false,
+    rollupOptions: {
+      input: { oh: 'src/cli.ts' },
+      output: {
+        format: 'cjs',
+        entryFileNames: '[name].cjs',
+        inlineDynamicImports: true,
+      },
+    },
+  },
+  ssr: {
+    noExternal: true,
+  },
+});

@@ -23,8 +23,7 @@ function makeHost(platform: NodeJS.Platform): ServiceHost {
 
 function makeDef(homedir: string): ServiceDefinition {
   return {
-    nodeBin: '/usr/bin/node',
-    mainJs: '/opt/oh/dist/main.js',
+    command: ['/usr/bin/node', '/opt/oh/dist/main.js'],
     args: [],
     logFile: path.join(homedir, 'logs', 'daemon.log'),
   };

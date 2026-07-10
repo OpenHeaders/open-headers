@@ -5,6 +5,7 @@ node_modules/
 dist/
 dist-webpack/
 dist-package/
+dist-sea/
 packages/core/dist/
 .turbo/
 .electron-vite/

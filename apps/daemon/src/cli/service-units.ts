@@ -4,19 +4,19 @@
  * user LaunchAgent on macOS and a systemd user unit on Linux. No I/O
  * here; `service-manager.ts` owns paths and process control.
  *
- * The unit execs the plain-Node entry (`node dist/main.js`) directly —
- * absolute binary + absolute script, so the service survives PATH and
- * cwd differences between login shells and the service manager.
+ * The unit execs the daemon entry directly — absolute binary plus its
+ * fixed arguments (`node dist/main.js` for the plain-Node
+ * distribution, `oh daemon run` for the single-binary SEA build), so
+ * the service survives PATH and cwd differences between login shells
+ * and the service manager.
  */
 
 export const LAUNCHD_LABEL = 'io.openheaders.daemon';
 export const SYSTEMD_UNIT_NAME = 'oh-daemon.service';
 
 export interface ServiceDefinition {
-  /** Absolute path to the Node binary (`process.execPath`). */
-  nodeBin: string;
-  /** Absolute path to the daemon entry (`dist/main.js`). */
-  mainJs: string;
+  /** The daemon exec line: absolute program path plus its fixed arguments. */
+  command: readonly string[];
   /** Config flags baked into the unit (already resolved/absolute). */
   args: readonly string[];
   /** Absolute path the daemon's stdout/stderr append to. */
@@ -28,7 +28,7 @@ function xmlEscape(text: string): string {
 }
 
 export function renderLaunchdPlist(def: ServiceDefinition): string {
-  const programArguments = [def.nodeBin, def.mainJs, ...def.args]
+  const programArguments = [...def.command, ...def.args]
     .map((arg) => `    <string>${xmlEscape(arg)}</string>`)
     .join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -64,7 +64,7 @@ function systemdQuote(arg: string): string {
 }
 
 export function renderSystemdUnit(def: ServiceDefinition): string {
-  const execStart = [def.nodeBin, def.mainJs, ...def.args].map(systemdQuote).join(' ');
+  const execStart = [...def.command, ...def.args].map(systemdQuote).join(' ');
   return `[Unit]
 Description=Open Headers daemon
 

@@ -26,6 +26,24 @@ The native SQLite module is built for your machine's Node at install time
 (prebuilt bindings for common platforms; a compiler toolchain only if none
 matches).
 
+### Single binary (no Node required)
+
+Each release also ships `oh` as one self-contained executable per
+platform/arch, built with Node's single-executable packaging
+(`pnpm --filter @openheaders/daemon pack:sea` from a checkout, on the machine
+you target). Everything is inside the binary — the bundled runtime, the CLI,
+the daemon, the web app, and the compiled SQLite addon. On first use the
+binary unpacks the addon (and the web app) to
+`<state dir>/sea/<build>/` — a native module can only load from disk — with
+checksum-verified, crash-safe unpacking; set `OH_DAEMON_UNPACK_DIR` to move
+that base. All commands are identical; the service unit written by
+`oh daemon install` execs `oh daemon run` instead of `node dist/main.js`.
+
+`oh daemon run` also works in the npm distribution: it runs the daemon in the
+foreground (Ctrl-C / SIGTERM shuts it down cleanly), which is handy under
+container supervisors and for trying things out before installing a service
+unit.
+
 ## Quick start
 
 ```sh

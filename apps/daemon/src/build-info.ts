@@ -7,6 +7,8 @@
  * ships no UI bundle.
  */
 
+import { createRequire } from 'node:module';
+
 export interface DaemonBuildInfo {
   version: string;
   commit: string;
@@ -18,6 +20,18 @@ export interface DaemonBuildInfo {
 
 export function getBuildInfo(): DaemonBuildInfo | null {
   return typeof __BUILD_INFO__ === 'undefined' ? null : __BUILD_INFO__;
+}
+
+/**
+ * The distribution's version string — the build metadata when bundled,
+ * else the package manifest (unbundled runs only; the manifest read is
+ * relative to `src/`, which every bundle leaves behind, and the SEA
+ * binary carries no manifest file at all).
+ */
+export function resolveAppVersion(): string {
+  const info = getBuildInfo();
+  if (info !== null) return info.version;
+  return (createRequire(import.meta.url)('../package.json') as { version: string }).version;
 }
 
 /**

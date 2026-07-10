@@ -13,12 +13,12 @@
  * module failed to build.
  */
 
-import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { isSea } from 'node:sea';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { formatBuildStamp, getBuildInfo } from './build-info';
+import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
 import { CONFIG_OPTIONS, parseConfigCommand, resolveConfigFlags } from './cli/config-flags';
 import {
   DAEMON_SETTING_KEYS,
@@ -44,7 +44,7 @@ import {
 } from './cli/users';
 import type { DaemonConfig } from './config';
 
-const cliVersion: string = (createRequire(import.meta.url)('../package.json') as { version: string }).version;
+const cliVersion: string = resolveAppVersion();
 
 const USAGE = `oh v${cliVersion} — Open Headers command line
 
@@ -54,6 +54,8 @@ Commands:
   install       Write the user service unit (launchd/systemd) for the daemon
   start         Start the installed service
   stop          Stop the installed service
+  run           Run the daemon in the foreground (what the service unit
+                execs; Ctrl-C / SIGTERM shuts it down cleanly)
   status        Probe the daemon's /healthz; --verbose reads /metrics
                 (peers, throughput, audit counts — needs a paired token
                 via --token or OH_DAEMON_TOKEN)
@@ -124,17 +126,26 @@ function serviceHost(): ServiceHost {
   return { platform: process.platform, homedir: os.homedir(), uid: process.getuid?.() ?? 0 };
 }
 
+/**
+ * The unit's exec line. The plain-Node distribution execs the daemon
+ * entry beside this bundle; the SEA binary has no separate entry file
+ * — the executable IS the daemon, entered through `oh daemon run`.
+ */
+function daemonExecCommand(): string[] {
+  if (isSea()) return [process.execPath, 'daemon', 'run'];
+  return [process.execPath, path.join(path.dirname(fileURLToPath(import.meta.url)), 'main.js')];
+}
+
 async function commandInstall(argv: readonly string[]): Promise<void> {
   const { config, unitArgs } = parseConfigCommand(argv);
-  const mainJs = path.join(path.dirname(fileURLToPath(import.meta.url)), 'main.js');
+  const command = daemonExecCommand();
   const { unitPath, notes } = await installServiceUnit(serviceHost(), {
-    nodeBin: process.execPath,
-    mainJs,
+    command,
     args: unitArgs,
     logFile: path.join(config.dataDir, 'logs', 'daemon.log'),
   });
   console.log(`Installed ${unitPath}`);
-  console.log(`  exec: ${process.execPath} ${mainJs}${unitArgs.length ? ` ${unitArgs.join(' ')}` : ''}`);
+  console.log(`  exec: ${command.join(' ')}${unitArgs.length ? ` ${unitArgs.join(' ')}` : ''}`);
   console.log(`  bind: ${config.bindAddress}:${config.bindPort}, data dir: ${config.dataDir}`);
   for (const note of notes) {
     console.log(`  ${note}`);
@@ -340,6 +351,11 @@ async function main(): Promise<void> {
       return startService(serviceHost()).then(() => console.log('started'));
     case 'stop':
       return stopService(serviceHost()).then(() => console.log('stopped'));
+    case 'run':
+      // Lazy like audit/backup: the spine reaches better-sqlite3, and
+      // the entry bundle must keep loading on hosts where the native
+      // binding failed to build.
+      return (await import('./daemon-run')).runDaemon(rest);
     case 'status':
       return commandStatus(rest);
     case 'show-token':
