@@ -14,4 +14,15 @@ export {
   type JWTExpirationInfo,
   validateJSON,
 } from './jwt';
+export {
+  attachJwtEditTarget,
+  buildJwtLinks,
+  JWT_LINK_SCHEME,
+  type JwtLinkModel,
+  type JwtLinkTarget,
+  parseJwtLinkUrl,
+  registerJwtLinkPlane,
+} from './monaco-jwt-links';
+export { type JwtScanHit, scanForJWTs } from './scan';
 export { type JwtEditActionResult, useJwtEditAction } from './useJwtEditAction';
+export { type MonacoJwtEditResult, useMonacoJwtEdit } from './useMonacoJwtEdit';

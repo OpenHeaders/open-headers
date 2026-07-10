@@ -241,6 +241,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             onChange={(content) => onChange(rawBodyOf(raw, content))}
             language={rawLangForEditor}
             minHeight={240}
+            valueDetection
             onEditorMount={(ed) => {
               rawEditorRef.current = ed;
             }}

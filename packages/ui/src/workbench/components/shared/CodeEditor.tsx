@@ -33,6 +33,7 @@ import { useSettingValue } from '../../settings/hooks';
 // `loader.init`.
 import '../monaco/bootstrap';
 import { useMonacoVariableCompletions } from '../template-input';
+import { useMonacoJwtEdit } from '../value-editors';
 
 /** Monaco language ids that have a registered formatter — either
  *  Monaco's built-in LSP (JSON / CSS / HTML) or our Prettier provider
@@ -71,6 +72,11 @@ interface CodeEditorProps {
    *  For hosts with their own Wrap Lines toggle (e.g. the response
    *  body viewer); omit to follow the setting. */
   wordWrapOverride?: 'on' | 'off';
+  /** When true, detected values inside the buffer get an editor
+   *  affordance — JWTs become "Edit JWT" links (cmd/ctrl+click) that
+   *  open the shared JWT modal and write the edited token back in
+   *  place. Off by default; the raw request-body editor opts in. */
+  valueDetection?: boolean;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -84,8 +90,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   variableAutoComplete = true,
   onEditorMount,
   wordWrapOverride,
+  valueDetection = false,
 }) => {
   const registerCompletions = useMonacoVariableCompletions();
+  const { attachJwtDetection, jwtModal } = useMonacoJwtEdit();
   const { token } = theme.useToken();
   const { monacoTheme } = useUiTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -265,6 +273,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           // custom keybinding registration is needed — Monaco dispatches
           // to the language's formatter provider on its own.
           if (variableAutoComplete) registerCompletions(monacoApi);
+          if (valueDetection) attachJwtDetection(ed, monacoApi);
           onEditorMount?.(ed, monacoApi);
         }}
         onChange={(next) => {
@@ -374,6 +383,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           />
         </div>
       )}
+      {jwtModal}
     </div>
   );
 };
