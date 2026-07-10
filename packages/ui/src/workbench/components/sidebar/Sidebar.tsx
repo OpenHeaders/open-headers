@@ -114,9 +114,8 @@ interface SidebarProps {
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
-  onImportCurl?: (context?: { collectionId?: string }) => void;
-  onImportHar?: (context?: { collectionId?: string }) => void;
-  onImportPostman?: () => void;
+  /** Opens the import hub (single "Import…" entry; formats auto-detected). */
+  onImport?: (context?: { collectionId?: string }) => void;
   filterRef?: React.Ref<InputRef>;
   dirtyRuleUids?: ReadonlySet<string>;
   dirtyRequestUids?: ReadonlySet<string>;
@@ -169,9 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectRequest,
   onCreateRequest,
   onSelectResponseExample,
-  onImportCurl,
-  onImportHar,
-  onImportPostman,
+  onImport,
   filterRef,
   dirtyRuleUids,
   dirtyRequestUids,
@@ -606,9 +603,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const requestImportMenuItems = buildRequestImportMenuItems({
     createNewRequestCollection,
     onCreateRequest,
-    onImportCurl,
-    onImportHar,
-    onImportPostman,
+    onImport,
   });
 
   const { renderTreeNodeRow, renderEmptyState, renderNodes, renderFolderDndNodes } = useSidebarNodeRenderers({

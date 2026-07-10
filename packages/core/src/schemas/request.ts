@@ -60,6 +60,15 @@ export const OAuth2UiGrantTypeSchema = v.picklist([
 ]);
 
 /**
+ * Suspends the auth contribution without discarding its configuration —
+ * unchecking the auth-derived `Authorization` row in the Headers table
+ * sets this; re-checking clears it. The executor skips `applyAuth`
+ * entirely while set. Declared on every variant (including `none` /
+ * `inherit`) so callers can read `auth.disabled` without narrowing.
+ */
+const AuthDisabledSchema = v.optional(v.boolean());
+
+/**
  * First-class OAuth 2.0 / OIDC auth config (ARCHITECTURE §18).
  *
  * `credentialRef` is a stable per-request key used by the extension's
@@ -80,6 +89,7 @@ export const OAuth2UiGrantTypeSchema = v.picklist([
  */
 export const OAuth2AuthSchema = v.object({
   type: v.literal('oauth2'),
+  disabled: AuthDisabledSchema,
   /**
    * Stable per-request credential id. The extension's token store keys
    * by this; moving a request between workspaces keeps its tokens.
@@ -160,22 +170,25 @@ export const OAuth2AuthSchema = v.object({
 });
 
 export const AuthConfigSchema = v.variant('type', [
-  v.object({ type: v.literal('none') }),
-  v.object({ type: v.literal('inherit') }),
+  v.object({ type: v.literal('none'), disabled: AuthDisabledSchema }),
+  v.object({ type: v.literal('inherit'), disabled: AuthDisabledSchema }),
   v.object({
     type: v.literal('basic'),
     username: v.string(),
     password: v.string(),
+    disabled: AuthDisabledSchema,
   }),
   v.object({
     type: v.literal('bearer'),
     token: v.string(),
+    disabled: AuthDisabledSchema,
   }),
   v.object({
     type: v.literal('api-key'),
     key: v.string(),
     value: v.string(),
     in: v.picklist(['header', 'query']),
+    disabled: AuthDisabledSchema,
   }),
   OAuth2AuthSchema,
 ]);

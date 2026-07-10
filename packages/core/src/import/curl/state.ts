@@ -20,6 +20,17 @@ export interface ParserState {
    * expect their body to land as-entered).
    */
   dataKind: 'raw' | 'encoded' | 'urlencoded' | null;
+  /**
+   * `-G` / `--get` — curl appends the data parts to the URL as a query
+   * string and sends GET. Finalize moves the body into query params.
+   */
+  forceGet: boolean;
+  /**
+   * `--json` — shorthand for `--data-raw` + `Content-Type` and
+   * `Accept: application/json`. Finalize pins body.type=json and adds
+   * the two headers when absent, matching what curl puts on the wire.
+   */
+  jsonBody: boolean;
   auth: AuthConfig | null;
   /**
    * Multipart parts assembled from `-F` / `--form` flags. Text

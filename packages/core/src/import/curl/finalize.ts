@@ -38,8 +38,20 @@ export function finalize(state: ParserState, report: ImportReport): CurlRequest 
     outHeaders.push({ uid: generateUid(), key: h.key, value: h.value });
   }
 
+  // --json pins the body type and carries the two headers curl itself
+  // puts on the wire (when the paste didn't already include them).
+  if (state.jsonBody) {
+    if (!contentTypeOf(outHeaders)) {
+      outHeaders.push({ uid: generateUid(), key: 'Content-Type', value: 'application/json' });
+    }
+    if (!outHeaders.some((h) => h.key.toLowerCase() === 'accept')) {
+      outHeaders.push({ uid: generateUid(), key: 'Accept', value: 'application/json' });
+    }
+  }
+
   // Body: `-F` overrides `-d` (curl itself rejects mixing them; we
   // take the richer shape and emit a report entry if we found both).
+  // `-G` moves the data parts into the query string, per curl.
   // Otherwise join repeated data parts per curl's convention.
   let body: RequestBody;
   if (state.multipartParts.length > 0) {
@@ -51,18 +63,31 @@ export function finalize(state: ParserState, report: ImportReport): CurlRequest 
       });
     }
     body = { type: 'multipart', multipartParts: state.multipartParts };
+  } else if (state.forceGet && state.dataParts.length > 0) {
+    const moved = dataPartsAsFields(state.dataParts, state.dataKind, report);
+    for (const field of moved) {
+      params.push({ uid: generateUid(), key: field.key, value: field.value });
+    }
+    recordTransform(report, {
+      path: 'body',
+      from: `-d ×${state.dataParts.length}`,
+      to: `query params ×${moved.length}`,
+      reason: '-G/--get sends the data as a query string, so the parts land as query params instead of a body.',
+      tracking: 'PERMANENT: curl -G semantics',
+    });
+    body = { type: 'none' };
   } else {
     // Decide body.type from Content-Type header (json wins for
-    // application/json); everything else falls back to `text`. The
-    // executor encodes `json` bodies as `application/json` on the
-    // wire, so the user's ergonomic expectation is preserved.
-    body = buildBody(state.dataParts, state.dataKind, outHeaders);
+    // application/json); with no header, infer — JSON-shaped content
+    // lands on the JSON tab, and `-d` payloads land as structured
+    // form fields (curl's own default wire encoding).
+    body = buildBody(state.dataParts, state.dataKind, outHeaders, report, state.jsonBody);
   }
 
   // Method inference: if the user passed `-d` or `-F` with no `-X`,
   // curl sends POST. Honor that so imported requests don't silently
-  // fire a GET with a body attached.
-  const hasBody = state.dataParts.length > 0 || state.multipartParts.length > 0;
+  // fire a GET with a body attached. `-G` reverts to GET.
+  const hasBody = body.type !== 'none';
   const method: HttpMethod = state.method ?? (hasBody ? 'POST' : 'GET');
 
   return {
@@ -152,26 +177,132 @@ function redactToken(value: string): string {
   return `${match[1]} ***`;
 }
 
-function buildBody(parts: string[], kind: ParserState['dataKind'], headers: RequestHeader[]): RequestBody {
+function buildBody(
+  parts: string[],
+  kind: ParserState['dataKind'],
+  headers: RequestHeader[],
+  report: ImportReport,
+  jsonPinned: boolean,
+): RequestBody {
   if (parts.length === 0) {
     return { type: 'none' };
+  }
+  // `--data-urlencode` is per-field: each flag is one key=value pair
+  // whose value stays literal (curl encodes it on the wire). Joining
+  // then re-splitting would corrupt values containing `&`/`=`.
+  if (kind === 'urlencoded') {
+    const fields: Array<{ uid: string; key: string; value: string }> = [];
+    for (let i = 0; i < parts.length; i++) {
+      const field = parseUrlencodePart(parts[i], report, i);
+      if (field) fields.push({ uid: generateUid(), ...field });
+    }
+    return { type: 'form', formParts: fields };
   }
   // curl semantics: `-d` joins multiple with `&`, `--data-raw`
   // concatenates verbatim. We pick the less-destructive join: `&`
   // when the first flag was form-ish, otherwise newline.
   const content = kind === 'raw' ? parts.join('\n') : parts.join('&');
-  const contentType = contentTypeOf(headers);
-  if (contentType && /\bapplication\/json\b/i.test(contentType)) {
+  if (jsonPinned) {
     return { type: 'json', content };
   }
-  // form-urlencoded Content-Type → split into structured form fields
-  // so the editor's form-urlencoded tab renders rows. Sending a curl
-  // request with `-d 'a=1&b=2' -H 'Content-Type: application/x-www-form-urlencoded'`
-  // is the canonical shape we want the user to land on.
-  if (contentType && /application\/x-www-form-urlencoded/i.test(contentType)) {
+  const contentType = contentTypeOf(headers);
+  if (contentType) {
+    if (/\bapplication\/json\b/i.test(contentType)) {
+      return { type: 'json', content };
+    }
+    // form-urlencoded Content-Type → split into structured form fields
+    // so the editor's form-urlencoded tab renders rows. Sending a curl
+    // request with `-d 'a=1&b=2' -H 'Content-Type: application/x-www-form-urlencoded'`
+    // is the canonical shape we want the user to land on.
+    if (/application\/x-www-form-urlencoded/i.test(contentType)) {
+      return { type: 'form', formParts: parseFormFields(content) };
+    }
+    return { type: 'text', content };
+  }
+  // No Content-Type on the paste — infer. JSON-shaped content means
+  // the user's intent is a JSON body regardless of what curl would
+  // put on the wire; otherwise `-d` payloads follow curl's default
+  // form-urlencoded encoding.
+  if (looksLikeJson(content)) {
+    recordTransform(report, {
+      path: 'body',
+      from: 'text',
+      to: 'json',
+      reason: 'No Content-Type header; the body parses as JSON, so it lands on the JSON editor tab.',
+      tracking: 'PERMANENT: body-type inference',
+    });
+    return { type: 'json', content };
+  }
+  if (kind === 'encoded') {
+    recordTransform(report, {
+      path: 'body',
+      from: 'text',
+      to: 'form',
+      reason: 'No Content-Type header; curl sends -d payloads form-urlencoded, so the body lands as structured form fields.',
+      tracking: 'PERMANENT: body-type inference',
+    });
     return { type: 'form', formParts: parseFormFields(content) };
   }
   return { type: 'text', content };
+}
+
+function looksLikeJson(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return false;
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One `--data-urlencode` flag value → one form field. curl's grammar:
+ * `name=content` / `=content` / `content` are literal content (encoded
+ * by curl on the wire); `name@file` / `@file` read from disk, which an
+ * import boundary can't do — those drop with a report entry.
+ */
+function parseUrlencodePart(
+  raw: string,
+  report: ImportReport,
+  index: number,
+): { key: string; value: string } | null {
+  const eq = raw.indexOf('=');
+  const at = raw.indexOf('@');
+  if (eq < 0 && at >= 0) {
+    recordDrop(report, {
+      path: `flag:--data-urlencode[${index}]`,
+      reason: `File-reading form (${raw}) needs filesystem access, which imports don't have. Enter the value in the editor instead.`,
+      tracking: 'PERMANENT: browser-context fetch',
+    });
+    return null;
+  }
+  if (eq < 0) {
+    return { key: '', value: raw };
+  }
+  return { key: raw.slice(0, eq), value: raw.slice(eq + 1) };
+}
+
+/**
+ * `-G` support: data parts become query-param fields. Urlencoded parts
+ * are per-field literals; `-d`/raw parts join with `&` and split with
+ * percent-decoding, mirroring what curl appends to the URL.
+ */
+function dataPartsAsFields(
+  parts: string[],
+  kind: ParserState['dataKind'],
+  report: ImportReport,
+): Array<{ key: string; value: string }> {
+  if (kind === 'urlencoded') {
+    const fields: Array<{ key: string; value: string }> = [];
+    for (let i = 0; i < parts.length; i++) {
+      const field = parseUrlencodePart(parts[i], report, i);
+      if (field) fields.push(field);
+    }
+    return fields;
+  }
+  return parseFormFields(parts.join('&')).map(({ key, value }) => ({ key, value }));
 }
 
 function parseFormFields(encoded: string): Array<{ uid: string; key: string; value: string }> {

@@ -7,11 +7,12 @@
  * Authorization header is assembled.
  */
 
+import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
-import { Select, Typography, theme } from 'antd';
+import { Button, Select, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
 import { TemplateInput } from '../template-input';
@@ -65,7 +66,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 300px) 1fr', gap: 32, minHeight: 320 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 210px) 1fr', gap: 20, minHeight: 320 }}>
       {/* Left rail — sticks to the top of the scroll container so the
           auth-type picker stays visible while the right pane's long
           OAuth 2.0 form scrolls past it. `align-self: start` keeps
@@ -108,7 +109,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
       {/* Right pane */}
       <div
         style={{
-          paddingLeft: 24,
+          paddingLeft: 16,
           borderLeft: `1px solid ${token.colorBorderSecondary}`,
           minWidth: 0,
         }}
@@ -182,9 +183,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
               />
             </LabeledRow>
             <LabeledRow label="Password">
-              <TemplateInput
-                size="small"
-                secret
+              <SecretField
                 value={auth.password}
                 onChange={(next) => onChange({ ...auth, password: next })}
                 placeholder="password"
@@ -196,9 +195,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         {auth.type === 'bearer' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 540 }}>
             <LabeledRow label="Token">
-              <TemplateInput
-                size="small"
-                secret
+              <SecretField
                 value={auth.token}
                 onChange={(next) => onChange({ ...auth, token: next })}
                 placeholder="bearer token"
@@ -218,9 +215,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
               />
             </LabeledRow>
             <LabeledRow label="Value">
-              <TemplateInput
-                size="small"
-                secret
+              <SecretField
                 value={auth.value}
                 onChange={(next) => onChange({ ...auth, value: next })}
                 placeholder="api key value"
@@ -331,10 +326,48 @@ const OAuth2LeftRailControls: React.FC<{
 // ── Shared row ─────────────────────────────────────────────────────
 
 const LabeledRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'center', gap: 16 }}>
-    <Text style={{ fontSize: 13 }}>{label}</Text>
-    <div>{children}</div>
+  <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', alignItems: 'start', gap: 12 }}>
+    <Text style={{ fontSize: 13, lineHeight: '24px' }}>{label}</Text>
+    <div style={{ minWidth: 0 }}>{children}</div>
   </div>
 );
+
+// ── Secret credential field ────────────────────────────────────────
+//
+// Long secrets (a 500-char JWT) must never force the tab to scroll
+// horizontally: collapsed, the field is one masked line with an
+// ellipsis; focusing it expands to a textarea-style surface that
+// wraps, grows to ~7 lines, then inner-scrolls. The eye button
+// reveals/masks the literal characters (`{{ref}}` spans are always
+// readable either way).
+
+const SecretField: React.FC<{
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+}> = ({ value, onChange, placeholder }) => {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <div style={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
+      <TemplateInput
+        size="small"
+        secret={!revealed}
+        expandOnFocus
+        maxRows={7}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        style={{ flex: 1, minWidth: 0 }}
+      />
+      <Button
+        size="small"
+        type="text"
+        icon={revealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+        onClick={() => setRevealed((v) => !v)}
+        aria-label={revealed ? 'Hide value' : 'Show value'}
+      />
+    </div>
+  );
+};
 
 export default AuthorizationTab;

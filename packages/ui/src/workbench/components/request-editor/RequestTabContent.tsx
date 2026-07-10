@@ -27,6 +27,9 @@ interface RequestTabContentProps {
   workspaceId?: string | null;
   /** Open the Package Library tab (Scripts tab's Packages popover). */
   onOpenPackageLibrary?: () => void;
+  /** Switch the editor's active sub-tab — drives the generated rows'
+   *  "Go to …" jump links (Headers/Params → Authorization/Body/Settings). */
+  onNavigateTab?: (tab: TabKey) => void;
 }
 
 const RequestTabContent: React.FC<RequestTabContentProps> = ({
@@ -37,6 +40,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   paramConflictBridge,
   workspaceId,
   onOpenPackageLibrary,
+  onNavigateTab,
 }) => {
   switch (tab) {
     case 'docs':
@@ -47,6 +51,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           rows={draft.params}
           onChange={(params) => setDraft((d) => ({ ...d, params }))}
           auth={draft.auth}
+          onAuthChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+          onNavigateTab={onNavigateTab}
           conflictBridge={paramConflictBridge}
         />
       );
@@ -59,6 +65,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
           body={draft.body}
           auth={draft.auth}
+          onAuthChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+          onNavigateTab={onNavigateTab}
           conflictBridge={headerConflictBridge}
         />
       );

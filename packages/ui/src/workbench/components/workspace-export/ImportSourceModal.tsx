@@ -1,58 +1,75 @@
 /**
- * Drop-zone modal that precedes the import-preview. Replaces the bare
- * native file picker with a proper UX: a drag-and-drop target plus a
- * "Browse files…" button.
+ * Import hub modal — the single "Import…" entry point (IMPORT_PLAN.md
+ * §2.1). One surface accepts anything importable and routes by content,
+ * never by asking the user for a format:
  *
- * Triggered by the workspace's "Import from file…" menu entry AND by
- * the `open-import-picker` workspace-intent dispatched from popup /
- * sidepanel surfaces. On a successful pick / drop the modal hands the
- * file to `onFileChosen` (same handler the bare native picker fed) and
- * closes; the existing pipeline (parse → preview modal) takes over.
+ *   • Paste field (autofocused): a pasted curl command / bare URL /
+ *     HAR / Postman / workspace-export text is classified by
+ *     `detectImportSource` and handed off via `onTextDetected` — on
+ *     paste the hand-off is automatic (the host closes this modal and
+ *     opens the matching stage-2 modal pre-filled); typed input goes
+ *     through the same detection behind an explicit Continue button so
+ *     half-typed commands don't get yanked away mid-keystroke.
+ *   • Drop zone / file picker: files are handed to `onFileChosen`; the
+ *     host reads the text and routes by the same detection.
  *
- * The drop zone accepts any single file — `parseWorkspaceExport` is
- * the source of truth for "is this a valid envelope?", so we don't
- * pre-filter by extension. Multi-file drop falls through to the
- * caller's existing multi-file queue (App.tsx) by dispatching the
- * first file here and letting the queue mechanism handle the rest.
+ * Unknown input renders an inline hint — the hub never dead-ends.
  */
 
-import { CloseOutlined, InboxOutlined, UploadOutlined } from '@ant-design/icons';
-import { Button, Modal, Skeleton, Typography, theme } from 'antd';
+import { ArrowRightOutlined, CloseOutlined, InboxOutlined, UploadOutlined } from '@ant-design/icons';
+import { detectImportSource } from '@openheaders/core/import';
+import { Button, Input, Modal, Skeleton, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 const { Text } = Typography;
 
 interface Props {
   open: boolean;
   onCancel: () => void;
-  /** Hand-off to the existing `App.tsx` import pipeline. */
+  /**
+   * A pasted/typed source was recognized. `detected.kind` is never
+   * `'unknown'` — unrecognized text stays in the hub with a hint.
+   */
+  onTextDetected: (detected: ReturnType<typeof detectImportSource>, text: string) => void;
+  /** Hand-off for picked/dropped files; the host routes by content. */
   onFileChosen: (file: File) => void;
   /** When true, the drop zone is replaced with a skeleton + "Reading
    *  file…" line. The host flips this on right after `onFileChosen`
-   *  fires and clears it (or closes the modal) once the preview modal
+   *  fires and clears it (or closes the modal) once the next modal
    *  is ready, so the user sees one continuous loading affordance
-   *  instead of a 1 s frozen-button gap before the preview opens. */
+   *  instead of a 1 s frozen-button gap. */
   loading?: boolean;
 }
 
-const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onFileChosen, loading = false }) => {
+const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onTextDetected, onFileChosen, loading = false }) => {
   const { token } = theme.useToken();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const pasteJustHappened = useRef(false);
+
+  const detected = useMemo(() => detectImportSource(pasteText), [pasteText]);
+  const recognized = detected.kind !== 'unknown';
 
   const pickFile = useCallback(() => inputRef.current?.click(), []);
 
   const handleFiles = useCallback(
     (files: FileList | File[] | null) => {
       if (!files || files.length === 0) return;
-      const list = Array.from(files);
-      // Forward all files. App.tsx already maintains a multi-file queue
-      // that opens the preview modal once per file in sequence.
-      for (const f of list) onFileChosen(f);
+      // Forward all files. The host maintains a multi-file queue that
+      // routes / previews once per file in sequence.
+      for (const f of Array.from(files)) onFileChosen(f);
     },
     [onFileChosen],
   );
+
+  const submitText = useCallback(() => {
+    const d = detectImportSource(pasteText);
+    if (d.kind === 'unknown') return;
+    setPasteText('');
+    onTextDetected(d, pasteText);
+  }, [pasteText, onTextDetected]);
 
   return (
     <Modal
@@ -81,18 +98,12 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onFileChosen, load
           background: token.colorBgLayout,
         }}
       >
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT</span>
         <div style={{ flex: 1 }} />
         <Button type="text" size="small" icon={<CloseOutlined />} onClick={onCancel} aria-label="Close import" />
       </div>
 
-      {/* Drop zone OR loading skeleton — same outer card so the
-          transition is visually a content swap, not a layout shift.
-          When the host flips `loading` (right after onFileChosen
-          fires), we replace the drop zone with a shimmer + reading
-          line; the host then closes this modal as soon as the preview
-          modal becomes ready. */}
-      <div style={{ padding: '6px 6px 12px 6px' }}>
+      <div style={{ padding: '6px 6px 12px 6px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         {loading ? (
           <div
             style={{
@@ -114,82 +125,133 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onFileChosen, load
             <Skeleton active title={false} paragraph={{ rows: 5, width: ['72%', '54%', '68%', '60%', '78%'] }} />
           </div>
         ) : (
-          <div
-            // The drop zone is also clickable as a `Browse…` shortcut.
-            // Marking it `role="button"` quiets a11y lint without
-            // changing behaviour — the visible <Button> below stays the
-            // primary affordance; this just makes the whole zone
-            // discoverable to keyboard / screen-reader users.
-            role="button"
-            tabIndex={0}
-            aria-label="Drop a workspace export file here, or activate to browse"
-            onClick={pickFile}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
+          <>
+            {/* Paste field — pasting a recognized source hands off
+                immediately; typed input confirms via Enter / the
+                arrow button. */}
+            <div style={{ background: token.colorBgContainer, borderRadius: 6, padding: 8 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                <Input.TextArea
+                  autoFocus
+                  value={pasteText}
+                  placeholder="Paste a curl command or URL"
+                  autoSize={{ minRows: 1, maxRows: 6 }}
+                  style={{ fontFamily: 'var(--ant-font-family-code)', fontSize: 12 }}
+                  onPaste={() => {
+                    pasteJustHappened.current = true;
+                  }}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setPasteText(text);
+                    if (pasteJustHappened.current) {
+                      pasteJustHappened.current = false;
+                      const d = detectImportSource(text);
+                      if (d.kind !== 'unknown') {
+                        setPasteText('');
+                        onTextDetected(d, text);
+                      }
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      submitText();
+                    }
+                  }}
+                />
+                {recognized && (
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<ArrowRightOutlined />}
+                    onClick={submitText}
+                    aria-label="Continue import"
+                    style={{ marginTop: 2 }}
+                  />
+                )}
+              </div>
+              {pasteText.trim().length > 0 && !recognized && (
+                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                  Not recognized yet — paste a curl command, a URL, a HAR, a Postman export, or a workspace export.
+                </Text>
+              )}
+            </div>
+
+            <div
+              // The drop zone is also clickable as a `Browse…` shortcut.
+              role="button"
+              tabIndex={0}
+              aria-label="Drop an importable file here, or activate to browse"
+              onClick={pickFile}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  pickFile();
+                }
+              }}
+              onDragEnter={(e) => {
                 e.preventDefault();
-                pickFile();
-              }
-            }}
-            onDragEnter={(e) => {
-              e.preventDefault();
-              setDragActive(true);
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragActive(true);
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragActive(false);
-              handleFiles(e.dataTransfer.files);
-            }}
-            style={{
-              background: dragActive ? token.colorPrimaryBg : token.colorBgContainer,
-              borderRadius: 6,
-              border: `2px dashed ${dragActive ? token.colorPrimary : token.colorBorder}`,
-              padding: '40px 24px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 12,
-              transition: 'border-color 120ms ease, background 120ms ease',
-            }}
-          >
-            <InboxOutlined style={{ fontSize: 40, color: dragActive ? token.colorPrimary : token.colorTextTertiary }} />
-            <Text strong style={{ fontSize: 14 }}>
-              Drop a workspace export here
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', maxWidth: 360 }}>
-              Any <code>.openheaders.yaml</code> file your team or playground generated. Drag it onto this area, or pick
-              it from your computer.
-            </Text>
-            <Button
-              type="primary"
-              icon={<UploadOutlined />}
-              // Stop propagation: the parent zone div is also `role="button"`
-              // wired to `pickFile`, so without this the Button's click
-              // bubbles up and the OS file picker opens twice.
-              onClick={(e) => {
-                e.stopPropagation();
-                pickFile();
+                setDragActive(true);
               }}
-              style={{ marginTop: 4 }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragActive(false);
+                handleFiles(e.dataTransfer.files);
+              }}
+              style={{
+                background: dragActive ? token.colorPrimaryBg : token.colorBgContainer,
+                borderRadius: 6,
+                border: `2px dashed ${dragActive ? token.colorPrimary : token.colorBorder}`,
+                padding: '32px 24px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 12,
+                transition: 'border-color 120ms ease, background 120ms ease',
+              }}
             >
-              Browse files…
-            </Button>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".yaml,.yml,application/yaml,text/yaml,text/plain"
-              multiple
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                handleFiles(e.target.files);
-                if (inputRef.current) inputRef.current.value = '';
-              }}
-            />
-          </div>
+              <InboxOutlined
+                style={{ fontSize: 40, color: dragActive ? token.colorPrimary : token.colorTextTertiary }}
+              />
+              <Text strong style={{ fontSize: 14 }}>
+                Drop a file to import
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', maxWidth: 360 }}>
+                HAR, Postman collection, or <code>.openheaders.yaml</code> workspace export — the format is recognized
+                automatically.
+              </Text>
+              <Button
+                type="primary"
+                icon={<UploadOutlined />}
+                // Stop propagation: the parent zone div is also `role="button"`
+                // wired to `pickFile`, so without this the Button's click
+                // bubbles up and the OS file picker opens twice.
+                onClick={(e) => {
+                  e.stopPropagation();
+                  pickFile();
+                }}
+                style={{ marginTop: 4 }}
+              >
+                Browse files…
+              </Button>
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".har,.json,.yaml,.yml,application/json,application/yaml,text/yaml,text/plain"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  handleFiles(e.target.files);
+                  if (inputRef.current) inputRef.current.value = '';
+                }}
+              />
+            </div>
+          </>
         )}
       </div>
     </Modal>

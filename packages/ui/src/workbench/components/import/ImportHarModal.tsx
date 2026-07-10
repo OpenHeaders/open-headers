@@ -16,7 +16,7 @@
  * selection. Selecting fewer entries reduces `summary.imported`.
  */
 
-import { DownloadOutlined, InfoCircleOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
+import { DownloadOutlined, InfoCircleOutlined, PlusOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
 import {
   diffImportReports,
   type HarParsedEntry,
@@ -44,10 +44,13 @@ import {
   theme,
 } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReimportDiffPanel from './ReimportDiffPanel';
 
 const { Text, Paragraph } = Typography;
+
+/** Sentinel Select value for the "create a new collection on import" option. */
+const NEW_COLLECTION = '__oh-new-collection__';
 
 interface ImportHarModalProps {
   open: boolean;
@@ -55,6 +58,12 @@ interface ImportHarModalProps {
   collections: Collection[];
   /** Id of the collection in focus when the modal opened (preselect). */
   initialCollectionId?: string;
+  /**
+   * Pre-read HAR text — set when the import hub detected a pasted or
+   * dropped HAR and handed off to this modal. Parsed on open, skipping
+   * the file-picker stage.
+   */
+  initialText?: string;
   onCancel: () => void;
   /**
    * Called after a successful import run with the new request uids
@@ -74,6 +83,12 @@ interface ImportHarModalProps {
     seed: Partial<Request>;
   }) => Promise<{ uid: string } | null>;
   /**
+   * Creates a collection so the import never blocks on "no collections
+   * yet". Auto-selected when the workspace has none; always offered as
+   * the last Select option otherwise.
+   */
+  createCollection: (name: string) => Promise<{ uid: string } | null>;
+  /**
    * Look up a prior import report by source hash so the modal can
    * render a re-import-diff banner when the same HAR is re-imported.
    * Same semantics as {@link ImportCurlModal}.
@@ -88,13 +103,31 @@ type Stage =
 
 const MAX_ENTRIES_DISPLAY = 200;
 
+/**
+ * Parses HAR text into a stage. Default to all entries selected —
+ * users who imported the file usually want everything; they narrow
+ * from there.
+ */
+function parseHarText(text: string): Stage {
+  try {
+    const result = parseHar(text);
+    const selection = new Set(result.entries.map((e) => e.index));
+    return { kind: 'parsed', source: text, result, selection };
+  } catch (err) {
+    const msg = err instanceof HarParseError ? err.message : `Failed to read HAR: ${String(err)}`;
+    return { kind: 'error', message: msg };
+  }
+}
+
 const ImportHarModal: React.FC<ImportHarModalProps> = ({
   open,
   collections,
   initialCollectionId,
+  initialText,
   onCancel,
   onImported,
   createRequest,
+  createCollection,
   findPreviousReport,
 }) => {
   const { token } = theme.useToken();
@@ -105,15 +138,23 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
   const [busy, setBusy] = useState(false);
   const [diff, setDiff] = useState<ImportReportDiff | null>(null);
 
-  // Reset on every open so repeated imports start clean.
+  // Reset on OPEN so repeated imports start clean — guarded on the
+  // closed→open transition so store updates that change `collections`
+  // identity mid-import don't wipe the parsed stage or the user's
+  // entry selection. Hub hand-offs arrive with the HAR text already
+  // read — parse straight away so the modal opens on the entry
+  // checklist instead of the file picker.
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    setStage({ kind: 'empty' });
-    setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? null);
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (!open || wasOpen) return;
+    setStage(initialText ? parseHarText(initialText) : { kind: 'empty' });
+    setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION);
     setFilter('');
     setBusy(false);
     setDiff(null);
-  }, [open, initialCollectionId, collections]);
+  }, [open, initialCollectionId, initialText, collections]);
 
   // Hash the parsed HAR text once per file choice and look up a prior
   // report. Unlike curl (which parses on every keystroke) HAR parses
@@ -146,17 +187,12 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
   }, [stage, findPreviousReport]);
 
   const handleFilePicked = useCallback(async (file: File) => {
-    try {
-      const text = await file.text();
-      const result = parseHar(text);
-      // Default to all entries selected — users who imported the file
-      // usually want everything; they narrow from there.
-      const selection = new Set(result.entries.map((e) => e.index));
-      setStage({ kind: 'parsed', source: text, result, selection });
-    } catch (err) {
-      const msg = err instanceof HarParseError ? err.message : `Failed to read HAR: ${String(err)}`;
-      setStage({ kind: 'error', message: msg });
+    const text = await file.text().catch((err: Error) => err);
+    if (text instanceof Error) {
+      setStage({ kind: 'error', message: `Failed to read HAR: ${text.message}` });
+      return;
     }
+    setStage(parseHarText(text));
   }, []);
 
   const toggleEntry = useCallback((index: number) => {
@@ -191,6 +227,47 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     });
   }, [stage, filter]);
 
+  // Name for an auto-created collection: the most common hostname
+  // across the parsed entries reads naturally in the sidebar; fall
+  // back to a generic label when nothing parses.
+  const newCollectionName = useMemo(() => {
+    if (stage.kind !== 'parsed') return 'Imported requests';
+    const counts = new Map<string, number>();
+    for (const entry of stage.result.entries) {
+      try {
+        const host = new URL(entry.request.url).hostname;
+        if (host) counts.set(host, (counts.get(host) ?? 0) + 1);
+      } catch {
+        // unparseable URL — skip
+      }
+    }
+    let best: string | null = null;
+    let bestCount = 0;
+    for (const [host, count] of counts) {
+      if (count > bestCount) {
+        best = host;
+        bestCount = count;
+      }
+    }
+    return best ?? 'Imported requests';
+  }, [stage]);
+
+  const collectionOptions = useMemo(
+    () => [
+      ...collections.map((c) => ({ label: c.name, value: c.uid })),
+      {
+        label: (
+          <span>
+            <PlusOutlined style={{ fontSize: 10, marginRight: 6 }} />
+            New collection <Text type="secondary">“{newCollectionName}”</Text>
+          </span>
+        ),
+        value: NEW_COLLECTION,
+      },
+    ],
+    [collections, newCollectionName],
+  );
+
   const selectedCount = stage.kind === 'parsed' ? stage.selection.size : 0;
   const canImport = stage.kind === 'parsed' && selectedCount > 0 && targetCollectionId !== null && !busy;
 
@@ -198,6 +275,15 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     if (stage.kind !== 'parsed' || !targetCollectionId || selectedCount === 0) return;
     setBusy(true);
     try {
+      let collectionUid = targetCollectionId;
+      if (collectionUid === NEW_COLLECTION) {
+        const collection = await createCollection(newCollectionName);
+        if (!collection) {
+          message.error('Failed to create collection');
+          return;
+        }
+        collectionUid = collection.uid;
+      }
       const narrowed = selectHarEntries(stage.result, Array.from(stage.selection));
       const hash = await hashImportSource(stage.source);
       const requestUids: string[] = [];
@@ -215,13 +301,13 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
         };
         const created = await createRequest({
           name: entry.request.name,
-          collectionUid: targetCollectionId,
+          collectionUid,
           seed,
         });
         if (created) requestUids.push(created.uid);
       }
       const report: ImportReport = { ...narrowed.report, sourceHash: hash };
-      onImported({ requestUids, collectionId: targetCollectionId, sourceHash: hash, report });
+      onImported({ requestUids, collectionId: collectionUid, sourceHash: hash, report });
       const summaryLine = requestUids.length === 1 ? 'Imported 1 request' : `Imported ${requestUids.length} requests`;
       message.success(
         report.summary.dropped + report.summary.transformed === 0
@@ -233,7 +319,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     } finally {
       setBusy(false);
     }
-  }, [stage, targetCollectionId, selectedCount, createRequest, onImported, message]);
+  }, [stage, targetCollectionId, selectedCount, createRequest, createCollection, newCollectionName, onImported, message]);
 
   return (
     <Modal
@@ -297,9 +383,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
               onChange={(id) => setTargetCollectionId(id)}
               size="small"
               style={{ width: '100%' }}
-              options={collections.map((c) => ({ label: c.name, value: c.uid }))}
-              placeholder={collections.length === 0 ? 'No collections yet — create one first' : 'Select a collection'}
-              disabled={collections.length === 0}
+              options={collectionOptions}
             />
           </div>
 

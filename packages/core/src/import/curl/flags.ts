@@ -62,11 +62,30 @@ export function consumeToken(
       return cursor + 2;
     }
 
-    // ── Basic auth ─────────────────────────────────────────────────
+    // ── Header-shorthand flags ─────────────────────────────────────
+    case '-A':
+    case '--user-agent': {
+      const value = requireNext(tokens, cursor, token);
+      state.headers.push({ key: 'User-Agent', value });
+      return cursor + 2;
+    }
+    case '-e':
+    case '--referer': {
+      const value = requireNext(tokens, cursor, token);
+      state.headers.push({ key: 'Referer', value });
+      return cursor + 2;
+    }
+
+    // ── Auth ───────────────────────────────────────────────────────
     case '-u':
     case '--user': {
       const value = requireNext(tokens, cursor, token);
       state.auth = parseUserFlag(value);
+      return cursor + 2;
+    }
+    case '--oauth2-bearer': {
+      const value = requireNext(tokens, cursor, token);
+      state.auth = { type: 'bearer', token: value };
       return cursor + 2;
     }
 
@@ -92,6 +111,26 @@ export function consumeToken(
       state.dataKind ??= 'urlencoded';
       return cursor + 2;
     }
+    case '--json': {
+      // Shorthand for --data-raw + JSON Content-Type/Accept headers.
+      const value = requireNext(tokens, cursor, token);
+      state.dataParts.push(value);
+      state.dataKind ??= 'raw';
+      state.jsonBody = true;
+      return cursor + 2;
+    }
+
+    // ── Method / query shorthands ─────────────────────────────────
+    case '-I':
+    case '--head': {
+      state.method ??= 'HEAD';
+      return cursor + 1;
+    }
+    case '-G':
+    case '--get': {
+      state.forceGet = true;
+      return cursor + 1;
+    }
 
     // ── Tolerated flags (no-op but don't surprise the user) ───────
     case '--compressed':
@@ -101,10 +140,19 @@ export function consumeToken(
     case '--verbose':
     case '-s':
     case '--silent':
+    case '-S':
+    case '--show-error':
+    case '-f':
+    case '--fail':
+    case '-g':
+    case '--globoff':
     case '-L':
     case '--location':
     case '-n':
     case '--netrc':
+    case '--http1.1':
+    case '--http2':
+    case '--http3':
       return cursor + 1;
 
     // ── Multipart form parts ──────────────────────────────────────
@@ -162,6 +210,27 @@ export function consumeToken(
 
     // ── Unknown flag ──────────────────────────────────────────────
     default: {
+      // Clustered short flags (`-sSL`, `-fsSL` — common in docs and
+      // install snippets): expand and re-dispatch when every letter is
+      // a known argument-less flag; a single unknown letter falls
+      // through to the drop below so nothing is half-applied.
+      if (/^-[A-Za-z]{2,}$/.test(token)) {
+        const letters = token.slice(1).split('');
+        if (letters.every((c) => CLUSTERABLE_FLAGS.has(c))) {
+          for (const c of letters) consumeToken(`-${c}`, [`-${c}`], 0, state, report);
+          return cursor + 1;
+        }
+        // Cluster-shaped but with an unknown letter: drop it whole and
+        // WITHOUT consuming the next token — clusters are argument-less
+        // by shape, and the takes-arg heuristic below would swallow the
+        // URL on inputs like `curl -sZ https://…`.
+        recordDrop(report, {
+          path: `flag:${token}`,
+          reason: 'Unrecognized flag cluster. If this is important, file an issue so we can map it to the request model.',
+          tracking: '#todo-curl-coverage',
+        });
+        return cursor + 1;
+      }
       // If the unknown flag takes an argument (starts with `-` and
       // the next token doesn't), consume both to stay in sync.
       const next = tokens[cursor + 1];
@@ -177,6 +246,13 @@ export function consumeToken(
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Single-letter flags that take no argument and may appear clustered
+ * (`-sSL`). Each letter must have its own `case` above — the cluster
+ * expander re-dispatches through `consumeToken` one letter at a time.
+ */
+const CLUSTERABLE_FLAGS: ReadonlySet<string> = new Set(['s', 'S', 'v', 'i', 'f', 'g', 'L', 'n', 'k', 'I', 'G']);
 
 function requireNext(tokens: string[], cursor: number, flag: string): string {
   const next = tokens[cursor + 1];

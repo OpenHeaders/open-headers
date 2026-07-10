@@ -167,9 +167,21 @@ describe('parseCurl — headers', () => {
 });
 
 describe('parseCurl — body data', () => {
-  it('sets body.type=text for plain -d without Content-Type', () => {
-    const { request } = parseCurl("curl -d 'a=1&b=2' https://api.openheaders.io/echo");
-    expect(request.body).toEqual({ type: 'text', content: 'a=1&b=2' });
+  it('infers form fields for plain -d without Content-Type (curl default wire encoding)', () => {
+    const { request, report } = parseCurl("curl -d 'a=1&b=2' https://api.openheaders.io/echo");
+    expect(request.body.type).toBe('form');
+    if (request.body.type !== 'form') throw new Error('expected form body');
+    expect(stripUids(request.body.formParts)).toEqual([
+      { key: 'a', value: '1' },
+      { key: 'b', value: '2' },
+    ]);
+    expect(report.transforms.some((t) => t.path === 'body' && t.to === 'form')).toBe(true);
+  });
+
+  it('infers a JSON body for -d without Content-Type when the payload parses as JSON', () => {
+    const { request, report } = parseCurl('curl -d \'{"a":1}\' https://api.openheaders.io/echo');
+    expect(request.body).toEqual({ type: 'json', content: '{"a":1}' });
+    expect(report.transforms.some((t) => t.path === 'body' && t.to === 'json')).toBe(true);
   });
 
   it('promotes body to type=json when Content-Type is application/json', () => {
@@ -192,9 +204,74 @@ describe('parseCurl — body data', () => {
     });
   });
 
-  it('joins multiple -d parts with &', () => {
+  it('joins multiple -d parts with & (landing as form fields without a Content-Type)', () => {
     const { request } = parseCurl("curl -d 'a=1' -d 'b=2' https://api.openheaders.io/echo");
-    expect(request.body).toEqual({ type: 'text', content: 'a=1&b=2' });
+    expect(request.body.type).toBe('form');
+    if (request.body.type !== 'form') throw new Error('expected form body');
+    expect(stripUids(request.body.formParts)).toEqual([
+      { key: 'a', value: '1' },
+      { key: 'b', value: '2' },
+    ]);
+  });
+
+  it('maps --data-urlencode flags to one literal form field each', () => {
+    const { request } = parseCurl(
+      "curl -X POST --data-urlencode 'user=dorina' --data-urlencode 'pass=x y & z=1' https://api.openheaders.io/login",
+    );
+    expect(request.body.type).toBe('form');
+    if (request.body.type !== 'form') throw new Error('expected form body');
+    // Values stay literal — curl encodes on the wire; splitting on
+    // &/= would corrupt them.
+    expect(stripUids(request.body.formParts)).toEqual([
+      { key: 'user', value: 'dorina' },
+      { key: 'pass', value: 'x y & z=1' },
+    ]);
+  });
+
+  it('drops --data-urlencode file-reading forms with a report entry', () => {
+    const { request, report } = parseCurl(
+      "curl --data-urlencode 'payload@body.txt' --data-urlencode 'a=1' https://api.openheaders.io",
+    );
+    expect(request.body.type).toBe('form');
+    if (request.body.type !== 'form') throw new Error('expected form body');
+    expect(stripUids(request.body.formParts)).toEqual([{ key: 'a', value: '1' }]);
+    expect(report.drops.some((d) => d.path.startsWith('flag:--data-urlencode'))).toBe(true);
+  });
+
+  it('maps --json to a JSON body and adds the headers curl sends', () => {
+    const { request } = parseCurl('curl --json \'{"a":1}\' https://api.openheaders.io/v1');
+    expect(request.method).toBe('POST');
+    expect(request.body).toEqual({ type: 'json', content: '{"a":1}' });
+    const keys = request.headers.map((h) => `${h.key.toLowerCase()}:${h.value}`);
+    expect(keys).toContain('content-type:application/json');
+    expect(keys).toContain('accept:application/json');
+  });
+
+  it('does not duplicate headers the paste already carries alongside --json', () => {
+    const { request } = parseCurl(
+      "curl --json '{\"a\":1}' -H 'Content-Type: application/json' -H 'Accept: text/plain' https://api.openheaders.io",
+    );
+    expect(request.headers.filter((h) => h.key.toLowerCase() === 'content-type')).toHaveLength(1);
+    expect(request.headers.filter((h) => h.key.toLowerCase() === 'accept')).toHaveLength(1);
+  });
+
+  it('moves -d parts into query params under -G', () => {
+    const { request, report } = parseCurl("curl -G -d 'q=hello world' -d 'page=2' https://api.openheaders.io/search");
+    expect(request.method).toBe('GET');
+    expect(request.body).toEqual({ type: 'none' });
+    expect(stripUids(request.params)).toEqual([
+      { key: 'q', value: 'hello world' },
+      { key: 'page', value: '2' },
+    ]);
+    expect(report.transforms.some((t) => t.path === 'body' && t.to.startsWith('query params'))).toBe(true);
+  });
+
+  it('appends -G params after existing URL query params', () => {
+    const { request } = parseCurl("curl -G --data-urlencode 'q=a&b' 'https://api.openheaders.io/search?lang=en'");
+    expect(stripUids(request.params)).toEqual([
+      { key: 'lang', value: 'en' },
+      { key: 'q', value: 'a&b' },
+    ]);
   });
 
   it('keeps --data-raw joined with newline (preserves JSON-ish bodies verbatim)', () => {
@@ -240,6 +317,20 @@ describe('parseCurl — auth', () => {
     const { request } = parseCurl("curl -H 'Authorization: Scheme xyz' https://api.openheaders.io");
     expect(request.auth).toEqual({ type: 'none' });
     expect(stripUids(request.headers)).toEqual([{ key: 'Authorization', value: 'Scheme xyz' }]);
+  });
+
+  it('maps --oauth2-bearer to bearer auth', () => {
+    const { request } = parseCurl("curl --oauth2-bearer 'tok-123' https://api.openheaders.io");
+    expect(request.auth).toEqual({ type: 'bearer', token: 'tok-123' });
+  });
+
+  it('promotes a realistic long JWT bearer header intact', () => {
+    const jwt = `eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.${'eyJzdWIiOiJ1c3JfOGYyYzFhOWI0ZTdkIn0'.repeat(8)}.MEUCIQDkx7Vm9pJhK3TqWzYbN2fLg8RcAeXo5uHdSvB1nC4t6w`;
+    const { request, report } = parseCurl(`curl -H 'Authorization: Bearer ${jwt}' https://api.openheaders.io/v1/me`);
+    expect(request.auth).toEqual({ type: 'bearer', token: jwt });
+    // The report must never leak the token — only the redacted scheme.
+    const transform = report.transforms.find((t) => t.to === 'auth.bearer');
+    expect(transform?.from).toBe('Authorization: Bearer ***');
   });
 
   it('prefers -u over an Authorization header (explicit wins)', () => {
@@ -299,8 +390,56 @@ describe('parseCurl — drops (logged, not silent)', () => {
   });
 
   it('tolerates noop flags without drops', () => {
-    const { report } = parseCurl('curl -s -L --compressed https://api.openheaders.io');
+    const { report } = parseCurl('curl -s -L --compressed --http2 -f https://api.openheaders.io');
     expect(report.drops).toEqual([]);
+  });
+});
+
+describe('parseCurl — flag shorthands + clusters', () => {
+  it('maps -A and -e to their headers', () => {
+    const { request } = parseCurl("curl -A 'oh-agent/1.0' -e 'https://openheaders.io' https://api.openheaders.io");
+    expect(stripUids(request.headers)).toEqual([
+      { key: 'User-Agent', value: 'oh-agent/1.0' },
+      { key: 'Referer', value: 'https://openheaders.io' },
+    ]);
+  });
+
+  it('maps -I/--head to method HEAD', () => {
+    expect(parseCurl('curl -I https://api.openheaders.io').request.method).toBe('HEAD');
+    expect(parseCurl('curl --head https://api.openheaders.io').request.method).toBe('HEAD');
+  });
+
+  it('lets an explicit -X win over -I', () => {
+    const { request } = parseCurl('curl -X OPTIONS -I https://api.openheaders.io');
+    expect(request.method).toBe('OPTIONS');
+  });
+
+  it('expands clustered short flags (-fsSL) without drops', () => {
+    const { request, report } = parseCurl('curl -fsSL https://api.openheaders.io/install.sh');
+    expect(request.method).toBe('GET');
+    expect(report.drops).toEqual([]);
+  });
+
+  it('records -k inside a cluster as the usual TLS drop', () => {
+    const { report } = parseCurl('curl -sk https://api.openheaders.io');
+    expect(report.drops.some((d) => d.path === 'flag:-k')).toBe(true);
+  });
+
+  it('drops a cluster containing an unknown letter whole (nothing half-applied)', () => {
+    const { report } = parseCurl('curl -sZ https://api.openheaders.io');
+    expect(report.drops.some((d) => d.path === 'flag:-sZ')).toBe(true);
+  });
+});
+
+describe('tokenize — Windows shells', () => {
+  it('collapses PowerShell backtick line continuations', () => {
+    const input = 'curl `\n  -H \'X-Foo: bar\' `\n  https://api.openheaders.io';
+    expect(tokenize(input)).toEqual(['curl', '-H', 'X-Foo: bar', 'https://api.openheaders.io']);
+  });
+
+  it('collapses cmd.exe caret line continuations', () => {
+    const input = 'curl ^\n  -H "X-Foo: bar" ^\n  https://api.openheaders.io';
+    expect(tokenize(input)).toEqual(['curl', '-H', 'X-Foo: bar', 'https://api.openheaders.io']);
   });
 });
 

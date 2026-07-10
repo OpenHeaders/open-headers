@@ -17,10 +17,28 @@ export interface SuggestionRow {
   hint?: string;
   /** Current enable state — toggled by the row's checkbox. */
   enabled: boolean;
-  /** Omit for a locked, always-applied preview row (e.g. an
-   *  auth-derived `Authorization` header) — the checkbox renders
-   *  disabled since the row can't be toggled off from here. */
+  /** Omit for a locked, always-applied preview row — the checkbox
+   *  renders disabled since the row can't be toggled off from here. */
   onToggle?: (next: boolean) => void;
+  /** When set, the Value cell renders as an editable field writing
+   *  back through `onChange` instead of static text — used by the
+   *  auth-derived rows so a bearer token / API key is editable right
+   *  in the Headers/Params table (two-way bound to the auth config).
+   *  `secret` masks the literal characters like a password field. */
+  editableValue?: {
+    onChange: (next: string) => void;
+    secret?: boolean;
+  };
+  /** Hover-revealed jump link at the row's right edge — e.g. "Go to
+   *  body" on the calculated Content-Type row, "Go to authorization"
+   *  on the auth-derived row. Points the user at the surface that
+   *  actually owns the generated value. */
+  action?: { label: string; onClick: () => void };
+  /** Set when one of the user's own rows overrides this generated one
+   *  (same header key). The value renders struck through with a
+   *  tooltip naming the overriding row, matching what goes on the
+   *  wire. */
+  overriddenBy?: string;
 }
 
 /**

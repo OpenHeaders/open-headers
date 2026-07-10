@@ -182,9 +182,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onSelectRequest={openRequestEditTab}
           onCreateRequest={openCreateRequestTab}
           onSelectResponseExample={openResponseExampleTab}
-          onImportCurl={(ctx) => importExportRef.current?.openImportCurl(ctx)}
-          onImportHar={(ctx) => importExportRef.current?.openImportHar(ctx)}
-          onImportPostman={() => importExportRef.current?.openImportPostman()}
+          onImport={(ctx) => importExportRef.current?.openImportSource(ctx)}
           filterRef={(node: InputRef | null) => {
             if (node) sidebarFilterRefs.current.set(id as SidebarView, node);
             else sidebarFilterRefs.current.delete(id as SidebarView);

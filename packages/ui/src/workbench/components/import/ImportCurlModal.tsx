@@ -11,18 +11,21 @@
  *   • Surface drops + transforms prominently — per ARCHITECTURE §23,
  *     every import is lossy and the report is the contract.
  *   • Target collection selector defaults to the workspace's first
- *     request collection (or creates the default one).
+ *     request collection. With no collections (or on demand via the
+ *     "New collection" option) one is auto-created at import time,
+ *     named after the request's hostname — the flow never blocks on
+ *     collection setup.
  *
  * On import we:
  *   1. Compute the sourceHash (WebCrypto) — scaffold for the future
  *      re-import-diff flow.
- *   2. Call `createLocalRequest` with the parsed seed.
- *   3. Persist the report (v1: wired in a follow-up; the report is
- *      returned so the caller can show a toast summary).
+ *   2. Create the target collection if the user picked the
+ *      auto-create option.
+ *   3. Call `createLocalRequest` with the parsed seed.
  *   4. Close the modal + open the new request in an editor tab.
  */
 
-import { DownloadOutlined, InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { DownloadOutlined, InfoCircleOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import {
   CurlParseError,
   diffImportReports,
@@ -32,12 +35,15 @@ import {
   parseCurl,
 } from '@openheaders/core/import';
 import type { Collection, Request } from '@openheaders/core/types';
-import { Alert, App as AntApp, Button, Input, Modal, Select, Space, Tag, Typography, theme } from 'antd';
+import { Alert, App as AntApp, Button, Input, Modal, Select, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReimportDiffPanel from './ReimportDiffPanel';
 
 const { Text, Paragraph } = Typography;
+
+/** Sentinel Select value for the "create a new collection on import" option. */
+const NEW_COLLECTION = '__oh-new-collection__';
 
 interface ImportCurlModalProps {
   open: boolean;
@@ -45,6 +51,12 @@ interface ImportCurlModalProps {
   collections: Collection[];
   /** Id of the collection that was in focus when the modal opened (preselect). */
   initialCollectionId?: string;
+  /**
+   * Pre-filled curl source — set when the import hub detected a pasted
+   * curl command / URL and handed off to this modal. The live parser
+   * runs on it immediately, so the modal opens on the confirm stage.
+   */
+  initialSource?: string;
   onCancel: () => void;
   /** Called after a successful import. Payload includes the new uid
    *  and the name the user chose, so the caller can open the request
@@ -67,6 +79,12 @@ interface ImportCurlModalProps {
     seed: Partial<Request>;
   }) => Promise<{ uid: string } | null>;
   /**
+   * Creates a collection so the import never blocks on "no collections
+   * yet". Auto-selected when the workspace has none; always offered as
+   * the last Select option otherwise.
+   */
+  createCollection: (name: string) => Promise<{ uid: string } | null>;
+  /**
    * Look up a prior import report by source hash so the modal can
    * render a re-import-diff banner when the user pastes the same
    * curl command twice. `null` when there is no match. Errors from
@@ -87,13 +105,23 @@ interface ParseErrorState {
   message: string;
 }
 
+const labelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: 0.4,
+  display: 'block',
+  marginBottom: 4,
+};
+
 const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
   open,
   collections,
   initialCollectionId,
+  initialSource,
   onCancel,
   onImported,
   createRequest,
+  createCollection,
   findPreviousReport,
 }) => {
   const { token } = theme.useToken();
@@ -105,16 +133,24 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
   const [busy, setBusy] = useState(false);
   const [diff, setDiff] = useState<ImportReportDiff | null>(null);
 
-  // Reset every time the modal opens so repeated imports start clean.
+  // Reset every time the modal OPENS so repeated imports start clean.
+  // Guarded on the closed→open transition — store updates that change
+  // the `collections` identity while the modal is up must not wipe
+  // what the user is editing. With no collections in the workspace the
+  // auto-create option is preselected — the user can import straight
+  // away.
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    setSource('');
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (!open || wasOpen) return;
+    setSource(initialSource ?? '');
     setName('');
     setNameDirty(false);
-    setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? null);
+    setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION);
     setBusy(false);
     setDiff(null);
-  }, [open, initialCollectionId, collections]);
+  }, [open, initialCollectionId, initialSource, collections]);
 
   // Live parse. Empty input → no state (nothing to show). Parse
   // errors render as an Alert so the user knows what needs fixing.
@@ -130,14 +166,45 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     }
   }, [source]);
 
-  // Auto-fill the request-name field from the parser until the user
-  // touches it themselves. Keeps pastes ergonomic without fighting
-  // explicit edits.
+  // Suggested request name: the URL path alone — the collection
+  // already carries the host (auto-created collections are named by
+  // it), so `/v1/workspaces/ws_123/rules` reads better in the sidebar
+  // than repeating the domain. Host-only URLs and unparseable
+  // templates fall back to the parser's derived name.
+  const suggestedName = useMemo(() => {
+    if (!parsed?.ok) return '';
+    try {
+      const path = new URL(parsed.request.url).pathname;
+      if (path && path !== '/') return path;
+    } catch {
+      // {{VAR}} templates and other non-URLs — use the parser's name
+    }
+    return parsed.request.name;
+  }, [parsed]);
+
+  // Auto-fill the request-name field until the user touches it
+  // themselves. Keyed on the current value too, so a modal-state
+  // reset that clears the field refills it instead of leaving the
+  // placeholder behind.
   useEffect(() => {
     if (nameDirty) return;
-    if (parsed?.ok) setName(parsed.request.name);
-    else if (parsed === null) setName('');
-  }, [parsed, nameDirty]);
+    if (name !== suggestedName) setName(suggestedName);
+  }, [name, suggestedName, nameDirty]);
+
+  // Name for an auto-created collection: the request's hostname reads
+  // naturally in the sidebar ("api.openheaders.io"); fall back to a
+  // generic label when the URL isn't parseable.
+  const newCollectionName = useMemo(() => {
+    if (parsed?.ok) {
+      try {
+        const host = new URL(parsed.request.url).hostname;
+        if (host) return host;
+      } catch {
+        // fall through to the generic label
+      }
+    }
+    return 'Imported requests';
+  }, [parsed]);
 
   // Re-import-diff lookup. Triggered when the parse succeeds; hashes
   // the source (WebCrypto, ~ms) and asks the caller for a prior
@@ -185,6 +252,15 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     if (!parsed?.ok || !targetCollectionId || !name.trim()) return;
     setBusy(true);
     try {
+      let collectionUid = targetCollectionId;
+      if (collectionUid === NEW_COLLECTION) {
+        const collection = await createCollection(newCollectionName);
+        if (!collection) {
+          message.error('Failed to create collection');
+          return;
+        }
+        collectionUid = collection.uid;
+      }
       const hash = await hashImportSource(source.trim());
       const req = parsed.request;
       const seed: Partial<Request> = {
@@ -197,7 +273,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       };
       const created = await createRequest({
         name: name.trim(),
-        collectionUid: targetCollectionId,
+        collectionUid,
         seed,
       });
       if (!created) {
@@ -210,7 +286,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
         requestUid: created.uid,
         name: name.trim(),
         method: req.method,
-        collectionId: targetCollectionId,
+        collectionId: collectionUid,
         sourceHash: hash,
         report,
       });
@@ -224,7 +300,23 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     } finally {
       setBusy(false);
     }
-  }, [parsed, source, name, targetCollectionId, createRequest, onImported, message]);
+  }, [parsed, source, name, targetCollectionId, createRequest, createCollection, newCollectionName, onImported, message]);
+
+  const collectionOptions = useMemo(
+    () => [
+      ...collections.map((c) => ({ label: c.name, value: c.uid })),
+      {
+        label: (
+          <span>
+            <PlusOutlined style={{ fontSize: 10, marginRight: 6 }} />
+            New collection <Text type="secondary">“{newCollectionName}”</Text>
+          </span>
+        ),
+        value: NEW_COLLECTION,
+      },
+    ],
+    [collections, newCollectionName],
+  );
 
   return (
     <Modal
@@ -248,15 +340,13 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
           </Button>
         </div>
       }
-      width={640}
+      width={620}
       destroyOnClose
     >
-      <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-        Paste a <code>curl</code> command — typically copied from browser DevTools ("Copy as cURL") or API docs.
-        Unsupported flags are listed below; auth headers are promoted to first-class auth types.
+      <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
+        Paste a <code>curl</code> command — e.g. "Copy as cURL" from browser DevTools or API docs.
       </Paragraph>
 
-      <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>CURL COMMAND</Text>
       <Input.TextArea
         value={source}
         onChange={(e) => setSource(e.target.value)}
@@ -264,54 +354,46 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
   -H 'authorization: Bearer xyz' \\
   -H 'content-type: application/json' \\
   --data-raw '{"name":"hello"}'`}
-        rows={8}
-        style={{ fontFamily: 'var(--ant-font-family-code)', fontSize: 12, marginBottom: 12 }}
-        autoSize={{ minRows: 6, maxRows: 14 }}
+        style={{ fontFamily: 'var(--ant-font-family-code)', fontSize: 12, marginBottom: 10 }}
+        autoSize={{ minRows: 4, maxRows: 8 }}
       />
 
       {parsed?.ok === false && (
-        <Alert
-          type="error"
-          showIcon
-          message="Couldn't parse this command"
-          description={parsed.message}
-          style={{ marginBottom: 12 }}
-        />
+        <Alert type="error" showIcon message="Couldn't parse this command" description={parsed.message} />
       )}
 
       {parsed?.ok && (
-        <>
-          <div style={{ marginBottom: 12 }}>
-            <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>REQUEST NAME</Text>
-            <Input
-              size="small"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setNameDirty(true);
-              }}
-              placeholder="How this request appears in the sidebar"
-              style={{ fontSize: 12 }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>TARGET COLLECTION</Text>
-            <Select
-              value={targetCollectionId ?? undefined}
-              onChange={(id) => setTargetCollectionId(id)}
-              size="small"
-              style={{ width: '100%' }}
-              options={collections.map((c) => ({ label: c.name, value: c.uid }))}
-              placeholder={collections.length === 0 ? 'No collections yet — create one first' : 'Select a collection'}
-              disabled={collections.length === 0}
-            />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Text style={labelStyle}>NAME</Text>
+              <Input
+                size="small"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setNameDirty(true);
+                }}
+                placeholder="How this request appears in the sidebar"
+                style={{ fontSize: 12 }}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Text style={labelStyle}>COLLECTION</Text>
+              <Select
+                value={targetCollectionId ?? undefined}
+                onChange={(id) => setTargetCollectionId(id)}
+                size="small"
+                style={{ width: '100%' }}
+                options={collectionOptions}
+              />
+            </div>
           </div>
 
           {diff?.hasChanges && <ReimportDiffPanel diff={diff} />}
           <ParsedPreview request={parsed.request} token={token} />
           <ReportPanel report={parsed.report} token={token} />
-        </>
+        </div>
       )}
     </Modal>
   );
@@ -325,43 +407,32 @@ interface ParsedPreviewProps {
 }
 
 const ParsedPreview: React.FC<ParsedPreviewProps> = ({ request, token }) => {
-  const headerCount = request.headers.length;
-  const paramCount = request.params.length;
+  const meta = [
+    `${request.headers.length} header${request.headers.length === 1 ? '' : 's'}`,
+    `${request.params.length} query param${request.params.length === 1 ? '' : 's'}`,
+    request.body.type === 'none' ? 'no body' : `${request.body.type} body`,
+    request.auth.type === 'none' ? 'no auth' : `${request.auth.type} auth`,
+  ].join(' · ');
   return (
     <div
       style={{
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 6,
-        padding: 10,
-        marginBottom: 12,
+        padding: '8px 10px',
         background: token.colorFillAlter,
       }}
     >
-      <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, display: 'block', marginBottom: 6 }}>
-        PARSED REQUEST
-      </Text>
-      <Space size={6} wrap>
-        <Tag color="blue" style={{ fontWeight: 700 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+        <Tag color="blue" style={{ fontWeight: 700, flexShrink: 0 }}>
           {request.method}
         </Tag>
         <span style={{ fontFamily: 'var(--ant-font-family-code)', fontSize: 12, wordBreak: 'break-all' }}>
           {request.url}
         </span>
-      </Space>
-      <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <Tag>
-          Headers: <strong>{headerCount}</strong>
-        </Tag>
-        <Tag>
-          Query params: <strong>{paramCount}</strong>
-        </Tag>
-        <Tag>
-          Body: <strong>{request.body.type}</strong>
-        </Tag>
-        <Tag>
-          Auth: <strong>{request.auth.type}</strong>
-        </Tag>
       </div>
+      <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+        {meta}
+      </Text>
     </div>
   );
 };
@@ -377,47 +448,46 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
   if (report.drops.length === 0 && report.transforms.length === 0) {
     return null;
   }
+  const lineStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 6,
+    fontSize: 12,
+  };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {report.transforms.length > 0 && (
-        <Alert
-          type="info"
-          showIcon
-          icon={<InfoCircleOutlined />}
-          message={`${report.transforms.length} transform${report.transforms.length === 1 ? '' : 's'}`}
-          description={
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12 }}>
-              {report.transforms.map((t, i) => (
-                <li key={i} style={{ marginBottom: 2 }}>
-                  <strong>{t.path}:</strong> <span style={{ color: token.colorTextSecondary }}>{t.from}</span> →{' '}
-                  <span style={{ color: token.colorPrimary }}>{t.to}</span>
-                  <div style={{ color: token.colorTextTertiary, fontSize: 11 }}>{t.reason}</div>
-                </li>
-              ))}
-            </ul>
-          }
-        />
-      )}
-      {report.drops.length > 0 && (
-        <Alert
-          type="warning"
-          showIcon
-          icon={<WarningOutlined />}
-          message={`${report.drops.length} flag${report.drops.length === 1 ? '' : 's'} dropped`}
-          description={
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12 }}>
-              {report.drops.map((d, i) => (
-                <li key={i} style={{ marginBottom: 2 }}>
-                  <strong>{d.path}:</strong> {d.reason}
-                  {d.tracking && (
-                    <div style={{ color: token.colorTextTertiary, fontSize: 11 }}>tracking: {d.tracking}</div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          }
-        />
-      )}
+    <div
+      style={{
+        border: `1px solid ${token.colorBorderSecondary}`,
+        borderRadius: 6,
+        padding: '8px 10px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+      }}
+    >
+      {report.transforms.map((t, i) => (
+        <div key={`t-${i}`} style={lineStyle}>
+          <InfoCircleOutlined style={{ color: token.colorPrimary, fontSize: 12, flexShrink: 0, position: 'relative', top: 1 }} />
+          <span style={{ minWidth: 0 }}>
+            <strong>{t.path}:</strong> <span style={{ color: token.colorTextSecondary }}>{t.from}</span> →{' '}
+            <span style={{ color: token.colorPrimary }}>{t.to}</span>
+            <span style={{ color: token.colorTextTertiary, fontSize: 11 }}> — {t.reason}</span>
+          </span>
+        </div>
+      ))}
+      {report.drops.map((d, i) => (
+        <div key={`d-${i}`} style={lineStyle}>
+          <WarningOutlined style={{ color: token.colorWarning, fontSize: 12, flexShrink: 0, position: 'relative', top: 1 }} />
+          <span style={{ minWidth: 0 }}>
+            <strong>{d.path}</strong> dropped
+            <span style={{ color: token.colorTextTertiary, fontSize: 11 }}>
+              {' '}
+              — {d.reason}
+              {d.tracking ? ` (tracking: ${d.tracking})` : ''}
+            </span>
+          </span>
+        </div>
+      ))}
     </div>
   );
 };

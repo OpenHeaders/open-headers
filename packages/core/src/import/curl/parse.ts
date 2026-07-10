@@ -28,6 +28,8 @@ export function parseCurl(input: string): CurlParseResult {
     headers: [],
     dataParts: [],
     dataKind: null,
+    forceGet: false,
+    jsonBody: false,
     auth: null,
     multipartParts: [],
   };

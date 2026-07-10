@@ -6,6 +6,7 @@
  */
 
 export { CurlParseError, type CurlParseResult, type CurlRequest, parseCurl, tokenize } from './curl';
+export { type DetectedImportSource, detectImportSource } from './detect';
 export {
   diffImportReports,
   type ImportReportDiff,

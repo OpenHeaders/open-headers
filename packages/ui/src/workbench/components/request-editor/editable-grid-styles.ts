@@ -58,6 +58,9 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
 .editable-grid-row .editable-grid-drag-handle:active { cursor: grabbing; }
 .editable-grid-header .editable-grid-select-all { opacity: 0; transition: opacity 120ms ease; }
 .editable-grid-header:hover .editable-grid-select-all { opacity: 1; }
+.editable-grid-suggestion-row .editable-grid-suggestion-action { opacity: 0; transition: opacity 120ms ease; }
+.editable-grid-suggestion-row:hover .editable-grid-suggestion-action,
+.editable-grid-suggestion-row .editable-grid-suggestion-action:focus-visible { opacity: 1; }
 .editable-grid-menu-item {
   display: flex;
   align-items: center;

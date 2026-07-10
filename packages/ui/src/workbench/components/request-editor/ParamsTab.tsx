@@ -26,6 +26,12 @@ interface ParamsTabProps {
   /** Drives the auth-derived query-param preview (API Key / OAuth 2.0
    *  configured to send the credential on the URL). */
   auth: AuthConfig;
+  /** Writes back auth edits made from this table — the auth row's
+   *  checkbox (suspend/resume via `auth.disabled`) and inline edits of
+   *  a query-borne API-key value. */
+  onAuthChange: (auth: AuthConfig) => void;
+  /** Jump to the Authorization tab from the generated credential row. */
+  onNavigateTab?: (tab: 'authorization') => void;
   /** Inline conflict chips for param cells + set-remove rows. */
   conflictBridge?: KeyValueRowConflictBridge;
 }
@@ -68,19 +74,35 @@ function annotateHasEquals(rows: KeyValueRow[]): KeyValueRow[] {
   return rows.map((r) => (r.value !== '' && !r.hasEquals ? { ...r, hasEquals: true } : r));
 }
 
-const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, auth, conflictBridge }) => {
-  // Locked, always-visible preview rows for an auth credential that rides
-  // on the URL (API Key → Query Params, OAuth 2.0 → Request URL). Unlike
-  // Headers there are no browser-managed auto-params to hide, so the auth
-  // row shows directly — no Show/Hide toggle. The executor always appends
-  // them; they're configured from the Authorization tab.
+const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, auth, onAuthChange, onNavigateTab, conflictBridge }) => {
+  // Always-visible preview rows for an auth credential that rides on
+  // the URL (API Key → Query Params, OAuth 2.0 → Request URL). Unlike
+  // Headers there are no browser-managed auto-params to hide, so the
+  // auth row shows directly — no Show/Hide toggle. Live, not locked:
+  // the checkbox suspends/resumes the auth contribution
+  // (`auth.disabled`), and a query-borne API-key value is editable
+  // inline, two-way bound to the auth config. OAuth 2.0's runtime
+  // token stays a read-only placeholder.
   const authParams = useMemo(() => previewAuthContributions(auth).params, [auth]);
-  const suggestions: SuggestionRow[] = authParams.map((p) => ({
-    key: p.key,
-    value: p.value,
-    hint: p.hint,
-    enabled: true,
-  }));
+  const authRowToggle = (next: boolean) => onAuthChange({ ...auth, disabled: next ? undefined : true });
+  const suggestions: SuggestionRow[] = authParams.map((p) => {
+    const row: SuggestionRow = {
+      key: p.key,
+      value: p.value,
+      hint: p.hint,
+      enabled: !auth.disabled,
+      onToggle: authRowToggle,
+      action: onNavigateTab ? { label: 'Go to authorization', onClick: () => onNavigateTab('authorization') } : undefined,
+    };
+    if (auth.type === 'api-key' && auth.in === 'query') {
+      row.value = auth.value;
+      row.editableValue = {
+        secret: true,
+        onChange: (next) => onAuthChange({ ...auth, value: next }),
+      };
+    }
+    return row;
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

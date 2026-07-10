@@ -206,7 +206,9 @@ async function applyAuth(
   resolveStr: (s: string) => string,
   opts: ApplyAuthOptions,
 ): Promise<void> {
-  if (auth.type === 'none' || auth.type === 'inherit') return;
+  // `disabled` suspends the contribution without discarding the config
+  // (the Headers table's auth-row checkbox drives it).
+  if (auth.disabled || auth.type === 'none' || auth.type === 'inherit') return;
   if (auth.type === 'basic') {
     const u = resolveStr(auth.username);
     const p = resolveStr(auth.password);

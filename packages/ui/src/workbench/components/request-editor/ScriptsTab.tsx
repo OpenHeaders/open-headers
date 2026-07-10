@@ -136,57 +136,61 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
     editor.revealPositionInCenterIfOutsideViewport({ lineNumber: endLine, column: 1 });
   };
 
+  // Row is a `role="button"` div (not a real <button>) so the
+  // InfoTrigger — itself a <button> — can sit inline right after the
+  // label without nesting interactive elements.
   const Rail: React.FC<{ kind: ScriptKind; label: string }> = ({ kind, label }) => {
     const selected = active === kind;
     const hasScript = kind === 'pre-request' ? preRequestScript.trim() : postResponseScript.trim();
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <button
-          type="button"
-          onClick={() => setActive(kind)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flex: 1,
-            minWidth: 0,
-            padding: '8px 12px',
-            background: selected ? token.colorFillTertiary : 'transparent',
-            border: 'none',
-            borderRadius: 4,
-            cursor: 'pointer',
-            color: token.colorText,
-            fontSize: 13,
-            textAlign: 'left',
-          }}
-        >
-          <span>{label}</span>
-          {hasScript && (
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: token.colorPrimary,
-              }}
-            />
-          )}
-        </button>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setActive(kind)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setActive(kind);
+          }
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '8px 10px',
+          background: selected ? token.colorFillTertiary : 'transparent',
+          borderRadius: 4,
+          cursor: 'pointer',
+          color: token.colorText,
+          fontSize: 13,
+        }}
+      >
+        <span>{label}</span>
         <InfoTrigger content={SCRIPT_INFO[kind]} />
+        <span style={{ flex: 1 }} />
+        {hasScript && (
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: token.colorPrimary,
+              flexShrink: 0,
+            }}
+          />
+        )}
       </div>
     );
   };
 
   return (
-    <div style={{ display: 'flex', gap: 16, height: '100%', minHeight: 340 }}>
+    <div style={{ display: 'flex', gap: 8, height: '100%', minHeight: 340 }}>
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 4,
-          width: 190,
-          paddingRight: 12,
-          borderRight: `1px solid ${token.colorBorderSecondary}`,
+          width: 150,
           position: 'sticky',
           top: 0,
           alignSelf: 'start',

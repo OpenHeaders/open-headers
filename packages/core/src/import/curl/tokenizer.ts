@@ -11,9 +11,13 @@ const WHITESPACE = /\s/;
 
 export function tokenize(input: string): string[] {
   // Collapse line continuations first so the main scanner doesn't
-  // have to track them. curl pastes often break across lines with
-  // `\` at EOL.
-  const normalized = input.replace(/\\\r?\n/g, ' ').replace(/\r\n/g, '\n');
+  // have to track them. curl pastes break across lines with `\` at
+  // EOL (sh), a backtick (PowerShell), or `^` (cmd.exe).
+  const normalized = input
+    .replace(/\\\r?\n/g, ' ')
+    .replace(/`\r?\n/g, ' ')
+    .replace(/\^\r?\n/g, ' ')
+    .replace(/\r\n/g, '\n');
   const tokens: string[] = [];
   let i = 0;
   while (i < normalized.length) {

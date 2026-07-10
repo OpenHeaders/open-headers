@@ -40,13 +40,14 @@
  * presentation constants in `editable-grid-styles.ts`.
  */
 
-import { EditOutlined, InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
+import { EditOutlined, InfoCircleOutlined, MoreOutlined, RiseOutlined } from '@ant-design/icons';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Checkbox, Input, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { TemplateInput } from '../template-input';
 import { cellFont, DEFAULT_COLUMN_WIDTH, headerLabelStyle, RESIZE_MIN_WIDTH } from './editable-grid-styles';
 import type { EditableGridTableProps } from './editable-grid-types';
 import { SortableEditableRow } from './SortableEditableRow';
@@ -81,6 +82,17 @@ export function EditableGridTable<Row>({
   const [showValueColumn, setShowValueColumn] = useState(true);
   const [showDescriptionColumn, setShowDescriptionColumn] = useState(true);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  // Read-only suggestion values expand to full wrapped text on click
+  // (e.g. the long User-Agent) — keyed by suggestion key.
+  const [expandedSuggestionKeys, setExpandedSuggestionKeys] = useState<ReadonlySet<string>>(new Set());
+  const toggleSuggestionExpanded = useCallback((key: string) => {
+    setExpandedSuggestionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   // Draggable column widths + full-height dividers — the whole concern
   // lives in this hook; we just attach its container/header refs, read px
@@ -221,23 +233,6 @@ export function EditableGridTable<Row>({
 
   const optionsPopoverContent = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 160 }}>
-      {bulkEdit && (
-        <>
-          <button
-            type="button"
-            className="editable-grid-menu-item"
-            onClick={() => {
-              setOptionsOpen(false);
-              if (bulkMode) exitBulk();
-              else enterBulk();
-            }}
-          >
-            <EditOutlined style={{ color: token.colorTextTertiary }} />
-            {bulkMode ? 'Key-Value Edit' : 'Bulk Edit'}
-          </button>
-          <div style={{ height: 1, background: token.colorBorderSecondary, margin: '4px 0' }} />
-        </>
-      )}
       <div style={{ fontSize: 11, color: token.colorTextSecondary, fontWeight: 500, padding: '2px 8px' }}>
         Show columns
       </div>
@@ -266,6 +261,24 @@ export function EditableGridTable<Row>({
     </div>
   );
 
+  // The Bulk/Key-Value toggle sits right-aligned inside the LAST visible
+  // column's header cell — discoverable at a glance (the `⋯` menu only
+  // keeps the column toggles). It can't live in the trailing 32px track:
+  // each row is its own grid, so a content-sized trailing track would
+  // misalign the header against the rows.
+  const lastVisibleColumn: ResizableColumn = showDescriptionColumn ? 'description' : showValueColumn ? 'value' : 'key';
+  const bulkToggleButton = bulkEdit ? (
+    <Button
+      size="small"
+      type="text"
+      icon={<EditOutlined />}
+      onClick={() => (bulkMode ? exitBulk() : enterBulk())}
+      style={{ fontSize: 11, height: 20, padding: '0 6px', color: token.colorTextSecondary, flexShrink: 0 }}
+    >
+      {bulkMode ? 'Key-Value' : 'Bulk'}
+    </Button>
+  ) : null;
+
   // Header label cell. The resize handle isn't here — it's a full-height
   // overlay (rendered below) positioned at this cell's right edge — but
   // we register the cell ref so the overlay can read that edge and a drag
@@ -276,9 +289,19 @@ export function EditableGridTable<Row>({
       style={{
         ...headerLabelStyle,
         ...(withBorder ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+        ...(col === lastVisibleColumn && bulkToggleButton
+          ? { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '3px 4px 3px 10px' }
+          : null),
       }}
     >
-      {label}
+      {col === lastVisibleColumn && bulkToggleButton ? (
+        <>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+          {bulkToggleButton}
+        </>
+      ) : (
+        label
+      )}
     </span>
   );
 
@@ -371,90 +394,183 @@ export function EditableGridTable<Row>({
         />
       ) : (
         <>
-          {/* Suggestion rows — read-only, toggleable, not draggable. */}
-          {suggestionRows.map((s) => (
-            <div
-              key={`suggestion:${s.key}`}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: gridTemplate,
-                alignItems: 'center',
-                borderBottom: `1px solid ${token.colorBorderSecondary}`,
-              }}
-            >
-              <span />
-              {!hideEnabled && (
-                <span style={{ textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={s.enabled}
-                    disabled={!s.onToggle}
-                    onChange={(e) => s.onToggle?.(e.target.checked)}
-                    style={{
-                      width: 14,
-                      height: 14,
-                      cursor: s.onToggle ? 'pointer' : 'default',
-                      opacity: s.enabled ? 0.65 : 1,
-                    }}
-                  />
-                </span>
-              )}
-              <span
+          {/* Suggestion rows — generated, toggleable, not draggable.
+              Tinted like the header so they read as a distinct band
+              from the user's own (white) rows. */}
+          {suggestionRows.map((s) => {
+            const valueColor = s.enabled ? token.colorTextSecondary : token.colorTextQuaternary;
+            const struck = s.overriddenBy
+              ? ({ textDecoration: 'line-through', textDecorationThickness: 1 } as const)
+              : null;
+            const valueExpanded = expandedSuggestionKeys.has(s.key);
+            const actionNode = s.action ? (
+              <Button
+                className="editable-grid-suggestion-action"
+                type="link"
+                size="small"
+                icon={<RiseOutlined />}
+                onClick={s.action.onClick}
+                style={{ fontSize: 12, height: 20, padding: '0 4px', flexShrink: 0 }}
+              >
+                {s.action.label}
+              </Button>
+            ) : null;
+            const withOverrideTooltip = (node: React.ReactElement) =>
+              s.overriddenBy ? (
+                <Tooltip title={`Duplicate — overridden by the ${s.overriddenBy} row you added.`}>{node}</Tooltip>
+              ) : (
+                node
+              );
+            return (
+              <div
+                key={`suggestion:${s.key}`}
+                className="editable-grid-suggestion-row"
                 style={{
-                  ...cellFont,
-                  padding: '6px 10px',
-                  color: s.enabled ? token.colorText : token.colorTextQuaternary,
-                  display: 'flex',
+                  display: 'grid',
+                  gridTemplateColumns: gridTemplate,
                   alignItems: 'center',
-                  gap: 8,
-                  minWidth: 0,
+                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                  background: token.colorFillAlter,
                 }}
               >
-                <span
-                  style={{
-                    flex: 1,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {s.key}
-                </span>
-                {s.hint && (
-                  <Tooltip title={s.hint}>
-                    <InfoCircleOutlined
-                      style={{ color: token.colorTextTertiary, fontSize: 12, cursor: 'help', flexShrink: 0 }}
+                <span />
+                {!hideEnabled && (
+                  <span style={{ textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={s.enabled}
+                      disabled={!s.onToggle}
+                      onChange={(e) => s.onToggle?.(e.target.checked)}
+                      style={{
+                        width: 14,
+                        height: 14,
+                        cursor: s.onToggle ? 'pointer' : 'default',
+                        opacity: s.enabled ? 0.65 : 1,
+                      }}
                     />
-                  </Tooltip>
+                  </span>
                 )}
-              </span>
-              {showValueColumn && (
                 <span
                   style={{
                     ...cellFont,
                     padding: '6px 10px',
-                    borderLeft: `1px solid ${token.colorBorderSecondary}`,
-                    color: s.enabled ? token.colorTextSecondary : token.colorTextQuaternary,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    color: s.enabled ? token.colorText : token.colorTextQuaternary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    minWidth: 0,
                   }}
                 >
-                  {s.value}
+                  <span
+                    style={{
+                      flex: 1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {s.key}
+                  </span>
+                  {s.hint && (
+                    <Tooltip title={s.hint}>
+                      <InfoCircleOutlined
+                        style={{ color: token.colorTextTertiary, fontSize: 12, cursor: 'help', flexShrink: 0 }}
+                      />
+                    </Tooltip>
+                  )}
                 </span>
-              )}
-              {showDescriptionColumn && (
-                <span
-                  style={{
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    borderLeft: `1px solid ${token.colorBorderSecondary}`,
-                  }}
-                />
-              )}
-              <span />
-            </div>
-          ))}
+                {showValueColumn && (
+                  <span
+                    style={{
+                      borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                      minWidth: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      // With no description column the action link takes the
+                      // trailing actions track too — suggestion rows have no
+                      // delete button, so the link lands at the row's true
+                      // right edge.
+                      ...(showDescriptionColumn ? null : { gridColumn: 'span 2' }),
+                    }}
+                  >
+                    {s.editableValue ? (
+                      <TemplateInput
+                        variant="borderless"
+                        expandOnFocus
+                        maxRows={7}
+                        secret={s.editableValue.secret}
+                        value={s.value}
+                        onChange={s.editableValue.onChange}
+                        aria-label={`${s.key} value`}
+                        style={{
+                          ...cellFont,
+                          flex: 1,
+                          minWidth: 0,
+                          padding: '6px 10px',
+                          color: valueColor,
+                          ...struck,
+                        }}
+                      />
+                    ) : (
+                      withOverrideTooltip(
+                        // Read-only, but still inspectable: clicking a
+                        // truncated value expands it to the full wrapped
+                        // text (click again to collapse).
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleSuggestionExpanded(s.key)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleSuggestionExpanded(s.key);
+                            }
+                          }}
+                          style={{
+                            ...cellFont,
+                            flex: 1,
+                            minWidth: 0,
+                            padding: '6px 10px',
+                            color: valueColor,
+                            overflow: 'hidden',
+                            cursor: 'default',
+                            ...(valueExpanded
+                              ? { whiteSpace: 'normal', wordBreak: 'break-all' }
+                              : { textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+                            ...struck,
+                          }}
+                        >
+                          {s.value}
+                        </span>,
+                      )
+                    )}
+                    {!showDescriptionColumn && actionNode}
+                  </span>
+                )}
+                {showDescriptionColumn && (
+                  <span
+                    style={{
+                      padding: '6px 4px 6px 10px',
+                      fontSize: 12,
+                      borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      minWidth: 0,
+                      // Span the trailing actions track — suggestion rows
+                      // have no delete button, so the "Go to …" link lands
+                      // at the row's true right edge.
+                      gridColumn: 'span 2',
+                    }}
+                  >
+                    {actionNode}
+                  </span>
+                )}
+                {!showValueColumn && !showDescriptionColumn && <span />}
+              </div>
+            );
+          })}
 
           {/* User rows — sortable. */}
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

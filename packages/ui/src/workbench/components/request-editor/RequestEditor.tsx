@@ -685,6 +685,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         paramConflictBridge={isCreateMode ? undefined : paramConflictBridge}
                         workspaceId={workspaceId}
                         onOpenPackageLibrary={onOpenPackageLibrary}
+                        onNavigateTab={setActiveTab}
                       />
                     </div>
                   </div>

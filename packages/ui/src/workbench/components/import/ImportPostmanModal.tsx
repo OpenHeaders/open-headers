@@ -49,6 +49,12 @@ const { Text, Paragraph } = Typography;
 
 interface ImportPostmanModalProps {
   open: boolean;
+  /**
+   * Pre-read collection JSON — set when the import hub detected a
+   * pasted or dropped Postman export and handed off to this modal.
+   * Parsed on open, skipping the file-picker stage.
+   */
+  initialText?: string;
   onCancel: () => void;
   onImported: (result: {
     collectionUid: string;
@@ -88,8 +94,19 @@ type Stage =
     }
   | { kind: 'error'; message: string };
 
+function parseCollectionText(text: string): Stage {
+  try {
+    const result = parsePostman(text);
+    return { kind: 'parsed', source: text, result, envFile: null };
+  } catch (err) {
+    const msg = err instanceof PostmanParseError ? err.message : `Failed to read file: ${String(err)}`;
+    return { kind: 'error', message: msg };
+  }
+}
+
 const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
   open,
+  initialText,
   onCancel,
   onImported,
   createCollection,
@@ -105,13 +122,17 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
   const [busy, setBusy] = useState(false);
   const [diff, setDiff] = useState<ImportReportDiff | null>(null);
 
+  // Reset on open. Hub hand-offs arrive with the collection JSON
+  // already read — parse straight away so the modal opens on the
+  // preview tree instead of the file picker.
   useEffect(() => {
     if (!open) return;
-    setStage({ kind: 'empty' });
-    setCollectionName('');
+    const stage = initialText ? parseCollectionText(initialText) : ({ kind: 'empty' } as const);
+    setStage(stage);
+    setCollectionName(stage.kind === 'parsed' ? stage.result.collectionName : '');
     setBusy(false);
     setDiff(null);
-  }, [open]);
+  }, [open, initialText]);
 
   // Re-import-diff lookup on every parse.
   useEffect(() => {
@@ -142,15 +163,14 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
   }, [stage, findPreviousReport]);
 
   const handleCollectionFilePicked = useCallback(async (file: File) => {
-    try {
-      const text = await file.text();
-      const result = parsePostman(text);
-      setStage({ kind: 'parsed', source: text, result, envFile: null });
-      setCollectionName(result.collectionName);
-    } catch (err) {
-      const msg = err instanceof PostmanParseError ? err.message : `Failed to read file: ${String(err)}`;
-      setStage({ kind: 'error', message: msg });
+    const text = await file.text().catch((err: Error) => err);
+    if (text instanceof Error) {
+      setStage({ kind: 'error', message: `Failed to read file: ${text.message}` });
+      return;
     }
+    const stage = parseCollectionText(text);
+    setStage(stage);
+    if (stage.kind === 'parsed') setCollectionName(stage.result.collectionName);
   }, []);
 
   const handleEnvFilePicked = useCallback(

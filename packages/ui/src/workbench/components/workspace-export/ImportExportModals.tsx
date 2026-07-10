@@ -1,4 +1,5 @@
 import { hostBridge } from '@openheaders/core/bridge';
+import { type DetectedImportSource, detectImportSource } from '@openheaders/core/import';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
@@ -20,11 +21,12 @@ import ImportSourceModal from './ImportSourceModal';
  * themselves live inside this component; callers only fire an opener.
  */
 export interface ImportExportModalsHandle {
-  openImportCurl: (ctx?: { collectionId?: string }) => void;
-  openImportHar: (ctx?: { collectionId?: string }) => void;
-  openImportPostman: () => void;
   openExportModal: (scope: ExportModalScope) => void;
-  openImportSource: () => void;
+  /** Opens the import hub — the single "Import…" entry point. Every
+   *  format (curl/URL/HAR/Postman/workspace) is auto-detected there;
+   *  a `collectionId` (context-menu "import into this collection")
+   *  carries through to whichever flow the hub routes to. */
+  openImportSource: (ctx?: { collectionId?: string }) => void;
 }
 
 interface ImportExportModalsProps {
@@ -62,10 +64,16 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
   const { message } = AntApp.useApp();
 
   const [importCurlOpen, setImportCurlOpen] = useState(false);
-  const [importCurlContext, setImportCurlContext] = useState<{ collectionId?: string } | undefined>(undefined);
+  const [importCurlContext, setImportCurlContext] = useState<
+    { collectionId?: string; initialSource?: string } | undefined
+  >(undefined);
   const [importHarOpen, setImportHarOpen] = useState(false);
-  const [importHarContext, setImportHarContext] = useState<{ collectionId?: string } | undefined>(undefined);
+  const [importHarContext, setImportHarContext] = useState<
+    { collectionId?: string; initialText?: string } | undefined
+  >(undefined);
   const [importPostmanOpen, setImportPostmanOpen] = useState(false);
+  const [importPostmanInitialText, setImportPostmanInitialText] = useState<string | undefined>(undefined);
+  const [importSourceContext, setImportSourceContext] = useState<{ collectionId?: string } | undefined>(undefined);
   const [exportModalState, setExportModalState] = useState<{ open: false } | { open: true; scope: ExportModalScope }>({
     open: false,
   });
@@ -113,18 +121,6 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     if (!importSourceModalOpen) return;
     if (importPreviewState.open) setImportSourceModalOpen(false);
   }, [importSourceModalOpen, importPreviewState.open]);
-  const onImportFileChosen = useCallback(async (file: File) => {
-    try {
-      const text = await file.text();
-      setImportPreviewState({ open: true, rawText: text, source: 'file' });
-    } catch (err) {
-      // File-read failures (sandbox quirks, perms) — surface inline. Modal
-      // will display a parse-error banner if the bytes turn out to be
-      // unreadable.
-      setImportPreviewState({ open: true, rawText: '', source: 'file' });
-      void err;
-    }
-  }, []);
 
   /**
    * Look up a prior import report by source hash (ARCHITECTURE §23).
@@ -184,28 +180,84 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     };
   }, [dropTargetRef]);
 
-  const openImportCurl = useCallback((ctx?: { collectionId?: string }) => {
+  const openImportCurl = useCallback((ctx?: { collectionId?: string; initialSource?: string }) => {
     setImportCurlContext(ctx);
     setImportCurlOpen(true);
   }, []);
-  const openImportHar = useCallback((ctx?: { collectionId?: string }) => {
+  const openImportHar = useCallback((ctx?: { collectionId?: string; initialText?: string }) => {
     setImportHarContext(ctx);
     setImportHarOpen(true);
   }, []);
-  const openImportPostman = useCallback(() => setImportPostmanOpen(true), []);
+  const openImportPostman = useCallback((initialText?: string) => {
+    setImportPostmanInitialText(initialText);
+    setImportPostmanOpen(true);
+  }, []);
   const openExportModal = useCallback((scope: ExportModalScope) => setExportModalState({ open: true, scope }), []);
   // Click the menu entry / receive an `open-import-modal` intent →
-  // show the drop-zone modal. The native picker is owned by the modal
+  // show the import hub. The native picker is owned by the modal
   // itself; the bare `<input>` below is kept only for compatibility
   // with older direct-click sites that haven't migrated to the modal
   // yet (none currently — the menu now goes through the modal).
-  const openImportSource = useCallback(() => setImportSourceModalOpen(true), []);
+  const openImportSource = useCallback((ctx?: { collectionId?: string }) => {
+    setImportSourceContext(ctx);
+    setImportSourceModalOpen(true);
+  }, []);
 
-  useImperativeHandle(
-    ref,
-    () => ({ openImportCurl, openImportHar, openImportPostman, openExportModal, openImportSource }),
-    [openImportCurl, openImportHar, openImportPostman, openExportModal, openImportSource],
+  /**
+   * Hub routing (IMPORT_PLAN.md §2.1): a recognized paste or file lands
+   * in the matching stage-2 flow pre-filled, carrying the hub's
+   * collection context. `unknown` never reaches here — the hub keeps it
+   * inline with a hint.
+   */
+  const routeDetectedText = useCallback(
+    (detected: DetectedImportSource, text: string) => {
+      setImportSourceModalOpen(false);
+      const collectionId = importSourceContext?.collectionId;
+      switch (detected.kind) {
+        case 'curl':
+          openImportCurl({ collectionId, initialSource: text });
+          break;
+        case 'url':
+          openImportCurl({ collectionId, initialSource: `curl '${detected.url}'` });
+          break;
+        case 'har':
+          openImportHar({ collectionId, initialText: text });
+          break;
+        case 'postman':
+          openImportPostman(text);
+          break;
+        case 'workspace':
+          setImportPreviewState({ open: true, rawText: text, source: 'clipboard' });
+          break;
+        default:
+          break;
+      }
+    },
+    [importSourceContext, openImportCurl, openImportHar, openImportPostman],
   );
+
+  const onImportFileChosen = useCallback(
+    async (file: File) => {
+      try {
+        const text = await file.text();
+        const detected = detectImportSource(text);
+        if (detected.kind === 'workspace' || detected.kind === 'unknown') {
+          // The workspace preview owns envelope validation, so unknown
+          // content lands there too and surfaces its parse-error banner.
+          setImportPreviewState({ open: true, rawText: text, source: 'file' });
+          return;
+        }
+        routeDetectedText(detected, text);
+      } catch (err) {
+        // File-read failures (sandbox quirks, perms) — surface inline.
+        setImportPreviewState({ open: true, rawText: '', source: 'file' });
+        void err;
+      }
+    },
+    [routeDetectedText],
+  );
+
+  useImperativeHandle(ref, () => ({ openExportModal, openImportSource }), [openExportModal, openImportSource]);
 
   return (
     <>
@@ -213,6 +265,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         open={importCurlOpen}
         collections={requestsApi.collections}
         initialCollectionId={importCurlContext?.collectionId}
+        initialSource={importCurlContext?.initialSource}
         onCancel={() => setImportCurlOpen(false)}
         createRequest={async ({ name, collectionUid, seed }) => {
           // The parser's output already carries every field the
@@ -220,6 +273,10 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           // store builds the request with the imported shape.
           const created = await requestsApi.createRequest({ name, collectionUid, seed });
           return created ? { uid: created.uid } : null;
+        }}
+        createCollection={async (name) => {
+          const c = await requestsApi.createCollection(name);
+          return c ? { uid: c.uid } : null;
         }}
         findPreviousReport={findPreviousImportReport}
         onImported={({ requestUid, name, method, report }) => {
@@ -243,10 +300,15 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         open={importHarOpen}
         collections={requestsApi.collections}
         initialCollectionId={importHarContext?.collectionId}
+        initialText={importHarContext?.initialText}
         onCancel={() => setImportHarOpen(false)}
         createRequest={async ({ name, collectionUid, seed }) => {
           const created = await requestsApi.createRequest({ name, collectionUid, seed });
           return created ? { uid: created.uid } : null;
+        }}
+        createCollection={async (name) => {
+          const c = await requestsApi.createCollection(name);
+          return c ? { uid: c.uid } : null;
         }}
         findPreviousReport={findPreviousImportReport}
         onImported={({ report }) => {
@@ -261,6 +323,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
 
       <ImportPostmanModal
         open={importPostmanOpen}
+        initialText={importPostmanInitialText}
         onCancel={() => setImportPostmanOpen(false)}
         createCollection={async (name) => {
           const c = await requestsApi.createCollection(name);
@@ -323,6 +386,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         // above that watches `importPreviewState.open`.
         loading={importPreviewState.open}
         onCancel={() => setImportSourceModalOpen(false)}
+        onTextDetected={routeDetectedText}
         onFileChosen={(file) => {
           void onImportFileChosen(file);
         }}

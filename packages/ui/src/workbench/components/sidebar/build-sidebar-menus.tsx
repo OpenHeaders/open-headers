@@ -32,17 +32,15 @@ export function buildCreateMenuItems({ onCreateRule, createNewCollection }: Buil
 interface BuildRequestImportMenuItemsOptions {
   createNewRequestCollection: () => Promise<void>;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
-  onImportCurl?: (context?: { collectionId?: string }) => void;
-  onImportHar?: (context?: { collectionId?: string }) => void;
-  onImportPostman?: () => void;
+  /** Opens the import hub — curl/URL/HAR/Postman/workspace are
+   *  auto-detected there, so the menu carries a single entry. */
+  onImport?: (context?: { collectionId?: string }) => void;
 }
 
 export function buildRequestImportMenuItems({
   createNewRequestCollection,
   onCreateRequest,
-  onImportCurl,
-  onImportHar,
-  onImportPostman,
+  onImport,
 }: BuildRequestImportMenuItemsOptions) {
   return [
     {
@@ -62,36 +60,14 @@ export function buildRequestImportMenuItems({
           },
         ]
       : []),
-    ...(onImportCurl || onImportHar || onImportPostman
-      ? ([{ type: 'divider' as const, key: 'div-import' }] as const)
-      : []),
-    ...(onImportCurl
+    ...(onImport
       ? [
+          { type: 'divider' as const, key: 'div-import' },
           {
-            key: 'import-curl',
+            key: 'import',
             icon: <DownloadOutlined />,
-            label: 'Import from cURL',
-            onClick: () => onImportCurl(),
-          },
-        ]
-      : []),
-    ...(onImportHar
-      ? [
-          {
-            key: 'import-har',
-            icon: <DownloadOutlined />,
-            label: 'Import from HAR',
-            onClick: () => onImportHar(),
-          },
-        ]
-      : []),
-    ...(onImportPostman
-      ? [
-          {
-            key: 'import-postman',
-            icon: <DownloadOutlined />,
-            label: 'Import from Postman',
-            onClick: () => onImportPostman(),
+            label: 'Import…',
+            onClick: () => onImport(),
           },
         ]
       : []),

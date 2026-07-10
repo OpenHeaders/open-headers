@@ -40,7 +40,7 @@ const NO_AUTH: AuthConfig = { type: 'none' };
 describe('HeadersTab — auth-derived Authorization row', () => {
   it('shows the Authorization row without expanding the hidden section', () => {
     const { container } = render(
-      <HeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} body={NO_BODY} auth={BASIC} />,
+      <HeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} body={NO_BODY} auth={BASIC} onAuthChange={vi.fn()} />,
     );
     const text = container.textContent ?? '';
     expect(text).toContain('Authorization');
@@ -51,14 +51,14 @@ describe('HeadersTab — auth-derived Authorization row', () => {
 
   it('renders no Authorization row when there is no auth', () => {
     const { container } = render(
-      <HeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} body={NO_BODY} auth={NO_AUTH} />,
+      <HeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} body={NO_BODY} auth={NO_AUTH} onAuthChange={vi.fn()} />,
     );
     expect(container.textContent ?? '').not.toContain('Authorization');
   });
 
   it('keeps the hidden-count label to the browser auto-headers only (auth row is visible, not hidden)', () => {
     const { container } = render(
-      <HeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} body={NO_BODY} auth={BASIC} />,
+      <HeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} body={NO_BODY} auth={BASIC} onAuthChange={vi.fn()} />,
     );
     // Body is `none` → 6 browser auto-headers; the auth row is NOT among
     // them, so the toggle still reads "6 hidden".

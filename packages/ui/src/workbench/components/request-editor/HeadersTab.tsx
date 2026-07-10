@@ -64,6 +64,13 @@ interface AutoHeaderDef {
   hint: string;
   /** When true, only include this row when the request has a body. */
   bodyOnly?: boolean;
+  /** A user row with the same key actually replaces this value on the
+   *  wire — the generated row renders struck through when that happens.
+   *  Absent for browser-managed headers the user can't override. */
+  overridable?: boolean;
+  /** Editor tab that owns the generated value — renders the
+   *  hover-revealed "Go to …" jump link on the row. */
+  goTo?: 'body' | 'settings';
 }
 
 // Base rows are listed in the order they typically appear on the wire
@@ -74,18 +81,23 @@ const BASE_AUTO_HEADERS: AutoHeaderDef[] = [
     key: 'Cache-Control',
     value: 'no-cache',
     hint: '"Cache-Control: no-cache" is added as a precautionary measure to prevent the server from returning stale responses when you make repeated requests. You can remove this header in the request settings or enter a new one with a different value.',
+    overridable: true,
+    goTo: 'settings',
   },
   {
     key: 'Content-Type',
     value: '<calculated when request is sent>',
     hint: 'The runtime computes Content-Type from the body encoding (form-data → multipart/form-data with a boundary; x-www-form-urlencoded → application/x-www-form-urlencoded; raw JSON → application/json; etc.). Set your own header to override.',
     bodyOnly: true,
+    overridable: true,
+    goTo: 'body',
   },
   {
     key: 'Content-Length',
     value: '<calculated when request is sent>',
     hint: 'Content-Length is computed from the serialized body byte size before the request is sent. The browser refuses to honour a user-set Content-Length that does not match the actual body length.',
     bodyOnly: true,
+    goTo: 'body',
   },
   {
     key: 'Host',
@@ -96,11 +108,13 @@ const BASE_AUTO_HEADERS: AutoHeaderDef[] = [
     key: 'User-Agent',
     value: typeof navigator !== 'undefined' ? navigator.userAgent : '<browser user agent>',
     hint: 'The User-Agent identifies the client. Requests go out with the browser’s own User-Agent; add your own User-Agent row below to override it.',
+    overridable: true,
   },
   {
     key: 'Accept',
     value: '*/*',
     hint: 'Accept tells the server which media types the client can parse. `*/*` lets the server pick; override with a narrower set (e.g. `application/json`) to constrain responses.',
+    overridable: true,
   },
   {
     key: 'Accept-Encoding',
@@ -121,11 +135,26 @@ interface HeadersTabProps {
   body: RequestBody;
   /** Drives the auth-derived `Authorization` preview row. */
   auth: AuthConfig;
+  /** Writes back auth edits made from this table — the auth row's
+   *  checkbox (suspend/resume via `auth.disabled`) and, for bearer /
+   *  header-borne API keys, inline edits of the credential value. */
+  onAuthChange: (auth: AuthConfig) => void;
+  /** Jump to the editor tab that owns a generated row's value —
+   *  drives the hover-revealed "Go to …" links. */
+  onNavigateTab?: (tab: 'authorization' | 'body' | 'settings') => void;
   /** Inline conflict chips for header cells + set-remove rows. */
   conflictBridge?: KeyValueRowConflictBridge;
 }
 
-const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body, auth, conflictBridge }) => {
+const HeadersTab: React.FC<HeadersTabProps> = ({
+  rows,
+  onChange,
+  body,
+  auth,
+  onAuthChange,
+  onNavigateTab,
+  conflictBridge,
+}) => {
   const { token } = theme.useToken();
   const [showAuto, setShowAuto] = useState(false);
   const [disabledAutoKeys, setDisabledAutoKeys] = useState<Set<string>>(new Set());
@@ -144,26 +173,67 @@ const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body, auth, con
     });
   };
 
-  // Auth-derived rows are always visible (locked, no toggle — they're
-  // configured from the Authorization tab and always go on the wire), so
-  // the user sees the synthesized `Authorization` header the moment they
-  // pick an auth type. The browser-managed auto-headers stay behind the
-  // Show/Hide toggle since they're environment noise the user rarely cares
-  // about.
+  // Auth-derived rows are always visible so the user sees the
+  // synthesized `Authorization` header the moment they pick an auth
+  // type. Live, not locked: the checkbox suspends/resumes the auth
+  // contribution (`auth.disabled`, honored by the executor), and for
+  // scalar credentials (bearer token, header-borne API key) the value
+  // is editable inline, two-way bound to the auth config — the same
+  // token the Authorization tab edits. Composed (Basic base64) and
+  // runtime (OAuth 2.0) values stay read-only placeholders; their
+  // hint points at the Authorization tab. The browser-managed
+  // auto-headers stay behind the Show/Hide toggle since they're
+  // environment noise the user rarely cares about.
   const authHeaders = useMemo(() => previewAuthContributions(auth).headers, [auth]);
+  const authRowToggle = (next: boolean) => onAuthChange({ ...auth, disabled: next ? undefined : true });
 
-  const authSuggestions: SuggestionRow[] = authHeaders.map((h) => ({
-    key: h.key,
-    value: h.value,
-    hint: h.hint,
-    enabled: true,
-  }));
+  // Keys of the user's own enabled rows — a generated row with the same
+  // key renders struck through (the user's row wins on the wire).
+  const userRowKeys = useMemo(() => {
+    const out = new Set<string>();
+    for (const r of rows) {
+      if (r.enabled && r.key.trim()) out.add(r.key.trim().toLowerCase());
+    }
+    return out;
+  }, [rows]);
+  const overrideBy = (key: string): string | undefined => (userRowKeys.has(key.toLowerCase()) ? key : undefined);
+
+  const authSuggestions: SuggestionRow[] = authHeaders.map((h) => {
+    const row: SuggestionRow = {
+      key: h.key,
+      value: h.value,
+      hint: h.hint,
+      enabled: !auth.disabled,
+      onToggle: authRowToggle,
+      overriddenBy: overrideBy(h.key),
+      action: onNavigateTab ? { label: 'Go to authorization', onClick: () => onNavigateTab('authorization') } : undefined,
+    };
+    if (auth.type === 'bearer') {
+      row.value = `Bearer ${auth.token}`;
+      row.editableValue = {
+        secret: true,
+        onChange: (next) => onAuthChange({ ...auth, token: next.replace(/^Bearer\s+/i, '') }),
+      };
+    } else if (auth.type === 'api-key' && auth.in === 'header') {
+      row.value = auth.value;
+      row.editableValue = {
+        secret: true,
+        onChange: (next) => onAuthChange({ ...auth, value: next }),
+      };
+    }
+    return row;
+  });
   const browserSuggestions: SuggestionRow[] = autoHeaders.map((h) => ({
     key: h.key,
     value: h.value,
     hint: h.hint,
     enabled: !disabledAutoKeys.has(h.key),
     onToggle: (next: boolean) => toggleAutoKey(h.key, next),
+    overriddenBy: h.overridable ? overrideBy(h.key) : undefined,
+    action:
+      h.goTo && onNavigateTab
+        ? { label: `Go to ${h.goTo}`, onClick: () => onNavigateTab(h.goTo as 'body' | 'settings') }
+        : undefined,
   }));
   const suggestions: SuggestionRow[] = showAuto
     ? [...authSuggestions, ...browserSuggestions]
