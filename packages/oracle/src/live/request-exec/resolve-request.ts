@@ -213,7 +213,7 @@ function setAuthHeader(headers: Array<{ key: string; value: string }>, key: stri
   headers.push({ key, value });
 }
 
-async function applyAuth(
+export async function applyAuth(
   auth: AuthConfig,
   headers: Array<{ key: string; value: string }>,
   params: Array<{ key: string; value: string }>,
