@@ -57,7 +57,12 @@ async function readUsers(): Promise<DaemonUserRecord[]> {
  * Admit a new user to the daemon's directory. Mints the full §5 row
  * tuple in the daemon's own Org (`primaryRole: 'member'`; workspace
  * grants are a separate axis — WRA rows, slice 2). Refuses a duplicate
- * email so the directory keys human identities uniquely.
+ * email so the directory keys human identities uniquely — among ACTIVE
+ * records only, case-insensitively (the same fold the SSO join uses):
+ * reactivation is not supported, so re-admitting a deactivated user's
+ * email as a fresh record IS the sanctioned lifecycle. The deactivated
+ * record stays for audit continuity; {@link findDaemonUserByEmail}
+ * prefers the active one.
  */
 export async function createDaemonUser(input: CreateDaemonUserInput): Promise<CreateDaemonUserResult> {
   const displayName = input.displayName.trim();
@@ -70,7 +75,14 @@ export async function createDaemonUser(input: CreateDaemonUserInput): Promise<Cr
 
   return withUserStoreLock(async () => {
     const current = await readUsers();
-    if (email && current.some((r) => r.userIdentity.kind === 'email' && r.userIdentity.value === email)) {
+    const needle = email?.toLowerCase();
+    if (
+      needle &&
+      current.some(
+        (r) =>
+          r.deactivatedAt === null && r.userIdentity.kind === 'email' && r.userIdentity.value?.toLowerCase() === needle,
+      )
+    ) {
       return { ok: false, reason: 'duplicate-email' };
     }
     const userId = uuidv7();
@@ -117,15 +129,20 @@ export async function listDaemonUsers(): Promise<readonly DaemonUserRecord[]> {
 /**
  * Look up a directory record by its email identity, case-insensitively
  * — the join an SSO login runs from the IdP's verified email claim.
- * Deactivated records are returned too; the caller decides how a
- * deactivated user's login fails (it must not auto-provision a
- * duplicate).
+ * The ACTIVE holder wins when a deactivated record shares the email
+ * (the re-admit lifecycle keeps the old record for audit continuity);
+ * with no active holder the deactivated record is returned so the
+ * caller can refuse the login with the right reason (it must not
+ * auto-provision a duplicate).
  */
 export async function findDaemonUserByEmail(email: string): Promise<DaemonUserRecord | null> {
   const needle = email.trim().toLowerCase();
   if (!needle) return null;
   const users = await readUsers();
-  return users.find((r) => r.userIdentity.kind === 'email' && r.userIdentity.value?.toLowerCase() === needle) ?? null;
+  const matches = users.filter(
+    (r) => r.userIdentity.kind === 'email' && r.userIdentity.value?.toLowerCase() === needle,
+  );
+  return matches.find((r) => r.deactivatedAt === null) ?? matches[0] ?? null;
 }
 
 /**

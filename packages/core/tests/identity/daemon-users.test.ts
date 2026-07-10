@@ -61,13 +61,25 @@ describe('daemon users', () => {
     expect(result.record.userIdentity.value).toBeNull();
   });
 
-  it('refuses an empty display name and a duplicate email', async () => {
+  it('refuses an empty display name and a duplicate email (case-insensitively)', async () => {
     const empty = await createDaemonUser({ displayName: '   ' });
     expect(empty).toEqual({ ok: false, reason: 'empty-display-name' });
     const first = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
     expect(first.ok).toBe(true);
-    const dup = await createDaemonUser({ displayName: 'Alice 2', email: 'alice@openheaders.io' });
+    const dup = await createDaemonUser({ displayName: 'Alice 2', email: 'Alice@OPENHEADERS.IO' });
     expect(dup).toEqual({ ok: false, reason: 'duplicate-email' });
+  });
+
+  it("re-admits a deactivated user's email as a fresh record (add-anew lifecycle)", async () => {
+    const first = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+    if (!first.ok) throw new Error('setup failed');
+    await deactivateDaemonUser(first.record.user.id);
+    const again = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+    expect(again.ok).toBe(true);
+    if (!again.ok) return;
+    expect(again.record.user.id).not.toBe(first.record.user.id);
+    // Both records persist — the deactivated one stays for audit continuity.
+    expect(await listDaemonUsers()).toHaveLength(2);
   });
 
   it('lists every record including deactivated ones, in insertion order', async () => {
@@ -128,6 +140,17 @@ describe('daemon users', () => {
       const foundAfter = await findDaemonUserByEmail('alice@openheaders.io');
       expect(foundAfter?.user.id).toBe(created.record.user.id);
       expect(foundAfter?.deactivatedAt).not.toBeNull();
+    });
+
+    it('prefers the active holder when a deactivated record shares the email', async () => {
+      const first = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!first.ok) throw new Error('setup failed');
+      await deactivateDaemonUser(first.record.user.id);
+      const again = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!again.ok) throw new Error('setup failed');
+      const found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.user.id).toBe(again.record.user.id);
+      expect(found?.deactivatedAt).toBeNull();
     });
 
     it('returns null for unknown, empty, and local-kind identities', async () => {
