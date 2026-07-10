@@ -38,6 +38,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { DaemonPairingService, PendingPair } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
+import { readRawBody } from './http-body';
 
 const SCOPE = 'PairingHttp';
 
@@ -75,24 +76,6 @@ function escapeHtml(input: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function readRawBody(req: IncomingMessage, maxBytes = 4096): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let size = 0;
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > maxBytes) {
-        req.destroy();
-        reject(new Error('request body too large'));
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-    req.on('error', (err) => reject(err));
-  });
 }
 
 /**

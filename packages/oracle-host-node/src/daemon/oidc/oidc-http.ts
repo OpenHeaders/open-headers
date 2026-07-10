@@ -32,6 +32,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { hostLogger as logger } from '@openheaders/core/logger';
+import { readRawBody } from '../../host-runtime/http-body';
 import { type DaemonOidcService, PENDING_LOGIN_TTL_MS } from './oidc-service';
 
 const SCOPE = 'OidcHttp';
@@ -121,24 +122,6 @@ function readBindingCookie(req: IncomingMessage, secure: boolean): string {
     if (trimmed.startsWith(wanted)) return trimmed.slice(wanted.length);
   }
   return '';
-}
-
-function readRawBody(req: IncomingMessage, maxBytes = 4096): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let size = 0;
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > maxBytes) {
-        req.destroy();
-        reject(new Error('request body too large'));
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-    req.on('error', (err) => reject(err));
-  });
 }
 
 export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttpHandler {

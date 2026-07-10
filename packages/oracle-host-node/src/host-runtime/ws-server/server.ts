@@ -78,6 +78,14 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     res.statusCode = 400;
     res.end();
   });
+  // Slow-loris posture: every request this bind legitimately serves is
+  // small (pairing/OIDC/MCP JSON, healthz, metrics, static assets), so
+  // Node's lenient defaults (60s headers / 300s whole-request) only
+  // extend how long a drip-feeding peer can hold a socket. WS upgrades
+  // are unaffected — an upgraded socket leaves the HTTP timeout
+  // machinery.
+  httpServer.headersTimeout = 15_000;
+  httpServer.requestTimeout = 60_000;
   const wss = new WebSocketServer({ server: httpServer, maxPayload: MAX_INBOUND_FRAME_BYTES });
   await new Promise<void>((resolve, reject) => {
     const onListening = (): void => {
