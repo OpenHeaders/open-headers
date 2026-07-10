@@ -224,6 +224,29 @@ oh daemon audit export --since 2026-07-01 > audit.jsonl
 daemon runs — reads are lock-free. `--since`/`--until` take ISO date-times or
 relative forms (`30m`, `24h`, `7d`).
 
+## Backup and restore
+
+A backup is a plain directory snapshot of the daemon's state —
+`storage.json`, `oracle.db` (copied through SQLite's online backup API, so
+the file is consistent even if a crash left an uncheckpointed WAL), and
+`blobs/` — plus a `manifest.json` with sha256 checksums. Config
+(`daemon.json`) and logs are not state and stay out of the snapshot.
+
+```sh
+oh daemon stop
+oh daemon backup ~/backups/oh-2026-07-10     # defaults to ./openheaders-daemon-backup-<timestamp>
+oh daemon start
+
+oh daemon restore ~/backups/oh-2026-07-10    # verifies every checksum first
+oh daemon restore ~/backups/oh-2026-07-10 --force   # replace existing state
+```
+
+Both commands require the daemon to be stopped — a snapshot copied under a
+live daemon would tear across the three stores. Restore verifies the
+manifest before touching anything, refuses over existing state without
+`--force`, and replaces state wholesale (stale WAL sidecars and leftover
+blobs are dropped — a restore is a rewind, not a merge).
+
 ## Logs
 
 One line per event: `<ISO timestamp> <LEVEL> [scope] message`. Authentication

@@ -27,6 +27,7 @@ import {
   readDaemonSettings,
   setDaemonSetting,
 } from './cli/config-settings';
+import { assertDaemonStopped, offlineWriteConsequence } from './cli/daemon-stopped';
 import { probeHealthz } from './cli/healthz-probe';
 import { installServiceUnit, type ServiceHost, startService, stopService } from './cli/service-manager';
 import { mintBootstrapToken } from './cli/show-token';
@@ -73,6 +74,13 @@ Commands:
   audit list    Read the audit log, newest first (works while the daemon
                 runs; default --limit 50)
   audit export  Emit matching audit rows as JSONL, oldest first
+  backup [dest] Snapshot the data dir's state (storage.json, oracle.db,
+                blobs/) into a fresh directory with a checksummed
+                manifest (daemon stopped; dest defaults to
+                ./openheaders-daemon-backup-<timestamp>)
+  restore <dir> Verify a backup's checksums and replace the data dir's
+                state with it (daemon stopped; refuses over existing
+                state without --force)
 
 Settable keys (booleans, default off):
   ${DAEMON_SETTING_KEYS.join(', ')}
@@ -93,6 +101,8 @@ Options (install / status / show-token / config):
   --user <id-or-email>     show-token only: bind the token to a directory user
                            (omit for a token that acts as the daemon operator)
   --email <address>        user add only: contact identity for the new user
+  --force                  restore only: replace existing state files in the
+                           data dir
 
 Options (audit list / export):
   --actor <id-or-email>    Only rows for one directory user
@@ -145,14 +155,8 @@ async function commandStatus(argv: readonly string[]): Promise<void> {
  * envelope in memory and its next flush would clobber an offline write
  * invisibly. Every offline-mutation command guards through here.
  */
-async function assertDaemonStopped(config: DaemonConfig, wouldBeLost: string, instead: string): Promise<void> {
-  if (await probeHealthz(config.bindPort)) {
-    throw new Error(
-      `the daemon is running on port ${config.bindPort} — stop it first (oh daemon stop). ` +
-        `storage.json is single-writer; ${wouldBeLost} under a live daemon would be lost. ` +
-        `While it runs, ${instead} from a connected admin surface instead.`,
-    );
-  }
+async function assertOfflineWrite(config: DaemonConfig, wouldBeLost: string, instead: string): Promise<void> {
+  await assertDaemonStopped(config, offlineWriteConsequence(wouldBeLost, instead));
 }
 
 async function commandShowToken(argv: readonly string[]): Promise<void> {
@@ -162,7 +166,7 @@ async function commandShowToken(argv: readonly string[]): Promise<void> {
   });
   const { config } = resolveConfigFlags(values);
   const label = values.label;
-  await assertDaemonStopped(config, 'a mint', 'mint');
+  await assertOfflineWrite(config, 'a mint', 'mint');
   const boundUser = values.user !== undefined ? await resolveTokenUserBinding(config, values.user) : undefined;
   const minted = await mintBootstrapToken(config, label, boundUser?.user.id);
   const bindingNote = boundUser ? `, user "${boundUser.user.displayName}"` : '';
@@ -195,7 +199,7 @@ async function commandConfig(argv: readonly string[]): Promise<void> {
     }
     const key = parseDaemonSettingKey(rawKey);
     const value = parseDaemonSettingValue(key, rawValue);
-    await assertDaemonStopped(config, 'a setting written', 'change settings');
+    await assertOfflineWrite(config, 'a setting written', 'change settings');
     await setDaemonSetting(config, key, value);
     console.log(`${key} = ${value}`);
     console.log('Applies when the daemon starts (oh daemon start).');
@@ -240,7 +244,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
   if (sub === 'add') {
     const [displayName] = positionals;
     if (displayName === undefined) throw new Error('usage: oh daemon user add <name> [--email <address>]');
-    await assertDaemonStopped(config, 'a user admitted', 'manage users');
+    await assertOfflineWrite(config, 'a user admitted', 'manage users');
     const record = await addUser(config, { displayName, ...(values.email ? { email: values.email } : {}) });
     console.log('User added:');
     console.log(`  ${formatUserLine(record)}`);
@@ -266,7 +270,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
   if (sub === 'deactivate') {
     const [idOrEmail] = positionals;
     if (idOrEmail === undefined) throw new Error('usage: oh daemon user deactivate <id-or-email>');
-    await assertDaemonStopped(config, 'a deactivation', 'manage users');
+    await assertOfflineWrite(config, 'a deactivation', 'manage users');
     const { revokedTokenIds } = await deactivateUser(config, idOrEmail);
     console.log(`User deactivated; ${revokedTokenIds.length} token(s) revoked.`);
     console.log("Applies from the daemon's next start; their next HELLO/MCP call is refused.");
@@ -277,7 +281,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     if (idOrEmail === undefined || workspaceId === undefined || role === undefined || !isWorkspaceRole(role)) {
       throw new Error('usage: oh daemon user grant <id-or-email> <workspaceId> <owner|editor|viewer>');
     }
-    await assertDaemonStopped(config, 'a grant', 'manage grants');
+    await assertOfflineWrite(config, 'a grant', 'manage grants');
     const { record, updated } = await grantUserRole(config, idOrEmail, workspaceId, role);
     console.log(`${updated ? 'Grant updated' : 'Granted'}: ${record.user.displayName} is ${role} on ${workspaceId}.`);
     console.log('Workspace ids are not verifiable offline — a grant on an id that never');
@@ -289,7 +293,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     if (idOrEmail === undefined || workspaceId === undefined) {
       throw new Error('usage: oh daemon user revoke-grant <id-or-email> <workspaceId>');
     }
-    await assertDaemonStopped(config, 'a grant revocation', 'manage grants');
+    await assertOfflineWrite(config, 'a grant revocation', 'manage grants');
     const record = await revokeUserGrant(config, idOrEmail, workspaceId);
     console.log(`Grant revoked: ${record.user.displayName} on ${workspaceId}.`);
     return;
@@ -330,6 +334,14 @@ async function main(): Promise<void> {
       // reaches better-sqlite3, and the entry bundle must keep loading
       // on hosts where the native binding failed to build.
       return (await import('./cli/audit')).commandAudit(rest);
+    case 'backup':
+      // Lazy for the same reason as audit: the snapshot helper opens
+      // oracle.db through better-sqlite3.
+      return (await import('./cli/backup')).commandBackup(rest);
+    case 'restore':
+      // Restore itself is sqlite-free (a verified copy-back), but it
+      // rides the same chunk as its inverse.
+      return (await import('./cli/backup')).commandRestore(rest);
     default:
       console.log(USAGE);
       process.exitCode = 1;
