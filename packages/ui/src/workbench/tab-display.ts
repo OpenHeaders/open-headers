@@ -131,7 +131,7 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups): 
     }
     // Drafts (`*-create`), singletons (`vault`, `workspace-vars`,
     // `settings`, `workspace-manager`, `live-vars`, `landing`), and
-    // one-off tabs (`run-report`, `rule-flow`) keep their seed label —
+    // one-off tabs keep their seed label —
     // either the user-typed `draftName` or the static `label` set at
     // open time. No entity to look up.
     default:

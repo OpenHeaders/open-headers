@@ -51,11 +51,6 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-vi.mock('@/background/modules/test-runner', () => ({
-  getActiveRunSnapshots: vi.fn(() => []),
-  getActiveTestTabIds: vi.fn(() => []),
-}));
-
 vi.mock('@openheaders/oracle/entity/pause-markers-store', () => ({
   getPauseMarkers: vi.fn(() => new Map<string, 'paused' | 'unpaused'>()),
   applyExternalSnapshot: vi.fn(),
@@ -87,11 +82,7 @@ vi.mock('@/background/inject-manager', () => ({
 }));
 
 import { declarativeNetRequest } from '@utils/browser-api';
-import {
-  registerCdpRulesReplay,
-  setRulesPaused,
-  updateNetworkRules,
-} from '@/background/dnr-manager';
+import { registerCdpRulesReplay, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
 
 const mockUpdateDynamicRules = declarativeNetRequest!.updateDynamicRules as ReturnType<typeof vi.fn>;
 

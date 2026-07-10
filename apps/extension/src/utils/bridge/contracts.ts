@@ -25,9 +25,7 @@ export type {
   BridgeTabType,
   EnvironmentsSnapshot,
   FolderDescriptor,
-  ListedTestRun,
   LiveWorkflowRunSnapshot,
-  StartTestRunResult,
   WorkspaceSnapshot,
 } from '@openheaders/core/bridge';
 export { BridgeError } from '@openheaders/core/bridge';

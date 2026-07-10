@@ -19,11 +19,6 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/background/modules/test-runner', () => ({
-  getTestScopeForTab: vi.fn(() => null),
-  isRuleUnderTest: vi.fn(() => false),
-}));
-
 const spies = vi.hoisted(() => ({
   applyInjection: vi.fn(() => Promise.resolve()),
   injectScript: vi.fn(() => Promise.resolve()),
@@ -36,8 +31,14 @@ const spies = vi.hoisted(() => ({
   buildRequestBodyInjection: vi.fn(),
   buildDelayInjection: vi.fn(),
 }));
-const { injectScript, injectScriptCspExempt, canExecuteCspExempt, buildResponseInjection, buildRequestBodyInjection, buildDelayInjection } =
-  spies;
+const {
+  injectScript,
+  injectScriptCspExempt,
+  canExecuteCspExempt,
+  buildResponseInjection,
+  buildRequestBodyInjection,
+  buildDelayInjection,
+} = spies;
 
 vi.mock('@openheaders/rule-engine/inject', () => ({
   applyInjection: spies.applyInjection,

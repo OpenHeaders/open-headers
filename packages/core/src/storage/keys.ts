@@ -374,8 +374,6 @@ export interface WorkspaceKeys {
   workspaceVars: StorageKey<WorkspaceVariables>;
   vault: StorageKey<Vault>;
   pauseMarkers: StorageKey<Record<string, PauseMarker>>;
-  /** Persisted `Record<ownerKey, StoredTestRun[]>`. Opaque at storage layer. */
-  testRuns: StorageKey<Record<string, unknown>>;
   tabSession: StorageKey<PersistedTabSession>;
   panelLayout: StorageKey<PersistedPanelLayout>;
   /** R2a — taste-scoped workspace settings. Always reads from the global active workspace. */
@@ -545,7 +543,6 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     workspaceVars: storageKey<WorkspaceVariables>(`${p}.workspaceVars`),
     vault: storageKey<Vault>(`${p}.vault`, { sensitive: true }),
     pauseMarkers: storageKey<Record<string, PauseMarker>>(`${p}.pauseMarkers`),
-    testRuns: storageKey<Record<string, unknown>>(`${p}.testRuns`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
     panelLayout: storageKey<PersistedPanelLayout>(`${p}.panelLayout`),
     settingsWorkspaceTaste: storageKey<Record<string, unknown>>(`${p}.settings.workspaceTaste`),

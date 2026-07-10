@@ -28,9 +28,6 @@
  *   #/import-modal          → open-import-modal
  *   #/workspace-vars         → open-workspace-vars
  *   #/vault                  → open-vault
- *   #/test/<runId>           → open-run-report
- *   #/flow/<scope>           → open-rule-flow
- *   #/flow/<scope>/<...url>  → open-rule-flow with url
  *   #/live-variables         → open-live-variables
  *   #/live-variable/<uid>    → edit-live-variable
  *   #/live-workflow/<uid>    → edit-live-workflow
@@ -156,33 +153,6 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
     case 'vault':
       return buildIntent({ kind: 'open-vault' });
 
-    case 'test':
-      if (!rest[0]) return null;
-      return buildIntent({ kind: 'open-run-report', runId: rest[0] });
-
-    case 'flow': {
-      const [scope, ...trailingParts] = rest;
-      if (!scope) return null;
-      const base: Record<string, unknown> = { kind: 'open-rule-flow', scope };
-      if (trailingParts.length > 0) {
-        // `this-page` trailing segments are an optional all-digits tab id
-        // followed by a full URL (may contain `/`). A URL piece is never
-        // all-digits (`https:` at minimum), so tabId-less hashes from old
-        // bookmarks still parse. Other scopes encode a single entity uid.
-        if (scope === 'this-page') {
-          let urlParts = trailingParts;
-          if (/^\d+$/.test(trailingParts[0])) {
-            base.tabId = Number(trailingParts[0]);
-            urlParts = trailingParts.slice(1);
-          }
-          if (urlParts.length > 0) base.url = urlParts.join('/');
-        } else {
-          base.entityId = trailingParts[0];
-        }
-      }
-      return buildIntent(base);
-    }
-
     case 'live-variables':
       return buildIntent({ kind: 'open-live-variables' });
 
@@ -281,24 +251,6 @@ export function intentToHash(intent: WorkspaceIntent): string {
 
     case 'open-vault':
       return '#/vault';
-
-    case 'open-run-report':
-      return `#/test/${encodeSegment(intent.runId)}`;
-
-    case 'open-rule-flow': {
-      const parts = ['flow', encodeSegment(intent.scope)];
-      if (intent.scope === 'this-page' && intent.url) {
-        // Optional tab id rides as an all-digits segment ahead of the URL
-        // (the decoder disambiguates on the digits-only shape). URL
-        // segments are split on `/` — encode each piece individually
-        // so `://` and query strings round-trip intact.
-        if (intent.tabId !== undefined) parts.push(String(intent.tabId));
-        for (const piece of intent.url.split('/')) parts.push(encodeSegment(piece));
-      } else if (intent.entityId) {
-        parts.push(encodeSegment(intent.entityId));
-      }
-      return `#/${parts.join('/')}`;
-    }
 
     case 'open-live-variables':
       return '#/live-variables';

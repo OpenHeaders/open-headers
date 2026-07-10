@@ -68,7 +68,6 @@ import {
   injectScriptUrl,
 } from '@openheaders/rule-engine/inject';
 import { logger } from '@utils/logger';
-import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
@@ -384,21 +383,7 @@ function logInjectFailure(what: string, tabId: number, error: unknown): void {
   }
 }
 
-type TestScope = ReturnType<typeof getTestScopeForTab>;
-
-/**
- * Test-isolation gate. In a test tab, only that session's scoped rules
- * apply; elsewhere, a rule under test in some other session is skipped so
- * it can't leak into unrelated tabs. Returns true when the rule is blocked.
- */
-function blockedByTestScope(uid: string, testScope: TestScope): boolean {
-  if (testScope) return !testScope.has(uid);
-  return isRuleUnderTest(uid);
-}
-
 async function injectForUrl(tabId: number, url: string): Promise<void> {
-  const testScope = getTestScopeForTab(tabId);
-
   // CDP delivery precedence (E1b): on an in-scope tab with bootstrap-eligible
   // wrappers, a document-bootstrap script already ran `oh-setup` + those
   // wrappers BEFORE any page script on THIS fresh document. So skip the
@@ -424,7 +409,6 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
   // bootstrapped (they are not fetch/socket wrappers) — always installed here.
   for (const rule of activeInjectRules) {
     if (!doesUrlMatchRule(url, rule)) continue;
-    if (blockedByTestScope(rule.uid, testScope)) continue;
 
     try {
       if (rule.action.source === 'url' && rule.action.sourceUrl) {
@@ -452,7 +436,7 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     }
   }
 
-  await injectInterceptorsForTab(tabId, url, testScope, bootstrapCoversDocument);
+  await injectInterceptorsForTab(tabId, url, bootstrapCoversDocument);
 }
 
 /**
@@ -469,12 +453,7 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
  * documents, so the current document's residual wrappers must still install
  * here (an arming tab never loses its wrappers mid-page).
  */
-async function injectInterceptorsForTab(
-  tabId: number,
-  url: string,
-  testScope: TestScope,
-  suppressBootstrapEligible: boolean,
-): Promise<void> {
+async function injectInterceptorsForTab(tabId: number, url: string, suppressBootstrapEligible: boolean): Promise<void> {
   const cdpOwned = cdpOwnsRealizableRules(tabId);
   // True when this tab's CDP delivery (network realization OR bootstrap) already
   // owns the rule for this document — so the `onCommitted` path must not also
@@ -490,7 +469,6 @@ async function injectInterceptorsForTab(
   for (const entry of activeInterceptorRules) {
     if (!shouldInstallForPage(entry, url)) continue;
     const rule = entry.rule;
-    if (blockedByTestScope(rule.uid, testScope)) continue;
     // Precedence (D4a / E1b): CDP realizes the realizable-now effect at the
     // network layer (visible in the Network panel), and delivers the residual
     // wrapper via the document-bootstrap script. Either way the `onCommitted`
@@ -516,7 +494,6 @@ async function injectInterceptorsForTab(
 
   for (const merge of activeHeaderMerges) {
     if (!shouldInstallForPage(merge, url)) continue;
-    if (blockedByTestScope(merge.rule.uid, testScope)) continue;
     if (ownedByCdp(merge.rule)) continue;
 
     try {
@@ -534,7 +511,6 @@ async function injectInterceptorsForTab(
 
   for (const entry of activeMessageRules) {
     if (!shouldInstallForPage(entry, url)) continue;
-    if (blockedByTestScope(entry.rule.uid, testScope)) continue;
     if (ownedByCdp(entry.rule)) continue;
 
     try {
@@ -578,7 +554,7 @@ async function pushInterceptorUpdate(): Promise<void> {
  *  here (suppress=false); only network realization (D4a) is still suppressed. */
 async function resetAndReinjectTab(tabId: number, url: string): Promise<void> {
   await applyInjection(tabId, buildResetInjection(), 'oh-reset');
-  await injectInterceptorsForTab(tabId, url, getTestScopeForTab(tabId), false);
+  await injectInterceptorsForTab(tabId, url, false);
 }
 
 /**

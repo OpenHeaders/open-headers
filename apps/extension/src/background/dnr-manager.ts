@@ -13,9 +13,6 @@
  *         `excludedTabIds` — Chrome only allows those fields on session
  *         rules. Delay redirect rules live here so the delay-page bypass
  *         can exclude a single tab at a time without touching user rules.
- *   - While any test session is active, each session's scope rules are
- *     ALSO compiled and stamped with `tabIds: [testTabId]`, so test-
- *     scoped rules only fire on their own tab.
  *
  * Scriptable injections are NOT handled here. `inject-manager` consumes
  * rules directly from the rule store and installs its MAIN-world
@@ -56,7 +53,6 @@ import { logger } from '@utils/logger';
 import { updateScriptableRules } from './inject-manager';
 import { recordLog } from './modules/observability-log';
 import { observeRuleState } from './modules/rules/rule-state-observer';
-import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
 import { refreshCachedTotpCodes } from './modules/totp-scheduler';
 
 // ── Paused state ─────────────────────────────────────────────────
@@ -87,14 +83,6 @@ export function registerCdpRulesReplay(fn: () => void): void {
  */
 const dynamicDnrIdToUid: Map<number, string> = new Map();
 
-/**
- * Per-run mapping from DNR session rule id → Rule.uid. Keyed by test
- * run id so the test-runner can look up fires for its own run without
- * colliding with other parallel runs. ("Session" in the field name refers
- * to Chrome's `updateSessionRules` DNR category, not to our test runs.)
- */
-const runSessionRuleIdToUid: Map<string, Map<number, string>> = new Map();
-
 export function getDnrIdToRuleUid(): ReadonlyMap<number, string> {
   return dynamicDnrIdToUid;
 }
@@ -103,8 +91,8 @@ let effectiveFireUids: ReadonlySet<string> | null = null;
 
 /**
  * Uids of rules whose compiled artifacts are live in the engine right
- * now — dynamic DNR, global session DNR, scriptable injections, and
- * active test-run scope rules. The inferred-fire path consults this so
+ * now — dynamic DNR, global session DNR, and scriptable injections.
+ * The inferred-fire path consults this so
  * an amber dot is only claimed for a rule that is actually on the wire
  * (a paused / draft / capped / pause-marked rule matches URLs but never
  * applies). `null` until the first rebuild of this SW life commits —
@@ -113,10 +101,6 @@ let effectiveFireUids: ReadonlySet<string> | null = null;
  */
 export function getEffectiveFireUids(): ReadonlySet<string> | null {
   return effectiveFireUids;
-}
-
-export function getSessionRuleIdToUid(runId: string): ReadonlyMap<number, string> {
-  return runSessionRuleIdToUid.get(runId) ?? new Map();
 }
 
 export function setRulesPaused(paused: boolean): void {
@@ -288,8 +272,8 @@ export function applyAllRulesAsync(): Promise<void> {
 // the pending slot (always with the latest rule list).
 //
 // Awaiters of all queued requests resolve when their request's
-// rebuild finishes — `applyAllRulesAsync`'s caller (test-runner setup,
-// delay-bypass) sees rules live in Chrome before its promise resolves.
+// rebuild finishes — `applyAllRulesAsync`'s caller (delay-bypass)
+// sees rules live in Chrome before its promise resolves.
 
 let inflight: Promise<void> | null = null;
 interface PendingRebuild {
@@ -331,7 +315,6 @@ function runRebuild(rules: Rule[]): Promise<void> {
 
 async function rebuildAll(rawRules: Rule[]): Promise<void> {
   dynamicDnrIdToUid.clear();
-  runSessionRuleIdToUid.clear();
 
   // Sync-warm opt-in LVs drive a blocking refresh of their backing
   // workflows BEFORE resolve, so the compile below sees fresh values
@@ -352,9 +335,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   // carries an `excludedRequestHeaders` clause matching the bypass tag its
   // chain fetches stamp. Computed from RAW rules because the `{{live.X}}`
   // references are what we need to see — after resolve those literals have
-  // been substituted with the cached values. Memoized so test-run scope
-  // recompiles (which share source uids with the global rule set) don't
-  // re-walk every rule's templates.
+  // been substituted with the cached values.
   const liveBypassByUid = new Map<string, ReadonlySet<string>>();
   for (const rule of rawRules) {
     const bypass = computeRuleLiveBypass(rule);
@@ -408,9 +389,6 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     });
     return Promise.resolve();
   }
-
-  const testTabIds = getActiveTestTabIds();
-  const runs = getActiveRunSnapshots();
 
   // Engine-relevant settings, sourced once per rebuild — the engine
   // package doesn't read `@openheaders/ui/workbench/settings/store` directly; the
@@ -487,78 +465,15 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   for (const uid of updateScriptableRules(scriptables, liveBlockRules)) liveUids.add(uid);
 
   // ── Layer 2: session rules ──
-  // Three subcategories:
-  //
-  //   (a) Test-run rules: scope-snapshot rules from each active test
-  //       run, stamped with tabIds: [testTabId] so they only fire on
-  //       that run's tab.
-  //   (b) Delay redirect rules: emitted by compileRuleSet as `session`
-  //       rules. Stamped with excludedTabIds for test tabs (so they don't
-  //       collide with test isolation) AND for any tabs currently in the
-  //       delay-bypass set (so the delay page's follow-up navigation
-  //       passes through without re-triggering the delay).
-  //   (c) Nothing else today — sessionRules from other rule types would
-  //       flow through here the same way if any are added in the future.
+  // Delay redirect rules — emitted by compileRuleSet as `session` rules,
+  // stamped with excludedTabIds for any tabs currently in the delay-bypass
+  // set (so the delay page's follow-up navigation passes through without
+  // re-triggering the delay). sessionRules from other rule types would
+  // flow through here the same way if any are added in the future.
 
   const sessionToApply: DnrRule[] = [];
 
-  // (a) Test runs first — start the session rule id counter well above
-  // the dynamic range to avoid id collisions in Chrome versions that
-  // share the id space across both layers.
-  let sessionIdCounter = 1_000_000;
-  // Snapshot the bypass set once so all runs see a consistent view.
-  const bypassTabSet = new Set(getActiveBypassTabIds());
-  for (const run of runs) {
-    const perRunMap = new Map<number, string>();
-    runSessionRuleIdToUid.set(run.id, perRunMap);
-
-    // Delay-loop guard: when this run's test tab is in the delay-bypass
-    // window (the delay page is about to navigate back to the real target),
-    // the delay rule under test would re-fire and loop. Drop delay rules
-    // from the scope for the duration of the bypass window — every other
-    // rule type in the run continues to apply normally. Once the bypass
-    // entry clears (resolveDelayBypass on commit), the next applyAllRules
-    // brings the delay rule back, but the test tab has already navigated
-    // past it.
-    const scopeForCompile = bypassTabSet.has(run.tabId)
-      ? run.scopeRules.filter((r) => r.type !== 'delay')
-      : run.scopeRules;
-
-    // Test-run scope snapshots predate the active env/vars and therefore
-    // carry raw `{{VAR}}` templates. Resolve against the CURRENT scopes
-    // so a test run reflects the live environment — same contract as
-    // the outer rule set above, including the unresolvable filter so a
-    // test run can't silently apply a rule with literal `{{VAR}}` on
-    // the wire either.
-    const resolvedScope = resolveRulesForCompile(scopeForCompile);
-    const scopeUnresolvable = getUnresolvableRuleUids();
-    const effectiveScope =
-      scopeUnresolvable.size > 0 ? resolvedScope.filter((r) => !scopeUnresolvable.has(r.uid)) : resolvedScope;
-    const { dynamic: runDynamic, session: runSession } = compileRuleSet(
-      effectiveScope,
-      getPauseMarkers(),
-      sessionIdCounter,
-      engineSettings,
-    );
-    // Both the "dynamic" and "session" outputs from a test scope end up
-    // in the session layer with tabIds stamped — within a test run,
-    // everything is per-tab.
-    const all = [...runDynamic, ...runSession];
-    for (const { rule, uid } of all) {
-      perRunMap.set(rule.id, uid);
-      liveUids.add(uid);
-      const bypass = liveBypassByUid.get(uid);
-      if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass, { extensionDomain: extensionId });
-      rule.condition = { ...rule.condition, tabIds: [run.tabId] };
-      sessionToApply.push(rule);
-      sessionIdCounter = Math.max(sessionIdCounter, rule.id + 1);
-    }
-  }
-
-  // (b) Delay rules (and any other global session rules). Stamp with
-  // excludedTabIds so test tabs and bypass tabs are skipped.
-  const bypassTabs = getActiveBypassTabIds();
-  const excludedForGlobal = [...new Set<number>([...testTabIds, ...bypassTabs])];
+  const excludedForGlobal = getActiveBypassTabIds();
   for (const { rule, uid } of globalSessionUntagged) {
     dynamicDnrIdToUid.set(rule.id, uid); // global session rules are part of the "live for this tab" lookup
     liveUids.add(uid);

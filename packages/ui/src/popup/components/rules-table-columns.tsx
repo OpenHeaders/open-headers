@@ -1,4 +1,4 @@
-import { DeleteOutlined, EditOutlined, ExperimentOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import type { WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import { App, Button, Popconfirm, Space, Switch, Tag, Tooltip, Typography } from 'antd';
@@ -31,7 +31,6 @@ export interface RulesTableColumnsOptions {
   ruleMutator: UseRuleMutatorApi;
   message: RulesTableMessageApi;
   openRulesIntent: (intent: WorkspaceIntent) => void;
-  handleTestRule: (record: TableRecord) => void;
 }
 
 /**
@@ -47,7 +46,6 @@ export function buildRulesTableColumns({
   ruleMutator,
   message,
   openRulesIntent,
-  handleTestRule,
 }: RulesTableColumnsOptions): ColumnsType<TableRecord> {
   return [
     {
@@ -130,16 +128,13 @@ export function buildRulesTableColumns({
     {
       title: '',
       key: 'actions',
-      width: 88,
+      width: 60,
       align: 'center',
       fixed: 'right',
       render: (_: unknown, record: TableRecord) => {
         const canAct = true;
         return (
           <Space size={2}>
-            <Tooltip title="Test this rule against a URL">
-              <Button type="text" icon={<ExperimentOutlined />} size="small" onClick={() => handleTestRule(record)} />
-            </Tooltip>
             <Tooltip title={!canAct ? NOT_CONNECTED_TIP : 'Edit rule'}>
               <Button
                 type="text"

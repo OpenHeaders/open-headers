@@ -51,10 +51,10 @@ import {
   getVault,
   getWorkspaceVariables,
 } from '@openheaders/oracle/entity/environment-store';
-import { getLiveVariables } from '@openheaders/oracle/live/live-variable-store';
-import { listWorkflowRunCaches } from '@openheaders/oracle/live/live-cache-store';
-import { getLiveWorkflows } from '@openheaders/oracle/live/live-workflow-store';
 import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
+import { listWorkflowRunCaches } from '@openheaders/oracle/live/live-cache-store';
+import { getLiveVariables } from '@openheaders/oracle/live/live-variable-store';
+import { getLiveWorkflows } from '@openheaders/oracle/live/live-workflow-store';
 import {
   __resetForTests,
   getLastAggregatedResolutionErrors,
@@ -84,7 +84,9 @@ function makeHeaderRule(overrides: Partial<HeaderRule> & { path: string; uid: st
     enabled: true,
     conditions: [{ uid: 'tcd00062', type: 'request-domains', values: ['api.openheaders.io'] }],
     action: {
-      requestHeaders: [{ uid: 'thm00105', operation: 'override', headerName: 'Authorization', value: 'Bearer {{TOKEN}}' }],
+      requestHeaders: [
+        { uid: 'thm00105', operation: 'override', headerName: 'Authorization', value: 'Bearer {{TOKEN}}' },
+      ],
       responseHeaders: [],
     },
     ...overrides,
@@ -142,11 +144,13 @@ describe('VariablesResolver (extension)', () => {
   });
 
   it('lets vault secret override environment scope', () => {
-    mockEnvs.mockReturnValue([env('prod', [{ uid: 'ae67a31b', name: 'TOKEN', value: 'env-token', type: 'default' }], 'e-prod')]);
+    mockEnvs.mockReturnValue([
+      env('prod', [{ uid: 'ae67a31b', name: 'TOKEN', value: 'env-token', type: 'default' }], 'e-prod'),
+    ]);
     mockActiveEnvId.mockReturnValue('e-prod');
     mockVault.mockReturnValue({
       schemaVersion: 5,
-      
+
       secrets: [{ uid: '16f5bde2', kind: 'string', name: 'TOKEN', value: 'vault-token' }],
     });
 
@@ -241,7 +245,11 @@ describe('VariablesResolver (extension)', () => {
   });
 
   it('reflects env switch across sequential compile calls', () => {
-    const stagingEnv = env('staging', [{ uid: '0c34ad14', name: 'TOKEN', value: 'staging', type: 'default' }], 'e-staging');
+    const stagingEnv = env(
+      'staging',
+      [{ uid: '0c34ad14', name: 'TOKEN', value: 'staging', type: 'default' }],
+      'e-staging',
+    );
     const prodEnv = env('prod', [{ uid: '431b4c8b', name: 'TOKEN', value: 'prod', type: 'default' }], 'e-prod');
     mockEnvs.mockReturnValue([stagingEnv, prodEnv]);
 
@@ -296,7 +304,7 @@ describe('VariablesResolver (extension)', () => {
     expect(snapshot[0].conditions[0].values).toEqual(['api.openheaders.io']);
   });
 
-  it('does not overwrite the snapshot when compiling a test-run subset', () => {
+  it('does not overwrite the snapshot when compiling a subset', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
@@ -359,7 +367,9 @@ describe('VariablesResolver (extension)', () => {
         uid: 'r1',
         path: 'rules/test',
         action: {
-          requestHeaders: [{ uid: 'thm00106', operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' }],
+          requestHeaders: [
+            { uid: 'thm00106', operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' },
+          ],
           responseHeaders: [],
         },
       });
@@ -369,7 +379,7 @@ describe('VariablesResolver (extension)', () => {
       expect(agg.map((e) => e.reference)).not.toContain('dynamic.timestamp');
     });
 
-    it('test-run subset compile does NOT overwrite persisted errors', () => {
+    it('subset compile does NOT overwrite persisted errors', () => {
       const r1 = makeHeaderRule({ uid: 'r1', path: 'rules/a' });
       const r2 = makeHeaderRule({ uid: 'r2', path: 'rules/b' });
       mockStoreRules.mockReturnValue([r1, r2]);

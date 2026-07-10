@@ -3,7 +3,7 @@
  *
  * Owns every piece of state the popup's "This Page" view renders: per-rule
  * event counters, per-rule unique-URL maps, and a bounded chronological fire
- * log. Consumers (popup, test-runner) read one snapshot; there is no parallel
+ * log. Consumers (popup) read one snapshot; there is no parallel
  * `matchedUrls` store in request-tracker anymore.
  *
  * ── Data model ─────────────────────────────────────────────────────
@@ -18,7 +18,6 @@
  *                           On re-observation, the record is re-inserted at
  *                           the tail and evidence may be upgraded.
  *   - `fires`             — chronological ring buffer (MAX_FIRES_PER_TAB).
- *                           Kept for test-runner's session result payload.
  *   - `pendingFires`      — observed main-frame fires awaiting commit.
  *   - `pendingFallback`   — observed sub-resource fires for rule types that
  *                           *might* also emit a scriptable fire. Buffered for
@@ -54,7 +53,7 @@
 export type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@openheaders/core/types';
 export { recordObservedFire, recordReportedFire, recordScriptableFire } from './ingestion';
 export { onMainFrameError, onPageCommit, updateRequestDeliveryMode } from './page-context';
-export { getTabSnapshot, getTabSnapshotForScope } from './reads';
+export { getTabSnapshot } from './reads';
 export {
   __internals,
   __resetForTests,
@@ -62,7 +61,6 @@ export {
   isTracked,
   startTracking,
   stopTracking,
-  subscribeFires,
   subscribeFiresAll,
 } from './state';
 export type { ObservedFireMeta, ScriptableFireMeta, TrackingReason } from './types';

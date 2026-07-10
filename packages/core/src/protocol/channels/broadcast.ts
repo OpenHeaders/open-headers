@@ -14,7 +14,6 @@ import type {
   Rule,
   StatusSnapshot,
   Template,
-  TestRunOwnerType,
 } from '../../types';
 import type { WorkspaceIntent } from '../../workspace-intent';
 import type { AwarenessState } from '../awareness-bridge';
@@ -61,9 +60,6 @@ export interface BridgeBroadcastContract {
   rulesUpdated: { rules: Rule[]; timestamp?: number };
   templatesUpdated: { templates: Template[] };
   requestsUpdated: { requests: Request[] };
-  testRunFinished: { ownerType: TestRunOwnerType; ownerId: string; runId: string };
-  testRunDeleted: { runId: string };
-  testRunsClearedForOwner: { ownerType: TestRunOwnerType; ownerId: string };
   connectionStatus: { connected: boolean };
   trackedUrlsUpdated: { tabId?: number };
   /**

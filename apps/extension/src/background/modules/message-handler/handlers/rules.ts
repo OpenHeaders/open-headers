@@ -1,6 +1,6 @@
 /** Rule + rule-collection/folder CRUD, drafts, cache-bypass, and throttle RPCs. */
 
-import { readNetworkThrottleConditions, readTabSystemOverrides, type TreeNode } from '@openheaders/core/types';
+import { readNetworkThrottleConditions, readTabSystemOverrides } from '@openheaders/core/types';
 import { createRuleDraft, takeRuleDraft } from '@openheaders/oracle/entity/rule-draft-store';
 import {
   createCollection,
@@ -15,33 +15,12 @@ import {
   renameCollection,
   renameFolder,
 } from '@openheaders/oracle/entity/rule-store';
-import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { canExecuteCspExempt } from '@openheaders/rule-engine/inject';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from '../../net/cache-bypass';
 import { getNetworkConditionsForTab, setNetworkConditionsForTab } from '../../net/network-conditions';
 import { setCdpTabPin } from '../../tabs/cdp-tab-pin';
 import { getTabOverridesForTab, setTabOverridesForTab } from '../../tabs/tab-overrides';
 import type { HandlerMap } from '../types';
-
-/** Sweep test-run owners whose rule/collection/folder no longer exists. */
-function pruneOrphanTestRunOwners(): void {
-  const liveRules = new Set<string>();
-  const liveEntities = new Set<string>();
-  for (const r of getRules()) liveRules.add(r.uid);
-  for (const c of getCollectionTrees()) {
-    liveEntities.add(c.uid);
-    const walk = (nodes: TreeNode[]): void => {
-      for (const n of nodes) {
-        if (n.type === 'folder') {
-          liveEntities.add(n.uid);
-          walk(n.children);
-        }
-      }
-    };
-    walk(c.tree);
-  }
-  void pruneOrphanOwners(liveRules, liveEntities);
-}
 
 export const ruleHandlers: HandlerMap = {
   deleteRule: ({ message, respond, ctx }) => {
@@ -54,7 +33,6 @@ export const ruleHandlers: HandlerMap = {
           // mutator emits a `RECOMPILE_DNR` intent that the runner
           // drains on the post-commit broadcast.
           ctx.updateBadgeCallback();
-          pruneOrphanTestRunOwners();
         }
         respond({ success });
       })
@@ -168,7 +146,6 @@ export const ruleHandlers: HandlerMap = {
           // rule-store.ts `deleteFolder`) and emit RECOMPILE_DNR
           // intents the runner drains.
           ctx.updateBadgeCallback();
-          pruneOrphanTestRunOwners();
         }
         respond({ success });
       })
@@ -196,7 +173,6 @@ export const ruleHandlers: HandlerMap = {
           // Cascade rule deletes route through the oracle; runner
           // covers the DNR recompile.
           ctx.updateBadgeCallback();
-          pruneOrphanTestRunOwners();
         }
         respond({ success });
       })

@@ -33,7 +33,6 @@ import { hostBridge } from '@openheaders/core/bridge';
 import type { RuleDraft } from '@openheaders/core/types';
 import { hashToBoundIntent, type WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import { useEffect, useRef } from 'react';
-import type { RuleFlowScope } from '../types';
 
 interface UseWorkspaceIntentRouterOptions {
   isStatusLoaded: boolean;
@@ -54,17 +53,6 @@ interface UseWorkspaceIntentRouterOptions {
   openDocs: (sectionId: string) => void;
   /** `open-notifications` — activate the Notifications tool window. */
   openNotifications: () => void;
-  openRuleFlow: (
-    scope: RuleFlowScope,
-    entityId?: string,
-    label?: string,
-    page?: { url: string; tabId?: number },
-  ) => void;
-  openRunReport: (
-    runId: string,
-    owner?: { type: 'rule' | 'folder' | 'collection' | 'workspace'; id: string },
-    ownerName?: string,
-  ) => void;
   openSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
   openWorkspaceManager: () => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
@@ -218,26 +206,6 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           // request-store broadcast corrects the label + method.
           o.openRequestEditTab(intent.uid, 'Request', 'GET');
           return;
-        case 'open-rule-flow':
-          o.openRuleFlow(
-            intent.scope,
-            intent.entityId,
-            undefined,
-            intent.url ? { url: intent.url, tabId: intent.tabId } : undefined,
-          );
-          return;
-        case 'open-run-report':
-          // Recover the owner stamp from the persisted run so the bottom
-          // panel's contextual Test Runs tab can resolve its bucket.
-          hostBridge
-            .call('getTestRun', { runId: intent.runId })
-            .then((data) => {
-              const run = data?.run ?? null;
-              const owner = run ? { type: run.ownerType, id: run.ownerId } : undefined;
-              o.openRunReport(intent.runId, owner, run?.ownerNameAtRun);
-            })
-            .catch(() => o.openRunReport(intent.runId));
-          return;
         case 'edit-live-variable':
           // Placeholder label; once the LV store broadcast resolves the
           // actual `name`, `useTabSyncEffects` rewrites the label (same
@@ -348,24 +316,6 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'open-request-editor':
         o.openRequestEditTab(pending.uid, 'Request', 'GET');
-        return;
-      case 'open-rule-flow':
-        o.openRuleFlow(
-          pending.scope,
-          pending.entityId,
-          undefined,
-          pending.url ? { url: pending.url, tabId: pending.tabId } : undefined,
-        );
-        return;
-      case 'open-run-report':
-        hostBridge
-          .call('getTestRun', { runId: pending.runId })
-          .then((data) => {
-            const run = data?.run ?? null;
-            const owner = run ? { type: run.ownerType, id: run.ownerId } : undefined;
-            o.openRunReport(pending.runId, owner, run?.ownerNameAtRun);
-          })
-          .catch(() => o.openRunReport(pending.runId));
         return;
       case 'edit-live-variable':
         o.openLiveVariableEdit(pending.uid, 'Source');

@@ -5,7 +5,6 @@ import {
   __resetForTests,
   clearTab,
   getTabSnapshot,
-  getTabSnapshotForScope,
   isTracked,
   onMainFrameError,
   onPageCommit,
@@ -509,41 +508,6 @@ describe('tab-telemetry — page-context attribution', () => {
   });
 });
 
-// ── Scoped snapshot (test-runner) ────────────────────────────────────
-
-describe('tab-telemetry — scoped snapshot', () => {
-  it('filters fires, counters, and byRule by scope set', () => {
-    startTracking(1, 'test:session-x');
-    recordScriptableFire(1, 'rule-a', 'https://openheaders.io/a', 100, SCRIPTABLE_META);
-    recordScriptableFire(1, 'rule-b', 'https://openheaders.io/b', 200, SCRIPTABLE_META);
-    recordObservedFire(1, 'rule-c', 'https://openheaders.io/c', 'req-x', 300, DNR_META);
-
-    const scoped = getTabSnapshotForScope(1, new Set(['rule-a', 'rule-c']));
-    expect(scoped.fires.map((f) => f.ruleUid)).toEqual(['rule-a', 'rule-c']);
-    expect(scoped.counters).toEqual({ 'rule-a': 1, 'rule-c': 1 });
-    expect(Object.keys(scoped.byRule).sort()).toEqual(['rule-a', 'rule-c']);
-    expect(scoped.uniqueRequestCount).toBe(2);
-  });
-
-  it('returns empty snapshot for untracked tabs', () => {
-    const scoped = getTabSnapshotForScope(99, new Set(['rule-a']));
-    expect(scoped.fires).toHaveLength(0);
-    expect(scoped.counters).toEqual({});
-    expect(scoped.byRule).toEqual({});
-    expect(scoped.uniqueRequestCount).toBe(0);
-  });
-
-  it('omits counters for uids that had no fires', () => {
-    startTracking(1, 'test:s');
-    recordScriptableFire(1, 'rule-a', 'https://openheaders.io/', 100, SCRIPTABLE_META);
-
-    const scoped = getTabSnapshotForScope(1, new Set(['rule-a', 'rule-missing']));
-    expect(scoped.counters).toEqual({ 'rule-a': 1 });
-    expect('rule-missing' in scoped.counters).toBe(false);
-    expect('rule-missing' in scoped.byRule).toBe(false);
-  });
-});
-
 // ── Snapshot isolation ───────────────────────────────────────────────
 
 describe('tab-telemetry — snapshot isolation', () => {
@@ -584,15 +548,6 @@ describe('delivery mode + updateRequestDeliveryMode', () => {
 
     const snap = getTabSnapshot(1);
     expect(snap.counters).toEqual({ 'rule-a': 2, 'rule-b': 1 });
-  });
-
-  it('scoped snapshot reports counters for the scope only', () => {
-    startTracking(1, 'active-popup');
-    recordObservedFire(1, 'rule-a', 'https://openheaders.io/a', 'req-1', 100, DNR_META);
-    recordObservedFire(1, 'rule-b', 'https://openheaders.io/b', 'req-2', 101, DNR_META);
-
-    const scoped = getTabSnapshotForScope(1, new Set(['rule-a']));
-    expect(scoped.counters).toEqual({ 'rule-a': 1 });
   });
 
   it('records carry requestId so delivery-mode back-fill can target them', () => {

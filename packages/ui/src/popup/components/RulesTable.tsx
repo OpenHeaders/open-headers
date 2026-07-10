@@ -1,4 +1,4 @@
-import { ExperimentOutlined, PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
+import { PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
 import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import { resolvePauseState } from '@openheaders/core/utils';
@@ -20,7 +20,6 @@ import DeleteConfirmOverlay from './DeleteConfirmOverlay';
 import { buildRulesTableColumns } from './rules-table-columns';
 import { rulesToRecords, type TableRecord } from './rules-table-records';
 import { buildRulesTableSortMenu } from './rules-table-sort-menu';
-import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
 /** Open the full-page rules editor in a new tab. */
 /**
@@ -88,43 +87,6 @@ const RulesTable: React.FC<RulesTableProps> = ({
       setSortedInfo((uiState.tableState.sortedInfo as SorterResult<TableRecord>) || {});
     }
   }, [uiState?.tableState]);
-
-  // Per-rule test launcher state. The same TestRunModal that drives
-  // collection/folder testing — opened with ownerType='rule' and the
-  // single rule's uid as the owner, so the resulting session lands in
-  // that rule's bucket.
-  const [testState, setTestState] = useState<{
-    open: boolean;
-    ownerType: TestRunOwnerType;
-    ownerId: string;
-    scopeLabel: string;
-    ruleUids: string[];
-  }>({ open: false, ownerType: 'rule', ownerId: '', scopeLabel: '', ruleUids: [] });
-
-  const handleTestRule = useCallback((record: TableRecord) => {
-    setTestState({
-      open: true,
-      ownerType: 'rule',
-      ownerId: record.id,
-      scopeLabel: record.name,
-      ruleUids: [record.id],
-    });
-  }, []);
-
-  const handleTestAll = useCallback(() => {
-    const allUids = rules.map((r) => r.uid);
-    if (allUids.length === 0) {
-      message.info('No rules to test');
-      return;
-    }
-    setTestState({
-      open: true,
-      ownerType: 'workspace',
-      ownerId: 'all',
-      scopeLabel: 'All rules',
-      ruleUids: allUids,
-    });
-  }, [rules, message]);
 
   const dataSource: TableRecord[] = rulesToRecords(rules, pauseMarkers, resolver, sortMode);
 
@@ -272,7 +234,6 @@ const RulesTable: React.FC<RulesTableProps> = ({
     ruleMutator,
     message,
     openRulesIntent,
-    handleTestRule,
   });
 
   const handlePaletteSelect = useCallback(
@@ -325,31 +286,6 @@ const RulesTable: React.FC<RulesTableProps> = ({
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36 }}>
-              <Tooltip
-                title="Test all workspace rules against a URL"
-                placement="bottom"
-                overlayStyle={{ maxWidth: 'none' }}
-                overlayInnerStyle={{ whiteSpace: 'nowrap' }}
-              >
-                <Button
-                  className="oh-toolbar-secondary"
-                  size="middle"
-                  icon={<ExperimentOutlined />}
-                  onClick={handleTestAll}
-                  disabled={rules.length === 0}
-                  // Match the .add-rule-button height (36px hard-coded in
-                  // popup.less) so both buttons sit on the same baseline.
-                  // Square aspect since this is icon-only.
-                  style={{
-                    height: 36,
-                    width: 36,
-                    padding: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                />
-              </Tooltip>
               <Tooltip title="Add a rule — search across types and templates">
                 <Button
                   type="primary"
@@ -453,15 +389,6 @@ const RulesTable: React.FC<RulesTableProps> = ({
           itemName={filteredData[pendingDeleteIndex]?.name ?? ''}
         />
       </div>
-      <TestRunModal
-        open={testState.open}
-        onClose={() => setTestState((s) => ({ ...s, open: false }))}
-        ownerType={testState.ownerType}
-        ownerId={testState.ownerId}
-        scopeLabel={testState.scopeLabel}
-        ruleUids={testState.ruleUids}
-        allRules={rules}
-      />
       <AddRulePalette
         open={addRulePaletteOpen}
         onClose={() => setAddRulePaletteOpen(false)}

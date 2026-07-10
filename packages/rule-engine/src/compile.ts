@@ -4,7 +4,7 @@
  *
  * No side effects, no chrome.* calls, no workspace-state reads. The
  * orchestrator (`dnr-manager.ts`) does all of the workspace-state
- * coordination (variable resolution, pause markers, test-run scopes)
+ * coordination (variable resolution, pause markers)
  * and feeds resolved rules in.
  *
  * This file is the future `@openheaders/rule-engine/compile` entry —

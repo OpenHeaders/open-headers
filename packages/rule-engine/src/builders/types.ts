@@ -43,9 +43,9 @@ export interface DnrCondition {
   domainType?: 'firstParty' | 'thirdParty';
   responseHeaders?: Array<{ header: string; values?: string[]; excludedValues?: string[] }>;
   excludedResponseHeaders?: Array<{ header: string; values?: string[] }>;
-  /** Restrict the rule to specific tabs. Used by the test-runner for session rules. */
+  /** Restrict the rule to specific tabs (session-layer only). */
   tabIds?: number[];
-  /** Exclude specific tabs. Used by the test-runner to hide dynamic rules from test tabs. */
+  /** Exclude specific tabs (session-layer only; delay-bypass exclusion). */
   excludedTabIds?: number[];
 }
 

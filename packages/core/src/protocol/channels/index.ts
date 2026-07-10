@@ -41,7 +41,6 @@ import type { RequestRpc } from './requests';
 import type { RuleRpc } from './rules';
 import type { SyncEngineRpc } from './sync-engine';
 import type { TemplateRpc } from './templates';
-import type { TestRunRpc } from './test-runs';
 import type { UpdatesRpc } from './updates';
 import type { WorkspaceRpc } from './workspace';
 
@@ -74,7 +73,6 @@ export type {
 } from './devtools';
 export type { EnvironmentsSnapshot } from './environments';
 export type { LiveWorkflowRunSnapshot } from './live';
-export type { ListedTestRun, StartTestRunResult } from './test-runs';
 export type { AppUpdatePhase, AppUpdateState } from './updates';
 
 /**
@@ -91,7 +89,6 @@ export interface BridgeRpcContract
   extends WorkspaceRpc,
     NavigationRpc,
     RuleRpc,
-    TestRunRpc,
     TemplateRpc,
     EnvironmentRpc,
     RequestRpc,

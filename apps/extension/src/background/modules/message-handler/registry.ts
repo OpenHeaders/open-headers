@@ -21,7 +21,6 @@ import { ruleHandlers } from './handlers/rules';
 import { storageInspectorHandlers } from './handlers/storage-inspector';
 import { telemetryHandlers } from './handlers/telemetry';
 import { templateHandlers } from './handlers/templates';
-import { testRunHandlers } from './handlers/test-runs';
 import { workspaceHandlers } from './handlers/workspaces';
 import type { HandlerMap } from './types';
 
@@ -34,7 +33,6 @@ export const registry: HandlerMap = {
   ...requestHandlers,
   ...ruleHandlers,
   ...telemetryHandlers,
-  ...testRunHandlers,
   ...templateHandlers,
   ...observabilityHandlers,
   ...importReportHandlers,

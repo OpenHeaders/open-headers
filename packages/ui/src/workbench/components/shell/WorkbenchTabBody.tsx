@@ -28,8 +28,6 @@ import RequestEditor from '../request-editor/RequestEditor';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import ResponseExampleView from '../response-example/ResponseExampleView';
 import RuleEditor from '../rule/RuleEditor';
-import RuleFlow from '../rule-flow/RuleFlow';
-import RunReportView from '../runs/RunReportView';
 import TemplateCollectionOverview from '../overviews/TemplateCollectionOverview';
 import TemplateEditor from '../template/TemplateEditor';
 import TemplateFolderOverview from '../overviews/TemplateFolderOverview';
@@ -62,7 +60,6 @@ interface WorkbenchTabBodyProps {
   openFolderOverview: UseTabOpenersApi['openFolderOverview'];
   openRequestFolderOverview: UseTabOpenersApi['openRequestFolderOverview'];
   openTemplateFolderOverview: UseTabOpenersApi['openTemplateFolderOverview'];
-  openRuleFlow: UseTabOpenersApi['openRuleFlow'];
   openCollectionVariables: UseTabOpenersApi['openCollectionVariables'];
   openCreateRequestTab: UseTabOpenersApi['openCreateRequestTab'];
   openRequestCollectionVariables: UseTabOpenersApi['openRequestCollectionVariables'];
@@ -78,8 +75,6 @@ interface WorkbenchTabBodyProps {
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
 
   // Shell-local handlers and slices.
-  openTestRunsPanel: () => void;
-  handleRunReportDeleted: (tabId: string) => void;
   handleSwitchWorkspace: (targetId: string, opts?: { makeActive?: boolean }) => void;
   onRuleSaveDraft: SaveRuleFlowApi['handleSaveDraft'];
   onRequestSaveDraft: SaveRequestFlowApi['handleSaveDraft'];
@@ -109,7 +104,6 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openFolderOverview,
   openRequestFolderOverview,
   openTemplateFolderOverview,
-  openRuleFlow,
   openCollectionVariables,
   openCreateRequestTab,
   openRequestCollectionVariables,
@@ -123,8 +117,6 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openScriptPackages,
   openDuplicateRequestScratch,
   openResponseExampleTab,
-  openTestRunsPanel,
-  handleRunReportDeleted,
   handleSwitchWorkspace,
   onRuleSaveDraft,
   onRequestSaveDraft,
@@ -185,8 +177,6 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         onSelectRule={openEditTab}
         onCreateRule={openCreateTab}
         onOpenFolderOverview={openFolderOverview}
-        onOpenRuleFlow={openRuleFlow}
-        onOpenTestRuns={openTestRunsPanel}
         onOpenCollectionVariables={openCollectionVariables}
       />
     );
@@ -228,8 +218,6 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         onSelectRule={openEditTab}
         onCreateRule={openCreateTab}
         onOpenFolderOverview={openFolderOverview}
-        onOpenRuleFlow={openRuleFlow}
-        onOpenTestRuns={openTestRunsPanel}
       />
     );
   }
@@ -239,27 +227,6 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         templateUid={tab.templateUid}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-      />
-    );
-  }
-  if (tab.mode === 'rule-flow') {
-    return (
-      <RuleFlow
-        scope={tab.flowScope ?? 'all-active'}
-        entityId={tab.entityId}
-        initialTabUrl={tab.flowTabUrl}
-        initialBrowserTabId={tab.flowBrowserTabId}
-        onSelectRule={openEditTab}
-        onCreateRule={openCreateTab}
-      />
-    );
-  }
-  if (tab.mode === 'run-report' && tab.testRunId) {
-    return (
-      <RunReportView
-        runId={tab.testRunId}
-        onSelectRule={openEditTab}
-        onAfterDelete={() => handleRunReportDeleted(tab.id)}
       />
     );
   }

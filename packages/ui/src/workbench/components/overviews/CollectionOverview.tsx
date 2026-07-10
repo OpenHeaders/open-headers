@@ -6,8 +6,6 @@
  */
 
 import {
-  ApartmentOutlined,
-  ExperimentOutlined,
   FolderOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
@@ -29,9 +27,7 @@ interface CollectionOverviewProps {
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
-  onOpenRuleFlow?: (scope: 'collection' | 'folder', entityId: string, label: string) => void;
   /** Open the bottom panel and focus the Test Runs tab scoped to this collection. */
-  onOpenTestRuns?: () => void;
   /** Open the collection-scoped variables editor tab. */
   onOpenCollectionVariables?: (uid: string, name: string) => void;
 }
@@ -67,8 +63,6 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
   onSelectRule,
   onCreateRule,
   onOpenFolderOverview,
-  onOpenRuleFlow,
-  onOpenTestRuns,
   onOpenCollectionVariables,
 }) => {
   const { token } = theme.useToken();
@@ -255,22 +249,6 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
             {isPaused ? 'Resume' : 'Pause'}
           </Button>
         </Tooltip>
-        {onOpenRuleFlow && (
-          <Button
-            size="small"
-            icon={<ApartmentOutlined />}
-            onClick={() => onOpenRuleFlow('collection', collectionUid, collection.name)}
-          >
-            View Execution Flow
-          </Button>
-        )}
-        {onOpenTestRuns && (
-          <Tooltip title="Show past test runs captured for this collection in the bottom panel">
-            <Button size="small" icon={<ExperimentOutlined />} onClick={onOpenTestRuns}>
-              Test Runs
-            </Button>
-          </Tooltip>
-        )}
         {onOpenCollectionVariables && (
           <Tooltip title="Edit variables scoped to this collection">
             <Button

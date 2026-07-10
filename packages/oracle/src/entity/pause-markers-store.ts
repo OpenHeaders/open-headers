@@ -8,17 +8,17 @@
  *
  * Renderer writes route through `pause-markers-write-client.ts` directly
  * (Phase B end-to-end). This module owns the SW-side read mirror that
- * DNR / rule-state-observer / test-runner consult synchronously, plus
+ * DNR / rule-state-observer consult synchronously, plus
  * the bridge that wires it to the oracle's broadcast.
  */
 
 import type { PauseMarkerKind } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import { PAUSE_MARKERS_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import type { PauseMarkersCache } from '@openheaders/oracle/sync/caches/pause-markers-cache';
-import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
+import type { PauseMarkersCache } from '@openheaders/oracle/sync/caches/pause-markers-cache';
+import { PAUSE_MARKERS_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
 
 // ── Type re-export (legacy callers use the local name) ────────────
 

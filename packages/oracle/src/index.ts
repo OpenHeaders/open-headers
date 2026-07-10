@@ -13,7 +13,6 @@
  *                                          registry from `@openheaders/core/storage`;
  *                                          oracle owns no concrete adapter — each
  *                                          host installs its own
- *   - `@openheaders/oracle/test-run/*`   — workspace-scoped test-run state + store
  *   - `@openheaders/oracle/tracking/*`   — per-tab tracked-resource state mirror
  *   - `@openheaders/oracle/files`        — IndexedDB blob store for file payloads
  *   - `@openheaders/oracle/coordination` — entity-locking serializer

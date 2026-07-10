@@ -22,10 +22,10 @@ import type React from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import WorkflowStatusPanel from '../live/WorkflowStatusPanel';
 import ActivityFeedPanel from '../panels/ActivityFeedPanel';
+import DeepNetworkInspectionPanel from '../panels/DeepNetworkInspectionPanel';
 import DocsPanel from '../panels/DocsPanel';
 import { NotificationsPanel } from '@openheaders/ui/shared/notifications';
 import VariablesPanel from '../panels/variables-panel';
-import BottomPanel, { type TestRunOwner } from '../runs/BottomPanel';
 import Sidebar from '../sidebar/Sidebar';
 import type { SidebarView } from '../sidebar/types';
 import { buildEntityExportScope, buildSelectionExportScope } from '../workspace-export/build-export-scope';
@@ -75,7 +75,6 @@ interface WorkbenchToolWindowProps {
   openCreateRequestTab: UseTabOpenersApi['openCreateRequestTab'];
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
-  openRunReport: UseTabOpenersApi['openRunReport'];
 
   // Shell-local handlers.
   handleDeleteRule: (uid: string) => void;
@@ -98,7 +97,6 @@ interface WorkbenchToolWindowProps {
 
   // Panel context.
   activeTab: WorkbenchTab | undefined;
-  contextOwner: TestRunOwner | null;
   liveWorkflows: LiveWorkflow[];
 }
 
@@ -133,7 +131,6 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openCreateRequestTab,
   openResponseExampleTab,
   openLiveVariableEdit,
-  openRunReport,
   handleDeleteRule,
   handleCloseTab,
   handleViewActivityEntity,
@@ -146,7 +143,6 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   unresolvableWorkflowUids,
   sidebarState,
   activeTab,
-  contextOwner,
   liveWorkflows,
 }) => {
   switch (id) {
@@ -257,20 +253,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
         />
       );
     case 'deep-network-inspection':
-    case 'test-runs':
-      return (
-        <BottomPanel
-          info={getToolWindowInfo(id)}
-          activeTab={id === 'test-runs' ? 'test-runs' : 'inspection'}
-          onTabChange={() => {
-            /* BottomPanel is now slot-scoped — tab strip lives on the dock */
-          }}
-          contextOwner={contextOwner}
-          onOpenTestRun={openRunReport}
-          activeRunId={activeTab?.mode === 'run-report' ? (activeTab.testRunId ?? null) : null}
-          onHide={() => tl.closeDock(slot)}
-        />
-      );
+      return <DeepNetworkInspectionPanel info={getToolWindowInfo(id)} onHide={() => tl.closeDock(slot)} />;
     default:
       return null;
   }

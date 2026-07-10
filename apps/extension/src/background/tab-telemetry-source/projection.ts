@@ -3,7 +3,7 @@
  * `RequestLifecycleUpdate` that tab-telemetry still needs: phase-driven
  * delivery-mode back-fill and main-frame error promotion. URL discovery
  * is derived directly from the store snapshot by consumers (see
- * `deriveObservedUrls` / `mainFrameRequestIdsMatchingCommit`).
+ * `mainFrameRequestIdsMatchingCommit`).
  *
  * Tab-telemetry ingestion is gated by `isTracked(tabId)` inside the
  * tab-telemetry module itself; we still pre-check here to avoid work
@@ -26,10 +26,7 @@ export function project(update: RequestLifecycleUpdate, options: ProjectionOptio
   projectPhase(update, options);
 }
 
-function projectPhase(
-  update: Extract<RequestLifecycleUpdate, { kind: 'phase' }>,
-  options: ProjectionOptions,
-): void {
+function projectPhase(update: Extract<RequestLifecycleUpdate, { kind: 'phase' }>, options: ProjectionOptions): void {
   const { tabId, requestId, patch } = update;
   if (tabId === -1 || !isTabTracked(tabId)) return;
 

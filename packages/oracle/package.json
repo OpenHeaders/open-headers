@@ -96,10 +96,6 @@
       "import": "./src/rule-engine/*.ts",
       "default": "./dist/rule-engine/*.js"
     },
-    "./test-run/*": {
-      "import": "./src/test-run/*.ts",
-      "default": "./dist/test-run/*.js"
-    },
     "./tracking/*": {
       "import": "./src/tracking/*.ts",
       "default": "./dist/tracking/*.js"

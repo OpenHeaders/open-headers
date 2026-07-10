@@ -11,7 +11,6 @@
 import {
   BookOutlined,
   DashboardOutlined,
-  ExperimentOutlined,
   FundViewOutlined,
   ScanOutlined,
   SisternodeOutlined,
@@ -74,9 +73,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   },
   // Per-workflow circuit-breaker dashboard (state, consecutive
   // failures, openings, next-attempt countdown, manual Retry /
-  // Reset-circuit actions). Grouped with Test Runs in the bottom-left
-  // slot; listed BEFORE `test-runs` so its ActivityBar icon renders
-  // above the Test Runs icon within the shared bottom group.
+  // Reset-circuit actions).
   {
     id: 'workflow-status',
     label: 'Workflow Status',
@@ -84,7 +81,6 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     core: false,
     defaultSlot: 'bottom-left',
   },
-  { id: 'test-runs', label: 'Test Runs', icon: <ExperimentOutlined />, core: false, defaultSlot: 'bottom-left' },
   // Workspace-wide Activity Feed — inbound mutation log with classifier
   // highlights (sensitive-field rotations, permission-scope expansions,
   // local-edit supersedes). Bottom-right slot pairs it with Deep Network Inspection

@@ -21,7 +21,6 @@ import {
   filterTree,
   flattenVisible,
 } from './collection-tree-records';
-import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
 const { Text } = Typography;
 
@@ -119,101 +118,6 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
     [message, ruleMutator, togglePause],
   );
 
-  const handleVisualize = useCallback(
-    (record: CollectionTreeRecord) => {
-      // Visualize the collection's rules as a flow diagram in the
-      // workspace. `folder` records aren't supported as top-level
-      // flow scopes today (the flow view expects a collection root);
-      // the rule-flow view will scope to the collection ancestor if
-      // a folder uid lands on this path — same fallback the workspace
-      // already applies for tree-nodes above leaf rules.
-      const scope = record.nodeType === 'folder' ? 'folder' : 'collection';
-      void openWorkspace({ kind: 'open-rule-flow', scope, entityId: record.uid }, surface.mode);
-    },
-    [surface.mode],
-  );
-
-  // ── Test session launcher ──
-  // Walks the collection/folder subtree and collects all rule uids under it,
-  // then opens the TestRunModal scoped to that snapshot.
-  const [testState, setTestState] = useState<{
-    open: boolean;
-    ownerType: TestRunOwnerType;
-    ownerId: string;
-    scopeLabel: string;
-    ruleUids: string[];
-  }>({ open: false, ownerType: 'collection', ownerId: '', scopeLabel: '', ruleUids: [] });
-
-  const collectRuleUidsUnder = useCallback(
-    (record: CollectionTreeRecord): string[] => {
-      // Walk the live trees to find this node and collect every rule under it,
-      // not the CollectionTreeRecord (which may be filtered by the search box).
-      const uids: string[] = [];
-      const walk = (nodes: TreeNode[]) => {
-        for (const n of nodes) {
-          if (n.type === 'rule') uids.push(n.uid);
-          else if (n.type === 'folder') walk(n.children);
-        }
-      };
-      for (const tree of localCollectionTrees) {
-        if (tree.uid === record.uid) {
-          walk(tree.tree);
-          return uids;
-        }
-        // Recursively search for a folder with this uid
-        const findFolder = (nodes: TreeNode[]): FolderNode | null => {
-          for (const n of nodes) {
-            if (n.type === 'folder') {
-              if (n.uid === record.uid) return n;
-              const found = findFolder(n.children);
-              if (found) return found;
-            }
-          }
-          return null;
-        };
-        const folder = findFolder(tree.tree);
-        if (folder) {
-          walk(folder.children);
-          return uids;
-        }
-      }
-      return uids;
-    },
-    [localCollectionTrees],
-  );
-
-  const handleTest = useCallback(
-    (record: CollectionTreeRecord) => {
-      // Per-rule rows test only that rule; folder/collection rows walk
-      // the subtree and test every rule under them. Owner stamping
-      // routes the resulting session into the right bucket so the
-      // workspace bottom panel surfaces it under the matching entity.
-      if (record.nodeType === 'rule') {
-        setTestState({
-          open: true,
-          ownerType: 'rule',
-          ownerId: record.uid,
-          scopeLabel: record.name,
-          ruleUids: [record.uid],
-        });
-        return;
-      }
-      const ruleUids = collectRuleUidsUnder(record);
-      if (ruleUids.length === 0) {
-        message.info('This group has no rules to test');
-        return;
-      }
-      setTestState({
-        open: true,
-        ownerType: record.nodeType === 'collection' ? 'collection' : 'folder',
-        ownerId: record.uid,
-        scopeLabel: record.name,
-        ruleUids,
-      });
-    },
-    [collectRuleUidsUnder, message],
-  );
-
   // Keyboard row actions — index into the flat visible list
   const handleToggleRow = useCallback(
     (index: number) => {
@@ -281,8 +185,6 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   const columns = buildCollectionManagerColumns({
     togglePauseFocusedLabel,
     handleToggle,
-    handleTest,
-    handleVisualize,
   });
 
   return (
@@ -447,15 +349,6 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           className="header-rules-table"
         />
       </div>
-      <TestRunModal
-        open={testState.open}
-        onClose={() => setTestState((s) => ({ ...s, open: false }))}
-        ownerType={testState.ownerType}
-        ownerId={testState.ownerId}
-        scopeLabel={testState.scopeLabel}
-        ruleUids={testState.ruleUids}
-        allRules={rules}
-      />
     </div>
   );
 };

@@ -19,11 +19,6 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/background/modules/test-runner', () => ({
-  getTestScopeForTab: vi.fn(() => null),
-  isRuleUnderTest: vi.fn(() => false),
-}));
-
 import { __testExtractHeaderMergeEntry, __testShouldInstallForPage } from '@/background/inject-manager';
 
 function makeMergeRule(conditions: RuleCondition[], overrides: Partial<HeaderRule> = {}): HeaderRule {

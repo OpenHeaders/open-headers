@@ -15,11 +15,6 @@ import { UidSchema } from '../schemas/common';
 
 // ── Shared sub-schemas ──────────────────────────────────────────────
 
-/** Rule-flow scope picklist — matches the workspace's `RuleFlowScope`. */
-export const RuleFlowScopeSchema = v.picklist(['this-page', 'collection', 'folder', 'all-active']);
-
-export type RuleFlowScope = v.InferOutput<typeof RuleFlowScopeSchema>;
-
 /** The 11 extension rule types — matches `ExtensionRuleType`. */
 export const IntentRuleTypeSchema = v.picklist([
   'header',
@@ -166,29 +161,6 @@ export const OpenVaultIntentSchema = v.object({
   kind: v.literal('open-vault'),
 });
 
-export const OpenRunReportIntentSchema = v.object({
-  kind: v.literal('open-run-report'),
-  // Test-run ids are generated via `generateUid` (8 chars) today.
-  runId: UidSchema,
-});
-
-export const OpenRuleFlowIntentSchema = v.object({
-  kind: v.literal('open-rule-flow'),
-  scope: RuleFlowScopeSchema,
-  /** Full URL the flow is scoped to; only used when `scope === 'this-page'`. */
-  url: v.optional(BoundedStringSchema),
-  /**
-   * Browser tab id the gesture came from; only used when `scope ===
-   * 'this-page'`. Lets the flow view query with tab-scoped evidence
-   * (tracked subresources + fire telemetry) instead of a bare
-   * pattern-vs-URL match. Ephemeral — valid only as long as that tab
-   * lives, so consumers treat a stale id like an absent one.
-   */
-  tabId: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
-  /** Collection/folder uid when `scope` is `collection` or `folder`. */
-  entityId: v.optional(UidSchema),
-});
-
 // ── Live Variables (Phase F) ───────────────────────────────────────
 
 /**
@@ -240,8 +212,6 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   OpenWorkspaceManagerIntentSchema,
   OpenWorkspaceVarsIntentSchema,
   OpenVaultIntentSchema,
-  OpenRunReportIntentSchema,
-  OpenRuleFlowIntentSchema,
   OpenLiveVariablesIntentSchema,
   EditLiveVariableIntentSchema,
   EditLiveWorkflowIntentSchema,
@@ -273,8 +243,6 @@ export const WORKSPACE_INTENT_KINDS = [
   'open-workspace-manager',
   'open-workspace-vars',
   'open-vault',
-  'open-run-report',
-  'open-rule-flow',
   'open-live-variables',
   'edit-live-variable',
   'edit-live-workflow',

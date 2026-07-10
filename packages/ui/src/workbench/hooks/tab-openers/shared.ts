@@ -5,14 +5,13 @@
  */
 
 import type { Collection, Request, Rule, RuleDraft } from '@openheaders/core/types';
-import type { RuleFlowScope, WorkbenchTab } from '../../types';
+import type { WorkbenchTab } from '../../types';
 
 /** Tab plumbing every opener family closes over. */
 export interface TabOpenerContext {
   allTabs: WorkbenchTab[];
   addTab: (tab: WorkbenchTab) => void;
   switchTab: (tabId: string) => void;
-  updateTab: (tabId: string, updates: Partial<WorkbenchTab>) => void;
   setPendingRenameTabId: (id: string | null) => void;
 }
 
@@ -77,17 +76,6 @@ export interface UseTabOpenersApi {
   openTemplateEditTab: (uid: string) => void;
   openTemplateCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openTemplateFolderOverview: (uid: string, name: string, autoRename?: boolean) => void;
-  openRunReport: (
-    runId: string,
-    owner?: { type: 'rule' | 'folder' | 'collection' | 'workspace'; id: string },
-    ownerName?: string,
-  ) => void;
-  openRuleFlow: (
-    scope: RuleFlowScope,
-    entityId?: string,
-    label?: string,
-    page?: { url: string; tabId?: number },
-  ) => void;
   openSettingsTab: (options?: { settingKey?: string; categoryId?: string }) => void;
   openWorkspaceManager: () => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;

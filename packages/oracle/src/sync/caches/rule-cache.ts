@@ -12,7 +12,7 @@
  *     continue reading from it without changes.
  *   - Notifies registered listeners after each cache update so
  *     `rule-store.ts` can fan out `onStoreChange` (which drives the
- *     bridge `rulesUpdated` broadcast and the orphan-test-run sweep).
+ *     bridge `rulesUpdated` broadcast).
  *
  * Hydration is the inverse: `seedFromPersistedRules(rules)` minimally
  * walks each persisted Rule, builds a `seedRule` batch via the
@@ -29,14 +29,14 @@
 
 import { RuleSchema } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { projectRule, seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import { projectRule, seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
-import { driftRecorder } from '../storage-drift';
 import type { InMemoryBroadcast } from '../broadcast';
-import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from '../oracle';
+import { driftRecorder } from '../storage-drift';
 import type { SwMutatorContextFactory } from '../sw-context';
+import { createFlatEntityCache } from './flat-entity-cache';
 
 export type RuleCacheListener = () => void;
 

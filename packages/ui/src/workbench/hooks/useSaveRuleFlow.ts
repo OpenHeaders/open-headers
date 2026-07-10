@@ -10,12 +10,12 @@
  */
 
 import type { Collection, Rule } from '@openheaders/core/types';
-import { useCallback, useState } from 'react';
 import {
   applyRuleCreate,
   applyRulePublish,
   type RuleMutationResult,
 } from '@openheaders/ui/shared/sync/rule-write-client';
+import { useCallback, useState } from 'react';
 import type { WorkbenchTab } from '../types';
 
 interface UseSaveRuleFlowOptions {
@@ -57,8 +57,6 @@ function buildEditTab(
     dirty: false,
     mode: 'edit',
     ruleUid: created.uid,
-    testOwnerType: 'rule',
-    testOwnerId: created.uid,
   });
 }
 

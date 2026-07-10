@@ -35,11 +35,6 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/background/modules/test-runner', () => ({
-  getTestScopeForTab: vi.fn(() => null),
-  isRuleUnderTest: vi.fn(() => false),
-}));
-
 const spies = vi.hoisted(() => ({
   applyInjection: vi.fn(() => Promise.resolve()),
   injectScript: vi.fn(() => Promise.resolve()),

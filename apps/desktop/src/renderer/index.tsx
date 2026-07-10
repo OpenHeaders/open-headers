@@ -17,7 +17,6 @@ import { createRoot } from 'react-dom/client';
 import { resolveWorkbenchIdentity } from './host/surface-identity-resolvers';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
-import '@openheaders/ui/workbench/styles/rule-flow.less';
 
 // Declare desktop as the running host BEFORE any UI renders so user-facing
 // strings ("window" vs "tab") read from the desktop vocabulary on first paint.
@@ -29,8 +28,7 @@ setCurrentHost('desktop');
 // `navigator.platform` is unreliable on modern Chromium.
 {
   const platform = window.oh?.platform ?? 'linux';
-  const platformClass =
-    platform === 'darwin' ? 'host-darwin' : platform === 'win32' ? 'host-win32' : 'host-linux';
+  const platformClass = platform === 'darwin' ? 'host-darwin' : platform === 'win32' ? 'host-win32' : 'host-linux';
   document.body.classList.add(platformClass);
 }
 

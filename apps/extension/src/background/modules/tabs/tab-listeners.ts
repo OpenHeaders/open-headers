@@ -2,8 +2,6 @@
  * Tab Listeners - Handles all tab-related events
  */
 
-import { runtime, tabs, webNavigation, windows } from '@utils/browser-api.js';
-import { logger } from '@utils/logger';
 import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import {
   clearAllTracking,
@@ -14,21 +12,17 @@ import {
   setTrackedResource,
   transferTabTracking,
 } from '@openheaders/oracle/tracking/tab-tracking-store';
+import { runtime, tabs, webNavigation, windows } from '@utils/browser-api.js';
+import { logger } from '@utils/logger';
 
 import { isMainFrame } from '../../correlator-host/main-frame-registry';
-import { checkIfUrlMatchesAnyRule } from '../request-tracker';
 import { mainFrameRequestIdsMatchingCommit } from '../../tab-telemetry-source/main-frame-chain';
+import { checkIfUrlMatchesAnyRule } from '../request-tracker';
 import {
   onPageCommit as tabTelemetryOnPageCommit,
   startTracking as tabTelemetryStartTracking,
   stopTracking as tabTelemetryStopTracking,
 } from '../tab-telemetry';
-import {
-  onTabCommit as testRunnerOnTabCommit,
-  onTabError as testRunnerOnTabError,
-  onTabLoaded as testRunnerOnTabLoaded,
-  onTabRemoved as testRunnerOnTabRemoved,
-} from '../test-runner';
 import { isTrackableUrl, normalizeUrlForTracking } from '../url-utils';
 
 /**
@@ -199,11 +193,6 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
         updateBadgeCallback();
       }, 100);
     }
-
-    // Notify the test-runner when a test tab reaches load — starts the capture window.
-    if (changeInfo.status === 'complete') {
-      testRunnerOnTabLoaded(tabId);
-    }
   });
 
   // Clean up tracking when tabs are closed. `tabsWithActiveRules` and the
@@ -213,9 +202,6 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
   tabs.onRemoved?.addListener((tabId: number) => {
     lastMainFrameUrlByTab.delete(tabId);
     releaseIfActive(tabId);
-    // If a test session was watching this tab, finish it so DNR session rules
-    // clear and the pending promise resolves instead of waiting for ceiling.
-    testRunnerOnTabRemoved(tabId);
     logger.info('TabListeners', `Cleaned up tracking for closed tab ${tabId}`);
   });
 
@@ -301,50 +287,36 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
 
   if (webNavigation) {
     logger.info('TabListeners', 'Setting up webNavigation listener');
-    webNavigation.onCommitted?.addListener(
-      (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
-        if (details.frameId !== 0) {
-          logger.debug(
-            'TabListeners',
-            'Sub-frame navigation:',
-            details.tabId,
-            details.url,
-            'frameId:',
-            details.frameId,
-          );
-          return;
-        }
+    webNavigation.onCommitted?.addListener((details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
+      if (details.frameId !== 0) {
+        logger.debug('TabListeners', 'Sub-frame navigation:', details.tabId, details.url, 'frameId:', details.frameId);
+        return;
+      }
 
-        if (!isTrackableUrl(details.url)) {
-          logger.debug('TabListeners', 'Internal navigation:', details.tabId, details.url);
-        } else {
-          logger.debug('TabListeners', 'Navigation committed:', details.tabId, details.url);
-        }
+      if (!isTrackableUrl(details.url)) {
+        logger.debug('TabListeners', 'Internal navigation:', details.tabId, details.url);
+      } else {
+        logger.debug('TabListeners', 'Navigation committed:', details.tabId, details.url);
+      }
 
-        // Page-context swap in tab-telemetry. The matching-requestIds set
-        // is derived from the lifecycle store — main-frame lifecycles whose
-        // navigation chain contains the committed URL. onPageCommit promotes
-        // any pending fires for those requestIds (e.g. delay chain
-        // example.com → delay.html → example.com records a fire against
-        // the initial example.com request, and the final commit of
-        // example.com promotes it into the new page's bucket instead of
-        // wiping it). Unrelated pending fires are dropped.
-        const matchingRequestIds = mainFrameRequestIdsMatchingCommit(
-          lifecycleStore.snapshotTab(details.tabId),
-          details.url,
-          // CDP-owned tabs tag navigations `document`; resolve the main-frame
-          // split against the registry just as the fire's buffering did.
-          (lc) => isMainFrame(lc.tabId, lc.frameId),
-        );
-        tabTelemetryOnPageCommit(details.tabId, details.url, matchingRequestIds);
-        lastMainFrameUrlByTab.set(details.tabId, details.url);
-
-        // If this is a test-session tab landing on its real target (not
-        // about:blank, not delay.html), the test-runner mounts its in-page
-        // widget here. No-op for non-test tabs and for internal commits.
-        testRunnerOnTabCommit(details.tabId, details.url);
-      },
-    );
+      // Page-context swap in tab-telemetry. The matching-requestIds set
+      // is derived from the lifecycle store — main-frame lifecycles whose
+      // navigation chain contains the committed URL. onPageCommit promotes
+      // any pending fires for those requestIds (e.g. delay chain
+      // example.com → delay.html → example.com records a fire against
+      // the initial example.com request, and the final commit of
+      // example.com promotes it into the new page's bucket instead of
+      // wiping it). Unrelated pending fires are dropped.
+      const matchingRequestIds = mainFrameRequestIdsMatchingCommit(
+        lifecycleStore.snapshotTab(details.tabId),
+        details.url,
+        // CDP-owned tabs tag navigations `document`; resolve the main-frame
+        // split against the registry just as the fire's buffering did.
+        (lc) => isMainFrame(lc.tabId, lc.frameId),
+      );
+      tabTelemetryOnPageCommit(details.tabId, details.url, matchingRequestIds);
+      lastMainFrameUrlByTab.set(details.tabId, details.url);
+    });
   } else {
     logger.error('TabListeners', 'webNavigation not available!');
   }
@@ -401,21 +373,6 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
             }
           });
         }
-      },
-    );
-
-    // Main-frame navigation failures — typically `ERR_BLOCKED_BY_CLIENT`
-    // (a DNR block rule cancelled the request), but also DNS / TLS / any
-    // terminal navigation error. The widget can NEVER mount on Chrome's
-    // error page (chrome-error://chromewebdata/ is a privileged surface
-    // that rejects content scripts), so the test session has no in-page
-    // UI path forward. Notify the test-runner so it can finish the
-    // session promptly and fall back to navigating the test tab to the
-    // workspace results page.
-    webNavigation.onErrorOccurred?.addListener(
-      (details: chrome.webNavigation.WebNavigationFramedErrorCallbackDetails) => {
-        if (details.frameId !== 0) return; // sub-frame errors are not session-fatal
-        testRunnerOnTabError(details.tabId);
       },
     );
 

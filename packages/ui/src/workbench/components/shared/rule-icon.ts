@@ -1,6 +1,6 @@
 /**
  * Shared rule icon rendering — used by sidebar rows, tabs, overviews,
- * the command palette, rule-flow cards, and the popup rule table.
+ * the command palette and the popup rule table.
  *
  * Renders the rule-type code (HEAD, REQ, RES, …) in place of a line
  * glyph, colored by state so a row/tab reads its status at a glance:

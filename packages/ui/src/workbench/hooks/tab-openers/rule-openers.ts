@@ -118,8 +118,6 @@ export function useRuleOpeners(
             ruleUid: result.rule.uid,
             templateKey,
             initialDraft: draftMatches,
-            testOwnerType: 'rule',
-            testOwnerId: result.rule.uid,
           });
           setPendingRenameTabId(editId);
         });
@@ -163,8 +161,6 @@ export function useRuleOpeners(
         dirty: false,
         mode: 'edit',
         ruleUid: uid,
-        testOwnerType: 'rule',
-        testOwnerId: uid,
       });
     },
     [allTabs, rules, addTab, switchTab],
@@ -184,8 +180,6 @@ export function useRuleOpeners(
         dirty: false,
         mode: 'collection-overview',
         entityId: uid,
-        testOwnerType: 'collection',
-        testOwnerId: uid,
       });
       if (autoRename) setPendingRenameTabId(id);
     },
@@ -206,8 +200,6 @@ export function useRuleOpeners(
         dirty: false,
         mode: 'folder-overview',
         entityId: uid,
-        testOwnerType: 'folder',
-        testOwnerId: uid,
       });
       if (autoRename) setPendingRenameTabId(id);
     },

@@ -1,6 +1,4 @@
 import {
-  ApartmentOutlined,
-  ExperimentOutlined,
   FolderOpenOutlined,
   FolderOutlined,
   PauseCircleOutlined,
@@ -17,8 +15,6 @@ const { Text } = Typography;
 export interface CollectionManagerColumnsOptions {
   togglePauseFocusedLabel: string;
   handleToggle: (record: CollectionTreeRecord) => void;
-  handleTest: (record: CollectionTreeRecord) => void;
-  handleVisualize: (record: CollectionTreeRecord) => void;
 }
 
 /**
@@ -30,8 +26,6 @@ export interface CollectionManagerColumnsOptions {
 export function buildCollectionManagerColumns({
   togglePauseFocusedLabel,
   handleToggle,
-  handleTest,
-  handleVisualize,
 }: CollectionManagerColumnsOptions): ColumnsType<CollectionTreeRecord> {
   return [
     {
@@ -106,7 +100,7 @@ export function buildCollectionManagerColumns({
     {
       title: '',
       key: 'actions',
-      width: 120,
+      width: 90,
       align: 'center',
       fixed: 'right',
       render: (_: unknown, record: CollectionTreeRecord) => {
@@ -119,15 +113,6 @@ export function buildCollectionManagerColumns({
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <Switch size="small" checked={record.isEnabled} onChange={() => handleToggle(record)} />
-              <Tooltip title="Test this rule against a URL">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<ExperimentOutlined />}
-                  onClick={() => handleTest(record)}
-                  style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
-                />
-              </Tooltip>
             </span>
           );
         }
@@ -152,24 +137,6 @@ export function buildCollectionManagerColumns({
                 onChange={() => handleToggle(record)}
                 checkedChildren="Active"
                 unCheckedChildren="Paused"
-              />
-            </Tooltip>
-            <Tooltip title="Visualize rules as flow">
-              <Button
-                type="text"
-                size="small"
-                icon={<ApartmentOutlined />}
-                onClick={() => handleVisualize(record)}
-                style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
-              />
-            </Tooltip>
-            <Tooltip title={`Test this ${record.nodeType === 'collection' ? 'collection' : 'folder'} against a URL`}>
-              <Button
-                type="text"
-                size="small"
-                icon={<ExperimentOutlined />}
-                onClick={() => handleTest(record)}
-                style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
               />
             </Tooltip>
           </span>

@@ -87,7 +87,7 @@ describe('bridge', () => {
         throw new Error('Could not establish connection');
       });
 
-      expect(() => broadcast('testRunDeleted', { runId: 'run-1' })).not.toThrow();
+      expect(() => broadcast('connectionStatus', { connected: true })).not.toThrow();
     });
 
     it('swallows Firefox-style Promise rejection', async () => {
@@ -117,7 +117,7 @@ describe('bridge', () => {
       }) as typeof chrome.runtime.onMessage.addListener);
 
       const handler = vi.fn();
-      const unsubscribe = subscribe('testRunDeleted', handler);
+      const unsubscribe = subscribe('storageInvalidated', handler);
 
       const fakeSender = {} as chrome.runtime.MessageSender;
       const fakeSendResponse = (): void => undefined;
@@ -127,8 +127,8 @@ describe('bridge', () => {
       };
 
       // Matching message
-      fire({ type: 'testRunDeleted', runId: 'run-9' });
-      expect(handler).toHaveBeenCalledWith({ type: 'testRunDeleted', runId: 'run-9' });
+      fire({ type: 'storageInvalidated', tabId: 9, kind: 'indexeddb' });
+      expect(handler).toHaveBeenCalledWith({ type: 'storageInvalidated', tabId: 9, kind: 'indexeddb' });
 
       // Non-matching message (different type)
       handler.mockClear();
@@ -144,7 +144,6 @@ describe('bridge', () => {
       expect(chrome.runtime.onMessage.removeListener).toHaveBeenCalled();
     });
   });
-
 
   describe('presence', () => {
     it('opens a port and returns a disposer that disconnects', () => {

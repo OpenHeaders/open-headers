@@ -1,5 +1,4 @@
 import {
-  ApartmentOutlined,
   CheckOutlined,
   CopyTwoTone,
   FilterOutlined,
@@ -48,8 +47,8 @@ interface ThisPageToolbarProps {
 
 /**
  * The This Page view's header toolbar: domain title, live status / verdict
- * summary, search, the sort-order and resource-type dropdowns, the execution-
- * flow button, and the request-count + copy-as-TSV block. Pure presentation —
+ * summary, search, the sort-order and resource-type dropdowns, and the
+ * request-count + copy-as-TSV block. Pure presentation —
  * every input arrives as a prop so the parent stays the single owner of tab
  * telemetry, filter settings, and copy state.
  */
@@ -296,29 +295,11 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: 'flex-end',
               gap: 6,
               marginTop: 2,
             }}
           >
-            <Button
-              type="dashed"
-              size="small"
-              icon={<ApartmentOutlined />}
-              onClick={() => {
-                if (currentTab?.url) {
-                  openRulesIntent({
-                    kind: 'open-rule-flow',
-                    scope: 'this-page',
-                    url: currentTab.url,
-                    tabId: currentTab.id,
-                  });
-                }
-              }}
-              style={{ fontSize: 11 }}
-            >
-              View Execution Flow
-            </Button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
                 {(() => {

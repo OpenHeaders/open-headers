@@ -455,7 +455,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     allTabs,
     addTab,
     switchTab,
-    updateTab,
   });
   const {
     pendingRenameTabId,
@@ -469,8 +468,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openTemplateEditTab,
     openTemplateCollectionOverview,
     openTemplateFolderOverview,
-    openRunReport,
-    openRuleFlow,
     openSettingsTab,
     openWorkspaceManager,
     openEnvironmentEdit,
@@ -675,8 +672,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       if (tl.state.hidden.includes('notifications')) tl.restoreWindow('notifications');
       tl.activateWindow('notifications');
     },
-    openRuleFlow,
-    openRunReport,
     openSettings,
     openWorkspaceManager,
     openEnvironmentEdit,
@@ -880,33 +875,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const handleHorizontalResize = useCallback((sizes: number[]) => layout.onPanelResize(sizes), [layout]);
   const handleVerticalResize = useCallback((sizes: number[]) => layout.onVerticalResize(sizes), [layout]);
 
-  // ── Test run owner context ────────────────────────────────────
-  const contextOwner = useMemo(() => {
-    if (!activeTab?.testOwnerType || !activeTab.testOwnerId) return null;
-    return { type: activeTab.testOwnerType, id: activeTab.testOwnerId };
-  }, [activeTab]);
-
-  const openTestRunsPanel = useCallback(() => {
-    if (tl.state.hidden.includes('test-runs')) tl.restoreWindow('test-runs');
-    tl.activateWindow('test-runs');
-  }, [tl]);
-
-  // Auto-open the bottom Test Runs tab whenever the active tab is a run
-  // report. activeTab.id is in the deps so switching between two report
-  // tabs re-focuses the panel even though only mode is read inside.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: id triggers re-run on tab switch
-  useEffect(() => {
-    if (activeTab?.mode === 'run-report') openTestRunsPanel();
-  }, [activeTab?.mode, activeTab?.id, openTestRunsPanel]);
-
-  const handleRunReportDeleted = useCallback(
-    (tabId: string) => {
-      rawCloseTab(tabId, true);
-      openTestRunsPanel();
-    },
-    [rawCloseTab, openTestRunsPanel],
-  );
-
   // ── Per-tab body renderer ─────────────────────────────────────
   const renderTabBody = useCallback(
     ({ tab }: { tab: WorkbenchTab }): React.ReactNode => (
@@ -923,7 +891,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openFolderOverview={openFolderOverview}
         openRequestFolderOverview={openRequestFolderOverview}
         openTemplateFolderOverview={openTemplateFolderOverview}
-        openRuleFlow={openRuleFlow}
         openCollectionVariables={openCollectionVariables}
         openCreateRequestTab={openCreateRequestTab}
         openRequestCollectionVariables={openRequestCollectionVariables}
@@ -937,8 +904,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openScriptPackages={openScriptPackages}
         openDuplicateRequestScratch={openDuplicateRequestScratch}
         openResponseExampleTab={openResponseExampleTab}
-        openTestRunsPanel={openTestRunsPanel}
-        handleRunReportDeleted={handleRunReportDeleted}
         handleSwitchWorkspace={handleSwitchWorkspace}
         onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
         onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
@@ -965,9 +930,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openFolderOverview,
       openRequestFolderOverview,
       openTemplateFolderOverview,
-      openRuleFlow,
-      openTestRunsPanel,
-      handleRunReportDeleted,
       workspacesApi,
       openCollectionVariables,
       requestSaveFlow.handleSaveDraft,
@@ -1092,7 +1054,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateRequestTab={openCreateRequestTab}
         openResponseExampleTab={openResponseExampleTab}
         openLiveVariableEdit={openLiveVariableEdit}
-        openRunReport={openRunReport}
         handleDeleteRule={handleDeleteRule}
         handleCloseTab={handleCloseTab}
         handleViewActivityEntity={handleViewActivityEntity}
@@ -1105,7 +1066,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         unresolvableWorkflowUids={unresolvableWorkflowUids}
         sidebarState={sidebarState}
         activeTab={activeTab}
-        contextOwner={contextOwner}
         liveWorkflows={liveWorkflowsApi.workflows}
       />
     ),
@@ -1122,8 +1082,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openTemplateCollectionOverview,
       openTemplateFolderOverview,
       tl,
-      contextOwner,
-      openRunReport,
       activeTab,
       openEnvironmentEdit,
       handleCreateEnvironment,

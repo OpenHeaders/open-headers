@@ -66,18 +66,10 @@ export interface TabState {
 export const tabs: Map<number, TabState> = new Map();
 
 /**
- * Per-tab fire subscribers. Notified for every record that lands in the
- * counters (post-fallback drain, post-promotion). Used by the test-runner
- * to push live fire counts into its in-page widget without polling. Listeners
+ * Cross-tab fire subscribers. Notified for every record that lands in the
+ * counters (post-fallback drain, post-promotion) on every tab. Used by
+ * the rule-fire hub bridge to feed the per-tab broadcaster. Listeners
  * MUST NOT call back into telemetry (no re-entrancy guard).
- */
-type FireListener = (record: RequestRecord) => void;
-const fireListeners: Map<number, Set<FireListener>> = new Map();
-
-/**
- * Cross-tab fire subscribers. Notified for every fire on every tab. Used
- * by the rule-fire hub bridge to feed the per-tab broadcaster without
- * needing a per-tab subscription dance.
  */
 type GlobalFireListener = (tabId: number, record: RequestRecord) => void;
 const globalFireListeners: Set<GlobalFireListener> = new Set();
@@ -98,16 +90,6 @@ function emptyState(tabId: number): TabState {
 }
 
 export function emitFire(tabId: number, record: RequestRecord): void {
-  const set = fireListeners.get(tabId);
-  if (set && set.size > 0) {
-    for (const fn of set) {
-      try {
-        fn(record);
-      } catch {
-        // Subscriber failures must never corrupt telemetry state.
-      }
-    }
-  }
   for (const fn of globalFireListeners) {
     try {
       fn(tabId, record);
@@ -118,30 +100,14 @@ export function emitFire(tabId: number, record: RequestRecord): void {
 }
 
 /**
- * Subscribe to every fire that lands in this tab's counters. Returns an
+ * Subscribe to every fire that lands in any tab's counters. Returns an
  * unsubscribe function. Listeners are independent of tracking reasons —
- * they fire as long as the tab has any tracking reason active. Used by
- * the test-runner to drive its in-page widget without polling.
+ * they fire as long as the tab has any tracking reason active.
  */
 export function subscribeFiresAll(listener: GlobalFireListener): () => void {
   globalFireListeners.add(listener);
   return () => {
     globalFireListeners.delete(listener);
-  };
-}
-
-export function subscribeFires(tabId: number, listener: FireListener): () => void {
-  let set = fireListeners.get(tabId);
-  if (!set) {
-    set = new Set();
-    fireListeners.set(tabId, set);
-  }
-  set.add(listener);
-  return () => {
-    const current = fireListeners.get(tabId);
-    if (!current) return;
-    current.delete(listener);
-    if (current.size === 0) fireListeners.delete(tabId);
   };
 }
 
@@ -193,7 +159,6 @@ export function clearTab(tabId: number): void {
   if (!state) return;
   disposeTab(state);
   tabs.delete(tabId);
-  fireListeners.delete(tabId);
 }
 
 function disposeTab(state: TabState): void {
@@ -209,7 +174,7 @@ function disposeTab(state: TabState): void {
 export function __resetForTests(): void {
   for (const state of tabs.values()) disposeTab(state);
   tabs.clear();
-  fireListeners.clear();
+  globalFireListeners.clear();
 }
 
 export const __internals = {

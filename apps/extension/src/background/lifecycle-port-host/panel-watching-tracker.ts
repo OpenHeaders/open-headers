@@ -11,7 +11,7 @@
  *
  * Stacks cleanly with the other ref-count holders already in the
  * system: `tab-listeners.ts`'s `'active-tab'` reason and any future
- * test-runner reasons. The tab stays tracked while ANY reason is
+ * other reasons. The tab stays tracked while ANY reason is
  * present; tracking releases only when the last holder calls stop.
  */
 
@@ -26,10 +26,7 @@ export interface PanelWatchingTrackerDeps {
 
 let seq = 0;
 
-export function attachPanelWatchingTracker(
-  tabId: number,
-  deps: PanelWatchingTrackerDeps,
-): PanelWatchingTracker {
+export function attachPanelWatchingTracker(tabId: number, deps: PanelWatchingTrackerDeps): PanelWatchingTracker {
   const reason = `panel-watching:${tabId}:${++seq}`;
   deps.start(tabId, reason);
   let released = false;

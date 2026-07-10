@@ -8,8 +8,6 @@ export type TabMode =
   | 'collection-overview'
   | 'folder-overview'
   | 'template-edit'
-  | 'rule-flow'
-  | 'run-report'
   | 'settings'
   | 'workspace-manager'
   | 'env-edit'
@@ -28,9 +26,6 @@ export type TabMode =
   | 'live-variable-create'
   | 'live-workflow-edit'
   | 'live-workflow-create';
-
-/** Scope for the rule flow visualization. */
-export type RuleFlowScope = 'this-page' | 'collection' | 'folder' | 'all-active';
 
 export interface WorkbenchTab {
   /** Unique tab identifier. Format: 'create-{counter}', 'edit-{uid}', 'col-{uid}', 'folder-{uid}'. */
@@ -99,24 +94,6 @@ export interface WorkbenchTab {
   entityId?: string;
   /** For template-edit tabs: the template uid. */
   templateUid?: string;
-  /** For rule-flow tabs: the scope. */
-  flowScope?: RuleFlowScope;
-  /** For rule-flow tabs with "this-page" scope: the tab URL to filter against. */
-  flowTabUrl?: string;
-  /** For rule-flow tabs with "this-page" scope: the browser tab id the
-   *  gesture came from — lets the flow query tab-scoped evidence
-   *  (tracked subresources + fire telemetry). Ephemeral. */
-  flowBrowserTabId?: number;
-  /** For run-report tabs: the run id to load from storage. */
-  testRunId?: string;
-  /**
-   * Test run owner — present on run-report tabs and on the entity
-   * tabs that own them (collection-overview / folder-overview / edit).
-   * The bottom panel reads this from the active tab to decide whether
-   * to render the contextual Test Runs tab and which bucket to load.
-   */
-  testOwnerType?: 'rule' | 'folder' | 'collection' | 'workspace';
-  testOwnerId?: string;
   /** For settings tabs: optional deep-link target key to scroll to on mount. */
   settingsInitialKey?: string;
   /** For settings tabs: optional deep-link target category to scroll to on mount. */
@@ -194,8 +171,7 @@ export type LeftPanelKey =
   | 'variables'
   | 'workflows'
   | 'workflow-status'
-  | 'deep-network-inspection'
-  | 'test-runs';
+  | 'deep-network-inspection';
 
 /**
  * Right-side panel keys — all shown in the right Allotment pane.
@@ -217,7 +193,7 @@ export type FocusRegion = 'left' | 'right' | 'bottom' | 'editor' | null;
  * PanelVisibility booleans. `leftPanel` and `rightPanel` are null when
  * collapsed; `bottomOpen` decouples bottom-panel visibility from which
  * left-bottom key drove it so the user can drag-collapse without losing
- * the Test Runs selection.
+ * the selection.
  */
 export interface WorkspaceLayout {
   leftPanel: LeftPanelKey | null;
@@ -260,7 +236,6 @@ export type ToolWindowId =
   | 'docs'
   | 'var-scope'
   | 'deep-network-inspection'
-  | 'test-runs'
   | 'activity'
   | 'notifications';
 

@@ -4,21 +4,17 @@
  * Drives a `RequestLifecycleStore` through `startTabTelemetrySource` and
  * asserts that the surviving projection side effects (phase-driven
  * delivery-mode back-fill, main-frame error promotion) land on
- * tab-telemetry. URL discovery is verified by reading the store
- * snapshot via `deriveObservedUrls` — the projection no longer forwards
+ * tab-telemetry. URL discovery is verified by deriving observed URLs
+ * from the store snapshot — the projection no longer forwards
  * per-request observation events.
  */
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { clearMainFrameId, setMainFrameId } from '@/background/correlator-host/main-frame-registry';
-import { startTabTelemetrySource } from '@/background/tab-telemetry-source';
-import { mainFrameRequestIdsMatchingCommit } from '@/background/tab-telemetry-source/main-frame-chain';
-import { deriveObservedUrls } from '@/background/tab-telemetry-source/observed-urls';
 import {
   __internals,
   __resetForTests,
@@ -27,9 +23,21 @@ import {
   recordObservedFire,
   startTracking,
 } from '@/background/modules/tab-telemetry';
+import { isTrackableUrl, normalizeUrlForTracking } from '@/background/modules/url-utils';
+import { startTabTelemetrySource } from '@/background/tab-telemetry-source';
+import { mainFrameRequestIdsMatchingCommit } from '@/background/tab-telemetry-source/main-frame-chain';
 
+// Local stand-in for the retired observed-urls projection: walk each
+// lifecycle's redirect chain and collect every trackable URL.
 function observed(tabId: number): ReadonlySet<string> {
-  return deriveObservedUrls(store.snapshotTab(tabId));
+  const urls = new Set<string>();
+  for (const lifecycle of store.snapshotTab(tabId)) {
+    for (const url of [lifecycle.url, ...lifecycle.redirectHops.map((h) => h.sourceUrl)]) {
+      if (!isTrackableUrl(url)) continue;
+      urls.add(normalizeUrlForTracking(url));
+    }
+  }
+  return urls;
 }
 
 function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): RequestLifecycle {

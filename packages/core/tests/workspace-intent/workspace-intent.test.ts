@@ -59,13 +59,6 @@ describe('WorkspaceIntentSchema — accepts every kind', () => {
     ['open-live-variables', { kind: 'open-live-variables' }],
     ['open-export-modal', { kind: 'open-export-modal' }],
     ['open-import-modal', { kind: 'open-import-modal' }],
-    ['open-run-report', { kind: 'open-run-report', runId: UID_A }],
-    ['open-rule-flow (bare)', { kind: 'open-rule-flow', scope: 'all-active' }],
-    ['open-rule-flow (url)', { kind: 'open-rule-flow', scope: 'this-page', url: 'https://api.openheaders.io/v1' }],
-    [
-      'open-rule-flow (url + tabId)',
-      { kind: 'open-rule-flow', scope: 'this-page', url: 'https://api.openheaders.io/v1', tabId: 42 },
-    ],
   ];
 
   it.each(cases)('accepts %s', (_label, intent) => {
@@ -104,14 +97,6 @@ describe('WorkspaceIntentSchema — rejects malformed payloads', () => {
     expect(v.safeParse(WorkspaceIntentSchema, { kind: 'create-rule', ruleType: 'webrequest' }).success).toBe(false);
   });
 
-  it('rejects open-rule-flow with unknown scope', () => {
-    expect(v.safeParse(WorkspaceIntentSchema, { kind: 'open-rule-flow', scope: 'nowhere' }).success).toBe(false);
-  });
-
-  it('rejects open-run-report with bad runId', () => {
-    expect(v.safeParse(WorkspaceIntentSchema, { kind: 'open-run-report', runId: 'X' }).success).toBe(false);
-  });
-
   it('rejects missing kind', () => {
     expect(v.safeParse(WorkspaceIntentSchema, { section: 'doc-system-status' }).success).toBe(false);
   });
@@ -141,8 +126,6 @@ describe('WORKSPACE_INTENT_KINDS', () => {
       'open-workspace-vars': { kind: 'open-workspace-vars' },
       'open-vault': { kind: 'open-vault' },
       'open-live-variables': { kind: 'open-live-variables' },
-      'open-run-report': { kind: 'open-run-report', runId: UID_A },
-      'open-rule-flow': { kind: 'open-rule-flow', scope: 'all-active' },
       'edit-live-variable': { kind: 'edit-live-variable', uid: UID_A },
       'edit-live-workflow': { kind: 'edit-live-workflow', uid: UID_A },
       'create-live-variable': { kind: 'create-live-variable' },
@@ -189,21 +172,6 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     { kind: 'open-live-variables' },
     { kind: 'open-export-modal' },
     { kind: 'open-import-modal' },
-    { kind: 'open-run-report', runId: UID_A },
-    { kind: 'open-rule-flow', scope: 'all-active' },
-    { kind: 'open-rule-flow', scope: 'collection', entityId: UID_A },
-    { kind: 'open-rule-flow', scope: 'folder', entityId: UID_B },
-    {
-      kind: 'open-rule-flow',
-      scope: 'this-page',
-      url: 'https://api.openheaders.io/v1/resource?q=1',
-    },
-    {
-      kind: 'open-rule-flow',
-      scope: 'this-page',
-      url: 'https://api.openheaders.io/v1/resource?q=1',
-      tabId: 1387,
-    },
     { kind: 'edit-live-variable', uid: UID_A },
     { kind: 'edit-live-workflow', uid: UID_B },
     { kind: 'create-live-variable' },
@@ -247,29 +215,17 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     expect(hashToIntent('#/not-a-route')).toBeNull();
     expect(hashToIntent('#/docs')).toBeNull(); // missing section
     expect(hashToIntent('#/edit')).toBeNull(); // missing uid
-    expect(hashToIntent('#/flow')).toBeNull(); // missing scope
   });
 
   it('schema-invalid payload → null', () => {
     expect(hashToIntent('#/edit/X'), '2-char uid').toBeNull();
     expect(hashToIntent('#/environment/TOOLONGID1'), '10-char uid').toBeNull();
-    expect(hashToIntent('#/flow/nowhere'), 'bad scope').toBeNull();
   });
 });
 
 // ── URL-segment encoding — preserves special chars ─────────────────
 
 describe('codec encoding', () => {
-  it('encodes rule-flow URLs with query strings', () => {
-    const intent: WorkspaceIntent = {
-      kind: 'open-rule-flow',
-      scope: 'this-page',
-      url: 'https://api.openheaders.io/v1?token=abc&ref=def',
-    };
-    const hash = intentToHash(intent);
-    expect(hashToIntent(hash)).toEqual(intent);
-  });
-
   it('handles a malformed percent-escape by returning null', () => {
     // `%ZZ` is not a valid escape — the segment parser catches the
     // TypeError, returns the raw segment, schema rejects it.

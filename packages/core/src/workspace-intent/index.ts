@@ -6,7 +6,7 @@ export {
   intentToHash,
   parseIntent,
 } from './codec';
-export type { RuleFlowScope, WorkspaceIntent, WorkspaceIntentKind } from './schema';
+export type { WorkspaceIntent, WorkspaceIntentKind } from './schema';
 export {
   CreateRuleIntentSchema,
   DocsSectionIdSchema,
@@ -16,14 +16,11 @@ export {
   OpenCollectionVarsIntentSchema,
   OpenDocsIntentSchema,
   OpenRequestEditorIntentSchema,
-  OpenRuleFlowIntentSchema,
-  OpenRunReportIntentSchema,
   OpenSettingsIntentSchema,
   OpenVaultIntentSchema,
   OpenWorkspaceIntentSchema,
   OpenWorkspaceManagerIntentSchema,
   OpenWorkspaceVarsIntentSchema,
-  RuleFlowScopeSchema,
   WORKSPACE_INTENT_KINDS,
   WorkspaceIntentSchema,
 } from './schema';

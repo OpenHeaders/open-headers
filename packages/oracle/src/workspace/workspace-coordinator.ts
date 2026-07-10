@@ -68,14 +68,13 @@ import { getOracleHostHooks } from '../sync';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../sync/service';
 import { applyWorkspaceSnapshot } from '../sync/snapshot-applier';
 import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
-import { purgeWorkspaceTestRuns } from '../test-run/test-run-store';
 import { createWorkspace as createWorkspaceMeta, getWorkspace } from './extension-workspace-store';
 
 // ── Storage key helpers ─────────────────────────────────────────────
 
 /**
  * Per-workspace keys the orchestrator clears on delete. Environments /
- * vault / testRuns / files / oauth / live-* each have their own purge
+ * vault / files / oauth / live-* each have their own purge
  * paths (called explicitly below in `purgeWorkspaceData`) so they stay
  * encapsulated and we don't list them here.
  */
@@ -188,7 +187,6 @@ export async function purgeWorkspaceData(ids: readonly string[]): Promise<void> 
   for (const id of ids) {
     await hostStorage.remove(perWorkspaceDataKeys(id));
     await purgeWorkspaceEnvironmentData(id);
-    await purgeWorkspaceTestRuns(id);
     await purgeFilesForWorkspace(id);
     await purgeOAuthForWorkspace(id);
     await purgeLiveWorkflowsForWorkspace(id);

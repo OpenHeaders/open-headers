@@ -1,6 +1,6 @@
 /**
- * Snapshot reads — full and scope-filtered projections of a tab's
- * telemetry state, shallow-copied so callers can mutate safely.
+ * Snapshot reads — projections of a tab's telemetry state,
+ * shallow-copied so callers can mutate safely.
  */
 
 import type { RequestRecord, TabTelemetrySnapshot } from '@openheaders/core/types';
@@ -44,33 +44,4 @@ export function getTabSnapshot(tabId: number): TabTelemetrySnapshot {
     byRule,
     uniqueRequestCount: uniqueUrls.size,
   };
-}
-
-/**
- * Filtered snapshot — fires and counters limited to the given rule uids.
- * Used by test-runner to build the result payload for a session.
- */
-export function getTabSnapshotForScope(tabId: number, scopeUids: Set<string>): TabTelemetrySnapshot {
-  const state = tabs.get(tabId);
-  if (!state) return emptySnapshot();
-
-  const fires = state.fires.filter((f) => scopeUids.has(f.ruleUid));
-  const counters: Record<string, number> = {};
-  const byRule: Record<string, RequestRecord[]> = {};
-  const uniqueUrls = new Set<string>();
-  for (const uid of scopeUids) {
-    const count = state.counters.get(uid);
-    if (count !== undefined) counters[uid] = count;
-    const urlMap = state.uniquesByRule.get(uid);
-    if (urlMap) {
-      const records: RequestRecord[] = [];
-      for (const [normalized, record] of urlMap) {
-        records.push(record);
-        uniqueUrls.add(normalized);
-      }
-      byRule[uid] = records;
-    }
-  }
-
-  return { counters, fires, byRule, uniqueRequestCount: uniqueUrls.size };
 }

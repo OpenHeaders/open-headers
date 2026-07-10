@@ -41,11 +41,6 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-vi.mock('@/background/modules/test-runner', () => ({
-  getActiveRunSnapshots: vi.fn(() => []),
-  getActiveTestTabIds: vi.fn(() => []),
-}));
-
 vi.mock('@openheaders/oracle/entity/pause-markers-store', () => ({
   getPauseMarkers: vi.fn(() => new Map<string, 'paused' | 'unpaused'>()),
   applyExternalSnapshot: vi.fn(),

@@ -9,12 +9,12 @@
  *
  * Reserved ranges below; everything else is fair game for the engine's
  * own compilation output (which starts at 1 for dynamic and 1_000_000
- * for test-run session rules).
+ * for session rules).
  */
 
 /**
  * Base ID for per-tab cache-bypass session rules. Each cache-bypass
- * rule's ID is `CACHE_BYPASS_ID_BASE + tabId`, well above test-run IDs
+ * rule's ID is `CACHE_BYPASS_ID_BASE + tabId`, well above session-rule IDs
  * (`>= 1_000_000`) so the two ranges don't collide. The engine's
  * session-apply preserves any existing session rule whose ID is at or
  * above this base.

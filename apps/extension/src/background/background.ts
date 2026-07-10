@@ -97,7 +97,6 @@ import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/
 import { registerCdpTabPinControls } from './modules/tabs/cdp-tab-pin';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tabs/tab-listeners';
 import { rehydrateTabOverridesFromSession } from './modules/tabs/tab-overrides';
-import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler } from './modules/totp-scheduler';
 import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace/workspace-orchestrator';
@@ -191,7 +190,6 @@ async function initializeExtension(): Promise<void> {
   void initializeViewMode();
   setupInjectListener();
   setupDelayBypassCleanup();
-  setupTestRunnerPorts({ lifecycleStore });
 
   installStoreBroadcasts({
     refreshFanOut: () => syncWiring.refreshFanOut(),

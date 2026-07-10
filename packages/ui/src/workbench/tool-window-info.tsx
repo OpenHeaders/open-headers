@@ -183,11 +183,6 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
     summary:
       'Per-workflow circuit-breaker dashboard — state, consecutive failures, openings, and next-attempt countdown, with manual Retry and Reset-circuit actions.',
   },
-  'test-runs': {
-    title: 'Test Runs',
-    summary:
-      "Results of rule and request test runs — scoped to the active tab's owner (rule, folder, collection, or workspace), or browsed across all runs.",
-  },
   notifications: NOTIFICATIONS_PANEL_INFO,
   activity: {
     title: 'Activity',

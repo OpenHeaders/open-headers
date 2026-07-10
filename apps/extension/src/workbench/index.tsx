@@ -17,7 +17,6 @@ import { pairWithCode } from '@/host/pair-with-code';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
-import '@openheaders/ui/workbench/styles/rule-flow.less';
 
 // In-app daemon pairing for the Authentication setting (WS-A2). The
 // popup / panel / sidepanel get this via `install-capabilities`, but the

@@ -11,9 +11,9 @@
  * drift — Phase 2 discipline applied to the navigation channel.
  */
 
-import type { RuleFlowScope, WorkspaceIntent, WorkspaceIntentKind } from './schema';
+import type { WorkspaceIntent, WorkspaceIntentKind } from './schema';
 
-export type { RuleFlowScope, WorkspaceIntent, WorkspaceIntentKind };
+export type { WorkspaceIntent, WorkspaceIntentKind };
 
 /**
  * Identifies the surface that dispatched the intent. The SW navigator

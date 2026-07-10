@@ -1,6 +1,5 @@
 import { ensureWorkspaceRoleAssignments, refreshIdentitySnapshotFromHostStorage } from '@openheaders/core/identity';
 import { invalidateAllWorkspaceOrgCache } from '@openheaders/core/sync';
-import type { TreeNode } from '@openheaders/core/types';
 import {
   getActiveEnvironmentId,
   getCollectionEnvOverrides,
@@ -14,12 +13,11 @@ import {
 } from '@openheaders/oracle/entity/environment-store';
 import { listFiles, onFilesStoreChange } from '@openheaders/oracle/entity/files-store';
 import { getRequests, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
-import { getCollectionTrees, getRules, onStoreChange } from '@openheaders/oracle/entity/rule-store';
+import { getRules, onStoreChange } from '@openheaders/oracle/entity/rule-store';
 import { getTemplates, onTemplateStoreChange } from '@openheaders/oracle/entity/template-store';
 import { onLiveCacheStoreChange } from '@openheaders/oracle/live/live-cache-store';
 import { getLiveVariables, onLiveVariableStoreChange } from '@openheaders/oracle/live/live-variable-store';
 import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle/live/live-workflow-store';
-import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { broadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { scheduleUpdate } from '../modules/rules/rule-engine';
@@ -30,29 +28,9 @@ interface InstallStoreBroadcastsOpts {
   tryAdoptPendingWorkspace: () => void;
 }
 
-function pruneOrphanTestRunOwnersFromStore(): void {
-  const liveRules = new Set<string>();
-  const liveEntities = new Set<string>();
-  for (const r of getRules()) liveRules.add(r.uid);
-  for (const c of getCollectionTrees()) {
-    liveEntities.add(c.uid);
-    const walk = (nodes: TreeNode[]): void => {
-      for (const n of nodes) {
-        if (n.type === 'folder') {
-          liveEntities.add(n.uid);
-          walk(n.children);
-        }
-      }
-    };
-    walk(c.tree);
-  }
-  void pruneOrphanOwners(liveRules, liveEntities);
-}
-
 export function installStoreBroadcasts({ refreshFanOut, tryAdoptPendingWorkspace }: InstallStoreBroadcastsOpts): void {
   onStoreChange(() => {
     broadcast('rulesUpdated', { rules: getRules() });
-    pruneOrphanTestRunOwnersFromStore();
   });
 
   onTemplateStoreChange(() => {

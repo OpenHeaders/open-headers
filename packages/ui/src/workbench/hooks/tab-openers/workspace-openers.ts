@@ -1,17 +1,14 @@
 /**
  * Workspace-level tab openers — mostly singleton tabs (settings,
- * workspace manager, workspace variables, vault) plus run reports,
- * rule-flow views, and environment edit tabs.
+ * workspace manager, workspace variables, vault) plus environment
+ * edit tabs.
  */
 
 import { useCallback } from 'react';
-import type { RuleFlowScope } from '../../types';
 import type { TabOpenerContext, UseTabOpenersApi } from './shared';
 
 export type WorkspaceOpeners = Pick<
   UseTabOpenersApi,
-  | 'openRunReport'
-  | 'openRuleFlow'
   | 'openSettingsTab'
   | 'openWorkspaceManager'
   | 'openEnvironmentEdit'
@@ -20,79 +17,12 @@ export type WorkspaceOpeners = Pick<
   | 'openScriptPackages'
 >;
 
-function hostnameOf(url: string): string | null {
-  try {
-    return new URL(url).hostname || null;
-  } catch {
-    return null;
-  }
-}
-
 export function useWorkspaceOpeners({
   allTabs,
   addTab,
   switchTab,
-  updateTab,
   setPendingRenameTabId,
 }: TabOpenerContext): WorkspaceOpeners {
-  const openRunReport = useCallback(
-    (
-      runId: string,
-      owner?: { type: 'rule' | 'folder' | 'collection' | 'workspace'; id: string },
-      ownerName?: string,
-    ) => {
-      const id = `run-${runId}`;
-      if (allTabs.some((t) => t.id === id)) {
-        switchTab(id);
-        return;
-      }
-      const label = ownerName ? `Test Run · ${ownerName}` : 'Test Run';
-      addTab({
-        id,
-        label,
-        ruleType: '',
-        dirty: false,
-        mode: 'run-report',
-        testRunId: runId,
-        testOwnerType: owner?.type,
-        testOwnerId: owner?.id,
-      });
-    },
-    [allTabs, addTab, switchTab],
-  );
-
-  const openRuleFlow = useCallback(
-    (scope: RuleFlowScope, entityId?: string, label?: string, page?: { url: string; tabId?: number }) => {
-      const id = entityId ? `flow-${entityId}` : `flow-${scope}`;
-      const pageHost = scope === 'this-page' && page ? hostnameOf(page.url) : null;
-      const flowLabel = label
-        ? `Flow — ${label}`
-        : scope === 'all-active'
-          ? 'Flow — All Active Rules'
-          : `Flow — ${pageHost ?? 'This Page'}`;
-      if (allTabs.some((t) => t.id === id)) {
-        // Reused this-page flow tab: retarget it to the page the gesture
-        // came from — the URL (and hence the matched rule set) may have
-        // changed since the tab was first opened.
-        if (page) updateTab(id, { label: flowLabel, flowTabUrl: page.url, flowBrowserTabId: page.tabId });
-        switchTab(id);
-        return;
-      }
-      addTab({
-        id,
-        label: flowLabel,
-        ruleType: '',
-        dirty: false,
-        mode: 'rule-flow',
-        entityId,
-        flowScope: scope,
-        flowTabUrl: page?.url,
-        flowBrowserTabId: page?.tabId,
-      });
-    },
-    [allTabs, addTab, switchTab, updateTab],
-  );
-
   const openSettingsTab = useCallback(
     (options?: { settingKey?: string; categoryId?: string }) => {
       const id = 'settings';
@@ -195,8 +125,6 @@ export function useWorkspaceOpeners({
   }, [allTabs, addTab, switchTab]);
 
   return {
-    openRunReport,
-    openRuleFlow,
     openSettingsTab,
     openWorkspaceManager,
     openEnvironmentEdit,

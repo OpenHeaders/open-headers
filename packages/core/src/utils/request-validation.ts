@@ -7,7 +7,7 @@
  * Incomplete requests can still be saved and edited — they just can't
  * be executed. The executor rejects an empty URL at the wire boundary;
  * this helper lets upstream surfaces (Live Workflow steps, manual send
- * buttons, future test-runners) refuse to even try, and render the
+ * buttons) refuse to even try, and render the
  * right UI hint instead of a generic "Failed to fetch."
  *
  * Completeness rules:

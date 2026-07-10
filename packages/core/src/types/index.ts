@@ -247,15 +247,6 @@ export type {
 
 // ── Template ──────────────────────────────────────────────────────
 export type { Template } from './template';
-// ── Test run ───────────────────────────────────────────────────────
-export type {
-  LoadedTestRun,
-  StoredTestRun,
-  TestFireEvent,
-  TestRuleStatus,
-  TestRunOwner,
-  TestRunOwnerType,
-} from './test-run';
 // ── Per-tab tracked-resource state ─────────────────────────────────
 export type { ObservationSource, TrackedResource } from './tracking';
 // ── Variable ───────────────────────────────────────────────────────

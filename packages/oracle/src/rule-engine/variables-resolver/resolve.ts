@@ -109,10 +109,9 @@ export function resolveRulesForCompile(rules: Rule[]): Rule[] {
   });
 
   // Only persist the snapshot when compiling the FULL active-workspace
-  // rule set — not when compiling a test-run scope subset (which would
-  // overwrite the snapshot with a partial view). Test runs always pass
-  // a strict subset of the store's rule list, so a length check against
-  // the live store count is a cheap discriminator.
+  // rule set — a subset compile would overwrite the snapshot with a
+  // partial view. A length check against the live store count is a
+  // cheap discriminator.
   if (rules.length >= getRules().length) {
     state.lastResolvedRules = resolved;
     state.lastResolutionErrors = perRuleErrors;

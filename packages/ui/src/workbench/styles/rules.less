@@ -1794,45 +1794,11 @@ body {
   padding: 16px;
   min-height: 0;
 
-  // Variant used by the Test Runs tab — the child is a full-width
-  // virtual Table, so we swap the flex-centered "placeholder text"
-  // layout for a block layout that fills the content area.
-  &.is-table {
-    display: block;
-    padding: 0;
-  }
-
   &.is-fill {
     display: block;
     padding: 0;
     align-items: stretch;
     justify-content: flex-start;
-  }
-}
-
-// Highlight for the row in the Test Runs table whose run is currently
-// open in the main panel. Left-border accent + subtle tint so the row
-// stays readable in both light and dark themes. We target both the row
-// element itself AND its child cells because antd's Table renders rows
-// as <tr>/<td> in standard mode but as divs (role="row"/"cell") in
-// `virtual` mode — this bottom panel uses virtual, so the non-td
-// selector is the one that actually matches at runtime.
-.rules-bottom-row-active {
-  background: var(--oh-row-active-bg, rgba(22, 119, 255, 0.08)) !important;
-  box-shadow: inset 2px 0 0 0 var(--oh-row-active-border, #1677ff);
-
-  > td,
-  > div {
-    background: var(--oh-row-active-bg, rgba(22, 119, 255, 0.08)) !important;
-  }
-}
-
-[data-theme='dark'] .rules-bottom-row-active {
-  background: rgba(22, 119, 255, 0.18) !important;
-
-  > td,
-  > div {
-    background: rgba(22, 119, 255, 0.18) !important;
   }
 }
 

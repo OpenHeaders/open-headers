@@ -9,10 +9,8 @@
  */
 
 import {
-  ApartmentOutlined,
   AppstoreOutlined,
   CodeSandboxOutlined,
-  ExperimentOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
@@ -77,8 +75,6 @@ export function tabIcon(
     compact?: boolean;
   },
 ): React.ReactNode {
-  if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
-  if (tab.mode === 'run-report') return <ExperimentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'settings') return <SettingOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'collection-overview') {
     const paused = tab.entityId ? pausedUids.has(tab.entityId) : false;
@@ -216,23 +212,7 @@ function truncateMiddle(text: string, max: number): string {
   return `${text.slice(0, half)}…${text.slice(text.length - half)}`;
 }
 
-/**
- * Truncate a tab label, preserving a fixed prefix. Used by run-report
- * tabs whose label is `Test Run · <owner name>` — the prefix carries
- * the kind of tab it is, so we end-truncate the owner name suffix
- * instead of running middle-truncation across the whole label and
- * eating the prefix. Returns the original text if it fits.
- */
-function truncateLabelWithPrefix(text: string, prefix: string, max: number): string {
-  if (text.length <= max) return text;
-  if (!text.startsWith(prefix)) return truncateMiddle(text, max);
-  const suffix = text.slice(prefix.length);
-  const budget = Math.max(1, max - prefix.length - 1); // 1 char for ellipsis
-  return `${prefix}${suffix.slice(0, budget)}…`;
-}
-
-export function renderTabLabel(tab: WorkbenchTab, displayLabel: string): string {
-  if (tab.mode === 'run-report') return truncateLabelWithPrefix(displayLabel, 'Test Run · ', TAB_LABEL_MAX);
+export function renderTabLabel(_tab: WorkbenchTab, displayLabel: string): string {
   return truncateMiddle(displayLabel, TAB_LABEL_MAX);
 }
 
