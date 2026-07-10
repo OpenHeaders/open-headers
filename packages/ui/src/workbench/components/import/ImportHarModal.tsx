@@ -16,7 +16,7 @@
  * selection. Selecting fewer entries reduces `summary.imported`.
  */
 
-import { DownloadOutlined, InfoCircleOutlined, PlusOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
+import { DownloadOutlined, InfoCircleOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
 import {
   diffImportReports,
   type HarParsedEntry,
@@ -29,28 +29,13 @@ import {
   selectHarEntries,
 } from '@openheaders/core/import';
 import type { Collection, Request } from '@openheaders/core/types';
-import {
-  Alert,
-  App as AntApp,
-  Button,
-  Checkbox,
-  Input,
-  Modal,
-  Select,
-  Space,
-  Tag,
-  Tooltip,
-  Typography,
-  theme,
-} from 'antd';
+import { Alert, App as AntApp, Button, Checkbox, Input, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CollectionPickerPanel, NEW_COLLECTION_VALUE } from '../collection-picker';
 import ReimportDiffPanel from './ReimportDiffPanel';
 
 const { Text, Paragraph } = Typography;
-
-/** Sentinel Select value for the "create a new collection on import" option. */
-const NEW_COLLECTION = '__oh-new-collection__';
 
 interface ImportHarModalProps {
   open: boolean;
@@ -85,7 +70,7 @@ interface ImportHarModalProps {
   /**
    * Creates a collection so the import never blocks on "no collections
    * yet". Auto-selected when the workspace has none; always offered as
-   * the last Select option otherwise.
+   * the picker's pinned "New collection" row otherwise.
    */
   createCollection: (name: string) => Promise<{ uid: string } | null>;
   /**
@@ -150,7 +135,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     wasOpenRef.current = open;
     if (!open || wasOpen) return;
     setStage(initialText ? parseHarText(initialText) : { kind: 'empty' });
-    setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION);
+    setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION_VALUE);
     setFilter('');
     setBusy(false);
     setDiff(null);
@@ -252,22 +237,6 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     return best ?? 'Imported requests';
   }, [stage]);
 
-  const collectionOptions = useMemo(
-    () => [
-      ...collections.map((c) => ({ label: c.name, value: c.uid })),
-      {
-        label: (
-          <span>
-            <PlusOutlined style={{ fontSize: 10, marginRight: 6 }} />
-            New collection <Text type="secondary">“{newCollectionName}”</Text>
-          </span>
-        ),
-        value: NEW_COLLECTION,
-      },
-    ],
-    [collections, newCollectionName],
-  );
-
   const selectedCount = stage.kind === 'parsed' ? stage.selection.size : 0;
   const canImport = stage.kind === 'parsed' && selectedCount > 0 && targetCollectionId !== null && !busy;
 
@@ -276,7 +245,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     setBusy(true);
     try {
       let collectionUid = targetCollectionId;
-      if (collectionUid === NEW_COLLECTION) {
+      if (collectionUid === NEW_COLLECTION_VALUE) {
         const collection = await createCollection(newCollectionName);
         if (!collection) {
           message.error('Failed to create collection');
@@ -327,27 +296,46 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT FROM HAR</span>}
       onCancel={onCancel}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {stage.kind === 'parsed'
-              ? `${selectedCount} of ${stage.result.entries.length} selected`
-              : 'Choose a .har file'}
-          </Text>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button onClick={onCancel} size="small" disabled={busy}>
-              Cancel
-            </Button>
-            <Button
-              type="primary"
-              size="small"
-              icon={<DownloadOutlined />}
-              onClick={() => void handleImport()}
-              disabled={!canImport}
-              loading={busy}
-            >
-              Import {selectedCount > 0 ? `(${selectedCount})` : ''}
-            </Button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {stage.kind === 'parsed'
+                ? `${selectedCount} of ${stage.result.entries.length} selected`
+                : 'Choose a .har file'}
+            </Text>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button onClick={onCancel} size="small" disabled={busy}>
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                size="small"
+                icon={<DownloadOutlined />}
+                onClick={() => void handleImport()}
+                disabled={!canImport}
+                loading={busy}
+              >
+                Import {selectedCount > 0 ? `(${selectedCount})` : ''}
+              </Button>
+            </div>
           </div>
+          {stage.kind === 'parsed' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                fontSize: 10,
+                color: token.colorTextTertiary,
+                borderTop: `1px solid ${token.colorBorderSecondary}`,
+                paddingTop: 6,
+              }}
+            >
+              <span>↑↓ navigate</span>
+              <span>↵ select</span>
+              <span style={{ marginLeft: 'auto' }}>esc close</span>
+            </div>
+          )}
         </div>
       }
       width={760}
@@ -377,13 +365,14 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       {stage.kind === 'parsed' && (
         <>
           <div style={{ marginBottom: 12 }}>
-            <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>TARGET COLLECTION</Text>
-            <Select
-              value={targetCollectionId ?? undefined}
-              onChange={(id) => setTargetCollectionId(id)}
-              size="small"
-              style={{ width: '100%' }}
-              options={collectionOptions}
+            <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>IMPORT TO</Text>
+            <CollectionPickerPanel
+              collections={collections}
+              value={targetCollectionId}
+              onChange={setTargetCollectionId}
+              newCollectionName={newCollectionName}
+              listMaxHeight={140}
+              listMinHeight={90}
             />
           </div>
 

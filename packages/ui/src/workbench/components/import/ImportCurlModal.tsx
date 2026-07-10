@@ -25,7 +25,7 @@
  *   4. Close the modal + open the new request in an editor tab.
  */
 
-import { DownloadOutlined, InfoCircleOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
+import { DownloadOutlined, InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import {
   CurlParseError,
   diffImportReports,
@@ -35,15 +35,13 @@ import {
   parseCurl,
 } from '@openheaders/core/import';
 import type { Collection, Request } from '@openheaders/core/types';
-import { Alert, App as AntApp, Button, Input, Modal, Select, Tag, Typography, theme } from 'antd';
+import { Alert, App as AntApp, Button, Input, Modal, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CollectionPickerPanel, NEW_COLLECTION_VALUE } from '../collection-picker';
 import ReimportDiffPanel from './ReimportDiffPanel';
 
 const { Text, Paragraph } = Typography;
-
-/** Sentinel Select value for the "create a new collection on import" option. */
-const NEW_COLLECTION = '__oh-new-collection__';
 
 interface ImportCurlModalProps {
   open: boolean;
@@ -81,7 +79,7 @@ interface ImportCurlModalProps {
   /**
    * Creates a collection so the import never blocks on "no collections
    * yet". Auto-selected when the workspace has none; always offered as
-   * the last Select option otherwise.
+   * the picker's pinned "New collection" row otherwise.
    */
   createCollection: (name: string) => Promise<{ uid: string } | null>;
   /**
@@ -147,7 +145,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     setSource(initialSource ?? '');
     setName('');
     setNameDirty(false);
-    setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION);
+    setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION_VALUE);
     setBusy(false);
     setDiff(null);
   }, [open, initialCollectionId, initialSource, collections]);
@@ -253,7 +251,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     setBusy(true);
     try {
       let collectionUid = targetCollectionId;
-      if (collectionUid === NEW_COLLECTION) {
+      if (collectionUid === NEW_COLLECTION_VALUE) {
         const collection = await createCollection(newCollectionName);
         if (!collection) {
           message.error('Failed to create collection');
@@ -302,42 +300,45 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     }
   }, [parsed, source, name, targetCollectionId, createRequest, createCollection, newCollectionName, onImported, message]);
 
-  const collectionOptions = useMemo(
-    () => [
-      ...collections.map((c) => ({ label: c.name, value: c.uid })),
-      {
-        label: (
-          <span>
-            <PlusOutlined style={{ fontSize: 10, marginRight: 6 }} />
-            New collection <Text type="secondary">“{newCollectionName}”</Text>
-          </span>
-        ),
-        value: NEW_COLLECTION,
-      },
-    ],
-    [collections, newCollectionName],
-  );
-
   return (
     <Modal
       open={open}
       title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT FROM CURL</span>}
       onCancel={onCancel}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button onClick={onCancel} size="small" disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            type="primary"
-            size="small"
-            icon={<DownloadOutlined />}
-            onClick={() => void handleImport()}
-            disabled={!canImport}
-            loading={busy}
-          >
-            Import
-          </Button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={onCancel} size="small" disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              size="small"
+              icon={<DownloadOutlined />}
+              onClick={() => void handleImport()}
+              disabled={!canImport}
+              loading={busy}
+            >
+              Import
+            </Button>
+          </div>
+          {parsed?.ok && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                fontSize: 10,
+                color: token.colorTextTertiary,
+                borderTop: `1px solid ${token.colorBorderSecondary}`,
+                paddingTop: 6,
+              }}
+            >
+              <span>↑↓ navigate</span>
+              <span>↵ select</span>
+              <span style={{ marginLeft: 'auto' }}>esc close</span>
+            </div>
+          )}
         </div>
       }
       width={620}
@@ -364,30 +365,29 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
 
       {parsed?.ok && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Text style={labelStyle}>NAME</Text>
-              <Input
-                size="small"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setNameDirty(true);
-                }}
-                placeholder="How this request appears in the sidebar"
-                style={{ fontSize: 12 }}
-              />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Text style={labelStyle}>COLLECTION</Text>
-              <Select
-                value={targetCollectionId ?? undefined}
-                onChange={(id) => setTargetCollectionId(id)}
-                size="small"
-                style={{ width: '100%' }}
-                options={collectionOptions}
-              />
-            </div>
+          <div>
+            <Text style={labelStyle}>NAME</Text>
+            <Input
+              size="small"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameDirty(true);
+              }}
+              placeholder="How this request appears in the sidebar"
+              style={{ fontSize: 12 }}
+            />
+          </div>
+          <div>
+            <Text style={labelStyle}>IMPORT TO</Text>
+            <CollectionPickerPanel
+              collections={collections}
+              value={targetCollectionId}
+              onChange={setTargetCollectionId}
+              newCollectionName={newCollectionName}
+              listMaxHeight={160}
+              listMinHeight={100}
+            />
           </div>
 
           {diff?.hasChanges && <ReimportDiffPanel diff={diff} />}
