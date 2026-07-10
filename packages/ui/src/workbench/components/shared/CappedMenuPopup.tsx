@@ -16,9 +16,12 @@ interface CappedMenuPopupProps {
   menu: ReactNode;
   /** Room below the trigger, from `usePopoverViewportFit`; uncapped while unmeasured. */
   maxHeight: number | undefined;
+  /** Optional sticky footer — rendered below the scroller (divider
+   *  included) so it stays visible while the menu scrolls. */
+  footer?: ReactNode;
 }
 
-const CappedMenuPopup: React.FC<CappedMenuPopupProps> = ({ menu, maxHeight }) => {
+const CappedMenuPopup: React.FC<CappedMenuPopupProps> = ({ menu, maxHeight, footer }) => {
   const { token } = theme.useToken();
   // The shell owns elevation + background; flatten the menu's so the
   // scroller doesn't drag a second shadowed box around. Menu padding
@@ -39,6 +42,9 @@ const CappedMenuPopup: React.FC<CappedMenuPopupProps> = ({ menu, maxHeight }) =>
       <div className="oh-persistent-scroll" style={maxHeight != null ? { maxHeight } : undefined}>
         {flatMenu}
       </div>
+      {footer != null && (
+        <div style={{ borderTop: `1px solid ${token.colorSplit}`, marginTop: 4, padding: '4px 4px 0' }}>{footer}</div>
+      )}
     </div>
   );
 };

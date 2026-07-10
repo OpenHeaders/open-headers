@@ -271,13 +271,13 @@ export function HeadersView({
         <button
           type="button"
           className="dt-header-footprint dt-header-footprint--link"
-          title={`${footprint.ruleNames.join(', ')} — click to open Request Rules`}
+          title={`${footprint.ruleNames.join(', ')} — click to open Matched Rules`}
           onClick={onShowMatchedRules}
         >
           <span className="dt-header-footprint-dot" aria-hidden="true" />
           <span className="dt-header-footprint-text">{footprintText}</span>
           <span className="dt-header-footprint-open" aria-hidden="true">
-            Request Rules →
+            Matched Rules →
           </span>
         </button>
       )}

@@ -90,7 +90,7 @@ export interface WorkbenchViewState {
 /**
  * Fresh-profile seed (design § 8). On first open:
  *   - `http-rules` is active in `left-top`; `left-bottom` stacks
- *     `workflows` + `api-requests` (collapsed).
+ *     `api-requests` (active) + `workflows`.
  *   - `right-top` stacks `notifications` + `docs` (active). Docs leads
  *     because it's the orientation surface users reach for first on a
  *     fresh profile.
@@ -103,7 +103,7 @@ const WORKSPACE_FRESH_DOCK_LAYOUT: ToolLayoutState<ToolWindowId> = normalizeDock
   {
     docks: {
       'left-top': { windows: ['http-rules'], active: 'http-rules' },
-      'left-bottom': { windows: ['workflows', 'api-requests'], active: null },
+      'left-bottom': { windows: ['api-requests', 'workflows'], active: 'api-requests' },
       'right-top': {
         windows: ['notifications', 'docs'],
         active: 'docs',
@@ -140,7 +140,7 @@ const FACTORY_EDITOR_TABS: PersistedTabSession<WorkbenchTab> = { tabs: [], activ
 export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
   sectionsExpanded: {
     'http-rules': { rules: false, templates: false, environments: false },
-    'api-requests': { 'api-requests': true, environments: false },
+    'api-requests': { 'api-requests': false, environments: false },
     workflows: { workflows: true },
     variables: { environments: true },
   },

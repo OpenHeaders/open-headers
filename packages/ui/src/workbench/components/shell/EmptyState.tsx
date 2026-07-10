@@ -11,10 +11,10 @@ import { RightOutlined, SisternodeOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
 import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
-import { Dropdown, type MenuProps, Tooltip, Typography } from 'antd';
+import { Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { forwardRef } from 'react';
-import { buildRuleTypeMenuItems, buildUseTemplateMenuItem } from '../../rule-type-menu';
+import { forwardRef, useState } from 'react';
+import { buildRuleTypeMenuItemsWithTemplates, templatesBadge } from '../../rule-type-menu';
 import { useSettingValue } from '../../settings/hooks';
 import CappedMenuPopup from '../shared/CappedMenuPopup';
 import { scopeBadge } from '../shared/scope-colors';
@@ -102,6 +102,38 @@ const ActionRow = forwardRef<HTMLButtonElement, ActionRowProps>(
 );
 ActionRow.displayName = 'ActionRow';
 
+/** Sticky footer row for the Create-rule menu — styled like a dropdown
+ *  item but rendered outside the scroller so it never scrolls away. */
+const BrowseTemplatesRow: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+  const { token } = theme.useToken();
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        width: '100%',
+        border: 'none',
+        cursor: 'pointer',
+        textAlign: 'left',
+        background: hover ? token.colorBgTextHover : 'transparent',
+        borderRadius: token.borderRadiusSM,
+        padding: '5px 12px',
+        color: token.colorText,
+        fontSize: token.fontSize,
+      }}
+    >
+      {templatesBadge()}
+      <span>Browse all templates…</span>
+    </button>
+  );
+};
+
 const EmptyState: React.FC<EmptyStateProps> = ({
   onCreateRule,
   onCreateRuleFromTemplate,
@@ -116,6 +148,9 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   // scrollbar) instead of getting clipped on short windows.
   const ruleMenuFit = usePopoverViewportFit<HTMLButtonElement>();
   const variableMenuFit = usePopoverViewportFit<HTMLButtonElement>();
+  // Controlled so the sticky "Browse all templates…" footer — which is
+  // not an antd menu item — can close the dropdown when clicked.
+  const [ruleMenuOpen, setRuleMenuOpen] = useState(false);
   return (
     <div className="oh-empty-state">
       <img src={hostAssets.resolveUrl('images/logo-pixel.svg')} alt="" aria-hidden="true" className="oh-empty-logo" />
@@ -124,20 +159,33 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <div className="oh-empty-heading-spacer" aria-hidden="true" />
       <div className="oh-empty-actions">
         <Dropdown
-          menu={{
-            items: [
-              // Template cascade leads — the onboarding path into a
-              // working rule (the sidebar's template tree starts
-              // collapsed on a fresh profile).
-              buildUseTemplateMenuItem(onCreateRuleFromTemplate, onBrowseTemplates),
-              { type: 'divider', key: 'use-template-sep' },
-              ...(buildRuleTypeMenuItems(onCreateRule) ?? []),
-            ],
-          }}
-          popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={ruleMenuFit.maxHeight} />}
+          // Each templated rule type expands into Blank + its
+          // templates — the onboarding path into a working rule (the
+          // sidebar's template tree starts collapsed on a fresh
+          // profile). The sticky "Browse all templates…" footer hands
+          // off to the sidebar for exploration.
+          menu={{ items: buildRuleTypeMenuItemsWithTemplates(onCreateRule, onCreateRuleFromTemplate) }}
+          popupRender={(menu) => (
+            <CappedMenuPopup
+              menu={menu}
+              maxHeight={ruleMenuFit.maxHeight}
+              footer={
+                <BrowseTemplatesRow
+                  onClick={() => {
+                    setRuleMenuOpen(false);
+                    onBrowseTemplates();
+                  }}
+                />
+              }
+            />
+          )}
           trigger={['click']}
           autoAdjustOverflow={false}
-          onOpenChange={ruleMenuFit.onOpenChange}
+          open={ruleMenuOpen}
+          onOpenChange={(open) => {
+            setRuleMenuOpen(open);
+            ruleMenuFit.onOpenChange(open);
+          }}
         >
           <ActionRow
             ref={ruleMenuFit.triggerRef}

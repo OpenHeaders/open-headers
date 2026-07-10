@@ -11,7 +11,6 @@ import {
   CodeOutlined,
   DatabaseOutlined,
   FileTextOutlined,
-  FolderOutlined,
   KeyOutlined,
   LinkOutlined,
   NotificationOutlined,
@@ -21,11 +20,10 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
-import type { MenuProps } from 'antd';
 import type React from 'react';
 import { createElement } from 'react';
 import { RULE_TYPE_CODES } from './components/shared/rule-codes';
-import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYPE } from './rule-templates';
+import { TEMPLATES_BY_TYPE } from './rule-templates';
 
 export interface RuleTypeMenuItem {
   key: ExtensionRuleType;
@@ -212,65 +210,10 @@ export function buildRuleTypeMenuItemsWithTemplates(
   });
 }
 
-/** Recursively map a system-template tree into cascading menu nodes:
- *  folders become submenus, leaves create a rule from the template. */
-function systemTemplateNodeItems(
-  nodes: SystemTemplateNode[],
-  type: string,
-  keyPrefix: string,
-  onClickTemplate: (type: string, templateKey: string) => void,
-): NonNullable<MenuProps['items']> {
-  return nodes.map((node, i) =>
-    node.kind === 'folder'
-      ? {
-          key: `${keyPrefix}-f${i}`,
-          icon: <FolderOutlined />,
-          label: node.name,
-          children: systemTemplateNodeItems(node.children, type, `${keyPrefix}-f${i}`, onClickTemplate),
-        }
-      : {
-          key: `${keyPrefix}-${node.template.key}`,
-          label: `${node.template.icon} ${node.template.name}`,
-          onClick: () => onClickTemplate(type, node.template.key),
-        },
-  );
-}
-
-/**
- * "Use template" cascade — the onboarding-friendly entry into the
- * system templates. Rule types that ship templates expand into their
- * template tree (category folders mirror the editor's Templates
- * picker); a trailing "Browse all templates…" leaf hands off to the
- * sidebar for exploration.
- */
-export function buildUseTemplateMenuItem(
-  onClickTemplate: (type: string, templateKey: string) => void,
-  onBrowseAll: () => void,
-) {
-  return {
-    key: 'use-template',
-    icon: codeBadge('TPL'),
-    label: (
-      <span>
-        Use template <span style={{ opacity: 0.55 }}>— CORS, block ads, …</span>
-      </span>
-    ),
-    children: [
-      ...ALL_RULE_TYPES.filter((t) => (SYSTEM_TEMPLATE_TREE_BY_TYPE[t.key] ?? []).length > 0).map((t) => ({
-        key: `use-template-${t.key}`,
-        icon: ruleTypeBadge(t.key),
-        label: t.label,
-        children: systemTemplateNodeItems(
-          SYSTEM_TEMPLATE_TREE_BY_TYPE[t.key],
-          t.key,
-          `use-template-${t.key}`,
-          onClickTemplate,
-        ),
-      })),
-      { type: 'divider' as const, key: 'use-template-div' },
-      { key: 'use-template-browse', label: 'Browse all templates…', onClick: onBrowseAll },
-    ],
-  };
+/** Badge for template-related rows ("Browse all templates…") — same
+ *  fixed-width code-badge treatment as the rule-type rows above it. */
+export function templatesBadge(): React.ReactNode {
+  return codeBadge('TEMPL');
 }
 
 /**

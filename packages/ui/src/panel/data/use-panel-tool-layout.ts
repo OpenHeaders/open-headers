@@ -48,7 +48,9 @@ const PANEL_FRESH_DOCK_LAYOUT: ToolLayoutState<PanelToolWindowId> = normalizeDoc
       'right-top': { windows: [], active: null },
       'right-bottom': { windows: [], active: null },
       'bottom-left': { windows: [], active: null },
-      'bottom-right': { windows: [], active: null },
+      // Request Rules opens with the panel so a selected request's
+      // matched/future rules are visible without a rail click.
+      'bottom-right': { windows: ['matched-rules'], active: 'matched-rules' },
     } satisfies Record<string, DockState<PanelToolWindowId>>,
   },
   PANEL_TOOL_WINDOWS,

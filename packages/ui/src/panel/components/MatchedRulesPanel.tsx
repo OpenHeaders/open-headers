@@ -1,5 +1,5 @@
 /**
- * "Request Rules" — bottom-dock tool window for the currently-selected
+ * "Matched Rules" — bottom-dock tool window for the currently-selected
  * request, in two sections:
  *
  *   - Matched: every rule that fired on the capture, with its match
@@ -264,7 +264,7 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
         wiring={wiring}
         title={
           <>
-            <strong>Request Rules</strong>
+            <strong>Matched Rules</strong>
             {reqTab && (
               <span className="dt-matched-rules-req" title={reqTab.url}>
                 <span className="dt-method-badge" style={{ color: methodColor(reqTab.method) }}>
