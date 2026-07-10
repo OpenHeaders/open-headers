@@ -165,6 +165,22 @@ describe('oh daemon user', () => {
     expect(await listUserGrants(record)).toHaveLength(0);
   });
 
+  it('add-anew after deactivation: the email re-admits and grants land on the fresh record', async () => {
+    const config = makeConfig();
+    await seedDaemonIdentity(config);
+    const first = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+    await deactivateUser(config, first.user.id);
+
+    const again = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+    expect(again.user.id).not.toBe(first.user.id);
+
+    const wsId = '01900000-aaaa-7000-8000-000000000003';
+    const granted = await grantUserRole(config, 'alice@openheaders.io', wsId, 'viewer');
+    expect(granted.record.user.id).toBe(again.user.id);
+    expect(await listUserGrants(again)).toHaveLength(1);
+    expect(await listUserGrants(first)).toHaveLength(0);
+  });
+
   it('grant refuses deactivated users; revoke refuses a grant that does not exist', async () => {
     const config = makeConfig();
     await seedDaemonIdentity(config);

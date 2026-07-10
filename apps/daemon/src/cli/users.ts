@@ -151,14 +151,18 @@ export function listUserGrants(record: DaemonUserRecord): Promise<WorkspaceRoleA
 }
 
 /**
- * Resolve a directory user by exact id or by email. Storage must
- * already be installed by the caller (every exported command does).
+ * Resolve a directory user by exact id or by email. On an email hit
+ * the ACTIVE holder wins over a deactivated record sharing the address
+ * (the add-anew lifecycle keeps the old record for audit continuity).
+ * Storage must already be installed by the caller (every exported
+ * command does).
  */
 export async function findUser(idOrEmail: string): Promise<DaemonUserRecord> {
   const users = await listDaemonUsers();
-  const match = users.find(
+  const matches = users.filter(
     (r) => r.user.id === idOrEmail || (r.userIdentity.kind === 'email' && r.userIdentity.value === idOrEmail),
   );
+  const match = matches.find((r) => r.deactivatedAt === null) ?? matches[0];
   if (!match) {
     throw new Error(`no user with id or email '${idOrEmail}' — see oh daemon user list.`);
   }
