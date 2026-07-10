@@ -11,7 +11,16 @@
 import type React from 'react';
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { detectValueType } from './detect';
-import { encodeBase64 } from './encodings';
+import {
+  encodeBase64,
+  encodeCookieList,
+  encodeCspList,
+  encodeDataUri,
+  encodeHex,
+  encodeJsonString,
+  encodeJsonValue,
+  encodeTimestamp,
+} from './encodings';
 
 // Lazy so the modals (Monaco via the shared CodeEditor) stay out of
 // every TemplateInput caller's bundle; they load on first edit-icon
@@ -32,6 +41,25 @@ const EDIT_TOOLTIPS = {
   jwt: 'Edit as JWT',
   'url-encoded': 'Edit URL-encoded value',
   base64: 'Edit Base64 value',
+  hex: 'Edit hex-encoded value',
+  timestamp: 'Edit timestamp',
+  json: 'Edit as JSON',
+  'json-string': 'Edit quoted string',
+  'data-uri': 'Edit data URI content',
+  cookie: 'Edit cookie pairs',
+  csp: 'Edit CSP directives',
+} as const;
+
+const MODAL_TITLES = {
+  'url-encoded': 'URL-encoded value',
+  base64: 'Base64 value',
+  hex: 'Hex-encoded value',
+  timestamp: 'Unix timestamp',
+  json: 'JSON value',
+  'json-string': 'Quoted string',
+  'data-uri': 'Data URI',
+  cookie: 'Cookie value',
+  csp: 'Content Security Policy',
 } as const;
 
 export function useValueEditAction(value: string | undefined, onChange: (next: string) => void): ValueEditActionResult {
@@ -51,9 +79,20 @@ export function useValueEditAction(value: string | undefined, onChange: (next: s
     [onChange, detected],
   );
 
+  // Preview AND save go through this, so what the preview shows is
+  // exactly what lands in the field — prefix included. Null means the
+  // edited text can't encode (e.g. an unparsable date); the modal
+  // disables Save on it.
   const encodeCurrent = useCallback(
-    (text: string) => {
-      if (detected?.type === 'base64') return encodeBase64(text, detected);
+    (text: string): string | null => {
+      if (detected?.type === 'base64') return `${detected.prefix}${encodeBase64(text, detected)}`;
+      if (detected?.type === 'hex') return encodeHex(text, detected);
+      if (detected?.type === 'timestamp') return encodeTimestamp(text, detected);
+      if (detected?.type === 'json') return encodeJsonValue(text, detected);
+      if (detected?.type === 'json-string') return encodeJsonString(text);
+      if (detected?.type === 'data-uri') return encodeDataUri(text, detected);
+      if (detected?.type === 'cookie') return encodeCookieList(text);
+      if (detected?.type === 'csp') return encodeCspList(text);
       return encodeURIComponent(text);
     },
     [detected],
@@ -61,7 +100,9 @@ export function useValueEditAction(value: string | undefined, onChange: (next: s
 
   const handleEncodedSave = useCallback(
     (decodedText: string) => {
-      onChange(encodeCurrent(decodedText));
+      const next = encodeCurrent(decodedText);
+      if (next === null) return;
+      onChange(next);
       setOpen(false);
     },
     [onChange, encodeCurrent],
@@ -80,8 +121,8 @@ export function useValueEditAction(value: string | undefined, onChange: (next: s
         ) : (
           <EncodedValueModalLazy
             open={open}
-            title={detected.type === 'base64' ? 'Base64 value' : 'URL-encoded value'}
-            decoded={detected.decoded}
+            title={MODAL_TITLES[detected.type]}
+            decoded={detected.type === 'timestamp' ? detected.iso : detected.decoded}
             encode={encodeCurrent}
             onSave={handleEncodedSave}
             onCancel={closeModal}

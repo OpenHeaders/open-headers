@@ -5,12 +5,42 @@
 // modules directly if a host ever needs one eagerly.
 export {
   type DetectedBase64,
+  type DetectedCookie,
+  type DetectedCsp,
+  type DetectedDataUri,
+  type DetectedHex,
+  type DetectedJsonString,
+  type DetectedJsonValue,
   type DetectedJWT,
+  type DetectedTimestamp,
   type DetectedUrlEncoded,
   type DetectedValue,
   detectValueType,
 } from './detect';
-export { type DecodedBase64, encodeBase64, tryDecodeBase64, tryDecodeUrlComponent } from './encodings';
+export {
+  type DecodedBase64,
+  type DecodedDataUri,
+  type DecodedHex,
+  type DecodedJsonValue,
+  type DecodedTimestamp,
+  encodeBase64,
+  encodeCookieList,
+  encodeCspList,
+  encodeDataUri,
+  encodeHex,
+  encodeJsonString,
+  encodeJsonValue,
+  encodeTimestamp,
+  tryDecodeBase64,
+  tryDecodeCookieList,
+  tryDecodeCspList,
+  tryDecodeDataUri,
+  tryDecodeHex,
+  tryDecodeJsonString,
+  tryDecodeJsonValue,
+  tryDecodeTimestamp,
+  tryDecodeUrlComponent,
+} from './encodings';
 export {
   type DecodedJWT,
   decodeJWT,

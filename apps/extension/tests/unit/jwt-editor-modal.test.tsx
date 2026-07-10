@@ -217,6 +217,110 @@ describe('useValueEditAction', () => {
     expect(onChange).toHaveBeenCalledWith(btoa('user@openheaders.io:rotated'));
   });
 
+  it('restores a Basic prefix when saving a re-encoded base64 credential', async () => {
+    const onChange = vi.fn();
+    const value = `Basic ${btoa('user@openheaders.io:hunter2!!')}`;
+    const { container } = render(<Harness value={value} onChange={onChange} />);
+
+    fireEvent.click(container.querySelector('.oh-template-input-action[aria-label="Edit Base64 value"]') as Element);
+    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
+    fireEvent.change(editor, { target: { value: 'user@openheaders.io:rotated' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+    expect(onChange).toHaveBeenCalledWith(`Basic ${btoa('user@openheaders.io:rotated')}`);
+  });
+
+  it('edits a Unix timestamp as an ISO date and re-encodes in the original resolution', async () => {
+    const onChange = vi.fn();
+    const { container } = render(<Harness value="1720000000" onChange={onChange} />);
+
+    const editIcon = container.querySelector('.oh-template-input-action[aria-label="Edit timestamp"]');
+    expect(editIcon).not.toBeNull();
+    fireEvent.click(editIcon as Element);
+
+    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
+    expect(editor.value).toBe('2024-07-03T09:46:40Z');
+
+    // An unparsable date disables Save…
+    const save = screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement;
+    fireEvent.change(editor, { target: { value: 'not a date' } });
+    expect(save.disabled).toBe(true);
+
+    // …a valid one re-encodes to 10-digit seconds.
+    fireEvent.change(editor, { target: { value: '2026-07-10T00:00:00Z' } });
+    fireEvent.click(save);
+    expect(onChange).toHaveBeenCalledWith(String(Date.parse('2026-07-10T00:00:00Z') / 1000));
+  });
+
+  it('opens the hex editor and writes the re-encoded text back in the original case', async () => {
+    const onChange = vi.fn();
+    const toHex = (text: string) => {
+      let out = '';
+      for (const byte of new TextEncoder().encode(text)) out += byte.toString(16).padStart(2, '0');
+      return out.toUpperCase();
+    };
+    const { container } = render(<Harness value={toHex('trace: openheaders')} onChange={onChange} />);
+
+    fireEvent.click(
+      container.querySelector('.oh-template-input-action[aria-label="Edit hex-encoded value"]') as Element,
+    );
+    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
+    expect(editor.value).toBe('trace: openheaders');
+    fireEvent.change(editor, { target: { value: 'trace: rotated' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+    expect(onChange).toHaveBeenCalledWith(toHex('trace: rotated'));
+  });
+
+  it('edits compact JSON pretty-printed and writes it back compact', async () => {
+    const onChange = vi.fn();
+    const { container } = render(<Harness value='{"userId":123}' onChange={onChange} />);
+
+    fireEvent.click(container.querySelector('.oh-template-input-action[aria-label="Edit as JSON"]') as Element);
+    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
+    expect(editor.value).toBe(JSON.stringify({ userId: 123 }, null, 2));
+
+    // Broken JSON disables Save; a valid edit re-serializes compact.
+    const save = screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement;
+    fireEvent.change(editor, { target: { value: '{broken' } });
+    expect(save.disabled).toBe(true);
+    fireEvent.change(editor, { target: { value: '{\n  "userId": 456,\n  "role": "admin"\n}' } });
+    fireEvent.click(save);
+    expect(onChange).toHaveBeenCalledWith('{"userId":456,"role":"admin"}');
+  });
+
+  it('unescapes a quoted JSON string for editing and re-quotes on save', async () => {
+    const onChange = vi.fn();
+    const { container } = render(<Harness value={JSON.stringify('{"userId":123}')} onChange={onChange} />);
+
+    fireEvent.click(container.querySelector('.oh-template-input-action[aria-label="Edit quoted string"]') as Element);
+    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
+    expect(editor.value).toBe('{"userId":123}');
+    fireEvent.change(editor, { target: { value: '{"userId":456}' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+    expect(onChange).toHaveBeenCalledWith(JSON.stringify('{"userId":456}'));
+  });
+
+  it('edits a cookie string line-per-pair and re-joins on save', async () => {
+    const onChange = vi.fn();
+    const { container } = render(<Harness value="session=abc123; theme=dark; Secure" onChange={onChange} />);
+
+    fireEvent.click(container.querySelector('.oh-template-input-action[aria-label="Edit cookie pairs"]') as Element);
+    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
+    expect(editor.value).toBe('session=abc123\ntheme=dark\nSecure');
+
+    // A line that stops being a cookie segment disables Save…
+    const save = screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement;
+    fireEvent.change(editor, { target: { value: 'session=abc123\nnot a pair' } });
+    expect(save.disabled).toBe(true);
+
+    // …valid lines re-join with `; `.
+    fireEvent.change(editor, { target: { value: 'session=rotated\ntheme=light\nSecure' } });
+    fireEvent.click(save);
+    expect(onChange).toHaveBeenCalledWith('session=rotated; theme=light; Secure');
+  });
+
   it('opens the encoded-value editor for URL-encoded values and re-encodes on save', async () => {
     const onChange = vi.fn();
     const { container } = render(<Harness value="a%20value%20with%20spaces" onChange={onChange} />);

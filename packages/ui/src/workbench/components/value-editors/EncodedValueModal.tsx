@@ -1,9 +1,12 @@
 /**
  * EncodedValueModal — decode-edit-reencode editor for simple encoded
- * values (base64 text, %XX URL-encoding). Left: the decoded text as an
- * editable buffer (JSON-highlighted when it parses). Right: live
- * re-encoded preview through the caller's `encode`. Save hands the
- * DECODED text back — the caller owns the encoding semantics, same
+ * values (base64/hex text, %XX URL-encoding, timestamps, JSON values
+ * and quoted strings, data URIs, cookie/CSP lists). Left: the
+ * decoded text as an editable buffer (JSON-highlighted when it
+ * parses). Right: live re-encoded preview through the caller's
+ * `encode`; a null encode means the edited text is invalid for the
+ * value type (e.g. an unparsable date) and disables Save. Save hands
+ * the DECODED text back — the caller owns the encoding semantics, same
  * split as the rail hook. Like every value-editor modal it is
  * lazy-loaded; import it only through `useValueEditAction`.
  */
@@ -25,8 +28,9 @@ interface EncodedValueModalProps {
   /** The decoded text to edit. */
   decoded: string;
   /** Re-encode for the live preview — same function the caller applies
-   *  on save. */
-  encode: (text: string) => string;
+   *  on save. Null signals the text can't encode for this value type;
+   *  Save is disabled while it holds. */
+  encode: (text: string) => string | null;
   onSave: (decodedText: string) => void;
   onCancel: () => void;
 }
@@ -54,7 +58,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({ open, title, deco
 
   const encoded = useMemo(() => encode(text), [encode, text]);
   const isDirty = text !== decoded;
-  const saveDisabled = !isDirty || !text;
+  const saveDisabled = !isDirty || !text || encoded === null;
 
   const handleSave = useCallback(() => {
     if (saveDisabled) return;
@@ -72,6 +76,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({ open, title, deco
   );
 
   const copyEncoded = useCallback(async () => {
+    if (encoded === null) return;
     try {
       await navigator.clipboard.writeText(encoded);
       message.success('Encoded value copied to clipboard');
@@ -102,7 +107,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({ open, title, deco
             <Text strong style={{ fontSize: 12 }}>
               Encoded preview
             </Text>
-            <Button size="small" icon={<CopyOutlined />} onClick={() => void copyEncoded()}>
+            <Button size="small" icon={<CopyOutlined />} disabled={encoded === null} onClick={() => void copyEncoded()}>
               Copy
             </Button>
           </div>
@@ -120,7 +125,13 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({ open, title, deco
               lineHeight: 1.5,
             }}
           >
-            {encoded}
+            {encoded === null ? (
+              <Text type="danger" italic style={{ fontSize: 12 }}>
+                Cannot encode — the edited value is not valid for this type
+              </Text>
+            ) : (
+              encoded
+            )}
           </div>
         </div>
       </div>
