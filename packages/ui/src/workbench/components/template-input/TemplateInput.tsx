@@ -249,7 +249,10 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     // AntD-parity clear affordance: clears both the DOM (covers
     // uncontrolled use) and the controlled value, keeping focus in the
     // field so the user can type the replacement straight away.
-    const showClear = allowClear && (value ?? '').length > 0;
+    // Suppressed whenever the rail holds other actions (eye / edit) —
+    // a destructive ✕ sitting beside frequently-clicked icons invites
+    // accidental clears.
+    const showClear = allowClear && (value ?? '').length > 0 && !onSecretToggle && !onValueEdit;
     const handleClear = useCallback(() => {
       const root = editableRef.current;
       if (root) {

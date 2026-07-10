@@ -99,7 +99,7 @@ describe('TemplateInput — in-field edit action (onValueEdit)', () => {
     expect(container.querySelector('.oh-template-input-action[aria-label="Edit value"]')).toBeNull();
   });
 
-  it('shows the edit icon leftmost on the rail and fires the callback on click', () => {
+  it('shows the edit icon leftmost, suppresses the ✕ beside other actions, and fires on click', () => {
     const onValueEdit = vi.fn();
     const { container } = render(
       <TemplateInput
@@ -113,12 +113,10 @@ describe('TemplateInput — in-field edit action (onValueEdit)', () => {
       />,
     );
     const actions = container.querySelectorAll('.oh-template-input-action');
-    // Right-to-left rail: [edit] [eye] [✕], ✕ innermost.
-    expect(Array.from(actions).map((a) => a.getAttribute('aria-label'))).toEqual([
-      'Edit as JWT',
-      'Show value',
-      'Clear value',
-    ]);
+    // Right-to-left rail: [edit] [eye]. The ✕ is suppressed whenever
+    // the rail holds other actions — a destructive clear beside
+    // frequently-clicked icons invites accidental clears.
+    expect(Array.from(actions).map((a) => a.getAttribute('aria-label'))).toEqual(['Edit as JWT', 'Show value']);
     fireEvent.click(actions[0]);
     expect(onValueEdit).toHaveBeenCalledTimes(1);
   });

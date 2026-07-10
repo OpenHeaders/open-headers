@@ -128,10 +128,17 @@ export function buildEditableStyle({
     // reads as noise. But plain overflow clipping happens at the
     // padding box, so the discs would run under the ✕ / grip; and a
     // clip-path/mask would clip the element's own border off with
-    // them. `overflow: clip` scoped to the content box cuts exactly
-    // the discs while the border keeps painting.
+    // them. `clip` scoped to the content box cuts exactly the discs
+    // while the border keeps painting. Longhands only — an `overflow`
+    // shorthand here corrupts React's style diff when the mask turns
+    // off (removing the shorthand clears the overflow-x/y longhands it
+    // considers unchanged, leaving the revealed value unclipped). Both
+    // axes must be `clip`: a mixed clip/hidden pair computes to hidden
+    // and `overflowClipMargin` stops applying.
     textOverflow: displayCollapsed && !secret ? 'ellipsis' : undefined,
-    ...(displayCollapsed && secret ? { overflow: 'clip', overflowClipMargin: 'content-box' } : null),
+    ...(displayCollapsed && secret
+      ? { overflowX: 'clip' as const, overflowY: 'clip' as const, overflowClipMargin: 'content-box' }
+      : null),
     // Auto-grow cap for the wrapped editor (`multiline`, `wrap`, or an
     // expand-on-focus field while active): ~maxRows lines (lineHeight
     // 1.5714) + a little padding allowance; past it the surface

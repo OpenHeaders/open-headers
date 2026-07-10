@@ -50,11 +50,14 @@ describe('user-row value cell — action rail', () => {
     expect(queryByLabelText('Edit as JWT')).toBeNull();
   });
 
-  it('never shows the secret eye on user rows', () => {
+  it('never shows the secret eye on user rows, and suppresses the ✕ beside the edit icon', () => {
     const rows = [makeKvRow({ key: 'X-Token', value: JWT })];
     const { queryByLabelText } = render(<KeyValueTable rows={rows} onChange={vi.fn()} />);
     expect(queryByLabelText('Show value')).toBeNull();
     expect(queryByLabelText('Hide value')).toBeNull();
+    // The JWT row's rail holds the edit icon — the destructive ✕
+    // stands down so a mis-click can't wipe the token.
+    expect(queryByLabelText('Clear value')).toBeNull();
   });
 
   it('clearing via the ✕ commits an empty value for that row', () => {

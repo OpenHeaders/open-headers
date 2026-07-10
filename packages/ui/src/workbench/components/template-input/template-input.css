@@ -144,24 +144,35 @@
 /* Right-edge action rail — clear ✕ (AntD `allowClear` parity), the
  * secret eye toggle, and any future per-value actions, stacked
  * right-to-left with the ✕ innermost. Position (right / top) is set
- * inline per display mode; hover darkens like AntD's. */
+ * inline per display mode. Hover-revealed: hidden (and click-inert,
+ * so a stray click can't hit an invisible ✕) until the pointer is
+ * over the field or focus is inside it. */
 .oh-template-input-actions {
   position: absolute;
   display: inline-flex;
   align-items: center;
   gap: 4px;
   z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.oh-template-input-wrapper:hover .oh-template-input-actions,
+.oh-template-input-wrapper:focus-within .oh-template-input-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .oh-template-input-action {
   font-size: 12px;
-  color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
+  color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
   cursor: pointer;
   transition: color 0.2s;
 }
 
 .oh-template-input-action:hover {
-  color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+  color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
 }
 
 /* Squeezed field: below ~72px the rail's icons would sit on top of the
