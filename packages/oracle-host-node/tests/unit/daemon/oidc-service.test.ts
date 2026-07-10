@@ -13,6 +13,7 @@ import {
   deactivateDaemonUser,
   ensureSyntheticIdentity,
   grantWorkspaceRole,
+  listDaemonAuthTokens,
   listDaemonUsers,
   listWorkspaceRolesForPrincipal,
   validateDaemonAuthToken,
@@ -146,6 +147,11 @@ describe('daemon OIDC service', () => {
     const valid = await validateDaemonAuthToken(claimed?.secret, () => nowMs);
     expect(valid.ok).toBe(true);
     if (valid.ok) expect(valid.userId).toBe(created.record.user.id);
+    // The ledger row is a session — kind-grouped admin surfaces key on
+    // this, never on the label.
+    const ledger = await listDaemonAuthTokens();
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0].kind).toBe('session');
     // …that expires after the configured TTL (1 day here).
     const afterTtl = await validateDaemonAuthToken(claimed?.secret, () => nowMs + 24 * 60 * 60_000);
     expect(afterTtl.ok).toBe(false);

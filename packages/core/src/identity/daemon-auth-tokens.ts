@@ -20,7 +20,7 @@
  */
 
 import { hostStorage, OH } from '../storage';
-import type { DaemonAuthToken } from '../types';
+import type { DaemonAuthToken, DaemonAuthTokenKind } from '../types';
 import { createMutex } from '../utils/mutex';
 import { uuidv7 } from '../utils/uuidv7';
 
@@ -43,6 +43,13 @@ export interface MintDaemonAuthTokenInput {
    * semantics). OIDC session mints pass one.
    */
   expiresAt?: number;
+  /**
+   * What the token is (`DaemonAuthTokenKindSchema`). Defaults to
+   * `apiToken` — every operator mint (generate / pair / rotate / CLI
+   * `show-token`) is one; only the OIDC `completeLogin` mint passes
+   * `session`.
+   */
+  kind?: DaemonAuthTokenKind;
   /** Test seam — defaults to `Date.now()`. */
   now?: () => number;
 }
@@ -147,6 +154,7 @@ export async function mintDaemonAuthToken(input: MintDaemonAuthTokenInput = {}):
     tokenHash,
     label: input.label,
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
+    kind: input.kind ?? 'apiToken',
     ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
     createdAt: now,
     lastUsedAt: null,

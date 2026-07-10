@@ -139,6 +139,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
         id: t.id,
         label: t.label,
         userId: t.userId,
+        kind: t.kind,
         expiresAt: t.expiresAt,
         createdAt: t.createdAt,
         lastUsedAt: t.lastUsedAt,

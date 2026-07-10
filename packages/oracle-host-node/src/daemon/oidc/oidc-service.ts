@@ -473,6 +473,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       const minted: MintDaemonAuthTokenResult = await mintToken({
         label: `sso:${email}`,
         userId: resolved.record.user.id,
+        kind: 'session',
         expiresAt: now() + sessionTtlMs,
       });
       const claimCode = randomToken();

@@ -115,6 +115,12 @@ export interface DaemonRpc {
         id: string;
         label?: string;
         userId?: string;
+        /**
+         * `apiToken` = operator-minted credential; `session` = SSO
+         * login mint. Absent only on rows minted before the marker
+         * existed — surfaces treat those as `apiToken`.
+         */
+        kind?: 'session' | 'apiToken';
         expiresAt?: number;
         createdAt: number;
         lastUsedAt: number | null;

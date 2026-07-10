@@ -41,6 +41,15 @@ describe('daemon auth tokens', () => {
     expect(JSON.stringify(fake.snapshot().get(OH.daemonAuthTokens.key))).not.toContain(secret);
   });
 
+  it('stamps kind — apiToken by default, session when the caller passes it', async () => {
+    const defaulted = await mintDaemonAuthToken({ label: 'operator' });
+    expect(defaulted.record.kind).toBe('apiToken');
+    const session = await mintDaemonAuthToken({ label: 'sso:alice@openheaders.io', kind: 'session' });
+    expect(session.record.kind).toBe('session');
+    const persisted = (await hostStorage.get(OH.daemonAuthTokens)) ?? [];
+    expect(persisted.map((t) => t.kind)).toEqual(['apiToken', 'session']);
+  });
+
   it('accepts a valid token and bumps lastUsedAt', async () => {
     const { record, secret } = await mintDaemonAuthToken();
     const now = 1234567890;

@@ -41,7 +41,7 @@ export type {
 } from './common';
 export { errorMessage, toError } from './common';
 // ── Daemon auth token (long-lived peer credential; hashed) ──────────
-export type { DaemonAuthToken } from './daemon-auth-token';
+export type { DaemonAuthToken, DaemonAuthTokenKind } from './daemon-auth-token';
 // ── Daemon config (per-host configuration; carries host-install-id) ────
 export type { DaemonConfig } from './daemon-config';
 // ── Daemon-local users (the daemon's directory; Phase 5 team tier) ──

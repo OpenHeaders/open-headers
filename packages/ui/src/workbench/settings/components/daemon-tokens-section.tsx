@@ -10,6 +10,12 @@
  * connected right now and offers a per-device rotate (mint a
  * replacement, revoke the old one).
  *
+ * The ledger is kind-grouped: operator credentials (`apiToken`) render
+ * as paired devices; SSO login mints (`session`) render in their own
+ * section — signed-in / expires / last-seen / connected — where revoke
+ * is the operator's sign-out kill switch (same persist-before-evict
+ * path).
+ *
  * Every read and mutation rides `oh.daemon.tokens.*` RPCs, so the same
  * component serves the desktop settings pane (IPC) and the daemon-admin
  * console on a served web tab (the wire) — the ledger is only local on
@@ -45,6 +51,7 @@ interface TokenRow {
   id: string;
   label?: string;
   userId?: string;
+  kind?: 'session' | 'apiToken';
   expiresAt?: number;
   createdAt: number;
   lastUsedAt: number | null;
@@ -164,12 +171,12 @@ const DaemonTokensSection: React.FC = () => {
     }
   }
 
-  async function handleRevoke(tokenId: string): Promise<void> {
+  async function handleRevoke(tokenId: string, successNote: string): Promise<void> {
     try {
       const result = await hostBridge.call('oh.daemon.tokens.revoke', { tokenId });
       if (!result.ok) throw new Error(result.error);
       await refresh();
-      message.success('Token revoked. Any device using it was disconnected.');
+      message.success(successNote);
     } catch (err) {
       message.error(`Failed to revoke: ${(err as Error).message}`);
     }
@@ -209,6 +216,12 @@ const DaemonTokensSection: React.FC = () => {
     }
   }
 
+  // Kind-grouped ledger: operator credentials (generate / pair / rotate)
+  // versus SSO login sessions. Rows minted before the marker existed
+  // carry no `kind` and read as devices.
+  const deviceTokens = tokens.filter((t) => t.kind !== 'session');
+  const sessionTokens = tokens.filter((t) => t.kind === 'session');
+
   return (
     <section style={{ marginBottom: 12 }}>
       <header style={{ marginBottom: 6, padding: '0 2px' }}>
@@ -243,7 +256,7 @@ const DaemonTokensSection: React.FC = () => {
           layout="inline"
           onFinish={handleMint}
           initialValues={{ label: '' }}
-          style={{ marginBottom: tokens.length > 0 ? 12 : 0 }}
+          style={{ marginBottom: deviceTokens.length > 0 ? 12 : 0 }}
         >
           <Form.Item name="label" style={{ flex: 1, marginRight: 8 }}>
             <Input
@@ -275,12 +288,14 @@ const DaemonTokensSection: React.FC = () => {
             <Button onClick={() => setPairOpen(true)}>Pair a device</Button>
           </Form.Item>
         </Form>
-        <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginBottom: tokens.length > 0 ? 12 : 0 }}>
+        <div
+          style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginBottom: deviceTokens.length > 0 ? 12 : 0 }}
+        >
           Both add a token below. <strong>Generate token</strong> shows you the secret to copy and paste into the
           device yourself. <strong>Pair a device</strong> shows a short code the device enters under Settings →
           Backend → Pair with a code (or opens a link, as a fallback) — use it when someone else sets up the device.
         </div>
-        {tokens.length === 0 ? (
+        {deviceTokens.length === 0 ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             No devices yet. Generate a token and paste it into the device's Settings → Backend, or pair a device and
             have it enter the code there.
@@ -288,7 +303,7 @@ const DaemonTokensSection: React.FC = () => {
         ) : (
           <List
             size="small"
-            dataSource={[...tokens].sort((a, b) => b.createdAt - a.createdAt)}
+            dataSource={[...deviceTokens].sort((a, b) => b.createdAt - a.createdAt)}
             renderItem={(t) => {
               const isRevoked = t.revokedAt !== null;
               const isConnected = !isRevoked && connectedIds.has(t.id);
@@ -323,7 +338,7 @@ const DaemonTokensSection: React.FC = () => {
                             okText="Revoke"
                             cancelText="Cancel"
                             okButtonProps={{ danger: true }}
-                            onConfirm={() => handleRevoke(t.id)}
+                            onConfirm={() => handleRevoke(t.id, 'Token revoked. Any device using it was disconnected.')}
                           >
                             <Button type="link" size="small" danger data-testid={`daemon-token-revoke-${t.id}`}>
                               Revoke
@@ -359,6 +374,105 @@ const DaemonTokensSection: React.FC = () => {
           />
         )}
       </div>
+
+      {sessionTokens.length > 0 && (
+        <>
+          <header style={{ margin: '12px 0 6px', padding: '0 2px' }}>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 0.3,
+                textTransform: 'uppercase',
+                color: themeToken.colorTextSecondary,
+              }}
+            >
+              SSO sessions
+            </h3>
+            <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginTop: 1 }}>
+              Each SSO login mints a session that expires on its own. Revoke one to sign the user out immediately —
+              they must log in through the identity provider again.
+            </div>
+          </header>
+          <div
+            className="settings-card"
+            style={{
+              background: themeToken.colorBgContainer,
+              border: `1px solid ${themeToken.colorBorderSecondary}`,
+              borderRadius: 10,
+              padding: 12,
+            }}
+          >
+            <List
+              size="small"
+              dataSource={[...sessionTokens].sort((a, b) => b.createdAt - a.createdAt)}
+              renderItem={(s) => {
+                const isRevoked = s.revokedAt !== null;
+                const isExpired = !isRevoked && s.expiresAt !== undefined && s.expiresAt <= Date.now();
+                const isConnected = !isRevoked && !isExpired && connectedIds.has(s.id);
+                const sessionUser = s.userId
+                  ? (bindableUsers.find((u) => u.userId === s.userId)?.displayName ?? shortenId(s.userId))
+                  : null;
+                return (
+                  <List.Item
+                    data-testid={`daemon-session-row-${s.id}`}
+                    actions={
+                      isRevoked
+                        ? [
+                            <Tag key="revoked" color="default">
+                              Revoked {formatTimestamp(s.revokedAt)}
+                            </Tag>,
+                          ]
+                        : [
+                            <Popconfirm
+                              key="revoke"
+                              title="Revoke this session?"
+                              description="The user is signed out and disconnected immediately. They must log in through the identity provider again."
+                              okText="Revoke"
+                              cancelText="Cancel"
+                              okButtonProps={{ danger: true }}
+                              onConfirm={() => handleRevoke(s.id, 'Session revoked. The user was signed out.')}
+                            >
+                              <Button type="link" size="small" danger data-testid={`daemon-session-revoke-${s.id}`}>
+                                Revoke
+                              </Button>
+                            </Popconfirm>,
+                          ]
+                    }
+                  >
+                    <List.Item.Meta
+                      title={
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 13 }}>
+                            {sessionUser ?? s.label ?? <Typography.Text type="secondary">(unbound)</Typography.Text>}
+                          </span>
+                          {isConnected && (
+                            <Tag color="green" style={{ marginInlineEnd: 0 }}>
+                              Connected
+                            </Tag>
+                          )}
+                          {isExpired && (
+                            <Tag color="orange" style={{ marginInlineEnd: 0 }}>
+                              Expired
+                            </Tag>
+                          )}
+                        </span>
+                      }
+                      description={
+                        <span style={{ fontSize: 11, color: themeToken.colorTextTertiary }}>
+                          signed in {formatTimestamp(s.createdAt)} · expires {formatTimestamp(s.expiresAt)} · last
+                          seen {formatTimestamp(s.lastUsedAt)} · id {shortenId(s.id)}
+                        </span>
+                      }
+                    />
+                  </List.Item>
+                );
+              }}
+            />
+          </div>
+        </>
+      )}
 
       <Modal
         open={mintResult.open}

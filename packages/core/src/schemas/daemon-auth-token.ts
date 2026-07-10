@@ -15,6 +15,14 @@
 
 import * as v from 'valibot';
 
+/**
+ * What the token IS: an operator-minted long-lived credential
+ * (`apiToken` — generate/pair/rotate/CLI `show-token`) or an
+ * SSO-minted login session (`session` — only `completeLogin` stamps
+ * it). Admin surfaces group on this marker; nothing sniffs labels.
+ */
+export const DaemonAuthTokenKindSchema = v.picklist(['session', 'apiToken']);
+
 export const DaemonAuthTokenSchema = v.object({
   /** UUIDv7 identifier — the public handle for revoke / list operations. */
   id: v.pipe(v.string(), v.minLength(1)),
@@ -29,6 +37,12 @@ export const DaemonAuthTokenSchema = v.object({
    * so the solo tier's behavior is unchanged.
    */
   userId: v.optional(v.string()),
+  /**
+   * See {@link DaemonAuthTokenKindSchema}. Absent only on rows minted
+   * before the marker existed — treated as `apiToken` (every mint path
+   * except the OIDC login was an operator mint).
+   */
+  kind: v.optional(DaemonAuthTokenKindSchema),
   /**
    * ms-since-epoch after which validation refuses this token. Absent =
    * never expires (every operator-minted token). OIDC-minted session

@@ -703,6 +703,13 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     expect(bobRow?.userId).toBe(viewer.user.id);
     // The secret hash never crosses the projection.
     expect(rows.every((r) => !('tokenHash' in r))).toBe(true);
+    // Kind crosses it: wire mints are operator apiTokens; a session
+    // mint projects as session so surfaces can group without sniffing.
+    expect(retired?.kind).toBe('apiToken');
+    await mintDaemonAuthToken({ label: 'sso:bob@openheaders.io', userId: viewer.user.id, kind: 'session' });
+    const relisted = await callOverWire(operator, { type: 'oh.daemon.tokens.list' });
+    const relistedRows = relisted.payload?.tokens as Array<Record<string, unknown>>;
+    expect(relistedRows.find((r) => r.label === 'sso:bob@openheaders.io')?.kind).toBe('session');
 
     const denied = await callOverWire(viewerClient, { type: 'oh.daemon.tokens.list' });
     expect(denied.__error).toBe(ADMIN_DENIED_MESSAGE);
