@@ -317,8 +317,8 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         Import a Postman Collection v2.1 JSON. Folder structure, collection variables, and per-request auth (basic /
-        bearer / api-key) are preserved. Scripts, OAuth 2.0, AWS sigv4, and file uploads are tracked as drops until
-        those features land in  Optionally attach a Postman environment file to land a matching Environment.
+        bearer / api-key) are preserved. Scripts, OAuth 2.0, AWS sigv4, and file uploads are tracked as drops.
+        Optionally attach a Postman environment file to land a matching Environment.
       </Paragraph>
 
       {stage.kind === 'empty' && (
