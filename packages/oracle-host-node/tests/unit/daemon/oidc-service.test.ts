@@ -84,7 +84,7 @@ function buildRig(options: RigOptions = {}) {
   };
 }
 
-/** Run begin → extract state/nonce from the authorization URL. */
+/** Run begin → extract state/nonce from the authorization URL + the binding nonce. */
 async function begin(rig: ReturnType<typeof buildRig>, origin = 'https://oh.openheaders.io') {
   const begun = await rig.service.beginLogin(origin);
   expect(begun.ok).toBe(true);
@@ -92,7 +92,7 @@ async function begin(rig: ReturnType<typeof buildRig>, origin = 'https://oh.open
   const url = new URL(begun.authorizationUrl);
   const state = url.searchParams.get('state') ?? '';
   rig.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
-  return { url, state };
+  return { url, state, bindingNonce: begun.bindingNonce };
 }
 
 describe('daemon OIDC service', () => {
@@ -123,8 +123,8 @@ describe('daemon OIDC service', () => {
     if (!created.ok) return;
     const nowMs = 1_000_000;
     const rig = buildRig({ config: { sessionTtlDays: 1 }, now: () => nowMs });
-    const { state } = await begin(rig);
-    const completed = await rig.service.completeLogin({ code: 'authcode', state });
+    const { state, bindingNonce } = await begin(rig);
+    const completed = await rig.service.completeLogin({ code: 'authcode', state, bindingNonce });
     expect(completed).toMatchObject({ ok: true, userId: created.record.user.id, email: 'alice@openheaders.io' });
     if (!completed.ok) return;
     // The exchange carried PKCE + the flow's redirect_uri.
@@ -149,24 +149,41 @@ describe('daemon OIDC service', () => {
   it('consumes state one-shot: an unknown or replayed callback dies as state-mismatch', async () => {
     await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
     const rig = buildRig();
-    const { state } = await begin(rig);
-    expect(await rig.service.completeLogin({ code: 'c', state: 'forged' })).toMatchObject({
+    const { state, bindingNonce } = await begin(rig);
+    expect(await rig.service.completeLogin({ code: 'c', state: 'forged', bindingNonce })).toMatchObject({
       ok: false,
       reason: 'state-mismatch',
     });
-    expect((await rig.service.completeLogin({ code: 'c', state })).ok).toBe(true);
-    expect(await rig.service.completeLogin({ code: 'c', state })).toMatchObject({
+    expect((await rig.service.completeLogin({ code: 'c', state, bindingNonce })).ok).toBe(true);
+    expect(await rig.service.completeLogin({ code: 'c', state, bindingNonce })).toMatchObject({
       ok: false,
       reason: 'state-mismatch',
     });
   });
 
-  it('refuses an ID token whose nonce is not the flow nonce', async () => {
+  it('refuses a callback whose binding nonce is not the one the flow started with', async () => {
     await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
     const rig = buildRig();
     const { state } = await begin(rig);
+    // Wrong browser: valid state, foreign binding — indistinguishable
+    // from a forged state, and the state is spent by the attempt.
+    expect(await rig.service.completeLogin({ code: 'c', state, bindingNonce: 'foreign-nonce' })).toMatchObject({
+      ok: false,
+      reason: 'state-mismatch',
+    });
+    expect(await rig.service.completeLogin({ code: 'c', state, bindingNonce: 'foreign-nonce' })).toMatchObject({
+      ok: false,
+      reason: 'state-mismatch',
+    });
+    expect(rig.exchanges).toHaveLength(0);
+  });
+
+  it('refuses an ID token whose nonce is not the flow nonce', async () => {
+    await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+    const rig = buildRig();
+    const { state, bindingNonce } = await begin(rig);
     rig.setFlowNonce('some-other-nonce');
-    expect(await rig.service.completeLogin({ code: 'c', state })).toMatchObject({
+    expect(await rig.service.completeLogin({ code: 'c', state, bindingNonce })).toMatchObject({
       ok: false,
       reason: 'nonce-mismatch',
     });
@@ -174,8 +191,8 @@ describe('daemon OIDC service', () => {
 
   it('refuses an unknown email when autoProvision is off (the default)', async () => {
     const rig = buildRig();
-    const { state } = await begin(rig);
-    expect(await rig.service.completeLogin({ code: 'c', state })).toMatchObject({
+    const { state, bindingNonce } = await begin(rig);
+    expect(await rig.service.completeLogin({ code: 'c', state, bindingNonce })).toMatchObject({
       ok: false,
       reason: 'unknown-user',
     });
@@ -184,8 +201,8 @@ describe('daemon OIDC service', () => {
 
   it('auto-provisions a directory user with zero grants when enabled', async () => {
     const rig = buildRig({ config: { autoProvision: true }, claims: { name: 'Alice A.' } });
-    const { state } = await begin(rig);
-    const completed = await rig.service.completeLogin({ code: 'c', state });
+    const { state, bindingNonce } = await begin(rig);
+    const completed = await rig.service.completeLogin({ code: 'c', state, bindingNonce });
     expect(completed.ok).toBe(true);
     const users = await listDaemonUsers();
     expect(users).toHaveLength(1);
@@ -199,8 +216,8 @@ describe('daemon OIDC service', () => {
     if (!created.ok) throw new Error('setup failed');
     await deactivateDaemonUser(created.record.user.id);
     const rig = buildRig({ config: { autoProvision: true } });
-    const { state } = await begin(rig);
-    expect(await rig.service.completeLogin({ code: 'c', state })).toMatchObject({
+    const { state, bindingNonce } = await begin(rig);
+    expect(await rig.service.completeLogin({ code: 'c', state, bindingNonce })).toMatchObject({
       ok: false,
       reason: 'user-deactivated',
     });
@@ -210,13 +227,17 @@ describe('daemon OIDC service', () => {
   it('refuses a provider-attested unverified email and a claims set with no email', async () => {
     const noEmail = buildRig({ claims: { email: undefined } });
     const first = await begin(noEmail);
-    expect(await noEmail.service.completeLogin({ code: 'c', state: first.state })).toMatchObject({
+    expect(
+      await noEmail.service.completeLogin({ code: 'c', state: first.state, bindingNonce: first.bindingNonce }),
+    ).toMatchObject({
       ok: false,
       reason: 'no-email',
     });
     const unverified = buildRig({ claims: { emailVerified: false } });
     const second = await begin(unverified);
-    expect(await unverified.service.completeLogin({ code: 'c', state: second.state })).toMatchObject({
+    expect(
+      await unverified.service.completeLogin({ code: 'c', state: second.state, bindingNonce: second.bindingNonce }),
+    ).toMatchObject({
       ok: false,
       reason: 'email-unverified',
     });
@@ -225,8 +246,8 @@ describe('daemon OIDC service', () => {
   it('reports exchange-failed when the token endpoint refuses the code', async () => {
     await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
     const rig = buildRig({ tokenEndpointStatus: 400 });
-    const { state } = await begin(rig);
-    expect(await rig.service.completeLogin({ code: 'bad', state })).toMatchObject({
+    const { state, bindingNonce } = await begin(rig);
+    expect(await rig.service.completeLogin({ code: 'bad', state, bindingNonce })).toMatchObject({
       ok: false,
       reason: 'exchange-failed',
     });
@@ -274,7 +295,11 @@ describe('daemon OIDC service', () => {
       if (!begun.ok) throw new Error('begin refused');
       const url = new URL(begun.authorizationUrl);
       nonce = url.searchParams.get('nonce') ?? undefined;
-      const completed = await service.completeLogin({ code: 'c', state: url.searchParams.get('state') ?? '' });
+      const completed = await service.completeLogin({
+        code: 'c',
+        state: url.searchParams.get('state') ?? '',
+        bindingNonce: begun.bindingNonce,
+      });
       expect(completed.ok).toBe(true);
     }
     expect(seen[0]).toBeUndefined();

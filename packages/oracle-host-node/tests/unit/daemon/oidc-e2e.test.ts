@@ -169,11 +169,14 @@ interface DaemonRig {
 }
 
 /** The spine's HTTP composition for this plane: admission → healthz ‖ oidc. */
-async function startDaemonHttp(service: DaemonOidcService): Promise<DaemonRig> {
+async function startDaemonHttp(
+  service: DaemonOidcService,
+  options: { trustedProxy?: boolean } = {},
+): Promise<DaemonRig> {
   const admission = createAdmissionControl({ oidcEnabled: true });
   const healthz = createHealthzHandler();
   let origin = '';
-  const oidc = createOidcHttpHandler({ service });
+  const oidc = createOidcHttpHandler({ service, ...options });
   const composed = admission.wrapHttpHandler((req, res) => healthz(req, res) || oidc(req, res));
   const server = createServer((req, res) => {
     if (!composed(req, res)) {
@@ -192,20 +195,40 @@ async function startDaemonHttp(service: DaemonOidcService): Promise<DaemonRig> {
   };
 }
 
-/** GET without following redirects; returns status + Location. */
-async function getRedirect(url: string, origin?: string): Promise<{ status: number; location: string }> {
-  const response = await fetch(url, { redirect: 'manual', ...(origin ? { headers: { origin } } : {}) });
-  return { status: response.status, location: response.headers.get('location') ?? '' };
+interface RedirectHop {
+  readonly status: number;
+  readonly location: string;
+  readonly setCookie: string[];
 }
 
-/** Drive start → authorize → callback; returns the SPA fragment the flow ends on. */
+/** GET without following redirects; returns status + Location + Set-Cookie. */
+async function getRedirect(url: string, headers?: Record<string, string>): Promise<RedirectHop> {
+  const response = await fetch(url, { redirect: 'manual', ...(headers ? { headers } : {}) });
+  return {
+    status: response.status,
+    location: response.headers.get('location') ?? '',
+    setCookie: response.headers.getSetCookie(),
+  };
+}
+
+/** The `name=value` pair of the login-binding cookie a hop set, '' when absent. */
+function bindingPair(setCookie: string[]): string {
+  const found = setCookie.find(
+    (entry) => entry.startsWith('oh-oidc-bind=') || entry.startsWith('__Host-oh-oidc-bind='),
+  );
+  return found ? found.split(';', 1)[0] : '';
+}
+
+/** Drive start → authorize → callback (binding cookie carried); returns the SPA fragment the flow ends on. */
 async function runLoginFlow(daemonOrigin: string): Promise<string> {
   const start = await getRedirect(`${daemonOrigin}/auth/oidc/start`);
   expect(start.status).toBe(302);
+  const cookie = bindingPair(start.setCookie);
+  expect(cookie).toMatch(/^oh-oidc-bind=.+/);
   const authorize = await getRedirect(start.location);
   expect(authorize.status).toBe(302);
   expect(authorize.location.startsWith(`${daemonOrigin}/auth/oidc/callback`)).toBe(true);
-  const callback = await getRedirect(authorize.location);
+  const callback = await getRedirect(authorize.location, { cookie });
   expect(callback.status).toBe(302);
   return callback.location;
 }
@@ -363,10 +386,62 @@ describe('OIDC login e2e — stub issuer over real sockets', () => {
     await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
     daemonRig = await startDaemonHttp(buildService());
     const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start`);
+    const cookie = bindingPair(start.setCookie);
     const authorize = await getRedirect(start.location);
-    const first = await getRedirect(authorize.location);
+    const first = await getRedirect(authorize.location, { cookie });
     expect(first.location).toMatch(/^\/#oidc=/);
-    const replayed = await getRedirect(authorize.location);
+    const replayed = await getRedirect(authorize.location, { cookie });
     expect(replayed.location).toBe('/#oidc-error=state-mismatch');
+  });
+
+  it('a callback without or with a foreign binding cookie is refused like a forged state', async () => {
+    await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+    daemonRig = await startDaemonHttp(buildService());
+    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start`);
+    const cookie = bindingPair(start.setCookie);
+    const authorize = await getRedirect(start.location);
+    // The forwarded-callback victim: no cookie at all.
+    const noCookie = await getRedirect(authorize.location);
+    expect(noCookie.status).toBe(302);
+    expect(noCookie.location).toBe('/#oidc-error=state-mismatch');
+    // A cookie from some other flow: refused AND the state is spent…
+    const foreign = await getRedirect(authorize.location, { cookie: 'oh-oidc-bind=not-the-flow-nonce' });
+    expect(foreign.location).toBe('/#oidc-error=state-mismatch');
+    // …so even the legitimate browser can no longer complete it.
+    const legitimate = await getRedirect(authorize.location, { cookie });
+    expect(legitimate.location).toBe('/#oidc-error=state-mismatch');
+  });
+
+  it('start sets the binding cookie (HttpOnly, Lax) and the callback clears it on every outcome', async () => {
+    await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+    daemonRig = await startDaemonHttp(buildService());
+    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start`);
+    const minted = start.setCookie.find((entry) => entry.startsWith('oh-oidc-bind='));
+    expect(minted).toContain('HttpOnly');
+    expect(minted).toContain('SameSite=Lax');
+    expect(minted).toContain('Path=/');
+    expect(minted).toContain('Max-Age=600');
+    // Plain-http loopback bind: the fallback name, no Secure.
+    expect(minted).not.toContain('Secure');
+    const cookie = bindingPair(start.setCookie);
+    const authorize = await getRedirect(start.location);
+    const success = await getRedirect(authorize.location, { cookie });
+    expect(success.location).toMatch(/^\/#oidc=/);
+    expect(success.setCookie.find((entry) => entry.startsWith('oh-oidc-bind='))).toContain('Max-Age=0');
+    // Refusal path clears it too.
+    const refused = await getRedirect(`${daemonRig.origin}/auth/oidc/callback?code=x&state=forged`, { cookie });
+    expect(refused.location).toBe('/#oidc-error=state-mismatch');
+    expect(refused.setCookie.find((entry) => entry.startsWith('oh-oidc-bind='))).toContain('Max-Age=0');
+  });
+
+  it('a TLS-fronted bind (trustedProxy + X-Forwarded-Proto) mints the __Host- Secure cookie', async () => {
+    daemonRig = await startDaemonHttp(buildService(), { trustedProxy: true });
+    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start`, { 'x-forwarded-proto': 'https' });
+    expect(start.status).toBe(302);
+    const minted = start.setCookie.find((entry) => entry.startsWith('__Host-oh-oidc-bind='));
+    expect(minted).toContain('Secure');
+    expect(minted).toContain('HttpOnly');
+    expect(minted).toContain('SameSite=Lax');
+    expect(minted).toContain('Path=/');
   });
 });

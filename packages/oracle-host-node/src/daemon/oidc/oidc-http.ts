@@ -6,13 +6,20 @@
  *     the served web app's login gate probes this to decide whether to
  *     render the SSO button. JSON, no secrets, no state.
  *   - `GET  /auth/oidc/start`    — top-level navigation entry: mints
- *     state/nonce/PKCE and 302s to the provider's authorization URL.
+ *     state/nonce/PKCE plus a login-binding nonce and 302s to the
+ *     provider's authorization URL. The binding nonce rides back to the
+ *     browser as an HttpOnly SameSite=Lax cookie (`__Host-`-prefixed
+ *     with `Secure` when the effective scheme is https; a host-scoped
+ *     fallback name on plain-http binds, where `Secure` cookies would
+ *     be silently dropped and brick the login).
  *   - `GET  /auth/oidc/callback` — the provider's redirect target:
- *     completes the flow (code exchange + ID-token verify + directory
- *     join + session-token mint) and 302s back into the SPA with a
- *     one-time claim code in the fragment (`/#oidc=<code>`) — never the
- *     token itself. Failures redirect with `/#oidc-error=<reason>` so
- *     the gate renders them in-band.
+ *     requires the binding cookie to match the pending flow (the
+ *     login-CSRF gate), then completes the flow (code exchange +
+ *     ID-token verify + directory join + session-token mint) and 302s
+ *     back into the SPA with a one-time claim code in the fragment
+ *     (`/#oidc=<code>`) — never the token itself. Failures redirect
+ *     with `/#oidc-error=<reason>` so the gate renders them in-band.
+ *     The cookie is cleared on every callback outcome.
  *   - `POST /auth/oidc/claim`    — the SPA swaps the one-shot claim
  *     code for the session token, then validates it with a real
  *     HELLO/WELCOME like any pasted token. 404 on an unknown/expired
@@ -25,7 +32,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import type { DaemonOidcService } from './oidc-service';
+import { type DaemonOidcService, PENDING_LOGIN_TTL_MS } from './oidc-service';
 
 const SCOPE = 'OidcHttp';
 
@@ -34,6 +41,11 @@ const META_PATH = '/auth/oidc/meta';
 const START_PATH = '/auth/oidc/start';
 const CALLBACK_PATH = '/auth/oidc/callback';
 const CLAIM_PATH = '/auth/oidc/claim';
+
+/** `__Host-` demands `Secure` + `Path=/` — usable only when the browser sees https (or loopback). */
+export const BINDING_COOKIE_SECURE = '__Host-oh-oidc-bind';
+/** Plain-http binds (loopback dev, acknowledged insecure LAN) — `Secure` there would drop the cookie. */
+export const BINDING_COOKIE_INSECURE = 'oh-oidc-bind';
 
 export interface OidcHttpHandlerOptions {
   readonly service: DaemonOidcService;
@@ -79,6 +91,36 @@ function methodNotAllowed(res: ServerResponse, allow: string): void {
 
 function notFound(res: ServerResponse): void {
   jsonResponse(res, 404, { ok: false });
+}
+
+function bindingCookieName(secure: boolean): string {
+  return secure ? BINDING_COOKIE_SECURE : BINDING_COOKIE_INSECURE;
+}
+
+function bindingCookieValue(name: string, value: string, maxAgeSeconds: number, secure: boolean): string {
+  const parts = [`${name}=${value}`, 'HttpOnly', 'SameSite=Lax', 'Path=/', `Max-Age=${maxAgeSeconds}`];
+  if (secure) parts.push('Secure');
+  return parts.join('; ');
+}
+
+function setBindingCookie(res: ServerResponse, value: string, secure: boolean): void {
+  const maxAge = Math.floor(PENDING_LOGIN_TTL_MS / 1000);
+  res.setHeader('Set-Cookie', bindingCookieValue(bindingCookieName(secure), value, maxAge, secure));
+}
+
+function clearBindingCookie(res: ServerResponse, secure: boolean): void {
+  res.setHeader('Set-Cookie', bindingCookieValue(bindingCookieName(secure), '', 0, secure));
+}
+
+function readBindingCookie(req: IncomingMessage, secure: boolean): string {
+  const header = req.headers.cookie;
+  if (typeof header !== 'string') return '';
+  const wanted = `${bindingCookieName(secure)}=`;
+  for (const part of header.split(';')) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(wanted)) return trimmed.slice(wanted.length);
+  }
+  return '';
 }
 
 function readRawBody(req: IncomingMessage, maxBytes = 4096): Promise<string> {
@@ -135,10 +177,12 @@ export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttp
         return true;
       }
       const origin = externalOrigin(req);
+      const secure = origin.startsWith('https:');
       void (async () => {
         try {
           const begun = await service.beginLogin(origin);
           if (begun.ok) {
+            setBindingCookie(res, begun.bindingNonce, secure);
             redirectResponse(res, begun.authorizationUrl);
             return;
           }
@@ -157,6 +201,11 @@ export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttp
         return true;
       }
       const query = new URL(req.url ?? '', 'http://placeholder').searchParams;
+      // The binding cookie is spent by this callback whatever the
+      // outcome — success, refusal, or provider error.
+      const secure = externalOrigin(req).startsWith('https:');
+      const bindingNonce = readBindingCookie(req, secure);
+      clearBindingCookie(res, secure);
       const idpError = query.get('error');
       if (idpError) {
         logger.warn(SCOPE, `provider returned error=${idpError}`);
@@ -165,13 +214,13 @@ export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttp
       }
       const code = query.get('code');
       const state = query.get('state');
-      if (!code || !state) {
+      if (!code || !state || !bindingNonce) {
         redirectResponse(res, '/#oidc-error=state-mismatch');
         return true;
       }
       void (async () => {
         try {
-          const completed = await service.completeLogin({ code, state });
+          const completed = await service.completeLogin({ code, state, bindingNonce });
           if (completed.ok) {
             redirectResponse(res, `/#oidc=${encodeURIComponent(completed.claimCode)}`);
             return;

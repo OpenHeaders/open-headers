@@ -11,9 +11,13 @@
  * restarts the login):
  *
  *   - pending logins, keyed by `state`: nonce + PKCE verifier +
- *     redirect URI minted at `/auth/oidc/start`, consumed one-shot by
- *     the callback. A state the store doesn't hold is a forged or
- *     replayed callback.
+ *     redirect URI + login-binding hash minted at `/auth/oidc/start`,
+ *     consumed one-shot by the callback. A state the store doesn't hold
+ *     is a forged or replayed callback. The binding nonce travels back
+ *     as an HttpOnly cookie and must return with the callback — it
+ *     proves the browser completing the flow is the one that started
+ *     it, closing the login-CSRF / session-fixation gap a bare
+ *     code+state pair leaves open.
  *   - provider discovery, cached after the first successful fetch
  *     (cleared on failure so a transient issuer outage retries).
  *   - claim codes, keyed by a fresh secret: the callback redirect hands
@@ -29,7 +33,7 @@
  * RBAC deny-by-default makes a fresh SSO user harmless until granted.
  */
 
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   type CreateDaemonUserResult,
   createDaemonUser,
@@ -46,7 +50,7 @@ const SCOPE = 'OidcLogin';
 
 const DEFAULT_SCOPES: readonly string[] = ['openid', 'email', 'profile'];
 const DEFAULT_SESSION_TTL_DAYS = 30;
-const PENDING_LOGIN_TTL_MS = 10 * 60_000;
+export const PENDING_LOGIN_TTL_MS = 10 * 60_000;
 const PENDING_LOGIN_CAP = 200;
 const CLAIM_TTL_MS = 60_000;
 
@@ -83,7 +87,7 @@ export type OidcCompleteResult =
   | { readonly ok: false; readonly reason: OidcLoginFailureReason };
 
 export type OidcBeginResult =
-  | { readonly ok: true; readonly authorizationUrl: string }
+  | { readonly ok: true; readonly authorizationUrl: string; readonly bindingNonce: string }
   | { readonly ok: false; readonly reason: 'provider-unavailable' | 'too-many-pending' };
 
 export interface OidcServiceDeps {
@@ -104,10 +108,19 @@ export interface OidcServiceDeps {
 export interface DaemonOidcService {
   /** Human-readable provider name for the gate's SSO button. */
   providerLabel(): string;
-  /** Mint state/nonce/PKCE and build the authorization redirect. */
+  /**
+   * Mint state/nonce/PKCE plus a login-binding nonce and build the
+   * authorization redirect. The binding nonce goes back to the browser
+   * as an HttpOnly cookie; only its hash is stored.
+   */
   beginLogin(externalOrigin: string): Promise<OidcBeginResult>;
-  /** One-shot callback completion: exchange, verify, join, mint. */
-  completeLogin(params: { code: string; state: string }): Promise<OidcCompleteResult>;
+  /**
+   * One-shot callback completion: binding check, exchange, verify,
+   * join, mint. `bindingNonce` is the cookie the completing browser
+   * presented — absent or wrong, the callback dies exactly like a
+   * forged state.
+   */
+  completeLogin(params: { code: string; state: string; bindingNonce: string }): Promise<OidcCompleteResult>;
   /** One-shot claim-code → session-token swap for the SPA. */
   claimToken(claimCode: string): { secret: string } | null;
   dispose(): void;
@@ -117,6 +130,8 @@ interface PendingLogin {
   readonly nonce: string;
   readonly codeVerifier: string;
   readonly redirectUri: string;
+  /** SHA-256 of the login-binding cookie nonce — never the nonce itself. */
+  readonly bindingHash: Buffer;
   readonly createdAt: number;
 }
 
@@ -135,6 +150,10 @@ function randomToken(): string {
 
 function pkceChallenge(verifier: string): string {
   return createHash('sha256').update(verifier).digest('base64url');
+}
+
+function bindingHashOf(nonce: string): Buffer {
+  return createHash('sha256').update(nonce).digest();
 }
 
 export function redirectUriFor(externalOrigin: string): string {
@@ -279,8 +298,15 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       const state = randomToken();
       const nonce = randomToken();
       const codeVerifier = randomToken();
+      const bindingNonce = randomToken();
       const redirectUri = redirectUriFor(externalOrigin);
-      pendingLogins.set(state, { nonce, codeVerifier, redirectUri, createdAt: now() });
+      pendingLogins.set(state, {
+        nonce,
+        codeVerifier,
+        redirectUri,
+        bindingHash: bindingHashOf(bindingNonce),
+        createdAt: now(),
+      });
       const url = new URL(metadata.authorizationEndpoint);
       url.searchParams.set('response_type', 'code');
       url.searchParams.set('client_id', config.clientId);
@@ -290,7 +316,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       url.searchParams.set('nonce', nonce);
       url.searchParams.set('code_challenge', pkceChallenge(codeVerifier));
       url.searchParams.set('code_challenge_method', 'S256');
-      return { ok: true, authorizationUrl: url.toString() };
+      return { ok: true, authorizationUrl: url.toString(), bindingNonce };
     },
 
     async completeLogin(params): Promise<OidcCompleteResult> {
@@ -300,6 +326,13 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       const pending = pendingLogins.get(params.state);
       pendingLogins.delete(params.state);
       if (!pending) return { ok: false, reason: 'state-mismatch' };
+      // The completing browser must present the binding cookie the flow
+      // started with. Refusal is indistinguishable from a forged state —
+      // no oracle separating "state exists" from "cookie wrong".
+      if (!timingSafeEqual(bindingHashOf(params.bindingNonce), pending.bindingHash)) {
+        logger.warn(SCOPE, 'callback refused: login-binding mismatch');
+        return { ok: false, reason: 'state-mismatch' };
+      }
       let metadata: OidcProviderMetadata;
       try {
         metadata = await discover();
