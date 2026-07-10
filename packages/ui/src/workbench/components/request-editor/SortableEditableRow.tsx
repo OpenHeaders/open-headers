@@ -117,7 +117,18 @@ export function SortableEditableRow<Row>({
       ref={setNodeRef}
       style={style}
       className="editable-grid-row"
-      onFocusCapture={() => setRowFocused(true)}
+      onFocusCapture={(e) => {
+        // Only a text-editing surface expands the row — buttons inside
+        // it (delete, "Go to …" jump links, conflict chips) and the
+        // enable checkbox are focusable too, and a click on them must
+        // not balloon every cell open.
+        const t = e.target as HTMLElement;
+        const isTextEditor =
+          t.isContentEditable ||
+          t instanceof HTMLTextAreaElement ||
+          (t instanceof HTMLInputElement && t.type === 'text');
+        if (isTextEditor) setRowFocused(true);
+      }}
       onBlurCapture={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setRowFocused(false);
       }}

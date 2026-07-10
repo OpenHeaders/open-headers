@@ -14,6 +14,13 @@ import type React from 'react';
 // neighbours are dragged wide.
 export const RESIZE_MIN_WIDTH = 50;
 
+// Floor for an EXPLICIT resize drag (divider or corner grip) — stricter
+// than the flex-shrink floor above: a dragged column must stay wide
+// enough for a cell's in-field action rail (eye + ✕ ≈ 42px of chrome)
+// plus a sliver of value text. Auto-fit in a narrow pane may still flex
+// below this; the rail hides itself there (see template-input.css).
+export const RESIZE_DRAG_MIN_WIDTH = 90;
+
 // `minmax(MIN, 1fr)` flex track for a column with no user resize. Every
 // cell sets `min-width: 0`, so inputs shrink with their column and
 // scroll their own overflow internally.

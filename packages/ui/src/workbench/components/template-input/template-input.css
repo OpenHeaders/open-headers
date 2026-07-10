@@ -19,6 +19,10 @@
   position: relative;
   display: block;
   width: 100%;
+  /* Size container so the action rail (below) can hide itself when the
+   * field is squeezed too narrow to show icons AND any value text —
+   * e.g. a grid column flexed down to its 50px floor. */
+  container-type: inline-size;
   /* Needed inside flex parents with `min-width: 0` on the item — the
    * span must participate in the same shrinking so the inner
    * contentEditable doesn't grow past its flex-allocated width when a
@@ -89,9 +93,10 @@
 
 /* Resize grip (opt-in via the `resizable` prop): the classic textarea
  * corner glyph — two diagonal strokes — always visible so the
- * affordance is discoverable before focusing. Grabbing it on a blurred
- * field focuses + expands first; dragging sets an explicit height on
- * the editable; double-click returns to auto-grow. */
+ * affordance is discoverable before focusing. Grabbing it never focuses
+ * (a grip click is a drag gesture, not an edit intent); dragging sets
+ * an explicit height on the editable; double-click focuses + returns to
+ * auto-grow, i.e. fit-to-content up to the maxRows cap. */
 .oh-template-input-resize-grip {
   position: absolute;
   right: 2px;
@@ -136,19 +141,38 @@
   );
 }
 
-/* Clear (✕) affordance — AntD `allowClear` parity. Position (right /
- * top) is set inline per display mode; hover darkens like AntD's. */
-.oh-template-input-clear {
+/* Right-edge action rail — clear ✕ (AntD `allowClear` parity), the
+ * secret eye toggle, and any future per-value actions, stacked
+ * right-to-left with the ✕ innermost. Position (right / top) is set
+ * inline per display mode; hover darkens like AntD's. */
+.oh-template-input-actions {
   position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+}
+
+.oh-template-input-action {
   font-size: 12px;
   color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
   cursor: pointer;
-  z-index: 2;
   transition: color 0.2s;
 }
 
-.oh-template-input-clear:hover {
+.oh-template-input-action:hover {
   color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+}
+
+/* Squeezed field: below ~72px the rail's icons would sit on top of the
+ * value (a flex column at its 50px shrink floor). Hide the rail — the
+ * value stays readable and the icons return the moment the field gets
+ * room. Explicit drags can't reach this state (their floor is higher);
+ * this covers auto-fit in narrow panes. */
+@container (max-width: 72px) {
+  .oh-template-input-actions {
+    display: none;
+  }
 }
 
 .oh-template-input-editable:empty::before {

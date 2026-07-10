@@ -21,7 +21,7 @@
  *     unresolved once the caret leaves.
  */
 
-import { CloseCircleFilled } from '@ant-design/icons';
+import { CloseCircleFilled, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { theme } from 'antd';
 import type React from 'react';
@@ -71,6 +71,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       'aria-label': ariaLabel,
       status,
       secret = false,
+      onSecretToggle,
       flagUnresolved = false,
     },
     ref,
@@ -262,15 +263,31 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       status,
       isFocused,
       token,
-      showClear,
+      iconCount: (showClear ? 1 : 0) + (onSecretToggle ? 1 : 0),
       displayExpanded,
       displayCollapsed,
       resizable,
       manualHeight,
       maxRows,
-      secret,
       surfaceStyle,
     });
+
+    // In-field icon column geometry — shared by the ✕ and the eye so
+    // they stack right-to-left beside the grip/scrollbar column.
+    // Expanded: sit immediately left of the 6px scrollbar column (the
+    // grip below never collides — the scrollbar track stops above it).
+    // Single line: hug the right edge — unless the field is resizable,
+    // where the grip owns the corner's 8px column even collapsed, so
+    // the icons keep the expanded inset. When flagged, the wrapper's
+    // 14px dot gutter insets the editable — and its scrollbar — by that
+    // much, so the offset shifts by the FULL gutter width to stay clear
+    // of the bar, not just the dot.
+    const iconInset = (displayExpanded || resizable ? 10 : 6) + (hasUnresolvedRef ? 14 : 0);
+    // Expanded: pin to the first line's center (size-dependent — small
+    // fields have no vertical padding). Single line: center in the field.
+    const iconTopStyle: React.CSSProperties = displayExpanded
+      ? { top: size === 'small' ? 4 : 9 }
+      : { top: '50%', transform: 'translateY(-50%)' };
 
     return (
       <span
@@ -313,33 +330,29 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
             aria-hidden="true"
           />
         )}
-        {showClear && (
-          <CloseCircleFilled
-            className="oh-template-input-clear"
-            aria-label="Clear value"
-            style={{
-              // Inset left of the resize grip's column (a one-row expanded
-              // field puts "top-right" and "bottom-right" at the same
-              // spot, so side-by-side is the only non-overlapping layout —
-              // same as AntD TextArea's allowClear + resize). Also clears
-              // the unresolved dot when flagged. Top-right on an expanded
-              // surface, centered on a single line.
-              // Expanded: sit immediately left of the 6px scrollbar column
-              // (the grip below never collides — the scrollbar track stops
-              // above it). Single line: hug the right edge. When flagged,
-              // the wrapper's 14px dot gutter insets the editable — and its
-              // scrollbar — by that much, so the offset shifts by the FULL
-              // gutter width to stay clear of the bar, not just the dot.
-              right: (displayExpanded ? 10 : 6) + (hasUnresolvedRef ? 14 : 0),
-              // Expanded: pin to the first line's center (size-dependent —
-              // small fields have no vertical padding). Single line:
-              // center in the field.
-              ...(displayExpanded ? { top: size === 'small' ? 4 : 9 } : { top: '50%', transform: 'translateY(-50%)' }),
-            }}
-            // preventDefault keeps the editable focused through the click.
+        {(showClear || onSecretToggle) && (
+          <span
+            className="oh-template-input-actions"
+            style={{ right: iconInset, ...iconTopStyle }}
+            // preventDefault keeps the editable focused through any rail
+            // click — an expandOnFocus surface must not collapse because
+            // the user toggled the mask or cleared the value.
             onMouseDown={(e) => e.preventDefault()}
-            onClick={handleClear}
-          />
+          >
+            {onSecretToggle &&
+              (secret ? (
+                <EyeOutlined className="oh-template-input-action" aria-label="Show value" onClick={onSecretToggle} />
+              ) : (
+                <EyeInvisibleOutlined
+                  className="oh-template-input-action"
+                  aria-label="Hide value"
+                  onClick={onSecretToggle}
+                />
+              ))}
+            {showClear && (
+              <CloseCircleFilled className="oh-template-input-action" aria-label="Clear value" onClick={handleClear} />
+            )}
+          </span>
         )}
         {isOpen &&
           popoverCoords &&

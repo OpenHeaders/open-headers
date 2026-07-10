@@ -38,6 +38,9 @@ beforeAll(() => {
 
 afterEach(cleanup);
 
+const clearIcon = (container: HTMLElement) =>
+  container.querySelector('.oh-template-input-action[aria-label="Clear value"]');
+
 describe('TemplateInput — multiline resizable allowClear chrome', () => {
   it('renders the expanded surface, resize grip, and clear icon with a value', () => {
     const { container } = render(
@@ -45,22 +48,48 @@ describe('TemplateInput — multiline resizable allowClear chrome', () => {
     );
     expect(container.querySelector('.oh-template-input-editable--expanded')).not.toBeNull();
     expect(container.querySelector('.oh-template-input-resize-grip')).not.toBeNull();
-    expect(container.querySelector('.oh-template-input-clear')).not.toBeNull();
+    expect(clearIcon(container)).not.toBeNull();
   });
 
   it('hides the clear icon when the value is empty', () => {
     const { container } = render(<TemplateInput value="" onChange={vi.fn()} multiline resizable allowClear />);
-    expect(container.querySelector('.oh-template-input-clear')).toBeNull();
+    expect(clearIcon(container)).toBeNull();
   });
 
   it('clear icon empties the value and keeps focus in the field', () => {
     const onChange = vi.fn();
     const { container } = render(<TemplateInput value="abc" onChange={onChange} multiline resizable allowClear />);
-    const clear = container.querySelector('.oh-template-input-clear');
+    const clear = clearIcon(container);
     expect(clear).not.toBeNull();
     fireEvent.click(clear as Element);
     expect(onChange).toHaveBeenCalledWith('');
     expect(document.activeElement).toBe(container.querySelector('.oh-template-input-editable'));
+  });
+});
+
+describe('TemplateInput — in-field secret eye toggle (onSecretToggle)', () => {
+  it('renders no eye without onSecretToggle', () => {
+    const { container } = render(<TemplateInput value="tok" onChange={vi.fn()} secret allowClear />);
+    expect(container.querySelector('.oh-template-input-action[aria-label="Show value"]')).toBeNull();
+    expect(container.querySelector('.oh-template-input-action[aria-label="Hide value"]')).toBeNull();
+  });
+
+  it('shows the reveal eye while masked and fires the toggle on click', () => {
+    const onSecretToggle = vi.fn();
+    const { container } = render(
+      <TemplateInput value="tok" onChange={vi.fn()} secret onSecretToggle={onSecretToggle} allowClear />,
+    );
+    const eye = container.querySelector('.oh-template-input-action[aria-label="Show value"]');
+    expect(eye).not.toBeNull();
+    fireEvent.click(eye as Element);
+    expect(onSecretToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the hide eye when revealed', () => {
+    const { container } = render(
+      <TemplateInput value="tok" onChange={vi.fn()} secret={false} onSecretToggle={vi.fn()} />,
+    );
+    expect(container.querySelector('.oh-template-input-action[aria-label="Hide value"]')).not.toBeNull();
   });
 });
 

@@ -49,15 +49,13 @@ interface EditableStyleParams {
   status?: 'error';
   isFocused: boolean;
   token: GlobalToken;
-  showClear: boolean;
+  /** Number of icons in the right-edge action rail (✕, eye, …). */
+  iconCount: number;
   displayExpanded: boolean;
   displayCollapsed: boolean;
   resizable: boolean;
   manualHeight: number | null;
   maxRows: number;
-  /** Masked field — the collapsed state clips without an ellipsis (an
-   *  `…` glyph among the discs reads as garbage, not truncation). */
-  secret: boolean;
   surfaceStyle: React.CSSProperties;
 }
 
@@ -67,13 +65,12 @@ export function buildEditableStyle({
   status,
   isFocused,
   token,
-  showClear,
+  iconCount,
   displayExpanded,
   displayCollapsed,
   resizable,
   manualHeight,
   maxRows,
-  secret,
   surfaceStyle,
 }: EditableStyleParams): React.CSSProperties {
   // Derive paddings from `size` — match AntD defaults so we visually
@@ -93,8 +90,11 @@ export function buildEditableStyle({
     minHeight: sizeMinHeight,
     padding: sizePadding,
     // Reserve just enough room that the last characters don't slide
-    // under the ✕ (12px icon + its inset + a 2px gap).
-    ...(showClear ? { paddingRight: displayExpanded ? 26 : 22 } : null),
+    // under the action rail (16px per icon: 12px glyph + 4px gap). A
+    // resizable field uses the wider inset in BOTH display modes — its
+    // rail sits left of the grip column even when collapsed (see
+    // TemplateInput).
+    ...(iconCount > 0 ? { paddingRight: (displayExpanded || resizable ? 10 : 6) + 16 * iconCount } : null),
     lineHeight: TEMPLATE_INPUT_LINE_HEIGHT,
     fontSize: size === 'small' ? 12 : size === 'large' ? 16 : 14,
     fontFamily: 'inherit',
@@ -115,7 +115,11 @@ export function buildEditableStyle({
     whiteSpace: displayExpanded ? 'pre-wrap' : displayCollapsed ? 'nowrap' : 'pre',
     overflowX: displayExpanded || displayCollapsed ? 'hidden' : 'auto',
     overflowY: displayExpanded ? 'auto' : 'hidden',
-    textOverflow: displayCollapsed && !secret ? 'ellipsis' : undefined,
+    // Ellipsis for secret values too: plain overflow clipping paints
+    // right through the padding-right gutter, so masked discs run under
+    // the ✕ / grip — the ellipsis truncates at the content edge, which
+    // is the only single-line mode that honors the reserved inset.
+    textOverflow: displayCollapsed ? 'ellipsis' : undefined,
     // Auto-grow cap for the wrapped editor (`multiline`, `wrap`, or an
     // expand-on-focus field while active): ~maxRows lines (lineHeight
     // 1.5714) + a little padding allowance; past it the surface

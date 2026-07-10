@@ -7,15 +7,14 @@
  * Authorization header is assembled.
  */
 
-import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
-import { Button, Select, Typography, theme } from 'antd';
+import { Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
-import { TemplateInput } from '../template-input';
+import { type GripResizeXEvent, TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
@@ -217,13 +216,14 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         )}
 
         {auth.type === 'basic' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 540 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <LabeledRow label="Username">
               <TemplateInput
                 size="small"
                 value={auth.username}
                 onChange={(next) => onChange({ ...auth, username: next })}
                 placeholder="username"
+                style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               />
             </LabeledRow>
             <LabeledRow label="Password">
@@ -237,7 +237,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         )}
 
         {auth.type === 'bearer' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 540 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <LabeledRow label="Token">
               <SecretField
                 value={auth.token}
@@ -249,13 +249,14 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         )}
 
         {auth.type === 'api-key' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 540 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <LabeledRow label="Key">
               <TemplateInput
                 size="small"
                 value={auth.key}
                 onChange={(next) => onChange({ ...auth, key: next })}
                 placeholder="e.g. X-API-Key"
+                style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               />
             </LabeledRow>
             <LabeledRow label="Value">
@@ -274,7 +275,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
                   { value: 'header', label: 'Header' },
                   { value: 'query', label: 'Query Params' },
                 ]}
-                style={{ width: '100%' }}
+                style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               />
             </LabeledRow>
           </div>
@@ -381,9 +382,17 @@ const LabeledRow: React.FC<{ label: string; children: React.ReactNode }> = ({ la
 // Long secrets (a 500-char JWT) must never force the tab to scroll
 // horizontally: collapsed, the field is one masked line with an
 // ellipsis; focusing it expands to a textarea-style surface that
-// wraps, grows to ~7 lines, then inner-scrolls. The eye button
+// wraps, grows to ~7 lines, then inner-scrolls. The in-field eye
 // reveals/masks the literal characters (`{{ref}}` spans are always
-// readable either way).
+// readable either way). The 2D corner grip resizes both axes — the
+// field owns its width here (no column split to feed), so X travel
+// sets an explicit width; double-click restores the default.
+
+const SECRET_FIELD_MIN_WIDTH = 160;
+// Untouched fields cap at the classic form width (the row containers
+// are full-pane so a grip drag has room to grow); a manual width
+// escapes the cap up to the pane edge.
+const FIELD_DEFAULT_MAX_WIDTH = 438;
 
 const SecretField: React.FC<{
   value: string;
@@ -391,26 +400,46 @@ const SecretField: React.FC<{
   placeholder: string;
 }> = ({ value, onChange, placeholder }) => {
   const [revealed, setRevealed] = useState(false);
+  const [manualWidth, setManualWidth] = useState<number | null>(null);
+  const widthDragRef = useRef<{ startWidth: number } | null>(null);
+  const handleResizeX = useCallback((e: GripResizeXEvent) => {
+    if (e.phase === 'reset') {
+      widthDragRef.current = null;
+      setManualWidth(null);
+      return;
+    }
+    if (e.phase === 'start') {
+      const wrapper = e.gripEl.closest('.oh-template-input-wrapper');
+      widthDragRef.current = wrapper instanceof HTMLElement ? { startWidth: wrapper.offsetWidth } : null;
+      return;
+    }
+    if (e.phase === 'end') {
+      widthDragRef.current = null;
+      return;
+    }
+    const drag = widthDragRef.current;
+    if (!drag) return;
+    setManualWidth(Math.max(SECRET_FIELD_MIN_WIDTH, drag.startWidth + e.deltaX));
+  }, []);
   return (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
-      <TemplateInput
-        size="small"
-        secret={!revealed}
-        expandOnFocus
-        maxRows={7}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        style={{ flex: 1, minWidth: 0 }}
-      />
-      <Button
-        size="small"
-        type="text"
-        icon={revealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-        onClick={() => setRevealed((v) => !v)}
-        aria-label={revealed ? 'Hide value' : 'Show value'}
-      />
-    </div>
+    <TemplateInput
+      size="small"
+      secret={!revealed}
+      onSecretToggle={() => setRevealed((v) => !v)}
+      expandOnFocus
+      maxRows={7}
+      resizable
+      onResizeX={handleResizeX}
+      allowClear
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      // Default caps at the classic form width; a grip-dragged width
+      // lifts the cap and the field grows into the pane's free space.
+      style={
+        manualWidth != null ? { width: manualWidth, minWidth: 0 } : { minWidth: 0, maxWidth: FIELD_DEFAULT_MAX_WIDTH }
+      }
+    />
   );
 };
 

@@ -23,12 +23,13 @@ export function useGripResize(editableRef: React.RefObject<HTMLDivElement | null
     (e: React.PointerEvent<HTMLDivElement>) => {
       const el = editableRef.current;
       if (!el) return;
-      // preventDefault stops the pointerdown from blurring the editable;
-      // the explicit focus() covers grabbing the grip on a blurred
-      // (collapsed) field — focusing expands it, so the drag resizes the
-      // wrapped surface rather than the one-line ellipsis view.
+      // preventDefault stops the pointerdown from blurring an already-
+      // focused editable. Grabbing the grip on a blurred (collapsed)
+      // field deliberately does NOT focus it — a grip click is a drag
+      // gesture, not an edit intent, and focusing would balloon an
+      // expand-on-focus field open just for a horizontal column drag.
+      // Double-click (below) is the expand-to-fit gesture.
       e.preventDefault();
-      el.focus();
       e.currentTarget.setPointerCapture(e.pointerId);
       gripDragRef.current = { startX: e.clientX, startY: e.clientY, startHeight: el.offsetHeight };
       onResizeX?.({ phase: 'start', deltaX: 0, gripEl: e.currentTarget });
@@ -56,10 +57,15 @@ export function useGripResize(editableRef: React.RefObject<HTMLDivElement | null
   );
   const handleGripDoubleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      // Auto-fit: drop the manual height so the surface returns to
+      // auto-grow — as tall as the content needs, capped at maxRows
+      // (past the cap it inner-scrolls). Focusing expands a collapsed
+      // expand-on-focus field so the fit is visible immediately.
       setManualHeight(null);
+      editableRef.current?.focus();
       onResizeX?.({ phase: 'reset', deltaX: 0, gripEl: e.currentTarget });
     },
-    [onResizeX],
+    [editableRef, onResizeX],
   );
 
   return { manualHeight, handleGripPointerDown, handleGripPointerMove, handleGripPointerUp, handleGripDoubleClick };

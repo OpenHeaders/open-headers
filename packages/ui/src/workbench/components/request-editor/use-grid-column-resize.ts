@@ -29,6 +29,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { GripResizeXEvent } from '../template-input';
 
 export type ResizableColumn = 'key' | 'value' | 'description';
 
@@ -47,8 +48,13 @@ export interface UseGridColumnResizeParams {
   showValueColumn: boolean;
   showDescriptionColumn: boolean;
   hideEnabled: boolean;
-  /** Smallest a column may be dragged / shrink to. */
+  /** Smallest a column may shrink to; also feeds the grow-cap math
+   *  (how far OTHER columns can be squeezed by a drag). */
   minWidth: number;
+  /** Floor for an explicit drag (divider or grip). Defaults to
+   *  `minWidth`; set higher when cells host chrome (icon rails) that
+   *  needs more room than the flex-shrink floor guarantees. */
+  dragMinWidth?: number;
 }
 
 export interface GridColumnResize {
@@ -66,6 +72,11 @@ export interface GridColumnResize {
   dividers: { col: ResizableColumn; x: number }[];
   /** Start a pointer-drag resize of `col`; the grow cap is computed here. */
   beginResize: (e: ReactPointerEvent<HTMLElement>, col: ResizableColumn) => void;
+  /** Drive `col`'s width from a TemplateInput corner grip — same px
+   *  override as the divider drag, fed by phase/delta events instead of
+   *  a pointer this hook owns. No-op on the last flex column (it always
+   *  absorbs the remaining width). */
+  resizeColumnBy: (col: ResizableColumn, e: GripResizeXEvent) => void;
   /** Restore `col` to its flex default. */
   resetColumn: (col: ResizableColumn) => void;
 }
@@ -75,6 +86,7 @@ export function useGridColumnResize({
   showDescriptionColumn,
   hideEnabled,
   minWidth,
+  dragMinWidth = minWidth,
 }: UseGridColumnResizeParams): GridColumnResize {
   const [widths, setWidths] = useState<Partial<Record<ResizableColumn, number>>>({});
   const [dividers, setDividers] = useState<{ col: ResizableColumn; x: number }[]>([]);
@@ -130,10 +142,10 @@ export function useGridColumnResize({
       if (!el) return;
       const startWidth = el.getBoundingClientRect().width;
       const startX = e.clientX;
-      const clampMax = Math.max(growCap(col), minWidth);
+      const clampMax = Math.max(growCap(col), dragMinWidth);
 
       const onMove = (ev: PointerEvent) => {
-        const next = Math.min(Math.max(Math.round(startWidth + (ev.clientX - startX)), minWidth), clampMax);
+        const next = Math.min(Math.max(Math.round(startWidth + (ev.clientX - startX)), dragMinWidth), clampMax);
         setWidths((prev) => (prev[col] === next ? prev : { ...prev, [col]: next }));
       };
       const onUp = () => {
@@ -155,7 +167,39 @@ export function useGridColumnResize({
       window.addEventListener('keydown', onKey);
       document.body.classList.add(RESIZING_BODY_CLASS);
     },
-    [growCap, minWidth],
+    [growCap, dragMinWidth],
+  );
+
+  const gripDragRef = useRef<{ col: ResizableColumn; startWidth: number; clampMax: number } | null>(null);
+  const resizeColumnBy = useCallback(
+    (col: ResizableColumn, e: GripResizeXEvent) => {
+      if (e.phase === 'reset') {
+        gripDragRef.current = null;
+        setWidths((prev) => {
+          if (!(col in prev)) return prev;
+          const { [col]: _drop, ...rest } = prev;
+          return rest;
+        });
+        return;
+      }
+      if (e.phase === 'start') {
+        const el = headerRefs.current.get(col);
+        gripDragRef.current =
+          el && col !== lastFlexColumn
+            ? { col, startWidth: el.getBoundingClientRect().width, clampMax: Math.max(growCap(col), dragMinWidth) }
+            : null;
+        return;
+      }
+      if (e.phase === 'end') {
+        gripDragRef.current = null;
+        return;
+      }
+      const drag = gripDragRef.current;
+      if (!drag || drag.col !== col) return;
+      const next = Math.min(Math.max(Math.round(drag.startWidth + e.deltaX), dragMinWidth), drag.clampMax);
+      setWidths((prev) => (prev[col] === next ? prev : { ...prev, [col]: next }));
+    },
+    [growCap, lastFlexColumn, dragMinWidth],
   );
 
   const resetColumn = useCallback((col: ResizableColumn) => {
@@ -202,7 +246,7 @@ export function useGridColumnResize({
     return () => ro.disconnect();
   }, [measureDividers]);
 
-  return { containerRef, registerHeaderRef, columnPxWidth, dividers, beginResize, resetColumn };
+  return { containerRef, registerHeaderRef, columnPxWidth, dividers, beginResize, resizeColumnBy, resetColumn };
 }
 
 // ── Resizer styles ─────────────────────────────────────────────────

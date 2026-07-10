@@ -40,15 +40,21 @@
  * presentation constants in `editable-grid-styles.ts`.
  */
 
-import { EditOutlined, EyeInvisibleOutlined, EyeOutlined, InfoCircleOutlined, MoreOutlined, RiseOutlined } from '@ant-design/icons';
+import { EditOutlined, InfoCircleOutlined, MoreOutlined, RiseOutlined } from '@ant-design/icons';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Checkbox, Input, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import { TemplateInput } from '../template-input';
-import { cellFont, DEFAULT_COLUMN_WIDTH, headerLabelStyle, RESIZE_MIN_WIDTH } from './editable-grid-styles';
+import { type GripResizeXEvent, TemplateInput } from '../template-input';
+import {
+  cellFont,
+  DEFAULT_COLUMN_WIDTH,
+  headerLabelStyle,
+  RESIZE_DRAG_MIN_WIDTH,
+  RESIZE_MIN_WIDTH,
+} from './editable-grid-styles';
 import type { EditableGridTableProps } from './editable-grid-types';
 import { SortableEditableRow } from './SortableEditableRow';
 import { GRID_COL_RESIZER_CLASS, type ResizableColumn, useGridColumnResize } from './use-grid-column-resize';
@@ -113,7 +119,15 @@ export function EditableGridTable<Row>({
     showDescriptionColumn,
     hideEnabled,
     minWidth: RESIZE_MIN_WIDTH,
+    dragMinWidth: RESIZE_DRAG_MIN_WIDTH,
   });
+  // 2D corner grip on editable suggestion values: the X axis moves the
+  // Value column's boundary (same override the header divider drags).
+  const { resizeColumnBy } = resize;
+  const handleValueGripResizeX = useCallback(
+    (e: GripResizeXEvent) => resizeColumnBy('value', e),
+    [resizeColumnBy],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -511,7 +525,13 @@ export function EditableGridTable<Row>({
                           variant="borderless"
                           expandOnFocus
                           maxRows={7}
+                          resizable
+                          onResizeX={showDescriptionColumn ? handleValueGripResizeX : undefined}
+                          allowClear
                           secret={s.editableValue.secret && !revealedSuggestionKeys.has(s.key)}
+                          onSecretToggle={
+                            s.editableValue.secret ? () => toggleSuggestionRevealed(s.key) : undefined
+                          }
                           value={s.value}
                           onChange={s.editableValue.onChange}
                           aria-label={`${s.key} value`}
@@ -524,18 +544,6 @@ export function EditableGridTable<Row>({
                             ...struck,
                           }}
                         />
-                        {s.editableValue.secret && (
-                          <Button
-                            size="small"
-                            type="text"
-                            icon={
-                              revealedSuggestionKeys.has(s.key) ? <EyeInvisibleOutlined /> : <EyeOutlined />
-                            }
-                            onClick={() => toggleSuggestionRevealed(s.key)}
-                            aria-label={revealedSuggestionKeys.has(s.key) ? 'Hide value' : 'Show value'}
-                            style={{ color: token.colorTextTertiary, flexShrink: 0 }}
-                          />
-                        )}
                       </>
                     ) : (
                       withOverrideTooltip(

@@ -125,6 +125,11 @@ export interface TemplateInputProps {
    *  where users still need to read which variable they picked but
    *  typed-in secrets should not be drive-by-readable. */
   secret?: boolean;
+  /** Renders an in-field eye toggle (just left of the `allowClear` ✕)
+   *  that flips the mask: the caller owns `secret` and this callback
+   *  flips it. Clicking never blurs the field, so an `expandOnFocus`
+   *  surface stays expanded through the toggle. */
+  onSecretToggle?: () => void;
   /** When true, show a small red dot at the field's right end whenever
    *  its value contains an UNRESOLVED `{{ref}}` (reserved namespaces
    *  excluded). Lets a row flag a missing variable without the user
