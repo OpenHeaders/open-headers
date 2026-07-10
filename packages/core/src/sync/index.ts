@@ -13,6 +13,7 @@ export * from './backend';
 export * from './boot-baseline';
 export * from './boot-regression';
 export * from './envelope';
+export * from './grant-scope';
 export * from './hlc';
 export * from './mutators';
 export * from './order';

@@ -36,7 +36,14 @@ export interface AwarenessForwarderEvent {
 }
 
 export function forwardAwarenessToBackend(event: AwarenessForwarderEvent, localAppId: AppKind): void {
-  const localOnly = event.presence.filter((s) => s.identity.appId === localAppId);
+  // Locally-minted states only. The appId test alone can't tell this
+  // host's surfaces from another SAME-KIND device's states relayed down
+  // by the hub (two extensions of one user both stamp `extension`) —
+  // but the hub stamps `identity.deviceId` on everything it ingests,
+  // and local publishers never set it, so its absence marks a state as
+  // minted here. Without this, a relayed state would re-forward and
+  // ping-pong between the user's devices through the hub.
+  const localOnly = event.presence.filter((s) => s.identity.appId === localAppId && s.identity.deviceId === undefined);
   // An empty presence frame is meaningful — it tells the peer "no
   // surfaces of mine here anymore" so its mirror can age them out
   // proactively rather than waiting for TTL. But we only send empty

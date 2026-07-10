@@ -40,6 +40,7 @@ import type {
   AwarenessState,
   SyncApplyRequest,
   SyncApplyResponse,
+  SyncExtensionWorkspacePostState,
   SyncMutationBatchMessage,
   SyncMutationMessage,
 } from '@openheaders/core/protocol';
@@ -111,6 +112,14 @@ export type SyncRpcResult = { kind: 'sync'; response: unknown } | { kind: 'async
  */
 export interface SyncRpcPeerContext {
   readonly userId: string;
+  /**
+   * The per-device credential the peer authenticated with (the
+   * `DaemonAuthToken` id — tokens are per-device). Stamped onto inbound
+   * presence states so the awareness fan-out can exclude a device from
+   * receiving its own states back. Absent on the `requireAuth`-off test
+   * seam.
+   */
+  readonly deviceId?: string;
 }
 
 /**
@@ -365,7 +374,26 @@ async function dispatchSyncRpcAsPeer(message: Record<string, unknown>, peer: Syn
       decision,
     });
     if (!decision.allow) return { ok: true };
-    applyInboundAwarenessFrame(msg, { resolveStore: getAwarenessStoreForWorkspace });
+    // Stamp-at-ingest (DATA_PLANE_TOPOLOGIES.md §9 — same-user-only
+    // awareness): the hub is the one point that knows which user a
+    // presence state belongs to, from the peer's per-frame identity.
+    // `userId` drives the same-user fan-out filter; `deviceId` (the
+    // per-device token) lets the fan-out skip the originating device
+    // and marks the state as wire-received so client forwarders never
+    // relay it onward. The peer's own claim of either field is
+    // overwritten — attribution comes from the credential, not the frame.
+    const stamped: SyncAwarenessPresenceMessage = {
+      ...msg,
+      presence: msg.presence.map((state) => ({
+        ...state,
+        identity: {
+          ...state.identity,
+          userId: peer.userId,
+          ...(peer.deviceId !== undefined ? { deviceId: peer.deviceId } : {}),
+        },
+      })),
+    };
+    applyInboundAwarenessFrame(stamped, { resolveStore: getAwarenessStoreForWorkspace });
     return { ok: true };
   }
 
@@ -389,7 +417,40 @@ async function dispatchSyncRpcAsPeer(message: Record<string, unknown>, peer: Syn
     // drift fails loudly instead of returning undefined.
     throw new Error(`dispatchSyncRpcAsPeer: unrouted channel '${type}'`);
   }
-  return routed.kind === 'sync' ? routed.response : await routed.promise;
+  const response = routed.kind === 'sync' ? routed.response : await routed.promise;
+  // Per-row read gate on the workspace-list snapshot (Phase 5 slice 2):
+  // `workspace.list` admits any directory user to the channel, but each
+  // row is a workspace's metadata — the peer sees only the rows it
+  // holds `workspace.read` on, matching the catch-up responder and the
+  // live fan-out. The operator (LocalAdmin) reads every row through the
+  // same resolver branch, so the solo tier is untouched.
+  if (type === 'oh.sync.snapshotExtensionWorkspaces' && snapshot && !snapshot.localAdmin) {
+    const { entries } = response as { entries: SyncExtensionWorkspacePostState[] };
+    return { entries: entries.map((entry) => filterWorkspaceListRows(entry, snapshot)) };
+  }
+  return response;
+}
+
+/**
+ * Strip a workspace-list post-state down to the rows `snapshot` may
+ * read: the `workspaces` array, its `orderKeys`, and the active-pointer
+ * (nulled when it names a hidden workspace — consumers already fall
+ * back to the first visible row).
+ */
+function filterWorkspaceListRows(
+  entry: SyncExtensionWorkspacePostState,
+  snapshot: IdentitySnapshot,
+): SyncExtensionWorkspacePostState {
+  const allowed = (workspaceId: string): boolean => hasCapability(snapshot, 'workspace.read', { workspaceId }).allow;
+  const workspaces = entry.workspaces.filter((ws) => allowed(ws.id));
+  const orderKeys: Record<string, string> = {};
+  for (const ws of workspaces) {
+    const key = entry.orderKeys[ws.id];
+    if (key !== undefined) orderKeys[ws.id] = key;
+  }
+  const activeWorkspaceId =
+    entry.activeWorkspaceId !== null && allowed(entry.activeWorkspaceId) ? entry.activeWorkspaceId : null;
+  return { workspaces, activeWorkspaceId, orderKeys };
 }
 
 /**

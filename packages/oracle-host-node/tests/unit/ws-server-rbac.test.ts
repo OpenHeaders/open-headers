@@ -32,29 +32,45 @@ import {
   setAuditSink,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
+import type { AwarenessState } from '@openheaders/core/protocol';
 import {
   PROTOCOL_VERSION,
+  SYNC_AWARENESS_PRESENCE_TYPE,
   SYNC_HELLO_TYPE,
   SYNC_MUTATION_BATCH_TYPE,
+  SYNC_MUTATION_TYPE,
   SYNC_STATE_VECTOR_TYPE,
   SYNC_SYNCED_TYPE,
   SYNC_WELCOME_TYPE,
 } from '@openheaders/core/protocol';
 import { setHostStorage } from '@openheaders/core/storage';
-import { type MutationBatch, type MutatorContext, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  EXTENSION_WORKSPACE_ID,
+  EXTENSION_WORKSPACES_SET_PATH,
+  type MutationBatch,
+  type MutationEnvelope,
+  type MutatorContext,
+  RULE_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { DaemonUserRecord, Rule } from '@openheaders/core/types';
 import { __resetMutationStreamBridgeForTests } from '@openheaders/oracle/sync';
+import { __initGlobalSyncServiceForTests, disposeGlobal } from '@openheaders/oracle/sync/global-service';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import {
   __initSyncServiceForTests,
   dispose as disposeSyncService,
+  getAwarenessStoreForWorkspace,
   getOracleForCurrentWorkspace,
 } from '@openheaders/oracle/sync/service';
 import { queryAuditEntries, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
 import Database from 'better-sqlite3';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
-import { makeWorkspaceReadFilter } from '../../src/daemon/peer-read-filter';
+import { createAwarenessPeerFanOut } from '../../src/daemon/awareness-fan-out';
+import { createFilteredPeerBroadcast, makeWorkspaceReadFilter } from '../../src/daemon/peer-read-filter';
 import { type OracleWsServer, startOracleWsServer } from '../../src/host-runtime/ws-server';
 import { createHostStorageFake } from './_host-storage-fake';
 
@@ -89,6 +105,16 @@ async function addUserWithGrant(name: string, role: 'editor' | 'viewer' | null):
 }
 
 async function connectAs(port: number, record: DaemonUserRecord, nodeId: string): Promise<WebSocket> {
+  const device = await connectDeviceAs(port, record, nodeId);
+  return device.client;
+}
+
+/** `connectAs` variant that also exposes the minted per-device token id. */
+async function connectDeviceAs(
+  port: number,
+  record: DaemonUserRecord,
+  nodeId: string,
+): Promise<{ client: WebSocket; tokenId: string }> {
   const bound = await mintDaemonAuthToken({ label: `${record.user.displayName} device`, userId: record.user.id });
   const client = new WebSocket(`ws://127.0.0.1:${port}`);
   clients.push(client);
@@ -114,7 +140,7 @@ async function connectAs(port: number, record: DaemonUserRecord, nodeId: string)
     }),
   );
   expect((await welcome).accepted).toBe(true);
-  return client;
+  return { client, tokenId: bound.record.id };
 }
 
 function makeRule(uid: string): Rule {
@@ -323,5 +349,196 @@ describe('RBAC at the gate — two users over real sockets', () => {
     const deny = audits.find((a) => a.capability === 'workspace.write' && a.decision.allow === false);
     expect(deny?.actorUserId).toBe(editor.user.id);
     expect(deny?.decision.reason).toBe('insufficient-workspace-role');
+  });
+});
+
+// ── Slice-2 leftovers: per-row `__global__` filtering + §9 presence ──
+
+function makeGlobalRowEnvelope(mutationId: string, rowWorkspaceId: string, ms: number): MutationEnvelope {
+  return {
+    mutationId,
+    hlc: { physicalMs: ms, logical: 0, nodeId: 'daemon-node' },
+    origin: { surfaceId: 'sw', deviceId: 'daemon-device' },
+    workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+    orgId: daemonOrgId,
+    mutatorVersion: 1,
+    body: {
+      kind: 'addToSet',
+      type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+      id: EXTENSION_WORKSPACE_ID,
+      path: EXTENSION_WORKSPACES_SET_PATH,
+      itemId: rowWorkspaceId,
+      item: { id: rowWorkspaceId, kind: 'team', name: rowWorkspaceId, orgId: daemonOrgId },
+      orderKey: mutationId,
+    },
+  };
+}
+
+function makePresenceState(instanceId: string): AwarenessState {
+  return {
+    identity: { instanceId, surfaceKind: 'workbench', appId: 'extension', label: 'Workbench' },
+    entityFocus: null,
+    fieldFocus: null,
+    dirtyFields: [],
+    lastActivityHlc: { physicalMs: Date.now(), logical: 0, nodeId: 'ext-node' },
+  };
+}
+
+/** Run a `__global__` catch-up on `client`; return the streamed row ids. */
+async function catchUpGlobalRows(client: WebSocket): Promise<string[]> {
+  const rows: string[] = [];
+  const synced = new Promise<void>((resolve) => {
+    client.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === SYNC_MUTATION_TYPE && msg.workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
+        rows.push(msg.envelope.body.itemId);
+      }
+      if (msg.type === SYNC_SYNCED_TYPE && msg.workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) resolve();
+    });
+  });
+  client.send(
+    JSON.stringify({ type: SYNC_STATE_VECTOR_TYPE, workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE, perNodeMaxHlc: {} }),
+  );
+  await synced;
+  return rows;
+}
+
+describe('per-row __global__ filtering + same-user presence — two users over real sockets', () => {
+  afterEach(() => {
+    disposeGlobal();
+  });
+
+  it("a directory user's __global__ catch-up streams only granted workspace rows", async () => {
+    const globalLog = new InMemoryMutationLog();
+    await globalLog.appendAll([
+      makeGlobalRowEnvelope('m-row-a', 'ws-a', 1_000),
+      makeGlobalRowEnvelope('m-row-b', 'ws-b', 2_000),
+    ]);
+    __initGlobalSyncServiceForTests({ log: globalLog });
+
+    const granted = await createDaemonUser({ displayName: 'Alice' });
+    if (!granted.ok) throw new Error('directory create failed');
+    await grantWorkspaceRole({ principalId: granted.record.principal.id, workspaceId: 'ws-a', role: 'viewer' });
+
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    const client = await connectAs(port, granted.record, 'ext-alice');
+
+    expect(await catchUpGlobalRows(client)).toEqual(['ws-a']);
+  });
+
+  it('the live __global__ delta plane fans a workspace-list row to granted peers only', async () => {
+    const grantedUser = await addUserWithGrant('Alice', null);
+    await grantWorkspaceRole({ principalId: grantedUser.principal.id, workspaceId: 'ws-a', role: 'viewer' });
+    const stranger = await addUserWithGrant('Mallory', null);
+
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    const grantedClient = await connectAs(port, grantedUser, 'ext-alice');
+    const strangerClient = await connectAs(port, stranger, 'ext-mallory');
+
+    const strangerGot: string[] = [];
+    strangerClient.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === SYNC_MUTATION_TYPE || msg.type === 'test.sentinel') strangerGot.push(msg.type);
+    });
+    const grantedGot = new Promise<{ envelope: MutationEnvelope }>((resolve) => {
+      grantedClient.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_MUTATION_TYPE) resolve(msg);
+      });
+    });
+
+    const broadcast = createFilteredPeerBroadcast(() => server);
+    const envelope = makeGlobalRowEnvelope('m-live-a', 'ws-a', 3_000);
+    broadcast.enqueue(
+      { type: SYNC_MUTATION_TYPE, workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE, envelope },
+      EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+    );
+
+    const strangerSentinel = new Promise<void>((resolve) => {
+      strangerClient.on('message', (raw) => {
+        if (JSON.parse(raw.toString()).type === 'test.sentinel') resolve();
+      });
+    });
+    expect((await grantedGot).envelope.mutationId).toBe('m-live-a');
+    server?.broadcastFrame({ type: 'test.sentinel' });
+    await strangerSentinel;
+    expect(strangerGot).toEqual(['test.sentinel']);
+  });
+
+  it("presence is stamped at ingest and reaches the same user's other device — never the origin device or another user", async () => {
+    const alice = await addUserWithGrant('Alice', 'viewer');
+    const bob = await addUserWithGrant('Bob', 'viewer');
+
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    const aliceDevice1 = await connectDeviceAs(port, alice, 'ext-alice-1');
+    const aliceDevice2 = await connectDeviceAs(port, alice, 'ext-alice-2');
+    const bobDevice = await connectDeviceAs(port, bob, 'ext-bob');
+
+    // Device 1 publishes its presence into the hub.
+    const ingested = new Promise<void>((resolve) => {
+      aliceDevice1.client.on('message', (raw) => {
+        if (JSON.parse(raw.toString()).type === `${SYNC_AWARENESS_PRESENCE_TYPE}:response`) resolve();
+      });
+    });
+    aliceDevice1.client.send(
+      JSON.stringify({
+        type: SYNC_AWARENESS_PRESENCE_TYPE,
+        workspaceId: WS_ID,
+        presence: [makePresenceState('inst-alice-1')],
+      }),
+    );
+    await ingested;
+
+    // Stamp-at-ingest: the hub's store row carries the credential's
+    // user + device, regardless of what the frame claimed.
+    const stored = getAwarenessStoreForWorkspace(WS_ID)?.list() ?? [];
+    expect(stored).toHaveLength(1);
+    expect(stored[0].identity.userId).toBe(alice.user.id);
+    expect(stored[0].identity.deviceId).toBe(aliceDevice1.tokenId);
+
+    // Fan the canonical set out per peer — the boot spine's hook shape.
+    const collect = (socket: WebSocket): string[][] => {
+      const frames: string[][] = [];
+      socket.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_AWARENESS_PRESENCE_TYPE) {
+          frames.push((msg.presence as AwarenessState[]).map((s) => s.identity.instanceId));
+        }
+      });
+      return frames;
+    };
+    const originFrames = collect(aliceDevice1.client);
+    const bobFrames = collect(bobDevice.client);
+    const device2Frame = new Promise<AwarenessState[]>((resolve) => {
+      aliceDevice2.client.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_AWARENESS_PRESENCE_TYPE) resolve(msg.presence);
+      });
+    });
+
+    const fanOut = createAwarenessPeerFanOut(() => server);
+    fanOut.enqueue(WS_ID, stored);
+
+    const relayed = await device2Frame;
+    expect(relayed.map((s) => s.identity.instanceId)).toEqual(['inst-alice-1']);
+    expect(relayed[0].identity.userId).toBe(alice.user.id);
+
+    // Ordered sentinel proves the negative legs: the origin device and
+    // Bob saw no presence frame by the time the sentinel landed.
+    const sentinels = [aliceDevice1.client, bobDevice.client].map(
+      (socket) =>
+        new Promise<void>((resolve) => {
+          socket.on('message', (raw) => {
+            if (JSON.parse(raw.toString()).type === 'test.sentinel') resolve();
+          });
+        }),
+    );
+    server?.broadcastFrame({ type: 'test.sentinel' });
+    await Promise.all(sentinels);
+    expect(originFrames).toEqual([]);
+    expect(bobFrames).toEqual([]);
   });
 });

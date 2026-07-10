@@ -274,10 +274,10 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
       // — never this host's own LocalAdmin. `claims` is absent only on
       // the `requireAuth`-off test seam, which keeps local-subject
       // semantics.
-      const peerUserId = peerBySocket.get(socket)?.claims?.userId;
+      const peerClaims = peerBySocket.get(socket)?.claims;
       const dispatched = dispatchSyncRpc(
         parsed as Record<string, unknown>,
-        peerUserId ? { userId: peerUserId } : undefined,
+        peerClaims ? { userId: peerClaims.userId, deviceId: peerClaims.deviceId } : undefined,
       );
       if (dispatched === null) {
         // Channel outside the 22 sync+awareness ones. Silently ignore —

@@ -20,10 +20,26 @@
 
 import { hasCapability, resolveDaemonPeerIdentitySnapshot } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
+import {
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  type MutationEnvelope,
+  workspaceListRowIdForMutation,
+} from '@openheaders/core/sync';
 import type { OracleWsServer, PeerSummary } from '../host-runtime/ws-server';
 
 const SCOPE = 'peer-read-filter';
+
+/**
+ * The workspace id a `__global__` mutation frame's row op governs, or
+ * `null` for non-row global frames (the `activeId` pointer, awareness).
+ * The frame was minted in-process as a `SyncMutationMessage`; the guard
+ * only covers non-mutation frame shapes riding the same queue.
+ */
+function workspaceListRowIdForFrame(frame: Record<string, unknown>): string | null {
+  const envelope = frame.envelope;
+  if (!envelope || typeof envelope !== 'object' || !('body' in envelope)) return null;
+  return workspaceListRowIdForMutation(envelope as MutationEnvelope);
+}
 
 /**
  * Resolve which of the connected peers may read frames for
@@ -77,7 +93,14 @@ export function createFilteredPeerBroadcast(getServer: () => OracleWsServer | nu
         .then(async () => {
           const server = getServer();
           if (!server) return;
-          const filterPeer = await makeWorkspaceReadFilter(workspaceId, server.listConnectedPeers());
+          // Per-row grant gate on the workspace-list scope (Phase 5
+          // slice 2): a `__global__` frame carrying a workspace-list
+          // row op is read-gated against THAT workspace, so the live
+          // delta plane hides exactly the rows catch-up hides. Non-row
+          // global frames keep the scope's any-admitted-user posture.
+          const rowWorkspaceId =
+            workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE ? workspaceListRowIdForFrame(frame) : null;
+          const filterPeer = await makeWorkspaceReadFilter(rowWorkspaceId ?? workspaceId, server.listConnectedPeers());
           server.broadcastFrame(frame, { ...opts, filterPeer });
         })
         .catch((err: unknown) => {

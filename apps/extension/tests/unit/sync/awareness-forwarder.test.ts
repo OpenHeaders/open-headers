@@ -89,6 +89,24 @@ describe('awareness forwarder', () => {
     expect(sent).toHaveLength(0);
   });
 
+  it('never re-forwards a hub-stamped state, even with a matching appId', () => {
+    // A same-user device's state relayed down by the daemon carries the
+    // hub's ingest stamps (userId + per-device token as deviceId) and
+    // the SAME appId as this host — re-forwarding it would ping-pong
+    // presence between the user's devices through the hub.
+    const relayed = makeState('extension', 'other-device-1');
+    relayed.identity.userId = 'user-alice';
+    relayed.identity.deviceId = 'token-other-device';
+    forwardAwarenessToBackend(
+      { workspaceId: 'ws-bound', presence: [relayed, makeState('extension', 'mine-1')] },
+      'extension',
+    );
+
+    expect(sent).toHaveLength(1);
+    const presence = sent[0].frame.presence as AwarenessState[];
+    expect(presence.map((s) => s.identity.instanceId)).toEqual(['mine-1']);
+  });
+
   it('ships an originally-empty event as an empty frame', () => {
     forwardAwarenessToBackend({ workspaceId: 'ws-bound', presence: [] }, 'extension');
 

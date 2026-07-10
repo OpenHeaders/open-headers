@@ -19,7 +19,16 @@ import {
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
 import type { MutationEnvelope } from '@openheaders/core/sync';
-import { LAYOUT_STATE_ENTITY_TYPE, RULE_ENTITY_TYPE, VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  EXTENSION_WORKSPACE_ID,
+  EXTENSION_WORKSPACES_SET_PATH,
+  LAYOUT_STATE_ENTITY_TYPE,
+  RULE_ENTITY_TYPE,
+  VAULT_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const VAULT_SNAPSHOT_ROW = { vault: { uid: 'v' }, secretUids: ['s1'] } as unknown as WorkspaceSnapshot['vault'][number];
@@ -94,7 +103,9 @@ vi.mock('../../src/sync/state-vector-reader', () => ({
   readWorkspaceStateVector: vi.fn(async () => ({ 'node-a': { physicalMs: 9, logical: 0, nodeId: 'node-a' } })),
 }));
 
+import { readWorkspaceDeltaStream } from '../../src/sync/delta-stream-reader';
 import { respondToStateVector } from '../../src/sync/handshake-responder';
+import { buildSnapshotForWorkspace } from '../../src/sync/snapshot-builder';
 
 const MESSAGE = {
   type: SYNC_STATE_VECTOR_TYPE,
@@ -179,5 +190,97 @@ describe('respondToStateVector — host-local strip (layout)', () => {
     expect(snapshotFrame?.snapshot?.layoutState).toEqual([]);
     const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
     expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-rule']);
+  });
+});
+
+describe('respondToStateVector — workspace-list row filter (Phase 5 slice 2)', () => {
+  const GLOBAL_MESSAGE = {
+    type: SYNC_STATE_VECTOR_TYPE,
+    workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+    perNodeMaxHlc: { 'node-a': { physicalMs: 5, logical: 0, nodeId: 'node-a' } },
+  } as unknown as SyncStateVectorMessage;
+
+  function rowEnvelope(
+    mutationId: string,
+    itemId: string,
+    kind: 'addToSet' | 'removeFromSet' | 'moveBefore',
+  ): MutationEnvelope {
+    const shared = {
+      type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+      id: EXTENSION_WORKSPACE_ID,
+      path: EXTENSION_WORKSPACES_SET_PATH,
+      itemId,
+    };
+    const body: MutationEnvelope['body'] =
+      kind === 'addToSet'
+        ? { kind, ...shared, item: { id: itemId }, orderKey: 'a0' }
+        : kind === 'moveBefore'
+          ? { kind, ...shared, orderKey: 'a1' }
+          : { kind, ...shared };
+    return {
+      mutationId,
+      hlc: { physicalMs: 1, logical: 0, nodeId: 'node-a' },
+      origin: { surfaceId: 's-1', deviceId: 'd-1' },
+      workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+      orgId: 'org-1',
+      mutatorVersion: 1,
+      body,
+    };
+  }
+
+  function activeIdEnvelope(mutationId: string, value: string): MutationEnvelope {
+    return {
+      mutationId,
+      hlc: { physicalMs: 2, logical: 0, nodeId: 'node-a' },
+      origin: { surfaceId: 's-1', deviceId: 'd-1' },
+      workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+      orgId: 'org-1',
+      mutatorVersion: 1,
+      body: {
+        kind: 'setField',
+        type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+        id: EXTENSION_WORKSPACE_ID,
+        path: EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+        value,
+      },
+    };
+  }
+
+  beforeEach(() => {
+    deltaEnvelopes.length = 0;
+    // The global scope has no snapshot blob — the builder answers null
+    // (matching production) so catch-up is pure delta replay.
+    vi.mocked(buildSnapshotForWorkspace).mockResolvedValueOnce(null);
+  });
+
+  it('streams only the granted rows; non-row global mutations still pass', async () => {
+    deltaEnvelopes.push(
+      rowEnvelope('m-a-add', 'ws-a', 'addToSet'),
+      rowEnvelope('m-b-add', 'ws-b', 'addToSet'),
+      rowEnvelope('m-b-move', 'ws-b', 'moveBefore'),
+      rowEnvelope('m-b-remove', 'ws-b', 'removeFromSet'),
+      activeIdEnvelope('m-active', 'ws-b'),
+    );
+    const reply = collectingReply();
+    const result = await respondToStateVector(GLOBAL_MESSAGE, reply, {
+      workspaceListRowFilter: (workspaceId) => workspaceId === 'ws-a',
+    });
+
+    const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
+    expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-a-add', 'm-active']);
+    expect(result.deltasSent).toBe(2);
+    expect(reply.frames.at(-1)?.type).toBe(SYNC_SYNCED_TYPE);
+  });
+
+  it('replays from the EMPTY vector when the filter is set; honors the peer vector when unset', async () => {
+    deltaEnvelopes.push(rowEnvelope('m-a-add', 'ws-a', 'addToSet'));
+    const reader = vi.mocked(readWorkspaceDeltaStream);
+
+    await respondToStateVector(GLOBAL_MESSAGE, collectingReply(), { workspaceListRowFilter: () => true });
+    expect(reader.mock.calls.at(-1)?.[1]).toEqual({});
+
+    vi.mocked(buildSnapshotForWorkspace).mockResolvedValueOnce(null);
+    await respondToStateVector(GLOBAL_MESSAGE, collectingReply(), {});
+    expect(reader.mock.calls.at(-1)?.[1]).toEqual(GLOBAL_MESSAGE.perNodeMaxHlc);
   });
 });

@@ -321,6 +321,7 @@ export async function handleStateVector(
   // empty workspace" — mirroring the cross-org shape, so the peer's
   // scope loop proceeds without stalling and without learning the
   // scope's node ids or history depth.
+  let responderOptions = options.responder;
   if (peerConn.claims) {
     const resolveSnapshot = options.resolveSnapshot ?? resolveDaemonPeerIdentitySnapshot;
     const snapshot = await resolveSnapshot(peerConn.claims.userId);
@@ -342,10 +343,24 @@ export async function handleStateVector(
       peerConn.reply(syncedFrame);
       return { kind: 'rejected', reason: 'permission-denied', detail: decision.reason };
     }
+    // Per-row read gate on the `__global__` workspace-list scope
+    // (Phase 5 slice 2): `workspace.list` admits any directory user to
+    // the scope, but each ROW is a workspace's metadata — stream only
+    // the rows the peer holds `workspace.read` on. The operator
+    // (LocalAdmin) reads every row through the same resolver branch, so
+    // the filter stays unset and the solo tier keeps its exact catch-up
+    // shape (peer vector honored, no forced replay).
+    if (isGlobalScope && snapshot && !snapshot.localAdmin) {
+      responderOptions = {
+        ...responderOptions,
+        workspaceListRowFilter: (rowWorkspaceId) =>
+          hasCapability(snapshot, 'workspace.read', { workspaceId: rowWorkspaceId }).allow,
+      };
+    }
   }
 
   const respond = options.respond ?? respondToStateVector;
-  const result = await respond(message, { send: (f) => peerConn.reply(f) }, options.responder);
+  const result = await respond(message, { send: (f) => peerConn.reply(f) }, responderOptions);
   return { kind: 'ok', message, result };
 }
 

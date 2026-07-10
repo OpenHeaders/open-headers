@@ -22,9 +22,12 @@ import {
   resetAuditSink,
   setAuditSink,
 } from '@openheaders/core/identity';
+import type { SyncExtensionWorkspacePostState } from '@openheaders/core/protocol';
 import { type HostStorage, hostStorage, setHostStorage } from '@openheaders/core/storage';
 import type { MutationBatch } from '@openheaders/core/sync';
 import { dispatchSyncRpc, PermissionDeniedError } from '@openheaders/oracle/rpc';
+import { getActiveExtensionWorkspaceCache } from '@openheaders/oracle/sync/caches/extension-workspace-cache';
+import { __initGlobalSyncServiceForTests, disposeGlobal } from '@openheaders/oracle/sync/global-service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const WS = '0193a8ff-c000-7000-8000-000000000001';
@@ -229,6 +232,53 @@ describe('sync-rpc permission gate', () => {
 
     it('unowned channels return null synchronously regardless of peer context', () => {
       expect(dispatchSyncRpc({ type: 'chrome.tabs.query' }, { userId: 'someone' })).toBeNull();
+    });
+
+    it('the workspace-list snapshot is row-filtered to the peer grants; the operator reads all rows', async () => {
+      const record = await ensureSyntheticIdentity({ hostKind: 'daemon', now: NOW });
+      await refreshIdentitySnapshotFromHostStorage();
+      const created = await createDaemonUser({ displayName: 'Alice' });
+      if (!created.ok) throw new Error('setup failed');
+      await grantWorkspaceRole({ principalId: created.record.principal.id, workspaceId: 'ws-a', role: 'viewer' });
+
+      __initGlobalSyncServiceForTests();
+      try {
+        await getActiveExtensionWorkspaceCache()?.seedFromPersistedState({
+          workspaces: (['ws-a', 'ws-b'] as const).map((id, i) => ({
+            schemaVersion: 5,
+            id,
+            kind: 'personal',
+            name: id,
+            sortIndex: i,
+            createdAt: NOW,
+            updatedAt: NOW,
+            orgId: record.org.id,
+          })),
+          activeWorkspaceId: 'ws-b',
+        });
+
+        const asPeer = dispatchSyncRpc(
+          { type: 'oh.sync.snapshotExtensionWorkspaces' },
+          { userId: created.record.user.id },
+        );
+        expect(asPeer?.kind).toBe('async');
+        if (asPeer?.kind !== 'async') return;
+        const peerView = (await asPeer.promise) as { entries: SyncExtensionWorkspacePostState[] };
+        expect(peerView.entries).toHaveLength(1);
+        expect(peerView.entries[0].workspaces.map((w) => w.id)).toEqual(['ws-a']);
+        expect(Object.keys(peerView.entries[0].orderKeys)).toEqual(['ws-a']);
+        // The active pointer names a hidden workspace — nulled for this peer.
+        expect(peerView.entries[0].activeWorkspaceId).toBeNull();
+
+        const asOperator = dispatchSyncRpc({ type: 'oh.sync.snapshotExtensionWorkspaces' }, { userId: record.user.id });
+        expect(asOperator?.kind).toBe('async');
+        if (asOperator?.kind !== 'async') return;
+        const operatorView = (await asOperator.promise) as { entries: SyncExtensionWorkspacePostState[] };
+        expect(operatorView.entries[0].workspaces.map((w) => w.id)).toEqual(['ws-a', 'ws-b']);
+        expect(operatorView.entries[0].activeWorkspaceId).toBe('ws-b');
+      } finally {
+        disposeGlobal();
+      }
     });
 
     it('a peer mutation batch is gated as the peer actor, not skipped', async () => {

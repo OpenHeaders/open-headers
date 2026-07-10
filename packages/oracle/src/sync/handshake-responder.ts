@@ -62,6 +62,7 @@ import {
   isSameDeviceOnlyMutation,
   type SnapshotThresholds,
   shouldBootstrapWithSnapshot,
+  workspaceListRowIdForMutation,
 } from '@openheaders/core/sync';
 
 import { readWorkspaceDeltaStream } from './delta-stream-reader';
@@ -103,6 +104,22 @@ export interface RespondToStateVectorOptions {
    * count to favor snapshot delivery).
    */
   readonly thresholds?: SnapshotThresholds;
+  /**
+   * Per-row read gate for the `__global__` workspace-list scope
+   * (Phase 5 slice 2): a delta envelope that is a workspace-list row op
+   * (`workspaceListRowIdForMutation`) is streamed only when the filter
+   * admits its workspace id. Setting this also forces the replay to
+   * start from the EMPTY vector rather than the peer's: a previously
+   * hidden row's envelopes can sit below the peer's per-node watermark
+   * (the peer applied later same-node envelopes), so honoring the
+   * presented vector would mask them forever after a grant expansion.
+   * Re-streamed envelopes the peer already holds are absorbed by its
+   * `mutationId` dedup — the same contract that covers reconnect
+   * replays. The global log carries only workspace metadata, so the
+   * full replay stays small. Absent (operator, per-workspace scopes,
+   * the `requireAuth`-off seam) → behavior unchanged.
+   */
+  readonly workspaceListRowFilter?: (workspaceId: string) => boolean;
 }
 
 export interface RespondToStateVectorResult {
@@ -122,7 +139,10 @@ export async function respondToStateVector(
   options: RespondToStateVectorOptions = {},
 ): Promise<RespondToStateVectorResult> {
   const workspaceId = message.workspaceId;
-  const peerVector = message.perNodeMaxHlc;
+  const rowFilter = options.workspaceListRowFilter;
+  // Row-filtered catch-up ignores the presented vector — see the
+  // {@link RespondToStateVectorOptions.workspaceListRowFilter} contract.
+  const peerVector = rowFilter ? {} : message.perNodeMaxHlc;
   const thresholds = options.thresholds ?? DEFAULT_SNAPSHOT_THRESHOLDS;
 
   const inputs = await computeSnapshotThresholdInputsForWorkspace(workspaceId, peerVector);
@@ -169,6 +189,13 @@ export async function respondToStateVector(
     // and the live-broadcast gate — otherwise a reconnecting LAN peer
     // pulls seed history through the delta stream.
     if (options.offDevicePeer && isSameDeviceOnlyMutation(envelope)) continue;
+    // Per-row grant gate on the workspace-list scope: a row the filter
+    // refuses never reaches the peer — the same posture the live
+    // fan-out applies, so catch-up and delta plane agree.
+    if (rowFilter) {
+      const rowWorkspaceId = workspaceListRowIdForMutation(envelope);
+      if (rowWorkspaceId !== null && !rowFilter(rowWorkspaceId)) continue;
+    }
     const frame: SyncMutationMessage = {
       type: SYNC_MUTATION_TYPE,
       workspaceId,

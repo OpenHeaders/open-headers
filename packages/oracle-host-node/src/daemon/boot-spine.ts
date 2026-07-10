@@ -64,7 +64,7 @@ import {
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
-import { SYNC_AWARENESS_PRESENCE_TYPE, WS_PORT } from '@openheaders/core/protocol';
+import { WS_PORT } from '@openheaders/core/protocol';
 import type { HostStorage } from '@openheaders/core/storage';
 import { setHostStorage } from '@openheaders/core/storage';
 import {
@@ -105,6 +105,7 @@ import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { createAdmissionControl } from './admission-control';
 import { installAuditPruneScheduler } from './audit-prune-scheduler';
+import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
 import { createHealthzHandler } from './healthz';
 import { listLanIpv4Addresses } from './lan-addresses';
@@ -115,7 +116,6 @@ import { installObservabilityLog, type ObservabilityLogHandle } from './observab
 import type { DaemonOidcConfig } from './oidc/oidc-config';
 import { createOidcHttpHandler } from './oidc/oidc-http';
 import { createDaemonOidcService, type DaemonOidcService } from './oidc/oidc-service';
-import { createFilteredPeerBroadcast } from './peer-read-filter';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
 import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
@@ -253,10 +253,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // moves the daemon.
   let boundPort: number = WS_PORT;
 
-  // Read-filtered awareness fan-out (Phase 5 slice 2) — same queue
-  // discipline as the mutation forwarder's, against the same live
-  // server slot.
-  const awarenessBroadcast = createFilteredPeerBroadcast(() => wsServer);
+  // Same-user awareness fan-out (Phase 5 slice 2) — per-peer tailored
+  // frames under the §9 law, same queue discipline as the mutation
+  // forwarder's, against the same live server slot.
+  const awarenessFanOut = createAwarenessPeerFanOut(() => wsServer);
 
   // 1. Cross-host seams. Order: logger first (so subsequent installs
   //    can log), then storage, lock, persistence.
@@ -368,23 +368,22 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       // existing awareness mirror (`packages/ui/src/context/
       // awareness-mirror.ts` subscribes to `awarenessBroadcast`).
       broadcastLocal('awarenessBroadcast', event);
-      // Cross-host: forward only presence THIS host originated onto the
-      // wire. Peer-received states (e.g. extension surfaces folded into
-      // the local store from an inbound frame) are filtered out by
-      // `identity.appId` so the wire never loops. Fan-out rides the
-      // read-filtered queue: a peer without `workspace.read` on the
-      // frame's workspace learns nothing from presence either.
-      const localOnly = event.presence.filter((s: AwarenessState) => s.identity.appId === config.localAppId);
-      if (localOnly.length > 0 || event.presence.length === 0) {
-        awarenessBroadcast.enqueue(
-          {
-            type: SYNC_AWARENESS_PRESENCE_TYPE,
-            workspaceId: event.workspaceId,
-            presence: localOnly,
-          },
-          event.workspaceId,
-        );
-      }
+      // Cross-host: the whole canonical set goes to the same-user
+      // fan-out, which tailors it per recipient (§9 law) — this is
+      // what relays one user's presence between their devices. The
+      // host's own surfaces belong to the operator, so they are
+      // stamped with the operator's userId here; peer-received states
+      // were stamped at ingest and pass through. States never gain a
+      // `deviceId` on this path — only ingest stamps it — so the
+      // fan-out's echo exclusion cannot misfire on host-own rows. The
+      // event other consumers see is never mutated.
+      const operatorUserId = getIdentitySnapshot()?.user.id;
+      const stampedPresence = event.presence.map((s: AwarenessState) =>
+        s.identity.appId === config.localAppId && s.identity.userId === undefined && operatorUserId !== undefined
+          ? { ...s, identity: { ...s.identity, userId: operatorUserId } }
+          : s,
+      );
+      awarenessFanOut.enqueue(event.workspaceId, stampedPresence);
       // Client role (MULTI_BACKEND_PLAN.md §5): the same emission is
       // offered to the backend forwarder, which applies its own appId
       // filter and routes by the workspace's Org binding.
