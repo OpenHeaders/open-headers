@@ -25,12 +25,18 @@ import {
   revokeDaemonAuthToken,
   revokeWorkspaceRole,
 } from '@openheaders/core/identity';
+import type { AuditLogEntry } from '@openheaders/core/types';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { OracleWsServer } from '../host-runtime/ws-server';
+import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
 import { listLanIpv4Addresses } from './lan-addresses';
 
 /** The admin-visibility probe channel — see `peer-admin-rpc.ts`. */
 export const ADMIN_STATUS_CHANNEL = 'oh.daemon.admin.status';
+
+/** `audit.query` page caps — a page rides one WS frame, so the limit is mandatory. */
+export const AUDIT_QUERY_DEFAULT_LIMIT = 100;
+export const AUDIT_QUERY_MAX_LIMIT = 500;
 
 export interface AdminChannelDeps {
   pairing: DaemonPairingService;
@@ -38,9 +44,29 @@ export interface AdminChannelDeps {
   getBoundPort(): number;
   /** Live server slot — null until the supervisor's first bind resolves. */
   getWsServer(): OracleWsServer | null;
+  /**
+   * Filtered read over the SQLite audit log (`queryAuditEntries` on the
+   * spine's `oracle.db` handle) — the store's RPC projection, never a
+   * second read path.
+   */
+  queryAudit(filter: AuditQueryFilter): AuditLogEntry[];
 }
 
 export type AdminChannelHandler = (message: Record<string, unknown>) => Promise<unknown> | unknown;
+
+function parseAuditCursor(value: unknown): AuditQueryCursor | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const candidate = value as { occurredAt?: unknown; orgId?: unknown; seq?: unknown };
+  if (
+    typeof candidate.occurredAt !== 'string' ||
+    typeof candidate.orgId !== 'string' ||
+    typeof candidate.seq !== 'number' ||
+    !Number.isInteger(candidate.seq)
+  ) {
+    return undefined;
+  }
+  return { occurredAt: candidate.occurredAt, orgId: candidate.orgId, seq: candidate.seq };
+}
 
 /**
  * Build the `oh.daemon.*` handler table. Handlers answer in-band
@@ -237,6 +263,36 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
+  });
+
+  handlers.set('oh.daemon.audit.query', (message) => {
+    // Read projection of the SQLite audit log. The page limit is
+    // mandatory-with-default: a response rides one WS frame, so an
+    // unbounded query must not be expressible over the wire. One extra
+    // row is fetched to decide whether a next page exists; the cursor
+    // is the last returned row's full sort key (keyset pagination — no
+    // loss or repeats across pages sharing a timestamp).
+    const filter: AuditQueryFilter = {};
+    if (typeof message.actorUserId === 'string' && message.actorUserId) filter.actorUserId = message.actorUserId;
+    if (typeof message.capability === 'string' && message.capability) filter.capability = message.capability;
+    if (typeof message.allow === 'boolean') filter.allow = message.allow;
+    if (typeof message.workspaceId === 'string' && message.workspaceId) filter.workspaceId = message.workspaceId;
+    if (typeof message.sinceIso === 'string' && message.sinceIso) filter.sinceIso = message.sinceIso;
+    if (typeof message.untilIso === 'string' && message.untilIso) filter.untilIso = message.untilIso;
+    if (message.order === 'asc' || message.order === 'desc') filter.order = message.order;
+    const after = parseAuditCursor(message.after);
+    if (after) filter.after = after;
+    const requested =
+      typeof message.limit === 'number' && Number.isFinite(message.limit)
+        ? Math.floor(message.limit)
+        : AUDIT_QUERY_DEFAULT_LIMIT;
+    const limit = Math.min(Math.max(requested, 1), AUDIT_QUERY_MAX_LIMIT);
+    const rows = deps.queryAudit({ ...filter, limit: limit + 1 });
+    const entries = rows.slice(0, limit);
+    const last = entries[entries.length - 1];
+    const nextCursor =
+      rows.length > limit && last ? { occurredAt: last.occurredAt, orgId: last.orgId, seq: last.seq } : null;
+    return { entries, nextCursor };
   });
 
   return handlers;

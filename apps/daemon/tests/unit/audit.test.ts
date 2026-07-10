@@ -149,6 +149,22 @@ describe('formatLine', () => {
       '2026-07-01T00:00:00.000Z  deny(not-daemon-admin)  daemon.admin  user-gone',
     );
   });
+
+  it("labels the HELLO gate's daemon.admission rows as admissions, not enforcement decisions", () => {
+    const names = new Map([['user-alice', 'Alice']]);
+    const { workspaceId: _a, ...admitted } = makeEntry({ capability: 'daemon.admission' });
+    expect(formatLine(admitted, names)).toBe(
+      '2026-07-01T00:00:00.000Z  admission  daemon.admission  Alice (user-alice)',
+    );
+    const { workspaceId: _b, ...refused } = makeEntry({
+      actorUserId: 'user-gone',
+      capability: 'daemon.admission',
+      decision: { allow: false, reason: 'auth-required' },
+    });
+    expect(formatLine(refused, names)).toBe(
+      '2026-07-01T00:00:00.000Z  admission-refused(auth-required)  daemon.admission  user-gone',
+    );
+  });
 });
 
 describe('resolveAuditDbPath', () => {

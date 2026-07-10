@@ -205,6 +205,19 @@ export class SqliteAuditLog implements AuditLog {
 }
 
 /**
+ * Keyset-pagination cursor — the full sort key of the last row a
+ * previous page returned. Rows strictly after that position (in the
+ * query's `order` direction) come back, so pages never lose or repeat
+ * rows that share an `occurred_at` timestamp the way a bare
+ * `untilIso` window would.
+ */
+export interface AuditQueryCursor {
+  occurredAt: string;
+  orgId: string;
+  seq: number;
+}
+
+/**
  * Filters for the report surface. All optional; absent = unfiltered.
  * `since`/`until` compare against the ISO `occurred_at` column
  * (inclusive lower bound, exclusive upper bound).
@@ -220,6 +233,8 @@ export interface AuditQueryFilter {
   limit?: number;
   /** Row order by `occurred_at`; default `'desc'` (newest first). */
   order?: 'asc' | 'desc';
+  /** Resume after this row (exclusive) in the current `order`. */
+  after?: AuditQueryCursor;
 }
 
 /**
@@ -261,6 +276,12 @@ export function queryAuditEntries(db: Database.Database, filter: AuditQueryFilte
     params.push(filter.untilIso);
   }
   const order = filter.order ?? 'desc';
+  if (filter.after !== undefined) {
+    // Row-value keyset comparison against the full ORDER BY key — the
+    // page boundary is exact even when rows share `occurred_at`.
+    where.push(`(occurred_at, org_id, seq) ${order === 'asc' ? '>' : '<'} (?, ?, ?)`);
+    params.push(filter.after.occurredAt, filter.after.orgId, filter.after.seq);
+  }
   const sql =
     `SELECT * FROM audit_log` +
     (where.length > 0 ? ` WHERE ${where.join(' AND ')}` : '') +

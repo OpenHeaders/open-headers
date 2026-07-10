@@ -564,6 +564,15 @@ test('admin console: the operator manages users and devices from the tab; a dire
   await deviceClosed;
   await expect(operatorPage.locator(`[data-testid=daemon-token-row-${consoleRow?.id}]`)).toContainText('Revoked');
 
+  // Reports below tokens: the operator's own admin calls above are
+  // enforcement rows, and each gated connect (this tab's join included)
+  // stamped a distinguishable Admission row.
+  const reports = operatorPage.locator('[data-testid=daemon-audit-reports]');
+  await operatorPage.click('[data-testid=daemon-audit-refresh]');
+  await expect(reports).toContainText('daemon.admin');
+  await expect(reports.locator('.ant-tag', { hasText: 'Allow' }).first()).toBeVisible();
+  await expect(reports.locator('.ant-tag', { hasText: 'Admission' }).first()).toBeVisible();
+
   await operatorContext.close();
 
   // Grant + bound mint over the RAW wire as the operator — a directory

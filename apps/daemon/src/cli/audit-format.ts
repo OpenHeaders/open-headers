@@ -88,6 +88,11 @@ export function resolveAuditDbPath(config: DaemonConfig): string {
 }
 
 function formatDecision(entry: AuditLogEntry): string {
+  // `daemon.admission` rows are the HELLO gate's per-connect stamps —
+  // label them as admissions, not enforcement decisions.
+  if (entry.capability === 'daemon.admission') {
+    return entry.decision.allow ? 'admission' : `admission-refused(${entry.decision.reason ?? 'unspecified'})`;
+  }
   return entry.decision.allow ? 'allow' : `deny(${entry.decision.reason ?? 'unspecified'})`;
 }
 

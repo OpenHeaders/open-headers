@@ -7,9 +7,10 @@
  * SQLite-backed sink for desktop main and the headless daemon).
  */
 
+import type { AuditCapability } from '../types';
 import { logger } from '../utils/logger';
 import { getIdentitySnapshot } from './registry';
-import type { Capability, CapabilityDecision } from './resolver';
+import type { CapabilityDecision } from './resolver';
 
 /**
  * Read-only capabilities. An `allow` on one of these is the high-volume,
@@ -17,11 +18,14 @@ import type { Capability, CapabilityDecision } from './resolver';
  * default sink demotes it to `debug`. Denials and mutations stay at
  * `info` so the audit signal survives the default log level.
  */
-const READ_ONLY_CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>(['workspace.read', 'workspace.list']);
+const READ_ONLY_CAPABILITIES: ReadonlySet<AuditCapability> = new Set<AuditCapability>([
+  'workspace.read',
+  'workspace.list',
+]);
 
 export interface AuditEntryInput {
   actorUserId: string;
-  capability: Capability;
+  capability: AuditCapability;
   workspaceId?: string;
   decision: CapabilityDecision;
   /**
@@ -41,7 +45,7 @@ export interface AuditEntryInput {
  */
 export interface ResolvedAuditEntry {
   actorUserId: string;
-  capability: Capability;
+  capability: AuditCapability;
   workspaceId?: string;
   decision: CapabilityDecision;
   orgId: string;

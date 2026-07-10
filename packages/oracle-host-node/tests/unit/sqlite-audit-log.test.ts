@@ -151,6 +151,39 @@ describe('queryAuditEntries', () => {
     const oldestFirst = queryAuditEntries(db, { order: 'asc' });
     expect(oldestFirst.map((r) => r.orgId)).toEqual([ORG_B, ORG_A]);
   });
+
+  it('keyset cursor pages without loss or repeats across rows sharing a timestamp', async () => {
+    // Five rows, three of them on the SAME occurredAt — the case a bare
+    // untilIso window would drop or duplicate at the page boundary.
+    await log.append(makeInput({ occurredAt: '2026-07-01T00:00:00.000Z' }));
+    await log.append(makeInput({ occurredAt: '2026-07-02T00:00:00.000Z' }));
+    await log.append(makeInput({ occurredAt: '2026-07-02T00:00:00.000Z' }));
+    await log.append(makeInput({ orgId: ORG_B, occurredAt: '2026-07-02T00:00:00.000Z' }));
+    await log.append(makeInput({ occurredAt: '2026-07-03T00:00:00.000Z' }));
+    const full = queryAuditEntries(db);
+    expect(full).toHaveLength(5);
+
+    const paged: string[] = [];
+    let after: { occurredAt: string; orgId: string; seq: number } | undefined;
+    for (;;) {
+      const page = queryAuditEntries(db, { limit: 2, ...(after ? { after } : {}) });
+      if (page.length === 0) break;
+      paged.push(...page.map((r) => r.id));
+      const last = page[page.length - 1]!;
+      after = { occurredAt: last.occurredAt, orgId: last.orgId, seq: last.seq };
+    }
+    expect(paged).toEqual(full.map((r) => r.id));
+
+    // Ascending walks the same set in reverse.
+    const ascFull = queryAuditEntries(db, { order: 'asc' });
+    expect(ascFull.map((r) => r.id)).toEqual([...full.map((r) => r.id)].reverse());
+    const ascFirst = queryAuditEntries(db, { order: 'asc', limit: 1 })[0]!;
+    const ascRest = queryAuditEntries(db, {
+      order: 'asc',
+      after: { occurredAt: ascFirst.occurredAt, orgId: ascFirst.orgId, seq: ascFirst.seq },
+    });
+    expect([ascFirst.id, ...ascRest.map((r) => r.id)]).toEqual(ascFull.map((r) => r.id));
+  });
 });
 
 describe('audit retention', () => {

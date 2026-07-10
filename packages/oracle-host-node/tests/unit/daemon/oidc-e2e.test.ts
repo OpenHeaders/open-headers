@@ -341,7 +341,7 @@ describe('OIDC login e2e — stub issuer over real sockets', () => {
     );
     expect((await welcome).accepted).toBe(true);
     client.close();
-    const gate = audits.find((a) => a.capability === 'daemon.admin' && a.actorUserId === created.record.user.id);
+    const gate = audits.find((a) => a.capability === 'daemon.admission' && a.actorUserId === created.record.user.id);
     expect(gate?.decision.allow).toBe(true);
   });
 

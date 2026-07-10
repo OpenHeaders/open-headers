@@ -92,8 +92,20 @@ export const DaemonAdminSchema = v.object({
  *
  * Kept here (not in `identity.ts`) because audit log entries live on the
  * ACL axis — they're the forensic record of permission decisions.
+ *
+ * `daemon.admission` is audit-vocabulary only — the HELLO admission
+ * gate's per-connect stamp (admit or auth-required refusal). It is not
+ * grantable and never reaches the resolver, so it stays out of the
+ * runtime `Capability` union; report surfaces render it as "admission"
+ * rather than an enforcement decision.
  */
-export const CapabilitySchema = v.picklist(['workspace.read', 'workspace.write', 'workspace.list', 'daemon.admin']);
+export const CapabilitySchema = v.picklist([
+  'workspace.read',
+  'workspace.write',
+  'workspace.list',
+  'daemon.admin',
+  'daemon.admission',
+]);
 
 export const CapabilityDenyReasonSchema = v.picklist([
   'no-current-user',

@@ -1,8 +1,7 @@
 /**
  * Daemon administration console — the workbench surface for the
- * daemon's team tier: the user directory, per-workspace grants, and
- * device management (tokens + pairing; audit reports join in a later
- * slice).
+ * daemon's team tier: the user directory, per-workspace grants, device
+ * management (tokens + pairing), and audit reports.
  *
  * Every read and mutation rides the `oh.daemon.*` bridge channels:
  * the desktop renderer reaches its own spine over IPC, the served web
@@ -18,6 +17,7 @@ import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
 import { useWorkspaces } from '../../../shared/hooks/readers/useWorkspaces';
 import DaemonTokensSection from '../../settings/components/daemon-tokens-section';
+import DaemonAuditReports from './DaemonAuditReports';
 import { type DaemonAdminStatus, useDaemonAdminStatus } from './use-daemon-admin-status';
 
 type DirectoryRole = 'owner' | 'editor' | 'viewer';
@@ -368,6 +368,14 @@ const DaemonAdminConsole: React.FC = () => {
           oh.daemon.* channels, so it works here over the wire unchanged
           (its Pair-a-device modal included). */}
       <DaemonTokensSection />
+
+      {/* Audit reports — actor names resolve through the directory
+          loaded above, at view time (§9.3). */}
+      <DaemonAuditReports
+        users={(users ?? []).map((u) => ({ userId: u.userId, displayName: u.displayName }))}
+        workspaceName={workspaceName}
+        workspaceOptions={workspaceOptions}
+      />
     </div>
   );
 };

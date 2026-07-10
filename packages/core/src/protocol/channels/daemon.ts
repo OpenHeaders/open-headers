@@ -208,4 +208,51 @@ export interface DaemonRpc {
     req: { userId: string; workspaceId: string };
     res: { ok: true } | { ok: false; error: string };
   };
+
+  // ── Audit reports (Phase 1 slice 3) ──────────────────────────────
+  //
+  // Admin-only read projection of the daemon's SQLite audit log — the
+  // audit store's first RPC consumer; same rows `oh daemon audit`
+  // reads, never a second store. Responses ride one WS frame, so the
+  // server clamps `limit` to a hard cap and pages via a keyset cursor
+  // (the full `(occurredAt, orgId, seq)` sort key of the last row —
+  // exact boundaries even when rows share a timestamp). `capability`
+  // `daemon.admission` rows are the HELLO admission stamps; surfaces
+  // render them as "admission", not enforcement decisions.
+
+  /**
+   * Filtered audit-log page. All filters optional; `since`/`until` are
+   * ISO bounds on `occurredAt` (inclusive/exclusive). `nextCursor` is
+   * non-null when more rows match — echo it back as `after` for the
+   * next page.
+   */
+  'oh.daemon.audit.query': {
+    req: {
+      actorUserId?: string;
+      capability?: string;
+      /** `true` = allows only, `false` = denies only. */
+      allow?: boolean;
+      workspaceId?: string;
+      sinceIso?: string;
+      untilIso?: string;
+      /** Rows per page; server clamps to its cap (default 100, max 500). */
+      limit?: number;
+      /** By `occurredAt`; default `'desc'` (newest first). */
+      order?: 'asc' | 'desc';
+      after?: { occurredAt: string; orgId: string; seq: number };
+    };
+    res: {
+      entries: ReadonlyArray<{
+        id: string;
+        orgId: string;
+        seq: number;
+        actorUserId: string;
+        capability: string;
+        workspaceId?: string;
+        decision: { allow: boolean; reason?: string };
+        occurredAt: string;
+      }>;
+      nextCursor: { occurredAt: string; orgId: string; seq: number } | null;
+    };
+  };
 }

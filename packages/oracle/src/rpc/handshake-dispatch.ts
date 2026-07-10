@@ -200,15 +200,17 @@ export async function evaluateHello(
     const resolveUser = options.resolveUser ?? resolveDaemonPeerUser;
     const resolved: ResolveDaemonPeerUserResult | null = result.ok ? await resolveUser(result.userId) : null;
     const admittedUserId = resolved?.ok ? resolved.userId : null;
-    // Audit the gate decision. `daemon.admin` is the capability the
-    // local resolver maps the gate to — successful peer auth means the
-    // peer is permitted to operate against this daemon; a miss is a
-    // denial recorded against the local synthetic actor for ledger
-    // continuity. On admit the actor IS the resolved peer user — the
-    // gate is the first point where the peer's identity is known.
+    // Audit the gate decision under the `daemon.admission` audit
+    // vocabulary — a per-connect admission stamp, distinguishable from
+    // the peer-admin plane's `daemon.admin` enforcement rows so report
+    // surfaces can label it "admission" rather than an enforcement
+    // decision. A miss is a refusal recorded against the local
+    // synthetic actor for ledger continuity. On admit the actor IS the
+    // resolved peer user — the gate is the first point where the
+    // peer's identity is known.
     emitAuditEntry({
       actorUserId: admittedUserId ?? snapshot?.user.id ?? 'unknown',
-      capability: 'daemon.admin',
+      capability: 'daemon.admission',
       decision: admittedUserId !== null ? { allow: true } : { allow: false, reason: 'auth-required' },
     });
     if (!result.ok || !resolved?.ok) {

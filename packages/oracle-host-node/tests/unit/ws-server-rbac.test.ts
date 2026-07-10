@@ -599,6 +599,7 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
       pairing: createDaemonPairingService(),
       getBoundPort: () => port,
       getWsServer: () => server,
+      queryAudit: (filter) => queryAuditEntries(auditDb, filter),
     }),
   });
   return startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY, peerRpc });
@@ -610,10 +611,12 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     server = await startServerWithAdminPlane(port);
     const operator = await connectOperator(port, 'web-operator');
 
-    // Baseline AFTER connect — the HELLO admission gate emits its own
-    // `daemon.admin`-vocabulary row (S17/S19 note); the plane's rows
-    // are the delta on top of it.
+    // The HELLO admission gate stamps its own row per connect, under
+    // the distinct `daemon.admission` vocabulary — never `daemon.admin`
+    // (report surfaces label it "admission", not enforcement).
+    expect(audits.filter((a) => a.capability === 'daemon.admission' && a.decision.allow).length).toBe(1);
     const baseline = audits.filter((a) => a.capability === 'daemon.admin').length;
+    expect(baseline).toBe(0);
     const probe = await callOverWire(operator, { type: 'oh.daemon.admin.status' });
     expect(probe.payload).toEqual({ admin: true });
     // The probe is a visibility question, not an enforcement decision.
@@ -704,6 +707,78 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     const denied = await callOverWire(viewerClient, { type: 'oh.daemon.tokens.list' });
     expect(denied.__error).toBe(ADMIN_DENIED_MESSAGE);
     expect(denied.payload).toBeUndefined();
+  });
+
+  it('audit.query projects the log to an operator — filters, distinguishable admission rows, keyset pages; a directory user gets the uniform deny', async () => {
+    const viewer = await addUserWithGrant('Bob', 'viewer');
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+    const viewerClient = await connectAs(port, viewer, 'ext-bob');
+
+    // Mint an enforcement deny row: the viewer touches an admin channel.
+    const denied = await callOverWire(viewerClient, { type: 'oh.daemon.users.list' });
+    expect(denied.__error).toBe(ADMIN_DENIED_MESSAGE);
+
+    // Deny-filtered query, the way the console's Decision=Deny filter
+    // reads it — the viewer's enforcement deny is a queryable row.
+    const denyPage = await callOverWire(operator, {
+      type: 'oh.daemon.audit.query',
+      allow: false,
+      capability: 'daemon.admin',
+    });
+    const denyRows = denyPage.payload?.entries as Array<{ actorUserId: string; decision: { reason?: string } }>;
+    expect(denyRows.map((r) => r.actorUserId)).toContain(viewer.user.id);
+    expect(denyRows.find((r) => r.actorUserId === viewer.user.id)?.decision.reason).toBe('not-daemon-admin');
+
+    // The two connects each stamped a `daemon.admission` allow —
+    // present and distinguishable from enforcement by capability alone.
+    const admissionPage = await callOverWire(operator, {
+      type: 'oh.daemon.audit.query',
+      capability: 'daemon.admission',
+    });
+    const admissionRows = admissionPage.payload?.entries as Array<{
+      id: string;
+      actorUserId: string;
+      capability: string;
+      decision: { allow: boolean };
+    }>;
+    expect(admissionRows.length).toBe(2);
+    expect(admissionRows.every((r) => r.decision.allow)).toBe(true);
+    expect(admissionRows.map((r) => r.actorUserId)).toContain(viewer.user.id);
+
+    // Actor filter parity with `oh daemon audit --actor`.
+    const actorPage = await callOverWire(operator, {
+      type: 'oh.daemon.audit.query',
+      actorUserId: viewer.user.id,
+    });
+    const actorRows = actorPage.payload?.entries as Array<{ actorUserId: string }>;
+    expect(actorRows.length).toBeGreaterThan(0);
+    expect(actorRows.every((r) => r.actorUserId === viewer.user.id)).toBe(true);
+
+    // Keyset pagination: limit=1 pages walk the full result set with no
+    // loss and no repeats, then the cursor drains to null.
+    const seen: string[] = [];
+    let after: Record<string, unknown> | null = null;
+    for (;;) {
+      const page = await callOverWire(operator, {
+        type: 'oh.daemon.audit.query',
+        capability: 'daemon.admission',
+        limit: 1,
+        ...(after ? { after } : {}),
+      });
+      const entries = page.payload?.entries as Array<{ id: string }>;
+      seen.push(...entries.map((e) => e.id));
+      after = (page.payload?.nextCursor as Record<string, unknown> | null) ?? null;
+      if (after === null) break;
+    }
+    expect(seen).toEqual(admissionRows.map((r) => r.id));
+    expect(new Set(seen).size).toBe(seen.length);
+
+    // A directory user's query gets the plane's uniform deny.
+    const deniedQuery = await callOverWire(viewerClient, { type: 'oh.daemon.audit.query' });
+    expect(deniedQuery.__error).toBe(ADMIN_DENIED_MESSAGE);
+    expect(deniedQuery.payload).toBeUndefined();
   });
 
   it('an unowned oh.daemon.* channel stays silently ignored', async () => {

@@ -90,7 +90,7 @@ import { evictConsumedWorkspace } from '@openheaders/oracle/workspace/workspace-
 import { FileSystemBlobBackend } from '../files/fs-blob-backend';
 import { createPairingHttpHandler } from '../host-runtime/pairing-http';
 import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-server';
-import { SqliteAuditLog } from '../sync/sqlite-audit-log';
+import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './activity-installer';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
@@ -497,6 +497,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     pairing: pairingService,
     getBoundPort: () => boundPort,
     getWsServer: () => wsServer,
+    // The audit RPC reads the same `oracle.db` handle the sink above
+    // writes — the store's one read path, projected over the wire.
+    queryAudit: (filter) => queryAuditEntries(syncPersistence.db, filter),
   });
 
   // 4b'. `/healthz` — unauthenticated, data-free liveness for ops
