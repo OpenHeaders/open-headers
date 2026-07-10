@@ -22,7 +22,6 @@ import { InsecureContextNotice } from '@/InsecureContextNotice';
 import { LoginGate } from '@/LoginGate';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
-import '@openheaders/ui/workbench/styles/rule-flow.less';
 
 // Declare the web host BEFORE any UI renders so user-facing strings
 // read from the right vocabulary on first paint.
