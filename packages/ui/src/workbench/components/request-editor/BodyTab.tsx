@@ -160,7 +160,11 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      {/* Fixed row height: the raw/GraphQL variants add a 24px Select /
+          Beautify button next to the radios, so without a reserved
+          height the row (and the editor below) jumps when switching
+          encodings. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', minHeight: 28 }}>
         <Radio.Group value={radio} onChange={(e) => switchRadio(e.target.value as RadioValue)}>
           <Radio value="none">none</Radio>
           <Radio value="form-data">form-data</Radio>
