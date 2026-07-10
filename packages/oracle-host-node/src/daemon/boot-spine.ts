@@ -111,6 +111,7 @@ import { createHealthzHandler } from './healthz';
 import { listLanIpv4Addresses } from './lan-addresses';
 import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
+import { createMdnsAdvertiser } from './mdns/mdns-advertiser';
 import { createMetricsProvider } from './metrics';
 import { createMetricsHttpHandler } from './metrics-http';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
@@ -748,6 +749,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //    else) is logged but not fatal; the engine keeps serving local
   //    surfaces, and the supervisor retries on the next setting change.
   let bindSupervisor: DaemonBindSupervisor | null = null;
+  // Phase 6 discovery — advertise the daemon as `_openheaders._tcp` via
+  // mDNS, but only while the bind is LAN-exposed: a loopback-only
+  // daemon advertised on the LAN would point peers at a port they can't
+  // reach. Driven from the bind lifecycle below so the advertisement
+  // follows every rebind (and withdraws on a failed one). Link-local
+  // multicast only — the zero-outbound posture holds.
+  const mdnsAdvertiser = createMdnsAdvertiser({ textEntries: [`v=${config.appVersion}`] });
   // One long-lived reporter for the whole boot. It folds the supervisor's
   // bind lifecycle (binding / bound / failed) and the active server's peer
   // set into a single `sync` status entry, so a failed bind shows RED and
@@ -778,6 +786,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         if (state.kind === 'bound') boundPort = state.port;
         lastBindState = state;
         syncStatusReporter.setBindState(state);
+        mdnsAdvertiser.setAdvertisedPort(state.kind === 'bound' && state.host === '0.0.0.0' ? state.port : null);
       },
     });
   } catch (err) {
@@ -806,6 +815,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     oidcService?.dispose();
     mcpInstall.dispose();
     syncStatusReporter.dispose();
+    await mdnsAdvertiser.dispose();
     await bindSupervisor?.dispose();
     bindSupervisor = null;
     wsServer = null;
