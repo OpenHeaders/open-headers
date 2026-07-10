@@ -44,6 +44,21 @@ export interface ExecutedWireCapture {
   credentialsMode: CredentialsMode;
 }
 
+/**
+ * Machine-readable remedy attached to an error snapshot — lets the UI
+ * offer an action instead of only prose. `open-in-tab` covers the
+ * untrusted-certificate case: fetch from an extension context rejects
+ * self-signed certs with no interstitial, but opening the URL in a
+ * regular tab lets the user accept the certificate, after which the
+ * browser remembers the exception for that host:port and a retry
+ * succeeds.
+ */
+export interface ExecutedRequestErrorHint {
+  kind: 'open-in-tab';
+  /** URL to open — the submitted request URL. */
+  url: string;
+}
+
 export interface ExecutedRequestSnapshot {
   /** HTTP status (e.g. 200). `0` when the request never completed
    *  (DNS failure, network offline, aborted). */
@@ -83,6 +98,9 @@ export interface ExecutedRequestSnapshot {
   wire?: ExecutedWireCapture;
   /** Non-null when the request failed before producing a response. */
   error: string | null;
+  /** Actionable remedy for the failure — present only alongside
+   *  `error`, when the executor could classify one. */
+  errorHint?: ExecutedRequestErrorHint;
   /**
    * Script outcome — `null` when no scripts ran, otherwise carries the
    * assertions + console + mutation summary surfaced by the pre-request

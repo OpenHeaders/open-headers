@@ -5,7 +5,7 @@
  * failure) into an `ExecutedRequestSnapshot`.
  */
 
-import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
+import type { ExecutedRequestErrorHint, ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
 import { ensureScheme } from '@openheaders/ui/shared/fetch';
@@ -279,7 +279,9 @@ export async function executeResolved(
     // `http`/`https`, and a hint about common causes. That's what
     // Postman (in the browser/SDK variant) also shows.
     const isGenericFetchFail = err instanceof TypeError && /failed to fetch/i.test(rawMessage);
-    const message = isGenericFetchFail ? classifyFetchFailure(req.url, rawMessage) : rawMessage;
+    const { message, hint } = isGenericFetchFail
+      ? classifyFetchFailure(req.url, rawMessage)
+      : { message: rawMessage, hint: undefined };
     logger.info('RequestExecutor', `fetch failed for ${req.url}: ${rawMessage}`);
     recordLog({
       subsystem: 'request-executor',
@@ -315,22 +317,32 @@ export async function executeResolved(
       bodyBytes: 0,
       durationMs,
       error: message,
+      ...(hint ? { errorHint: hint } : {}),
       scripts: null,
     };
   }
 }
 
 /**
- * Produce a user-actionable error string for the generic
- * `TypeError: Failed to fetch` that Chromium's fetch returns for
- * every non-TLS network failure. The browser deliberately withholds
- * the underlying OS error (DNS vs. refused vs. unreachable) from
- * extension code, so we can't reproduce Postman's native-SDK error
- * strings ("getaddrinfo ENOTFOUND ...") — but we CAN replace the
- * content-free default with a breakdown of the likely causes so the
- * user knows where to look.
+ * Produce a user-actionable error for the generic `TypeError: Failed
+ * to fetch` that Chromium's fetch returns for every network failure.
+ * The browser deliberately withholds the underlying OS error (DNS vs.
+ * refused vs. unreachable vs. bad certificate) from extension code, so
+ * we can't reproduce native-SDK error strings ("getaddrinfo
+ * ENOTFOUND ...") — but we CAN replace the content-free default with
+ * a breakdown of the likely causes so the user knows where to look.
+ *
+ * HTTPS failures additionally carry an `open-in-tab` hint: an
+ * untrusted certificate (self-signed dev certs — Spring Boot, local
+ * proxies) fails here with no interstitial, and fetch cannot bypass
+ * certificate validation. Opening the URL in a regular tab lets the
+ * user accept the certificate; the browser remembers the exception
+ * for that host:port and the retry succeeds.
  */
-function classifyFetchFailure(url: string, rawMessage: string): string {
+function classifyFetchFailure(
+  url: string,
+  rawMessage: string,
+): { message: string; hint?: ExecutedRequestErrorHint } {
   let hostname = '';
   let protocol = '';
   try {
@@ -338,24 +350,43 @@ function classifyFetchFailure(url: string, rawMessage: string): string {
     hostname = parsed.hostname;
     protocol = parsed.protocol;
   } catch {
-    return `${rawMessage} — invalid URL "${url}"`;
+    return { message: `${rawMessage} — invalid URL "${url}"` };
   }
   // Offline is handled by the pre-flight check; if we got here with
   // navigator.onLine=false it means the signal flipped during the
   // fetch. Still worth surfacing cleanly.
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return `Network offline — could not reach ${hostname}.`;
+    return { message: `Network offline — could not reach ${hostname}.` };
   }
+  const isHttps = protocol === 'https:';
+  const hint: ExecutedRequestErrorHint | undefined = isHttps ? { kind: 'open-in-tab', url } : undefined;
   const looksLocal =
     /^(localhost|127\.)/.test(hostname) ||
     hostname === '::1' ||
     hostname.endsWith('.local') ||
     hostname.endsWith('.localhost') ||
     (!hostname.includes('.') && !hostname.includes(':'));
-  if (looksLocal) {
-    return `Could not reach ${hostname} (${protocol.replace(':', '')}). Is the service running? If it requires HTTPS, enter the full URL with https:// prefix.`;
+  if (looksLocal && isHttps) {
+    return {
+      message:
+        `Could not reach ${hostname} over HTTPS. Local HTTPS endpoints usually fail here because the ` +
+        'development certificate is self-signed — the browser rejects untrusted certificates before the ' +
+        'request is sent. Open the URL in a new tab, accept the certificate warning, then retry. ' +
+        'If the tab loads cleanly, check that the service is running and serves HTTPS on this port.',
+      hint,
+    };
   }
-  return `Could not reach ${hostname}. Possible causes: host not found (DNS), connection refused, TLS certificate error, or missing host permission. Check the URL and retry.`;
+  if (looksLocal) {
+    return {
+      message: `Could not reach ${hostname} (http). Is the service running and listening on this port? If it only serves HTTPS, change the URL to https://.`,
+    };
+  }
+  return {
+    message:
+      `Could not reach ${hostname}. Possible causes: host not found (DNS), connection refused, ` +
+      'TLS certificate error, or missing host permission. Check the URL and retry.',
+    ...(hint ? { hint } : {}),
+  };
 }
 
 /**

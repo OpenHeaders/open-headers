@@ -238,16 +238,11 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     });
   };
 
-  if (!response.body) {
-    return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          Empty body
-        </Text>
-      </div>
-    );
-  }
-
+  // An empty body renders the normal pane (picker, wrap, copy) with an
+  // empty one-line buffer — a 204 or empty POST response is still a
+  // response, and a centered "Empty body" placeholder read as if the
+  // panel were broken. Preview / filter stay hidden naturally (nothing
+  // parses).
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 8 }}>
       {response.bodyTruncated && (

@@ -150,7 +150,12 @@ export type {
 } from './request';
 
 // ── Request execution ──────────────────────────────────────────────
-export type { ExecutedRequestSize, ExecutedRequestSnapshot, ExecutedWireCapture } from './request-execution';
+export type {
+  ExecutedRequestErrorHint,
+  ExecutedRequestSize,
+  ExecutedRequestSnapshot,
+  ExecutedWireCapture,
+} from './request-execution';
 // ── Response example ───────────────────────────────────────────────
 export type { CapturedRequest, CapturedResponse, ResponseExample } from './response-example';
 // ── Rule ───────────────────────────────────────────────────────────

@@ -6,13 +6,14 @@
  * placeholder states read as one family.
  */
 
-import { DisconnectOutlined } from '@ant-design/icons';
-import { Typography, theme } from 'antd';
+import { DisconnectOutlined, ExportOutlined } from '@ant-design/icons';
+import type { ExecutedRequestErrorHint } from '@openheaders/core/types';
+import { Button, Typography, theme } from 'antd';
 import type React from 'react';
 
 const { Text } = Typography;
 
-const ResponseErrorState: React.FC<{ error: string }> = ({ error }) => {
+const ResponseErrorState: React.FC<{ error: string; hint?: ExecutedRequestErrorHint }> = ({ error, hint }) => {
   const { token } = theme.useToken();
   return (
     <div
@@ -35,6 +36,16 @@ const ResponseErrorState: React.FC<{ error: string }> = ({ error }) => {
       <Text type="secondary" style={{ fontSize: 12, maxWidth: 460 }} data-testid="oh-response-error">
         {error}
       </Text>
+      {hint?.kind === 'open-in-tab' && (
+        <Button
+          size="small"
+          icon={<ExportOutlined />}
+          data-testid="oh-response-error-open-tab"
+          onClick={() => window.open(hint.url, '_blank', 'noopener')}
+        >
+          Open in new tab
+        </Button>
+      )}
     </div>
   );
 };

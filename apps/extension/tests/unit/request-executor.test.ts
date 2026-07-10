@@ -464,6 +464,26 @@ describe('fetch-failure classification', () => {
       expect(res.status).toBe(0);
       expect(res.error).toContain('api.openheaders.io');
       expect(res.error).toMatch(/host not found|connection refused|TLS|permission/i);
+      // HTTPS failure may be a certificate error — offer the tab hint.
+      expect(res.errorHint).toEqual({ kind: 'open-in-tab', url: 'https://api.openheaders.io/v1/ping' });
+    } finally {
+      vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+        fetchMock(input, init);
+        return Promise.resolve(new Response('ok', { status: 200 }));
+      });
+    }
+  });
+
+  it('explains the self-signed certificate case for local HTTPS targets and hints open-in-tab', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    try {
+      const req = makeRequest({ url: 'https://localhost:8080/v1/workspaces/123/rules' });
+      const res = await executeRequestDraft(req, {});
+      expect(res.status).toBe(0);
+      expect(res.error).toContain('localhost');
+      expect(res.error).toMatch(/self-signed|certificate/i);
+      expect(res.error).toMatch(/accept the certificate/i);
+      expect(res.errorHint).toEqual({ kind: 'open-in-tab', url: 'https://localhost:8080/v1/workspaces/123/rules' });
     } finally {
       vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
         fetchMock(input, init);
@@ -478,7 +498,9 @@ describe('fetch-failure classification', () => {
       const req = makeRequest({ url: 'http://localhost:3000/health' });
       const res = await executeRequestDraft(req, {});
       expect(res.error).toContain('localhost');
-      expect(res.error).toMatch(/Is the service running\?/);
+      expect(res.error).toMatch(/Is the service running/);
+      // Plain-http failure has no certificate to accept — no tab hint.
+      expect(res.errorHint).toBeUndefined();
     } finally {
       vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
         fetchMock(input, init);
@@ -494,7 +516,7 @@ describe('fetch-failure classification', () => {
       const res = await executeRequestDraft(req, {});
       // `example-local` has a dash but no dot → single-label → http://
       expect(res.error).toContain('example-local');
-      expect(res.error).toMatch(/Is the service running\?/);
+      expect(res.error).toMatch(/Is the service running/);
     } finally {
       vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
         fetchMock(input, init);
