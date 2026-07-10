@@ -1,13 +1,13 @@
 /**
  * EmptyState — shown in an editor leaf with no open tabs. A minimalist
- * landing: a grayscale brand mark over the four primary "create"
- * gestures — rules (all types, via a dropdown), API requests, workflows,
- * and variables (all scopes, via a dropdown). Icons mirror the matching
- * sidebar tool windows so the actions read as shortcuts into those
- * surfaces.
+ * landing: a grayscale brand mark over the primary "create" gestures —
+ * rules (all types, via a dropdown), API requests, workflows, and
+ * variables (all scopes, via a dropdown) — plus the import hub. Icons
+ * mirror the matching sidebar tool windows so the actions read as
+ * shortcuts into those surfaces.
  */
 
-import { RightOutlined, SisternodeOutlined } from '@ant-design/icons';
+import { ImportOutlined, RightOutlined, SisternodeOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
 import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
@@ -33,6 +33,8 @@ interface EmptyStateProps {
   onCreateRequest: () => void;
   onCreateWorkflow: () => void;
   onCreateVariable: (scope: VariableCreateScope) => void;
+  /** Opens the import hub — formats are auto-detected there. */
+  onImport: () => void;
 }
 
 /** Variable-scope dropdown, mirroring the rule-type menu. Scope badges
@@ -141,6 +143,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   onCreateRequest,
   onCreateWorkflow,
   onCreateVariable,
+  onImport,
 }) => {
   const showHints = useSettingValue('general.showEmptyStateHints');
   // Viewport fit for the two dropdown menus — caps each menu to the room
@@ -225,6 +228,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           description="Chain and schedule API requests"
           showDescription={showHints}
           onClick={onCreateWorkflow}
+        />
+        <ActionRow
+          icon={<ImportOutlined />}
+          label="Import"
+          description="Curl, HAR, Postman, and more"
+          showDescription={showHints}
+          onClick={onImport}
         />
       </div>
     </div>

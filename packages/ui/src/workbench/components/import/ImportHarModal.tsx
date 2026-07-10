@@ -16,7 +16,7 @@
  * selection. Selecting fewer entries reduces `summary.imported`.
  */
 
-import { DownloadOutlined, InfoCircleOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
+import { ImportOutlined, InfoCircleOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
 import {
   diffImportReports,
   type HarParsedEntry,
@@ -308,9 +308,10 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
                 Cancel
               </Button>
               <Button
-                type="primary"
+                color="orange"
+                variant="solid"
                 size="small"
-                icon={<DownloadOutlined />}
+                icon={<ImportOutlined />}
                 onClick={() => void handleImport()}
                 disabled={!canImport}
                 loading={busy}

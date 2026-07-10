@@ -8,7 +8,7 @@
  *   - buildRequestImportMenuItems → API Requests "Add request" menu
  */
 
-import { DownloadOutlined, FolderOpenOutlined, PlusOutlined } from '@ant-design/icons';
+import { FolderOpenOutlined, ImportOutlined, PlusOutlined } from '@ant-design/icons';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 
 interface BuildCreateMenuItemsOptions {
@@ -65,7 +65,7 @@ export function buildRequestImportMenuItems({
           { type: 'divider' as const, key: 'div-import' },
           {
             key: 'import',
-            icon: <DownloadOutlined />,
+            icon: <ImportOutlined />,
             label: 'Import…',
             onClick: () => onImport(),
           },

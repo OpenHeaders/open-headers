@@ -20,9 +20,9 @@
  */
 
 import {
-  DownloadOutlined,
   ExperimentOutlined,
   FolderOutlined,
+  ImportOutlined,
   InfoCircleOutlined,
   UploadOutlined,
   WarningOutlined,
@@ -301,9 +301,10 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
             Cancel
           </Button>
           <Button
-            type="primary"
+            color="orange"
+            variant="solid"
             size="small"
-            icon={<DownloadOutlined />}
+            icon={<ImportOutlined />}
             onClick={() => void handleImport()}
             disabled={!canImport}
             loading={busy}

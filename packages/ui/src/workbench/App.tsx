@@ -996,6 +996,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         onCreateRequest={() => openCreateRequestTab()}
         onCreateWorkflow={() => openCreateLiveWorkflow()}
         onCreateVariable={handleCreateVariable}
+        onImport={() => importExportRef.current?.openImportSource()}
       />
     ),
     [openCreateTab, handleBrowseTemplates, openCreateRequestTab, openCreateLiveWorkflow, handleCreateVariable],

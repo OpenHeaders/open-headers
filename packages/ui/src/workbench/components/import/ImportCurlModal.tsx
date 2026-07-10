@@ -25,7 +25,7 @@
  *   4. Close the modal + open the new request in an editor tab.
  */
 
-import { DownloadOutlined, InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { ImportOutlined, InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import {
   CurlParseError,
   diffImportReports,
@@ -312,9 +312,10 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
               Cancel
             </Button>
             <Button
-              type="primary"
+              color="orange"
+              variant="solid"
               size="small"
-              icon={<DownloadOutlined />}
+              icon={<ImportOutlined />}
               onClick={() => void handleImport()}
               disabled={!canImport}
               loading={busy}
