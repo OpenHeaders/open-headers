@@ -61,6 +61,21 @@ export class WorkbenchPage {
     ) as Promise<T>;
   }
 
+  /** Resolve the browser tab id of the first tab whose URL starts with
+   *  `url` — the workbench is an extension page, so `chrome.tabs.query`
+   *  is available in its realm. */
+  async tabIdForUrl(url: string): Promise<number> {
+    const tabId = await this.page.evaluate(
+      (prefix: string) =>
+        new Promise<number | null>((resolve) => {
+          chrome.tabs.query({ url: `${prefix}*` }, (tabs) => resolve(tabs[0]?.id ?? null));
+        }),
+      url,
+    );
+    if (typeof tabId !== 'number') throw new Error(`no tab matches ${url}`);
+    return tabId;
+  }
+
   /** Persist a request via the real CRUD RPC; returns its generated uid. */
   async seedRequest(seed: RequestSeed): Promise<string> {
     const res = await this.rpc<{ success: boolean; request?: { uid: string }; error?: string }>('createLocalRequest', {

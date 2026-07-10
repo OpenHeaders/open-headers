@@ -1,0 +1,260 @@
+/**
+ * Quick-editor compact decoder e2e — the value-detection plane of the
+ * devtools panel's rule quick-editor popover, where the inline
+ * `CompactValueEditor` replaces the portal modals (a modal can't live
+ * inside the hover popover).
+ *
+ * The panel runs OUTSIDE a DevTools window: `panel.html?ohInspectTabId=N`
+ * binds the plain-tab panel to an inspected tab (the e2e hook in
+ * `install-navigation-host.ts`), and the CDP pin (`setCdpTabPin`) feeds
+ * its lifecycle plane without `chrome.devtools` — Playwright cannot
+ * attach to a real DevTools window.
+ *
+ * The loop under test: a published header rule fires on playground
+ * traffic → the request row's Matched Rules panel hover-opens the
+ * quick editor → the Basic-base64 value field carries the rail icon →
+ * clicking it expands the INLINE editor (role=group, NO modal) →
+ * decoded seed, save-disabled-when-clean, Esc closes the editor but
+ * pins the popover open, preview shows the exact re-encode → compact
+ * Save writes the field → popover Save persists the rule with
+ * `published` intact → the re-fired request carries the edited value
+ * on the wire.
+ */
+
+import path from 'node:path';
+import { type BrowserContext, chromium, expect, type Locator, type Page, test } from '@playwright/test';
+import { WorkbenchPage } from './pages/workbench-page';
+
+const extensionPath = path.resolve(__dirname, '../../dist/chrome');
+
+const PLAYGROUND_URL = 'http://127.0.0.1:3000/';
+const ECHO_PATH = '/api/echo';
+
+let context: BrowserContext;
+let extensionId: string;
+let workbench: WorkbenchPage;
+let playgroundPage: Page;
+let panelPage: Page;
+
+const b64 = (text: string) => Buffer.from(text).toString('base64');
+const BASIC_ORIGINAL = `Basic ${b64('user@openheaders.io:hunter2!!')}`;
+const BASIC_EDITED = `Basic ${b64('admin@openheaders.io:rotated2026!!')}`;
+const RULE_NAME = 'Panel decoder rule';
+const HEADER_NAME = 'X-OH-Deco';
+
+interface EchoHeaders {
+  headers: Record<string, string | string[] | undefined>;
+}
+
+/** Fire a same-origin /api/echo fetch from the playground page and
+ *  return the reflected request headers. */
+function echoFetch(): Promise<EchoHeaders> {
+  return playgroundPage.evaluate(
+    (path: string) => fetch(path).then((r) => r.json() as Promise<EchoHeaders>),
+    ECHO_PATH,
+  );
+}
+
+/** The open quick-editor popover. */
+function popover(): Locator {
+  return panelPage.locator('[data-rule-popover-root]').filter({ visible: true }).first();
+}
+
+/** The inline compact editor card. */
+function compactEditor(): Locator {
+  return popover().getByRole('group', { name: 'Base64 value' });
+}
+
+/** The popover's Header Value cell (the compact `DetectedValueInput`). */
+function valueCell(): Locator {
+  return popover()
+    .locator('.oh-template-input-wrapper')
+    .filter({ has: panelPage.getByLabel('Edit Base64 value', { exact: true }) })
+    .first();
+}
+
+async function valueCellText(): Promise<string> {
+  return (await valueCell().locator('.oh-template-input-editable').innerText()).replace(/\u00a0/g, ' ').trim();
+}
+
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  context = await chromium.launchPersistentContext('', {
+    headless: false,
+    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
+    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
+  });
+  const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
+  extensionId = sw.url().split('/')[2]!;
+
+  const workbenchPage = await context.newPage();
+  workbench = await WorkbenchPage.open(workbenchPage, extensionId);
+
+  // ── Publish the header rule through the real editor Save flow ────
+  // (rules are minted by sync mutators, not a bare RPC; the editor's
+  // Save is also the publication gate the DNR compile hangs on).
+  const col = await workbench.rpc<{ success: boolean }>('createLocalCollection', { name: 'Panel decoder rules' });
+  expect(col.success).toBe(true);
+  const draftRes = await workbench.rpc<{ success: boolean; nonce?: string }>('createRuleDraft', {
+    draft: {
+      type: 'header',
+      name: RULE_NAME,
+      // Domain-form filter: the wire plane (raw DNR urlFilter,
+      // substring) and the panel projections (formatUrlPattern →
+      // '*://127.0.0.1:3000/*') agree on this shape. A path-only
+      // filter ('/api/echo') fires on the wire too but the projection
+      // side only matches it from the compiler fix this session — the
+      // domain form keeps this spec independent of build staleness.
+      urlFilter: '127.0.0.1:3000',
+      requestHeaders: [{ operation: 'override', headerName: HEADER_NAME, value: BASIC_ORIGINAL }],
+    },
+  });
+  expect(draftRes.success).toBe(true);
+  await sw.evaluate(
+    async ({ url, intent }: { url: string; intent: object }) => {
+      const tabs: chrome.tabs.Tab[] = await new Promise((resolve) => {
+        chrome.tabs.query({ url: `${url}*` }, (found) => resolve(found));
+      });
+      const tabId = tabs[0]?.id;
+      if (typeof tabId !== 'number') return;
+      try {
+        await new Promise<void>((resolve) => {
+          chrome.tabs.sendMessage(tabId, { type: 'workspace-intent', intent }, () => {
+            void chrome.runtime.lastError;
+            resolve();
+          });
+        });
+      } catch {
+        // Listener doesn't respond; the message WAS delivered.
+      }
+    },
+    {
+      url: `chrome-extension://${extensionId}/workbench.html`,
+      intent: { kind: 'create-rule', ruleType: 'header', draftNonce: draftRes.nonce },
+    },
+  );
+  await workbenchPage.getByRole('button', { name: /Save$/ }).filter({ visible: true }).first().click();
+  const saveModal = workbenchPage.getByRole('dialog').filter({ hasText: 'Save to' }).filter({ visible: true }).first();
+  await expect(saveModal).toBeVisible();
+  await saveModal.getByRole('option').filter({ hasText: 'Panel decoder rules' }).click();
+  await saveModal.getByRole('button', { name: /Save$/ }).click();
+  await expect(saveModal).toBeHidden();
+
+  // ── Playground traffic: poll until the published rule rides DNR ──
+  playgroundPage = await context.newPage();
+  await playgroundPage.goto(PLAYGROUND_URL);
+  await expect
+    .poll(async () => (await echoFetch()).headers[HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+    .toBe(BASIC_ORIGINAL);
+
+  // ── Pin the tab into CDP so the panel gets a lifecycle feed with no
+  //    DevTools window, then open the plain-tab panel bound to it. ──
+  const tabId = await workbench.tabIdForUrl(PLAYGROUND_URL);
+  const pin = await workbench.rpc<{ success: boolean }>('setCdpTabPin', { tabId, pinned: true });
+  expect(pin.success).toBe(true);
+
+  panelPage = await context.newPage();
+  await panelPage.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${tabId}`);
+  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
+
+  // Attach is async — keep re-firing until a captured row shows up.
+  await expect(async () => {
+    await echoFetch();
+    await expect(panelPage.locator('.dt-row').filter({ hasText: 'echo' }).first()).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+});
+
+test.afterAll(async () => {
+  await context.close();
+});
+
+test.describe('Panel quick editor — compact inline decoder', () => {
+  test('the matched-rule hover opens the quick editor with the rail on the value field', async () => {
+    await panelPage.locator('.dt-row').filter({ hasText: 'echo' }).first().click();
+
+    const matchedTab = panelPage.locator('[data-tool-window="matched-rules"]').first();
+    if ((await matchedTab.getAttribute('aria-selected')) !== 'true') {
+      await matchedTab.click();
+    }
+    // Diagnostic-first: on a miss this prints the panel's whole text
+    // (Matched / Future counts and row names) instead of a bare
+    // element-not-found. The rule may land in either section — a fire
+    // join gap still leaves the published rule as a future match, and
+    // both row shapes hover-open the same quick editor.
+    await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(RULE_NAME, { timeout: 10_000 });
+    const ruleRow = panelPage.locator('.dt-matched-rule').filter({ hasText: RULE_NAME }).first();
+    await expect(ruleRow).toBeVisible();
+    await ruleRow.hover();
+    await expect(popover()).toBeVisible();
+    await expect(valueCell()).toBeVisible();
+    expect(await valueCellText()).toBe(BASIC_ORIGINAL);
+  });
+
+  test('the rail icon expands the INLINE editor — no portal modal, decoded seed, Save disabled clean', async () => {
+    const cell = valueCell();
+    await cell.hover();
+    await cell.getByLabel('Edit Base64 value', { exact: true }).click();
+
+    const editor = compactEditor();
+    await expect(editor).toBeVisible();
+    // Inline by design: the whole point of the compact variant is that
+    // no modal ever portals over the popover.
+    await expect(panelPage.locator('.ant-modal').filter({ visible: true })).toHaveCount(0);
+
+    const textarea = editor.getByLabel('Base64 value decoded text');
+    await expect(textarea).toHaveValue('user@openheaders.io:hunter2!!');
+    await expect(editor.getByRole('button', { name: /Save$/ })).toBeDisabled();
+    // Clean text → no divergence → no preview block.
+    await expect(editor.getByText('Encoded preview')).toHaveCount(0);
+  });
+
+  test('Escape closes the inline editor but leaves the quick popover open', async () => {
+    await compactEditor().getByLabel('Base64 value decoded text').press('Escape');
+    await expect(compactEditor()).toHaveCount(0);
+    await expect(popover()).toBeVisible();
+  });
+
+  test('an edited credential previews the exact re-encode and writes back under the Basic prefix', async () => {
+    const cell = valueCell();
+    await cell.hover();
+    await cell.getByLabel('Edit Base64 value', { exact: true }).click();
+    const editor = compactEditor();
+
+    await editor.getByLabel('Base64 value decoded text').fill('admin@openheaders.io:rotated2026!!');
+    // The preview IS what Save writes — prefix carried.
+    await expect(editor.getByText('Encoded preview')).toBeVisible();
+    await expect(editor).toContainText(BASIC_EDITED);
+
+    const save = editor.getByRole('button', { name: /Save$/ });
+    await expect(save).toBeEnabled();
+    await save.click();
+    await expect(compactEditor()).toHaveCount(0);
+    expect(await valueCellText()).toBe(BASIC_EDITED);
+  });
+
+  test('the popover Save persists the edit with publication intact, and it rides the wire', async () => {
+    await popover().getByRole('button', { name: /Save$/ }).click();
+
+    interface StoredHeaderRule {
+      type: string;
+      name?: string;
+      published?: boolean;
+      action?: { requestHeaders?: Array<{ headerName: string; value?: string }> };
+    }
+    await expect
+      .poll(async () => {
+        const res = await workbench.rpc<{ rules: StoredHeaderRule[] }>('getLocalRules');
+        const rule = res.rules.find((r) => r.name === RULE_NAME);
+        return {
+          value: rule?.action?.requestHeaders?.find((h) => h.headerName === HEADER_NAME)?.value,
+          published: rule?.published,
+        };
+      })
+      .toEqual({ value: BASIC_EDITED, published: true });
+
+    // Re-fire: the DNR recompile lands async after the mutation.
+    await expect
+      .poll(async () => (await echoFetch()).headers[HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+      .toBe(BASIC_EDITED);
+  });
+});

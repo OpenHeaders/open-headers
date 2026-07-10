@@ -117,6 +117,16 @@ export function compilePatternToRegexSource(pattern: string): string | null {
   const trimmed = pattern.trim().toLowerCase();
   if (trimmed === '*') return null;
 
+  // Chrome's urlFilter is a SUBSTRING match unless anchored. A pattern
+  // starting with '/' is a path fragment ('/api/echo') — the domain
+  // normalization below would mint '*:///api/echo', which no URL
+  // contains, so the wire plane (raw urlFilter → DNR) would match while
+  // every projection built on this compiler denied it. Compile path
+  // fragments as the unanchored substring Chrome matches.
+  if (trimmed.startsWith('/')) {
+    return trimmed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  }
+
   let urlFilter = formatUrlPattern(trimmed);
 
   // IDN normalization — if pattern contains non-ASCII, parse it as a

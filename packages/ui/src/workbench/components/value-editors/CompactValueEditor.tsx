@@ -12,9 +12,10 @@
 
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { claimEscape } from '@openheaders/ui/shared/popover';
 import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SAVE_ACCENT, SAVE_SHORTCUT } from './EditorModalFooter';
 
 const { Text } = Typography;
@@ -41,6 +42,28 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
 }) => {
   const { token } = theme.useToken();
   const [text, setText] = useState(decoded);
+
+  // Hold the Escape claim while mounted: the quick-editor popover's
+  // dismiss listener runs at window CAPTURE phase, so this component's
+  // own onKeyDown (bubble) can't stop it — the claim stack is how a
+  // later-mounted layer tells the popover to stand down. The claim
+  // comes with its own capture listener so Escape cancels THIS editor
+  // wherever focus sits, and only the next press closes the popover.
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  useEffect(() => {
+    const claim = claimEscape();
+    const onWindowKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || !claim.owns()) return;
+      e.stopPropagation();
+      onCancelRef.current();
+    };
+    window.addEventListener('keydown', onWindowKeyDown, true);
+    return () => {
+      claim.release();
+      window.removeEventListener('keydown', onWindowKeyDown, true);
+    };
+  }, []);
 
   const encoded = useMemo(() => encode(text), [encode, text]);
   const isDirty = text !== decoded;

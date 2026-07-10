@@ -209,15 +209,33 @@ function observeActiveTabContext(onChange: () => void): () => void {
 }
 
 /**
+ * Explicit inspected-tab override for a panel page loaded OUTSIDE a
+ * DevTools window (`panel.html?ohInspectTabId=<id>` in a regular tab).
+ * The DevTools host is the only place `chrome.devtools` exists, and it
+ * always loads the panel without query params, so the override can
+ * never shadow a real DevTools binding — it only gives a plain-tab
+ * panel (e2e harnesses, debugging) a tab to scope its feeds to.
+ */
+function inspectedTabIdOverride(): number | null {
+  if (typeof window === 'undefined' || !window.location?.search) return null;
+  const raw = new URLSearchParams(window.location.search).get('ohInspectTabId');
+  if (raw === null) return null;
+  const id = Number(raw);
+  return Number.isInteger(id) && id >= 0 ? id : null;
+}
+
+/**
  * The tab a DevTools panel is inspecting, read from
  * `chrome.devtools.inspectedWindow`. `null` outside a DevTools context
  * (popup, side panel, tests) — `chrome.devtools` is absent there, so the
- * panel-only hooks that scope to this id no-op cleanly.
+ * panel-only hooks that scope to this id no-op cleanly — unless the page
+ * was opened with an explicit `ohInspectTabId` override (plain-tab panel).
  */
 function inspectedTabId(): number | null {
   const devtools = (chrome as unknown as { devtools?: { inspectedWindow?: { tabId?: number } } }).devtools;
   const id = devtools?.inspectedWindow?.tabId;
-  return typeof id === 'number' ? id : null;
+  if (typeof id === 'number') return id;
+  return inspectedTabIdOverride();
 }
 
 /**

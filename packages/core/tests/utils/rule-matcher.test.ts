@@ -84,6 +84,21 @@ describe('compilePatternToRegexSource', () => {
     const re = new RegExp(src!, 'i');
     expect(re.test('HTTPS://OpenHeaders.io/')).toBe(true);
   });
+
+  it('compiles a path fragment as an unanchored substring (Chrome urlFilter parity)', () => {
+    const src = compilePatternToRegexSource('/api/echo');
+    const re = new RegExp(src!, 'i');
+    expect(re.test('http://openheaders.io/api/echo')).toBe(true);
+    expect(re.test('https://openheaders.io/api/echo?x=1')).toBe(true);
+    expect(re.test('https://openheaders.io/api/other')).toBe(false);
+  });
+
+  it('expands wildcards inside a path fragment', () => {
+    const src = compilePatternToRegexSource('/api/*/echo');
+    const re = new RegExp(src!, 'i');
+    expect(re.test('https://openheaders.io/api/v2/echo')).toBe(true);
+    expect(re.test('https://openheaders.io/api/echo')).toBe(false);
+  });
 });
 
 // ── getRuleMatchPatterns ─────────────────────────────────────────
