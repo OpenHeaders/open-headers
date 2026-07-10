@@ -348,12 +348,7 @@ export class WorkbenchPage {
   /** Right-click INSIDE the current selection (first rendered line) so
    *  Monaco keeps the selection and shows its context menu. */
   async openMonacoContextMenu(index: number): Promise<void> {
-    const line = this.page
-      .locator('.monaco-editor')
-      .filter({ visible: true })
-      .nth(index)
-      .locator('.view-line')
-      .first();
+    const line = this.page.locator('.monaco-editor').filter({ visible: true }).nth(index).locator('.view-line').first();
     await line.click({ button: 'right', position: { x: 10, y: 5 } });
     await this.page.locator('.monaco-menu').first().waitFor({ state: 'visible', timeout: 5000 });
     // Monaco arms each menu item's mouse-up listener 100 ms AFTER the
@@ -439,7 +434,26 @@ export class WorkbenchPage {
    * one line instead.
    */
   async fillMonaco(index: number, text: string): Promise<void> {
-    const ed = this.page.locator('.monaco-editor').filter({ visible: true }).nth(index);
+    await this.fillMonacoEditor(this.page.locator('.monaco-editor').filter({ visible: true }).nth(index), text);
+  }
+
+  /** Replace the contents of the Nth Monaco editor INSIDE `scope` (e.g.
+   *  a modal dialog) — same single-line bulk-insert contract as
+   *  {@link fillMonaco}, WITHOUT the suggest-dismissing Escape: inside
+   *  an antd Modal the unconsumed Escape bubbles to the dialog and
+   *  closes it, discarding the edit. */
+  async fillMonacoWithin(scope: Locator, index: number, text: string): Promise<void> {
+    await this.fillMonacoEditor(scope.locator('.monaco-editor').nth(index), text, { dismissSuggest: false });
+  }
+
+  /** Read the visible text of the Nth Monaco editor inside `scope` —
+   *  same short-buffer caveat as {@link monacoText}. */
+  async monacoTextWithin(scope: Locator, index: number): Promise<string> {
+    const ed = scope.locator('.monaco-editor').nth(index);
+    return (await ed.locator('.view-lines').innerText()).replace(/\u00a0/g, ' ');
+  }
+
+  private async fillMonacoEditor(ed: Locator, text: string, opts?: { dismissSuggest?: boolean }): Promise<void> {
     await ed.click();
     await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
     await this.page.keyboard.press('Backspace');
@@ -447,7 +461,7 @@ export class WorkbenchPage {
     // Inserting identifier characters opens Monaco's suggest widget; a
     // later click anywhere near it can ACCEPT a completion and corrupt
     // the buffer (`c` → `clearInterval`). Dismiss it while it exists.
-    if (text.trim()) await this.page.keyboard.press('Escape');
+    if (text.trim() && opts?.dismissSuggest !== false) await this.page.keyboard.press('Escape');
   }
 
   // ── Response readback ───────────────────────────────────────────
