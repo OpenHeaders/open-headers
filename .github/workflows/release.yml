@@ -172,8 +172,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Secrets are not readable in step `if:` expressions, so surface
+      # their presence as an output; missing credentials mean the
+      # Setup.exe ships unsigned instead of failing the leg.
+      - name: Check Windows signing credentials
+        if: matrix.os == 'windows-2022'
+        id: win_sign
+        run: |
+          if [ -n "$ES_USERNAME" ] && [ -n "$ES_PASSWORD" ] && [ -n "$CREDENTIAL_ID" ] && [ -n "$ES_TOTP_SECRET" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::notice::Windows signing secrets not configured - publishing unsigned Setup.exe"
+          fi
+        shell: bash
+        env:
+          ES_USERNAME: ${{ secrets.ES_USERNAME }}
+          ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
+          CREDENTIAL_ID: ${{ secrets.CREDENTIAL_ID }}
+          ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
+
       - name: Find Windows Executable
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true'
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
         id: find-exe
         run: |
           $exeFile = Get-ChildItem -Path "apps/desktop/dist" -Filter "*-Setup.exe" -File | Select-Object -First 1
@@ -183,7 +203,7 @@ jobs:
         shell: pwsh
 
       - name: Sign Windows Executables
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true'
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
         uses: sslcom/esigner-codesign@v1.3.1
         with:
           command: sign
@@ -200,7 +220,7 @@ jobs:
           signing_method: v1
 
       - name: Update latest.yml and blockmap after signing
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true'
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
         run: |
           $exePath = "apps/desktop/dist/${{ steps.find-exe.outputs.EXE_FILENAME }}"
           $blockmapPath = "$exePath.blockmap"
