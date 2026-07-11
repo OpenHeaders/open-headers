@@ -112,6 +112,7 @@ import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
+import { useAppUpdateTask } from '@openheaders/ui/shared/background-tasks';
 import { AppUpdateToast, useAppUpdateNotification, useSeedNotifications } from '@openheaders/ui/shared/notifications';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 import { EnvSwitcherProvider } from './services/env-switcher';
@@ -374,8 +375,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const tl = useToolLayout(perTab);
 
   // Host-reported app updates land in the Notifications timeline
-  // (no-op on hosts without the getAppUpdate capability).
+  // (no-op on hosts without the getAppUpdate capability), and the
+  // updater's busy phases drive the footer's background-task indicator.
   useAppUpdateNotification();
+  useAppUpdateTask();
   useSeedNotifications();
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -1242,7 +1245,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onSetCollectionPinnedEnvs={setCollectionPinnedEnvsByFamily}
           />
 
-          <OrgWorkspaceAccessNotice workspaces={workspacesApi.workspaces} onSwitchWorkspace={handleSwitchWorkspace} />
+          <OrgWorkspaceAccessNotice
+            workspaces={workspacesApi.workspaces}
+            activeWorkspaceId={workspacesApi.activeWorkspaceId}
+            onSwitchWorkspace={handleSwitchWorkspace}
+          />
 
           <AppUpdateToast onOpenAbout={() => openSettings({ categoryId: 'about' })} />
 

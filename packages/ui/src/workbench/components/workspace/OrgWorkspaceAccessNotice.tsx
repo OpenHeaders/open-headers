@@ -33,11 +33,23 @@ import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 
 interface OrgWorkspaceAccessNoticeProps {
   workspaces: ExtensionWorkspace[];
+  /**
+   * The workspace this session is currently on. When a grant arrives for
+   * the workspace already active — e.g. a fresh login adopted the
+   * daemon's active workspace (join → adopt) — the announcement drops
+   * its "Open workspace" action, which would be a no-op switch, and
+   * acknowledges the access in place instead.
+   */
+  activeWorkspaceId: string | null;
   /** Switch THIS tab to the arrived workspace (the announcement's action). */
   onSwitchWorkspace: (id: string) => void;
 }
 
-const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({ workspaces, onSwitchWorkspace }) => {
+const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
+  workspaces,
+  activeWorkspaceId,
+  onSwitchWorkspace,
+}) => {
   const { notification } = App.useApp();
   const snapshot = useIdentitySnapshot();
   const bindings = getOrgBackendBindings();
@@ -63,19 +75,30 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({ wor
     for (const ws of consumed) {
       if (known.has(ws.id)) continue;
       known.add(ws.id);
+      // Already on this workspace (a login adopted it) ⇒ acknowledge in
+      // place with no "Open workspace" action, which would switch to the
+      // workspace already open and so do nothing.
+      const alreadyActive = ws.id === activeWorkspaceId;
+      const toastKey = `org-workspace-arrival-${ws.id}`;
       notification.success({
-        message: `"${ws.name}" is now available`,
+        key: toastKey,
+        message: alreadyActive ? `You now have access to "${ws.name}"` : `"${ws.name}" is now available`,
         description: (
           <span data-testid={`org-workspace-arrival-${ws.id}`}>
-            An admin granted you access. Find it anytime in the workspace switcher.
+            {alreadyActive
+              ? "An admin granted you access — you're working in it now."
+              : 'An admin granted you access. Find it anytime in the workspace switcher.'}
           </span>
         ),
-        btn: (
+        btn: alreadyActive ? undefined : (
           <Button
             type="primary"
             size="small"
             data-testid={`org-workspace-arrival-open-${ws.id}`}
-            onClick={() => onSwitchWorkspace(ws.id)}
+            onClick={() => {
+              onSwitchWorkspace(ws.id);
+              notification.destroy(toastKey);
+            }}
           >
             Open workspace
           </Button>
@@ -84,13 +107,15 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({ wor
       });
       pushNotification({
         severity: 'success',
-        title: `Workspace "${ws.name}" is now available`,
-        description: 'An admin granted you access — it appears in the workspace switcher.',
+        title: alreadyActive ? `You now have access to "${ws.name}"` : `Workspace "${ws.name}" is now available`,
+        description: alreadyActive
+          ? "An admin granted you access — you're working in it now."
+          : 'An admin granted you access — it appears in the workspace switcher.',
         dedupeKey: `org-workspace-arrived:${ws.id}`,
-        actions: [{ label: 'Open workspace', run: () => onSwitchWorkspace(ws.id) }],
+        ...(alreadyActive ? {} : { actions: [{ label: 'Open workspace', run: () => onSwitchWorkspace(ws.id) }] }),
       });
     }
-  }, [hydrated, consumedKey, notification, onSwitchWorkspace]);
+  }, [hydrated, consumedKey, activeWorkspaceId, notification, onSwitchWorkspace]);
 
   if (!hydrated) return null;
   const zeroGrantOrgs = [...bindings.keys()].filter((orgId) => !consumed.some((ws) => ws.orgId === orgId));
