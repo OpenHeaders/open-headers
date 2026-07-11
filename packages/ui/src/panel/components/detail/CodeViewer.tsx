@@ -13,13 +13,17 @@
  *   • Detected-JWT underlines whose hover opens the shared JWT modal —
  *     a viewer on read-only buffers, an editor writing back into the
  *     buffer on editable ones.
+ *   • Whole-buffer decode chip when the entire buffer is one detected
+ *     encoded value — same viewer/editor split via the shared
+ *     encoded-value modal.
  */
 
 import Editor from '@monaco-editor/react';
 import { useTheme } from '@openheaders/ui/context';
 import { useMonacoJwtEdit } from '@openheaders/ui/workbench/components/value-editors/useMonacoJwtEdit';
+import { useWholeBufferDecode } from '@openheaders/ui/workbench/components/value-editors/useWholeBufferDecode';
 import type * as monaco from 'monaco-editor';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 // Side-effect import: kicks Monaco's bootstrap at module load.
 import '@openheaders/ui/workbench/components/monaco/bootstrap';
 
@@ -44,6 +48,11 @@ interface CodeViewerProps {
    *  on editable ones. Consumers whose value semantics own JWT handling
    *  themselves opt out. */
   jwtDetection?: boolean;
+  /** Whole-buffer decode affordance (corner "Decode" chip opening the
+   *  encoded-value modal when the entire buffer is one detected value).
+   *  Same read-only/editable split as the JWT plane. Consumers that ARE
+   *  the decoded document of a detected value opt out. */
+  decodeAffordance?: boolean;
 }
 
 export default function CodeViewer({
@@ -55,12 +64,28 @@ export default function CodeViewer({
   searchQuery,
   searchMatchIndex,
   jwtDetection = true,
+  decodeAffordance = true,
 }: CodeViewerProps) {
   const { monacoTheme } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
   const decorationIdsRef = useRef<string[]>([]);
   const { attachJwtDetection, jwtModal } = useMonacoJwtEdit({ readOnly });
+
+  // Whole-buffer write-back rides the editor's edit stack (undoable,
+  // and Monaco's own change event carries it up through `onChange`).
+  const applyWholeBuffer = useCallback((encoded: string) => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (!editor || !model) return;
+    editor.executeEdits('oh-decode-edit', [{ range: model.getFullModelRange(), text: encoded }]);
+  }, []);
+  const { decodeChip, decodeModal } = useWholeBufferDecode({
+    value,
+    readOnly,
+    enabled: decodeAffordance,
+    onApply: !readOnly && onChange ? applyWholeBuffer : undefined,
+  });
 
   // Apply search-match decorations + scroll to the active match whenever
   // the query, match index, or value changes. `value` is in the dep list
@@ -108,6 +133,7 @@ export default function CodeViewer({
 
   return (
     <div className="dt-codemirror-wrap">
+      {decodeChip}
       <button
         type="button"
         className="dt-codeviewer-find"
@@ -165,6 +191,7 @@ export default function CodeViewer({
         }}
       />
       {jwtModal}
+      {decodeModal}
     </div>
   );
 }

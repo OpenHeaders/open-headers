@@ -10,6 +10,7 @@
  *   - `TextBodyToolbar` shows pretty-print + sniffer + cursor info
  */
 
+import { useWholeBufferDecode } from '@openheaders/ui/workbench/components/value-editors/useWholeBufferDecode';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { canPrettyPrint, detectLanguage } from '../../data/mime';
 import { useSniffedContent } from '../../data/use-sniffed-content';
@@ -75,6 +76,12 @@ export default function TextBodyViewer({
     [],
   );
 
+  // Decode affordance for the plain-text branch — the Monaco branch
+  // carries its own inside CodeViewer, so detection only runs here when
+  // the body renders as a <pre> (exactly where base64/url-encoded
+  // plain-text bodies land).
+  const { decodeChip, decodeModal } = useWholeBufferDecode({ value: text, readOnly: true, enabled: !lang });
+
   useEffect(() => {
     if (!prettyPrint || !lang || !text) {
       setFormattedText(null);
@@ -130,7 +137,11 @@ export default function TextBodyViewer({
       />
     </Suspense>
   ) : (
-    <pre className="dt-body-pre">{displayText}</pre>
+    <div className="dt-body-pre-wrap">
+      {decodeChip}
+      <pre className="dt-body-pre">{displayText}</pre>
+      {decodeModal}
+    </div>
   );
 
   return (

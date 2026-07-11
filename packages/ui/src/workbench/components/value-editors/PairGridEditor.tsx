@@ -44,6 +44,7 @@ interface GridCellInputProps {
   'aria-label': string;
   placeholder?: string;
   inputRef?: React.Ref<HTMLInputElement>;
+  readOnly?: boolean;
 }
 
 /** A grid cell input with an owned undo/redo stack (⌘Z / ⌘⇧Z /
@@ -57,6 +58,7 @@ function GridCellInput({
   'aria-label': ariaLabel,
   placeholder,
   inputRef,
+  readOnly,
 }: GridCellInputProps) {
   const { token } = theme.useToken();
   const historyRef = useRef<EditableHistory | null>(null);
@@ -93,6 +95,7 @@ function GridCellInput({
       aria-label={ariaLabel}
       placeholder={placeholder}
       value={value}
+      readOnly={readOnly}
       onChange={handleChange}
       onKeyDown={handleKeyDown}
       onPaste={() => {
@@ -125,9 +128,11 @@ interface PairGridEditorProps {
    *  editors edit. */
   value: string;
   onChange: (text: string) => void;
+  /** Viewer mode: cells read-only, row actions hidden. */
+  readOnly?: boolean;
 }
 
-export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value, onChange }) => {
+export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value, onChange, readOnly }) => {
   const { token } = theme.useToken();
   const nextIdRef = useRef(0);
   const mintRows = useCallback((segments: PairSegment[]): PairGridRow[] => {
@@ -234,50 +239,58 @@ export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value,
               onValueChange={(text) => updateCell(row.id, 'name', text)}
               aria-label={cellLabel(row, index, 'name')}
               inputRef={focusFreshRow(row.id)}
+              readOnly={readOnly}
             />
             <GridCellInput
               value={row.value ?? ''}
               onValueChange={(text) => updateCell(row.id, 'value', text)}
               aria-label={cellLabel(row, index, 'value')}
               placeholder={row.value === null ? 'flag' : undefined}
+              readOnly={readOnly}
             />
-            <span style={{ display: 'inline-flex', gap: 0 }}>
-              <Button
-                type="text"
-                size="small"
-                icon={<ArrowUpOutlined />}
-                aria-label={`Move row ${index + 1} up`}
-                disabled={index === 0}
-                onClick={() => moveRow(row.id, -1)}
-              />
-              <Button
-                type="text"
-                size="small"
-                icon={<ArrowDownOutlined />}
-                aria-label={`Move row ${index + 1} down`}
-                disabled={index === rows.length - 1}
-                onClick={() => moveRow(row.id, 1)}
-              />
-              <Button
-                type="text"
-                size="small"
-                icon={<DeleteOutlined />}
-                aria-label={`Delete row ${index + 1}`}
-                onClick={() => removeRow(row.id)}
-              />
-            </span>
+            {readOnly ? (
+              <span />
+            ) : (
+              <span style={{ display: 'inline-flex', gap: 0 }}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<ArrowUpOutlined />}
+                  aria-label={`Move row ${index + 1} up`}
+                  disabled={index === 0}
+                  onClick={() => moveRow(row.id, -1)}
+                />
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<ArrowDownOutlined />}
+                  aria-label={`Move row ${index + 1} down`}
+                  disabled={index === rows.length - 1}
+                  onClick={() => moveRow(row.id, 1)}
+                />
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  aria-label={`Delete row ${index + 1}`}
+                  onClick={() => removeRow(row.id)}
+                />
+              </span>
+            )}
           </div>
         ))}
       </div>
-      <Button
-        type="link"
-        size="small"
-        icon={<PlusOutlined />}
-        onClick={addRow}
-        style={{ fontSize: 11, padding: 0, height: 'auto', marginTop: 6, color: token.colorTextSecondary }}
-      >
-        Add row
-      </Button>
+      {!readOnly && (
+        <Button
+          type="link"
+          size="small"
+          icon={<PlusOutlined />}
+          onClick={addRow}
+          style={{ fontSize: 11, padding: 0, height: 'auto', marginTop: 6, color: token.colorTextSecondary }}
+        >
+          Add row
+        </Button>
+      )}
     </div>
   );
 };

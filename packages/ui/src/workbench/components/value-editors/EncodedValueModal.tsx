@@ -32,12 +32,16 @@ interface EncodedValueModalProps {
    *  on save. Null signals the text can't encode for this value type;
    *  Save is disabled while it holds. */
   encode: (text: string) => string | null;
-  onSave: (decodedText: string) => void;
+  onSave?: (decodedText: string) => void;
   onCancel: () => void;
   /** Pair-shaped values (cookie, query-string) edit as a name/value
    *  grid instead of the text buffer — the grid serializes back to the
    *  same decoded line format, so `encode` and Save are untouched. */
   gridType?: PairGridType | null;
+  /** Viewer mode for surfaces with nothing to write back (captured
+   *  bodies, stored responses): the decoded pane is read-only and the
+   *  footer is a single Close. */
+  readOnly?: boolean;
 }
 
 const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
@@ -48,6 +52,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
   onSave,
   onCancel,
   gridType,
+  readOnly = false,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -71,11 +76,11 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
 
   const encoded = useMemo(() => encode(text), [encode, text]);
   const isDirty = text !== decoded;
-  const saveDisabled = !isDirty || !text || encoded === null;
+  const saveDisabled = readOnly || !isDirty || !text || encoded === null;
 
   const handleSave = useCallback(() => {
     if (saveDisabled) return;
-    onSave(text);
+    onSave?.(text);
   }, [saveDisabled, text, onSave]);
 
   const handleKeyDown = useCallback(
@@ -104,7 +109,13 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
       open={open}
       onCancel={onCancel}
       width={760}
-      footer={<EditorModalFooter saveDisabled={saveDisabled} onSave={handleSave} onCancel={onCancel} />}
+      footer={
+        readOnly ? (
+          <Button onClick={onCancel}>Close</Button>
+        ) : (
+          <EditorModalFooter saveDisabled={saveDisabled} onSave={handleSave} onCancel={onCancel} />
+        )
+      }
       centered
       destroyOnHidden
     >
@@ -115,7 +126,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
           </Text>
           {gridType ? (
             <div style={{ maxHeight: 320, overflowY: 'auto' }} className="dt-scrollbar">
-              <PairGridEditor gridType={gridType} value={text} onChange={setText} />
+              <PairGridEditor gridType={gridType} value={text} onChange={setText} readOnly={readOnly} />
             </div>
           ) : (
             <CodeEditor
@@ -124,6 +135,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
               language={language}
               minHeight={220}
               variableAutoComplete={false}
+              readOnly={readOnly}
             />
           )}
         </div>

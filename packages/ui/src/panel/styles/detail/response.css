@@ -272,6 +272,45 @@
   color: var(--dt-text);
 }
 
+/* Whole-buffer decode chip — always visible (it announces that the
+ * buffer IS one detected encoded value), sitting left of the find
+ * button's slot; hidden while the find widget is up, same as the
+ * find launcher. */
+.dt-codeviewer-decode {
+  position: absolute;
+  top: 4px;
+  right: 42px;
+  z-index: 12;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  background: var(--dt-bg);
+  color: var(--dt-text-muted);
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.dt-codemirror-wrap:has(.find-widget.visible) .dt-codeviewer-decode {
+  opacity: 0;
+  pointer-events: none;
+}
+.dt-codeviewer-decode:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+/* Plain-text body host for the same chip (no Monaco wrap, no find
+ * button — the chip takes the corner). */
+.dt-body-pre-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.dt-body-pre-wrap .dt-codeviewer-decode {
+  right: 8px;
+}
+
 /* Detected-JWT underline (value-editors decoration plane) — hover
  * carries the View/Edit JWT command link. */
 .dt-codemirror-wrap .monaco-editor .oh-jwt-token-link {
