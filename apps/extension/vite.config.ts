@@ -6,6 +6,10 @@ import { defineConfig, type Plugin, build as viteBuild } from 'vite';
 
 const browser = process.env.BROWSER || 'chrome';
 const isDev = process.argv.includes('--watch');
+// Two production channels: store packages stay review-permissive
+// (class/function names kept for store review), while the GitHub
+// release channel ships fully mangled builds.
+const isReleaseChannel = process.env.OH_EXT_CHANNEL === 'release';
 const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')) as { version: string };
 
 // CalVer / semver string from package.json, possibly with `-beta.N` suffix.
@@ -305,7 +309,8 @@ export default defineConfig({
     // Vendor (React + Ant Design) and Monaco chunks are large by design — all deps are statically bundled
     chunkSizeWarningLimit: 4600,
     // Dev: skip minification for fast rebuilds
-    // Production: Terser with preserved class/function names for Chrome Web Store compliance
+    // Production: Terser — store channel preserves class/function names
+    // for store review; release channel mangles fully
     minify: isDev ? false : 'terser',
     ...(!isDev && {
       terserOptions: {
@@ -314,10 +319,12 @@ export default defineConfig({
           drop_console: false,
           drop_debugger: false,
         },
-        mangle: {
-          keep_classnames: true,
-          keep_fnames: true,
-        },
+        mangle: isReleaseChannel
+          ? true
+          : {
+              keep_classnames: true,
+              keep_fnames: true,
+            },
         format: {
           beautify: false,
           comments: false,

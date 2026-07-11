@@ -18,6 +18,12 @@ workspaces — straight from the shell, always in sync with what the UI shows.
 npm install -g @openheaders/cli
 ```
 
+No Node.js? Standalone `oh` binaries (macOS, Linux, Windows) ship with every
+release at
+[open-headers-releases](https://github.com/OpenHeaders/open-headers-releases/releases),
+with SHA-256 checksums. The macOS binary is signed and notarized; the Windows
+binary is unsigned, so SmartScreen warns on first run.
+
 ## Quick start
 
 Mint an access token in Open Headers → Settings → MCP, then pair once:

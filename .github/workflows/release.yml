@@ -279,6 +279,115 @@ jobs:
             apps/desktop/dist/*.yml
             apps/desktop/dist/install-open-headers.sh
 
+  # Standalone `oh` (all three OSes) and `ohd` (macOS/Linux — win32 is
+  # not a daemon target) are seconds of build next to the desktop legs,
+  # so every release ships them. Versions come from each app's own
+  # package.json (the extension precedent) — the tag stays the
+  # desktop's version axis.
+  build-binaries:
+    if: ${{ !contains(github.ref_name, '-ext') }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-2022, ubuntu-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # pack:sea builds the SEA bundle, injects it into the runner's
+      # Node, and verifies the binary's contract before anything ships.
+      - name: Build and verify oh SEA binary
+        run: |
+          pnpm turbo build --filter=@openheaders/cli
+          pnpm --filter @openheaders/cli run pack:sea
+        shell: bash
+
+      # The daemon binary embeds the built web app when present.
+      - name: Build and verify ohd SEA binary
+        if: matrix.os != 'windows-2022'
+        run: |
+          pnpm turbo build --filter=@openheaders/daemon --filter=@openheaders/web
+          pnpm --filter @openheaders/daemon run pack:sea
+        shell: bash
+
+      - name: Setup macOS code signing
+        if: matrix.os == 'macos-latest'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE }}
+          p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      # pack:sea leaves ad-hoc signatures; re-sign with Developer ID
+      # (hardened runtime + timestamp, required for notarization), then
+      # notarize both binaries in one submission. Flat binaries can't
+      # be stapled — Gatekeeper resolves the ticket from Apple's
+      # servers on first quarantined run.
+      - name: Sign and notarize binaries (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No Developer ID Application identity in the keychain"
+            exit 1
+          fi
+          mkdir -p notarize-stage
+          for BINARY in apps/cli/dist-sea/oh apps/daemon/dist-sea/ohd; do
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp "$BINARY"
+            codesign --verify --strict "$BINARY"
+            # The signed binary must still answer
+            "$BINARY" --version
+            cp "$BINARY" notarize-stage/
+          done
+          ditto -c -k notarize-stage notarize.zip
+          xcrun notarytool submit notarize.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Stage binary assets
+        run: |
+          mkdir -p release-binaries
+          OH_VERSION=$(node -p "require('./apps/cli/package.json').version")
+          case "${{ matrix.os }}" in
+            macos-latest) OS_ARCH=mac-arm64 ;;
+            ubuntu-latest) OS_ARCH=linux-x64 ;;
+            windows-2022) OS_ARCH=win-x64 ;;
+          esac
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            cp apps/cli/dist-sea/oh.exe "release-binaries/oh-${OH_VERSION}-${OS_ARCH}.exe"
+          else
+            OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
+            cp apps/cli/dist-sea/oh "release-binaries/oh-${OH_VERSION}-${OS_ARCH}"
+            cp apps/daemon/dist-sea/ohd "release-binaries/ohd-${OHD_VERSION}-${OS_ARCH}"
+          fi
+        shell: bash
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: release-binaries/*
+
   build-extension:
     # Public-repo releases only: the desktop release loop on a private
     # mirror doesn't need extension zips (the store owns distribution).
@@ -334,9 +443,13 @@ jobs:
       - name: Build core package
         run: pnpm --filter @openheaders/core build
 
+      # OH_EXT_CHANNEL=release ships fully mangled builds; store
+      # packages are built without it (review-permissive).
       - name: Build and package extensions
         working-directory: apps/extension
         run: pnpm release
+        env:
+          OH_EXT_CHANNEL: release
 
       - name: Write extension version file
         run: |
@@ -356,7 +469,7 @@ jobs:
     # a skipped extension job still yields a release from the legs that
     # produced artifacts.
     if: ${{ !contains(github.ref_name, '-ext') && !cancelled() && needs.build-desktop.result != 'cancelled' }}
-    needs: [build-desktop, build-extension]
+    needs: [build-desktop, build-extension, build-binaries]
     runs-on: ubuntu-latest
 
     steps:
@@ -420,6 +533,13 @@ jobs:
             cp dist/extension-packages/*.zip processed_files/ 2>/dev/null || true
           fi
 
+          # Standalone oh/ohd binaries + one checksums file over them
+          find dist -path 'dist/binaries-*' -type f -exec cp {} processed_files/ \;
+          BINS=$(cd processed_files && ls oh-* ohd-* 2>/dev/null || true)
+          if [ -n "$BINS" ]; then
+            (cd processed_files && shasum -a 256 $BINS > SHA256SUMS.txt)
+          fi
+
           echo "Files prepared for release:"
           ls -la processed_files/
         shell: bash
@@ -467,6 +587,23 @@ jobs:
               echo "- [Firefox](${DL}/open-headers-firefox-v${EXT_VERSION}.zip)"
               echo "- [Edge](${DL}/open-headers-edge-v${EXT_VERSION}.zip)"
               echo "- [Safari](${DL}/open-headers-safari-v${EXT_VERSION}.zip)"
+            } >> release_body.md
+          fi
+
+          # oh/ohd binaries carry their own app versions — list what
+          # the legs actually staged.
+          BIN_FILES=$(cd processed_files && ls oh-* ohd-* 2>/dev/null || true)
+          if [ -n "$BIN_FILES" ]; then
+            {
+              echo ""
+              echo "## CLI & Daemon (standalone binaries)"
+              echo ""
+              echo "No Node.js required (\`npm install -g @openheaders/cli\` is the Node channel). Download, \`chmod +x\`, move onto your PATH. macOS binaries are signed and notarized; the Windows \`oh\` is unsigned — SmartScreen warns on first run (More info → Run anyway)."
+              echo ""
+              for f in $BIN_FILES; do
+                echo "- [${f}](${DL}/${f})"
+              done
+              echo "- [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
             } >> release_body.md
           fi
 

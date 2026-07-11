@@ -82,9 +82,13 @@ jobs:
       - name: Build core package
         run: pnpm --filter @openheaders/core build
 
+      # OH_EXT_CHANNEL=release ships fully mangled builds; store
+      # packages are built without it (review-permissive).
       - name: Build and package extensions
         working-directory: apps/extension
         run: pnpm release
+        env:
+          OH_EXT_CHANNEL: release
 
       - name: Determine release type
         id: release_type

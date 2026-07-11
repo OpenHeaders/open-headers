@@ -27,7 +27,7 @@ export default defineConfig({
     ssr: true,
     outDir: 'dist',
     emptyOutDir: true,
-    minify: false,
+    minify: 'esbuild',
     rollupOptions: {
       input: {
         main: 'src/main.ts',

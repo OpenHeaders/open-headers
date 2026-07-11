@@ -31,7 +31,7 @@ export default defineConfig({
     ssr: true,
     outDir: 'dist-sea',
     emptyOutDir: true,
-    minify: false,
+    minify: 'esbuild',
     rollupOptions: {
       input: { ohd: 'src/cli.ts' },
       output: {
