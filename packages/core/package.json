@@ -27,6 +27,10 @@
       "import": "./src/identity/index.ts",
       "default": "./dist/identity/index.js"
     },
+    "./licensing": {
+      "import": "./src/licensing/index.ts",
+      "default": "./dist/licensing/index.js"
+    },
     "./backends": {
       "import": "./src/backends/index.ts",
       "default": "./dist/backends/index.js"
