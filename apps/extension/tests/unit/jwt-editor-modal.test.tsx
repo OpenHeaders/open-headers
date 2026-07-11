@@ -315,21 +315,23 @@ describe('useValueEditAction', () => {
     expect(onChange).toHaveBeenCalledWith('Tue, 01 Dec 2026 00:00:00 GMT');
   });
 
-  it('edits a cookie string line-per-pair and re-joins on save', async () => {
+  it('edits a cookie string as a name/value grid and re-joins on save', async () => {
     const onChange = vi.fn();
     const { container } = render(<Harness value="session=abc123; theme=dark; Secure" onChange={onChange} />);
 
     fireEvent.click(container.querySelector('.oh-template-input-action[aria-label="Edit cookie pairs"]') as Element);
-    const editor = ((await screen.findAllByTestId('code-editor')) as HTMLTextAreaElement[])[0];
-    expect(editor.value).toBe('session=abc123\ntheme=dark\nSecure');
+    const sessionValue = (await screen.findByLabelText('Row 1 value')) as HTMLInputElement;
+    expect(sessionValue.value).toBe('abc123');
+    expect((screen.getByLabelText('Row 3 value') as HTMLInputElement).placeholder).toBe('flag');
 
-    // A line that stops being a cookie segment disables Save…
+    // A cell that breaks the `; ` segment framing disables Save…
     const save = screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement;
-    fireEvent.change(editor, { target: { value: 'session=abc123\nnot a pair' } });
+    fireEvent.change(sessionValue, { target: { value: 'has;semicolon' } });
     expect(save.disabled).toBe(true);
 
-    // …valid lines re-join with `; `.
-    fireEvent.change(editor, { target: { value: 'session=rotated\ntheme=light\nSecure' } });
+    // …valid cells re-join with `; `.
+    fireEvent.change(sessionValue, { target: { value: 'rotated' } });
+    fireEvent.change(screen.getByLabelText('Row 2 value'), { target: { value: 'light' } });
     fireEvent.click(save);
     expect(onChange).toHaveBeenCalledWith('session=rotated; theme=light; Secure');
   });

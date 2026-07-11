@@ -27,8 +27,10 @@ import {
   type DetectedValue,
   detectValueType,
   encodeDetectedValue,
+  pairGridTypeOf,
 } from '@openheaders/ui/shared/value-detection';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
+import { PairGridEditor } from '@openheaders/ui/workbench/components/value-editors/PairGridEditor';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { RuleValueInspectorTab } from '../../data/inspector-tab';
 import { buildHeaderModValueUpdate } from '../../data/rule-create/header-mod-edit';
@@ -178,6 +180,11 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
   }, [tab.ruleUid]);
 
   const title = canonical.kind === 'detected' ? COMPACT_VALUE_TITLES[canonical.detected.type] : null;
+  // Pair-shaped values (cookie, query-string) edit as a name/value
+  // grid over the same decoded text — draft, drift, and save are
+  // untouched. A draft held over a vanished field falls back to the
+  // text body for copy-out.
+  const gridType = canonical.kind === 'detected' ? pairGridTypeOf(canonical.detected.type) : null;
   const language = useMemo(() => {
     if (canonical.kind !== 'detected') return 'plaintext';
     return canonical.detected.type === 'jwt' || canonical.detected.type === 'json' ? 'json' : 'plaintext';
@@ -251,11 +258,17 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
       )}
       {showEditor ? (
         <>
-          <div className="dt-storagedoc-source">
-            <Suspense fallback={<Skeleton />}>
-              <CodeViewer value={text} language={language} readOnly={false} onChange={handleChange} />
-            </Suspense>
-          </div>
+          {gridType !== null ? (
+            <div className="dt-storagedoc-source dt-scrollbar" style={{ overflowY: 'auto', padding: 12 }}>
+              <PairGridEditor gridType={gridType} value={text} onChange={handleChange} />
+            </div>
+          ) : (
+            <div className="dt-storagedoc-source">
+              <Suspense fallback={<Skeleton />}>
+                <CodeViewer value={text} language={language} readOnly={false} onChange={handleChange} />
+              </Suspense>
+            </div>
+          )}
           {dirty && canonical.kind === 'detected' && (
             <div className="dt-valuedoc-preview" aria-label="Encoded preview">
               <span className="dt-valuedoc-preview-label">Encoded preview</span>

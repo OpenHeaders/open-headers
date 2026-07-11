@@ -12,12 +12,13 @@
  */
 
 import { CopyOutlined } from '@ant-design/icons';
-import { validateJSON } from '@openheaders/ui/shared/value-detection';
+import { type PairGridType, validateJSON } from '@openheaders/ui/shared/value-detection';
 import { App, Button, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import { EditorModalFooter } from './EditorModalFooter';
+import { PairGridEditor } from './PairGridEditor';
 
 const { Text } = Typography;
 
@@ -33,9 +34,21 @@ interface EncodedValueModalProps {
   encode: (text: string) => string | null;
   onSave: (decodedText: string) => void;
   onCancel: () => void;
+  /** Pair-shaped values (cookie, query-string) edit as a name/value
+   *  grid instead of the text buffer — the grid serializes back to the
+   *  same decoded line format, so `encode` and Save are untouched. */
+  gridType?: PairGridType | null;
 }
 
-const EncodedValueModal: React.FC<EncodedValueModalProps> = ({ open, title, decoded, encode, onSave, onCancel }) => {
+const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
+  open,
+  title,
+  decoded,
+  encode,
+  onSave,
+  onCancel,
+  gridType,
+}) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const [text, setText] = useState(decoded);
@@ -100,7 +113,19 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({ open, title, deco
           <Text strong style={{ fontSize: 12, display: 'inline-block', marginBottom: 4 }}>
             Decoded
           </Text>
-          <CodeEditor value={text} onChange={setText} language={language} minHeight={220} variableAutoComplete={false} />
+          {gridType ? (
+            <div style={{ maxHeight: 320, overflowY: 'auto' }} className="dt-scrollbar">
+              <PairGridEditor gridType={gridType} value={text} onChange={setText} />
+            </div>
+          ) : (
+            <CodeEditor
+              value={text}
+              onChange={setText}
+              language={language}
+              minHeight={220}
+              variableAutoComplete={false}
+            />
+          )}
         </div>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>

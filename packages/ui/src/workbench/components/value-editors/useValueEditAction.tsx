@@ -17,6 +17,7 @@ import {
   compactDecodedText,
   detectValueType,
   encodeDetectedValue,
+  pairGridTypeOf,
 } from '@openheaders/ui/shared/value-detection';
 import { CompactValueEditor } from './CompactValueEditor';
 
@@ -151,6 +152,7 @@ export function useValueEditAction(
             encode={encodeCurrent}
             onSave={handleEncodedSave}
             onCancel={closeModal}
+            gridType={pairGridTypeOf(detected.type)}
           />
         )}
       </Suspense>

@@ -223,6 +223,37 @@ describe('canonical movement under a draft', () => {
   });
 });
 
+describe('pair-shaped values — grid body', () => {
+  it('renders the name/value grid instead of the text body for a cookie value and saves the re-joined wire value', async () => {
+    setLiveRule(makeHeaderRule('session=abc; Path=/; Secure'));
+    mockUpdateRule.mockResolvedValue({ ok: true, rule: makeHeaderRule('session=abc; Path=/; Secure') });
+    renderTab();
+    await waitFor(() => expect(screen.getByLabelText('Row 1 name')).toBeTruthy());
+    expect(screen.queryByTestId('code-viewer')).toBeNull();
+    expect(screen.getByText(/Cookie value/)).toBeTruthy();
+
+    const firstValue = screen.getByLabelText('Row 1 value') as HTMLInputElement;
+    expect(firstValue.value).toBe('abc');
+    fireEvent.change(firstValue, { target: { value: 'xyz' } });
+    expect(screen.getByLabelText('Encoded preview').textContent).toContain('session=xyz; Path=/; Secure');
+
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(mockUpdateRule).toHaveBeenCalledTimes(1));
+    const [, updates] = mockUpdateRule.mock.calls[0] as [string, Partial<HeaderRule>];
+    expect(updates.published).toBe(true);
+    expect(updates.action?.requestHeaders[0].value).toBe('session=xyz; Path=/; Secure');
+  });
+
+  it('renders Key/Value columns for a query-string value; reorder flows into the encoded preview', async () => {
+    setLiveRule(makeHeaderRule('q=openheaders&page=2'));
+    renderTab();
+    await waitFor(() => expect(screen.getByLabelText('Row 1 key')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Move row 1 down' }));
+    expect(screen.getByLabelText('Encoded preview').textContent).toContain('page=2&q=openheaders');
+    expect(saveButton().disabled).toBe(false);
+  });
+});
+
 describe('toolbar', () => {
   it('routes "Open rule in workspace" through the edit-rule intent', async () => {
     setLiveRule(makeHeaderRule(`Bearer ${JWT}`));

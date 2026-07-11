@@ -79,4 +79,11 @@ export {
   type JWTExpirationInfo,
   validateJSON,
 } from './jwt';
+export {
+  decodePairSegments,
+  encodePairSegments,
+  type PairGridType,
+  type PairSegment,
+  pairGridTypeOf,
+} from './pair-grid';
 export { type JwtScanHit, scanForJWTs } from './scan';
