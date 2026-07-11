@@ -5,9 +5,10 @@ on:
     tags:
       - 'v*'
 
+# packages: write — the ubuntu binaries leg pushes the ohd image to ghcr.
 permissions:
   contents: write
-  packages: read
+  packages: write
 
 # The vite production builds need more than the runners' ~2GB default
 # Node heap.
@@ -271,6 +272,8 @@ jobs:
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.exe
+            apps/desktop/dist/*.msi
+            apps/desktop/dist/*.pkg
             apps/desktop/dist/*.zip
             apps/desktop/dist/*.blockmap
             apps/desktop/dist/*.AppImage
@@ -363,6 +366,44 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # The container is the same verified SEA binary in an LTS base;
+      # the probe re-runs boot + /healthz inside it before anything is
+      # pushed (glibc drift between runner and base would surface here).
+      # ghcr is a recoverable channel like GitHub Releases, so it rides
+      # the pipeline; :latest stays off beta tags.
+      - name: Build and push ohd Docker image
+        if: matrix.os == 'ubuntu-latest' && github.repository == 'OpenHeaders/open-headers-app'
+        run: |
+          OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
+          IMAGE=ghcr.io/openheaders/ohd
+
+          docker build -t "$IMAGE:$OHD_VERSION" apps/daemon
+          docker run --rm "$IMAGE:$OHD_VERSION" --version
+
+          CONTAINER=$(docker run -d -p 18637:8137 "$IMAGE:$OHD_VERSION")
+          HEALTHY=""
+          for _ in $(seq 1 60); do
+            if curl -fs http://127.0.0.1:18637/healthz > /dev/null; then
+              HEALTHY=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$HEALTHY" ]; then
+            docker logs "$CONTAINER"
+            echo "::error::ohd container never answered /healthz"
+            exit 1
+          fi
+          docker rm -f "$CONTAINER"
+
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE:$OHD_VERSION"
+          if [[ ! "$GITHUB_REF_NAME" =~ -beta ]]; then
+            docker tag "$IMAGE:$OHD_VERSION" "$IMAGE:latest"
+            docker push "$IMAGE:latest"
+          fi
+        shell: bash
 
       - name: Stage binary assets
         run: |
@@ -508,12 +549,14 @@ jobs:
           # Desktop artifacts
           if [ -d "dist/desktop-windows-2022" ]; then
             cp dist/desktop-windows-2022/*.exe processed_files/ 2>/dev/null || true
+            cp dist/desktop-windows-2022/*.msi processed_files/ 2>/dev/null || true
             cp dist/desktop-windows-2022/*.blockmap processed_files/ 2>/dev/null || true
             cp dist/desktop-windows-2022/latest.yml processed_files/ 2>/dev/null || true
           fi
 
           if [ -d "dist/desktop-macos-latest" ]; then
             cp dist/desktop-macos-latest/*.dmg processed_files/ 2>/dev/null || true
+            cp dist/desktop-macos-latest/*.pkg processed_files/ 2>/dev/null || true
             cp dist/desktop-macos-latest/*.zip processed_files/ 2>/dev/null || true
             cp dist/desktop-macos-latest/*.blockmap processed_files/ 2>/dev/null || true
             cp dist/desktop-macos-latest/latest-mac.yml processed_files/ 2>/dev/null || true
@@ -538,6 +581,10 @@ jobs:
           BINS=$(cd processed_files && ls oh-* ohd-* 2>/dev/null || true)
           if [ -n "$BINS" ]; then
             (cd processed_files && shasum -a 256 $BINS > SHA256SUMS.txt)
+            # Installer scripts ride every release so the stable
+            # /releases/latest/download one-liners always resolve.
+            cp apps/cli/scripts/install.sh processed_files/install-oh.sh
+            cp apps/cli/scripts/install.ps1 processed_files/install-oh.ps1
           fi
 
           echo "Files prepared for release:"
@@ -558,35 +605,47 @@ jobs:
           fi
 
           DL="https://github.com/${REPO}/releases/download/${TAG}"
+
+          # Brand icons live in the releases repo's assets/ directory —
+          # markdown img tags are the only way GitHub renders svg in a
+          # release body.
+          ICONS="https://raw.githubusercontent.com/${REPO}/main/assets"
+          icon() { echo "<img src=\"${ICONS}/$1.svg\" width=\"16\" align=\"center\">"; }
+          I_MAC=$(icon macos)
+          I_WIN=$(icon windows)
+          I_LINUX=$(icon linux)
+          I_DEBIAN=$(icon debian)
+          I_FEDORA=$(icon fedora)
+          I_CHROME=$(icon chrome)
+          I_FIREFOX=$(icon firefox)
+          I_EDGE=$(icon edge)
+          I_SAFARI=$(icon safari)
+
           {
-            echo "## Desktop App (v${VERSION})"
+            echo "## Desktop App v${VERSION}"
             echo ""
-            echo "### macOS"
-            echo "- [Intel (x64)](${DL}/OpenHeaders-${VERSION}-mac-x64.dmg)"
-            echo "- [Apple Silicon (ARM64)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg)"
+            echo "| Platform | Downloads |"
+            echo "| --- | --- |"
+            echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) · [Intel (DMG)](${DL}/OpenHeaders-${VERSION}-mac-x64.dmg) |"
+            echo "| ${I_WIN} Windows | [Installer (EXE)](${DL}/OpenHeaders-${VERSION}-Setup.exe) |"
+            echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x64.AppImage) · [AppImage ARM64](${DL}/OpenHeaders-${VERSION}-arm64.AppImage) · [install script](${DL}/install-open-headers.sh) |"
+            echo "| ${I_DEBIAN} Debian / Ubuntu | [x64 (deb)](${DL}/open-headers_${VERSION}_amd64.deb) · [ARM64 (deb)](${DL}/open-headers_${VERSION}_arm64.deb) |"
+            echo "| ${I_FEDORA} Fedora / RHEL | [x64 (rpm)](${DL}/open-headers-${VERSION}.x86_64.rpm) · [ARM64 (rpm)](${DL}/open-headers-${VERSION}.aarch64.rpm) |"
             echo ""
-            echo "### Windows"
-            echo "- [Windows Installer](${DL}/OpenHeaders-${VERSION}-Setup.exe)"
-            echo ""
-            echo "### Linux"
-            echo "- [AppImage x64](${DL}/OpenHeaders-${VERSION}-x64.AppImage)"
-            echo "- [AppImage ARM64](${DL}/OpenHeaders-${VERSION}-arm64.AppImage)"
-            echo "- [Debian/Ubuntu x64](${DL}/open-headers_${VERSION}_amd64.deb)"
-            echo "- [Debian/Ubuntu ARM64](${DL}/open-headers_${VERSION}_arm64.deb)"
-            echo "- [Fedora/RHEL x64](${DL}/open-headers-${VERSION}.x86_64.rpm)"
-            echo "- [Fedora/RHEL ARM64](${DL}/open-headers-${VERSION}.aarch64.rpm)"
-            echo "- [Install Script](${DL}/install-open-headers.sh)"
+            echo "**Managed deployment (MDM / GPO):** [PKG Apple Silicon](${DL}/OpenHeaders-${VERSION}-mac-arm64.pkg) · [PKG Intel](${DL}/OpenHeaders-${VERSION}-mac-x64.pkg) · [MSI](${DL}/OpenHeaders-${VERSION}.msi)"
           } >> release_body.md
 
           if [ -n "$EXT_VERSION" ]; then
             {
               echo ""
-              echo "## Browser Extension (v${EXT_VERSION})"
+              echo "## Browser Extension v${EXT_VERSION}"
               echo ""
-              echo "- [Chrome](${DL}/open-headers-chrome-v${EXT_VERSION}.zip)"
-              echo "- [Firefox](${DL}/open-headers-firefox-v${EXT_VERSION}.zip)"
-              echo "- [Edge](${DL}/open-headers-edge-v${EXT_VERSION}.zip)"
-              echo "- [Safari](${DL}/open-headers-safari-v${EXT_VERSION}.zip)"
+              echo "| Browser | Download |"
+              echo "| --- | --- |"
+              echo "| ${I_CHROME} Chrome | [open-headers-chrome-v${EXT_VERSION}.zip](${DL}/open-headers-chrome-v${EXT_VERSION}.zip) |"
+              echo "| ${I_FIREFOX} Firefox | [open-headers-firefox-v${EXT_VERSION}.zip](${DL}/open-headers-firefox-v${EXT_VERSION}.zip) |"
+              echo "| ${I_EDGE} Edge | [open-headers-edge-v${EXT_VERSION}.zip](${DL}/open-headers-edge-v${EXT_VERSION}.zip) |"
+              echo "| ${I_SAFARI} Safari | [open-headers-safari-v${EXT_VERSION}.zip](${DL}/open-headers-safari-v${EXT_VERSION}.zip) |"
             } >> release_body.md
           fi
 
@@ -598,12 +657,52 @@ jobs:
               echo ""
               echo "## CLI & Daemon (standalone binaries)"
               echo ""
-              echo "No Node.js required (\`npm install -g @openheaders/cli\` is the Node channel). Download, \`chmod +x\`, move onto your PATH. macOS binaries are signed and notarized; the Windows \`oh\` is unsigned — SmartScreen warns on first run (More info → Run anyway)."
+              echo "No Node.js required (\`npm install -g @openheaders/cli\` is the Node channel). macOS binaries are signed and notarized; the Windows \`oh\` is unsigned — SmartScreen warns on first run (More info → Run anyway)."
               echo ""
+              echo "Install script (verifies checksums, installs to \`~/.local/bin\`; add \`--with-daemon\` for \`ohd\`):"
+              echo ""
+              echo '```sh'
+              echo "curl -fsSL https://github.com/${REPO}/releases/latest/download/install-oh.sh | sh"
+              echo '```'
+              echo ""
+              echo "Windows (PowerShell):"
+              echo ""
+              echo '```powershell'
+              echo "irm https://github.com/${REPO}/releases/latest/download/install-oh.ps1 | iex"
+              echo '```'
+              echo ""
+              echo "| Binary | Platform | Download |"
+              echo "| --- | --- | --- |"
               for f in $BIN_FILES; do
-                echo "- [${f}](${DL}/${f})"
+                case "$f" in
+                  ohd-*) BIN_NAME='`ohd`' ;;
+                  *) BIN_NAME='`oh`' ;;
+                esac
+                case "$f" in
+                  *-mac-arm64) PLATFORM="${I_MAC} macOS (Apple Silicon)" ;;
+                  *-mac-x64) PLATFORM="${I_MAC} macOS (Intel)" ;;
+                  *-linux-x64) PLATFORM="${I_LINUX} Linux (x64)" ;;
+                  *-linux-arm64) PLATFORM="${I_LINUX} Linux (ARM64)" ;;
+                  *-win-x64.exe) PLATFORM="${I_WIN} Windows (x64)" ;;
+                  *) PLATFORM="${f}" ;;
+                esac
+                echo "| ${BIN_NAME} | ${PLATFORM} | [${f}](${DL}/${f}) |"
               done
-              echo "- [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
+              echo ""
+              echo "Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt) · Scripts: [install-oh.sh](${DL}/install-oh.sh) · [install-oh.ps1](${DL}/install-oh.ps1)"
+            } >> release_body.md
+          fi
+
+          # Docker (daemon) — version comes from the staged ohd asset name.
+          OHD_DOCKER_VERSION=$(echo "$BIN_FILES" | tr ' ' '\n' | sed -n 's/^ohd-\([0-9][^ ]*\)-linux-x64$/\1/p' | head -1)
+          if [ -n "$OHD_DOCKER_VERSION" ]; then
+            {
+              echo ""
+              echo "## Docker (daemon)"
+              echo ""
+              echo '```sh'
+              echo "docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:${OHD_DOCKER_VERSION}"
+              echo '```'
             } >> release_body.md
           fi
 
@@ -641,13 +740,18 @@ jobs:
             echo '' >> ext_release_body.md
           fi
 
+          ICONS="https://raw.githubusercontent.com/OpenHeaders/open-headers-releases/main/assets"
+          icon() { echo "<img src=\"${ICONS}/$1.svg\" width=\"16\" align=\"center\">"; }
+
           {
             echo "## Browser Extension Downloads"
             echo ""
-            echo "- [Chrome](${DL}/open-headers-chrome-v${EXT_VERSION}.zip)"
-            echo "- [Firefox](${DL}/open-headers-firefox-v${EXT_VERSION}.zip)"
-            echo "- [Edge](${DL}/open-headers-edge-v${EXT_VERSION}.zip)"
-            echo "- [Safari](${DL}/open-headers-safari-v${EXT_VERSION}.zip)"
+            echo "| Browser | Download |"
+            echo "| --- | --- |"
+            echo "| $(icon chrome) Chrome | [open-headers-chrome-v${EXT_VERSION}.zip](${DL}/open-headers-chrome-v${EXT_VERSION}.zip) |"
+            echo "| $(icon firefox) Firefox | [open-headers-firefox-v${EXT_VERSION}.zip](${DL}/open-headers-firefox-v${EXT_VERSION}.zip) |"
+            echo "| $(icon edge) Edge | [open-headers-edge-v${EXT_VERSION}.zip](${DL}/open-headers-edge-v${EXT_VERSION}.zip) |"
+            echo "| $(icon safari) Safari | [open-headers-safari-v${EXT_VERSION}.zip](${DL}/open-headers-safari-v${EXT_VERSION}.zip) |"
             echo ""
             echo "### Installation"
             echo "1. Download the zip for your browser"

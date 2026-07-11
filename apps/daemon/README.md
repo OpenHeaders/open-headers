@@ -44,6 +44,18 @@ foreground (Ctrl-C / SIGTERM shuts it down cleanly), which is handy under
 container supervisors and for trying things out before installing a service
 unit.
 
+### Docker
+
+Each release also publishes the daemon binary as a container image:
+
+```sh
+docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:latest
+```
+
+State lives in the `/data` volume; the daemon listens on `0.0.0.0:8137`
+inside the container. Pin a version tag (they match the daemon's
+`package.json` version) for reproducible deployments.
+
 ## Quick start
 
 ```sh

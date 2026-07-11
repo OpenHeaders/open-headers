@@ -24,6 +24,18 @@ release at
 with SHA-256 checksums. The macOS binary is signed and notarized; the Windows
 binary is unsigned, so SmartScreen warns on first run.
 
+```sh
+curl -fsSL https://github.com/OpenHeaders/open-headers-releases/releases/latest/download/install-oh.sh | sh
+```
+
+```powershell
+irm https://github.com/OpenHeaders/open-headers-releases/releases/latest/download/install-oh.ps1 | iex
+```
+
+The script verifies checksums and installs to `~/.local/bin`
+(`%LOCALAPPDATA%\OpenHeaders\bin` on Windows); pass `--with-daemon` to also
+install `ohd`.
+
 ## Quick start
 
 Mint an access token in Open Headers → Settings → MCP, then pair once:

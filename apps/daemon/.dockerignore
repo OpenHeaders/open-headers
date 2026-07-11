@@ -1,0 +1,4 @@
+# The image copies only the packed SEA binary — keep the build context
+# down to exactly that.
+*
+!dist-sea/ohd

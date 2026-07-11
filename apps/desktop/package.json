@@ -118,8 +118,16 @@
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true
     },
+    "msi": {
+      "artifactName": "${productName}-${version}.${ext}",
+      "perMachine": true,
+      "runAfterFinish": false
+    },
     "win": {
-      "target": "nsis",
+      "target": [
+        "nsis",
+        "msi"
+      ],
       "artifactName": "${productName}-${version}-Setup.${ext}",
       "icon": "build/icon.ico",
       "forceCodeSigning": false
@@ -162,9 +170,19 @@
             "x64",
             "arm64"
           ]
+        },
+        {
+          "target": "pkg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "pkg": {
+      "isRelocatable": false
     },
     "linux": {
       "target": [
