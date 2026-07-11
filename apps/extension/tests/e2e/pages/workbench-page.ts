@@ -400,6 +400,59 @@ export class WorkbenchPage {
     return this.page.getByRole('dialog').filter({ hasText: 'Set as new variable' }).first();
   }
 
+  // ── Authorization tab ───────────────────────────────────────────
+
+  /** Pick an auth type in the Authorization tab's left-rail Select
+   *  (`oh-auth-type` — the rail can hold several Selects at once). */
+  async selectAuthType(label: string): Promise<void> {
+    await this.page.getByTestId('oh-auth-type').filter({ visible: true }).first().click();
+    await this.page
+      .locator('.ant-select-item-option')
+      .filter({ hasText: label })
+      .filter({ visible: true })
+      .first()
+      .click();
+  }
+
+  /** Pick where the api-key auth rides — 'Header' / 'Query Params'
+   *  (`oh-auth-apikey-in`). */
+  async selectApiKeyPlacement(label: string): Promise<void> {
+    await this.page.getByTestId('oh-auth-apikey-in').filter({ visible: true }).first().click();
+    await this.page
+      .locator('.ant-select-item-option')
+      .filter({ hasText: label })
+      .filter({ visible: true })
+      .first()
+      .click();
+  }
+
+  // ── TemplateInput surfaces (by placeholder) ─────────────────────
+
+  /** A TemplateInput's contentEditable surface, found by its
+   *  `data-placeholder` — the one attribute every instance carries. */
+  templateInput(placeholder: string): Locator {
+    return this.page.locator(`[data-placeholder="${placeholder}"]`).filter({ visible: true }).first();
+  }
+
+  /** The wrapper around a TemplateInput — owns the hover action rail
+   *  (eye / edit / clear icons) next to the editable. */
+  templateInputWrapper(placeholder: string): Locator {
+    return this.page
+      .locator('.oh-template-input-wrapper')
+      .filter({ has: this.page.locator(`[data-placeholder="${placeholder}"]`) })
+      .filter({ visible: true })
+      .first();
+  }
+
+  /** Replace a TemplateInput's content. Bulk `insertText` (like
+   *  {@link fillMonaco}) so nothing reinterprets the keystrokes. */
+  async fillTemplateInput(placeholder: string, text: string): Promise<void> {
+    await this.templateInput(placeholder).click();
+    await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await this.page.keyboard.press('Backspace');
+    await this.page.keyboard.insertText(text);
+  }
+
   // ── TemplateInput selection context menu ────────────────────────
 
   /** The URL bar's contentEditable surface (TemplateInput). */

@@ -98,6 +98,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         </Text>
         <Select
           size="middle"
+          data-testid="oh-auth-type"
           value={auth.type}
           onChange={switchType}
           options={AUTH_OPTIONS}
@@ -270,6 +271,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
             <LabeledRow label="Add to">
               <Select
                 size="small"
+                data-testid="oh-auth-apikey-in"
                 value={auth.in}
                 onChange={(next: 'header' | 'query') => onChange({ ...auth, in: next })}
                 options={[
