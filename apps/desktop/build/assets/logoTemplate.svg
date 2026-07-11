@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Monochrome template variant of logo.svg for the macOS menu-bar tray:
-  filled rounded square, pixel letters as cutouts (negative space), the
-  recording block inside the O kept visible.
+  filled rounded square, pixel letters as cutouts (negative space).
 
   NOT geometry-identical to logo.svg on purpose: the tray renders at
   16px, where 1 device pixel = 32 SVG units. Every stroke here is at
-  least 64 units (2px) so nothing antialiases away — the full-color
-  logo's 32-unit O bars read fine at dock sizes but vanish at 16.
+  least 64 units (2px) so nothing antialiases away, and the O's
+  recording block is omitted — the counter is only 2px wide at tray
+  size, so a filled block would collapse the O into a solid square.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <defs>
@@ -28,8 +28,6 @@
         <rect x="272" y="192" width="192" height="64"/>
       </g>
       <path d="M 96 384 C 192 448, 320 448, 416 384" stroke="black" stroke-width="48" fill="none" stroke-linecap="round"/>
-      <!-- Recording block inside the O stays visible -->
-      <rect x="112" y="176" width="64" height="96" fill="white" shape-rendering="crispEdges"/>
     </mask>
   </defs>
 
