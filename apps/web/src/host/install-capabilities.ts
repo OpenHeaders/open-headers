@@ -13,6 +13,11 @@ import { signOutWeb } from './sign-out';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
+// API requests execute on the connected daemon's Node fetch stack, not
+// in this tab — the request editor's Settings tab shows the Node fact
+// sheet and hides browser-only knobs.
+registerCapability('requestRuntime', () => 'node');
+
 // External links open a plain new tab; the browser owns session trust.
 registerCapability('openExternalUrl', (url) => {
   window.open(url, '_blank', 'noopener');

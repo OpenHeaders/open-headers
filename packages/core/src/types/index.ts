@@ -117,11 +117,13 @@ export type {
   PrioritySortMode,
   RefreshPolicy,
   RefreshPolicyKind,
+  RetryBackoff,
   StatusClass,
   StatusMatch,
   StepGate,
   StepGateClause,
   StepGateClauseKind,
+  StepRetryPolicy,
   WorkflowStep,
 } from './live';
 // ── Live cache row ─────────────────────────────────────────────────

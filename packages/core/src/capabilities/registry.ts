@@ -85,6 +85,15 @@ export interface AppUpdateInfo {
 }
 
 /**
+ * The network stack that executes this surface's API requests (the
+ * workbench `executeRequest` channel). `'browser'` = the browser's
+ * fetch inside an extension context; `'node'` = a Node fetch stack —
+ * the desktop app's main process, or the daemon a web surface is
+ * connected to.
+ */
+export type RequestRuntimeKind = 'browser' | 'node';
+
+/**
  * The universe of capabilities. Optional members (`name?:`) are
  * host-specific; required members are universal contracts every host
  * must implement.
@@ -213,6 +222,18 @@ export interface Capabilities {
    * so an SSO re-login can proceed without re-entering the password.
    */
   signOut?: () => void;
+
+  /**
+   * The network runtime that executes this surface's API requests —
+   * what actually answers the workbench Send button. Hosts whose
+   * requests run on a Node fetch stack register `'node'`: the desktop
+   * renderer (execution happens in the Electron main process) and the
+   * web app (execution happens on the connected daemon). Extension
+   * surfaces leave it absent and shared UI defaults to `'browser'`.
+   * The request editor's Settings tab keys knob visibility and its
+   * runtime-managed fact sheet off this value.
+   */
+  requestRuntime?: () => RequestRuntimeKind;
 }
 
 type CapabilityName = keyof Capabilities;

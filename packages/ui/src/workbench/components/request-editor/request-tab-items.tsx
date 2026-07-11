@@ -7,6 +7,7 @@
 
 import { theme } from 'antd';
 import type React from 'react';
+import { getCapability } from '@openheaders/core/capabilities';
 import { previewAuthContributions } from './auth-preview';
 import type { Draft } from './draft';
 import type { SectionUnresolved } from './useSectionUnresolved';
@@ -74,9 +75,13 @@ export function buildRequestTabItems(
   const paramCount = authContrib.params.length + draft.params.filter((p) => p.enabled && p.key.trim()).length;
   const headerCount = authContrib.headers.length + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
   const scriptsMark = (draft.preRequestScript?.trim() ? 1 : 0) + (draft.postResponseScript?.trim() ? 1 : 0);
-  // Settings is "dirty" if any wired knob differs from default.
+  // Settings is "dirty" if any wired knob differs from default. The
+  // cookies knob only exists on a browser runtime — a synced
+  // `credentialsMode` must not dot a tab that shows no such control.
+  const browserRuntime = (getCapability('requestRuntime')?.() ?? 'browser') === 'browser';
   const settingsDirty =
-    draft.credentialsMode === 'include' || (draft.followRedirects !== undefined && draft.followRedirects !== true);
+    (browserRuntime && draft.credentialsMode === 'include') ||
+    (draft.followRedirects !== undefined && draft.followRedirects !== true);
 
   return [
     { key: 'docs', label: 'Docs' },

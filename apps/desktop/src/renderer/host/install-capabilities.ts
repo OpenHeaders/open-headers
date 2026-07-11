@@ -15,6 +15,11 @@ import { registerCapability } from '@openheaders/core/capabilities';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
+// API requests execute in the Electron main process over Node's fetch
+// (undici), not a browser network stack — the request editor's Settings
+// tab shows the Node fact sheet and hides browser-only knobs.
+registerCapability('requestRuntime', () => 'node');
+
 // Desktop opens external URLs in the OS default browser via the
 // main-process `shell.openExternal` allowlist (http(s) + mailto). The
 // preload bridge takes care of marshalling.
