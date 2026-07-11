@@ -1,0 +1,101 @@
+/**
+ * Command execution — the glue between argv, the config store, and the
+ * RPC client. `runReadCommand` drives every table entry; `status` and
+ * `connect` are the two local commands (probe + persist) that exist
+ * outside the tool catalog.
+ */
+
+import { parseArgs } from 'node:util';
+import { cliConfigPath, readCliConfig, writeCliConfig } from './config-store';
+import { type Connection, resolveConnection, TOKEN_ENV } from './connection';
+import { UsageError } from './exit-codes';
+import { commandTokenCount, type ReadCommandSpec } from './read-commands';
+import { callTool, initialize, listTools } from './rpc';
+
+const CONNECTION_OPTIONS = {
+  daemon: { type: 'string' },
+  token: { type: 'string' },
+  workspace: { type: 'string' },
+  json: { type: 'boolean' },
+} as const;
+
+interface ParsedCommon {
+  values: {
+    daemon?: string;
+    token?: string;
+    workspace?: string;
+    json?: boolean;
+    limit?: string;
+  };
+  positionals: string[];
+}
+
+function parseCommandArgs(argv: readonly string[], withLimit: boolean): ParsedCommon {
+  try {
+    return parseArgs({
+      args: [...argv],
+      options: { ...CONNECTION_OPTIONS, ...(withLimit ? { limit: { type: 'string' } } : {}) },
+      allowPositionals: true,
+    }) as ParsedCommon;
+  } catch (err) {
+    throw new UsageError(err instanceof Error ? err.message : String(err));
+  }
+}
+
+async function connectionFor(values: ParsedCommon['values']): Promise<Connection> {
+  const config = await readCliConfig(cliConfigPath());
+  return resolveConnection({ daemon: values.daemon, token: values.token }, process.env, config);
+}
+
+export async function runReadCommand(spec: ReadCommandSpec, argv: readonly string[]): Promise<string[]> {
+  const { values, positionals } = parseCommandArgs(argv.slice(commandTokenCount(spec)), spec.limitOption === true);
+
+  const toolArgs: Record<string, unknown> = {};
+  if (values.workspace !== undefined) toolArgs.workspaceId = values.workspace;
+  if (spec.positional) {
+    const [value] = positionals;
+    if (value === undefined && spec.positional.required) {
+      throw new UsageError(`usage: oh ${spec.group}${spec.verb ? ` ${spec.verb}` : ''} <${spec.positional.name}>`);
+    }
+    if (value !== undefined) toolArgs[spec.positional.toolArg] = value;
+  } else if (positionals.length > 0) {
+    throw new UsageError(`unexpected argument: ${positionals[0]}`);
+  }
+  if (values.limit !== undefined) {
+    const limit = Number.parseInt(values.limit, 10);
+    if (!Number.isInteger(limit) || limit <= 0) throw new UsageError('--limit must be a positive integer');
+    toolArgs.limit = limit;
+  }
+
+  const conn = await connectionFor(values);
+  const payloadText = await callTool(conn, spec.tool, toolArgs);
+  if (values.json === true) return [payloadText];
+  return spec.format(JSON.parse(payloadText), payloadText);
+}
+
+export async function commandStatus(argv: readonly string[]): Promise<string[]> {
+  const { values, positionals } = parseCommandArgs(argv, false);
+  if (positionals.length > 0) throw new UsageError(`unexpected argument: ${positionals[0]}`);
+  const conn = await connectionFor(values);
+  const server = await initialize(conn);
+  const tools = await listTools(conn);
+  const line = `running — ${server.name} v${server.version} at ${conn.daemonUrl} · ${tools.length} tool(s) available`;
+  if (values.json === true) {
+    return [JSON.stringify({ daemonUrl: conn.daemonUrl, server, toolCount: tools.length }, null, 2)];
+  }
+  return [line];
+}
+
+export async function commandConnect(argv: readonly string[]): Promise<string[]> {
+  const { values, positionals } = parseCommandArgs(argv, false);
+  if (positionals.length > 0) throw new UsageError(`unexpected argument: ${positionals[0]}`);
+  const token = values.token ?? process.env[TOKEN_ENV];
+  if (token === undefined || token === '') {
+    throw new UsageError(`oh connect needs a token — pass --token <secret> (or set ${TOKEN_ENV})`);
+  }
+  const conn = resolveConnection({ daemon: values.daemon, token }, process.env, await readCliConfig(cliConfigPath()));
+  const tools = await listTools(conn);
+  const configPath = cliConfigPath();
+  await writeCliConfig(configPath, { daemonUrl: conn.daemonUrl, token });
+  return [`connected — ${tools.length} tool(s) at ${conn.daemonUrl}`, `saved to ${configPath}`];
+}

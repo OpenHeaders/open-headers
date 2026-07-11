@@ -1,0 +1,173 @@
+/**
+ * Human formatters — compact single-purpose lines over the tool
+ * results. The payload interfaces here are the CLI's read view of the
+ * server's tool contract (mcp/tools/read-tools.ts projections); the
+ * `--json` path bypasses all of this and emits the payload verbatim,
+ * so these types never become a second machine schema.
+ */
+
+interface WorkspacesPayload {
+  activeWorkspaceId: string | null;
+  workspaces: { id: string; name: string; kind: string; active: boolean; loaded: boolean }[];
+}
+
+export function formatWorkspaces(payload: unknown): string[] {
+  const { activeWorkspaceId, workspaces } = payload as WorkspacesPayload;
+  const lines = workspaces.map(
+    (ws) => `${ws.active ? '*' : ' '} ${ws.id}  ${ws.name} (${ws.kind})${ws.loaded ? '' : '  — not loaded'}`,
+  );
+  lines.push(`${workspaces.length} workspace(s) · active: ${activeWorkspaceId ?? 'none'}`);
+  return lines;
+}
+
+interface RulesPayload {
+  workspaceId: string;
+  rules: { uid: string; name: string; type: string; enabled: boolean; published: boolean }[];
+}
+
+export function formatRules(payload: unknown): string[] {
+  const { workspaceId, rules } = payload as RulesPayload;
+  const lines = rules.map(
+    (rule) =>
+      `${rule.enabled ? 'on ' : 'off'}  ${rule.uid}  ${rule.name}  [${rule.type}]${rule.published ? '' : '  (draft)'}`,
+  );
+  const enabled = rules.filter((rule) => rule.enabled).length;
+  lines.push(`${enabled} enabled · ${rules.length - enabled} disabled · workspace ${workspaceId}`);
+  return lines;
+}
+
+interface EnvironmentsPayload {
+  workspaceId: string;
+  activeEnvironmentId: string | null;
+  environments: { uid: string; name: string; variables: unknown[] }[];
+}
+
+export function formatEnvironments(payload: unknown): string[] {
+  const { activeEnvironmentId, environments, workspaceId } = payload as EnvironmentsPayload;
+  const lines = environments.map(
+    (env) =>
+      `${env.uid === activeEnvironmentId ? '*' : ' '} ${env.uid}  ${env.name}  (${env.variables.length} vars)`,
+  );
+  lines.push(`${environments.length} environment(s) · workspace ${workspaceId}`);
+  return lines;
+}
+
+interface ProjectedVariable {
+  name: string;
+  value?: string;
+  masked: boolean;
+}
+
+interface VariablesPayload {
+  workspaceId: string;
+  vault: { name: string; kind: string }[];
+  environments: { name: string; variables: ProjectedVariable[] }[];
+  collections: { name: string; scope: string; variables: ProjectedVariable[] }[];
+  workspace: ProjectedVariable[];
+  live: { reference: string; workflowUid: string }[];
+}
+
+function variableLine(variable: ProjectedVariable): string {
+  return variable.masked ? `  ${variable.name} (masked)` : `  ${variable.name} = ${variable.value ?? ''}`;
+}
+
+export function formatVariables(payload: unknown): string[] {
+  const { vault, environments, collections, workspace, live } = payload as VariablesPayload;
+  const lines: string[] = [];
+  lines.push(`vault (${vault.length}):`);
+  lines.push(...vault.map((secret) => `  ${secret.name} (${secret.kind})`));
+  for (const env of environments) {
+    lines.push(`environment "${env.name}" (${env.variables.length}):`);
+    lines.push(...env.variables.map(variableLine));
+  }
+  for (const collection of collections) {
+    lines.push(`collection "${collection.name}" [${collection.scope}] (${collection.variables.length}):`);
+    lines.push(...collection.variables.map(variableLine));
+  }
+  lines.push(`workspace (${workspace.length}):`);
+  lines.push(...workspace.map(variableLine));
+  lines.push(`live (${live.length}):`);
+  lines.push(...live.map((entry) => `  ${entry.reference} ← workflow ${entry.workflowUid}`));
+  return lines;
+}
+
+interface RequestsPayload {
+  workspaceId: string;
+  requests: { uid: string; name: string; method: string; url: string }[];
+}
+
+export function formatRequests(payload: unknown): string[] {
+  const { workspaceId, requests } = payload as RequestsPayload;
+  const lines = requests.map((req) => `${req.uid}  ${req.method.padEnd(7)} ${req.url}  ${req.name}`);
+  lines.push(`${requests.length} request(s) · workspace ${workspaceId}`);
+  return lines;
+}
+
+interface WorkflowsPayload {
+  workspaceId: string;
+  workflows: {
+    uid: string;
+    name: string;
+    enabled: boolean;
+    published: boolean;
+    stepCount: number;
+    liveVariables: string[];
+  }[];
+}
+
+export function formatWorkflows(payload: unknown): string[] {
+  const { workspaceId, workflows } = payload as WorkflowsPayload;
+  const lines = workflows.map((wf) => {
+    const vars = wf.liveVariables.length > 0 ? `  → ${wf.liveVariables.join(', ')}` : '';
+    return `${wf.enabled ? 'on ' : 'off'}  ${wf.uid}  ${wf.name}  ${wf.stepCount} step(s)${wf.published ? '' : '  (draft)'}${vars}`;
+  });
+  lines.push(`${workflows.length} workflow(s) · workspace ${workspaceId}`);
+  return lines;
+}
+
+interface RunsPayload {
+  workspaceId: string;
+  runs: {
+    workflowUid: string;
+    extractedAt: number;
+    consecutiveFailures: number;
+    lastErrorMessage: string | null;
+    refreshHealth: string;
+  }[];
+}
+
+export function formatWorkflowRuns(payload: unknown): string[] {
+  const { workspaceId, runs } = payload as RunsPayload;
+  const lines = runs.map((run) => {
+    const error = run.lastErrorMessage ? `  err: ${run.lastErrorMessage}` : '';
+    return `${run.workflowUid}  ${run.refreshHealth}  fail×${run.consecutiveFailures}  extracted ${new Date(run.extractedAt).toISOString()}${error}`;
+  });
+  lines.push(`${runs.length} run record(s) · workspace ${workspaceId}`);
+  return lines;
+}
+
+interface ActivityPayload {
+  workspaceId: string;
+  entries: {
+    observedAt: number;
+    kind: string;
+    entityType: string;
+    entityId: string;
+    summary?: string;
+  }[];
+}
+
+export function formatActivity(payload: unknown): string[] {
+  const { workspaceId, entries } = payload as ActivityPayload;
+  const lines = entries.map((entry) => {
+    const what = entry.summary ?? `${entry.kind} ${entry.entityType} ${entry.entityId}`;
+    return `${new Date(entry.observedAt).toISOString()}  ${what}`;
+  });
+  lines.push(`${entries.length} entries · workspace ${workspaceId}`);
+  return lines;
+}
+
+/** Detail commands (`rules get`) — the full definition IS the honest human view. */
+export function formatPayloadJson(payloadText: string): string[] {
+  return [payloadText];
+}
