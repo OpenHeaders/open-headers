@@ -25,9 +25,21 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { App, Button, Progress } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { pushNotification } from './store';
 
 const TOAST_ACK_KEY = 'oh.updateToastAck';
 const TOAST_KEY = 'oh-app-update';
+const LAST_RUN_VERSION_KEY = 'oh.lastRunVersion';
+
+/**
+ * Release page for an installed version — the "What's new" target until
+ * an in-app changelog surface exists. The public releases repo is the
+ * same feed the updater checks, so the tag always exists for any
+ * version that reached a user.
+ */
+function releasePageUrl(version: string): string {
+  return `https://github.com/OpenHeaders/open-headers-releases/releases/tag/v${version}`;
+}
 
 function readAck(): string | null {
   try {
@@ -194,6 +206,53 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout }) => {
       }
     };
 
+    // Post-update announcement: the version changed since the last run
+    // of this surface, so the restart-to-install (or quit-applied
+    // staging) landed. Once per bump; silent on a fresh install (no
+    // prior version recorded).
+    const announceUpdated = (currentVersion: string): void => {
+      let previous: string | null;
+      try {
+        previous = window.localStorage.getItem(LAST_RUN_VERSION_KEY);
+        window.localStorage.setItem(LAST_RUN_VERSION_KEY, currentVersion);
+      } catch {
+        return;
+      }
+      if (previous === null || previous === currentVersion) return;
+      const url = releasePageUrl(currentVersion);
+      const openReleasePage = (): void => {
+        const openUrl = getCapability('openExternalUrl');
+        if (openUrl) void openUrl(url);
+        else window.open(url, '_blank', 'noopener');
+      };
+      notification.success({
+        key: 'oh-updated-to',
+        className: 'oh-update-toast',
+        message: `Updated to Open Headers ${currentVersion}`,
+        description: (
+          <Button
+            type="link"
+            size="small"
+            style={LINK_STYLE}
+            onClick={() => {
+              notification.destroy('oh-updated-to');
+              openReleasePage();
+            }}
+          >
+            See what's new
+          </Button>
+        ),
+        placement: 'bottomRight',
+        duration: 8,
+      });
+      pushNotification({
+        severity: 'success',
+        title: `Updated to Open Headers ${currentVersion}`,
+        dedupeKey: `app-updated:${currentVersion}`,
+        actions: [{ label: "See what's new", run: openReleasePage }],
+      });
+    };
+
     // In-app updater host: hydrate from live state and mirror every
     // transition. The capability probe would collapse downloading/
     // downloaded into "available" — exactly the staleness this avoids.
@@ -202,7 +261,9 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout }) => {
       void bridge
         .call('oh.updates.getState')
         .then((state) => {
-          if (!cancelled) renderPhase(state);
+          if (cancelled) return;
+          renderPhase(state);
+          announceUpdated(state.currentVersion);
         })
         .catch(() => {
           // Host without the updater RPC — nothing to mirror.
