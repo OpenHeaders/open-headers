@@ -1,5 +1,5 @@
 /**
- * Workflow graph mode — slice 1 e2e (WORKFLOW_GRAPH_PLAN.md §7).
+ * Workflow graph mode — slices 1+2 e2e (WORKFLOW_GRAPH_PLAN.md §7).
  *
  * Seeds a fan-out/fan-in workflow via real RPC (request + workflow +
  * one bound LV for the exposure mark), opens its editor from the
@@ -11,8 +11,13 @@
  *     live name.
  *   - Layout is layered: the two fan-out children share a row below
  *     the root; the sink sits below both.
+ *   - Selection sync (slice 2): node click selects (highlight only,
+ *     stays on Graph); the selected node's "Edit step" affordance
+ *     jumps to the form scrolled to that step's card; focusing a
+ *     field in another step moves the selection so returning to
+ *     Graph highlights that node.
  *   - Toggling back to Form is loss-free: step editors reappear and
- *     Save stays disabled (the toggle never dirties the draft).
+ *     Save stays disabled (toggle + selection never dirty the draft).
  */
 
 import path from 'node:path';
@@ -171,6 +176,31 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   expect(leftBox.y).toBeCloseTo(rightBox.y, 1);
   expect(leftBox.y).toBeGreaterThan(rootBox.y);
   expect(sinkBox.y).toBeGreaterThan(leftBox.y);
+
+  // ── Slice 2: selection sync graph↔form ─────────────────────────
+
+  // Node click selects — highlight only, the view stays on Graph.
+  await page.getByTestId('wf-graph-node-left').click();
+  await expect(page.getByTestId('wf-graph-node-left')).toHaveAttribute('data-selected', 'true');
+  await expect(page.getByTestId('wf-graph-node-root')).not.toHaveAttribute('data-selected', 'true');
+  await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
+
+  // The selected node grows the explicit "Edit step" affordance; the
+  // jump lands on the form with that step's card highlighted and
+  // scrolled into view. Selection never dirties the draft.
+  await page.getByTestId('wf-graph-open-left').click();
+  await expect(page.getByTestId('wf-graph-pane')).toHaveCount(0);
+  const leftCard = page.locator('[data-step-card="left"]');
+  await expect(leftCard).toHaveAttribute('data-selected', 'true');
+  await expect(leftCard).toBeInViewport();
+  await expect(saveButton).toBeDisabled();
+
+  // Focusing a field in another step moves the selection; returning
+  // to Graph highlights that node.
+  await page.locator('[data-step-card="sink"] input').first().click();
+  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('wf-graph-node-sink')).toHaveAttribute('data-selected', 'true');
+  await expect(page.getByTestId('wf-graph-node-left')).not.toHaveAttribute('data-selected', 'true');
 
   // Back to Form: step editors return, the toggle never dirtied the
   // draft, so Save stays disabled.

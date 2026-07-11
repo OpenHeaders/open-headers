@@ -59,6 +59,7 @@ import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import EditorHeader from '../shell/EditorHeader';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
+import { LIVE_WORKFLOW_FIELD, liveWorkflowStepIndexFromPath } from '@openheaders/ui/shared/awareness/live-paths';
 import { classifyRun, pickActiveRun, statusColor } from './live-display';
 import WorkflowFormBody from './WorkflowFormBody';
 import WorkflowGraphBody from './WorkflowGraphBody';
@@ -177,6 +178,14 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
 
   const [refreshing, setRefreshing] = useState(false);
   const [view, setView] = useState<WorkflowView>('form');
+  // Graph↔form selection sync (WORKFLOW_GRAPH_PLAN.md §6.2). Ephemeral
+  // UI state like `view` — never persisted, never on the draft, so it
+  // can't move `isDirty` by construction. `scrollToStepId` is a
+  // consume-once request set only by an explicit graph-side "Edit
+  // step" jump; mere selection following form focus never scrolls.
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [scrollToStepId, setScrollToStepId] = useState<string | null>(null);
+  const handleScrollToStepDone = useCallback(() => setScrollToStepId(null), []);
 
   const formFingerprint = useMemo(() => (draft ? fingerprint(draft) : ''), [draft]);
 
@@ -256,9 +265,17 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       if (!workflow) return;
       const path = readFieldPath(e.target);
       if (!path) return;
+      // Form-side focus drives the graph selection: a step-scoped path
+      // maps back to its step id so returning to Graph highlights the
+      // node the user was just editing.
+      const stepIndex = liveWorkflowStepIndexFromPath(path);
+      if (stepIndex !== null) {
+        const stepId = draft?.steps[stepIndex]?.id;
+        if (stepId) setSelectedStepId(stepId);
+      }
       setActiveFieldFocus({ entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: workflow.uid, path });
     },
-    [workflow, setActiveFieldFocus],
+    [workflow, draft, setActiveFieldFocus],
   );
   const handleBlurCapture = useCallback(
     (e: React.FocusEvent<HTMLDivElement>) => {
@@ -268,6 +285,30 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     },
     [setActiveFieldFocus],
   );
+
+  // Graph node click: select + publish the whole-step path through the
+  // same awareness context form focus uses (PLAN §6.2) — no leaf is
+  // focused, so the step-root path is the honest granularity.
+  const handleGraphSelect = useCallback(
+    (stepId: string, declaredIndex: number) => {
+      setSelectedStepId(stepId);
+      if (!workflow) return;
+      setActiveFieldFocus({
+        entityType: LIVE_WORKFLOW_ENTITY_TYPE,
+        entityId: workflow.uid,
+        path: LIVE_WORKFLOW_FIELD.stepRoot(declaredIndex),
+      });
+    },
+    [workflow, setActiveFieldFocus],
+  );
+
+  // Graph "Edit step" affordance / double-click: jump to the form
+  // scrolled to that step's card.
+  const handleGraphOpen = useCallback((stepId: string) => {
+    setSelectedStepId(stepId);
+    setView('form');
+    setScrollToStepId(stepId);
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;
@@ -431,12 +472,23 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <WorkflowRunStatusStrip runs={runs} refresh={draft.refresh} boundCount={boundVars.length} />
-            <WorkflowFormBody draft={draft} setDraft={setDraft} />
+            <WorkflowFormBody
+              draft={draft}
+              setDraft={setDraft}
+              selectedStepId={selectedStepId}
+              scrollToStepId={scrollToStepId}
+              onScrollToStepDone={handleScrollToStepDone}
+            />
           </div>
         </div>
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>
-          <WorkflowGraphBody draft={draft} />
+          <WorkflowGraphBody
+            draft={draft}
+            selectedStepId={selectedStepId}
+            onSelectStep={handleGraphSelect}
+            onOpenStep={handleGraphOpen}
+          />
         </div>
       )}
       <EntityConflictDialog
@@ -464,6 +516,33 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(seedStep));
   const [view, setView] = useState<WorkflowView>('form');
+  // Graph↔form selection sync — same ephemeral state as EditMode, but
+  // with no awareness publishing: a draft has no entity id until save.
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [scrollToStepId, setScrollToStepId] = useState<string | null>(null);
+  const handleScrollToStepDone = useCallback(() => setScrollToStepId(null), []);
+
+  const handleFocusCapture = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      const path = readFieldPath(e.target);
+      if (!path) return;
+      const stepIndex = liveWorkflowStepIndexFromPath(path);
+      if (stepIndex === null) return;
+      const stepId = draft.steps[stepIndex]?.id;
+      if (stepId) setSelectedStepId(stepId);
+    },
+    [draft],
+  );
+
+  const handleGraphSelect = useCallback((stepId: string) => {
+    setSelectedStepId(stepId);
+  }, []);
+
+  const handleGraphOpen = useCallback((stepId: string) => {
+    setSelectedStepId(stepId);
+    setView('form');
+    setScrollToStepId(stepId);
+  }, []);
 
   // Dirty the moment the user touches anything. Comparing against the
   // initial seed-derived fingerprint keeps empty drafts from being
@@ -544,17 +623,31 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
-    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
+      onFocusCapture={handleFocusCapture}
+    >
       <EditorHeader title={createHeaderTitle} actions={viewToggle(view, setView)} shell={shell.headerProps} />
       {view === 'form' ? (
         <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
-            <WorkflowFormBody draft={draft} setDraft={setDraft} />
+            <WorkflowFormBody
+              draft={draft}
+              setDraft={setDraft}
+              selectedStepId={selectedStepId}
+              scrollToStepId={scrollToStepId}
+              onScrollToStepDone={handleScrollToStepDone}
+            />
           </div>
         </div>
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>
-          <WorkflowGraphBody draft={draft} />
+          <WorkflowGraphBody
+            draft={draft}
+            selectedStepId={selectedStepId}
+            onSelectStep={handleGraphSelect}
+            onOpenStep={handleGraphOpen}
+          />
         </div>
       )}
     </div>

@@ -36,4 +36,21 @@ export const LIVE_WORKFLOW_FIELD = {
   step(index: number, leaf: 'id' | 'requestUid' | 'gate' | 'captures'): string {
     return `steps.${index}.${leaf}`;
   },
+  /** Whole-step path — published when a graph node is selected, where
+   *  no single leaf is focused. */
+  stepRoot(index: number): string {
+    return `steps.${index}`;
+  },
 } as const;
+
+/**
+ * Extract the step index from any step-scoped workflow field path
+ * (`steps.<n>` or `steps.<n>.<leaf...>`). Returns null for the bare
+ * `steps` container path and for non-step paths — selection sync uses
+ * this to map a focused form field back to its step.
+ */
+export function liveWorkflowStepIndexFromPath(path: string): number | null {
+  const match = /^steps\.(\d+)(?:\.|$)/.exec(path);
+  if (!match) return null;
+  return Number(match[1]);
+}

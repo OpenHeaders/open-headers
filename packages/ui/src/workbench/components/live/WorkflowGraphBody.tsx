@@ -9,10 +9,16 @@
  * top-down, declared order across each layer. The pane scrolls in both
  * axes; nodes are fixed-size so edge anchors stay deterministic.
  *
- * No selection, no run overlay, no editing — those are slices 2–4.
+ * Selection (slice 2): click selects a node — highlight only, the view
+ * stays on Graph; the selected node grows an explicit "Edit step"
+ * affordance (double-click is the shortcut) that jumps to the form
+ * scrolled to that step. Selection is ephemeral UI state owned by
+ * `LiveWorkflowEditor` — it never touches the draft.
+ *
+ * No run overlay, no editing — those are slices 3–4.
  */
 
-import { FilterOutlined, SortAscendingOutlined, ThunderboltFilled, WarningOutlined } from '@ant-design/icons';
+import { EditOutlined, FilterOutlined, SortAscendingOutlined, ThunderboltFilled, WarningOutlined } from '@ant-design/icons';
 import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
 import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
 import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
@@ -33,6 +39,12 @@ const PAD = 24;
 
 interface WorkflowGraphBodyProps {
   draft: DraftWorkflow;
+  /** Currently selected step id (ephemeral UI state owned by the editor). */
+  selectedStepId?: string | null;
+  /** Click on a node — select + highlight, stay in Graph. */
+  onSelectStep?: (stepId: string, declaredIndex: number) => void;
+  /** Explicit "Edit step" affordance / double-click — jump to the form. */
+  onOpenStep?: (stepId: string) => void;
 }
 
 function clauseSummary(clause: NonNullable<WorkflowStep['runIf']>['all'][number]): string {
@@ -54,7 +66,7 @@ function clauseSummary(clause: NonNullable<WorkflowStep['runIf']>['all'][number]
   }
 }
 
-const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({ draft }) => {
+const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({ draft, selectedStepId, onSelectStep, onOpenStep }) => {
   const { token } = theme.useToken();
   const { requests, isReady: requestsReady } = useRequests();
 
@@ -148,6 +160,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({ draft }) => {
             <GraphNodeCard
               key={node.step.uid}
               stepId={node.step.id}
+              selected={selectedStepId === node.step.id}
+              onSelect={onSelectStep ? () => onSelectStep(node.step.id, node.declaredIndex) : undefined}
+              onOpen={onOpenStep ? () => onOpenStep(node.step.id) : undefined}
               draftStep={draftStep}
               runIf={node.step.runIf}
               hasPriority={node.step.priorityFrom !== undefined}
@@ -172,6 +187,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({ draft }) => {
 
 interface GraphNodeCardProps {
   stepId: string;
+  selected?: boolean;
+  onSelect?: () => void;
+  onOpen?: () => void;
   /** Draft overlay for the step — supplies capture exposure state. */
   draftStep: DraftStep | undefined;
   runIf: WorkflowStep['runIf'];
@@ -187,6 +205,9 @@ interface GraphNodeCardProps {
 
 const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   stepId,
+  selected,
+  onSelect,
+  onOpen,
   draftStep,
   runIf,
   hasPriority,
@@ -203,10 +224,14 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   const captures = draftStep?.captures ?? [];
   const requestLine = requestMissing ? 'Request not found' : requestName || 'No request selected';
   const requestMuted = requestMissing || requestName === '';
+  const borderColor = errors.length > 0 ? token.colorErrorBorder : selected ? token.colorPrimary : token.colorBorder;
 
   return (
     <div
       data-testid={`wf-graph-node-${stepId}`}
+      data-selected={selected ? 'true' : undefined}
+      onClick={onSelect}
+      onDoubleClick={onOpen}
       style={{
         position: 'absolute',
         left: x,
@@ -218,10 +243,12 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
         gap: 4,
         padding: '8px 10px',
         borderRadius: token.borderRadius,
-        border: `1px solid ${errors.length > 0 ? token.colorErrorBorder : token.colorBorder}`,
+        border: `1px solid ${borderColor}`,
+        boxShadow: selected ? `0 0 0 1px ${token.colorPrimary}` : undefined,
         background: token.colorBgElevated,
         boxSizing: 'border-box',
         overflow: 'hidden',
+        cursor: onSelect ? 'pointer' : undefined,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -266,6 +293,18 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
             <WarningOutlined
               data-testid={`wf-graph-error-${stepId}`}
               style={{ fontSize: 11, color: token.colorError }}
+            />
+          </Tooltip>
+        )}
+        {selected && onOpen && (
+          <Tooltip title="Edit step in form">
+            <EditOutlined
+              data-testid={`wf-graph-open-${stepId}`}
+              style={{ fontSize: 11, color: token.colorPrimary }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen();
+              }}
             />
           </Tooltip>
         )}

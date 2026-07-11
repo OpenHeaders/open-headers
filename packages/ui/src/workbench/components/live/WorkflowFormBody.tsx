@@ -27,9 +27,20 @@ const { Text } = Typography;
 interface WorkflowFormBodyProps {
   draft: DraftWorkflow;
   setDraft: (next: DraftWorkflow) => void;
+  /** Selected step id for graph↔form selection sync (ephemeral). */
+  selectedStepId?: string | null;
+  /** Consume-once request: scroll this step's card into view, then report done. */
+  scrollToStepId?: string | null;
+  onScrollToStepDone?: () => void;
 }
 
-const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) => {
+const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
+  draft,
+  setDraft,
+  selectedStepId,
+  scrollToStepId,
+  onScrollToStepDone,
+}) => {
   const { token } = theme.useToken();
   const { requests, collectionTrees: requestCollectionTrees, isReady: requestsReady } = useRequests();
 
@@ -263,6 +274,9 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
               capturesByStepId={capturesByStepId}
               errors={stepErrors}
               dependencyRow={row}
+              selected={selectedStepId === step.id}
+              scrollRequested={scrollToStepId === step.id}
+              onScrollDone={onScrollToStepDone}
             />
           );
         })}

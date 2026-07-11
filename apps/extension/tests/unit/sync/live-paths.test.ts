@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
-import { LIVE_VARIABLE_FIELD, LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
+import {
+  LIVE_VARIABLE_FIELD,
+  LIVE_WORKFLOW_FIELD,
+  liveWorkflowStepIndexFromPath,
+} from '@openheaders/ui/shared/awareness/live-paths';
 
 describe('LIVE_VARIABLE_FIELD constants', () => {
   it('exposes canonical schema-aligned paths', () => {
@@ -31,6 +35,34 @@ describe('LIVE_WORKFLOW_FIELD constants', () => {
     expect(LIVE_WORKFLOW_FIELD.step(2, 'requestUid')).toBe('steps.2.requestUid');
     expect(LIVE_WORKFLOW_FIELD.step(5, 'gate')).toBe('steps.5.gate');
     expect(LIVE_WORKFLOW_FIELD.step(7, 'captures')).toBe('steps.7.captures');
+  });
+
+  it('builds whole-step root paths', () => {
+    expect(LIVE_WORKFLOW_FIELD.stepRoot(0)).toBe('steps.0');
+    expect(LIVE_WORKFLOW_FIELD.stepRoot(12)).toBe('steps.12');
+  });
+});
+
+describe('liveWorkflowStepIndexFromPath', () => {
+  it('extracts the index from step-root and step-leaf paths', () => {
+    expect(liveWorkflowStepIndexFromPath('steps.0')).toBe(0);
+    expect(liveWorkflowStepIndexFromPath('steps.3')).toBe(3);
+    expect(liveWorkflowStepIndexFromPath('steps.2.requestUid')).toBe(2);
+    expect(liveWorkflowStepIndexFromPath('steps.12.captures')).toBe(12);
+  });
+
+  it('round-trips the LIVE_WORKFLOW_FIELD builders', () => {
+    expect(liveWorkflowStepIndexFromPath(LIVE_WORKFLOW_FIELD.stepRoot(4))).toBe(4);
+    expect(liveWorkflowStepIndexFromPath(LIVE_WORKFLOW_FIELD.step(9, 'id'))).toBe(9);
+  });
+
+  it('returns null for the bare steps container and non-step paths', () => {
+    expect(liveWorkflowStepIndexFromPath('steps')).toBeNull();
+    expect(liveWorkflowStepIndexFromPath('steps.')).toBeNull();
+    expect(liveWorkflowStepIndexFromPath('steps.x.id')).toBeNull();
+    expect(liveWorkflowStepIndexFromPath('description')).toBeNull();
+    expect(liveWorkflowStepIndexFromPath('refresh')).toBeNull();
+    expect(liveWorkflowStepIndexFromPath('mysteps.1')).toBeNull();
   });
 });
 

@@ -22,7 +22,7 @@ import { newDraftCapture } from '@openheaders/core/live';
 import type { PriorityRef, StepGate } from '@openheaders/core/types';
 import { Button, Collapse, Input, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { scopeBadge } from '../shared/scope-colors';
 import type { DependencyRow } from './dependencies-view';
 import ExtractorEditor from './ExtractorEditor';
@@ -55,6 +55,15 @@ interface Props {
   errors?: StructuralError[];
   /** Layout metadata (indent + effective parents) from `buildDependencyRows`. */
   dependencyRow?: DependencyRow;
+  // ── Selection sync (graph↔form, WORKFLOW_GRAPH_PLAN.md §6.2) ─────
+  /** This step is the editor's selected step — accent highlight. */
+  selected?: boolean;
+  /** Consume-once scroll request from a graph-side "Edit step" jump:
+   *  the card scrolls itself into view and reports done so the owner
+   *  clears the request. Mere selection (form focus) never scrolls —
+   *  only an explicit jump does. */
+  scrollRequested?: boolean;
+  onScrollDone?: () => void;
 }
 
 const INDENT_PX = 18;
@@ -74,8 +83,18 @@ const WorkflowStepEditor: React.FC<Props> = ({
   capturesByStepId = new Map(),
   errors = [],
   dependencyRow,
+  selected = false,
+  scrollRequested = false,
+  onScrollDone,
 }) => {
   const { token } = theme.useToken();
+
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!scrollRequested) return;
+    cardRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    onScrollDone?.();
+  }, [scrollRequested, onScrollDone]);
 
   const addCapture = () => {
     const name = `capture${step.captures.length + 1}`;
@@ -198,10 +217,16 @@ const WorkflowStepEditor: React.FC<Props> = ({
 
   const indent = dependencyRow?.indent ?? 0;
 
+  const edgeColor = stepLevelError || requestError ? token.colorError : selected ? token.colorPrimary : token.colorBorderSecondary;
+
   return (
     <div
+      ref={cardRef}
+      data-step-card={step.id}
+      data-selected={selected ? 'true' : undefined}
       style={{
-        border: `1px solid ${stepLevelError || requestError ? token.colorError : token.colorBorderSecondary}`,
+        border: `1px solid ${edgeColor}`,
+        boxShadow: selected ? `0 0 0 1px ${token.colorPrimary}` : undefined,
         borderRadius: 6,
         padding: 12,
         marginBottom: 12,
@@ -211,7 +236,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
         // stripe in the primary-color family. Pure visual cue that this
         // step is NOT a root; actual dependency info is in the
         // "Depends on" section.
-        borderLeft: indent > 0 ? `3px solid ${token.colorPrimaryBorder}` : `1px solid ${token.colorBorderSecondary}`,
+        borderLeft: indent > 0 ? `3px solid ${token.colorPrimaryBorder}` : `1px solid ${edgeColor}`,
         position: 'relative',
       }}
     >
