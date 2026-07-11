@@ -10,10 +10,14 @@
  *     across every match; `searchMatchIndex` selects which match the
  *     viewport scrolls to so clicking match #1 then #5 in the same
  *     body re-scrolls.
+ *   • Detected-JWT underlines whose hover opens the shared JWT modal —
+ *     a viewer on read-only buffers, an editor writing back into the
+ *     buffer on editable ones.
  */
 
 import Editor from '@monaco-editor/react';
 import { useTheme } from '@openheaders/ui/context';
+import { useMonacoJwtEdit } from '@openheaders/ui/workbench/components/value-editors/useMonacoJwtEdit';
 import type * as monaco from 'monaco-editor';
 import { useEffect, useRef } from 'react';
 // Side-effect import: kicks Monaco's bootstrap at module load.
@@ -35,6 +39,11 @@ interface CodeViewerProps {
    * the user click match #1 then match #5 in the same body.
    */
   searchMatchIndex?: number;
+  /** Detected-JWT affordance (underline + hover link opening the JWT
+   *  modal). Viewer on read-only buffers, editor with buffer write-back
+   *  on editable ones. Consumers whose value semantics own JWT handling
+   *  themselves opt out. */
+  jwtDetection?: boolean;
 }
 
 export default function CodeViewer({
@@ -45,11 +54,13 @@ export default function CodeViewer({
   onCursorChange,
   searchQuery,
   searchMatchIndex,
+  jwtDetection = true,
 }: CodeViewerProps) {
   const { monacoTheme } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
   const decorationIdsRef = useRef<string[]>([]);
+  const { attachJwtDetection, jwtModal } = useMonacoJwtEdit({ readOnly });
 
   // Apply search-match decorations + scroll to the active match whenever
   // the query, match index, or value changes. `value` is in the dep list
@@ -124,6 +135,7 @@ export default function CodeViewer({
         onMount={(ed, m) => {
           editorRef.current = ed;
           monacoRef.current = m as unknown as typeof monaco;
+          if (jwtDetection) attachJwtDetection(ed, m as unknown as typeof monaco);
           if (onCursorChange) {
             ed.onDidChangeCursorPosition((e) => {
               onCursorChange(e.position.lineNumber, e.position.column);
@@ -152,6 +164,7 @@ export default function CodeViewer({
           find: { addExtraSpaceOnTop: false },
         }}
       />
+      {jwtModal}
     </div>
   );
 }

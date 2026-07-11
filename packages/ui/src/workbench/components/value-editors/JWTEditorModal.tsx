@@ -32,11 +32,21 @@ interface JWTEditorModalProps {
   open: boolean;
   /** The bare token (no `Bearer ` prefix — the caller strips/restores it). */
   token: string;
-  onSave: (token: string) => void;
+  onSave?: (token: string) => void;
   onCancel: () => void;
+  /** Viewer mode for surfaces with nothing to write back (captured
+   *  bodies, stored responses): panes are read-only, re-signing is
+   *  hidden, and the footer is a single Close. */
+  readOnly?: boolean;
 }
 
-const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialToken, onSave, onCancel }) => {
+const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
+  open,
+  token: initialToken,
+  onSave,
+  onCancel,
+  readOnly = false,
+}) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const [decodedHeader, setDecodedHeader] = useState('');
@@ -239,11 +249,11 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
   const isDirty =
     Boolean(displayToken) && displayToken !== originalToken && (!canonicalBaseline || displayToken !== canonicalBaseline);
   const isModified = isDirty || hasErrors;
-  const saveDisabled = !isDirty || hasErrors || !displayToken;
+  const saveDisabled = readOnly || !isDirty || hasErrors || !displayToken;
 
   const handleSave = useCallback(() => {
     if (saveDisabled) return;
-    onSave(displayToken);
+    onSave?.(displayToken);
   }, [saveDisabled, displayToken, onSave]);
 
   // ⌘S / Ctrl+S saves from anywhere inside the modal — matches the
@@ -297,14 +307,20 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
     <Modal
       title={
         <Space>
-          <span>JWT Editor</span>
+          <span>{readOnly ? 'JWT' : 'JWT Editor'}</span>
           {isModified && <Tag color="orange">Modified</Tag>}
         </Space>
       }
       open={open}
       onCancel={onCancel}
       width={980}
-      footer={<EditorModalFooter saveDisabled={saveDisabled} onSave={handleSave} onCancel={onCancel} />}
+      footer={
+        readOnly ? (
+          <Button onClick={onCancel}>Close</Button>
+        ) : (
+          <EditorModalFooter saveDisabled={saveDisabled} onSave={handleSave} onCancel={onCancel} />
+        )
+      }
       centered
       destroyOnHidden
     >
@@ -338,7 +354,14 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
                     </Text>
                   )}
                 </Space>
-                <CodeEditor value={decodedHeader} onChange={handleHeaderChange} language="json" minHeight={92} variableAutoComplete={false} />
+                <CodeEditor
+                  value={decodedHeader}
+                  onChange={handleHeaderChange}
+                  language="json"
+                  minHeight={92}
+                  variableAutoComplete={false}
+                  readOnly={readOnly}
+                />
               </div>
               <div>
                 <Space style={{ marginBottom: 4 }}>
@@ -357,6 +380,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
                   language="json"
                   minHeight={240}
                   variableAutoComplete={false}
+                  readOnly={readOnly}
                 />
                 {recognizedClaims.length > 0 && (
                   // Explicit flex gap — a Tooltip-wrapped Tag loses the
@@ -380,7 +404,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <Text strong style={{ fontSize: 12 }}>
-                Paste or edit the raw token
+                {readOnly ? 'Raw token' : 'Paste or edit the raw token'}
               </Text>
               <TextArea
                 value={encodedInput}
@@ -389,6 +413,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
                 autoSize={{ minRows: 10, maxRows: 16 }}
                 style={{ fontFamily: 'monospace', fontSize: 12 }}
                 status={encodedInputError ? 'error' : undefined}
+                readOnly={readOnly}
               />
               {encodedInputError && (
                 <Alert type="error" showIcon message="Not a decodable JWT" description={encodedInputError} />
@@ -444,7 +469,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
             <Text style={{ color: segmentColors[2] }}>signature</Text>
           </div>
 
-          {editMode === 'decoded' && (
+          {editMode === 'decoded' && !readOnly && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Space>
                 <Text strong style={{ fontSize: 12 }}>

@@ -25,8 +25,21 @@ import type React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
-  default: ({ value, onChange }: { value?: string; onChange?: (next: string) => void }) => (
-    <textarea data-testid="code-editor" value={value} onChange={(e) => onChange?.(e.target.value)} />
+  default: ({
+    value,
+    onChange,
+    readOnly,
+  }: {
+    value?: string;
+    onChange?: (next: string) => void;
+    readOnly?: boolean;
+  }) => (
+    <textarea
+      data-testid="code-editor"
+      value={value}
+      readOnly={readOnly}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
   ),
 }));
 
@@ -217,6 +230,38 @@ describe('JWTEditorModal — encoded mode', () => {
     });
     expect(screen.getByText('Not a decodable JWT')).not.toBeNull();
     expect((screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('JWTEditorModal — read-only viewer', () => {
+  it('shows decoded panes read-only with a Close-only footer and no Save', () => {
+    renderModal({ open: true, token: buildJWT(HEADER, PAYLOAD), readOnly: true, onCancel: vi.fn() });
+    const editors = screen.getAllByTestId('code-editor') as HTMLTextAreaElement[];
+    expect(editors).toHaveLength(2);
+    expect(editors.every((e) => e.readOnly)).toBe(true);
+    expect(JSON.parse(editors[1].value)).toEqual(PAYLOAD);
+    expect(screen.queryByRole('button', { name: /Save/ })).toBeNull();
+    // The footer Close carries visible text; antd's corner X is
+    // aria-labelled "Close" too, so query by text.
+    expect(screen.getByText('Close').closest('button')).not.toBeNull();
+  });
+
+  it('hides the re-sign secret input and keeps the encoded pane read-only', () => {
+    renderModal({ open: true, token: buildJWT(HEADER, PAYLOAD), readOnly: true, onCancel: vi.fn() });
+    expect(screen.queryByText('Re-sign with secret')).toBeNull();
+    expect(screen.queryByPlaceholderText('Signing secret')).toBeNull();
+
+    fireEvent.click(screen.getByText('Encoded'));
+    const rawInput = screen.getByPlaceholderText('header.payload.signature') as HTMLTextAreaElement;
+    expect(rawInput.readOnly).toBe(true);
+    expect(rawInput.value).toBe(buildJWT(HEADER, PAYLOAD));
+  });
+
+  it('closes through the footer Close button', () => {
+    const onCancel = vi.fn();
+    renderModal({ open: true, token: buildJWT(HEADER, PAYLOAD), readOnly: true, onCancel });
+    fireEvent.click(screen.getByText('Close').closest('button') as HTMLButtonElement);
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });
 

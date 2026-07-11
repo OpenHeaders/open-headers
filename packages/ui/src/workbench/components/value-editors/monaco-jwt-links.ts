@@ -44,11 +44,20 @@ export interface JwtDecorationSpec {
   };
 }
 
+/** What activating a detected token does — read-only surfaces open the
+ *  modal as a viewer, so their hover link says so. */
+export type JwtLinkMode = 'edit' | 'view';
+
 /** Scans a model and shapes each hit as an underline decoration whose
  *  hover carries the clickable edit command. The command query holds
  *  `[registrationId, start, end]` in the encoded-JSON form Monaco's
  *  CommandOpener spreads back into command arguments. */
-export function buildJwtDecorations(model: JwtLinkModel, registrationId: number): JwtDecorationSpec[] {
+export function buildJwtDecorations(
+  model: JwtLinkModel,
+  registrationId: number,
+  mode: JwtLinkMode = 'edit',
+): JwtDecorationSpec[] {
+  const label = mode === 'view' ? 'View JWT' : 'Edit JWT';
   return scanForJWTs(model.getValue()).map((hit) => {
     const startPos = model.getPositionAt(hit.start);
     const endPos = model.getPositionAt(hit.end);
@@ -64,7 +73,7 @@ export function buildJwtDecorations(model: JwtLinkModel, registrationId: number)
       },
       options: {
         inlineClassName: JWT_LINK_CLASS,
-        hoverMessage: { value: `[Edit JWT](${commandUrl}) (${CLICK_HINT})`, isTrusted: true },
+        hoverMessage: { value: `[${label}](${commandUrl}) (${CLICK_HINT})`, isTrusted: true },
       },
     };
   });

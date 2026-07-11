@@ -265,7 +265,10 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
           ) : (
             <div className="dt-storagedoc-source">
               <Suspense fallback={<Skeleton />}>
-                <CodeViewer value={text} language={language} readOnly={false} onChange={handleChange} />
+                {/* jwtDetection off: this document IS a detected value's
+                    decoded text — JWTs here edit payload-only through the
+                    compact codec, never the full JWT modal. */}
+                <CodeViewer value={text} language={language} readOnly={false} onChange={handleChange} jwtDetection={false} />
               </Suspense>
             </div>
           )}

@@ -29,6 +29,12 @@ interface PendingEdit {
   token: string;
 }
 
+export interface MonacoJwtEditOptions {
+  /** Viewer wiring for read-only buffers: the hover link reads
+   *  "View JWT" and the modal opens read-only with no write-back. */
+  readOnly?: boolean;
+}
+
 export interface MonacoJwtEditResult {
   /** Call from the editor's `onMount`. Idempotent per Monaco instance;
    *  re-attaching (fresh mount) replaces the previous registration. */
@@ -37,7 +43,7 @@ export interface MonacoJwtEditResult {
   jwtModal: React.ReactNode;
 }
 
-export function useMonacoJwtEdit(): MonacoJwtEditResult {
+export function useMonacoJwtEdit({ readOnly = false }: MonacoJwtEditOptions = {}): MonacoJwtEditResult {
   const [pending, setPending] = useState<PendingEdit | null>(null);
   const pendingRef = useRef<PendingEdit | null>(null);
   const detachRef = useRef<(() => void) | null>(null);
@@ -85,7 +91,7 @@ export function useMonacoJwtEdit(): MonacoJwtEditResult {
       let underlineIds: string[] = [];
       let refreshTimer: ReturnType<typeof setTimeout> | null = null;
       const refresh = () => {
-        underlineIds = model.deltaDecorations(underlineIds, buildJwtDecorations(model, id));
+        underlineIds = model.deltaDecorations(underlineIds, buildJwtDecorations(model, id, readOnly ? 'view' : 'edit'));
       };
       refresh();
       const contentListener = model.onDidChangeContent(() => {
@@ -114,7 +120,7 @@ export function useMonacoJwtEdit(): MonacoJwtEditResult {
         detachTarget();
       };
     },
-    [],
+    [readOnly],
   );
 
   const clearPending = useCallback((edit: PendingEdit) => {
@@ -143,7 +149,13 @@ export function useMonacoJwtEdit(): MonacoJwtEditResult {
     attachJwtDetection,
     jwtModal: pending ? (
       <Suspense fallback={null}>
-        <JWTEditorModalLazy open token={pending.token} onSave={handleSave} onCancel={handleCancel} />
+        <JWTEditorModalLazy
+          open
+          token={pending.token}
+          readOnly={readOnly}
+          onSave={readOnly ? undefined : handleSave}
+          onCancel={handleCancel}
+        />
       </Suspense>
     ) : null,
   };

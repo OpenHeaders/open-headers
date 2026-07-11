@@ -272,6 +272,13 @@
   color: var(--dt-text);
 }
 
+/* Detected-JWT underline (value-editors decoration plane) — hover
+ * carries the View/Edit JWT command link. */
+.dt-codemirror-wrap .monaco-editor .oh-jwt-token-link {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* Two-sided override (Modified | Original) — column shell hosting the
  * Diff / Side-by-side mode bar above whichever view is active. */
 .dt-body-dual {

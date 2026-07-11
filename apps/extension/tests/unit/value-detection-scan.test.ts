@@ -92,6 +92,16 @@ describe('buildJwtDecorations', () => {
     expect(decorations[0].options.hoverMessage.isTrusted).toBe(true);
     expect(decorations[0].options.hoverMessage.value).toContain(`[Edit JWT](${url})`);
   });
+
+  it('labels the hover link "View JWT" in view mode, same command wiring', () => {
+    const text = `"token": "${TOKEN}"`;
+    const decorations = buildJwtDecorations(makeModelStub(text), 7, 'view');
+    expect(decorations).toHaveLength(1);
+    const start = text.indexOf(TOKEN);
+    const url = `command:${JWT_EDIT_COMMAND}?${encodeURIComponent(JSON.stringify([7, start, start + TOKEN.length]))}`;
+    expect(decorations[0].options.hoverMessage.value).toContain(`[View JWT](${url})`);
+    expect(decorations[0].options.hoverMessage.value).not.toContain('Edit JWT');
+  });
 });
 
 describe('registerJwtLinkPlane + attachJwtEditTarget', () => {
