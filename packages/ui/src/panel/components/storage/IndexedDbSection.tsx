@@ -16,6 +16,8 @@ import { ClearOutlined, DeleteOutlined, LeftOutlined, RightOutlined } from '@ant
 import type { IdbDatabase, IdbRecord } from '../../data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '../../data/storage/use-idb-browser';
 import { ArmedIconButton } from './ArmedIconButton';
+import { IdbRecordColumnInfo } from './IdbRecordColumnInfo';
+import { StorageColumnHeaderCell } from './StorageColumnHeaderCell';
 import { DatabaseIcon, TableIcon } from './StorageNavIcons';
 
 /** What an editor-tab open needs from a record row (plus the scope's
@@ -112,6 +114,7 @@ export function IndexedDbSection({ idb, filter, onOpenRecord, isRecordActive }: 
                   icon={<ClearOutlined />}
                   title={`Clear all records in ${s.name}`}
                   confirmTitle={`Deletes every record in ${db.name} › ${s.name}`}
+                  confirmLabel="Confirm clear?"
                   ariaLabel={`Clear store ${s.name}`}
                   onConfirm={() => idb.clearStore(db.name, s.name)}
                 />
@@ -212,8 +215,8 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
       ) : (
         <div className="dt-storage-grid dt-storage-grid--idb" role="table" aria-label="IndexedDB records">
           <div className="dt-storage-grid-header" role="row">
-            <span role="columnheader">Key</span>
-            <span role="columnheader">Value</span>
+            <StorageColumnHeaderCell label="Key" info={<IdbRecordColumnInfo infoKey="key" />} />
+            <StorageColumnHeaderCell label="Value" info={<IdbRecordColumnInfo infoKey="value" />} />
           </div>
           {records.map((r, i) => {
             const wireKey = r.primaryKeyWire;

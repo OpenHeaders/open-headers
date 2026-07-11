@@ -29,7 +29,7 @@ import {
 } from '../../data/cookies/cookie-jar-cache';
 import { useSiteCookieJarSticky } from '../../data/cookies/use-cookie-jar';
 import { cacheEntryTabId, cookieTabId, domStorageEntryTabId, idbRecordTabId } from '../../data/inspector-tab';
-import type { DomStorageArea, DomStorageEntry } from '../../data/storage/storage-inspector-host';
+import type { DomStorageArea, DomStorageEntry, SiteDataType } from '../../data/storage/storage-inspector-host';
 import { parseStorageKey } from '../../data/storage/storage-key';
 import { useCacheBrowser } from '../../data/storage/use-cache-browser';
 import { useIdbBrowser } from '../../data/storage/use-idb-browser';
@@ -45,7 +45,7 @@ import { CookiesSection } from './CookiesSection';
 import { IndexedDbSection, type OpenIdbRecordRequest } from './IndexedDbSection';
 import { StorageGrid } from './StorageGrid';
 import { CookieIcon, DatabaseIcon, TableIcon, UsagePieIcon } from './StorageNavIcons';
-import { StorageQuotaCard } from './StorageQuotaCard';
+import { ClearSiteDataControl, StorageQuotaCard } from './StorageQuotaCard';
 
 /** An editor-tab "Reveal in Storage" jump target — back to the record's
  *  IndexedDB store, the entry's DOM storage area, the Cookies section,
@@ -156,6 +156,29 @@ export function StoragePanel({
   const idb = useIdbBrowser(section === 'indexeddb', selectedScope?.frameId ?? null);
   const cacheStorage = useCacheBrowser(section === 'cachestorage', selectedScope?.frameId ?? null);
   const quota = useStorageQuota(section === 'quota', selectedScope?.frameId ?? null);
+
+  // Scope-bar sweeps for the sectioned stores — every enumerated
+  // database/cache through the same per-name delete the row lanes use.
+  const clearIdbDatabases = useCallback(async () => {
+    for (const db of idb.databases ?? []) idb.deleteDatabase(db.name);
+    return true;
+  }, [idb.databases, idb.deleteDatabase]);
+  const clearCacheStorage = useCallback(async () => {
+    for (const c of cacheStorage.caches ?? []) cacheStorage.deleteCache(c.name);
+    return true;
+  }, [cacheStorage.caches, cacheStorage.deleteCache]);
+
+  // Site-data types UNchecked for Clear everything — owned here so the
+  // scope bar's control and the quota card's checkboxes share it.
+  const [clearExcluded, setClearExcluded] = useState<ReadonlySet<SiteDataType>>(new Set());
+  const toggleClearType = useCallback((type: SiteDataType) => {
+    setClearExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
 
   // Editor-tab "Reveal in Storage": switch to the target section, then
   // (for IndexedDB) select the target store and hand the request back
@@ -429,11 +452,21 @@ export function StoragePanel({
                 </span>
               )}
               <span className="dt-storage-scope-note">{scopeNote}</span>
-              {section === 'cookies'
-                ? cookiesWritable &&
-                  isCookieJarSiteClearable() &&
-                  (sortedCookies?.length ?? 0) > 0 && <ClearAllButton section={section} onClear={clearCookies} />
-                : canWrite && entries.length > 0 && <ClearAllButton section={section} onClear={inspector.clearArea} />}
+              {section === 'cookies' ? (
+                cookiesWritable &&
+                isCookieJarSiteClearable() &&
+                (sortedCookies?.length ?? 0) > 0 && <ClearAllButton section={section} onClear={clearCookies} />
+              ) : section === 'quota' ? (
+                <ClearSiteDataControl quota={quota} excluded={clearExcluded} />
+              ) : section === 'indexeddb' ? (
+                (idb.databases?.length ?? 0) > 0 && <ClearAllButton section={section} onClear={clearIdbDatabases} />
+              ) : section === 'cachestorage' ? (
+                (cacheStorage.caches?.length ?? 0) > 0 && (
+                  <ClearAllButton section={section} onClear={clearCacheStorage} />
+                )
+              ) : (
+                canWrite && entries.length > 0 && <ClearAllButton section={section} onClear={inspector.clearArea} />
+              )}
             </div>
           )}
 
@@ -467,7 +500,7 @@ export function StoragePanel({
                     isEntryActive={isCacheEntryActive}
                   />
                 ) : (
-                  <StorageQuotaCard quota={quota} />
+                  <StorageQuotaCard quota={quota} excluded={clearExcluded} onToggleType={toggleClearType} />
                 )
               ) : (
                 <div className="dt-empty-hero">
@@ -497,9 +530,19 @@ export function StoragePanel({
 }
 
 /** Two-step inline confirm — first click arms, second commits. */
+const CLEAR_ALL_WORDING: Partial<Record<StorageSection, { label: string; noun: string }>> = {
+  cookies: { label: 'Clear cookies', noun: 'cookie in this site’s jar' },
+  indexeddb: { label: 'Clear IndexedDB', noun: 'IndexedDB database' },
+  cachestorage: { label: 'Clear Cache Storage', noun: 'cache' },
+};
+
 function ClearAllButton({ section, onClear }: { section: StorageSection; onClear: () => Promise<boolean> }) {
   const [armed, setArmed] = useState(false);
-  const noun = section === 'cookies' ? 'cookie in this site’s jar' : `${areaName(section)} entry`;
+  const wording = CLEAR_ALL_WORDING[section] ?? {
+    label: section === 'session' ? 'Clear session storage' : 'Clear local storage',
+    noun: `${areaName(section)} entry`,
+  };
+  const { label, noun } = wording;
   return (
     <button
       type="button"
@@ -515,7 +558,7 @@ function ClearAllButton({ section, onClear }: { section: StorageSection; onClear
       }}
       onBlur={() => setArmed(false)}
     >
-      {armed ? 'Confirm clear?' : 'Clear all'}
+      {armed ? 'Confirm clear?' : label}
     </button>
   );
 }
@@ -588,6 +631,7 @@ function StorageBody({
   }
   return (
     <StorageGrid
+      area={section === 'session' ? 'session' : 'local'}
       entries={entries}
       adding={adding}
       onCloseAdd={onCloseAdd}

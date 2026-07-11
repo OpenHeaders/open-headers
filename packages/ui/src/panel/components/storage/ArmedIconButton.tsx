@@ -1,7 +1,9 @@
 /**
  * Two-step destructive icon button for the Storage tool window's
  * destructive gestures (store clear, database/cache delete, cache-entry
- * delete) — first click arms (red), second commits, blur disarms.
+ * delete) — the first click arms, swapping the icon for an explicit red
+ * confirm label (the ClearAllButton idiom); the second commits, blur
+ * disarms.
  */
 
 import { useState } from 'react';
@@ -10,12 +12,15 @@ export function ArmedIconButton({
   icon,
   title,
   confirmTitle,
+  confirmLabel = 'Confirm delete?',
   ariaLabel,
   onConfirm,
 }: {
   icon: React.ReactNode;
   title: string;
   confirmTitle: string;
+  /** Armed-state text shown in place of the icon. */
+  confirmLabel?: string;
   ariaLabel: string;
   onConfirm: () => void;
 }) {
@@ -36,7 +41,7 @@ export function ArmedIconButton({
       }}
       onBlur={() => setArmed(false)}
     >
-      {icon}
+      {armed ? confirmLabel : icon}
     </button>
   );
 }

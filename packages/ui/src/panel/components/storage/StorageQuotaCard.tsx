@@ -2,9 +2,12 @@
  * The Storage tool window's Usage section — the scope's storage usage
  * against its origin quota, with the per-type breakdown when the host's
  * CDP tier answered (attached tabs), a quota-simulation control riding
- * the same tier, and the clear-site-data gesture (bulk destruction ⇒
- * the two-step arm/confirm idiom, blur disarms) parameterized by
- * per-type checkboxes (default all-on).
+ * the same tier, and the per-type checkboxes parameterizing the
+ * clear-site-data gesture. The gesture itself (bulk destruction ⇒ the
+ * two-step arm/confirm idiom, blur disarms) lives in the scope bar as
+ * `ClearSiteDataControl` — the same top-row posture as every other
+ * section's Clear all — so the checkbox selection is owned by the panel
+ * and shared between the two.
  *
  * `navigator.storage` is a secure-context API, so an http: scope
  * legitimately has no reach — that renders as an explanatory empty
@@ -53,10 +56,13 @@ function percent(part: number, whole: number): number {
 
 interface StorageQuotaCardProps {
   quota: StorageQuotaState;
+  /** Site-data types UNchecked for the scope bar's Clear everything —
+   *  owned by the panel, shared with the control. */
+  excluded: ReadonlySet<SiteDataType>;
+  onToggleType: (type: SiteDataType) => void;
 }
 
-export function StorageQuotaCard({ quota }: StorageQuotaCardProps) {
-  const [excluded, setExcluded] = useState<ReadonlySet<SiteDataType>>(new Set());
+export function StorageQuotaCard({ quota, excluded, onToggleType }: StorageQuotaCardProps) {
   const snapshot = quota.quota;
   if (snapshot === null) {
     return quota.loading ? (
@@ -77,16 +83,6 @@ export function StorageQuotaCard({ quota }: StorageQuotaCardProps) {
   const fillPercent = Math.max(usedPercent, snapshot.usage > 0 ? 0.5 : 0);
   const percentLabel = snapshot.usage > 0 && usedPercent < 0.1 ? '<0.1' : usedPercent.toFixed(1);
   const rows = (snapshot.breakdown ?? []).filter((row) => row.usage > 0);
-
-  const toggleType = (type: SiteDataType) => {
-    setExcluded((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
-      return next;
-    });
-  };
-  const selected = SITE_DATA_CHOICES.filter(({ type }) => !excluded.has(type)).map(({ type }) => type);
 
   return (
     <div className="dt-storage-quota">
@@ -127,27 +123,41 @@ export function StorageQuotaCard({ quota }: StorageQuotaCardProps) {
         />
       )}
       {hasCapability('originDataClearing') && (
-        <>
-          <div className="dt-storage-quota-clear-types">
-            {SITE_DATA_CHOICES.map(({ type, label }) => (
-              <label className="dt-storage-quota-clear-type" key={type}>
-                <input type="checkbox" checked={!excluded.has(type)} onChange={() => toggleType(type)} />
-                {label}
-              </label>
-            ))}
-          </div>
-          <div className="dt-storage-quota-actions">
-            <ClearSiteDataButton
-              disabled={selected.length === 0}
-              onClear={() =>
-                quota.clearSiteData(selected.length === SITE_DATA_CHOICES.length ? undefined : selected)
-              }
-            />
-            {quota.clearFailed && <span className="dt-storage-quota-clear-failed">clear failed</span>}
-          </div>
-        </>
+        <div className="dt-storage-quota-clear-types">
+          {SITE_DATA_CHOICES.map(({ type, label }) => (
+            <label className="dt-storage-quota-clear-type" key={type}>
+              <input type="checkbox" checked={!excluded.has(type)} onChange={() => onToggleType(type)} />
+              {label}
+            </label>
+          ))}
+        </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The scope bar's Clear everything — the Usage section's clear-site-data
+ * gesture in the same top-row posture as the other sections' clear
+ * buttons, parameterized by the card's per-type checkboxes.
+ */
+export function ClearSiteDataControl({
+  quota,
+  excluded,
+}: {
+  quota: StorageQuotaState;
+  excluded: ReadonlySet<SiteDataType>;
+}) {
+  if (!hasCapability('originDataClearing') || quota.quota === null) return null;
+  const selected = SITE_DATA_CHOICES.filter(({ type }) => !excluded.has(type)).map(({ type }) => type);
+  return (
+    <>
+      <ClearSiteDataButton
+        disabled={selected.length === 0}
+        onClear={() => quota.clearSiteData(selected.length === SITE_DATA_CHOICES.length ? undefined : selected)}
+      />
+      {quota.clearFailed && <span className="dt-storage-quota-clear-failed">clear failed</span>}
+    </>
   );
 }
 
@@ -230,7 +240,7 @@ function ClearSiteDataButton({ onClear, disabled }: { onClear: () => void; disab
       className={`dt-storage-clear${armed ? ' dt-storage-clear--armed' : ''}`}
       disabled={disabled}
       title={
-        armed ? 'Deletes the checked data types for this origin' : 'Clear the checked site data for this origin'
+        armed ? 'Deletes the checked data types for this origin' : 'Clear the checked data types for this origin'
       }
       onClick={() => {
         if (!armed) {
@@ -242,7 +252,7 @@ function ClearSiteDataButton({ onClear, disabled }: { onClear: () => void; disab
       }}
       onBlur={() => setArmed(false)}
     >
-      {armed ? 'Confirm clear?' : 'Clear site data'}
+      {armed ? 'Confirm clear?' : 'Clear everything'}
     </button>
   );
 }

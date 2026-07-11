@@ -3,13 +3,17 @@
  * StorageQuotaCard — usage-vs-quota totals with the per-type breakdown
  * when the CDP tier answered, a capability hint when it didn't, and the
  * explanatory empty state for an unreadable scope (non-secure context /
- * frame gone) instead of an error.
+ * frame gone) instead of an error. The clear gesture lives in the scope
+ * bar's ClearSiteDataControl, parameterized by the card's checkboxes —
+ * the harness below mirrors the panel's shared-state wiring.
  */
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
-import { StorageQuotaCard } from '@openheaders/ui/panel/components/storage/StorageQuotaCard';
+import { ClearSiteDataControl, StorageQuotaCard } from '@openheaders/ui/panel/components/storage/StorageQuotaCard';
+import type { SiteDataType } from '@openheaders/ui/panel/data/storage/storage-inspector-host';
 import type { StorageQuotaState } from '@openheaders/ui/panel/data/storage/use-storage-quota';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 beforeEach(() => {
@@ -53,9 +57,28 @@ function makeAttachedQuota(
   });
 }
 
+/** The panel's wiring: the checkbox selection is shared between the
+ *  scope bar's control and the card. */
+function Harness({ quota }: { quota: StorageQuotaState }) {
+  const [excluded, setExcluded] = useState<ReadonlySet<SiteDataType>>(new Set());
+  const toggle = (type: SiteDataType) =>
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  return (
+    <>
+      <ClearSiteDataControl quota={quota} excluded={excluded} />
+      <StorageQuotaCard quota={quota} excluded={excluded} onToggleType={toggle} />
+    </>
+  );
+}
+
 describe('StorageQuotaCard', () => {
   it('renders the usage-vs-quota totals', () => {
-    render(<StorageQuotaCard quota={makeQuota()} />);
+    render(<Harness quota={makeQuota()} />);
     expect(screen.getByText('4.1 kB used')).toBeDefined();
     expect(screen.getByText(/of 126 MB/)).toBeDefined();
   });
@@ -72,7 +95,7 @@ describe('StorageQuotaCard', () => {
         ],
       },
     });
-    const { container } = render(<StorageQuotaCard quota={quota} />);
+    const { container } = render(<Harness quota={quota} />);
 
     // Scoped to the breakdown grid — the clear checkboxes reuse the labels.
     const rows = container.querySelector('.dt-storage-quota-rows') as HTMLElement;
@@ -83,25 +106,27 @@ describe('StorageQuotaCard', () => {
   });
 
   it('hints at the Debug-mode upgrade when no breakdown arrived', () => {
-    render(<StorageQuotaCard quota={makeQuota()} />);
+    render(<Harness quota={makeQuota()} />);
     expect(screen.getByText('Enable Debug mode to see the per-type breakdown.')).toBeDefined();
   });
 
   it('renders the secure-context empty state when the scope is unreadable', () => {
-    render(<StorageQuotaCard quota={makeQuota({ quota: null })} />);
+    render(<Harness quota={makeQuota({ quota: null })} />);
     expect(screen.getByText('Usage can’t be read')).toBeDefined();
+    // The scope bar's control drops with the unreadable snapshot.
+    expect(screen.queryByText('Clear everything')).toBeNull();
   });
 
   it('renders a loading note while the first read is in flight', () => {
-    render(<StorageQuotaCard quota={makeQuota({ quota: null, loading: true })} />);
+    render(<Harness quota={makeQuota({ quota: null, loading: true })} />);
     expect(screen.getByText('Loading…')).toBeDefined();
   });
 
   it('clears site data only on the second (armed) click, and blur disarms', () => {
     const quota = makeQuota();
-    render(<StorageQuotaCard quota={quota} />);
+    render(<Harness quota={quota} />);
 
-    const clear = screen.getByText('Clear site data');
+    const clear = screen.getByText('Clear everything');
     fireEvent.click(clear);
     expect(quota.clearSiteData).not.toHaveBeenCalled();
     expect(screen.getByText('Confirm clear?')).toBeDefined();
@@ -118,7 +143,7 @@ describe('StorageQuotaCard', () => {
 
   it('renders the five type checkboxes all-on and narrows the clear to the checked subset', () => {
     const quota = makeQuota();
-    render(<StorageQuotaCard quota={quota} />);
+    render(<Harness quota={quota} />);
 
     for (const label of ['Cookies', 'DOM storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
       expect((screen.getByLabelText(label) as HTMLInputElement).checked).toBe(true);
@@ -126,7 +151,7 @@ describe('StorageQuotaCard', () => {
 
     fireEvent.click(screen.getByLabelText('Cookies'));
     fireEvent.click(screen.getByLabelText('Service workers'));
-    const clear = screen.getByText('Clear site data');
+    const clear = screen.getByText('Clear everything');
     fireEvent.click(clear);
     fireEvent.click(clear);
     expect(quota.clearSiteData).toHaveBeenCalledWith(['localStorage', 'indexedDB', 'cacheStorage']);
@@ -134,12 +159,12 @@ describe('StorageQuotaCard', () => {
 
   it('disables the clear gesture when every type is unchecked', () => {
     const quota = makeQuota();
-    render(<StorageQuotaCard quota={quota} />);
+    render(<Harness quota={quota} />);
 
     for (const label of ['Cookies', 'DOM storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
       fireEvent.click(screen.getByLabelText(label));
     }
-    const clear = screen.getByText('Clear site data') as HTMLButtonElement;
+    const clear = screen.getByText('Clear everything') as HTMLButtonElement;
     expect(clear.disabled).toBe(true);
     fireEvent.click(clear);
     fireEvent.click(clear);
@@ -147,35 +172,35 @@ describe('StorageQuotaCard', () => {
   });
 
   it('notes a failed clear', () => {
-    render(<StorageQuotaCard quota={makeQuota({ clearFailed: true })} />);
+    render(<Harness quota={makeQuota({ clearFailed: true })} />);
     expect(screen.getByText('clear failed')).toBeDefined();
   });
 
   it('drops the Debug-mode hint on hosts without CDP capability', () => {
     unregisterCapability('cdpInspection');
-    render(<StorageQuotaCard quota={makeQuota()} />);
+    render(<Harness quota={makeQuota()} />);
     expect(screen.queryByText('Enable Debug mode to see the per-type breakdown.')).toBeNull();
   });
 
   it('hides the clear gesture on hosts without origin-clearing capability', () => {
     unregisterCapability('originDataClearing');
-    render(<StorageQuotaCard quota={makeQuota()} />);
-    expect(screen.queryByText('Clear site data')).toBeNull();
+    render(<Harness quota={makeQuota()} />);
+    expect(screen.queryByText('Clear everything')).toBeNull();
     expect(screen.queryByLabelText('Cookies')).toBeNull();
   });
 
   it('renders the simulation control only while the breakdown is present (attached)', () => {
-    render(<StorageQuotaCard quota={makeQuota()} />);
+    render(<Harness quota={makeQuota()} />);
     expect(screen.queryByLabelText('Simulate custom quota')).toBeNull();
     cleanup();
 
-    render(<StorageQuotaCard quota={makeAttachedQuota()} />);
+    render(<Harness quota={makeAttachedQuota()} />);
     expect(screen.getByLabelText('Simulate custom quota')).toBeDefined();
   });
 
   it('commits an MB value on Enter (decimal MB, like the usage figures)', () => {
     const quota = makeAttachedQuota();
-    render(<StorageQuotaCard quota={quota} />);
+    render(<Harness quota={quota} />);
 
     const input = screen.getByLabelText('Simulate custom quota');
     fireEvent.change(input, { target: { value: '20' } });
@@ -185,7 +210,7 @@ describe('StorageQuotaCard', () => {
 
   it('clears the simulation on an empty commit and via Reset', () => {
     const quota = makeAttachedQuota({}, { overrideActive: true });
-    render(<StorageQuotaCard quota={quota} />);
+    render(<Harness quota={quota} />);
 
     const input = screen.getByLabelText('Simulate custom quota');
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -197,13 +222,13 @@ describe('StorageQuotaCard', () => {
   });
 
   it('shows Reset only while an override is active', () => {
-    render(<StorageQuotaCard quota={makeAttachedQuota()} />);
+    render(<Harness quota={makeAttachedQuota()} />);
     expect(screen.queryByText('Reset')).toBeNull();
   });
 
   it('rejects a malformed MB value without committing', () => {
     const quota = makeAttachedQuota();
-    render(<StorageQuotaCard quota={quota} />);
+    render(<Harness quota={quota} />);
 
     const input = screen.getByLabelText('Simulate custom quota');
     fireEvent.change(input, { target: { value: '-5' } });
@@ -213,7 +238,7 @@ describe('StorageQuotaCard', () => {
   });
 
   it('notes a failed simulation', () => {
-    render(<StorageQuotaCard quota={makeAttachedQuota({ overrideFailed: true })} />);
+    render(<Harness quota={makeAttachedQuota({ overrideFailed: true })} />);
     expect(screen.getByText('simulation failed')).toBeDefined();
   });
 });
