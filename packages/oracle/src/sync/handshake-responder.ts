@@ -62,7 +62,7 @@ import {
   isSameDeviceOnlyMutation,
   type SnapshotThresholds,
   shouldBootstrapWithSnapshot,
-  workspaceListRowIdForMutation,
+  workspaceListReadSubjectForMutation,
 } from '@openheaders/core/sync';
 
 import { readWorkspaceDeltaStream } from './delta-stream-reader';
@@ -106,9 +106,10 @@ export interface RespondToStateVectorOptions {
   readonly thresholds?: SnapshotThresholds;
   /**
    * Per-row read gate for the `__global__` workspace-list scope
-   * (Phase 5 slice 2): a delta envelope that is a workspace-list row op
-   * (`workspaceListRowIdForMutation`) is streamed only when the filter
-   * admits its workspace id. Setting this also forces the replay to
+   * (Phase 5 slice 2): a delta envelope that reveals a workspace id —
+   * a list-row op or the `activeId` pointer
+   * (`workspaceListReadSubjectForMutation`) — is streamed only when the
+   * filter admits that id. Setting this also forces the replay to
    * start from the EMPTY vector rather than the peer's: a previously
    * hidden row's envelopes can sit below the peer's per-node watermark
    * (the peer applied later same-node envelopes), so honoring the
@@ -189,12 +190,13 @@ export async function respondToStateVector(
     // and the live-broadcast gate — otherwise a reconnecting LAN peer
     // pulls seed history through the delta stream.
     if (options.offDevicePeer && isSameDeviceOnlyMutation(envelope)) continue;
-    // Per-row grant gate on the workspace-list scope: a row the filter
-    // refuses never reaches the peer — the same posture the live
-    // fan-out applies, so catch-up and delta plane agree.
+    // Per-row grant gate on the workspace-list scope: an envelope
+    // revealing a workspace id the filter refuses never reaches the
+    // peer — the same posture the live fan-out applies, so catch-up
+    // and delta plane agree.
     if (rowFilter) {
-      const rowWorkspaceId = workspaceListRowIdForMutation(envelope);
-      if (rowWorkspaceId !== null && !rowFilter(rowWorkspaceId)) continue;
+      const subjectWorkspaceId = workspaceListReadSubjectForMutation(envelope);
+      if (subjectWorkspaceId !== null && !rowFilter(subjectWorkspaceId)) continue;
     }
     const frame: SyncMutationMessage = {
       type: SYNC_MUTATION_TYPE,

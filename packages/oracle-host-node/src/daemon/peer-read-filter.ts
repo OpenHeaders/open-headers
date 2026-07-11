@@ -23,22 +23,23 @@ import { hostLogger as logger } from '@openheaders/core/logger';
 import {
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   type MutationEnvelope,
-  workspaceListRowIdForMutation,
+  workspaceListReadSubjectForMutation,
 } from '@openheaders/core/sync';
 import type { OracleWsServer, PeerSummary } from '../host-runtime/ws-server';
 
 const SCOPE = 'peer-read-filter';
 
 /**
- * The workspace id a `__global__` mutation frame's row op governs, or
- * `null` for non-row global frames (the `activeId` pointer, awareness).
- * The frame was minted in-process as a `SyncMutationMessage`; the guard
- * only covers non-mutation frame shapes riding the same queue.
+ * The workspace id a `__global__` mutation frame reveals — a row op's
+ * subject or the `activeId` pointer's value — or `null` for frames
+ * revealing none (subject-less mutations, awareness). The frame was
+ * minted in-process as a `SyncMutationMessage`; the guard only covers
+ * non-mutation frame shapes riding the same queue.
  */
-function workspaceListRowIdForFrame(frame: Record<string, unknown>): string | null {
+function workspaceListReadSubjectForFrame(frame: Record<string, unknown>): string | null {
   const envelope = frame.envelope;
   if (!envelope || typeof envelope !== 'object' || !('body' in envelope)) return null;
-  return workspaceListRowIdForMutation(envelope as MutationEnvelope);
+  return workspaceListReadSubjectForMutation(envelope as MutationEnvelope);
 }
 
 /**
@@ -94,13 +95,17 @@ export function createFilteredPeerBroadcast(getServer: () => OracleWsServer | nu
           const server = getServer();
           if (!server) return;
           // Per-row grant gate on the workspace-list scope (Phase 5
-          // slice 2): a `__global__` frame carrying a workspace-list
-          // row op is read-gated against THAT workspace, so the live
-          // delta plane hides exactly the rows catch-up hides. Non-row
-          // global frames keep the scope's any-admitted-user posture.
-          const rowWorkspaceId =
-            workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE ? workspaceListRowIdForFrame(frame) : null;
-          const filterPeer = await makeWorkspaceReadFilter(rowWorkspaceId ?? workspaceId, server.listConnectedPeers());
+          // slice 2): a `__global__` frame revealing a workspace id
+          // (a list-row op or the `activeId` pointer) is read-gated
+          // against THAT workspace, so the live delta plane hides
+          // exactly what catch-up hides. Subject-less global frames
+          // keep the scope's any-admitted-user posture.
+          const subjectWorkspaceId =
+            workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE ? workspaceListReadSubjectForFrame(frame) : null;
+          const filterPeer = await makeWorkspaceReadFilter(
+            subjectWorkspaceId ?? workspaceId,
+            server.listConnectedPeers(),
+          );
           server.broadcastFrame(frame, { ...opts, filterPeer });
         })
         .catch((err: unknown) => {

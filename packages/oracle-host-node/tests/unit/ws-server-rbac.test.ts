@@ -47,6 +47,7 @@ import {
 } from '@openheaders/core/protocol';
 import { setHostStorage } from '@openheaders/core/storage';
 import {
+  EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   EXTENSION_WORKSPACE_ID,
@@ -387,6 +388,24 @@ function makeGlobalRowEnvelope(mutationId: string, rowWorkspaceId: string, ms: n
   };
 }
 
+function makeGlobalActiveIdEnvelope(mutationId: string, activeWorkspaceId: string, ms: number): MutationEnvelope {
+  return {
+    mutationId,
+    hlc: { physicalMs: ms, logical: 0, nodeId: 'daemon-node' },
+    origin: { surfaceId: 'sw', deviceId: 'daemon-device' },
+    workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+    orgId: daemonOrgId,
+    mutatorVersion: 1,
+    body: {
+      kind: 'setField',
+      type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+      id: EXTENSION_WORKSPACE_ID,
+      path: EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+      value: activeWorkspaceId,
+    },
+  };
+}
+
 function makePresenceState(instanceId: string): AwarenessState {
   return {
     identity: { instanceId, surfaceKind: 'workbench', appId: 'extension', label: 'Workbench' },
@@ -397,14 +416,14 @@ function makePresenceState(instanceId: string): AwarenessState {
   };
 }
 
-/** Run a `__global__` catch-up on `client`; return the streamed row ids. */
+/** Run a `__global__` catch-up on `client`; return the streamed envelopes' workspace subjects. */
 async function catchUpGlobalRows(client: WebSocket): Promise<string[]> {
   const rows: string[] = [];
   const synced = new Promise<void>((resolve) => {
     client.on('message', (raw) => {
       const msg = JSON.parse(raw.toString());
       if (msg.type === SYNC_MUTATION_TYPE && msg.workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
-        rows.push(msg.envelope.body.itemId);
+        rows.push(msg.envelope.body.itemId ?? msg.envelope.body.value);
       }
       if (msg.type === SYNC_SYNCED_TYPE && msg.workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) resolve();
     });
@@ -421,11 +440,13 @@ describe('per-row __global__ filtering + same-user presence — two users over r
     disposeGlobal();
   });
 
-  it("a directory user's __global__ catch-up streams only granted workspace rows", async () => {
+  it("a directory user's __global__ catch-up streams only granted rows and pointer values", async () => {
     const globalLog = new InMemoryMutationLog();
     await globalLog.appendAll([
       makeGlobalRowEnvelope('m-row-a', 'ws-a', 1_000),
       makeGlobalRowEnvelope('m-row-b', 'ws-b', 2_000),
+      makeGlobalActiveIdEnvelope('m-active-b', 'ws-b', 3_000),
+      makeGlobalActiveIdEnvelope('m-active-a', 'ws-a', 4_000),
     ]);
     __initGlobalSyncServiceForTests({ log: globalLog });
 
@@ -437,7 +458,9 @@ describe('per-row __global__ filtering + same-user presence — two users over r
     server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
     const client = await connectAs(port, granted.record, 'ext-alice');
 
-    expect(await catchUpGlobalRows(client)).toEqual(['ws-a']);
+    // The `activeId` pointer naming the ungranted ws-b is hidden like
+    // ws-b's row — the pointer must not reveal an ungranted id.
+    expect(await catchUpGlobalRows(client)).toEqual(['ws-a', 'ws-a']);
   });
 
   it('the live __global__ delta plane fans a workspace-list row to granted peers only', async () => {

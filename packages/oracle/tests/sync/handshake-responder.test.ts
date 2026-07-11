@@ -253,13 +253,14 @@ describe('respondToStateVector — workspace-list row filter (Phase 5 slice 2)',
     vi.mocked(buildSnapshotForWorkspace).mockResolvedValueOnce(null);
   });
 
-  it('streams only the granted rows; non-row global mutations still pass', async () => {
+  it('streams only envelopes revealing granted workspace ids — rows AND the activeId pointer', async () => {
     deltaEnvelopes.push(
       rowEnvelope('m-a-add', 'ws-a', 'addToSet'),
       rowEnvelope('m-b-add', 'ws-b', 'addToSet'),
       rowEnvelope('m-b-move', 'ws-b', 'moveBefore'),
       rowEnvelope('m-b-remove', 'ws-b', 'removeFromSet'),
-      activeIdEnvelope('m-active', 'ws-b'),
+      activeIdEnvelope('m-active-hidden', 'ws-b'),
+      activeIdEnvelope('m-active-granted', 'ws-a'),
     );
     const reply = collectingReply();
     const result = await respondToStateVector(GLOBAL_MESSAGE, reply, {
@@ -267,7 +268,7 @@ describe('respondToStateVector — workspace-list row filter (Phase 5 slice 2)',
     });
 
     const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
-    expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-a-add', 'm-active']);
+    expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-a-add', 'm-active-granted']);
     expect(result.deltasSent).toBe(2);
     expect(reply.frames.at(-1)?.type).toBe(SYNC_SYNCED_TYPE);
   });
