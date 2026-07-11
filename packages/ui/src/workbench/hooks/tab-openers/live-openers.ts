@@ -4,6 +4,7 @@
  */
 
 import { useCallback } from 'react';
+import type { WorkflowSeedStep } from '../../types';
 import type { TabOpenerContext, UseTabOpenersApi } from './shared';
 
 export type LiveOpeners = Pick<
@@ -51,7 +52,7 @@ export function useLiveOpeners({ allTabs, addTab, switchTab, setPendingRenameTab
   );
 
   const openLiveWorkflowEdit = useCallback(
-    (uid: string, name: string, seedStep?: { requestUid: string; requestName: string; method: string }) => {
+    (uid: string, name: string, seedSteps?: WorkflowSeedStep[]) => {
       const id = `live-wf-${uid}`;
       if (allTabs.some((t) => t.id === id)) {
         switchTab(id);
@@ -61,10 +62,10 @@ export function useLiveOpeners({ allTabs, addTab, switchTab, setPendingRenameTab
         id,
         label: name,
         ruleType: '',
-        dirty: seedStep !== undefined,
+        dirty: seedSteps !== undefined && seedSteps.length > 0,
         mode: 'live-workflow-edit',
         liveWorkflowUid: uid,
-        liveWorkflowSeedStep: seedStep,
+        liveWorkflowSeedSteps: seedSteps,
       });
     },
     [allTabs, addTab, switchTab],
@@ -85,13 +86,18 @@ export function useLiveOpeners({ allTabs, addTab, switchTab, setPendingRenameTab
   }, [addTab, setPendingRenameTabId]);
 
   const openCreateLiveWorkflow = useCallback(
-    (context?: { seedStep?: { requestUid: string; requestName: string; method: string } }) => {
+    (context?: { seedSteps?: WorkflowSeedStep[]; name?: string }) => {
       // Pick a unique draft name so multiple "New Workflow" drafts can
       // coexist. Name drafts with a leading base + (2)/(3)/… suffix —
-      // same approach as `openCreateRequestTab`.
-      const baseName = 'New Workflow';
+      // same approach as `openCreateRequestTab`. Seeding surfaces may
+      // pre-name the draft after the source container. Only workflow
+      // tabs count as collisions: a container-named seed must not get
+      // suffixed just because that container's own overview tab is open.
+      const baseName = context?.name?.trim() || 'New Workflow';
       const existingNames = new Set<string>();
-      for (const tab of allTabs) existingNames.add(tab.label);
+      for (const tab of allTabs) {
+        if (tab.mode === 'live-workflow-create' || tab.mode === 'live-workflow-edit') existingNames.add(tab.label);
+      }
       let draftName = baseName;
       let counter = 2;
       while (existingNames.has(draftName)) {
@@ -106,7 +112,7 @@ export function useLiveOpeners({ allTabs, addTab, switchTab, setPendingRenameTab
         dirty: true,
         mode: 'live-workflow-create',
         draftName,
-        liveWorkflowSeedStep: context?.seedStep,
+        liveWorkflowSeedSteps: context?.seedSteps,
       });
       setPendingRenameTabId(tabId);
     },

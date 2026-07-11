@@ -9,6 +9,7 @@ import {
   PlayCircleOutlined,
   PlusOutlined,
   RollbackOutlined,
+  SisternodeOutlined,
 } from '@ant-design/icons';
 import type { ItemType } from 'antd/es/menu/interface';
 import { createElement } from 'react';
@@ -85,6 +86,10 @@ export interface ContainerActionMenuOptions {
    *  that have a variables editor for this collection family
    *  (rule / request / template). */
   onOpenVariables?: () => void;
+  /** "Create Workflow…" entry — request-side containers only. Opens
+   *  the request picker that seeds a Live Workflow draft from this
+   *  container's requests. */
+  onCreateWorkflow?: () => void;
 }
 
 export function containerActionMenuItems({
@@ -99,6 +104,7 @@ export function containerActionMenuItems({
   onClearNested,
   onExport,
   onOpenVariables,
+  onCreateWorkflow,
 }: ContainerActionMenuOptions): ItemType[] {
   const noun = kind === 'collection' ? 'Collection' : 'Folder';
   const items: ItemType[] = [];
@@ -134,6 +140,14 @@ export function containerActionMenuItems({
       icon: createElement(CodeOutlined),
       label: 'Edit Variables',
       onClick: onOpenVariables,
+    });
+  }
+  if (onCreateWorkflow) {
+    items.push({
+      key: 'create-workflow',
+      icon: createElement(SisternodeOutlined),
+      label: 'Create Workflow…',
+      onClick: onCreateWorkflow,
     });
   }
   if (onExport) {

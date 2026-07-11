@@ -49,7 +49,7 @@ interface SidebarHeaderActionsProps {
   /** API Requests "Add request" menu (also drives the REQUESTS header). */
   requestImportMenuItems: MenuProps['items'];
   createNewEnvironment: () => Promise<void>;
-  onCreateWorkflow?: (seedStep?: { requestUid: string; requestName: string; method: string }) => void;
+  onCreateWorkflow?: () => void;
   exportSelectedIds: Set<string>;
   onExportSelection?: (entities: SidebarExportEntity[]) => void;
   handleExportSelectedClick: () => void;

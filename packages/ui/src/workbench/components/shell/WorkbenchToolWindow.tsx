@@ -178,7 +178,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onOpenRequestCollectionVariables={openRequestCollectionVariables}
           onOpenTemplateCollectionVariables={openTemplateCollectionVariables}
           onSelectLiveWorkflow={openLiveWorkflowEdit}
-          onCreateWorkflow={(seedStep) => openCreateLiveWorkflow(seedStep ? { seedStep } : undefined)}
+          onCreateWorkflow={(context) => openCreateLiveWorkflow(context)}
           onSelectRequest={openRequestEditTab}
           onCreateRequest={openCreateRequestTab}
           onSelectResponseExample={openResponseExampleTab}
@@ -207,7 +207,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
         <WorkflowStatusPanel
           info={getToolWindowInfo('workflow-status')}
           onClose={() => tl.toggleWindow('workflow-status')}
-          // `openLiveWorkflowEdit` expects `(uid, name, seedStep?)`.
+          // `openLiveWorkflowEdit` expects `(uid, name, seedSteps?)`.
           // The sidebar only knows the uid; look up the name from
           // the workflow list so the tab title renders correctly.
           onOpenWorkflow={(uid) => {

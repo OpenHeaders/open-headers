@@ -17,7 +17,7 @@ interface WorkflowsSectionProps {
   sectionsExpanded: Record<string, boolean>;
   toggleSection: (key: string) => void;
   setSectionsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  onCreateWorkflow?: (seedStep?: { requestUid: string; requestName: string; method: string }) => void;
+  onCreateWorkflow?: () => void;
   workflowNodes: TreeNode[];
   renderNodes: SidebarNodeRenderers['renderNodes'];
 }

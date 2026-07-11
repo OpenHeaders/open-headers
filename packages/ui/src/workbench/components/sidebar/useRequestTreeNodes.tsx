@@ -63,6 +63,9 @@ interface UseRequestTreeNodesParams {
    *  folder precedent: clicking a folder row both expands the tree node AND
    *  opens its overview tab). */
   onOpenRequestFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** "Create Workflow…" on a container's `⋯` — opens the request picker
+   *  that seeds a Live Workflow draft from the container's subtree. */
+  onCreateWorkflowFromContainer?: (target: { name: string; tree: CoreTreeNode[] }) => void;
 }
 
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
@@ -130,6 +133,12 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               kind: 'folder',
               ...(p.onExportEntity
                 ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
+                : {}),
+              ...(p.onCreateWorkflowFromContainer
+                ? {
+                    onCreateWorkflow: () =>
+                      p.onCreateWorkflowFromContainer?.({ name: node.name, tree: node.children }),
+                  }
                 : {}),
             }),
             ...exportNodeFields({ kind: 'folder', uid: node.uid, name: node.name }, p.onExportEntity),
@@ -268,6 +277,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.setRenamingId,
       p.onExportEntity,
       p.onOpenRequestFolderOverview,
+      p.onCreateWorkflowFromContainer,
     ],
   );
 
@@ -352,6 +362,12 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           ...(p.onOpenCollectionVariables
             ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
             : {}),
+          ...(p.onCreateWorkflowFromContainer
+            ? {
+                onCreateWorkflow: () =>
+                  p.onCreateWorkflowFromContainer?.({ name: collection.name, tree: collection.tree }),
+              }
+            : {}),
         }),
         awareness: { entityType: REQUEST_COLLECTION_ENTITY_TYPE, entityId: collection.uid },
       });
@@ -412,5 +428,6 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.onOpenCollectionVariables,
     p.onOpenRequestCollectionOverview,
     p.onOpenRequestFolderOverview,
+    p.onCreateWorkflowFromContainer,
   ]);
 }

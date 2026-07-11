@@ -37,7 +37,10 @@ import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
-import type { WorkbenchTab } from '../../types';
+import type { WorkbenchTab, WorkflowSeedStep } from '../../types';
+import CreateWorkflowFromRequestsModal, {
+  type WorkflowFromRequestsTarget,
+} from '../live/CreateWorkflowFromRequestsModal';
 import { buildCreateMenuItems, buildRequestImportMenuItems } from './build-sidebar-menus';
 import EnvironmentsSection from './EnvironmentsSection';
 import { SectionOpenerRow } from './SectionHeader';
@@ -108,8 +111,10 @@ interface SidebarProps {
   /** Open the variables editor for a template-collection. */
   onOpenTemplateCollectionVariables?: (uid: string, name: string) => void;
   onSelectLiveWorkflow?: (uid: string, name: string) => void;
-  /** Open a new unsaved Live Workflow draft — drives the Workflows sidebar's `+` buttons. */
-  onCreateWorkflow?: (seedStep?: { requestUid: string; requestName: string; method: string }) => void;
+  /** Open a new unsaved Live Workflow draft — drives the Workflows
+   *  sidebar's `+` buttons (no context) and the request tree's
+   *  "Create Workflow…" picker (seed steps + container name). */
+  onCreateWorkflow?: (context?: { seedSteps?: WorkflowSeedStep[]; name?: string }) => void;
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
@@ -268,6 +273,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const [filterText, setFilterText] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  // "Create Workflow…" on a request collection / folder row — non-null
+  // opens the request picker modal over that container's subtree.
+  const [workflowFromTarget, setWorkflowFromTarget] = useState<WorkflowFromRequestsTarget | null>(null);
 
   const [openWithSingleClick, setOpenWithSingleClick] = useState(true);
   const [openCollectionsWithSingleClick, setOpenCollectionsWithSingleClick] = useState(true);
@@ -471,6 +479,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onOpenCollectionVariables: onOpenRequestCollectionVariables,
     onOpenRequestCollectionOverview,
     onOpenRequestFolderOverview,
+    ...(onCreateWorkflow ? { onCreateWorkflowFromContainer: setWorkflowFromTarget } : {}),
   });
 
   const environmentNodes = useEnvironmentNodes({
@@ -753,6 +762,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           renderNodes={renderNodes}
         />
       </div>
+      <CreateWorkflowFromRequestsModal
+        target={workflowFromTarget}
+        onCancel={() => setWorkflowFromTarget(null)}
+        onCreate={(name, seedSteps) => {
+          setWorkflowFromTarget(null);
+          onCreateWorkflow?.({ seedSteps, name });
+        }}
+      />
     </div>
   );
 };

@@ -3,6 +3,20 @@
  */
 
 import type { Request, Rule, RuleDraft } from '@openheaders/core/types';
+
+/**
+ * One pending workflow step handed to the Live Workflow editor by a
+ * seeding surface (a Request's "Extract → workflow" action, or the
+ * request tree's "Create Workflow…" container action). The editor
+ * stages — but never persists — a step per seed; the user reviews and
+ * Saves as usual.
+ */
+export interface WorkflowSeedStep {
+  requestUid: string;
+  requestName: string;
+  method: string;
+}
+
 export type TabMode =
   | 'edit'
   | 'collection-overview'
@@ -128,12 +142,13 @@ export interface WorkbenchTab {
   liveWorkflowUid?: string;
   /**
    * For live-workflow-create tabs opened from a Request's "Extract
-   * variables to workflow → New workflow" action, and for
-   * live-workflow-edit tabs opened from "Extract → Attach to <workflow>"
-   * (the editor stages but does not persist a step built from this
-   * request; the user reviews + Saves as usual).
+   * variables to workflow → New workflow" action or the request tree's
+   * "Create Workflow…" container action, and for live-workflow-edit
+   * tabs opened from "Extract → Attach to <workflow>" (the editor
+   * stages but does not persist a step per seed; the user reviews +
+   * Saves as usual). Declared order = step order.
    */
-  liveWorkflowSeedStep?: { requestUid: string; requestName: string; method: string };
+  liveWorkflowSeedSteps?: WorkflowSeedStep[];
   /**
    * For request-create (draft) tabs opened from a specific collection
    * or folder in the sidebar. When set, Save persists directly there;

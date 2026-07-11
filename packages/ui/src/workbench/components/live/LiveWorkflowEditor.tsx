@@ -14,10 +14,11 @@
  * Create mode (`mode: 'create'`):
  *   No `workflowUid` until save. Local-only draft; Save creates the
  *   workflow via `createLiveWorkflow` and calls `onCreated` so the host
- *   can replace the draft tab with a fresh edit tab. Optional `seedStep`
- *   preseeds step 1 with a request (used by the Request editor's
- *   "Use response in workflow" action). No status bar, no
- *   Refresh-now button (nothing to refresh before first save).
+ *   can replace the draft tab with a fresh edit tab. Optional `seedSteps`
+ *   preseeds the draft's steps in declared order (one from the Request
+ *   editor's "Use response in workflow" action, many from the request
+ *   tree's "Create Workflow…" picker). No status bar, no Refresh-now
+ *   button (nothing to refresh before first save).
  *
  * Phase I responsibilities (both modes):
  *   - Runs `validateWorkflowShape` against the draft on every change
@@ -53,6 +54,7 @@ import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell'
 import { useLiveWorkflowConflictResolution } from './use-live-workflow-conflict-resolution';
 import { applyLiveWorkflowPublish } from '@openheaders/ui/shared/sync/live-workflow-write-client';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
+import type { WorkflowSeedStep } from '../../types';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { App, Button, Segmented, Tag, Typography, theme } from 'antd';
 import type React from 'react';
@@ -85,11 +87,16 @@ function fingerprint(d: Draft): string {
   return JSON.stringify(d);
 }
 
-function emptyDraft(seedStep?: { requestUid: string; requestName: string; method: string } | undefined): Draft {
-  const defaultCapture = newDraftCapture('capture1', { kind: 'whole-body' });
-  const steps: DraftStep[] = seedStep
-    ? [{ uid: generateUid(), id: 'step1', requestUid: seedStep.requestUid, captures: [defaultCapture] }]
-    : [{ uid: generateUid(), id: 'step1', requestUid: '', captures: [defaultCapture] }];
+function emptyDraft(seedSteps?: readonly WorkflowSeedStep[]): Draft {
+  // One step per seed (tree order), each with the same whole-body
+  // default capture step 1 always started with; no seeds = one blank step.
+  const seeds = seedSteps && seedSteps.length > 0 ? seedSteps : [undefined];
+  const steps: DraftStep[] = seeds.map((seed, i) => ({
+    uid: generateUid(),
+    id: `step${i + 1}`,
+    requestUid: seed?.requestUid ?? '',
+    captures: [newDraftCapture('capture1', { kind: 'whole-body' })],
+  }));
   return {
     name: '',
     description: '',
@@ -108,13 +115,14 @@ interface EditProps {
   mode: 'edit';
   workflowUid: string;
   /**
-   * Optional pending seed step — applied once to the initial draft
-   * (after the workflow loads) so the editor opens with the request
-   * staged as a new step. The persisted fingerprint is computed from
-   * the unmodified workflow so `isDirty` flips true immediately and
-   * the user can review + Save. Consumed exactly once per tab mount.
+   * Optional pending seed steps — applied once to the initial draft
+   * (after the workflow loads) so the editor opens with the requests
+   * staged as new steps, in declared order. The persisted fingerprint
+   * is computed from the unmodified workflow so `isDirty` flips true
+   * immediately and the user can review + Save. Consumed exactly once
+   * per tab mount.
    */
-  seedStep?: { requestUid: string; requestName: string; method: string };
+  seedSteps?: WorkflowSeedStep[];
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
@@ -123,8 +131,9 @@ interface CreateProps {
   mode: 'create';
   /** Draft label shown in the header when the name is still blank. */
   draftName?: string;
-  /** Optional preseeded step 1 from the Request editor's Extract flow. */
-  seedStep?: { requestUid: string; requestName: string; method: string };
+  /** Optional preseeded steps — the Request editor's Extract flow
+   *  (one) or the request tree's "Create Workflow…" picker (many). */
+  seedSteps?: WorkflowSeedStep[];
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
   /** Called when the draft persists. Host replaces the tab with an edit tab. */
@@ -163,7 +172,7 @@ export default LiveWorkflowEditor;
 
 // ── Edit mode ──────────────────────────────────────────────────────
 
-const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, registerSaveRef }) => {
+const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { workflows, updateWorkflow, refreshNow } = useLiveWorkflows();
@@ -190,8 +199,8 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
 
   const formFingerprint = useMemo(() => (draft ? fingerprint(draft) : ''), [draft]);
 
-  // One-shot gate for the optional seedStep — applied after first
-  // populate so the appended step flips `isDirty` immediately.
+  // One-shot gate for the optional seedSteps — applied after first
+  // populate so the appended steps flip `isDirty` immediately.
   // `seedAppliedRef` survives auto-rebase + clean-state reseeds.
   const seedAppliedRef = useRef(false);
 
@@ -213,9 +222,14 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     onPrimed: (e) => {
       setBaselineRef.current(e);
       baselineLiveWorkflowRef.current = e;
-      if (!seedStep || seedAppliedRef.current) return;
+      if (!seedSteps || seedSteps.length === 0 || seedAppliedRef.current) return;
       seedAppliedRef.current = true;
-      setDraft((d) => (d ? appendDraftStep(d, seedStep.requestUid).draft : d));
+      setDraft((d) => {
+        if (!d) return d;
+        let next = d;
+        for (const seed of seedSteps) next = appendDraftStep(next, seed.requestUid).draft;
+        return next;
+      });
     },
   });
   const isDirty = reprime.isDirty;
@@ -498,14 +512,14 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
 
 // ── Create mode ────────────────────────────────────────────────────
 
-const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange, registerSaveRef, onCreated }) => {
+const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange, registerSaveRef, onCreated }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { createWorkflow } = useLiveWorkflows();
   const { createVariable } = useLiveVariables();
   const editingWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
 
-  const [draft, setDraft] = useState<Draft>(() => emptyDraft(seedStep));
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft(seedSteps));
   const [view, setView] = useState<WorkflowView>('form');
   // Graph↔form selection sync — same ephemeral state as EditMode, but
   // with no awareness publishing: a draft has no entity id until save.
@@ -538,7 +552,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
   // Dirty the moment the user touches anything. Comparing against the
   // initial seed-derived fingerprint keeps empty drafts from being
   // dirty unless the user actually edits.
-  const seedFp = useMemo(() => fingerprint(emptyDraft(seedStep)), [seedStep]);
+  const seedFp = useMemo(() => fingerprint(emptyDraft(seedSteps)), [seedSteps]);
   const isDirty = useMemo(() => fingerprint(draft) !== seedFp, [draft, seedFp]);
 
   const handleSave = useCallback(async () => {

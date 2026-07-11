@@ -5,7 +5,7 @@
  */
 
 import type { Collection, Request, Rule, RuleDraft } from '@openheaders/core/types';
-import type { WorkbenchTab } from '../../types';
+import type { WorkbenchTab, WorkflowSeedStep } from '../../types';
 
 /** Tab plumbing every opener family closes over. */
 export interface TabOpenerContext {
@@ -126,28 +126,23 @@ export interface UseTabOpenersApi {
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
   /**
-   * Open a Live Workflow in its dedicated edit tab. Optional `seedStep`
+   * Open a Live Workflow in its dedicated edit tab. Optional `seedSteps`
    * preseeds a pending append — the editor stages (but does not persist)
-   * a new step built from the given request; the user reviews and saves
-   * as usual. Ignored when the tab is already open (the existing draft
-   * wins — reopening doesn't overwrite in-flight state).
+   * a new step per given request, in declared order; the user reviews
+   * and saves as usual. Ignored when the tab is already open (the
+   * existing draft wins — reopening doesn't overwrite in-flight state).
    */
-  openLiveWorkflowEdit: (
-    uid: string,
-    name: string,
-    seedStep?: { requestUid: string; requestName: string; method: string },
-  ) => void;
+  openLiveWorkflowEdit: (uid: string, name: string, seedSteps?: WorkflowSeedStep[]) => void;
   /** Open an unsaved Live Variable binding draft — reachable from the Live Variables list page. */
   openCreateLiveVariable: () => void;
   /**
    * Open an unsaved Live Workflow draft. Mirrors `openCreateRequestTab`
    * for requests: the tab starts dirty, nothing is persisted until the
-   * user clicks Save. `seedStep` preseeds step 1 with a request so the
-   * "Use response in workflow → New workflow" action from the
-   * Request editor lands inside the draft with the source request
-   * already wired in.
+   * user clicks Save. `seedSteps` preseeds the draft's steps in declared
+   * order — one from the Request editor's "Use response in workflow →
+   * New workflow" action, many from the request tree's "Create
+   * Workflow…" picker. `name` pre-names the draft (e.g. after the
+   * source collection / folder) instead of the "New Workflow" default.
    */
-  openCreateLiveWorkflow: (context?: {
-    seedStep?: { requestUid: string; requestName: string; method: string };
-  }) => void;
+  openCreateLiveWorkflow: (context?: { seedSteps?: WorkflowSeedStep[]; name?: string }) => void;
 }

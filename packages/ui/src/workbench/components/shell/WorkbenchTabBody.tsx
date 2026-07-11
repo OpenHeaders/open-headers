@@ -328,11 +328,11 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
         onExtractToWorkflow={(target, seedStep) => {
           if (target === 'new') {
-            openCreateLiveWorkflow({ seedStep });
+            openCreateLiveWorkflow({ seedSteps: [seedStep] });
             return;
           }
           const wf = liveWorkflows.find((w) => w.uid === target.workflowUid);
-          openLiveWorkflowEdit(target.workflowUid, wf?.name ?? 'Workflow', seedStep);
+          openLiveWorkflowEdit(target.workflowUid, wf?.name ?? 'Workflow', [seedStep]);
         }}
       />
     );
@@ -421,7 +421,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <LiveWorkflowEditor
         mode="edit"
         workflowUid={tab.liveWorkflowUid}
-        seedStep={tab.liveWorkflowSeedStep}
+        seedSteps={tab.liveWorkflowSeedSteps}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
@@ -432,7 +432,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <LiveWorkflowEditor
         mode="create"
         draftName={tab.draftName ?? tab.label}
-        seedStep={tab.liveWorkflowSeedStep}
+        seedSteps={tab.liveWorkflowSeedSteps}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         onCreated={(wf) =>
