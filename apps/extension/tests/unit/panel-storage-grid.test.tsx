@@ -37,6 +37,7 @@ function renderGrid(entries: DomStorageEntry[], adding = false, handlers: Handle
   const onOpenEntry = handlers.onOpenEntry ?? vi.fn();
   render(
     <StorageGrid
+      area="local"
       entries={entries}
       adding={adding}
       onCloseAdd={onCloseAdd}

@@ -23,7 +23,9 @@ export type CookieEditFieldKey =
   | 'secure'
   | 'hostonly';
 
-/** The single cookie every field popover illustrates. */
+/** The single cookie every field popover illustrates — also reused by
+ *  the Storage tool window's Cookies grid column popovers, so both
+ *  surfaces teach against the same example. */
 const EX = {
   name: 'session',
   value: 'a81f52ce4b21',
@@ -35,12 +37,12 @@ const EX = {
   samesite: 'SameSite=Lax',
 } as const;
 
-type TokenId = keyof typeof EX;
+export type CookieExampleToken = keyof typeof EX;
 
 /** Which token(s) of the example each field lights up. Host-only is the
  *  ABSENCE of a Domain attribute, so it lights the Domain token — its
  *  text explains the omission. */
-const HIGHLIGHT: Record<CookieEditFieldKey, readonly TokenId[]> = {
+const HIGHLIGHT: Record<CookieEditFieldKey, readonly CookieExampleToken[]> = {
   name: ['name'],
   value: ['value'],
   domain: ['domain'],
@@ -52,9 +54,9 @@ const HIGHLIGHT: Record<CookieEditFieldKey, readonly TokenId[]> = {
   hostonly: ['domain'],
 };
 
-function ExampleCard({ field }: { field: CookieEditFieldKey }) {
-  const lit = new Set<TokenId>(HIGHLIGHT[field]);
-  const tok = (id: TokenId, text: string) => (
+export function CookieExampleCard({ highlight }: { highlight: readonly CookieExampleToken[] }) {
+  const lit = new Set<CookieExampleToken>(highlight);
+  const tok = (id: CookieExampleToken, text: string) => (
     <span className={`dt-col-eg-tok${lit.has(id) ? ' dt-col-eg-hl' : ''}`}>{text}</span>
   );
   return (
@@ -87,6 +89,10 @@ function ExampleCard({ field }: { field: CookieEditFieldKey }) {
       </div>
     </div>
   );
+}
+
+function ExampleCard({ field }: { field: CookieEditFieldKey }) {
+  return <CookieExampleCard highlight={HIGHLIGHT[field]} />;
 }
 
 const TEMPLATE_NOTE =

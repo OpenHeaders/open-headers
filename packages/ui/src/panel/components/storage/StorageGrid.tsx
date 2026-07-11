@@ -17,7 +17,9 @@
 import { CloseOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { useEffect, useRef, useState } from 'react';
-import type { DomStorageEntry, DomStorageFullValue } from '../../data/storage/storage-inspector-host';
+import type { DomStorageArea, DomStorageEntry, DomStorageFullValue } from '../../data/storage/storage-inspector-host';
+import { DomStorageColumnInfo } from './DomStorageColumnInfo';
+import { StorageColumnHeaderCell } from './StorageColumnHeaderCell';
 import { StorageDocSaveButton } from './StorageDocSaveButton';
 import { UndoableCellInput } from './UndoableCellInput';
 
@@ -46,6 +48,9 @@ function isSaveChord(e: React.KeyboardEvent): boolean {
 }
 
 interface StorageGridProps {
+  /** Which DOM storage area the grid shows — the column popovers'
+   *  example write names the matching global. */
+  area: DomStorageArea;
   entries: ReadonlyArray<DomStorageEntry>;
   /** Add-row visibility is owned by the panel (its + button toggles it). */
   adding: boolean;
@@ -61,6 +66,7 @@ interface StorageGridProps {
 }
 
 export function StorageGrid({
+  area,
   entries,
   adding,
   onCloseAdd,
@@ -101,8 +107,8 @@ export function StorageGrid({
   return (
     <div className="dt-storage-grid" role="table" aria-label="Storage entries">
       <div className="dt-storage-grid-header" role="row">
-        <span role="columnheader">Key</span>
-        <span role="columnheader">Value</span>
+        <StorageColumnHeaderCell label="Key" info={<DomStorageColumnInfo infoKey="key" area={area} />} />
+        <StorageColumnHeaderCell label="Value" info={<DomStorageColumnInfo infoKey="value" area={area} />} />
       </div>
       {adding && (
         <AddRow

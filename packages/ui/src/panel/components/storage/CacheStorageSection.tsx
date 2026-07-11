@@ -17,6 +17,8 @@ import { DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type { CacheBrowserState } from '../../data/storage/use-cache-browser';
 import { formatDateTime, formatSize } from '../traffic/formatters';
 import { ArmedIconButton } from './ArmedIconButton';
+import { CacheEntryColumnInfo } from './CacheEntryColumnInfo';
+import { StorageColumnHeaderCell } from './StorageColumnHeaderCell';
 
 interface CacheStorageSectionProps {
   cache: CacheBrowserState;
@@ -146,10 +148,10 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
       ) : (
         <div className="dt-storage-grid dt-storage-grid--caches" role="table" aria-label="Cache entries">
           <div className="dt-storage-grid-header" role="row">
-            <span role="columnheader">Request</span>
-            <span role="columnheader">Method</span>
-            <span role="columnheader">Size</span>
-            <span role="columnheader">Time</span>
+            <StorageColumnHeaderCell label="Request" info={<CacheEntryColumnInfo infoKey="request" />} />
+            <StorageColumnHeaderCell label="Method" info={<CacheEntryColumnInfo infoKey="method" />} />
+            <StorageColumnHeaderCell label="Size" info={<CacheEntryColumnInfo infoKey="size" />} />
+            <StorageColumnHeaderCell label="Time" info={<CacheEntryColumnInfo infoKey="time" />} />
           </div>
           {entries.map((e, i) => (
             // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance

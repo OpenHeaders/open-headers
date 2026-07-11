@@ -9,6 +9,8 @@
 import { explainFilteredOut } from '../../data/cookies/cookie-enrich';
 import { cookieEditKey, type JarCookie, type JarCookieEdit, type SiteJarCookie } from '../../data/cookies/cookie-jar-cache';
 import { CookieJarRow } from './CookieJarRow';
+import { JarCookieColumnInfo } from './JarCookieColumnInfo';
+import { StorageColumnHeaderCell } from './StorageColumnHeaderCell';
 
 interface CookiesSectionProps {
   cookies: ReadonlyArray<SiteJarCookie>;
@@ -51,11 +53,11 @@ export function CookiesSection({
   return (
     <div className="dt-storage-grid dt-storage-grid--cookies" role="table" aria-label="Cookies">
       <div className="dt-storage-grid-header" role="row">
-        <span role="columnheader">Name</span>
-        <span role="columnheader">Value</span>
-        <span role="columnheader">Domain · Path</span>
-        <span role="columnheader">Expires</span>
-        <span role="columnheader">Sec</span>
+        <StorageColumnHeaderCell label="Name" info={<JarCookieColumnInfo infoKey="name" />} />
+        <StorageColumnHeaderCell label="Value" info={<JarCookieColumnInfo infoKey="value" />} />
+        <StorageColumnHeaderCell label="Domain · Path" info={<JarCookieColumnInfo infoKey="scope" />} />
+        <StorageColumnHeaderCell label="Expires" info={<JarCookieColumnInfo infoKey="expires" />} />
+        <StorageColumnHeaderCell label="Sec" info={<JarCookieColumnInfo infoKey="sec" />} />
       </div>
       {cookies.map((c) => (
         <CookieJarRow
