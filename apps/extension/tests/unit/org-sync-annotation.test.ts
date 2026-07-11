@@ -6,8 +6,8 @@
  * only the Settings row.
  */
 
-import { deriveOrgSyncAnnotation } from '@openheaders/ui/shared/backend';
 import type { BackendConnection } from '@openheaders/core/types';
+import { deriveOrgSyncAnnotation } from '@openheaders/ui/shared/backend';
 import { describe, expect, it } from 'vitest';
 
 const ORG_ID = 'org-backend';
@@ -38,6 +38,11 @@ describe('deriveOrgSyncAnnotation', () => {
       tone: 'warning',
       text: 'no longer syncing',
     });
+  });
+
+  it('a pinned backend with no record (the web serving daemon) has nothing to say — it syncs via the wire', () => {
+    const isPinned = (id: string) => id === BACKEND_ID;
+    expect(deriveOrgSyncAnnotation(ORG_ID, BINDINGS, [], {}, isPinned)).toBeNull();
   });
 
   it('a disabled record warns that the Org stopped syncing', () => {

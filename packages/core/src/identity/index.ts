@@ -94,6 +94,7 @@ export {
   getOrgBackendBindings,
   type InstallIdentitySnapshotInput,
   installIdentitySnapshot,
+  isPinnedBackendId,
   MAX_ORG_NAME_LENGTH,
   pruneJoinedOrgsForBackend,
   type RecordJoinedOrgResult,

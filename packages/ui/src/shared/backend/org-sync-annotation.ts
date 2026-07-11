@@ -13,7 +13,7 @@
  * removed with local copies kept).
  */
 
-import { getOrgBackendBindings } from '@openheaders/core/identity';
+import { getOrgBackendBindings, isPinnedBackendId } from '@openheaders/core/identity';
 import type { BackendConnection, BackendSyncStatusSnapshot } from '@openheaders/core/types';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { useIdentitySnapshot } from '../hooks/useIdentitySnapshot';
@@ -34,11 +34,19 @@ export function deriveOrgSyncAnnotation(
   bindings: ReadonlyMap<string, string>,
   backends: readonly BackendConnection[],
   snapshot: BackendSyncStatusSnapshot,
+  isPinnedBackend: (backendId: string) => boolean = () => false,
 ): OrgSyncAnnotation | null {
   const backendId = bindings.get(orgId);
   if (!backendId) return null;
   const record = backends.find((b) => b.id === backendId);
-  if (!record) return { tone: 'warning', text: 'no longer syncing' };
+  if (!record) {
+    // A pinned backend (the web host's serving daemon) is present by
+    // construction and carries no `OH.backends` record on purpose — its
+    // sync rides the wire, so it is NOT a removed backend. Nothing to
+    // annotate, exactly like the home Org.
+    if (isPinnedBackend(backendId)) return null;
+    return { tone: 'warning', text: 'no longer syncing' };
+  }
   const label = record.label.trim() || record.url;
   if (!record.enabled) return { tone: 'warning', text: `via ${label} — off, not syncing` };
   const slot = snapshot[backendId];
@@ -61,7 +69,7 @@ export function useOrgSyncAnnotations(): (orgId: string) => OrgSyncAnnotation | 
   const { snapshot } = useBackendSyncStatus();
   const bindings = getOrgBackendBindings();
 
-  return (orgId: string) => deriveOrgSyncAnnotation(orgId, bindings, backends, snapshot);
+  return (orgId: string) => deriveOrgSyncAnnotation(orgId, bindings, backends, snapshot, isPinnedBackendId);
 }
 
 /** Annotation for a workspace group whose Org left the identity snapshot. */

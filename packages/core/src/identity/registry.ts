@@ -52,6 +52,15 @@ export function setPinnedBackendIds(ids: readonly string[]): void {
   pinnedBackendIds = new Set(ids);
 }
 
+/**
+ * True for a by-construction backend id (the web host's serving daemon)
+ * — always present, no `OH.backends` record by design. Distinguishes it
+ * from a genuinely removed backend, which also lacks a record.
+ */
+export function isPinnedBackendId(id: string): boolean {
+  return pinnedBackendIds.has(id);
+}
+
 export interface InstallIdentitySnapshotInput {
   record: SyntheticIdentityRecord;
   wras: ReadonlyArray<WorkspaceRoleAssignment>;
