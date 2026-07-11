@@ -1,37 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Monochrome template variant of logo.svg for the macOS menu-bar tray:
+  filled rounded square, pixel letters as cutouts (negative space), the
+  recording block inside the O kept visible. Artwork geometry MUST stay
+  in sync with logo.svg.
+-->
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <!-- Background filled, letters as cutouts (negative space) -->
   <defs>
     <mask id="letterMask">
       <!-- White background = visible -->
       <rect width="512" height="512" fill="white"/>
-      
-      <!-- Black shapes = transparent (cutouts) -->
-      <g fill="black">
-        <!-- Letter O outer -->
-        <path d="M 60 226 
-                 A 100 100 0 0 1 160 126
-                 A 100 100 0 0 1 260 226
-                 A 100 100 0 0 1 160 326
-                 A 100 100 0 0 1 60 226 Z"/>
-        
-        <!-- Letter H with rounded corners -->
-        <rect x="302" y="136" width="50" height="180" rx="10" ry="10" />
-        <rect x="412" y="136" width="50" height="180" rx="10" ry="10" />
-        <rect x="302" y="206" width="160" height="40" rx="10" ry="10" />
-        
-        <!-- Smile curve -->
-        <path d="M 130 375 C 200 435, 352 435, 422 375" stroke="black" stroke-width="28" fill="none" stroke-linecap="round"/>
-      </g>
-      
-      <!-- White shapes inside O (the recording dot fills the entire inner circle) -->
-      <g fill="white">
-        <!-- Recording dot fills entire inner circle -->
-        <circle cx="160" cy="226" r="45"/>
+      <g transform="translate(32 32) scale(0.875)">
+        <!-- Black shapes = transparent (cutouts) -->
+        <g fill="black" shape-rendering="crispEdges">
+          <rect x="80"  y="112" width="128" height="32"/>
+          <rect x="48"  y="144" width="64"  height="160"/>
+          <rect x="176" y="144" width="64"  height="160"/>
+          <rect x="80"  y="304" width="128" height="32"/>
+
+          <rect x="272" y="112" width="64"  height="224"/>
+          <rect x="400" y="112" width="64"  height="224"/>
+          <rect x="272" y="208" width="192" height="32"/>
+        </g>
+        <path d="M 80 388 C 180 448, 332 448, 432 388" stroke="black" stroke-width="28" fill="none" stroke-linecap="round"/>
+        <!-- Recording block inside the O stays visible -->
+        <rect x="112" y="144" width="64" height="160" fill="white" shape-rendering="crispEdges"/>
       </g>
     </mask>
   </defs>
-  
+
   <!-- Rounded square with mask applied -->
   <rect width="512" height="512" rx="80" fill="black" mask="url(#letterMask)"/>
 </svg>

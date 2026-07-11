@@ -4,15 +4,20 @@
 
 echo "Generating icons from logo.svg..."
 
-# Source and destination paths
+# Source and destination paths. The padded variant carries the dock
+# margin Apple's icon grid expects; every other target renders the
+# full-bleed artwork.
 SOURCE_SVG="build/assets/logo.svg"
+PADDED_SVG="build/assets/logo-padded.svg"
 BUILD_DIR="build"
 
-# Check if source SVG exists
-if [ ! -f "$SOURCE_SVG" ]; then
-    echo "Error: $SOURCE_SVG not found!"
-    exit 1
-fi
+# Check if source SVGs exist
+for svg in "$SOURCE_SVG" "$PADDED_SVG"; do
+    if [ ! -f "$svg" ]; then
+        echo "Error: $svg not found!"
+        exit 1
+    fi
+done
 
 # Create temporary directory for intermediate files
 TEMP_DIR=$(mktemp -d)
@@ -74,23 +79,32 @@ rsvg-convert -w 32 -h 32 "$TEMPLATE_SVG" -o "$BUILD_DIR/iconTemplate@2x.png"
 echo "Creating icon.ico for Windows..."
 magick "$TEMP_DIR/icon_16.png" "$TEMP_DIR/icon_32.png" "$TEMP_DIR/icon_48.png" "$TEMP_DIR/icon_256.png" "$BUILD_DIR/icon.ico"
 
-# Generate macOS ICNS file
-echo "Creating icon.icns for macOS..."
+# Generate macOS ICNS file — rendered from the PADDED artwork so the
+# dock icon sits on Apple's icon grid instead of filling the tile.
+echo "Creating icon.icns for macOS (padded artwork)..."
+for size in 16 32 64 128 256 512 1024; do
+    if command -v rsvg-convert &> /dev/null; then
+        rsvg-convert -w ${size} -h ${size} "$PADDED_SVG" -o "$TEMP_DIR/padded_${size}.png"
+    else
+        magick -background none -density 300 "$PADDED_SVG" -resize ${size}x${size} -depth 8 -colorspace sRGB "$TEMP_DIR/padded_${size}.png"
+    fi
+done
+
 # Create iconset directory
 ICONSET_DIR="$TEMP_DIR/icon.iconset"
 mkdir -p "$ICONSET_DIR"
 
 # Copy files with correct names for iconutil
-cp "$TEMP_DIR/icon_16.png" "$ICONSET_DIR/icon_16x16.png"
-cp "$TEMP_DIR/icon_32.png" "$ICONSET_DIR/icon_16x16@2x.png"
-cp "$TEMP_DIR/icon_32.png" "$ICONSET_DIR/icon_32x32.png"
-cp "$TEMP_DIR/icon_64.png" "$ICONSET_DIR/icon_32x32@2x.png"
-cp "$TEMP_DIR/icon_128.png" "$ICONSET_DIR/icon_128x128.png"
-cp "$TEMP_DIR/icon_256.png" "$ICONSET_DIR/icon_128x128@2x.png"
-cp "$TEMP_DIR/icon_256.png" "$ICONSET_DIR/icon_256x256.png"
-cp "$TEMP_DIR/icon_512.png" "$ICONSET_DIR/icon_256x256@2x.png"
-cp "$TEMP_DIR/icon_512.png" "$ICONSET_DIR/icon_512x512.png"
-cp "$TEMP_DIR/icon_1024.png" "$ICONSET_DIR/icon_512x512@2x.png"
+cp "$TEMP_DIR/padded_16.png" "$ICONSET_DIR/icon_16x16.png"
+cp "$TEMP_DIR/padded_32.png" "$ICONSET_DIR/icon_16x16@2x.png"
+cp "$TEMP_DIR/padded_32.png" "$ICONSET_DIR/icon_32x32.png"
+cp "$TEMP_DIR/padded_64.png" "$ICONSET_DIR/icon_32x32@2x.png"
+cp "$TEMP_DIR/padded_128.png" "$ICONSET_DIR/icon_128x128.png"
+cp "$TEMP_DIR/padded_256.png" "$ICONSET_DIR/icon_128x128@2x.png"
+cp "$TEMP_DIR/padded_256.png" "$ICONSET_DIR/icon_256x256.png"
+cp "$TEMP_DIR/padded_512.png" "$ICONSET_DIR/icon_256x256@2x.png"
+cp "$TEMP_DIR/padded_512.png" "$ICONSET_DIR/icon_512x512.png"
+cp "$TEMP_DIR/padded_1024.png" "$ICONSET_DIR/icon_512x512@2x.png"
 
 # Convert to ICNS
 iconutil -c icns -o "$BUILD_DIR/icon.icns" "$ICONSET_DIR"

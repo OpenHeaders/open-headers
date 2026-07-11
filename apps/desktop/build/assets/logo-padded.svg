@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<!--
+  Padded variant of logo-pixel.svg for macOS dock icon packaging.
+  Artwork MUST stay in sync with logo-pixel.svg — only the viewBox differs.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="-64 -64 640 640">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#5890FF;stop-opacity:1" />
