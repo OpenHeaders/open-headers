@@ -96,6 +96,7 @@ import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { createAdminChannelHandlers } from './admin-channels';
 import { createAdmissionControl } from './admission-control';
+import { type DaemonAuditForwardingConfig, installAuditForwarder } from './audit-forwarder';
 import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
@@ -213,6 +214,13 @@ export interface DaemonSpineConfig {
    * Absent = 90. One knob for every entry regardless of actor type.
    */
   auditRetentionDays?: number;
+  /**
+   * Audit→SIEM streaming (enterprise Phase 4d). Absent = the daemon's
+   * zero-outbound posture holds unchanged; configured = the process's
+   * ONE deliberate outbound plane, a durable-cursor forwarder POSTing
+   * audit rows to the operator's collector.
+   */
+  auditForwarding?: DaemonAuditForwardingConfig;
   staticWeb?: {
     rootDir: string;
     /**
@@ -301,10 +309,20 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // gate latency never waits on SQLite; a failed write is logged, and
   // the decision itself is unaffected either way.
   const auditLog = new SqliteAuditLog(syncPersistence.db);
+  // Phase 4d SIEM streaming — the one deliberate outbound plane, and
+  // only when the operator configured a collector. The sink nudges it
+  // after each committed row so delivery is near-real-time; the
+  // forwarder's own heartbeat covers retries and boot backlog.
+  const auditForwarder = config.auditForwarding
+    ? installAuditForwarder({ db: syncPersistence.db, config: config.auditForwarding })
+    : null;
   setAuditSink((entry) => {
-    void auditLog.append(entry).catch((err: unknown) => {
-      consoleLogger.warn(SCOPE, 'audit log append failed', err);
-    });
+    void auditLog
+      .append(entry)
+      .then(() => auditForwarder?.wake())
+      .catch((err: unknown) => {
+        consoleLogger.warn(SCOPE, 'audit log append failed', err);
+      });
   });
   // §9.1 retention — hourly sweep drops rows older than the window.
   const stopAuditPruneScheduler = installAuditPruneScheduler({
@@ -699,6 +717,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     stopLiveRunner();
     stopActivityPruneScheduler();
     stopAuditPruneScheduler();
+    auditForwarder?.stop();
     resetAuditSink();
     unsubscribeStatus();
     unsubscribeActivityEntries();

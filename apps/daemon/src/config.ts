@@ -19,7 +19,12 @@ import * as path from 'node:path';
 import { parseArgs } from 'node:util';
 import { WS_PORT } from '@openheaders/core/protocol';
 import { isValidLogLevel, type LogLevel, validatePort } from '@openheaders/core/utils';
-import type { DaemonOidcConfig, OidcClaimMappingRule, OidcClaimMappings } from '@openheaders/oracle-host-node/daemon';
+import type {
+  DaemonAuditForwardingConfig,
+  DaemonOidcConfig,
+  OidcClaimMappingRule,
+  OidcClaimMappings,
+} from '@openheaders/oracle-host-node/daemon';
 
 /**
  * §9.1 default retention. Redeclared here rather than imported from the
@@ -82,6 +87,15 @@ export interface DaemonConfig {
    * uncapped upward for compliance deployments.
    */
   auditRetentionDays: number;
+  /**
+   * Audit→SIEM streaming destination (enterprise Phase 4d). `null` =
+   * the daemon's zero-outbound posture holds; configured = audit rows
+   * stream to this collector as JSON POST batches behind a durable
+   * cursor. Configured via the `auditForwarding` object in
+   * `daemon.json` — a deliberate outbound plane wants config-as-code,
+   * not a runtime toggle.
+   */
+  auditForwarding: DaemonAuditForwardingConfig | null;
   /** The `daemon.json` path that was consulted (whether or not it existed). */
   configPath: string;
 }
@@ -98,6 +112,7 @@ interface ConfigFile {
   webRoot?: string;
   oidc?: DaemonOidcConfig;
   auditRetentionDays?: number;
+  auditForwarding?: DaemonAuditForwardingConfig;
 }
 
 export interface ResolveConfigInput {
@@ -160,15 +175,15 @@ function parseAllowedHost(raw: string, source: string): string {
 }
 
 function parseHttpUrl(raw: unknown, source: string, field: string): string {
-  if (typeof raw !== 'string' || !raw.trim()) throw new Error(`${source}: oidc.${field} must be a URL string`);
+  if (typeof raw !== 'string' || !raw.trim()) throw new Error(`${source}: ${field} must be a URL string`);
   let parsed: URL;
   try {
     parsed = new URL(raw.trim());
   } catch {
-    throw new Error(`${source}: oidc.${field} '${raw}' is not a valid URL`);
+    throw new Error(`${source}: ${field} '${raw}' is not a valid URL`);
   }
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new Error(`${source}: oidc.${field} must be http(s), got '${parsed.protocol}'`);
+    throw new Error(`${source}: ${field} must be http(s), got '${parsed.protocol}'`);
   }
   return raw.trim().replace(/\/$/, '');
 }
@@ -184,7 +199,7 @@ function parseOidcConfig(raw: unknown, source: string): DaemonOidcConfig {
   }
   const record = raw as Record<string, unknown>;
   const out: DaemonOidcConfig = {
-    issuer: parseHttpUrl(record.issuer, source, 'issuer'),
+    issuer: parseHttpUrl(record.issuer, source, 'oidc.issuer'),
     clientId: '',
   };
   if (typeof record.clientId !== 'string' || !record.clientId.trim()) {
@@ -216,7 +231,7 @@ function parseOidcConfig(raw: unknown, source: string): DaemonOidcConfig {
     out.sessionTtlDays = record.sessionTtlDays;
   }
   if (record.redirectOrigin !== undefined) {
-    out.redirectOrigin = parseHttpUrl(record.redirectOrigin, source, 'redirectOrigin');
+    out.redirectOrigin = parseHttpUrl(record.redirectOrigin, source, 'oidc.redirectOrigin');
   }
   if (record.providerLabel !== undefined) {
     if (typeof record.providerLabel !== 'string') throw new Error(`${source}: oidc.providerLabel must be a string`);
@@ -258,6 +273,47 @@ function parseClaimMappings(raw: unknown, source: string): OidcClaimMappings {
     throw new Error(`${source}: ${at}.role must be owner, editor or viewer`);
   });
   return { claimPath: record.claimPath.trim(), rules };
+}
+
+/**
+ * The `auditForwarding` object — `url` is mandatory; everything else
+ * refuses loudly on a wrong shape so a misconfigured collector never
+ * boots into silently-dropped audit delivery.
+ */
+function parseAuditForwarding(raw: unknown, source: string): DaemonAuditForwardingConfig {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`${source}: auditForwarding must be a JSON object`);
+  }
+  const record = raw as Record<string, unknown>;
+  const out: DaemonAuditForwardingConfig = {
+    url: parseHttpUrl(record.url, source, 'auditForwarding.url'),
+  };
+  if (record.headers !== undefined) {
+    if (record.headers === null || typeof record.headers !== 'object' || Array.isArray(record.headers)) {
+      throw new Error(`${source}: auditForwarding.headers must be a JSON object of string values`);
+    }
+    const headers: Record<string, string> = {};
+    for (const [name, value] of Object.entries(record.headers)) {
+      if (!/^[!#$%&'*+.^_`|~\w-]+$/.test(name) || typeof value !== 'string') {
+        throw new Error(`${source}: auditForwarding.headers['${name}'] must map a valid header name to a string`);
+      }
+      headers[name] = value;
+    }
+    out.headers = headers;
+  }
+  if (record.batchSize !== undefined) {
+    if (typeof record.batchSize !== 'number' || !Number.isInteger(record.batchSize) || record.batchSize <= 0) {
+      throw new Error(`${source}: auditForwarding.batchSize must be a positive integer`);
+    }
+    out.batchSize = record.batchSize;
+  }
+  if (record.intervalMs !== undefined) {
+    if (typeof record.intervalMs !== 'number' || !Number.isFinite(record.intervalMs) || record.intervalMs <= 0) {
+      throw new Error(`${source}: auditForwarding.intervalMs must be a positive number`);
+    }
+    out.intervalMs = record.intervalMs;
+  }
+  return out;
 }
 
 function readConfigFile(configPath: string): ConfigFile {
@@ -317,6 +373,9 @@ function readConfigFile(configPath: string): ConfigFile {
       throw new Error(`${configPath}: auditRetentionDays must be a number`);
     }
     out.auditRetentionDays = record.auditRetentionDays;
+  }
+  if (record.auditForwarding !== undefined) {
+    out.auditForwarding = parseAuditForwarding(record.auditForwarding, configPath);
   }
   return out;
 }
@@ -441,6 +500,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     webRoot,
     oidc,
     auditRetentionDays,
+    auditForwarding: file.auditForwarding ?? null,
     configPath,
   };
 }

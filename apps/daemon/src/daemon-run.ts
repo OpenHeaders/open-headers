@@ -134,9 +134,10 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       config.auditRetentionDays !== AUDIT_RETENTION_DEFAULT_DAYS
         ? `, audit retention ${config.auditRetentionDays}d`
         : '';
+    const forwardNote = config.auditForwarding ? `, audit stream to ${new URL(config.auditForwarding.url).host}` : '';
     log.info(
       SCOPE,
-      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${auditNote}`,
+      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${auditNote}${forwardNote}`,
     );
     if (config.bindAddress === '0.0.0.0' && !config.trustedProxy) {
       log.warn(
@@ -168,6 +169,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       },
       ...(config.oidc ? { oidc: config.oidc } : {}),
       auditRetentionDays: config.auditRetentionDays,
+      ...(config.auditForwarding ? { auditForwarding: config.auditForwarding } : {}),
       staticWeb,
       broadcastLocal: () => {
         // No same-process surfaces yet — the served web app (Phase 4)

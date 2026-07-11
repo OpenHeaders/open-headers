@@ -210,6 +210,56 @@ describe('resolveDaemonConfig — audit retention', () => {
   });
 });
 
+describe('resolveDaemonConfig — audit forwarding', () => {
+  it('defaults to null and reads a full block from the file', () => {
+    expect(resolve().auditForwarding).toBeNull();
+    const file = writeConfigFile({
+      auditForwarding: {
+        url: 'https://siem.openheaders.io/ingest',
+        headers: { Authorization: 'Bearer collector-token' },
+        batchSize: 500,
+        intervalMs: 2000,
+      },
+    });
+    expect(resolve(['--config', file]).auditForwarding).toEqual({
+      url: 'https://siem.openheaders.io/ingest',
+      headers: { Authorization: 'Bearer collector-token' },
+      batchSize: 500,
+      intervalMs: 2000,
+    });
+  });
+
+  it('a bare url is enough', () => {
+    const file = writeConfigFile({ auditForwarding: { url: 'http://127.0.0.1:9880/ingest' } });
+    expect(resolve(['--config', file]).auditForwarding).toEqual({ url: 'http://127.0.0.1:9880/ingest' });
+  });
+
+  it('refuses a malformed block', () => {
+    expect(() => resolve(['--config', writeConfigFile({ auditForwarding: 'https://x' })])).toThrow(
+      /auditForwarding must be a JSON object/,
+    );
+    expect(() => resolve(['--config', writeConfigFile({ auditForwarding: {} })])).toThrow(/auditForwarding\.url/);
+    expect(() =>
+      resolve(['--config', writeConfigFile({ auditForwarding: { url: 'ftp://siem.openheaders.io' } })]),
+    ).toThrow(/must be http\(s\)/);
+    expect(() =>
+      resolve([
+        '--config',
+        writeConfigFile({ auditForwarding: { url: 'https://siem.openheaders.io', headers: { 'bad name': 'x' } } }),
+      ]),
+    ).toThrow(/headers\['bad name'\]/);
+    expect(() =>
+      resolve(['--config', writeConfigFile({ auditForwarding: { url: 'https://siem.openheaders.io', batchSize: 0 } })]),
+    ).toThrow(/batchSize must be a positive integer/);
+    expect(() =>
+      resolve([
+        '--config',
+        writeConfigFile({ auditForwarding: { url: 'https://siem.openheaders.io', intervalMs: -5 } }),
+      ]),
+    ).toThrow(/intervalMs must be a positive number/);
+  });
+});
+
 describe('resolveDaemonConfig — validation', () => {
   it('rejects a bind address that is neither loopback nor all-interfaces', () => {
     expect(() => resolve(['--bind-address', '192.168.1.10'])).toThrow(/bind address/);

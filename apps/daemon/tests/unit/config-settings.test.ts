@@ -33,6 +33,7 @@ function makeConfig(): DaemonConfig {
     webRoot: null,
     oidc: null,
     auditRetentionDays: 90,
+    auditForwarding: null,
     configPath: path.join(dataDir, 'daemon.json'),
   };
 }
