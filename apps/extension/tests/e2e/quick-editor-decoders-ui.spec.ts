@@ -258,3 +258,135 @@ test.describe('Panel quick editor — compact inline decoder', () => {
       .toBe(BASIC_EDITED);
   });
 });
+
+// ── Value-document tab — the compact editor's escalation ────────────
+// Continues on the state the compact loop left behind: the rule's
+// value is BASIC_EDITED and the rule is published.
+
+const DOC_DECODED = 'svc@openheaders.io:final2026!!';
+const DOC_EDITED = `Basic ${b64(DOC_DECODED)}`;
+
+/** The value-document body (the active editor-group document). */
+function docRoot(): Locator {
+  return panelPage.locator('.dt-storagedoc').filter({ visible: true }).first();
+}
+
+/** The document's editor-group tab pill. */
+function docPill(): Locator {
+  return panelPage.locator('.dt-editor-tab').filter({ hasText: HEADER_NAME }).first();
+}
+
+async function docMonacoText(): Promise<string> {
+  return (await docRoot().locator('.dt-storagedoc-source .view-lines').innerText()).replace(/\u00a0/g, ' ');
+}
+
+/** Single-line bulk replace in the document's Monaco (same insertText
+ *  contract as the workbench POM, driven on the panel page). */
+async function fillDocMonaco(text: string): Promise<void> {
+  await docRoot().locator('.monaco-editor').first().click();
+  await panelPage.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await panelPage.keyboard.press('Backspace');
+  await panelPage.keyboard.insertText(text);
+}
+
+/** Reopen the quick editor on the rule row and expand the compact
+ *  editor on the Base64 value field. The Matched Rules panel keys off
+ *  the SELECTED REQUEST — with the value document holding the editor
+ *  group's focus there is none (the panel shows its empty state), so
+ *  re-select an echo row first. */
+async function openCompactEditor(): Promise<void> {
+  await panelPage.locator('.dt-row').filter({ hasText: 'echo' }).first().click();
+  await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(RULE_NAME, { timeout: 10_000 });
+  const ruleRow = panelPage.locator('.dt-matched-rule').filter({ hasText: RULE_NAME }).first();
+  await ruleRow.hover();
+  await expect(popover()).toBeVisible();
+  const cell = valueCell();
+  await cell.hover();
+  await cell.getByLabel('Edit Base64 value', { exact: true }).click();
+  await expect(compactEditor()).toBeVisible();
+}
+
+test.describe('Panel value document — the compact editor escalation', () => {
+  test('"Open as document" opens a rule-value editor tab and closes the popover', async () => {
+    // The document tab steals the editor group's focus later — make
+    // sure the Matched Rules tool window is showing first.
+    const matchedTab = panelPage.locator('[data-tool-window="matched-rules"]').first();
+    if ((await matchedTab.getAttribute('aria-selected')) !== 'true') {
+      await matchedTab.click();
+    }
+    await openCompactEditor();
+
+    const openDoc = compactEditor().getByRole('button', { name: 'Open as document' });
+    await expect(openDoc).toBeVisible();
+    await openDoc.click();
+
+    // The popover closes — the tab reads the canonical, and the
+    // popover's ephemeral drafts die with it by design.
+    await expect(popover()).toHaveCount(0);
+
+    // New editor-group tab: VAL badge, header-name label, document
+    // body with the rule crumb, type title, and the decoded value in
+    // Monaco (async layout — poll the buffer).
+    await expect(docPill()).toBeVisible();
+    await expect(docPill()).toContainText('VAL');
+    await expect(docRoot().locator('.dt-storagedoc-crumb')).toContainText(`${RULE_NAME} › ${HEADER_NAME}`);
+    await expect(docRoot().locator('.dt-storagedoc-crumb')).toContainText('Base64 value');
+    await expect(async () => {
+      expect(await docMonacoText()).toContain('admin@openheaders.io:rotated2026!!');
+    }).toPass({ timeout: 15_000 });
+    // Pristine document: nothing to save, no preview strip.
+    await expect(docRoot().locator('.dt-storagedoc-save')).toBeDisabled();
+    await expect(docRoot().getByLabel('Encoded preview')).toHaveCount(0);
+  });
+
+  test('a document edit previews the exact re-encode, dirties the pill, and Save persists + rides the wire', async () => {
+    await fillDocMonaco(DOC_DECODED);
+
+    // The preview IS what Save writes — prefix carried.
+    await expect(docRoot().getByLabel('Encoded preview')).toContainText(DOC_EDITED);
+    await expect(docPill().locator('.dt-editor-tab-dirty')).toBeVisible();
+
+    const save = docRoot().locator('.dt-storagedoc-save');
+    await expect(save).toBeEnabled();
+    await save.click();
+
+    interface StoredHeaderRule {
+      type: string;
+      name?: string;
+      published?: boolean;
+      action?: { requestHeaders?: Array<{ headerName: string; value?: string }> };
+    }
+    await expect
+      .poll(async () => {
+        const res = await workbench.rpc<{ rules: StoredHeaderRule[] }>('getLocalRules');
+        const rule = res.rules.find((r) => r.name === RULE_NAME);
+        return {
+          value: rule?.action?.requestHeaders?.find((h) => h.headerName === HEADER_NAME)?.value,
+          published: rule?.published,
+        };
+      })
+      .toEqual({ value: DOC_EDITED, published: true });
+
+    // The document reads clean immediately (re-seeded to the written
+    // value) and the dirty dot clears.
+    await expect(save).toBeDisabled();
+    await expect(docPill().locator('.dt-editor-tab-dirty')).toHaveCount(0);
+
+    // Re-fire: the DNR recompile lands async after the mutation.
+    await expect
+      .poll(async () => (await echoFetch()).headers[HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+      .toBe(DOC_EDITED);
+  });
+
+  test('re-opening the same field activates the existing tab — no duplicate', async () => {
+    await openCompactEditor();
+    await compactEditor().getByRole('button', { name: 'Open as document' }).click();
+    await expect(popover()).toHaveCount(0);
+    await expect(docPill()).toBeVisible();
+    await expect(panelPage.locator('.dt-editor-tab').filter({ hasText: HEADER_NAME })).toHaveCount(1);
+    // The document reflects the saved edit — the canonical, not a draft.
+    await expect(async () => {
+      expect(await docMonacoText()).toContain(DOC_DECODED);
+    }).toPass({ timeout: 15_000 });
+  });
+});
