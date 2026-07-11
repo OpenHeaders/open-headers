@@ -28,6 +28,13 @@ export const LicenseSchema = v.object({
   entitlements: v.array(v.pipe(v.string(), v.minLength(1))),
   /** Delivery-modality marker: long-lived air-gapped file; hosts disable the refresh agent. */
   offline: v.optional(v.literal(true)),
+  /**
+   * Opaque control-plane subscription reference, stamped at first
+   * issuance and carried forward on every refresh — the key the control
+   * plane uses to look up subscription state. Absent on enterprise
+   * (`offline`) files; hosts never read it.
+   */
+  subscriptionRef: v.optional(v.pipe(v.string(), v.minLength(1))),
   /** ms-since-epoch of signing. */
   issuedAt: v.pipe(v.number(), v.integer()),
   /** ms-since-epoch after which the license enters grace. */

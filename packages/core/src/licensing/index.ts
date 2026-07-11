@@ -10,7 +10,13 @@ export { FREE_SEAT_LIMIT, RESERVED_ENTITLEMENTS, type ReservedEntitlement } from
 export { LICENSE_PUBLIC_KEYS, type LicenseKeyRing } from './keys';
 export { type License, type Licensee, LicenseeSchema, LicenseSchema } from './schema';
 export { getLicenseSeatLimit, getLicenseSnapshot, setLicenseSnapshotProvider } from './seats';
-export { generateLicenseSigningKeys, signLicense } from './sign';
+export {
+  exportLicenseSigningKey,
+  generateLicenseSigningKeys,
+  importLicenseSigningKey,
+  publicKeyFromSigningKey,
+  signLicense,
+} from './sign';
 export { snapshotFromVerifyResult } from './snapshot';
 export type {
   InvalidLicense,

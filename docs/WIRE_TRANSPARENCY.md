@@ -35,7 +35,9 @@ validation path exists.
 
   - `licenseKey` — the currently installed license artifact, verbatim.
     It contains what the license file contains: licensee name/org/email,
-    seat count, validity window, key id. Nothing about the deployment
+    seat count, validity window, key id, and an opaque subscription
+    reference (`subscriptionRef`) the control plane stamped at purchase
+    and uses to look the subscription up. Nothing about the deployment
     (users, workspaces, hostnames, usage) is derivable from it.
   - `appVersion` — the host's own version string.
   - `platform` — the Node `process.platform` value (`darwin`, `win32`,

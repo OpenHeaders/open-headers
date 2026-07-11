@@ -8,7 +8,7 @@
  * module — callers bring their own `CryptoKey`.
  */
 
-import { encodeBase64Url } from './encoding';
+import { decodeBase64Url, encodeBase64Url } from './encoding';
 import { LICENSE_PREFIX } from './verify';
 
 /**
@@ -25,6 +25,37 @@ export async function generateLicenseSigningKeys(): Promise<{
   if (!('privateKey' in generated)) throw new Error('Ed25519 generateKey did not return a key pair');
   const publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey('raw', generated.publicKey));
   return { privateKey: generated.privateKey, publicKeyBase64Url: encodeBase64Url(publicKeyBytes) };
+}
+
+/**
+ * Serialize a signing key for storage — base64url-encoded PKCS#8, one
+ * line. The one at-rest format every key holder shares: the ceremony's
+ * offline file, the control-plane secret, and the enterprise script's
+ * key file all round-trip through this pair.
+ */
+export async function exportLicenseSigningKey(privateKey: CryptoKey): Promise<string> {
+  return encodeBase64Url(new Uint8Array(await crypto.subtle.exportKey('pkcs8', privateKey)));
+}
+
+/** Load a signing key serialized by {@link exportLicenseSigningKey}. */
+export async function importLicenseSigningKey(base64Url: string): Promise<CryptoKey> {
+  const bytes = decodeBase64Url(base64Url.trim());
+  if (bytes === null) throw new Error('license signing key is not valid base64url');
+  return crypto.subtle.importKey('pkcs8', bytes, { name: 'Ed25519' }, true, ['sign']);
+}
+
+/**
+ * Derive the ring-entry encoding of a signing key's public half —
+ * base64url raw 32 bytes, same as `generateLicenseSigningKeys` returns.
+ * Lets issuers self-verify what they mint without carrying the public
+ * key separately (an Ed25519 private JWK embeds it as `x`).
+ */
+export async function publicKeyFromSigningKey(privateKey: CryptoKey): Promise<string> {
+  const jwk = await crypto.subtle.exportKey('jwk', privateKey);
+  if (typeof jwk.x !== 'string' || jwk.x.length === 0) {
+    throw new Error('signing key JWK carries no public half');
+  }
+  return jwk.x;
 }
 
 /**
