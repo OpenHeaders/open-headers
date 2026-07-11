@@ -78,23 +78,43 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     const probe = getCapability('getAppUpdate');
     if (!probe) return;
     let cancelled = false;
-    void probe().then((info) => {
-      // The capability reports pending-but-not-installed only, so a
-      // probe hit is by definition in the 'available' phase.
-      if (!cancelled) setUpdate(info ? { ...info, phase: 'available' } : null);
-    });
-    // Hosts with an in-app updater also push live transitions — a
-    // check that lands mid-session lights the dot without a remount,
-    // and the item label follows download → restart progress. Hosts
-    // that never emit `appUpdateState` just keep the probe value.
-    const unsubscribe = getHostBridge()?.subscribe('appUpdateState', (state) => {
+    const applyState = (state: {
+      phase: string;
+      availableVersion: string | null;
+    }): void => {
       const { phase } = state;
       if ((phase === 'available' || phase === 'downloading' || phase === 'downloaded') && state.availableVersion) {
         setUpdate({ version: state.availableVersion, phase });
       } else {
         setUpdate(null);
       }
-    });
+    };
+    const bridge = getHostBridge();
+    if (bridge) {
+      // In-app updater host: hydrate phase-accurately — the capability
+      // probe collapses downloading/downloaded into "available", which
+      // would mislabel the item when the menu mounts mid-download.
+      void bridge
+        .call('oh.updates.getState')
+        .then((state) => {
+          if (!cancelled) applyState(state);
+        })
+        .catch(() => {
+          // Host without the updater RPC — fall back to the probe.
+          void probe().then((info) => {
+            if (!cancelled) setUpdate(info ? { ...info, phase: 'available' } : null);
+          });
+        });
+    } else {
+      // URL-reporting host: pending-but-not-installed is by definition
+      // the 'available' phase.
+      void probe().then((info) => {
+        if (!cancelled) setUpdate(info ? { ...info, phase: 'available' } : null);
+      });
+    }
+    // Live transitions light the dot and advance the item label
+    // (download → restart) without a remount.
+    const unsubscribe = bridge?.subscribe('appUpdateState', (state) => applyState(state));
     return () => {
       cancelled = true;
       unsubscribe?.();

@@ -2,30 +2,34 @@
 <!--
   Monochrome template variant of logo.svg for the macOS menu-bar tray:
   filled rounded square, pixel letters as cutouts (negative space), the
-  recording block inside the O kept visible. Artwork geometry MUST stay
-  in sync with logo.svg.
+  recording block inside the O kept visible.
+
+  NOT geometry-identical to logo.svg on purpose: the tray renders at
+  16px, where 1 device pixel = 32 SVG units. Every stroke here is at
+  least 64 units (2px) so nothing antialiases away — the full-color
+  logo's 32-unit O bars read fine at dock sizes but vanish at 16.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <defs>
     <mask id="letterMask">
       <!-- White background = visible -->
       <rect width="512" height="512" fill="white"/>
-      <g transform="translate(32 32) scale(0.875)">
-        <!-- Black shapes = transparent (cutouts) -->
-        <g fill="black" shape-rendering="crispEdges">
-          <rect x="80"  y="112" width="128" height="32"/>
-          <rect x="48"  y="144" width="64"  height="160"/>
-          <rect x="176" y="144" width="64"  height="160"/>
-          <rect x="80"  y="304" width="128" height="32"/>
+      <!-- Black shapes = transparent (cutouts) -->
+      <g fill="black" shape-rendering="crispEdges">
+        <!-- O: 64-unit ring, x 48..240, y 112..336 -->
+        <rect x="48"  y="112" width="192" height="64"/>
+        <rect x="48"  y="176" width="64"  height="96"/>
+        <rect x="176" y="176" width="64"  height="96"/>
+        <rect x="48"  y="272" width="192" height="64"/>
 
-          <rect x="272" y="112" width="64"  height="224"/>
-          <rect x="400" y="112" width="64"  height="224"/>
-          <rect x="272" y="208" width="192" height="32"/>
-        </g>
-        <path d="M 80 388 C 180 448, 332 448, 432 388" stroke="black" stroke-width="28" fill="none" stroke-linecap="round"/>
-        <!-- Recording block inside the O stays visible -->
-        <rect x="112" y="144" width="64" height="160" fill="white" shape-rendering="crispEdges"/>
+        <!-- H: 64-unit bars, x 272..464, y 112..336 -->
+        <rect x="272" y="112" width="64"  height="224"/>
+        <rect x="400" y="112" width="64"  height="224"/>
+        <rect x="272" y="192" width="192" height="64"/>
       </g>
+      <path d="M 96 384 C 192 448, 320 448, 416 384" stroke="black" stroke-width="48" fill="none" stroke-linecap="round"/>
+      <!-- Recording block inside the O stays visible -->
+      <rect x="112" y="176" width="64" height="96" fill="white" shape-rendering="crispEdges"/>
     </mask>
   </defs>
 
