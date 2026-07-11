@@ -31,6 +31,31 @@ import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 
+// Grants announced at least once on this browser. A fresh login
+// re-syncs the same workspace down every time, so without a durable
+// record the arrival toast would fire on every sign-in — persist the
+// ids so each grant is announced once, not once per session.
+const ANNOUNCED_GRANTS_KEY = 'oh.announcedWorkspaceGrants';
+
+function readAnnouncedGrants(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(ANNOUNCED_GRANTS_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markGrantAnnounced(id: string): void {
+  try {
+    const set = readAnnouncedGrants();
+    set.add(id);
+    window.localStorage.setItem(ANNOUNCED_GRANTS_KEY, JSON.stringify([...set]));
+  } catch {
+    // Storage unavailable — the grant simply re-announces next session.
+  }
+}
+
 interface OrgWorkspaceAccessNoticeProps {
   workspaces: ExtensionWorkspace[];
   /**
@@ -75,6 +100,9 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
     for (const ws of consumed) {
       if (known.has(ws.id)) continue;
       known.add(ws.id);
+      // Announce each grant once per browser, not once per login.
+      if (readAnnouncedGrants().has(ws.id)) continue;
+      markGrantAnnounced(ws.id);
       // Already on this workspace (a login adopted it) ⇒ acknowledge in
       // place with no "Open workspace" action, which would switch to the
       // workspace already open and so do nothing.
@@ -82,6 +110,8 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
       const toastKey = `org-workspace-arrival-${ws.id}`;
       notification.success({
         key: toastKey,
+        placement: 'bottomRight',
+        style: { width: 300 },
         message: alreadyActive ? `You now have access to "${ws.name}"` : `"${ws.name}" is now available`,
         description: (
           <span data-testid={`org-workspace-arrival-${ws.id}`}>
