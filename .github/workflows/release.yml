@@ -599,17 +599,22 @@ jobs:
           REPO="OpenHeaders/open-headers-releases"
           TAG="$GITHUB_REF_NAME"
 
+          DL="https://github.com/${REPO}/releases/download/${TAG}"
+          ICONS="https://raw.githubusercontent.com/${REPO}/main/assets"
+
+          {
+            echo "<p align=\"center\"><img src=\"${ICONS}/logo.svg\" width=\"88\" alt=\"Open Headers\"></p>"
+            echo ""
+          } > release_body.md
+
           if [ "$IS_PRERELEASE" = "true" ]; then
-            echo '> **This is a beta build for early testing.** It may contain bugs.' > release_body.md
+            echo '> **This is a beta build for early testing.** It may contain bugs.' >> release_body.md
             echo '' >> release_body.md
           fi
-
-          DL="https://github.com/${REPO}/releases/download/${TAG}"
 
           # Brand icons live in the releases repo's assets/ directory —
           # markdown img tags are the only way GitHub renders svg in a
           # release body.
-          ICONS="https://raw.githubusercontent.com/${REPO}/main/assets"
           icon() { echo "<img src=\"${ICONS}/$1.svg\" width=\"16\" align=\"center\">"; }
           I_MAC=$(icon macos)
           I_WIN=$(icon windows)
@@ -735,13 +740,18 @@ jobs:
           EXT_TAG="v${EXT_VERSION}"
           DL="https://github.com/OpenHeaders/open-headers-browser-extension/releases/download/${EXT_TAG}"
 
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            echo '> **This is a beta build for early testing.** It may contain bugs.' > ext_release_body.md
-            echo '' >> ext_release_body.md
-          fi
-
           ICONS="https://raw.githubusercontent.com/OpenHeaders/open-headers-releases/main/assets"
           icon() { echo "<img src=\"${ICONS}/$1.svg\" width=\"16\" align=\"center\">"; }
+
+          {
+            echo "<p align=\"center\"><img src=\"${ICONS}/logo.svg\" width=\"88\" alt=\"Open Headers\"></p>"
+            echo ""
+          } > ext_release_body.md
+
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            echo '> **This is a beta build for early testing.** It may contain bugs.' >> ext_release_body.md
+            echo '' >> ext_release_body.md
+          fi
 
           {
             echo "## Browser Extension Downloads"
