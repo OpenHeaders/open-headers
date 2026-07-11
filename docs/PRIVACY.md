@@ -1,6 +1,6 @@
 # Privacy Policy for Open Headers
 
-**Effective Date: April 17, 2025**
+**Effective Date: [DATE — set at first release under the EULA]**
 
 ## Introduction
 
@@ -8,11 +8,11 @@ Open Headers is committed to protecting your privacy and ensuring transparency a
 
 ## 1. Overview
 
-Open Headers is an open source project consisting of:
+Open Headers consists of:
 - A browser extension for managing HTTP headers (available for Chrome, Firefox, Edge, and Safari)
 - An optional companion desktop application for accessing local system resources
 
-Both components are available on GitHub under open source licenses, allowing for complete code inspection and verification.
+Every network call the software can make is publicly documented byte-for-byte in our wire-transparency documentation, so our privacy claims can be verified from the outside — with browser DevTools or a system-level packet capture — without trusting us.
 
 ## 2. Information Collection and Use
 
@@ -62,9 +62,9 @@ These permissions are used solely for the extension's core header modification f
 
 We prioritize security through:
 - Local-only data storage
-- No external network connections beyond your specified domains
-- Open source code that can be audited by anyone
-- Regular security updates
+- No external network connections beyond documented endpoints (license renewal, update checks, notification manifests) and destinations you configure yourself
+- Publicly documented wire behavior that anyone can verify with a packet capture
+- Regular security updates and a published vulnerability disclosure policy
 
 ## 7. Children's Privacy
 
@@ -74,21 +74,22 @@ Open Headers is a developer tool and not intended for use by children under 13 y
 
 We may update this Privacy Policy from time to time. We will notify users of any changes by updating the "Effective Date" at the top of this policy.
 
-## 9. Open Source Commitment
+## 9. Transparency Commitment
 
-Both the Open Headers extension and companion app are fully open source under the MIT License. The source code is available on GitHub at:
-- https://github.com/OpenHeaders/open-headers-browser-extension
-- https://github.com/OpenHeaders/open-headers-app
+Open Headers is proprietary software with a verifiable privacy posture. We publish:
+- A wire-transparency specification documenting the exact payload of every network call the software can make
+- A security whitepaper describing the architecture behind these guarantees
+- A vulnerability disclosure policy
 
-We encourage users to review the code to verify our privacy claims.
+Because the software's outbound behavior is fully documented, you can verify our privacy claims yourself with browser DevTools or a system-level packet capture — no source access or trust in us required.
 
 ## 10. Contact Information
 
 If you have questions about this Privacy Policy or the Open Headers project, please:
-- Create an issue on our GitHub repositories
-- Contact us through our GitHub profile
+- Create an issue at https://github.com/OpenHeaders/open-headers-releases
+- Email us at contact@openheaders.io
 
-As an open source project, we welcome community feedback and contributions to improve both our code and our policies.
+We welcome feedback on both our software and our policies.
 
 ## 11. Consent
 

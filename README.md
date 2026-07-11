@@ -3,9 +3,9 @@
 ![Open Headers Logo](./apps/desktop/build/icon128.png)
 
 [![CI](https://github.com/OpenHeaders/open-headers-app/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenHeaders/open-headers-app/actions/workflows/ci.yml)
-[![GitHub release](https://img.shields.io/github/v/release/OpenHeaders/open-headers-app)](https://github.com/OpenHeaders/open-headers-app/releases/latest)
-[![GitHub downloads](https://img.shields.io/github/downloads/OpenHeaders/open-headers-app/total)](https://github.com/OpenHeaders/open-headers-app/releases)
-[![License: MIT](https://img.shields.io/github/license/OpenHeaders/open-headers-app)](LICENSE.md)
+[![GitHub release](https://img.shields.io/github/v/release/OpenHeaders/open-headers-releases)](https://github.com/OpenHeaders/open-headers-releases/releases/latest)
+[![GitHub downloads](https://img.shields.io/github/downloads/OpenHeaders/open-headers-releases/total)](https://github.com/OpenHeaders/open-headers-releases/releases)
+[![License: Proprietary](https://img.shields.io/badge/license-proprietary-lightgrey)](LICENSE.md)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)]()
 
 Browser development toolkit for recording workflows, modifying HTTP traffic, and team collaboration.
@@ -20,7 +20,7 @@ Open Headers is a privacy-focused desktop app that works with browser extensions
 
 ## Quick Start
 
-1. Download the app for your platform from [Releases](https://github.com/OpenHeaders/open-headers-app/releases)
+1. Download the app for your platform from [Releases](https://github.com/OpenHeaders/open-headers-releases/releases)
 2. Install the browser extension:
    - [Chrome](https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb)
    - [Edge](https://microsoftedge.microsoft.com/addons/detail/open-headers/gnbibobkkddlflknjkgcmokdlpddegpo)
@@ -44,4 +44,6 @@ Open Headers is a privacy-focused desktop app that works with browser extensions
 
 ## License
 
-This project is licensed under the MIT License - for details see [LICENSE.md](LICENSE.md)
+Open Headers is proprietary software, free to use — every feature on every
+tier, including free. Paid subscriptions cover multi-user daemon seats only.
+See the [End User License Agreement](LICENSE.md).

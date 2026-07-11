@@ -294,4 +294,5 @@ scanners can match them directly.
 
 ## License
 
-MIT
+Proprietary — free up to 10 active users per daemon; paid seats above that.
+See the End User License Agreement at the repository root (`LICENSE.md`).

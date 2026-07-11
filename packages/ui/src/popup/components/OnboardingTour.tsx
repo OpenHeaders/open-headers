@@ -2,6 +2,7 @@ import {
   ApiTwoTone,
   BugTwoTone,
   CheckCircleFilled,
+  CloseOutlined,
   ControlTwoTone,
   DashboardTwoTone,
   EditTwoTone,
@@ -17,6 +18,7 @@ import { hostAssets } from '@openheaders/core/assets';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { hostStorage, UI } from '@openheaders/core/storage';
 import { DockSlotIcon, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
+import { isFirefox } from '@openheaders/ui/shared/platform';
 import { Space, Tour, type TourProps, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -121,7 +123,11 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         ),
       },
       closable: {
-        closeIcon: (
+        // Firefox dismisses the popup/side panel on Esc before the page sees
+        // the key, so the Esc hint would be a lie there — show a plain X.
+        closeIcon: isFirefox ? (
+          <CloseOutlined style={{ fontSize: 14 }} />
+        ) : (
           <span className="kbd-key" style={{ fontSize: 13, height: 24, minWidth: 32, padding: '0 6px' }}>
             Esc
           </span>
@@ -135,7 +141,9 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
     () => ({
       ...sharedStepProps,
       nextButtonProps: {
-        children: (
+        children: isFirefox ? (
+          <span>Finish</span>
+        ) : (
           <span style={btnRow}>
             <span>Finish</span>
             <Kbd small>Esc</Kbd>
@@ -525,7 +533,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 <button
                   type="button"
                   onClick={() => {
-                    hostNavigation.openUrl('https://github.com/OpenHeaders/open-headers-app');
+                    hostNavigation.openUrl('https://github.com/OpenHeaders/open-headers-releases');
                   }}
                   style={{
                     cursor: 'pointer',

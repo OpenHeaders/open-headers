@@ -15,7 +15,7 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { useEffect } from 'react';
 import { dismissByKey, pushNotification } from './store';
 
-const GITHUB_URL = 'https://github.com/OpenHeaders/open-headers-app';
+const GITHUB_URL = 'https://github.com/OpenHeaders/open-headers-releases';
 const WEBSITE_URL = 'https://openheaders.io';
 
 function isDone(flag: string): boolean {
