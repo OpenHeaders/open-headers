@@ -115,6 +115,16 @@ const McpConfigSnippets: React.FC = () => {
       children: <SnippetBlock title=".vscode/mcp.json" body={mcpServersJson(port, 'servers', { type: 'stdio' })} />,
     },
     {
+      key: 'cli',
+      label: 'CLI',
+      children: (
+        <SnippetBlock
+          title="Run once in a terminal — later oh runs need no flags"
+          body={`npm install -g @openheaders/cli\noh connect --daemon http://127.0.0.1:${port} --token ${TOKEN_PLACEHOLDER}`}
+        />
+      ),
+    },
+    {
       key: 'http',
       label: 'HTTP',
       children: (

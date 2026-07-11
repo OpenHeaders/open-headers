@@ -108,17 +108,30 @@ export async function runToolCommand(spec: CommandSpec, argv: readonly string[])
   return spec.format(payload);
 }
 
+// The catalog is tier-filtered server-side (gated tiers hide their
+// tools entirely) — one sentinel tool per gated tier reads the host's
+// posture out of a plain tools/list.
+const TIER_SENTINELS = [
+  ['write', 'rules_toggle'],
+  ['execute', 'requests_send'],
+  ['secrets', 'variables_reveal_secret'],
+] as const;
+
 export async function commandStatus(argv: readonly string[]): Promise<string[]> {
   const { values, positionals } = parseCommandArgs(argv, {});
   if (positionals.length > 0) throw new UsageError(`unexpected argument: ${positionals[0]}`);
   const conn = await connectionFor(values);
   const server = await initialize(conn);
   const tools = await listTools(conn);
-  const line = `running — ${server.name} v${server.version} at ${conn.daemonUrl} · ${tools.length} tool(s) available`;
+  const names = new Set(tools.map((tool) => tool.name));
+  const tiers = ['read', ...TIER_SENTINELS.filter(([, sentinel]) => names.has(sentinel)).map(([tier]) => tier)];
   if (values.json === true) {
-    return [JSON.stringify({ daemonUrl: conn.daemonUrl, server, toolCount: tools.length }, null, 2)];
+    return [JSON.stringify({ daemonUrl: conn.daemonUrl, server, toolCount: tools.length, tiers }, null, 2)];
   }
-  return [line];
+  return [
+    `running — ${server.name} v${server.version} at ${conn.daemonUrl}`,
+    `${tools.length} tools · tiers: ${tiers.join(' + ')}`,
+  ];
 }
 
 export async function commandConnect(argv: readonly string[]): Promise<string[]> {

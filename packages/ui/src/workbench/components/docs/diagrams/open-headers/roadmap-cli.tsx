@@ -30,11 +30,11 @@ export const RoadmapCliDiagram: React.FC = () => {
   type Line = { kind: 'prompt' | 'output' | 'comment'; text: string };
   const LINES: Line[] = [
     { kind: 'prompt', text: '$ oh rules list' },
-    { kind: 'output', text: '  3 enabled · 1 disabled · workspace "acme"' },
+    { kind: 'output', text: '  3 enabled · 1 disabled · workspace acme' },
     { kind: 'prompt', text: '$ oh env switch staging' },
-    { kind: 'output', text: '  active env: staging' },
-    { kind: 'prompt', text: '$ oh request send api.example.com/users' },
-    { kind: 'output', text: '  → 200 OK · 142 ms · 24 items' },
+    { kind: 'output', text: '  active environment: staging (env-a1)' },
+    { kind: 'prompt', text: '$ oh request send ping' },
+    { kind: 'output', text: '  GET api.openheaders.io/ping → 200 OK · 11 B · 83 ms' },
     { kind: 'comment', text: '# same daemon · same workspace as the UI' },
   ];
 
