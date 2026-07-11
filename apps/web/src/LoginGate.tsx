@@ -2,8 +2,17 @@
  * Minimal pairing gate rendered INSTEAD of the Workbench when the
  * serving daemon is reachable but this tab holds no paired token yet.
  * A submitted token rides a real HELLO; only a WELCOME accept persists
- * it and mounts the Workbench. "Work locally" keeps the tab
- * offline-first without pairing.
+ * it and mounts the Workbench.
+ *
+ * "Work locally" keeps the tab offline-first without pairing — the
+ * escape hatch for a personal/dev daemon you don't have to sign in to.
+ * It is suppressed once the daemon carries a managed login (OIDC or
+ * local password): an admin declaring "you authenticate to use this"
+ * is contradicted by a one-click local bypass, and on a dedicated
+ * deployment the affordance only reads as a confusing "skip login".
+ * Suppressing it never traps anyone — the gate appears only while the
+ * daemon is reachable (`decideGate`); an unreachable managed daemon
+ * mounts the local workbench with no gate at all.
  */
 
 import { Alert, Button, Divider, Input, Typography } from 'antd';
@@ -68,6 +77,9 @@ export function LoginGate({
   };
 
   const canSubmitPassword = email.trim().length > 0 && password.length > 0;
+  // A managed login (SSO or local password) means an admin controls who
+  // gets in — the local-only escape hatch contradicts that, so hide it.
+  const managedLogin = Boolean(ssoProvider) || Boolean(passwordEnabled);
 
   const submitPassword = async (): Promise<void> => {
     if (pending || !canSubmitPassword) return;
@@ -92,10 +104,12 @@ export function LoginGate({
   return (
     <div style={CARD_STYLE} data-testid="login-gate">
       <Typography.Title level={4} style={{ margin: 0 }}>
-        {passwordEnabled ? 'Sign in to this daemon' : 'Pair with this daemon'}
+        {managedLogin ? 'Sign in to this daemon' : 'Pair with this daemon'}
       </Typography.Title>
       <Typography.Paragraph style={{ margin: 0 }} type="secondary">
-        {passwordEnabled ? (
+        {ssoProvider ? (
+          <>Sign in with {ssoProvider}, or paste a pairing token below.</>
+        ) : passwordEnabled ? (
           'Sign in with the email and password the daemon admin set for you, or paste a pairing token below.'
         ) : (
           <>
@@ -106,7 +120,7 @@ export function LoginGate({
       </Typography.Paragraph>
       {ssoProvider && (
         <>
-          <Button block onClick={() => startOidcLogin()} disabled={pending} data-testid="login-gate-sso">
+          <Button type="primary" block onClick={() => startOidcLogin()} disabled={pending} data-testid="login-gate-sso">
             Sign in with {ssoProvider}
           </Button>
           <Divider plain style={{ margin: 0 }}>
@@ -149,7 +163,7 @@ export function LoginGate({
         </>
       )}
       <Input.Password
-        autoFocus={!passwordEnabled}
+        autoFocus={!managedLogin}
         data-testid="login-gate-token"
         placeholder="Pairing token"
         value={token}
@@ -159,7 +173,7 @@ export function LoginGate({
       />
       {error && <Alert type="error" showIcon message={error} data-testid="login-gate-error" />}
       <Button
-        type={passwordEnabled ? 'default' : 'primary'}
+        type={managedLogin ? 'default' : 'primary'}
         block
         loading={pending}
         disabled={token.trim().length === 0}
@@ -168,9 +182,11 @@ export function LoginGate({
       >
         Connect
       </Button>
-      <Button type="link" block onClick={onSkip} disabled={pending} data-testid="login-gate-skip">
-        Skip — work locally
-      </Button>
+      {!managedLogin && (
+        <Button type="link" block onClick={onSkip} disabled={pending} data-testid="login-gate-skip">
+          Skip — work locally
+        </Button>
+      )}
     </div>
   );
 }

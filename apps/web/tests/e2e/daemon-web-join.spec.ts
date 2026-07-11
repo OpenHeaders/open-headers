@@ -311,6 +311,10 @@ test('a fresh origin gates; a bad token is rejected in-band; the minted token jo
 
   await page.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
 
+  // Token-only daemon (no managed login) — the local-only escape hatch
+  // is offered.
+  expect(await page.$('[data-testid=login-gate-skip]')).not.toBeNull();
+
   await submitGateToken(page, 'oh_definitely-wrong-token');
   await page.waitForSelector('[data-testid=login-gate-error]', { timeout: 15_000 });
   await expect(page.locator('[data-testid=login-gate-error]')).toContainText('rejected this token');
@@ -708,6 +712,9 @@ test('password login: the operator sets a password in the console; a fresh gate 
   const EMAIL_INPUT = 'input[data-testid=login-gate-email], [data-testid=login-gate-email] input';
   const PASSWORD_INPUT = 'input[data-testid=login-gate-password], [data-testid=login-gate-password] input';
   await piaPage.waitForSelector(EMAIL_INPUT, { timeout: 30_000 });
+  // Managed login (password) — the local-only escape hatch is suppressed
+  // so the gate reads as "you sign in to use this", not "skip login".
+  expect(await piaPage.$('[data-testid=login-gate-skip]')).toBeNull();
   await piaPage.fill(EMAIL_INPUT, 'pia@openheaders.io');
   await piaPage.fill(PASSWORD_INPUT, 'not-her-password');
   await piaPage.click('[data-testid=login-gate-password-submit]');
