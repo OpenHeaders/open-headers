@@ -7,7 +7,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Connection } from '../../src/connection';
 import { UsageError } from '../../src/exit-codes';
-import { findWriteCommand, resolveEnvironmentTarget, WRITE_COMMANDS } from '../../src/write-commands';
+import { resolveEnvironmentTarget } from '../../src/resolvers';
+import { findWriteCommand, WRITE_COMMANDS } from '../../src/write-commands';
 
 const CONN: Connection = { daemonUrl: 'http://127.0.0.1:8137', token: 'oh_secret' };
 

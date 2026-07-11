@@ -1,66 +1,17 @@
 /**
  * The Phase 2 write-command table — `oh <group> <verb>` → one write-tier
  * `tools/call`, same 1:1 catalog mapping as the read table. Writes get
- * their own spec shape: multi-positional argument mapping, per-command
- * flags, and (for `env switch`) a name → uid pre-resolution against
- * `environments_list` — hooks the read table never needs.
+ * the {@link CommandSpec} shape instead of the read table's: multi-
+ * positional argument mapping, per-command flags, and (for `env
+ * switch`) the name → uid pre-resolution — hooks reads never need.
  */
 
-import type { Connection } from './connection';
+import type { CommandSpec } from './command-spec';
 import { UsageError } from './exit-codes';
 import { formatEnvironmentSwitch, formatRuleToggle, formatVariableSet, formatWorkspaceSwitch } from './format';
-import { callTool } from './rpc';
+import { resolveEnvironmentTarget } from './resolvers';
 
-export type WriteOptionValues = Record<string, string | boolean | undefined>;
-
-export interface WriteCommandSpec {
-  readonly group: string;
-  readonly verb: string;
-  readonly tool: string;
-  readonly summary: string;
-  /** Positional/flag shape shown in help and usage errors (after `oh <group> <verb>`). */
-  readonly argsHelp: string;
-  /** Per-command flags beyond the shared connection options. */
-  readonly extraOptions?: Record<string, { readonly type: 'string' | 'boolean' }>;
-  /** Map positionals + flags onto tool args; throws {@link UsageError} on shape mistakes. */
-  readonly buildArgs: (positionals: readonly string[], values: WriteOptionValues) => Record<string, unknown>;
-  /** Pre-call resolution that needs the daemon (env name → uid). */
-  readonly resolveArgs?: (args: Record<string, unknown>, conn: Connection) => Promise<Record<string, unknown>>;
-  readonly format: (payload: unknown) => string[];
-}
-
-interface EnvironmentsListPayload {
-  environments: { uid: string; name: string }[];
-}
-
-/**
- * `oh env switch staging` — the tool takes a uid, the north-star diagram
- * shows a name. Resolve uid-first (a uid is never reinterpreted as a
- * name), then unique exact name; an ambiguous name is a usage error
- * naming the candidate uids. The `--none` path (environmentId null)
- * needs no lookup.
- */
-export async function resolveEnvironmentTarget(
-  args: Record<string, unknown>,
-  conn: Connection,
-): Promise<Record<string, unknown>> {
-  const target = args.environmentId;
-  if (typeof target !== 'string') return args;
-  const listArgs = typeof args.workspaceId === 'string' ? { workspaceId: args.workspaceId } : {};
-  const payload = JSON.parse(await callTool(conn, 'environments_list', listArgs)) as EnvironmentsListPayload;
-  if (payload.environments.some((env) => env.uid === target)) return args;
-  const byName = payload.environments.filter((env) => env.name === target);
-  const [match] = byName;
-  if (match !== undefined && byName.length === 1) return { ...args, environmentId: match.uid };
-  if (byName.length > 1) {
-    throw new UsageError(
-      `environment name '${target}' is ambiguous — use a uid: ${byName.map((env) => env.uid).join(', ')}`,
-    );
-  }
-  throw new Error(`no environment named '${target}' — see oh env list`);
-}
-
-export const WRITE_COMMANDS: readonly WriteCommandSpec[] = [
+export const WRITE_COMMANDS: readonly CommandSpec[] = [
   {
     group: 'rules',
     verb: 'toggle',
@@ -132,6 +83,6 @@ export const WRITE_COMMANDS: readonly WriteCommandSpec[] = [
   },
 ];
 
-export function findWriteCommand(group: string | undefined, verb: string | undefined): WriteCommandSpec | undefined {
+export function findWriteCommand(group: string | undefined, verb: string | undefined): CommandSpec | undefined {
   return WRITE_COMMANDS.find((spec) => spec.group === group && spec.verb === verb);
 }

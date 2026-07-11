@@ -9,13 +9,16 @@ import {
   formatActivity,
   formatEnvironmentSwitch,
   formatEnvironments,
+  formatRequestSend,
   formatRequests,
   formatRules,
   formatRuleToggle,
   formatVariableSet,
   formatVariables,
+  formatWorkflowRun,
   formatWorkflowRuns,
   formatWorkflows,
+  formatWorkspaceDiff,
   formatWorkspaceSwitch,
   formatWorkspaces,
 } from '../../src/format';
@@ -216,6 +219,103 @@ describe('formatWorkspaceSwitch', () => {
       workspace: { id: 'ws-2', name: 'Team', kind: 'org', active: true, loaded: false },
     });
     expect(lines).toEqual(['active workspace: Team (ws-2)  — still loading']);
+  });
+});
+
+describe('formatRequestSend', () => {
+  it('renders the status/size/timing line', () => {
+    const lines = formatRequestSend({
+      workspaceId: 'ws-1',
+      request: { uid: 'q-1', name: 'login', method: 'POST', url: 'https://api.openheaders.io/login' },
+      environmentId: 'e-1',
+      sent: true,
+      response: {
+        status: 200,
+        statusText: 'OK',
+        url: 'https://api.openheaders.io/login',
+        bodyBytes: 532,
+        durationMs: 145.4,
+        bodyTruncated: false,
+      },
+    });
+    expect(lines).toEqual(['POST https://api.openheaders.io/login → 200 OK · 532 B · 145 ms · workspace ws-1']);
+  });
+
+  it('humanizes sizes and flags truncation', () => {
+    const lines = formatRequestSend({
+      workspaceId: 'ws-1',
+      request: { uid: 'q-1', name: 'dump', method: 'GET', url: 'https://api.openheaders.io/dump' },
+      environmentId: null,
+      sent: true,
+      response: {
+        status: 200,
+        statusText: 'OK',
+        url: 'https://api.openheaders.io/dump',
+        bodyBytes: 2 * 1024 * 1024,
+        durationMs: 1200,
+        bodyTruncated: true,
+      },
+    });
+    expect(lines).toEqual([
+      'GET https://api.openheaders.io/dump → 200 OK · 2.0 MB · 1200 ms' +
+        '  (body truncated — use --json for the capped body) · workspace ws-1',
+    ]);
+  });
+});
+
+describe('formatWorkflowRun', () => {
+  it('renders captures count, live variables by name only, and skips', () => {
+    const lines = formatWorkflowRun({
+      workspaceId: 'ws-1',
+      workflowUid: 'wf-1',
+      ok: true,
+      skippedStepIds: ['s-3'],
+      extractedAt: 1767225600000,
+      stepCaptures: { 's-1': { token: 'oh_secret_value', ttl: '3600' }, 's-2': { userId: 'u-1' } },
+      liveVariables: [
+        { name: 'token', reference: '{{live.token}}', published: true },
+        { name: 'ttl', reference: '{{live.ttl}}', published: false },
+      ],
+    });
+    expect(lines).toEqual([
+      'workflow wf-1 ran ok · 3 capture(s) · extracted 2026-01-01T00:00:00.000Z · skipped: s-3',
+      '  {{live.token}} (published)',
+      '  {{live.ttl}} (draft)',
+      'workspace ws-1',
+    ]);
+    expect(lines.join('\n')).not.toContain('oh_secret_value');
+  });
+});
+
+describe('formatWorkspaceDiff', () => {
+  it('rolls up only the families with differences', () => {
+    const lines = formatWorkspaceDiff({
+      workspaceId: 'ws-1',
+      otherWorkspaceId: 'ws-2',
+      diff: {
+        rules: {
+          added: [{ id: 'r-9', name: 'new rule' }],
+          removed: [],
+          changed: [{ id: 'r-1', name: 'auth header' }],
+        },
+        requests: { added: [], removed: [], changed: [] },
+      },
+    });
+    expect(lines).toEqual([
+      'rules: +1 −0 ~1',
+      '  + new rule (r-9)',
+      '  ~ auth header (r-1)',
+      '2 difference(s) · ws-1 vs ws-2',
+    ]);
+  });
+
+  it('says so when there are no differences', () => {
+    const lines = formatWorkspaceDiff({
+      workspaceId: 'ws-1',
+      otherWorkspaceId: 'ws-2',
+      diff: { rules: { added: [], removed: [], changed: [] } },
+    });
+    expect(lines).toEqual(['no differences', '0 difference(s) · ws-1 vs ws-2']);
   });
 });
 

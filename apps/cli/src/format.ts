@@ -222,3 +222,85 @@ export function formatWorkspaceSwitch(payload: unknown): string[] {
   const loading = workspace.loaded ? '' : '  — still loading';
   return [`active workspace: ${workspace.name ?? workspace.id} (${workspace.id})${loading}${from}`];
 }
+
+function humanBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+interface RequestSendPayload {
+  workspaceId: string;
+  request: { uid: string; name: string; method: string; url: string };
+  response: {
+    status: number;
+    statusText: string;
+    url: string;
+    bodyBytes: number;
+    durationMs: number;
+    bodyTruncated: boolean;
+  };
+}
+
+/** Success line only — a failed send never reaches here (checkFailure → exit 1). */
+export function formatRequestSend(payload: unknown): string[] {
+  const { workspaceId, request, response } = payload as RequestSendPayload;
+  const truncated = response.bodyTruncated ? '  (body truncated — use --json for the capped body)' : '';
+  return [
+    `${request.method} ${response.url} → ${response.status} ${response.statusText} · ` +
+      `${humanBytes(response.bodyBytes)} · ${Math.round(response.durationMs)} ms${truncated} · workspace ${workspaceId}`,
+  ];
+}
+
+interface WorkflowRunPayload {
+  workspaceId: string;
+  workflowUid: string;
+  skippedStepIds: string[];
+  extractedAt: number | null;
+  stepCaptures: Record<string, Record<string, unknown>>;
+  liveVariables: { name: string; reference: string; published: boolean }[];
+}
+
+/** Capture names, never values — same discipline as workflow history; `--json` carries values. */
+export function formatWorkflowRun(payload: unknown): string[] {
+  const { workspaceId, workflowUid, skippedStepIds, extractedAt, stepCaptures, liveVariables } =
+    payload as WorkflowRunPayload;
+  const captureCount = Object.values(stepCaptures).reduce((sum, captures) => sum + Object.keys(captures).length, 0);
+  const skipped = skippedStepIds.length > 0 ? ` · skipped: ${skippedStepIds.join(', ')}` : '';
+  const extracted = extractedAt === null ? '' : ` · extracted ${new Date(extractedAt).toISOString()}`;
+  const lines = [`workflow ${workflowUid} ran ok · ${captureCount} capture(s)${extracted}${skipped}`];
+  for (const lv of liveVariables) {
+    lines.push(`  ${lv.reference} ${lv.published ? '(published)' : '(draft)'}`);
+  }
+  lines.push(`workspace ${workspaceId}`);
+  return lines;
+}
+
+interface DiffIdentity {
+  id: string;
+  name: string;
+}
+
+interface WorkspaceDiffPayload {
+  workspaceId: string;
+  otherWorkspaceId: string;
+  diff: Record<string, { added: DiffIdentity[]; removed: DiffIdentity[]; changed: DiffIdentity[] }>;
+}
+
+export function formatWorkspaceDiff(payload: unknown): string[] {
+  const { workspaceId, otherWorkspaceId, diff } = payload as WorkspaceDiffPayload;
+  const lines: string[] = [];
+  let total = 0;
+  for (const [family, familyDiff] of Object.entries(diff)) {
+    const count = familyDiff.added.length + familyDiff.removed.length + familyDiff.changed.length;
+    if (count === 0) continue;
+    total += count;
+    lines.push(`${family}: +${familyDiff.added.length} −${familyDiff.removed.length} ~${familyDiff.changed.length}`);
+    for (const row of familyDiff.added) lines.push(`  + ${row.name} (${row.id})`);
+    for (const row of familyDiff.removed) lines.push(`  − ${row.name} (${row.id})`);
+    for (const row of familyDiff.changed) lines.push(`  ~ ${row.name} (${row.id})`);
+  }
+  if (total === 0) lines.push('no differences');
+  lines.push(`${total} difference(s) · ${workspaceId} vs ${otherWorkspaceId}`);
+  return lines;
+}

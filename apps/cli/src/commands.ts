@@ -6,12 +6,12 @@
  */
 
 import { parseArgs } from 'node:util';
+import type { CommandOptionValues, CommandSpec } from './command-spec';
 import { cliConfigPath, readCliConfig, writeCliConfig } from './config-store';
 import { type Connection, resolveConnection, TOKEN_ENV } from './connection';
-import { UsageError } from './exit-codes';
+import { OperationFailedError, UsageError } from './exit-codes';
 import { commandTokenCount, type ReadCommandSpec } from './read-commands';
 import { callTool, initialize, listTools } from './rpc';
-import type { WriteCommandSpec, WriteOptionValues } from './write-commands';
 
 const CONNECTION_OPTIONS = {
   daemon: { type: 'string' },
@@ -27,7 +27,7 @@ interface ParsedCommon {
     workspace?: string;
     json?: boolean;
     limit?: string;
-  } & WriteOptionValues;
+  } & CommandOptionValues;
   positionals: string[];
 }
 
@@ -81,12 +81,14 @@ export async function runReadCommand(spec: ReadCommandSpec, argv: readonly strin
 }
 
 /**
- * Drive one write-table entry: positionals + flags → tool args (the
- * `--workspace` default first, so a spec-built `workspaceId` wins where
- * the tool takes one positionally, e.g. `workspace switch`), optional
- * daemon-side resolution, one `tools/call`.
+ * Drive one spec-table entry (write or execute/diff): positionals +
+ * flags → tool args (the `--workspace` default first, so a spec-built
+ * `workspaceId` wins where the tool takes one positionally, e.g.
+ * `workspace switch`), optional daemon-side resolution, one
+ * `tools/call`. An in-band unsuccessful outcome (`checkFailure`)
+ * throws exit-1, carrying the `--json` payload for scripting.
  */
-export async function runWriteCommand(spec: WriteCommandSpec, argv: readonly string[]): Promise<string[]> {
+export async function runToolCommand(spec: CommandSpec, argv: readonly string[]): Promise<string[]> {
   const { values, positionals } = parseCommandArgs(argv.slice(2), spec.extraOptions ?? {});
   let toolArgs: Record<string, unknown> = {
     ...(values.workspace !== undefined ? { workspaceId: values.workspace } : {}),
@@ -97,8 +99,13 @@ export async function runWriteCommand(spec: WriteCommandSpec, argv: readonly str
     toolArgs = await spec.resolveArgs(toolArgs, conn);
   }
   const payloadText = await callTool(conn, spec.tool, toolArgs);
+  const payload: unknown = JSON.parse(payloadText);
+  const failure = spec.checkFailure?.(payload);
+  if (failure !== undefined) {
+    throw new OperationFailedError(failure, values.json === true ? [payloadText] : undefined);
+  }
   if (values.json === true) return [payloadText];
-  return spec.format(JSON.parse(payloadText));
+  return spec.format(payload);
 }
 
 export async function commandStatus(argv: readonly string[]): Promise<string[]> {

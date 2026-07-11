@@ -35,6 +35,20 @@ export class AuthError extends Error {
   }
 }
 
+/**
+ * The call itself succeeded but the tool reported an unsuccessful
+ * outcome as a value (a failed send/run). `stdout` carries the `--json`
+ * payload so scripting keeps the machine contract alongside exit 1.
+ */
+export class OperationFailedError extends Error {
+  readonly stdout?: readonly string[];
+  constructor(message: string, stdout?: readonly string[]) {
+    super(message);
+    this.name = 'OperationFailedError';
+    this.stdout = stdout;
+  }
+}
+
 export function exitCodeFor(err: unknown): number {
   if (err instanceof UsageError) return EXIT_USAGE;
   if (err instanceof UnreachableError) return EXIT_UNREACHABLE;
