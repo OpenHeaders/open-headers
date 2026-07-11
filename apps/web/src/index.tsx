@@ -22,6 +22,7 @@ import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { InsecureContextNotice } from '@/InsecureContextNotice';
 import { LoginGate } from '@/LoginGate';
 import { registerServiceWorker } from '@/register-sw';
+import { hideTransitionOverlay, showTransitionOverlay } from '@/transition-overlay';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
 
@@ -40,6 +41,8 @@ function renderShell(children: React.ReactNode): void {
       </ThemeProvider>
     </SettingsProvider>,
   );
+  // The real UI is up — retire the boot/transition spinner.
+  hideTransitionOverlay();
 }
 
 if (!window.isSecureContext) {
@@ -48,6 +51,13 @@ if (!window.isSecureContext) {
   // boot. Explain the supported ways in instead of dying blank.
   root.render(<InsecureContextNotice />);
 } else {
+  // Instant feedback: the boot runs several awaits (oracle boot, gate
+  // probes, SSO claim + adopt) before anything renders. Paint a spinner
+  // now so a fresh load — and the blank frame after a sign-out reload or
+  // an SSO return — never shows a dead static screen. Every terminal
+  // render retires it via `renderShell`.
+  showTransitionOverlay();
+
   // Install the offline shell early — registration is fire-and-forget
   // and must not wait on the boot below.
   registerServiceWorker();
@@ -81,6 +91,7 @@ if (!window.isSecureContext) {
   let ssoJoined = false;
   let ssoError: string | null = null;
   if (oidcResult?.kind === 'claim') {
+    showTransitionOverlay('Signing you in…');
     const secret = await claimOidcToken(oidcResult.code);
     if (secret && (await submitDaemonToken(wire, secret)).ok) {
       ssoJoined = true;
@@ -113,6 +124,9 @@ if (!window.isSecureContext) {
         passwordEnabled={passwordMeta.enabled}
         initialError={ssoError}
         onJoined={() => {
+          // Mask the gate→workbench gap (join → adopt → workspace
+          // promote) so the accepted login doesn't sit on a frozen gate.
+          showTransitionOverlay('Signing you in…');
           void awaitPostJoinAdoption(wire).then(mountWorkbench);
         }}
         onSkip={() => renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />)}

@@ -8,6 +8,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
+import { showTransitionOverlay } from '@/transition-overlay';
 import { signOutWeb } from './sign-out';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
@@ -19,7 +20,10 @@ registerCapability('openExternalUrl', (url) => {
 });
 
 // The web tab owns an origin-scoped daemon session it can drop on its
-// own — surfaced as the settings-menu "Sign out" item.
+// own — surfaced as the settings-menu "Sign out" item. The overlay
+// paints before the storage clear + reload so the click has instant
+// feedback and the tear-down never shows a frozen frame.
 registerCapability('signOut', () => {
+  showTransitionOverlay('Signing out…');
   void signOutWeb();
 });

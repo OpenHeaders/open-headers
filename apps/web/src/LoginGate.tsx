@@ -21,6 +21,7 @@ import type { DaemonWire } from '@/host/daemon-wire';
 import { submitDaemonToken } from '@/host/join-gate';
 import { startOidcLogin } from '@/host/oidc-login';
 import { submitPasswordLogin } from '@/host/password-login';
+import { showTransitionOverlay } from '@/transition-overlay';
 
 const CARD_STYLE: React.CSSProperties = {
   maxWidth: 400,
@@ -120,7 +121,18 @@ export function LoginGate({
       </Typography.Paragraph>
       {ssoProvider && (
         <>
-          <Button type="primary" block onClick={() => startOidcLogin()} disabled={pending} data-testid="login-gate-sso">
+          <Button
+            type="primary"
+            block
+            onClick={() => {
+              // Full-page redirect to the IdP — cover the beat before the
+              // browser navigates so the click isn't a dead press.
+              showTransitionOverlay(`Taking you to ${ssoProvider}…`);
+              startOidcLogin();
+            }}
+            disabled={pending}
+            data-testid="login-gate-sso"
+          >
             Sign in with {ssoProvider}
           </Button>
           <Divider plain style={{ margin: 0 }}>
