@@ -21,6 +21,7 @@
  * on the wire.
  */
 
+import { createHmac } from 'node:crypto';
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
 import { WorkbenchPage } from './pages/workbench-page';
@@ -500,5 +501,86 @@ test.describe('Panel value document — pair grid for a cookie value', () => {
     await expect
       .poll(async () => (await echoFetch()).headers[COOKIE_HEADER.toLowerCase()], { timeout: 15_000 })
       .toBe(COOKIE_EDITED);
+  });
+});
+
+// ── JWT modal re-signing on a published rule ─────────────────────────
+// Re-signing lives ONLY in the workbench JWT modal (the panel's compact
+// editor is payload-only by design), so this leg drives the RULE editor
+// the publish flow left open: the Bearer-JWT value's rail opens the
+// modal → payload edit + HMAC secret → derived "re-signed" status →
+// modal Save carries the `Bearer ` prefix back → rule Save re-publishes
+// → the DNR-injected header on the wire is byte-equal to an INDEPENDENT
+// node:crypto HMAC over the same signing input.
+
+const JWT_RULE_NAME = 'Panel jwt rule';
+const JWT_HEADER_NAME = 'X-OH-Jwt';
+const b64url = (text: string) => Buffer.from(text).toString('base64url');
+
+/** Compact-JSON JWT — the same serialization `encodeJWT` uses. */
+function makeJWT(header: object, payload: object, secret: string): string {
+  const input = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
+  return `${input}.${createHmac('sha256', secret).update(input).digest('base64url')}`;
+}
+
+const JWT_HEADER_OBJ = { alg: 'HS256', typ: 'JWT' };
+const JWT_PAYLOAD_EDITED_OBJ = { sub: 'admin@openheaders.io', iss: 'openheaders.io' };
+const JWT_ORIGINAL = makeJWT(JWT_HEADER_OBJ, { sub: 'user@openheaders.io', iss: 'openheaders.io' }, 'legacy-secret');
+const RESIGN_SECRET = 'oh-e2e-signing-secret';
+const JWT_RESIGNED = makeJWT(JWT_HEADER_OBJ, JWT_PAYLOAD_EDITED_OBJ, RESIGN_SECRET);
+
+test.describe('Workbench JWT modal — re-sign a published Bearer value onto the wire', () => {
+  test('the modal re-signs with the secret and Save carries the prefix back', async () => {
+    test.setTimeout(90_000);
+    await publishHeaderRule(JWT_RULE_NAME, JWT_HEADER_NAME, `Bearer ${JWT_ORIGINAL}`);
+    await expect
+      .poll(async () => (await echoFetch()).headers[JWT_HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+      .toBe(`Bearer ${JWT_ORIGINAL}`);
+
+    // The publish flow leaves the rule editor open — its value field
+    // carries the JWT rail icon (prefix detected, modal gets the bare
+    // token).
+    await workbench.openValueEditor('Edit as JWT');
+    const modal = workbenchPage.getByRole('dialog').filter({ hasText: 'JWT Editor' }).filter({ visible: true }).first();
+    await expect(modal).toBeVisible();
+
+    // Editor 0 is the header, 1 the payload.
+    await workbench.fillMonacoWithin(modal, 1, JSON.stringify(JWT_PAYLOAD_EDITED_OBJ));
+    await modal.getByPlaceholder('Signing secret').fill(RESIGN_SECRET);
+
+    // Derived status — claimed only once the async WebCrypto sign has
+    // landed in the preview.
+    await expect(modal.getByText('Token re-signed with HS256')).toBeVisible();
+    await modal.getByRole('button', { name: /Save$/ }).click();
+    await expect(modal).toBeHidden();
+
+    // The cell holds the re-signed token under the carried prefix.
+    expect(await workbench.valueCellText(workbench.valueCellByEditIcon('Edit as JWT'))).toBe(`Bearer ${JWT_RESIGNED}`);
+  });
+
+  test('rule Save re-publishes, and the re-signed token rides the wire', async () => {
+    await workbenchPage.getByRole('button', { name: /Save$/ }).filter({ visible: true }).first().click();
+
+    interface StoredHeaderRule {
+      type: string;
+      name?: string;
+      published?: boolean;
+      action?: { requestHeaders?: Array<{ headerName: string; value?: string }> };
+    }
+    await expect
+      .poll(async () => {
+        const res = await workbench.rpc<{ rules: StoredHeaderRule[] }>('getLocalRules');
+        const rule = res.rules.find((r) => r.name === JWT_RULE_NAME);
+        return {
+          value: rule?.action?.requestHeaders?.find((h) => h.headerName === JWT_HEADER_NAME)?.value,
+          published: rule?.published,
+        };
+      })
+      .toEqual({ value: `Bearer ${JWT_RESIGNED}`, published: true });
+
+    // The wire token is byte-equal to the independent node:crypto HMAC.
+    await expect
+      .poll(async () => (await echoFetch()).headers[JWT_HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+      .toBe(`Bearer ${JWT_RESIGNED}`);
   });
 });
