@@ -72,3 +72,36 @@ export function buildHeaderModUpdate(
   };
   return { ok: true, updates };
 }
+
+/**
+ * Value-only update for the value-document tab: replaces ONE
+ * modification's value, everything else (name, operation, separator)
+ * carried verbatim. Identity by persisted mod uid — the tab is
+ * long-lived, so reference identity (the popover's trick above) can't
+ * hold across mirror refreshes. A mod that vanished or flipped to
+ * `remove` (no value to hold) detaches. Same atomic-edit contract:
+ * a published rule carries `published: true` in the same batch.
+ */
+export function buildHeaderModValueUpdate(
+  rule: HeaderRule,
+  direction: 'request' | 'response',
+  modUid: string,
+  nextValue: string,
+): HeaderModUpdateResult {
+  const list = direction === 'request' ? rule.action.requestHeaders : rule.action.responseHeaders;
+  const idx = list.findIndex((m) => m.uid === modUid);
+  const mod = idx === -1 ? null : list[idx];
+  if (mod === null || mod.operation === 'remove') return { ok: false, reason: 'mod-detached' };
+
+  const next = list.slice();
+  next[idx] = { ...mod, value: nextValue };
+
+  const updates: Partial<HeaderRule> = {
+    action: {
+      requestHeaders: direction === 'request' ? next : rule.action.requestHeaders,
+      responseHeaders: direction === 'response' ? next : rule.action.responseHeaders,
+    },
+    ...(rule.published === true ? { published: true } : {}),
+  };
+  return { ok: true, updates };
+}

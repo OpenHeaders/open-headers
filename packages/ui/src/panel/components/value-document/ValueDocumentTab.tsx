@@ -1,0 +1,291 @@
+/**
+ * ValueDocumentTab — one rule field's detected value (JWT, big JSON,
+ * long Base64, …) opened as a full editor-tab document: the
+ * popover-bound `CompactValueEditor`'s escalation for values too heavy
+ * for an inline textarea. Same decode/encode spine as the compact
+ * editor (the pure compact codec — JWTs edit payload-only, prefixes
+ * carry, preview === written value), but Monaco-backed and long-lived.
+ *
+ * The canonical is the LIVE rule through the sync mirror — no fetch,
+ * no poll: a pristine document adopts remote edits the moment they
+ * broadcast, a dirty one keeps its draft and surfaces the drift with
+ * an honest note. The rule or modification vanishing under a dirty
+ * draft keeps the text visible for copy-out (Save stays blocked — a
+ * detached field has nothing to write to). Save goes through the rule
+ * mutator with a value-only, uid-keyed update that carries
+ * `published: true` in the same batch, so a live rule stays live.
+ */
+
+import { ExportOutlined, ReloadOutlined } from '@ant-design/icons';
+import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
+import { useLiveRule } from '@openheaders/ui/context';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import {
+  COMPACT_VALUE_TITLES,
+  compactDecodedText,
+  type DetectedValue,
+  detectValueType,
+  encodeDetectedValue,
+} from '@openheaders/ui/shared/value-detection';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import type { RuleValueInspectorTab } from '../../data/inspector-tab';
+import { buildHeaderModValueUpdate } from '../../data/rule-create/header-mod-edit';
+import Skeleton from '../detail/Skeleton';
+import { ArmedIconButton } from '../storage/ArmedIconButton';
+import { StorageDocSaveButton } from '../storage/StorageDocSaveButton';
+
+// Lazy like every other Monaco consumer — a static import here would
+// pull Monaco back into the panel's initial chunk.
+const CodeViewer = lazy(() => import('../detail/CodeViewer'));
+
+/** The live field resolved against the mirror: detached covers the
+ *  rule gone, the mod gone, and the mod flipped to `remove` (no value
+ *  to hold); undetected means the value no longer matches a detector
+ *  (nothing to decode/encode against). */
+type Canonical =
+  | { kind: 'detached' }
+  | { kind: 'undetected'; rule: HeaderRule; mod: HeaderModification }
+  | { kind: 'detected'; rule: HeaderRule; mod: HeaderModification; detected: DetectedValue; decoded: string };
+
+/** Draft captured at first edit — `seed` is the decoded canonical it
+ *  forked from, so canonical movement underneath is detectable. */
+interface Draft {
+  seed: string;
+  text: string;
+}
+
+type SaveFailure = 'detached' | 'not-found' | 'write';
+
+const SAVE_FAILURE_NOTES: Record<SaveFailure, string> = {
+  detached: 'The modification this value belonged to is gone from the rule — there is nothing to write to.',
+  'not-found': 'Rule not found — it may have been deleted.',
+  write: 'Save failed — the rule rejected the write.',
+};
+
+interface ValueDocumentTabProps {
+  tab: RuleValueInspectorTab;
+  /** Mirrors the derived dirty state up into the tab (pill dot, close guard). */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Registers this tab's save action for the close guard's "Save
+   *  changes" path; called with `null` on unmount. Resolves whether the
+   *  save committed. */
+  registerSave?: (save: (() => Promise<boolean>) | null) => void;
+  /** Whether this document is the focused group's active tab — gates
+   *  the Save keyboard chord when a split shows two documents. */
+  isActiveDocument?: boolean;
+}
+
+export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDocument }: ValueDocumentTabProps) {
+  const workspaceId = useActiveWorkspaceId();
+  const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
+  const liveRule = useLiveRule(tab.ruleUid, workspaceId);
+
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<SaveFailure | null>(null);
+
+  const canonical = useMemo<Canonical>(() => {
+    const rule = liveRule?.type === 'header' ? liveRule : null;
+    if (rule === null) return { kind: 'detached' };
+    const list = tab.direction === 'request' ? rule.action.requestHeaders : rule.action.responseHeaders;
+    const mod = list.find((m) => m.uid === tab.modUid) ?? null;
+    if (mod === null || mod.operation === 'remove' || mod.value === undefined) return { kind: 'detached' };
+    const detected = detectValueType(mod.value);
+    if (detected === null) return { kind: 'undetected', rule, mod };
+    return { kind: 'detected', rule, mod, detected, decoded: compactDecodedText(detected) };
+  }, [liveRule, tab.direction, tab.modUid]);
+
+  const canonicalDecoded = canonical.kind === 'detected' ? canonical.decoded : null;
+
+  // A pristine draft whose seed matches the live canonical is inert —
+  // drop it so the document resumes mirroring the mirror. The seed
+  // check matters after Save: the draft re-seeds to the WRITTEN value
+  // before the broadcast lands, and dropping it early would flash the
+  // stale canonical.
+  useEffect(() => {
+    if (draft !== null && draft.text === draft.seed && draft.seed === canonicalDecoded) setDraft(null);
+  }, [draft, canonicalDecoded]);
+
+  const heldDraft = draft !== null && draft.text !== draft.seed ? draft : null;
+  const dirty = heldDraft !== null;
+  const text = draft?.text ?? canonicalDecoded ?? '';
+  // Canonical moved (or vanished) under a held draft — the seed the
+  // draft forked from is no longer the live decoded value.
+  const drifted = heldDraft !== null && canonicalDecoded !== null && heldDraft.seed !== canonicalDecoded;
+  const detachedUnderDraft = heldDraft !== null && canonicalDecoded === null;
+
+  const encoded = useMemo(
+    () => (canonical.kind === 'detected' ? encodeDetectedValue(canonical.detected, text) : null),
+    [canonical, text],
+  );
+  const savable = canonical.kind === 'detected' && dirty && text.length > 0 && encoded !== null && !saving;
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  const handleChange = useCallback(
+    (next: string) => {
+      setDraft((prev) => {
+        if (prev !== null) return { ...prev, text: next };
+        if (canonicalDecoded === null) return prev;
+        return { seed: canonicalDecoded, text: next };
+      });
+      setSaveError(null);
+    },
+    [canonicalDecoded],
+  );
+
+  const discardDraft = useCallback(() => {
+    setDraft(null);
+    setSaveError(null);
+  }, []);
+
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (canonical.kind !== 'detected' || !savable || encoded === null) return false;
+    const built = buildHeaderModValueUpdate(canonical.rule, tab.direction, tab.modUid, encoded);
+    if (!built.ok) {
+      setSaveError('detached');
+      return false;
+    }
+    setSaving(true);
+    try {
+      const result = await mutator.updateRule(canonical.rule.uid, built.updates);
+      if (!result.ok) {
+        setSaveError(result.reason === 'not-found' ? 'not-found' : 'write');
+        return false;
+      }
+      // Re-seed from what was just written — the mirror broadcast lands
+      // a beat later, and the document must read clean immediately.
+      const nextDetected = detectValueType(encoded);
+      const nextDecoded = nextDetected === null ? null : compactDecodedText(nextDetected);
+      setDraft(nextDecoded === null ? null : { seed: nextDecoded, text: nextDecoded });
+      return true;
+    } finally {
+      setSaving(false);
+    }
+  }, [canonical, savable, encoded, tab.direction, tab.modUid, mutator]);
+
+  useEffect(() => {
+    registerSave?.(handleSave);
+    return () => registerSave?.(null);
+  }, [registerSave, handleSave]);
+
+  const openInWorkspace = useCallback(() => {
+    void openWorkspace({ kind: 'edit-rule', uid: tab.ruleUid }, 'devpanel');
+  }, [tab.ruleUid]);
+
+  const title = canonical.kind === 'detected' ? COMPACT_VALUE_TITLES[canonical.detected.type] : null;
+  const language = useMemo(() => {
+    if (canonical.kind !== 'detected') return 'plaintext';
+    return canonical.detected.type === 'jwt' || canonical.detected.type === 'json' ? 'json' : 'plaintext';
+  }, [canonical]);
+  const liveHeaderName = canonical.kind === 'detached' ? tab.headerName : canonical.mod.headerName;
+  const ruleName = canonical.kind === 'detached' ? null : canonical.rule.name;
+  const crumbTitle = `${ruleName ?? 'Rules'} › ${liveHeaderName}`;
+  const showEditor = canonical.kind === 'detected' || dirty;
+
+  return (
+    <div className="dt-storagedoc">
+      <div className="dt-storagedoc-toolbar">
+        <span className="dt-storagedoc-crumb" title={crumbTitle}>
+          {ruleName ?? 'Rules'} › <span className="dt-storagedoc-crumb-key">{liveHeaderName}</span>
+          {title !== null && <span className="dt-storage-meta"> · {title}</span>}
+        </span>
+        <span className="dt-storagedoc-toolbar-spacer" />
+        <StorageDocSaveButton
+          savable={savable}
+          saving={saving}
+          dirty={dirty}
+          saveHint="Re-encode the edited value and write it back to the rule"
+          blockedHint={
+            canonical.kind === 'detected'
+              ? 'The edited text can’t encode for this value type'
+              : 'The rule field this value belonged to is gone'
+          }
+          isActiveDocument={isActiveDocument}
+          onSave={() => void handleSave()}
+        />
+        {dirty && (
+          <ArmedIconButton
+            icon={<ReloadOutlined />}
+            title="Re-read the value from the rule"
+            confirmTitle="Discards your edits — click again to re-read"
+            ariaLabel="Discard edits and re-read value"
+            onConfirm={discardDraft}
+          />
+        )}
+        <button
+          type="button"
+          className="dt-storagedoc-reveal"
+          title="Open this rule in the workspace editor"
+          onClick={openInWorkspace}
+        >
+          <ExportOutlined aria-hidden="true" /> Open rule in workspace
+        </button>
+      </div>
+      {drifted && (
+        <div className="dt-storagedoc-note">
+          The value changed in the rule while you were editing — your unsaved edits are kept. Save overwrites it.
+          <button type="button" className="dt-storagedoc-note-action" onClick={discardDraft}>
+            Discard my edits
+          </button>
+        </div>
+      )}
+      {detachedUnderDraft && (
+        <div className="dt-storagedoc-note">
+          {canonical.kind === 'undetected'
+            ? 'The field no longer holds a value this editor can encode — your unsaved edits are kept for copy-out.'
+            : 'The rule field this value belonged to is gone — your unsaved edits are kept for copy-out.'}
+          <button type="button" className="dt-storagedoc-note-action" onClick={discardDraft}>
+            Discard my edits
+          </button>
+        </div>
+      )}
+      {saveError !== null && (
+        <div className="dt-storagedoc-note dt-storagedoc-note--error" role="alert">
+          {SAVE_FAILURE_NOTES[saveError]}
+        </div>
+      )}
+      {showEditor ? (
+        <>
+          <div className="dt-storagedoc-source">
+            <Suspense fallback={<Skeleton />}>
+              <CodeViewer value={text} language={language} readOnly={false} onChange={handleChange} />
+            </Suspense>
+          </div>
+          {dirty && canonical.kind === 'detected' && (
+            <div className="dt-valuedoc-preview" aria-label="Encoded preview">
+              <span className="dt-valuedoc-preview-label">Encoded preview</span>
+              <div className="dt-valuedoc-preview-body dt-scrollbar">
+                {encoded === null ? (
+                  <span className="dt-valuedoc-preview-error">
+                    Cannot encode — the edited value is not valid for this type
+                  </span>
+                ) : (
+                  encoded
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      ) : canonical.kind === 'undetected' ? (
+        <div className="dt-empty-hero">
+          <strong>No longer an encoded value</strong>
+          <span className="dt-empty-hero-sub">
+            The field’s current value doesn’t match a decoder — edit it in the rule editor instead.
+          </span>
+        </div>
+      ) : (
+        <div className="dt-empty-hero">
+          <strong>Value no longer in the rule</strong>
+          <span className="dt-empty-hero-sub">
+            The rule or the modification holding this value was deleted, or the operation no longer carries a value.
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}

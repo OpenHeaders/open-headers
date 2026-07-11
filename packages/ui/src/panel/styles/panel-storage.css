@@ -113,7 +113,7 @@
 }
 
 .dt-storage-grid {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-family: var(--oh-ui-font-family, system-ui, sans-serif);
   font-size: 11px;
   min-width: 0;
 }
@@ -129,7 +129,6 @@
   background: var(--dt-header-bg);
   border-bottom: 1px solid var(--dt-border);
   color: var(--dt-text-muted);
-  font-family: var(--oh-ui-font-family, system-ui, sans-serif);
   user-select: none;
 }
 
@@ -539,6 +538,33 @@
   display: none;
 }
 
+/* Value-document encoded preview — a bounded strip under the decoded
+ * source showing exactly what Save writes back to the rule field. */
+.dt-valuedoc-preview {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--dt-border);
+  padding: 4px 8px 6px;
+}
+
+.dt-valuedoc-preview-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--dt-text-muted);
+}
+
+.dt-valuedoc-preview-body {
+  max-height: 88px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.dt-valuedoc-preview-error {
+  color: var(--dt-status-red);
+  font-style: italic;
+}
+
 /* Cookie document body — the shared attribute grid, padded and
  * scrollable so a short pane never clips the toggles row. */
 .dt-storagedoc-cookieform {
@@ -559,14 +585,28 @@
 }
 
 /* Drill-in chrome shared by the IndexedDB and Cache Storage sections —
- * breadcrumb back to the listing plus the ‹ › pager. */
+ * breadcrumb back to the listing plus the ‹ › pager. Sticky above the
+ * grid header inside the scrolling body; the fixed height is what the
+ * grid header's sticky offset stacks below. */
 .dt-storage-crumb {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  height: 24px;
+  background: var(--dt-bg);
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 3px 8px;
   border-bottom: 1px solid var(--dt-border);
   font-size: 11px;
+}
+
+/* A grid under a drill-in crumb sticks its column header just below the
+ * crumb instead of at the scrollport top. */
+.dt-storage-crumb ~ .dt-storage-grid .dt-storage-grid-header {
+  top: 24px;
 }
 
 .dt-storage-crumb-path {

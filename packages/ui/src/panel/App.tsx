@@ -83,9 +83,16 @@ import {
   buildCookieTab,
   buildDomStorageEntryTab,
   buildIdbRecordTab,
+  buildRuleValueTab,
   type InspectorTab,
   tabPillLabel,
 } from './data/inspector-tab';
+import {
+  type RuleValueDocumentTarget,
+  useRegisterValueDocumentOpener,
+  ValueDocumentIntentProvider,
+} from './data/value-document-intent';
+import { ValueDocumentTab } from './components/value-document/ValueDocumentTab';
 import { jarCookieToKey } from './data/cookies/cookie-edit';
 import type { JarCookieKey } from './data/cookies/cookie-jar-cache';
 import type { DomStorageArea } from './data/storage/storage-inspector-host';
@@ -181,9 +188,14 @@ export default function App({ resolveIdentity }: AppProps) {
                                         }
                                       >
                                         <VariablePopoverProvider>
-                                          <RulePopoverProvider>
-                                            <PanelContent />
-                                          </RulePopoverProvider>
+                                          {/* Above the rule popover host: its editor bodies render
+                                              from the host's tree position and reach the editor
+                                              tab group only through this intent seam. */}
+                                          <ValueDocumentIntentProvider>
+                                            <RulePopoverProvider>
+                                              <PanelContent />
+                                            </RulePopoverProvider>
+                                          </ValueDocumentIntentProvider>
                                         </VariablePopoverProvider>
                                       </InfoPopoverContainerProvider>
                                     </DocsNavProvider>
@@ -491,6 +503,16 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     [groups],
   );
+  // Rule-value documents open through the intent seam — the quick-editor
+  // popovers render outside this component's tree (see
+  // `value-document-intent`), so they can't take the opener as a prop.
+  const openValueDocument = useCallback(
+    (target: RuleValueDocumentTarget) => {
+      groups.addTab(buildRuleValueTab({ ...target, timestamp: Date.now() }));
+    },
+    [groups],
+  );
+  useRegisterValueDocumentOpener(openValueDocument);
   // The ACTIVE editor tab's document identity — the Storage window
   // highlights exactly that one row, tracking tab switches.
   const activeStorageTabId = useMemo(() => {
@@ -564,6 +586,19 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       }
       if (tab.kind === 'cache-entry') {
         return <CacheEntryEditorTab tab={tab} onRevealInStorage={revealCacheInStorage} />;
+      }
+      if (tab.kind === 'rule-value') {
+        return (
+          <ValueDocumentTab
+            tab={tab}
+            isActiveDocument={tab.id === groups.activeTabId}
+            onDirtyChange={(dirty) => groups.updateTab(tab.id, { dirty })}
+            registerSave={(save) => {
+              if (save) storageSaveRefs.current.set(tab.id, save);
+              else storageSaveRefs.current.delete(tab.id);
+            }}
+          />
+        );
       }
       if (tab.kind === 'cookie') {
         return (

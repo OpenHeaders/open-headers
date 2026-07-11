@@ -13,7 +13,10 @@
  */
 
 import type { HeaderModification, HeaderRule, RuleCondition } from '@openheaders/core/types';
-import { buildHeaderModUpdate } from '@openheaders/ui/panel/data/rule-create/header-mod-edit';
+import {
+  buildHeaderModUpdate,
+  buildHeaderModValueUpdate,
+} from '@openheaders/ui/panel/data/rule-create/header-mod-edit';
 import { describe, expect, it } from 'vitest';
 
 function makeMod(over: Partial<HeaderModification> = {}): HeaderModification {
@@ -171,5 +174,74 @@ describe('buildHeaderModUpdate — mod rebuild', () => {
       value: 'false',
     });
     expect(result).toEqual({ ok: false, reason: 'mod-detached' });
+  });
+});
+
+describe('buildHeaderModValueUpdate — value-document Save payload', () => {
+  it('replaces only the targeted mod value, everything else carried verbatim', () => {
+    const other = makeMod({ uid: 'mod-2', headerName: 'x-tenant', value: 'openheaders' });
+    const merge = makeMod({ uid: 'mod-3', operation: 'merge', headerName: 'x-tags', value: 'a', mergeSeparator: ',' });
+    const rule = makeRule({
+      published: true,
+      action: { requestHeaders: [makeMod(), other, merge], responseHeaders: [] },
+    });
+    const result = buildHeaderModValueUpdate(rule, 'request', 'mod-3', 'a,b');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.updates.action?.requestHeaders[2]).toEqual({
+      uid: 'mod-3',
+      operation: 'merge',
+      headerName: 'x-tags',
+      value: 'a,b',
+      mergeSeparator: ',',
+    });
+    expect(result.updates.action?.requestHeaders[0]).toBe(rule.action.requestHeaders[0]);
+    expect(result.updates.action?.requestHeaders[1]).toBe(other);
+  });
+
+  it('keeps a published rule published in the same batch', () => {
+    const rule = makeRule({ published: true });
+    const result = buildHeaderModValueUpdate(rule, 'request', 'mod-1', 'next');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.updates.published).toBe(true);
+  });
+
+  it('does not add a published flag for a draft rule', () => {
+    const rule = makeRule();
+    const result = buildHeaderModValueUpdate(rule, 'request', 'mod-1', 'next');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect('published' in result.updates).toBe(false);
+  });
+
+  it('edits the response list and passes the request list reference through', () => {
+    const responseMod = makeMod({ uid: 'mod-r', headerName: 'x-frame-options', value: 'DENY' });
+    const rule = makeRule({
+      published: true,
+      action: { requestHeaders: [makeMod()], responseHeaders: [responseMod] },
+    });
+    const result = buildHeaderModValueUpdate(rule, 'response', 'mod-r', 'SAMEORIGIN');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.updates.action?.responseHeaders[0].value).toBe('SAMEORIGIN');
+    expect(result.updates.action?.requestHeaders).toBe(rule.action.requestHeaders);
+  });
+
+  it('reports mod-detached when no mod carries the uid', () => {
+    const rule = makeRule({ published: true });
+    expect(buildHeaderModValueUpdate(rule, 'request', 'mod-gone', 'x')).toEqual({
+      ok: false,
+      reason: 'mod-detached',
+    });
+  });
+
+  it('reports mod-detached for a remove-operation mod (no value to hold)', () => {
+    const removeMod = makeMod({ uid: 'mod-rm', operation: 'remove', value: undefined });
+    const rule = makeRule({ action: { requestHeaders: [removeMod], responseHeaders: [] } });
+    expect(buildHeaderModValueUpdate(rule, 'request', 'mod-rm', 'x')).toEqual({
+      ok: false,
+      reason: 'mod-detached',
+    });
   });
 });

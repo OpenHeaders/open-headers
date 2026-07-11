@@ -6,33 +6,17 @@
  * modal) by default, or the inline `CompactValueEditor` in the
  * `compact` variant for popover hosts. TemplateInput itself stays
  * presentation-only — detection and editor state live here, at the
- * caller.
+ * caller. The decode/encode spine is the pure compact codec shared
+ * with the panel's value-document tab.
  */
 
 import type React from 'react';
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import {
-  decodeJWT,
+  COMPACT_VALUE_TITLES,
+  compactDecodedText,
   detectValueType,
-  encodeAcceptList,
-  encodeAuthParams,
-  encodeBase64,
-  encodeCacheControl,
-  encodeContentDisposition,
-  encodeCookieList,
-  encodeCspList,
-  encodeDataUri,
-  encodeHex,
-  encodeHsts,
-  encodeHttpDate,
-  encodeJsonString,
-  encodeJsonValue,
-  encodeJWT,
-  encodeLinkHeader,
-  encodeQueryString,
-  encodeTimestamp,
-  formatJSON,
-  validateJSON,
+  encodeDetectedValue,
 } from '@openheaders/ui/shared/value-detection';
 import { CompactValueEditor } from './CompactValueEditor';
 
@@ -59,6 +43,11 @@ export interface ValueEditActionOptions {
    *  quick-editor). JWTs edit payload-only in compact; header and
    *  signature carry over unchanged. */
   variant?: 'modal' | 'compact';
+  /** Compact variant only — escalate this value to a dedicated
+   *  document tab. When set, the inline editor's footer offers
+   *  "Open as document"; the caller owns closing its popover and
+   *  opening the tab. */
+  onOpenDocument?: () => void;
 }
 
 const EDIT_TOOLTIPS = {
@@ -82,35 +71,13 @@ const EDIT_TOOLTIPS = {
   'accept-list': 'Edit accept list',
 } as const;
 
-const MODAL_TITLES = {
-  'url-encoded': 'URL-encoded value',
-  base64: 'Base64 value',
-  hex: 'Hex-encoded value',
-  timestamp: 'Unix timestamp',
-  json: 'JSON value',
-  'json-string': 'Quoted string',
-  'data-uri': 'Data URI',
-  cookie: 'Cookie value',
-  csp: 'Content Security Policy',
-  'http-date': 'HTTP date',
-  'query-string': 'Query string',
-  'cache-control': 'Cache-Control',
-  hsts: 'Strict-Transport-Security',
-  'content-disposition': 'Content-Disposition',
-  link: 'Link header',
-  'auth-params': 'Authorization parameters',
-  'accept-list': 'Accept list',
-} as const;
-
-// The compact variant edits JWTs payload-only, so it titles them too.
-const COMPACT_TITLES = { ...MODAL_TITLES, jwt: 'JWT payload' } as const;
-
 export function useValueEditAction(
   value: string | undefined,
   onChange: (next: string) => void,
   options?: ValueEditActionOptions,
 ): ValueEditActionResult {
   const variant = options?.variant ?? 'modal';
+  const onOpenDocument = options?.onOpenDocument;
   const [open, setOpen] = useState(false);
   const detected = useMemo(() => detectValueType(value), [value]);
 
@@ -132,58 +99,7 @@ export function useValueEditAction(
   // edited text can't encode (e.g. an unparsable date); the modal
   // disables Save on it.
   const encodeCurrent = useCallback(
-    (text: string): string | null => {
-      switch (detected?.type) {
-        case 'jwt': {
-          // Compact variant only — the modal variant routes JWTs to the
-          // dedicated JWT editor instead. Payload-only edit: header and
-          // signature carry over verbatim, unsigned (same write-back
-          // the modal does).
-          try {
-            const payload = validateJSON(text);
-            if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
-            const { header, signature } = decodeJWT(detected.token);
-            return `${detected.prefix}${encodeJWT(header, payload, signature)}`;
-          } catch {
-            return null;
-          }
-        }
-        case 'base64':
-          return `${detected.prefix}${encodeBase64(text, detected)}`;
-        case 'hex':
-          return encodeHex(text, detected);
-        case 'timestamp':
-          return encodeTimestamp(text, detected);
-        case 'json':
-          return encodeJsonValue(text, detected);
-        case 'json-string':
-          return encodeJsonString(text);
-        case 'data-uri':
-          return encodeDataUri(text, detected);
-        case 'cookie':
-          return encodeCookieList(text);
-        case 'csp':
-          return encodeCspList(text);
-        case 'http-date':
-          return encodeHttpDate(text);
-        case 'query-string':
-          return encodeQueryString(text);
-        case 'cache-control':
-          return encodeCacheControl(text);
-        case 'hsts':
-          return encodeHsts(text);
-        case 'content-disposition':
-          return encodeContentDisposition(text);
-        case 'link':
-          return encodeLinkHeader(text);
-        case 'auth-params':
-          return encodeAuthParams(text, detected);
-        case 'accept-list':
-          return encodeAcceptList(text);
-        default:
-          return encodeURIComponent(text);
-      }
-    },
+    (text: string): string | null => (detected ? encodeDetectedValue(detected, text) : encodeURIComponent(text)),
     [detected],
   );
 
@@ -197,13 +113,9 @@ export function useValueEditAction(
     [onChange, encodeCurrent],
   );
 
-  // Compact seed text — JWTs edit payload-only there (the two-pane
+  // Single-text seed — JWTs edit payload-only here (the two-pane
   // header/payload split belongs to the modal).
-  const compactDecoded = useMemo(() => {
-    if (!detected) return '';
-    if (detected.type === 'jwt') return formatJSON(decodeJWT(detected.token).payload);
-    return detected.type === 'timestamp' || detected.type === 'http-date' ? detected.iso : detected.decoded;
-  }, [detected]);
+  const compactDecoded = useMemo(() => (detected ? compactDecodedText(detected) : ''), [detected]);
 
   if (!detected) {
     return { editProps: {}, editorModal: null };
@@ -214,11 +126,12 @@ export function useValueEditAction(
       editProps: { onValueEdit: openModal, editTooltip: EDIT_TOOLTIPS[detected.type] },
       editorModal: open ? (
         <CompactValueEditor
-          title={COMPACT_TITLES[detected.type]}
+          title={COMPACT_VALUE_TITLES[detected.type]}
           decoded={compactDecoded}
           encode={encodeCurrent}
           onSave={handleEncodedSave}
           onCancel={closeModal}
+          onOpenDocument={onOpenDocument}
         />
       ) : null,
     };
@@ -233,8 +146,8 @@ export function useValueEditAction(
         ) : (
           <EncodedValueModalLazy
             open={open}
-            title={MODAL_TITLES[detected.type]}
-            decoded={detected.type === 'timestamp' || detected.type === 'http-date' ? detected.iso : detected.decoded}
+            title={COMPACT_VALUE_TITLES[detected.type]}
+            decoded={compactDecoded}
             encode={encodeCurrent}
             onSave={handleEncodedSave}
             onCancel={closeModal}

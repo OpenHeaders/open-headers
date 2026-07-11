@@ -54,11 +54,20 @@ const JWT_HEADER = { alg: 'HS256', typ: 'JWT' };
 const JWT = `${b64url(JWT_HEADER)}.${b64url({ sub: 'user@openheaders.io' })}.fakesig`;
 const BASIC = `Basic ${btoa('dev-user:s3cret-pw')}`;
 
-function CompactHost({ initial, onCommit }: { initial: string; onCommit: (next: string) => void }) {
+function CompactHost({
+  initial,
+  onCommit,
+  onOpenDocument,
+}: {
+  initial: string;
+  onCommit: (next: string) => void;
+  onOpenDocument?: () => void;
+}) {
   const [value, setValue] = useState(initial);
   return (
     <DetectedValueInput
       editorVariant="compact"
+      onOpenDocument={onOpenDocument}
       value={value}
       onChange={(v) => {
         setValue(v);
@@ -68,12 +77,12 @@ function CompactHost({ initial, onCommit }: { initial: string; onCommit: (next: 
   );
 }
 
-function renderCompact(initial: string) {
+function renderCompact(initial: string, onOpenDocument?: () => void) {
   const onCommit = vi.fn();
   const utils = render(
     <AwarenessIdentityProvider value={testIdentity}>
       <DocsNavProvider>
-        <CompactHost initial={initial} onCommit={onCommit} />
+        <CompactHost initial={initial} onCommit={onCommit} onOpenDocument={onOpenDocument} />
       </DocsNavProvider>
     </AwarenessIdentityProvider>,
   );
@@ -156,6 +165,23 @@ describe('compact variant — JWT edits payload-only', () => {
     fireEvent.click(getByLabelText('Edit as JWT'));
     fireEvent.change(getByLabelText('JWT payload decoded text'), { target: { value: '"just-a-string"' } });
     expect((getByRole('button', { name: /Save/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('compact variant — "Open as document" escalation', () => {
+  it('offers the footer affordance only when the host passes an opener', () => {
+    const { getByLabelText, queryByRole } = renderCompact(BASIC);
+    fireEvent.click(getByLabelText('Edit Base64 value'));
+    expect(queryByRole('button', { name: /Open as document/ })).toBeNull();
+  });
+
+  it('fires the opener on click without writing the field back', () => {
+    const onOpenDocument = vi.fn();
+    const { getByLabelText, getByRole, onCommit } = renderCompact(BASIC, onOpenDocument);
+    fireEvent.click(getByLabelText('Edit Base64 value'));
+    fireEvent.click(getByRole('button', { name: /Open as document/ }));
+    expect(onOpenDocument).toHaveBeenCalledTimes(1);
+    expect(onCommit).not.toHaveBeenCalled();
   });
 });
 

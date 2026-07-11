@@ -28,5 +28,6 @@ export function tabBadge(tab: InspectorTab): { text: string; color: string } {
   if (tab.kind === 'dom-storage-entry') return { text: tab.area === 'session' ? 'SS' : 'LS', color: '#4ec9b0' };
   if (tab.kind === 'cookie') return { text: 'CK', color: '#d7ba7d' };
   if (tab.kind === 'cache-entry') return { text: 'CS', color: '#75beff' };
+  if (tab.kind === 'rule-value') return { text: 'VAL', color: '#c586c0' };
   return { text: tab.method, color: methodColor(tab.method) };
 }

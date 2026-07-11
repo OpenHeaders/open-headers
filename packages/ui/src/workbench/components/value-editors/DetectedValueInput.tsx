@@ -19,6 +19,9 @@ export type DetectedValueInputProps = Omit<TemplateInputProps, 'onValueEdit' | '
    *  `CompactValueEditor` — for popover hosts (the panel's rule
    *  quick-editor) where a portal modal can't live. */
   editorVariant?: ValueEditActionOptions['variant'];
+  /** Compact variant only — the inline editor's footer offers "Open as
+   *  document" when set (see `ValueEditActionOptions.onOpenDocument`). */
+  onOpenDocument?: ValueEditActionOptions['onOpenDocument'];
 };
 
 const noopChange = (): void => {};
@@ -27,9 +30,13 @@ export const DetectedValueInput: React.FC<DetectedValueInputProps> = ({
   value,
   onChange,
   editorVariant,
+  onOpenDocument,
   ...rest
 }) => {
-  const { editProps, editorModal } = useValueEditAction(value, onChange ?? noopChange, { variant: editorVariant });
+  const { editProps, editorModal } = useValueEditAction(value, onChange ?? noopChange, {
+    variant: editorVariant,
+    onOpenDocument,
+  });
   return (
     <>
       <TemplateInput {...rest} {...editProps} value={value} onChange={onChange} />

@@ -30,6 +30,7 @@ import {
   seedHeaderModRows,
 } from '../../data/rule-create/quick-rule-edit';
 import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
+import { useOpenValueDocument } from '../../data/value-document-intent';
 import { HEADER_OPERATION_OPTIONS } from './header-operation-options';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
@@ -124,6 +125,24 @@ export function HeaderQuickEditor({
     void openWorkspace({ kind: 'edit-rule', uid: liveRule.uid }, 'devpanel').then(() => onClose());
   };
 
+  // "Open as document" escalation from the compact value editor —
+  // offered only for rows the CANONICAL rule actually carries (a row
+  // added in this popover has no persisted field for a tab to read;
+  // the tab reads the canonical, not the popover's draft). Opening
+  // closes the popover; its ephemeral drafts die with it by design.
+  const openValueDocument = useOpenValueDocument();
+  const documentOpenerFor = (row: HeaderModQuickRow): (() => void) | undefined => {
+    if (openValueDocument === null || headerRule === null) return undefined;
+    const inRequest = headerRule.action.requestHeaders.find((m) => m.uid === row.uid);
+    const mod = inRequest ?? headerRule.action.responseHeaders.find((m) => m.uid === row.uid);
+    if (mod === undefined || mod.operation === 'remove' || mod.value === undefined) return undefined;
+    const direction = inRequest !== undefined ? 'request' : 'response';
+    return () => {
+      openValueDocument({ ruleUid: headerRule.uid, direction, modUid: mod.uid, headerName: mod.headerName });
+      onClose();
+    };
+  };
+
   return (
     <QuickEditorShell
       anchorEl={anchorEl}
@@ -193,6 +212,7 @@ export function HeaderQuickEditor({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <DetectedValueInput
                       editorVariant="compact"
+                      onOpenDocument={documentOpenerFor(row)}
                       size="small"
                       wrap
                       maxRows={4}

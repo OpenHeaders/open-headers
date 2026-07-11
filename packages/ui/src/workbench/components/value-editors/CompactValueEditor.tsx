@@ -10,7 +10,7 @@
  * variant; dirty derives from text-vs-decoded equality.
  */
 
-import { SaveOutlined } from '@ant-design/icons';
+import { ExportOutlined, SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { claimEscape } from '@openheaders/ui/shared/popover';
 import { Button, Tooltip, Typography, theme } from 'antd';
@@ -31,6 +31,12 @@ interface CompactValueEditorProps {
   encode: (text: string) => string | null;
   onSave: (decodedText: string) => void;
   onCancel: () => void;
+  /** Escalate to a dedicated document tab — offered in the footer when
+   *  the host can open one (the panel's quick-editor on a persisted
+   *  rule field). The caller owns closing its popover; unsaved text in
+   *  THIS editor dies with it, so the affordance sits with Cancel on
+   *  the uncommitted side of the footer. */
+  onOpenDocument?: () => void;
 }
 
 export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
@@ -39,6 +45,7 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
   encode,
   onSave,
   onCancel,
+  onOpenDocument,
 }) => {
   const { token } = theme.useToken();
   const [text, setText] = useState(decoded);
@@ -157,7 +164,19 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
           </div>
         </div>
       )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+        {onOpenDocument && (
+          <Button
+            type="link"
+            size="small"
+            icon={<ExportOutlined />}
+            onClick={onOpenDocument}
+            style={{ fontSize: 11, padding: 0, height: 'auto' }}
+          >
+            Open as document
+          </Button>
+        )}
+        <span style={{ flex: 1 }} />
         <Button size="small" onClick={onCancel} style={{ fontSize: 11 }}>
           Cancel
         </Button>

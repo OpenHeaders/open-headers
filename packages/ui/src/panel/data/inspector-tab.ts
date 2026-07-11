@@ -1,4 +1,5 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { HeaderDirection } from '@openheaders/core/utils';
 import type { JarCookieKey } from './cookies/cookie-jar-cache';
 import type { DomStorageArea } from './storage/storage-inspector-host';
 
@@ -27,7 +28,8 @@ export type InspectorTab =
   | IdbRecordInspectorTab
   | DomStorageEntryInspectorTab
   | CookieInspectorTab
-  | CacheEntryInspectorTab;
+  | CacheEntryInspectorTab
+  | RuleValueInspectorTab;
 
 export interface RequestInspectorTab {
   kind: 'request';
@@ -113,6 +115,31 @@ export interface CacheEntryInspectorTab {
   url: string;
   method: string;
   timestamp: number;
+}
+
+/** One rule field's detected value (JWT, big JSON, …) opened as a
+ *  full-editor document — the popover-bound compact editor's
+ *  escalation. Keys on the rule uid + the modification's persisted uid
+ *  (never a list index — rows reorder), reads the CANONICAL rule
+ *  through the live sync mirror, and saves through the rule mutator.
+ *  Header-rule values today; the arm is named for the general case. */
+export interface RuleValueInspectorTab {
+  kind: 'rule-value';
+  id: string;
+  label: string;
+  ruleUid: string;
+  direction: HeaderDirection;
+  /** Persisted uid of the header modification the value belongs to —
+   *  with the direction, the field's durable identity inside the rule. */
+  modUid: string;
+  /** Header name at open time — label/crumb seed (the live name may
+   *  drift; the document body renders the live one). */
+  headerName: string;
+  timestamp: number;
+  /** Mirror of the editor body's unsaved-draft state — drives the tab
+   *  pill's dirty dot and the close guard. Never persisted (drafts are
+   *  component state and don't survive a reload). */
+  dirty?: boolean;
 }
 
 /** Per-tab view state callers patch in place. Each field applies to
@@ -305,6 +332,33 @@ export function buildCacheEntryTab(input: BuildCacheEntryTabInput): CacheEntryIn
   };
 }
 
+export interface BuildRuleValueTabInput {
+  ruleUid: string;
+  direction: HeaderDirection;
+  modUid: string;
+  headerName: string;
+  timestamp: number;
+}
+
+/** Field identity IS the tab identity — re-opening the same rule field
+ *  activates the existing tab instead of spawning a duplicate. */
+export function ruleValueTabId(ruleUid: string, direction: HeaderDirection, modUid: string): string {
+  return `rulevalue:${ruleUid}:${direction}:${modUid}`;
+}
+
+export function buildRuleValueTab(input: BuildRuleValueTabInput): RuleValueInspectorTab {
+  return {
+    kind: 'rule-value',
+    id: ruleValueTabId(input.ruleUid, input.direction, input.modUid),
+    label: input.headerName,
+    ruleUid: input.ruleUid,
+    direction: input.direction,
+    modUid: input.modUid,
+    headerName: input.headerName,
+    timestamp: input.timestamp,
+  };
+}
+
 /** The DOM storage area's display name (`localStorage` / `sessionStorage`). */
 export function domStorageAreaName(area: DomStorageArea): string {
   return area === 'session' ? 'sessionStorage' : 'localStorage';
@@ -316,6 +370,7 @@ export function tabTitle(tab: InspectorTab): string {
   if (tab.kind === 'idb-record') return `${tab.database} › ${tab.store} › ${tab.keyPreview}`;
   if (tab.kind === 'cookie') return `${tab.cookieKey.domain}${tab.cookieKey.path} › ${tab.cookieKey.name}`;
   if (tab.kind === 'cache-entry') return `${tab.cache} › ${tab.url}`;
+  if (tab.kind === 'rule-value') return `${tab.headerName} › ${tab.direction} header value`;
   return `${domStorageAreaName(tab.area)} › ${tab.entryKey}`;
 }
 
@@ -330,5 +385,6 @@ export function tabSearchText(tab: InspectorTab): string {
   if (tab.kind === 'idb-record') return `${tab.database} ${tab.store} ${tab.keyPreview}`;
   if (tab.kind === 'cookie') return `${tab.cookieKey.name} ${tab.cookieKey.domain} ${tab.cookieKey.path}`;
   if (tab.kind === 'cache-entry') return `${tab.cache} ${tab.url} ${tab.method}`;
+  if (tab.kind === 'rule-value') return `${tab.headerName} ${tab.direction} header value`;
   return `${domStorageAreaName(tab.area)} ${tab.entryKey}`;
 }
