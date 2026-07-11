@@ -122,15 +122,15 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
       notification.success({
         key: toastKey,
         placement: 'bottomRight',
-        style: { width: 300 },
+        style: { width: 380 },
         message: (
           <span style={TOAST_TITLE_STYLE}>
-            {alreadyActive ? `You now have access to "${ws.name}"` : `"${ws.name}" is now available`}
+            {alreadyActive ? 'You now have access to a workspace' : 'A workspace is now available'}
           </span>
         ),
         description: (
           <span style={TOAST_DESC_STYLE} data-testid={`org-workspace-arrival-${ws.id}`}>
-            {alreadyActive ? "You're working in it now." : 'Open it from the workspace switcher.'}
+            {`"${ws.name}"`}
           </span>
         ),
         btn: alreadyActive ? undefined : (
