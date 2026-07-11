@@ -11,6 +11,7 @@
 
 import type { CommandSpec } from './command-spec';
 import { commandConnect, commandStatus, runReadCommand, runToolCommand } from './commands';
+import { completionScript } from './completions';
 import { DAEMON_URL_ENV, DEFAULT_DAEMON_URL, TOKEN_ENV } from './connection';
 import { EXEC_COMMANDS, findExecCommand } from './exec-commands';
 import { EXIT_USAGE, exitCodeFor, OperationFailedError } from './exit-codes';
@@ -41,6 +42,7 @@ Usage: oh <command> [options]
 Commands:
   status                        Probe the daemon's /mcp surface (running / disabled / bad token)
   connect --token <secret>      Validate and save the daemon URL + token for later runs
+  completion bash|zsh           Print a shell completion script (source it from your profile)
 ${readLines.join('\n')}
 ${writeLines.join('\n')}
 ${execLines.join('\n')}
@@ -70,6 +72,11 @@ async function main(): Promise<void> {
   }
   if (first === undefined || first === 'help' || first === '--help' || first === '-h') {
     console.log(usage());
+    return;
+  }
+
+  if (first === 'completion') {
+    console.log(completionScript(argv[1]));
     return;
   }
 

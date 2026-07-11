@@ -170,6 +170,19 @@ test('an unknown command prints usage and exits 2', () => {
   expect(run.stdout).toContain('Usage: oh');
 });
 
+test('oh completion emits shell scripts and rejects unknown shells', () => {
+  const bash = oh(['completion', 'bash']);
+  expect(bash.code).toBe(0);
+  expect(bash.stdout).toContain('complete -F _oh oh');
+
+  const zsh = oh(['completion', 'zsh']);
+  expect(zsh.code).toBe(0);
+  expect(zsh.stdout).toContain('#compdef oh');
+
+  const fish = oh(['completion', 'fish']);
+  expect(fish.code).toBe(2);
+});
+
 // ── Connect: persisted config carries later runs ────────────────────
 
 test('oh connect validates and persists; later runs need no env or flags', async () => {
