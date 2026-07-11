@@ -8,6 +8,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
+import { signOutWeb } from './sign-out';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
@@ -15,4 +16,10 @@ registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorks
 registerCapability('openExternalUrl', (url) => {
   window.open(url, '_blank', 'noopener');
   return Promise.resolve({ ok: true });
+});
+
+// The web tab owns an origin-scoped daemon session it can drop on its
+// own — surfaced as the settings-menu "Sign out" item.
+registerCapability('signOut', () => {
+  void signOutWeb();
 });

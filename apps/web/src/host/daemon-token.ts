@@ -50,3 +50,9 @@ export async function persistDaemonToken(): Promise<void> {
   if (current === null) return;
   await hostStorage.set(OH.webBackendToken, current);
 }
+
+/** Drop the persisted token and clear the in-memory slot (sign-out). */
+export async function clearDaemonToken(): Promise<void> {
+  current = null;
+  await hostStorage.remove(OH.webBackendToken);
+}

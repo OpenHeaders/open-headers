@@ -202,6 +202,17 @@ export interface Capabilities {
    * leave it absent and the editor stays quiet.
    */
   cspExemptInjection?: () => Promise<boolean>;
+
+  /**
+   * End this surface's daemon session and return to the login gate.
+   * Registered only by the web host, whose session is an origin-scoped
+   * token it can drop on its own; the extension / desktop shells manage
+   * backend connections through settings and never register it, which
+   * hides the settings-menu "Sign out" item in shared UI. App-scoped by
+   * design — it drops the local session, not the identity provider's,
+   * so an SSO re-login can proceed without re-entering the password.
+   */
+  signOut?: () => void;
 }
 
 type CapabilityName = keyof Capabilities;

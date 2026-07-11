@@ -14,7 +14,14 @@
  * full menu, arrows + Enter drive selection.
  */
 
-import { DownloadOutlined, ReloadOutlined, SearchOutlined, SettingOutlined, SyncOutlined } from '@ant-design/icons';
+import {
+  DownloadOutlined,
+  LogoutOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  SettingOutlined,
+  SyncOutlined,
+} from '@ant-design/icons';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { Button, Input, type InputRef, Popover, Tooltip, theme } from 'antd';
@@ -191,6 +198,21 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
         },
       },
     ]);
+    // Web host only: a served daemon session the tab can drop on its own.
+    const signOut = getCapability('signOut');
+    if (signOut) {
+      out.push([
+        {
+          key: 'signout',
+          label: 'Sign out',
+          icon: <LogoutOutlined />,
+          run: () => {
+            close();
+            signOut();
+          },
+        },
+      ]);
+    }
     return out;
   }, [update, onOpenSettings, openSettingsLabel]);
 
