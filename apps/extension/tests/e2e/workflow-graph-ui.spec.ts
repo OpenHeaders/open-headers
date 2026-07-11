@@ -1,5 +1,5 @@
 /**
- * Workflow graph mode — slices 1+2+3 e2e (WORKFLOW_GRAPH_PLAN.md §7).
+ * Workflow graph mode — slices 1+2+3+4 e2e (WORKFLOW_GRAPH_PLAN.md §7).
  *
  * Seeds a fan-out/fan-in workflow via real RPC (request + workflow +
  * one bound LV for the exposure mark), opens its editor from the
@@ -24,6 +24,11 @@
  *     the masked-by-default captured-value popover with explicit
  *     reveal, and the publication split — the produced capture's LV
  *     is live, the skipped step's LV stays "pending first run".
+ *   - Editing (slice 4): rubber-band connect adds a dependsOn edge
+ *     (form shows the new parent, isDirty flips, Save persists);
+ *     would-be-cycle targets tint during the drag but the drop still
+ *     commits and the validation badge flags it; edge select + remove;
+ *     the add-step affordance appends a form-default step.
  */
 
 import path from 'node:path';
@@ -226,6 +231,138 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   await expect(page.getByTestId('wf-graph-pane')).toHaveCount(0);
   await expect(page.getByText('Steps (4)', { exact: false }).first()).toBeVisible();
   await expect(saveButton).toBeDisabled();
+
+  expect(pageErrors).toEqual([]);
+  await page.close();
+});
+
+test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle warn', async () => {
+  const page = await context.newPage();
+  page.on('pageerror', (err) => pageErrors.push(err.message));
+
+  await page.goto(`chrome-extension://${extensionId}/workbench.html`);
+  await page.waitForFunction(() => {
+    const root = document.getElementById('root');
+    return root !== null && root.children.length > 0;
+  });
+
+  const reqRes = await rpc<{ success: boolean; request?: { uid: string } }>(page, 'createLocalRequest', {
+    name: 'edit-e2e request',
+    seed: {
+      method: 'GET',
+      url: 'https://api.openheaders.io/edit',
+      headers: [],
+      params: [],
+      auth: null,
+      body: null,
+    },
+  });
+  expect(reqRes.success).toBe(true);
+  const requestUid = reqRes.request!.uid;
+
+  const wfRes = await rpc<{ success: boolean; workflow?: { uid: string } }>(page, 'createLiveWorkflow', {
+    name: 'graph-edit-e2e',
+    enabled: true,
+    refresh: { kind: 'manual' },
+    steps: [
+      { id: 'a', requestUid, captures: [] },
+      { id: 'b', requestUid, dependsOn: ['a'], captures: [] },
+      { id: 'c', requestUid, dependsOn: ['a'], captures: [] },
+    ],
+  });
+  expect(wfRes.success).toBe(true);
+  const workflowUid = wfRes.workflow!.uid;
+
+  // Open the workflow's editor and toggle to Graph.
+  await page.reload();
+  await page.waitForFunction(() => {
+    const root = document.getElementById('root');
+    return root !== null && root.children.length > 0;
+  });
+  const workflowsTab = page.locator('[data-tool-window="workflows"]').first();
+  if ((await workflowsTab.getAttribute('aria-selected')) !== 'true') {
+    await workflowsTab.click();
+  }
+  const sectionHeader = page
+    .getByRole('button', { name: /WORKFLOWS/ })
+    .filter({ visible: true })
+    .first();
+  await sectionHeader.waitFor({ state: 'visible', timeout: 10000 });
+  if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
+    await sectionHeader.click();
+  }
+  const row = page.locator(`[data-item-id="workflow-${workflowUid}"]`);
+  await row.waitFor({ state: 'visible', timeout: 10000 });
+  await row.click();
+  const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
+  await saveButton.waitFor({ state: 'visible', timeout: 10000 });
+  await expect(saveButton).toBeDisabled();
+  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
+
+  // ── Connect b → c ────────────────────────────────────────────────
+  const center = (box: { x: number; y: number; width: number; height: number }) => ({
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+  });
+  const anchorB = (await page.getByTestId('wf-graph-connect-b').boundingBox())!;
+  const nodeC = (await page.getByTestId('wf-graph-node-c').boundingBox())!;
+  await page.mouse.move(center(anchorB).x, center(anchorB).y);
+  await page.mouse.down();
+  await page.mouse.move(center(nodeC).x, center(nodeC).y, { steps: 5 });
+
+  // Mid-drag: the rubber band is live and cycle targets tint — from b,
+  // that's its ancestor a (and b itself), never c.
+  await expect(page.getByTestId('wf-graph-rubberband')).toBeVisible();
+  await expect(page.getByTestId('wf-graph-node-a')).toHaveAttribute('data-cycle-target', 'true');
+  await expect(page.getByTestId('wf-graph-node-c')).not.toHaveAttribute('data-cycle-target', 'true');
+
+  await page.mouse.up();
+  await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveCount(1);
+  await expect(page.getByTestId('wf-graph-rubberband')).toHaveCount(0);
+  await expect(saveButton).toBeEnabled();
+
+  // The form shows the materialized explicit parents on step c.
+  await page.getByText('Form', { exact: true }).filter({ visible: true }).first().click();
+  await expect(page.locator('[data-step-card="c"]')).toContainText('after a, b');
+
+  // Save persists the graph-made edit through the normal save path.
+  await saveButton.click();
+  await expect(saveButton).toBeDisabled();
+
+  // ── Select + remove the edge ─────────────────────────────────────
+  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('wf-graph-edge-hit-b-c')).toHaveCount(1);
+  // The b→c edge is a vertical line here (same column), so its hit
+  // path has a zero-width bounding box — Playwright's locator click
+  // refuses it as invisible. Click the edge midpoint by coordinates
+  // instead; the transparent hit stroke is 14px wide there.
+  const nodeB = (await page.getByTestId('wf-graph-node-b').boundingBox())!;
+  const nodeCPost = (await page.getByTestId('wf-graph-node-c').boundingBox())!;
+  await page.mouse.click(
+    (nodeB.x + nodeB.width / 2 + nodeCPost.x + nodeCPost.width / 2) / 2,
+    (nodeB.y + nodeB.height + nodeCPost.y) / 2,
+  );
+  await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveAttribute('data-selected', 'true');
+  await page.getByTestId('wf-graph-edge-remove-b-c').click();
+  await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveCount(0);
+  await expect(saveButton).toBeEnabled();
+
+  // ── Add step ─────────────────────────────────────────────────────
+  await page.getByTestId('wf-graph-add-step').click();
+  await expect(page.getByTestId('wf-graph-node-step4')).toBeVisible();
+  await expect(page.getByTestId('wf-graph-node-step4')).toHaveAttribute('data-selected', 'true');
+
+  // ── Cycle attempt: warn during drag, drop commits, badge flags ───
+  const anchorC = (await page.getByTestId('wf-graph-connect-c').boundingBox())!;
+  const nodeA = (await page.getByTestId('wf-graph-node-a').boundingBox())!;
+  await page.mouse.move(center(anchorC).x, center(anchorC).y);
+  await page.mouse.down();
+  await page.mouse.move(center(nodeA).x, center(nodeA).y, { steps: 5 });
+  await expect(page.getByTestId('wf-graph-node-a')).toHaveAttribute('data-cycle-target', 'true');
+  await page.mouse.up();
+  await expect(page.getByTestId('wf-graph-edge-c-a')).toHaveCount(1);
+  await expect(page.locator('[data-testid^="wf-graph-error-"]').first()).toBeVisible();
 
   expect(pageErrors).toEqual([]);
   await page.close();

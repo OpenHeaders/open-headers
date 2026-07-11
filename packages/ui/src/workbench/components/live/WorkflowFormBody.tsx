@@ -8,7 +8,6 @@
 import { InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { type DraftStep, type DraftWorkflow, validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { generateUid } from '@openheaders/core/utils';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Alert, Button, Switch, Tooltip, Typography, theme } from 'antd';
@@ -16,6 +15,7 @@ import type React from 'react';
 import { useMemo } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
 import { buildDependencyRows } from './dependencies-view';
+import { appendDraftStep } from './graph-edit';
 import { InlineDescription, Section } from './layout';
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
@@ -172,20 +172,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
   };
 
   const addStep = () => {
-    const existingIds = new Set(draft.steps.map((s) => s.id));
-    let candidate = `step${draft.steps.length + 1}`;
-    let n = draft.steps.length + 1;
-    while (existingIds.has(candidate)) {
-      n += 1;
-      candidate = `step${n}`;
-    }
-    const next: DraftStep = {
-      uid: generateUid(),
-      id: candidate,
-      requestUid: '',
-      captures: [],
-    };
-    setDraft({ ...draft, steps: [...draft.steps, next] });
+    setDraft(appendDraftStep(draft).draft);
   };
 
   const removeStep = (idx: number) => {

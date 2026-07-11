@@ -60,6 +60,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import EditorHeader from '../shell/EditorHeader';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { LIVE_WORKFLOW_FIELD, liveWorkflowStepIndexFromPath } from '@openheaders/ui/shared/awareness/live-paths';
+import { appendDraftStep } from './graph-edit';
 import { classifyRun, pickActiveRun, statusColor } from './live-display';
 import WorkflowFormBody from './WorkflowFormBody';
 import WorkflowGraphBody from './WorkflowGraphBody';
@@ -214,20 +215,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       baselineLiveWorkflowRef.current = e;
       if (!seedStep || seedAppliedRef.current) return;
       seedAppliedRef.current = true;
-      setDraft((d) => {
-        if (!d) return d;
-        const existingIds = new Set(d.steps.map((s) => s.id));
-        let candidate = `step${d.steps.length + 1}`;
-        let n = d.steps.length + 1;
-        while (existingIds.has(candidate)) {
-          n += 1;
-          candidate = `step${n}`;
-        }
-        return {
-          ...d,
-          steps: [...d.steps, { uid: generateUid(), id: candidate, requestUid: seedStep.requestUid, captures: [] }],
-        };
-      });
+      setDraft((d) => (d ? appendDraftStep(d, seedStep.requestUid).draft : d));
     },
   });
   const isDirty = reprime.isDirty;
@@ -485,6 +473,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         <div style={{ flex: 1, minHeight: 0 }}>
           <WorkflowGraphBody
             draft={draft}
+            setDraft={setDraft}
             selectedStepId={selectedStepId}
             onSelectStep={handleGraphSelect}
             onOpenStep={handleGraphOpen}
@@ -646,6 +635,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
         <div style={{ flex: 1, minHeight: 0 }}>
           <WorkflowGraphBody
             draft={draft}
+            setDraft={setDraft}
             selectedStepId={selectedStepId}
             onSelectStep={handleGraphSelect}
             onOpenStep={handleGraphOpen}

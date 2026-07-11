@@ -25,19 +25,42 @@
  * wording. Read-only and environment-scoped by construction: it
  * renders one `pickActiveRun` row, derived at render time.
  *
- * No editing — slice 4.
+ * Editing (slice 4): when the editor passes `setDraft`, the graph
+ * gains structural edit gestures that mutate the SAME draft the form
+ * edits — never a second model:
+ *   - connect: pointer-drag from a node's bottom anchor rubber-bands
+ *     an edge; dropping on another node adds that `dependsOn` edge
+ *     via `addGraphDependency`. Would-be-cycle targets tint warning
+ *     during the drag but the drop still commits — the form allows
+ *     invalid drafts and badges them, so the graph does the same.
+ *   - remove: click an edge (widened transparent hit path) to select
+ *     it, then the × affordance at its midpoint removes the edge.
+ *   - add step: pane affordance appending the form's "+ Step"
+ *     defaults and selecting the new node.
+ * Rubber-banding is component-local state; only the drop mutates the
+ * draft, so `isDirty` (a fingerprint comparison) can never move on a
+ * gesture that didn't commit.
  */
 
-import { EditOutlined, FilterOutlined, SortAscendingOutlined, ThunderboltFilled, WarningOutlined } from '@ant-design/icons';
+import {
+  CloseOutlined,
+  EditOutlined,
+  FilterOutlined,
+  PlusOutlined,
+  SortAscendingOutlined,
+  ThunderboltFilled,
+  WarningOutlined,
+} from '@ant-design/icons';
 import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
 import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { LiveVariable, LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
-import { Tooltip, Typography, theme } from 'antd';
+import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { METHOD_COLORS } from '../sidebar/icons';
+import { addGraphDependency, appendDraftStep, removeGraphDependency } from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
 import { classifyStepRun, type StepRunState } from './live-display';
 import { GraphRunSummary, StepRunDot } from './WorkflowGraphRunOverlay';
@@ -52,6 +75,11 @@ const PAD = 24;
 
 interface WorkflowGraphBodyProps {
   draft: DraftWorkflow;
+  /**
+   * The editor's draft setter — the SAME one the form body uses.
+   * Present = editing gestures on; absent = read-only graph.
+   */
+  setDraft?: (next: DraftWorkflow) => void;
   /** Currently selected step id (ephemeral UI state owned by the editor). */
   selectedStepId?: string | null;
   /** Click on a node — select + highlight, stay in Graph. */
@@ -87,8 +115,15 @@ function clauseSummary(clause: NonNullable<WorkflowStep['runIf']>['all'][number]
   }
 }
 
+interface ConnectDrag {
+  from: string;
+  x: number;
+  y: number;
+}
+
 const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   draft,
+  setDraft,
   selectedStepId,
   onSelectStep,
   onOpenStep,
@@ -97,6 +132,12 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { requests, isReady: requestsReady } = useRequests();
+  const editable = setDraft !== undefined;
+  const canvasRef = useRef<HTMLDivElement>(null);
+  // Rubber-band connect gesture — component-local, never on the draft.
+  const [drag, setDrag] = useState<ConnectDrag | null>(null);
+  // Edge selection for the remove affordance — graph-only UI state.
+  const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string } | null>(null);
 
   // Same synthetic-workflow construction the form body uses — the
   // layout helper + validators only inspect cross-reference shape.
@@ -148,11 +189,97 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const canvasW = PAD * 2 + Math.max(1, layout.maxSlots) * (NODE_W + GAP_X) - GAP_X;
   const canvasH = PAD * 2 + Math.max(1, layout.layerCount) * (NODE_H + GAP_Y) - GAP_Y;
 
+  // Would-be-cycle targets while rubber-banding: dropping `from → t`
+  // cycles iff t is a transitive ancestor of `from` (or `from` itself).
+  // `reachable` is already on the layout node — the check is free.
+  const cycleTargets = useMemo(() => {
+    if (!drag) return null;
+    const source = layout.nodes.find((n) => n.step.id === drag.from);
+    const set = new Set(source?.reachable ?? []);
+    set.add(drag.from);
+    return set;
+  }, [drag, layout]);
+
+  // Selected edge survives only while the layout still has it — an
+  // edit that drops the edge drops the selection with it (derived).
+  const activeEdge =
+    selectedEdge && layout.edges.some((e) => e.from === selectedEdge.from && e.to === selectedEdge.to)
+      ? selectedEdge
+      : null;
+
+  const canvasPoint = (e: React.PointerEvent): { x: number; y: number } => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    return rect ? { x: e.clientX - rect.left, y: e.clientY - rect.top } : { x: 0, y: 0 };
+  };
+
+  const beginConnect = (stepId: string) => (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ from: stepId, ...canvasPoint(e) });
+  };
+
+  const moveConnect = (e: React.PointerEvent<HTMLDivElement>) => {
+    const point = canvasPoint(e);
+    setDrag((d) => (d ? { ...d, ...point } : d));
+  };
+
+  const endConnect = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag) return;
+    const point = canvasPoint(e);
+    setDrag(null);
+    if (!setDraft) return;
+    const target = layout.nodes.find((n) => {
+      const pos = positions.get(n.step.id);
+      return (
+        pos !== undefined &&
+        point.x >= pos.x &&
+        point.x <= pos.x + NODE_W &&
+        point.y >= pos.y &&
+        point.y <= pos.y + NODE_H
+      );
+    });
+    if (!target) return;
+    const next = addGraphDependency(draft, drag.from, target.step.id);
+    if (next) setDraft(next);
+  };
+
+  const removeEdge = (from: string, to: string) => {
+    if (!setDraft) return;
+    const next = removeGraphDependency(draft, from, to);
+    if (next) setDraft(next);
+    setSelectedEdge(null);
+  };
+
+  const handleAddStep = () => {
+    if (!setDraft) return;
+    const appended = appendDraftStep(draft);
+    setDraft(appended.draft);
+    onSelectStep?.(appended.stepId, draft.steps.length);
+  };
+
+  const dragSource = drag ? positions.get(drag.from) : undefined;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {run !== undefined && <GraphRunSummary run={run} refresh={draft.refresh} />}
-      <div data-testid="wf-graph-pane" style={{ overflow: 'auto', flex: 1, minHeight: 0 }}>
-      <div style={{ position: 'relative', width: canvasW, height: canvasH }}>
+      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+      {editable && (
+        <Button
+          size="small"
+          icon={<PlusOutlined />}
+          data-testid="wf-graph-add-step"
+          onClick={handleAddStep}
+          style={{ position: 'absolute', top: 8, right: 16, zIndex: 3 }}
+        >
+          Step
+        </Button>
+      )}
+      <div data-testid="wf-graph-pane" style={{ overflow: 'auto', height: '100%' }}>
+      <div
+        ref={canvasRef}
+        style={{ position: 'relative', width: canvasW, height: canvasH }}
+        onClick={() => setSelectedEdge(null)}
+      >
         <svg
           width={canvasW}
           height={canvasH}
@@ -168,17 +295,47 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
             const x2 = to.x + NODE_W / 2;
             const y2 = to.y;
             const bend = Math.max(16, (y2 - y1) / 2);
+            const d = `M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${y2 - bend}, ${x2} ${y2}`;
+            const selected = activeEdge?.from === edge.from && activeEdge?.to === edge.to;
             return (
-              <path
-                key={`${edge.from}->${edge.to}`}
-                data-testid={`wf-graph-edge-${edge.from}-${edge.to}`}
-                d={`M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${y2 - bend}, ${x2} ${y2}`}
-                fill="none"
-                stroke={token.colorBorder}
-                strokeWidth={1.5}
-              />
+              <g key={`${edge.from}->${edge.to}`}>
+                <path
+                  data-testid={`wf-graph-edge-${edge.from}-${edge.to}`}
+                  data-selected={selected ? 'true' : undefined}
+                  d={d}
+                  fill="none"
+                  stroke={selected ? token.colorPrimary : token.colorBorder}
+                  strokeWidth={selected ? 2 : 1.5}
+                />
+                {editable && (
+                  // Widened transparent twin — the click target. SVG
+                  // pointer-events re-enable under a none parent.
+                  <path
+                    data-testid={`wf-graph-edge-hit-${edge.from}-${edge.to}`}
+                    d={d}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={14}
+                    style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedEdge({ from: edge.from, to: edge.to });
+                    }}
+                  />
+                )}
+              </g>
             );
           })}
+          {drag && dragSource && (
+            <path
+              data-testid="wf-graph-rubberband"
+              d={`M ${dragSource.x + NODE_W / 2} ${dragSource.y + NODE_H} L ${drag.x} ${drag.y}`}
+              fill="none"
+              stroke={token.colorPrimary}
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+            />
+          )}
         </svg>
         {layout.nodes.map((node) => {
           const pos = positions.get(node.step.id);
@@ -212,9 +369,85 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               runCaptures={run ? run.stepCaptures[node.step.id] : undefined}
               runResponseBytes={run ? run.stepResponseBytes[node.step.id] : undefined}
               boundVars={boundVars}
+              cycleWarn={cycleTargets?.has(node.step.id) === true}
             />
           );
         })}
+        {editable &&
+          layout.nodes.map((node) => {
+            const pos = positions.get(node.step.id);
+            if (!pos) return null;
+            return (
+              // Connect anchor — always-visible dot on the node's
+              // bottom edge; pointer capture keeps the whole drag on
+              // this element so the drop hit-tests by coordinates.
+              <div
+                key={`connect-${node.step.uid}`}
+                data-testid={`wf-graph-connect-${node.step.id}`}
+                title="Drag to another step to add a dependency"
+                onPointerDown={beginConnect(node.step.id)}
+                onPointerMove={moveConnect}
+                onPointerUp={endConnect}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  left: pos.x + NODE_W / 2 - 6,
+                  top: pos.y + NODE_H - 6,
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  border: `2px solid ${token.colorPrimary}`,
+                  background: token.colorBgElevated,
+                  cursor: 'crosshair',
+                  touchAction: 'none',
+                  zIndex: 2,
+                }}
+              />
+            );
+          })}
+        {editable &&
+          activeEdge &&
+          (() => {
+            const from = positions.get(activeEdge.from);
+            const to = positions.get(activeEdge.to);
+            if (!from || !to) return null;
+            // Cubic midpoint with symmetric control offsets = plain
+            // endpoint average.
+            const mx = (from.x + to.x + NODE_W) / 2;
+            const my = (from.y + NODE_H + to.y) / 2;
+            return (
+              <Tooltip title="Remove dependency">
+                <button
+                  type="button"
+                  data-testid={`wf-graph-edge-remove-${activeEdge.from}-${activeEdge.to}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeEdge(activeEdge.from, activeEdge.to);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    left: mx - 9,
+                    top: my - 9,
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    border: `1px solid ${token.colorError}`,
+                    background: token.colorBgElevated,
+                    color: token.colorError,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    padding: 0,
+                    zIndex: 2,
+                  }}
+                >
+                  <CloseOutlined style={{ fontSize: 9 }} />
+                </button>
+              </Tooltip>
+            );
+          })()}
+      </div>
       </div>
       </div>
     </div>
@@ -247,6 +480,8 @@ interface GraphNodeCardProps {
   runResponseBytes?: number;
   /** Bound LVs — publication state per exposed capture (overlay only). */
   boundVars?: LiveVariable[];
+  /** Dropping the in-flight connect here would create a cycle. */
+  cycleWarn?: boolean;
 }
 
 const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
@@ -269,18 +504,26 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   runCaptures,
   runResponseBytes,
   boundVars,
+  cycleWarn,
 }) => {
   const { token } = theme.useToken();
   const gateClauses = runIf?.all ?? [];
   const captures = draftStep?.captures ?? [];
   const requestLine = requestMissing ? 'Request not found' : requestName || 'No request selected';
   const requestMuted = requestMissing || requestName === '';
-  const borderColor = errors.length > 0 ? token.colorErrorBorder : selected ? token.colorPrimary : token.colorBorder;
+  const borderColor = cycleWarn
+    ? token.colorWarning
+    : errors.length > 0
+      ? token.colorErrorBorder
+      : selected
+        ? token.colorPrimary
+        : token.colorBorder;
 
   return (
     <div
       data-testid={`wf-graph-node-${stepId}`}
       data-selected={selected ? 'true' : undefined}
+      data-cycle-target={cycleWarn ? 'true' : undefined}
       onClick={onSelect}
       onDoubleClick={onOpen}
       style={{
