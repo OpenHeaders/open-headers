@@ -29,6 +29,17 @@ import type { CircuitSnapshot } from '../live';
 export type RefreshHealth = 'ok' | 'source-failing' | 'auth-failing';
 
 /**
+ * How one step fared in the last successful run — `completed` (the step
+ * executed; its {@link WorkflowRunCache.stepCaptures} entry is from that
+ * run) vs `skipped` (its `runIf` gate evaluated false, directly or by
+ * cascade from a skipped ancestor; any captures entry is a prior run's
+ * value preserved by the skip-merge). A closed two-value enum: failure
+ * is not a per-step outcome — a failed run commits nothing (atomic
+ * refresh), so the failure point lives on the row-level `lastErrorStepId`.
+ */
+export type WorkflowStepOutcome = 'completed' | 'skipped';
+
+/**
  * One workflow's last-extraction snapshot for one environment.
  * Intentionally NOT a valibot schema — the cache is ephemeral and
  * written exclusively by the SW, so the at-rest shape is defined by
@@ -46,6 +57,20 @@ export interface WorkflowRunCache {
   expiresAt: number | null;
   /** Per-step response body byte count — observability only, never value bytes. */
   stepResponseBytes: Record<string, number>;
+  /**
+   * `stepId → outcome` attestation for the last successful run — what
+   * lets a consumer tell "ran and captured nothing" from "gate-skipped
+   * with a preserved prior value", which `stepCaptures` presence alone
+   * cannot (skipped steps keep their prior entries so `{{live.X}}`
+   * stays resolvable). Written only by a successful
+   * `putWorkflowRunCache`; preserved through a failed refresh (it
+   * describes the preserved captures); dropped when a synced remote
+   * value lands (this host cannot attest a remote run's per-step
+   * outcomes). Host-local runner bookkeeping — never enters
+   * {@link LiveValueRecord}, never syncs. Absent on rows that predate
+   * the field (tolerant read: fall back to capture presence).
+   */
+  stepOutcomes?: Record<string, WorkflowStepOutcome>;
   /** Consecutive failed refreshes since the last success. Drives backoff. */
   consecutiveFailures: number;
   /** Wall-clock ms of the last failed refresh. */
@@ -147,7 +172,8 @@ export interface WorkflowRunCache {
  * tiny `refreshHealth` enum (WS-C C7). The derived value + that one
  * health byte cross the wire; every other `WorkflowRunCache` field
  * (`circuit`, `consecutiveFailures`, `lastError*`, `lastExtractorOk`,
- * `stepResponseBytes`, `definitionallyStale`, `definitionallyStaleSince`,
+ * `stepResponseBytes`, `stepOutcomes`, `definitionallyStale`,
+ * `definitionallyStaleSince`,
  * `lastSyncedValueAt`, `exclusiveDegradedSince`) is per-host *runner*
  * bookkeeping that each host derives for itself and never syncs.
  *

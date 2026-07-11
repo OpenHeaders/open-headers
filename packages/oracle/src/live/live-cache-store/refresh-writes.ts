@@ -1,5 +1,5 @@
 import { initialCircuitSnapshot, onCircuitFailure, onCircuitSuccess } from '@openheaders/core/live';
-import type { RefreshHealth, WorkflowRunCache } from '@openheaders/core/types';
+import type { RefreshHealth, WorkflowRunCache, WorkflowStepOutcome } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import {
   envKey,
@@ -19,10 +19,19 @@ import { propagator } from './propagation';
 export interface SuccessfulRunInput {
   workflowUid: string;
   environmentId: string | null;
+  /** Captures for the steps that COMPLETED this run — skipped steps absent. */
   stepCaptures: Record<string, Record<string, string>>;
   stepResponseBytes: Record<string, number>;
   extractedAt: number;
   expiresAt: number | null;
+  /**
+   * Steps the runner gate-skipped this run (directly or by cascade).
+   * The write merges each skipped step's PRIOR captures onto the new
+   * row so its exposed `{{live.X}}` values stay resolvable — the
+   * atomic-refresh contract both chain adapters document. Steps in
+   * neither `stepCaptures` nor this list (deleted / renamed) drop off.
+   */
+  skippedStepIds?: readonly string[];
 }
 
 /**
@@ -30,12 +39,15 @@ export interface SuccessfulRunInput {
  * accumulated failure state — a successful refresh resets the
  * backoff counter AND applies `onCircuitSuccess` to the persisted
  * circuit snapshot so the state machine closes the breaker (with
- * decay of `consecutiveOpenings` where appropriate). Fires
- * `onLiveCacheStoreChange` with the post-write snapshot.
+ * decay of `consecutiveOpenings` where appropriate). Stamps
+ * `stepOutcomes` from the runner's attestation (completed = has a
+ * captures entry this run; skipped = listed in `skippedStepIds`).
+ * Fires `onLiveCacheStoreChange` with the post-write snapshot.
  */
 export async function putWorkflowRunCache(input: SuccessfulRunInput, workspaceId?: string): Promise<WorkflowRunCache> {
   const wsId = resolveWorkspaceId(workspaceId);
   const key = runKey(input.workflowUid, input.environmentId);
+  const skippedStepIds = input.skippedStepIds ?? [];
   let entry!: WorkflowRunCache;
   let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
@@ -43,11 +55,29 @@ export async function putWorkflowRunCache(input: SuccessfulRunInput, workspaceId
     const previous: WorkflowRunCache | undefined = current.runs[key];
     const priorCircuit = previous?.circuit ?? initialCircuitSnapshot();
     const nextCircuit = onCircuitSuccess(priorCircuit, input.extractedAt);
+    // Skip-merge: a gate-skipped step keeps its prior captures (and
+    // byte count) so `{{live.X}}` bound to it stays resolvable across
+    // a run that legitimately didn't execute it. Merging ONLY steps
+    // the runner attests as skipped lets deleted steps drop off.
+    const stepCaptures = { ...input.stepCaptures };
+    const stepResponseBytes = { ...input.stepResponseBytes };
+    const stepOutcomes: Record<string, WorkflowStepOutcome> = {};
+    for (const stepId of Object.keys(input.stepCaptures)) {
+      stepOutcomes[stepId] = 'completed';
+    }
+    for (const stepId of skippedStepIds) {
+      stepOutcomes[stepId] = 'skipped';
+      const prior = previous?.stepCaptures[stepId];
+      if (prior !== undefined) stepCaptures[stepId] = prior;
+      const priorBytes = previous?.stepResponseBytes[stepId];
+      if (priorBytes !== undefined) stepResponseBytes[stepId] = priorBytes;
+    }
     entry = {
       workflowUid: input.workflowUid,
       environmentId: input.environmentId,
-      stepCaptures: input.stepCaptures,
-      stepResponseBytes: input.stepResponseBytes,
+      stepCaptures,
+      stepResponseBytes,
+      stepOutcomes,
       extractedAt: input.extractedAt,
       expiresAt: input.expiresAt,
       consecutiveFailures: 0,
@@ -80,7 +110,10 @@ export async function putWorkflowRunCache(input: SuccessfulRunInput, workspaceId
       value: {
         workflowUid: input.workflowUid,
         environmentId: input.environmentId,
-        stepCaptures: input.stepCaptures,
+        // The merged set (skip-preserved captures included) — a peer
+        // resolving `{{live.X}}` needs the full resolvable value set,
+        // not only the steps that happened to execute this run.
+        stepCaptures: entry.stepCaptures,
         extractedAt: input.extractedAt,
         expiresAt: input.expiresAt,
         refreshHealth: 'ok',
@@ -139,6 +172,9 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
       environmentId: input.environmentId,
       stepCaptures: previous?.stepCaptures ?? {},
       stepResponseBytes: previous?.stepResponseBytes ?? {},
+      // The outcome map describes the preserved last-success captures,
+      // so it survives a failed refresh exactly as they do.
+      stepOutcomes: previous?.stepOutcomes,
       extractedAt: previous?.extractedAt ?? 0,
       expiresAt: previous?.expiresAt ?? null,
       consecutiveFailures: nextCircuit.consecutiveFailures,

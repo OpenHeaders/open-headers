@@ -10,10 +10,12 @@
 import { initialCircuitSnapshot } from '@openheaders/core/live';
 import type { RefreshPolicy } from '@openheaders/core/types';
 import {
+  classifyStepRun,
   describeRunSchedule,
   formatCountdown,
   formatRelativeMs,
   pickActiveRun,
+  stepRunLevel,
   summarizeRunsByEnv,
 } from '@openheaders/ui/workbench/components/live/live-display';
 import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
@@ -279,5 +281,64 @@ describe('formatCountdown precision', () => {
 
   it('seconds round up — a 100ms countdown shows "in 1s" not "in 0s"', () => {
     expect(formatCountdown(NOW + 100, NOW)).toBe('in 1s');
+  });
+});
+
+describe('classifyStepRun', () => {
+  it('returns not-run when the env has no cache row', () => {
+    expect(classifyStepRun(null, 'root')).toBe('not-run');
+  });
+
+  it('reads the runner attestation: completed vs skipped vs not-run', () => {
+    const run = makeRun({
+      stepCaptures: { root: { token: 'tok' }, gated: { token: 'old' } },
+      stepOutcomes: { root: 'completed', gated: 'skipped' },
+    });
+    expect(classifyStepRun(run, 'root')).toBe('completed');
+    // Skipped step with skip-merge-preserved prior captures — presence
+    // of captures must NOT be read as "ran"; the attestation wins.
+    expect(classifyStepRun(run, 'gated')).toBe('skipped');
+    expect(classifyStepRun(run, 'brand-new-step')).toBe('not-run');
+  });
+
+  it('a zero-capture completed step is completed, not not-run', () => {
+    const run = makeRun({ stepCaptures: { ping: {} }, stepOutcomes: { ping: 'completed' } });
+    expect(classifyStepRun(run, 'ping')).toBe('completed');
+  });
+
+  it('the failure point wins over a stale completed attestation', () => {
+    const run = makeRun({
+      stepCaptures: { root: { token: 'tok' } },
+      stepOutcomes: { root: 'completed' },
+      lastErrorStepId: 'root',
+      lastErrorMessage: 'HTTP 500',
+      lastExtractorOk: true,
+    });
+    expect(classifyStepRun(run, 'root')).toBe('failed');
+  });
+
+  it('extractor mismatch at the failure point classifies extract-failed', () => {
+    const run = makeRun({
+      lastErrorStepId: 'root',
+      lastErrorMessage: 'Capture "token": no match',
+      lastExtractorOk: false,
+    });
+    expect(classifyStepRun(run, 'root')).toBe('extract-failed');
+  });
+
+  it('tolerant read: no attestation falls back to capture presence', () => {
+    // Rows written before stepOutcomes existed, or merged from a
+    // remote peer (which drops the host-local attestation).
+    const run = makeRun({ stepCaptures: { root: { token: 'tok' } } });
+    expect(classifyStepRun(run, 'root')).toBe('completed');
+    expect(classifyStepRun(run, 'gated')).toBe('not-run');
+  });
+
+  it('maps states onto the shared status scale', () => {
+    expect(stepRunLevel('completed')).toBe('green');
+    expect(stepRunLevel('failed')).toBe('red');
+    expect(stepRunLevel('extract-failed')).toBe('yellow');
+    expect(stepRunLevel('skipped')).toBe('idle');
+    expect(stepRunLevel('not-run')).toBe('idle');
   });
 });

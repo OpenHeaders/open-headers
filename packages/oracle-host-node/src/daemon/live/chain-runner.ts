@@ -100,9 +100,10 @@ async function commitSuccess(
 ): Promise<void> {
   // Project core Maps → the plain-object shape the cache blob stores.
   // The cache serializes JSON, not Map instances; crossing here keeps
-  // the store naive. Skipped steps (gate / cascade) are intentionally
-  // absent — their prior cache entries survive this atomic commit and
-  // stay resolvable by `{{live.X}}`.
+  // the store naive. Skipped steps (gate / cascade) ride
+  // `skippedStepIds` into the cache write, where the skip-merge
+  // preserves their prior captures (resolvable by `{{live.X}}`) and
+  // stamps the per-step outcome map.
   const stepCaptures: Record<string, Record<string, string>> = {};
   for (const [stepId, captures] of outcome.stepCaptures) {
     stepCaptures[stepId] = Object.fromEntries(captures);
@@ -117,6 +118,7 @@ async function commitSuccess(
       stepResponseBytes,
       extractedAt: outcome.completedAt,
       expiresAt: deriveExpiresAt(workflow, stepCaptures, outcome.completedAt),
+      skippedStepIds: outcome.skippedStepIds,
     },
     workspaceId,
   );

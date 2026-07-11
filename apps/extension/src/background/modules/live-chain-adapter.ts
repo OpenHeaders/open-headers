@@ -176,9 +176,9 @@ async function commitSuccess(
   // instances; crossing the boundary here keeps the store naive.
   //
   // Phase I: `outcome.stepCaptures` contains only COMPLETED steps.
-  // Skipped steps (listed in `outcome.skippedStepIds`) are
-  // intentionally absent — their prior cache entries survive the
-  // atomic commit and stay resolvable by `{{live.X}}`. Per-step skip
+  // Skipped steps ride `skippedStepIds` into the cache write, where
+  // the skip-merge preserves their prior captures (resolvable by
+  // `{{live.X}}`) and stamps the per-step outcome map. Per-step skip
   // entries land on the observability log below so exports carry the
   // full branch-taken picture.
   if (outcome.skippedStepIds.length > 0) {
@@ -203,6 +203,7 @@ async function commitSuccess(
       stepResponseBytes,
       extractedAt: outcome.completedAt,
       expiresAt: deriveExpiresAt(workflow, stepCaptures, outcome.completedAt),
+      skippedStepIds: outcome.skippedStepIds,
     },
     workspaceId,
   );

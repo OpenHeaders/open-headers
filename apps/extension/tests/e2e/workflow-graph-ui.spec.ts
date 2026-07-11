@@ -1,5 +1,5 @@
 /**
- * Workflow graph mode — slices 1+2 e2e (WORKFLOW_GRAPH_PLAN.md §7).
+ * Workflow graph mode — slices 1+2+3 e2e (WORKFLOW_GRAPH_PLAN.md §7).
  *
  * Seeds a fan-out/fan-in workflow via real RPC (request + workflow +
  * one bound LV for the exposure mark), opens its editor from the
@@ -18,6 +18,12 @@
  *     Graph highlights that node.
  *   - Toggling back to Form is loss-free: step editors reappear and
  *     Save stays disabled (toggle + selection never dirty the draft).
+ *   - Run overlay (slice 3): a never-run workflow shows `not-run` dots
+ *     + the never-run summary; a real run through the playground
+ *     backend (gate-skip scenario) shows completed/skipped per node,
+ *     the masked-by-default captured-value popover with explicit
+ *     reveal, and the publication split — the produced capture's LV
+ *     is live, the skipped step's LV stays "pending first run".
  */
 
 import path from 'node:path';
@@ -164,6 +170,18 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   await expect(page.getByTestId('wf-graph-gate-left')).toBeVisible();
   await expect(page.getByTestId('wf-graph-gate-right')).toHaveCount(0);
 
+  // Run overlay on a never-run workflow: the summary says so and every
+  // node carries the not-run state. The exposed capture's LV exists but
+  // is unpublished — pending first run, never presented as live.
+  await expect(page.getByTestId('wf-graph-run-summary')).toContainText('never run for this env');
+  for (const stepId of ['root', 'left', 'right', 'sink']) {
+    await expect(page.getByTestId(`wf-graph-run-${stepId}`)).toHaveAttribute('data-run-state', 'not-run');
+  }
+  await expect(page.getByTestId('wf-graph-node-root').locator('[data-lv-published]')).toHaveAttribute(
+    'data-lv-published',
+    'false',
+  );
+
   // Node content: request line + the exposed capture's live name.
   const rootNode = page.getByTestId('wf-graph-node-root');
   await expect(rootNode).toContainText('Token introspection');
@@ -208,6 +226,125 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   await expect(page.getByTestId('wf-graph-pane')).toHaveCount(0);
   await expect(page.getByText('Steps (4)', { exact: false }).first()).toBeVisible();
   await expect(saveButton).toBeDisabled();
+
+  expect(pageErrors).toEqual([]);
+  await page.close();
+});
+
+test('run overlay: per-node states, masked value reveal, publication split', async () => {
+  const page = await context.newPage();
+  page.on('pageerror', (err) => pageErrors.push(err.message));
+
+  await page.goto(`chrome-extension://${extensionId}/workbench.html`);
+  await page.waitForFunction(() => {
+    const root = document.getElementById('root');
+    return root !== null && root.children.length > 0;
+  });
+
+  // Gate-skip scenario against the real playground backend: introspect
+  // completes (active: true), refresh's gate wants active === 'false'
+  // so it skips. Two LVs: one on the produced capture (goes live on
+  // the run), one on the skipped step's capture (stays pending).
+  const introspectReq = await rpc<{ success: boolean; request?: { uid: string } }>(page, 'createLocalRequest', {
+    name: 'overlay-introspect',
+    seed: { method: 'GET', url: 'http://127.0.0.1:3000/live/introspect/valid' },
+  });
+  expect(introspectReq.success).toBe(true);
+  const refreshReq = await rpc<{ success: boolean; request?: { uid: string } }>(page, 'createLocalRequest', {
+    name: 'overlay-refresh',
+    seed: { method: 'GET', url: 'http://127.0.0.1:3000/live/refresh' },
+  });
+  expect(refreshReq.success).toBe(true);
+
+  const wfRes = await rpc<{ success: boolean; workflow?: { uid: string } }>(page, 'createLiveWorkflow', {
+    name: 'graph-overlay-e2e',
+    enabled: true,
+    refresh: { kind: 'manual' },
+    steps: [
+      {
+        id: 'introspect',
+        requestUid: introspectReq.request!.uid,
+        captures: [{ name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
+      },
+      {
+        id: 'refresh',
+        requestUid: refreshReq.request!.uid,
+        dependsOn: ['introspect'],
+        runIf: {
+          all: [{ kind: 'capture-equals', stepId: 'introspect', captureName: 'active', value: 'false' }],
+        },
+        captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+      },
+    ],
+  });
+  expect(wfRes.success).toBe(true);
+  const workflowUid = wfRes.workflow!.uid;
+
+  for (const lv of [
+    { name: 'overlayActive', stepId: 'introspect', captureName: 'active' },
+    { name: 'overlayToken', stepId: 'refresh', captureName: 'token' },
+  ]) {
+    const lvRes = await rpc<{ success: boolean }>(page, 'createLiveVariable', { ...lv, workflowUid, enabled: true });
+    expect(lvRes.success).toBe(true);
+  }
+
+  const refreshed = await rpc<{ success: boolean }>(page, 'refreshLiveWorkflowNow', { workflowUid });
+  expect(refreshed.success).toBe(true);
+
+  // Open the workflow's editor and toggle to Graph.
+  await page.reload();
+  await page.waitForFunction(() => {
+    const root = document.getElementById('root');
+    return root !== null && root.children.length > 0;
+  });
+  const workflowsTab = page.locator('[data-tool-window="workflows"]').first();
+  if ((await workflowsTab.getAttribute('aria-selected')) !== 'true') {
+    await workflowsTab.click();
+  }
+  const sectionHeader = page
+    .getByRole('button', { name: /WORKFLOWS/ })
+    .filter({ visible: true })
+    .first();
+  await sectionHeader.waitFor({ state: 'visible', timeout: 10000 });
+  if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
+    await sectionHeader.click();
+  }
+  const row = page.locator(`[data-item-id="workflow-${workflowUid}"]`);
+  await row.waitFor({ state: 'visible', timeout: 10000 });
+  await row.click();
+  await page
+    .getByRole('button', { name: 'Save' })
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 });
+  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
+
+  // Summary reflects the successful run; per-node states carry the
+  // runner's attestation: completed vs gate-skipped.
+  await expect(page.getByTestId('wf-graph-run-summary')).toContainText('last');
+  await expect(page.getByTestId('wf-graph-run-introspect')).toHaveAttribute('data-run-state', 'completed');
+  await expect(page.getByTestId('wf-graph-run-refresh')).toHaveAttribute('data-run-state', 'skipped');
+
+  // Captured values are masked by default; reveal is an explicit click.
+  await page.getByTestId('wf-graph-run-introspect').click();
+  const pop = page.getByTestId('wf-graph-run-pop-introspect');
+  await expect(pop).toBeVisible();
+  await expect(pop).toContainText('active');
+  await expect(pop).toContainText('••••••••');
+  await page.getByTestId('wf-graph-reveal-introspect').click();
+  await expect(pop).toContainText('true');
+
+  // Publication split: the run produced introspect.active, so its LV is
+  // live; refresh.token was never produced — pending first run.
+  await expect(page.getByTestId('wf-graph-node-introspect').locator('[data-lv-published]')).toHaveAttribute(
+    'data-lv-published',
+    'true',
+  );
+  await expect(page.getByTestId('wf-graph-node-refresh').locator('[data-lv-published]')).toHaveAttribute(
+    'data-lv-published',
+    'false',
+  );
 
   expect(pageErrors).toEqual([]);
   await page.close();

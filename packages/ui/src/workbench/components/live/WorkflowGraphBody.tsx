@@ -15,19 +15,32 @@
  * scrolled to that step. Selection is ephemeral UI state owned by
  * `LiveWorkflowEditor` — it never touches the draft.
  *
- * No run overlay, no editing — those are slices 3–4.
+ * Run overlay (slice 3): when the editor passes the active env's run
+ * row (`run` — edit mode only; `undefined` disables the overlay), each
+ * node carries a `classifyStepRun` state dot with a masked-by-default
+ * captured-values popover, exposed capture chips carry the LV's
+ * publication state (Save activates the workflow; a successful RUN is
+ * what publishes the vars — pending until then), and a summary row
+ * above the canvas mirrors the form strip's schedule/circuit/error
+ * wording. Read-only and environment-scoped by construction: it
+ * renders one `pickActiveRun` row, derived at render time.
+ *
+ * No editing — slice 4.
  */
 
 import { EditOutlined, FilterOutlined, SortAscendingOutlined, ThunderboltFilled, WarningOutlined } from '@ant-design/icons';
 import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
 import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
-import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
+import type { LiveVariable, LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { METHOD_COLORS } from '../sidebar/icons';
 import { buildWorkflowGraphLayout } from './graph-layout';
+import { classifyStepRun, type StepRunState } from './live-display';
+import { GraphRunSummary, StepRunDot } from './WorkflowGraphRunOverlay';
 
 const { Text } = Typography;
 
@@ -45,6 +58,14 @@ interface WorkflowGraphBodyProps {
   onSelectStep?: (stepId: string, declaredIndex: number) => void;
   /** Explicit "Edit step" affordance / double-click — jump to the form. */
   onOpenStep?: (stepId: string) => void;
+  /**
+   * Active env's run row for the overlay — `pickActiveRun` output.
+   * `null` = edit mode with no cache yet; `undefined` = no overlay
+   * (create mode — nothing has an entity id, nothing can have run).
+   */
+  run?: LiveWorkflowRunSnapshot | null;
+  /** LVs bound to this workflow — supplies per-exposure publication state. */
+  boundVars?: LiveVariable[];
 }
 
 function clauseSummary(clause: NonNullable<WorkflowStep['runIf']>['all'][number]): string {
@@ -66,7 +87,14 @@ function clauseSummary(clause: NonNullable<WorkflowStep['runIf']>['all'][number]
   }
 }
 
-const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({ draft, selectedStepId, onSelectStep, onOpenStep }) => {
+const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
+  draft,
+  selectedStepId,
+  onSelectStep,
+  onOpenStep,
+  run,
+  boundVars,
+}) => {
   const { token } = theme.useToken();
   const { requests, isReady: requestsReady } = useRequests();
 
@@ -121,7 +149,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({ draft, selectedSt
   const canvasH = PAD * 2 + Math.max(1, layout.layerCount) * (NODE_H + GAP_Y) - GAP_Y;
 
   return (
-    <div data-testid="wf-graph-pane" style={{ overflow: 'auto', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {run !== undefined && <GraphRunSummary run={run} refresh={draft.refresh} />}
+      <div data-testid="wf-graph-pane" style={{ overflow: 'auto', flex: 1, minHeight: 0 }}>
       <div style={{ position: 'relative', width: canvasW, height: canvasH }}>
         <svg
           width={canvasW}
@@ -177,9 +207,15 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({ draft, selectedSt
               errors={errors}
               x={pos.x}
               y={pos.y}
+              runState={run !== undefined ? classifyStepRun(run, node.step.id) : undefined}
+              runErrorMessage={run && run.lastErrorStepId === node.step.id ? run.lastErrorMessage : undefined}
+              runCaptures={run ? run.stepCaptures[node.step.id] : undefined}
+              runResponseBytes={run ? run.stepResponseBytes[node.step.id] : undefined}
+              boundVars={boundVars}
             />
           );
         })}
+      </div>
       </div>
     </div>
   );
@@ -201,6 +237,16 @@ interface GraphNodeCardProps {
   errors: string[];
   x: number;
   y: number;
+  /** Per-step run state — `undefined` when the overlay is off (create mode). */
+  runState?: StepRunState;
+  /** Failure message when this step is the run's failure point. */
+  runErrorMessage?: string;
+  /** This step's captured values from the run row. */
+  runCaptures?: Record<string, string>;
+  /** This step's response byte count from the run row. */
+  runResponseBytes?: number;
+  /** Bound LVs — publication state per exposed capture (overlay only). */
+  boundVars?: LiveVariable[];
 }
 
 const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
@@ -218,6 +264,11 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   errors,
   x,
   y,
+  runState,
+  runErrorMessage,
+  runCaptures,
+  runResponseBytes,
+  boundVars,
 }) => {
   const { token } = theme.useToken();
   const gateClauses = runIf?.all ?? [];
@@ -252,6 +303,15 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        {runState !== undefined && (
+          <StepRunDot
+            stepId={stepId}
+            state={runState}
+            errorMessage={runErrorMessage}
+            captures={runCaptures}
+            responseBytes={runResponseBytes}
+          />
+        )}
         <Text strong ellipsis style={{ fontSize: 12, flex: 1, minWidth: 0 }}>
           {stepId}
         </Text>
@@ -332,29 +392,52 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
             No captures
           </Text>
         )}
-        {captures.map((capture) => (
-          <span
-            key={capture.uid}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 3,
-              fontSize: 10,
-              lineHeight: '16px',
-              padding: '0 6px',
-              borderRadius: 8,
-              border: `1px solid ${token.colorBorderSecondary}`,
-              color: capture.exposed ? token.colorText : token.colorTextSecondary,
-              background: capture.exposed ? token.colorFillTertiary : 'transparent',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-            title={capture.exposed ? `Exposed as {{live.${capture.liveName}}}` : capture.name}
-          >
-            {capture.exposed && <ThunderboltFilled style={{ fontSize: 9, color: token.colorWarning }} />}
-            {capture.exposed ? capture.liveName : capture.name}
-          </span>
-        ))}
+        {captures.map((capture) => {
+          // Publication split (PLAN §2.4): Save activates the WORKFLOW;
+          // a successful RUN publishes the exposed VARS. An exposed
+          // capture whose LV is still `published: false` is pending its
+          // first run — never presented as live. Derived here at render
+          // time from the bound LV; only meaningful when the overlay is
+          // on (boundVars provided — edit mode).
+          const lv =
+            capture.exposed && boundVars
+              ? (boundVars.find((v) => v.uid === capture.liveUid) ??
+                boundVars.find((v) => v.stepId === stepId && v.captureName === capture.name))
+              : undefined;
+          const publicationKnown = capture.exposed && boundVars !== undefined;
+          const pending = publicationKnown && lv?.published !== true;
+          const exposedTitle = pending
+            ? `Exposed as {{live.${capture.liveName}}} — pending first run`
+            : `Exposed as {{live.${capture.liveName}}}`;
+          return (
+            <span
+              key={capture.uid}
+              data-lv-published={publicationKnown ? String(!pending) : undefined}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+                fontSize: 10,
+                lineHeight: '16px',
+                padding: '0 6px',
+                borderRadius: 8,
+                border: `1px solid ${token.colorBorderSecondary}`,
+                color: capture.exposed ? token.colorText : token.colorTextSecondary,
+                background: capture.exposed ? token.colorFillTertiary : 'transparent',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+              title={capture.exposed ? exposedTitle : capture.name}
+            >
+              {capture.exposed && (
+                <ThunderboltFilled
+                  style={{ fontSize: 9, color: pending ? token.colorTextTertiary : token.colorWarning }}
+                />
+              )}
+              {capture.exposed ? capture.liveName : capture.name}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

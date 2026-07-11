@@ -6,8 +6,8 @@
  * or a status color derives it here so the strings stay in lockstep.
  */
 
-import type { RefreshPolicy } from '@openheaders/core/types';
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
+import type { RefreshPolicy } from '@openheaders/core/types';
 
 export type LiveStatusLevel = 'green' | 'yellow' | 'red' | 'idle';
 
@@ -350,6 +350,71 @@ export function describeRefreshPolicy(policy: RefreshPolicy): string {
       return `expires-at from step.${policy.stepId}.${policy.captureName} (lead ${policy.leadSeconds}s)`;
     case 'manual':
       return 'manual refresh';
+  }
+}
+
+// ── Per-step run state (graph overlay) ─────────────────────────────
+//
+// The whole-run vocabulary above (`classifyRun`) answers "how is this
+// workflow doing?"; the graph overlay needs the per-node refinement
+// "how did THIS step fare in the run the cache describes?". Derived
+// entirely at consume time from one cache row — never cached itself.
+
+export type StepRunState = 'completed' | 'failed' | 'extract-failed' | 'skipped' | 'not-run';
+
+/**
+ * Classify one step's state from the active run row.
+ *
+ *   - `failed` / `extract-failed` — the row's `lastErrorStepId` marks
+ *     where the most recent attempt halted (a success clears it), with
+ *     `lastExtractorOk: false` refining fetch-vs-extractor fault.
+ *   - `completed` / `skipped` — the runner's per-step attestation for
+ *     the last successful run (`stepOutcomes`).
+ *   - `not-run` — no row, no attestation, no captures: the step has
+ *     never been part of a successful run (new step, or never run).
+ *
+ * Tolerant read: rows written before `stepOutcomes` existed (or merged
+ * from a remote peer, which drops the host-local attestation) fall back
+ * to capture presence — present ⇒ `completed`, absent ⇒ `not-run`; the
+ * ran-vs-skipped refinement returns after the next local run.
+ */
+export function classifyStepRun(run: LiveWorkflowRunSnapshot | null, stepId: string): StepRunState {
+  if (!run) return 'not-run';
+  if (run.lastErrorStepId === stepId) return run.lastExtractorOk ? 'failed' : 'extract-failed';
+  const outcome = run.stepOutcomes?.[stepId];
+  if (outcome === 'completed') return 'completed';
+  if (outcome === 'skipped') return 'skipped';
+  if (run.stepCaptures[stepId] !== undefined) return 'completed';
+  return 'not-run';
+}
+
+/** Status tier a step state maps to — reuses the shared `statusColor` scale. */
+export function stepRunLevel(state: StepRunState): LiveStatusLevel {
+  switch (state) {
+    case 'completed':
+      return 'green';
+    case 'failed':
+      return 'red';
+    case 'extract-failed':
+      return 'yellow';
+    default:
+      return 'idle';
+  }
+}
+
+/** Short human label per step state — tooltip vocabulary, one phrase each. */
+export function describeStepRun(state: StepRunState): string {
+  switch (state) {
+    case 'completed':
+      return 'Completed on last run';
+    case 'failed':
+      return 'Last run failed at this step';
+    case 'extract-failed':
+      return 'Fetched, but a capture extractor did not match';
+    case 'skipped':
+      return 'Skipped by its run condition on last run';
+    case 'not-run':
+      return 'Not part of a successful run yet';
   }
 }
 

@@ -614,6 +614,13 @@ describe('skipped-step observability (Phase I)', () => {
     expect(skipEntries[0].message).not.toContain('cascade');
     expect(skipEntries[0].context.workflowUid).toBe('wflowxxx');
     expect(skipEntries[0].context.environmentId).toBe('env-prod');
+
+    // The runner's skip attestation rides into the cache write, where
+    // the store's skip-merge + stepOutcomes stamping depend on it.
+    expect(putWorkflowRunCacheMock).toHaveBeenCalledTimes(1);
+    const [cacheInput] = putWorkflowRunCacheMock.mock.calls[0];
+    expect(cacheInput.skippedStepIds).toEqual(['refresh']);
+    expect(cacheInput.stepCaptures).toEqual({ introspect: { active: 'true' } });
   });
 
   it('classifies cascade skips by referencing a skipped ancestor', async () => {

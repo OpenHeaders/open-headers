@@ -488,6 +488,8 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
             selectedStepId={selectedStepId}
             onSelectStep={handleGraphSelect}
             onOpenStep={handleGraphOpen}
+            run={run}
+            boundVars={boundVars}
           />
         </div>
       )}

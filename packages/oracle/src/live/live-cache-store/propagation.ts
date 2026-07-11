@@ -100,6 +100,10 @@ export async function applySyncedLiveValues(
         ? {
             ...previous,
             stepCaptures: value.stepCaptures,
+            // A remote run replaced the captures; this host's per-step
+            // attestation described its OWN last run and no longer
+            // matches — drop it rather than mislabel remote values.
+            stepOutcomes: undefined,
             extractedAt: value.extractedAt,
             expiresAt: value.expiresAt,
             refreshHealth: value.refreshHealth,

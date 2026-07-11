@@ -485,3 +485,160 @@ describe('clearWorkflowRunCache → remover', () => {
     expect([...keys].sort()).toEqual([runKey(WF, null), runKey(WF, 'env-2')].sort());
   });
 });
+
+// ── Per-step outcomes + skip-merge (graph overlay, PLAN §6.3) ───────
+//
+// The runner attests which steps completed vs gate-skipped; the write
+// stamps that map AND preserves a skipped step's prior captures so its
+// exposed `{{live.X}}` stays resolvable across a run that legitimately
+// didn't execute it. The attestation is host-local bookkeeping: it
+// survives failed refreshes (which preserve the captures it describes),
+// never rides the propagator, and is dropped when a remote value lands.
+
+describe('stepOutcomes + skip-merge', () => {
+  it('stamps completed/skipped from the runner attestation and merges skipped prior captures', async () => {
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { root: { token: 'v1' }, gated: { refreshed: 'r1' } },
+        stepResponseBytes: { root: 10, gated: 20 },
+        extractedAt: 1000,
+        expiresAt: null,
+      },
+      WS,
+    );
+    // Second run: `gated` is gate-skipped. Its prior capture (and byte
+    // count) must survive the atomic commit; the outcome map records
+    // the skip so consumers don't read presence as "ran".
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { root: { token: 'v2' } },
+        stepResponseBytes: { root: 11 },
+        extractedAt: 2000,
+        expiresAt: null,
+        skippedStepIds: ['gated'],
+      },
+      WS,
+    );
+
+    const row = await getWorkflowRunCache(WF, null, WS);
+    expect(row?.stepCaptures).toEqual({ root: { token: 'v2' }, gated: { refreshed: 'r1' } });
+    expect(row?.stepResponseBytes).toEqual({ root: 11, gated: 20 });
+    expect(row?.stepOutcomes).toEqual({ root: 'completed', gated: 'skipped' });
+  });
+
+  it('drops steps that are neither completed nor skipped (deleted steps)', async () => {
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { legacy: { old: 'x' } },
+        stepResponseBytes: {},
+        extractedAt: 1000,
+        expiresAt: null,
+      },
+      WS,
+    );
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { root: { token: 'v2' } },
+        stepResponseBytes: {},
+        extractedAt: 2000,
+        expiresAt: null,
+        skippedStepIds: [],
+      },
+      WS,
+    );
+
+    const row = await getWorkflowRunCache(WF, null, WS);
+    expect(row?.stepCaptures).toEqual({ root: { token: 'v2' } });
+    expect(row?.stepOutcomes).toEqual({ root: 'completed' });
+  });
+
+  it('propagates the MERGED capture set but never the outcome map', async () => {
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { root: { token: 'v1' }, gated: { refreshed: 'r1' } },
+        stepResponseBytes: {},
+        extractedAt: 1000,
+        expiresAt: null,
+      },
+      WS,
+    );
+    const propagator = vi.fn();
+    setLiveValuePropagator(propagator);
+
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { root: { token: 'v2' } },
+        stepResponseBytes: {},
+        extractedAt: 2000,
+        expiresAt: null,
+        skippedStepIds: ['gated'],
+      },
+      WS,
+    );
+
+    const [input] = propagator.mock.calls[0];
+    // A peer resolving {{live.X}} needs the full resolvable value set,
+    // including the skip-preserved prior capture...
+    expect(input.value.stepCaptures).toEqual({ root: { token: 'v2' }, gated: { refreshed: 'r1' } });
+    // ...but the attestation is host-local and never crosses the wire.
+    expect('stepOutcomes' in input.value).toBe(false);
+  });
+
+  it('a failed refresh preserves the outcome map with the captures it describes', async () => {
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { root: { token: 'v1' } },
+        stepResponseBytes: {},
+        extractedAt: 1000,
+        expiresAt: null,
+        skippedStepIds: ['gated'],
+      },
+      WS,
+    );
+    await recordRefreshError(
+      { workflowUid: WF, environmentId: null, message: 'HTTP 500', failedStepId: 'root', extractorOk: true },
+      WS,
+    );
+
+    const row = await getWorkflowRunCache(WF, null, WS);
+    expect(row?.stepCaptures).toEqual({ root: { token: 'v1' } });
+    expect(row?.stepOutcomes).toEqual({ root: 'completed', gated: 'skipped' });
+    expect(row?.lastErrorStepId).toBe('root');
+  });
+
+  it('a synced remote value drops the local attestation', async () => {
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { root: { token: 'v1' } },
+        stepResponseBytes: {},
+        extractedAt: 1000,
+        expiresAt: null,
+      },
+      WS,
+    );
+    await applySyncedLiveValues(WS, {
+      [runKey(WF, null)]: value({ stepCaptures: { root: { token: 'remote' } }, extractedAt: 2000 }),
+    });
+
+    const row = await getWorkflowRunCache(WF, null, WS);
+    expect(row?.stepCaptures).toEqual({ root: { token: 'remote' } });
+    // This host cannot attest a remote run's per-step outcomes.
+    expect(row?.stepOutcomes).toBeUndefined();
+  });
+});

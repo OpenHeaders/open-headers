@@ -99,6 +99,7 @@ describe('runWorkflowRefresh — success commit', () => {
       stepResponseBytes: { s1: 12 },
       extractedAt: 1_000,
       expiresAt: 1_000 + 60 * 1000,
+      skippedStepIds: [],
     });
   });
 
