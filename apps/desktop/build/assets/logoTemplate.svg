@@ -1,36 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Monochrome template variant of logo.svg for the macOS menu-bar tray:
-  filled rounded square, pixel letters as cutouts (negative space).
+  Monochrome template variant of logo.svg for the macOS menu-bar tray.
 
-  NOT geometry-identical to logo.svg on purpose: the tray renders at
-  16px, where 1 device pixel = 32 SVG units. Every stroke here is at
-  least 64 units (2px) so nothing antialiases away, and the O's
-  recording block is omitted — the counter is only 2px wide at tray
-  size, so a filled block would collapse the O into a solid square.
+  Glyph, not tile: menu-bar template icons read best as bare shapes, so
+  this drops the rounded-square plate and draws the pixel letters +
+  smile directly. NOT geometry-identical to logo.svg on purpose — the
+  tray renders at 16px (1 device pixel = 32 SVG units), so every stroke
+  is at least 64 units (2px) and the O's recording block is omitted;
+  its counter is only 2px wide here and a filled block would collapse
+  the O into a solid square.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <defs>
-    <mask id="letterMask">
-      <!-- White background = visible -->
-      <rect width="512" height="512" fill="white"/>
-      <!-- Black shapes = transparent (cutouts) -->
-      <g fill="black" shape-rendering="crispEdges">
-        <!-- O: 64-unit ring, x 48..240, y 112..336 -->
-        <rect x="48"  y="112" width="192" height="64"/>
-        <rect x="48"  y="176" width="64"  height="96"/>
-        <rect x="176" y="176" width="64"  height="96"/>
-        <rect x="48"  y="272" width="192" height="64"/>
+  <g fill="black" shape-rendering="crispEdges">
+    <!-- O: 64-unit ring, x 32..224, y 64..320 -->
+    <rect x="32"  y="64"  width="192" height="64"/>
+    <rect x="32"  y="128" width="64"  height="128"/>
+    <rect x="160" y="128" width="64"  height="128"/>
+    <rect x="32"  y="256" width="192" height="64"/>
 
-        <!-- H: 64-unit bars, x 272..464, y 112..336 -->
-        <rect x="272" y="112" width="64"  height="224"/>
-        <rect x="400" y="112" width="64"  height="224"/>
-        <rect x="272" y="192" width="192" height="64"/>
-      </g>
-      <path d="M 96 384 C 192 448, 320 448, 416 384" stroke="black" stroke-width="48" fill="none" stroke-linecap="round"/>
-    </mask>
-  </defs>
-
-  <!-- Rounded square with mask applied -->
-  <rect width="512" height="512" rx="80" fill="black" mask="url(#letterMask)"/>
+    <!-- H: 64-unit bars, x 288..480, y 64..320 -->
+    <rect x="288" y="64"  width="64"  height="256"/>
+    <rect x="416" y="64"  width="64"  height="256"/>
+    <rect x="288" y="160" width="192" height="64"/>
+  </g>
+  <path d="M 64 384 C 176 464, 336 464, 448 384" stroke="black" stroke-width="64" fill="none" stroke-linecap="round"/>
 </svg>
