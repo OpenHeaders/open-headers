@@ -180,6 +180,19 @@ export function StoragePanel({
     });
   }, []);
 
+  // Hovering Clear everything lights up its reach: the nav rail's
+  // covered sections and the card's checked type rows.
+  const [clearHovered, setClearHovered] = useState(false);
+  const clearTargetSections = useMemo(() => {
+    const targets = new Set<StorageSection>();
+    if (!clearHovered) return targets;
+    if (!clearExcluded.has('cookies')) targets.add('cookies');
+    if (!clearExcluded.has('localStorage')) targets.add('local');
+    if (!clearExcluded.has('indexedDB')) targets.add('indexeddb');
+    if (!clearExcluded.has('cacheStorage')) targets.add('cachestorage');
+    return targets;
+  }, [clearHovered, clearExcluded]);
+
   // Editor-tab "Reveal in Storage": switch to the target section, then
   // (for IndexedDB) select the target store and hand the request back
   // as consumed. Two effects because activating a section resets the
@@ -417,7 +430,9 @@ export function StoragePanel({
             <button
               key={s.value}
               type="button"
-              className="dt-storage-nav-item"
+              className={`dt-storage-nav-item${
+                clearTargetSections.has(s.value) ? ' dt-storage-nav-item--clear-target' : ''
+              }`}
               data-active={section === s.value}
               onClick={() => setSection(s.value)}
             >
@@ -457,7 +472,7 @@ export function StoragePanel({
                 isCookieJarSiteClearable() &&
                 (sortedCookies?.length ?? 0) > 0 && <ClearAllButton section={section} onClear={clearCookies} />
               ) : section === 'quota' ? (
-                <ClearSiteDataControl quota={quota} excluded={clearExcluded} />
+                <ClearSiteDataControl quota={quota} excluded={clearExcluded} onHoverChange={setClearHovered} />
               ) : section === 'indexeddb' ? (
                 (idb.databases?.length ?? 0) > 0 && <ClearAllButton section={section} onClear={clearIdbDatabases} />
               ) : section === 'cachestorage' ? (
@@ -500,7 +515,12 @@ export function StoragePanel({
                     isEntryActive={isCacheEntryActive}
                   />
                 ) : (
-                  <StorageQuotaCard quota={quota} excluded={clearExcluded} onToggleType={toggleClearType} />
+                  <StorageQuotaCard
+                    quota={quota}
+                    excluded={clearExcluded}
+                    onToggleType={toggleClearType}
+                    highlightTargets={clearHovered}
+                  />
                 )
               ) : (
                 <div className="dt-empty-hero">

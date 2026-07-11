@@ -717,6 +717,7 @@ describe('useStorageQuota poll stability', () => {
     expect(clearSiteData).toHaveBeenCalledWith(42, 0, undefined);
     expect(readQuota.mock.calls.length).toBe(readsBefore + 1);
     expect(result.current.clearFailed).toBe(false);
+    expect(result.current.clearSucceeded).toBe(true);
 
     // A types subset threads through the seam untouched.
     act(() => {
@@ -737,6 +738,7 @@ describe('useStorageQuota poll stability', () => {
     });
     await flush();
     expect(result.current.clearFailed).toBe(true);
+    expect(result.current.clearSucceeded).toBe(false);
   });
 
   it('routes the quota override through the host and refetches via the same read path', async () => {

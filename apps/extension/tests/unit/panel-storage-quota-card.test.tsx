@@ -34,6 +34,7 @@ function makeQuota(overrides: Partial<StorageQuotaState> = {}): StorageQuotaStat
     loading: false,
     refresh: vi.fn(),
     clearFailed: false,
+    clearSucceeded: false,
     clearSiteData: vi.fn(),
     overrideFailed: false,
     setQuotaOverride: vi.fn(),
@@ -61,6 +62,7 @@ function makeAttachedQuota(
  *  scope bar's control and the card. */
 function Harness({ quota }: { quota: StorageQuotaState }) {
   const [excluded, setExcluded] = useState<ReadonlySet<SiteDataType>>(new Set());
+  const [hovered, setHovered] = useState(false);
   const toggle = (type: SiteDataType) =>
     setExcluded((prev) => {
       const next = new Set(prev);
@@ -70,8 +72,8 @@ function Harness({ quota }: { quota: StorageQuotaState }) {
     });
   return (
     <>
-      <ClearSiteDataControl quota={quota} excluded={excluded} />
-      <StorageQuotaCard quota={quota} excluded={excluded} onToggleType={toggle} />
+      <ClearSiteDataControl quota={quota} excluded={excluded} onHoverChange={setHovered} />
+      <StorageQuotaCard quota={quota} excluded={excluded} onToggleType={toggle} highlightTargets={hovered} />
     </>
   );
 }
@@ -145,7 +147,7 @@ describe('StorageQuotaCard', () => {
     const quota = makeQuota();
     render(<Harness quota={quota} />);
 
-    for (const label of ['Cookies', 'DOM storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
+    for (const label of ['Cookies', 'Local storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
       expect((screen.getByLabelText(label) as HTMLInputElement).checked).toBe(true);
     }
 
@@ -161,7 +163,7 @@ describe('StorageQuotaCard', () => {
     const quota = makeQuota();
     render(<Harness quota={quota} />);
 
-    for (const label of ['Cookies', 'DOM storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
+    for (const label of ['Cookies', 'Local storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
       fireEvent.click(screen.getByLabelText(label));
     }
     const clear = screen.getByText('Clear everything') as HTMLButtonElement;
@@ -174,6 +176,24 @@ describe('StorageQuotaCard', () => {
   it('notes a failed clear', () => {
     render(<Harness quota={makeQuota({ clearFailed: true })} />);
     expect(screen.getByText('clear failed')).toBeDefined();
+  });
+
+  it('notes a successful clear — the one clear without vanishing rows', () => {
+    render(<Harness quota={makeQuota({ clearSucceeded: true })} />);
+    expect(screen.getByText('✓ cleared')).toBeDefined();
+  });
+
+  it('hovering Clear everything lights up exactly the checked (covered) type rows', () => {
+    render(<Harness quota={makeQuota()} />);
+
+    fireEvent.click(screen.getByLabelText('Cookies'));
+    const button = screen.getByText('Clear everything');
+    fireEvent.mouseEnter(button);
+    expect(screen.getByLabelText('IndexedDB').closest('label')?.className).toContain('--targeted');
+    expect(screen.getByLabelText('Cookies').closest('label')?.className).not.toContain('--targeted');
+
+    fireEvent.mouseLeave(button);
+    expect(screen.getByLabelText('IndexedDB').closest('label')?.className).not.toContain('--targeted');
   });
 
   it('drops the Debug-mode hint on hosts without CDP capability', () => {
@@ -208,16 +228,30 @@ describe('StorageQuotaCard', () => {
     expect(quota.setQuotaOverride).toHaveBeenCalledWith(20_000_000);
   });
 
-  it('clears the simulation on an empty commit and via Reset', () => {
+  it('commits via Save and abandons the pending edit via Cancel', () => {
+    const quota = makeAttachedQuota();
+    render(<Harness quota={quota} />);
+
+    const input = screen.getByLabelText('Simulate custom quota') as HTMLInputElement;
+    // Buttons appear only with a pending edit.
+    expect(screen.queryByText('Save')).toBeNull();
+    fireEvent.change(input, { target: { value: '20' } });
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(input.value).toBe('');
+    expect(quota.setQuotaOverride).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: '20' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(quota.setQuotaOverride).toHaveBeenCalledWith(20_000_000);
+    expect(input.value).toBe('');
+  });
+
+  it('clears the simulation via Reset', () => {
     const quota = makeAttachedQuota({}, { overrideActive: true });
     render(<Harness quota={quota} />);
 
-    const input = screen.getByLabelText('Simulate custom quota');
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(quota.setQuotaOverride).toHaveBeenCalledWith(null);
-
     fireEvent.click(screen.getByText('Reset'));
-    expect(quota.setQuotaOverride).toHaveBeenCalledTimes(2);
+    expect(quota.setQuotaOverride).toHaveBeenCalledTimes(1);
     expect(quota.setQuotaOverride).toHaveBeenLastCalledWith(null);
   });
 
@@ -226,15 +260,21 @@ describe('StorageQuotaCard', () => {
     expect(screen.queryByText('Reset')).toBeNull();
   });
 
-  it('rejects a malformed MB value without committing', () => {
+  it('rejects malformed and out-of-range MB values without committing', () => {
     const quota = makeAttachedQuota();
     render(<Harness quota={quota} />);
 
+    // 120 MiB real quota ⇒ a 125 MB decimal ceiling.
     const input = screen.getByLabelText('Simulate custom quota');
     fireEvent.change(input, { target: { value: '-5' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(quota.setQuotaOverride).not.toHaveBeenCalled();
-    expect(screen.getByText('enter a non-negative number')).toBeDefined();
+    expect(screen.getByText('enter 0–125 MB')).toBeDefined();
+
+    fireEvent.change(input, { target: { value: '200' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(quota.setQuotaOverride).not.toHaveBeenCalled();
+    expect(screen.getByText('enter 0–125 MB')).toBeDefined();
   });
 
   it('notes a failed simulation', () => {

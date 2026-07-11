@@ -54,6 +54,12 @@
   color: var(--dt-text);
 }
 
+/* Clear everything hovered — the rail sections its wipe covers light
+ * up, so the reach reads before the click. */
+.dt-storage-nav-item--clear-target {
+  background: var(--dt-row-selected);
+}
+
 .dt-storage-main {
   flex: 1 1 auto;
   min-width: 0;
@@ -845,6 +851,12 @@
   padding: 1px 5px;
 }
 
+/* Unit suffix outside the input — the field holds just the number. */
+.dt-storage-quota-simulate-unit {
+  margin-left: -4px;
+  color: var(--dt-text-muted);
+}
+
 .dt-storage-quota-simulate-reset {
   font: inherit;
   font-size: 11px;
@@ -862,12 +874,17 @@
 }
 
 /* Per-type clear checkboxes — parameterize the scope bar's Clear
- * everything. */
+ * everything; the caption names that relationship. */
 .dt-storage-quota-clear-types {
   margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
   gap: 4px 12px;
+}
+
+.dt-storage-quota-clear-types-caption {
+  flex: 0 0 100%;
+  color: var(--dt-text-muted);
 }
 
 .dt-storage-quota-clear-type {
@@ -877,10 +894,25 @@
   color: var(--dt-text);
   cursor: pointer;
   white-space: nowrap;
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+/* Clear everything hovered — the checked (covered) type rows light up
+ * with the same tint as the rail's covered sections. */
+.dt-storage-quota-clear-type--targeted {
+  background: var(--dt-row-selected);
 }
 
 .dt-storage-quota-clear-failed {
   color: var(--dt-status-red);
+  white-space: nowrap;
+}
+
+/* Transient success note after Clear everything — the Usage section is
+ * the one clear whose outcome isn't visible as vanishing rows. */
+.dt-storage-quota-clear-done {
+  color: var(--dt-status-green);
   white-space: nowrap;
 }
 
@@ -972,6 +1004,20 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Right-aligned clear group — the outcome note sits LEFT of the button
+ * so its appearance never moves the button under the pointer. */
+.dt-storage-clear-group {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dt-storage-clear-group .dt-storage-clear {
+  margin-left: 0;
 }
 
 .dt-storage-clear {

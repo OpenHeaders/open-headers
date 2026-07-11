@@ -26,6 +26,10 @@ function quotaEqual(a: StorageQuota, b: StorageQuota): boolean {
   return aRows.every((row, i) => row.storageType === bRows[i].storageType && row.usage === bRows[i].usage);
 }
 
+/** How long the transient "cleared" note stays up after a successful
+ *  clear — long enough to register, gone before it reads as state. */
+const CLEAR_SUCCESS_NOTE_MS = 4000;
+
 export interface StorageQuotaState {
   /** `null` until the first read lands; with `loading` false it means
    *  the scope's usage can't be read (non-secure context, frame gone). */
@@ -34,6 +38,9 @@ export interface StorageQuotaState {
   refresh: () => void;
   /** The last clear failed — cleared by the next successful one. */
   clearFailed: boolean;
+  /** The last clear succeeded — transient (auto-dismisses), the Usage
+   *  section's only visible outcome since nothing disappears on it. */
+  clearSucceeded: boolean;
   /** Clear the scope origin's site data (optionally a subset of the
    *  types), then refetch the usage. */
   clearSiteData: (types?: ReadonlyArray<SiteDataType>) => void;
@@ -52,8 +59,10 @@ export function useStorageQuota(active: boolean, frameId: number | null): Storag
   const [quota, setQuota] = useState<StorageQuota | null>(null);
   const [loading, setLoading] = useState(true);
   const [clearFailed, setClearFailed] = useState(false);
+  const [clearSucceeded, setClearSucceeded] = useState(false);
   const [overrideFailed, setOverrideFailed] = useState(false);
   const tokenRef = useRef(0);
+  const successNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Scope or activation change → drop the old scope's snapshot.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scope identity is the reset trigger
@@ -62,8 +71,16 @@ export function useStorageQuota(active: boolean, frameId: number | null): Storag
     setQuota(null);
     setLoading(true);
     setClearFailed(false);
+    setClearSucceeded(false);
     setOverrideFailed(false);
   }, [active, frameId]);
+
+  useEffect(
+    () => () => {
+      if (successNoteTimer.current !== null) clearTimeout(successNoteTimer.current);
+    },
+    [],
+  );
 
   const readQuota = useCallback(async () => {
     if (!active || !host || tabId === null || frameId === null) return;
@@ -98,6 +115,9 @@ export function useStorageQuota(active: boolean, frameId: number | null): Storag
       if (!host || tabId === null || frameId === null) return;
       void host.clearSiteData(tabId, frameId, types).then((ok) => {
         setClearFailed(!ok);
+        setClearSucceeded(ok);
+        if (successNoteTimer.current !== null) clearTimeout(successNoteTimer.current);
+        if (ok) successNoteTimer.current = setTimeout(() => setClearSucceeded(false), CLEAR_SUCCESS_NOTE_MS);
         void readQuota();
       });
     },
@@ -115,5 +135,5 @@ export function useStorageQuota(active: boolean, frameId: number | null): Storag
     [host, tabId, frameId, readQuota],
   );
 
-  return { quota, loading, refresh, clearFailed, clearSiteData, overrideFailed, setQuotaOverride };
+  return { quota, loading, refresh, clearFailed, clearSucceeded, clearSiteData, overrideFailed, setQuotaOverride };
 }

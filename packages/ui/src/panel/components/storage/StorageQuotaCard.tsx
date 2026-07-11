@@ -34,9 +34,16 @@ const STORAGE_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-const SITE_DATA_CHOICES: ReadonlyArray<{ type: SiteDataType; label: string }> = [
+/* Labels mirror the storage rail. Session storage is absent by nature:
+ * it lives per-tab in memory, outside the browser's site-data clear —
+ * its section's own Clear button is the way to wipe it. */
+const SITE_DATA_CHOICES: ReadonlyArray<{ type: SiteDataType; label: string; note?: string }> = [
   { type: 'cookies', label: 'Cookies' },
-  { type: 'localStorage', label: 'DOM storage' },
+  {
+    type: 'localStorage',
+    label: 'Local storage',
+    note: 'Session storage is per-tab and outside this clear — use the Session storage section’s own Clear button',
+  },
   { type: 'indexedDB', label: 'IndexedDB' },
   { type: 'cacheStorage', label: 'Cache Storage' },
   { type: 'serviceWorkers', label: 'Service workers' },
@@ -60,9 +67,20 @@ interface StorageQuotaCardProps {
    *  owned by the panel, shared with the control. */
   excluded: ReadonlySet<SiteDataType>;
   onToggleType: (type: SiteDataType) => void;
+  /** Clear everything is hovered — the checked (covered) type rows
+   *  light up so the wipe's reach reads before the click. */
+  highlightTargets?: boolean;
 }
 
-export function StorageQuotaCard({ quota, excluded, onToggleType }: StorageQuotaCardProps) {
+/** Simulation ceiling in MB — the origin's real quota; while an
+ *  override is active the reported quota IS the simulated one, so the
+ *  bound falls back to a generous 1 TB to allow raising it again. */
+function simulationMaxMb(snapshot: { quota: number; overrideActive?: boolean }): number {
+  if (snapshot.overrideActive === true) return 1_000_000;
+  return Math.max(1, Math.floor(snapshot.quota / BYTES_PER_MB));
+}
+
+export function StorageQuotaCard({ quota, excluded, onToggleType, highlightTargets = false }: StorageQuotaCardProps) {
   const snapshot = quota.quota;
   if (snapshot === null) {
     return quota.loading ? (
@@ -119,13 +137,26 @@ export function StorageQuotaCard({ quota, excluded, onToggleType }: StorageQuota
         <QuotaSimulationRow
           overrideActive={snapshot.overrideActive === true}
           overrideFailed={quota.overrideFailed}
+          maxMb={simulationMaxMb(snapshot)}
           onOverride={quota.setQuotaOverride}
         />
       )}
       {hasCapability('originDataClearing') && (
         <div className="dt-storage-quota-clear-types">
-          {SITE_DATA_CHOICES.map(({ type, label }) => (
-            <label className="dt-storage-quota-clear-type" key={type}>
+          <span
+            className="dt-storage-quota-clear-types-caption"
+            title="Clear everything (top right) deletes exactly the checked data types for this origin"
+          >
+            Clear everything targets
+          </span>
+          {SITE_DATA_CHOICES.map(({ type, label, note }) => (
+            <label
+              className={`dt-storage-quota-clear-type${
+                highlightTargets && !excluded.has(type) ? ' dt-storage-quota-clear-type--targeted' : ''
+              }`}
+              key={type}
+              title={note}
+            >
               <input type="checkbox" checked={!excluded.has(type)} onChange={() => onToggleType(type)} />
               {label}
             </label>
@@ -144,78 +175,111 @@ export function StorageQuotaCard({ quota, excluded, onToggleType }: StorageQuota
 export function ClearSiteDataControl({
   quota,
   excluded,
+  onHoverChange,
 }: {
   quota: StorageQuotaState;
   excluded: ReadonlySet<SiteDataType>;
+  /** Hover/focus on the button — the panel lights up what the wipe
+   *  covers (nav rail sections + the card's checked types). */
+  onHoverChange?: (hovering: boolean) => void;
 }) {
   if (!hasCapability('originDataClearing') || quota.quota === null) return null;
   const selected = SITE_DATA_CHOICES.filter(({ type }) => !excluded.has(type)).map(({ type }) => type);
   return (
-    <>
+    <span className="dt-storage-clear-group">
+      {quota.clearFailed ? (
+        <span className="dt-storage-quota-clear-failed">clear failed</span>
+      ) : quota.clearSucceeded ? (
+        <span className="dt-storage-quota-clear-done" role="status">
+          ✓ cleared
+        </span>
+      ) : null}
       <ClearSiteDataButton
         disabled={selected.length === 0}
+        onHoverChange={onHoverChange}
         onClear={() => quota.clearSiteData(selected.length === SITE_DATA_CHOICES.length ? undefined : selected)}
       />
-      {quota.clearFailed && <span className="dt-storage-quota-clear-failed">clear failed</span>}
-    </>
+    </span>
   );
 }
 
 /**
  * Simulate-custom-quota control — attached tabs only (the caller gates
  * on the breakdown's presence). The value is MB like the browser's own
- * control; Enter commits, an empty commit or Reset clears the override.
+ * control, bounded to [0, maxMb]; Save (or Enter) commits, Cancel (or
+ * Escape) abandons the pending edit, Reset clears an active override.
  */
 function QuotaSimulationRow({
   overrideActive,
   overrideFailed,
+  maxMb,
   onOverride,
 }: {
   overrideActive: boolean;
   overrideFailed: boolean;
+  maxMb: number;
   onOverride: (quotaBytes: number | null) => void;
 }) {
   const [value, setValue] = useState('');
   const [invalid, setInvalid] = useState(false);
 
+  const cancel = () => {
+    setValue('');
+    setInvalid(false);
+  };
+
   const commit = () => {
     const trimmed = value.trim();
-    if (trimmed === '') {
-      setInvalid(false);
-      onOverride(null);
-      return;
-    }
+    if (trimmed === '') return;
     const mb = Number(trimmed);
-    if (!Number.isFinite(mb) || mb < 0) {
+    if (!Number.isFinite(mb) || mb < 0 || mb > maxMb) {
       setInvalid(true);
       return;
     }
     setInvalid(false);
+    setValue('');
     onOverride(Math.round(mb * BYTES_PER_MB));
   };
 
   return (
     <div className="dt-storage-quota-simulate">
-      <label className="dt-storage-quota-simulate-label">
+      <label
+        className="dt-storage-quota-simulate-label"
+        title="Make the browser report and enforce a smaller quota for this origin — for testing how the page behaves when storage runs out"
+      >
         Simulate custom quota
         <input
           type="text"
           inputMode="decimal"
-          placeholder="MB"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setInvalid(false);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') cancel();
           }}
         />
       </label>
+      <span className="dt-storage-quota-simulate-unit">MB</span>
+      {value.trim() !== '' && (
+        <>
+          <button type="button" className="dt-storage-quota-simulate-reset" onClick={commit}>
+            Save
+          </button>
+          <button type="button" className="dt-storage-quota-simulate-reset" onClick={cancel}>
+            Cancel
+          </button>
+        </>
+      )}
       {overrideActive && (
         <button
           type="button"
           className="dt-storage-quota-simulate-reset"
+          title="Remove the simulated quota"
           onClick={() => {
-            setValue('');
-            setInvalid(false);
+            cancel();
             onOverride(null);
           }}
         >
@@ -223,7 +287,7 @@ function QuotaSimulationRow({
         </button>
       )}
       {invalid ? (
-        <span className="dt-storage-quota-clear-failed">enter a non-negative number</span>
+        <span className="dt-storage-quota-clear-failed">enter 0–{maxMb} MB</span>
       ) : overrideFailed ? (
         <span className="dt-storage-quota-clear-failed">simulation failed</span>
       ) : null}
@@ -232,7 +296,15 @@ function QuotaSimulationRow({
 }
 
 /** Two-step inline confirm — first click arms, second commits. */
-function ClearSiteDataButton({ onClear, disabled }: { onClear: () => void; disabled: boolean }) {
+function ClearSiteDataButton({
+  onClear,
+  disabled,
+  onHoverChange,
+}: {
+  onClear: () => void;
+  disabled: boolean;
+  onHoverChange?: (hovering: boolean) => void;
+}) {
   const [armed, setArmed] = useState(false);
   return (
     <button
@@ -250,7 +322,13 @@ function ClearSiteDataButton({ onClear, disabled }: { onClear: () => void; disab
         setArmed(false);
         onClear();
       }}
-      onBlur={() => setArmed(false)}
+      onMouseEnter={() => onHoverChange?.(true)}
+      onMouseLeave={() => onHoverChange?.(false)}
+      onFocus={() => onHoverChange?.(true)}
+      onBlur={() => {
+        setArmed(false);
+        onHoverChange?.(false);
+      }}
     >
       {armed ? 'Confirm clear?' : 'Clear everything'}
     </button>
