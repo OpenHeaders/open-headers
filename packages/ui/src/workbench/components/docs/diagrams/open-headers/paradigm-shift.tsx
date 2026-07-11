@@ -3,7 +3,7 @@ import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT, OhLogoSmall } from './_shared';
 
 /**
- * Paradigm-shift landing diagram — six us-vs-them rows, uniform
+ * Paradigm-shift landing diagram — grouped us-vs-them rows, uniform
  * primary/sub two-line layout so labels never truncate and each row
  * breathes. Wide viewBox (480) gives each column real width; matching
  * maxWidth caps upscale in wide docs panels so text doesn't render
@@ -89,6 +89,24 @@ export const ParadigmShiftDiagram: React.FC = () => {
         {
           us: { primary: 'Works offline, fully editable', sub: "syncs automatically when you're back" },
           them: { primary: 'Needs online connection', sub: 'or no access at all' },
+        },
+      ],
+    },
+    {
+      name: 'Pricing & Trust',
+      rows: [
+        {
+          us: { primary: 'Every feature on every tier', sub: 'free ≤ 10 users · paid = seats only' },
+          them: { primary: 'Feature-gated tiers', sub: 'core capabilities behind upsells' },
+          usCornerStamp: 'NO PAYWALLS',
+        },
+        {
+          us: { primary: 'SSO & security always free', sub: 'SSO/OIDC · RBAC · audit · SIEM' },
+          them: { primary: 'The SSO tax', sub: 'security sold as enterprise add-on' },
+        },
+        {
+          us: { primary: 'A lapse never locks you out', sub: 'grace, then free tier — data yours' },
+          them: { primary: 'Stop paying, lose access', sub: 'paywall over your own data' },
         },
       ],
     },
@@ -293,7 +311,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="The paradigm shift — six rows of contrasts between Open Headers and every other tool in the space. Everything in one browser extension, no account, local-only, no telemetry, one engine for nine rule types, field-level sync — versus the rest of the market."
+      aria-label="The paradigm shift — grouped contrasts between Open Headers and every other tool in the space. Everything in one browser extension, no account, local-only, no telemetry, one engine for nine rule types, field-level sync, every feature on every tier with seats-only pricing and no lockout on lapse — versus the rest of the market."
     >
       <text x={CENTER_X} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT} letterSpacing={1}>
         THE PARADIGM SHIFT
