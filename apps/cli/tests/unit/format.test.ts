@@ -7,12 +7,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatActivity,
+  formatEnvironmentSwitch,
   formatEnvironments,
   formatRequests,
   formatRules,
+  formatRuleToggle,
+  formatVariableSet,
   formatVariables,
   formatWorkflowRuns,
   formatWorkflows,
+  formatWorkspaceSwitch,
   formatWorkspaces,
 } from '../../src/format';
 
@@ -79,7 +83,9 @@ describe('formatVariables', () => {
           ],
         },
       ],
-      collections: [{ name: 'checkout', scope: 'requests', variables: [{ name: 'base', value: '/v2', masked: false }] }],
+      collections: [
+        { name: 'checkout', scope: 'requests', variables: [{ name: 'base', value: '/v2', masked: false }] },
+      ],
       workspace: [{ name: 'region', value: 'eu', masked: false }],
       live: [{ reference: '{{live.token}}', workflowUid: 'wf-1' }],
     });
@@ -144,12 +150,87 @@ describe('formatWorkflowRuns', () => {
   });
 });
 
+describe('formatRuleToggle', () => {
+  it('is agent-honest for a published rule — extensions apply it, not the desktop', () => {
+    const lines = formatRuleToggle({ workspaceId: 'ws-1', uid: 'r-1', enabled: true, published: true });
+    expect(lines).toEqual(['rule r-1 → on — live on connected browser extensions · workspace ws-1']);
+  });
+
+  it('flags a draft as having no live effect', () => {
+    const lines = formatRuleToggle({ workspaceId: 'ws-1', uid: 'r-2', enabled: false, published: false });
+    expect(lines).toEqual(['rule r-2 → off  (draft — no effect on live traffic) · workspace ws-1']);
+  });
+});
+
+describe('formatEnvironmentSwitch', () => {
+  it('names the new active environment', () => {
+    const lines = formatEnvironmentSwitch({
+      workspaceId: 'ws-1',
+      activeEnvironmentId: 'e-2',
+      environment: { uid: 'e-2', name: 'staging' },
+    });
+    expect(lines).toEqual(['active environment: staging (e-2) · workspace ws-1']);
+  });
+
+  it('renders the "No environment" pick', () => {
+    const lines = formatEnvironmentSwitch({ workspaceId: 'ws-1', activeEnvironmentId: null, environment: null });
+    expect(lines).toEqual(['active environment: none · workspace ws-1']);
+  });
+});
+
+describe('formatVariableSet', () => {
+  it('renders a workspace-scope add', () => {
+    const lines = formatVariableSet({
+      workspaceId: 'ws-1',
+      scope: 'workspace',
+      variable: { name: 'region', type: 'default', updated: false },
+    });
+    expect(lines).toEqual(['added region in workspace scope · workspace ws-1']);
+  });
+
+  it('renders a collection-scope secret update', () => {
+    const lines = formatVariableSet({
+      workspaceId: 'ws-1',
+      scope: 'collection:requests',
+      collection: { uid: 'c-1', name: 'checkout' },
+      variable: { name: 'apiKey', type: 'secret', updated: true },
+    });
+    expect(lines).toEqual(['updated apiKey (secret) in collection "checkout" [collection:requests] · workspace ws-1']);
+  });
+});
+
+describe('formatWorkspaceSwitch', () => {
+  it('names the new active workspace and where it came from', () => {
+    const lines = formatWorkspaceSwitch({
+      activeWorkspaceId: 'ws-2',
+      previousWorkspaceId: 'ws-1',
+      workspace: { id: 'ws-2', name: 'Team', kind: 'org', active: true, loaded: true },
+    });
+    expect(lines).toEqual(['active workspace: Team (ws-2) · was ws-1']);
+  });
+
+  it('flags a switch that has not finished loading', () => {
+    const lines = formatWorkspaceSwitch({
+      activeWorkspaceId: 'ws-2',
+      previousWorkspaceId: 'ws-2',
+      workspace: { id: 'ws-2', name: 'Team', kind: 'org', active: true, loaded: false },
+    });
+    expect(lines).toEqual(['active workspace: Team (ws-2)  — still loading']);
+  });
+});
+
 describe('formatActivity', () => {
   it('prefers the classifier summary and falls back to kind + entity', () => {
     const lines = formatActivity({
       workspaceId: 'ws-1',
       entries: [
-        { observedAt: 1767225600000, kind: 'updated', entityType: 'rule', entityId: 'r-1', summary: 'Rule "auth" enabled' },
+        {
+          observedAt: 1767225600000,
+          kind: 'updated',
+          entityType: 'rule',
+          entityId: 'r-1',
+          summary: 'Rule "auth" enabled',
+        },
         { observedAt: 1767225601000, kind: 'created', entityType: 'request', entityId: 'q-1' },
       ],
     });

@@ -45,8 +45,7 @@ interface EnvironmentsPayload {
 export function formatEnvironments(payload: unknown): string[] {
   const { activeEnvironmentId, environments, workspaceId } = payload as EnvironmentsPayload;
   const lines = environments.map(
-    (env) =>
-      `${env.uid === activeEnvironmentId ? '*' : ' '} ${env.uid}  ${env.name}  (${env.variables.length} vars)`,
+    (env) => `${env.uid === activeEnvironmentId ? '*' : ' '} ${env.uid}  ${env.name}  (${env.variables.length} vars)`,
   );
   lines.push(`${environments.length} environment(s) · workspace ${workspaceId}`);
   return lines;
@@ -167,7 +166,59 @@ export function formatActivity(payload: unknown): string[] {
   return lines;
 }
 
-/** Detail commands (`rules get`) — the full definition IS the honest human view. */
+/** Detail commands (`rules get`, `request get`) — the full definition IS the honest human view. */
 export function formatPayloadJson(payloadText: string): string[] {
   return [payloadText];
+}
+
+interface RuleTogglePayload {
+  workspaceId: string;
+  uid: string;
+  enabled: boolean;
+  published: boolean;
+}
+
+/** Agent-honest: rules apply on connected browser extensions, never "the desktop intercepts". */
+export function formatRuleToggle(payload: unknown): string[] {
+  const { workspaceId, uid, enabled, published } = payload as RuleTogglePayload;
+  const effect = published ? ' — live on connected browser extensions' : '  (draft — no effect on live traffic)';
+  return [`rule ${uid} → ${enabled ? 'on' : 'off'}${effect} · workspace ${workspaceId}`];
+}
+
+interface EnvironmentSwitchPayload {
+  workspaceId: string;
+  environment: { uid: string; name: string } | null;
+}
+
+export function formatEnvironmentSwitch(payload: unknown): string[] {
+  const { workspaceId, environment } = payload as EnvironmentSwitchPayload;
+  const which = environment === null ? 'none' : `${environment.name} (${environment.uid})`;
+  return [`active environment: ${which} · workspace ${workspaceId}`];
+}
+
+interface VariableSetPayload {
+  workspaceId: string;
+  scope: string;
+  collection?: { uid: string; name: string };
+  variable: { name: string; type: string; updated: boolean };
+}
+
+export function formatVariableSet(payload: unknown): string[] {
+  const { workspaceId, scope, collection, variable } = payload as VariableSetPayload;
+  const where = collection ? `collection "${collection.name}" [${scope}]` : 'workspace scope';
+  const secret = variable.type === 'secret' ? ' (secret)' : '';
+  return [`${variable.updated ? 'updated' : 'added'} ${variable.name}${secret} in ${where} · workspace ${workspaceId}`];
+}
+
+interface WorkspaceSwitchPayload {
+  previousWorkspaceId: string | null;
+  workspace: { id: string; name?: string; loaded: boolean };
+}
+
+export function formatWorkspaceSwitch(payload: unknown): string[] {
+  const { previousWorkspaceId, workspace } = payload as WorkspaceSwitchPayload;
+  const from =
+    previousWorkspaceId !== null && previousWorkspaceId !== workspace.id ? ` · was ${previousWorkspaceId}` : '';
+  const loading = workspace.loaded ? '' : '  — still loading';
+  return [`active workspace: ${workspace.name ?? workspace.id} (${workspace.id})${loading}${from}`];
 }

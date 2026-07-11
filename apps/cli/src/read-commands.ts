@@ -80,6 +80,14 @@ export const READ_COMMANDS: readonly ReadCommandSpec[] = [
     format: (payload) => formatRequests(payload),
   },
   {
+    group: 'request',
+    verb: 'get',
+    tool: 'requests_get',
+    summary: 'Fetch one saved request by uid (full definition)',
+    positional: { name: 'uid', toolArg: 'uid', required: true },
+    format: (_payload, payloadText) => formatPayloadJson(payloadText),
+  },
+  {
     group: 'workflow',
     verb: 'list',
     tool: 'workflows_list',

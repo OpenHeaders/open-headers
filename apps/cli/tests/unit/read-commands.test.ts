@@ -11,6 +11,7 @@ describe('findReadCommand', () => {
   it('matches group + verb', () => {
     expect(findReadCommand('rules', 'list')?.tool).toBe('rules_list');
     expect(findReadCommand('rules', 'get')?.tool).toBe('rules_get');
+    expect(findReadCommand('request', 'get')?.tool).toBe('requests_get');
     expect(findReadCommand('workflow', 'history')?.tool).toBe('workflows_history');
   });
 
@@ -42,6 +43,7 @@ describe('READ_COMMANDS table', () => {
       'environments_list',
       'variables_list',
       'requests_list',
+      'requests_get',
       'workflows_list',
       'workflows_history',
       'activity_list',

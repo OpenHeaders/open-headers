@@ -11,6 +11,7 @@ import { type Connection, resolveConnection, TOKEN_ENV } from './connection';
 import { UsageError } from './exit-codes';
 import { commandTokenCount, type ReadCommandSpec } from './read-commands';
 import { callTool, initialize, listTools } from './rpc';
+import type { WriteCommandSpec, WriteOptionValues } from './write-commands';
 
 const CONNECTION_OPTIONS = {
   daemon: { type: 'string' },
@@ -26,15 +27,18 @@ interface ParsedCommon {
     workspace?: string;
     json?: boolean;
     limit?: string;
-  };
+  } & WriteOptionValues;
   positionals: string[];
 }
 
-function parseCommandArgs(argv: readonly string[], withLimit: boolean): ParsedCommon {
+function parseCommandArgs(
+  argv: readonly string[],
+  extraOptions: Record<string, { readonly type: 'string' | 'boolean' }>,
+): ParsedCommon {
   try {
     return parseArgs({
       args: [...argv],
-      options: { ...CONNECTION_OPTIONS, ...(withLimit ? { limit: { type: 'string' } } : {}) },
+      options: { ...CONNECTION_OPTIONS, ...extraOptions },
       allowPositionals: true,
     }) as ParsedCommon;
   } catch (err) {
@@ -48,7 +52,10 @@ async function connectionFor(values: ParsedCommon['values']): Promise<Connection
 }
 
 export async function runReadCommand(spec: ReadCommandSpec, argv: readonly string[]): Promise<string[]> {
-  const { values, positionals } = parseCommandArgs(argv.slice(commandTokenCount(spec)), spec.limitOption === true);
+  const { values, positionals } = parseCommandArgs(
+    argv.slice(commandTokenCount(spec)),
+    spec.limitOption === true ? { limit: { type: 'string' } } : {},
+  );
 
   const toolArgs: Record<string, unknown> = {};
   if (values.workspace !== undefined) toolArgs.workspaceId = values.workspace;
@@ -73,8 +80,29 @@ export async function runReadCommand(spec: ReadCommandSpec, argv: readonly strin
   return spec.format(JSON.parse(payloadText), payloadText);
 }
 
+/**
+ * Drive one write-table entry: positionals + flags → tool args (the
+ * `--workspace` default first, so a spec-built `workspaceId` wins where
+ * the tool takes one positionally, e.g. `workspace switch`), optional
+ * daemon-side resolution, one `tools/call`.
+ */
+export async function runWriteCommand(spec: WriteCommandSpec, argv: readonly string[]): Promise<string[]> {
+  const { values, positionals } = parseCommandArgs(argv.slice(2), spec.extraOptions ?? {});
+  let toolArgs: Record<string, unknown> = {
+    ...(values.workspace !== undefined ? { workspaceId: values.workspace } : {}),
+    ...spec.buildArgs(positionals, values),
+  };
+  const conn = await connectionFor(values);
+  if (spec.resolveArgs) {
+    toolArgs = await spec.resolveArgs(toolArgs, conn);
+  }
+  const payloadText = await callTool(conn, spec.tool, toolArgs);
+  if (values.json === true) return [payloadText];
+  return spec.format(JSON.parse(payloadText));
+}
+
 export async function commandStatus(argv: readonly string[]): Promise<string[]> {
-  const { values, positionals } = parseCommandArgs(argv, false);
+  const { values, positionals } = parseCommandArgs(argv, {});
   if (positionals.length > 0) throw new UsageError(`unexpected argument: ${positionals[0]}`);
   const conn = await connectionFor(values);
   const server = await initialize(conn);
@@ -87,7 +115,7 @@ export async function commandStatus(argv: readonly string[]): Promise<string[]> 
 }
 
 export async function commandConnect(argv: readonly string[]): Promise<string[]> {
-  const { values, positionals } = parseCommandArgs(argv, false);
+  const { values, positionals } = parseCommandArgs(argv, {});
   if (positionals.length > 0) throw new UsageError(`unexpected argument: ${positionals[0]}`);
   const token = values.token ?? process.env[TOKEN_ENV];
   if (token === undefined || token === '') {

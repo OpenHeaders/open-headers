@@ -9,20 +9,25 @@
  * protocol constants.
  */
 
-import { commandConnect, commandStatus, runReadCommand } from './commands';
+import { commandConnect, commandStatus, runReadCommand, runWriteCommand } from './commands';
 import { DAEMON_URL_ENV, DEFAULT_DAEMON_URL, TOKEN_ENV } from './connection';
 import { EXIT_USAGE, exitCodeFor } from './exit-codes';
 import { findReadCommand, READ_COMMANDS } from './read-commands';
 import { CLI_VERSION } from './version';
+import { findWriteCommand, WRITE_COMMANDS } from './write-commands';
 
 function usage(): string {
-  const commandLines = READ_COMMANDS.map((spec) => {
+  const readLines = READ_COMMANDS.map((spec) => {
     const positional = spec.positional
       ? spec.positional.required
         ? ` <${spec.positional.name}>`
         : ` [${spec.positional.name}]`
       : '';
     const name = `${spec.group}${spec.verb ? ` ${spec.verb}` : ''}${positional}`;
+    return `  ${name.padEnd(26)}${spec.summary}`;
+  });
+  const writeLines = WRITE_COMMANDS.map((spec) => {
+    const name = `${spec.group} ${spec.verb} ${spec.argsHelp}`;
     return `  ${name.padEnd(26)}${spec.summary}`;
   });
   return `oh v${CLI_VERSION} — Open Headers command line
@@ -32,7 +37,8 @@ Usage: oh <command> [options]
 Commands:
   status                    Probe the daemon's /mcp surface (running / disabled / bad token)
   connect --token <secret>  Validate and save the daemon URL + token for later runs
-${commandLines.join('\n')}
+${readLines.join('\n')}
+${writeLines.join('\n')}
 
 Options:
   --daemon <url>            Daemon URL (default ${DEFAULT_DAEMON_URL}; env ${DAEMON_URL_ENV})
@@ -40,6 +46,9 @@ Options:
   --workspace <id>          Target workspace (default: the daemon's active workspace)
   --json                    Emit the tool result's JSON payload verbatim
   --limit <n>               activity only: max entries (default 50)
+  --none                    env switch only: select "No environment"
+  --collection <uid>        vars set only: target that collection's variable scope
+  --secret                  vars set only: store the value as a masked secret
 
 Exit codes: 0 ok · 1 operation failed · 2 usage · 3 daemon unreachable or MCP disabled · 4 auth/tier denied
 `;
@@ -64,13 +73,17 @@ async function main(): Promise<void> {
   } else if (first === 'connect') {
     lines = await commandConnect(argv.slice(1));
   } else {
-    const spec = findReadCommand(first, argv[1]);
-    if (!spec) {
+    const readSpec = findReadCommand(first, argv[1]);
+    const writeSpec = readSpec ? undefined : findWriteCommand(first, argv[1]);
+    if (readSpec) {
+      lines = await runReadCommand(readSpec, argv);
+    } else if (writeSpec) {
+      lines = await runWriteCommand(writeSpec, argv);
+    } else {
       console.log(usage());
       process.exitCode = EXIT_USAGE;
       return;
     }
-    lines = await runReadCommand(spec, argv);
   }
   for (const line of lines) {
     console.log(line);
