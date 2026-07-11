@@ -12,7 +12,18 @@
 
 import { app } from 'electron';
 import { autoUpdater, type UpdateInfo } from 'electron-updater';
+import { writeRestartHiddenFlag } from './bootstrap/launch-flags';
+import { createLogger } from './bootstrap/logger';
+import { markQuitting } from './bootstrap/quit-state';
+import { getMainWindow } from './bootstrap/window-manager';
 import type { AvailableUpdate, UpdaterPort } from './update-service';
+
+/**
+ * If the quit stalls (a stray close-intercept, a hung before-quit
+ * handler), force the process down — the staged update then applies on
+ * the installer's relaunch.
+ */
+const INSTALL_EXIT_FAILSAFE_MS = 3_000;
 
 /**
  * Where an updater can actually run: packaged builds on macOS/Windows,
@@ -39,6 +50,17 @@ function toAvailableUpdate(info: UpdateInfo): AvailableUpdate {
 export function createElectronUpdaterPort(): UpdaterPort {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+
+  // electron-updater's internals (feed resolution, differential
+  // download, signature validation) log through this hook — route them
+  // into `<userData>/logs/main.log` where every other subsystem lands.
+  const logger = createLogger('electron-updater');
+  autoUpdater.logger = {
+    info: (message?: unknown) => logger.info(String(message)),
+    warn: (message?: unknown) => logger.warn(String(message)),
+    error: (message?: unknown) => logger.error(String(message)),
+    debug: (message?: unknown) => logger.debug(String(message)),
+  };
 
   return {
     check(): Promise<AvailableUpdate | null> {
@@ -83,7 +105,21 @@ export function createElectronUpdaterPort(): UpdaterPort {
     },
 
     quitAndInstall(): void {
-      autoUpdater.quitAndInstall();
+      // Tray-resident hidden window (e.g. install triggered from the
+      // tray menu): keep the relaunch silent instead of flashing the
+      // window visible.
+      const win = getMainWindow();
+      if (win && !win.isDestroyed() && !win.isVisible()) writeRestartHiddenFlag();
+      // quitAndInstall closes every window BEFORE quitting — and the
+      // tray-resident primary intercepts 'close' into a hide unless the
+      // quitting flag is up. Without this the close is swallowed, the
+      // quit never completes, and "Restart to install" just hides the
+      // window.
+      markQuitting();
+      // isSilent=false, isForceRunAfter=true — run the installer UI as
+      // needed and relaunch the app once the update is applied.
+      autoUpdater.quitAndInstall(false, true);
+      setTimeout(() => app.exit(0), INSTALL_EXIT_FAILSAFE_MS);
     },
   };
 }
