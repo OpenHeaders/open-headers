@@ -37,6 +37,10 @@ export type DeactivateDaemonUserResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: 'unknown-user' | 'already-deactivated' };
 
+export type SetDaemonUserPasswordResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' };
+
 export type ResolveDaemonPeerUserResult =
   | { readonly ok: true; readonly userId: string; readonly displayName: string }
   | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' | 'no-daemon-identity' };
@@ -163,6 +167,35 @@ export async function deactivateDaemonUser(
     if (current[idx].deactivatedAt !== null) return { ok: false, reason: 'already-deactivated' };
     const next = current.slice();
     next[idx] = { ...current[idx], deactivatedAt: now() };
+    await hostStorage.set(OH.daemonUsers, next);
+    return { ok: true };
+  });
+}
+
+/**
+ * Set or clear a directory user's password verifier (enterprise
+ * Phase 3). The verifier is an opaque host-computed string — hashing
+ * and verification live on the host (`node:crypto` scrypt); core only
+ * persists it. `null` clears the credential. Refused on deactivated
+ * records: a deactivated user must not regain a login path without
+ * re-admission.
+ */
+export async function setDaemonUserPassword(
+  userId: string,
+  verifier: string | null,
+): Promise<SetDaemonUserPasswordResult> {
+  return withUserStoreLock(async () => {
+    const current = await readUsers();
+    const idx = current.findIndex((r) => r.user.id === userId);
+    if (idx === -1) return { ok: false, reason: 'unknown-user' };
+    if (current[idx].deactivatedAt !== null) return { ok: false, reason: 'user-deactivated' };
+    const next = current.slice();
+    if (verifier === null) {
+      const { passwordVerifier: _cleared, ...rest } = current[idx];
+      next[idx] = rest;
+    } else {
+      next[idx] = { ...current[idx], passwordVerifier: verifier };
+    }
     await hostStorage.set(OH.daemonUsers, next);
     return { ok: true };
   });

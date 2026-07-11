@@ -28,4 +28,11 @@ export const DaemonUserRecordSchema = v.object({
   createdAt: v.pipe(v.number(), v.integer()),
   /** ms-since-epoch of deactivation; null while active. */
   deactivatedAt: v.union([v.pipe(v.number(), v.integer()), v.null()]),
+  /**
+   * Opaque password verifier for the daemon's local password login
+   * (enterprise Phase 3). Host-computed (scrypt on the Node host) and
+   * host-verified — core only stores the string. Absent = no password
+   * credential; admin projections never carry it over the wire.
+   */
+  passwordVerifier: v.optional(v.pipe(v.string(), v.minLength(1))),
 });

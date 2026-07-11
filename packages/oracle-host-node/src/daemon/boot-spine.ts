@@ -111,6 +111,8 @@ import { installObservabilityLog, type ObservabilityLogHandle } from './observab
 import type { DaemonOidcConfig } from './oidc/oidc-config';
 import { createOidcHttpHandler } from './oidc/oidc-http';
 import { createDaemonOidcService, type DaemonOidcService } from './oidc/oidc-service';
+import { createPasswordHttpHandler } from './password/password-http';
+import { createDaemonPasswordLoginService } from './password/password-login-service';
 import { createPeerAdminRpc } from './peer-admin-rpc';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
@@ -470,6 +472,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     allowedHosts: config.admission?.allowedHosts,
     webEnabled: staticWebEnabled,
     oidcEnabled: config.oidc !== undefined,
+    passwordEnabled: config.oidc === undefined,
   });
 
   // 4b. Daemon device-flow pairing surface (U3.3). One service instance
@@ -554,6 +557,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           trustedProxy: config.admission?.trustedProxy,
         })
       : null;
+
+  // 4c''''. Local password login (enterprise Phase 3) — `/auth/password/*`,
+  //         composed ONLY when no OIDC provider is configured: password
+  //         is the no-IdP deployment's login story, never an SSO bypass.
+  //         Same session-kind mint the SSO flow terminates in.
+  const passwordHttpHandler =
+    config.oidc === undefined ? createPasswordHttpHandler({ service: createDaemonPasswordLoginService() }) : null;
 
   // 4c'''. Static web bundle (Phase 4a) — the Workbench front door,
   //      composed LAST so every claimed route (healthz, pairing, mcp)
@@ -657,6 +667,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           pairingHttpHandler(req, res) ||
           mcpInstall.handler(req, res) ||
           (oidcHttpHandler !== null && oidcHttpHandler(req, res)) ||
+          (passwordHttpHandler !== null && passwordHttpHandler(req, res)) ||
           (staticWebHandler !== null && staticWebEnabled() ? staticWebHandler(req, res) : false),
       ),
       admission: admission.wsHooks,

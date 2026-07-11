@@ -24,6 +24,7 @@ import {
   mintDaemonAuthToken,
   revokeDaemonAuthToken,
   revokeWorkspaceRole,
+  setDaemonUserPassword,
 } from '@openheaders/core/identity';
 import type { AuditLogEntry } from '@openheaders/core/types';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
@@ -31,6 +32,10 @@ import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { listLanIpv4Addresses } from './lan-addresses';
+import { hashPassword } from './password/password-verifier';
+
+/** Floor for operator-set passwords — length is the one property worth enforcing. */
+export const PASSWORD_MIN_LENGTH = 8;
 
 /** The admin-visibility probe channel — see `peer-admin-rpc.ts`. */
 export const ADMIN_STATUS_CHANNEL = 'oh.daemon.admin.status';
@@ -200,6 +205,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
           email: r.userIdentity.kind === 'email' ? r.userIdentity.value : null,
           createdAt: r.createdAt,
           deactivatedAt: r.deactivatedAt,
+          hasPassword: r.passwordVerifier !== undefined,
           grants: (await listWorkspaceRolesForPrincipal(r.principal.id)).map((wra) => ({
             workspaceId: wra.workspaceId,
             role: wra.role,
@@ -245,6 +251,25 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     if (!record) return { ok: false, error: 'unknown user' };
     try {
       const result = await revokeWorkspaceRole(record.principal.id, workspaceId);
+      return result.ok ? { ok: true } : { ok: false, error: result.reason };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  handlers.set('oh.daemon.users.setPassword', async (message) => {
+    const userId = typeof message.userId === 'string' ? message.userId : '';
+    if (!userId) return { ok: false, error: 'missing userId' };
+    const password = message.password === null ? null : typeof message.password === 'string' ? message.password : '';
+    if (password !== null && password.length < PASSWORD_MIN_LENGTH) {
+      return { ok: false, error: `password must be at least ${PASSWORD_MIN_LENGTH} characters` };
+    }
+    try {
+      // The verifier is computed host-side (scrypt); core stores the
+      // opaque string. `null` clears the credential — the user keeps
+      // any live sessions, they just can't password-login anew.
+      const verifier = password === null ? null : await hashPassword(password);
+      const result = await setDaemonUserPassword(userId, verifier);
       return result.ok ? { ok: true } : { ok: false, error: result.reason };
     } catch (err) {
       return { ok: false, error: (err as Error).message };

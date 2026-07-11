@@ -116,7 +116,11 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<Re
 
 function watchConsole(target: Page, label: string): void {
   target.on('console', (msg) => {
-    if (msg.type() === 'error') consoleErrors.push(`[${label}] ${msg.text()}`);
+    // The browser logs every non-2xx resource load; the password leg's
+    // deliberate wrong-credential probe answers a uniform 401 by design.
+    if (msg.type() === 'error' && !msg.text().includes('status of 401')) {
+      consoleErrors.push(`[${label}] ${msg.text()}`);
+    }
   });
   target.on('pageerror', (err) => consoleErrors.push(`[${label}] pageerror: ${err.message}`));
 }
@@ -651,6 +655,79 @@ test('zero-grant landing: the explained notice stands, then a live grant resolve
   });
 
   await zoeContext.close();
+});
+
+// ── Local password login (enterprise Phase 3) ───────────────────────
+
+test('password login: the operator sets a password in the console; a fresh gate signs the user in', async () => {
+  // A directory user with an email (the login join key) and a grant so
+  // the join adopts cleanly. No OIDC is configured on this daemon, so
+  // the password routes are composed.
+  const [created] = await adminOverWire([
+    { type: 'oh.daemon.users.create', displayName: 'Pia', email: 'pia@openheaders.io' },
+  ]);
+  const piaId = (created.payload as { ok: true; userId: string }).userId;
+  const [granted] = await adminOverWire([
+    { type: 'oh.daemon.users.grant', userId: piaId, workspaceId: daemonWorkspaceIds[0], role: 'viewer' },
+  ]);
+  expect((granted.payload as { ok: boolean }).ok).toBe(true);
+
+  // The gate is token-only while no active user holds a password.
+  const meta = (await (await fetch(`${ORIGIN}/auth/password/meta`)).json()) as { enabled: boolean };
+  expect(meta.enabled).toBe(false);
+
+  // Operator sets Pia's password through the console UI — the whole
+  // write path runs over the wire into the gated admin plane.
+  const operatorContext = await browser.newContext();
+  const operatorPage = await operatorContext.newPage();
+  watchConsole(operatorPage, 'password-operator');
+  await operatorPage.goto(ORIGIN);
+  await operatorPage.waitForSelector(TOKEN_INPUT, { timeout: 30_000 });
+  await submitGateToken(operatorPage, token);
+  await operatorPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  await openBackendSettings(operatorPage);
+  await operatorPage.click('[data-testid=open-daemon-admin]');
+  await operatorPage.click(`[data-testid=daemon-admin-password-${piaId}]`);
+  await operatorPage.fill(
+    'input[data-testid=daemon-admin-password-input], [data-testid=daemon-admin-password-input] input',
+    'pia-first-password',
+  );
+  await operatorPage.click('[data-testid=daemon-admin-password-save]');
+  // The projection refreshes: the row's action now offers a reset.
+  await expect(operatorPage.locator(`[data-testid=daemon-admin-password-${piaId}]`)).toContainText('Reset password', {
+    timeout: 15_000,
+  });
+  await operatorContext.close();
+
+  // A fresh origin now gates with the password form; a wrong password
+  // is refused uniformly; the right one signs Pia in.
+  const piaContext = await browser.newContext();
+  const piaPage = await piaContext.newPage();
+  watchConsole(piaPage, 'password-pia');
+  await piaPage.goto(ORIGIN);
+  const EMAIL_INPUT = 'input[data-testid=login-gate-email], [data-testid=login-gate-email] input';
+  const PASSWORD_INPUT = 'input[data-testid=login-gate-password], [data-testid=login-gate-password] input';
+  await piaPage.waitForSelector(EMAIL_INPUT, { timeout: 30_000 });
+  await piaPage.fill(EMAIL_INPUT, 'pia@openheaders.io');
+  await piaPage.fill(PASSWORD_INPUT, 'not-her-password');
+  await piaPage.click('[data-testid=login-gate-password-submit]');
+  await piaPage.waitForSelector('[data-testid=login-gate-error]', { timeout: 15_000 });
+  await expect(piaPage.locator('[data-testid=login-gate-error]')).toContainText('Sign-in failed');
+
+  await piaPage.fill(PASSWORD_INPUT, 'pia-first-password');
+  await piaPage.click('[data-testid=login-gate-password-submit]');
+  await piaPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
+  await piaPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+
+  // The login minted a session-kind ledger row bound to Pia — the same
+  // shape the SSO flow mints, on the same revocation surface.
+  const [tokens] = await adminOverWire([{ type: 'oh.daemon.tokens.list' }]);
+  const sessionRow = (
+    tokens.payload as { tokens: Array<{ userId?: string; kind?: string; label?: string }> }
+  ).tokens.find((t) => t.userId === piaId && t.kind === 'session');
+  expect(sessionRow?.label).toBe('password:pia@openheaders.io');
+
+  await piaContext.close();
 });
 
 // ── Non-loopback origins ────────────────────────────────────────────

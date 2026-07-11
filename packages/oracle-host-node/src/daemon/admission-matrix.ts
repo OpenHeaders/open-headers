@@ -26,6 +26,11 @@
  *                      own served origin. Foreign browser origins are
  *                      forged logins. Claim-code guesses (404) feed the
  *                      brute-force limiter.
+ *   - `/auth/password/*` — active only when password login is composed
+ *                      (no OIDC provider configured). The SPA's login
+ *                      POST carries the own served origin; no Origin is
+ *                      a native caller (curl). A refused credential
+ *                      (401) feeds the brute-force limiter.
  *   - web (Phase 4a) — when the daemon serves the web bundle, every
  *                      path not claimed above is the static front door:
  *                      top-level navigations (no Origin) and the own
@@ -63,7 +68,16 @@ export interface AdmissionRequestFacts {
   readonly host: string | undefined;
 }
 
-export type AdmissionRoute = 'healthz' | 'metrics' | 'ws-upgrade' | 'pairing' | 'mcp' | 'oidc' | 'web' | 'default';
+export type AdmissionRoute =
+  | 'healthz'
+  | 'metrics'
+  | 'ws-upgrade'
+  | 'pairing'
+  | 'mcp'
+  | 'oidc'
+  | 'password'
+  | 'web'
+  | 'default';
 
 /** Matrix-wide switches derived from the daemon's composition, not per-request facts. */
 export interface AdmissionMatrixOptions {
@@ -71,6 +85,8 @@ export interface AdmissionMatrixOptions {
   readonly webEnabled?: boolean;
   /** SSO is configured — `/auth/oidc/*` takes the `oidc` posture. */
   readonly oidcEnabled?: boolean;
+  /** Password login is composed (no OIDC) — `/auth/password/*` takes the `password` posture. */
+  readonly passwordEnabled?: boolean;
 }
 
 export type OriginPosture =
@@ -101,6 +117,7 @@ export interface RoutePosture {
 
 const PAIRING_PATH_PREFIX = '/pair/';
 const OIDC_PATH_PREFIX = '/auth/oidc/';
+const PASSWORD_PATH_PREFIX = '/auth/password/';
 const HEALTHZ_PATH = '/healthz';
 const METRICS_PATH = '/metrics';
 
@@ -127,6 +144,9 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   // hands the SPA). Redirect-shaped failures (bad state, refused login)
   // are 302s into the SPA's error fragment, not attack statuses.
   oidc: { route: 'oidc', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [404] },
+  // 401 = a refused credential — uniform whatever the cause (unknown
+  // email, no password set, wrong password), so every guess counts.
+  password: { route: 'password', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [401] },
   // Static misses are ordinary navigation noise, not auth signals — no
   // failure statuses; the rate limit still holds the front door against
   // peers already blocked for real failures elsewhere.
@@ -141,6 +161,7 @@ export function routePostureFor(facts: AdmissionRequestFacts, options: Admission
   if (facts.path.startsWith(PAIRING_PATH_PREFIX)) return ROUTE_POSTURES.pairing;
   if (facts.path === MCP_HTTP_PATH || facts.path === `${MCP_HTTP_PATH}/`) return ROUTE_POSTURES.mcp;
   if (options.oidcEnabled && facts.path.startsWith(OIDC_PATH_PREFIX)) return ROUTE_POSTURES.oidc;
+  if (options.passwordEnabled && facts.path.startsWith(PASSWORD_PATH_PREFIX)) return ROUTE_POSTURES.password;
   return options.webEnabled ? ROUTE_POSTURES.web : ROUTE_POSTURES.default;
 }
 

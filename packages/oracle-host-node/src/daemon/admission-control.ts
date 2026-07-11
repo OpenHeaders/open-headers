@@ -77,6 +77,8 @@ export interface AdmissionControlOptions {
   webEnabled?: boolean | (() => boolean);
   /** SSO is configured — `/auth/oidc/*` takes the `oidc` posture. Fixed for the process lifetime. */
   oidcEnabled?: boolean;
+  /** Password login is composed — `/auth/password/*` takes the `password` posture. Fixed for the process lifetime. */
+  passwordEnabled?: boolean;
   /** Limiter tuning override — tests only; production takes the defaults. */
   limiter?: RateLimiterOptions;
   /** Trusted-proxy pairing-tier override — tests only; production takes {@link TRUSTED_PROXY_PAIRING_LIMITS}. */
@@ -104,10 +106,11 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
   const allowedHosts = options.allowedHosts ?? [];
   const webEnabled = options.webEnabled;
   const oidcEnabled = options.oidcEnabled ?? false;
+  const passwordEnabled = options.passwordEnabled ?? false;
   const matrixOptions =
     typeof webEnabled === 'function'
-      ? () => ({ webEnabled: webEnabled(), oidcEnabled })
-      : () => ({ webEnabled: webEnabled ?? false, oidcEnabled });
+      ? () => ({ webEnabled: webEnabled(), oidcEnabled, passwordEnabled })
+      : () => ({ webEnabled: webEnabled ?? false, oidcEnabled, passwordEnabled });
   const limiter: PeerRateLimiter = createPeerRateLimiter(options.limiter);
   // Second, stricter budget for pairing-code guesses behind a trusted
   // proxy — see TRUSTED_PROXY_PAIRING_LIMITS. Both budgets feed and

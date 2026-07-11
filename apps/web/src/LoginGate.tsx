@@ -11,6 +11,7 @@ import { useState } from 'react';
 import type { DaemonWire } from '@/host/daemon-wire';
 import { submitDaemonToken } from '@/host/join-gate';
 import { startOidcLogin } from '@/host/oidc-login';
+import { submitPasswordLogin } from '@/host/password-login';
 
 const CARD_STYLE: React.CSSProperties = {
   maxWidth: 400,
@@ -29,12 +30,23 @@ export interface LoginGateProps {
   onSkip: () => void;
   /** SSO provider label when the daemon has OIDC configured; null/absent = token-only gate. */
   ssoProvider?: string | null;
+  /** The daemon offers local password login (no OIDC, at least one user holds a password). */
+  passwordEnabled?: boolean;
   /** Error carried into the gate (e.g. a failed SSO round-trip). */
   initialError?: string | null;
 }
 
-export function LoginGate({ wire, onJoined, onSkip, ssoProvider, initialError }: LoginGateProps): React.JSX.Element {
+export function LoginGate({
+  wire,
+  onJoined,
+  onSkip,
+  ssoProvider,
+  passwordEnabled,
+  initialError,
+}: LoginGateProps): React.JSX.Element {
   const [token, setToken] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
 
@@ -55,14 +67,42 @@ export function LoginGate({ wire, onJoined, onSkip, ssoProvider, initialError }:
     );
   };
 
+  const canSubmitPassword = email.trim().length > 0 && password.length > 0;
+
+  const submitPassword = async (): Promise<void> => {
+    if (pending || !canSubmitPassword) return;
+    setPending(true);
+    setError(null);
+    // The secret rides the exact pasted-token path: real HELLO,
+    // persisted only on WELCOME accept.
+    const secret = await submitPasswordLogin(email, password);
+    const result = secret ? await submitDaemonToken(wire, secret) : null;
+    setPending(false);
+    if (result?.ok) {
+      onJoined();
+      return;
+    }
+    setError(
+      secret === null
+        ? 'Sign-in failed. Check the email and password and try again.'
+        : 'The daemon did not accept the session. Try again.',
+    );
+  };
+
   return (
     <div style={CARD_STYLE} data-testid="login-gate">
       <Typography.Title level={4} style={{ margin: 0 }}>
-        Pair with this daemon
+        {passwordEnabled ? 'Sign in to this daemon' : 'Pair with this daemon'}
       </Typography.Title>
       <Typography.Paragraph style={{ margin: 0 }} type="secondary">
-        This OpenHeaders daemon requires a pairing token. Mint one on the machine running it with{' '}
-        <Typography.Text code>oh daemon show-token</Typography.Text> and paste it below.
+        {passwordEnabled ? (
+          'Sign in with the email and password the daemon admin set for you, or paste a pairing token below.'
+        ) : (
+          <>
+            This OpenHeaders daemon requires a pairing token. Mint one on the machine running it with{' '}
+            <Typography.Text code>oh daemon show-token</Typography.Text> and paste it below.
+          </>
+        )}
       </Typography.Paragraph>
       {ssoProvider && (
         <>
@@ -74,8 +114,42 @@ export function LoginGate({ wire, onJoined, onSkip, ssoProvider, initialError }:
           </Divider>
         </>
       )}
+      {passwordEnabled && (
+        <>
+          <Input
+            autoFocus
+            type="email"
+            data-testid="login-gate-email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={pending}
+          />
+          <Input.Password
+            data-testid="login-gate-password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onPressEnter={() => void submitPassword()}
+            disabled={pending}
+          />
+          <Button
+            type="primary"
+            block
+            loading={pending}
+            disabled={!canSubmitPassword}
+            onClick={() => void submitPassword()}
+            data-testid="login-gate-password-submit"
+          >
+            Sign in
+          </Button>
+          <Divider plain style={{ margin: 0 }}>
+            or
+          </Divider>
+        </>
+      )}
       <Input.Password
-        autoFocus
+        autoFocus={!passwordEnabled}
         data-testid="login-gate-token"
         placeholder="Pairing token"
         value={token}
@@ -85,7 +159,7 @@ export function LoginGate({ wire, onJoined, onSkip, ssoProvider, initialError }:
       />
       {error && <Alert type="error" showIcon message={error} data-testid="login-gate-error" />}
       <Button
-        type="primary"
+        type={passwordEnabled ? 'default' : 'primary'}
         block
         loading={pending}
         disabled={token.trim().length === 0}

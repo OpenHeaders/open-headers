@@ -58,6 +58,15 @@ describe('routePostureFor', () => {
     expect(routePostureFor(facts({ path: '/auth/oidc/start' })).route).toBe('default');
   });
 
+  it('password-enabled composition claims /auth/password/* ahead of the web fallback', () => {
+    const enabled = { webEnabled: true, passwordEnabled: true } as const;
+    expect(routePostureFor(facts({ path: '/auth/password/login' }), enabled).route).toBe('password');
+    expect(routePostureFor(facts({ path: '/auth/password/meta' }), enabled).route).toBe('password');
+    // Without the password login composed the prefix is just an unclaimed path.
+    expect(routePostureFor(facts({ path: '/auth/password/login' }), { webEnabled: true }).route).toBe('web');
+    expect(routePostureFor(facts({ path: '/auth/password/login' })).route).toBe('default');
+  });
+
   it('marks the brute-force routes and their failure statuses', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).rateLimited).toBe(false);
     expect(routePostureFor(facts({ path: '/pair/1' })).failureStatuses).toEqual([404]);
@@ -158,6 +167,25 @@ describe('origin posture', () => {
     // DNS-rebinding guard holds like every browser-facing route.
     expect(
       evaluateAdmission(facts({ path: '/auth/oidc/start', host: 'rebound.example.com' }), [], enabled),
+    ).toMatchObject({ ok: false, reason: 'host-forbidden' });
+  });
+
+  it('password route accepts the own origin and native callers, rejects foreign pages, counts refused credentials', () => {
+    const enabled = { passwordEnabled: true } as const;
+    const posture = routePostureFor(facts({ path: '/auth/password/login' }), enabled);
+    expect(posture.rateLimited).toBe(true);
+    expect(posture.failureStatuses).toEqual([401]);
+    // Native callers (curl) carry no Origin; the SPA's POST carries the own served origin.
+    expect(evaluateAdmission(facts({ path: '/auth/password/login' }), [], enabled).ok).toBe(true);
+    expect(
+      evaluateAdmission(facts({ path: '/auth/password/login', origin: 'http://192.168.1.20:8137' }), [], enabled).ok,
+    ).toBe(true);
+    expect(
+      evaluateAdmission(facts({ path: '/auth/password/login', origin: 'https://evil.example.com' }), [], enabled),
+    ).toMatchObject({ ok: false, reason: 'origin-forbidden' });
+    // DNS-rebinding guard holds like every browser-facing route.
+    expect(
+      evaluateAdmission(facts({ path: '/auth/password/login', host: 'rebound.example.com' }), [], enabled),
     ).toMatchObject({ ok: false, reason: 'host-forbidden' });
   });
 

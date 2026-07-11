@@ -15,6 +15,7 @@ import {
   listDaemonUsers,
   mintDaemonAuthToken,
   resolveDaemonPeerUser,
+  setDaemonUserPassword,
   validateDaemonAuthToken,
 } from '../../src/identity';
 import { DaemonUserRecordSchema } from '../../src/schemas';
@@ -157,6 +158,36 @@ describe('daemon users', () => {
       await createDaemonUser({ displayName: 'NoMail' });
       expect(await findDaemonUserByEmail('nobody@openheaders.io')).toBeNull();
       expect(await findDaemonUserByEmail('   ')).toBeNull();
+    });
+  });
+
+  describe('setDaemonUserPassword', () => {
+    it('sets, replaces, and clears the opaque verifier; the record keeps validating', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+      expect(await setDaemonUserPassword(userId, 'scrypt$1$1$1$salt$hash')).toEqual({ ok: true });
+      let found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.passwordVerifier).toBe('scrypt$1$1$1$salt$hash');
+      expect(v.safeParse(DaemonUserRecordSchema, found).success).toBe(true);
+      expect(await setDaemonUserPassword(userId, 'scrypt$2$2$2$salt2$hash2')).toEqual({ ok: true });
+      found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.passwordVerifier).toBe('scrypt$2$2$2$salt2$hash2');
+      expect(await setDaemonUserPassword(userId, null)).toEqual({ ok: true });
+      found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.passwordVerifier).toBeUndefined();
+      expect(v.safeParse(DaemonUserRecordSchema, found).success).toBe(true);
+    });
+
+    it('refuses unknown and deactivated users', async () => {
+      expect(await setDaemonUserPassword('nope', 'v')).toEqual({ ok: false, reason: 'unknown-user' });
+      const created = await createDaemonUser({ displayName: 'Alice' });
+      if (!created.ok) throw new Error('setup failed');
+      await deactivateDaemonUser(created.record.user.id);
+      expect(await setDaemonUserPassword(created.record.user.id, 'v')).toEqual({
+        ok: false,
+        reason: 'user-deactivated',
+      });
     });
   });
 

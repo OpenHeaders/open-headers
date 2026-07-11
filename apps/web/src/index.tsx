@@ -17,6 +17,7 @@ import { bootWebHost } from '@/host/boot-web-host';
 import { installDaemonWire } from '@/host/daemon-wire';
 import { awaitPostJoinAdoption, decideGate, submitDaemonToken } from '@/host/join-gate';
 import { claimOidcToken, consumeOidcHash, describeOidcError, fetchOidcMeta } from '@/host/oidc-login';
+import { fetchPasswordMeta } from '@/host/password-login';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { InsecureContextNotice } from '@/InsecureContextNotice';
 import { LoginGate } from '@/LoginGate';
@@ -102,10 +103,14 @@ if (!window.isSecureContext) {
     mountWorkbench();
   } else if (ssoError !== null || (await decideGate()) === 'gate') {
     const oidcMeta = await fetchOidcMeta();
+    // Password login is composed daemon-side only when no OIDC provider
+    // is configured, so the probes are mutually exclusive by contract.
+    const passwordMeta = oidcMeta.enabled ? { enabled: false } : await fetchPasswordMeta();
     renderShell(
       <LoginGate
         wire={wire}
         ssoProvider={oidcMeta.enabled ? (oidcMeta.provider ?? 'SSO') : null}
+        passwordEnabled={passwordMeta.enabled}
         initialError={ssoError}
         onJoined={() => {
           void awaitPostJoinAdoption(wire).then(mountWorkbench);

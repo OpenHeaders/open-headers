@@ -174,9 +174,24 @@ export interface DaemonRpc {
         email: string | null;
         createdAt: number;
         deactivatedAt: number | null;
+        /** The user holds a password credential (never the verifier itself). */
+        hasPassword: boolean;
         grants: ReadonlyArray<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer'; origin?: 'idp' }>;
       }>;
     };
+  };
+
+  /**
+   * Set (or clear, `password: null`) a directory user's password for
+   * the daemon's local password login — the no-OIDC deployment's
+   * interactive login. Operator-driven by design: no email plane
+   * exists, so there is no self-service set/reset. The verifier is
+   * computed and stored daemon-side; the password itself is never
+   * persisted. Refused on deactivated users.
+   */
+  'oh.daemon.users.setPassword': {
+    req: { userId: string; password: string | null };
+    res: { ok: true } | { ok: false; error: string };
   };
 
   /**

@@ -18,6 +18,7 @@ import {
   Form,
   Input,
   List,
+  Modal,
   Popconfirm,
   Select,
   Spin,
@@ -42,6 +43,7 @@ interface DirectoryUser {
   email: string | null;
   createdAt: number;
   deactivatedAt: number | null;
+  hasPassword: boolean;
   grants: ReadonlyArray<{ workspaceId: string; role: DirectoryRole; origin?: 'idp' }>;
 }
 
@@ -172,6 +174,77 @@ const GrantsEditor: React.FC<{
   );
 };
 
+/**
+ * Set / reset / remove a directory user's local-login password. The
+ * password is sent once over the admin plane and hashed daemon-side;
+ * removing it only blocks NEW password logins — live sessions are
+ * revoked from the tokens section like any other.
+ */
+const PasswordModal: React.FC<{
+  user: DirectoryUser;
+  onClose: () => void;
+  onSetPassword: (userId: string, password: string | null) => Promise<void>;
+}> = ({ user, onClose, onSetPassword }) => {
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function apply(next: string | null): Promise<void> {
+    setBusy(true);
+    try {
+      await onSetPassword(user.userId, next);
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title={`${user.hasPassword ? 'Reset' : 'Set'} password — ${user.displayName}`}
+      onCancel={onClose}
+      footer={[
+        <Button key="cancel" onClick={onClose} disabled={busy}>
+          Cancel
+        </Button>,
+        <Button
+          key="save"
+          type="primary"
+          disabled={password.length < 8}
+          loading={busy}
+          onClick={() => void apply(password)}
+          data-testid="daemon-admin-password-save"
+        >
+          {user.hasPassword ? 'Reset password' : 'Set password'}
+        </Button>,
+      ]}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          The user signs in with their email and this password at the daemon's web gate. Share it with them directly —
+          it is hashed on the daemon and cannot be read back.
+        </Typography.Text>
+        <Input.Password
+          autoFocus
+          placeholder="New password (min 8 characters)"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onPressEnter={() => {
+            if (password.length >= 8 && !busy) void apply(password);
+          }}
+          disabled={busy}
+          data-testid="daemon-admin-password-input"
+        />
+        {user.hasPassword && (
+          <Button danger size="small" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={() => void apply(null)}>
+            Remove password
+          </Button>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 const DaemonAdminConsole: React.FC = () => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
@@ -180,6 +253,7 @@ const DaemonAdminConsole: React.FC = () => {
   const [users, setUsers] = useState<readonly DirectoryUser[] | null>(null);
   const [addForm] = Form.useForm<{ displayName: string; email: string }>();
   const [adding, setAdding] = useState(false);
+  const [passwordUser, setPasswordUser] = useState<DirectoryUser | null>(null);
 
   const workspaceName = useCallback(
     (id: string): string => workspaces.find((w) => w.id === id)?.name ?? id,
@@ -237,6 +311,20 @@ const DaemonAdminConsole: React.FC = () => {
         await refresh();
       } catch (err) {
         message.error(`Failed to grant: ${(err as Error).message}`);
+      }
+    },
+    [message, refresh],
+  );
+
+  const handleSetPassword = useCallback(
+    async (userId: string, password: string | null): Promise<void> => {
+      try {
+        const resp = await hostBridge.call('oh.daemon.users.setPassword', { userId, password });
+        if (!resp.ok) throw new Error(resp.error);
+        message.success(password === null ? 'Password removed.' : 'Password set.');
+        await refresh();
+      } catch (err) {
+        message.error(`Failed to update password: ${(err as Error).message}`);
       }
     },
     [message, refresh],
@@ -338,6 +426,15 @@ const DaemonAdminConsole: React.FC = () => {
                             </Tag>,
                           ]
                         : [
+                            <Button
+                              key="password"
+                              type="link"
+                              size="small"
+                              onClick={() => setPasswordUser(u)}
+                              data-testid={`daemon-admin-password-${u.userId}`}
+                            >
+                              {u.hasPassword ? 'Reset password' : 'Set password'}
+                            </Button>,
                             <Popconfirm
                               key="deactivate"
                               title="Deactivate this user?"
@@ -387,6 +484,10 @@ const DaemonAdminConsole: React.FC = () => {
           )}
         </div>
       </section>
+
+      {passwordUser && (
+        <PasswordModal user={passwordUser} onClose={() => setPasswordUser(null)} onSetPassword={handleSetPassword} />
+      )}
 
       {/* Tokens + pairing — the settings section rides the same
           oh.daemon.* channels, so it works here over the wire unchanged
