@@ -1,0 +1,5 @@
+# TLS termination for the daemon (docs/DAEMON_OPS.md). `localhost`
+# uses Caddy's internal CA; a real OH_DOMAIN gets automatic certificates.
+{$OH_DOMAIN:localhost} {
+	reverse_proxy daemon:8137
+}

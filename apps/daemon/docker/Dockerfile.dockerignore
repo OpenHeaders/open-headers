@@ -1,0 +1,13 @@
+# Build context = repo root (BuildKit picks this sidecar up for
+# apps/daemon/docker/Dockerfile). Installs and build outputs stay out —
+# the image builds everything from source; .git stays IN so the build
+# stamps `oh --version` with the real commit.
+**/node_modules
+**/dist
+**/dist-*
+**/.turbo
+**/test-results
+**/playwright-report
+**/*.log
+**/.DS_Store
+docs

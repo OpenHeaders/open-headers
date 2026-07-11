@@ -1,0 +1,58 @@
+# Composed deployment: daemon + TLS-terminating Caddy front — the
+# runnable twin of docs/DAEMON_OPS.md. From the repo root:
+#
+#   docker compose -f apps/daemon/docker/docker-compose.yml up -d
+#
+# Serves https://localhost by default (Caddy's internal CA — browsers
+# warn, curl needs -k). Production sets a real domain and Caddy issues
+# certificates automatically:
+#
+#   OH_DOMAIN=daemon.openheaders.io docker compose -f ... up -d
+#
+# First-boot token bootstrap — storage.json is single-writer, and the
+# CLI's running-daemon guard probes its OWN container's loopback, so it
+# cannot see the daemon service. STOP the daemon first or the mint is
+# clobbered by the daemon's next flush:
+#
+#   docker compose -f ... stop daemon
+#   docker compose -f ... run --rm daemon oh daemon show-token
+#   docker compose -f ... start daemon
+#
+# The daemon service publishes no ports: every request enters through
+# Caddy, which is what OH_DAEMON_TRUSTED_PROXY=1 asserts. Backups: see
+# docs/DAEMON_OPS.md — stop-copy the oh-daemon-data volume, or online
+# `sqlite3 oracle.db ".backup ..."`; never plain-cp a live oracle.db.
+
+name: openheaders-daemon
+
+services:
+  daemon:
+    build:
+      context: ../../..
+      dockerfile: apps/daemon/docker/Dockerfile
+    image: openheaders-daemon
+    restart: unless-stopped
+    environment:
+      OH_DAEMON_BIND_ADDRESS: 0.0.0.0
+      OH_DAEMON_TRUSTED_PROXY: '1'
+      OH_DAEMON_ALLOWED_HOSTS: ${OH_DOMAIN:-localhost}
+    volumes:
+      - oh-daemon-data:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      OH_DOMAIN: ${OH_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  oh-daemon-data:
+  caddy-data:
+  caddy-config:
