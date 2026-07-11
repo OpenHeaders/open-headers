@@ -1,6 +1,6 @@
 # Privacy Policy for Open Headers
 
-**Effective Date: [DATE — set at first release under the EULA]**
+**Effective Date: July 11, 2026**
 
 ## Introduction
 

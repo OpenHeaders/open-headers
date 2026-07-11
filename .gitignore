@@ -46,6 +46,9 @@ coverage/
 apps/extension/dist/
 apps/extension/releases/
 
+# Generated from root LICENSE.md at predist
+apps/desktop/build/license.txt
+
 # OS files
 Thumbs.db
 

@@ -21,6 +21,7 @@ import { createChildWindow, showMainWindow } from './window-manager';
 
 const HOMEPAGE_URL = 'https://openheaders.io';
 const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers-releases/issues/new';
+const EULA_URL = 'https://openheaders.io/eula';
 
 function openSettingsSurface(): void {
   // The tray-resident window is hidden, not destroyed, so the renderer
@@ -127,6 +128,7 @@ function template(): MenuItemConstructorOptions[] {
       submenu: [
         { label: 'Documentation', click: () => void shell.openExternal(HOMEPAGE_URL) },
         { label: 'Report an Issue', click: () => void shell.openExternal(ISSUES_URL) },
+        { label: 'License Agreement', click: () => void shell.openExternal(EULA_URL) },
         ...(!isMac && updateItems.length > 0
           ? ([{ type: 'separator' }, ...updateItems] as MenuItemConstructorOptions[])
           : []),

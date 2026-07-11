@@ -1,6 +1,6 @@
 # Open Headers — End User License Agreement
 
-**Effective date: [DATE — set at first public release]**
+**Effective date: July 11, 2026**
 
 This End User License Agreement (the "Agreement") is a legal agreement
 between you (an individual or a legal entity, "you") and **Bithub Team

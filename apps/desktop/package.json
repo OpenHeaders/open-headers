@@ -23,7 +23,7 @@
     "build": "cross-env NODE_ENV=production electron-vite build",
     "build:dev": "cross-env NODE_ENV=development electron-vite build",
     "build:web-bundle": "pnpm -w exec turbo build --filter=@openheaders/web",
-    "predist": "pnpm run build && pnpm run build:web-bundle",
+    "predist": "node scripts/build/generate-license-txt.js && pnpm run build && pnpm run build:web-bundle",
     "dist": "electron-builder --publish never",
     "dist:all": "pnpm run predist && electron-builder -mwl --x64 --arm64 --publish never",
     "dist:mac": "pnpm run predist && electron-builder --mac --publish never",
@@ -107,6 +107,7 @@
     "removePackageScripts": true,
     "nsis": {
       "oneClick": true,
+      "license": "build/license.txt",
       "perMachine": false,
       "artifactName": "${productName}-${version}-Setup.${ext}",
       "include": "build/windows/installer.nsh",

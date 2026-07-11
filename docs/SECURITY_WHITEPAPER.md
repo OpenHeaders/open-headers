@@ -1,7 +1,6 @@
 # Open Headers — Security Whitepaper
 
-**Status: draft for review — publish alongside the first release under
-the EULA.**
+**Published: July 11, 2026**
 
 Open Headers is a browser development toolkit: a desktop app, browser
 extensions, a multi-user daemon, a CLI, and an MCP server. This
