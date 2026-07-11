@@ -11,8 +11,9 @@
  *      `skipped` (no cache write) and loop.
  *   3. Sorts the eligible set (gate passed) by `priorityFrom` value,
  *      breaking ties with declared-list position.
- *   4. Executes the first eligible step via the `FetchAdapter`,
- *      extracts its captures, records status + byte count, loops.
+ *   4. Executes the first eligible step via the `FetchAdapter` (under
+ *      its optional per-step retry policy), extracts its captures,
+ *      records status + byte count, loops.
  *
  * Atomic refresh discipline (locked decision #14 + Phase I locked
  * decision #3): any step's fetch or extraction failure aborts the
@@ -44,9 +45,10 @@
  * fetch → apply extractors → advance.
  */
 
-import type { LiveWorkflow, WorkflowStep } from '../types/live';
+import { DEFAULT_RETRY_DELAY_MS } from '../schemas/live';
+import type { LiveWorkflow, StepRetryPolicy, WorkflowStep } from '../types/live';
 import { applyExtractor, type StepResponse } from './extractor';
-import { evaluateGate } from './gate-evaluator';
+import { evaluateGate, matchStatus } from './gate-evaluator';
 import { comparePriority, priorityValue } from './priority-evaluator';
 
 // ── Fetch adapter contract ────────────────────────────────────────
@@ -96,6 +98,11 @@ export interface ChainRunSuccess {
    * untouched so prior-run values remain resolvable.
    */
   skippedStepIds: string[];
+  /**
+   * Attempts each completed step took (1 = first try succeeded).
+   * Observability — lets the log show "recovered on attempt 2 of 3".
+   */
+  stepAttempts: Map<string, number>;
   /** Wall-clock ms when the chain finished resolving the last step. */
   completedAt: number;
 }
@@ -108,6 +115,9 @@ export interface ChainRunFailure {
   failedPhase: 'fetch' | 'extract' | 'graph';
   /** Human-readable failure message. */
   failedReason: string;
+  /** Attempts the failing step made (present on `fetch` failures when a
+   *  retry policy was exhausted; 1 without a policy). */
+  attemptsMade?: number;
   /** Extractor failure detail when `failedPhase === 'extract'`. */
   extractorFailure?: {
     captureName: string;
@@ -153,12 +163,21 @@ export async function runChain(args: {
   context: ChainExecutionContext;
   /** Injectable clock — defaults to `Date.now`. Tests override. */
   now?: () => number;
+  /** Injectable retry-delay wait — defaults to `setTimeout`. Tests override. */
+  sleep?: (ms: number) => Promise<void>;
 }): Promise<ChainRunOutcome> {
-  const { workflow, adapter, context, now = () => Date.now() } = args;
+  const {
+    workflow,
+    adapter,
+    context,
+    now = () => Date.now(),
+    sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  } = args;
 
   const stepCaptures = new Map<string, Map<string, string>>();
   const stepResponseBytes = new Map<string, number>();
   const stepStatuses = new Map<string, number>();
+  const stepAttempts = new Map<string, number>();
   const state = new Map<string, StepState>();
   const skippedStepIds: string[] = [];
 
@@ -238,24 +257,25 @@ export async function runChain(args: {
     }));
     sortKeys.sort(comparePriority);
 
-    // Execute the first eligible step.
+    // Execute the first eligible step — retrying per its policy.
     const step = sortKeys[0].step;
-    let response: StepResponse;
-    try {
-      response = await adapter.executeStep(step, stepCaptures, context);
-    } catch (err) {
+    const attempt = await executeStepWithRetry(step, adapter, stepCaptures, context, sleep);
+    if (!attempt.ok) {
       state.set(step.id, 'failed');
       return {
         ok: false,
         failedStepId: step.id,
         failedPhase: 'fetch',
-        failedReason: err instanceof Error ? err.message : String(err),
+        failedReason: attempt.reason,
+        attemptsMade: attempt.attempts,
         partialStepCaptures: stepCaptures,
         partialStepResponseBytes: stepResponseBytes,
         partialStepStatuses: stepStatuses,
         skippedStepIds,
       };
     }
+    const response = attempt.response;
+    stepAttempts.set(step.id, attempt.attempts);
 
     // Record byte count — platform-agnostic (TextEncoder is on every
     // supported runtime). Approximate for multi-byte UTF-8 in the
@@ -295,6 +315,66 @@ export async function runChain(args: {
     stepResponseBytes,
     stepStatuses,
     skippedStepIds,
+    stepAttempts,
     completedAt: now(),
+  };
+}
+
+// ── Retry policy ──────────────────────────────────────────────────
+
+type StepAttemptOutcome =
+  | { ok: true; response: StepResponse; attempts: number }
+  | { ok: false; reason: string; attempts: number };
+
+/**
+ * Delay before the given attempt (2-based — no delay precedes the first
+ * try). `'exponential'` doubles the base per elapsed attempt:
+ * base, 2×base, 4×base, … `'fixed'` (the default) repeats the base.
+ *
+ * Exported so the editor can preview the schedule a policy produces.
+ */
+export function retryDelayMs(policy: StepRetryPolicy, attempt: number): number {
+  const base = policy.delayMs ?? DEFAULT_RETRY_DELAY_MS;
+  if (policy.backoff !== 'exponential') return base;
+  return base * 2 ** (attempt - 2);
+}
+
+/**
+ * Run one step's fetch under its retry policy. Fetch-phase throws are
+ * always retried while attempts remain; a response whose status matches
+ * `retryOn` is retried too — EXCEPT on the final attempt, where the
+ * response is accepted as-is so status gates and extractors still see
+ * the 4xx/5xx (a status match is "worth another try", not an error).
+ * Extract failures never reach here — they abort in the caller.
+ */
+async function executeStepWithRetry(
+  step: WorkflowStep,
+  adapter: FetchAdapter,
+  stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>,
+  context: ChainExecutionContext,
+  sleep: (ms: number) => Promise<void>,
+): Promise<StepAttemptOutcome> {
+  const policy = step.retry;
+  const maxAttempts = policy?.maxAttempts ?? 1;
+  let lastError = '';
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (attempt > 1 && policy) {
+      const delay = retryDelayMs(policy, attempt);
+      if (delay > 0) await sleep(delay);
+    }
+    let response: StepResponse;
+    try {
+      response = await adapter.executeStep(step, stepCaptures, context);
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      continue;
+    }
+    if (policy?.retryOn && attempt < maxAttempts && matchStatus(response.status, policy.retryOn)) continue;
+    return { ok: true, response, attempts: attempt };
+  }
+  return {
+    ok: false,
+    reason: maxAttempts > 1 ? `${lastError} (after ${maxAttempts} attempts)` : lastError,
+    attempts: maxAttempts,
   };
 }

@@ -205,6 +205,48 @@ export const PriorityRefSchema = v.object({
   sort: v.optional(PrioritySortModeSchema),
 });
 
+// ── Step retry policy + timeout ───────────────────────────────────
+
+/** Bounds on the per-step retry policy. `maxAttempts` counts the first
+ *  try — 2 is the smallest value that actually retries. */
+export const MIN_RETRY_ATTEMPTS = 2;
+export const MAX_RETRY_ATTEMPTS = 10;
+export const MAX_RETRY_DELAY_MS = 60_000;
+/** Delay applied between attempts when the policy omits `delayMs`. */
+export const DEFAULT_RETRY_DELAY_MS = 1_000;
+
+export const RetryBackoffSchema = v.picklist(['fixed', 'exponential'] as const);
+
+/**
+ * Per-step retry policy. Fetch-phase failures (network, DNS, timeout)
+ * are ALWAYS retried while attempts remain; `retryOn` additionally
+ * retries responses whose status matches (reusing the gate vocabulary,
+ * e.g. `'5xx'` or `['eq', 429]`). Extract failures never retry — they
+ * are configuration errors a re-fetch can't fix. When `retryOn` still
+ * matches on the final attempt the response is accepted as-is, so
+ * status gates and extractors keep seeing 4xx/5xx bodies.
+ */
+export const StepRetryPolicySchema = v.object({
+  maxAttempts: v.pipe(v.number(), v.integer(), v.minValue(MIN_RETRY_ATTEMPTS), v.maxValue(MAX_RETRY_ATTEMPTS)),
+  /** Base delay between attempts; defaults to {@link DEFAULT_RETRY_DELAY_MS}. */
+  delayMs: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(MAX_RETRY_DELAY_MS))),
+  /** `'exponential'` doubles the base delay per attempt; default `'fixed'`. */
+  backoff: v.optional(RetryBackoffSchema),
+  /** Extra status-based retry trigger on top of the always-on network retry. */
+  retryOn: v.optional(StatusMatchSchema),
+});
+
+/** Bounds on the per-step, per-attempt timeout. */
+export const MIN_STEP_TIMEOUT_MS = 100;
+export const MAX_STEP_TIMEOUT_MS = 300_000;
+
+export const StepTimeoutMsSchema = v.pipe(
+  v.number(),
+  v.integer(),
+  v.minValue(MIN_STEP_TIMEOUT_MS),
+  v.maxValue(MAX_STEP_TIMEOUT_MS),
+);
+
 // ── Workflow step ─────────────────────────────────────────────────
 
 export const WorkflowStepSchema = v.object({
@@ -233,6 +275,17 @@ export const WorkflowStepSchema = v.object({
    * Absent = declared-list position breaks ties.
    */
   priorityFrom: v.optional(PriorityRefSchema),
+  /**
+   * Per-step retry policy. Absent = one attempt (any fetch failure
+   * aborts the run immediately, today's atomic-refresh behavior).
+   */
+  retry: v.optional(StepRetryPolicySchema),
+  /**
+   * Per-attempt timeout in milliseconds — the transport aborts the
+   * request (including the body read) past this ceiling. Absent = no
+   * ceiling beyond the host's own network stack.
+   */
+  timeoutMs: v.optional(StepTimeoutMsSchema),
 });
 
 // ── Refresh policy ────────────────────────────────────────────────

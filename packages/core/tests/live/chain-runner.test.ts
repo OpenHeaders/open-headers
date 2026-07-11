@@ -428,6 +428,22 @@ describe('runChain — DAG (Phase I)', () => {
     if (outcome.ok) expect(outcome.skippedStepIds).toEqual(['middle', 'tail']);
   });
 
+  it('success outcome records one attempt per step without a retry policy', async () => {
+    const wf = workflow([singleStep('only', 'reqonly01', [])]);
+    const adapter: FetchAdapter = {
+      async executeStep() {
+        return jsonResponse({});
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.stepAttempts.get('only')).toBe(1);
+  });
+
   it('atomic abort — late-step failure reports zero captures from this run', async () => {
     const wf = workflow([
       dagStep('p1', { dependsOn: [], captures: [['v', { kind: 'whole-body' }]] }),
@@ -451,6 +467,148 @@ describe('runChain — DAG (Phase I)', () => {
       // p1 ran and extracted successfully; its captures appear in the
       // partial trail (observability-only — NOT committed to cache).
       expect(outcome.partialStepCaptures.get('p1')?.get('v')).toBe('ok');
+    }
+  });
+});
+
+// ── Retry policy ──────────────────────────────────────────────────
+
+describe('runChain — retry policy', () => {
+  const context = { workflowUid: 'wflow001', workspaceId: 'ws', environmentId: null };
+
+  function retryStep(id: string, retry: WorkflowStep['retry'], timeoutMs?: number): WorkflowStep {
+    return { ...singleStep(id, `req${id.slice(0, 5).padEnd(6, 'x')}`), retry, timeoutMs };
+  }
+
+  it('retries a fetch failure and succeeds on the second attempt', async () => {
+    const wf = workflow([retryStep('flaky', { maxAttempts: 3 })]);
+    const executeStep = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockResolvedValue(jsonResponse({}));
+    const sleep = vi.fn(async () => {});
+    const outcome = await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(outcome.ok).toBe(true);
+    expect(executeStep).toHaveBeenCalledTimes(2);
+    if (outcome.ok) expect(outcome.stepAttempts.get('flaky')).toBe(2);
+  });
+
+  it('exhausts attempts and reports the attempt count in the failure', async () => {
+    const wf = workflow([retryStep('down', { maxAttempts: 3, delayMs: 50 })]);
+    const executeStep = vi.fn().mockRejectedValue(new Error('DNS broke'));
+    const sleep = vi.fn(async () => {});
+    const outcome = await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(executeStep).toHaveBeenCalledTimes(3);
+    expect(outcome).toMatchObject({ ok: false, failedStepId: 'down', failedPhase: 'fetch', attemptsMade: 3 });
+    if (!outcome.ok) expect(outcome.failedReason).toBe('DNS broke (after 3 attempts)');
+  });
+
+  it('does not retry without a policy — first fetch failure aborts', async () => {
+    const wf = workflow([singleStep('plain', 'reqplain1')]);
+    const executeStep = vi.fn().mockRejectedValue(new Error('offline'));
+    const sleep = vi.fn(async () => {});
+    const outcome = await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(executeStep).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+    if (!outcome.ok) {
+      expect(outcome.failedReason).toBe('offline');
+      expect(outcome.attemptsMade).toBe(1);
+    }
+  });
+
+  it('retryOn 5xx retries a 503 and accepts the recovered 200', async () => {
+    const wf = workflow([retryStep('svc', { maxAttempts: 3, retryOn: '5xx' })]);
+    const executeStep = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 503, statusText: 'Service Unavailable', url: '', headers: [], body: '' })
+      .mockResolvedValue(jsonResponse({}));
+    const sleep = vi.fn(async () => {});
+    const outcome = await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(outcome.ok).toBe(true);
+    expect(executeStep).toHaveBeenCalledTimes(2);
+    if (outcome.ok) {
+      expect(outcome.stepStatuses.get('svc')).toBe(200);
+      expect(outcome.stepAttempts.get('svc')).toBe(2);
+    }
+  });
+
+  it('retryOn exhaustion accepts the final matching response instead of failing', async () => {
+    const wf = workflow([retryStep('svc', { maxAttempts: 2, retryOn: ['eq', 429] })]);
+    const executeStep = vi
+      .fn()
+      .mockResolvedValue({ status: 429, statusText: 'Too Many Requests', url: '', headers: [], body: '' });
+    const sleep = vi.fn(async () => {});
+    const outcome = await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(executeStep).toHaveBeenCalledTimes(2);
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.stepStatuses.get('svc')).toBe(429);
+  });
+
+  it('retryOn does not retry a non-matching status', async () => {
+    const wf = workflow([retryStep('svc', { maxAttempts: 3, retryOn: '5xx' })]);
+    const executeStep = vi
+      .fn()
+      .mockResolvedValue({ status: 404, statusText: 'Not Found', url: '', headers: [], body: '' });
+    const sleep = vi.fn(async () => {});
+    const outcome = await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(executeStep).toHaveBeenCalledTimes(1);
+    expect(outcome.ok).toBe(true);
+  });
+
+  it('fixed backoff repeats the base delay; default delay is 1000 ms', async () => {
+    const wf = workflow([retryStep('down', { maxAttempts: 3 })]);
+    const executeStep = vi.fn().mockRejectedValue(new Error('x'));
+    const sleep = vi.fn(async () => {});
+    await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(sleep.mock.calls.map((c) => c[0])).toEqual([1000, 1000]);
+  });
+
+  it('exponential backoff doubles the base delay per attempt', async () => {
+    const wf = workflow([retryStep('down', { maxAttempts: 4, delayMs: 500, backoff: 'exponential' })]);
+    const executeStep = vi.fn().mockRejectedValue(new Error('x'));
+    const sleep = vi.fn(async () => {});
+    await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(sleep.mock.calls.map((c) => c[0])).toEqual([500, 1000, 2000]);
+  });
+
+  it('zero delay skips the sleep call entirely', async () => {
+    const wf = workflow([retryStep('down', { maxAttempts: 2, delayMs: 0 })]);
+    const executeStep = vi.fn().mockRejectedValue(new Error('x'));
+    const sleep = vi.fn(async () => {});
+    await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('extract failures never retry', async () => {
+    const wf = workflow([
+      {
+        ...retryStep('svc', { maxAttempts: 3 }),
+        captures: [{ uid: 'cap00bad', name: 'bad', extractor: { kind: 'json-path', path: '$.missing' } }],
+      },
+    ]);
+    const executeStep = vi.fn().mockResolvedValue(jsonResponse({ other: 'x' }));
+    const sleep = vi.fn(async () => {});
+    const outcome = await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(executeStep).toHaveBeenCalledTimes(1);
+    expect(outcome).toMatchObject({ ok: false, failedPhase: 'extract' });
+  });
+
+  it('a retried step failure preserves earlier steps in the partial trail', async () => {
+    const wf = workflow([
+      dagStep('first', { captures: [['v', { kind: 'whole-body' }]] }),
+      { ...dagStep('second', { dependsOn: ['first'] }), retry: { maxAttempts: 2 } },
+    ]);
+    const executeStep = vi.fn(async (step: WorkflowStep) => {
+      if (step.id === 'first') return { status: 200, statusText: 'OK', url: '', headers: [], body: 'ok' };
+      throw new Error('down');
+    });
+    const sleep = vi.fn(async () => {});
+    const outcome = await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.failedStepId).toBe('second');
+      expect(outcome.attemptsMade).toBe(2);
+      expect(outcome.partialStepCaptures.get('first')?.get('v')).toBe('ok');
     }
   });
 });

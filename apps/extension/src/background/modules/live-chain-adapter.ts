@@ -103,6 +103,7 @@ function buildFetchAdapter(workspaceId: string, workflowUid: string, environment
           workflowUid,
           stepId: step.id,
           stepCaptures,
+          timeoutMs: step.timeoutMs,
         }),
       );
 
@@ -187,6 +188,15 @@ async function commitSuccess(
       `Workflow ${workflow.uid} refresh skipped ${outcome.skippedStepIds.length} step(s): ${outcome.skippedStepIds.join(', ')}`,
     );
     emitSkipEntries(workspaceId, workflow, environmentId, outcome.skippedStepIds);
+  }
+
+  for (const [stepId, attempts] of outcome.stepAttempts) {
+    if (attempts > 1) {
+      logger.info(
+        'LiveChainAdapter',
+        `Workflow ${workflow.uid} step "${stepId}" recovered on attempt ${attempts} of its retry policy`,
+      );
+    }
   }
 
   const stepCaptures: Record<string, Record<string, string>> = {};

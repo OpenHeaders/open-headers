@@ -104,6 +104,15 @@ async function commitSuccess(
   // `skippedStepIds` into the cache write, where the skip-merge
   // preserves their prior captures (resolvable by `{{live.X}}`) and
   // stamps the per-step outcome map.
+  for (const [stepId, attempts] of outcome.stepAttempts) {
+    if (attempts > 1) {
+      logger.info(
+        'HostLiveRunner',
+        `Workflow ${workflow.uid} step "${stepId}" recovered on attempt ${attempts} of its retry policy`,
+      );
+    }
+  }
+
   const stepCaptures: Record<string, Record<string, string>> = {};
   for (const [stepId, captures] of outcome.stepCaptures) {
     stepCaptures[stepId] = Object.fromEntries(captures);

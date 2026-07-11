@@ -17,10 +17,12 @@ import type {
   PriorityRefSchema,
   PrioritySortModeSchema,
   RefreshPolicySchema,
+  RetryBackoffSchema,
   StatusClassSchema,
   StatusMatchSchema,
   StepGateClauseSchema,
   StepGateSchema,
+  StepRetryPolicySchema,
   WorkflowStepSchema,
 } from '../schemas/live';
 
@@ -56,6 +58,12 @@ export type PrioritySortMode = v.InferOutput<typeof PrioritySortModeSchema>;
 
 /** Reference to an ancestor step's capture, used for runtime ordering tiebreak. */
 export type PriorityRef = v.InferOutput<typeof PriorityRefSchema>;
+
+/** Delay progression between retry attempts — defaults to `'fixed'`. */
+export type RetryBackoff = v.InferOutput<typeof RetryBackoffSchema>;
+
+/** Per-step retry policy — see {@link StepRetryPolicySchema}. */
+export type StepRetryPolicy = v.InferOutput<typeof StepRetryPolicySchema>;
 
 /** How often (and by what trigger) a workflow re-runs. */
 export type RefreshPolicy = v.InferOutput<typeof RefreshPolicySchema>;

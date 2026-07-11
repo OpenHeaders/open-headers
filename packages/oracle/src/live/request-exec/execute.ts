@@ -31,9 +31,15 @@ import {
  *  here discards only bytes that would have been sliced off anyway. */
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
+export interface ExecuteOverTransportOptions {
+  /** Per-attempt timeout the transport enforces — see {@link TransportRequest.timeoutMs}. */
+  timeoutMs?: number;
+}
+
 export async function executeOverTransport(
   resolved: ResolvedRequest,
   transport: RequestTransport,
+  options: ExecuteOverTransportOptions = {},
 ): Promise<ExecutedRequestSnapshot> {
   const trimmed = resolved.url.trim();
   if (!trimmed) return errorSnapshot('URL is empty');
@@ -62,6 +68,7 @@ export async function executeOverTransport(
     redirect: resolved.followRedirects === false ? 'manual' : 'follow',
     credentials: resolved.credentialsMode,
     maxBodyBytes: MAX_BODY_BYTES,
+    timeoutMs: options.timeoutMs,
   };
 
   const startedAt = performance.now();

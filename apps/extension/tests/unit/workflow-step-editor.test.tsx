@@ -3,11 +3,11 @@
  *
  * The editor is big; these tests target the new surfaces:
  *   1. Show-but-disable catalog — step-type selector (Foreach + Composite
- *      options disabled), Retry policy + Timeout (ms) collapse items
- *      (`collapsible: 'disabled'`).
+ *      options disabled).
  *   2. `Depends on` section presence + clear button emission.
  *   3. Priority row `Clear` emits `priorityFrom: undefined`.
  *   4. `Run condition` count badge reflects the gate's clause count.
+ *   5. Retry policy + Timeout sections — summaries + edit/clear emission.
  *
  * Existing behavior (request select, captures, reorder) stays under the
  * legacy suite — this file is scoped to the new fields.
@@ -47,6 +47,14 @@ afterEach(() => {
 
 function mkStep(overrides: Partial<DraftStep> = {}): DraftStep {
   return { uid: 'stprefrs', id: 'refresh', requestUid: 'reqrefrsh', captures: [], ...overrides };
+}
+
+/** Resolve an InputNumber's editable `<input>` from its testid — AntD may
+ *  stamp the data attribute on the inner input or on a wrapper. */
+function numberInput(testId: string): HTMLInputElement | null {
+  const el = screen.getByTestId(testId);
+  if (el.tagName === 'INPUT') return el as HTMLInputElement;
+  return el.querySelector('input');
 }
 
 function renderStep(step: DraftStep, propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {}) {
@@ -137,18 +145,49 @@ describe('WorkflowStepEditor — Phase I', () => {
     }
   });
 
-  it('Retry policy collapse header is disabled with the future-feature tooltip', () => {
+  // ── Retry policy + Timeout sections (live editors) ─────────────────
+
+  it('Retry policy collapse header is enabled and summarizes (none) without a policy', () => {
     renderStep(mkStep());
-    // AntD's disabled Collapse header renders as role=button with
-    // aria-disabled="true". The accessible name picks up the label span —
-    // we match /Retry policy/i so the (coming soon) suffix doesn't matter.
     const header = screen.getByRole('button', { name: /Retry policy/i });
-    expect(header.getAttribute('aria-disabled')).toBe('true');
+    expect(header.getAttribute('aria-disabled')).not.toBe('true');
+    expect(header.textContent).toContain('(none)');
   });
 
-  it('Timeout (ms) collapse header is disabled with the future-feature tooltip', () => {
-    renderStep(mkStep());
-    const header = screen.getByRole('button', { name: /Timeout \(ms\)/i });
-    expect(header.getAttribute('aria-disabled')).toBe('true');
+  it('Retry policy header summarizes attempts + backoff when a policy is set', () => {
+    renderStep(mkStep({ retry: { maxAttempts: 4, backoff: 'exponential' } }));
+    const header = screen.getByRole('button', { name: /Retry policy/i });
+    expect(header.textContent).toContain('(4 attempts, exponential)');
+  });
+
+  it('setting attempts creates a policy; clearing the field removes it', () => {
+    const { onChange } = renderStep(mkStep({ retry: { maxAttempts: 3 } }));
+    fireEvent.click(screen.getByRole('button', { name: /Retry policy/i }));
+    const attempts = numberInput('wf-step-1-retry-attempts');
+    expect(attempts).not.toBeNull();
+    fireEvent.change(attempts as HTMLInputElement, { target: { value: '5' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retry: { maxAttempts: 5 } }));
+    fireEvent.change(attempts as HTMLInputElement, { target: { value: '' } });
+    const last = onChange.mock.calls.at(-1)?.[0] as DraftStep;
+    expect(last.retry).toBeUndefined();
+  });
+
+  it('Timeout header summarizes the ceiling; editing the field emits timeoutMs', () => {
+    const { onChange } = renderStep(mkStep({ timeoutMs: 10_000 }));
+    const header = screen.getByRole('button', { name: /Timeout/i });
+    expect(header.getAttribute('aria-disabled')).not.toBe('true');
+    expect(header.textContent).toContain('(10000 ms)');
+    fireEvent.click(header);
+    const input = numberInput('wf-step-1-timeout');
+    fireEvent.change(input as HTMLInputElement, { target: { value: '2500' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 2500 }));
+  });
+
+  it('Timeout Clear button removes the ceiling', () => {
+    const { onChange } = renderStep(mkStep({ timeoutMs: 5_000 }));
+    fireEvent.click(screen.getByRole('button', { name: /Timeout/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Clear$/ }));
+    const last = onChange.mock.calls.at(-1)?.[0] as DraftStep;
+    expect(last.timeoutMs).toBeUndefined();
   });
 });

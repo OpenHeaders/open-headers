@@ -56,7 +56,14 @@ export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): Fetch
       const prepared = prepareRequest ? prepareRequest(request) : request;
 
       const snapshot = await withRefreshRateLimit(request.url, () =>
-        runStepRequest(prepared, { workspaceId, environmentId, stepCaptures, transport, refreshOAuth }),
+        runStepRequest(prepared, {
+          workspaceId,
+          environmentId,
+          stepCaptures,
+          transport,
+          refreshOAuth,
+          timeoutMs: step.timeoutMs,
+        }),
       );
 
       if (snapshot.error != null) {

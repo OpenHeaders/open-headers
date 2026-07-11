@@ -182,3 +182,50 @@ describe('createNodeRequestTransport', () => {
     await expect(createNodeRequestTransport().send(makeRequest())).rejects.toThrow(/weird boom/);
   });
 });
+
+describe('createNodeRequestTransport — per-attempt timeout', () => {
+  it('passes no abort signal when timeoutMs is absent', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await createNodeRequestTransport().send(makeRequest());
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.signal).toBeUndefined();
+  });
+
+  it('aborts a hung fetch and surfaces a TransportError naming the timeout', async () => {
+    fetchMock.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+    );
+    const attempt = createNodeRequestTransport().send(makeRequest({ timeoutMs: 20 }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow('Request timed out after 20 ms.');
+  });
+
+  it('aborts a stalled body read past the deadline', async () => {
+    fetchMock.mockImplementation((_url: string, init: RequestInit) => {
+      // Headers arrive instantly; the body stream then stalls forever. The
+      // pull promise rejects on abort, mirroring how a real fetch body
+      // reader behaves when its request signal fires.
+      const stream = new ReadableStream({
+        pull(_controller) {
+          return new Promise<void>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+          });
+        },
+      });
+      return Promise.resolve(new Response(stream, { status: 200 }));
+    });
+    await expect(createNodeRequestTransport().send(makeRequest({ timeoutMs: 20 }))).rejects.toThrow(
+      'Request timed out after 20 ms.',
+    );
+  });
+
+  it('a response inside the deadline resolves normally', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    const res = await createNodeRequestTransport().send(makeRequest({ timeoutMs: 5_000 }));
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('ok');
+  });
+});

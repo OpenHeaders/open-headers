@@ -61,6 +61,8 @@ export interface LiveChainExecuteOptions {
    * request resolve correctly.
    */
   stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>;
+  /** Per-attempt timeout from the step definition, enforced by the transport. */
+  timeoutMs?: number;
 }
 
 /**
@@ -107,6 +109,7 @@ export async function executeForLiveChain(
     workspaceId: options.workspaceId,
     environmentId: options.environmentId,
     stepCaptures: options.stepCaptures,
+    timeoutMs: options.timeoutMs,
     transport: browserRequestTransport,
     refreshOAuth: (auth) =>
       performOAuthRefresh(auth, options.workspaceId).catch((err) => {

@@ -68,6 +68,7 @@ function successOutcome(overrides: Record<string, unknown> = {}) {
     ok: true,
     stepCaptures: new Map([['s1', new Map([['token', 'abc']])]]),
     stepResponseBytes: new Map([['s1', 12]]),
+    stepAttempts: new Map([['s1', 1]]),
     completedAt: 1_000,
     skippedStepIds: [],
     ...overrides,

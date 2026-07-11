@@ -10,16 +10,17 @@
  *   - `dependsOn` multi-select: picks ancestor steps by id.
  *   - `runIf` gate section (`StepGateEditor`).
  *   - `priorityFrom` row (step + capture + sort).
- *   - Disabled step-type selector (Request / Foreach / Composite) +
- *     disabled Retry + Timeout rows so the show-but-disable catalog is
- *     complete. Each disabled affordance carries a tooltip naming the
- *     future capability; clicking has no effect.
+ *   - `retry` policy row (attempts + delay + backoff + retry-on) and
+ *     `timeoutMs` row (per-attempt ceiling).
+ *   - Disabled step-type selector (Request / Foreach / Composite) — the
+ *     remaining show-but-disable catalog entry, with a tooltip naming
+ *     the future capability.
  */
 
 import { DeleteOutlined, DownOutlined, InfoCircleOutlined, UpOutlined } from '@ant-design/icons';
 import type { DraftCapture, DraftStep, StructuralError } from '@openheaders/core/live';
 import { newDraftCapture } from '@openheaders/core/live';
-import type { PriorityRef, StepGate } from '@openheaders/core/types';
+import type { PriorityRef, StepGate, StepRetryPolicy } from '@openheaders/core/types';
 import { Button, Collapse, Input, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -211,6 +212,27 @@ const WorkflowStepEditor: React.FC<Props> = ({
       delete nextStep.priorityFrom;
     } else {
       nextStep.priorityFrom = next;
+    }
+    onChange(nextStep);
+  };
+
+  // ── retry + timeout helpers ─────────────────────────────────────
+  const setRetry = (next: StepRetryPolicy | undefined) => {
+    const nextStep = { ...step };
+    if (next === undefined) {
+      delete nextStep.retry;
+    } else {
+      nextStep.retry = next;
+    }
+    onChange(nextStep);
+  };
+
+  const setTimeoutMs = (next: number | undefined) => {
+    const nextStep = { ...step };
+    if (next === undefined) {
+      delete nextStep.timeoutMs;
+    } else {
+      nextStep.timeoutMs = next;
     }
     onChange(nextStep);
   };
@@ -495,10 +517,14 @@ const WorkflowStepEditor: React.FC<Props> = ({
             priority,
             priorityStepOptions,
             priorityCaptureOptions,
+            retry: step.retry,
+            timeoutMs: step.timeoutMs,
             handleDependsOnChange,
             clearExplicitDependsOn,
             handleRunIfChange,
             setPriority,
+            setRetry,
+            setTimeoutMs,
           })}
         />
       </Space>

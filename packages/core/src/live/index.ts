@@ -13,7 +13,7 @@ export type {
   ChainRunSuccess,
   FetchAdapter,
 } from './chain-runner';
-export { effectiveDependsOn, runChain } from './chain-runner';
+export { effectiveDependsOn, retryDelayMs, runChain } from './chain-runner';
 export type { CircuitSnapshot, CircuitState } from './circuit-breaker';
 export {
   BACKOFF_MULTIPLIER,

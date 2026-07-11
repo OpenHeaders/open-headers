@@ -56,29 +56,66 @@ export const browserRequestTransport: RequestTransport = {
     const body = buildBody(request.body);
     if (body !== undefined) init.body = body;
 
-    let response: Response;
-    try {
-      response = await withHostAccess(request.url, () => fetch(request.url, init));
-    } catch (err) {
-      throw new TransportError(classifyFetchFailure(request.url, err));
-    }
+    // Per-attempt timeout — one deadline spans the whole round-trip
+    // (connect + response + body read); the abort also cancels a body
+    // stream stalled mid-read, which a fetch-only signal would miss.
+    const deadline = startDeadline(request.timeoutMs);
+    if (deadline) init.signal = deadline.signal;
 
-    const outHeaders: TransportHeader[] = [];
-    response.headers.forEach((value, key) => {
-      outHeaders.push({ key, value });
-    });
-    const { body: responseBody, bodyBytes, bodyTruncated } = await readCappedBody(response, request.maxBodyBytes);
-    return {
-      status: response.status,
-      statusText: response.statusText,
-      url: response.url || request.url,
-      headers: outHeaders,
-      body: responseBody,
-      bodyBytes,
-      bodyTruncated,
-    };
+    try {
+      let response: Response;
+      try {
+        response = await withHostAccess(request.url, () => fetch(request.url, init));
+      } catch (err) {
+        if (deadline?.expired()) throw timeoutError(request.timeoutMs);
+        throw new TransportError(classifyFetchFailure(request.url, err));
+      }
+
+      const outHeaders: TransportHeader[] = [];
+      response.headers.forEach((value, key) => {
+        outHeaders.push({ key, value });
+      });
+      let read: Awaited<ReturnType<typeof readCappedBody>>;
+      try {
+        read = await readCappedBody(response, request.maxBodyBytes);
+      } catch (err) {
+        if (deadline?.expired()) throw timeoutError(request.timeoutMs);
+        throw err;
+      }
+      return {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url || request.url,
+        headers: outHeaders,
+        body: read.body,
+        bodyBytes: read.bodyBytes,
+        bodyTruncated: read.bodyTruncated,
+      };
+    } finally {
+      deadline?.clear();
+    }
   },
 };
+
+/** Arm an abort deadline for the round-trip; `null` when no timeout is set. */
+function startDeadline(timeoutMs: number | undefined) {
+  if (timeoutMs === undefined) return null;
+  const controller = new AbortController();
+  let expired = false;
+  const timer = setTimeout(() => {
+    expired = true;
+    controller.abort();
+  }, timeoutMs);
+  return {
+    signal: controller.signal,
+    expired: () => expired,
+    clear: () => clearTimeout(timer),
+  };
+}
+
+function timeoutError(timeoutMs: number | undefined): TransportError {
+  return new TransportError(`Request timed out after ${timeoutMs} ms.`);
+}
 
 /**
  * Stream the response body, retaining at most `maxBodyBytes` and aborting

@@ -29,6 +29,8 @@ export interface RunStepRequestOptions {
   transport: RequestTransport;
   /** Optional host hook to refresh an expired OAuth token before send. */
   refreshOAuth?: OAuthRefreshFn;
+  /** Per-attempt timeout the transport enforces on the wire round-trip. */
+  timeoutMs?: number;
 }
 
 export async function runStepRequest(
@@ -61,7 +63,7 @@ export async function runStepRequest(
     }
   }
 
-  const wireResult = await executeOverTransport(outcome.resolved, options.transport);
+  const wireResult = await executeOverTransport(outcome.resolved, options.transport, { timeoutMs: options.timeoutMs });
 
   // ── TOTP cooldown record ──
   // Only on a successful round-trip — a fetch that never reached the wire
