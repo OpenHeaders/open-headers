@@ -74,6 +74,7 @@ import WorkbenchTabBody from './components/shell/WorkbenchTabBody';
 import WorkbenchToolWindow from './components/shell/WorkbenchToolWindow';
 import { VariablePopoverProvider } from './components/template-input/VariablePopoverHost';
 import OrgWorkspaceAccessNotice from './components/workspace/OrgWorkspaceAccessNotice';
+import { renderWorkspacePrefix } from './components/workspace/workspace-prefix';
 import ImportExportModals, { type ImportExportModalsHandle } from './components/workspace-export/ImportExportModals';
 import { findLeaf } from './editor-groups';
 import {
@@ -571,7 +572,17 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       // discard-drafts modal when zero tabs are actually open. Use the
       // current `allTabs` array's `dirty` flag instead.
       const hasDirty = allTabs.some((t) => t.dirty);
-      const targetName = workspacesApi.workspaces.find((w) => w.id === targetId)?.name;
+      const targetWs = workspacesApi.workspaces.find((w) => w.id === targetId);
+      const targetName = targetWs?.name;
+      // The workspace prefix glyph inline before its name, so the toast
+      // reads with the same icon the switcher shows.
+      const switchedContent = (suffix: string): React.ReactNode => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          {`Switched this ${instanceLabel()} to`}
+          {renderWorkspacePrefix({ icon: targetWs?.icon, color: targetWs?.color }, token, { size: 16 })}
+          {`${targetName ?? ''}${suffix}`}
+        </span>
+      );
       const doSwitch = async (): Promise<void> => {
         // Switch this tab's binding — the slice update flows through to
         // the URL via `useUrlWorkspaceBindingMirror`. ACTIVE is a
@@ -586,11 +597,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         if (opts?.makeActive && targetId !== workspacesApi.activeWorkspaceId) {
           const ok = await workspacesApi.setActiveWorkspace(targetId);
           if (ok && targetName) {
-            message.success(`Switched this ${instanceLabel()} to ${targetName} and made it active`);
+            message.success(switchedContent(' and made it active'));
             return;
           }
         }
-        if (!sameBinding && targetName) message.success(`Switched this ${instanceLabel()} to ${targetName}`);
+        if (!sameBinding && targetName) message.success(switchedContent(''));
       };
       if (hasDirty) {
         modal.confirm({

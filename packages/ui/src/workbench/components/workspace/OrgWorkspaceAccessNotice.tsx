@@ -26,10 +26,11 @@
 import { getOrgBackendBindings } from '@openheaders/core/identity';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { pushNotification } from '@openheaders/ui/shared/notifications';
-import { Alert, App, Button } from 'antd';
+import { Alert, App, Button, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
+import { renderWorkspacePrefix } from './workspace-prefix';
 
 // Grants announced at least once on this browser. A fresh login
 // re-syncs the same workspace down every time, so without a durable
@@ -87,6 +88,7 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
   onSwitchWorkspace,
 }) => {
   const { notification } = App.useApp();
+  const { token } = theme.useToken();
   const snapshot = useIdentitySnapshot();
   const bindings = getOrgBackendBindings();
 
@@ -129,8 +131,12 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
           </span>
         ),
         description: (
-          <span style={TOAST_DESC_STYLE} data-testid={`org-workspace-arrival-${ws.id}`}>
-            {`"${ws.name}"`}
+          <span
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            data-testid={`org-workspace-arrival-${ws.id}`}
+          >
+            {renderWorkspacePrefix({ icon: ws.icon, color: ws.color }, token, { size: 16 })}
+            <span style={TOAST_DESC_STYLE}>{`"${ws.name}"`}</span>
           </span>
         ),
         btn: alreadyActive ? undefined : (
