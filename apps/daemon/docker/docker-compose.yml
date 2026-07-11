@@ -36,6 +36,12 @@ services:
       OH_DAEMON_BIND_ADDRESS: 0.0.0.0
       OH_DAEMON_TRUSTED_PROXY: '1'
       OH_DAEMON_ALLOWED_HOSTS: ${OH_DOMAIN:-localhost}
+      # Vault cipher (sensitive slots / {{vault.*}} in daemon-run
+      # workflows): point at a mounted secret file —
+      #   OH_DAEMON_VAULT_PASSPHRASE_FILE: /run/secrets/oh-vault-passphrase
+      # with a compose `secrets:` entry, or set OH_DAEMON_VAULT_PASSPHRASE
+      # directly on a trusted host. Unset = sensitive slots refuse
+      # (never plaintext). See docs/DAEMON_OPS.md → Vault cipher.
     volumes:
       - oh-daemon-data:/data
 

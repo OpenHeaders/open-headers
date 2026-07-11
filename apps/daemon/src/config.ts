@@ -82,6 +82,17 @@ export interface DaemonConfig {
    */
   oidc: DaemonOidcConfig | null;
   /**
+   * Vault cipher passphrase (enterprise Phase 6) — unlocks the
+   * sensitive slots (vault/oauth) in `storage.json` through a
+   * scrypt-derived AES-256-GCM key. `null` = no cipher configured; the
+   * standing posture holds and sensitive slots refuse rather than
+   * downgrade to plaintext. Secret material never lands in
+   * `daemon.json`: env-only, `OH_DAEMON_VAULT_PASSPHRASE` or a file
+   * named by `OH_DAEMON_VAULT_PASSPHRASE_FILE` (systemd
+   * `LoadCredential=`, compose `secrets:`).
+   */
+  vaultPassphrase: string | null;
+  /**
    * Audit-log retention window in days (UNIFIED_ORACLE_MODEL.md §9.1).
    * One number for every entry regardless of actor type; default 90,
    * uncapped upward for compliance deployments.
@@ -380,6 +391,42 @@ function readConfigFile(configPath: string): ConfigFile {
   return out;
 }
 
+/**
+ * A passphrase from the environment — the value itself in `envVar`, or
+ * a secret file named by `fileEnvVar` (trailing newlines stripped: both
+ * `echo`-created files and compose/systemd-mounted secrets commonly end
+ * in one). Exactly one source: both set is a misconfiguration, and so
+ * is an empty passphrase — refuse loudly rather than deriving a key
+ * from a value the operator never chose. Shared with the CLI's
+ * `vault rotate`, which resolves the NEW passphrase pair through the
+ * same rules.
+ */
+export function resolvePassphraseEnv(
+  env: Record<string, string | undefined>,
+  envVar: string,
+  fileEnvVar: string,
+): string | null {
+  const direct = env[envVar];
+  const filePath = env[fileEnvVar];
+  if (direct !== undefined && filePath !== undefined) {
+    throw new Error(`${envVar} and ${fileEnvVar} are both set — configure exactly one passphrase source`);
+  }
+  if (direct !== undefined) {
+    if (direct.trim() === '') throw new Error(`${envVar} is set but empty`);
+    return direct;
+  }
+  if (filePath === undefined) return null;
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, 'utf8');
+  } catch {
+    throw new Error(`${fileEnvVar}: cannot read passphrase file '${filePath}'`);
+  }
+  const passphrase = raw.replace(/\r?\n+$/, '');
+  if (passphrase.trim() === '') throw new Error(`${fileEnvVar}: passphrase file '${filePath}' is empty`);
+  return passphrase;
+}
+
 function parseAuditRetentionDays(raw: number, source: string): number {
   if (!Number.isFinite(raw) || raw <= 0) {
     throw new Error(`${source}: audit retention days must be a positive number, got '${raw}'`);
@@ -482,6 +529,12 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     oidc = { ...oidc, clientSecret: envClientSecret };
   }
 
+  const vaultPassphrase = resolvePassphraseEnv(
+    input.env,
+    'OH_DAEMON_VAULT_PASSPHRASE',
+    'OH_DAEMON_VAULT_PASSPHRASE_FILE',
+  );
+
   const envRetention = input.env.OH_DAEMON_AUDIT_RETENTION_DAYS;
   const rawRetention = envRetention !== undefined ? Number(envRetention) : file.auditRetentionDays;
   const auditRetentionDays =
@@ -499,6 +552,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     allowInsecureLan,
     webRoot,
     oidc,
+    vaultPassphrase,
     auditRetentionDays,
     auditForwarding: file.auditForwarding ?? null,
     configPath,

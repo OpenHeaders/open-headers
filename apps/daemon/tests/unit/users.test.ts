@@ -43,6 +43,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     allowInsecureLan: false,
     webRoot: null,
     oidc: null,
+    vaultPassphrase: null,
     auditRetentionDays: 90,
     auditForwarding: null,
     configPath: path.join(dataDir, 'daemon.json'),

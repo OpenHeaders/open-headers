@@ -195,6 +195,38 @@ describe('resolveDaemonConfig — precedence', () => {
   });
 });
 
+describe('resolveDaemonConfig — vault passphrase', () => {
+  function writePassphraseFile(contents: string): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oh-daemon-vault-pass-'));
+    tempDirs.push(dir);
+    const file = path.join(dir, 'passphrase');
+    fs.writeFileSync(file, contents);
+    return file;
+  }
+
+  it('defaults to null and reads the env var', () => {
+    expect(resolve().vaultPassphrase).toBeNull();
+    expect(resolve([], { OH_DAEMON_VAULT_PASSPHRASE: 'hunter2' }).vaultPassphrase).toBe('hunter2');
+  });
+
+  it('reads a passphrase file, stripping only trailing newlines', () => {
+    const file = writePassphraseFile('correct horse\n');
+    expect(resolve([], { OH_DAEMON_VAULT_PASSPHRASE_FILE: file }).vaultPassphrase).toBe('correct horse');
+    const windows = writePassphraseFile('pass\r\n');
+    expect(resolve([], { OH_DAEMON_VAULT_PASSPHRASE_FILE: windows }).vaultPassphrase).toBe('pass');
+  });
+
+  it('refuses both sources set, empty values, and an unreadable file', () => {
+    const file = writePassphraseFile('pass');
+    expect(() => resolve([], { OH_DAEMON_VAULT_PASSPHRASE: 'a', OH_DAEMON_VAULT_PASSPHRASE_FILE: file })).toThrow(
+      /both set/,
+    );
+    expect(() => resolve([], { OH_DAEMON_VAULT_PASSPHRASE: '' })).toThrow(/set but empty/);
+    expect(() => resolve([], { OH_DAEMON_VAULT_PASSPHRASE_FILE: writePassphraseFile('\n') })).toThrow(/is empty/);
+    expect(() => resolve([], { OH_DAEMON_VAULT_PASSPHRASE_FILE: `${file}.missing` })).toThrow(/cannot read/);
+  });
+});
+
 describe('resolveDaemonConfig — audit retention', () => {
   it('defaults to 90 days, reading the file value and the env on top', () => {
     expect(resolve().auditRetentionDays).toBe(90);

@@ -18,7 +18,7 @@ import * as path from 'node:path';
 import { OH } from '@openheaders/core/storage';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import type { DaemonConfig } from '../config';
-import { noCipherYet } from '../no-cipher';
+import { resolveDaemonCipher } from '../vault-cipher';
 
 export const DAEMON_SETTING_KEYS = ['mcp.enabled', 'mcp.allowWrite', 'mcp.allowExecute', 'mcp.allowSecrets'] as const;
 
@@ -38,7 +38,7 @@ export function parseDaemonSettingValue(key: DaemonSettingKey, raw: string): boo
 function openStorage(config: DaemonConfig): FileBackedHostStorage {
   return new FileBackedHostStorage({
     filePath: path.join(config.dataDir, 'storage.json'),
-    secretCipher: noCipherYet,
+    secretCipher: resolveDaemonCipher(config),
   });
 }
 

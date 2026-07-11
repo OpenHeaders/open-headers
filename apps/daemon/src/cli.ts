@@ -42,6 +42,7 @@ import {
   resolveTokenUserBinding,
   revokeUserGrant,
 } from './cli/users';
+import { commandVault } from './cli/vault';
 import type { DaemonConfig } from './config';
 
 const cliVersion: string = resolveAppVersion();
@@ -76,6 +77,12 @@ Commands:
                 viewers read, no grant = no access)
   user revoke-grant <id-or-email> <workspaceId>
                 Drop a user's grant on one workspace (daemon stopped)
+  vault rotate  Re-encrypt the vault under a new passphrase (daemon
+                stopped; current passphrase from OH_DAEMON_VAULT_PASSPHRASE
+                or OH_DAEMON_VAULT_PASSPHRASE_FILE, new one from
+                OH_DAEMON_VAULT_NEW_PASSPHRASE or
+                OH_DAEMON_VAULT_NEW_PASSPHRASE_FILE — env/file only,
+                never a flag)
   audit list    Read the audit log, newest first (works while the daemon
                 runs; default --limit 50)
   audit export  Emit matching audit rows as JSONL, oldest first
@@ -369,6 +376,8 @@ async function main(): Promise<void> {
       return commandConfig(rest);
     case 'user':
       return commandUser(rest);
+    case 'vault':
+      return commandVault(rest);
     case 'audit':
       // Loaded lazily: the audit reader is the one CLI path that
       // reaches better-sqlite3, and the entry bundle must keep loading

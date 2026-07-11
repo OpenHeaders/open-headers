@@ -20,7 +20,7 @@ import { setHostStorage } from '@openheaders/core/storage';
 import { listLanIpv4Addresses } from '@openheaders/oracle-host-node/daemon/lan-addresses';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import type { DaemonConfig } from '../config';
-import { noCipherYet } from '../no-cipher';
+import { resolveDaemonCipher } from '../vault-cipher';
 
 export interface JoinUrl {
   readonly host: string;
@@ -42,7 +42,7 @@ export async function mintBootstrapToken(
 ): Promise<BootstrapTokenResult> {
   const storage = new FileBackedHostStorage({
     filePath: path.join(config.dataDir, 'storage.json'),
-    secretCipher: noCipherYet,
+    secretCipher: resolveDaemonCipher(config),
   });
   setHostStorage(storage);
   const { record, secret } = await mintDaemonAuthToken({ label, ...(userId !== undefined ? { userId } : {}) });

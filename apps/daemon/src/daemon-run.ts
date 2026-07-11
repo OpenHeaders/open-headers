@@ -16,9 +16,11 @@
  * bind contract for both distributions, and a future admin surface can
  * rebind at runtime through the same settings the desktop UI writes.
  *
- * Secrets: no OS-keychain cipher is wired yet (a passphrase/keytar
- * cipher is a Phase 2/3 concern), so the storage backend REFUSES
- * sensitive slots rather than writing them plaintext — same posture as
+ * Secrets: with `OH_DAEMON_VAULT_PASSPHRASE` (or `_FILE`) configured,
+ * sensitive slots encrypt through the passphrase-derived vault cipher —
+ * a wrong passphrase refuses to boot at the unlock check, never
+ * silently re-keys. Unconfigured, the storage backend REFUSES sensitive
+ * slots rather than writing them plaintext — same posture as
  * desktop-on-Linux without a keyring.
  */
 
@@ -33,9 +35,9 @@ import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storag
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
 import { AUDIT_RETENTION_DEFAULT_DAYS, resolveDaemonConfig } from './config';
 import { createDaemonLogger } from './logger';
-import { noCipherYet } from './no-cipher';
 import { ensureSeaPayload } from './sea/payload';
 import { createDaemonStatusStore } from './status-store';
+import { resolveDaemonCipher } from './vault-cipher';
 
 const SCOPE = 'oh-daemon';
 
@@ -111,7 +113,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     const appVersion = resolveAppVersion();
     const hostStorage = new FileBackedHostStorage({
       filePath: path.join(config.dataDir, 'storage.json'),
-      secretCipher: noCipherYet,
+      secretCipher: resolveDaemonCipher(config),
       log: (level, msg, ...rest) => log[level](SCOPE, msg, ...rest),
     });
 
@@ -130,6 +132,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     const hostsNote = config.allowedHosts.length > 0 ? `, allowed hosts ${config.allowedHosts.join(' ')}` : '';
     const webNote = staticWeb ? `, web ui from ${staticWeb.rootDir}` : '';
     const oidcNote = config.oidc ? `, sso via ${config.oidc.issuer}` : '';
+    const vaultNote = config.vaultPassphrase !== null ? ', vault cipher on' : '';
     const auditNote =
       config.auditRetentionDays !== AUDIT_RETENTION_DEFAULT_DAYS
         ? `, audit retention ${config.auditRetentionDays}d`
@@ -137,7 +140,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     const forwardNote = config.auditForwarding ? `, audit stream to ${new URL(config.auditForwarding.url).host}` : '';
     log.info(
       SCOPE,
-      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${auditNote}${forwardNote}`,
+      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${vaultNote}${auditNote}${forwardNote}`,
     );
     if (config.bindAddress === '0.0.0.0' && !config.trustedProxy) {
       log.warn(

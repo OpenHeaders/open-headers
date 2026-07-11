@@ -29,13 +29,13 @@ import { setHostStorage } from '@openheaders/core/storage';
 import type { DaemonUserRecord, WorkspaceRole, WorkspaceRoleAssignment } from '@openheaders/core/types';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import type { DaemonConfig } from '../config';
-import { noCipherYet } from '../no-cipher';
+import { resolveDaemonCipher } from '../vault-cipher';
 
 function installStorage(config: DaemonConfig): void {
   setHostStorage(
     new FileBackedHostStorage({
       filePath: path.join(config.dataDir, 'storage.json'),
-      secretCipher: noCipherYet,
+      secretCipher: resolveDaemonCipher(config),
     }),
   );
 }
