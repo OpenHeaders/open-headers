@@ -56,6 +56,17 @@ function markGrantAnnounced(id: string): void {
   }
 }
 
+// Compact single-line toast text — small fonts, truncate long
+// workspace names with an ellipsis rather than wrapping.
+const ONE_LINE: React.CSSProperties = {
+  display: 'block',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+const TOAST_TITLE_STYLE: React.CSSProperties = { ...ONE_LINE, fontSize: 13, fontWeight: 600 };
+const TOAST_DESC_STYLE: React.CSSProperties = { ...ONE_LINE, fontSize: 12 };
+
 interface OrgWorkspaceAccessNoticeProps {
   workspaces: ExtensionWorkspace[];
   /**
@@ -112,12 +123,14 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
         key: toastKey,
         placement: 'bottomRight',
         style: { width: 300 },
-        message: alreadyActive ? `You now have access to "${ws.name}"` : `"${ws.name}" is now available`,
+        message: (
+          <span style={TOAST_TITLE_STYLE}>
+            {alreadyActive ? `You now have access to "${ws.name}"` : `"${ws.name}" is now available`}
+          </span>
+        ),
         description: (
-          <span data-testid={`org-workspace-arrival-${ws.id}`}>
-            {alreadyActive
-              ? "An admin granted you access — you're working in it now."
-              : 'An admin granted you access. Find it anytime in the workspace switcher.'}
+          <span style={TOAST_DESC_STYLE} data-testid={`org-workspace-arrival-${ws.id}`}>
+            {alreadyActive ? "You're working in it now." : 'Open it from the workspace switcher.'}
           </span>
         ),
         btn: alreadyActive ? undefined : (
