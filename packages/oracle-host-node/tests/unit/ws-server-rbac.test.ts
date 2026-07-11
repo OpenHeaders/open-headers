@@ -633,6 +633,13 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
       getBoundPort: () => port,
       getWsServer: () => server,
       queryAudit: (filter) => queryAuditEntries(auditDb, filter),
+      license: {
+        getSnapshot: () => ({ status: 'unlicensed' as const }),
+        install: async () => ({ ok: false as const, error: 'not under test' }),
+        remove: async () => ({ ok: true as const, snapshot: { status: 'unlicensed' as const } }),
+        reload: async () => ({ status: 'unlicensed' as const }),
+        dispose: () => undefined,
+      },
     }),
   });
   return startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY, peerRpc });

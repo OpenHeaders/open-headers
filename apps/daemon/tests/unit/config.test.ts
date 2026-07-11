@@ -127,6 +127,21 @@ describe('resolveDaemonConfig — precedence', () => {
     expect(path.isAbsolute(resolve(['--web-root', 'relative/web']).webRoot ?? '')).toBe(true);
   });
 
+  it('resolves licenseFile through the chain as an absolute path, defaulting to null', () => {
+    expect(resolve().licenseFile).toBeNull();
+    const file = writeConfigFile({ licenseFile: '/etc/openheaders/license.key' });
+    expect(resolve(['--config', file]).licenseFile).toBe('/etc/openheaders/license.key');
+    expect(resolve(['--config', file], { OH_LICENSE_FILE: '/run/secrets/oh-license' }).licenseFile).toBe(
+      '/run/secrets/oh-license',
+    );
+    expect(
+      resolve(['--config', file, '--license-file', '/var/lib/oh/license.key'], {
+        OH_LICENSE_FILE: '/run/secrets/oh-license',
+      }).licenseFile,
+    ).toBe('/var/lib/oh/license.key');
+    expect(path.isAbsolute(resolve(['--license-file', 'relative/license.key']).licenseFile ?? '')).toBe(true);
+  });
+
   it('reads the oidc block, defaulting to null, with the secret env riding on top', () => {
     expect(resolve().oidc).toBeNull();
     const file = writeConfigFile({
@@ -336,6 +351,11 @@ describe('resolveDaemonConfig — validation', () => {
   it('rejects a non-string webRoot in the config file', () => {
     const file = writeConfigFile({ webRoot: 42 });
     expect(() => resolve(['--config', file])).toThrow(/webRoot/);
+  });
+
+  it('rejects a non-string licenseFile in the config file', () => {
+    const file = writeConfigFile({ licenseFile: 42 });
+    expect(() => resolve(['--config', file])).toThrow(/licenseFile/);
   });
 
   it('rejects a malformed oidc block rather than booting a broken login', () => {

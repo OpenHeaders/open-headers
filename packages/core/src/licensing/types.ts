@@ -4,7 +4,7 @@
  * so it never appears here; the verifier only judges text it was given).
  */
 
-import type { License } from './schema';
+import type { License, Licensee } from './schema';
 
 export type LicenseStatus = 'licensed' | 'grace' | 'expired' | 'invalid';
 
@@ -31,3 +31,27 @@ export interface InvalidLicense {
 }
 
 export type VerifyResult = VerifiedLicense | InvalidLicense;
+
+/**
+ * The entitlement snapshot hosts push to their surfaces (IPC broadcast,
+ * admin RPC): the verifier vocabulary plus the host-level `unlicensed`
+ * ("no license file present"). Claims are projected flat — surfaces
+ * render state and never verify; the signing `kid` stays host-side.
+ */
+export interface LicensedSnapshot {
+  status: 'licensed' | 'grace' | 'expired';
+  licenseId: string;
+  licensee: Licensee;
+  seats: number;
+  entitlements: string[];
+  offline?: true;
+  /** ms-since-epoch after which the license enters grace. */
+  validUntil: number;
+  /** ms-since-epoch when grace runs out. */
+  graceEndsAt: number;
+}
+
+export type LicenseSnapshot =
+  | { status: 'unlicensed' }
+  | { status: 'invalid'; reason: LicenseInvalidReason }
+  | LicensedSnapshot;

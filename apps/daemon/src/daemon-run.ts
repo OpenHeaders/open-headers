@@ -173,6 +173,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       ...(config.oidc ? { oidc: config.oidc } : {}),
       auditRetentionDays: config.auditRetentionDays,
       ...(config.auditForwarding ? { auditForwarding: config.auditForwarding } : {}),
+      ...(config.licenseFile !== null ? { licenseFilePath: config.licenseFile } : {}),
       staticWeb,
       broadcastLocal: () => {
         // No same-process surfaces yet — the served web app (Phase 4)

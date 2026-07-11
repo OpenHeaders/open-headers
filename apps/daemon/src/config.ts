@@ -99,6 +99,14 @@ export interface DaemonConfig {
    */
   auditRetentionDays: number;
   /**
+   * License file location (LICENSING_PLAN.md §3.3). `null` = the
+   * spine's default, `<dataDir>/license.key`; packaged deployments
+   * point elsewhere (`OH_LICENSE_FILE`, systemd `LoadCredential=`,
+   * compose `secrets:`). The file holds the pasteable `oh-license.`
+   * artifact as plain text.
+   */
+  licenseFile: string | null;
+  /**
    * Audit→SIEM streaming destination (enterprise Phase 4d). `null` =
    * the daemon's zero-outbound posture holds; configured = audit rows
    * stream to this collector as JSON POST batches behind a durable
@@ -124,6 +132,7 @@ interface ConfigFile {
   oidc?: DaemonOidcConfig;
   auditRetentionDays?: number;
   auditForwarding?: DaemonAuditForwardingConfig;
+  licenseFile?: string;
 }
 
 export interface ResolveConfigInput {
@@ -388,6 +397,10 @@ function readConfigFile(configPath: string): ConfigFile {
   if (record.auditForwarding !== undefined) {
     out.auditForwarding = parseAuditForwarding(record.auditForwarding, configPath);
   }
+  if (record.licenseFile !== undefined) {
+    if (typeof record.licenseFile !== 'string') throw new Error(`${configPath}: licenseFile must be a string`);
+    out.licenseFile = record.licenseFile;
+  }
   return out;
 }
 
@@ -454,6 +467,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
       'allowed-host': { type: 'string', multiple: true },
       'allow-insecure-lan': { type: 'boolean' },
       'web-root': { type: 'string' },
+      'license-file': { type: 'string' },
     },
   });
 
@@ -542,6 +556,9 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
       ? AUDIT_RETENTION_DEFAULT_DAYS
       : parseAuditRetentionDays(rawRetention, 'audit retention days');
 
+  const rawLicenseFile = values['license-file'] ?? input.env.OH_LICENSE_FILE ?? file.licenseFile;
+  const licenseFile = rawLicenseFile === undefined ? null : path.resolve(rawLicenseFile);
+
   return {
     dataDir,
     bindAddress,
@@ -555,6 +572,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     vaultPassphrase,
     auditRetentionDays,
     auditForwarding: file.auditForwarding ?? null,
+    licenseFile,
     configPath,
   };
 }

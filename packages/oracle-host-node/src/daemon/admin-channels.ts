@@ -32,6 +32,7 @@ import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { listLanIpv4Addresses } from './lan-addresses';
+import type { LicenseSlotHandle } from './license-slot';
 import { hashPassword, PASSWORD_MIN_LENGTH } from './password/password-verifier';
 
 export { PASSWORD_MIN_LENGTH } from './password/password-verifier';
@@ -55,6 +56,8 @@ export interface AdminChannelDeps {
    * second read path.
    */
   queryAudit(filter: AuditQueryFilter): AuditLogEntry[];
+  /** The spine's license slot — the `oh.daemon.license.*` backing. */
+  license: LicenseSlotHandle;
 }
 
 export type AdminChannelHandler = (message: Record<string, unknown>) => Promise<unknown> | unknown;
@@ -295,6 +298,20 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
       return { ok: false, error: (err as Error).message };
     }
   });
+
+  handlers.set('oh.daemon.license.status', () => ({ snapshot: deps.license.getSnapshot() }));
+
+  handlers.set('oh.daemon.license.install', async (message) => {
+    const text = typeof message.text === 'string' ? message.text : '';
+    if (!text.trim()) return { ok: false, error: 'missing license text' };
+    try {
+      return await deps.license.install(text);
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  handlers.set('oh.daemon.license.remove', async () => await deps.license.remove());
 
   handlers.set('oh.daemon.audit.query', (message) => {
     // Read projection of the SQLite audit log. The page limit is

@@ -18,6 +18,7 @@ import {
   InfoCircleOutlined,
   LayoutOutlined,
   RobotOutlined,
+  SafetyCertificateOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import { ApiRequestsIcon, KeyboardIcon } from '@openheaders/ui/shared/icons';
@@ -34,6 +35,7 @@ import { registerCategory } from './registry';
 // suites on `document.queryCommandSupported`.
 const BackendPane = lazy(() => import('./components/BackendPane'));
 const McpPane = lazy(() => import('./components/mcp-pane'));
+const LicensePane = lazy(() => import('./components/license-pane'));
 
 registerCategory({
   id: 'backend',
@@ -226,6 +228,19 @@ registerCategory({
   icon: <DatabaseOutlined />,
   order: 90,
   description: 'Diagnostics, import/export, and destructive maintenance.',
+});
+
+registerCategory({
+  id: 'license',
+  label: 'License',
+  icon: <SafetyCertificateOutlined />,
+  order: 895,
+  description:
+    'Seats are the only paid axis — every feature is free on every tier. The free tier admits up to 10 active users per daemon.',
+  renderPane: LicensePane,
+  // The extension carries no license plumbing; desktop and the served
+  // web workbench both reach the host's license slot over their bridge.
+  when: () => getCurrentHost() !== 'extension',
 });
 
 registerCategory({

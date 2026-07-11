@@ -5,6 +5,7 @@
  */
 
 import type { FileRef } from '../../files';
+import type { LicenseSnapshot } from '../../licensing';
 import type { ActivityEntry, MutationEnvelope, MutatorOutcome } from '../../sync';
 import type {
   BackendSyncStatusSnapshot,
@@ -95,6 +96,14 @@ export interface BridgeBroadcastContract {
    * listeners don't have to re-query after each event.
    */
   statusUpdated: StatusSnapshot;
+  /**
+   * Fires whenever the host's license slot re-evaluates to a different
+   * entitlement snapshot — install/remove, an external file change, or
+   * a validity/grace boundary crossing. Payload is the full snapshot;
+   * the `oh.daemon.license.status` RPC answers the same shape on
+   * demand.
+   */
+  licenseUpdated: LicenseSnapshot;
   /**
    * Fires on every per-backend `sync` slot change (report or drop) —
    * the connections-list row dots' feed. Payload is the full slot map

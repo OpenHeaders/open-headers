@@ -102,6 +102,7 @@ import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { createHealthzHandler } from './healthz';
+import { installLicenseSlot } from './license-slot';
 import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
 import { createMdnsAdvertiser } from './mdns/mdns-advertiser';
@@ -221,6 +222,14 @@ export interface DaemonSpineConfig {
    * audit rows to the operator's collector.
    */
   auditForwarding?: DaemonAuditForwardingConfig;
+  /**
+   * License file location override (LICENSING_PLAN.md §3.3). Absent =
+   * `<dataDir>/license.key`, which covers the desktop (userData) and
+   * the default daemon deployment; the daemon's `OH_LICENSE_FILE` /
+   * `licenseFile` config lands here. The trust ring is deliberately
+   * NOT configurable — it is compiled into `@openheaders/core/licensing`.
+   */
+  licenseFilePath?: string;
   staticWeb?: {
     rootDir: string;
     /**
@@ -515,6 +524,15 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //       construction) and the WS peer plane (per-frame `daemon.admin`
   //       gate + audit in `peer-admin-rpc.ts`), wired into the server
   //       via the supervisor's `peerRpc` seam.
+  // License slot (LICENSING_PLAN.md §3.3) — load/verify/watch the
+  // host's license file; snapshot changes fan out on `licenseUpdated`
+  // the same way `statusUpdated` rides. Slice 3's seat gate reads the
+  // same handle.
+  const licenseSlot = await installLicenseSlot({
+    filePath: config.licenseFilePath ?? path.join(config.dataDir, 'license.key'),
+    broadcast: (snapshot) => broadcastLocal('licenseUpdated', snapshot),
+  });
+
   const adminChannels = createAdminChannelHandlers({
     pairing: pairingService,
     getBoundPort: () => boundPort,
@@ -522,6 +540,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // The audit RPC reads the same `oracle.db` handle the sink above
     // writes — the store's one read path, projected over the wire.
     queryAudit: (filter) => queryAuditEntries(syncPersistence.db, filter),
+    license: licenseSlot,
   });
 
   // 4b'. `/healthz` — unauthenticated, data-free liveness for ops
@@ -727,6 +746,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     setMutationForwarderWsServer(null);
     setActivityLog(null);
     setActivityMuteStore(null);
+    licenseSlot.dispose();
     pairingService.dispose();
     oidcService?.dispose();
     mcpInstall.dispose();

@@ -10,6 +10,8 @@
  * uniform in-band error.
  */
 
+import type { LicenseSnapshot } from '../../licensing';
+
 export interface DaemonRpc {
   /**
    * Admin-visibility probe: may the calling subject administer this
@@ -228,6 +230,37 @@ export interface DaemonRpc {
   'oh.daemon.users.revokeGrant': {
     req: { userId: string; workspaceId: string };
     res: { ok: true } | { ok: false; error: string };
+  };
+
+  // ── License slot (LICENSING_PLAN.md §3.3, slice 2) ───────────────
+  //
+  // Admin-only. The slot (load / verify / watch of the host's
+  // `license.key`) lives in the daemon spine; these RPCs are its whole
+  // management surface — desktop Settings over IPC and the served
+  // admin console over the gated peer plane reach the same handlers.
+  // Live updates ride the `licenseUpdated` broadcast.
+
+  /** Current entitlement snapshot — what the License page renders. */
+  'oh.daemon.license.status': {
+    req: Record<string, never>;
+    res: { snapshot: LicenseSnapshot };
+  };
+
+  /**
+   * Verify `text` and, when it verifies as `licensed` or `grace`,
+   * persist it atomically as the host's license file. Invalid or
+   * already-past-grace artifacts are refused without touching the
+   * installed file.
+   */
+  'oh.daemon.license.install': {
+    req: { text: string };
+    res: { ok: true; snapshot: LicenseSnapshot } | { ok: false; error: string };
+  };
+
+  /** Delete the license file; the host reverts to free-tier limits. */
+  'oh.daemon.license.remove': {
+    req: Record<string, never>;
+    res: { ok: true; snapshot: LicenseSnapshot };
   };
 
   // ── Audit reports (Phase 1 slice 3) ──────────────────────────────

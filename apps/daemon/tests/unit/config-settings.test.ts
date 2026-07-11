@@ -35,6 +35,7 @@ function makeConfig(): DaemonConfig {
     vaultPassphrase: null,
     auditRetentionDays: 90,
     auditForwarding: null,
+    licenseFile: null,
     configPath: path.join(dataDir, 'daemon.json'),
   };
 }
