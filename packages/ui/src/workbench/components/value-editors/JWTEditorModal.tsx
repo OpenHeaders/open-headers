@@ -476,8 +476,13 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
                   Re-sign with secret
                 </Text>
                 {signingAlgorithm && (
+                  // Single string child: multi-node children give antd's
+                  // ellipsis measurer a fresh identity every render, and its
+                  // per-render layout effect can self-sustain into a React
+                  // max-update-depth crash when the modal mounts inside a
+                  // sync layout cascade (the panel's storage documents).
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {signingAlgorithm} from header
+                    {`${signingAlgorithm} from header`}
                   </Text>
                 )}
               </Space>
