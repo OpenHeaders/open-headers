@@ -22,7 +22,7 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Locator, type Page, test } from '@playwright/test';
+import { type BrowserContext, chromium, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -32,7 +32,9 @@ const ECHO_PATH = '/api/echo';
 
 let context: BrowserContext;
 let extensionId: string;
+let sw: Worker;
 let workbench: WorkbenchPage;
+let workbenchPage: Page;
 let playgroundPage: Page;
 let panelPage: Page;
 
@@ -77,28 +79,15 @@ async function valueCellText(): Promise<string> {
   return (await valueCell().locator('.oh-template-input-editable').innerText()).replace(/\u00a0/g, ' ').trim();
 }
 
-test.beforeAll(async () => {
-  test.setTimeout(120_000);
-  context = await chromium.launchPersistentContext('', {
-    headless: false,
-    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
-  });
-  const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
-  extensionId = sw.url().split('/')[2]!;
-
-  const workbenchPage = await context.newPage();
-  workbench = await WorkbenchPage.open(workbenchPage, extensionId);
-
-  // ── Publish the header rule through the real editor Save flow ────
-  // (rules are minted by sync mutators, not a bare RPC; the editor's
-  // Save is also the publication gate the DNR compile hangs on).
-  const col = await workbench.rpc<{ success: boolean }>('createLocalCollection', { name: 'Panel decoder rules' });
-  expect(col.success).toBe(true);
+/** Publish a header rule through the real editor Save flow (rules are
+ *  minted by sync mutators, not a bare RPC; the editor's Save is also
+ *  the publication gate the DNR compile hangs on). Saves into the
+ *  spec's collection, which must already exist. */
+async function publishHeaderRule(name: string, headerName: string, value: string): Promise<void> {
   const draftRes = await workbench.rpc<{ success: boolean; nonce?: string }>('createRuleDraft', {
     draft: {
       type: 'header',
-      name: RULE_NAME,
+      name,
       // Domain-form filter: the wire plane (raw DNR urlFilter,
       // substring) and the panel projections (formatUrlPattern →
       // '*://127.0.0.1:3000/*') agree on this shape. A path-only
@@ -106,7 +95,7 @@ test.beforeAll(async () => {
       // side only matches it from the compiler fix this session — the
       // domain form keeps this spec independent of build staleness.
       urlFilter: '127.0.0.1:3000',
-      requestHeaders: [{ operation: 'override', headerName: HEADER_NAME, value: BASIC_ORIGINAL }],
+      requestHeaders: [{ operation: 'override', headerName, value }],
     },
   });
   expect(draftRes.success).toBe(true);
@@ -139,6 +128,24 @@ test.beforeAll(async () => {
   await saveModal.getByRole('option').filter({ hasText: 'Panel decoder rules' }).click();
   await saveModal.getByRole('button', { name: /Save$/ }).click();
   await expect(saveModal).toBeHidden();
+}
+
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  context = await chromium.launchPersistentContext('', {
+    headless: false,
+    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
+    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
+  });
+  sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
+  extensionId = sw.url().split('/')[2]!;
+
+  workbenchPage = await context.newPage();
+  workbench = await WorkbenchPage.open(workbenchPage, extensionId);
+
+  const col = await workbench.rpc<{ success: boolean }>('createLocalCollection', { name: 'Panel decoder rules' });
+  expect(col.success).toBe(true);
+  await publishHeaderRule(RULE_NAME, HEADER_NAME, BASIC_ORIGINAL);
 
   // ── Playground traffic: poll until the published rule rides DNR ──
   playgroundPage = await context.newPage();
@@ -388,5 +395,110 @@ test.describe('Panel value document — the compact editor escalation', () => {
     await expect(async () => {
       expect(await docMonacoText()).toContain(DOC_DECODED);
     }).toPass({ timeout: 15_000 });
+  });
+});
+
+// ── Pair-grid document body — cookie values ──────────────────────────
+// A second published rule carries a cookie-shaped value: the compact
+// popover editor stays a textarea BY DESIGN, and the escalated
+// document swaps Monaco for the name/value grid — the grid is a view
+// over the same decoded line format, so the preview and the written
+// value still come from the one codec spine.
+
+const COOKIE_RULE_NAME = 'Panel grid rule';
+const COOKIE_HEADER = 'X-OH-Grid';
+const COOKIE_ORIGINAL = 'session=abc123; theme=dark; Secure';
+const COOKIE_EDITED = 'session=rotated2026; theme=dark; Secure';
+
+function cookieDocPill(): Locator {
+  return panelPage.locator('.dt-editor-tab').filter({ hasText: COOKIE_HEADER }).first();
+}
+
+test.describe('Panel value document — pair grid for a cookie value', () => {
+  test('a cookie value keeps the compact textarea but escalates to a grid document', async () => {
+    test.setTimeout(90_000);
+    await publishHeaderRule(COOKIE_RULE_NAME, COOKIE_HEADER, COOKIE_ORIGINAL);
+    await expect
+      .poll(async () => (await echoFetch()).headers[COOKIE_HEADER.toLowerCase()], { timeout: 15_000 })
+      .toBe(COOKIE_ORIGINAL);
+
+    // A fresh row that fired BOTH rules — attribution is per-request,
+    // and rows append newest-last.
+    await echoFetch();
+    const matchedTab = panelPage.locator('[data-tool-window="matched-rules"]').first();
+    if ((await matchedTab.getAttribute('aria-selected')) !== 'true') {
+      await matchedTab.click();
+    }
+    await panelPage.locator('.dt-row').filter({ hasText: 'echo' }).last().click();
+    await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(COOKIE_RULE_NAME, {
+      timeout: 10_000,
+    });
+    await panelPage.locator('.dt-matched-rule').filter({ hasText: COOKIE_RULE_NAME }).first().hover();
+    await expect(popover()).toBeVisible();
+
+    const cell = popover()
+      .locator('.oh-template-input-wrapper')
+      .filter({ has: panelPage.getByLabel('Edit cookie pairs', { exact: true }) })
+      .first();
+    await cell.hover();
+    await cell.getByLabel('Edit cookie pairs', { exact: true }).click();
+
+    // Compact stays a textarea — the grid needs room the popover
+    // doesn't have; line-per-segment seed unchanged.
+    const editor = popover().getByRole('group', { name: 'Cookie value' });
+    await expect(editor).toBeVisible();
+    await expect(editor.getByLabel('Cookie value decoded text')).toHaveValue('session=abc123\ntheme=dark\nSecure');
+
+    await editor.getByRole('button', { name: 'Open as document' }).click();
+    await expect(popover()).toHaveCount(0);
+
+    // The document body is the grid, not Monaco: one row per segment,
+    // the bare flag with its flag placeholder.
+    await expect(cookieDocPill()).toBeVisible();
+    await expect(docRoot().locator('.dt-storagedoc-crumb')).toContainText(`${COOKIE_RULE_NAME} › ${COOKIE_HEADER}`);
+    await expect(docRoot().locator('.dt-storagedoc-crumb')).toContainText('Cookie value');
+    await expect(docRoot().locator('.monaco-editor')).toHaveCount(0);
+    await expect(docRoot().getByLabel('Row 1 name')).toHaveValue('session');
+    await expect(docRoot().getByLabel('Row 1 value')).toHaveValue('abc123');
+    await expect(docRoot().getByLabel('Row 3 name')).toHaveValue('Secure');
+    await expect(docRoot().getByLabel('Row 3 value')).toHaveAttribute('placeholder', 'flag');
+    await expect(docRoot().locator('.dt-storagedoc-save')).toBeDisabled();
+  });
+
+  test('a grid cell edit previews the re-joined value, and Save persists + rides the wire', async () => {
+    await docRoot().getByLabel('Row 1 value').fill('rotated2026');
+
+    // The preview IS what Save writes — re-joined `; ` framing.
+    await expect(docRoot().getByLabel('Encoded preview')).toContainText(COOKIE_EDITED);
+    await expect(cookieDocPill().locator('.dt-editor-tab-dirty')).toBeVisible();
+
+    const save = docRoot().locator('.dt-storagedoc-save');
+    await expect(save).toBeEnabled();
+    await save.click();
+
+    interface StoredHeaderRule {
+      type: string;
+      name?: string;
+      published?: boolean;
+      action?: { requestHeaders?: Array<{ headerName: string; value?: string }> };
+    }
+    await expect
+      .poll(async () => {
+        const res = await workbench.rpc<{ rules: StoredHeaderRule[] }>('getLocalRules');
+        const rule = res.rules.find((r) => r.name === COOKIE_RULE_NAME);
+        return {
+          value: rule?.action?.requestHeaders?.find((h) => h.headerName === COOKIE_HEADER)?.value,
+          published: rule?.published,
+        };
+      })
+      .toEqual({ value: COOKIE_EDITED, published: true });
+
+    // Reads clean immediately — re-seeded to the written value.
+    await expect(save).toBeDisabled();
+    await expect(cookieDocPill().locator('.dt-editor-tab-dirty')).toHaveCount(0);
+
+    await expect
+      .poll(async () => (await echoFetch()).headers[COOKIE_HEADER.toLowerCase()], { timeout: 15_000 })
+      .toBe(COOKIE_EDITED);
   });
 });
