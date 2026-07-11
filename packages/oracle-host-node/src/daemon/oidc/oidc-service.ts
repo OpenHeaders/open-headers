@@ -96,7 +96,8 @@ export type OidcLoginFailureReason =
   | 'email-unverified'
   | 'unknown-user'
   | 'user-deactivated'
-  | 'provision-failed';
+  | 'provision-failed'
+  | 'seat-limit-reached';
 
 export type OidcCompleteResult =
   | { readonly ok: true; readonly claimCode: string; readonly userId: string; readonly email: string }
@@ -301,7 +302,10 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
     });
     if (!created.ok) {
       logger.warn(SCOPE, `auto-provision refused for ${email}: ${created.reason}`);
-      return { ok: false, reason: 'provision-failed' };
+      // The seat gate's refusal keeps its own reason — the login page
+      // can say "ask your admin about seats" instead of a generic
+      // provisioning failure. The gate already emitted the audit row.
+      return { ok: false, reason: created.reason === 'seat-limit-reached' ? 'seat-limit-reached' : 'provision-failed' };
     }
     logger.info(SCOPE, `auto-provisioned directory user for ${email} (zero grants)`);
     return { ok: true, record: created.record };

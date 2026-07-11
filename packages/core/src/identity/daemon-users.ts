@@ -16,10 +16,12 @@
  * exact semantics with zero directory entries.
  */
 
+import { getLicenseSeatLimit } from '../licensing/seats';
 import { hostStorage, OH } from '../storage';
 import type { DaemonUserRecord } from '../types';
 import { createMutex } from '../utils/mutex';
 import { uuidv7 } from '../utils/uuidv7';
+import { emitAuditEntry } from './audit';
 
 export interface CreateDaemonUserInput {
   displayName: string;
@@ -31,7 +33,13 @@ export interface CreateDaemonUserInput {
 
 export type CreateDaemonUserResult =
   | { readonly ok: true; readonly record: DaemonUserRecord }
-  | { readonly ok: false; readonly reason: 'empty-display-name' | 'duplicate-email' | 'no-daemon-identity' };
+  | { readonly ok: false; readonly reason: 'empty-display-name' | 'duplicate-email' | 'no-daemon-identity' }
+  | {
+      readonly ok: false;
+      readonly reason: 'seat-limit-reached';
+      /** The limit that refused: licensed seats, or `FREE_SEAT_LIMIT`. */
+      readonly seatLimit: number;
+    };
 
 export type DeactivateDaemonUserResult =
   | { readonly ok: true }
@@ -88,6 +96,24 @@ export async function createDaemonUser(input: CreateDaemonUserInput): Promise<Cr
       )
     ) {
       return { ok: false, reason: 'duplicate-email' };
+    }
+    // The seat gate (LICENSING_PLAN.md §4) — the ONE enforcement point
+    // every user-adding path funnels through: admin console RPC, CLI
+    // `user add`, OIDC auto-provision. Counted against ACTIVE records
+    // only, so deactivating a user frees their seat immediately; the
+    // limit derives from the license snapshot at this moment (grace
+    // still admits the licensed seats; past grace reverts new growth
+    // to the free tier). Existing users are never re-checked.
+    const seatLimit = getLicenseSeatLimit();
+    const activeUsers = current.filter((r) => r.deactivatedAt === null).length;
+    if (activeUsers >= seatLimit) {
+      emitAuditEntry({
+        actorUserId: identity.user.id,
+        capability: 'daemon.seat-admit',
+        decision: { allow: false, reason: 'seat-limit-reached' },
+        orgId,
+      });
+      return { ok: false, reason: 'seat-limit-reached', seatLimit };
     }
     const userId = uuidv7();
     const record: DaemonUserRecord = {

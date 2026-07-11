@@ -19,6 +19,7 @@
 
 import { type FSWatcher, promises as fs, watch } from 'node:fs';
 import * as path from 'node:path';
+import { emitAuditEntry, getIdentitySnapshot } from '@openheaders/core/identity';
 import {
   LICENSE_PUBLIC_KEYS,
   type LicenseKeyRing,
@@ -80,6 +81,20 @@ function describeRefusal(snapshot: LicenseSnapshot): string {
       break;
   }
   return 'license was refused';
+}
+
+/**
+ * Lifecycle stamp for the audit log (LICENSING_PLAN.md §4 "audit rows
+ * for license events"). Every path funnels here — admin RPC and the
+ * offline CLI both act as the host operator; peer-plane callers were
+ * already stamped by the `daemon.admin` gate.
+ */
+function auditLicenseEvent(capability: 'daemon.license-install' | 'daemon.license-remove'): void {
+  emitAuditEntry({
+    actorUserId: getIdentitySnapshot()?.user.id ?? 'operator',
+    capability,
+    decision: { allow: true },
+  });
 }
 
 export async function installLicenseSlot(options: LicenseSlotOptions): Promise<LicenseSlotHandle> {
@@ -165,15 +180,19 @@ export async function installLicenseSlot(options: LicenseSlotOptions): Promise<L
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(tmpPath, `${compact}\n`, { encoding: 'utf8', mode: 0o600 });
       await fs.rename(tmpPath, filePath);
+      auditLicenseEvent('daemon.license-install');
       return { ok: true, snapshot: apply(candidate) };
     },
 
     async remove() {
+      let existed = true;
       try {
         await fs.unlink(filePath);
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        existed = false;
       }
+      if (existed) auditLicenseEvent('daemon.license-remove');
       return { ok: true, snapshot: apply({ status: 'unlicensed' }) };
     },
 

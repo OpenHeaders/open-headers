@@ -18,6 +18,7 @@ import {
   listWorkspaceRolesForPrincipal,
   validateDaemonAuthToken,
 } from '@openheaders/core/identity';
+import { setLicenseSnapshotProvider } from '@openheaders/core/licensing';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
 import { logger as consoleLogger } from '@openheaders/core/utils';
@@ -234,6 +235,30 @@ describe('daemon OIDC service', () => {
       reason: 'user-deactivated',
     });
     expect(await listDaemonUsers()).toHaveLength(1);
+  });
+
+  it('surfaces the seat gate as its own login-failure reason on auto-provision', async () => {
+    setLicenseSnapshotProvider(() => ({
+      status: 'licensed',
+      licenseId: 'lic-0001',
+      licensee: { name: 'Ada Example', org: 'OpenHeaders' },
+      seats: 1,
+      entitlements: [],
+      validUntil: Date.UTC(2099, 0, 1),
+      graceEndsAt: Date.UTC(2099, 0, 22),
+    }));
+    try {
+      await createDaemonUser({ displayName: 'Seat Holder', email: 'holder@openheaders.io' });
+      const rig = buildRig({ config: { autoProvision: true } });
+      const { state, bindingNonce } = await begin(rig);
+      expect(await rig.service.completeLogin({ code: 'c', state, bindingNonce })).toMatchObject({
+        ok: false,
+        reason: 'seat-limit-reached',
+      });
+      expect(await listDaemonUsers()).toHaveLength(1);
+    } finally {
+      setLicenseSnapshotProvider(null);
+    }
   });
 
   it('refuses a provider-attested unverified email and a claims set with no email', async () => {

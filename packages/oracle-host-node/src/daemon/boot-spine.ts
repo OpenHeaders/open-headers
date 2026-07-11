@@ -53,6 +53,7 @@ import {
   resetAuditSink,
   setAuditSink,
 } from '@openheaders/core/identity';
+import { setLicenseSnapshotProvider } from '@openheaders/core/licensing';
 import { setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
 import { WS_PORT } from '@openheaders/core/protocol';
@@ -532,6 +533,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     filePath: config.licenseFilePath ?? path.join(config.dataDir, 'license.key'),
     broadcast: (snapshot) => broadcastLocal('licenseUpdated', snapshot),
   });
+  // The seat gate in `createDaemonUser` derives its limit from this
+  // provider at every admission — never a cached number.
+  setLicenseSnapshotProvider(() => licenseSlot.getSnapshot());
 
   const adminChannels = createAdminChannelHandlers({
     pairing: pairingService,
@@ -746,6 +750,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     setMutationForwarderWsServer(null);
     setActivityLog(null);
     setActivityMuteStore(null);
+    setLicenseSnapshotProvider(null);
     licenseSlot.dispose();
     pairingService.dispose();
     oidcService?.dispose();

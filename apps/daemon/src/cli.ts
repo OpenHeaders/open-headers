@@ -29,6 +29,13 @@ import {
 } from './cli/config-settings';
 import { assertDaemonStopped, offlineWriteConsequence } from './cli/daemon-stopped';
 import { probeHealthz } from './cli/healthz-probe';
+import {
+  formatLicenseSnapshot,
+  licenseInstall,
+  licenseRemove,
+  licenseStatus,
+  resolveLicenseFilePath,
+} from './cli/license';
 import { fetchMetrics, formatMetrics } from './cli/metrics-probe';
 import { resolvePasswordInput, USER_PASSWORD_ENV, USER_PASSWORD_FILE_ENV } from './cli/password-input';
 import { installServiceUnit, type ServiceHost, startService, stopService } from './cli/service-manager';
@@ -84,6 +91,14 @@ Commands:
                 (daemon stopped; echo-off prompt on a terminal, or
                 ${USER_PASSWORD_ENV} / ${USER_PASSWORD_FILE_ENV}
                 for scripts — never a flag); --clear removes it
+  license status
+                Show the installed license (licensee, seats, expiry, grace)
+  license install <file>
+                Verify + install a license key file; a running daemon
+                picks it up live — no restart
+  license remove
+                Remove the installed license (revert to the free tier;
+                existing users and data are unaffected)
   vault rotate  Re-encrypt the vault under a new passphrase (daemon
                 stopped; current passphrase from OH_DAEMON_VAULT_PASSPHRASE
                 or OH_DAEMON_VAULT_PASSPHRASE_FILE, new one from
@@ -368,6 +383,40 @@ async function commandUser(argv: readonly string[]): Promise<void> {
   throw new Error('usage: oh daemon user <add|list|deactivate|grant|revoke-grant|set-password>');
 }
 
+async function commandLicense(argv: readonly string[]): Promise<void> {
+  const [sub, ...rest] = argv;
+  const { values, positionals } = parseArgs({ args: [...rest], options: CONFIG_OPTIONS, allowPositionals: true });
+  const { config } = resolveConfigFlags(values);
+  const filePath = resolveLicenseFilePath(config);
+  if (sub === 'status') {
+    const snapshot = await licenseStatus(config);
+    for (const statusLine of formatLicenseSnapshot(snapshot, filePath)) {
+      console.log(statusLine);
+    }
+    if (snapshot.status === 'invalid' || snapshot.status === 'expired') process.exitCode = 1;
+    return;
+  }
+  if (sub === 'install') {
+    const [sourcePath] = positionals;
+    if (sourcePath === undefined) throw new Error('usage: oh daemon license install <file>');
+    const snapshot = await licenseInstall(config, sourcePath);
+    console.log('License installed:');
+    for (const statusLine of formatLicenseSnapshot(snapshot, filePath)) {
+      console.log(`  ${statusLine.trim()}`);
+    }
+    console.log('A running daemon picks this up live; no restart needed.');
+    return;
+  }
+  if (sub === 'remove') {
+    const hadLicense = await licenseRemove(config);
+    console.log(
+      hadLicense ? 'License removed — back on the free tier (up to 10 active users).' : 'No license was installed.',
+    );
+    return;
+  }
+  throw new Error('usage: oh daemon license <status|install|remove>');
+}
+
 async function main(): Promise<void> {
   const [group, command, ...rest] = process.argv.slice(2);
   if (group === '--version' || group === '-v') {
@@ -401,6 +450,8 @@ async function main(): Promise<void> {
       return commandConfig(rest);
     case 'user':
       return commandUser(rest);
+    case 'license':
+      return commandLicense(rest);
     case 'vault':
       return commandVault(rest);
     case 'audit':

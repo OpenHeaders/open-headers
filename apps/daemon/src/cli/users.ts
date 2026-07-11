@@ -32,6 +32,7 @@ import { hashPassword, PASSWORD_MIN_LENGTH } from '@openheaders/oracle-host-node
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import type { DaemonConfig } from '../config';
 import { resolveDaemonCipher } from '../vault-cipher';
+import { withLicenseSeatProvider } from './license';
 
 function installStorage(config: DaemonConfig): void {
   setHostStorage(
@@ -49,17 +50,31 @@ export interface AddUserInput {
 
 export async function addUser(config: DaemonConfig, input: AddUserInput): Promise<DaemonUserRecord> {
   installStorage(config);
-  const result = await createDaemonUser(input);
-  if (result.ok) return result.record;
-  if (result.reason === 'no-daemon-identity') {
-    throw new Error(
-      'the daemon has never booted against this data dir — start it once (oh daemon start) so its identity exists, then add users.',
-    );
+  // The seat gate reads the license snapshot through the same provider
+  // seam the spine installs — here fed one-shot from the same
+  // `license.key` the daemon would read.
+  const uninstallSeatProvider = await withLicenseSeatProvider(config);
+  try {
+    const result = await createDaemonUser(input);
+    if (result.ok) return result.record;
+    if (result.reason === 'no-daemon-identity') {
+      throw new Error(
+        'the daemon has never booted against this data dir — start it once (oh daemon start) so its identity exists, then add users.',
+      );
+    }
+    if (result.reason === 'duplicate-email') {
+      throw new Error(`a user with email '${input.email}' already exists — see oh daemon user list.`);
+    }
+    if (result.reason === 'seat-limit-reached') {
+      throw new Error(
+        `seat limit reached (${result.seatLimit} active users) — deactivate a user to free a seat, ` +
+          'or install a license with more seats (oh daemon license install <file>).',
+      );
+    }
+    throw new Error('display name must not be empty.');
+  } finally {
+    uninstallSeatProvider();
   }
-  if (result.reason === 'duplicate-email') {
-    throw new Error(`a user with email '${input.email}' already exists — see oh daemon user list.`);
-  }
-  throw new Error('display name must not be empty.');
 }
 
 export async function listUsers(config: DaemonConfig): Promise<readonly DaemonUserRecord[]> {

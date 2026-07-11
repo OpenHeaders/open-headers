@@ -14,6 +14,10 @@
       "import": "./src/daemon/lan-addresses.ts",
       "default": "./dist/daemon/lan-addresses.js"
     },
+    "./daemon/license-slot": {
+      "import": "./src/daemon/license-slot.ts",
+      "default": "./dist/daemon/license-slot.js"
+    },
     "./daemon/password-verifier": {
       "import": "./src/daemon/password/password-verifier.ts",
       "default": "./dist/daemon/password/password-verifier.js"

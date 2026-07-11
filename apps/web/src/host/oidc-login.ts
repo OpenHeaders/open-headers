@@ -104,6 +104,8 @@ export function describeOidcError(reason: string): string {
       return 'Your identity provider reports the email as unverified. Verify it and try again.';
     case 'provider-unavailable':
       return 'The identity provider could not be reached. Try again in a moment.';
+    case 'seat-limit-reached':
+      return 'Signed in, but this daemon has no free seats for a new user. Ask the daemon admin.';
     default:
       return 'Single sign-on failed. Try again, or connect with a pairing token instead.';
   }

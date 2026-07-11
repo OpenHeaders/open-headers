@@ -37,7 +37,8 @@ export type CapabilityDenyReason =
   | 'insufficient-workspace-role'
   | 'not-daemon-admin'
   | 'unknown-capability'
-  | 'auth-required';
+  | 'auth-required'
+  | 'seat-limit-reached';
 
 /**
  * The view of identity state the resolver consults. The registry produces

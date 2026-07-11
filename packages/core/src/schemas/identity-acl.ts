@@ -113,6 +113,11 @@ export const DaemonAdminSchema = v.object({
  * only — one row per workspace grant the OIDC claims→grant mapping adds
  * (or re-roles) / removes at login, stamped with the logging-in user as
  * the actor and the affected workspace.
+ *
+ * `daemon.seat-admit` is the seat gate's deny stamp (LICENSING_PLAN.md
+ * §4) — one row per directory-user admission refused at the seat
+ * limit. `daemon.license-install` / `daemon.license-remove` are the
+ * license slot's lifecycle stamps. All three are audit-vocabulary only.
  */
 export const CapabilitySchema = v.picklist([
   'workspace.read',
@@ -122,6 +127,9 @@ export const CapabilitySchema = v.picklist([
   'daemon.admission',
   'daemon.sso-grant',
   'daemon.sso-revoke',
+  'daemon.seat-admit',
+  'daemon.license-install',
+  'daemon.license-remove',
 ]);
 
 export const CapabilityDenyReasonSchema = v.picklist([
@@ -132,6 +140,7 @@ export const CapabilityDenyReasonSchema = v.picklist([
   'not-daemon-admin',
   'unknown-capability',
   'auth-required',
+  'seat-limit-reached',
 ]);
 
 export const AuditDecisionSchema = v.object({

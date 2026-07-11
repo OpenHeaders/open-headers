@@ -6,7 +6,7 @@
  */
 
 import * as v from 'valibot';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   createDaemonUser,
   deactivateDaemonUser,
@@ -14,10 +14,19 @@ import {
   findDaemonUserByEmail,
   listDaemonUsers,
   mintDaemonAuthToken,
+  type ResolvedAuditEntry,
+  resetAuditSink,
   resolveDaemonPeerUser,
+  setAuditSink,
   setDaemonUserPassword,
   validateDaemonAuthToken,
 } from '../../src/identity';
+import {
+  FREE_SEAT_LIMIT,
+  type LicensedSnapshot,
+  type LicenseSnapshot,
+  setLicenseSnapshotProvider,
+} from '../../src/licensing';
 import { DaemonUserRecordSchema } from '../../src/schemas';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { OH } from '../../src/storage/keys';
@@ -218,6 +227,78 @@ describe('daemon users', () => {
         ok: false,
         reason: 'unknown-user',
       });
+    });
+  });
+
+  describe('seat gate (LICENSING_PLAN.md §4)', () => {
+    const LICENSED_BASE: Omit<LicensedSnapshot, 'status' | 'seats'> = {
+      licenseId: 'lic-0001',
+      licensee: { name: 'Ada Example', org: 'OpenHeaders', email: 'ada@openheaders.io' },
+      entitlements: [],
+      validUntil: Date.UTC(2026, 6, 1),
+      graceEndsAt: Date.UTC(2026, 6, 22),
+    };
+
+    afterEach(() => {
+      setLicenseSnapshotProvider(null);
+      resetAuditSink();
+    });
+
+    async function fillSeats(count: number): Promise<void> {
+      for (let i = 0; i < count; i++) {
+        const created = await createDaemonUser({ displayName: `User ${i}`, email: `user${i}@openheaders.io` });
+        if (!created.ok) throw new Error(`seat setup failed at ${i}: ${created.reason}`);
+      }
+    }
+
+    it('admits up to the free limit unlicensed, then refuses with an audit row', async () => {
+      const auditRows: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => auditRows.push(entry));
+      await fillSeats(FREE_SEAT_LIMIT);
+      const refused = await createDaemonUser({ displayName: 'One Too Many' });
+      expect(refused).toEqual({ ok: false, reason: 'seat-limit-reached', seatLimit: FREE_SEAT_LIMIT });
+      const identity = await hostStorage.get(OH.syntheticIdentity);
+      expect(auditRows).toEqual([
+        expect.objectContaining({
+          actorUserId: identity?.user.id,
+          capability: 'daemon.seat-admit',
+          decision: { allow: false, reason: 'seat-limit-reached' },
+          orgId: identity?.org.id,
+        }),
+      ]);
+      expect((await listDaemonUsers()).length).toBe(FREE_SEAT_LIMIT);
+    });
+
+    it('a licensed snapshot raises the limit; the seat past it still refuses', async () => {
+      setLicenseSnapshotProvider(() => ({ status: 'licensed', seats: 12, ...LICENSED_BASE }));
+      await fillSeats(12);
+      const refused = await createDaemonUser({ displayName: 'Seat 13' });
+      expect(refused).toEqual({ ok: false, reason: 'seat-limit-reached', seatLimit: 12 });
+    });
+
+    it('grace still admits the licensed seats', async () => {
+      setLicenseSnapshotProvider(() => ({ status: 'grace', seats: 11, ...LICENSED_BASE }));
+      await fillSeats(11);
+      expect(await createDaemonUser({ displayName: 'Seat 12' })).toMatchObject({ reason: 'seat-limit-reached' });
+    });
+
+    it('deactivating a user frees the seat immediately', async () => {
+      await fillSeats(FREE_SEAT_LIMIT);
+      const users = await listDaemonUsers();
+      await deactivateDaemonUser(users[0].user.id);
+      const created = await createDaemonUser({ displayName: 'Replacement' });
+      expect(created.ok).toBe(true);
+    });
+
+    it('past grace, NEW growth reverts to the free limit while existing users stand', async () => {
+      let snapshot: LicenseSnapshot = { status: 'licensed', seats: 12, ...LICENSED_BASE };
+      setLicenseSnapshotProvider(() => snapshot);
+      await fillSeats(12);
+      snapshot = { status: 'expired', seats: 12, ...LICENSED_BASE };
+      const refused = await createDaemonUser({ displayName: 'Post Grace' });
+      expect(refused).toEqual({ ok: false, reason: 'seat-limit-reached', seatLimit: FREE_SEAT_LIMIT });
+      // The wall only faces new growth: every existing record is intact.
+      expect((await listDaemonUsers()).filter((r) => r.deactivatedAt === null).length).toBe(12);
     });
   });
 });

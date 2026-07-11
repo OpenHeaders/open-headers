@@ -191,7 +191,14 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     const email = typeof message.email === 'string' ? message.email.trim() || undefined : undefined;
     try {
       const created = await createDaemonUser({ displayName, ...(email ? { email } : {}) });
-      return created.ok ? { ok: true, userId: created.record.user.id } : { ok: false, error: created.reason };
+      if (created.ok) return { ok: true, userId: created.record.user.id };
+      if (created.reason === 'seat-limit-reached') {
+        return {
+          ok: false,
+          error: `seat limit reached (${created.seatLimit} active users) — deactivate a user to free a seat, or add seats via a license`,
+        };
+      }
+      return { ok: false, error: created.reason };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
