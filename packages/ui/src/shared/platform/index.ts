@@ -5,3 +5,5 @@
  */
 
 export const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+
+export const isFirefox = /Firefox\//.test(navigator.userAgent);
