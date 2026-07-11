@@ -14,7 +14,7 @@
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { emptyEditForm, jarCookieToKey } from '../../data/cookies/cookie-edit';
 import {
   clearSiteJarCookies,
@@ -167,6 +167,32 @@ export function StoragePanel({
     for (const c of cacheStorage.caches ?? []) cacheStorage.deleteCache(c.name);
     return true;
   }, [cacheStorage.caches, cacheStorage.deleteCache]);
+
+  // Per-section clear outcome — the button hides the moment the confirm
+  // lands (no disarmed-label flash while the refetch drains the rows)
+  // and a transient "✓ cleared" takes its place, like Clear everything's.
+  const [sectionClearOutcome, setSectionClearOutcome] = useState<'pending' | 'ok' | 'fail' | null>(null);
+  const sectionClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runSectionClear = useCallback(async (clear: () => Promise<boolean>): Promise<boolean> => {
+    if (sectionClearTimer.current !== null) clearTimeout(sectionClearTimer.current);
+    setSectionClearOutcome('pending');
+    const ok = await clear();
+    setSectionClearOutcome(ok ? 'ok' : 'fail');
+    if (ok) sectionClearTimer.current = setTimeout(() => setSectionClearOutcome(null), 4000);
+    return ok;
+  }, []);
+  // Section or scope moved on — the note belongs to the old view.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: view identity is the reset trigger
+  useEffect(() => {
+    if (sectionClearTimer.current !== null) clearTimeout(sectionClearTimer.current);
+    setSectionClearOutcome(null);
+  }, [section, inspector.selectedOrigin]);
+  useEffect(
+    () => () => {
+      if (sectionClearTimer.current !== null) clearTimeout(sectionClearTimer.current);
+    },
+    [],
+  );
 
   // Site-data types UNchecked for Clear everything — owned here so the
   // scope bar's control and the quota card's checkboxes share it.
@@ -332,6 +358,27 @@ export function StoragePanel({
 
   const canWrite = inspector.available && inspector.scopes.length > 0 && inspector.snapshot !== null;
 
+  // The active section's scope-bar clear gesture, `null` when there is
+  // nothing to clear (or nothing visible to clear yet).
+  const sectionClear: (() => Promise<boolean>) | null =
+    section === 'cookies'
+      ? cookiesWritable && isCookieJarSiteClearable() && (sortedCookies?.length ?? 0) > 0
+        ? clearCookies
+        : null
+      : section === 'indexeddb'
+        ? (idb.databases?.length ?? 0) > 0
+          ? clearIdbDatabases
+          : null
+        : section === 'cachestorage'
+          ? (cacheStorage.caches?.length ?? 0) > 0
+            ? clearCacheStorage
+            : null
+          : section === 'quota'
+            ? null
+            : canWrite && entries.length > 0
+              ? inspector.clearArea
+              : null;
+
   const scopeNote =
     section === 'cookies'
       ? [
@@ -468,20 +515,25 @@ export function StoragePanel({
                 </span>
               )}
               <span className="dt-storage-scope-note">{scopeNote}</span>
-              {section === 'cookies' ? (
-                cookiesWritable &&
-                isCookieJarSiteClearable() &&
-                (sortedCookies?.length ?? 0) > 0 && <ClearAllButton section={section} onClear={clearCookies} />
-              ) : section === 'quota' ? (
+              {section === 'quota' ? (
                 <ClearSiteDataControl quota={quota} excluded={clearExcluded} onHoverChange={setClearHovered} />
-              ) : section === 'indexeddb' ? (
-                (idb.databases?.length ?? 0) > 0 && <ClearAllButton section={section} onClear={clearIdbDatabases} />
-              ) : section === 'cachestorage' ? (
-                (cacheStorage.caches?.length ?? 0) > 0 && (
-                  <ClearAllButton section={section} onClear={clearCacheStorage} />
-                )
               ) : (
-                canWrite && entries.length > 0 && <ClearAllButton section={section} onClear={inspector.clearArea} />
+                (sectionClear !== null || sectionClearOutcome === 'ok' || sectionClearOutcome === 'fail') && (
+                  <span className="dt-storage-clear-group">
+                    {sectionClearOutcome === 'ok' ? (
+                      <span className="dt-storage-quota-clear-done" role="status">
+                        ✓ cleared
+                      </span>
+                    ) : sectionClearOutcome === 'fail' ? (
+                      <span className="dt-storage-quota-clear-failed">clear failed</span>
+                    ) : null}
+                    {sectionClear !== null &&
+                      sectionClearOutcome !== 'pending' &&
+                      sectionClearOutcome !== 'ok' && (
+                        <ClearAllButton section={section} onClear={() => runSectionClear(sectionClear)} />
+                      )}
+                  </span>
+                )
               )}
             </div>
           )}

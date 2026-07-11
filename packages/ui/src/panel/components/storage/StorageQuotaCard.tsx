@@ -24,6 +24,7 @@ import { useState } from 'react';
 import type { SiteDataType } from '../../data/storage/storage-inspector-host';
 import type { StorageQuotaState } from '../../data/storage/use-storage-quota';
 import { formatSize } from '../traffic/formatters';
+import { CookieIcon, DatabaseIcon, TableIcon, WorkerGearIcon } from './StorageNavIcons';
 
 const STORAGE_TYPE_LABELS: Record<string, string> = {
   indexeddb: 'IndexedDB',
@@ -34,20 +35,26 @@ const STORAGE_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-/* Labels mirror the storage rail. Session storage is per-tab by nature
- * (the browser's site-data clear can't reach it), so its leg wipes the
- * INSPECTED tab's frame — the note says so. */
-const SITE_DATA_CHOICES: ReadonlyArray<{ type: SiteDataType; label: string; note?: string }> = [
-  { type: 'cookies', label: 'Cookies' },
-  { type: 'localStorage', label: 'Local storage' },
+/* Labels, icons AND order mirror the storage rail. Session storage is
+ * per-tab by nature (the browser's site-data clear can't reach it), so
+ * its leg wipes the INSPECTED tab's frame — the note says so. */
+const SITE_DATA_CHOICES: ReadonlyArray<{
+  type: SiteDataType;
+  label: string;
+  icon: React.ReactNode;
+  note?: string;
+}> = [
+  { type: 'localStorage', label: 'Local storage', icon: <TableIcon /> },
   {
     type: 'sessionStorage',
     label: 'Session storage',
+    icon: <TableIcon />,
     note: 'Session storage is per-tab — this clears the inspected tab’s frame',
   },
-  { type: 'indexedDB', label: 'IndexedDB' },
-  { type: 'cacheStorage', label: 'Cache Storage' },
-  { type: 'serviceWorkers', label: 'Service workers' },
+  { type: 'cookies', label: 'Cookies', icon: <CookieIcon /> },
+  { type: 'indexedDB', label: 'IndexedDB', icon: <DatabaseIcon /> },
+  { type: 'cacheStorage', label: 'Cache Storage', icon: <DatabaseIcon /> },
+  { type: 'serviceWorkers', label: 'Service workers', icon: <WorkerGearIcon /> },
 ];
 
 /** MB the way the browser reads it — decimal, not 1024-based. */
@@ -150,7 +157,7 @@ export function StorageQuotaCard({ quota, excluded, onToggleType, highlightTarge
           >
             Clear everything targets
           </span>
-          {SITE_DATA_CHOICES.map(({ type, label, note }) => (
+          {SITE_DATA_CHOICES.map(({ type, label, icon, note }) => (
             <label
               className={`dt-storage-quota-clear-type${
                 highlightTargets && !excluded.has(type) ? ' dt-storage-quota-clear-type--targeted' : ''
@@ -159,6 +166,7 @@ export function StorageQuotaCard({ quota, excluded, onToggleType, highlightTarge
               title={note}
             >
               <input type="checkbox" checked={!excluded.has(type)} onChange={() => onToggleType(type)} />
+              <span className="dt-storage-nav-icon">{icon}</span>
               {label}
             </label>
           ))}

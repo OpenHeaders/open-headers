@@ -874,23 +874,25 @@
 }
 
 /* Per-type clear checkboxes — parameterize the scope bar's Clear
- * everything; the caption names that relationship. */
+ * everything; the caption names that relationship. A fixed 3-column
+ * grid in rail order keeps checks, icons and labels aligned across
+ * rows. */
 .dt-storage-quota-clear-types {
   margin-top: 12px;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, max-content));
   gap: 4px 12px;
 }
 
 .dt-storage-quota-clear-types-caption {
-  flex: 0 0 100%;
+  grid-column: 1 / -1;
   color: var(--dt-text-muted);
 }
 
 .dt-storage-quota-clear-type {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   color: var(--dt-text);
   cursor: pointer;
   white-space: nowrap;
