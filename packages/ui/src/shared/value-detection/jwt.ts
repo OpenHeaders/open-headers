@@ -2,9 +2,9 @@
  * JWT codec — decode / re-encode without verification, plus the
  * detection and display helpers the JWT value editor builds on.
  *
- * Re-signing after an edit is intentionally absent: the editor carries
- * the original signature over unchanged and surfaces a "signature no
- * longer valid" warning instead.
+ * Everything here is synchronous, like the rest of the codec spine.
+ * Re-signing (async WebCrypto HMAC) lives in the sibling
+ * `jwt-signing.ts`, built on this file's `encodeJWTSigningInput`.
  */
 
 import { errorMessage, type JsonObject } from '@openheaders/core/types';
@@ -44,13 +44,19 @@ export function decodeJWT(token: string): DecodedJWT {
   }
 }
 
+/** The `header.payload` half of a token — what a signature is computed
+ *  over (RFC 7515 signing input). Shared with `jwt-signing.ts` so a
+ *  re-signed token is byte-identical to the carried-signature encode
+ *  up to the final segment. */
+export function encodeJWTSigningInput(header: JsonObject, payload: JsonObject): string {
+  return `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(payload))}`;
+}
+
 /** Re-assembles a token from edited header/payload, carrying the
  *  original signature over verbatim (empty when none is supplied). */
 export function encodeJWT(header: JsonObject, payload: JsonObject, signature = ''): string {
   try {
-    const encodedHeader = base64UrlEncode(JSON.stringify(header));
-    const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-    return `${encodedHeader}.${encodedPayload}.${signature}`;
+    return `${encodeJWTSigningInput(header, payload)}.${signature}`;
   } catch (error) {
     throw new Error(`Failed to encode JWT: ${errorMessage(error)}`);
   }

@@ -14,6 +14,7 @@
  * modal's contract is the JSON string in/out, not Monaco itself.
  */
 
+import { createHmac } from 'node:crypto';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { decodeJWT, useValueEditAction } from '@openheaders/ui/workbench/components/value-editors';
 import JWTEditorModal from '@openheaders/ui/workbench/components/value-editors/JWTEditorModal';
@@ -128,6 +129,68 @@ describe('JWTEditorModal — decoded mode', () => {
     const expired = { ...PAYLOAD, exp: Math.floor(Date.now() / 1000) - 3600 };
     renderModal({ open: true, token: buildJWT(HEADER, expired), onSave: vi.fn(), onCancel: vi.fn() });
     expect(screen.getByText('Token expired')).not.toBeNull();
+  });
+});
+
+describe('JWTEditorModal — re-signing', () => {
+  const secretInput = () => screen.getByPlaceholderText('Signing secret') as HTMLInputElement;
+
+  it('re-signs live when a secret is entered and saves the signed token', async () => {
+    const onSave = vi.fn();
+    renderModal({ open: true, token: buildJWT(HEADER, PAYLOAD), onSave, onCancel: vi.fn() });
+
+    fireEvent.change(secretInput(), { target: { value: 'openheaders-signing-secret' } });
+    await screen.findByText('Token re-signed with HS256');
+
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const written = onSave.mock.calls[0][0] as string;
+    const signingInput = written.split('.').slice(0, 2).join('.');
+    const expected = createHmac('sha256', 'openheaders-signing-secret').update(signingInput).digest('base64url');
+    expect(written.split('.')[2]).toBe(expected);
+    expect(decodeJWT(written).payload).toEqual(PAYLOAD);
+  });
+
+  it('signs an edited payload with the secret instead of carrying the stale signature', async () => {
+    const onSave = vi.fn();
+    renderModal({ open: true, token: buildJWT(HEADER, PAYLOAD), onSave, onCancel: vi.fn() });
+
+    const payloadEditor = (screen.getAllByTestId('code-editor') as HTMLTextAreaElement[])[1];
+    fireEvent.change(payloadEditor, { target: { value: '{"sub":"other@openheaders.io"}' } });
+    fireEvent.change(secretInput(), { target: { value: 'hunter2!!' } });
+    await screen.findByText('Token re-signed with HS256');
+    expect(screen.queryByText('Signature no longer valid')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    const saved = decodeJWT(onSave.mock.calls[0][0] as string);
+    expect(saved.payload).toEqual({ sub: 'other@openheaders.io' });
+    expect(saved.signature).not.toBe('origsig');
+  });
+
+  it('labels a non-HMAC algorithm as not signable and keeps the carried signature', async () => {
+    const onSave = vi.fn();
+    renderModal({ open: true, token: buildJWT({ alg: 'RS256', typ: 'JWT' }, PAYLOAD), onSave, onCancel: vi.fn() });
+
+    fireEvent.change(secretInput(), { target: { value: 'irrelevant' } });
+    expect(await screen.findByText('Cannot re-sign this algorithm')).not.toBeNull();
+
+    const payloadEditor = (screen.getAllByTestId('code-editor') as HTMLTextAreaElement[])[1];
+    fireEvent.change(payloadEditor, { target: { value: '{"sub":"other@openheaders.io"}' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    expect(decodeJWT(onSave.mock.calls[0][0] as string).signature).toBe('origsig');
+  });
+
+  it('clearing the secret reverts to the carried encode and re-disables Save', async () => {
+    renderModal({ open: true, token: buildJWT(HEADER, PAYLOAD), onSave: vi.fn(), onCancel: vi.fn() });
+    const save = screen.getByRole('button', { name: /Save/ }) as HTMLButtonElement;
+
+    fireEvent.change(secretInput(), { target: { value: 'temporary' } });
+    await screen.findByText('Token re-signed with HS256');
+    expect(save.disabled).toBe(false);
+
+    fireEvent.change(secretInput(), { target: { value: '' } });
+    expect(screen.queryByText('Token re-signed with HS256')).toBeNull();
+    expect(save.disabled).toBe(true);
   });
 });
 

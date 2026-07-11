@@ -79,6 +79,7 @@ export {
   type JWTExpirationInfo,
   validateJSON,
 } from './jwt';
+export { type HmacJwtAlgorithm, signableJwtAlgorithm, signJWT } from './jwt-signing';
 export {
   decodePairSegments,
   encodePairSegments,

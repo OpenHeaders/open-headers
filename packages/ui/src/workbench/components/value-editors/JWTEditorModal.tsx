@@ -6,9 +6,12 @@
  * Right pane: live re-encoded preview with per-segment coloring,
  * expiration status, and recognized-claim tags.
  *
- * The original signature is carried over unchanged — editing header or
- * payload therefore invalidates it, and the modal says so inline
- * instead of re-signing (deferred until a key-entry flow exists).
+ * Signing: with no secret entered, the original signature is carried
+ * over unchanged and the modal says the edited token will fail
+ * verification. Entering a secret (HMAC only — the header's own `alg`
+ * picks HS256/384/512) re-signs live, so the preview IS the token Save
+ * writes. The secret is plain component state: never persisted, gone
+ * when the modal closes.
  */
 
 import { CheckCircleOutlined, CloseCircleOutlined, CodeOutlined, CopyOutlined, FileTextOutlined } from '@ant-design/icons';
@@ -18,7 +21,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import { EditorModalFooter } from './EditorModalFooter';
-import { decodeJWT, encodeJWT, formatJSON, getJWTExpiration, JWT_CLAIM_DESCRIPTIONS, type JWTExpirationInfo, validateJSON } from '@openheaders/ui/shared/value-detection';
+import { decodeJWT, encodeJWT, formatJSON, getJWTExpiration, JWT_CLAIM_DESCRIPTIONS, type JWTExpirationInfo, signableJwtAlgorithm, signJWT, validateJSON } from '@openheaders/ui/shared/value-detection';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -55,6 +58,15 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
   const [editMode, setEditMode] = useState<EditMode>('decoded');
   const [encodedInput, setEncodedInput] = useState('');
   const [encodedInputError, setEncodedInputError] = useState<string | null>(null);
+  // The signing secret is memory-only: plain state, reset on every
+  // open, never written to drafts or storage.
+  const [signingSecret, setSigningSecret] = useState('');
+  const [signingError, setSigningError] = useState<string | null>(null);
+  // The last token the signing effect produced. "Re-signed" status is
+  // claimed only while this IS the current encode — between an edit and
+  // the async re-sign landing, the preview briefly holds the carried
+  // encode and must not be advertised as signed.
+  const [signedToken, setSignedToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !initialToken) return;
@@ -64,6 +76,9 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
     setHeaderError(null);
     setPayloadError(null);
     setEncodedInputError(null);
+    setSigningSecret('');
+    setSigningError(null);
+    setSignedToken(null);
     try {
       const decoded = decodeJWT(initialToken);
       setDecodedHeader(formatJSON(decoded.header));
@@ -86,6 +101,62 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
       setEncodedToken(encodeJWT(headerObj, payloadObj, signature));
     },
     [signature],
+  );
+
+  // Live re-signing — whenever a secret is present in decoded mode and
+  // the header names an HMAC alg, the signed token replaces the carried
+  // encode `applyEdit` just produced, keeping preview === written.
+  // Cancellation guards a stale sign resolving after further edits.
+  useEffect(() => {
+    if (editMode !== 'decoded' || !signingSecret) return;
+    let headerObj: JsonObject;
+    let payloadObj: JsonObject;
+    try {
+      headerObj = validateJSON(decodedHeader);
+      payloadObj = validateJSON(decodedPayload);
+    } catch {
+      // Broken JSON is already flagged under the editors; the last good
+      // encode stands, exactly as on the carried path.
+      return;
+    }
+    if (!signableJwtAlgorithm(headerObj)) {
+      setSigningError(null);
+      setSignedToken(null);
+      return;
+    }
+    let cancelled = false;
+    signJWT(headerObj, payloadObj, signingSecret)
+      .then((signed) => {
+        if (cancelled) return;
+        setEncodedToken(signed);
+        setSignedToken(signed);
+        setSigningError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setSigningError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editMode, decodedHeader, decodedPayload, signingSecret]);
+
+  const handleSecretChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const next = e.target.value;
+      setSigningSecret(next);
+      if (next) return;
+      // Secret cleared — fall back to the carried-signature encode so
+      // an otherwise-untouched token reads clean again.
+      setSigningError(null);
+      setSignedToken(null);
+      try {
+        setEncodedToken(encodeJWT(validateJSON(decodedHeader), validateJSON(decodedPayload), signature));
+      } catch {
+        // Broken JSON keeps the last good encode, same as applyEdit.
+      }
+    },
+    [decodedHeader, decodedPayload, signature],
   );
 
   const handleHeaderChange = useCallback(
@@ -198,6 +269,29 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
       return [];
     }
   })();
+
+  const signingAlgorithm = (() => {
+    try {
+      return signableJwtAlgorithm(validateJSON(decodedHeader));
+    } catch {
+      return null;
+    }
+  })();
+
+  // What Save will actually write, signature-wise. Null means the
+  // original signature is carried (no secret, or raw encoded mode);
+  // 'pending' is the moment between an edit and its async re-sign
+  // landing — no alert claims anything until the encode settles.
+  const signingStatus: 'signed' | 'pending' | 'unsupported' | 'error' | null =
+    editMode === 'decoded' && signingSecret
+      ? signingError
+        ? 'error'
+        : !signingAlgorithm
+          ? 'unsupported'
+          : signedToken === encodedToken
+            ? 'signed'
+            : 'pending'
+      : null;
 
   return (
     <Modal
@@ -350,6 +444,30 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
             <Text style={{ color: segmentColors[2] }}>signature</Text>
           </div>
 
+          {editMode === 'decoded' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <Space>
+                <Text strong style={{ fontSize: 12 }}>
+                  Re-sign with secret
+                </Text>
+                {signingAlgorithm && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {signingAlgorithm} from header
+                  </Text>
+                )}
+              </Space>
+              <Input.Password
+                value={signingSecret}
+                onChange={handleSecretChange}
+                placeholder="Signing secret"
+                autoComplete="new-password"
+              />
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Kept in memory only and discarded when the editor closes.
+              </Text>
+            </div>
+          )}
+
           {expirationInfo?.hasExpiration && (
             <Alert
               type={expirationInfo.isExpired ? 'error' : 'success'}
@@ -360,12 +478,31 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({ open, token: initialTok
             />
           )}
 
-          {isModified && (
+          {signingStatus === 'signed' && (
+            <Alert
+              type="success"
+              showIcon
+              message={`Token re-signed with ${signingAlgorithm}`}
+              description="Save writes the token signed with your secret — the preview above is exactly what gets saved."
+            />
+          )}
+          {signingStatus === 'unsupported' && (
+            <Alert
+              type="warning"
+              showIcon
+              message="Cannot re-sign this algorithm"
+              description="Only HMAC algorithms (HS256, HS384, HS512) can be re-signed here. The original signature is carried over instead."
+            />
+          )}
+          {signingStatus === 'error' && (
+            <Alert type="error" showIcon message="Could not sign token" description={signingError} />
+          )}
+          {isModified && signingStatus === null && (
             <Alert
               type="warning"
               showIcon
               message="Signature no longer valid"
-              description="The original signature is kept as-is, so servers that verify it will reject the edited token. Re-signing with your own key is not supported yet."
+              description="The original signature is kept as-is, so servers that verify it will reject the edited token. Enter a signing secret to re-sign it."
             />
           )}
         </div>
