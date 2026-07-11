@@ -1,8 +1,7 @@
 /**
- * Two-step destructive icon button for the Storage tool window's bulk
- * gestures (store clear, database/cache delete) — first click arms
- * (red), second commits, blur disarms. Per-record deletes stay
- * single-click; only bulk destruction earns the extra step.
+ * Two-step destructive icon button for the Storage tool window's
+ * destructive gestures (store clear, database/cache delete, cache-entry
+ * delete) — first click arms (red), second commits, blur disarms.
  */
 
 import { useState } from 'react';

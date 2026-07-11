@@ -49,7 +49,6 @@ export type { FolderDescriptor, WorkspaceSnapshot } from './common';
 export type {
   CacheEntryDocumentWire,
   CacheEntryHeaderWire,
-  CacheEntryResponsePreviewWire,
   CacheEntryWire,
   CacheStorageCacheWire,
   DomStorageAreaWire,

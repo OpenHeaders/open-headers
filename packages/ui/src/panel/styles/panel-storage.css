@@ -121,7 +121,6 @@
 .dt-storagedoc-preview,
 .dt-valuedoc-preview-body,
 .dt-storagedoc-cookieform,
-.dt-storage-response-body,
 .dt-cachedoc-headers-list,
 .dt-cachedoc-image {
   overscroll-behavior: none;
@@ -132,7 +131,6 @@
 .dt-storagedoc-preview::-webkit-scrollbar,
 .dt-valuedoc-preview-body::-webkit-scrollbar,
 .dt-storagedoc-cookieform::-webkit-scrollbar,
-.dt-storage-response-body::-webkit-scrollbar,
 .dt-cachedoc-headers-list::-webkit-scrollbar,
 .dt-cachedoc-image::-webkit-scrollbar {
   width: 8px;
@@ -144,7 +142,6 @@
 .dt-storagedoc-preview::-webkit-scrollbar-track,
 .dt-valuedoc-preview-body::-webkit-scrollbar-track,
 .dt-storagedoc-cookieform::-webkit-scrollbar-track,
-.dt-storage-response-body::-webkit-scrollbar-track,
 .dt-cachedoc-headers-list::-webkit-scrollbar-track,
 .dt-cachedoc-image::-webkit-scrollbar-track {
   background: transparent;
@@ -155,7 +152,6 @@
 .dt-storagedoc-preview::-webkit-scrollbar-thumb,
 .dt-valuedoc-preview-body::-webkit-scrollbar-thumb,
 .dt-storagedoc-cookieform::-webkit-scrollbar-thumb,
-.dt-storage-response-body::-webkit-scrollbar-thumb,
 .dt-cachedoc-headers-list::-webkit-scrollbar-thumb,
 .dt-cachedoc-image::-webkit-scrollbar-thumb {
   background: rgba(128, 128, 128, 0.45);
@@ -167,7 +163,6 @@
 .dt-storagedoc-preview::-webkit-scrollbar-thumb:hover,
 .dt-valuedoc-preview-body::-webkit-scrollbar-thumb:hover,
 .dt-storagedoc-cookieform::-webkit-scrollbar-thumb:hover,
-.dt-storage-response-body::-webkit-scrollbar-thumb:hover,
 .dt-cachedoc-headers-list::-webkit-scrollbar-thumb:hover,
 .dt-cachedoc-image::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.7);
@@ -734,53 +729,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Stored-response preview strip — expands INSIDE the entry row (spans
- * every grid column, so the row background stays on the row itself). */
-.dt-storage-response-strip {
-  grid-column: 1 / -1;
-  padding: 4px 8px 6px 16px;
-  border-top: 1px dashed var(--dt-border);
-  min-width: 0;
-}
-
-/* An expanded entry grows its row around the strip — the hover actions
- * stay on the entry's own line instead of centering over the preview. */
-.dt-storage-row:has(> .dt-storage-response-strip) > .dt-storage-row-actions {
-  top: 2px;
-  transform: none;
-}
-
-.dt-storage-response-status {
-  color: var(--dt-text);
-  padding-bottom: 2px;
-}
-
-.dt-storage-response-headers {
-  color: var(--dt-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding-bottom: 2px;
-}
-
-.dt-storage-response-body {
-  margin: 0;
-  max-height: 200px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: var(--dt-text);
-  background: var(--dt-header-bg);
-  border: 1px solid var(--dt-border);
-  border-radius: 3px;
-  padding: 4px 6px;
-}
-
-.dt-storage-response-note {
-  color: var(--dt-text-muted);
-  font-style: italic;
 }
 
 /* Usage section — the scope's usage-vs-quota card with the per-type

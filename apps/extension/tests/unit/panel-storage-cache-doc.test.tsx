@@ -60,7 +60,6 @@ function installHost(
     deleteIndexedDbDatabase: vi.fn(() => Promise.resolve(false)),
     listCaches: vi.fn(() => Promise.resolve(null)),
     readCacheEntries: vi.fn(() => Promise.resolve(null)),
-    readCacheEntryResponse: vi.fn(() => Promise.resolve(null)),
     readCacheEntryDocument,
     readQuota: vi.fn(() => Promise.resolve(null)),
     clearSiteData: vi.fn(() => Promise.resolve(false)),

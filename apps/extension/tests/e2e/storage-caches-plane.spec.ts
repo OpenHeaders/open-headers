@@ -68,17 +68,17 @@ interface CacheEntryWireShape {
   responseTimeMs?: number;
 }
 
-interface PreviewWireShape {
+interface DocumentWireShape {
   status: number;
   statusText: string;
-  headersPreview?: string;
-  bodyPreview: string;
+  headers: Array<{ name: string; value: string }>;
+  body: string;
   bodyBase64?: boolean;
   bodyLength: number;
   bodyTruncated?: boolean;
 }
 
-test('Cache Storage reads, response preview, deletes, quota and clear ride the plane end-to-end', async () => {
+test('Cache Storage reads, entry document, deletes, quota and clear ride the plane end-to-end', async () => {
   test.setTimeout(90_000);
   const page = await context.newPage();
   await page.goto(PLAYGROUND_URL);
@@ -136,26 +136,26 @@ test('Cache Storage reads, response preview, deletes, quota and clear ride the p
   const otherEntry = entries.entries?.find((e) => e.url === 'http://127.0.0.1:3000/api/other');
   expect(otherEntry?.contentLength).toBeUndefined();
 
-  // ── Lazy stored-response preview (the separate RPC) ────────────────
-  const previewed = await rpc<{ preview: PreviewWireShape | null }>('getCacheStorageEntryResponse', {
+  // ── Lazy stored-response document (the editor tab's separate RPC) ──
+  const opened = await rpc<{ document: DocumentWireShape | null }>('getCacheStorageEntryDocument', {
     ...base,
     cache: 'oh-e2e-api',
     url: 'http://127.0.0.1:3000/api/data',
     method: 'GET',
   });
-  expect(previewed.preview?.status).toBe(200);
-  expect(previewed.preview?.bodyPreview).toBe('{"a":1}');
-  expect(previewed.preview?.bodyLength).toBe(7);
-  expect(previewed.preview?.bodyBase64).toBeFalsy();
-  expect(previewed.preview?.headersPreview).toContain('content-type: application/json');
+  expect(opened.document?.status).toBe(200);
+  expect(opened.document?.body).toBe('{"a":1}');
+  expect(opened.document?.bodyLength).toBe(7);
+  expect(opened.document?.bodyBase64).toBeFalsy();
+  expect(opened.document?.headers.some((h) => h.name === 'content-type' && h.value === 'application/json')).toBe(true);
 
-  const missing = await rpc<{ preview: PreviewWireShape | null }>('getCacheStorageEntryResponse', {
+  const missing = await rpc<{ document: DocumentWireShape | null }>('getCacheStorageEntryDocument', {
     ...base,
     cache: 'oh-e2e-api',
     url: 'http://127.0.0.1:3000/api/gone',
     method: 'GET',
   });
-  expect(missing.preview).toBeNull();
+  expect(missing.document).toBeNull();
 
   // ── Entry delete moves the page-side cache ─────────────────────────
   const entryDeleted = await rpc<{ ok: boolean }>('deleteCacheStorageEntry', {

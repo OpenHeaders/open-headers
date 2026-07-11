@@ -82,11 +82,11 @@ interface CacheEntryWireShape {
   responseTimeMs?: number;
 }
 
-interface PreviewWireShape {
+interface DocumentWireShape {
   status: number;
   statusText: string;
-  headersPreview?: string;
-  bodyPreview: string;
+  headers: Array<{ name: string; value: string }>;
+  body: string;
   bodyBase64?: boolean;
   bodyLength: number;
   bodyTruncated?: boolean;
@@ -201,38 +201,42 @@ test('CDP tier: stamping, breakdown, CDP cache ops, invalidation pushes, detach 
   expect(echoEntry?.responseTimeMs).toBeGreaterThan(Date.now() - 60 * 60 * 1000);
   expect(echoEntry?.responseTimeMs).toBeLessThan(Date.now() + 60 * 1000);
 
-  // Textual preview via requestCachedResponse, re-capped SW-side.
-  const echoPreview = await rpc<{ preview: PreviewWireShape | null }>('getCacheStorageEntryResponse', {
+  // Textual document via requestCachedResponse, re-capped SW-side.
+  const echoDoc = await rpc<{ document: DocumentWireShape | null }>('getCacheStorageEntryDocument', {
     ...base,
     cache: 'oh-cache-api',
     url: echoUrl,
     method: 'GET',
   });
-  expect(echoPreview.preview?.status).toBe(200);
-  expect(echoPreview.preview?.bodyBase64).toBeFalsy();
-  expect(echoPreview.preview?.bodyPreview).toContain('"seed": "one"');
-  expect(echoPreview.preview?.headersPreview?.toLowerCase()).toContain('content-type: application/json');
+  expect(echoDoc.document?.status).toBe(200);
+  expect(echoDoc.document?.bodyBase64).toBeFalsy();
+  expect(echoDoc.document?.body).toContain('"seed": "one"');
+  expect(
+    echoDoc.document?.headers.some(
+      (h) => h.name.toLowerCase() === 'content-type' && h.value.includes('application/json'),
+    ),
+  ).toBe(true);
 
   // Binary body ships base64.
-  const gifPreview = await rpc<{ preview: PreviewWireShape | null }>('getCacheStorageEntryResponse', {
+  const gifDoc = await rpc<{ document: DocumentWireShape | null }>('getCacheStorageEntryDocument', {
     ...base,
     cache: 'oh-cache-api',
     url: 'http://127.0.0.1:3000/probe/image?seed=gif',
     method: 'GET',
   });
-  expect(gifPreview.preview?.bodyBase64).toBe(true);
-  expect(gifPreview.preview?.bodyLength).toBeGreaterThan(0);
+  expect(gifDoc.document?.bodyBase64).toBe(true);
+  expect(gifDoc.document?.bodyLength).toBeGreaterThan(0);
 
-  // Oversized body arrives truncated to the preview cap.
-  const bigPreview = await rpc<{ preview: PreviewWireShape | null }>('getCacheStorageEntryResponse', {
+  // A large body still rides whole under the document cap.
+  const bigDoc = await rpc<{ document: DocumentWireShape | null }>('getCacheStorageEntryDocument', {
     ...base,
     cache: 'oh-cache-assets',
     url: 'http://127.0.0.1:3000/storage/big-body',
     method: 'GET',
   });
-  expect(bigPreview.preview?.bodyLength).toBe(20_000);
-  expect(bigPreview.preview?.bodyTruncated).toBe(true);
-  expect(bigPreview.preview?.bodyPreview.length).toBe(16 * 1024);
+  expect(bigDoc.document?.bodyLength).toBe(20_000);
+  expect(bigDoc.document?.bodyTruncated).toBeFalsy();
+  expect(bigDoc.document?.body.length).toBe(20_000);
 
   // ── Tracking armed: page-side writes push invalidation broadcasts ──
   await page.evaluate(async () => {

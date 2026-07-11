@@ -13,7 +13,6 @@ import {
   deleteCacheStorageEntry,
   getCacheStorageEntries,
   getCacheStorageEntryDocument,
-  getCacheStorageEntryResponse,
   listCacheStorageCaches,
 } from '@/background/modules/storage-inspector/caches';
 import {
@@ -23,8 +22,6 @@ import {
 } from '@/background/modules/storage-inspector/cdp-tier';
 import {
   CACHE_BODY_DOCUMENT_MAX,
-  CACHE_BODY_PREVIEW_MAX,
-  CACHE_HEADERS_PREVIEW_MAX,
   CACHE_PAGE_SIZE_DEFAULT,
   CACHE_PAGE_SIZE_MAX,
   deleteCacheEntryInPage,
@@ -32,7 +29,6 @@ import {
   listCachesInPage,
   readCacheEntriesInPage,
   readCacheEntryDocumentInPage,
-  readCacheEntryResponseInPage,
 } from '@/background/modules/storage-inspector/standard-plane-caches';
 
 const executeScriptSpy = (): ReturnType<typeof vi.fn> =>
@@ -179,55 +175,7 @@ describe('readCacheEntriesInPage', () => {
   });
 });
 
-describe('readCacheEntryResponseInPage', () => {
-  it('previews a textual response with the status line and bounded headers', async () => {
-    const request = new Request('https://openheaders.io/api/data');
-    const responses = new Map([
-      [
-        request,
-        new Response('{"a":1}', {
-          status: 200,
-          statusText: 'OK',
-          headers: { 'content-type': 'application/json', 'x-oh': '1' },
-        }),
-      ],
-    ]);
-    installCachesStub({ 'oh-api-v2': [request] }, responses);
-
-    const { preview } = await readCacheEntryResponseInPage(
-      'oh-api-v2',
-      'https://openheaders.io/api/data',
-      'GET',
-      512,
-      1024,
-    );
-    expect(preview).toMatchObject({
-      status: 200,
-      statusText: 'OK',
-      headersPreview: 'content-type: application/json, x-oh: 1',
-      bodyPreview: '{"a":1}',
-      bodyLength: 7,
-    });
-    expect(preview?.bodyBase64).toBeUndefined();
-    expect(preview?.bodyTruncated).toBeUndefined();
-  });
-
-  it('ships a binary body base64 and caps the preview at the byte bound', async () => {
-    const binary = new Request('https://openheaders.io/img.png');
-    const long = new Request('https://openheaders.io/long.txt');
-    const responses = new Map([
-      [binary, new Response(new Uint8Array([0, 1, 2]), { status: 200, headers: { 'content-type': 'image/png' } })],
-      [long, new Response('abcdefgh', { status: 200, headers: { 'content-type': 'text/plain' } })],
-    ]);
-    installCachesStub({ 'oh-assets-v1': [binary, long] }, responses);
-
-    const bin = await readCacheEntryResponseInPage('oh-assets-v1', 'https://openheaders.io/img.png', 'GET', 512, 1024);
-    expect(bin.preview).toMatchObject({ bodyPreview: 'AAEC', bodyBase64: true, bodyLength: 3 });
-
-    const capped = await readCacheEntryResponseInPage('oh-assets-v1', 'https://openheaders.io/long.txt', 'GET', 512, 4);
-    expect(capped.preview).toMatchObject({ bodyPreview: 'abcd', bodyLength: 8, bodyTruncated: true });
-  });
-
+describe('readCacheEntryDocumentInPage', () => {
   it('matches a non-GET entry with the method check relaxed', async () => {
     const request = new Request('https://openheaders.io/api/submit', { method: 'POST' });
     const responses = new Map([
@@ -235,34 +183,14 @@ describe('readCacheEntryResponseInPage', () => {
     ]);
     installCachesStub({ 'oh-api-v2': [request] }, responses);
 
-    const { preview } = await readCacheEntryResponseInPage(
+    const { document } = await readCacheEntryDocumentInPage(
       'oh-api-v2',
       'https://openheaders.io/api/submit',
       'POST',
-      512,
       1024,
     );
-    expect(preview?.status).toBe(201);
+    expect(document?.status).toBe(201);
   });
-
-  it('reads null for a missing entry, a missing cache (no ghost), and no caches global', async () => {
-    const store = installCachesStub({ 'oh-assets-v1': [] });
-    expect(
-      (await readCacheEntryResponseInPage('oh-assets-v1', 'https://openheaders.io/x', 'GET', 512, 1024)).preview,
-    ).toBeNull();
-    expect(
-      (await readCacheEntryResponseInPage('oh-gone', 'https://openheaders.io/x', 'GET', 512, 1024)).preview,
-    ).toBeNull();
-    expect([...store.keys()]).toEqual(['oh-assets-v1']);
-
-    removeCachesGlobal();
-    expect(
-      (await readCacheEntryResponseInPage('any', 'https://openheaders.io/x', 'GET', 512, 1024)).preview,
-    ).toBeNull();
-  });
-});
-
-describe('readCacheEntryDocumentInPage', () => {
   it('ships structured header pairs and the full text body at the document cap', async () => {
     const request = new Request('https://openheaders.io/api/data');
     const responses = new Map([
@@ -386,25 +314,6 @@ describe('arbitrated RPC surface — injected transport (detached)', () => {
     const page = await getCacheStorageEntries(1, 0, 'oh-assets-v1', 0, 50);
     expect(page.entries).toEqual([{ url: 'https://openheaders.io/a.js', method: 'GET' }]);
     expect(page.truncated).toBe(true);
-  });
-
-  it('routes the response preview through injection with the SW-side caps', async () => {
-    const preview = { status: 200, statusText: 'OK', bodyPreview: 'hi', bodyLength: 2 };
-    executeScriptSpy().mockResolvedValue([{ result: { preview } }]);
-    expect(
-      (await getCacheStorageEntryResponse(1, 0, 'oh-assets-v1', 'https://openheaders.io/a.js', 'GET')).preview,
-    ).toEqual(preview);
-    expect(executeScriptSpy().mock.calls[0][0].args).toEqual([
-      'oh-assets-v1',
-      'https://openheaders.io/a.js',
-      'GET',
-      CACHE_HEADERS_PREVIEW_MAX,
-      CACHE_BODY_PREVIEW_MAX,
-    ]);
-
-    executeScriptSpy().mockClear();
-    expect((await getCacheStorageEntryResponse(1, 0, 'c', undefined as unknown as string, 'GET')).preview).toBeNull();
-    expect(executeScriptSpy()).not.toHaveBeenCalled();
   });
 
   it('routes the document read through injection with the document cap', async () => {
@@ -534,50 +443,6 @@ describe('arbitrated RPC surface — CDP transport (attached)', () => {
     expect(executeScriptSpy()).not.toHaveBeenCalled();
   });
 
-  it('previews a stored response through requestEntries + requestCachedResponse, re-capped SW-side', async () => {
-    const calls = installCdp((_tabId, method) => {
-      if (method === 'CacheStorage.requestCacheNames') return Promise.resolve({ caches: RAW_CACHES });
-      if (method === 'CacheStorage.requestEntries') {
-        return Promise.resolve({
-          cacheDataEntries: [
-            {
-              requestURL: 'https://openheaders.io/a.js',
-              requestMethod: 'GET',
-              requestHeaders: [{ name: 'accept', value: '*/*' }],
-              responseStatus: 200,
-              responseStatusText: 'OK',
-              responseHeaders: [{ name: 'content-type', value: 'text/javascript' }],
-            },
-          ],
-          returnCount: 1,
-        });
-      }
-      if (method === 'CacheStorage.requestCachedResponse') {
-        return Promise.resolve({ response: { body: btoa('hello') } });
-      }
-      return Promise.reject(new Error(`unexpected ${method}`));
-    });
-
-    const { preview } = await getCacheStorageEntryResponse(1, 0, 'oh-assets-v1', 'https://openheaders.io/a.js', 'GET');
-    expect(preview).toEqual({
-      status: 200,
-      statusText: 'OK',
-      headersPreview: 'content-type: text/javascript',
-      bodyPreview: 'hello',
-      bodyLength: 5,
-    });
-    expect(calls.find((c) => c.method === 'CacheStorage.requestEntries')?.params).toMatchObject({
-      cacheId: 'id-assets',
-      pathFilter: 'https://openheaders.io/a.js',
-    });
-    expect(calls.find((c) => c.method === 'CacheStorage.requestCachedResponse')?.params).toEqual({
-      cacheId: 'id-assets',
-      requestURL: 'https://openheaders.io/a.js',
-      requestHeaders: [{ name: 'accept', value: '*/*' }],
-    });
-    expect(executeScriptSpy()).not.toHaveBeenCalled();
-  });
-
   it('reads the document through requestEntries + requestCachedResponse with structured headers', async () => {
     const calls = installCdp((_tabId, method) => {
       if (method === 'CacheStorage.requestCacheNames') return Promise.resolve({ caches: RAW_CACHES });
@@ -633,20 +498,6 @@ describe('arbitrated RPC surface — CDP transport (attached)', () => {
 
     expect(
       (await getCacheStorageEntryDocument(1, 0, 'oh-assets-v1', 'https://openheaders.io/gone.js', 'GET')).document,
-    ).toBeNull();
-    expect(executeScriptSpy()).toHaveBeenCalledTimes(1);
-  });
-
-  it('degrades the response preview to injection when the CDP entry is missing', async () => {
-    installCdp((_tabId, method) => {
-      if (method === 'CacheStorage.requestCacheNames') return Promise.resolve({ caches: RAW_CACHES });
-      if (method === 'CacheStorage.requestEntries') return Promise.resolve({ cacheDataEntries: [], returnCount: 0 });
-      return Promise.reject(new Error(`unexpected ${method}`));
-    });
-    executeScriptSpy().mockResolvedValue([{ result: { preview: null } }]);
-
-    expect(
-      (await getCacheStorageEntryResponse(1, 0, 'oh-assets-v1', 'https://openheaders.io/gone.js', 'GET')).preview,
     ).toBeNull();
     expect(executeScriptSpy()).toHaveBeenCalledTimes(1);
   });

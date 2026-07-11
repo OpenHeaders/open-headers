@@ -25,7 +25,6 @@ function makeCache(overrides: Partial<CacheBrowserState> = {}): CacheBrowserStat
     setPage: vi.fn(),
     entriesPage: null,
     refresh: vi.fn(),
-    readEntryResponse: vi.fn(() => Promise.resolve(null)),
     mutationFailed: false,
     deleteCache: vi.fn(),
     deleteEntry: vi.fn(),
@@ -111,7 +110,7 @@ describe('CacheStorageSection entries view', () => {
     expect(screen.getAllByText('—')).toHaveLength(2);
   });
 
-  it('deletes an entry single-click through the hover lane', () => {
+  it('deletes an entry only on the second (armed) click, and blur disarms', () => {
     const cache = makeCache({
       selectedCache: 'oh-assets-v1',
       entriesPage: {
@@ -121,71 +120,19 @@ describe('CacheStorageSection entries view', () => {
     });
     render(<CacheStorageSection cache={cache} filter="" />);
 
-    fireEvent.click(screen.getByLabelText('Delete entry https://openheaders.io/api/data'));
+    const del = screen.getByLabelText('Delete entry https://openheaders.io/api/data');
+    fireEvent.click(del);
+    expect(cache.deleteEntry).not.toHaveBeenCalled();
+
+    fireEvent.blur(del);
+    fireEvent.click(del);
+    expect(cache.deleteEntry).not.toHaveBeenCalled();
+
+    fireEvent.click(del);
     expect(cache.deleteEntry).toHaveBeenCalledWith('https://openheaders.io/api/data', 'POST');
   });
 
-  it('expands a stored-response preview through the lazy fetch and collapses on the second click', async () => {
-    const readEntryResponse = vi.fn(() =>
-      Promise.resolve({
-        status: 200,
-        statusText: 'OK',
-        headersPreview: 'content-type: application/json',
-        bodyPreview: '{"a":1}',
-        bodyLength: 7,
-      }),
-    );
-    const cache = makeCache({
-      selectedCache: 'oh-assets-v1',
-      readEntryResponse,
-      entriesPage: {
-        entries: [{ url: 'https://openheaders.io/api/data', method: 'GET' }],
-        truncated: false,
-      },
-    });
-    render(<CacheStorageSection cache={cache} filter="" />);
-
-    const eye = screen.getByLabelText('Preview response for https://openheaders.io/api/data');
-    fireEvent.click(eye);
-    expect(readEntryResponse).toHaveBeenCalledWith('https://openheaders.io/api/data', 'GET');
-    expect(await screen.findByText('{"a":1}')).toBeDefined();
-    expect(screen.getByText(/200 OK/)).toBeDefined();
-    expect(screen.getByText('content-type: application/json')).toBeDefined();
-
-    fireEvent.click(eye);
-    expect(screen.queryByText('{"a":1}')).toBeNull();
-  });
-
-  it('renders a binary body as a note and a failed fetch as unreadable', async () => {
-    const cache = makeCache({
-      selectedCache: 'oh-assets-v1',
-      readEntryResponse: vi.fn(() =>
-        Promise.resolve({ status: 200, statusText: '', bodyPreview: 'AAEC', bodyBase64: true, bodyLength: 3 }),
-      ),
-      entriesPage: {
-        entries: [{ url: 'https://openheaders.io/img.png', method: 'GET' }],
-        truncated: false,
-      },
-    });
-    render(<CacheStorageSection cache={cache} filter="" />);
-    fireEvent.click(screen.getByLabelText('Preview response for https://openheaders.io/img.png'));
-    expect(await screen.findByText(/Binary body/)).toBeDefined();
-    cleanup();
-
-    const failing = makeCache({
-      selectedCache: 'oh-assets-v1',
-      readEntryResponse: vi.fn(() => Promise.resolve(null)),
-      entriesPage: {
-        entries: [{ url: 'https://openheaders.io/gone.js', method: 'GET' }],
-        truncated: false,
-      },
-    });
-    render(<CacheStorageSection cache={failing} filter="" />);
-    fireEvent.click(screen.getByLabelText('Preview response for https://openheaders.io/gone.js'));
-    expect(await screen.findByText(/can’t be read/)).toBeDefined();
-  });
-
-  it('opens an entry as an editor document on row click; hover-lane actions never also open', () => {
+  it('opens an entry as an editor document on row click; the delete lane never also opens', () => {
     const onOpenEntry = vi.fn();
     const cache = makeCache({
       selectedCache: 'oh-assets-v1',
@@ -200,8 +147,9 @@ describe('CacheStorageSection entries view', () => {
     expect(onOpenEntry).toHaveBeenCalledWith('https://openheaders.io/api/data', 'POST');
 
     onOpenEntry.mockClear();
-    fireEvent.click(screen.getByLabelText('Delete entry https://openheaders.io/api/data'));
-    fireEvent.click(screen.getByLabelText('Preview response for https://openheaders.io/api/data'));
+    const del = screen.getByLabelText('Delete entry https://openheaders.io/api/data');
+    fireEvent.click(del);
+    fireEvent.click(del);
     expect(onOpenEntry).not.toHaveBeenCalled();
     expect(cache.deleteEntry).toHaveBeenCalled();
   });

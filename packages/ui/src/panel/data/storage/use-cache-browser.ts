@@ -16,7 +16,7 @@
 
 import { hostNavigation } from '@openheaders/core/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CacheEntriesPage, CacheEntryResponsePreview, CacheSummary } from './storage-inspector-host';
+import type { CacheEntriesPage, CacheSummary } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
 
 const CACHE_POLL_MS = 5000;
@@ -58,10 +58,6 @@ export interface CacheBrowserState {
   /** `null` while the opened cache's page is in flight. */
   entriesPage: CacheEntriesPage | null;
   refresh: () => void;
-  /** Lazy one-shot fetch of one OPENED-cache entry's stored-response
-   *  preview — component-held state, never polled; `null` when the entry
-   *  is gone or unreadable. */
-  readEntryResponse: (url: string, method: string) => Promise<CacheEntryResponsePreview | null>;
   /** Last delete failed — cleared by the next successful one. */
   mutationFailed: boolean;
   deleteCache: (cache: string) => void;
@@ -173,14 +169,6 @@ export function useCacheBrowser(active: boolean, frameId: number | null): CacheB
     void readEntries();
   }, [listCaches, readEntries]);
 
-  const readEntryResponse = useCallback(
-    async (url: string, method: string): Promise<CacheEntryResponsePreview | null> => {
-      if (!host || tabId === null || frameId === null || selectedCache === null) return null;
-      return host.readCacheEntryResponse(tabId, frameId, selectedCache, url, method);
-    },
-    [host, tabId, frameId, selectedCache],
-  );
-
   // Mutations refetch through the same read path (invalidation
   // discipline) — the grid never trusts a delete's local outcome.
   const deleteCache = useCallback(
@@ -217,7 +205,6 @@ export function useCacheBrowser(active: boolean, frameId: number | null): CacheB
     setPage,
     entriesPage,
     refresh,
-    readEntryResponse,
     mutationFailed,
     deleteCache,
     deleteEntry,

@@ -3,20 +3,17 @@
  * scope's named caches, then an opened cache's paged entry grid —
  * request metadata (URL + method + a bounded request-headers preview)
  * plus the stored response's size and storage-time columns (metadata
- * only; bodies stay behind the lazy eye-preview). Either column renders
- * an em dash when the host couldn't derive it — size needs a
- * `content-length` header, time exists only on attached tabs. Deletes
- * are in scope: a whole
- * cache uses the two-step arm/confirm idiom (bulk destruction); an
- * entry is a single-click hover lane like the DOM grid's.
+ * only; the body lives in the entry's editor tab, opened by the row
+ * click). Either column renders an em dash when the host couldn't
+ * derive it — size needs a `content-length` header, time exists only on
+ * attached tabs. Deletes are in scope, all through the two-step
+ * arm/confirm idiom — a stored response isn't recoverable.
  *
  * `caches` is a secure-context API, so an http: scope legitimately has
  * no reach — that renders as an explanatory empty state, not an error.
  */
 
-import { DeleteOutlined, EyeOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
-import { type MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react';
-import type { CacheEntryResponsePreview } from '../../data/storage/storage-inspector-host';
+import { DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type { CacheBrowserState } from '../../data/storage/use-cache-browser';
 import { formatDateTime, formatSize } from '../traffic/formatters';
 import { ArmedIconButton } from './ArmedIconButton';
@@ -81,43 +78,9 @@ export function CacheStorageSection({ cache, filter, onOpenEntry, isEntryActive 
   );
 }
 
-type PreviewSlot = 'loading' | 'failed' | CacheEntryResponsePreview;
-
 function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorageSectionProps) {
-  // The expanded entry's stored-response preview — a lazy one-shot fetch
-  // held here, keyed on the entry's url+method; never polled state. The
-  // ref mirrors the key so a late fetch for a since-collapsed row drops.
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [preview, setPreview] = useState<PreviewSlot | null>(null);
-  const expandedRef = useRef<string | null>(null);
-
   const name = cache.selectedCache;
-  const { readEntryResponse } = cache;
-
-  // Cache or page change → the expanded row is gone; drop the preview.
-  useEffect(() => {
-    expandedRef.current = null;
-    setExpandedKey(null);
-    setPreview(null);
-  }, [name, cache.page]);
-
   if (name === null) return null;
-
-  const togglePreview = (url: string, method: string) => {
-    const key = `${url}\n${method}`;
-    if (expandedKey === key) {
-      expandedRef.current = null;
-      setExpandedKey(null);
-      setPreview(null);
-      return;
-    }
-    expandedRef.current = key;
-    setExpandedKey(key);
-    setPreview('loading');
-    void readEntryResponse(url, method).then((result) => {
-      if (expandedRef.current === key) setPreview(result ?? 'failed');
-    });
-  };
 
   const pageData = cache.entriesPage;
   const needle = filter.trim().toLowerCase();
@@ -188,109 +151,44 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
             <span role="columnheader">Size</span>
             <span role="columnheader">Time</span>
           </div>
-          {entries.map((e, i) => {
-            const expanded = expandedKey === `${e.url}\n${e.method}`;
-            return (
-              // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance
-              <div
-                className={`dt-storage-row${isEntryActive?.(e.url, e.method) ? ' dt-storage-row--active' : ''}`}
-                role="row"
-                key={`${cache.page}:${i}:${e.url}`}
-                onClick={() => onOpenEntry?.(e.url, e.method)}
+          {entries.map((e, i) => (
+            // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance
+            <div
+              className={`dt-storage-row${isEntryActive?.(e.url, e.method) ? ' dt-storage-row--active' : ''}`}
+              role="row"
+              key={`${cache.page}:${i}:${e.url}`}
+              onClick={() => onOpenEntry?.(e.url, e.method)}
+            >
+              <span
+                className="dt-storage-key"
+                role="cell"
+                title={e.headersPreview ? `${e.url}\n${e.headersPreview}` : e.url}
               >
-                <span
-                  className="dt-storage-key"
-                  role="cell"
-                  title={e.headersPreview ? `${e.url}\n${e.headersPreview}` : e.url}
-                >
-                  {e.url}
-                </span>
-                <span className="dt-storage-value" role="cell">
-                  {e.method}
-                </span>
-                <span className="dt-storage-value" role="cell">
-                  {formatSize(e.contentLength) || '—'}
-                </span>
-                <span className="dt-storage-value" role="cell">
-                  {formatDateTime(e.responseTimeMs) || '—'}
-                </span>
-                <span className="dt-storage-row-actions">
-                  <button
-                    type="button"
-                    className="dt-storage-action"
-                    title={expanded ? 'Hide the stored response' : 'Preview the stored response'}
-                    aria-label={`Preview response for ${e.url}`}
-                    aria-expanded={expanded}
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      togglePreview(e.url, e.method);
-                    }}
-                  >
-                    <EyeOutlined />
-                  </button>
-                  <button
-                    type="button"
-                    className="dt-storage-action"
-                    title="Delete this entry"
-                    aria-label={`Delete entry ${e.url}`}
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      cache.deleteEntry(e.url, e.method);
-                    }}
-                  >
-                    <DeleteOutlined />
-                  </button>
-                </span>
-                {expanded && preview !== null ? <ResponsePreviewStrip preview={preview} /> : null}
-              </div>
-            );
-          })}
+                {e.url}
+              </span>
+              <span className="dt-storage-value" role="cell">
+                {e.method}
+              </span>
+              <span className="dt-storage-value" role="cell">
+                {formatSize(e.contentLength) || '—'}
+              </span>
+              <span className="dt-storage-value" role="cell">
+                {formatDateTime(e.responseTimeMs) || '—'}
+              </span>
+              {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: keeps the armed delete's clicks off the row's open gesture */}
+              <span className="dt-storage-row-actions" onClick={(ev) => ev.stopPropagation()}>
+                <ArmedIconButton
+                  icon={<DeleteOutlined />}
+                  title="Delete this entry"
+                  confirmTitle="Deletes the stored response — click again to confirm"
+                  ariaLabel={`Delete entry ${e.url}`}
+                  onConfirm={() => cache.deleteEntry(e.url, e.method)}
+                />
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </>
-  );
-}
-
-/**
- * The expanded entry's stored response — status line, the bounded
- * response-headers join, and the byte-capped body slice. A binary body
- * arrives base64 and renders a note instead of the encoded noise.
- */
-function ResponsePreviewStrip({ preview }: { preview: PreviewSlot }) {
-  // The strip lives inside the row, whose click opens the entry as a
-  // document — interacting with the preview (selecting text) must not.
-  const swallow = (ev: ReactMouseEvent) => ev.stopPropagation();
-  if (preview === 'loading') {
-    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: swallows the row's open-click
-    return (
-      <div className="dt-storage-response-strip dt-storage-response-note" onClick={swallow}>
-        Loading…
-      </div>
-    );
-  }
-  if (preview === 'failed') {
-    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: swallows the row's open-click
-    return (
-      <div className="dt-storage-response-strip dt-storage-response-note" onClick={swallow}>
-        The stored response can’t be read — the entry may be gone.
-      </div>
-    );
-  }
-  return (
-    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: swallows the row's open-click
-    <div className="dt-storage-response-strip" onClick={swallow}>
-      <div className="dt-storage-response-status">
-        {preview.status} {preview.statusText || ''} · {formatSize(preview.bodyLength)}
-        {preview.bodyTruncated ? ' (preview truncated)' : ''}
-      </div>
-      {preview.headersPreview ? <div className="dt-storage-response-headers">{preview.headersPreview}</div> : null}
-      {preview.bodyBase64 ? (
-        <div className="dt-storage-response-note">Binary body — {formatSize(preview.bodyLength)} stored.</div>
-      ) : preview.bodyPreview.length > 0 ? (
-        <pre className="dt-storage-response-body">{preview.bodyPreview}</pre>
-      ) : (
-        <div className="dt-storage-response-note">Empty body.</div>
-      )}
-    </div>
   );
 }

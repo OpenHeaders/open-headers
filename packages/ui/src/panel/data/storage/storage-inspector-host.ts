@@ -175,23 +175,6 @@ export interface CacheEntriesPage {
   truncated: boolean;
 }
 
-/**
- * One cache entry's stored response, preview-serialized host-side —
- * status line, a bounded response-headers join, and a byte-capped body
- * slice (`bodyBase64` marks a binary body shipped base64;
- * `bodyTruncated` marks a preview that stopped at the cap while
- * `bodyLength` carries the full byte size).
- */
-export interface CacheEntryResponsePreview {
-  status: number;
-  statusText: string;
-  headersPreview?: string;
-  bodyPreview: string;
-  bodyBase64?: boolean;
-  bodyLength: number;
-  bodyTruncated?: boolean;
-}
-
 /** One stored-response header pair, order-preserved. */
 export interface CacheEntryHeader {
   name: string;
@@ -320,15 +303,6 @@ export interface StorageInspectorHost {
     page: number,
     pageSize: number,
   ): Promise<CacheEntriesPage | null>;
-  /** Lazy one-shot fetch of one cache entry's stored-response preview;
-   *  `null` when the entry is gone or the frame can't be read. */
-  readCacheEntryResponse(
-    tabId: number,
-    frameId: number,
-    cache: string,
-    url: string,
-    method: string,
-  ): Promise<CacheEntryResponsePreview | null>;
   /** Lazy one-shot fetch of one cache entry's stored response as a full
    *  editor document; `null` when the entry is gone or the frame can't
    *  be read. */
