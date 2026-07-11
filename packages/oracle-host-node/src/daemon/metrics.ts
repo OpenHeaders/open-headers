@@ -13,8 +13,9 @@
  * bound — no timestamp column needed. Audit windows use the ISO
  * `occurred_at` column the same way.
  *
- * Consumed by the `/metrics` HTTP route (token-gated, JSON) and — via
- * that route — `oh daemon status --verbose`.
+ * Consumed by the `/metrics` HTTP route (token-gated; JSON by
+ * default, Prometheus text exposition via content negotiation) and —
+ * via that route — `oh daemon status --verbose`.
  */
 
 import { hlcToString } from '@openheaders/core/sync';

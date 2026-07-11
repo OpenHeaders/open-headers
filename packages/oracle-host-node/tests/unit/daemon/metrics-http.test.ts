@@ -104,6 +104,39 @@ describe('metrics HTTP handler', () => {
     expect(await response.json()).toEqual(METRICS);
   });
 
+  it('serves the Prometheus exposition when Accept names a scraper media type', async () => {
+    const response = await fetch(`${baseUrl}${METRICS_HTTP_PATH}`, {
+      headers: {
+        authorization: `Bearer ${secret}`,
+        accept: 'application/openmetrics-text;version=1.0.0,text/plain;version=0.0.4;q=0.5,*/*;q=0.1',
+      },
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('text/plain; version=0.0.4; charset=utf-8');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    const body = await response.text();
+    expect(body).toContain('oh_uptime_seconds 4242');
+    expect(body).toContain('oh_bind_info{state="bound",host="127.0.0.1",port="8137"} 1');
+  });
+
+  it('keeps JSON the default for a wildcard or JSON Accept', async () => {
+    for (const accept of ['*/*', 'application/json']) {
+      const response = await fetch(`${baseUrl}${METRICS_HTTP_PATH}`, {
+        headers: { authorization: `Bearer ${secret}`, accept },
+      });
+      expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
+      expect(await response.json()).toEqual(METRICS);
+    }
+  });
+
+  it('401s an unauthenticated scrape — the exposition format weakens nothing', async () => {
+    const response = await fetch(`${baseUrl}${METRICS_HTTP_PATH}`, {
+      headers: { accept: 'text/plain;version=0.0.4' },
+    });
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toBe('Bearer');
+  });
+
   it('401s a bound token once its directory user is deactivated', async () => {
     const created = await createDaemonUser({ displayName: 'Alice' });
     if (!created.ok) throw new Error('directory create failed');

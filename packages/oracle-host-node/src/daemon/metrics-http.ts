@@ -15,7 +15,10 @@
  *      loopback included, validated against the same ledger as the WS
  *      handshake and `/mcp`: one revoke list, one audit trail.
  *
- * Response: the {@link DaemonMetrics} JSON, `no-store`. Read-only by
+ * Response: the {@link DaemonMetrics} JSON by default, `no-store`;
+ * an `Accept` header naming a Prometheus media type selects the text
+ * exposition of the same numbers — a second format, not a second
+ * route, so the admission posture is identical. Read-only by
  * construction — the provider derives every number at request time.
  */
 
@@ -23,6 +26,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolveDaemonPeerUser, validateDaemonAuthToken } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { MetricsProvider } from './metrics';
+import { PROMETHEUS_CONTENT_TYPE, renderPrometheusMetrics, wantsPrometheusText } from './metrics-prometheus';
 
 const SCOPE = 'MetricsHttp';
 
@@ -58,6 +62,14 @@ function json(res: ServerResponse, statusCode: number, body: unknown, extraHeade
     res.setHeader(name, value);
   }
   res.end(JSON.stringify(body));
+}
+
+function prometheusText(res: ServerResponse, body: string): void {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', PROMETHEUS_CONTENT_TYPE);
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.end(body);
 }
 
 export function createMetricsHttpHandler(options: MetricsHttpHandlerOptions): MetricsHttpHandler {
@@ -100,7 +112,12 @@ export function createMetricsHttpHandler(options: MetricsHttpHandlerOptions): Me
           json(res, 401, { error: 'a paired access token is required' }, { 'WWW-Authenticate': 'Bearer' });
           return;
         }
-        json(res, 200, provider.getMetrics());
+        const metrics = provider.getMetrics();
+        if (wantsPrometheusText(req.headers.accept)) {
+          prometheusText(res, renderPrometheusMetrics(metrics));
+        } else {
+          json(res, 200, metrics);
+        }
       } catch (err) {
         logger.warn(SCOPE, 'request handling failed', err);
         if (!res.headersSent) {
