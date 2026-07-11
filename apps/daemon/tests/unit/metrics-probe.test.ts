@@ -1,5 +1,5 @@
 /**
- * `oh daemon status --verbose` probe half — fetch against a stub
+ * `ohd status --verbose` probe half — fetch against a stub
  * loopback server (200 / 401 / unreachable) and the human formatting
  * of the metrics payload. Sqlite-free like every CLI-entry test.
  */

@@ -4,7 +4,7 @@
  *   1. Spawn the built `apps/daemon` bundle on `0.0.0.0` with an
  *      isolated data dir, serving the built `apps/web` bundle
  *      (`--web-root`). The token ledger + MCP settings are pre-seeded
- *      in `storage.json` (the offline `oh daemon show-token`
+ *      in `storage.json` (the offline `ohd show-token`
  *      equivalent, same idiom as the extension T3 gate).
  *   2. A fresh origin renders the LOGIN GATE (no stored token); a bad
  *      token is rejected in-band by a real HELLO; the minted token

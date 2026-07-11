@@ -15,7 +15,7 @@
 # clobbered by the daemon's next flush:
 #
 #   docker compose -f ... stop daemon
-#   docker compose -f ... run --rm daemon oh daemon show-token
+#   docker compose -f ... run --rm daemon ohd show-token
 #   docker compose -f ... start daemon
 #
 # The daemon service publishes no ports: every request enters through

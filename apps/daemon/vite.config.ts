@@ -1,6 +1,6 @@
 /**
  * Daemon shell build — two Node bundles: `dist/main.js` (the daemon)
- * and `dist/cli.js` (the `oh` lifecycle CLI, shebanged for the bin
+ * and `dist/cli.js` (the `ohd` lifecycle CLI, shebanged for the bin
  * entry). Shared modules (config, no-cipher) split into chunks both
  * import.
  *

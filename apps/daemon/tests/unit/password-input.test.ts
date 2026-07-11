@@ -1,5 +1,5 @@
 /**
- * Password-input resolution for `oh daemon user set-password` — the
+ * Password-input resolution for `ohd user set-password` — the
  * env/file pair rides the vault passphrase rules (exactly one source,
  * never empty, newline-stripped file), the interactive path prompts
  * twice and refuses a mismatch, and a non-TTY stdin with no env

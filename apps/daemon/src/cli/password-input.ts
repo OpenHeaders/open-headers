@@ -1,5 +1,5 @@
 /**
- * Password input for `oh daemon user set-password` — the secret never
+ * Password input for `ohd user set-password` — the secret never
  * rides argv (shell history, process list). Sources, in order:
  *
  *   1. `OH_DAEMON_USER_PASSWORD` / `OH_DAEMON_USER_PASSWORD_FILE` —

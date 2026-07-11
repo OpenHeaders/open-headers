@@ -19,7 +19,7 @@
  * mint / user / config commands open the same `storage.json`): both
  * unlock from the same env, and a CLI run without the passphrase simply
  * stays cipher-less — none of those commands touch sensitive slots.
- * Rotation (`oh daemon vault rotate`) re-encrypts the envelope's
+ * Rotation (`ohd vault rotate`) re-encrypts the envelope's
  * `secrets` bucket wholesale under a fresh key, offline, single-writer.
  */
 
@@ -154,7 +154,7 @@ function verifyKeyFile(keyPath: string, file: VaultKeyFile, passphrase: string):
     throw new Error(
       `vault passphrase does not match the existing vault key (${keyPath}) — ` +
         'refusing to run; the vault is never silently re-keyed. Fix the passphrase, ' +
-        'or rotate it offline with the current one: oh daemon vault rotate',
+        'or rotate it offline with the current one: ohd vault rotate',
     );
   }
   const expected = Buffer.from(KEY_CHECK, 'utf8');

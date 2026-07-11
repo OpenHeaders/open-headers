@@ -15,7 +15,7 @@ import { probeHealthz } from './healthz-probe';
 export async function assertDaemonStopped(config: DaemonConfig, consequence: string): Promise<void> {
   if (await probeHealthz(config.bindPort)) {
     throw new Error(
-      `the daemon is running on port ${config.bindPort} — stop it first (oh daemon stop). ${consequence}`,
+      `the daemon is running on port ${config.bindPort} — stop it first (ohd stop). ${consequence}`,
     );
   }
 }

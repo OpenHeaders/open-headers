@@ -1,7 +1,7 @@
 /**
  * Daemon boot — the shared spine brought up headless, callable from
  * both faces of the distribution: the `dist/main.js` entry (service
- * units exec it directly) and `oh daemon run` (foreground run, and the
+ * units exec it directly) and `ohd run` (foreground run, and the
  * only daemon entry inside the single-binary SEA build, which has no
  * separate main.js to exec).
  *
@@ -93,7 +93,7 @@ function resolveStaticWebRoot(configured: string | null): { rootDir: string } | 
  * Boot the daemon and run until a signal. Owns the whole process from
  * the moment it is called — installs the host logger, signal handlers,
  * and exits the process itself on boot failure, so `dist/main.js` and
- * `oh daemon run` behave identically.
+ * `ohd run` behave identically.
  */
 export async function runDaemon(argv: readonly string[]): Promise<void> {
   // Boot-failure lines must land somewhere even when config resolution

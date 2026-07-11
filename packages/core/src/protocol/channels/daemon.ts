@@ -266,7 +266,7 @@ export interface DaemonRpc {
   // ── Audit reports (Phase 1 slice 3) ──────────────────────────────
   //
   // Admin-only read projection of the daemon's SQLite audit log — the
-  // audit store's first RPC consumer; same rows `oh daemon audit`
+  // audit store's first RPC consumer; same rows `ohd audit`
   // reads, never a second store. Responses ride one WS frame, so the
   // server clamps `limit` to a hard cap and pages via a keyset cursor
   // (the full `(occurredAt, orgId, seq)` sort key of the last row —

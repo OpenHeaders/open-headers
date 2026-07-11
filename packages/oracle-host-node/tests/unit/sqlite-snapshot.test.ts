@@ -1,6 +1,6 @@
 /**
  * `snapshotSqliteDatabase` — the online-backup copy behind
- * `oh daemon backup`. Proves the property the daemon relies on: the
+ * `ohd backup`. Proves the property the daemon relies on: the
  * copy is a single self-contained db file whose rows include
  * everything still sitting in an uncheckpointed WAL, and a missing
  * source refuses instead of minting an empty db.

@@ -6,7 +6,7 @@
   "type": "module",
   "sideEffects": false,
   "bin": {
-    "oh": "./dist/cli.js"
+    "ohd": "./dist/cli.js"
   },
   "scripts": {
     "build": "vite build",

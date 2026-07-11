@@ -1,5 +1,5 @@
 /**
- * `oh daemon backup / restore` — command plumbing over the sqlite-free
+ * `ohd backup / restore` — command plumbing over the sqlite-free
  * core in `backup-manifest.ts`. Like `audit`, this module is loaded
  * via dynamic import from `cli.ts`: it is the only backup path that
  * reaches better-sqlite3 (through the oracle-host-node snapshot
@@ -51,7 +51,7 @@ export async function commandBackup(argv: readonly string[]): Promise<void> {
   console.log(`  ${manifest.files.length} file(s), ${totalBytes} bytes, daemon v${manifest.daemonVersion}`);
   console.log('');
   console.log('Restore with:');
-  console.log(`  oh daemon restore ${destDir}`);
+  console.log(`  ohd restore ${destDir}`);
 }
 
 export async function commandRestore(argv: readonly string[]): Promise<void> {
@@ -62,7 +62,7 @@ export async function commandRestore(argv: readonly string[]): Promise<void> {
   });
   const { config } = resolveConfigFlags(values);
   const snapshotDir = positionals[0];
-  if (snapshotDir === undefined) throw new Error('usage: oh daemon restore <backup-dir> [--force]');
+  if (snapshotDir === undefined) throw new Error('usage: ohd restore <backup-dir> [--force]');
   await assertDaemonStopped(
     config,
     'Restored files under a live daemon would be clobbered by its next storage.json flush.',
@@ -79,5 +79,5 @@ export async function commandRestore(argv: readonly string[]): Promise<void> {
   console.log(`Restored ${restored.length} file(s) into ${config.dataDir}`);
   console.log(`  snapshot from ${manifest.createdAt} (daemon v${manifest.daemonVersion})`);
   console.log('');
-  console.log('Start the daemon: oh daemon start');
+  console.log('Start the daemon: ohd start');
 }

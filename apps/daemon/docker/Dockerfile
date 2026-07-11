@@ -11,7 +11,7 @@
 # The build stage compiles the daemon and the Workbench web bundle from
 # source, then runs scripts/pack.mjs — the same staging + verification
 # the npm channel uses: better-sqlite3 resolved for the image's ABI,
-# then a boot check (/healthz answers, `oh daemon status` sees it,
+# then a boot check (/healthz answers, `ohd status` sees it,
 # SIGTERM exits 0). The runtime image carries only that verified stage;
 # nothing is fetched at runtime — every dependency is packed at build.
 #
@@ -22,7 +22,7 @@
 #           which the boot refusal accepts only with OH_DAEMON_TRUSTED_PROXY=1
 #           (a TLS-terminating proxy fronts every request) or
 #           OH_DAEMON_ALLOW_INSECURE_LAN=1 (deliberate cleartext)
-#   cli     `oh` is on PATH — see docker-compose.yml for the token bootstrap
+#   cli     `ohd` is on PATH — see docker-compose.yml for the token bootstrap
 
 FROM node:22-bookworm AS build
 ENV CI=1 TURBO_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1
@@ -39,7 +39,7 @@ WORKDIR /app
 COPY --from=build /repo/apps/daemon/dist-package/package.json ./package.json
 COPY --from=build /repo/apps/daemon/dist-package/node_modules ./node_modules
 COPY --from=build /repo/apps/daemon/dist-package/dist ./dist
-RUN ln -s /app/dist/cli.js /usr/local/bin/oh && mkdir /data && chown node:node /data
+RUN ln -s /app/dist/cli.js /usr/local/bin/ohd && mkdir /data && chown node:node /data
 ENV NODE_ENV=production OH_DAEMON_DATA_DIR=/data
 USER node
 VOLUME /data

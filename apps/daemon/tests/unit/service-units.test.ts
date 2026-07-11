@@ -1,6 +1,6 @@
 /**
- * Service-unit rendering — the launchd plist / systemd user unit `oh
- * daemon install` writes: exec line composition, escaping, restart
+ * Service-unit rendering — the launchd plist / systemd user unit `ohd
+ * install` writes: exec line composition, escaping, restart
  * posture, and the per-platform unit paths.
  */
 

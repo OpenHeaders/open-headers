@@ -1,5 +1,5 @@
 /**
- * `oh daemon show-token` — the first-boot pairing bootstrap
+ * `ohd show-token` — the first-boot pairing bootstrap
  * (DAEMON_PLAN.md §6/§7 Phase 2). Mints a real ledger token through
  * `mintDaemonAuthToken` against the daemon's own `storage.json` and
  * returns the raw secret (surfaced exactly once — the ledger stores

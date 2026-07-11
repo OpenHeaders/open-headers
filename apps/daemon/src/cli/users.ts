@@ -1,5 +1,5 @@
 /**
- * `oh daemon user add / list / deactivate` — the headless directory
+ * `ohd user add / list / deactivate` — the headless directory
  * surface (Phase 5 team tier, slice 1). Thin CLI plumbing over the
  * host-neutral `OH.daemonUsers` helpers in `@openheaders/core/identity`
  * against the daemon's own `storage.json`.
@@ -59,16 +59,16 @@ export async function addUser(config: DaemonConfig, input: AddUserInput): Promis
     if (result.ok) return result.record;
     if (result.reason === 'no-daemon-identity') {
       throw new Error(
-        'the daemon has never booted against this data dir — start it once (oh daemon start) so its identity exists, then add users.',
+        'the daemon has never booted against this data dir — start it once (ohd start) so its identity exists, then add users.',
       );
     }
     if (result.reason === 'duplicate-email') {
-      throw new Error(`a user with email '${input.email}' already exists — see oh daemon user list.`);
+      throw new Error(`a user with email '${input.email}' already exists — see ohd user list.`);
     }
     if (result.reason === 'seat-limit-reached') {
       throw new Error(
         `seat limit reached (${result.seatLimit} active users) — deactivate a user to free a seat, ` +
-          'or install a license with more seats (oh daemon license install <file>).',
+          'or install a license with more seats (ohd license install <file>).',
       );
     }
     throw new Error('display name must not be empty.');
@@ -211,7 +211,7 @@ export async function findUser(idOrEmail: string): Promise<DaemonUserRecord> {
   );
   const match = matches.find((r) => r.deactivatedAt === null) ?? matches[0];
   if (!match) {
-    throw new Error(`no user with id or email '${idOrEmail}' — see oh daemon user list.`);
+    throw new Error(`no user with id or email '${idOrEmail}' — see ohd user list.`);
   }
   return match;
 }

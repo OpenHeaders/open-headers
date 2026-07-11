@@ -1,5 +1,5 @@
 /**
- * `oh daemon backup / restore` — the sqlite-free core
+ * `ohd backup / restore` — the sqlite-free core
  * (`backup-manifest.ts`): snapshot writing with a checksummed
  * manifest, the never-booted and non-empty-destination refusals,
  * integrity verification (tamper, truncation, traversal, format

@@ -39,7 +39,7 @@
  *     {@link AuditLog} contract.
  *
  * The standalone query/prune functions below serve the report surfaces
- * (`oh daemon audit`, the prune scheduler) that read the table without
+ * (`ohd audit`, the prune scheduler) that read the table without
  * an {@link AuditLog} instance.
  */
 
@@ -238,7 +238,7 @@ export interface AuditQueryFilter {
 }
 
 /**
- * Cross-Org filtered read for `oh daemon audit list/export`. Composes
+ * Cross-Org filtered read for `ohd audit list/export`. Composes
  * one WHERE clause from the given filters; unlike {@link AuditLog.list}
  * it spans every Org in the table (a daemon report covers the whole
  * install, and the seq tiebreak keeps within-Org order stable).

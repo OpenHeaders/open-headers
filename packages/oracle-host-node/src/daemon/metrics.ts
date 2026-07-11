@@ -15,7 +15,7 @@
  *
  * Consumed by the `/metrics` HTTP route (token-gated; JSON by
  * default, Prometheus text exposition via content negotiation) and —
- * via that route — `oh daemon status --verbose`.
+ * via that route — `ohd status --verbose`.
  */
 
 import { hlcToString } from '@openheaders/core/sync';

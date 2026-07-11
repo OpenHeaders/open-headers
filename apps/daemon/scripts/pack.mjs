@@ -7,7 +7,7 @@
  * bundles and a standalone manifest, runs `npm install` there — the
  * system Node resolves the prebuilt binding for ITS ABI (or falls back
  * to node-gyp) — then verifies the result boots headless under plain
- * `node`: /healthz answers, `oh daemon status` sees it, SIGTERM exits 0.
+ * `node`: /healthz answers, `ohd status` sees it, SIGTERM exits 0.
  * A verified stage is finally packed into the npm-publishable tarball.
  *
  * Run via `pnpm --filter @openheaders/daemon pack` (builds first).
@@ -59,7 +59,7 @@ writeFileSync(
       license: 'MIT',
       homepage: 'https://openheaders.io',
       type: 'module',
-      bin: { oh: './dist/cli.js' },
+      bin: { ohd: './dist/cli.js' },
       files: ['dist'],
       engines: { node: '>=22' },
       dependencies: { 'better-sqlite3': sqliteVersion },
@@ -123,11 +123,11 @@ if (webStaged) {
   }
 }
 
-const status = spawnSync(process.execPath, ['dist/cli.js', 'daemon', 'status', '--bind-port', String(VERIFY_PORT)], {
+const status = spawnSync(process.execPath, ['dist/cli.js', 'status', '--bind-port', String(VERIFY_PORT)], {
   cwd: stageDir,
   encoding: 'utf-8',
 });
-if (status.status !== 0) fail(`oh daemon status exited ${status.status}: ${status.stderr}`);
+if (status.status !== 0) fail(`ohd status exited ${status.status}: ${status.stderr}`);
 
 daemon.kill('SIGTERM');
 const exitCode = await daemonExited;

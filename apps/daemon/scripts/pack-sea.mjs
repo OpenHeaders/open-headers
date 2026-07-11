@@ -1,6 +1,6 @@
 /**
- * Build the single-executable `oh` binary (DAEMON_PLAN.md §8) from the
- * SEA bundle (`vite.config.sea.ts` → `dist-sea/oh.cjs`).
+ * Build the single-executable ohd binary (DAEMON_PLAN.md §8) from the
+ * SEA bundle (`vite.config.sea.ts` → `dist-sea/ohd.cjs`).
  *
  * A native addon cannot run from inside the SEA blob, so the script
  * stages better-sqlite3 for the system Node's ABI (own `npm install`,
@@ -60,8 +60,8 @@ function run(command, args, options = {}) {
 if (process.platform !== 'darwin' && process.platform !== 'linux') {
   fail(`SEA packing supports darwin/linux; ${process.platform} is not a packaged target`);
 }
-if (!existsSync(path.join(outDir, 'oh.cjs'))) {
-  fail('dist-sea/oh.cjs missing — run via `pnpm --filter @openheaders/daemon pack:sea`');
+if (!existsSync(path.join(outDir, 'ohd.cjs'))) {
+  fail('dist-sea/ohd.cjs missing — run via `pnpm --filter @openheaders/daemon pack:sea`');
 }
 
 // ── Stage better-sqlite3 for the system Node's ABI ────────────────────
@@ -147,8 +147,8 @@ writeFileSync(
   path.join(outDir, 'sea-config.json'),
   `${JSON.stringify(
     {
-      main: path.join(outDir, 'oh.cjs'),
-      output: path.join(outDir, 'oh.blob'),
+      main: path.join(outDir, 'ohd.cjs'),
+      output: path.join(outDir, 'ohd.blob'),
       disableExperimentalSEAWarning: true,
       assets,
     },
@@ -161,7 +161,7 @@ writeFileSync(
 
 run(process.execPath, ['--experimental-sea-config', path.join(outDir, 'sea-config.json')], { cwd: packageRoot });
 
-const binaryPath = path.join(outDir, 'oh');
+const binaryPath = path.join(outDir, 'ohd');
 rmSync(binaryPath, { force: true });
 copyFileSync(process.execPath, binaryPath);
 chmodSync(binaryPath, 0o755);
@@ -173,7 +173,7 @@ run('pnpm', [
   'postject',
   binaryPath,
   'NODE_SEA_BLOB',
-  path.join(outDir, 'oh.blob'),
+  path.join(outDir, 'ohd.blob'),
   '--sentinel-fuse',
   SEA_SENTINEL_FUSE,
   ...(process.platform === 'darwin' ? ['--macho-segment-name', 'NODE_SEA'] : []),
@@ -190,12 +190,12 @@ const verifyEnv = { ...process.env, OH_DAEMON_UNPACK_DIR: unpackDir };
 
 const version = spawnSync(binaryPath, ['--version'], { encoding: 'utf-8', env: verifyEnv });
 if (version.status !== 0 || !version.stdout.includes(manifest.version)) {
-  fail(`oh --version answered '${version.stdout.trim()}' (exit ${version.status})`);
+  fail(`ohd --version answered '${version.stdout.trim()}' (exit ${version.status})`);
 }
 
 const daemon = spawn(
   binaryPath,
-  ['daemon', 'run', '--data-dir', dataDir, '--bind-address', '127.0.0.1', '--bind-port', String(VERIFY_PORT)],
+  ['run', '--data-dir', dataDir, '--bind-address', '127.0.0.1', '--bind-port', String(VERIFY_PORT)],
   { stdio: ['ignore', 'pipe', 'pipe'], env: verifyEnv },
 );
 const daemonLog = [];
@@ -242,11 +242,11 @@ if (webStaged) {
   }
 }
 
-const status = spawnSync(binaryPath, ['daemon', 'status', '--bind-port', String(VERIFY_PORT)], {
+const status = spawnSync(binaryPath, ['status', '--bind-port', String(VERIFY_PORT)], {
   encoding: 'utf-8',
   env: verifyEnv,
 });
-if (status.status !== 0) fail(`oh daemon status exited ${status.status}: ${status.stderr}`);
+if (status.status !== 0) fail(`ohd status exited ${status.status}: ${status.stderr}`);
 
 daemon.kill('SIGTERM');
 const exitCode = await daemonExited;

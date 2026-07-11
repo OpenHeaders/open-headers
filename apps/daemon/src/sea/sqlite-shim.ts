@@ -9,8 +9,8 @@
  * (see `payload.ts`) and the real package is loaded through a
  * filesystem `createRequire` anchored inside the unpacked tree — the
  * documented escape hatch for native addons in single-executable
- * builds. Laziness matters twice over: sqlite-free commands (`oh
- * daemon status`, `show-token`) never unpack anything, and the CLI
+ * builds. Laziness matters twice over: sqlite-free commands
+ * (`ohd status`, `show-token`) never unpack anything, and the CLI
  * keeps loading even if the unpack target is unwritable.
  *
  * Construction is the only value-level use in the codebase (every

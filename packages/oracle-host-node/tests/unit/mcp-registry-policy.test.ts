@@ -150,7 +150,7 @@ describe('gateMcpToolCall', () => {
     expect(audits.at(-1)).toMatchObject({ actorUserId: editor.user.id, decision: { allow: false } });
 
     // Slice 4 — the denied MCP call is a QUERYABLE row in the durable
-    // audit log, filtered exactly the way `oh daemon audit list
+    // audit log, filtered exactly the way `ohd audit list
     // --decision deny` reads it, with the calling user as the actor.
     const deniedRows = queryAuditEntries(auditDb, { allow: false });
     expect(deniedRows).toHaveLength(1);

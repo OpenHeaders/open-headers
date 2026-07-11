@@ -1,5 +1,5 @@
 /**
- * `oh daemon audit` — the sqlite-free half (`audit-format.ts`): filter
+ * `ohd audit` — the sqlite-free half (`audit-format.ts`): filter
  * building with §9.3 actor-email resolution against the real on-disk
  * directory, time-bound parsing (ISO + relative), row formatting with
  * display-at-view-time names, and the never-booted refusal. The

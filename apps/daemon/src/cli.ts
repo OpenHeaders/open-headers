@@ -1,10 +1,10 @@
 /**
- * `oh` — the Open Headers command line. This distribution carries the
- * daemon lifecycle group (DAEMON_PLAN.md §6): `oh daemon install /
- * start / stop / status / show-token`. The top-level command space
- * stays open for the client CLI (`CLI_PLAN.md` — `oh` as a client of
- * the `/mcp` surface); the daemon group is namespaced from day one so
- * the two merge without a rename.
+ * `ohd` — the Open Headers daemon control binary (DAEMON_PLAN.md §6):
+ * `ohd install / start / stop / status / show-token` and the offline
+ * admin verbs. It ships with the daemon distribution and is
+ * version-locked to the engine whose disk state it writes. The client
+ * command line is a separate binary (`oh`, CLI_PLAN.md — a client of
+ * the `/mcp` surface) with its own release cadence.
  *
  * Deliberately sqlite-free: the engine lives behind `dist/main.js`;
  * this binary only writes unit files, drives the service manager,
@@ -56,9 +56,9 @@ import type { DaemonConfig } from './config';
 
 const cliVersion: string = resolveAppVersion();
 
-const USAGE = `oh v${cliVersion} — Open Headers command line
+const USAGE = `ohd v${cliVersion} — Open Headers daemon control
 
-Usage: oh daemon <command> [options]
+Usage: ohd <command> [options]
 
 Commands:
   install       Write the user service unit (launchd/systemd) for the daemon
@@ -161,10 +161,10 @@ function serviceHost(): ServiceHost {
 /**
  * The unit's exec line. The plain-Node distribution execs the daemon
  * entry beside this bundle; the SEA binary has no separate entry file
- * — the executable IS the daemon, entered through `oh daemon run`.
+ * — the executable IS the daemon, entered through `ohd run`.
  */
 function daemonExecCommand(): string[] {
-  if (isSea()) return [process.execPath, 'daemon', 'run'];
+  if (isSea()) return [process.execPath, 'run'];
   return [process.execPath, path.join(path.dirname(fileURLToPath(import.meta.url)), 'main.js')];
 }
 
@@ -184,8 +184,8 @@ async function commandInstall(argv: readonly string[]): Promise<void> {
   }
   console.log('');
   console.log('Next: mint the first client token, then start the service:');
-  console.log('  oh daemon show-token');
-  console.log('  oh daemon start');
+  console.log('  ohd show-token');
+  console.log('  ohd start');
 }
 
 async function commandStatus(argv: readonly string[]): Promise<void> {
@@ -258,19 +258,19 @@ async function commandConfig(argv: readonly string[]): Promise<void> {
   if (sub === 'set') {
     const [rawKey, rawValue] = positionals;
     if (rawKey === undefined || rawValue === undefined) {
-      throw new Error('usage: oh daemon config set <key> <true|false>');
+      throw new Error('usage: ohd config set <key> <true|false>');
     }
     const key = parseDaemonSettingKey(rawKey);
     const value = parseDaemonSettingValue(key, rawValue);
     await assertOfflineWrite(config, 'a setting written', 'change settings');
     await setDaemonSetting(config, key, value);
     console.log(`${key} = ${value}`);
-    console.log('Applies when the daemon starts (oh daemon start).');
+    console.log('Applies when the daemon starts (ohd start).');
     return;
   }
   if (sub === 'get') {
     const [rawKey] = positionals;
-    if (rawKey === undefined) throw new Error('usage: oh daemon config get <key>');
+    if (rawKey === undefined) throw new Error('usage: ohd config get <key>');
     const key = parseDaemonSettingKey(rawKey);
     const settings = await readDaemonSettings(config);
     console.log(`${key} = ${formatSettingValue(settings[key])}`);
@@ -283,7 +283,7 @@ async function commandConfig(argv: readonly string[]): Promise<void> {
     }
     return;
   }
-  throw new Error('usage: oh daemon config <set|get|list>');
+  throw new Error('usage: ohd config <set|get|list>');
 }
 
 function formatUserLine(record: {
@@ -306,14 +306,14 @@ async function commandUser(argv: readonly string[]): Promise<void> {
   const { config } = resolveConfigFlags(values);
   if (sub === 'add') {
     const [displayName] = positionals;
-    if (displayName === undefined) throw new Error('usage: oh daemon user add <name> [--email <address>]');
+    if (displayName === undefined) throw new Error('usage: ohd user add <name> [--email <address>]');
     await assertOfflineWrite(config, 'a user admitted', 'manage users');
     const record = await addUser(config, { displayName, ...(values.email ? { email: values.email } : {}) });
     console.log('User added:');
     console.log(`  ${formatUserLine(record)}`);
     console.log('');
     console.log('Bind a token to them before starting the daemon:');
-    console.log(`  oh daemon show-token --user ${values.email ?? record.user.id}`);
+    console.log(`  ohd show-token --user ${values.email ?? record.user.id}`);
     return;
   }
   if (sub === 'list') {
@@ -334,7 +334,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
   }
   if (sub === 'deactivate') {
     const [idOrEmail] = positionals;
-    if (idOrEmail === undefined) throw new Error('usage: oh daemon user deactivate <id-or-email>');
+    if (idOrEmail === undefined) throw new Error('usage: ohd user deactivate <id-or-email>');
     await assertOfflineWrite(config, 'a deactivation', 'manage users');
     const { revokedTokenIds } = await deactivateUser(config, idOrEmail);
     console.log(`User deactivated; ${revokedTokenIds.length} token(s) revoked.`);
@@ -344,7 +344,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
   if (sub === 'grant') {
     const [idOrEmail, workspaceId, role] = positionals;
     if (idOrEmail === undefined || workspaceId === undefined || role === undefined || !isWorkspaceRole(role)) {
-      throw new Error('usage: oh daemon user grant <id-or-email> <workspaceId> <owner|editor|viewer>');
+      throw new Error('usage: ohd user grant <id-or-email> <workspaceId> <owner|editor|viewer>');
     }
     await assertOfflineWrite(config, 'a grant', 'manage grants');
     const { record, updated } = await grantUserRole(config, idOrEmail, workspaceId, role);
@@ -356,7 +356,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
   if (sub === 'revoke-grant') {
     const [idOrEmail, workspaceId] = positionals;
     if (idOrEmail === undefined || workspaceId === undefined) {
-      throw new Error('usage: oh daemon user revoke-grant <id-or-email> <workspaceId>');
+      throw new Error('usage: ohd user revoke-grant <id-or-email> <workspaceId>');
     }
     await assertOfflineWrite(config, 'a grant revocation', 'manage grants');
     const record = await revokeUserGrant(config, idOrEmail, workspaceId);
@@ -365,7 +365,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
   }
   if (sub === 'set-password') {
     const [idOrEmail] = positionals;
-    if (idOrEmail === undefined) throw new Error('usage: oh daemon user set-password <id-or-email> [--clear]');
+    if (idOrEmail === undefined) throw new Error('usage: ohd user set-password <id-or-email> [--clear]');
     await assertOfflineWrite(config, 'a password change', 'manage passwords');
     if (values.clear === true) {
       const record = await setUserPassword(config, idOrEmail, null);
@@ -380,7 +380,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     console.log('only when no oidc block is configured (one credential story per deployment).');
     return;
   }
-  throw new Error('usage: oh daemon user <add|list|deactivate|grant|revoke-grant|set-password>');
+  throw new Error('usage: ohd user <add|list|deactivate|grant|revoke-grant|set-password>');
 }
 
 async function commandLicense(argv: readonly string[]): Promise<void> {
@@ -398,7 +398,7 @@ async function commandLicense(argv: readonly string[]): Promise<void> {
   }
   if (sub === 'install') {
     const [sourcePath] = positionals;
-    if (sourcePath === undefined) throw new Error('usage: oh daemon license install <file>');
+    if (sourcePath === undefined) throw new Error('usage: ohd license install <file>');
     const snapshot = await licenseInstall(config, sourcePath);
     console.log('License installed:');
     for (const statusLine of formatLicenseSnapshot(snapshot, filePath)) {
@@ -414,20 +414,17 @@ async function commandLicense(argv: readonly string[]): Promise<void> {
     );
     return;
   }
-  throw new Error('usage: oh daemon license <status|install|remove>');
+  throw new Error('usage: ohd license <status|install|remove>');
 }
 
 async function main(): Promise<void> {
-  const [group, command, ...rest] = process.argv.slice(2);
-  if (group === '--version' || group === '-v') {
+  const [command, ...rest] = process.argv.slice(2);
+  if (command === '--version' || command === '-v') {
     console.log(`${cliVersion}${formatBuildStamp(getBuildInfo())}`);
     return;
   }
-  if (group !== 'daemon' || command === undefined || command === 'help') {
+  if (command === undefined || command === 'help' || command === '--help' || command === '-h') {
     console.log(USAGE);
-    if (group !== undefined && group !== 'daemon' && group !== 'help' && group !== '--help' && group !== '-h') {
-      process.exitCode = 1;
-    }
     return;
   }
   switch (command) {
@@ -475,6 +472,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(`oh: ${err instanceof Error ? err.message : String(err)}`);
+  console.error(`ohd: ${err instanceof Error ? err.message : String(err)}`);
   process.exitCode = 1;
 });

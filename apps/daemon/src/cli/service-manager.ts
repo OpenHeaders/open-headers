@@ -1,6 +1,6 @@
 /**
  * Service-manager control — owns the unit-file locations and the
- * launchctl/systemctl invocations behind `oh daemon install / start /
+ * launchctl/systemctl invocations behind `ohd install / start /
  * stop`. Rendering is `service-units.ts`; this module does the I/O.
  *
  * User-scoped on both platforms (LaunchAgent / `systemctl --user`) —

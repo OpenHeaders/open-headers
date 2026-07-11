@@ -1,5 +1,5 @@
 /**
- * Loopback `/healthz` probe — `oh daemon status` and the show-token
+ * Loopback `/healthz` probe — `ohd status` and the show-token
  * single-writer guard. Loopback always answers regardless of the
  * configured bind (`0.0.0.0` includes it), so the probe never needs
  * the LAN address.

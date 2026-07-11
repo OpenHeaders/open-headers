@@ -268,7 +268,7 @@ describe('RBAC at the gate — two users over real sockets', () => {
     expect(server.connectedCount()).toBe(2);
 
     // Slice 4 — the denied write is a QUERYABLE row in the durable
-    // audit log, filtered exactly the way `oh daemon audit list
+    // audit log, filtered exactly the way `ohd audit list
     // --decision deny` reads it, with the viewer as the actor.
     const deniedRows = queryAuditEntries(auditDb, { allow: false, capability: 'workspace.write' });
     expect(deniedRows.map((r) => r.actorUserId)).toContain(viewer.user.id);
@@ -795,7 +795,7 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     expect(admissionRows.every((r) => r.decision.allow)).toBe(true);
     expect(admissionRows.map((r) => r.actorUserId)).toContain(viewer.user.id);
 
-    // Actor filter parity with `oh daemon audit --actor`.
+    // Actor filter parity with `ohd audit --actor`.
     const actorPage = await callOverWire(operator, {
       type: 'oh.daemon.audit.query',
       actorUserId: viewer.user.id,

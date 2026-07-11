@@ -1,5 +1,5 @@
 /**
- * `oh daemon audit list / export` — Phase 5 slice 4's report surface
+ * `ohd audit list / export` — Phase 5 slice 4's report surface
  * over the daemon's SQLite audit log.
  *
  * This module is the ONE piece of the CLI that reaches better-sqlite3,
@@ -79,5 +79,5 @@ export async function commandAudit(argv: readonly string[]): Promise<void> {
     }
     return;
   }
-  throw new Error('usage: oh daemon audit <list|export>');
+  throw new Error('usage: ohd audit <list|export>');
 }

@@ -2,7 +2,7 @@
  * Audit reports — the daemon-admin console's read surface over the
  * daemon's audit log (Phase 1 slice 3). Every page rides the
  * `oh.daemon.audit.query` RPC: a read projection of the SQLite
- * `audit_log`, filter-parity with `oh daemon audit`, keyset-paged so a
+ * `audit_log`, filter-parity with `ohd audit`, keyset-paged so a
  * page never loses or repeats rows sharing a timestamp.
  *
  * Display names resolve at view time through the console's
@@ -12,7 +12,7 @@
  * are the HELLO gate's per-connect admissions and are labeled as such,
  * never presented as enforcement decisions.
  *
- * Export mirrors `oh daemon audit export`: the active filters, raw
+ * Export mirrors `ohd audit export`: the active filters, raw
  * rows as JSONL, oldest-first — assembled by walking the cursor so the
  * per-frame page cap is respected.
  */

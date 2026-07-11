@@ -1,5 +1,5 @@
 /**
- * `oh daemon config set / get / list` — the headless settings surface.
+ * `ohd config set / get / list` — the headless settings surface.
  * A whitelisted window onto the `oh.settings.user` record inside the
  * daemon's `storage.json`, NOT a generic storage editor: only the MCP
  * switches are exposed (all default-off), and unknown keys refuse with

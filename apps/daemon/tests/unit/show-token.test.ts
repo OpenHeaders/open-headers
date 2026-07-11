@@ -1,5 +1,5 @@
 /**
- * First-boot token mint (`oh daemon show-token`) — mints through the
+ * First-boot token mint (`ohd show-token`) — mints through the
  * real `mintDaemonAuthToken` path against an on-disk `storage.json`:
  * hash-only ledger in the plain bucket, secret surfaced once, join
  * URLs shaped by the configured bind. Deliberately sqlite-free (the

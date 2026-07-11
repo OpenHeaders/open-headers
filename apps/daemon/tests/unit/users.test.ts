@@ -1,5 +1,5 @@
 /**
- * `oh daemon user add / list / deactivate` — the offline directory
+ * `ohd user add / list / deactivate` — the offline directory
  * surface over the daemon's `storage.json`. Exercises the real
  * `OH.daemonUsers` helpers against on-disk storage: the §5 row tuple
  * lands in the plain bucket, add refuses a never-booted data dir,
@@ -90,7 +90,7 @@ afterEach(() => {
   }
 });
 
-describe('oh daemon user', () => {
+describe('ohd user', () => {
   it('refuses to add a user against a never-booted data dir', async () => {
     const config = makeConfig();
     await expect(addUser(config, { displayName: 'Alice' })).rejects.toThrow('never booted');

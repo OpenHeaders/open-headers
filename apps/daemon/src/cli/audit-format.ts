@@ -1,5 +1,5 @@
 /**
- * Sqlite-free half of `oh daemon audit` — flag parsing, filter
+ * Sqlite-free half of `ohd audit` — flag parsing, filter
  * building (including the §9.3 actor-email resolution against the
  * directory), row formatting, and the never-booted refusal. Split from
  * `audit.ts` so these paths stay testable under plain Node: only the

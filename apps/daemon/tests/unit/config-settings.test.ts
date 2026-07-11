@@ -1,5 +1,5 @@
 /**
- * Headless settings surface (`oh daemon config set / get / list`) —
+ * Headless settings surface (`ohd config set / get / list`) —
  * whitelist validation, boolean parsing, and the merge-write against an
  * on-disk `storage.json` (plain bucket, other slots untouched).
  */

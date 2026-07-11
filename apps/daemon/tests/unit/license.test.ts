@@ -1,5 +1,5 @@
 /**
- * `oh daemon license install / status / remove` — the offline license
+ * `ohd license install / status / remove` — the offline license
  * surface over the daemon's `license.key`. Exercises the real slot
  * against on-disk files with a dev signing ring; the compiled
  * production ring stays empty until the key ceremony, so unverifiable

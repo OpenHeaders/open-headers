@@ -6,7 +6,7 @@
  *
  * The unit execs the daemon entry directly — absolute binary plus its
  * fixed arguments (`node dist/main.js` for the plain-Node
- * distribution, `oh daemon run` for the single-binary SEA build), so
+ * distribution, `ohd run` for the single-binary SEA build), so
  * the service survives PATH and cwd differences between login shells
  * and the service manager.
  */

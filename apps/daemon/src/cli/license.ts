@@ -1,5 +1,5 @@
 /**
- * `oh daemon license install / status / remove` — the offline license
+ * `ohd license install / status / remove` — the offline license
  * management path (LICENSING_PLAN.md §3.3). Thin CLI plumbing over the
  * same license slot the spine runs, pointed at the same file, so the
  * CLI can never disagree with the daemon about what a key means.
@@ -99,7 +99,7 @@ export function formatLicenseSnapshot(snapshot: LicenseSnapshot, filePath: strin
       return [
         `License file is not usable (${snapshot.reason}) — the free tier applies.`,
         `  file: ${filePath}`,
-        'Install a fresh key with: oh daemon license install <file>',
+        'Install a fresh key with: ohd license install <file>',
       ];
     default: {
       const licensee = `${snapshot.licensee.name}${snapshot.licensee.org ? ` — ${snapshot.licensee.org}` : ''}`;

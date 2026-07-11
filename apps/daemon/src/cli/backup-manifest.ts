@@ -1,5 +1,5 @@
 /**
- * `oh daemon backup / restore` — the sqlite-free core (Phase 6). A
+ * `ohd backup / restore` — the sqlite-free core (Phase 6). A
  * backup is a plain snapshot DIRECTORY of the daemon's state files —
  * `storage.json`, `oracle.db`, `blobs/**` — plus a `manifest.json`
  * carrying sha256 checksums, written last so a torn backup is
@@ -171,7 +171,7 @@ function parseManifest(text: string): BackupManifest {
   const { formatVersion, createdAt, daemonVersion, files } = record;
   if (formatVersion !== BACKUP_FORMAT_VERSION) {
     throw new Error(
-      `manifest.json: unsupported formatVersion ${String(formatVersion)} (this oh reads ${BACKUP_FORMAT_VERSION}).`,
+      `manifest.json: unsupported formatVersion ${String(formatVersion)} (this ohd reads ${BACKUP_FORMAT_VERSION}).`,
     );
   }
   if (typeof createdAt !== 'string' || typeof daemonVersion !== 'string' || !Array.isArray(files)) {

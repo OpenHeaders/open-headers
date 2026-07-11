@@ -1,6 +1,6 @@
 /**
  * Loopback `/metrics` probe + human formatting — the verbose half of
- * `oh daemon status`. Pure HTTP against the running daemon's bind, so
+ * `ohd status`. Pure HTTP against the running daemon's bind, so
  * this module stays sqlite-free like the rest of the CLI entry: the
  * daemon derives every number; the CLI only renders it.
  *

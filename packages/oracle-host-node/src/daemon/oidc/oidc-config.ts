@@ -58,7 +58,7 @@ export interface DaemonOidcConfig {
   /**
    * Create a directory user on first SSO login when the verified email
    * matches no record. Default false: only pre-created users
-   * (`oh daemon user add --email`) can sign in — fail-closed, the
+   * (`ohd user add --email`) can sign in — fail-closed, the
    * operator controls the directory. Auto-provisioned users start with
    * ZERO workspace grants; RBAC deny-by-default holds on both planes.
    */

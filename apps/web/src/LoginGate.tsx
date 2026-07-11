@@ -115,7 +115,7 @@ export function LoginGate({
         ) : (
           <>
             This OpenHeaders daemon requires a pairing token. Mint one on the machine running it with{' '}
-            <Typography.Text code>oh daemon show-token</Typography.Text> and paste it below.
+            <Typography.Text code>ohd show-token</Typography.Text> and paste it below.
           </>
         )}
       </Typography.Paragraph>

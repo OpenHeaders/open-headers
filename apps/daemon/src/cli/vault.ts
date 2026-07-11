@@ -1,5 +1,5 @@
 /**
- * `oh daemon vault rotate` — offline vault key rotation. The current
+ * `ohd vault rotate` — offline vault key rotation. The current
  * passphrase comes from the standing env pair
  * (`OH_DAEMON_VAULT_PASSPHRASE` / `OH_DAEMON_VAULT_PASSPHRASE_FILE`,
  * resolved by the config chain like every other run), the new one from
@@ -17,7 +17,7 @@ import { assertDaemonStopped } from './daemon-stopped';
 
 export async function commandVault(argv: readonly string[]): Promise<void> {
   const [sub, ...rest] = argv;
-  if (sub !== 'rotate') throw new Error('usage: oh daemon vault rotate');
+  if (sub !== 'rotate') throw new Error('usage: ohd vault rotate');
   const { values } = parseArgs({ args: [...rest], options: CONFIG_OPTIONS });
   const { config } = resolveConfigFlags(values);
   await assertDaemonStopped(

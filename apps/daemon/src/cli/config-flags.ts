@@ -1,5 +1,5 @@
 /**
- * Shared config-flag plumbing for `oh daemon` commands — the flag table
+ * Shared config-flag plumbing for `ohd` commands — the flag table
  * every command accepts plus the resolve step that turns parsed values
  * into a {@link DaemonConfig} and the argv to bake into service units.
  * Lives outside `cli.ts` so lazily-loaded command chunks (`audit`) can

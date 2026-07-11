@@ -1,7 +1,6 @@
 /**
- * SEA bundle build — one CommonJS file (`dist-sea/oh.cjs`) holding the
- * whole distribution: the CLI entry plus the daemon spine behind `oh
- * daemon run`. Node's single-executable injection requires a CJS
+ * SEA bundle build — one CommonJS file (`dist-sea/ohd.cjs`) holding the
+ * whole distribution: the CLI entry plus the daemon spine behind ohd run.. Node's single-executable injection requires a CJS
  * entry, and the blob resolves no sibling files, so chunking is off
  * and every dynamic import is inlined.
  *
@@ -34,7 +33,7 @@ export default defineConfig({
     emptyOutDir: true,
     minify: false,
     rollupOptions: {
-      input: { oh: 'src/cli.ts' },
+      input: { ohd: 'src/cli.ts' },
       output: {
         format: 'cjs',
         entryFileNames: '[name].cjs',
