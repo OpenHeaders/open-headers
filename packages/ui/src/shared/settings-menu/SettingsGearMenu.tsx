@@ -14,10 +14,9 @@
  * full menu, arrows + Enter drive selection.
  */
 
-import { DownloadOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ReloadOutlined, SearchOutlined, SettingOutlined, SyncOutlined } from '@ant-design/icons';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
-import type { AppUpdateInfo } from '@openheaders/core/capabilities';
 import { Button, Input, type InputRef, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -38,6 +37,13 @@ function writeAck(version: string): void {
   } catch {
     // Storage unavailable — the dot simply reappears next session.
   }
+}
+
+/** The pending-update slice the menu renders — version plus how far along it is. */
+interface PendingUpdate {
+  version: string;
+  url?: string;
+  phase: 'available' | 'downloading' | 'downloaded';
 }
 
 interface MenuItem {
@@ -63,7 +69,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [update, setUpdate] = useState<AppUpdateInfo | null>(null);
+  const [update, setUpdate] = useState<PendingUpdate | null>(null);
   const [acked, setAcked] = useState<string | null>(() => readAck());
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<InputRef>(null);
@@ -73,14 +79,21 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     if (!probe) return;
     let cancelled = false;
     void probe().then((info) => {
-      if (!cancelled) setUpdate(info);
+      // The capability reports pending-but-not-installed only, so a
+      // probe hit is by definition in the 'available' phase.
+      if (!cancelled) setUpdate(info ? { ...info, phase: 'available' } : null);
     });
     // Hosts with an in-app updater also push live transitions — a
-    // check that lands mid-session lights the dot without a remount.
-    // Hosts that never emit `appUpdateState` just keep the probe value.
+    // check that lands mid-session lights the dot without a remount,
+    // and the item label follows download → restart progress. Hosts
+    // that never emit `appUpdateState` just keep the probe value.
     const unsubscribe = getHostBridge()?.subscribe('appUpdateState', (state) => {
-      const pending = state.phase === 'available' || state.phase === 'downloading' || state.phase === 'downloaded';
-      setUpdate(pending && state.availableVersion !== null ? { version: state.availableVersion } : null);
+      const { phase } = state;
+      if ((phase === 'available' || phase === 'downloading' || phase === 'downloaded') && state.availableVersion) {
+        setUpdate({ version: state.availableVersion, phase });
+      } else {
+        setUpdate(null);
+      }
     });
     return () => {
       cancelled = true;
@@ -94,11 +107,16 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     const close = () => setOpen(false);
     const out: MenuItem[][] = [];
     if (update) {
+      const byPhase = {
+        available: { label: `Download Open Headers ${update.version}`, icon: <DownloadOutlined /> },
+        downloading: { label: `Downloading Open Headers ${update.version}…`, icon: <SyncOutlined spin /> },
+        downloaded: { label: `Restart to Install Open Headers ${update.version}`, icon: <ReloadOutlined /> },
+      } as const;
       out.push([
         {
           key: 'update',
-          label: `Download Open Headers ${update.version}`,
-          icon: <DownloadOutlined />,
+          label: byPhase[update.phase].label,
+          icon: byPhase[update.phase].icon,
           accent: true,
           run: () => {
             close();
@@ -231,7 +249,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
           border: 'none',
           borderRadius: 5,
           background: active ? token.colorBgTextHover : 'transparent',
-          color: item.accent ? token.colorWarningText : token.colorText,
+          color: item.accent ? token.colorPrimaryText : token.colorText,
           cursor: 'pointer',
           textAlign: 'left',
           fontSize: 13,
@@ -243,7 +261,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
             display: 'inline-flex',
             justifyContent: 'center',
             flex: 'none',
-            color: item.accent ? token.colorWarning : token.colorTextSecondary,
+            color: item.accent ? token.colorPrimary : token.colorTextSecondary,
           }}
         >
           {item.icon}
@@ -317,7 +335,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
                 width: 7,
                 height: 7,
                 borderRadius: '50%',
-                background: token.colorWarning,
+                background: token.colorPrimary,
                 border: `1px solid ${token.colorBgContainer}`,
                 pointerEvents: 'none',
               }}

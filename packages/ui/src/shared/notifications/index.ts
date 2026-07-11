@@ -1,3 +1,4 @@
+export { default as AppUpdateToast } from './AppUpdateToast';
 export { default as NotificationsIcon } from './NotificationsIcon';
 export { default as NotificationsPanel, NOTIFICATIONS_PANEL_INFO } from './NotificationsPanel';
 export {
@@ -8,8 +9,8 @@ export {
   type NotificationAction,
   type NotificationEntry,
   type NotificationSeverity,
-  pushNotification,
   type PushNotificationInput,
+  pushNotification,
   useNotifications,
   useUnseenNotificationCount,
 } from './store';

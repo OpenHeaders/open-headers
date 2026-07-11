@@ -50,7 +50,9 @@ import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutati
 import { reportBaselineSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
-import { app, BrowserWindow } from 'electron';
+import { app } from 'electron';
+import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
+import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
 import { createElectronUpdaterPort, updaterSupported } from './electron-updater-port';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
@@ -59,7 +61,6 @@ import { createUpdateService, readUpdatePreferences } from './update-service';
 import { readServeWebApp, webAppRootCandidate } from './web-app-root';
 
 const SCOPE = 'install-rpc-host';
-const BROADCAST_CHANNEL = 'oh:broadcast';
 
 export type OhRpcDispatcher = (raw: unknown) => Promise<unknown>;
 
@@ -97,20 +98,6 @@ function safeOsHostname(): string {
     return os.hostname().replace(/\.local$/, '') || 'Local';
   } catch {
     return 'Local';
-  }
-}
-
-function broadcastToAllRenderers(type: string, payload: unknown): void {
-  // Fan out to every open BrowserWindow. Single-window desktop today;
-  // safe-by-construction for multi-window down the line.
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (win.isDestroyed()) continue;
-    try {
-      win.webContents.send(BROADCAST_CHANNEL, { type, payload });
-    } catch {
-      // Renderer probably navigated away mid-send — broadcast is
-      // best-effort. Swallow.
-    }
   }
 }
 
@@ -158,7 +145,11 @@ export async function installRpcHost(): Promise<void> {
     currentVersion: app.getVersion(),
     supported: updaterSupported(),
     getPreferences: () => updatePreferences,
-    broadcast: (state) => broadcastToAllRenderers('appUpdateState', state),
+    broadcast: (state) => {
+      broadcastToAllRenderers('appUpdateState', state);
+      // Native chrome (application menu, tray) mirrors the same state.
+      updateMenusOnState(state);
+    },
     now: Date.now,
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (handle) => clearTimeout(handle),
@@ -168,6 +159,15 @@ export async function installRpcHost(): Promise<void> {
     },
   });
   updateService.start();
+
+  // Hand the native menu items their three consent actions. `dispatchRpc`
+  // answers every `oh.updates.*` type with the post-action state; the
+  // fallback covers the type-level `undefined` branch it can't take here.
+  installUpdateMenuActions({
+    checkNow: async () => (await updateService.dispatchRpc('oh.updates.checkNow')) ?? updateService.state(),
+    download: async () => (await updateService.dispatchRpc('oh.updates.download')) ?? updateService.state(),
+    install: async () => (await updateService.dispatchRpc('oh.updates.install')) ?? updateService.state(),
+  });
 
   const spine = await bootDaemonSpine({
     dataDir: app.getPath('userData'),

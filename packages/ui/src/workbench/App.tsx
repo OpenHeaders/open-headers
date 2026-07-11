@@ -112,7 +112,7 @@ import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
-import { useAppUpdateNotification, useSeedNotifications } from '@openheaders/ui/shared/notifications';
+import { AppUpdateToast, useAppUpdateNotification, useSeedNotifications } from '@openheaders/ui/shared/notifications';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
@@ -618,6 +618,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     },
     [openSettingsTab],
   );
+
+  // Host-shell navigation: the desktop main process broadcasts
+  // `openSettings` for its native menu items (application menu
+  // "Settings…", tray update actions). Hosts without native chrome
+  // never emit it.
+  useEffect(() => hostBridge.subscribe('openSettings', (target) => openSettings(target)), [openSettings]);
 
   // The console opens as a workbench tab — dismiss the settings overlay
   // on the way out so the navigation lands on a visible surface instead
@@ -1237,6 +1243,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           />
 
           <OrgWorkspaceAccessNotice workspaces={workspacesApi.workspaces} onSwitchWorkspace={handleSwitchWorkspace} />
+
+          <AppUpdateToast onOpenAbout={() => openSettings({ categoryId: 'about' })} />
 
           <ShellLayout
             tl={tl}

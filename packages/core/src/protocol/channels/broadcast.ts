@@ -110,6 +110,14 @@ export interface BridgeBroadcastContract {
    * simply never emit it.
    */
   appUpdateState: AppUpdateState;
+  /**
+   * Host-shell navigation request: open the Settings surface, optionally
+   * at a category or a specific setting. Emitted by the desktop main
+   * process for its native menu items (application menu "Settings…",
+   * tray / menu-bar update actions); hosts without native chrome never
+   * send it.
+   */
+  openSettings: { categoryId?: string; settingKey?: string };
 
   /**
    * Phase C F5 — live tail for the Activity Feed panel. Fires per
