@@ -30,6 +30,7 @@ import {
 import { assertDaemonStopped, offlineWriteConsequence } from './cli/daemon-stopped';
 import { probeHealthz } from './cli/healthz-probe';
 import { fetchMetrics, formatMetrics } from './cli/metrics-probe';
+import { resolvePasswordInput, USER_PASSWORD_ENV, USER_PASSWORD_FILE_ENV } from './cli/password-input';
 import { installServiceUnit, type ServiceHost, startService, stopService } from './cli/service-manager';
 import { mintBootstrapToken } from './cli/show-token';
 import {
@@ -41,6 +42,7 @@ import {
   listUsers,
   resolveTokenUserBinding,
   revokeUserGrant,
+  setUserPassword,
 } from './cli/users';
 import { commandVault } from './cli/vault';
 import type { DaemonConfig } from './config';
@@ -77,6 +79,11 @@ Commands:
                 viewers read, no grant = no access)
   user revoke-grant <id-or-email> <workspaceId>
                 Drop a user's grant on one workspace (daemon stopped)
+  user set-password <id-or-email> [--clear]
+                Set a user's password for the local password login
+                (daemon stopped; echo-off prompt on a terminal, or
+                ${USER_PASSWORD_ENV} / ${USER_PASSWORD_FILE_ENV}
+                for scripts — never a flag); --clear removes it
   vault rotate  Re-encrypt the vault under a new passphrase (daemon
                 stopped; current passphrase from OH_DAEMON_VAULT_PASSPHRASE
                 or OH_DAEMON_VAULT_PASSPHRASE_FILE, new one from
@@ -118,6 +125,7 @@ Options (install / status / show-token / config):
   --user <id-or-email>     show-token only: bind the token to a directory user
                            (omit for a token that acts as the daemon operator)
   --email <address>        user add only: contact identity for the new user
+  --clear                  user set-password only: remove the password
   --force                  restore only: replace existing state files in the
                            data dir
 
@@ -277,7 +285,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
   const [sub, ...rest] = argv;
   const { values, positionals } = parseArgs({
     args: [...rest],
-    options: { ...CONFIG_OPTIONS, email: { type: 'string' } },
+    options: { ...CONFIG_OPTIONS, email: { type: 'string' }, clear: { type: 'boolean' } },
     allowPositionals: true,
   });
   const { config } = resolveConfigFlags(values);
@@ -340,7 +348,24 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     console.log(`Grant revoked: ${record.user.displayName} on ${workspaceId}.`);
     return;
   }
-  throw new Error('usage: oh daemon user <add|list|deactivate|grant|revoke-grant>');
+  if (sub === 'set-password') {
+    const [idOrEmail] = positionals;
+    if (idOrEmail === undefined) throw new Error('usage: oh daemon user set-password <id-or-email> [--clear]');
+    await assertOfflineWrite(config, 'a password change', 'manage passwords');
+    if (values.clear === true) {
+      const record = await setUserPassword(config, idOrEmail, null);
+      console.log(`Password cleared for ${record.user.displayName}.`);
+      console.log('Live sessions stand until revoked; only a new password login is refused.');
+      return;
+    }
+    const password = await resolvePasswordInput(process.env);
+    const record = await setUserPassword(config, idOrEmail, password);
+    console.log(`Password set for ${record.user.displayName}.`);
+    console.log("Applies from the daemon's next start. The password login form is served");
+    console.log('only when no oidc block is configured (one credential story per deployment).');
+    return;
+  }
+  throw new Error('usage: oh daemon user <add|list|deactivate|grant|revoke-grant|set-password>');
 }
 
 async function main(): Promise<void> {

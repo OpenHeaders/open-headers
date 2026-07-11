@@ -13,6 +13,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { ensureSyntheticIdentity } from '@openheaders/core/identity';
 import { setHostStorage } from '@openheaders/core/storage';
+import { PASSWORD_MIN_LENGTH, verifyPassword } from '@openheaders/oracle-host-node/daemon/password-verifier';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import { afterEach, describe, expect, it } from 'vitest';
 import { mintBootstrapToken } from '../../src/cli/show-token';
@@ -24,6 +25,7 @@ import {
   listUsers,
   resolveTokenUserBinding,
   revokeUserGrant,
+  setUserPassword,
 } from '../../src/cli/users';
 import type { DaemonConfig } from '../../src/config';
 import { noCipherYet } from '../../src/no-cipher';
@@ -60,6 +62,13 @@ async function seedDaemonIdentity(config: DaemonConfig): Promise<void> {
     }),
   );
   await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-09T00:00:00.000Z' });
+}
+
+function readUserVerifiers(dataDir: string): Array<{ user: { id: string }; passwordVerifier?: string }> {
+  const envelope = JSON.parse(fs.readFileSync(path.join(dataDir, 'storage.json'), 'utf-8')) as {
+    values: Record<string, unknown>;
+  };
+  return (envelope.values['oh.daemonUsers'] ?? []) as Array<{ user: { id: string }; passwordVerifier?: string }>;
 }
 
 function readTokens(dataDir: string): Array<{ id: string; userId?: string; revokedAt: number | null }> {
@@ -182,6 +191,43 @@ describe('oh daemon user', () => {
     expect(granted.record.user.id).toBe(again.user.id);
     expect(await listUserGrants(again)).toHaveLength(1);
     expect(await listUserGrants(first)).toHaveLength(0);
+  });
+
+  it('set-password mints a verifier the login hashing verifies, by id or email', async () => {
+    const config = makeConfig();
+    await seedDaemonIdentity(config);
+    const record = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+
+    const returned = await setUserPassword(config, 'alice@openheaders.io', 's15-cli-pass-1');
+    expect(returned.user.id).toBe(record.user.id);
+    const verifier = readUserVerifiers(config.dataDir).find((r) => r.user.id === record.user.id)?.passwordVerifier;
+    expect(verifier).toBeDefined();
+    expect(verifier?.startsWith('scrypt$')).toBe(true);
+    await expect(verifyPassword('s15-cli-pass-1', verifier as string)).resolves.toBe(true);
+    await expect(verifyPassword('wrong-pass', verifier as string)).resolves.toBe(false);
+  });
+
+  it('set-password --clear removes the verifier; set refuses a short password', async () => {
+    const config = makeConfig();
+    await seedDaemonIdentity(config);
+    const record = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+
+    await setUserPassword(config, record.user.id, 's15-cli-pass-1');
+    await setUserPassword(config, record.user.id, null);
+    expect(readUserVerifiers(config.dataDir)[0].passwordVerifier).toBeUndefined();
+
+    await expect(setUserPassword(config, record.user.id, 'x'.repeat(PASSWORD_MIN_LENGTH - 1))).rejects.toThrow(
+      'at least',
+    );
+  });
+
+  it('set-password refuses deactivated and unknown users', async () => {
+    const config = makeConfig();
+    await seedDaemonIdentity(config);
+    const record = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+    await deactivateUser(config, record.user.id);
+    await expect(setUserPassword(config, record.user.id, 's15-cli-pass-1')).rejects.toThrow('deactivated');
+    await expect(setUserPassword(config, 'nobody@openheaders.io', 's15-cli-pass-1')).rejects.toThrow('no user');
   });
 
   it('grant refuses deactivated users; revoke refuses a grant that does not exist', async () => {

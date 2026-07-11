@@ -32,10 +32,9 @@ import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { listLanIpv4Addresses } from './lan-addresses';
-import { hashPassword } from './password/password-verifier';
+import { hashPassword, PASSWORD_MIN_LENGTH } from './password/password-verifier';
 
-/** Floor for operator-set passwords — length is the one property worth enforcing. */
-export const PASSWORD_MIN_LENGTH = 8;
+export { PASSWORD_MIN_LENGTH } from './password/password-verifier';
 
 /** The admin-visibility probe channel — see `peer-admin-rpc.ts`. */
 export const ADMIN_STATUS_CHANNEL = 'oh.daemon.admin.status';

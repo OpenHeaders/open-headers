@@ -24,9 +24,11 @@ import {
   listWorkspaceRolesForPrincipal,
   revokeDaemonAuthToken,
   revokeWorkspaceRole,
+  setDaemonUserPassword,
 } from '@openheaders/core/identity';
 import { setHostStorage } from '@openheaders/core/storage';
 import type { DaemonUserRecord, WorkspaceRole, WorkspaceRoleAssignment } from '@openheaders/core/types';
+import { hashPassword, PASSWORD_MIN_LENGTH } from '@openheaders/oracle-host-node/daemon/password-verifier';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import type { DaemonConfig } from '../config';
 import { resolveDaemonCipher } from '../vault-cipher';
@@ -141,6 +143,36 @@ export async function revokeUserGrant(
   const result = await revokeWorkspaceRole(record.principal.id, workspaceId);
   if (!result.ok) {
     throw new Error(`no grant for '${record.user.displayName}' on workspace ${workspaceId}.`);
+  }
+  return record;
+}
+
+/**
+ * Set or clear a directory user's password (by id or unique email) —
+ * the offline twin of `oh.daemon.users.setPassword`. The verifier is
+ * minted by the SAME host hashing the login path verifies
+ * (`password-verifier.ts` scrypt); core persists the opaque string.
+ * `null` clears the credential — live sessions stand, the user just
+ * can't password-login anew.
+ */
+export async function setUserPassword(
+  config: DaemonConfig,
+  idOrEmail: string,
+  password: string | null,
+): Promise<DaemonUserRecord> {
+  installStorage(config);
+  const record = await findUser(idOrEmail);
+  if (password !== null && password.length < PASSWORD_MIN_LENGTH) {
+    throw new Error(`password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+  }
+  const verifier = password === null ? null : await hashPassword(password);
+  const result = await setDaemonUserPassword(record.user.id, verifier);
+  if (!result.ok) {
+    throw new Error(
+      result.reason === 'user-deactivated'
+        ? `user '${record.user.displayName}' is deactivated — a deactivated user must not regain a login path.`
+        : 'unknown user.',
+    );
   }
   return record;
 }

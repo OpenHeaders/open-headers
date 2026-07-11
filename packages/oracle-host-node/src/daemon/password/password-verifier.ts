@@ -15,6 +15,12 @@
 
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 
+/**
+ * Floor every set-password surface enforces (admin RPC, console modal,
+ * offline CLI) — one number so the online and offline twins agree.
+ */
+export const PASSWORD_MIN_LENGTH = 8;
+
 const SCHEME = 'scrypt';
 const SCRYPT_N = 2 ** 15;
 const SCRYPT_R = 8;
