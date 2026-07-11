@@ -26,6 +26,12 @@ export interface AppUpdateState {
   /** Epoch ms of the last completed check (success or failure); null before the first. */
   lastCheckedAt: number | null;
   /**
+   * Who initiated the in-flight/most-recent check. UI surfaces speak up
+   * about MANUAL check outcomes ("you're up to date", failures) and stay
+   * silent about scheduled ones; null before the first check.
+   */
+  lastCheckReason: 'manual' | 'scheduled' | null;
+  /**
    * False where no updater can run: dev builds, unpackaged runs, and
    * install channels that own updates themselves (Linux deb/rpm). The
    * UI hides update affordances entirely when unsupported.

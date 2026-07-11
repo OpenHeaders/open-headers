@@ -118,15 +118,44 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout }) => {
     );
 
     const bridge = getHostBridge();
+    // Previous phase — a manual check's settle (checking → idle/error)
+    // gets a transient result toast; scheduled checks stay silent.
+    let prevPhase: string | null = null;
+
+    const showTransient = (severity: 'info' | 'error', message: string, description?: string): void => {
+      notification[severity]({
+        key: 'oh-update-check-result',
+        className: 'oh-update-toast',
+        message,
+        description,
+        placement: 'bottomRight',
+        duration: severity === 'info' ? 4 : 6,
+      });
+    };
 
     const renderPhase = (state: {
       phase: string;
+      currentVersion: string;
       availableVersion: string | null;
       progressPercent: number | null;
+      errorMessage: string | null;
+      lastCheckReason: 'manual' | 'scheduled' | null;
     }): void => {
+      const settledFrom = prevPhase;
+      prevPhase = state.phase;
       const version = state.availableVersion;
       if (version === null || state.phase === 'idle' || state.phase === 'error' || state.phase === 'checking') {
         if (shownMarkerRef.current !== null) close();
+        if (settledFrom === 'checking' && state.lastCheckReason === 'manual') {
+          if (state.phase === 'idle') {
+            showTransient('info', "You're up to date", `Open Headers ${state.currentVersion} is the latest version.`);
+          } else if (state.phase === 'error') {
+            showTransient('error', 'Update check failed', state.errorMessage ?? undefined);
+          }
+        } else if (settledFrom === 'downloading' && state.phase === 'error') {
+          // A download failure is always user-consented work — speak up.
+          showTransient('error', 'Update download failed', state.errorMessage ?? undefined);
+        }
         return;
       }
       const marker = `${version}:${state.phase}`;

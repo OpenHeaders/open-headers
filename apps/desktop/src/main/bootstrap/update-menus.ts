@@ -10,14 +10,16 @@
  *
  * Consent model is preserved end-to-end: every click maps 1:1 onto one
  * `oh.updates.*` action — checking never downloads, downloading never
- * installs. A manual menu check additionally reports its outcome in a
- * native dialog (the window may be hidden or closed when the tray item
- * is used, so renderer toasts alone can't carry the answer).
+ * installs. A manual check never opens a dialog: it shows the main
+ * window and runs the check, and the renderer carries the outcome —
+ * footer progress while it runs, a corner toast + notification entry
+ * when it settles.
  */
 
 import type { AppUpdateState } from '@openheaders/core/bridge';
-import { dialog, type MenuItemConstructorOptions } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 import { updaterSupported } from '../electron-updater-port';
+import { showMainWindow } from './window-manager';
 
 /** The update-service slice the menu items drive (wired by `install-rpc-host`). */
 export interface UpdateMenuActions {
@@ -28,9 +30,6 @@ export interface UpdateMenuActions {
 
 let actions: UpdateMenuActions | null = null;
 let state: AppUpdateState | null = null;
-// Guards the result dialog: only a user-clicked menu check answers with
-// a dialog; scheduled background checks stay silent.
-let manualCheckInFlight = false;
 
 const menuBuilders = new Set<() => void>();
 
@@ -50,41 +49,16 @@ export function updateMenusOnState(next: AppUpdateState): void {
   for (const rebuild of menuBuilders) rebuild();
 }
 
-async function runManualCheck(): Promise<void> {
-  if (!actions || manualCheckInFlight) return;
-  manualCheckInFlight = true;
-  try {
-    const result = await actions.checkNow();
-    if (result.phase === 'available' && result.availableVersion !== null) {
-      const { response } = await dialog.showMessageBox({
-        type: 'info',
-        message: `Open Headers ${result.availableVersion} is available.`,
-        detail: `You are on ${result.currentVersion}. Downloading stages the update; it installs when you restart.`,
-        buttons: ['Download', 'Later'],
-        defaultId: 0,
-        cancelId: 1,
-      });
-      if (response === 0) void actions.download();
-    } else if (result.phase === 'error') {
-      await dialog.showMessageBox({
-        type: 'warning',
-        message: 'Update check failed.',
-        detail: result.errorMessage ?? 'Unknown error.',
-        buttons: ['OK'],
-      });
-    } else if (result.phase === 'idle') {
-      await dialog.showMessageBox({
-        type: 'info',
-        message: "You're up to date.",
-        detail: `Open Headers ${result.currentVersion} is the latest version.`,
-        buttons: ['OK'],
-      });
-    }
-    // 'checking'/'downloading' — another flow already owns the updater;
-    // the live menu labels carry that state, no dialog needed.
-  } finally {
-    manualCheckInFlight = false;
-  }
+/**
+ * Manual check from native chrome: reveal the window (the renderer owns
+ * all feedback — footer progress, result toast, notification entry) and
+ * kick the check. The service is single-flight, so a click during a
+ * running check just reports current state.
+ */
+function runManualCheck(): void {
+  if (!actions) return;
+  showMainWindow();
+  void actions.checkNow();
 }
 
 /**
@@ -120,6 +94,6 @@ export function updateMenuItems(): MenuItemConstructorOptions[] {
       ];
     default:
       // idle / error / pre-engine null — offer a fresh manual check.
-      return [{ label: 'Check for Updates…', click: () => void runManualCheck() }];
+      return [{ label: 'Check for Updates…', click: runManualCheck }];
   }
 }

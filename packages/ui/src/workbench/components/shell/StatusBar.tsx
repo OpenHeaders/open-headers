@@ -11,6 +11,7 @@ import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { useActiveEditorLifecycle } from '@openheaders/ui/shared/awareness';
+import { BackgroundTasksIndicator } from '@openheaders/ui/shared/background-tasks';
 import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import { LifecyclePill } from '@openheaders/ui/shared/editor-shell';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
@@ -132,6 +133,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
       </div>
 
       <div className="rules-statusbar-right">
+        <BackgroundTasksIndicator />
         <DebugModePill tabSource="none" onOpenDocs={openDocs} />
         <StatusPill
           density="full"

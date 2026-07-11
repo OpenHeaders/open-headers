@@ -104,6 +104,7 @@ describe('update service state machine', () => {
       phase: 'idle',
       currentVersion: '2026.7.2',
       availableVersion: null,
+      lastCheckReason: null,
       supported: true,
     });
   });
@@ -115,6 +116,7 @@ describe('update service state machine', () => {
       phase: 'available',
       availableVersion: '2026.8.0',
       lastCheckedAt: 1_752_000_000_000,
+      lastCheckReason: 'manual',
     });
     expect(h.broadcasts.map((b) => b.phase)).toEqual(['checking', 'available']);
   });
@@ -122,7 +124,7 @@ describe('update service state machine', () => {
   it('manual check with nothing newer returns to idle', async () => {
     const h = makeHarness({ checkResult: null });
     const state = await h.service.dispatchRpc('oh.updates.checkNow');
-    expect(state).toMatchObject({ phase: 'idle', availableVersion: null });
+    expect(state).toMatchObject({ phase: 'idle', availableVersion: null, lastCheckReason: 'manual' });
   });
 
   it('check failure lands in error with the message', async () => {

@@ -97,6 +97,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     progressPercent: null,
     errorMessage: null,
     lastCheckedAt: null,
+    lastCheckReason: null,
     supported: deps.supported,
   };
   let timer: NodeJS.Timeout | null = null;
@@ -134,7 +135,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     // A running check/download is single-flight; report current state.
     if (!deps.supported || state.phase === 'checking' || state.phase === 'downloading') return state;
     if (reason === 'scheduled' && deps.getPreferences().check === 'off') return state;
-    transition({ phase: 'checking', errorMessage: null });
+    transition({ phase: 'checking', errorMessage: null, lastCheckReason: reason });
     try {
       const found = await deps.updater.check();
       transition({
