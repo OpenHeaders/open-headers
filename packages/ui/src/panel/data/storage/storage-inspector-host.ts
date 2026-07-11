@@ -218,8 +218,16 @@ export interface StorageQuota {
   overrideActive?: boolean;
 }
 
-/** The origin-scoped site-data types the clear gesture can remove. */
-export type SiteDataType = 'cacheStorage' | 'cookies' | 'indexedDB' | 'localStorage' | 'serviceWorkers';
+/** The site-data types the clear gesture can remove. All but one are
+ *  origin-scoped; `sessionStorage` is per-tab by nature and clears the
+ *  INSPECTED tab's frame through the DOM-storage plane. */
+export type SiteDataType =
+  | 'cacheStorage'
+  | 'cookies'
+  | 'indexedDB'
+  | 'localStorage'
+  | 'serviceWorkers'
+  | 'sessionStorage';
 
 /** Which storage type a host-pushed invalidation says went stale. */
 export type StorageInvalidationKind = 'indexeddb' | 'cachestorage';

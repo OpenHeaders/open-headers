@@ -86,24 +86,44 @@ describe('arbitrated RPC surface — injected transport (detached)', () => {
 });
 
 describe('clearSiteData', () => {
-  it('clears the origin-scoped site-data types through browsingData.remove', async () => {
+  it('clears the origin-scoped types through browsingData.remove plus the injected session-storage leg', async () => {
     getFrameSpy().mockResolvedValue({ url: 'https://openheaders.io/app' });
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
     expect(await clearSiteData(1, 0)).toEqual({ ok: true });
     expect(browsingDataRemoveSpy()).toHaveBeenCalledWith(
       { origins: ['https://openheaders.io'] },
       { cacheStorage: true, cookies: true, indexedDB: true, localStorage: true, serviceWorkers: true },
     );
+    // Session storage rides the DOM-storage plane, not browsingData.
+    expect(executeScriptSpy()).toHaveBeenCalledTimes(1);
+    expect(executeScriptSpy().mock.calls[0][0].args).toEqual(['session']);
   });
 
   it('fails without touching the API when the origin cannot be derived', async () => {
     expect(await clearSiteData(1, 0)).toEqual({ ok: false });
     expect(browsingDataRemoveSpy()).not.toHaveBeenCalled();
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
   });
 
   it('surfaces a rejected remove as a failed clear', async () => {
     getFrameSpy().mockResolvedValue({ url: 'https://openheaders.io/app' });
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
     browsingDataRemoveSpy().mockRejectedValue(new Error('policy denied'));
     expect(await clearSiteData(1, 0)).toEqual({ ok: false });
+  });
+
+  it('clears a session-only selection through injection without touching browsingData', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
+    expect(await clearSiteData(1, 0, ['sessionStorage'])).toEqual({ ok: true });
+    expect(browsingDataRemoveSpy()).not.toHaveBeenCalled();
+    expect(executeScriptSpy()).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces a failed session-storage leg as a failed clear', async () => {
+    getFrameSpy().mockResolvedValue({ url: 'https://openheaders.io/app' });
+    executeScriptSpy().mockRejectedValue(new Error('No frame with id'));
+    expect(await clearSiteData(1, 0, ['localStorage', 'sessionStorage'])).toEqual({ ok: false });
+    expect(browsingDataRemoveSpy()).toHaveBeenCalled();
   });
 
   it('narrows the clear to a provided types subset, dropping unknown entries', async () => {
@@ -114,6 +134,7 @@ describe('clearSiteData', () => {
       { origins: ['https://openheaders.io'] },
       { cacheStorage: true, localStorage: true },
     );
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
   });
 
   it('fails a provided-but-empty selection without touching the API', async () => {
@@ -122,6 +143,7 @@ describe('clearSiteData', () => {
     const unknownOnly: ReadonlyArray<string> = ['passwords'];
     expect(await clearSiteData(1, 0, unknownOnly as ReadonlyArray<SiteDataTypeWire>)).toEqual({ ok: false });
     expect(browsingDataRemoveSpy()).not.toHaveBeenCalled();
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
   });
 });
 

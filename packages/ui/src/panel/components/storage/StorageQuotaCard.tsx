@@ -34,15 +34,16 @@ const STORAGE_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-/* Labels mirror the storage rail. Session storage is absent by nature:
- * it lives per-tab in memory, outside the browser's site-data clear —
- * its section's own Clear button is the way to wipe it. */
+/* Labels mirror the storage rail. Session storage is per-tab by nature
+ * (the browser's site-data clear can't reach it), so its leg wipes the
+ * INSPECTED tab's frame — the note says so. */
 const SITE_DATA_CHOICES: ReadonlyArray<{ type: SiteDataType; label: string; note?: string }> = [
   { type: 'cookies', label: 'Cookies' },
+  { type: 'localStorage', label: 'Local storage' },
   {
-    type: 'localStorage',
-    label: 'Local storage',
-    note: 'Session storage is per-tab and outside this clear — use the Session storage section’s own Clear button',
+    type: 'sessionStorage',
+    label: 'Session storage',
+    note: 'Session storage is per-tab — this clears the inspected tab’s frame',
   },
   { type: 'indexedDB', label: 'IndexedDB' },
   { type: 'cacheStorage', label: 'Cache Storage' },

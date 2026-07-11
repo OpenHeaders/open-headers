@@ -268,8 +268,17 @@ export interface StorageQuotaWire {
   overrideActive?: boolean;
 }
 
-/** The origin-scoped site-data types `clearSiteData` can remove. */
-export type SiteDataTypeWire = 'cacheStorage' | 'cookies' | 'indexedDB' | 'localStorage' | 'serviceWorkers';
+/** The site-data types `clearSiteData` can remove. All but one are
+ *  origin-scoped through the browser's site-data clear; `sessionStorage`
+ *  is per-tab by nature, so its leg clears the INSPECTED tab's frame
+ *  through the DOM-storage plane instead. */
+export type SiteDataTypeWire =
+  | 'cacheStorage'
+  | 'cookies'
+  | 'indexedDB'
+  | 'localStorage'
+  | 'serviceWorkers'
+  | 'sessionStorage';
 
 export interface DevToolsRpc {
   // ── DevTools panel: source-map resolution ──────────────────────

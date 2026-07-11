@@ -188,6 +188,7 @@ export function StoragePanel({
     if (!clearHovered) return targets;
     if (!clearExcluded.has('cookies')) targets.add('cookies');
     if (!clearExcluded.has('localStorage')) targets.add('local');
+    if (!clearExcluded.has('sessionStorage')) targets.add('session');
     if (!clearExcluded.has('indexedDB')) targets.add('indexeddb');
     if (!clearExcluded.has('cacheStorage')) targets.add('cachestorage');
     return targets;

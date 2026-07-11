@@ -139,15 +139,22 @@ describe('StorageQuotaCard', () => {
 
     fireEvent.click(clear);
     expect(quota.clearSiteData).toHaveBeenCalledTimes(1);
-    // Default all-on selection ⇒ types absent (the all-five clear).
+    // Default all-on selection ⇒ types absent (the everything clear).
     expect(quota.clearSiteData).toHaveBeenCalledWith(undefined);
   });
 
-  it('renders the five type checkboxes all-on and narrows the clear to the checked subset', () => {
+  it('renders the six type checkboxes all-on and narrows the clear to the checked subset', () => {
     const quota = makeQuota();
     render(<Harness quota={quota} />);
 
-    for (const label of ['Cookies', 'Local storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
+    for (const label of [
+      'Cookies',
+      'Local storage',
+      'Session storage',
+      'IndexedDB',
+      'Cache Storage',
+      'Service workers',
+    ]) {
       expect((screen.getByLabelText(label) as HTMLInputElement).checked).toBe(true);
     }
 
@@ -156,14 +163,21 @@ describe('StorageQuotaCard', () => {
     const clear = screen.getByText('Clear everything');
     fireEvent.click(clear);
     fireEvent.click(clear);
-    expect(quota.clearSiteData).toHaveBeenCalledWith(['localStorage', 'indexedDB', 'cacheStorage']);
+    expect(quota.clearSiteData).toHaveBeenCalledWith(['localStorage', 'sessionStorage', 'indexedDB', 'cacheStorage']);
   });
 
   it('disables the clear gesture when every type is unchecked', () => {
     const quota = makeQuota();
     render(<Harness quota={quota} />);
 
-    for (const label of ['Cookies', 'Local storage', 'IndexedDB', 'Cache Storage', 'Service workers']) {
+    for (const label of [
+      'Cookies',
+      'Local storage',
+      'Session storage',
+      'IndexedDB',
+      'Cache Storage',
+      'Service workers',
+    ]) {
       fireEvent.click(screen.getByLabelText(label));
     }
     const clear = screen.getByText('Clear everything') as HTMLButtonElement;
