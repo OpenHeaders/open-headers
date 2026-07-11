@@ -46,14 +46,30 @@ export interface LicenseSlotOptions {
   now?: () => number;
 }
 
+/**
+ * How an install stamps the audit log: `daemon.license-install` for
+ * operator action (admin RPC, offline CLI), `daemon.license-refresh`
+ * for the refresh agent's automatic renewal.
+ */
+export type LicenseInstallAudit = 'daemon.license-install' | 'daemon.license-refresh';
+
 export interface LicenseSlotHandle {
   getSnapshot(): LicenseSnapshot;
+  /**
+   * The compact artifact currently installed, or null when no file is
+   * present. The refresh agent POSTs this as `licenseKey`; the snapshot
+   * deliberately never carries the raw text.
+   */
+  getInstalledText(): Promise<string | null>;
   /**
    * Verify `text`; persist it atomically as the license file when it
    * verifies as `licensed` or `grace`. Refused artifacts never touch
    * the installed file.
    */
-  install(text: string): Promise<{ ok: true; snapshot: LicenseSnapshot } | { ok: false; error: string }>;
+  install(
+    text: string,
+    options?: { auditAs?: LicenseInstallAudit },
+  ): Promise<{ ok: true; snapshot: LicenseSnapshot } | { ok: false; error: string }>;
   /** Delete the license file; the host reverts to free-tier limits. */
   remove(): Promise<{ ok: true; snapshot: LicenseSnapshot }>;
   /** Re-read the file now (the watcher's path; exposed for tests). */
@@ -89,7 +105,7 @@ function describeRefusal(snapshot: LicenseSnapshot): string {
  * offline CLI both act as the host operator; peer-plane callers were
  * already stamped by the `daemon.admin` gate.
  */
-function auditLicenseEvent(capability: 'daemon.license-install' | 'daemon.license-remove'): void {
+function auditLicenseEvent(capability: LicenseInstallAudit | 'daemon.license-remove'): void {
   emitAuditEntry({
     actorUserId: getIdentitySnapshot()?.user.id ?? 'operator',
     capability,
@@ -170,7 +186,20 @@ export async function installLicenseSlot(options: LicenseSlotOptions): Promise<L
   return {
     getSnapshot: () => snapshot,
 
-    async install(text: string) {
+    async getInstalledText() {
+      try {
+        const text = await fs.readFile(filePath, 'utf8');
+        const compact = text.trim();
+        return compact === '' ? null : compact;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          consoleLogger.warn(SCOPE, `cannot read license file ${filePath}`, err);
+        }
+        return null;
+      }
+    },
+
+    async install(text: string, options?: { auditAs?: LicenseInstallAudit }) {
       const candidate = snapshotFromVerifyResult(await verifyLicense(text, new Date(now()), ring));
       if (candidate.status !== 'licensed' && candidate.status !== 'grace') {
         return { ok: false, error: describeRefusal(candidate) };
@@ -180,7 +209,7 @@ export async function installLicenseSlot(options: LicenseSlotOptions): Promise<L
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(tmpPath, `${compact}\n`, { encoding: 'utf8', mode: 0o600 });
       await fs.rename(tmpPath, filePath);
-      auditLicenseEvent('daemon.license-install');
+      auditLicenseEvent(options?.auditAs ?? 'daemon.license-install');
       return { ok: true, snapshot: apply(candidate) };
     },
 

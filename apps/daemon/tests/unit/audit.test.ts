@@ -43,6 +43,7 @@ function makeConfig(): DaemonConfig {
     auditRetentionDays: 90,
     auditForwarding: null,
     licenseFile: null,
+    licenseRefresh: true,
     configPath: path.join(dataDir, 'daemon.json'),
   };
 }

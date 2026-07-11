@@ -103,6 +103,7 @@ import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { createHealthzHandler } from './healthz';
+import { installLicenseRefreshAgent } from './license-refresh-agent';
 import { installLicenseSlot } from './license-slot';
 import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
@@ -231,6 +232,13 @@ export interface DaemonSpineConfig {
    * NOT configurable — it is compiled into `@openheaders/core/licensing`.
    */
   licenseFilePath?: string;
+  /**
+   * Self-serve renewal loop (LICENSING_PLAN.md §3.2). `false` disables
+   * the refresh agent entirely (air-gapped posture by config); absent =
+   * enabled — the agent still stands down on its own when no license is
+   * installed or the artifact carries `offline: true`.
+   */
+  licenseRefresh?: boolean;
   staticWeb?: {
     rootDir: string;
     /**
@@ -536,6 +544,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // The seat gate in `createDaemonUser` derives its limit from this
   // provider at every admission — never a cached number.
   setLicenseSnapshotProvider(() => licenseSlot.getSnapshot());
+  // Self-serve renewal loop (§3.2) — periodically swaps a fresh signed
+  // file in through the slot. Config-off covers air-gapped posture;
+  // the agent's own gates cover no-license and `offline: true` files.
+  const licenseRefreshAgent =
+    config.licenseRefresh === false
+      ? null
+      : installLicenseRefreshAgent({ slot: licenseSlot, appVersion: config.appVersion });
 
   const adminChannels = createAdminChannelHandlers({
     pairing: pairingService,
@@ -751,6 +766,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     setActivityLog(null);
     setActivityMuteStore(null);
     setLicenseSnapshotProvider(null);
+    licenseRefreshAgent?.dispose();
     licenseSlot.dispose();
     pairingService.dispose();
     oidcService?.dispose();

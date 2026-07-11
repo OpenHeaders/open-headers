@@ -167,6 +167,7 @@ describe('users.setPassword admin channel', () => {
       queryAudit: () => [],
       license: {
         getSnapshot: () => ({ status: 'unlicensed' as const }),
+        getInstalledText: async () => null,
         install: async () => ({ ok: false as const, error: 'not under test' }),
         remove: async () => ({ ok: true as const, snapshot: { status: 'unlicensed' as const } }),
         reload: async () => ({ status: 'unlicensed' as const }),

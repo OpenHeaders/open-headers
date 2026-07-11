@@ -117,7 +117,10 @@ export const DaemonAdminSchema = v.object({
  * `daemon.seat-admit` is the seat gate's deny stamp (LICENSING_PLAN.md
  * §4) — one row per directory-user admission refused at the seat
  * limit. `daemon.license-install` / `daemon.license-remove` are the
- * license slot's lifecycle stamps. All three are audit-vocabulary only.
+ * license slot's lifecycle stamps; `daemon.license-refresh` is the
+ * refresh agent's automatic-renewal stamp, distinct so operator
+ * installs and self-serve renewals stay tellable apart. All four are
+ * audit-vocabulary only.
  */
 export const CapabilitySchema = v.picklist([
   'workspace.read',
@@ -129,6 +132,7 @@ export const CapabilitySchema = v.picklist([
   'daemon.sso-revoke',
   'daemon.seat-admit',
   'daemon.license-install',
+  'daemon.license-refresh',
   'daemon.license-remove',
 ]);
 

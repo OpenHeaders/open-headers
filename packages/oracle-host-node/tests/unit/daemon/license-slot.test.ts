@@ -132,6 +132,16 @@ describe('installLicenseSlot — install / remove', () => {
     const slot = await makeSlot();
     await expect(slot.remove()).resolves.toEqual({ ok: true, snapshot: { status: 'unlicensed' } });
   });
+
+  it('getInstalledText returns the compact artifact, and null when absent', async () => {
+    const slot = await makeSlot();
+    await expect(slot.getInstalledText()).resolves.toBeNull();
+    const text = await signer.sign(makeLicense());
+    await slot.install(text);
+    await expect(slot.getInstalledText()).resolves.toBe(text);
+    await slot.remove();
+    await expect(slot.getInstalledText()).resolves.toBeNull();
+  });
 });
 
 describe('installLicenseSlot — external changes', () => {

@@ -54,6 +54,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     auditRetentionDays: 90,
     auditForwarding: null,
     licenseFile: null,
+    licenseRefresh: true,
     configPath: path.join(dataDir, 'daemon.json'),
     ...overrides,
   };

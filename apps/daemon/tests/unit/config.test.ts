@@ -142,6 +142,14 @@ describe('resolveDaemonConfig — precedence', () => {
     expect(path.isAbsolute(resolve(['--license-file', 'relative/license.key']).licenseFile ?? '')).toBe(true);
   });
 
+  it('resolves licenseRefresh through the chain, defaulting to on', () => {
+    expect(resolve().licenseRefresh).toBe(true);
+    const file = writeConfigFile({ licenseRefresh: false });
+    expect(resolve(['--config', file]).licenseRefresh).toBe(false);
+    expect(resolve(['--config', file], { OH_LICENSE_REFRESH: '1' }).licenseRefresh).toBe(true);
+    expect(resolve([], { OH_LICENSE_REFRESH: '0' }).licenseRefresh).toBe(false);
+  });
+
   it('reads the oidc block, defaulting to null, with the secret env riding on top', () => {
     expect(resolve().oidc).toBeNull();
     const file = writeConfigFile({
@@ -356,6 +364,12 @@ describe('resolveDaemonConfig — validation', () => {
   it('rejects a non-string licenseFile in the config file', () => {
     const file = writeConfigFile({ licenseFile: 42 });
     expect(() => resolve(['--config', file])).toThrow(/licenseFile/);
+  });
+
+  it('rejects a non-boolean licenseRefresh in the config file and a malformed env value', () => {
+    const file = writeConfigFile({ licenseRefresh: 'off' });
+    expect(() => resolve(['--config', file])).toThrow(/licenseRefresh/);
+    expect(() => resolve([], { OH_LICENSE_REFRESH: 'yes' })).toThrow(/license refresh/);
   });
 
   it('rejects a malformed oidc block rather than booting a broken login', () => {

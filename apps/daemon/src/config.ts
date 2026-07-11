@@ -107,6 +107,14 @@ export interface DaemonConfig {
    */
   licenseFile: string | null;
   /**
+   * Self-serve license renewal loop (LICENSING_PLAN.md §3.2). `false`
+   * disables the refresh agent — the air-gapped/no-outbound posture by
+   * config; `offline: true` licenses stand it down on their own either
+   * way. Default true. `licenseRefresh` in `daemon.json` or
+   * `OH_LICENSE_REFRESH=0`.
+   */
+  licenseRefresh: boolean;
+  /**
    * Audit→SIEM streaming destination (enterprise Phase 4d). `null` =
    * the daemon's zero-outbound posture holds; configured = audit rows
    * stream to this collector as JSON POST batches behind a durable
@@ -133,6 +141,7 @@ interface ConfigFile {
   auditRetentionDays?: number;
   auditForwarding?: DaemonAuditForwardingConfig;
   licenseFile?: string;
+  licenseRefresh?: boolean;
 }
 
 export interface ResolveConfigInput {
@@ -401,6 +410,10 @@ function readConfigFile(configPath: string): ConfigFile {
     if (typeof record.licenseFile !== 'string') throw new Error(`${configPath}: licenseFile must be a string`);
     out.licenseFile = record.licenseFile;
   }
+  if (record.licenseRefresh !== undefined) {
+    if (typeof record.licenseRefresh !== 'boolean') throw new Error(`${configPath}: licenseRefresh must be a boolean`);
+    out.licenseRefresh = record.licenseRefresh;
+  }
   return out;
 }
 
@@ -559,6 +572,12 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
   const rawLicenseFile = values['license-file'] ?? input.env.OH_LICENSE_FILE ?? file.licenseFile;
   const licenseFile = rawLicenseFile === undefined ? null : path.resolve(rawLicenseFile);
 
+  const envLicenseRefresh = input.env.OH_LICENSE_REFRESH;
+  const licenseRefresh =
+    (envLicenseRefresh !== undefined ? parseBooleanEnv(envLicenseRefresh, 'license refresh') : undefined) ??
+    file.licenseRefresh ??
+    true;
+
   return {
     dataDir,
     bindAddress,
@@ -573,6 +592,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     auditRetentionDays,
     auditForwarding: file.auditForwarding ?? null,
     licenseFile,
+    licenseRefresh,
     configPath,
   };
 }
