@@ -54,13 +54,14 @@ import { useLiveWorkflowConflictResolution } from './use-live-workflow-conflict-
 import { applyLiveWorkflowPublish } from '@openheaders/ui/shared/sync/live-workflow-write-client';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { App, Button, Tag, Typography, theme } from 'antd';
+import { App, Button, Segmented, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import EditorHeader from '../shell/EditorHeader';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { classifyRun, pickActiveRun, statusColor } from './live-display';
 import WorkflowFormBody from './WorkflowFormBody';
+import WorkflowGraphBody from './WorkflowGraphBody';
 import WorkflowRunStatusStrip from './WorkflowRunStatusStrip';
 
 const { Text, Title } = Typography;
@@ -130,6 +131,25 @@ interface CreateProps {
 
 type Props = EditProps | CreateProps;
 
+/**
+ * Editor↔graph view toggle (WORKFLOW_GRAPH_PLAN.md §4). Component-local
+ * UI state — never persisted, never on the tab or entity. Both panes
+ * render from the same draft, so switching is loss-free by construction.
+ */
+type WorkflowView = 'form' | 'graph';
+
+const viewToggle = (view: WorkflowView, setView: (v: WorkflowView) => void): React.ReactNode => (
+  <Segmented
+    size="small"
+    value={view}
+    onChange={(v) => setView(v as WorkflowView)}
+    options={[
+      { label: 'Form', value: 'form' },
+      { label: 'Graph', value: 'graph' },
+    ]}
+  />
+);
+
 // ── Unified dispatcher ─────────────────────────────────────────────
 
 const LiveWorkflowEditor: React.FC<Props> = (props) => {
@@ -156,6 +176,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
 
   const [refreshing, setRefreshing] = useState(false);
+  const [view, setView] = useState<WorkflowView>('form');
 
   const formFingerprint = useMemo(() => (draft ? fingerprint(draft) : ''), [draft]);
 
@@ -383,9 +404,12 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   );
 
   const editHeaderActions = (
-    <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
-      Refresh
-    </Button>
+    <>
+      {viewToggle(view, setView)}
+      <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
+        Refresh
+      </Button>
+    </>
   );
 
   return (
@@ -403,12 +427,18 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         onKeepAllMine={handleKeepAllMine}
         onUseAllSaved={handleUseAllSaved}
       />
-      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
-        <div style={{ maxWidth: 920, margin: '0 auto' }}>
-          <WorkflowRunStatusStrip runs={runs} refresh={draft.refresh} boundCount={boundVars.length} />
-          <WorkflowFormBody draft={draft} setDraft={setDraft} />
+      {view === 'form' ? (
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+            <WorkflowRunStatusStrip runs={runs} refresh={draft.refresh} boundCount={boundVars.length} />
+            <WorkflowFormBody draft={draft} setDraft={setDraft} />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <WorkflowGraphBody draft={draft} />
+        </div>
+      )}
       <EntityConflictDialog
         open={isConflictDialogOpen}
         savedText={savedText}
@@ -433,6 +463,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
   const editingWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(seedStep));
+  const [view, setView] = useState<WorkflowView>('form');
 
   // Dirty the moment the user touches anything. Comparing against the
   // initial seed-derived fingerprint keeps empty drafts from being
@@ -514,12 +545,18 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
     <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-      <EditorHeader title={createHeaderTitle} shell={shell.headerProps} />
-      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
-        <div style={{ maxWidth: 920, margin: '0 auto' }}>
-          <WorkflowFormBody draft={draft} setDraft={setDraft} />
+      <EditorHeader title={createHeaderTitle} actions={viewToggle(view, setView)} shell={shell.headerProps} />
+      {view === 'form' ? (
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+            <WorkflowFormBody draft={draft} setDraft={setDraft} />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <WorkflowGraphBody draft={draft} />
+        </div>
+      )}
     </div>
     </EntityScopeProvider>
   );

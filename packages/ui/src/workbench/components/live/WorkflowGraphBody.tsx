@@ -1,0 +1,324 @@
+/**
+ * WorkflowGraphBody — read-only graph view of a workflow draft
+ * (WORKFLOW_GRAPH_PLAN.md slice 1).
+ *
+ * A pure projection of the same `DraftWorkflow` the form edits: one
+ * node per step (request, captures + exposure marks, gate / priority
+ * markers, validation badge), one edge per resolved `dependsOn`
+ * parent. Layout comes from `buildWorkflowGraphLayout` — layers
+ * top-down, declared order across each layer. The pane scrolls in both
+ * axes; nodes are fixed-size so edge anchors stay deterministic.
+ *
+ * No selection, no run overlay, no editing — those are slices 2–4.
+ */
+
+import { FilterOutlined, SortAscendingOutlined, ThunderboltFilled, WarningOutlined } from '@ant-design/icons';
+import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
+import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
+import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { Tooltip, Typography, theme } from 'antd';
+import type React from 'react';
+import { useMemo } from 'react';
+import { METHOD_COLORS } from '../sidebar/icons';
+import { buildWorkflowGraphLayout } from './graph-layout';
+
+const { Text } = Typography;
+
+const NODE_W = 208;
+const NODE_H = 92;
+const GAP_X = 32;
+const GAP_Y = 48;
+const PAD = 24;
+
+interface WorkflowGraphBodyProps {
+  draft: DraftWorkflow;
+}
+
+function clauseSummary(clause: NonNullable<WorkflowStep['runIf']>['all'][number]): string {
+  switch (clause.kind) {
+    case 'status':
+      return typeof clause.match === 'string'
+        ? `${clause.stepId} status is ${clause.match}`
+        : clause.match[0] === 'eq'
+          ? `${clause.stepId} status is ${clause.match[1]}`
+          : clause.match[0] === 'ne'
+            ? `${clause.stepId} status is not ${clause.match[1]}`
+            : `${clause.stepId} status in [${clause.match[1].join(', ')}]`;
+    case 'capture-exists':
+      return `${clause.stepId}.${clause.captureName} exists`;
+    case 'capture-equals':
+      return `${clause.stepId}.${clause.captureName} = "${clause.value}"`;
+    case 'capture-matches':
+      return `${clause.stepId}.${clause.captureName} matches /${clause.pattern}/`;
+  }
+}
+
+const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({ draft }) => {
+  const { token } = theme.useToken();
+  const { requests, isReady: requestsReady } = useRequests();
+
+  // Same synthetic-workflow construction the form body uses — the
+  // layout helper + validators only inspect cross-reference shape.
+  const draftWorkflow = useMemo<LiveWorkflow>(
+    () => ({
+      schemaVersion: 5,
+      version: 1,
+      uid: '________',
+      path: 'live-workflows/draft',
+      name: draft.name,
+      description: draft.description.trim() ? draft.description : undefined,
+      enabled: draft.enabled,
+      steps: draft.steps,
+      refresh: draft.refresh,
+    }),
+    [draft],
+  );
+
+  const layout = useMemo(() => buildWorkflowGraphLayout(draftWorkflow), [draftWorkflow]);
+
+  const requestsByUid = useMemo(() => new Map(requests.map((r) => [r.uid, r])), [requests]);
+
+  const knownRequestUids = useMemo(() => new Set(requests.map((r) => r.uid)), [requests]);
+  const errorsByStepId = useMemo(() => {
+    const all = requestsReady
+      ? [...validateWorkflowShape(draftWorkflow), ...validateStepRequestsExist(draftWorkflow, knownRequestUids)]
+      : validateWorkflowShape(draftWorkflow);
+    const map = new Map<string, string[]>();
+    for (const err of all) {
+      if (err.stepId === null) continue;
+      map.set(err.stepId, [...(map.get(err.stepId) ?? []), err.message]);
+    }
+    return map;
+  }, [draftWorkflow, requestsReady, knownRequestUids]);
+
+  const draftStepsById = useMemo(() => new Map(draft.steps.map((s) => [s.id, s])), [draft.steps]);
+
+  const positions = useMemo(() => {
+    const map = new Map<string, { x: number; y: number }>();
+    for (const node of layout.nodes) {
+      map.set(node.step.id, {
+        x: PAD + node.slot * (NODE_W + GAP_X),
+        y: PAD + node.layer * (NODE_H + GAP_Y),
+      });
+    }
+    return map;
+  }, [layout]);
+
+  const canvasW = PAD * 2 + Math.max(1, layout.maxSlots) * (NODE_W + GAP_X) - GAP_X;
+  const canvasH = PAD * 2 + Math.max(1, layout.layerCount) * (NODE_H + GAP_Y) - GAP_Y;
+
+  return (
+    <div data-testid="wf-graph-pane" style={{ overflow: 'auto', height: '100%' }}>
+      <div style={{ position: 'relative', width: canvasW, height: canvasH }}>
+        <svg
+          width={canvasW}
+          height={canvasH}
+          style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+          aria-hidden="true"
+        >
+          {layout.edges.map((edge) => {
+            const from = positions.get(edge.from);
+            const to = positions.get(edge.to);
+            if (!from || !to) return null;
+            const x1 = from.x + NODE_W / 2;
+            const y1 = from.y + NODE_H;
+            const x2 = to.x + NODE_W / 2;
+            const y2 = to.y;
+            const bend = Math.max(16, (y2 - y1) / 2);
+            return (
+              <path
+                key={`${edge.from}->${edge.to}`}
+                data-testid={`wf-graph-edge-${edge.from}-${edge.to}`}
+                d={`M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${y2 - bend}, ${x2} ${y2}`}
+                fill="none"
+                stroke={token.colorBorder}
+                strokeWidth={1.5}
+              />
+            );
+          })}
+        </svg>
+        {layout.nodes.map((node) => {
+          const pos = positions.get(node.step.id);
+          if (!pos) return null;
+          const draftStep = draftStepsById.get(node.step.id);
+          const request = node.step.requestUid ? requestsByUid.get(node.step.requestUid) : undefined;
+          const errors = errorsByStepId.get(node.step.id) ?? [];
+          return (
+            <GraphNodeCard
+              key={node.step.uid}
+              stepId={node.step.id}
+              draftStep={draftStep}
+              runIf={node.step.runIf}
+              hasPriority={node.step.priorityFrom !== undefined}
+              priorityLabel={
+                node.step.priorityFrom
+                  ? `Ordered by ${node.step.priorityFrom.stepId}.${node.step.priorityFrom.captureName}`
+                  : ''
+              }
+              method={request?.method ?? ''}
+              requestName={request?.name ?? ''}
+              requestMissing={requestsReady && node.step.requestUid !== '' && request === undefined}
+              errors={errors}
+              x={pos.x}
+              y={pos.y}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+interface GraphNodeCardProps {
+  stepId: string;
+  /** Draft overlay for the step — supplies capture exposure state. */
+  draftStep: DraftStep | undefined;
+  runIf: WorkflowStep['runIf'];
+  hasPriority: boolean;
+  priorityLabel: string;
+  method: string;
+  requestName: string;
+  requestMissing: boolean;
+  errors: string[];
+  x: number;
+  y: number;
+}
+
+const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
+  stepId,
+  draftStep,
+  runIf,
+  hasPriority,
+  priorityLabel,
+  method,
+  requestName,
+  requestMissing,
+  errors,
+  x,
+  y,
+}) => {
+  const { token } = theme.useToken();
+  const gateClauses = runIf?.all ?? [];
+  const captures = draftStep?.captures ?? [];
+  const requestLine = requestMissing ? 'Request not found' : requestName || 'No request selected';
+  const requestMuted = requestMissing || requestName === '';
+
+  return (
+    <div
+      data-testid={`wf-graph-node-${stepId}`}
+      style={{
+        position: 'absolute',
+        left: x,
+        top: y,
+        width: NODE_W,
+        height: NODE_H,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        padding: '8px 10px',
+        borderRadius: token.borderRadius,
+        border: `1px solid ${errors.length > 0 ? token.colorErrorBorder : token.colorBorder}`,
+        background: token.colorBgElevated,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <Text strong ellipsis style={{ fontSize: 12, flex: 1, minWidth: 0 }}>
+          {stepId}
+        </Text>
+        {gateClauses.length > 0 && (
+          <Tooltip
+            title={
+              <div>
+                {gateClauses.map((clause) => (
+                  <div key={clause.uid} style={{ fontSize: 11 }}>
+                    {clauseSummary(clause)}
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            <FilterOutlined
+              data-testid={`wf-graph-gate-${stepId}`}
+              style={{ fontSize: 11, color: token.colorWarning }}
+            />
+          </Tooltip>
+        )}
+        {hasPriority && (
+          <Tooltip title={priorityLabel}>
+            <SortAscendingOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
+          </Tooltip>
+        )}
+        {errors.length > 0 && (
+          <Tooltip
+            title={
+              <div>
+                {errors.map((message) => (
+                  <div key={message} style={{ fontSize: 11 }}>
+                    {message}
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            <WarningOutlined
+              data-testid={`wf-graph-error-${stepId}`}
+              style={{ fontSize: 11, color: token.colorError }}
+            />
+          </Tooltip>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        {method !== '' && (
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: METHOD_COLORS[method] ?? token.colorText,
+              flexShrink: 0,
+            }}
+          >
+            {method}
+          </span>
+        )}
+        <Text type={requestMuted ? 'secondary' : undefined} ellipsis style={{ fontSize: 11, minWidth: 0 }}>
+          {requestLine}
+        </Text>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}>
+        {captures.length === 0 && (
+          <Text type="secondary" style={{ fontSize: 10, fontStyle: 'italic' }}>
+            No captures
+          </Text>
+        )}
+        {captures.map((capture) => (
+          <span
+            key={capture.uid}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              fontSize: 10,
+              lineHeight: '16px',
+              padding: '0 6px',
+              borderRadius: 8,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              color: capture.exposed ? token.colorText : token.colorTextSecondary,
+              background: capture.exposed ? token.colorFillTertiary : 'transparent',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+            title={capture.exposed ? `Exposed as {{live.${capture.liveName}}}` : capture.name}
+          >
+            {capture.exposed && <ThunderboltFilled style={{ fontSize: 9, color: token.colorWarning }} />}
+            {capture.exposed ? capture.liveName : capture.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default WorkflowGraphBody;
