@@ -1,9 +1,12 @@
 /**
  * CLI config file — the persisted half of `oh connect`. One JSON file
- * in the platform config dir (`$XDG_CONFIG_HOME`/`~/.config` →
- * `openheaders/cli.json`), mode 0600 because it holds a daemon token.
- * Flags and env always override it (see connection.ts); it only makes
- * the zero-flag invocation work after a one-time connect.
+ * in the platform config dir (`$XDG_CONFIG_HOME`/`~/.config` on
+ * POSIX, `%APPDATA%` on Windows → `openheaders/cli.json`), mode 0600
+ * because it holds a daemon token (a no-op on Windows, where the
+ * profile dir's ACL is the protection). Flags and env always override
+ * it (see connection.ts); it only makes the zero-flag invocation work
+ * after a one-time connect. `XDG_CONFIG_HOME` wins on every platform —
+ * the explicit-relocation escape hatch, and the test seam.
  */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -15,8 +18,17 @@ export interface CliConfig {
   token?: string;
 }
 
-export function cliConfigPath(env: NodeJS.ProcessEnv = process.env, homedir: string = os.homedir()): string {
-  const configHome = env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME !== '' ? env.XDG_CONFIG_HOME : path.join(homedir, '.config');
+export function cliConfigPath(
+  env: NodeJS.ProcessEnv = process.env,
+  homedir: string = os.homedir(),
+  platform: NodeJS.Platform = process.platform,
+): string {
+  const configHome =
+    env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME !== ''
+      ? env.XDG_CONFIG_HOME
+      : platform === 'win32' && env.APPDATA && env.APPDATA !== ''
+        ? env.APPDATA
+        : path.join(homedir, '.config');
   return path.join(configHome, 'openheaders', 'cli.json');
 }
 

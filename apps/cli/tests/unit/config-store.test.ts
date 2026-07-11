@@ -32,6 +32,28 @@ describe('cliConfigPath', () => {
   it('ignores an empty XDG_CONFIG_HOME', () => {
     expect(cliConfigPath({ XDG_CONFIG_HOME: '' }, '/home/oh')).toBe('/home/oh/.config/openheaders/cli.json');
   });
+
+  it('uses %APPDATA% on Windows', () => {
+    expect(cliConfigPath({ APPDATA: 'C:\\Users\\oh\\AppData\\Roaming' }, 'C:\\Users\\oh', 'win32')).toBe(
+      path.join('C:\\Users\\oh\\AppData\\Roaming', 'openheaders', 'cli.json'),
+    );
+  });
+
+  it('XDG_CONFIG_HOME wins over %APPDATA% on Windows — the relocation escape hatch', () => {
+    expect(cliConfigPath({ XDG_CONFIG_HOME: '/xdg', APPDATA: 'C:\\Roaming' }, 'C:\\Users\\oh', 'win32')).toBe(
+      path.join('/xdg', 'openheaders', 'cli.json'),
+    );
+  });
+
+  it('falls back to ~/.config on Windows without APPDATA', () => {
+    expect(cliConfigPath({}, 'C:\\Users\\oh', 'win32')).toBe(
+      path.join('C:\\Users\\oh', '.config', 'openheaders', 'cli.json'),
+    );
+  });
+
+  it('never uses APPDATA off Windows', () => {
+    expect(cliConfigPath({ APPDATA: '/roaming' }, '/home/oh', 'linux')).toBe('/home/oh/.config/openheaders/cli.json');
+  });
 });
 
 describe('readCliConfig / writeCliConfig', () => {
