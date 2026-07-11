@@ -112,6 +112,67 @@
   flex-direction: column;
 }
 
+/* Every storage scroll container: no macOS rubber-band at the edges, no
+ * scroll chaining into the surface behind it, and a plain painted
+ * scrollbar instead of the fading overlay one — the thumb tracks the
+ * scroll offset exactly and a filled pane visibly holds more. */
+.dt-storage-nav,
+.dt-storage-body,
+.dt-storagedoc-preview,
+.dt-valuedoc-preview-body,
+.dt-storagedoc-cookieform,
+.dt-storage-response-body,
+.dt-cachedoc-headers-list,
+.dt-cachedoc-image {
+  overscroll-behavior: none;
+}
+
+.dt-storage-nav::-webkit-scrollbar,
+.dt-storage-body::-webkit-scrollbar,
+.dt-storagedoc-preview::-webkit-scrollbar,
+.dt-valuedoc-preview-body::-webkit-scrollbar,
+.dt-storagedoc-cookieform::-webkit-scrollbar,
+.dt-storage-response-body::-webkit-scrollbar,
+.dt-cachedoc-headers-list::-webkit-scrollbar,
+.dt-cachedoc-image::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dt-storage-nav::-webkit-scrollbar-track,
+.dt-storage-body::-webkit-scrollbar-track,
+.dt-storagedoc-preview::-webkit-scrollbar-track,
+.dt-valuedoc-preview-body::-webkit-scrollbar-track,
+.dt-storagedoc-cookieform::-webkit-scrollbar-track,
+.dt-storage-response-body::-webkit-scrollbar-track,
+.dt-cachedoc-headers-list::-webkit-scrollbar-track,
+.dt-cachedoc-image::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dt-storage-nav::-webkit-scrollbar-thumb,
+.dt-storage-body::-webkit-scrollbar-thumb,
+.dt-storagedoc-preview::-webkit-scrollbar-thumb,
+.dt-valuedoc-preview-body::-webkit-scrollbar-thumb,
+.dt-storagedoc-cookieform::-webkit-scrollbar-thumb,
+.dt-storage-response-body::-webkit-scrollbar-thumb,
+.dt-cachedoc-headers-list::-webkit-scrollbar-thumb,
+.dt-cachedoc-image::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.45);
+  border-radius: 4px;
+}
+
+.dt-storage-nav::-webkit-scrollbar-thumb:hover,
+.dt-storage-body::-webkit-scrollbar-thumb:hover,
+.dt-storagedoc-preview::-webkit-scrollbar-thumb:hover,
+.dt-valuedoc-preview-body::-webkit-scrollbar-thumb:hover,
+.dt-storagedoc-cookieform::-webkit-scrollbar-thumb:hover,
+.dt-storage-response-body::-webkit-scrollbar-thumb:hover,
+.dt-cachedoc-headers-list::-webkit-scrollbar-thumb:hover,
+.dt-cachedoc-image::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.7);
+}
+
 .dt-storage-grid {
   font-family: var(--oh-ui-font-family, system-ui, sans-serif);
   font-size: 11px;
@@ -684,6 +745,13 @@
   min-width: 0;
 }
 
+/* An expanded entry grows its row around the strip — the hover actions
+ * stay on the entry's own line instead of centering over the preview. */
+.dt-storage-row:has(> .dt-storage-response-strip) > .dt-storage-row-actions {
+  top: 2px;
+  transform: none;
+}
+
 .dt-storage-response-status {
   color: var(--dt-text);
   padding-bottom: 2px;
@@ -994,35 +1062,50 @@
   font-weight: 600;
 }
 
-.dt-cachedoc-headers {
+/* Collapsible headers/body sections — the Raw Data disclosure idiom:
+ * a .dt-section summary row per band, its content a flex SIBLING of
+ * the <details> so the column sizes it directly. */
+.dt-cachedoc-section {
   flex: 0 0 auto;
-  max-height: 40%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  border-bottom: 1px solid var(--dt-border);
+  margin-bottom: 0;
 }
 
-.dt-cachedoc-headers-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 10px;
-  flex: 0 0 auto;
+.dt-cachedoc-section > summary {
+  padding-left: 10px;
 }
 
-.dt-cachedoc-headers-title {
-  color: var(--dt-text-muted);
+.dt-cachedoc-summary-label {
   white-space: nowrap;
 }
 
+/* Right-aligned summary controls (the header filter) — absolute so the
+ * native disclosure marker stays intact; clicks don't toggle. */
+.dt-cachedoc-summary-controls {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
 .dt-cachedoc-headers-list {
+  flex: 0 1 auto;
+  max-height: 40%;
   overflow: auto;
   min-height: 0;
   padding: 2px 10px 6px;
+  border-bottom: 1px solid var(--dt-border);
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
+/* Body collapsed → the headers list takes the freed space. */
+.dt-storagedoc:has(.dt-cachedoc-section--closed-body) .dt-cachedoc-headers-list {
+  flex: 1 1 auto;
+  max-height: none;
+}
 .dt-cachedoc-header-row {
   display: flex;
   gap: 6px;

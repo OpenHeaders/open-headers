@@ -61,6 +61,8 @@ interface CacheEntryEditorTabProps {
 export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditorTabProps) {
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [headerFilter, setHeaderFilter] = useState('');
+  const [headersOpen, setHeadersOpen] = useState(true);
+  const [bodyOpen, setBodyOpen] = useState(true);
   const [deleteFailed, setDeleteFailed] = useState(false);
   const fetchTokenRef = useRef(0);
 
@@ -222,18 +224,26 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
               Body truncated at the size cap — {formatSize(slot.bodyLength)} stored.
             </div>
           )}
-          <div className="dt-cachedoc-headers">
-            <div className="dt-cachedoc-headers-bar">
-              <span className="dt-cachedoc-headers-title">Response headers ({slot.headers.length})</span>
-              <input
-                type="text"
-                className="dt-filter-input"
-                placeholder="Filter headers"
-                value={headerFilter}
-                onChange={(e) => setHeaderFilter(e.target.value)}
-                aria-label="Filter response headers"
-              />
-            </div>
+          <details
+            className="dt-section dt-cachedoc-section"
+            open={headersOpen}
+            onToggle={(e) => setHeadersOpen((e.currentTarget as HTMLDetailsElement).open)}
+          >
+            <summary>
+              <span className="dt-cachedoc-summary-label">Response headers ({slot.headers.length})</span>
+              <span className="dt-cachedoc-summary-controls" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="text"
+                  className="dt-filter-input"
+                  placeholder="Filter headers"
+                  value={headerFilter}
+                  onChange={(e) => setHeaderFilter(e.target.value)}
+                  aria-label="Filter response headers"
+                />
+              </span>
+            </summary>
+          </details>
+          {headersOpen && (
             <div className="dt-cachedoc-headers-list">
               {filteredHeaders.length === 0 ? (
                 <div className="dt-storage-meta">
@@ -248,22 +258,33 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
                 ))
               )}
             </div>
-          </div>
-          {isImage ? (
-            <div className="dt-cachedoc-image" aria-label="Stored image body">
-              <img src={`data:${contentType};base64,${slot.body}`} alt={`Stored response body for ${url}`} />
-            </div>
-          ) : slot.bodyBase64 === true ? (
-            <div className="dt-storagedoc-note">Binary body — {formatSize(slot.bodyLength)} stored.</div>
-          ) : slot.body.length === 0 ? (
-            <div className="dt-storagedoc-note">Empty body.</div>
-          ) : (
-            <div className="dt-storagedoc-source">
-              <Suspense fallback={<Skeleton />}>
-                <CodeViewer value={slot.body} language={cacheBodyLanguage(contentType)} readOnly />
-              </Suspense>
-            </div>
           )}
+          <details
+            className={`dt-section dt-cachedoc-section${bodyOpen ? '' : ' dt-cachedoc-section--closed-body'}`}
+            open={bodyOpen}
+            onToggle={(e) => setBodyOpen((e.currentTarget as HTMLDetailsElement).open)}
+          >
+            <summary>
+              <span className="dt-cachedoc-summary-label">Response body</span>
+              <span className="dt-storage-meta">{formatSize(slot.bodyLength)}</span>
+            </summary>
+          </details>
+          {bodyOpen &&
+            (isImage ? (
+              <div className="dt-cachedoc-image" aria-label="Stored image body">
+                <img src={`data:${contentType};base64,${slot.body}`} alt={`Stored response body for ${url}`} />
+              </div>
+            ) : slot.bodyBase64 === true ? (
+              <div className="dt-storagedoc-note">Binary body — {formatSize(slot.bodyLength)} stored.</div>
+            ) : slot.body.length === 0 ? (
+              <div className="dt-storagedoc-note">Empty body.</div>
+            ) : (
+              <div className="dt-storagedoc-source">
+                <Suspense fallback={<Skeleton />}>
+                  <CodeViewer value={slot.body} language={cacheBodyLanguage(contentType)} readOnly />
+                </Suspense>
+              </div>
+            ))}
         </>
       )}
     </div>
