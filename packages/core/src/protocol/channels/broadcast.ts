@@ -127,6 +127,13 @@ export interface BridgeBroadcastContract {
    * send it.
    */
   openSettings: { categoryId?: string; settingKey?: string };
+  /**
+   * Host-shell navigation request: move the focused editor group to the
+   * next / previous tab. Emitted by the desktop main process for its
+   * Window-menu "Next Tab" / "Previous Tab" items; hosts without native
+   * chrome never send it.
+   */
+  tabNavigate: { direction: 'next' | 'previous' };
 
   /**
    * Phase C F5 — live tail for the Activity Feed panel. Fires per

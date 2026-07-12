@@ -35,6 +35,7 @@ import { installAboutPanel } from './main/bootstrap/about-panel';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
+import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
 import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
@@ -76,6 +77,12 @@ function bootstrapDesktopApp(): void {
   // Chromium command-line switches must precede `app` initialization —
   // they're consumed once at network-stack construction.
   installChromiumSwitches();
+
+  // Persisted hardware-acceleration choice (app-menu toggle). Same
+  // pre-ready constraint: Chromium reads it once at GPU-process
+  // construction. Must follow the userData override — the marker file
+  // lives there.
+  applyHardwareAccelerationPolicy();
 
   // Logger next so every subsequent bootstrap call lands in
   // `<userData>/logs/main.log`.

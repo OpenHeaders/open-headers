@@ -21,3 +21,20 @@ export function broadcastToAllRenderers(type: string, payload: unknown): void {
     }
   }
 }
+
+/**
+ * Send a bridge broadcast to the focused window only — for menu items
+ * whose action targets "the window the user is looking at" (tab
+ * navigation), where fanning out to every window would move tabs the
+ * user can't see. No focused window → no-op (menus that reach this
+ * state are macOS's while all windows are hidden).
+ */
+export function sendToFocusedRenderer(type: string, payload: unknown): void {
+  const win = BrowserWindow.getFocusedWindow();
+  if (!win || win.isDestroyed()) return;
+  try {
+    win.webContents.send(BROADCAST_CHANNEL, { type, payload });
+  } catch {
+    // Same best-effort semantics as the fan-out above.
+  }
+}

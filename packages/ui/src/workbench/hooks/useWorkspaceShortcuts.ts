@@ -8,6 +8,8 @@
  * Design constraints:
  *   - Browser tab context: some shortcuts (Ctrl+Tab, Cmd+T, Cmd+1-9) are
  *     intercepted by the browser before JS runs — can't override, don't try.
+ *     The fixed Mod+1..9 tab-jump family is bound anyway: it only ever
+ *     reaches the page on the desktop host, where no browser chrome owns it.
  *   - Follows VS Code conventions for panel toggles and tab management.
  *   - Cmd+K follows web-app convention for command palette.
  *   - Single-char shortcuts (/, ?) only fire when no input/textarea is focused.
@@ -17,8 +19,8 @@
  *     code-derived key (KeyN → "n", Digit1 → "1") as a fallback.
  */
 
-import { useCallback } from 'react';
 import { useShellKeyDown } from '@openheaders/ui/shared/dock-layout';
+import { useCallback } from 'react';
 import { useSettingValue } from '../settings/hooks';
 import { get as getSetting } from '../settings/store';
 import type { SettingKey } from '../settings/types';
@@ -42,6 +44,13 @@ export interface WorkspaceShortcutHandlers {
   onCloseTab: () => void;
   onPrevTab: () => void;
   onNextTab: () => void;
+  /**
+   * Jump straight to the Nth open tab (1-based; 9 = last tab). Fired by
+   * the fixed Mod+1..9 family — not settings-bound, so it never appears
+   * in the rebind UI. In a browser tab the chord is browser-reserved and
+   * never reaches the page; on the desktop host it works.
+   */
+  onGoToTab: (position: number) => void;
   onTabSearch: () => void;
   onSave: () => void;
   onNewRule: () => void;
@@ -91,7 +100,7 @@ export interface ShortcutDef {
 type HandlerRef =
   | {
       kind: 'direct';
-      name: Exclude<keyof WorkspaceShortcutHandlers, 'onFocusRegion' | 'hasActiveTab'>;
+      name: Exclude<keyof WorkspaceShortcutHandlers, 'onFocusRegion' | 'onGoToTab' | 'hasActiveTab'>;
     }
   | { kind: 'focus'; region: FocusRegion }
   /**
@@ -460,6 +469,19 @@ export function useWorkspaceShortcuts(handlers: WorkspaceShortcutHandlers): void
       const eventChords = buildChordsFromEvent(e);
       if (eventChords.length === 0) return;
       const inputFocused = isInputFocused();
+
+      // Fixed Mod+1..9 family — direct tab jump. Checked before the
+      // settings-bound table so a user rebind can never shadow it with a
+      // partial match; exact-chord matching keeps Mod+Shift+digit and
+      // Mod+Alt+digit combinations free for other bindings.
+      for (const chord of eventChords) {
+        const digitMatch = /^mod\+([1-9])$/.exec(chord);
+        if (digitMatch) {
+          e.preventDefault();
+          handlers.onGoToTab(Number(digitMatch[1]));
+          return;
+        }
+      }
 
       for (const def of SHORTCUTS) {
         // Editor-scoped shortcuts are never dispatched at the window

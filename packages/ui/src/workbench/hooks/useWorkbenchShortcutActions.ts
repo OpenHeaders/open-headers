@@ -40,6 +40,7 @@ export interface WorkbenchShortcutActions {
   handleSave: () => void;
   handlePrevTab: () => void;
   handleNextTab: () => void;
+  handleGoToTab: (position: number) => void;
   handleCloseActiveTab: () => void;
   handleShowShortcuts: () => void;
   openCreateMenu: () => void;
@@ -105,6 +106,18 @@ export function useWorkbenchShortcutActions({
     switchTab(next.id);
   }, [tabs, activeTabId, switchTab]);
 
+  // Direct tab jump (⌘1..⌘9 on the desktop host). Positions are 1-based;
+  // 9 always lands on the last tab regardless of count — the same
+  // convention browsers use — so "jump to the end" needs no counting.
+  const handleGoToTab = useCallback(
+    (position: number) => {
+      if (tabs.length === 0) return;
+      const target = position === 9 ? tabs[tabs.length - 1] : tabs[position - 1];
+      if (target) switchTab(target.id);
+    },
+    [tabs, switchTab],
+  );
+
   const handleCloseActiveTab = useCallback(() => {
     if (activeTabId) void handleCloseTab(activeTabId);
   }, [activeTabId, handleCloseTab]);
@@ -143,6 +156,7 @@ export function useWorkbenchShortcutActions({
     handleSave,
     handlePrevTab,
     handleNextTab,
+    handleGoToTab,
     handleCloseActiveTab,
     handleShowShortcuts,
     openCreateMenu,

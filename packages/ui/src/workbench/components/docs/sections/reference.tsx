@@ -1,6 +1,7 @@
 import { hasCapability } from '@openheaders/core/capabilities';
 import { Card, theme } from 'antd';
 import type React from 'react';
+import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { SHORTCUTS, useChordLabel, useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
 import { KeyboardRegionsDiagram, ResourceTypesAnatomyDiagram } from '../diagrams';
 import { DiagramFrame, DocParagraph, SurfaceContext } from '../shared';
@@ -80,6 +81,13 @@ export const KeyboardShortcutsSection: React.FC = () => {
               {items.map((s) => (
                 <ShortcutRow key={s.id} id={s.id} label={s.label} codeBg={token.colorFillQuaternary} />
               ))}
+              {category === 'tabs' && getCurrentHost() === 'desktop' && (
+                <ChordRow
+                  label="Go to tab 1–9 (9 = last)"
+                  chord={/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘1–⌘9' : 'Ctrl+1–9'}
+                  codeBg={token.colorFillQuaternary}
+                />
+              )}
             </div>
           </Card>
         );

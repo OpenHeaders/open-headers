@@ -15,7 +15,8 @@
  */
 
 import { app, Menu, type MenuItemConstructorOptions, nativeImage, shell } from 'electron';
-import { broadcastToAllRenderers } from './renderer-broadcast';
+import { isHardwareAccelerationDisabled, toggleHardwareAcceleration } from './hardware-acceleration';
+import { broadcastToAllRenderers, sendToFocusedRenderer } from './renderer-broadcast';
 import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
 import { createChildWindow, showMainWindow } from './window-manager';
 
@@ -49,6 +50,35 @@ function settingsMenuItem(): MenuItemConstructorOptions {
   };
 }
 
+function hardwareAccelerationMenuItem(): MenuItemConstructorOptions {
+  return {
+    label: isHardwareAccelerationDisabled() ? 'Enable Hardware Acceleration' : 'Disable Hardware Acceleration',
+    click: () => {
+      void toggleHardwareAcceleration().then(rebuildApplicationMenu);
+    },
+  };
+}
+
+// Editor-tab cycling in the focused window. Postman-convention chords on
+// macOS (⇧⌘] / ⇧⌘[); the classic Ctrl+Tab pair on Windows / Linux, where
+// bracket chords collide with keyboard-layout AltGr sequences. These are
+// native accelerators, so they work regardless of the renderer's own
+// rebindable Alt+] / Alt+[ bindings.
+function tabNavigationMenuItems(isMac: boolean): MenuItemConstructorOptions[] {
+  return [
+    {
+      label: 'Next Tab',
+      accelerator: isMac ? 'Shift+Command+]' : 'Control+Tab',
+      click: () => sendToFocusedRenderer('tabNavigate', { direction: 'next' }),
+    },
+    {
+      label: 'Previous Tab',
+      accelerator: isMac ? 'Shift+Command+[' : 'Control+Shift+Tab',
+      click: () => sendToFocusedRenderer('tabNavigate', { direction: 'previous' }),
+    },
+  ];
+}
+
 function template(): MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';
   const updateItems = updateMenuItems();
@@ -60,6 +90,8 @@ function template(): MenuItemConstructorOptions[] {
           submenu: [
             { label: `About ${app.getName()}`, click: () => app.showAboutPanel() },
             ...updateItems,
+            { type: 'separator' },
+            hardwareAccelerationMenuItem(),
             { type: 'separator' },
             settingsMenuItem(),
             { type: 'separator' },
@@ -87,7 +119,13 @@ function template(): MenuItemConstructorOptions[] {
             createChildWindow();
           },
         },
-        ...(!isMac ? ([{ type: 'separator' }, settingsMenuItem()] as MenuItemConstructorOptions[]) : []),
+        ...(!isMac
+          ? ([
+              { type: 'separator' },
+              settingsMenuItem(),
+              hardwareAccelerationMenuItem(),
+            ] as MenuItemConstructorOptions[])
+          : []),
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
@@ -122,7 +160,24 @@ function template(): MenuItemConstructorOptions[] {
           : []),
       ],
     },
-    { role: 'windowMenu' },
+    // Explicit Window menu instead of `role: 'windowMenu'` — the role's
+    // fixed submenu can't be extended with the tab-navigation items.
+    // Role-bound entries reproduce what the role provided; macOS still
+    // appends the open-window list automatically via `role: 'window'`
+    // on the top-level item.
+    {
+      label: 'Window',
+      ...(isMac ? { role: 'window' as const } : {}),
+      submenu: [
+        { role: 'minimize' },
+        ...(isMac ? ([{ role: 'zoom' }] as MenuItemConstructorOptions[]) : []),
+        { type: 'separator' },
+        ...tabNavigationMenuItems(isMac),
+        ...(isMac
+          ? ([{ type: 'separator' }, { role: 'front' }] as MenuItemConstructorOptions[])
+          : ([{ type: 'separator' }, { role: 'close' }] as MenuItemConstructorOptions[])),
+      ],
+    },
     {
       label: 'Help',
       submenu: [
@@ -137,9 +192,11 @@ function template(): MenuItemConstructorOptions[] {
   ];
 }
 
-export function installApplicationMenu(): void {
+function rebuildApplicationMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template()));
-  registerUpdateMenuBuilder(() => {
-    Menu.setApplicationMenu(Menu.buildFromTemplate(template()));
-  });
+}
+
+export function installApplicationMenu(): void {
+  rebuildApplicationMenu();
+  registerUpdateMenuBuilder(rebuildApplicationMenu);
 }

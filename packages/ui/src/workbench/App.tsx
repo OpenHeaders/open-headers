@@ -447,6 +447,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     handleSave,
     handlePrevTab,
     handleNextTab,
+    handleGoToTab,
     handleCloseActiveTab,
     handleShowShortcuts,
     openCreateMenu,
@@ -650,6 +651,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // "Settings…", tray update actions). Hosts without native chrome
   // never emit it.
   useEffect(() => hostBridge.subscribe('openSettings', (target) => openSettings(target)), [openSettings]);
+
+  // Host-shell navigation: the desktop Window menu's "Next Tab" /
+  // "Previous Tab" items drive the same focused-leaf cycling as the
+  // in-app chords.
+  useEffect(
+    () =>
+      hostBridge.subscribe('tabNavigate', ({ direction }) => {
+        if (direction === 'next') handleNextTab();
+        else handlePrevTab();
+      }),
+    [handleNextTab, handlePrevTab],
+  );
 
   // The console opens as a workbench tab — dismiss the settings overlay
   // on the way out so the navigation lands on a visible surface instead
@@ -904,6 +917,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onCloseTab: handleCloseActiveTab,
     onPrevTab: handlePrevTab,
     onNextTab: handleNextTab,
+    onGoToTab: handleGoToTab,
     onTabSearch: () => tabSearchToggleRef.current?.(),
     onSave: handleSave,
     onNewRule: openCreateMenu,
