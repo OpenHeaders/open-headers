@@ -451,6 +451,13 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // for Page-plane control delivery, but the event router fans page timings
     // from the root session alone, so child Page.* never enters the feed.
     await this.enablePage({ tabId });
+    // Seed the main-frame registry before the Runtime enable: the enable
+    // replays the live contexts immediately, and their `isTopFrame` stamp
+    // reads this registry — seeded last, the whole initial replay would
+    // race it and miss `top`. It equally precedes any navigation (the first
+    // navigation's requestWillBeSent precedes its frameNavigated, so
+    // without the seed the main/sub document split misses the first nav).
+    await this.seedMainFrame(tabId);
     await this.enableAutoAttach({ tabId });
     // Private fire-bridge (E4): a Runtime binding the in-page wrappers report
     // through instead of window.postMessage — page-invisible. Fanned to kept
@@ -462,10 +469,6 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // events. Enabling also replays the target's retained backlog, so the
     // Console tool window shows history from before Debug mode attached.
     await this.enableLog({ tabId });
-    // Seed the main-frame registry before any navigation: the first
-    // navigation's requestWillBeSent precedes its frameNavigated, so
-    // without the seed the main/sub document split misses the first nav.
-    await this.seedMainFrame(tabId);
   }
 
   /**
