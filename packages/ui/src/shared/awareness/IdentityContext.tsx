@@ -27,7 +27,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo } from 'react';
-import { ensureRendererContext, type RendererContextHandle } from '@openheaders/ui/context';
+import { ensureRendererContext, type RendererContextHandle } from '../../context/renderer-mutator-context';
 import { type AwarenessCoordinator, createAwarenessCoordinator } from './awareness-coordinator';
 import { openAwarenessLifeline } from './awareness-lifeline';
 import type { SurfaceIdentityHandle } from './surface-identity';

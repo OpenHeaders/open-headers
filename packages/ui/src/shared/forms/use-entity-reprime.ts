@@ -44,7 +44,10 @@
  */
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useActiveFieldFocus } from '../awareness';
+// Concrete module, not the awareness barrel — the barrel pulls the
+// whole presence UI (and, through it, the context layer) into every
+// forms consumer, closing a chunk-level import cycle at build time.
+import { useActiveFieldFocus } from '../awareness/ActiveFieldFocus';
 
 export interface EntityReprimeScope {
   entityType: string;

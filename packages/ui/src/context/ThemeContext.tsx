@@ -23,7 +23,12 @@
 
 import { UiThemeProvider } from './ui-theme';
 import { getVariant, type ThemeVariant } from '@openheaders/ui/themes';
-import { setSettingValue, useSettingValue } from '@openheaders/ui/workbench/settings';
+// Concrete modules, not the settings barrel — the barrel reaches
+// SettingsProvider's schema side-effect chain, which loops back into
+// this context layer and closes a chunk-level import cycle at build
+// time.
+import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
+import { set as setSettingValue } from '@openheaders/ui/workbench/settings/store';
 import { resolveAppearanceFontFamily } from '@openheaders/ui/workbench/settings/schema/appearance';
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';

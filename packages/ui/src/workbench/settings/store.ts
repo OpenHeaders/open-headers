@@ -27,7 +27,10 @@
 
 import { hasCapability } from '@openheaders/core/capabilities';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { stableStringify } from '@openheaders/ui/shared/forms';
+// Concrete module, not the forms barrel — the barrel drags the
+// reprime/awareness stack into the settings store and closes a
+// chunk-level import cycle at build time.
+import { stableStringify } from '@openheaders/ui/shared/forms/fingerprint';
 import * as v from 'valibot';
 import { allDefaults, allDefs, getDef, subscribeRegistry } from './registry';
 import type { DictStorage, SettingScope, StorageUnsubscribe } from './storage/adapter';

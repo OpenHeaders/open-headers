@@ -29,7 +29,7 @@
 import { hostBridge } from '@openheaders/core/bridge';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { HLC } from '@openheaders/core/sync';
-import type { RendererContextHandle } from '@openheaders/ui/context';
+import type { RendererContextHandle } from '../../context/renderer-mutator-context';
 import type { SurfaceIdentityHandle } from './surface-identity';
 
 export interface AwarenessClaim {
@@ -119,18 +119,20 @@ export function createAwarenessCoordinator(opts: CreateAwarenessCoordinatorOptio
     const hlc: HLC = ctx.next().hlc;
     const identitySnapshot = identity.current();
 
-    void hostBridge.call('oh.awareness.publish', {
-      workspaceId,
-      state: {
-        identity: identitySnapshot,
-        entityFocus: claim?.entityFocus ?? null,
-        fieldFocus: claim?.fieldFocus ?? null,
-        dirtyFields: claim ? [...claim.dirtyFields] : [],
-        lastActivityHlc: hlc,
-      },
-    }).catch((err: Error) => {
-      logger.info('AwarenessCoordinator', `publish failed: ${err.message}`);
-    });
+    void hostBridge
+      .call('oh.awareness.publish', {
+        workspaceId,
+        state: {
+          identity: identitySnapshot,
+          entityFocus: claim?.entityFocus ?? null,
+          fieldFocus: claim?.fieldFocus ?? null,
+          dirtyFields: claim ? [...claim.dirtyFields] : [],
+          lastActivityHlc: hlc,
+        },
+      })
+      .catch((err: Error) => {
+        logger.info('AwarenessCoordinator', `publish failed: ${err.message}`);
+      });
   }
 
   // Re-publish on label changes too — the label rides on every state.

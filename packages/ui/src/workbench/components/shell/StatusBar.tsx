@@ -16,8 +16,8 @@ import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import { LifecyclePill } from '@openheaders/ui/shared/editor-shell';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
-import { setSettingValue } from '../../settings';
 import { useSettingValue } from '../../settings/hooks';
+import { set as setSettingValue } from '../../settings/store';
 import BreadcrumbBar from './BreadcrumbBar';
 import { renderWorkspacePrefix } from '../workspace/workspace-prefix';
 

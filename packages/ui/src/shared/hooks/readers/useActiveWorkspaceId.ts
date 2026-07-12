@@ -13,7 +13,7 @@
  * circuit writes while the workspace is unknown.
  */
 
-import { getActiveExtensionWorkspaceSyncMirror } from '@openheaders/ui/context';
+import { getActiveExtensionWorkspaceSyncMirror } from '../../../context/mirrors/extension-workspace-sync-mirror';
 import { useEffect, useState } from 'react';
 
 export function useActiveWorkspaceId(): string | null {
