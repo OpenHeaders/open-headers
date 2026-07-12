@@ -171,7 +171,7 @@ const debuggerMock = {
     (_target: chrome.debugger.DebuggerSession, _method: string, _params?: Record<string, unknown>) =>
       Promise.resolve<object | undefined>(undefined),
   ),
-  getTargets: vi.fn(() => Promise.resolve([])),
+  getTargets: vi.fn(() => Promise.resolve<chrome.debugger.TargetInfo[]>([])),
   onEvent: {
     addListener: vi.fn((cb: DebuggerEventListener) => debuggerEventListeners.add(cb)),
     removeListener: vi.fn((cb: DebuggerEventListener) => debuggerEventListeners.delete(cb)),

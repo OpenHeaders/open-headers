@@ -13,14 +13,18 @@ import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { startConsoleStreamPortHost } from '../console-stream-port-host';
 import type { CdpAttachObservable, CdpControlReplay } from '../correlator-host';
 import {
+  BrowserTargetAttachController,
   CdpAttachController,
+  ChromeBrowserTargetSource,
   ChromeCdpEvalPort,
   ChromeCdpRequestControlPort,
   ChromeCdpTabControlPort,
   createCdpControlReplay,
   deriveTabControlState,
   installCdpPinTabCleanup,
+  originOfTab,
   ROOT_SESSION_ID,
+  startBrowserTargetFanout,
   startCdpActiveTab,
   startCdpFetchInterceptor,
   startDevtoolsPortPresence,
@@ -366,13 +370,46 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     }
   });
 
+  // Browser-scoped service-worker targets (JS contexts Phase B): the second
+  // chrome.debugger plane, keyed by targetId. Its reconciler mirrors the tab
+  // one — attachedTargets = { targets whose owner-set ∩ cdp-attached tabs ≠ ∅ }
+  // ∩ { master switch ON } — with owners resolved by origin match between the
+  // worker script URL and each attached tab's main-frame URL (`getTargets`
+  // gives a worker no tabId). Discovery is a poll (no push over
+  // chrome.debugger), re-run on tab attach-set changes, main-frame
+  // navigations, and a low-frequency interval. Attached targets feed
+  // Runtime + Log only (SW network capture is a non-goal); the fanout
+  // resolves each target-keyed event against the committed owner mapping and
+  // fans it into the SAME context/console hubs the tab plane feeds, so a
+  // page's service-worker output lands in its tab's streams (browser parity).
+  const browserTargetSource = new ChromeBrowserTargetSource();
+  const browserTargetController = new BrowserTargetAttachController({
+    source: browserTargetSource,
+    originOf: originOfTab,
+  });
+  startBrowserTargetFanout({
+    source: browserTargetSource,
+    controller: browserTargetController,
+    contexts: jsContextHub,
+    console: consoleStreamHub,
+  });
+  cdpAttachController.onChange((state) => browserTargetController.noteAttachedTabs(state.attachedTabs));
+  lifecycleHost.debuggerSource.subscribePage((event) => {
+    if (event.method === 'Page.frameNavigated' && event.frame.parentId === undefined) {
+      browserTargetController.requestDiscovery();
+    }
+  });
+
   setupOnRuleMatchedDebugBridge({
     onAuthoritativeFire: (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record),
   });
 
   return {
     lifecycleStore: lifecycleHost.store,
-    setCdpEnabled: (enabled) => cdpAttachController.setEnabled(enabled),
+    setCdpEnabled: (enabled) => {
+      cdpAttachController.setEnabled(enabled);
+      browserTargetController.setEnabled(enabled);
+    },
     cdpAttach: cdpAttachController,
     setCdpScopeMode: (mode) => cdpAttachController.setScopeMode(mode),
     pinCdpTab: (tabId) => cdpAttachController.notePinned(tabId),

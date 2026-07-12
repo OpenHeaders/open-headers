@@ -6,6 +6,15 @@
  * chrome-free by design. See `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2.
  */
 
+export type {
+  BrowserTargetAttachControllerOptions,
+  BrowserTargetOwnersListener,
+} from './browser-target-attach-controller';
+export { BrowserTargetAttachController } from './browser-target-attach-controller';
+export type { BrowserTargetFanout, BrowserTargetFanoutOptions } from './browser-target-fanout';
+export { startBrowserTargetFanout } from './browser-target-fanout';
+export type { BrowserTargetDescriptor, BrowserTargetJsContextEvent } from './browser-target-source';
+export { browserTargetSessionKey, ChromeBrowserTargetSource } from './browser-target-source';
 export type { CdpActiveTab, CdpActiveTabOptions } from './cdp-active-tab';
 export { startCdpActiveTab } from './cdp-active-tab';
 export type {
@@ -38,5 +47,6 @@ export type { LifecycleHost } from './lifecycle-host';
 export { startLifecycleHost } from './lifecycle-host';
 export type { TabLifecycleBridgeOptions } from './tab-lifecycle-bridge';
 export { installTabLifecycleBridge } from './tab-lifecycle-bridge';
+export { originOfTab } from './tab-origin';
 export type { TabOwner, TabSourceRouterOptions } from './tab-source-router';
 export { TabSourceRouter } from './tab-source-router';

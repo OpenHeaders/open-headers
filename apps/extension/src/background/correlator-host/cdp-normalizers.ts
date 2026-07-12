@@ -494,6 +494,32 @@ export function normalizeExecutionContextCreated(
 }
 
 /**
+ * `Runtime.executionContextCreated` on a **browser-scoped target** (JS
+ * contexts Phase B) → host-neutral {@link JsContext}. A service worker's
+ * context arrives with NO `auxData` at all (verified live, Phase B spike) —
+ * on this plane that absence means the target's one main world, so
+ * `isDefault` defaults to `true`, the inverse of the tab plane's
+ * explicit-flag-only read.
+ */
+export function normalizeBrowserTargetContextCreated(
+  sessionKey: string,
+  targetKind: JsContextTargetKind,
+  p: RawExecutionContextCreated,
+): JsContext {
+  const context = p.context;
+  const aux = context.auxData;
+  return {
+    contextKey: jsContextKey(sessionKey, context.id),
+    origin: context.origin,
+    name: context.name,
+    isDefault: aux?.isDefault ?? true,
+    ...(aux?.frameId !== undefined ? { frameId: aux.frameId } : {}),
+    targetKind,
+    worldType: aux?.type ?? 'default',
+  };
+}
+
+/**
  * `Log.entryAdded` → a browser-sourced {@link ConsoleEntry}. These are the
  * browser's own console messages — failed/blocked network requests,
  * deprecations, CSP violations, interventions — the third stream Chrome's
