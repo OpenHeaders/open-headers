@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the oh/ohd SEA binaries (release.yml "Sign and
+  notarize binaries"). Signing with the hardened runtime (required for
+  notarization) but WITHOUT allow-jit kills V8 at startup with SIGTRAP
+  on user machines — the CI runner's own probe does not enforce it, so
+  only these entitlements make the shipped binaries actually runnable:
+    - allow-jit + allow-unsigned-executable-memory: V8's JIT mappings.
+    - disable-library-validation: ohd unpacks its native addon to disk
+      at first run; library validation would reject the dylib.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

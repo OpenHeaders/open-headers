@@ -349,9 +349,13 @@ jobs:
             exit 1
           fi
           mkdir -p notarize-stage
+          # Hardened runtime without the JIT entitlements SIGTRAPs V8 on
+          # user machines (the runner's own probe does not enforce them).
           for BINARY in apps/cli/dist-sea/oh apps/daemon/dist-sea/ohd; do
-            codesign --force --sign "$IDENTITY" --options runtime --timestamp "$BINARY"
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp \
+              --entitlements .github/sea-entitlements.plist "$BINARY"
             codesign --verify --strict "$BINARY"
+            codesign -d --entitlements - "$BINARY" 2>&1 | grep -q allow-jit
             # The signed binary must still answer
             "$BINARY" --version
             cp "$BINARY" notarize-stage/
