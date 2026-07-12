@@ -77,6 +77,9 @@ export interface UseTabOpenersApi {
   openTemplateCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openTemplateFolderOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openSettingsTab: (options?: { settingKey?: string; categoryId?: string }) => void;
+  /** Open the bundled release-notes tab (singleton; desktop-only —
+   *  callers gate on the `getWhatsNew` capability). */
+  openWhatsNew: () => void;
   openWorkspaceManager: () => void;
   /** Open the daemon administration console (singleton tab; the CTA is
    *  probe-gated, the server gates every call regardless). */

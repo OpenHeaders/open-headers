@@ -14,6 +14,7 @@ import {
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
+  GiftOutlined,
   SettingOutlined,
   SisternodeOutlined,
   TeamOutlined,
@@ -77,6 +78,7 @@ export function tabIcon(
   },
 ): React.ReactNode {
   if (tab.mode === 'settings') return <SettingOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
+  if (tab.mode === 'whats-new') return <GiftOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'collection-overview') {
     const paused = tab.entityId ? pausedUids.has(tab.entityId) : false;
     return <FolderOpenOutlined style={{ fontSize: 12, color: paused ? TAB_ICON_YELLOW : TAB_ICON_GRAY }} />;

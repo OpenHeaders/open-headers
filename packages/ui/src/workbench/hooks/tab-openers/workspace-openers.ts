@@ -10,6 +10,7 @@ import type { TabOpenerContext, UseTabOpenersApi } from './shared';
 export type WorkspaceOpeners = Pick<
   UseTabOpenersApi,
   | 'openSettingsTab'
+  | 'openWhatsNew'
   | 'openWorkspaceManager'
   | 'openDaemonAdmin'
   | 'openEnvironmentEdit'
@@ -43,6 +44,21 @@ export function useWorkspaceOpeners({
     },
     [allTabs, addTab, switchTab],
   );
+
+  const openWhatsNew = useCallback(() => {
+    const id = 'whats-new';
+    if (allTabs.some((t) => t.id === id)) {
+      switchTab(id);
+      return;
+    }
+    addTab({
+      id,
+      label: "What's New",
+      ruleType: '',
+      dirty: false,
+      mode: 'whats-new',
+    });
+  }, [allTabs, addTab, switchTab]);
 
   const openWorkspaceManager = useCallback(() => {
     const id = 'workspace-manager';
@@ -142,6 +158,7 @@ export function useWorkspaceOpeners({
 
   return {
     openSettingsTab,
+    openWhatsNew,
     openWorkspaceManager,
     openDaemonAdmin,
     openEnvironmentEdit,

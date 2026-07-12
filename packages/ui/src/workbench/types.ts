@@ -23,6 +23,7 @@ export type TabMode =
   | 'folder-overview'
   | 'template-edit'
   | 'settings'
+  | 'whats-new'
   | 'workspace-manager'
   | 'daemon-admin'
   | 'env-edit'

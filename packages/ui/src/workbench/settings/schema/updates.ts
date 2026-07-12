@@ -30,6 +30,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'updates.state': string;
     'updates.check': UpdateCheckTier;
     'updates.autoDownload': boolean;
+    'updates.showWhatsNew': boolean;
   }
 }
 
@@ -67,6 +68,22 @@ registerSetting({
     { value: 'security-only', label: 'Security fixes only' },
     { value: 'off', label: 'Off' },
   ],
+});
+
+registerSetting({
+  key: 'updates.showWhatsNew',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: "Show What's New after updating",
+  description:
+    'Open a tab with the release highlights the first time you open the workbench after a feature release. ' +
+    'Patch releases never open it — they stay in the notifications timeline. ' +
+    'The notes ship inside the app; nothing is fetched.',
+  category: 'about',
+  tags: ['update', 'release', 'notes', 'whats new', 'changelog'],
+  scope: 'user',
+  when: () => getCurrentHost() === 'desktop',
 });
 
 registerSetting({

@@ -49,6 +49,7 @@ export function computeBreadcrumbs(
   if (!tab) return [];
 
   if (tab.mode === 'settings') return ['Settings'];
+  if (tab.mode === 'whats-new') return ["What's New"];
 
   if (tab.mode === 'workspace-manager') return ['Workspaces'];
   if (tab.mode === 'daemon-admin') return ['Daemon admin'];

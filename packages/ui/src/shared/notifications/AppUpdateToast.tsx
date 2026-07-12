@@ -32,9 +32,9 @@ const TOAST_KEY = 'oh-app-update';
 const LAST_RUN_VERSION_KEY = 'oh.lastRunVersion';
 
 /**
- * Release page for an installed version — the "What's new" target until
- * an in-app changelog surface exists. The public releases repo is the
- * same feed the updater checks, so the tag always exists for any
+ * Release page for an installed version — the "What's new" fallback on
+ * hosts without the bundled What's New tab. The public releases repo is
+ * the same feed the updater checks, so the tag always exists for any
  * version that reached a user.
  */
 function releasePageUrl(version: string): string {
@@ -77,9 +77,16 @@ const LINK_STYLE: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 
 interface AppUpdateToastProps {
   /** Route to the Settings update row (in-app updater hosts). */
   onOpenAbout: () => void;
+  /**
+   * Open the bundled What's New tab. When provided AND the host
+   * registers `getWhatsNew`, the post-update "See what's new" actions
+   * open it instead of the external release page — the notes ship in
+   * the build, so staying in-app costs no request.
+   */
+  onOpenWhatsNew?: () => void;
 }
 
-const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout }) => {
+const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout, onOpenWhatsNew }) => {
   const { notification } = App.useApp();
   // `${version}:${phase}` whose balloon closed — that phase stays
   // quiet. Any close counts: a ✕ is a dismissal, an action click means
@@ -220,7 +227,12 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout }) => {
       }
       if (previous === null || previous === currentVersion) return;
       const url = releasePageUrl(currentVersion);
+      const whatsNewTab = onOpenWhatsNew && getCapability('getWhatsNew')?.() ? onOpenWhatsNew : null;
       const openReleasePage = (): void => {
+        if (whatsNewTab) {
+          whatsNewTab();
+          return;
+        }
         const openUrl = getCapability('openExternalUrl');
         if (openUrl) void openUrl(url);
         else window.open(url, '_blank', 'noopener');
@@ -298,7 +310,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout }) => {
     return () => {
       cancelled = true;
     };
-  }, [notification, onOpenAbout]);
+  }, [notification, onOpenAbout, onOpenWhatsNew]);
 
   return <style>{TOAST_CSS}</style>;
 };

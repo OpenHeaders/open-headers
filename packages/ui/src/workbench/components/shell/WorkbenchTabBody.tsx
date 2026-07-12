@@ -34,6 +34,7 @@ import TemplateEditor from '../template/TemplateEditor';
 import TemplateFolderOverview from '../overviews/TemplateFolderOverview';
 import PackageLibrary from '../script-packages/PackageLibrary';
 import VaultEditor from '../variables/VaultEditor';
+import WhatsNewTab from '../whats-new/WhatsNewTab';
 import WorkspaceManager from '../workspace/WorkspaceManager';
 import WorkspaceVariablesEditor from '../variables/WorkspaceVariablesEditor';
 import type { EditorRegistrations } from '../../hooks/useEditorRegistrations';
@@ -233,6 +234,9 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   }
   if (tab.mode === 'settings') {
     return <SettingsTab initialSettingKey={tab.settingsInitialKey} initialCategoryId={tab.settingsInitialCategory} />;
+  }
+  if (tab.mode === 'whats-new') {
+    return <WhatsNewTab />;
   }
   if (tab.mode === 'workspace-manager') {
     return (

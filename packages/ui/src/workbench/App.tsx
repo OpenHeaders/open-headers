@@ -99,6 +99,7 @@ import { useSaveRuleFlow } from './hooks/useSaveRuleFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
+import { useWhatsNewAutoOpen } from './hooks/useWhatsNewAutoOpen';
 import { useWorkbenchActiveTab } from './hooks/useWorkbenchActiveTab';
 import {
   readWorkspaceFallThrough,
@@ -486,6 +487,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openTemplateCollectionOverview,
     openTemplateFolderOverview,
     openSettingsTab,
+    openWhatsNew,
     openWorkspaceManager,
     openDaemonAdmin,
     openEnvironmentEdit,
@@ -506,6 +508,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateLiveVariable,
     openCreateLiveWorkflow,
   } = openers;
+
+  // First workbench open after a feature release auto-opens the
+  // bundled What's New tab (docs/UPDATES_PLAN.md; no-op off desktop).
+  useWhatsNewAutoOpen(openWhatsNew);
 
   // Opening a request in the inspector clears any post-import "scripts
   // review pending" reminder for that request — the user has now seen
@@ -1269,7 +1275,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onSwitchWorkspace={handleSwitchWorkspace}
           />
 
-          <AppUpdateToast onOpenAbout={() => openSettings({ categoryId: 'about' })} />
+          <AppUpdateToast onOpenAbout={() => openSettings({ categoryId: 'about' })} onOpenWhatsNew={openWhatsNew} />
 
           <ShellLayout
             tl={tl}

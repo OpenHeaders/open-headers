@@ -234,6 +234,16 @@ export interface Capabilities {
    * runtime-managed fact sheet off this value.
    */
   requestRuntime?: () => RequestRuntimeKind;
+
+  /**
+   * The release notes bundled into this build, as markdown, or `null`
+   * when the build carries none. Registered only by hosts that ship a
+   * What's New surface (the desktop app bundles the notes at build
+   * time — they are never fetched, `docs/UPDATES_PLAN.md`). Extension
+   * surfaces update through the store and leave it absent, which hides
+   * the What's New affordances in shared UI.
+   */
+  getWhatsNew?: () => string | null;
 }
 
 type CapabilityName = keyof Capabilities;

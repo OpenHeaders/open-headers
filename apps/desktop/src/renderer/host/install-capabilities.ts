@@ -12,6 +12,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
+import whatsNewNotes from '../../../whats-new.md?raw';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
@@ -32,6 +33,15 @@ registerCapability('getAppUpdate', async () => {
   const state = await hostBridge.call('oh.updates.getState');
   const pending = state.phase === 'available' || state.phase === 'downloading' || state.phase === 'downloaded';
   return pending && state.availableVersion !== null ? { version: state.availableVersion } : null;
+});
+
+// Release notes bundled at build time from `apps/desktop/whats-new.md`
+// (raw import — never fetched at runtime). Backs the workbench's
+// What's New tab; a build with an empty notes file reports null and
+// the tab affordances stay hidden.
+registerCapability('getWhatsNew', () => {
+  const trimmed = whatsNewNotes.replace(/<!--[\s\S]*?-->/, '').trim();
+  return trimmed.length > 0 ? trimmed : null;
 });
 
 // No `closeSurface` registration — the workbench window is the long-
