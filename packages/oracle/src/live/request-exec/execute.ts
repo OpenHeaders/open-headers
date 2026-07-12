@@ -67,9 +67,15 @@ export async function executeOverTransport(
     body,
     redirect: resolved.followRedirects === false ? 'manual' : 'follow',
     credentials: resolved.credentialsMode,
+    sslVerification: resolved.sslVerification,
     maxBodyBytes: MAX_BODY_BYTES,
     timeoutMs: options.timeoutMs,
   };
+
+  // A verification-off send is stamped on the snapshot (success or
+  // failure) so the response surface marks the run even after the
+  // request's setting is flipped back.
+  const verificationOff = resolved.sslVerification === false;
 
   const startedAt = performance.now();
   try {
@@ -87,6 +93,7 @@ export async function executeOverTransport(
       bodyTruncated: response.bodyTruncated,
       bodyBytes: response.bodyBytes,
       durationMs,
+      ...(verificationOff ? { sslVerificationDisabled: true } : {}),
       error: null,
       scripts: null,
     };
@@ -95,7 +102,7 @@ export async function executeOverTransport(
     // The transport classifies network failures into a user-actionable
     // message; anything else surfaces its raw message.
     const message = err instanceof TransportError ? err.message : err instanceof Error ? err.message : String(err);
-    return { ...errorSnapshot(message), durationMs };
+    return { ...errorSnapshot(message), durationMs, ...(verificationOff ? { sslVerificationDisabled: true } : {}) };
   }
 }
 

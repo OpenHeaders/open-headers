@@ -16,24 +16,19 @@
  * per-leaf entries that don't apply to the new branch.
  */
 
-import {
-  enumLeaf,
-  type FieldNode,
-  leaf,
-  obj,
-  setByUid,
-  union,
-} from './descriptor';
+import { enumLeaf, type FieldNode, leaf, obj, setByUid, union } from './descriptor';
 
-const summarizeKv = (label: 'header' | 'param' | 'extra' | 'form' | 'multipart-text') => (row: unknown): string => {
-  const r = row as { key?: string; value?: string; name?: string };
-  if (label === 'header') return `${r.key ?? ''}: ${r.value ?? ''}`;
-  if (label === 'param') return `${r.key ?? ''}=${r.value ?? ''}`;
-  if (label === 'form') return `${r.key ?? ''}=${r.value ?? ''}`;
-  if (label === 'extra') return `${r.key ?? ''}=${r.value ?? ''}`;
-  // multipart text
-  return `${r.name ?? ''}=${r.value ?? ''}`;
-};
+const summarizeKv =
+  (label: 'header' | 'param' | 'extra' | 'form' | 'multipart-text') =>
+  (row: unknown): string => {
+    const r = row as { key?: string; value?: string; name?: string };
+    if (label === 'header') return `${r.key ?? ''}: ${r.value ?? ''}`;
+    if (label === 'param') return `${r.key ?? ''}=${r.value ?? ''}`;
+    if (label === 'form') return `${r.key ?? ''}=${r.value ?? ''}`;
+    if (label === 'extra') return `${r.key ?? ''}=${r.value ?? ''}`;
+    // multipart text
+    return `${r.name ?? ''}=${r.value ?? ''}`;
+  };
 
 const HEADER_ROW: FieldNode = obj({
   key: leaf('string'),
@@ -160,6 +155,7 @@ export const REQUEST_SCHEMA: FieldNode = obj({
   method: leaf('string'),
   credentialsMode: leaf('string', { coercion: 'optional-string' }),
   followRedirects: leaf('boolean', { coercion: 'boolean-strict' }),
+  sslVerification: leaf('boolean', { coercion: 'boolean-strict' }),
   preRequestScript: leaf('string', { coercion: 'optional-string' }),
   postResponseScript: leaf('string', { coercion: 'optional-string' }),
   headers: setByUid({ summary: summarizeKv('header'), child: HEADER_ROW }),

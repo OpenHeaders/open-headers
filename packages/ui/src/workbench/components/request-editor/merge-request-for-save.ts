@@ -35,6 +35,7 @@ export interface RequestSaveBatch {
   body: RequestBody;
   credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
+  sslVerification: boolean | undefined;
   preRequestScript: string | undefined;
   postResponseScript: string | undefined;
 }
@@ -50,6 +51,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     body: req.body,
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
+    sslVerification: req.sslVerification,
     preRequestScript: req.preRequestScript,
     postResponseScript: req.postResponseScript,
   };
@@ -87,6 +89,7 @@ export function mergeRequestForSave(
     auth: form.auth,
     credentialsMode: form.credentialsMode,
     followRedirects: form.followRedirects,
+    sslVerification: form.sslVerification,
     preRequestScript: form.preRequestScript,
     postResponseScript: form.postResponseScript,
   };
@@ -97,6 +100,7 @@ export function mergeRequestForSave(
     auth: baseProj.auth,
     credentialsMode: baseProj.credentialsMode,
     followRedirects: baseProj.followRedirects,
+    sslVerification: baseProj.sslVerification,
     preRequestScript: baseProj.preRequestScript,
     postResponseScript: baseProj.postResponseScript,
   };
@@ -107,6 +111,7 @@ export function mergeRequestForSave(
     auth: liveProj.auth,
     credentialsMode: liveProj.credentialsMode,
     followRedirects: liveProj.followRedirects,
+    sslVerification: liveProj.sslVerification,
     preRequestScript: liveProj.preRequestScript,
     postResponseScript: liveProj.postResponseScript,
   };
@@ -127,6 +132,7 @@ export function mergeRequestForSave(
     body,
     credentialsMode: merged.credentialsMode as CredentialsMode | undefined,
     followRedirects: merged.followRedirects as boolean | undefined,
+    sslVerification: merged.sslVerification as boolean | undefined,
     preRequestScript: merged.preRequestScript as string | undefined,
     postResponseScript: merged.postResponseScript as string | undefined,
   };

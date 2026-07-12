@@ -320,6 +320,18 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
   );
 }
 
+/** Popover for the warning tag on a run whose per-request SSL
+ *  verification knob was off — the snapshot records the policy the
+ *  send actually ran under. */
+function unverifiedTlsContent(): InfoPopoverContent {
+  return {
+    title: 'SSL verification disabled',
+    kicker: 'Response meta',
+    summary:
+      'This request was sent with certificate verification switched off in its Settings. The connection was encrypted, but the server’s identity was not checked — any certificate was accepted, including self-signed and expired ones.',
+  };
+}
+
 function networkContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
   return {
     title: 'Network',
@@ -379,6 +391,20 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
           {formatBytes(stripBytes)}
         </Text>
       </InfoPopover>
+      {response.sslVerificationDisabled && (
+        <>
+          <MetaDot />
+          <InfoPopover content={unverifiedTlsContent()} trigger="hover">
+            <Tag
+              color="warning"
+              data-testid="oh-response-tls-unverified"
+              style={{ marginInlineEnd: 0, cursor: 'help' }}
+            >
+              Unverified TLS
+            </Tag>
+          </InfoPopover>
+        </>
+      )}
       <MetaDot />
       <InfoPopover content={networkContent(response)} trigger="hover">
         <span

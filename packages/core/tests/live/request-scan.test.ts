@@ -52,6 +52,7 @@ describe('requestExecutableFingerprint', () => {
     expect(requestExecutableFingerprint(makeRequest({ body: { type: 'json', content: '{}' } }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ credentialsMode: 'include' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ followRedirects: false }))).not.toBe(base);
+    expect(requestExecutableFingerprint(makeRequest({ sslVerification: false }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ preRequestScript: 'oh.set("x", 1)' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ postResponseScript: 'oh.capture()' }))).not.toBe(base);
   });

@@ -11,6 +11,11 @@
  *     a Node fetch stack has no ambient cookie jar for the flag to
  *     ride, so the knob is hidden there and the cookie fact moves into
  *     the managed sheet.
+ *   • `sslVerification` — node-runtime only: the node transport routes
+ *     a verification-off send through a dedicated TLS dispatcher, the
+ *     escape hatch for self-signed / private-CA targets. The browser
+ *     cannot relax verification per request, so there the same setting
+ *     stays a browser-managed fact row.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -40,6 +45,9 @@ export interface RequestSettingsDraft {
   credentialsMode?: 'omit' | 'include';
   /** Whether the fetch call follows redirects. Defaults to true. */
   followRedirects?: boolean;
+  /** Whether the node runtime verifies the server's TLS certificate
+   *  chain. Defaults to true; browser runtimes always verify. */
+  sslVerification?: boolean;
 }
 
 interface SettingsTabProps {
@@ -121,12 +129,6 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
       'Requests go over HTTP/1.1. The app’s Node fetch stack does not negotiate HTTP/2 or HTTP/3, and no version selector is exposed.',
   },
   {
-    label: 'SSL certificate verification',
-    value: 'On',
-    description:
-      'Certificates are verified against the runtime’s trusted CA store. A request to a host with an invalid or self-signed certificate fails; verification cannot be disabled per request.',
-  },
-  {
     label: 'Cookies',
     value: 'Not sent',
     description:
@@ -206,25 +208,36 @@ const MANAGED_SHEETS: Record<RequestRuntimeKind, RuntimeManagedSheet> = {
 };
 
 /** Compact wired-knob row: label + (i) left-aligned, the switch
- *  right-aligned with Enabled/Disabled state text inside the track. */
+ *  right-aligned with Enabled/Disabled state text inside the track.
+ *  `warning` renders under the row while the knob is off — used by
+ *  trust-relaxing knobs so the risk is stated in place, not only
+ *  behind the popover. */
 const KnobRow: React.FC<{
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
   info: string;
-}> = ({ label, checked, onChange, info }) => (
-  <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
-    <Text style={{ fontSize: 13 }}>{label}</Text>
-    <InfoTrigger content={{ title: label, summary: info }} />
-    <span style={{ flex: 1 }} />
-    <Switch
-      size="small"
-      aria-label={label}
-      checked={checked}
-      onChange={onChange}
-      checkedChildren="Enabled"
-      unCheckedChildren="Disabled"
-    />
+  warning?: string;
+}> = ({ label, checked, onChange, info, warning }) => (
+  <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
+      <Text style={{ fontSize: 13 }}>{label}</Text>
+      <InfoTrigger content={{ title: label, summary: info }} />
+      <span style={{ flex: 1 }} />
+      <Switch
+        size="small"
+        aria-label={label}
+        checked={checked}
+        onChange={onChange}
+        checkedChildren="Enabled"
+        unCheckedChildren="Disabled"
+      />
+    </div>
+    {!checked && warning !== undefined && (
+      <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
+        {warning}
+      </Text>
+    )}
   </div>
 );
 
@@ -265,6 +278,15 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
           checked={value.credentialsMode === 'include'}
           onChange={(checked) => onChange({ ...value, credentialsMode: checked ? 'include' : undefined })}
           info="Attach the browser's existing cookies for the target site to this request. Off is the safe default: the request is sent with no cookies, so results don't depend on your logged-in browser state."
+        />
+      )}
+      {runtime === 'node' && (
+        <KnobRow
+          label="SSL certificate verification"
+          checked={value.sslVerification !== false}
+          onChange={(checked) => onChange({ ...value, sslVerification: checked })}
+          info="Verify the server's TLS certificate against the runtime's trusted CA store. A host with a self-signed, expired, or otherwise untrusted certificate fails with a TLS certificate error — switch verification off to reach it anyway, e.g. a development server with a self-signed certificate."
+          warning="Sends skip the server identity check — any certificate is accepted, including self-signed and expired ones. The response is marked as unverified."
         />
       )}
 

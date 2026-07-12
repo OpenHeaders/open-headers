@@ -147,4 +147,18 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     await runStepRequest(makeRequest(), opts(transport));
     expect(recordUsageMock).not.toHaveBeenCalled();
   });
+
+  it('carries the per-request SSL verification policy through resolve to the transport', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ sslVerification: false }), opts(transport));
+    expect(sent().sslVerification).toBe(false);
+    expect(snap.sslVerificationDisabled).toBe(true);
+  });
+
+  it('leaves the transport policy unset when the request does not opt out', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(makeRequest(), opts(transport));
+    expect(sent().sslVerification).toBeUndefined();
+    expect(snap.sslVerificationDisabled).toBeUndefined();
+  });
 });

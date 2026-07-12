@@ -33,6 +33,7 @@ export interface Draft {
   body: RequestBody;
   credentialsMode?: CredentialsMode;
   followRedirects?: boolean;
+  sslVerification?: boolean;
   preRequestScript?: string;
   postResponseScript?: string;
 }
@@ -50,6 +51,7 @@ export interface RequestUpdates {
   body: RequestBody;
   credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
+  sslVerification: boolean | undefined;
   preRequestScript: string | undefined;
   postResponseScript: string | undefined;
 }
@@ -157,6 +159,7 @@ export function draftFromRequest(req: Request): Draft {
     body: req.body,
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
+    sslVerification: req.sslVerification,
     preRequestScript: req.preRequestScript,
     postResponseScript: req.postResponseScript,
   };
@@ -185,6 +188,7 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     body: draft.body,
     credentialsMode: draft.credentialsMode,
     followRedirects: draft.followRedirects,
+    sslVerification: draft.sslVerification,
     preRequestScript: draft.preRequestScript,
     postResponseScript: draft.postResponseScript,
   };

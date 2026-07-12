@@ -225,6 +225,7 @@ describe('yaml codec — round-trip parity', () => {
     expect(parsed.value.body.type).toBe('json');
     if (parsed.value.body.type !== 'json') throw new Error('expected json body');
     expect(parsed.value.body.content).toBe(bodyJson);
+    expect(parsed.value.sslVerification).toBe(false);
     expect(parsed.value.preRequestScript).toBe(preScript);
     expect(parsed.value.postResponseScript).toBe(postResponseScript);
 

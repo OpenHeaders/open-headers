@@ -42,6 +42,7 @@ export async function addRequest(
     ...(seed?.description ? { description: seed.description } : {}),
     ...(seed?.credentialsMode ? { credentialsMode: seed.credentialsMode } : {}),
     ...(seed?.followRedirects !== undefined ? { followRedirects: seed.followRedirects } : {}),
+    ...(seed?.sslVerification !== undefined ? { sslVerification: seed.sslVerification } : {}),
     ...(seed?.preRequestScript ? { preRequestScript: seed.preRequestScript } : {}),
     ...(seed?.postResponseScript ? { postResponseScript: seed.postResponseScript } : {}),
   };

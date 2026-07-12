@@ -78,6 +78,15 @@ export interface TransportRequest {
    */
   maxBodyBytes: number;
   /**
+   * Whether the transport verifies the server's TLS certificate chain.
+   * Absent / `true` → verify (the runtime default). `false` → send
+   * without verification — a per-request explicit opt-in for
+   * self-signed / private-CA targets. Transports whose network stack
+   * cannot relax verification (the browser SW) ignore it and always
+   * verify.
+   */
+  sslVerification?: boolean;
+  /**
    * Optional per-attempt wall-clock ceiling in milliseconds. The
    * transport MUST abort the whole round-trip — connection, response,
    * and body read — once this elapses, surfacing a

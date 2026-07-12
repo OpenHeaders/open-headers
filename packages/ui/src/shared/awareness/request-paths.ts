@@ -27,6 +27,7 @@ export interface RequestPathBundle {
   body: string;
   credentialsMode: string;
   followRedirects: string;
+  sslVerification: string;
   preRequestScript: string;
   postResponseScript: string;
   // Set roots (used for path-prefix presence + set-level conflict keys).
@@ -46,6 +47,7 @@ export const REQUEST_PATHS: RequestPathBundle = {
   body: 'body',
   credentialsMode: 'credentialsMode',
   followRedirects: 'followRedirects',
+  sslVerification: 'sslVerification',
   preRequestScript: 'preRequestScript',
   postResponseScript: 'postResponseScript',
   headerSet: 'headers',
@@ -54,12 +56,4 @@ export const REQUEST_PATHS: RequestPathBundle = {
   param: (uid, leaf) => `params.${uid}.${leaf}`,
 };
 
-export type RequestTabKey =
-  | 'docs'
-  | 'params'
-  | 'authorization'
-  | 'headers'
-  | 'body'
-  | 'scripts'
-  | 'settings';
-
+export type RequestTabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 'scripts' | 'settings';

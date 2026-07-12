@@ -96,6 +96,14 @@ export interface ExecutedRequestSnapshot {
   /** Wire-layer capture for this fetch (remote IP, raw Set-Cookie).
    *  Absent when nothing was captured or the join was ambiguous. */
   wire?: ExecutedWireCapture;
+  /**
+   * True when this send ran with SSL certificate verification disabled
+   * (the per-request `sslVerification: false` opt-in, honored by node
+   * runtimes). Recorded on the snapshot — not read from live request
+   * state — so the response surface can mark the run even after the
+   * setting is flipped back. Absent = the runtime verified as usual.
+   */
+  sslVerificationDisabled?: boolean;
   /** Non-null when the request failed before producing a response. */
   error: string | null;
   /** Actionable remedy for the failure — present only alongside

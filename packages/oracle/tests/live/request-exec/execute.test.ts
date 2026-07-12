@@ -89,6 +89,35 @@ describe('executeOverTransport', () => {
     expect(sent().credentials).toBe('include');
   });
 
+  it('passes the SSL verification policy through to the transport', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved({ sslVerification: false }), transport);
+    expect(sent().sslVerification).toBe(false);
+  });
+
+  it('marks a verification-off run on the snapshot — success and failure alike', async () => {
+    const { transport } = captureTransport();
+    const ok = await executeOverTransport(makeResolved({ sslVerification: false }), transport);
+    expect(ok.sslVerificationDisabled).toBe(true);
+
+    const failing: RequestTransport = {
+      async send() {
+        throw new TransportError('Connection refused by api.openheaders.io.');
+      },
+    };
+    const failed = await executeOverTransport(makeResolved({ sslVerification: false }), failing);
+    expect(failed.error).toBe('Connection refused by api.openheaders.io.');
+    expect(failed.sslVerificationDisabled).toBe(true);
+  });
+
+  it('leaves a verified run unmarked', async () => {
+    const { transport } = captureTransport();
+    const snap = await executeOverTransport(makeResolved(), transport);
+    expect(snap.sslVerificationDisabled).toBeUndefined();
+    const explicit = await executeOverTransport(makeResolved({ sslVerification: true }), transport);
+    expect(explicit.sslVerificationDisabled).toBeUndefined();
+  });
+
   it('serializes a json body as raw content', async () => {
     const { transport, sent } = captureTransport();
     await executeOverTransport(makeResolved({ body: { type: 'json', content: '{"a":1}' } }), transport);

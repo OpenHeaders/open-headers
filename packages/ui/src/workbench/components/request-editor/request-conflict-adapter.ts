@@ -39,6 +39,7 @@ const SCALAR_LABEL: Record<string, string> = {
   [REQUEST_PATHS.body]: 'Body',
   [REQUEST_PATHS.credentialsMode]: 'Credentials mode',
   [REQUEST_PATHS.followRedirects]: 'Follow redirects',
+  [REQUEST_PATHS.sslVerification]: 'SSL verification',
   [REQUEST_PATHS.preRequestScript]: 'Pre-request script',
   [REQUEST_PATHS.postResponseScript]: 'Post-response script',
 };
@@ -79,8 +80,7 @@ export const requestConflictAdapter: ConflictTrackingAdapter<Request> = walker.t
 
 export const requestResolveAdapter: ConflictResolveAdapter<Request> = {
   applyResolutionToForm: () => false,
-  applyResolutionToEntity: (req, path, conflict) =>
-    walker.resolve.applyResolutionToEntity(req, path, conflict),
+  applyResolutionToEntity: (req, path, conflict) => walker.resolve.applyResolutionToEntity(req, path, conflict),
   prettyPath(req, path) {
     if (path.startsWith('reorder:')) {
       const setPath = path.slice('reorder:'.length);

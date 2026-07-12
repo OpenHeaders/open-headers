@@ -21,5 +21,6 @@ auth:
   token: "{{env.TOKEN}}"
 credentialsMode: omit
 followRedirects: false
+sslVerification: false
 body:
   type: json

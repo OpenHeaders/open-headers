@@ -1,23 +1,24 @@
 /**
  * Node request transport — the desktop host's RequestTransport over
- * global fetch. Verifies body materialization (raw / urlencoded /
- * multipart), response mapping, and the rich error classification undici
+ * undici fetch. Verifies body materialization (raw / urlencoded /
+ * multipart), response mapping, per-request TLS policy (dispatcher
+ * selection + agent reuse), and the rich error classification undici
  * affords via `err.cause.code` (vs. the browser's opaque failure).
  */
 
 import { TransportError, type TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createNodeRequestTransport } from '../../src/live/node-request-transport';
+import { Agent, FormData, Response } from 'undici';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createNodeRequestTransport, type NodeFetchFn } from '../../src/live/node-request-transport';
 
-const fetchMock = vi.fn();
+const fetchMock = vi.fn<NodeFetchFn>();
+
+/** Transport wired to the mock via the fetch seam — the tests observe
+ *  the exact init (headers, body, dispatcher) the transport builds. */
+const transport = () => createNodeRequestTransport({ fetchFn: fetchMock });
 
 beforeEach(() => {
   fetchMock.mockReset();
-  vi.stubGlobal('fetch', fetchMock);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
 });
 
 function makeRequest(overrides: Partial<TransportRequest> = {}): TransportRequest {
@@ -38,12 +39,19 @@ function fetchError(code: string): Error {
   return Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error(code), { code }) });
 }
 
+/** Init of the n-th recorded fetch call — the transport always passes one. */
+function callInit(n = 0): NonNullable<Parameters<NodeFetchFn>[1]> {
+  const init = fetchMock.mock.calls[n]?.[1];
+  if (!init) throw new Error(`fetch call ${n} recorded no init`);
+  return init;
+}
+
 describe('createNodeRequestTransport', () => {
   it('maps a successful response to a TransportResponse', async () => {
     fetchMock.mockResolvedValue(
       new Response('{"ok":true}', { status: 200, statusText: 'OK', headers: { 'content-type': 'application/json' } }),
     );
-    const res = await createNodeRequestTransport().send(makeRequest());
+    const res = await transport().send(makeRequest());
     expect(res.status).toBe(200);
     expect(res.statusText).toBe('OK');
     expect(res.body).toBe('{"ok":true}');
@@ -56,7 +64,7 @@ describe('createNodeRequestTransport', () => {
 
   it('reads a body that fits under the cap in full, untruncated', async () => {
     fetchMock.mockResolvedValue(new Response('hello world'));
-    const res = await createNodeRequestTransport().send(makeRequest({ maxBodyBytes: 1024 }));
+    const res = await transport().send(makeRequest({ maxBodyBytes: 1024 }));
     expect(res.body).toBe('hello world');
     expect(res.bodyTruncated).toBe(false);
     expect(res.bodyBytes).toBe('hello world'.length);
@@ -68,7 +76,7 @@ describe('createNodeRequestTransport', () => {
     const cap = 16;
     const big = 'x'.repeat(cap * 4);
     fetchMock.mockResolvedValue(new Response(big));
-    const res = await createNodeRequestTransport().send(makeRequest({ maxBodyBytes: cap }));
+    const res = await transport().send(makeRequest({ maxBodyBytes: cap }));
     expect(res.bodyTruncated).toBe(true);
     expect(res.bodyBytes).toBe(cap);
     expect(res.body).toBe('x'.repeat(cap));
@@ -77,7 +85,7 @@ describe('createNodeRequestTransport', () => {
   it('reports an exact-cap body as untruncated', async () => {
     const cap = 16;
     fetchMock.mockResolvedValue(new Response('y'.repeat(cap)));
-    const res = await createNodeRequestTransport().send(makeRequest({ maxBodyBytes: cap }));
+    const res = await transport().send(makeRequest({ maxBodyBytes: cap }));
     expect(res.bodyTruncated).toBe(false);
     expect(res.bodyBytes).toBe(cap);
     expect(res.body).toBe('y'.repeat(cap));
@@ -85,7 +93,7 @@ describe('createNodeRequestTransport', () => {
 
   it('handles a null body stream (no content) as an empty untruncated body', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204, statusText: 'No Content' }));
-    const res = await createNodeRequestTransport().send(makeRequest());
+    const res = await transport().send(makeRequest());
     expect(res.body).toBe('');
     expect(res.bodyTruncated).toBe(false);
     expect(res.bodyBytes).toBe(0);
@@ -93,15 +101,15 @@ describe('createNodeRequestTransport', () => {
 
   it('sends a raw body and the resolved headers', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204, statusText: 'No Content' }));
-    await createNodeRequestTransport().send(
+    await transport().send(
       makeRequest({
         method: 'POST',
         headers: [{ key: 'Content-Type', value: 'application/json' }],
         body: { kind: 'raw', content: '{"a":1}' },
       }),
     );
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://api.openheaders.io/v1/ping');
+    const init = callInit();
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.openheaders.io/v1/ping');
     expect(init.method).toBe('POST');
     expect(init.body).toBe('{"a":1}');
     expect((init.headers as Headers).get('content-type')).toBe('application/json');
@@ -110,7 +118,7 @@ describe('createNodeRequestTransport', () => {
 
   it('builds a URLSearchParams body for urlencoded', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
-    await createNodeRequestTransport().send(
+    await transport().send(
       makeRequest({
         method: 'POST',
         body: {
@@ -122,7 +130,7 @@ describe('createNodeRequestTransport', () => {
         },
       }),
     );
-    const [, init] = fetchMock.mock.calls[0];
+    const init = callInit();
     expect(init.body).toBeInstanceOf(URLSearchParams);
     expect((init.body as URLSearchParams).get('a')).toBe('1');
     expect((init.body as URLSearchParams).get('b')).toBe('2');
@@ -130,7 +138,7 @@ describe('createNodeRequestTransport', () => {
 
   it('builds a FormData body for multipart, retyping file bytes', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
-    await createNodeRequestTransport().send(
+    await transport().send(
       makeRequest({
         method: 'POST',
         body: {
@@ -148,7 +156,7 @@ describe('createNodeRequestTransport', () => {
         },
       }),
     );
-    const [, init] = fetchMock.mock.calls[0];
+    const init = callInit();
     expect(init.body).toBeInstanceOf(FormData);
     const form = init.body as FormData;
     expect(form.get('field')).toBe('v');
@@ -160,8 +168,8 @@ describe('createNodeRequestTransport', () => {
 
   it('honors a manual redirect policy', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
-    await createNodeRequestTransport().send(makeRequest({ redirect: 'manual' }));
-    expect(fetchMock.mock.calls[0][1].redirect).toBe('manual');
+    await transport().send(makeRequest({ redirect: 'manual' }));
+    expect(callInit().redirect).toBe('manual');
   });
 
   it.each([
@@ -172,60 +180,84 @@ describe('createNodeRequestTransport', () => {
     ['CERT_HAS_EXPIRED', /TLS certificate error/],
   ])('classifies %s into an actionable TransportError', async (code, pattern) => {
     fetchMock.mockRejectedValue(fetchError(code));
-    const transport = createNodeRequestTransport();
-    await expect(transport.send(makeRequest())).rejects.toBeInstanceOf(TransportError);
-    await expect(transport.send(makeRequest())).rejects.toThrow(pattern);
+    const t = transport();
+    await expect(t.send(makeRequest())).rejects.toBeInstanceOf(TransportError);
+    await expect(t.send(makeRequest())).rejects.toThrow(pattern);
   });
 
   it('falls back to the cause message for an unrecognized error code', async () => {
     fetchMock.mockRejectedValue(Object.assign(new TypeError('fetch failed'), { cause: new Error('weird boom') }));
-    await expect(createNodeRequestTransport().send(makeRequest())).rejects.toThrow(/weird boom/);
+    await expect(transport().send(makeRequest())).rejects.toThrow(/weird boom/);
   });
 });
 
 describe('createNodeRequestTransport — per-attempt timeout', () => {
   it('passes no abort signal when timeoutMs is absent', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
-    await createNodeRequestTransport().send(makeRequest());
-    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    await transport().send(makeRequest());
+    const init = callInit();
     expect(init.signal).toBeUndefined();
   });
 
   it('aborts a hung fetch and surfaces a TransportError naming the timeout', async () => {
     fetchMock.mockImplementation(
-      (_url: string, init: RequestInit) =>
+      (_url, init) =>
         new Promise((_resolve, reject) => {
-          init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
         }),
     );
-    const attempt = createNodeRequestTransport().send(makeRequest({ timeoutMs: 20 }));
+    const attempt = transport().send(makeRequest({ timeoutMs: 20 }));
     await expect(attempt).rejects.toBeInstanceOf(TransportError);
     await expect(attempt).rejects.toThrow('Request timed out after 20 ms.');
   });
 
   it('aborts a stalled body read past the deadline', async () => {
-    fetchMock.mockImplementation((_url: string, init: RequestInit) => {
+    fetchMock.mockImplementation((_url, init) => {
       // Headers arrive instantly; the body stream then stalls forever. The
       // pull promise rejects on abort, mirroring how a real fetch body
       // reader behaves when its request signal fires.
       const stream = new ReadableStream({
         pull(_controller) {
           return new Promise<void>((_resolve, reject) => {
-            init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+            init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
           });
         },
       });
       return Promise.resolve(new Response(stream, { status: 200 }));
     });
-    await expect(createNodeRequestTransport().send(makeRequest({ timeoutMs: 20 }))).rejects.toThrow(
-      'Request timed out after 20 ms.',
-    );
+    await expect(transport().send(makeRequest({ timeoutMs: 20 }))).rejects.toThrow('Request timed out after 20 ms.');
   });
 
   it('a response inside the deadline resolves normally', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
-    const res = await createNodeRequestTransport().send(makeRequest({ timeoutMs: 5_000 }));
+    const res = await transport().send(makeRequest({ timeoutMs: 5_000 }));
     expect(res.status).toBe(200);
     expect(res.body).toBe('ok');
+  });
+});
+
+describe('createNodeRequestTransport — per-request TLS policy', () => {
+  it('rides the default dispatcher when sslVerification is absent or true', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest());
+    await transport().send(makeRequest({ sslVerification: true }));
+    expect(callInit(0).dispatcher).toBeUndefined();
+    expect(callInit(1).dispatcher).toBeUndefined();
+  });
+
+  it('routes a verification-off send through a dedicated agent', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ sslVerification: false }));
+    expect(callInit(0).dispatcher).toBeInstanceOf(Agent);
+  });
+
+  it('reuses ONE shared agent across verification-off sends and transports', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ sslVerification: false }));
+    await transport().send(makeRequest({ sslVerification: false }));
+    const first = callInit(0).dispatcher;
+    const second = callInit(1).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(second).toBe(first);
   });
 });

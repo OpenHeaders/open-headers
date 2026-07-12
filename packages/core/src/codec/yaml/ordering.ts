@@ -70,6 +70,7 @@ export const REQUEST_FIELD_ORDER = [
   'auth',
   'credentialsMode',
   'followRedirects',
+  'sslVerification',
   'body',
 ] as const;
 

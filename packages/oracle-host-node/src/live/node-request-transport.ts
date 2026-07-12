@@ -1,7 +1,6 @@
 /**
  * Node request transport — the desktop main process's implementation of
- * the engine's {@link RequestTransport} seam, over Electron/Node's global
- * `fetch` (undici).
+ * the engine's {@link RequestTransport} seam, over undici's `fetch`.
  *
  * Differences from the browser SW transport:
  *   - **No offline pre-flight.** The always-on desktop has no
@@ -15,6 +14,11 @@
  *   - **Rich error classification.** Unlike the browser's opaque
  *     `TypeError: Failed to fetch`, undici exposes `err.cause.code`
  *     (`ECONNREFUSED` / `ENOTFOUND` / …), so the message is precise.
+ *   - **Per-request TLS policy.** `sslVerification: false` routes the
+ *     send through a dedicated dispatcher whose TLS connector skips
+ *     certificate-chain verification — the knob browser fetch can never
+ *     honor. `fetch` + `Agent` come from the same undici package so the
+ *     dispatcher and the fetch pipeline are one stack, one version.
  */
 
 import {
@@ -25,18 +29,47 @@ import {
   type TransportRequest,
   type TransportResponse,
 } from '@openheaders/oracle/live/request-exec/transport';
+import { Agent, FormData, fetch as undiciFetch } from 'undici';
 
-export function createNodeRequestTransport(): RequestTransport {
+/** The fetch pipeline behind the transport — undici's fetch in
+ *  production; injectable so tests observe the exact init (including
+ *  the dispatcher) without stubbing globals. */
+export type NodeFetchFn = typeof undiciFetch;
+
+/** undici's RequestInit — carries the `dispatcher` slot the DOM-shaped
+ *  init type doesn't know about. */
+type NodeRequestInit = NonNullable<Parameters<NodeFetchFn>[1]>;
+
+export interface NodeRequestTransportOptions {
+  fetchFn?: NodeFetchFn;
+}
+
+/**
+ * Shared dispatcher for verification-off sends. Verified sends ride
+ * undici's global default dispatcher (pass no override); minting an
+ * agent per send would leak a connection pool each time, so every
+ * verification-off request across every workflow shares this one,
+ * built on first use.
+ */
+let insecureAgent: Agent | null = null;
+function insecureDispatcher(): Agent {
+  insecureAgent ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureAgent;
+}
+
+export function createNodeRequestTransport(options: NodeRequestTransportOptions = {}): RequestTransport {
+  const fetchFn = options.fetchFn ?? undiciFetch;
   return {
     async send(request: TransportRequest): Promise<TransportResponse> {
-      const init: RequestInit = {
+      const init: NodeRequestInit = {
         method: request.method,
         headers: buildHeaders(request.headers),
         redirect: request.redirect,
         // No ambient cookie jar in the main process, so `credentials` has
         // nothing to ride — Node fetch never attaches cookies by default.
       };
-      const body = buildBody(request.body, init);
+      if (request.sslVerification === false) init.dispatcher = insecureDispatcher();
+      const body = buildBody(request.body);
       if (body !== undefined) init.body = body;
 
       // Per-attempt timeout — one deadline spans the whole round-trip
@@ -46,9 +79,9 @@ export function createNodeRequestTransport(): RequestTransport {
       if (deadline) init.signal = deadline.signal;
 
       try {
-        let response: Response;
+        let response: Awaited<ReturnType<NodeFetchFn>>;
         try {
-          response = await fetch(request.url, init);
+          response = await fetchFn(request.url, init);
         } catch (err) {
           if (deadline?.expired()) throw timeoutError(request.timeoutMs);
           throw new TransportError(classifyFetchFailure(request.url, err));
@@ -111,7 +144,7 @@ function timeoutError(timeoutMs: number | undefined): TransportError {
  * cap plus one in-flight chunk, then `cancel()` the stream.
  */
 async function readCappedBody(
-  response: Response,
+  response: Awaited<ReturnType<NodeFetchFn>>,
   maxBodyBytes: number,
 ): Promise<{ body: string; bodyBytes: number; bodyTruncated: boolean }> {
   const stream = response.body;
@@ -176,7 +209,7 @@ function buildHeaders(headers: ReadonlyArray<TransportHeader>): Headers {
  * — the engine already stripped a user multipart Content-Type. Returns
  * `undefined` for `none` (no body attached).
  */
-function buildBody(body: TransportBody, _init: RequestInit): BodyInit | undefined {
+function buildBody(body: TransportBody): NodeRequestInit['body'] {
   switch (body.kind) {
     case 'none':
       return undefined;

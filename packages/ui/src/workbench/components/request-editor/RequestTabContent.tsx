@@ -86,12 +86,17 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
     case 'settings':
       return (
         <SettingsTab
-          value={{ credentialsMode: draft.credentialsMode, followRedirects: draft.followRedirects }}
+          value={{
+            credentialsMode: draft.credentialsMode,
+            followRedirects: draft.followRedirects,
+            sslVerification: draft.sslVerification,
+          }}
           onChange={(next) =>
             setDraft((d) => ({
               ...d,
               credentialsMode: next.credentialsMode,
               followRedirects: next.followRedirects,
+              sslVerification: next.sslVerification,
             }))
           }
         />

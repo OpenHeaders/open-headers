@@ -35,6 +35,7 @@ function batchOf(req: Request): RequestSaveBatch {
     body: req.body,
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
+    sslVerification: req.sslVerification,
     preRequestScript: req.preRequestScript,
     postResponseScript: req.postResponseScript,
   };

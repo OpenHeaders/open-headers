@@ -427,6 +427,18 @@ export const RequestSchema = v.object({
    * persisted.
    */
   followRedirects: v.optional(v.boolean()),
+  /**
+   * Whether the executing runtime verifies the server's TLS certificate
+   * chain. Default `undefined` / `true` → verify against the runtime's
+   * trusted CA store. `false` → node runtimes send without verification —
+   * a per-request explicit opt-in for self-signed / private-CA targets,
+   * never a workspace/global default. Browser runtimes cannot relax
+   * verification and ignore the flag (the request still syncs it — one
+   * schema, all runtimes carry the value). A verification-off send is
+   * recorded on the executed-run snapshot so the response is visibly
+   * marked.
+   */
+  sslVerification: v.optional(v.boolean()),
   body: RequestBodySchema,
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),

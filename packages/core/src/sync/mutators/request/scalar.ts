@@ -39,6 +39,7 @@ export type RequestScalarPath =
   | 'body'
   | 'credentialsMode'
   | 'followRedirects'
+  | 'sslVerification'
   | 'preRequestScript'
   | 'postResponseScript';
 

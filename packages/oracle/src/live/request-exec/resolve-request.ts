@@ -40,6 +40,9 @@ export interface ResolvedRequest {
   credentialsMode: 'omit' | 'include';
   /** `false` maps to `'manual'`; `undefined`/`true` map to `'follow'`. */
   followRedirects?: boolean;
+  /** `false` → the transport skips TLS certificate verification;
+   *  `undefined`/`true` → verify (the runtime default). */
+  sslVerification?: boolean;
 }
 
 /** One TOTP vault entry the resolved request used. Carries the code (so
@@ -181,6 +184,7 @@ export async function resolveRequest(
       body: resolvedBody,
       credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
       followRedirects: request.followRedirects,
+      sslVerification: request.sslVerification,
     },
     totpUsed: [...totpUsed.values()],
   };

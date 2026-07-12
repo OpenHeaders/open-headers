@@ -351,6 +351,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         body: draft.body,
         credentialsMode: draft.credentialsMode,
         followRedirects: draft.followRedirects,
+        sslVerification: draft.sslVerification,
         preRequestScript: draft.preRequestScript,
         postResponseScript: draft.postResponseScript,
         response,
@@ -494,6 +495,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       body: draft.body,
       credentialsMode: draft.credentialsMode,
       followRedirects: draft.followRedirects,
+      sslVerification: draft.sslVerification,
       // Test-fire must run the same pre-request / post-response scripts a
       // saved send would — without these the sandbox hooks are skipped and
       // the response panel never shows the script outcome.
@@ -572,6 +574,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         size="small"
         onClick={() => void handleSend()}
         disabled={sending || hasUnresolvedRefs}
+        style={{ fontSize: 11 }}
       >
         {sending ? 'Sending…' : 'Send'}
       </Button>
