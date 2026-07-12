@@ -45,6 +45,13 @@ export async function addRequest(
     ...(seed?.sslVerification !== undefined ? { sslVerification: seed.sslVerification } : {}),
     ...(seed?.timeoutMs !== undefined ? { timeoutMs: seed.timeoutMs } : {}),
     ...(seed?.maxResponseBytes !== undefined ? { maxResponseBytes: seed.maxResponseBytes } : {}),
+    ...(seed?.maxRedirects !== undefined ? { maxRedirects: seed.maxRedirects } : {}),
+    ...(seed?.followOriginalHttpMethod !== undefined
+      ? { followOriginalHttpMethod: seed.followOriginalHttpMethod }
+      : {}),
+    ...(seed?.followAuthorizationHeader !== undefined
+      ? { followAuthorizationHeader: seed.followAuthorizationHeader }
+      : {}),
     ...(seed?.preRequestScript ? { preRequestScript: seed.preRequestScript } : {}),
     ...(seed?.postResponseScript ? { postResponseScript: seed.postResponseScript } : {}),
   };

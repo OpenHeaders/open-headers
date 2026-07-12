@@ -19,6 +19,15 @@
  *     certificate-chain verification — the knob browser fetch can never
  *     honor. `fetch` + `Agent` come from the same undici package so the
  *     dispatcher and the fetch pipeline are one stack, one version.
+ *   - **Hand-rolled redirect follow.** Every fetch goes out with
+ *     `redirect: 'manual'` — server-side manual mode returns the REAL
+ *     3xx with readable headers (no browser-style opaque filtering), so
+ *     the transport chases `Location` itself instead of letting undici's
+ *     internal follower. That ownership is what makes the per-request
+ *     redirect knobs (`maxRedirects`, `followOriginalHttpMethod`,
+ *     `followAuthorizationHeader`) honorable at all: the loop applies
+ *     the spec's method/body demotion and cross-origin Authorization
+ *     strip per hop, and the knobs relax exactly those two policies.
  */
 
 import {
@@ -57,60 +66,201 @@ function insecureDispatcher(): Agent {
   return insecureAgent;
 }
 
+/** Redirect-hop ceiling when the request carries no `maxRedirects`. */
+const DEFAULT_MAX_REDIRECTS = 20;
+
+/** 3xx statuses that redirect. 304 (and any 3xx without a `Location`
+ *  header) is a final response, per the fetch spec. */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+/** Request-body metadata headers dropped alongside the body when a
+ *  301/302/303 hop demotes the method to GET (fetch-spec behavior). */
+const BODY_HEADERS = new Set([
+  'content-length',
+  'content-type',
+  'content-encoding',
+  'content-language',
+  'content-location',
+]);
+
+/** Mutable per-hop send state — what actually changes across a redirect
+ *  chain. The body stays the data-only `TransportBody`; `buildBody`
+ *  re-materializes a fresh `BodyInit` per hop (a consumed FormData /
+ *  URLSearchParams is never reused). */
+interface HopState {
+  url: string;
+  method: string;
+  headers: ReadonlyArray<TransportHeader>;
+  body: TransportBody;
+}
+
+/** Abort deadline over a whole send — see {@link startDeadline}. */
+type Deadline = ReturnType<typeof startDeadline>;
+
 export function createNodeRequestTransport(options: NodeRequestTransportOptions = {}): RequestTransport {
   const fetchFn = options.fetchFn ?? undiciFetch;
   return {
     async send(request: TransportRequest): Promise<TransportResponse> {
-      const init: NodeRequestInit = {
-        method: request.method,
-        headers: buildHeaders(request.headers),
-        redirect: request.redirect,
-        // No ambient cookie jar in the main process, so `credentials` has
-        // nothing to ride — Node fetch never attaches cookies by default.
-      };
-      if (request.sslVerification === false) init.dispatcher = insecureDispatcher();
-      const body = buildBody(request.body);
-      if (body !== undefined) init.body = body;
-
-      // Per-attempt timeout — one deadline spans the whole round-trip
-      // (connect + response + body read); the abort also cancels a body
+      // ONE deadline spans the whole send — every hop of a redirect
+      // chain plus the final body read; the abort also cancels a body
       // stream stalled mid-read, which a fetch-only signal would miss.
       const deadline = startDeadline(request.timeoutMs);
-      if (deadline) init.signal = deadline.signal;
-
       try {
-        let response: Awaited<ReturnType<NodeFetchFn>>;
-        try {
-          response = await fetchFn(request.url, init);
-        } catch (err) {
-          if (deadline?.expired()) throw timeoutError(request.timeoutMs);
-          throw new TransportError(classifyFetchFailure(request.url, err));
+        if (request.redirect === 'manual') {
+          // Single-shot: surface the first response verbatim, 3xx included.
+          const hop: HopState = {
+            url: request.url,
+            method: request.method,
+            headers: request.headers,
+            body: request.body,
+          };
+          const response = await fetchHop(fetchFn, request, hop, deadline);
+          return await finalizeResponse(response, request, hop.url, deadline, false);
         }
-
-        const headers: TransportHeader[] = [];
-        response.headers.forEach((value, key) => {
-          headers.push({ key, value });
-        });
-        let read: Awaited<ReturnType<typeof readCappedBody>>;
-        try {
-          read = await readCappedBody(response, request.maxBodyBytes);
-        } catch (err) {
-          if (deadline?.expired()) throw timeoutError(request.timeoutMs);
-          throw err;
-        }
-        return {
-          status: response.status,
-          statusText: response.statusText,
-          url: response.url || request.url,
-          headers,
-          body: read.body,
-          bodyBytes: read.bodyBytes,
-          bodyTruncated: read.bodyTruncated,
-        };
+        return await followRedirectChain(fetchFn, request, deadline);
       } finally {
         deadline?.clear();
       }
     },
+  };
+}
+
+/**
+ * The hand-rolled redirect follower. Fetches each hop with
+ * `redirect: 'manual'`, applies the fetch spec's method/body demotion
+ * and cross-origin Authorization strip (each relaxable by its knob),
+ * resolves relative `Location`s against the current hop, and caps the
+ * chain at the request's `maxRedirects` (default 20; 0 = fail on any
+ * redirect). Intermediate 3xx bodies are canceled so their connections
+ * return to the pool; only the FINAL response's body is read.
+ */
+async function followRedirectChain(
+  fetchFn: NodeFetchFn,
+  request: TransportRequest,
+  deadline: Deadline,
+): Promise<TransportResponse> {
+  const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+  let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
+  let authorizationForwarded = false;
+  let redirects = 0;
+  while (true) {
+    const response = await fetchHop(fetchFn, request, hop, deadline);
+    const location = REDIRECT_STATUSES.has(response.status) ? response.headers.get('location') : null;
+    if (location === null) return finalizeResponse(response, request, hop.url, deadline, authorizationForwarded);
+    await response.body?.cancel();
+    if (redirects >= maxRedirects) {
+      throw new TransportError(`Stopped after ${maxRedirects} redirects — the request's redirect limit.`);
+    }
+    redirects++;
+    const next = nextHop(hop, response.status, location, request);
+    authorizationForwarded ||= next.authorizationForwarded;
+    hop = next.hop;
+  }
+}
+
+/**
+ * Derive the next hop from a redirect response: resolve the (possibly
+ * relative) `Location` against the current URL, apply the spec's
+ * method/body demotion (301/302 POST→GET, 303 any-non-GET/HEAD→GET;
+ * 307/308 always preserve) unless `followOriginalHttpMethod` keeps it,
+ * and strip `Authorization` when the hop crosses origin unless
+ * `followAuthorizationHeader` keeps it — in which case the re-send is
+ * reported so the response surface can mark it.
+ */
+function nextHop(
+  prev: HopState,
+  status: number,
+  location: string,
+  request: TransportRequest,
+): { hop: HopState; authorizationForwarded: boolean } {
+  let nextUrl: URL;
+  try {
+    nextUrl = new URL(location, prev.url);
+  } catch {
+    throw new TransportError(`Redirect points to an invalid URL: "${location}".`);
+  }
+  let method = prev.method;
+  let body = prev.body;
+  let headers = prev.headers;
+  const demoteToGet =
+    request.followOriginalHttpMethod !== true &&
+    ((status === 303 && method !== 'GET' && method !== 'HEAD') ||
+      ((status === 301 || status === 302) && method === 'POST'));
+  if (demoteToGet) {
+    method = 'GET';
+    body = { kind: 'none' };
+    headers = headers.filter((h) => !BODY_HEADERS.has(h.key.toLowerCase()));
+  }
+  let authorizationForwarded = false;
+  const crossOrigin = new URL(prev.url).origin !== nextUrl.origin;
+  if (crossOrigin && headers.some((h) => h.key.toLowerCase() === 'authorization')) {
+    if (request.followAuthorizationHeader === true) {
+      authorizationForwarded = true;
+    } else {
+      headers = headers.filter((h) => h.key.toLowerCase() !== 'authorization');
+    }
+  }
+  return { hop: { url: nextUrl.toString(), method, headers, body }, authorizationForwarded };
+}
+
+/** One wire round-trip for a hop. Always `redirect: 'manual'` — the
+ *  chain is chased (or surfaced) by the caller, never by undici. */
+async function fetchHop(
+  fetchFn: NodeFetchFn,
+  request: TransportRequest,
+  hop: HopState,
+  deadline: Deadline,
+): Promise<Awaited<ReturnType<NodeFetchFn>>> {
+  const init: NodeRequestInit = {
+    method: hop.method,
+    headers: buildHeaders(hop.headers),
+    redirect: 'manual',
+    // No ambient cookie jar in the main process, so `credentials` has
+    // nothing to ride — Node fetch never attaches cookies by default.
+  };
+  // The per-request TLS policy rides EVERY hop of the chain.
+  if (request.sslVerification === false) init.dispatcher = insecureDispatcher();
+  const body = buildBody(hop.body);
+  if (body !== undefined) init.body = body;
+  if (deadline) init.signal = deadline.signal;
+  try {
+    return await fetchFn(hop.url, init);
+  } catch (err) {
+    if (deadline?.expired()) throw timeoutError(request.timeoutMs);
+    throw new TransportError(classifyFetchFailure(hop.url, err));
+  }
+}
+
+/** Read the final response's body under the cap and map it to the
+ *  seam's `TransportResponse`. Only ever called on the LAST hop —
+ *  intermediate 3xx bodies are canceled, not read. */
+async function finalizeResponse(
+  response: Awaited<ReturnType<NodeFetchFn>>,
+  request: TransportRequest,
+  finalUrl: string,
+  deadline: Deadline,
+  authorizationForwarded: boolean,
+): Promise<TransportResponse> {
+  const headers: TransportHeader[] = [];
+  response.headers.forEach((value, key) => {
+    headers.push({ key, value });
+  });
+  let read: Awaited<ReturnType<typeof readCappedBody>>;
+  try {
+    read = await readCappedBody(response, request.maxBodyBytes);
+  } catch (err) {
+    if (deadline?.expired()) throw timeoutError(request.timeoutMs);
+    throw err;
+  }
+  return {
+    status: response.status,
+    statusText: response.statusText,
+    url: response.url || finalUrl,
+    headers,
+    body: read.body,
+    bodyBytes: read.bodyBytes,
+    bodyTruncated: read.bodyTruncated,
+    ...(authorizationForwarded ? { authorizationForwarded: true } : {}),
   };
 }
 

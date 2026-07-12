@@ -85,7 +85,14 @@ export function buildRequestTabItems(
     (draft.followRedirects !== undefined && draft.followRedirects !== true) ||
     (!browserRuntime && draft.sslVerification === false) ||
     draft.timeoutMs !== undefined ||
-    (!browserRuntime && draft.maxResponseBytes !== undefined);
+    (!browserRuntime && draft.maxResponseBytes !== undefined) ||
+    // The redirect trio's rows hide while follow-redirects is off; no
+    // extra gate needed — a non-default followRedirects already dotted
+    // the tab above, so this clause only runs while the rows are shown.
+    (!browserRuntime &&
+      (draft.maxRedirects !== undefined ||
+        draft.followOriginalHttpMethod === true ||
+        draft.followAuthorizationHeader === true));
 
   return [
     { key: 'docs', label: 'Docs' },

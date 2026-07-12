@@ -340,6 +340,18 @@ function unverifiedTlsContent(): InfoPopoverContent {
   };
 }
 
+/** Popover for the warning tag on a run whose redirect chain actually
+ *  re-sent the Authorization header across origins — stamped only when
+ *  the `followAuthorizationHeader` opt-in fired, not merely configured. */
+function authForwardedContent(): InfoPopoverContent {
+  return {
+    title: 'Authorization forwarded',
+    kicker: 'Response meta',
+    summary:
+      'A redirect took this request to a different origin, and its Settings keep the Authorization header across origins — so the credentials were re-sent to the new host. Normally the header is dropped when a redirect leaves the original origin.',
+  };
+}
+
 function networkContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
   return {
     title: 'Network',
@@ -409,6 +421,20 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >
               Unverified TLS
+            </Tag>
+          </InfoPopover>
+        </>
+      )}
+      {response.authorizationForwarded && (
+        <>
+          <MetaDot />
+          <InfoPopover content={authForwardedContent()} trigger="hover">
+            <Tag
+              color="warning"
+              data-testid="oh-response-auth-forwarded"
+              style={{ marginInlineEnd: 0, cursor: 'help' }}
+            >
+              Authorization forwarded
             </Tag>
           </InfoPopover>
         </>

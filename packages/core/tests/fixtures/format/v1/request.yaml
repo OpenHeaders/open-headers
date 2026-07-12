@@ -24,5 +24,8 @@ followRedirects: false
 sslVerification: false
 timeoutMs: 15000
 maxResponseBytes: 4096
+maxRedirects: 5
+followOriginalHttpMethod: true
+followAuthorizationHeader: true
 body:
   type: json

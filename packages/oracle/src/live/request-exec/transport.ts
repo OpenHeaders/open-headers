@@ -92,9 +92,35 @@ export interface TransportRequest {
    * and body read — once this elapses, surfacing a
    * {@link TransportError} that names the timeout so the failure is
    * actionable (and retry-eligible upstream). Absent = no ceiling
-   * beyond the host network stack's own.
+   * beyond the host network stack's own. Under `redirect: 'follow'`
+   * ONE deadline spans the entire redirect chain, not each hop.
    */
   timeoutMs?: number;
+  /**
+   * Cap on the number of redirects followed under `redirect: 'follow'`.
+   * Absent → the runtime default (20). `0` is meaningful: fail on any
+   * redirect. Exceeding the cap surfaces a {@link TransportError}
+   * naming the configured limit. Meaningless under `'manual'`;
+   * transports that can't cap their redirect chain (the browser SW)
+   * ignore it.
+   */
+  maxRedirects?: number;
+  /**
+   * Keep the original HTTP method + body across 301/302/303 redirects
+   * instead of the spec's demotion to GET. 307/308 preserve the method
+   * regardless. Meaningless under `'manual'`; transports that can't
+   * control their redirect chain ignore it.
+   */
+  followOriginalHttpMethod?: boolean;
+  /**
+   * Keep the `Authorization` header when a redirect hop crosses origin
+   * (scheme + host + port) instead of the default strip. A trust-
+   * relaxing per-request opt-in — the transport reports an actual
+   * cross-origin re-send via
+   * {@link TransportResponse.authorizationForwarded}. Transports that
+   * can't control their redirect chain ignore it.
+   */
+  followAuthorizationHeader?: boolean;
 }
 
 export interface TransportResponse {
@@ -114,6 +140,15 @@ export interface TransportResponse {
   bodyTruncated: boolean;
   /** Bytes retained in `body` (== `maxBodyBytes` when `bodyTruncated`). */
   bodyBytes: number;
+  /**
+   * Present (`true`) when {@link TransportRequest.followAuthorizationHeader}
+   * actually FIRED — the chain crossed origin on some hop and the
+   * `Authorization` header was re-sent to the new origin. Absent when
+   * the knob was off, no cross-origin hop happened, or no Authorization
+   * header was in play — attribution records what the send did, not
+   * what was configured.
+   */
+  authorizationForwarded?: true;
 }
 
 /**

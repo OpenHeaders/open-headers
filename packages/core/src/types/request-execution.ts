@@ -104,6 +104,16 @@ export interface ExecutedRequestSnapshot {
    * setting is flipped back. Absent = the runtime verified as usual.
    */
   sslVerificationDisabled?: boolean;
+  /**
+   * True when this send actually RE-SENT the `Authorization` header
+   * across a cross-origin redirect hop (the per-request
+   * `followAuthorizationHeader` opt-in, honored by node runtimes).
+   * Recorded only when the policy fired — a send whose chain stayed
+   * same-origin (or never redirected) carries no marker even with the
+   * knob on; attribution records what the send did, not what was
+   * configured.
+   */
+  authorizationForwarded?: boolean;
   /** Non-null when the request failed before producing a response. */
   error: string | null;
   /** Actionable remedy for the failure — present only alongside

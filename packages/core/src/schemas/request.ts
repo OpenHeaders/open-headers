@@ -56,6 +56,22 @@ export const MaxResponseBytesSchema = v.pipe(
   v.maxValue(MAX_RESPONSE_BYTES),
 );
 
+/**
+ * Bounds on the per-request redirect cap. `0` is meaningful — "fail on
+ * any redirect" — so the floor is zero, not one. The 50 ceiling keeps
+ * the knob a sane chain length (2.5× the runtime's own 20 default);
+ * a genuinely longer chain is a redirect loop, not a workflow.
+ */
+export const MIN_MAX_REDIRECTS = 0;
+export const MAX_MAX_REDIRECTS = 50;
+
+export const MaxRedirectsSchema = v.pipe(
+  v.number(),
+  v.integer(),
+  v.minValue(MIN_MAX_REDIRECTS),
+  v.maxValue(MAX_MAX_REDIRECTS),
+);
+
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
 /**
@@ -494,6 +510,34 @@ export const RequestSchema = v.object({
    * {@link MaxResponseBytesSchema}.
    */
   maxResponseBytes: v.optional(MaxResponseBytesSchema),
+  /**
+   * Cap on the number of 3xx redirects followed before the send fails
+   * with an error naming the limit. Only meaningful while
+   * `followRedirects` is on. Absent = the runtime default (20); `0` =
+   * fail on any redirect. Honored by node runtimes, whose transport
+   * chases the chain itself; browser runtimes are fixed at their own
+   * internal cap and ignore this (the request still syncs it — one
+   * schema, all runtimes carry the value). Bounded — see
+   * {@link MaxRedirectsSchema}.
+   */
+  maxRedirects: v.optional(MaxRedirectsSchema),
+  /**
+   * Keep the original HTTP method and body across 301/302/303
+   * redirects instead of the standard demotion to GET (307/308 always
+   * preserve the method). Absent / `false` → standard behavior.
+   * Node-only for the same reason as `maxRedirects`.
+   */
+  followOriginalHttpMethod: v.optional(v.boolean()),
+  /**
+   * Keep the `Authorization` header when a redirect crosses origin
+   * (scheme + host + port) instead of the default strip. A
+   * trust-relaxing per-request explicit opt-in — credentials travel to
+   * whatever host the chain lands on — never a workspace/global
+   * default. A send that actually re-sent the header cross-origin is
+   * recorded on the executed-run snapshot so the response is visibly
+   * marked. Node-only for the same reason as `maxRedirects`.
+   */
+  followAuthorizationHeader: v.optional(v.boolean()),
   body: RequestBodySchema,
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),

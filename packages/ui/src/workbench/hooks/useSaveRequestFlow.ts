@@ -61,6 +61,9 @@ export interface DraftData {
   sslVerification?: boolean;
   timeoutMs?: number;
   maxResponseBytes?: number;
+  maxRedirects?: number;
+  followOriginalHttpMethod?: boolean;
+  followAuthorizationHeader?: boolean;
   preRequestScript?: string;
   postResponseScript?: string;
   /** Draft's last response, carried across the tab swap so the
@@ -119,6 +122,9 @@ export function useSaveRequestFlow({
             sslVerification: draftData.sslVerification,
             timeoutMs: draftData.timeoutMs,
             maxResponseBytes: draftData.maxResponseBytes,
+            maxRedirects: draftData.maxRedirects,
+            followOriginalHttpMethod: draftData.followOriginalHttpMethod,
+            followAuthorizationHeader: draftData.followAuthorizationHeader,
             preRequestScript: draftData.preRequestScript,
             postResponseScript: draftData.postResponseScript,
           },
@@ -159,6 +165,9 @@ export function useSaveRequestFlow({
           sslVerification: saveModalDraftData.sslVerification,
           timeoutMs: saveModalDraftData.timeoutMs,
           maxResponseBytes: saveModalDraftData.maxResponseBytes,
+          maxRedirects: saveModalDraftData.maxRedirects,
+          followOriginalHttpMethod: saveModalDraftData.followOriginalHttpMethod,
+          followAuthorizationHeader: saveModalDraftData.followAuthorizationHeader,
           preRequestScript: saveModalDraftData.preRequestScript,
           postResponseScript: saveModalDraftData.postResponseScript,
         },

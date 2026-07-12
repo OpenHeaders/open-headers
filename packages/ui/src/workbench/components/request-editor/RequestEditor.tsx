@@ -354,6 +354,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         sslVerification: draft.sslVerification,
         timeoutMs: draft.timeoutMs,
         maxResponseBytes: draft.maxResponseBytes,
+        maxRedirects: draft.maxRedirects,
+        followOriginalHttpMethod: draft.followOriginalHttpMethod,
+        followAuthorizationHeader: draft.followAuthorizationHeader,
         preRequestScript: draft.preRequestScript,
         postResponseScript: draft.postResponseScript,
         response,
@@ -500,6 +503,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       sslVerification: draft.sslVerification,
       timeoutMs: draft.timeoutMs,
       maxResponseBytes: draft.maxResponseBytes,
+      maxRedirects: draft.maxRedirects,
+      followOriginalHttpMethod: draft.followOriginalHttpMethod,
+      followAuthorizationHeader: draft.followAuthorizationHeader,
       // Test-fire must run the same pre-request / post-response scripts a
       // saved send would — without these the sandbox hooks are skipped and
       // the response panel never shows the script outcome.

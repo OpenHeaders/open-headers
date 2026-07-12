@@ -38,6 +38,9 @@ function batchOf(req: Request): RequestSaveBatch {
     sslVerification: req.sslVerification,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
+    maxRedirects: req.maxRedirects,
+    followOriginalHttpMethod: req.followOriginalHttpMethod,
+    followAuthorizationHeader: req.followAuthorizationHeader,
     preRequestScript: req.preRequestScript,
     postResponseScript: req.postResponseScript,
   };

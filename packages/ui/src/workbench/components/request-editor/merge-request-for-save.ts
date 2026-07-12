@@ -38,6 +38,9 @@ export interface RequestSaveBatch {
   sslVerification: boolean | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
+  maxRedirects: number | undefined;
+  followOriginalHttpMethod: boolean | undefined;
+  followAuthorizationHeader: boolean | undefined;
   preRequestScript: string | undefined;
   postResponseScript: string | undefined;
 }
@@ -56,6 +59,9 @@ function projectRequest(req: Request): RequestSaveBatch {
     sslVerification: req.sslVerification,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
+    maxRedirects: req.maxRedirects,
+    followOriginalHttpMethod: req.followOriginalHttpMethod,
+    followAuthorizationHeader: req.followAuthorizationHeader,
     preRequestScript: req.preRequestScript,
     postResponseScript: req.postResponseScript,
   };
@@ -96,6 +102,9 @@ export function mergeRequestForSave(
     sslVerification: form.sslVerification,
     timeoutMs: form.timeoutMs,
     maxResponseBytes: form.maxResponseBytes,
+    maxRedirects: form.maxRedirects,
+    followOriginalHttpMethod: form.followOriginalHttpMethod,
+    followAuthorizationHeader: form.followAuthorizationHeader,
     preRequestScript: form.preRequestScript,
     postResponseScript: form.postResponseScript,
   };
@@ -109,6 +118,9 @@ export function mergeRequestForSave(
     sslVerification: baseProj.sslVerification,
     timeoutMs: baseProj.timeoutMs,
     maxResponseBytes: baseProj.maxResponseBytes,
+    maxRedirects: baseProj.maxRedirects,
+    followOriginalHttpMethod: baseProj.followOriginalHttpMethod,
+    followAuthorizationHeader: baseProj.followAuthorizationHeader,
     preRequestScript: baseProj.preRequestScript,
     postResponseScript: baseProj.postResponseScript,
   };
@@ -122,6 +134,9 @@ export function mergeRequestForSave(
     sslVerification: liveProj.sslVerification,
     timeoutMs: liveProj.timeoutMs,
     maxResponseBytes: liveProj.maxResponseBytes,
+    maxRedirects: liveProj.maxRedirects,
+    followOriginalHttpMethod: liveProj.followOriginalHttpMethod,
+    followAuthorizationHeader: liveProj.followAuthorizationHeader,
     preRequestScript: liveProj.preRequestScript,
     postResponseScript: liveProj.postResponseScript,
   };
@@ -145,6 +160,9 @@ export function mergeRequestForSave(
     sslVerification: merged.sslVerification as boolean | undefined,
     timeoutMs: merged.timeoutMs as number | undefined,
     maxResponseBytes: merged.maxResponseBytes as number | undefined,
+    maxRedirects: merged.maxRedirects as number | undefined,
+    followOriginalHttpMethod: merged.followOriginalHttpMethod as boolean | undefined,
+    followAuthorizationHeader: merged.followAuthorizationHeader as boolean | undefined,
     preRequestScript: merged.preRequestScript as string | undefined,
     postResponseScript: merged.postResponseScript as string | undefined,
   };

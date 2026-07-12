@@ -27,9 +27,13 @@ const NONE: SectionUnresolved = { url: false, params: false, headers: false, aut
 
 interface KnobValues {
   credentialsMode?: 'omit' | 'include';
+  followRedirects?: boolean;
   sslVerification?: boolean;
   timeoutMs?: number;
   maxResponseBytes?: number;
+  maxRedirects?: number;
+  followOriginalHttpMethod?: boolean;
+  followAuthorizationHeader?: boolean;
 }
 
 function renderTab(value: KnobValues = {}) {
@@ -93,6 +97,23 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     fireEvent.blur(knob);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: undefined }));
   });
+
+  it('keeps the redirect trio as browser-managed facts, not knobs', () => {
+    renderTab();
+    expect(screen.queryByRole('spinbutton', { name: 'Maximum redirects' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Follow original HTTP method' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Follow Authorization header' })).toBeNull();
+    fireEvent.click(screen.getByText('10 browser-managed'));
+    expect(screen.getByText('Maximum redirects')).toBeTruthy();
+    expect(screen.getByText('Follow original HTTP method')).toBeTruthy();
+    expect(screen.getByText('Follow Authorization header')).toBeTruthy();
+  });
+
+  it('does not dot the Settings tab for a synced redirect trio', () => {
+    expect(settingsDotCount({ maxRedirects: 5 })).toBe(0);
+    expect(settingsDotCount({ followOriginalHttpMethod: true })).toBe(0);
+    expect(settingsDotCount({ followAuthorizationHeader: true })).toBe(0);
+  });
 });
 
 describe('SettingsTab on a node runtime', () => {
@@ -102,7 +123,7 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getByText('Automatically follow redirects')).toBeTruthy();
     expect(screen.queryByText('Send browser cookies')).toBeNull();
 
-    fireEvent.click(screen.getByText('10 runtime-managed'));
+    fireEvent.click(screen.getByText('7 runtime-managed'));
     expect(screen.getByText(/Fixed by the app’s network runtime for every request/)).toBeTruthy();
     expect(screen.getByText('1.1')).toBeTruthy();
     expect(screen.getByText('Cookies')).toBeTruthy();
@@ -116,7 +137,7 @@ describe('SettingsTab on a node runtime', () => {
     const knob = screen.getByRole('switch', { name: 'SSL certificate verification' });
     expect(knob.getAttribute('aria-checked')).toBe('true');
     // Graduated out of the fact sheet — the row lives above the reveal.
-    fireEvent.click(screen.getByText('10 runtime-managed'));
+    fireEvent.click(screen.getByText('7 runtime-managed'));
     expect(screen.getAllByText('SSL certificate verification')).toHaveLength(1);
   });
 
@@ -160,6 +181,64 @@ describe('SettingsTab on a node runtime', () => {
     registerCapability('requestRuntime', () => 'node');
     expect(settingsDotCount({ timeoutMs: 15000 })).toBe(1);
     expect(settingsDotCount({ maxResponseBytes: 4096 })).toBe(1);
+    expect(settingsDotCount()).toBe(0);
+  });
+
+  it('graduates the redirect trio to live knobs, defaulting to runtime behavior', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    const cap = screen.getByRole('spinbutton', { name: 'Maximum redirects' }) as HTMLInputElement;
+    expect(cap.value).toBe('');
+    expect(cap.placeholder).toBe('20');
+    const method = screen.getByRole('switch', { name: 'Follow original HTTP method' });
+    const auth = screen.getByRole('switch', { name: 'Follow Authorization header' });
+    expect(method.getAttribute('aria-checked')).toBe('false');
+    expect(auth.getAttribute('aria-checked')).toBe('false');
+    // Graduated out of the fact sheet — each label exists exactly once.
+    fireEvent.click(screen.getByText('7 runtime-managed'));
+    expect(screen.getAllByText('Maximum redirects')).toHaveLength(1);
+    expect(screen.getAllByText('Follow original HTTP method')).toHaveLength(1);
+    expect(screen.getAllByText('Follow Authorization header')).toHaveLength(1);
+  });
+
+  it('hides the trio while automatic redirect following is off', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ followRedirects: false });
+    expect(screen.queryByRole('spinbutton', { name: 'Maximum redirects' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Follow original HTTP method' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Follow Authorization header' })).toBeNull();
+  });
+
+  it('warns while Follow Authorization header is on, not while off', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ followAuthorizationHeader: true });
+    expect(screen.getByText(/Credentials travel to whatever host/)).toBeTruthy();
+
+    cleanup();
+    renderTab();
+    expect(screen.queryByText(/Credentials travel to whatever host/)).toBeNull();
+  });
+
+  it('clears Maximum redirects to undefined when emptied', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ maxRedirects: 5 }} onChange={onChange} />);
+    const cap = screen.getByRole('spinbutton', { name: 'Maximum redirects' }) as HTMLInputElement;
+    expect(cap.value).toBe('5');
+    fireEvent.change(cap, { target: { value: '' } });
+    fireEvent.blur(cap);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ maxRedirects: undefined }));
+  });
+
+  it('dots the tab for each trio knob only while redirects are followed', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ maxRedirects: 5 })).toBe(1);
+    expect(settingsDotCount({ followOriginalHttpMethod: true })).toBe(1);
+    expect(settingsDotCount({ followAuthorizationHeader: true })).toBe(1);
+    // Hidden rows must not dot: with follow-redirects off, only the
+    // follow-redirects knob itself contributes.
+    expect(settingsDotCount({ followRedirects: false, maxRedirects: 5 })).toBe(1);
+    expect(settingsDotCount({ followRedirects: false })).toBe(1);
     expect(settingsDotCount()).toBe(0);
   });
 });

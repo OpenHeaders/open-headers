@@ -49,6 +49,12 @@ export interface ResolvedRequest {
   /** Per-request response-body cap (bytes); overrides the executor's
    *  default when present. */
   maxResponseBytes?: number;
+  /** Redirect-chain cap; absent → the transport's default (20). */
+  maxRedirects?: number;
+  /** Keep the original method + body across 301/302/303 redirects. */
+  followOriginalHttpMethod?: boolean;
+  /** Keep the Authorization header on cross-origin redirect hops. */
+  followAuthorizationHeader?: boolean;
 }
 
 /** One TOTP vault entry the resolved request used. Carries the code (so
@@ -193,6 +199,9 @@ export async function resolveRequest(
       sslVerification: request.sslVerification,
       timeoutMs: request.timeoutMs,
       maxResponseBytes: request.maxResponseBytes,
+      maxRedirects: request.maxRedirects,
+      followOriginalHttpMethod: request.followOriginalHttpMethod,
+      followAuthorizationHeader: request.followAuthorizationHeader,
     },
     totpUsed: [...totpUsed.values()],
   };

@@ -240,6 +240,35 @@ describe('executeOverTransport', () => {
     expect(sent().timeoutMs).toBeUndefined();
   });
 
+  it('maps the redirect-policy trio into the transport request', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(
+      makeResolved({ maxRedirects: 5, followOriginalHttpMethod: true, followAuthorizationHeader: true }),
+      transport,
+    );
+    expect(sent().maxRedirects).toBe(5);
+    expect(sent().followOriginalHttpMethod).toBe(true);
+    expect(sent().followAuthorizationHeader).toBe(true);
+
+    const bare = captureTransport();
+    await executeOverTransport(makeResolved(), bare.transport);
+    expect(bare.sent().maxRedirects).toBeUndefined();
+    expect(bare.sent().followOriginalHttpMethod).toBeUndefined();
+    expect(bare.sent().followAuthorizationHeader).toBeUndefined();
+  });
+
+  it('stamps authorizationForwarded only when the transport reports an actual re-send', async () => {
+    const forwarded = captureTransport({ authorizationForwarded: true });
+    const marked = await executeOverTransport(makeResolved({ followAuthorizationHeader: true }), forwarded.transport);
+    expect(marked.authorizationForwarded).toBe(true);
+
+    // Knob on but the chain never crossed origin — the transport reports
+    // nothing, so the snapshot carries no marker.
+    const quiet = captureTransport();
+    const unmarked = await executeOverTransport(makeResolved({ followAuthorizationHeader: true }), quiet.transport);
+    expect(unmarked.authorizationForwarded).toBeUndefined();
+  });
+
   it('surfaces the transport-reported truncation + byte count verbatim (no re-slice)', async () => {
     // Capping moved into the transport (only it can stream + abort the
     // read); execute passes the already-capped result straight through.

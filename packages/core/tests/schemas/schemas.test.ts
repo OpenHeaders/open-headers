@@ -43,15 +43,13 @@ describe('VariableSchema', () => {
   });
 
   it('accepts a secret variable', () => {
-    expect(
-      v.parse(VariableSchema, { uid: 'vrtokenx', name: 'TOKEN', value: 'abc', type: 'secret' }),
-    ).toBeTruthy();
+    expect(v.parse(VariableSchema, { uid: 'vrtokenx', name: 'TOKEN', value: 'abc', type: 'secret' })).toBeTruthy();
   });
 
   it('rejects an unknown type', () => {
-    expect(
-      v.safeParse(VariableSchema, { uid: 'vrxxxxxx', name: 'X', value: 'y', type: 'unknown' }).success,
-    ).toBe(false);
+    expect(v.safeParse(VariableSchema, { uid: 'vrxxxxxx', name: 'X', value: 'y', type: 'unknown' }).success).toBe(
+      false,
+    );
   });
 
   it('rejects missing fields', () => {
@@ -154,9 +152,7 @@ describe('WorkspaceSchema', () => {
   });
 
   it('rejects a missing orgId', () => {
-    expect(
-      v.safeParse(WorkspaceSchema, { schemaVersion: 5, uid: 'abcd1234', name: 'x' }).success,
-    ).toBe(false);
+    expect(v.safeParse(WorkspaceSchema, { schemaVersion: 5, uid: 'abcd1234', name: 'x' }).success).toBe(false);
   });
 
   it('rejects a missing uid (Phase 0 invariant #1)', () => {
@@ -330,6 +326,30 @@ describe('RequestSchema', () => {
     expect(v.safeParse(RequestSchema, { ...base, maxResponseBytes: 1023 }).success).toBe(false);
     expect(v.safeParse(RequestSchema, { ...base, maxResponseBytes: 10 * 1024 * 1024 + 1 }).success).toBe(false);
   });
+
+  it('bounds maxRedirects and accepts the redirect-policy booleans', () => {
+    const base = {
+      schemaVersion: 5,
+      uid: 'abcd1234',
+      path: 'x',
+      name: 'x',
+      method: 'GET',
+      url: 'x',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    };
+    // 0 is meaningful ("fail on any redirect") — the floor allows it.
+    expect(v.parse(RequestSchema, { ...base, maxRedirects: 0 })).toBeTruthy();
+    expect(v.parse(RequestSchema, { ...base, maxRedirects: 50 })).toBeTruthy();
+    expect(
+      v.parse(RequestSchema, { ...base, followOriginalHttpMethod: true, followAuthorizationHeader: true }),
+    ).toBeTruthy();
+    expect(v.safeParse(RequestSchema, { ...base, maxRedirects: -1 }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, maxRedirects: 51 }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, maxRedirects: 2.5 }).success).toBe(false);
+  });
 });
 
 describe('RuleSchema', () => {
@@ -344,9 +364,7 @@ describe('RuleSchema', () => {
         enabled: true,
         conditions: [{ uid: 'cnd00010', type: 'request-domains', values: ['openheaders.io'] }],
         action: {
-          requestHeaders: [
-            { uid: 'hmd00010', operation: 'override', headerName: 'Authorization', value: 'Bearer X' },
-          ],
+          requestHeaders: [{ uid: 'hmd00010', operation: 'override', headerName: 'Authorization', value: 'Bearer X' }],
           responseHeaders: [],
         },
       }),

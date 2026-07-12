@@ -23,6 +23,16 @@
  *     transport streams + caps the body read; the knob exposes that
  *     ceiling per request (KB in the UI, bytes on disk). The browser
  *     keeps its app-wide response cap, so no per-request control there.
+ *   • `maxRedirects` / `followOriginalHttpMethod` /
+ *     `followAuthorizationHeader` — the redirect trio, node-runtime
+ *     only: the node transport chases redirect chains itself, so it can
+ *     cap the chain, keep the original method across 301/302/303, and
+ *     keep Authorization across origins. Browser fetch fixes all three
+ *     by policy (manual mode returns an opaqueredirect with no headers
+ *     to follow), so there they stay browser-managed fact rows. The
+ *     three rows are hidden while "Automatically follow redirects" is
+ *     off — they configure the chase, and there is no chase — matching
+ *     the dot rule: a hidden knob contributes no tab dot.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -44,8 +54,10 @@ import type React from 'react';
 import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
 import {
+  MAX_MAX_REDIRECTS,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BYTES,
+  MIN_MAX_REDIRECTS,
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
 } from '@openheaders/core/schemas';
@@ -67,6 +79,15 @@ export interface RequestSettingsDraft {
   /** Response-body cap in bytes. Undefined = the runtime's default
    *  (2 MB). Node runtimes only; the browser keeps its app-wide cap. */
   maxResponseBytes?: number;
+  /** Redirect-chain cap. Undefined = the runtime's default (20).
+   *  Node runtimes only. */
+  maxRedirects?: number;
+  /** Keep the original method + body across 301/302/303 redirects.
+   *  Defaults to false. Node runtimes only. */
+  followOriginalHttpMethod?: boolean;
+  /** Keep the Authorization header on cross-origin redirect hops.
+   *  Defaults to false. Node runtimes only. */
+  followAuthorizationHeader?: boolean;
 }
 
 interface SettingsTabProps {
@@ -160,18 +181,6 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
       'The runtime has no page context, so no Referer goes on the wire unless you add one as a header yourself.',
   },
   {
-    label: 'Follow original HTTP method',
-    value: 'Off',
-    description:
-      'On a 301/302 redirect POST switches to GET, and a 303 switches any non-GET method to GET, per the fetch spec. 307/308 always preserve the method.',
-  },
-  {
-    label: 'Follow Authorization header',
-    value: 'Off',
-    description:
-      'The Authorization header is stripped when a redirect crosses to a different origin; this safety behavior is not overridable.',
-  },
-  {
     label: 'Strict HTTP parser',
     value: 'On',
     description: 'The runtime’s HTTP parser rejects malformed response headers; there is no lenient mode.',
@@ -181,12 +190,6 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
     value: 'On',
     description:
       'The URL path and query are percent-encoded by the URL parser before the request goes on the wire. Type already-encoded sequences to keep them verbatim.',
-  },
-  {
-    label: 'Maximum redirects',
-    value: '20',
-    description:
-      'The fetch pipeline caps the redirect chain at 20 hops. A per-request cap is not exposed; switch off automatic redirects to inspect a chain hop by hop.',
   },
   {
     label: 'TLS/SSL protocol versions',
@@ -228,16 +231,18 @@ const MANAGED_SHEETS: Record<RequestRuntimeKind, RuntimeManagedSheet> = {
 
 /** Compact wired-knob row: label + (i) left-aligned, the switch
  *  right-aligned with Enabled/Disabled state text inside the track.
- *  `warning` renders under the row while the knob is off — used by
- *  trust-relaxing knobs so the risk is stated in place, not only
- *  behind the popover. */
+ *  `warning` renders under the row while the knob sits in its risky
+ *  position — off by default (verification-style knobs), the checked
+ *  state when `warningWhenChecked` (opt-in trust-relaxing knobs) — so
+ *  the risk is stated in place, not only behind the popover. */
 const KnobRow: React.FC<{
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
   info: string;
   warning?: string;
-}> = ({ label, checked, onChange, info, warning }) => (
+  warningWhenChecked?: boolean;
+}> = ({ label, checked, onChange, info, warning, warningWhenChecked }) => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
@@ -252,7 +257,7 @@ const KnobRow: React.FC<{
         unCheckedChildren="Disabled"
       />
     </div>
-    {!checked && warning !== undefined && (
+    {checked === (warningWhenChecked ?? false) && warning !== undefined && (
       <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
         {warning}
       </Text>
@@ -270,7 +275,8 @@ const NumericKnobRow: React.FC<{
   value: number | undefined;
   onChange: (value: number | undefined) => void;
   info: string;
-  unit: string;
+  /** Unit suffix inside the field; omit for unitless counts. */
+  unit?: string;
   min: number;
   max: number;
   placeholder: string;
@@ -326,6 +332,33 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
         onChange={(checked) => onChange({ ...value, followRedirects: checked })}
         info="Follow HTTP 3xx responses to their target. Switch off to stop at the redirect itself — the response shows as an opaque redirect with no headers or body, useful to confirm that a redirect happens at all."
       />
+      {runtime === 'node' && value.followRedirects !== false && (
+        <>
+          <NumericKnobRow
+            label="Maximum redirects"
+            value={value.maxRedirects}
+            onChange={(maxRedirects) => onChange({ ...value, maxRedirects })}
+            info="How many redirects a send may follow before failing with an error naming the limit. Leave empty for the default of 20. Set 0 to fail on any redirect at all."
+            min={MIN_MAX_REDIRECTS}
+            max={MAX_MAX_REDIRECTS}
+            placeholder="20"
+          />
+          <KnobRow
+            label="Follow original HTTP method"
+            checked={value.followOriginalHttpMethod === true}
+            onChange={(checked) => onChange({ ...value, followOriginalHttpMethod: checked || undefined })}
+            info="Keep the original method and body when a 301, 302, or 303 redirect would normally switch the request to GET. 307 and 308 redirects always keep the method either way."
+          />
+          <KnobRow
+            label="Follow Authorization header"
+            checked={value.followAuthorizationHeader === true}
+            onChange={(checked) => onChange({ ...value, followAuthorizationHeader: checked || undefined })}
+            info="Keep the Authorization header when a redirect crosses to a different origin. Normally it is dropped on a cross-origin hop so credentials never travel to a host the request didn't address."
+            warning="Credentials travel to whatever host the redirect chain lands on. A response whose chain actually crossed origins is marked."
+            warningWhenChecked
+          />
+        </>
+      )}
       {runtime === 'browser' && (
         <KnobRow
           label="Send browser cookies"

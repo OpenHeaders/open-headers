@@ -174,4 +174,15 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     await runStepRequest(makeRequest({ timeoutMs: 15000 }), { ...opts(transport), timeoutMs: 5000 });
     expect(sent().timeoutMs).toBe(5000);
   });
+
+  it('carries the redirect-policy trio through resolve to the transport', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(
+      makeRequest({ maxRedirects: 5, followOriginalHttpMethod: true, followAuthorizationHeader: true }),
+      opts(transport),
+    );
+    expect(sent().maxRedirects).toBe(5);
+    expect(sent().followOriginalHttpMethod).toBe(true);
+    expect(sent().followAuthorizationHeader).toBe(true);
+  });
 });

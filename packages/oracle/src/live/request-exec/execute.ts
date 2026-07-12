@@ -78,6 +78,9 @@ export async function executeOverTransport(
     sslVerification: resolved.sslVerification,
     maxBodyBytes,
     timeoutMs: options.timeoutMs ?? resolved.timeoutMs,
+    maxRedirects: resolved.maxRedirects,
+    followOriginalHttpMethod: resolved.followOriginalHttpMethod,
+    followAuthorizationHeader: resolved.followAuthorizationHeader,
   };
 
   // A verification-off send is stamped on the snapshot (success or
@@ -105,6 +108,10 @@ export async function executeOverTransport(
       bodyBytes: response.bodyBytes,
       durationMs,
       ...(verificationOff ? { sslVerificationDisabled: true } : {}),
+      // The transport reports an actual cross-origin Authorization
+      // re-send (only the redirect loop can know); stamp it so the
+      // response surface marks the run.
+      ...(response.authorizationForwarded ? { authorizationForwarded: true } : {}),
       error: null,
       scripts: null,
     };

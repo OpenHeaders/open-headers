@@ -228,6 +228,9 @@ describe('yaml codec — round-trip parity', () => {
     expect(parsed.value.sslVerification).toBe(false);
     expect(parsed.value.timeoutMs).toBe(15000);
     expect(parsed.value.maxResponseBytes).toBe(4096);
+    expect(parsed.value.maxRedirects).toBe(5);
+    expect(parsed.value.followOriginalHttpMethod).toBe(true);
+    expect(parsed.value.followAuthorizationHeader).toBe(true);
     expect(parsed.value.preRequestScript).toBe(preScript);
     expect(parsed.value.postResponseScript).toBe(postResponseScript);
 

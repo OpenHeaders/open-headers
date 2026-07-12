@@ -42,6 +42,9 @@ export type RequestScalarPath =
   | 'sslVerification'
   | 'timeoutMs'
   | 'maxResponseBytes'
+  | 'maxRedirects'
+  | 'followOriginalHttpMethod'
+  | 'followAuthorizationHeader'
   | 'preRequestScript'
   | 'postResponseScript';
 

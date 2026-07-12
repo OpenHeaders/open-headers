@@ -46,6 +46,16 @@ function callInit(n = 0): NonNullable<Parameters<NodeFetchFn>[1]> {
   return init;
 }
 
+/** URL of the n-th recorded fetch call. */
+function callUrl(n = 0): string {
+  return String(fetchMock.mock.calls[n]?.[0]);
+}
+
+/** A redirect hop response — status + Location, empty body. */
+function redirectResponse(status: number, location: string): Response {
+  return new Response(null, { status, headers: { location } });
+}
+
 describe('createNodeRequestTransport', () => {
   it('maps a successful response to a TransportResponse', async () => {
     fetchMock.mockResolvedValue(
@@ -113,7 +123,8 @@ describe('createNodeRequestTransport', () => {
     expect(init.method).toBe('POST');
     expect(init.body).toBe('{"a":1}');
     expect((init.headers as Headers).get('content-type')).toBe('application/json');
-    expect(init.redirect).toBe('follow');
+    // Every wire fetch is manual — the transport chases redirects itself.
+    expect(init.redirect).toBe('manual');
   });
 
   it('builds a URLSearchParams body for urlencoded', async () => {
@@ -170,6 +181,14 @@ describe('createNodeRequestTransport', () => {
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest({ redirect: 'manual' }));
     expect(callInit().redirect).toBe('manual');
+  });
+
+  it('manual mode surfaces the first 3xx verbatim without chasing it', async () => {
+    fetchMock.mockResolvedValue(redirectResponse(302, 'https://other.openheaders.io/moved'));
+    const res = await transport().send(makeRequest({ redirect: 'manual' }));
+    expect(res.status).toBe(302);
+    expect(res.headers).toContainEqual({ key: 'location', value: 'https://other.openheaders.io/moved' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -259,5 +278,198 @@ describe('createNodeRequestTransport — per-request TLS policy', () => {
     const second = callInit(1).dispatcher;
     expect(first).toBeInstanceOf(Agent);
     expect(second).toBe(first);
+  });
+});
+
+describe('createNodeRequestTransport — hand-rolled redirect follow', () => {
+  it('follows a redirect chain to the final response and reports the final URL', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://api.openheaders.io/v2/ping'))
+      .mockResolvedValueOnce(redirectResponse(302, 'https://api.openheaders.io/v3/ping'))
+      .mockResolvedValueOnce(new Response('final', { status: 200, statusText: 'OK' }));
+    const res = await transport().send(makeRequest());
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(callUrl(1)).toBe('https://api.openheaders.io/v2/ping');
+    expect(callUrl(2)).toBe('https://api.openheaders.io/v3/ping');
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('final');
+    // Synthetic Response.url is empty → falls back to the FINAL hop's URL.
+    expect(res.url).toBe('https://api.openheaders.io/v3/ping');
+  });
+
+  it('resolves a relative Location against the current hop URL', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(302, '/moved/here')).mockResolvedValueOnce(new Response('ok'));
+    await transport().send(makeRequest());
+    expect(callUrl(1)).toBe('https://api.openheaders.io/moved/here');
+  });
+
+  it('treats a 3xx without a Location header as final', async () => {
+    fetchMock.mockResolvedValue(new Response('not moved', { status: 302 }));
+    const res = await transport().send(makeRequest());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(302);
+    expect(res.body).toBe('not moved');
+  });
+
+  it('stops at the default 20-hop cap with an error naming the limit', async () => {
+    fetchMock.mockImplementation(async () => redirectResponse(302, '/again'));
+    const attempt = transport().send(makeRequest());
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow("Stopped after 20 redirects — the request's redirect limit.");
+    expect(fetchMock).toHaveBeenCalledTimes(21);
+  });
+
+  it('honors a custom maxRedirects cap and names it in the error', async () => {
+    fetchMock.mockImplementation(async () => redirectResponse(302, '/again'));
+    await expect(transport().send(makeRequest({ maxRedirects: 3 }))).rejects.toThrow(
+      "Stopped after 3 redirects — the request's redirect limit.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('maxRedirects 0 fails on the very first redirect', async () => {
+    fetchMock.mockResolvedValue(redirectResponse(302, '/anywhere'));
+    await expect(transport().send(makeRequest({ maxRedirects: 0 }))).rejects.toThrow(
+      "Stopped after 0 redirects — the request's redirect limit.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a redirect with an unparsable Location', async () => {
+    fetchMock.mockResolvedValue(redirectResponse(302, 'https://'));
+    await expect(transport().send(makeRequest())).rejects.toThrow('Redirect points to an invalid URL');
+  });
+
+  it('demotes 301 POST to GET, dropping the body and its metadata headers', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(301, '/login')).mockResolvedValueOnce(new Response('ok'));
+    await transport().send(
+      makeRequest({
+        method: 'POST',
+        headers: [
+          { key: 'Content-Type', value: 'application/json' },
+          { key: 'X-Trace', value: 'keep-me' },
+        ],
+        body: { kind: 'raw', content: '{"a":1}' },
+      }),
+    );
+    const second = callInit(1);
+    expect(second.method).toBe('GET');
+    expect(second.body).toBeUndefined();
+    expect((second.headers as Headers).get('content-type')).toBeNull();
+    expect((second.headers as Headers).get('x-trace')).toBe('keep-me');
+  });
+
+  it('demotes 303 non-GET methods to GET', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(303, '/status')).mockResolvedValueOnce(new Response('ok'));
+    await transport().send(makeRequest({ method: 'PUT', body: { kind: 'raw', content: 'payload' } }));
+    expect(callInit(1).method).toBe('GET');
+    expect(callInit(1).body).toBeUndefined();
+  });
+
+  it('preserves method AND body on 307, re-materializing the body per hop', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(307, '/retry')).mockResolvedValueOnce(new Response('ok'));
+    await transport().send(
+      makeRequest({
+        method: 'POST',
+        body: { kind: 'urlencoded', fields: [{ name: 'a', value: '1' }] },
+      }),
+    );
+    expect(callInit(1).method).toBe('POST');
+    expect(callInit(0).body).toBeInstanceOf(URLSearchParams);
+    expect(callInit(1).body).toBeInstanceOf(URLSearchParams);
+    // A fresh instance per hop — a consumed body object is never reused.
+    expect(callInit(1).body).not.toBe(callInit(0).body);
+  });
+
+  it('followOriginalHttpMethod keeps POST + body across a 302', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(302, '/moved')).mockResolvedValueOnce(new Response('ok'));
+    await transport().send(
+      makeRequest({
+        method: 'POST',
+        followOriginalHttpMethod: true,
+        body: { kind: 'raw', content: '{"a":1}' },
+      }),
+    );
+    expect(callInit(1).method).toBe('POST');
+    expect(callInit(1).body).toBe('{"a":1}');
+  });
+
+  it('strips Authorization when a hop crosses origin', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
+      .mockResolvedValueOnce(new Response('ok'));
+    const res = await transport().send(makeRequest({ headers: [{ key: 'Authorization', value: 'Bearer secret' }] }));
+    expect((callInit(0).headers as Headers).get('authorization')).toBe('Bearer secret');
+    expect((callInit(1).headers as Headers).get('authorization')).toBeNull();
+    expect(res.authorizationForwarded).toBeUndefined();
+  });
+
+  it('keeps Authorization on a same-origin hop without marking the response', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(302, '/v2/ping')).mockResolvedValueOnce(new Response('ok'));
+    const res = await transport().send(makeRequest({ headers: [{ key: 'Authorization', value: 'Bearer secret' }] }));
+    expect((callInit(1).headers as Headers).get('authorization')).toBe('Bearer secret');
+    expect(res.authorizationForwarded).toBeUndefined();
+  });
+
+  it('followAuthorizationHeader keeps the header cross-origin and marks the response', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
+      .mockResolvedValueOnce(new Response('ok'));
+    const res = await transport().send(
+      makeRequest({
+        headers: [{ key: 'Authorization', value: 'Bearer secret' }],
+        followAuthorizationHeader: true,
+      }),
+    );
+    expect((callInit(1).headers as Headers).get('authorization')).toBe('Bearer secret');
+    expect(res.authorizationForwarded).toBe(true);
+  });
+
+  it('does not mark the response when the knob is on but the chain stays same-origin', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(302, '/v2/ping')).mockResolvedValueOnce(new Response('ok'));
+    const res = await transport().send(
+      makeRequest({
+        headers: [{ key: 'Authorization', value: 'Bearer secret' }],
+        followAuthorizationHeader: true,
+      }),
+    );
+    expect(res.authorizationForwarded).toBeUndefined();
+  });
+
+  it('cancels an intermediate 3xx body so its connection returns to the pool', async () => {
+    let canceled = false;
+    const stalled = new ReadableStream({
+      pull() {
+        return new Promise(() => {});
+      },
+      cancel() {
+        canceled = true;
+      },
+    });
+    fetchMock
+      .mockResolvedValueOnce(new Response(stalled, { status: 302, headers: { location: '/moved' } }))
+      .mockResolvedValueOnce(new Response('ok'));
+    const res = await transport().send(makeRequest());
+    expect(res.body).toBe('ok');
+    expect(canceled).toBe(true);
+  });
+
+  it('ONE timeout deadline spans the whole chain, not each hop', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(302, '/slow')).mockImplementationOnce(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+    );
+    await expect(transport().send(makeRequest({ timeoutMs: 20 }))).rejects.toThrow('Request timed out after 20 ms.');
+  });
+
+  it('routes EVERY hop through the insecure dispatcher when verification is off', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
+      .mockResolvedValueOnce(new Response('ok'));
+    await transport().send(makeRequest({ sslVerification: false }));
+    expect(callInit(0).dispatcher).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBeInstanceOf(Agent);
   });
 });
