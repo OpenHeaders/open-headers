@@ -67,7 +67,7 @@
 
 import { createHash } from 'node:crypto';
 import { isIP, type LookupFunction } from 'node:net';
-import type { SecureVersion } from 'node:tls';
+import { createSecureContext, type SecureVersion } from 'node:tls';
 import {
   type RequestTransport,
   type TransportBody,
@@ -238,6 +238,30 @@ function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
 }
 
 /**
+ * Cipher list a lowered TLS floor needs on THIS runtime's TLS stack,
+ * probed once. OpenSSL 3 disallows the legacy signature algorithms a
+ * TLS < 1.2 handshake needs at its default security level, so a lowered
+ * floor alone can never negotiate 1.0/1.1 (probed live:
+ * ERR_SSL_LEGACY_SIGALG_DISALLOWED_OR_UNSUPPORTED) — `@SECLEVEL=0` on
+ * the default suites is what makes the knob honorable. BoringSSL
+ * (Electron's stack) REJECTS the `@SECLEVEL` syntax outright
+ * (ERR_SSL_INVALID_COMMAND) and has no security-level gate — a lowered
+ * floor negotiates plain there (both probed live in each runtime).
+ */
+let legacyFloorCiphers: string | null | undefined;
+function legacyFloorCipherDefault(): string | undefined {
+  if (legacyFloorCiphers === undefined) {
+    try {
+      createSecureContext({ ciphers: 'DEFAULT@SECLEVEL=0' });
+      legacyFloorCiphers = 'DEFAULT@SECLEVEL=0';
+    } catch {
+      legacyFloorCiphers = null;
+    }
+  }
+  return legacyFloorCiphers ?? undefined;
+}
+
+/**
  * The connection-option bag a request's knobs map to — one place, pure,
  * so the mapping is testable without inspecting a minted `Agent`. The
  * caller keys the agent cache on the same request fields, so the bag is
@@ -252,14 +276,11 @@ export function connectOptionsFor(request: TransportRequest): ConnectOptions {
   if (tlsCipherSuites !== undefined) {
     connect.ciphers = tlsCipherSuites;
   } else if (tlsMinVersion === '1.0' || tlsMinVersion === '1.1') {
-    // OpenSSL 3 disallows the legacy signature algorithms a TLS < 1.2
-    // handshake needs at its default security level, so a lowered floor
-    // alone can never negotiate 1.0/1.1 (probed live:
-    // ERR_SSL_LEGACY_SIGALG_DISALLOWED_OR_UNSUPPORTED). Lowering the
-    // floor is the explicit opt-in — the default suites at security
-    // level 0 are what makes the knob honorable. An explicit cipher
-    // list above wins verbatim.
-    connect.ciphers = 'DEFAULT@SECLEVEL=0';
+    // Lowering the floor is the explicit opt-in; what the runtime's TLS
+    // stack needs to honor it (see {@link legacyFloorCipherDefault})
+    // rides along. An explicit cipher list above wins verbatim.
+    const legacy = legacyFloorCipherDefault();
+    if (legacy !== undefined) connect.ciphers = legacy;
   }
   if (resolveToAddress !== undefined) connect.lookup = pinnedLookup(resolveToAddress);
   if (request.clientCertificatePem !== undefined) connect.cert = request.clientCertificatePem;
