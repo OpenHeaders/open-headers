@@ -491,8 +491,13 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
         onUseAllSaved={handleUseAllSaved}
       />
       {view === 'form' ? (
-        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
-          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+        // Padding lives on the inner wrapper, NOT the scroll container —
+        // container padding sits outside the sticky header/floor and
+        // lets content scroll through a transparent band around them.
+        // `oh-persistent-scroll` keeps the scrollbar visible whenever
+        // the step list overflows.
+        <div className="oh-persistent-scroll" style={{ flex: 1 }}>
+          <div style={{ maxWidth: 920, margin: '0 auto', padding: '16px 20px 0' }}>
             <WorkflowFormBody
               draft={draft}
               setDraft={setDraft}
@@ -656,8 +661,10 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
     >
       <EditorHeader title={createHeaderTitle} actions={<ViewToggle view={view} setView={setView} />} shell={shell.headerProps} />
       {view === 'form' ? (
-        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
-          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+        // Same scroll/padding structure as EditMode — see the comment
+        // there for why the container itself carries no padding.
+        <div className="oh-persistent-scroll" style={{ flex: 1 }}>
+          <div style={{ maxWidth: 920, margin: '0 auto', padding: '16px 20px 0' }}>
             <WorkflowFormBody
               draft={draft}
               setDraft={setDraft}
