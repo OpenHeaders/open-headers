@@ -591,6 +591,16 @@ jobs:
           ls -la processed_files/
         shell: bash
 
+      # versions.json — the static severity manifest (UPDATES_PLAN §4).
+      # Clients fetch it anonymously via /releases/latest/download/,
+      # which resolves to the newest non-prerelease, so beta tags never
+      # move it. Severity is authored in .github/release-severity.json
+      # before tagging, never inferred.
+      - name: Generate versions manifest
+        run: |
+          node scripts/generate-versions-manifest.mjs "$GITHUB_REF_NAME" > processed_files/versions.json
+          cat processed_files/versions.json
+
       - name: Generate Release Body
         run: |
           VERSION=${GITHUB_REF_NAME/v/}
