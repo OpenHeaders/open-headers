@@ -8,6 +8,16 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(canonicalize(value));
 }
 
+/**
+ * Pretty-printed variant for human-facing panes (merge editors): same
+ * recursive key sort, 2-space indentation. A saved-side value that
+ * round-tripped storage (alphabetized keys) and a form-side draft
+ * (insertion order) render line-identical when structurally equal.
+ */
+export function canonicalJsonPretty(value: unknown): string {
+  return JSON.stringify(canonicalize(value), null, 2);
+}
+
 function canonicalize(value: unknown): unknown {
   if (value === null || typeof value !== 'object') return value;
   if (Array.isArray(value)) return value.map(canonicalize);

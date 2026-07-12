@@ -20,7 +20,7 @@ import {
   stripDraftSteps,
   toDraftCapture,
 } from '@openheaders/core/live';
-import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
+import { canonicalJsonPretty, LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable, LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { type ConflictResolution, type PathConflict, useAutoMergeForm } from '@openheaders/ui/shared/conflicts';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
@@ -227,19 +227,19 @@ export function useLiveWorkflowConflictResolution({
     [workflow, allConflicts, conflicts, boundVars, setDraft],
   );
 
+  // All three panes serialize via canonicalJsonPretty: the saved side
+  // round-tripped chrome.storage (alphabetized keys) while the mine
+  // side carries edit-insertion order — an insertion-ordered dump would
+  // light spurious diff lines on structurally-equal nested steps.
   const savedText = useMemo(() => {
     if (!isConflictDialogOpen || !workflow) return '';
-    return JSON.stringify(
-      {
-        name: workflow.name,
-        description: workflow.description ?? '',
-        enabled: workflow.enabled,
-        refresh: workflow.refresh,
-        steps: workflow.steps,
-      },
-      null,
-      2,
-    );
+    return canonicalJsonPretty({
+      name: workflow.name,
+      description: workflow.description ?? '',
+      enabled: workflow.enabled,
+      refresh: workflow.refresh,
+      steps: workflow.steps,
+    });
   }, [isConflictDialogOpen, workflow]);
 
   // Baseline JSON for the merge-editor preview's Show Base layouts.
@@ -248,32 +248,24 @@ export function useLiveWorkflowConflictResolution({
     if (!isConflictDialogOpen) return undefined;
     const baseline = baselineLiveWorkflowRef.current;
     if (!baseline) return undefined;
-    return JSON.stringify(
-      {
-        name: baseline.name,
-        description: baseline.description ?? '',
-        enabled: baseline.enabled,
-        refresh: baseline.refresh,
-        steps: baseline.steps,
-      },
-      null,
-      2,
-    );
+    return canonicalJsonPretty({
+      name: baseline.name,
+      description: baseline.description ?? '',
+      enabled: baseline.enabled,
+      refresh: baseline.refresh,
+      steps: baseline.steps,
+    });
   }, [isConflictDialogOpen, baselineLiveWorkflowRef]);
 
   const mineText = useMemo(() => {
     if (!isConflictDialogOpen || !draft) return '';
-    return JSON.stringify(
-      {
-        name: draft.name,
-        description: draft.description,
-        enabled: draft.enabled,
-        refresh: draft.refresh,
-        steps: stripDraftSteps(draft.steps),
-      },
-      null,
-      2,
-    );
+    return canonicalJsonPretty({
+      name: draft.name,
+      description: draft.description,
+      enabled: draft.enabled,
+      refresh: draft.refresh,
+      steps: stripDraftSteps(draft.steps),
+    });
   }, [isConflictDialogOpen, draft]);
 
   return {

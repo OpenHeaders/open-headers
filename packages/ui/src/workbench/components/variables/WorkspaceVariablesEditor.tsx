@@ -21,6 +21,7 @@
 import { useWorkspaceVariables } from '@openheaders/ui/shared/hooks/readers/useWorkspaceVariables';
 import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import {
+  canonicalJsonPretty,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
@@ -178,21 +179,25 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     [allConflicts, conflicts, setDraft],
   );
 
+  // All three panes serialize via canonicalJsonPretty: the saved side
+  // round-tripped chrome.storage (alphabetized row keys) while the mine
+  // side carries literal construction order — an insertion-ordered dump
+  // would light spurious diff lines on structurally-equal rows.
   const savedText = useMemo(() => {
     if (!isConflictDialogOpen) return '';
-    return JSON.stringify(workspaceVariables.variables, null, 2);
+    return canonicalJsonPretty(workspaceVariables.variables);
   }, [isConflictDialogOpen, workspaceVariables.variables]);
 
   const baseText = useMemo(() => {
     if (!isConflictDialogOpen) return undefined;
     const baseline = baselineVariablesRef.current;
     if (!baseline) return undefined;
-    return JSON.stringify(baseline, null, 2);
+    return canonicalJsonPretty(baseline);
   }, [isConflictDialogOpen]);
 
   const mineText = useMemo(() => {
     if (!isConflictDialogOpen) return '';
-    return JSON.stringify(draft, null, 2);
+    return canonicalJsonPretty(draft);
   }, [isConflictDialogOpen, draft]);
 
   const handleSave = useCallback(async () => {

@@ -27,6 +27,7 @@
 
 import { hasCapability } from '@openheaders/core/capabilities';
 import { hostLogger as logger } from '@openheaders/core/logger';
+import { stableStringify } from '@openheaders/ui/shared/forms';
 import * as v from 'valibot';
 import { allDefaults, allDefs, getDef, subscribeRegistry } from './registry';
 import type { DictStorage, SettingScope, StorageUnsubscribe } from './storage/adapter';
@@ -90,13 +91,15 @@ function effectiveDefault<K extends SettingKey>(def: SettingDef<K>): SettingsMap
 function isDefault<K extends SettingKey>(def: SettingDef<K>, value: unknown): boolean {
   // Shallow equality is sufficient for the primitive setting types we
   // ship today (string, number, boolean, enum). Object-valued settings
-  // (keyvalue, multi-select) use JSON equality for simplicity — they're
-  // low-write surfaces and the cost is negligible.
+  // (keyvalue, multi-select) compare structurally via stableStringify:
+  // persisted values round-trip chrome.storage, which alphabetizes
+  // object keys, so an insertion-ordered comparison would misreport a
+  // default-equal value as modified.
   const dflt = effectiveDefault(def);
   if (value === dflt) return true;
   if (typeof value === 'object' && value !== null && typeof dflt === 'object') {
     try {
-      return JSON.stringify(value) === JSON.stringify(dflt);
+      return stableStringify(value) === stableStringify(dflt);
     } catch {
       return false;
     }

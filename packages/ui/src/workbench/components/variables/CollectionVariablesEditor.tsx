@@ -24,6 +24,7 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import {
+  canonicalJsonPretty,
   COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
@@ -227,21 +228,25 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     [allConflicts, conflicts, setDraft],
   );
 
+  // All three panes serialize via canonicalJsonPretty: the saved side
+  // round-tripped chrome.storage (alphabetized row keys) while the mine
+  // side carries literal construction order — an insertion-ordered dump
+  // would light spurious diff lines on structurally-equal rows.
   const savedText = useMemo(() => {
     if (!isConflictDialogOpen || !collection) return '';
-    return JSON.stringify(collection.variables, null, 2);
+    return canonicalJsonPretty(collection.variables);
   }, [isConflictDialogOpen, collection]);
 
   const baseText = useMemo(() => {
     if (!isConflictDialogOpen) return undefined;
     const baseline = baselineVariablesRef.current;
     if (!baseline) return undefined;
-    return JSON.stringify(baseline, null, 2);
+    return canonicalJsonPretty(baseline);
   }, [isConflictDialogOpen]);
 
   const mineText = useMemo(() => {
     if (!isConflictDialogOpen) return '';
-    return JSON.stringify(draft, null, 2);
+    return canonicalJsonPretty(draft);
   }, [isConflictDialogOpen, draft]);
 
   const handleSave = useCallback(() => {

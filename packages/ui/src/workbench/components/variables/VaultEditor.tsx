@@ -25,7 +25,7 @@
 
 import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import { useVault } from '@openheaders/ui/shared/hooks/readers/useVault';
-import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
+import { canonicalJsonPretty, VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
@@ -191,9 +191,13 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     [allConflicts, conflicts, setDraft],
   );
 
+  // All three panes serialize via canonicalJsonPretty: the saved side
+  // round-tripped chrome.storage (alphabetized row keys) while the mine
+  // side carries literal construction order — an insertion-ordered dump
+  // would light spurious diff lines on structurally-equal rows.
   const savedText = useMemo(() => {
     if (!isConflictDialogOpen) return '';
-    return JSON.stringify(vault.secrets, null, 2);
+    return canonicalJsonPretty(vault.secrets);
   }, [isConflictDialogOpen, vault.secrets]);
 
   // Baseline JSON for the merge-editor preview's Show Base layouts.
@@ -201,13 +205,13 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     if (!isConflictDialogOpen) return undefined;
     const baseline = baselineSecretsRef.current;
     if (!baseline) return undefined;
-    return JSON.stringify(baseline, null, 2);
+    return canonicalJsonPretty(baseline);
   }, [isConflictDialogOpen]);
 
   // Local projection serialized for the merge editor's mine pane.
   const mineText = useMemo(() => {
     if (!isConflictDialogOpen) return '';
-    return JSON.stringify(draft, null, 2);
+    return canonicalJsonPretty(draft);
   }, [isConflictDialogOpen, draft]);
 
   const handleSave = useCallback(async () => {

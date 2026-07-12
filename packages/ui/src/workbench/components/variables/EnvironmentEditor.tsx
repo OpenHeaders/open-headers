@@ -20,7 +20,7 @@
 import { CheckCircleTwoTone, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useEnvironmentMutator } from '@openheaders/ui/shared/hooks/mutators/useEnvironmentMutator';
-import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
+import { canonicalJsonPretty, ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Environment, Variable } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -210,21 +210,25 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     [env, allConflicts, conflicts, setDraft],
   );
 
+  // All three panes serialize via canonicalJsonPretty: the saved side
+  // round-tripped chrome.storage (alphabetized row keys) while the mine
+  // side carries literal construction order — an insertion-ordered dump
+  // would light spurious diff lines on structurally-equal rows.
   const savedText = useMemo(() => {
     if (!isConflictDialogOpen || !env) return '';
-    return JSON.stringify(env.variables, null, 2);
+    return canonicalJsonPretty(env.variables);
   }, [isConflictDialogOpen, env]);
 
   const baseText = useMemo(() => {
     if (!isConflictDialogOpen) return undefined;
     const baseline = baselineVariablesRef.current;
     if (!baseline) return undefined;
-    return JSON.stringify(baseline, null, 2);
+    return canonicalJsonPretty(baseline);
   }, [isConflictDialogOpen]);
 
   const mineText = useMemo(() => {
     if (!isConflictDialogOpen) return '';
-    return JSON.stringify(draft, null, 2);
+    return canonicalJsonPretty(draft);
   }, [isConflictDialogOpen, draft]);
 
   const handleSave = useCallback(async () => {

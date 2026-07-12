@@ -18,19 +18,19 @@
  *   (cache lives at `oh.ws.<id>.liveCache` — see `live-cache-store.ts`)
  */
 
-import { LiveWorkflowSchema } from '@openheaders/core/schemas';
+import { LiveWorkflowSchema, WorkflowStepSchema } from '@openheaders/core/schemas';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { logger } from '@openheaders/core/utils';
-import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildAddLiveWorkflowBatch,
   buildDeleteLiveWorkflowBatch,
   buildUpdateLiveWorkflowBatch,
 } from '@openheaders/core/sync-builders/mutations/live-workflow-mutations';
-import { LIVE_WORKFLOW_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '@openheaders/core/types';
+import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 import type { LiveWorkflowCache } from '@openheaders/oracle/sync/caches/live-workflow-cache';
+import { LIVE_WORKFLOW_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,
@@ -38,7 +38,7 @@ import {
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
+import * as v from 'valibot';
 
 // ── In-memory state (scoped to the active workspace) ───────────────
 
@@ -119,7 +119,24 @@ export interface CreateLiveWorkflowInput {
   enabled?: boolean;
 }
 
+/**
+ * Reject malformed step payloads at the write boundary. Callers reach
+ * this store through RPC, so an out-of-shape step (most commonly a
+ * seed missing the 8-char row `uid`) would otherwise persist silently
+ * and only surface later as phantom conflicts / hydration drops.
+ */
+function assertValidSteps(steps: readonly WorkflowStep[], operation: string): void {
+  const result = v.safeParse(v.array(WorkflowStepSchema), steps);
+  if (result.success) return;
+  const detail = result.issues
+    .slice(0, 3)
+    .map((issue) => `${v.getDotPath(issue) ?? '(root)'}: ${issue.message}`)
+    .join('; ');
+  throw new Error(`${operation}: invalid steps — ${detail}`);
+}
+
 export async function createLiveWorkflow(input: CreateLiveWorkflowInput): Promise<LiveWorkflow> {
+  assertValidSteps(input.steps ?? [], 'createLiveWorkflow');
   assertLoaded();
   const uid = generateUid();
   const folderName = toFolderName(input.name, uid);
@@ -146,6 +163,13 @@ export async function updateLiveWorkflow(
   uid: string,
   updates: Partial<Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>,
 ): Promise<LiveWorkflowWriteResult> {
+  if (updates.steps) {
+    try {
+      assertValidSteps(updates.steps, 'updateLiveWorkflow');
+    } catch (err) {
+      return { ok: false, reason: 'other', message: (err as Error).message };
+    }
+  }
   assertLoaded();
   const oracle = getOracleForCurrentWorkspace();
   const ctx = nextSwMutatorContext({ surfaceId: 'sw' });

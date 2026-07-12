@@ -20,6 +20,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'store.count': number;
     'store.flag': boolean;
     'store.gated': boolean;
+    'store.dict': Record<string, string>;
   }
 }
 
@@ -100,6 +101,20 @@ function registerTestSchema(): void {
     scope: 'user',
     requiresCapability: 'cdpInspection',
   });
+  // Object-valued setting with deliberately non-alphabetical default
+  // key order — the modified-vs-default comparison must not depend on
+  // insertion order (persisted values round-trip chrome.storage, which
+  // alphabetizes object keys).
+  registerSetting({
+    key: 'store.dict',
+    type: 'keyvalue',
+    default: { zeta: 'z', alpha: 'a' },
+    schema: v.record(v.string(), v.string()),
+    label: 'Dict',
+    description: '',
+    category: 'store-test',
+    scope: 'user',
+  });
 }
 
 beforeEach(() => {
@@ -143,6 +158,17 @@ describe('settings store', () => {
     expect(isModified('store.name')).toBe(true);
     storeSet('store.name', 'default-name');
     expect(isModified('store.name')).toBe(false);
+  });
+
+  it('treats a key-order-permuted persisted object as unmodified when structurally default', async () => {
+    // chrome.storage alphabetizes object keys on round-trip; a persisted
+    // value equal to the default must not misreport as modified just
+    // because its key order differs from the default literal's.
+    memory.state.set('user', { 'store.dict': { alpha: 'a', zeta: 'z' } });
+    await initSettingsStore();
+    expect(isModified('store.dict')).toBe(false);
+    storeSet('store.dict', { alpha: 'a', zeta: 'CHANGED' });
+    expect(isModified('store.dict')).toBe(true);
   });
 
   it('reset returns a value to its registered default', async () => {
