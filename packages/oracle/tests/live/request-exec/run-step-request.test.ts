@@ -197,4 +197,10 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     expect(sent().tlsCipherSuites).toBe('TLS_AES_128_GCM_SHA256');
     expect(snap.tlsFloorLowered).toBe(true);
   });
+
+  it('carries allowHttp2 through resolve to the transport', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ allowHttp2: true }), opts(transport));
+    expect(sent().allowHttp2).toBe(true);
+  });
 });

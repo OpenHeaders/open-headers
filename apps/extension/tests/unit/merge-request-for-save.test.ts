@@ -39,6 +39,7 @@ function batchOf(req: Request): RequestSaveBatch {
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
     tlsCipherSuites: req.tlsCipherSuites,
+    allowHttp2: req.allowHttp2,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,

@@ -299,6 +299,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           ...(seed?.tlsMinVersion !== undefined ? { tlsMinVersion: seed.tlsMinVersion } : {}),
           ...(seed?.tlsMaxVersion !== undefined ? { tlsMaxVersion: seed.tlsMaxVersion } : {}),
           ...(seed?.tlsCipherSuites !== undefined ? { tlsCipherSuites: seed.tlsCipherSuites } : {}),
+          ...(seed?.allowHttp2 !== undefined ? { allowHttp2: seed.allowHttp2 } : {}),
           ...(seed?.timeoutMs !== undefined ? { timeoutMs: seed.timeoutMs } : {}),
           ...(seed?.maxResponseBytes !== undefined ? { maxResponseBytes: seed.maxResponseBytes } : {}),
           ...(seed?.maxRedirects !== undefined ? { maxRedirects: seed.maxRedirects } : {}),

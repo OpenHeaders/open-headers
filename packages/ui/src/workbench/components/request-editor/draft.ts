@@ -38,6 +38,7 @@ export interface Draft {
   tlsMinVersion?: TlsVersion;
   tlsMaxVersion?: TlsVersion;
   tlsCipherSuites?: string;
+  allowHttp2?: boolean;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -64,6 +65,7 @@ export interface RequestUpdates {
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
   tlsCipherSuites: string | undefined;
+  allowHttp2: boolean | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -180,6 +182,7 @@ export function draftFromRequest(req: Request): Draft {
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
     tlsCipherSuites: req.tlsCipherSuites,
+    allowHttp2: req.allowHttp2,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -217,6 +220,7 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     tlsMinVersion: draft.tlsMinVersion,
     tlsMaxVersion: draft.tlsMaxVersion,
     tlsCipherSuites: draft.tlsCipherSuites,
+    allowHttp2: draft.allowHttp2,
     timeoutMs: draft.timeoutMs,
     maxResponseBytes: draft.maxResponseBytes,
     maxRedirects: draft.maxRedirects,

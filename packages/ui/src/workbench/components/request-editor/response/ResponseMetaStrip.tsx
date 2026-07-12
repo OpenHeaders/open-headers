@@ -11,6 +11,7 @@
  */
 
 import { ArrowDownOutlined, ArrowUpOutlined, GlobalOutlined } from '@ant-design/icons';
+import { getCapability } from '@openheaders/core/capabilities';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getStatusCodeInfoContent } from '@openheaders/ui/shared/info-popover/data/http-status';
@@ -295,7 +296,16 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
     { label: 'Remote Address', value: ip ?? '—' },
   ];
   const notes: string[] = [];
-  if (!versionLabel) notes.push('HTTP version hidden: the platform recorded no timing entry for this request.');
+  if (!versionLabel) {
+    // Absence reads differently per runtime: the browser withheld a
+    // timing entry; the node stack never reports the negotiated
+    // protocol at all (its fetch exposes no such fact).
+    notes.push(
+      (getCapability('requestRuntime')?.() ?? 'browser') === 'node'
+        ? 'HTTP version hidden: the app’s network runtime does not report the negotiated protocol.'
+        : 'HTTP version hidden: the platform recorded no timing entry for this request.',
+    );
+  }
   if (ip === undefined) notes.push('Remote address unavailable: the wire capture saw nothing for this fetch.');
   notes.push('Local address, TLS and certificate details are not exposed to extension code on Chromium.');
 

@@ -79,6 +79,7 @@ export async function executeOverTransport(
     tlsMinVersion: resolved.tlsMinVersion,
     tlsMaxVersion: resolved.tlsMaxVersion,
     tlsCipherSuites: resolved.tlsCipherSuites,
+    allowHttp2: resolved.allowHttp2,
     maxBodyBytes,
     timeoutMs: options.timeoutMs ?? resolved.timeoutMs,
     maxRedirects: resolved.maxRedirects,

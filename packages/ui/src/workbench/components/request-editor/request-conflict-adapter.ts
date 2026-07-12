@@ -43,6 +43,7 @@ const SCALAR_LABEL: Record<string, string> = {
   [REQUEST_PATHS.tlsMinVersion]: 'TLS version minimum',
   [REQUEST_PATHS.tlsMaxVersion]: 'TLS version maximum',
   [REQUEST_PATHS.tlsCipherSuites]: 'TLS cipher suites',
+  [REQUEST_PATHS.allowHttp2]: 'Allow HTTP/2',
   [REQUEST_PATHS.timeoutMs]: 'Request timeout',
   [REQUEST_PATHS.maxResponseBytes]: 'Response size limit',
   [REQUEST_PATHS.maxRedirects]: 'Maximum redirects',

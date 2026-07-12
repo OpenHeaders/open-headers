@@ -9,7 +9,7 @@
  * Every other request field — `name`, `description`, `method`, `url`,
  * `auth`, `body`, `credentialsMode`, `followRedirects`,
  * `sslVerification`, `tlsMinVersion`, `tlsMaxVersion`,
- * `tlsCipherSuites`, `timeoutMs`, `maxResponseBytes`, `maxRedirects`,
+ * `tlsCipherSuites`, `allowHttp2`, `timeoutMs`, `maxResponseBytes`, `maxRedirects`,
  * `followOriginalHttpMethod`, `followAuthorizationHeader`,
  * `preRequestScript`, `postResponseScript` — flows
  * through `setField`

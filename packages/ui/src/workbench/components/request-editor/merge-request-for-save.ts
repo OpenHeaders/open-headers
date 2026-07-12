@@ -40,6 +40,7 @@ export interface RequestSaveBatch {
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
   tlsCipherSuites: string | undefined;
+  allowHttp2: boolean | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -64,6 +65,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
     tlsCipherSuites: req.tlsCipherSuites,
+    allowHttp2: req.allowHttp2,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -110,6 +112,7 @@ export function mergeRequestForSave(
     tlsMinVersion: form.tlsMinVersion,
     tlsMaxVersion: form.tlsMaxVersion,
     tlsCipherSuites: form.tlsCipherSuites,
+    allowHttp2: form.allowHttp2,
     timeoutMs: form.timeoutMs,
     maxResponseBytes: form.maxResponseBytes,
     maxRedirects: form.maxRedirects,
@@ -129,6 +132,7 @@ export function mergeRequestForSave(
     tlsMinVersion: baseProj.tlsMinVersion,
     tlsMaxVersion: baseProj.tlsMaxVersion,
     tlsCipherSuites: baseProj.tlsCipherSuites,
+    allowHttp2: baseProj.allowHttp2,
     timeoutMs: baseProj.timeoutMs,
     maxResponseBytes: baseProj.maxResponseBytes,
     maxRedirects: baseProj.maxRedirects,
@@ -148,6 +152,7 @@ export function mergeRequestForSave(
     tlsMinVersion: liveProj.tlsMinVersion,
     tlsMaxVersion: liveProj.tlsMaxVersion,
     tlsCipherSuites: liveProj.tlsCipherSuites,
+    allowHttp2: liveProj.allowHttp2,
     timeoutMs: liveProj.timeoutMs,
     maxResponseBytes: liveProj.maxResponseBytes,
     maxRedirects: liveProj.maxRedirects,
@@ -177,6 +182,7 @@ export function mergeRequestForSave(
     tlsMinVersion: merged.tlsMinVersion as TlsVersion | undefined,
     tlsMaxVersion: merged.tlsMaxVersion as TlsVersion | undefined,
     tlsCipherSuites: merged.tlsCipherSuites as string | undefined,
+    allowHttp2: merged.allowHttp2 as boolean | undefined,
     timeoutMs: merged.timeoutMs as number | undefined,
     maxResponseBytes: merged.maxResponseBytes as number | undefined,
     maxRedirects: merged.maxRedirects as number | undefined,

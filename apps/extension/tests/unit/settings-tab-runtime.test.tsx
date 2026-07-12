@@ -51,6 +51,7 @@ interface KnobValues {
   tlsMinVersion?: '1.0' | '1.1' | '1.2' | '1.3';
   tlsMaxVersion?: '1.0' | '1.1' | '1.2' | '1.3';
   tlsCipherSuites?: string;
+  allowHttp2?: boolean;
 }
 
 function renderTab(value: KnobValues = {}) {
@@ -162,6 +163,14 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(settingsDotCount({ tlsMaxVersion: '1.2' })).toBe(0);
     expect(settingsDotCount({ tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' })).toBe(0);
   });
+
+  it('keeps HTTP version a browser-managed fact and never dots a synced allowHttp2', () => {
+    renderTab();
+    expect(screen.queryByRole('switch', { name: 'Allow HTTP/2' })).toBeNull();
+    fireEvent.click(screen.getByText('10 browser-managed'));
+    expect(screen.getByText('HTTP version')).toBeTruthy();
+    expect(settingsDotCount({ allowHttp2: true })).toBe(0);
+  });
 });
 
 describe('SettingsTab on a node runtime', () => {
@@ -171,9 +180,8 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getByText('Automatically follow redirects')).toBeTruthy();
     expect(screen.queryByText('Send browser cookies')).toBeNull();
 
-    fireEvent.click(screen.getByText('5 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getByText(/Fixed by the app’s network runtime for every request/)).toBeTruthy();
-    expect(screen.getByText('1.1')).toBeTruthy();
     expect(screen.getByText('Cookies')).toBeTruthy();
     expect(screen.getByText('Referer header')).toBeTruthy();
     expect(screen.getAllByText('Not sent')).toHaveLength(2);
@@ -185,7 +193,7 @@ describe('SettingsTab on a node runtime', () => {
     const knob = screen.getByRole('switch', { name: 'SSL certificate verification' });
     expect(knob.getAttribute('aria-checked')).toBe('true');
     // Graduated out of the fact sheet — the row lives above the reveal.
-    fireEvent.click(screen.getByText('5 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('SSL certificate verification')).toHaveLength(1);
   });
 
@@ -243,7 +251,7 @@ describe('SettingsTab on a node runtime', () => {
     expect(method.getAttribute('aria-checked')).toBe('false');
     expect(auth.getAttribute('aria-checked')).toBe('false');
     // Graduated out of the fact sheet — each label exists exactly once.
-    fireEvent.click(screen.getByText('5 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('Maximum redirects')).toHaveLength(1);
     expect(screen.getAllByText('Follow original HTTP method')).toHaveLength(1);
     expect(screen.getAllByText('Follow Authorization header')).toHaveLength(1);
@@ -300,7 +308,7 @@ describe('SettingsTab on a node runtime', () => {
     expect(cipher.placeholder).toBe('Runtime default suites');
     // Graduated out of the fact sheet — the cipher label exists exactly
     // once, and the protocol-versions fact row is gone entirely.
-    fireEvent.click(screen.getByText('5 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('TLS cipher suites')).toHaveLength(1);
     expect(screen.queryByText('TLS/SSL protocol versions')).toBeNull();
   });
@@ -351,6 +359,37 @@ describe('SettingsTab on a node runtime', () => {
     expect(settingsDotCount({ tlsMinVersion: '1.0' })).toBe(1);
     expect(settingsDotCount({ tlsMaxVersion: '1.2' })).toBe(1);
     expect(settingsDotCount({ tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' })).toBe(1);
+    expect(settingsDotCount()).toBe(0);
+  });
+
+  it('graduates Allow HTTP/2 to a live knob, defaulting to Disabled', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    const knob = screen.getByRole('switch', { name: 'Allow HTTP/2' });
+    expect(knob.getAttribute('aria-checked')).toBe('false');
+    // Graduated out of the fact sheet — no HTTP version fact row remains.
+    fireEvent.click(screen.getByText('4 runtime-managed'));
+    expect(screen.queryByText('HTTP version')).toBeNull();
+  });
+
+  it('reports allowHttp2 true when switched on and clears to undefined when switched off', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{}} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow HTTP/2' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ allowHttp2: true }));
+
+    cleanup();
+    const onChangeOff = vi.fn();
+    render(<SettingsTab value={{ allowHttp2: true }} onChange={onChangeOff} />);
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow HTTP/2' }));
+    expect(onChangeOff).toHaveBeenCalledWith(expect.objectContaining({ allowHttp2: undefined }));
+  });
+
+  it('dots the tab only while Allow HTTP/2 is on', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ allowHttp2: true })).toBe(1);
+    expect(settingsDotCount({ allowHttp2: false })).toBe(0);
     expect(settingsDotCount()).toBe(0);
   });
 });

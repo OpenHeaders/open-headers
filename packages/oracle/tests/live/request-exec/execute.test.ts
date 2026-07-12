@@ -135,6 +135,18 @@ describe('executeOverTransport', () => {
     expect(bare.sent().tlsCipherSuites).toBeUndefined();
   });
 
+  it('passes allowHttp2 through to the transport without marking the snapshot', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(makeResolved({ allowHttp2: true }), transport);
+    expect(sent().allowHttp2).toBe(true);
+    // Offering h2 is not trust-relaxing — no snapshot marker of any kind.
+    expect('allowHttp2' in snap).toBe(false);
+
+    const bare = captureTransport();
+    await executeOverTransport(makeResolved(), bare.transport);
+    expect(bare.sent().allowHttp2).toBeUndefined();
+  });
+
   it('marks a lowered-floor run on the snapshot — success and failure alike', async () => {
     const { transport } = captureTransport();
     const ok = await executeOverTransport(makeResolved({ tlsMinVersion: '1.0' }), transport);

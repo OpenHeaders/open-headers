@@ -365,6 +365,45 @@ describe('createNodeRequestTransport — per-request TLS policy', () => {
   });
 });
 
+describe('createNodeRequestTransport — per-request HTTP/2 offer', () => {
+  it('an allowHttp2-only tuple mints a dedicated agent, reused per tuple', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ allowHttp2: true }));
+    await transport().send(makeRequest({ allowHttp2: true }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('allowHttp2 false or absent keeps the default dispatcher', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest());
+    await transport().send(makeRequest({ allowHttp2: false }));
+    expect(callInit(0).dispatcher).toBeUndefined();
+    expect(callInit(1).dispatcher).toBeUndefined();
+  });
+
+  it('allowHttp2 combines with TLS options into its own distinct tuples', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ allowHttp2: true }));
+    await transport().send(makeRequest({ allowHttp2: true, tlsMinVersion: '1.2' }));
+    await transport().send(makeRequest({ tlsMinVersion: '1.2' }));
+    const agents = [callInit(0).dispatcher, callInit(1).dispatcher, callInit(2).dispatcher];
+    for (const a of agents) expect(a).toBeInstanceOf(Agent);
+    expect(new Set(agents).size).toBe(3);
+  });
+
+  it('the redirect loop is protocol-blind: the h2-offering dispatcher rides every hop', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
+      .mockResolvedValueOnce(new Response('ok'));
+    await transport().send(makeRequest({ allowHttp2: true }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+});
+
 describe('createNodeRequestTransport — hand-rolled redirect follow', () => {
   it('follows a redirect chain to the final response and reports the final URL', async () => {
     fetchMock

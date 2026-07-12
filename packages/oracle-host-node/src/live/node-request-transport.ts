@@ -14,14 +14,18 @@
  *   - **Rich error classification.** Unlike the browser's opaque
  *     `TypeError: Failed to fetch`, undici exposes `err.cause.code`
  *     (`ECONNREFUSED` / `ENOTFOUND` / …), so the message is precise.
- *   - **Per-request TLS policy.** `sslVerification: false`,
- *     `tlsMinVersion` / `tlsMaxVersion`, and `tlsCipherSuites` route the
- *     send through a dispatcher whose TLS connector carries exactly
- *     those options — knobs browser fetch can never honor. Dispatchers
- *     are cached per distinct option tuple (see {@link tlsDispatcher})
- *     so pooled connections are shared, never minted per send. `fetch`
- *     + `Agent` come from the same undici package so the dispatcher and
- *     the fetch pipeline are one stack, one version.
+ *   - **Per-request connection policy.** `sslVerification: false`,
+ *     `tlsMinVersion` / `tlsMaxVersion`, `tlsCipherSuites`, and
+ *     `allowHttp2` route the send through a dispatcher carrying exactly
+ *     those options — knobs browser fetch can never honor. The TLS
+ *     options ride the agent's TLS connector; `allowHttp2` maps to the
+ *     agent's `allowH2`, which adds h2 to the ALPN offer on TLS
+ *     connects (the server picks the protocol; plain http:// stays
+ *     HTTP/1.1 — undici fetch has no h2c). Dispatchers are cached per
+ *     distinct option tuple (see {@link dispatcherFor}) so pooled
+ *     connections are shared, never minted per send. `fetch` + `Agent`
+ *     come from the same undici package so the dispatcher and the
+ *     fetch pipeline are one stack, one version.
  *   - **Hand-rolled redirect follow.** Every fetch goes out with
  *     `redirect: 'manual'` — server-side manual mode returns the REAL
  *     3xx with readable headers (no browser-style opaque filtering), so
@@ -66,32 +70,45 @@ const TLS_VERSION_TOKEN: Record<string, SecureVersion> = {
 };
 
 /**
- * Ceiling on cached TLS-option agents. Distinct TLS tuples per install
- * are tiny in practice (a handful of dev targets), so a plain Map with
- * oldest-entry eviction is enough — an LRU would never see the
+ * Ceiling on cached per-tuple agents. Distinct option tuples per
+ * install are tiny in practice (a handful of dev targets), so a plain
+ * Map with oldest-entry eviction is enough — an LRU would never see the
  * difference. Evicted agents close gracefully (in-flight requests
  * finish); a re-request of an evicted tuple just mints a fresh agent.
  */
-const MAX_TLS_AGENTS = 32;
+const MAX_AGENTS = 32;
 
 /**
- * Shared dispatchers keyed by the canonical TLS-option tuple. Default
- * sends (no TLS-affecting option set) ride undici's global default
- * dispatcher (no override); every send carrying the SAME option tuple
- * shares ONE agent, built on first use — minting an agent per send
- * would leak a connection pool each time. Future TLS-affecting knobs
- * (HTTP version, mTLS client certs) join the tuple here.
+ * Shared dispatchers keyed by the canonical connection-option tuple.
+ * Default sends (no dispatcher-affecting option set) ride undici's
+ * global default dispatcher (no override); every send carrying the
+ * SAME option tuple shares ONE agent, built on first use — minting an
+ * agent per send would leak a connection pool each time. Future
+ * dispatcher-affecting knobs (mTLS client certs) join the tuple here.
  */
-const tlsAgents = new Map<string, Agent>();
+const agentCache = new Map<string, Agent>();
 
-function tlsDispatcher(request: TransportRequest): Agent | undefined {
+function dispatcherFor(request: TransportRequest): Agent | undefined {
   const insecure = request.sslVerification === false;
+  const allowH2 = request.allowHttp2 === true;
   const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites } = request;
-  if (!insecure && tlsMinVersion === undefined && tlsMaxVersion === undefined && tlsCipherSuites === undefined) {
+  if (
+    !insecure &&
+    !allowH2 &&
+    tlsMinVersion === undefined &&
+    tlsMaxVersion === undefined &&
+    tlsCipherSuites === undefined
+  ) {
     return undefined;
   }
-  const key = [insecure ? 'insecure' : '', tlsMinVersion ?? '', tlsMaxVersion ?? '', tlsCipherSuites ?? ''].join('|');
-  const cached = tlsAgents.get(key);
+  const key = [
+    insecure ? 'insecure' : '',
+    tlsMinVersion ?? '',
+    tlsMaxVersion ?? '',
+    tlsCipherSuites ?? '',
+    allowH2 ? 'h2' : '',
+  ].join('|');
+  const cached = agentCache.get(key);
   if (cached) return cached;
   const connect: {
     rejectUnauthorized?: boolean;
@@ -103,15 +120,17 @@ function tlsDispatcher(request: TransportRequest): Agent | undefined {
   if (tlsMinVersion !== undefined) connect.minVersion = TLS_VERSION_TOKEN[tlsMinVersion];
   if (tlsMaxVersion !== undefined) connect.maxVersion = TLS_VERSION_TOKEN[tlsMaxVersion];
   if (tlsCipherSuites !== undefined) connect.ciphers = tlsCipherSuites;
-  const agent = new Agent({ connect });
-  if (tlsAgents.size >= MAX_TLS_AGENTS) {
-    const oldest = tlsAgents.entries().next().value;
+  // `allowH2` is an Agent option, NOT a `connect` option — it sits
+  // beside the connector and switches the ALPN offer to h2+http/1.1.
+  const agent = new Agent({ connect, ...(allowH2 ? { allowH2: true } : {}) });
+  if (agentCache.size >= MAX_AGENTS) {
+    const oldest = agentCache.entries().next().value;
     if (oldest) {
-      tlsAgents.delete(oldest[0]);
+      agentCache.delete(oldest[0]);
       void oldest[1].close();
     }
   }
-  tlsAgents.set(key, agent);
+  agentCache.set(key, agent);
   return agent;
 }
 
@@ -154,10 +173,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       // chain plus the final body read; the abort also cancels a body
       // stream stalled mid-read, which a fetch-only signal would miss.
       const deadline = startDeadline(request.timeoutMs);
-      // ONE dispatcher per send — the TLS options can't change across
-      // hops, and the cache lookup here keeps `fetchHop` the single
-      // place a dispatcher is applied.
-      const dispatcher = tlsDispatcher(request);
+      // ONE dispatcher per send — the connection options can't change
+      // across hops, and the cache lookup here keeps `fetchHop` the
+      // single place a dispatcher is applied.
+      const dispatcher = dispatcherFor(request);
       try {
         if (request.redirect === 'manual') {
           // Single-shot: surface the first response verbatim, 3xx included.
@@ -273,7 +292,7 @@ async function fetchHop(
     // No ambient cookie jar in the main process, so `credentials` has
     // nothing to ride — Node fetch never attaches cookies by default.
   };
-  // The per-request TLS policy rides EVERY hop of the chain.
+  // The per-request connection policy rides EVERY hop of the chain.
   if (dispatcher !== undefined) init.dispatcher = dispatcher;
   const body = buildBody(hop.body);
   if (body !== undefined) init.body = body;

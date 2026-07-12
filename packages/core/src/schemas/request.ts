@@ -546,6 +546,16 @@ export const RequestSchema = v.object({
    */
   tlsCipherSuites: v.optional(TlsCipherSuitesSchema),
   /**
+   * Offer HTTP/2 alongside HTTP/1.1 on secure connections. The server
+   * picks the protocol from the offer; plain `http://` targets stay
+   * HTTP/1.1 regardless. Absent / `false` = HTTP/1.1 only (the runtime
+   * default). Not trust-relaxing — no snapshot marker. Honored by node
+   * runtimes; browser runtimes negotiate their own protocol and ignore
+   * it (the request still syncs it — one schema, all runtimes carry
+   * the value).
+   */
+  allowHttp2: v.optional(v.boolean()),
+  /**
    * Wall-clock ceiling (ms) on the whole round-trip — connection,
    * response, and body read. Honored by BOTH runtimes (the browser
    * fetch aborts on a deadline just like the node transport). Absent =

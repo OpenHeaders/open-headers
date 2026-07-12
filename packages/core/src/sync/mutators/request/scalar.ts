@@ -43,6 +43,7 @@ export type RequestScalarPath =
   | 'tlsMinVersion'
   | 'tlsMaxVersion'
   | 'tlsCipherSuites'
+  | 'allowHttp2'
   | 'timeoutMs'
   | 'maxResponseBytes'
   | 'maxRedirects'

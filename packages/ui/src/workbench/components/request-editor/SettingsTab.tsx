@@ -42,6 +42,13 @@
  *     raising it or listing suites is not. Cipher-suite ORDER stays a
  *     fact everywhere: the server picks the suite, so preference order
  *     is not a client-side knob.
+ *   • `allowHttp2` — node-runtime only: the node transport's dispatcher
+ *     offers h2 alongside http/1.1 in the ALPN list on secure
+ *     connections; the SERVER picks the protocol, and plain http://
+ *     stays HTTP/1.1 (no h2c). An honest boolean — there is no
+ *     force-h2 mode — and pure configuration: not trust-relaxing, no
+ *     response marker. The browser negotiates protocol on its own, so
+ *     there 'HTTP version' stays a browser-managed fact row.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -95,6 +102,9 @@ export interface RequestSettingsDraft {
   /** OpenSSL-format colon-joined cipher list offered in the handshake.
    *  Undefined = the runtime's default suites. Node runtimes only. */
   tlsCipherSuites?: string;
+  /** Offer HTTP/2 on secure connections (the server picks the
+   *  protocol). Defaults to false = HTTP/1.1 only. Node runtimes only. */
+  allowHttp2?: boolean;
   /** Round-trip ceiling in milliseconds. Undefined = no per-request
    *  limit. Honored on both runtimes. */
   timeoutMs?: number;
@@ -184,12 +194,6 @@ const BROWSER_MANAGED: RuntimeManagedDef[] = [
 ];
 
 const NODE_MANAGED: RuntimeManagedDef[] = [
-  {
-    label: 'HTTP version',
-    value: '1.1',
-    description:
-      'Requests go over HTTP/1.1. The app’s Node fetch stack does not negotiate HTTP/2 or HTTP/3, and no version selector is exposed.',
-  },
   {
     label: 'Cookies',
     value: 'Not sent',
@@ -508,6 +512,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
                 ? 'Colon-separated OpenSSL suite names only — no spaces.'
                 : undefined
             }
+          />
+          <KnobRow
+            label="Allow HTTP/2"
+            checked={value.allowHttp2 === true}
+            onChange={(checked) => onChange({ ...value, allowHttp2: checked || undefined })}
+            info="Offer HTTP/2 alongside HTTP/1.1 when connecting over https — the server picks the protocol from the offer, so a server without HTTP/2 support still answers over HTTP/1.1. Plain http:// requests always use HTTP/1.1. Off, requests are sent over HTTP/1.1 only."
           />
         </>
       )}

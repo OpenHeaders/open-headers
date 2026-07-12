@@ -56,6 +56,7 @@ describe('requestExecutableFingerprint', () => {
     expect(requestExecutableFingerprint(makeRequest({ tlsMinVersion: '1.0' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ tlsMaxVersion: '1.2' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' }))).not.toBe(base);
+    expect(requestExecutableFingerprint(makeRequest({ allowHttp2: true }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ timeoutMs: 15000 }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ maxResponseBytes: 4096 }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ maxRedirects: 5 }))).not.toBe(base);

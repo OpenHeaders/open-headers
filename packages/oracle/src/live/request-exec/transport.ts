@@ -110,6 +110,15 @@ export interface TransportRequest {
    */
   tlsCipherSuites?: string;
   /**
+   * Offer HTTP/2 alongside HTTP/1.1 on secure connections. The server
+   * picks the protocol from the ALPN offer; plain `http://` targets
+   * stay HTTP/1.1 regardless. Absent / `false` → HTTP/1.1 only (the
+   * runtime default). Pure configuration — the negotiated protocol is
+   * not reported back. Transports whose network stack owns protocol
+   * negotiation (the browser SW) ignore it.
+   */
+  allowHttp2?: boolean;
+  /**
    * Optional per-attempt wall-clock ceiling in milliseconds. The
    * transport MUST abort the whole round-trip — connection, response,
    * and body read — once this elapses, surfacing a

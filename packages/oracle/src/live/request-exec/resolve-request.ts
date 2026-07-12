@@ -50,6 +50,9 @@ export interface ResolvedRequest {
   tlsMaxVersion?: TlsVersion;
   /** OpenSSL-format cipher list; absent → the runtime's default suites. */
   tlsCipherSuites?: string;
+  /** Offer HTTP/2 on secure connections (the server picks); absent /
+   *  `false` → HTTP/1.1 only. */
+  allowHttp2?: boolean;
   /** Per-request round-trip ceiling (ms). A workflow step's own
    *  per-attempt timeout takes precedence at execute time. */
   timeoutMs?: number;
@@ -207,6 +210,7 @@ export async function resolveRequest(
       tlsMinVersion: request.tlsMinVersion,
       tlsMaxVersion: request.tlsMaxVersion,
       tlsCipherSuites: request.tlsCipherSuites,
+      allowHttp2: request.allowHttp2,
       timeoutMs: request.timeoutMs,
       maxResponseBytes: request.maxResponseBytes,
       maxRedirects: request.maxRedirects,
