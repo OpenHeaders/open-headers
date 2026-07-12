@@ -23,7 +23,7 @@ const HOMEPAGE_URL = 'https://openheaders.io';
 const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers-releases/issues/new';
 const EULA_URL = 'https://openheaders.io/eula';
 
-function openSettingsSurface(): void {
+export function openSettingsSurface(): void {
   // The tray-resident window is hidden, not destroyed, so the renderer
   // is mounted and its `openSettings` subscription is live by the time
   // the broadcast lands.

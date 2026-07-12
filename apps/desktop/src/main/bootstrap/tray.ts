@@ -10,6 +10,7 @@
  */
 
 import { app, Menu, nativeImage, Tray } from 'electron';
+import { openSettingsSurface } from './application-menu';
 import { markQuitting } from './quit-state';
 import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
 import { buildAssetPath, showMainWindow } from './window-manager';
@@ -24,6 +25,7 @@ function buildTrayMenu(): Menu {
     { label: 'Open Open Headers', click: showMainWindow },
     ...(updateItems.length > 0 ? [{ type: 'separator' as const }, ...updateItems] : []),
     { type: 'separator' },
+    { label: 'Settings…', click: openSettingsSurface },
     {
       label: 'Quit',
       click: () => {
