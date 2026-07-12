@@ -1,6 +1,6 @@
 # Open Headers — End User License Agreement
 
-**Effective date: July 11, 2026**
+**Effective date: July 12, 2026**
 
 This End User License Agreement (the "Agreement") is a legal agreement
 between you (an individual or a legal entity, "you") and **Bithub Team
@@ -31,12 +31,13 @@ non-transferable, worldwide license to install and use the Software:
 
 - **Free Tier:** free of charge, for personal or internal business
   purposes, on any number of devices, with up to 10 Active Users per
-  daemon deployment. Every feature of the Software is included; the
-  Free Tier is not a trial and does not expire.
+  daemon deployment. The Free Tier is not a trial and does not expire,
+  and capabilities included in the Free Tier will not subsequently be
+  withdrawn from it or moved behind payment.
 - **Paid subscription (Team / Enterprise):** for the number of Seats
   recorded in your License File, for the validity period it records.
-  The paid tiers are feature-identical to the Free Tier; payment
-  covers Seats only.
+  Payment covers Seats; a paid subscription is never required to use
+  any capability included in the Free Tier.
 
 ## 3. License Files, verification, and lapse
 

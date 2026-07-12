@@ -96,9 +96,9 @@ export const ParadigmShiftDiagram: React.FC = () => {
       name: 'Pricing & Trust',
       rows: [
         {
-          us: { primary: 'Every feature on every tier', sub: 'free ≤ 10 users · paid = seats only' },
+          us: { primary: 'Everything today, on every tier', sub: 'free ≤ 10 users · paid = team seats' },
           them: { primary: 'Feature-gated tiers', sub: 'core capabilities behind upsells' },
-          usCornerStamp: 'NO PAYWALLS',
+          usCornerStamp: 'FREE STAYS FREE',
         },
         {
           us: { primary: 'SSO & security always free', sub: 'SSO/OIDC · RBAC · audit · SIEM' },
@@ -311,7 +311,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="The paradigm shift — grouped contrasts between Open Headers and every other tool in the space. Everything in one browser extension, no account, local-only, no telemetry, one engine for nine rule types, field-level sync, every feature on every tier with seats-only pricing and no lockout on lapse — versus the rest of the market."
+      aria-label="The paradigm shift — grouped contrasts between Open Headers and every other tool in the space. Everything in one browser extension, no account, local-only, no telemetry, one engine for nine rule types, field-level sync, a full-featured free tier where free stays free, seat-based pricing, and no lockout on lapse — versus the rest of the market."
     >
       <text x={CENTER_X} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT} letterSpacing={1}>
         THE PARADIGM SHIFT

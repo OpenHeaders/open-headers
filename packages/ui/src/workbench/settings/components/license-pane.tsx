@@ -111,8 +111,8 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
               message={<span style={{ fontSize: 12 }}>Free tier</span>}
               description={
                 <span style={{ fontSize: 12 }}>
-                  Every feature is included — the free tier admits up to {FREE_SEAT_LIMIT} active users per daemon.
-                  Install a license key to raise the seat limit.
+                  Everything in Open Headers today is included — the free tier admits up to {FREE_SEAT_LIMIT} active
+                  users per daemon. Install a license key to raise the seat limit.
                 </span>
               }
               style={{ marginBottom: 12 }}

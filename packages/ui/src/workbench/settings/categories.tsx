@@ -236,7 +236,7 @@ registerCategory({
   icon: <SafetyCertificateOutlined />,
   order: 895,
   description:
-    'Seats are the only paid axis — every feature is free on every tier. The free tier admits up to 10 active users per daemon.',
+    'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 10 active users per daemon.',
   renderPane: LicensePane,
   // The extension carries no license plumbing; desktop and the served
   // web workbench both reach the host's license slot over their bridge.
