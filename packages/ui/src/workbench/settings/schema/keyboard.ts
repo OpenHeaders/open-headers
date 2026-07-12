@@ -16,6 +16,7 @@
  */
 
 import * as v from 'valibot';
+import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { registerSetting } from '../registry';
 
 // Permissive chord validator: empty, or zero-or-more known modifiers
@@ -27,6 +28,16 @@ const chordSchema = v.pipe(
   v.regex(/^$|^(?:(?:mod|shift|alt|ctrl)\+)*[^\s+]+$/i, 'Must be a chord like "mod+k" or empty'),
 );
 
+// Per-host chord default. The extension workbench lives in a browser
+// tab where the classic chords (Cmd/Ctrl+W, +T, +N, +O) are
+// browser-reserved and never reach the page, so its defaults fall back
+// to the Alt cluster. The desktop host owns its whole keyboard, so it
+// ships the native-app conventions. Resolved via `getDefault` — lazily,
+// after the entry point has installed the host — never at registration.
+function hostChord(desktopChord: string, browserChord: string): () => string {
+  return () => (getCurrentHost() === 'desktop' ? desktopChord : browserChord);
+}
+
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'keyboard.toggleDebugMode': string;
@@ -37,6 +48,8 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'keyboard.toggleRightSidebar': string;
     'keyboard.toggleActivityFeed': string;
     'keyboard.newRule': string;
+    'keyboard.newTab': string;
+    'keyboard.import': string;
     'keyboard.save': string;
     'keyboard.closeTab': string;
     'keyboard.nextTab': string;
@@ -155,13 +168,48 @@ registerSetting({
 registerSetting({
   key: 'keyboard.newRule',
   type: 'keybinding',
+  // Browser: `mod+n` opens a new browser window, so the extension falls
+  // back to `alt+n`. Desktop owns the chord.
   default: 'alt+n',
+  getDefault: hostChord('mod+n', 'alt+n'),
   schema: chordSchema,
   label: 'Create Item',
   description: 'Open the create menu for rules and API requests.',
   category: 'keyboard',
   subcategory: 'workbench-general',
   tags: ['new', 'rule', 'request', 'item', 'create'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'keyboard.newTab',
+  type: 'keybinding',
+  // Browser: `mod+t` opens a new browser tab, so the extension falls
+  // back to `alt+t`. Desktop owns the chord.
+  default: 'alt+t',
+  getDefault: hostChord('mod+t', 'alt+t'),
+  schema: chordSchema,
+  label: 'New Tab',
+  description: 'Open a new draft API request tab.',
+  category: 'keyboard',
+  subcategory: 'workbench-tabs',
+  tags: ['new', 'tab', 'request', 'draft'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'keyboard.import',
+  type: 'keybinding',
+  // Browser: `mod+o` opens the browser's file picker, so the extension
+  // falls back to `alt+o`. Desktop owns the chord.
+  default: 'alt+o',
+  getDefault: hostChord('mod+o', 'alt+o'),
+  schema: chordSchema,
+  label: 'Import',
+  description: 'Open the import hub for curl, HAR, and workspace files.',
+  category: 'keyboard',
+  subcategory: 'workbench-general',
+  tags: ['import', 'curl', 'har', 'open'],
   scope: 'user',
 });
 
@@ -181,12 +229,14 @@ registerSetting({
 registerSetting({
   key: 'keyboard.closeTab',
   type: 'keybinding',
-  // `mod+w` (Cmd/Ctrl+W) is browser-reserved — it closes the BROWSER
-  // TAB, not just the in-app editor tab, so the binding never reaches
-  // the page. `alt+w` (Option+W on macOS, Alt+W on Windows/Linux) is
-  // unreserved on all three platforms and matches what VS Code Web
-  // does for the same reason. Users can rebind in Settings → Keyboard.
+  // Browser: `mod+w` (Cmd/Ctrl+W) is browser-reserved — it closes the
+  // BROWSER TAB, not just the in-app editor tab, so the binding never
+  // reaches the page. `alt+w` (Option+W on macOS, Alt+W on
+  // Windows/Linux) is unreserved on all three platforms and matches
+  // what VS Code Web does for the same reason. Desktop owns `mod+w`.
+  // Users can rebind in Settings → Keyboard.
   default: 'alt+w',
+  getDefault: hostChord('mod+w', 'alt+w'),
   schema: chordSchema,
   label: 'Close Tab',
   description: 'Close the focused editor tab.',

@@ -31,7 +31,12 @@ export function broadcastToAllRenderers(type: string, payload: unknown): void {
  */
 export function sendToFocusedRenderer(type: string, payload: unknown): void {
   const win = BrowserWindow.getFocusedWindow();
-  if (!win || win.isDestroyed()) return;
+  if (win) sendToRendererWindow(win, type, payload);
+}
+
+/** Send a bridge broadcast to one specific window. */
+export function sendToRendererWindow(win: BrowserWindow, type: string, payload: unknown): void {
+  if (win.isDestroyed()) return;
   try {
     win.webContents.send(BROADCAST_CHANNEL, { type, payload });
   } catch {

@@ -664,6 +664,20 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     [handleNextTab, handlePrevTab],
   );
 
+  // Host-shell File-menu commands (desktop native menu) — each routes to
+  // the same handler its in-app chord uses, so menu and keyboard stay
+  // behaviorally identical.
+  useEffect(
+    () =>
+      hostBridge.subscribe('menuCommand', ({ command }) => {
+        if (command === 'newItem') openCreateMenu();
+        else if (command === 'newTab') openCreateRequestTab();
+        else if (command === 'import') importExportRef.current?.openImportSource();
+        else if (command === 'closeTab') handleCloseActiveTab();
+      }),
+    [openCreateMenu, openCreateRequestTab, handleCloseActiveTab],
+  );
+
   // The console opens as a workbench tab — dismiss the settings overlay
   // on the way out so the navigation lands on a visible surface instead
   // of underneath the modal.
@@ -915,6 +929,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onToggleInspector: () => togglePanel('inspector'),
     onToggleActivityFeed: () => tl.toggleWindow('activity'),
     onCloseTab: handleCloseActiveTab,
+    onNewTab: () => openCreateRequestTab(),
+    onImport: () => importExportRef.current?.openImportSource(),
     onPrevTab: handlePrevTab,
     onNextTab: handleNextTab,
     onGoToTab: handleGoToTab,

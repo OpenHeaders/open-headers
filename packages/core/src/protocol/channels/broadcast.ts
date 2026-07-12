@@ -134,6 +134,16 @@ export interface BridgeBroadcastContract {
    * chrome never send it.
    */
   tabNavigate: { direction: 'next' | 'previous' };
+  /**
+   * Host-shell File-menu command, routed to the window the user is
+   * acting in. Emitted by the desktop main process; hosts without
+   * native chrome never send it.
+   *   - `newItem`  → open the +create menu
+   *   - `newTab`   → open a draft API-request tab
+   *   - `import`   → open the import hub
+   *   - `closeTab` → close the active editor tab (dirty-confirm applies)
+   */
+  menuCommand: { command: 'newItem' | 'newTab' | 'import' | 'closeTab' };
 
   /**
    * Phase C F5 — live tail for the Activity Feed panel. Fires per

@@ -42,6 +42,8 @@ export interface WorkspaceShortcutHandlers {
   onToggleInspector: () => void;
   onToggleActivityFeed: () => void;
   onCloseTab: () => void;
+  onNewTab: () => void;
+  onImport: () => void;
   onPrevTab: () => void;
   onNextTab: () => void;
   /**
@@ -153,6 +155,13 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     requireActiveTab: true,
   },
   {
+    id: 'new-tab',
+    label: 'New tab',
+    settingKey: 'keyboard.newTab',
+    category: 'tabs',
+    handler: { kind: 'direct', name: 'onNewTab' },
+  },
+  {
     id: 'prev-tab',
     label: 'Previous tab',
     settingKey: 'keyboard.previousTab',
@@ -237,6 +246,13 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     settingKey: 'keyboard.newRule',
     category: 'actions',
     handler: { kind: 'direct', name: 'onNewRule' },
+  },
+  {
+    id: 'import',
+    label: 'Import',
+    settingKey: 'keyboard.import',
+    category: 'actions',
+    handler: { kind: 'direct', name: 'onImport' },
   },
   {
     id: 'show-shortcuts',

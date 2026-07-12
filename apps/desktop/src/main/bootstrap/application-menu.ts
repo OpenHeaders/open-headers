@@ -14,11 +14,11 @@
  * `update-menus` and rebuilds on every updater transition.
  */
 
-import { app, Menu, type MenuItemConstructorOptions, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, nativeImage, shell } from 'electron';
 import { isHardwareAccelerationDisabled, toggleHardwareAcceleration } from './hardware-acceleration';
-import { broadcastToAllRenderers, sendToFocusedRenderer } from './renderer-broadcast';
+import { broadcastToAllRenderers, sendToFocusedRenderer, sendToRendererWindow } from './renderer-broadcast';
 import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
-import { createChildWindow, showMainWindow } from './window-manager';
+import { createChildWindow, getMainWindow, showMainWindow } from './window-manager';
 
 const HOMEPAGE_URL = 'https://openheaders.io';
 const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers-releases/issues/new';
@@ -59,8 +59,35 @@ function hardwareAccelerationMenuItem(): MenuItemConstructorOptions {
   };
 }
 
-// Editor-tab cycling in the focused window. Postman-convention chords on
-// macOS (⇧⌘] / ⇧⌘[); the classic Ctrl+Tab pair on Windows / Linux, where
+// Create / import commands land in the focused window; with every
+// window hidden (tray-resident state — the macOS menu bar stays
+// reachable) they reveal the primary window first and land there. The
+// tray-resident renderer is mounted while hidden, so its subscription
+// is live before the send.
+function sendMenuCommand(command: 'newItem' | 'newTab' | 'import'): void {
+  const focused = BrowserWindow.getFocusedWindow();
+  if (focused) {
+    sendToRendererWindow(focused, 'menuCommand', { command });
+    return;
+  }
+  showMainWindow();
+  const main = getMainWindow();
+  if (main) sendToRendererWindow(main, 'menuCommand', { command });
+}
+
+// Close Tab targets the focused window only — no reveal: closing a tab
+// in a window the user can't see would be silent data-flow. The
+// renderer applies its normal dirty-confirm flow.
+function closeTabMenuItem(): MenuItemConstructorOptions {
+  return {
+    label: 'Close Tab',
+    accelerator: 'CommandOrControl+W',
+    click: () => sendToFocusedRenderer('menuCommand', { command: 'closeTab' }),
+  };
+}
+
+// Editor-tab cycling in the focused window. Bracket chords on macOS
+// (⇧⌘] / ⇧⌘[); the classic Ctrl+Tab pair on Windows / Linux, where
 // bracket chords collide with keyboard-layout AltGr sequences. These are
 // native accelerators, so they work regardless of the renderer's own
 // rebindable Alt+] / Alt+[ bindings.
@@ -113,11 +140,27 @@ function template(): MenuItemConstructorOptions[] {
       label: 'File',
       submenu: [
         {
+          label: 'New…',
+          accelerator: 'CommandOrControl+N',
+          click: () => sendMenuCommand('newItem'),
+        },
+        {
+          label: 'New Tab',
+          accelerator: 'CommandOrControl+T',
+          click: () => sendMenuCommand('newTab'),
+        },
+        {
           label: 'New Window',
           accelerator: 'CommandOrControl+Shift+N',
           click: () => {
             createChildWindow();
           },
+        },
+        { type: 'separator' },
+        {
+          label: 'Import…',
+          accelerator: 'CommandOrControl+O',
+          click: () => sendMenuCommand('import'),
         },
         ...(!isMac
           ? ([
@@ -127,7 +170,11 @@ function template(): MenuItemConstructorOptions[] {
             ] as MenuItemConstructorOptions[])
           : []),
         { type: 'separator' },
-        isMac ? { role: 'close' } : { role: 'quit' },
+        // Close Window moves to ⇧⌘W so the plain chord goes to Close
+        // Tab — the native-app convention.
+        ...(isMac
+          ? ([{ role: 'close', accelerator: 'Shift+Command+W' }, closeTabMenuItem()] as MenuItemConstructorOptions[])
+          : ([closeTabMenuItem(), { role: 'quit' }] as MenuItemConstructorOptions[])),
       ],
     },
     {
@@ -175,7 +222,12 @@ function template(): MenuItemConstructorOptions[] {
         ...tabNavigationMenuItems(isMac),
         ...(isMac
           ? ([{ type: 'separator' }, { role: 'front' }] as MenuItemConstructorOptions[])
-          : ([{ type: 'separator' }, { role: 'close' }] as MenuItemConstructorOptions[])),
+          : // ⇧Ctrl+W, not the role's default Ctrl+W — the plain chord
+            // belongs to File > Close Tab.
+            ([
+              { type: 'separator' },
+              { role: 'close', accelerator: 'Shift+Control+W' },
+            ] as MenuItemConstructorOptions[])),
       ],
     },
     {
