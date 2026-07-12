@@ -267,6 +267,9 @@ importers:
       '@openheaders/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@openheaders/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@openheaders/oracle':
         specifier: workspace:*
         version: link:../../packages/oracle
@@ -458,6 +461,15 @@ importers:
         specifier: ^4.1.0
         version: 4.1.2(@types/node@22.19.15)(jsdom@29.0.1)(vite@8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@22.19.15)(esbuild@0.27.4)(less@4.6.4)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
 
+  packages/i18n:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.2(@types/node@22.19.15)(jsdom@29.0.1)(vite@8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@22.19.15)(esbuild@0.27.4)(less@4.6.4)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
+
   packages/oracle:
     dependencies:
       '@openheaders/core':
@@ -596,6 +608,9 @@ importers:
       '@openheaders/core':
         specifier: workspace:*
         version: link:../core
+      '@openheaders/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       '@prettier/plugin-xml':
         specifier: ^3.4.2
         version: 3.4.2(prettier@3.8.3)

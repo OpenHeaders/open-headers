@@ -4,10 +4,13 @@
  * locale.
  */
 
+import { LOCALES } from '@openheaders/i18n';
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
-const languageSchema = v.picklist(['auto', 'en']);
+// The picker derives from the i18n locale registry — adding a language
+// there grows this setting automatically.
+const languageSchema = v.picklist(['auto', ...LOCALES.map((l) => l.code)] as [string, ...string[]]);
 const settingsOpenModeSchema = v.picklist(['modal', 'modal-maximized', 'tab']);
 const collectionEnvAutoSwitchSchema = v.picklist(['keep-selection', 'apply-defaults', 'follow-collection']);
 
@@ -33,13 +36,20 @@ registerSetting({
   default: 'auto',
   schema: languageSchema,
   label: 'Language',
-  description: 'Display language for the interface.',
+  description:
+    'Display language for the interface. Applies immediately to every open surface — no reload. Technical vocabulary (header names, HTTP methods, protocol terms) stays in English in every language.',
   category: 'general',
-  tags: ['locale', 'i18n', 'translation'],
+  tags: ['locale', 'i18n', 'translation', 'language', 'display'],
   scope: 'user',
   enumOptions: [
-    { value: 'auto', label: 'Follow system' },
-    { value: 'en', label: 'English' },
+    { value: 'auto', label: 'Follow system', description: 'Match your browser or operating system language' },
+    ...LOCALES.map((l) => ({
+      value: l.code,
+      label: l.nativeName,
+      description: l.synthetic
+        ? 'Accented, expanded English for spotting untranslated or truncated text'
+        : l.englishName,
+    })),
   ],
 });
 

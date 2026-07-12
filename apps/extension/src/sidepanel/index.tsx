@@ -8,7 +8,7 @@ import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
 import '@/host/install-capabilities';
 import '@/host/install-self-close-capability';
-import { ThemeProvider } from '@openheaders/ui/context';
+import { LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import App from '@openheaders/ui/popup/App';
 import { SurfaceProvider } from '@openheaders/ui/shared/surface';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
@@ -24,11 +24,13 @@ const root = createRoot(container!);
 root.render(
   <SurfaceProvider mode="sidepanel">
     <SettingsProvider>
-      <ThemeProvider>
-        <AntApp>
-          <App resolveIdentity={resolveSidePanelIdentity} />
-        </AntApp>
-      </ThemeProvider>
+      <LocaleProvider>
+        <ThemeProvider>
+          <AntApp>
+            <App resolveIdentity={resolveSidePanelIdentity} />
+          </AntApp>
+        </ThemeProvider>
+      </LocaleProvider>
     </SettingsProvider>
   </SurfaceProvider>,
 );

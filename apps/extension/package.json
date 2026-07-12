@@ -42,6 +42,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.7.0",
     "@openheaders/core": "workspace:*",
+    "@openheaders/i18n": "workspace:*",
     "@openheaders/oracle": "workspace:*",
     "@openheaders/oracle-host-browser": "workspace:*",
     "@openheaders/rule-engine": "workspace:*",

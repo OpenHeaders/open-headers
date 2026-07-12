@@ -7,7 +7,7 @@ import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
 import '@/host/install-capabilities';
-import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
+import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
@@ -36,9 +36,11 @@ const root = createRoot(container!);
 function renderShell(children: React.ReactNode): void {
   root.render(
     <SettingsProvider>
-      <ThemeProvider>
-        <AntApp>{children}</AntApp>
-      </ThemeProvider>
+      <LocaleProvider>
+        <ThemeProvider>
+          <AntApp>{children}</AntApp>
+        </ThemeProvider>
+      </LocaleProvider>
     </SettingsProvider>,
   );
   // The real UI is up — retire the boot/transition spinner.

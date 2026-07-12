@@ -76,6 +76,10 @@
       "import": "./src/context/index.ts",
       "default": "./dist/context/index.js"
     },
+    "./context/*": {
+      "import": "./src/context/*",
+      "default": "./dist/context/*.js"
+    },
     "./components/*": {
       "import": "./src/components/*",
       "default": "./dist/components/*.js"
@@ -210,6 +214,7 @@
     "@fontsource/source-code-pro": "^5.2.7",
     "@monaco-editor/react": "^4.7.0",
     "@openheaders/core": "workspace:*",
+    "@openheaders/i18n": "workspace:*",
     "@prettier/plugin-xml": "^3.4.2",
     "allotment": "^1.20.5",
     "antd": "^6.3.5",

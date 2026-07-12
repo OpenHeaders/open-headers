@@ -8,7 +8,7 @@ import '@/host/install-assets-host';
 import '@/host/install-cdp-capability';
 import '@/host/install-csp-exempt-capability';
 import { registerCapability } from '@openheaders/core/capabilities';
-import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
+import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
@@ -38,10 +38,12 @@ const root = createRoot(container!);
 
 root.render(
   <SettingsProvider>
-    <ThemeProvider>
-      <AntApp>
-        <Workbench resolveIdentity={resolveWorkbenchIdentity} />
-      </AntApp>
-    </ThemeProvider>
+    <LocaleProvider>
+      <ThemeProvider>
+        <AntApp>
+          <Workbench resolveIdentity={resolveWorkbenchIdentity} />
+        </AntApp>
+      </ThemeProvider>
+    </LocaleProvider>
   </SettingsProvider>,
 );

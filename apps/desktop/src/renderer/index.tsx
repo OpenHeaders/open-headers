@@ -8,7 +8,7 @@ import './host/install-build-info';
 import './host/install-navigation-host';
 import './host/install-assets-host';
 import './host/install-awareness-host';
-import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
+import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
@@ -43,10 +43,12 @@ const root = createRoot(container!);
 
 root.render(
   <SettingsProvider>
-    <ThemeProvider>
-      <AntApp>
-        <Workbench resolveIdentity={resolveWorkbenchIdentity} />
-      </AntApp>
-    </ThemeProvider>
+    <LocaleProvider>
+      <ThemeProvider>
+        <AntApp>
+          <Workbench resolveIdentity={resolveWorkbenchIdentity} />
+        </AntApp>
+      </ThemeProvider>
+    </LocaleProvider>
   </SettingsProvider>,
 );

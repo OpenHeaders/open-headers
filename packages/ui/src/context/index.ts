@@ -19,6 +19,7 @@ export * from './EnvironmentContext';
 export * from './FilesContext';
 export * from './LiveVariablesContext';
 export * from './LiveWorkflowsContext';
+export * from './LocaleContext';
 export * from './mirrors/awareness-mirror';
 export * from './mirrors/collection-sync-mirror';
 export * from './mirrors/eager-mirror-init';

@@ -7,7 +7,7 @@ import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
 import '@/host/install-capabilities';
 import '@/host/install-self-close-capability';
-import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
+import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import App from '@openheaders/ui/popup/App';
 import { SurfaceProvider } from '@openheaders/ui/shared/surface';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
@@ -27,11 +27,13 @@ const root = createRoot(container!);
 root.render(
   <SurfaceProvider mode="popup">
     <SettingsProvider>
-      <ThemeProvider>
-        <AntApp>
-          <App resolveIdentity={resolvePopupIdentity} />
-        </AntApp>
-      </ThemeProvider>
+      <LocaleProvider>
+        <ThemeProvider>
+          <AntApp>
+            <App resolveIdentity={resolvePopupIdentity} />
+          </AntApp>
+        </ThemeProvider>
+      </LocaleProvider>
     </SettingsProvider>
   </SurfaceProvider>,
 );

@@ -7,6 +7,8 @@
  */
 
 import { CloseOutlined, SearchOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Input, type InputRef, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
@@ -21,13 +23,14 @@ interface SettingsSearchProps {
   onArrowDown?: () => void;
 }
 
-const FILTERS: readonly { token: string; label: string }[] = [
-  { token: '@modified', label: 'Modified' },
-  { token: '@experimental', label: 'Experimental' },
+const FILTERS: readonly { token: string; labelKey: MessageKey }[] = [
+  { token: '@modified', labelKey: 'workbench.settings.search.filter.modified' },
+  { token: '@experimental', labelKey: 'workbench.settings.search.filter.experimental' },
 ];
 
 const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange, inputRef, autoFocus, onArrowDown }) => {
   const { token } = theme.useToken();
+  const t = useT();
 
   const toggleFilter = useCallback(
     (filterToken: string) => {
@@ -47,7 +50,7 @@ const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange, i
         ref={inputRef}
         autoFocus={autoFocus}
         prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-        placeholder="Search settings (try @modified)"
+        placeholder={t('workbench.settings.search.placeholder')}
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
         onKeyDown={(e) => {
@@ -71,7 +74,7 @@ const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange, i
           const active = query.toLowerCase().includes(f.token);
           return (
             <Button key={f.token} size="small" type={active ? 'primary' : 'text'} onClick={() => toggleFilter(f.token)}>
-              {f.label}
+              {t(f.labelKey)}
             </Button>
           );
         })}

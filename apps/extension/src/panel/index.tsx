@@ -10,7 +10,7 @@ import '@/host/install-storage-inspector';
 import '@/host/install-assets-host';
 import '@/host/install-parity-bridge';
 import '@/host/install-capabilities';
-import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
+import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import App from '@openheaders/ui/panel/App';
 import { SurfaceProvider } from '@openheaders/ui/shared/surface';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
@@ -31,11 +31,13 @@ const root = createRoot(container!);
 root.render(
   <SurfaceProvider mode="devpanel">
     <SettingsProvider>
-      <ThemeProvider>
-        <AntApp>
-          <App resolveIdentity={resolveDevPanelIdentity} />
-        </AntApp>
-      </ThemeProvider>
+      <LocaleProvider>
+        <ThemeProvider>
+          <AntApp>
+            <App resolveIdentity={resolveDevPanelIdentity} />
+          </AntApp>
+        </ThemeProvider>
+      </LocaleProvider>
     </SettingsProvider>
   </SurfaceProvider>,
 );

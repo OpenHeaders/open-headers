@@ -1,0 +1,96 @@
+/**
+ * LocaleContext — the translation plane for every React surface.
+ *
+ * Reads `general.language` from the settings store, resolves `auto`
+ * against the browser's language preferences, and provides the typed
+ * `t()` for that locale plus Ant Design's locale pack via a
+ * ConfigProvider (ThemeProvider's inner ConfigProvider inherits it, so
+ * mount order is LocaleProvider outside ThemeProvider). Switching
+ * language swaps the catalog in place — no reload; other open surfaces
+ * follow through the settings store's cross-context sync.
+ *
+ * The pre-provider default translates through the English catalog, so
+ * components render correctly in tests and in trees mounted without
+ * the provider.
+ *
+ * Requires `SettingsProvider` to be mounted above this component.
+ */
+
+import {
+  DEFAULT_LOCALE,
+  getLocaleDef,
+  getTranslator,
+  type LocaleDirection,
+  type MessageArgs,
+  type MessageKey,
+  resolveLocale,
+} from '@openheaders/i18n';
+// Concrete module, not the settings barrel — same chunk-level
+// import-cycle constraint as ThemeContext.
+import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
+import { ConfigProvider } from 'antd';
+import type { Locale as AntdLocale } from 'antd/es/locale';
+import enUS from 'antd/locale/en_US';
+import type React from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
+
+/** Typed translation function — keys are checked against the English catalog. */
+export type Translate = (key: MessageKey, args?: MessageArgs) => string;
+
+interface LocaleContextValue {
+  /** Resolved locale code (never `auto`). */
+  locale: string;
+  direction: LocaleDirection;
+  t: Translate;
+}
+
+// antd ships its own locale packs; each real locale we add maps its
+// pack here. Pseudo renders our pseudoized catalog inside English
+// component chrome — antd strings are not part of the extraction QA.
+const ANTD_LOCALES: Readonly<Record<string, AntdLocale>> = {
+  en: enUS,
+  pseudo: enUS,
+};
+
+export const LocaleContext = createContext<LocaleContextValue>({
+  locale: DEFAULT_LOCALE,
+  direction: 'ltr',
+  t: getTranslator(DEFAULT_LOCALE),
+});
+
+export const useLocale = (): LocaleContextValue => useContext(LocaleContext);
+
+/** The common case — components that only need `t()`. */
+export const useT = (): Translate => useContext(LocaleContext).t;
+
+interface LocaleProviderProps {
+  children: React.ReactNode;
+}
+
+export const LocaleProvider: React.FC<LocaleProviderProps> = ({ children }) => {
+  const language = useSettingValue('general.language');
+
+  const locale = useMemo(() => {
+    const preferences = typeof navigator !== 'undefined' ? navigator.languages : [];
+    return resolveLocale(language, preferences);
+  }, [language]);
+
+  const direction: LocaleDirection = getLocaleDef(locale)?.direction ?? 'ltr';
+
+  const value = useMemo<LocaleContextValue>(() => ({ locale, direction, t: getTranslator(locale) }), [locale, direction]);
+
+  // Mirror the resolved locale onto the document so plain-CSS surfaces
+  // and the browser's own behaviors (spellcheck, hyphenation) follow.
+  // Pseudo is accented English — announce it as such.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.lang = locale === 'pseudo' ? 'en' : locale;
+    root.dir = direction;
+  }, [locale, direction]);
+
+  return (
+    <LocaleContext.Provider value={value}>
+      <ConfigProvider locale={ANTD_LOCALES[locale] ?? enUS}>{children}</ConfigProvider>
+    </LocaleContext.Provider>
+  );
+};
