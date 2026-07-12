@@ -186,6 +186,17 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const panRef = useRef<{ pointerId: number; startX: number; startY: number; ox: number; oy: number } | null>(null);
   const panMovedRef = useRef(false);
   const [panning, setPanning] = useState(false);
+  // Node drag — ephemeral per-step offsets layered over the auto
+  // layout. Pure view state (never on the draft); re-center clears it.
+  const [nodeOffsets, setNodeOffsets] = useState<Map<string, { x: number; y: number }>>(new Map());
+  const nodeDragRef = useRef<{
+    stepId: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    ox: number;
+    oy: number;
+  } | null>(null);
 
   // Same synthetic-workflow construction the form body uses — the
   // layout helper + validators only inspect cross-reference shape.
@@ -226,13 +237,14 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const positions = useMemo(() => {
     const map = new Map<string, { x: number; y: number }>();
     for (const node of layout.nodes) {
+      const offset = nodeOffsets.get(node.step.id);
       map.set(node.step.id, {
-        x: PAD + node.slot * (NODE_W + GAP_X),
-        y: PAD + node.layer * (NODE_H + GAP_Y),
+        x: PAD + node.slot * (NODE_W + GAP_X) + (offset?.x ?? 0),
+        y: PAD + node.layer * (NODE_H + GAP_Y) + (offset?.y ?? 0),
       });
     }
     return map;
-  }, [layout]);
+  }, [layout, nodeOffsets]);
 
   const canvasW = PAD * 2 + Math.max(1, layout.maxSlots) * (NODE_W + GAP_X) - GAP_X;
   const canvasH = PAD * 2 + Math.max(1, layout.layerCount) * (NODE_H + GAP_Y) - GAP_Y;
@@ -302,11 +314,45 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   };
 
   // Fit-and-center the whole graph in the pane (the re-focus action).
+  // Also clears manual node offsets — re-center doubles as "tidy up".
   const fitView = () => {
+    setNodeOffsets(new Map());
     const rect = paneRef.current?.getBoundingClientRect();
     if (!rect) return;
     const scale = clampScale(Math.min((rect.width - FIT_PAD) / canvasW, (rect.height - FIT_PAD) / canvasH, 1));
     setViewport({ scale, x: (rect.width - canvasW * scale) / 2, y: (rect.height - canvasH * scale) / 2 });
+  };
+
+  // Node drag — pointer capture stays on the card; deltas convert to
+  // canvas units through the zoom so the node tracks the cursor 1:1.
+  const beginNodeDrag = (stepId: string) => (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const offset = nodeOffsets.get(stepId);
+    nodeDragRef.current = {
+      stepId,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      ox: offset?.x ?? 0,
+      oy: offset?.y ?? 0,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const moveNodeDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    const nodeDrag = nodeDragRef.current;
+    if (!nodeDrag || nodeDrag.pointerId !== e.pointerId) return;
+    const dx = (e.clientX - nodeDrag.startX) / viewport.scale;
+    const dy = (e.clientY - nodeDrag.startY) / viewport.scale;
+    setNodeOffsets((prev) => {
+      const next = new Map(prev);
+      next.set(nodeDrag.stepId, { x: nodeDrag.ox + dx, y: nodeDrag.oy + dy });
+      return next;
+    });
+  };
+
+  const endNodeDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (nodeDragRef.current?.pointerId === e.pointerId) nodeDragRef.current = null;
   };
 
   const beginPan = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -496,6 +542,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           backgroundSize: `${GRID_STEP * viewport.scale}px ${GRID_STEP * viewport.scale}px`,
           backgroundPosition: `${viewport.x}px ${viewport.y}px`,
           cursor: panning ? 'grabbing' : undefined,
+          userSelect: 'none',
         }}
         onPointerDown={beginPan}
         onPointerMove={movePan}
@@ -524,7 +571,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         <svg
           width={canvasW}
           height={canvasH}
-          style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+          // overflow visible: dragged nodes can sit outside the layout
+          // bounds, and a clipping svg would swallow their edges.
+          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
           aria-hidden="true"
         >
           {/* Direction arrowheads — dependsOn edges run parent → child. */}
@@ -563,16 +612,20 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
             const bend = Math.max(16, (y2 - y1) / 2);
             const d = `M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${y2 - bend}, ${x2} ${y2}`;
             const selected = activeEdge?.from === edge.from && activeEdge?.to === edge.to;
+            // Selecting a node lights its outgoing arrows too, so the
+            // direction of its dependents reads at a glance.
+            const highlight = selected || edge.from === selectedStepId;
             return (
               <g key={`${edge.from}->${edge.to}`}>
                 <path
                   data-testid={`wf-graph-edge-${edge.from}-${edge.to}`}
                   data-selected={selected ? 'true' : undefined}
+                  data-highlight={highlight ? 'true' : undefined}
                   d={d}
                   fill="none"
-                  stroke={selected ? token.colorPrimary : token.colorBorder}
+                  stroke={highlight ? token.colorPrimary : token.colorBorder}
                   strokeWidth={selected ? 2 : 1.5}
-                  markerEnd={`url(#wf-graph-arrow${selected ? '-active' : ''})`}
+                  markerEnd={`url(#wf-graph-arrow${highlight ? '-active' : ''})`}
                 />
                 {editable && (
                   // Widened transparent twin — the click target. SVG
@@ -619,6 +672,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               onSelect={onSelectStep ? () => onSelectStep(node.step.id, node.declaredIndex) : undefined}
               onOpen={onOpenStep ? () => onOpenStep(node.step.id) : undefined}
               onContextMenu={handleNodeContextMenu({ stepId: node.step.id, declaredIndex: node.declaredIndex })}
+              onDragDown={beginNodeDrag(node.step.id)}
+              onDragMove={moveNodeDrag}
+              onDragUp={endNodeDrag}
               draftStep={draftStep}
               runIf={node.step.runIf}
               hasPriority={node.step.priorityFrom !== undefined}
@@ -863,6 +919,7 @@ const GraphLegend: React.FC<{ editable: boolean; canOpen: boolean }> = ({ editab
           { keys: 'right-click', action: 'menu' },
         ]
       : []),
+    { keys: 'drag node', action: 'move' },
     { keys: 'drag bg', action: 'pan' },
     { keys: 'scroll', action: 'zoom' },
   ];
@@ -875,10 +932,11 @@ const GraphLegend: React.FC<{ editable: boolean; canOpen: boolean }> = ({ editab
         right: 16,
         zIndex: 3,
         pointerEvents: 'none',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '4px 10px',
+        display: 'grid',
+        gridTemplateColumns: 'auto auto',
+        columnGap: 12,
+        rowGap: 3,
+        padding: '6px 10px',
         borderRadius: 6,
         background: token.colorBgElevated,
         border: `1px solid ${token.colorBorderSecondary}`,
@@ -918,6 +976,10 @@ interface GraphNodeCardProps {
   onOpen?: () => void;
   /** Right-click — selects the node and opens the compact context menu. */
   onContextMenu?: (e: React.MouseEvent) => void;
+  /** Drag-to-move handlers — ephemeral layout offsets owned by the body. */
+  onDragDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onDragMove?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onDragUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
   /** Draft overlay for the step — supplies capture exposure state. */
   draftStep: DraftStep | undefined;
   runIf: WorkflowStep['runIf'];
@@ -949,6 +1011,9 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   onSelect,
   onOpen,
   onContextMenu,
+  onDragDown,
+  onDragMove,
+  onDragUp,
   draftStep,
   runIf,
   hasPriority,
@@ -987,11 +1052,21 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
       onClick={onSelect}
       onDoubleClick={onOpen}
       onContextMenu={onContextMenu}
+      // Select on press, not on release — the highlight (node +
+      // outgoing arrows) must follow the node through a drag.
+      onPointerDown={(e) => {
+        onSelect?.();
+        onDragDown?.(e);
+      }}
+      onPointerMove={onDragMove}
+      onPointerUp={onDragUp}
+      onPointerCancel={onDragUp}
       style={{
         position: 'absolute',
         left: x,
         top: y,
         width: NODE_W,
+        touchAction: 'none',
         height: NODE_H,
         display: 'flex',
         flexDirection: 'column',
