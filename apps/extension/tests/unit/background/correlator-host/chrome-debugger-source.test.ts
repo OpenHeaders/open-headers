@@ -1417,6 +1417,30 @@ describe('ChromeDebuggerEventSource — Runtime executionContext lifecycle (JS c
     });
   });
 
+  it('stamps isTopFrame from the main-frame registry on root-session contexts only', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    // Seed the registry the production way — a parentless frameNavigated.
+    emitRoot('Page.frameNavigated', { frame: { id: 'F1', loaderId: 'L1', url: 'https://app.openheaders.io/' } });
+
+    emitRoot('Runtime.executionContextCreated', rawContextCreated(1));
+    emitRoot(
+      'Runtime.executionContextCreated',
+      rawContextCreated(2, { auxData: { frameId: 'F2', isDefault: true, type: 'default' } }),
+    );
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitChild(CHILD_SESSION, 'Runtime.executionContextCreated', rawContextCreated(3));
+
+    // Main-frame context carries the flag; a same-process sub-frame and a
+    // kept child (even reusing the main frame's id in auxData) never do.
+    expect(out[0]).toMatchObject({ kind: 'context-created', context: { contextKey: 'page::1', isTopFrame: true } });
+    expect((out[1] as { context: { isTopFrame?: boolean } }).context.isTopFrame).toBeUndefined();
+    expect((out[2] as { context: { isTopFrame?: boolean } }).context.isTopFrame).toBeUndefined();
+  });
+
   it('fans child-session contexts with the child target kind and session-scoped keys', async () => {
     source = new ChromeDebuggerEventSource();
     const out: CdpJsContextEvent[] = [];

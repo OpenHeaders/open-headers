@@ -473,11 +473,14 @@ export function normalizeExceptionThrown(sessionKey: string, p: RawExceptionThro
  * target kind); `worldType` passes the aux `type` through open-ended,
  * defaulting to `default` when absent (older wire shapes omit it for the
  * main world). A missing `isDefault` reads as `false` — only an explicit
- * main-world flag counts.
+ * main-world flag counts. `isTopFrame` is the caller's main-frame-registry
+ * verdict on the context's frame (Phase C: the selector's `top` and depth
+ * derive from it); stamped only when true.
  */
 export function normalizeExecutionContextCreated(
   sessionKey: string,
   targetKind: JsContextTargetKind,
+  isTopFrame: boolean,
   p: RawExecutionContextCreated,
 ): JsContext {
   const context = p.context;
@@ -488,6 +491,7 @@ export function normalizeExecutionContextCreated(
     name: context.name,
     isDefault: aux?.isDefault === true,
     ...(aux?.frameId !== undefined ? { frameId: aux.frameId } : {}),
+    ...(isTopFrame ? { isTopFrame: true } : {}),
     targetKind,
     worldType: aux?.type ?? 'default',
   };

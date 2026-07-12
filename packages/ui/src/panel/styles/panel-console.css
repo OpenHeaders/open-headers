@@ -223,3 +223,33 @@ button.dt-console-caret:hover {
 .dt-console-row[data-level='error'] .dt-console-req-link {
   color: inherit;
 }
+
+/* ── Context selector (JS contexts Phase C) ──────────────────────────
+   The header dropdown that picks the evaluation context. The warning
+   tint fires when the selection is
+   not `top` while a `top` exists — the browser's "you're not where you
+   think you are" cue. Menu rows indent by the model's depth (frame /
+   world hops; service workers sit top-level). */
+.dt-console-context--warn .dt-toolbar-dropdown {
+  color: var(--dt-status-orange);
+  background: color-mix(in srgb, var(--dt-status-orange) 12%, transparent);
+}
+
+.dt-console-context-item[data-depth='1'] {
+  padding-left: 24px;
+}
+
+.dt-console-context-item[data-depth='2'] {
+  padding-left: 40px;
+}
+
+/* The `⋯` menu's check-toggle row ("Selected context only"). */
+.dt-console-option-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dt-console-option-toggle .anticon {
+  font-size: 11px;
+}

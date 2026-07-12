@@ -102,6 +102,7 @@ import { useParityDebugHook } from './data/parity-debug-hook';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
 import { useConsoleClient } from './data/stores/use-console-client';
 import { useFireClient } from './data/stores/use-fire-client';
+import { useJsContexts } from './data/stores/use-js-contexts';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
 import { type TabSaveRefMap, useTabCloseGuard } from './data/use-tab-close-guard';
 import { useLifecycleClient } from './data/stores/use-lifecycle-client';
@@ -247,6 +248,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // replays nothing. Clear is console-local, so it stays out of the panel-wide
   // `ui.clear()` resettables below.
   const consoleClient = useConsoleClient();
+  // Live JS execution contexts (JS contexts Phase C) — same root-owned port
+  // pattern; the registry is replace-semantics live state, replayed on
+  // reconnect, and feeds the Console's context selector.
+  const jsContexts = useJsContexts();
 
   // Host-reported app updates land in the Notifications timeline
   // (no-op on hosts without the getAppUpdate capability).
@@ -754,6 +759,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           return (
             <ConsoleView
               entries={consoleClient.snapshot.entries}
+              contexts={jsContexts.snapshot.contexts}
               resolveRequest={resolveConsoleRequest}
               onRequestClick={handleCrossNav}
               onClear={() => consoleClient.store.clear()}

@@ -24,11 +24,14 @@
  * entries stay readable under a "capture stopped" banner rather than vanishing.
  */
 
+import { CheckOutlined } from '@ant-design/icons';
 import type { ConsoleEntry, ConsoleLevel, ConsoleStackFrame } from '@openheaders/core/console-stream';
+import type { JsContext } from '@openheaders/core/js-contexts';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { resolveContextSelection } from '../data/console-context-selector';
 import type { ConsoleRequestJoin } from '../data/console-request-join';
 import {
   frameKey,
@@ -39,10 +42,13 @@ import {
 import { useStickToBottom } from './detail/streams/use-stick-to-bottom';
 import { formatClock } from '../data/timing/format-time';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
+import { ConsoleContextSelector } from './ConsoleContextSelector';
 import { IconClear, IconCollapseAll, IconExpandAll } from './toolbar-icons';
 
 interface ConsoleViewProps {
   entries: readonly ConsoleEntry[];
+  /** Live JS execution contexts of the inspected tab (the selector's list). */
+  contexts: readonly JsContext[];
   /** Exact join from a browser entry's `requestId` to its network row. */
   resolveRequest: (requestId: string) => ConsoleRequestJoin | null;
   /** Cross-navigate to the entry's request in the Network plane. */
@@ -190,12 +196,27 @@ function buildRow(entry: ConsoleEntry, entryIndex: number, resolveRequest: Conso
   return { entry, entryIndex, displayText, request, requestTail, stack, location };
 }
 
-export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, onHide }: ConsoleViewProps) {
+export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick, onClear, onHide }: ConsoleViewProps) {
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
   const [textFilter, setTextFilter] = useState('');
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
   const { hasCdpCapability, cdpEnabled, cdpOwned } = useInspectedTabCdp();
   const [, setCdpEnabled] = useSetting('inspection.cdpEnabled');
+
+  // Context selection (Phase C): an explicit pick holds while its context is
+  // live, then falls back to `top` (navigation clears the picked context, so
+  // the browser's reset-on-nav comes for free). Selection drives evaluation
+  // (Phase D) and the highlight; hiding other contexts' rows is the separate
+  // "Selected context only" toggle in the `⋯` menu.
+  const [pickedContextKey, setPickedContextKey] = useState<string | null>(null);
+  const [selectedContextOnly, setSelectedContextOnly] = useState(false);
+  const effectiveContextKey = resolveContextSelection(contexts, pickedContextKey);
+  useEffect(() => {
+    // Drop a pick whose context died so the next explicit pick starts clean.
+    if (pickedContextKey !== null && !contexts.some((c) => c.contextKey === pickedContextKey)) {
+      setPickedContextKey(null);
+    }
+  }, [contexts, pickedContextKey]);
 
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -206,6 +227,17 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       if (!passesLevel(entry.level, levelFilter)) continue;
+      // "Selected context only" hides rows from other contexts by their
+      // `contextKey` join; entries with no key (browser-plane log entries,
+      // pre-upgrade backlog) are never hidden.
+      if (
+        selectedContextOnly &&
+        effectiveContextKey !== null &&
+        entry.contextKey !== undefined &&
+        entry.contextKey !== effectiveContextKey
+      ) {
+        continue;
+      }
       const row = buildRow(entry, i, resolveRequest);
       if (
         needle &&
@@ -217,7 +249,7 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
       result.push(row);
     }
     return result;
-  }, [entries, levelFilter, textFilter, resolveRequest]);
+  }, [entries, levelFilter, textFilter, resolveRequest, selectedContextOnly, effectiveContextKey]);
 
   // Source-map resolution over every distinct frame the visible rows carry —
   // the same cache + host fetcher the Network call-stack view uses, so
@@ -271,6 +303,18 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
     <div className="dt-panel">
       <PanelHeader
         wiring={wiring}
+        optionsMenuItems={[
+          {
+            key: 'selected-context-only',
+            label: (
+              <span className="dt-console-option-toggle" data-active={selectedContextOnly}>
+                Selected context only
+                {selectedContextOnly && <CheckOutlined />}
+              </span>
+            ),
+            onClick: () => setSelectedContextOnly((prev) => !prev),
+          },
+        ]}
         title={
           <div className="dt-header-filter-row">
             <strong className="dt-header-panel-name">Console</strong>
@@ -295,6 +339,12 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
               {allExpanded ? <IconCollapseAll /> : <IconExpandAll />}
             </button>
             <div className="dt-filter-separator" />
+            <ConsoleContextSelector
+              contexts={contexts}
+              effectiveKey={effectiveContextKey}
+              onSelect={setPickedContextKey}
+            />
+            {contexts.length > 0 && <div className="dt-filter-separator" />}
             <input
               type="text"
               className="dt-filter-input dt-filter-input--grow"

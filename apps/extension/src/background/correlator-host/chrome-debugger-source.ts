@@ -107,7 +107,7 @@ import type {
   RawWebSocketWillSendHandshakeRequest,
 } from './cdp-raw-payloads';
 import { type CdpBindingFire, type ChildTargetKind, type KeptChildSession, ROOT_SESSION_ID } from './cdp-session';
-import { clearMainFrameId, setMainFrameId } from './main-frame-registry';
+import { clearMainFrameId, isMainFrame, setMainFrameId } from './main-frame-registry';
 
 export type { CdpBindingFire, ChildTargetKind, KeptChildSession } from './cdp-session';
 // Re-exported for importers that consumed these from this module before the
@@ -592,10 +592,14 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       } else if (method === 'Runtime.executionContextCreated') {
         const kind = runtimeChildSessionId === undefined ? 'page' : this.childSessions.get(runtimeChildSessionId)?.kind;
         if (kind === undefined) return;
+        const raw = params as RawExecutionContextCreated;
+        // Only the root session hosts the outermost frame's contexts; a kept
+        // child (OOPIF/worker) can never be the top frame.
+        const isTopFrame = kind === 'page' && isMainFrame(tabId, raw.context.auxData?.frameId);
         this.fanContexts({
           kind: 'context-created',
           tabId,
-          context: normalizeExecutionContextCreated(sessionKey, kind, params as RawExecutionContextCreated),
+          context: normalizeExecutionContextCreated(sessionKey, kind, isTopFrame, raw),
         });
       } else if (method === 'Runtime.executionContextDestroyed') {
         const destroyed = params as RawExecutionContextDestroyed;

@@ -5,8 +5,23 @@
  */
 
 import type { ConsoleEntry } from '@openheaders/core/console-stream';
+import type { JsContext } from '@openheaders/core/js-contexts';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The context-selector popover measures itself via rc-resize-observer;
+// jsdom doesn't ship a ResizeObserver.
+beforeAll(() => {
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
 
 const { mockScope, setCdpEnabledSpy, resolvedFramesMock } = vi.hoisted(() => ({
   mockScope: { hasCdpCapability: true, cdpEnabled: true, cdpOwned: true },
@@ -65,18 +80,31 @@ function entry(text: string, over: Partial<ConsoleEntry> = {}): ConsoleEntry {
 interface RenderOptions {
   resolveRequest?: (requestId: string) => ConsoleRequestJoin | null;
   onRequestClick?: (requestId: string) => void;
+  contexts?: readonly JsContext[];
 }
 
 function renderView(entries: readonly ConsoleEntry[], options: RenderOptions = {}) {
   return render(
     <ConsoleView
       entries={entries}
+      contexts={options.contexts ?? []}
       resolveRequest={options.resolveRequest ?? (() => null)}
       onRequestClick={options.onRequestClick ?? vi.fn()}
       onClear={vi.fn()}
       onHide={vi.fn()}
     />,
   );
+}
+
+function makeContext(over: Partial<JsContext> & Pick<JsContext, 'contextKey'>): JsContext {
+  return {
+    origin: 'https://app.openheaders.io',
+    name: '',
+    isDefault: true,
+    targetKind: 'page',
+    worldType: 'default',
+    ...over,
+  };
 }
 
 beforeEach(() => {
@@ -303,5 +331,86 @@ describe('ConsoleView never-silent surfaces', () => {
     expect(container.querySelector('.dt-console-banner')?.textContent).toContain('Debug mode is off');
     // The already-captured entry stays readable rather than vanishing.
     expect(container.querySelectorAll('.dt-console-row')).toHaveLength(1);
+  });
+});
+
+describe('ConsoleView context selector + "Selected context only" (JS contexts Phase C)', () => {
+  const TOP = makeContext({ contextKey: 'page::1', isTopFrame: true });
+  const IFRAME = makeContext({
+    contextKey: 'child-iframe-1::1',
+    targetKind: 'iframe',
+    origin: 'https://ads.openheaders.io',
+  });
+
+  it('hides the selector while the registry is empty', () => {
+    renderView([entry('hello')]);
+    expect(document.querySelector('.dt-console-context')).toBeNull();
+  });
+
+  it('auto-selects top with no warning tint', () => {
+    renderView([], { contexts: [TOP, IFRAME] });
+    expect(screen.getByText('top')).toBeTruthy();
+    expect(document.querySelector('.dt-console-context--warn')).toBeNull();
+  });
+
+  it('an explicit non-top pick warns, and the pick dying falls back to top', () => {
+    const view = renderView([], { contexts: [TOP, IFRAME] });
+    fireEvent.click(screen.getByText('top'));
+    fireEvent.click(screen.getByText('https://ads.openheaders.io'));
+    expect(document.querySelector('.dt-console-context--warn')).not.toBeNull();
+
+    // The picked context dies (navigation) — selection falls back to top.
+    view.rerender(
+      <ConsoleView
+        entries={[]}
+        contexts={[TOP]}
+        resolveRequest={() => null}
+        onRequestClick={vi.fn()}
+        onClear={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    );
+    expect(document.querySelector('.dt-console-context--warn')).toBeNull();
+  });
+
+  it('"Selected context only" hides other contexts\' rows but never keyless entries', () => {
+    renderView(
+      [
+        entry('from top', { contextKey: 'page::1' }),
+        entry('from iframe', { contextKey: 'child-iframe-1::1' }),
+        entry('browser plane'),
+      ],
+      { contexts: [TOP, IFRAME] },
+    );
+    expect(screen.getByText('from iframe')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('Panel options'));
+    fireEvent.click(screen.getByText('Selected context only'));
+
+    expect(screen.getByText('from top')).toBeTruthy();
+    expect(screen.queryByText('from iframe')).toBeNull();
+    expect(screen.getByText('browser plane')).toBeTruthy();
+  });
+
+  it('indents dropdown rows by depth with service workers at top level', () => {
+    const SW = makeContext({
+      contextKey: 'target:SW1::1',
+      targetKind: 'service-worker',
+      origin: 'https://app.openheaders.io/sw.js',
+    });
+    const ISOLATED = makeContext({
+      contextKey: 'page::2',
+      isDefault: false,
+      isTopFrame: true,
+      name: 'Open Headers',
+      worldType: 'isolated',
+    });
+    renderView([], { contexts: [TOP, ISOLATED, IFRAME, SW] });
+    fireEvent.click(screen.getByText('top'));
+    const depths = [...document.querySelectorAll('.dt-console-context-item')].map((el) =>
+      el.getAttribute('data-depth'),
+    );
+    expect(depths).toEqual(['0', '1', '1', '0']);
+    expect(screen.getByText('Open Headers')).toBeTruthy();
   });
 });

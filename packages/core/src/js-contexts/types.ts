@@ -37,6 +37,13 @@ export interface JsContext {
   /** Main world of its frame/target. */
   readonly isDefault: boolean;
   readonly frameId?: string;
+  /**
+   * The context lives in the tab's outermost frame — minted by the engine
+   * (only it knows the main-frame id), present only when true. The selector's
+   * `top` is the context with `isTopFrame && isDefault`, and an isolated
+   * world of the top frame indents one level instead of two.
+   */
+  readonly isTopFrame?: boolean;
   readonly targetKind: JsContextTargetKind;
   /** Aux world type from the wire: `default` | `isolated` | `worker`. Kept
    *  open (not a closed union) so a new world type flows through without a
