@@ -1,0 +1,281 @@
+/**
+ * Data API puller — the network half of migration ladder rung 3
+ * (MIGRATION_PLAN.md §3.3). Core owns the endpoint table, pacing
+ * policy, response interpretation, and budget/failure classification;
+ * this module sends the requests and paces them: enumeration serial at
+ * the 10-per-10s bucket, item pulls launched under the 300 rpm global
+ * limit, a 429 pause honoring RetryAfter, and a terminal stop (monthly
+ * cap, rejected key) that ends the run with a clearly-labeled partial
+ * result — every unpulled item skips WITH a reason.
+ *
+ * The key lives in the caller's memory for this run only: it rides the
+ * `X-Api-Key` header and never reaches events, reasons, results, or
+ * logs.
+ */
+
+import {
+  buildPullPlan,
+  classifyPullFailure,
+  collectionUrl,
+  ENUMERATION_CALL_SPACING_MS,
+  environmentUrl,
+  ITEM_CALL_SPACING_MS,
+  MAX_RATE_LIMIT_RETRIES,
+  POSTMAN_API_KEY_HEADER,
+  type PostmanPullEvent,
+  type PostmanPullOutcome,
+  type PostmanPullResult,
+  type PostmanPullSkip,
+  type PulledCollection,
+  type PulledEnvironment,
+  type PullFailure,
+  type PullWorkspaceSummary,
+  readCollectionPayload,
+  readEnvironmentPayload,
+  readRateBudget,
+  readWorkspaceDetail,
+  readWorkspaceList,
+  type WorkspaceDetail,
+  workspaceDetailUrl,
+  workspaceListUrl,
+} from '@openheaders/core/import';
+import { fetch as undiciFetch } from 'undici';
+
+/** The response surface the puller needs — undici's Response satisfies it. */
+export interface PullHttpResponse {
+  ok: boolean;
+  status: number;
+  headers: { get(name: string): string | null };
+  text(): Promise<string>;
+}
+
+export type PullFetchFn = (url: string, init: { headers: Record<string, string> }) => Promise<PullHttpResponse>;
+
+export type SleepFn = (ms: number) => Promise<void>;
+
+export interface PullPostmanDataOptions {
+  /** Held in memory for the run only — never persisted, never logged. */
+  apiKey: string;
+  fetchFn?: PullFetchFn;
+  sleep?: SleepFn;
+  onEvent?: (event: PostmanPullEvent) => void;
+}
+
+const defaultFetch: PullFetchFn = (url, init) => undiciFetch(url, init);
+
+const defaultSleep: SleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Ends the whole run: monthly cap exhausted or key rejected. */
+class TerminalPullError extends Error {
+  constructor(readonly failure: PullFailure) {
+    super(failure.reason);
+  }
+}
+
+/** Fails one call: an HTTP error, a network error, or persistent 429s. */
+class CallFailedError extends Error {}
+
+function failureReason(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+export async function pullPostmanData(options: PullPostmanDataOptions): Promise<PostmanPullResult> {
+  const fetchFn = options.fetchFn ?? defaultFetch;
+  const sleep = options.sleep ?? defaultSleep;
+  const emit = options.onEvent ?? (() => {});
+
+  let callsMade = 0;
+  const budget: { limitMonth?: number; remainingMonth?: number } = {};
+
+  async function callApi(url: string): Promise<string> {
+    for (let attempt = 0; ; attempt++) {
+      let response: PullHttpResponse;
+      try {
+        response = await fetchFn(url, { headers: { [POSTMAN_API_KEY_HEADER]: options.apiKey } });
+      } catch (err) {
+        throw new CallFailedError(`The Data API request failed — ${failureReason(err)}.`);
+      }
+      callsMade++;
+      const seen = readRateBudget((name) => response.headers.get(name));
+      if (
+        (seen.limitMonth !== undefined && seen.limitMonth !== budget.limitMonth) ||
+        (seen.remainingMonth !== undefined && seen.remainingMonth !== budget.remainingMonth)
+      ) {
+        if (seen.limitMonth !== undefined) budget.limitMonth = seen.limitMonth;
+        if (seen.remainingMonth !== undefined) budget.remainingMonth = seen.remainingMonth;
+        emit({ kind: 'budget', ...budget });
+      }
+      const text = await response.text();
+      if (response.ok) return text;
+      const failure = classifyPullFailure(response.status, text, seen);
+      if (failure.kind === 'unauthorized' || failure.kind === 'service-limit-exhausted') {
+        throw new TerminalPullError(failure);
+      }
+      if (failure.kind === 'rate-limited' && attempt < MAX_RATE_LIMIT_RETRIES) {
+        const retryAfterSeconds = failure.retryAfterSeconds ?? 0;
+        emit({ kind: 'rate-limit-pause', retryAfterSeconds });
+        await sleep(retryAfterSeconds * 1000);
+        continue;
+      }
+      if (failure.kind === 'rate-limited') {
+        throw new CallFailedError(
+          `Rate limiting persisted through ${MAX_RATE_LIMIT_RETRIES} pauses — the call was not retried further.`,
+        );
+      }
+      throw new CallFailedError(failure.reason);
+    }
+  }
+
+  const skipped: PostmanPullSkip[] = [];
+  const collections: PulledCollection[] = [];
+  const environments: PulledEnvironment[] = [];
+  let workspaces: PullWorkspaceSummary[] = [];
+
+  function finish(outcome: PostmanPullOutcome, stopReason?: string): PostmanPullResult {
+    emit({
+      kind: 'finished',
+      outcome,
+      ...(stopReason !== undefined ? { stopReason } : {}),
+      collections: collections.length,
+      environments: environments.length,
+      skipped: skipped.length,
+    });
+    return {
+      outcome,
+      ...(stopReason !== undefined ? { stopReason } : {}),
+      workspaces,
+      collections,
+      environments,
+      skipped,
+      budget,
+      callsMade,
+    };
+  }
+
+  // Enumeration — serial, paced to the 10-per-10s bucket.
+  emit({ kind: 'enumerating', step: 'workspace-list', completedCalls: 0 });
+  let listText: string;
+  try {
+    listText = await callApi(workspaceListUrl());
+  } catch (err) {
+    return finish('failed', failureReason(err));
+  }
+  const list = readWorkspaceList(listText);
+  if (!list.ok) return finish('failed', list.reason);
+  workspaces = list.value.workspaces;
+  if (list.value.malformedEntries > 0) {
+    skipped.push({
+      item: 'workspace',
+      id: '(unknown)',
+      reason: `${list.value.malformedEntries} workspace entr${list.value.malformedEntries === 1 ? 'y' : 'ies'} in the list had no usable id — skipped.`,
+    });
+  }
+  emit({ kind: 'enumerating', step: 'workspace-list', completedCalls: callsMade });
+
+  const details: WorkspaceDetail[] = [];
+  for (const workspace of workspaces) {
+    await sleep(ENUMERATION_CALL_SPACING_MS);
+    try {
+      const detail = readWorkspaceDetail(workspace.id, await callApi(workspaceDetailUrl(workspace.id)));
+      if (detail.ok) {
+        details.push(detail.value);
+        if (detail.value.malformedRefs > 0) {
+          skipped.push({
+            item: 'workspace',
+            id: workspace.id,
+            name: workspace.name,
+            reason: `${detail.value.malformedRefs} item reference(s) in the workspace had no usable id — skipped.`,
+          });
+        }
+      } else {
+        skipped.push({ item: 'workspace', id: workspace.id, name: workspace.name, reason: detail.reason });
+      }
+    } catch (err) {
+      if (err instanceof TerminalPullError) {
+        skipped.push({
+          item: 'workspace',
+          id: workspace.id,
+          name: workspace.name,
+          reason: `Not enumerated — the run stopped early: ${err.failure.reason}`,
+        });
+        return finish('partial', err.failure.reason);
+      }
+      skipped.push({ item: 'workspace', id: workspace.id, name: workspace.name, reason: failureReason(err) });
+    }
+    emit({ kind: 'enumerating', step: 'workspace-detail', completedCalls: callsMade });
+  }
+
+  const plan = buildPullPlan(workspaces, details);
+  emit({
+    kind: 'planned',
+    workspaces: workspaces.length,
+    collections: plan.items.filter((item) => item.item === 'collection').length,
+    environments: plan.items.filter((item) => item.item === 'environment').length,
+    totalCalls: plan.totalCalls,
+  });
+
+  // Item pulls — launched under the 300 rpm global limit.
+  let completedItems = 0;
+  for (const [index, item] of plan.items.entries()) {
+    await sleep(ITEM_CALL_SPACING_MS);
+    try {
+      const text = await callApi(item.item === 'collection' ? collectionUrl(item.id) : environmentUrl(item.id));
+      const payload = item.item === 'collection' ? readCollectionPayload(text) : readEnvironmentPayload(text);
+      completedItems++;
+      const name = payload.ok ? (payload.value.name ?? item.name) : item.name;
+      if (payload.ok) {
+        const pulled = { id: item.id, ...(name !== undefined ? { name } : {}), json: payload.value.json };
+        if (item.item === 'collection') collections.push({ item: 'collection', ...pulled });
+        else environments.push({ item: 'environment', ...pulled });
+        emit({
+          kind: 'item-progress',
+          item: item.item,
+          id: item.id,
+          ...(name !== undefined ? { name } : {}),
+          status: 'pulled',
+          completedItems,
+          totalItems: plan.items.length,
+        });
+      } else {
+        skipped.push({ item: item.item, id: item.id, ...(name !== undefined ? { name } : {}), reason: payload.reason });
+        emit({
+          kind: 'item-progress',
+          item: item.item,
+          id: item.id,
+          ...(name !== undefined ? { name } : {}),
+          status: 'skipped',
+          reason: payload.reason,
+          completedItems,
+          totalItems: plan.items.length,
+        });
+      }
+    } catch (err) {
+      if (err instanceof TerminalPullError) {
+        for (const rest of plan.items.slice(index)) {
+          skipped.push({
+            item: rest.item,
+            id: rest.id,
+            ...(rest.name !== undefined ? { name: rest.name } : {}),
+            reason: `Not pulled — the run stopped early: ${err.failure.reason}`,
+          });
+        }
+        return finish('partial', err.failure.reason);
+      }
+      completedItems++;
+      const reason = failureReason(err);
+      skipped.push({ item: item.item, id: item.id, ...(item.name !== undefined ? { name: item.name } : {}), reason });
+      emit({
+        kind: 'item-progress',
+        item: item.item,
+        id: item.id,
+        ...(item.name !== undefined ? { name: item.name } : {}),
+        status: 'skipped',
+        reason,
+        completedItems,
+        totalItems: plan.items.length,
+      });
+    }
+  }
+
+  return finish('complete');
+}
