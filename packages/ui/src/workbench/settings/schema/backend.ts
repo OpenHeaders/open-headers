@@ -94,6 +94,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'backend.bindAddress': BackendBindAddress;
     'backend.bindPort': number;
     'backend.serveWebApp': boolean;
+    'backend.allowPeerExecute': boolean;
     'backend.reconnectDelayMs': number;
     'backend.maxReconnectDelayMs': number;
     'backend.pingIntervalMs': number;
@@ -175,6 +176,24 @@ registerSetting({
   scope: 'user',
   // Same (host, mode) gate as the other daemon-side rows — this process
   // serves the bundle only where it IS the daemon.
+  when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
+});
+
+registerSetting({
+  key: 'backend.allowPeerExecute',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  label: 'Allow connected devices to send requests',
+  description:
+    'Let paired browsers and devices send API requests through this app — their workbench Send runs on this machine, with its network access. Off by default; each send still requires the sender to have write access to the workspace.',
+  category: 'backend',
+  subcategory: 'lan-peers',
+  tags: ['send', 'execute', 'requests', 'peers', 'devices', 'daemon', 'egress'],
+  scope: 'user',
+  // Same (host, mode) gate as the other daemon-side rows — the opt-in
+  // governs THIS process answering peers, so it surfaces only where
+  // this process is the daemon.
   when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
 });
 

@@ -111,12 +111,20 @@ export interface RequestRpc {
    * Execute a persisted request or a draft. `requestUid` takes
    * precedence when both are provided; `draft` is for unsaved editor
    * state that the user wants to Send without persisting first.
+   *
+   * `workspaceId` names the workspace the caller's editor is on — a
+   * forwarding surface (the web tab) stamps it because the answering
+   * host's runtime-Active workspace may differ from the caller's. Node
+   * hosts resolve against it (pinned when it isn't their active
+   * workspace); omitted = the answering host's active workspace, the
+   * in-process Send path.
    */
   executeRequest: {
     req: {
       requestUid?: string;
       draft?: Request;
       environmentId?: string;
+      workspaceId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
   };

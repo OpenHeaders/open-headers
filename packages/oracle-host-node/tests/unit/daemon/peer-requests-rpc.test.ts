@@ -1,0 +1,158 @@
+/**
+ * Peer-facing request-execution plane — the gating laws over the three
+ * workbench channels: `executeRequest` refuses (honestly, naming the
+ * setting) while `backend.allowPeerExecute` is off, with no identity
+ * resolution and no audit row; past the opt-in, every channel resolves
+ * the peer's snapshot fresh, gates on the workspace capability
+ * (`workspace.write` for send + clear, `workspace.read` for the
+ * summary), audits the decision, and only then reaches the handler.
+ * The target workspace is the frame's, falling back to the host's
+ * active one.
+ */
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const h = vi.hoisted(() => ({
+  settings: {} as Record<string, unknown>,
+  decision: { allow: true } as { allow: boolean; reason?: string },
+  resolveSnapshot: vi.fn(async (_userId: string) => ({ kind: 'fake-snapshot' })),
+  hasCapability: vi.fn((_snapshot: unknown, _capability: string, _ctx?: unknown) => h.decision),
+  audits: [] as Record<string, unknown>[],
+  jars: new Map<string, { list: () => unknown[]; clear: () => void }>(),
+}));
+
+vi.mock('@openheaders/core/identity', () => ({
+  resolveDaemonPeerIdentitySnapshot: (userId: string) => h.resolveSnapshot(userId),
+  hasCapability: (snapshot: unknown, capability: string, ctx?: unknown) => h.hasCapability(snapshot, capability, ctx),
+  emitAuditEntry: (entry: Record<string, unknown>) => {
+    h.audits.push(entry);
+  },
+}));
+vi.mock('@openheaders/core/storage', () => ({
+  hostStorage: { get: async () => h.settings },
+  OH: { settingsUser: 'oh.settingsUser' },
+}));
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
+  getActiveWorkspaceId: () => 'ws-active',
+}));
+vi.mock('../../../src/live/cookie-jar', () => ({
+  peekCookieJar: (key: string) => h.jars.get(key),
+}));
+
+import type { ExecuteRequestRpcResult } from '../../../src/daemon/execute-request-rpc';
+import { createPeerRequestsRpc, PEER_EXECUTE_DISABLED_MESSAGE } from '../../../src/daemon/peer-requests-rpc';
+
+const PEER = { userId: 'user-1' };
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  h.settings = { 'backend.allowPeerExecute': true };
+  h.decision = { allow: true };
+  h.audits = [];
+  h.jars = new Map();
+});
+
+describe('createPeerRequestsRpc — ownership', () => {
+  it('owns exactly the three request channels', () => {
+    const rpc = createPeerRequestsRpc();
+    expect(rpc.owns('executeRequest')).toBe(true);
+    expect(rpc.owns('getCookieJarSummary')).toBe(true);
+    expect(rpc.owns('clearCookieJar')).toBe(true);
+    expect(rpc.owns('getStatusSnapshot')).toBe(false);
+    expect(rpc.owns('oh.daemon.users.list')).toBe(false);
+  });
+});
+
+describe('createPeerRequestsRpc — executeRequest', () => {
+  it('refuses while the opt-in is off — no identity resolution, no audit, no handler call', async () => {
+    h.settings = {};
+    const execute = vi.fn(async () => ({ success: true }));
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    await expect(rpc.dispatch({ type: 'executeRequest', draft: {} }, PEER)).rejects.toThrow(
+      PEER_EXECUTE_DISABLED_MESSAGE,
+    );
+    expect(h.resolveSnapshot).not.toHaveBeenCalled();
+    expect(h.audits).toHaveLength(0);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('gates on workspace.write for the frame workspace as the peer, audited, then dispatches', async () => {
+    const executed: ExecuteRequestRpcResult = { success: true };
+    const execute = vi.fn(async () => executed);
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    const message = { type: 'executeRequest', draft: {}, workspaceId: 'ws-tab' };
+    await expect(rpc.dispatch(message, PEER)).resolves.toBe(executed);
+    expect(h.resolveSnapshot).toHaveBeenCalledWith('user-1');
+    expect(h.hasCapability).toHaveBeenCalledWith({ kind: 'fake-snapshot' }, 'workspace.write', {
+      workspaceId: 'ws-tab',
+    });
+    expect(h.audits).toEqual([
+      { actorUserId: 'user-1', capability: 'workspace.write', workspaceId: 'ws-tab', decision: { allow: true } },
+    ]);
+    expect(execute).toHaveBeenCalledWith(message);
+  });
+
+  it('falls back to the host active workspace when the frame names none', async () => {
+    const execute = vi.fn(async () => ({ success: true }));
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    await rpc.dispatch({ type: 'executeRequest', draft: {} }, PEER);
+    expect(h.hasCapability).toHaveBeenCalledWith(expect.anything(), 'workspace.write', { workspaceId: 'ws-active' });
+  });
+
+  it('denies without reaching the handler, with the decision audited', async () => {
+    h.decision = { allow: false, reason: 'no-grant' };
+    const execute = vi.fn(async () => ({ success: true }));
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    await expect(rpc.dispatch({ type: 'executeRequest', draft: {}, workspaceId: 'ws-x' }, PEER)).rejects.toThrow(
+      'permission denied: workspace.write on ws-x (no-grant)',
+    );
+    expect(h.audits).toEqual([
+      {
+        actorUserId: 'user-1',
+        capability: 'workspace.write',
+        workspaceId: 'ws-x',
+        decision: { allow: false, reason: 'no-grant' },
+      },
+    ]);
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
+
+describe('createPeerRequestsRpc — cookie-jar channels', () => {
+  it('answers the summary from the frame workspace jar under workspace.read — no opt-in required', async () => {
+    h.settings = {};
+    h.jars.set('ws-tab', { list: () => [{ name: 'sid' }], clear: () => {} });
+    const rpc = createPeerRequestsRpc();
+    await expect(rpc.dispatch({ type: 'getCookieJarSummary', workspaceId: 'ws-tab' }, PEER)).resolves.toEqual({
+      cookies: [{ name: 'sid' }],
+    });
+    expect(h.hasCapability).toHaveBeenCalledWith(expect.anything(), 'workspace.read', { workspaceId: 'ws-tab' });
+    expect(h.audits).toHaveLength(1);
+  });
+
+  it('answers an empty summary when no jar exists — inspection never mints one', async () => {
+    const rpc = createPeerRequestsRpc();
+    await expect(rpc.dispatch({ type: 'getCookieJarSummary' }, PEER)).resolves.toEqual({ cookies: [] });
+    expect(h.hasCapability).toHaveBeenCalledWith(expect.anything(), 'workspace.read', { workspaceId: 'ws-active' });
+  });
+
+  it('clears under workspace.write and reports success', async () => {
+    const clear = vi.fn();
+    h.jars.set('ws-active', { list: () => [], clear });
+    const rpc = createPeerRequestsRpc();
+    await expect(rpc.dispatch({ type: 'clearCookieJar' }, PEER)).resolves.toEqual({ success: true });
+    expect(h.hasCapability).toHaveBeenCalledWith(expect.anything(), 'workspace.write', { workspaceId: 'ws-active' });
+    expect(clear).toHaveBeenCalledOnce();
+  });
+
+  it('a capability deny leaves the jar untouched', async () => {
+    h.decision = { allow: false, reason: 'no-grant' };
+    const clear = vi.fn();
+    h.jars.set('ws-tab', { list: () => [], clear });
+    const rpc = createPeerRequestsRpc();
+    await expect(rpc.dispatch({ type: 'clearCookieJar', workspaceId: 'ws-tab' }, PEER)).rejects.toThrow(
+      'permission denied: workspace.write on ws-tab (no-grant)',
+    );
+    expect(clear).not.toHaveBeenCalled();
+  });
+});

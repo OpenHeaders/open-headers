@@ -102,6 +102,7 @@ import { type DaemonAuditForwardingConfig, installAuditForwarder } from './audit
 import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
+import { composePeerRpc } from './compose-peer-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { createHealthzHandler } from './healthz';
@@ -120,6 +121,7 @@ import { createDaemonOidcService, type DaemonOidcService } from './oidc/oidc-ser
 import { createPasswordHttpHandler } from './password/password-http';
 import { createDaemonPasswordLoginService } from './password/password-login-service';
 import { createPeerAdminRpc } from './peer-admin-rpc';
+import { createPeerRequestsRpc } from './peer-requests-rpc';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
 import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
@@ -740,7 +742,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   try {
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: config.handshakeIdentity,
-      peerRpc: createPeerAdminRpc({ channels: adminChannels }),
+      peerRpc: composePeerRpc(createPeerAdminRpc({ channels: adminChannels }), createPeerRequestsRpc()),
       httpRequestHandler: admission.wrapHttpHandler(
         (req, res) =>
           healthzHandler(req, res) ||

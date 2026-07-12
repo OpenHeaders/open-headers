@@ -15,9 +15,13 @@
  * user-facing executor (the refresh token bucket is for agent and
  * scheduled traffic).
  *
- * Runs unpinned (`workspaceId: null`) — the run resolves against the
- * runtime-Active workspace's mirrors, which is what carries the active
+ * Runs unpinned (`workspaceId: null`) when the caller's workspace is
+ * this host's runtime-Active one (or unstated) — the run resolves
+ * against the Active-bound module mirrors, which carry the active
  * environment pointer and the Active live registry for `{{live.*}}`.
+ * A forwarded send stamped with a DIFFERENT workspace runs pinned, the
+ * chain-dispatch path: explicit env, per-workspace scopes, and the
+ * documented `{{live.*}}` degradation under a null env.
  */
 
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
@@ -25,6 +29,7 @@ import { getRequest } from '@openheaders/oracle/entity/request-store';
 import { errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
 import type { RequestTransport } from '@openheaders/oracle/live/request-exec/transport';
+import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 
 export interface ExecuteRequestRpcResult {
@@ -53,6 +58,9 @@ export async function handleExecuteRequestRpc(
   const requestUid = typeof message.requestUid === 'string' ? message.requestUid : undefined;
   const draft = message.draft as Request | undefined;
   const environmentId = typeof message.environmentId === 'string' ? message.environmentId : null;
+  const requestedWorkspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
+  const workspaceId =
+    requestedWorkspaceId !== undefined && requestedWorkspaceId !== getActiveWorkspaceId() ? requestedWorkspaceId : null;
 
   let request: Request | undefined;
   if (requestUid) {
@@ -65,7 +73,7 @@ export async function handleExecuteRequestRpc(
   if (!request) return { success: false, error: 'No request or draft provided' };
 
   try {
-    const snapshot = await runStepRequest(request, { workspaceId: null, environmentId, transport });
+    const snapshot = await runStepRequest(request, { workspaceId, environmentId, transport });
     return { success: true, snapshot };
   } catch (err) {
     return { success: false, error: (err as Error).message };

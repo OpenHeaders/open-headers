@@ -182,6 +182,29 @@ describe('handleExecuteRequestRpc — draft path', () => {
   });
 });
 
+describe('handleExecuteRequestRpc — workspace scoping', () => {
+  it('runs unpinned when the stamped workspace IS the runtime-Active one', async () => {
+    const { transport, sent } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ cookieJar: true }), workspaceId: 'ws-active' },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    // The unpinned jar-key stamp — the Active-bound mirror path.
+    expect(sent().cookieJarKey).toBe('ws-active');
+  });
+
+  it('runs pinned when the stamped workspace differs — per-workspace scopes and jar key', async () => {
+    const { transport, sent } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ cookieJar: true }), workspaceId: 'ws-other' },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    expect(sent().cookieJarKey).toBe('ws-other');
+  });
+});
+
 describe('handleExecuteRequestRpc — uid path', () => {
   it('loads the saved request by uid and executes it', async () => {
     h.getRequest.mockReturnValue(makeRequest({ uid: 'saved-1', url: 'https://api.openheaders.io/saved' }));

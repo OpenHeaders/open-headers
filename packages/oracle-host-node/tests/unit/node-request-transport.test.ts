@@ -6,6 +6,7 @@
  * affords via `err.cause.code` (vs. the browser's opaque failure).
  */
 
+import { createSecureContext } from 'node:tls';
 import { TransportError, type TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { Agent, FormData, Headers, ProxyAgent, Response } from 'undici';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -345,11 +346,21 @@ describe('createNodeRequestTransport — per-request TLS policy', () => {
     expect(remade).not.toBe(original);
   });
 
-  it('a floor lowered below 1.2 without an explicit cipher list supplies the legacy security level', () => {
-    // OpenSSL 3 blocks TLS < 1.2 signature algorithms at its default
-    // security level — the lowered floor alone could never negotiate.
-    expect(connectOptionsFor(makeRequest({ tlsMinVersion: '1.1' })).ciphers).toBe('DEFAULT@SECLEVEL=0');
-    expect(connectOptionsFor(makeRequest({ tlsMinVersion: '1.0' })).ciphers).toBe('DEFAULT@SECLEVEL=0');
+  it('a floor lowered below 1.2 without an explicit cipher list supplies what THIS stack accepts', () => {
+    // The override is runtime-probed by design: OpenSSL 3 blocks
+    // TLS < 1.2 signature algorithms at its default security level and
+    // needs `@SECLEVEL=0`; BoringSSL (the Electron test runner) rejects
+    // that syntax and needs nothing. Mirror the probe so the assertion
+    // is exact on either stack.
+    let stackAccepts: string | undefined;
+    try {
+      createSecureContext({ ciphers: 'DEFAULT@SECLEVEL=0' });
+      stackAccepts = 'DEFAULT@SECLEVEL=0';
+    } catch {
+      stackAccepts = undefined;
+    }
+    expect(connectOptionsFor(makeRequest({ tlsMinVersion: '1.1' })).ciphers).toBe(stackAccepts);
+    expect(connectOptionsFor(makeRequest({ tlsMinVersion: '1.0' })).ciphers).toBe(stackAccepts);
   });
 
   it('an explicit cipher list wins verbatim over the lowered-floor default', () => {
