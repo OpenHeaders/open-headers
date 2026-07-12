@@ -209,6 +209,22 @@ describe('executeOverTransport', () => {
     expect(bare.sent().proxyCredential).toBeUndefined();
   });
 
+  it('passes unixSocketPath through without marking the snapshot', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({ unixSocketPath: '/var/run/openheaders/api.sock' }),
+      transport,
+    );
+    expect(sent().unixSocketPath).toBe('/var/run/openheaders/api.sock');
+    // No TLS relaxation — verification still runs against the URL's
+    // hostname on an https-over-socket send. No snapshot marker.
+    expect('unixSocketPath' in snap).toBe(false);
+
+    const bare = captureTransport();
+    await executeOverTransport(makeResolved(), bare.transport);
+    expect(bare.sent().unixSocketPath).toBeUndefined();
+  });
+
   it('marks a lowered-floor run on the snapshot — success and failure alike', async () => {
     const { transport } = captureTransport();
     const ok = await executeOverTransport(makeResolved({ tlsMinVersion: '1.0' }), transport);

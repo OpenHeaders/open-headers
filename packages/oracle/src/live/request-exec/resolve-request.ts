@@ -78,6 +78,9 @@ export interface ResolvedRequest {
    *  `proxyCredentialRef`; absent when the ref is absent OR the entry
    *  doesn't exist on this device. */
   proxyCredential?: string;
+  /** Local socket (Unix domain socket path or Windows named pipe) the
+   *  send dials instead of a TCP connection; absent → TCP. */
+  unixSocketPath?: string;
   /** Per-request round-trip ceiling (ms). A workflow step's own
    *  per-attempt timeout takes precedence at execute time. */
   timeoutMs?: number;
@@ -246,6 +249,7 @@ export async function resolveRequest(
       ...clientCertificate,
       proxyUrl: request.proxyUrl,
       ...proxyCredential,
+      unixSocketPath: request.unixSocketPath,
       timeoutMs: request.timeoutMs,
       maxResponseBytes: request.maxResponseBytes,
       maxRedirects: request.maxRedirects,

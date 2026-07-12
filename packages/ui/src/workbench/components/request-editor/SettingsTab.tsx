@@ -84,6 +84,17 @@
  *     row hides while no proxy URL is set (nothing to authenticate
  *     against), matching the dot rule: a hidden knob contributes no
  *     tab dot.
+ *   • `unixSocketPath` — node-runtime only: the node transport dials
+ *     the local Unix domain socket (or Windows named pipe) instead of
+ *     opening a TCP connection — Docker-daemon-style APIs, systemd
+ *     services, local dev daemons. The URL's host stays cosmetic for
+ *     dialing while the Host header, SNI, and certificate verification
+ *     keep using it. Mutually exclusive with BOTH the proxy (a tunnel
+ *     can't dial a local socket) and resolve-to-address (nothing is
+ *     resolved) — the row warns in place while either pair is set and
+ *     the transport fails the send loudly. Not trust-relaxing, no
+ *     response marker, no fact row on either sheet. The browser cannot
+ *     dial local sockets, so there is no browser control.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -106,12 +117,14 @@ import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
 import {
   isValidProxyUrl,
+  isValidUnixSocketPath,
   MAX_MAX_REDIRECTS,
   MAX_PROXY_URL_LENGTH,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESOLVE_TO_ADDRESS_LENGTH,
   MAX_RESPONSE_BYTES,
   MAX_TLS_CIPHER_SUITES_LENGTH,
+  MAX_UNIX_SOCKET_PATH_LENGTH,
   MIN_MAX_REDIRECTS,
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
@@ -158,6 +171,10 @@ export interface RequestSettingsDraft {
   /** Name of a vault string entry holding the proxy's `user:password`.
    *  Undefined = unauthenticated proxy. Node runtimes only. */
   proxyCredentialRef?: string;
+  /** Local socket (absolute Unix socket path or Windows named pipe)
+   *  the send dials instead of a TCP connection. Undefined = TCP.
+   *  Node runtimes only. */
+  unixSocketPath?: string;
   /** Round-trip ceiling in milliseconds. Undefined = no per-request
    *  limit. Honored on both runtimes. */
   timeoutMs?: number;
@@ -664,6 +681,26 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
               }
             />
           )}
+          <TextKnobRow
+            label="Unix socket"
+            value={value.unixSocketPath}
+            onChange={(unixSocketPath) => onChange({ ...value, unixSocketPath })}
+            info="Dial this local socket — an absolute Unix socket path, or a Windows named pipe like \\.\pipe\name — instead of opening a TCP connection, e.g. a Docker daemon or a local development service listening on a socket. The URL's host no longer decides where the connection goes, but the Host header, TLS server name, and certificate verification still use it, and a redirect to another host also dials this same socket. Leave empty for a normal TCP connection."
+            placeholder="No socket — TCP connection"
+            maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
+            error={
+              value.unixSocketPath !== undefined && !isValidUnixSocketPath(value.unixSocketPath)
+                ? 'Absolute Unix socket path (/…) or Windows named pipe (\\\\.\\pipe\\…) only.'
+                : undefined
+            }
+            warning={
+              value.unixSocketPath !== undefined && value.proxyUrl !== undefined
+                ? 'Also sets a proxy, but a proxy tunnel can’t dial a local socket — sends will fail until one of the two is cleared.'
+                : value.unixSocketPath !== undefined && value.resolveToAddress !== undefined
+                  ? 'Also sets resolve-to-address, but a socket dial resolves no hostname — sends will fail until one of the two is cleared.'
+                  : undefined
+            }
+          />
         </>
       )}
       <NumericKnobRow

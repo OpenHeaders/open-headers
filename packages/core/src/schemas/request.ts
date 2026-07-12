@@ -192,6 +192,31 @@ export const ProxyCredentialRefSchema = v.pipe(
   v.maxLength(MAX_PROXY_CREDENTIAL_REF_LENGTH),
 );
 
+/**
+ * Local socket the send dials instead of opening a TCP connection: an
+ * absolute Unix domain socket path (`/…`) or a Windows named pipe
+ * (`\\.\pipe\…`). Whether the socket EXISTS, listens, or is dialable
+ * at all (the OS caps Unix socket paths at ~104 bytes on macOS / ~108
+ * on Linux) is a connect-time classification naming this setting — the
+ * schema only pins the shape. Validated by
+ * {@link isValidUnixSocketPath}, shared with the Settings tab so the
+ * editor flags a malformed path in place.
+ */
+export const MAX_UNIX_SOCKET_PATH_LENGTH = 256;
+
+/** Shared with the Settings tab so the editor flags a malformed socket
+ *  path in place instead of failing at save validation. */
+export function isValidUnixSocketPath(value: string): boolean {
+  if (value.startsWith('\\\\.\\pipe\\')) return value.length > '\\\\.\\pipe\\'.length;
+  return value.startsWith('/') && value.length > 1;
+}
+
+export const UnixSocketPathSchema = v.pipe(
+  v.string(),
+  v.maxLength(MAX_UNIX_SOCKET_PATH_LENGTH),
+  v.check(isValidUnixSocketPath, 'Must be an absolute Unix socket path or a \\\\.\\pipe\\ named pipe'),
+);
+
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
 /**
@@ -699,6 +724,25 @@ export const RequestSchema = v.object({
    * this setting. Node-only for the same reason as `proxyUrl`.
    */
   proxyCredentialRef: v.optional(ProxyCredentialRefSchema),
+  /**
+   * Dial this local socket — an absolute Unix domain socket path or a
+   * Windows named pipe (`\\.\pipe\…`) — instead of opening a TCP
+   * connection, for Docker-daemon-style APIs, systemd services, and
+   * local dev daemons. The URL keeps its scheme and host: the host
+   * becomes COSMETIC for dialing, while the Host header, SNI, and
+   * certificate verification still use it — an https send over the
+   * socket verifies against the URL's hostname. The socket rides every
+   * hop of a redirect chain — a cross-host redirect still dials the
+   * same socket. Incompatible with `proxyUrl` (a CONNECT tunnel cannot
+   * dial a local socket) and with `resolveToAddress` (a socket dial
+   * resolves no hostname); a send carrying either pair fails with an
+   * error naming the conflict. Not trust-relaxing, no snapshot marker.
+   * Honored by node runtimes; browser runtimes cannot dial local
+   * sockets and ignore it (the request still syncs it — one schema,
+   * all runtimes carry the value). Validated — see
+   * {@link UnixSocketPathSchema}.
+   */
+  unixSocketPath: v.optional(UnixSocketPathSchema),
   /**
    * Wall-clock ceiling (ms) on the whole round-trip — connection,
    * response, and body read. Honored by BOTH runtimes (the browser

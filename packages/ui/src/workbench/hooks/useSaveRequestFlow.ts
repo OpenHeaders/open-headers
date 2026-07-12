@@ -68,6 +68,7 @@ export interface DraftData {
   clientCertificateRef?: string;
   proxyUrl?: string;
   proxyCredentialRef?: string;
+  unixSocketPath?: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -137,6 +138,7 @@ export function useSaveRequestFlow({
             clientCertificateRef: draftData.clientCertificateRef,
             proxyUrl: draftData.proxyUrl,
             proxyCredentialRef: draftData.proxyCredentialRef,
+            unixSocketPath: draftData.unixSocketPath,
             timeoutMs: draftData.timeoutMs,
             maxResponseBytes: draftData.maxResponseBytes,
             maxRedirects: draftData.maxRedirects,
@@ -188,6 +190,7 @@ export function useSaveRequestFlow({
           clientCertificateRef: saveModalDraftData.clientCertificateRef,
           proxyUrl: saveModalDraftData.proxyUrl,
           proxyCredentialRef: saveModalDraftData.proxyCredentialRef,
+          unixSocketPath: saveModalDraftData.unixSocketPath,
           timeoutMs: saveModalDraftData.timeoutMs,
           maxResponseBytes: saveModalDraftData.maxResponseBytes,
           maxRedirects: saveModalDraftData.maxRedirects,

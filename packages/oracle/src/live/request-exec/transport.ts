@@ -180,6 +180,18 @@ export interface TransportRequest {
    */
   proxyCredential?: string;
   /**
+   * Local socket the send dials instead of opening a TCP connection —
+   * an absolute Unix domain socket path or a Windows named pipe. The
+   * URL's host stays cosmetic for dialing while the Host header, SNI,
+   * and certificate verification keep using it. Rides every hop of a
+   * redirect chain. Not honorable together with {@link proxyUrl} (a
+   * CONNECT tunnel cannot dial a local socket) or
+   * {@link resolveToAddress} (a socket dial resolves no hostname) —
+   * the honoring transport fails a send carrying either pair loudly.
+   * Transports without a socket seat (the browser SW) ignore it.
+   */
+  unixSocketPath?: string;
+  /**
    * Optional per-attempt wall-clock ceiling in milliseconds. The
    * transport MUST abort the whole round-trip — connection, response,
    * and body read — once this elapses, surfacing a

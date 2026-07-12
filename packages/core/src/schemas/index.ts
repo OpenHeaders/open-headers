@@ -63,6 +63,7 @@ export {
   CredentialsModeSchema,
   HttpMethodSchema,
   isValidProxyUrl,
+  isValidUnixSocketPath,
   MAX_CLIENT_CERTIFICATE_REF_LENGTH,
   MAX_MAX_REDIRECTS,
   MAX_PROXY_CREDENTIAL_REF_LENGTH,
@@ -71,6 +72,7 @@ export {
   MAX_RESOLVE_TO_ADDRESS_LENGTH,
   MAX_RESPONSE_BYTES,
   MAX_TLS_CIPHER_SUITES_LENGTH,
+  MAX_UNIX_SOCKET_PATH_LENGTH,
   MaxRedirectsSchema,
   MaxResponseBytesSchema,
   MIN_MAX_REDIRECTS,
@@ -90,6 +92,7 @@ export {
   TLS_VERSIONS,
   TlsCipherSuitesSchema,
   TlsVersionSchema,
+  UnixSocketPathSchema,
 } from './request';
 export { CapturedRequestSchema, CapturedResponseSchema, ResponseExampleSchema } from './response-example';
 export {

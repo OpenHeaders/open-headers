@@ -88,6 +88,7 @@ export async function executeOverTransport(
     proxyUrl: resolved.proxyUrl,
     proxyCredentialRef: resolved.proxyCredentialRef,
     proxyCredential: resolved.proxyCredential,
+    unixSocketPath: resolved.unixSocketPath,
     maxBodyBytes,
     timeoutMs: options.timeoutMs ?? resolved.timeoutMs,
     maxRedirects: resolved.maxRedirects,

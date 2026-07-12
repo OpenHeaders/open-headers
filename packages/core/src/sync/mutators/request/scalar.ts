@@ -48,6 +48,7 @@ export type RequestScalarPath =
   | 'clientCertificateRef'
   | 'proxyUrl'
   | 'proxyCredentialRef'
+  | 'unixSocketPath'
   | 'timeoutMs'
   | 'maxResponseBytes'
   | 'maxRedirects'

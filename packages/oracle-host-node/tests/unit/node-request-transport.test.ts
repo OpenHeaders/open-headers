@@ -775,6 +775,133 @@ describe('createNodeRequestTransport — per-request proxy', () => {
   });
 });
 
+const SOCKET_PATH = '/var/run/openheaders/api.sock';
+
+describe('createNodeRequestTransport — per-request Unix socket target', () => {
+  it('a socket-only tuple mints a dedicated agent, reused per tuple', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }));
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('an absent socket path keeps the default dispatcher', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest());
+    expect(callInit(0).dispatcher).toBeUndefined();
+  });
+
+  it('distinct socket paths get distinct agents', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }));
+    await transport().send(makeRequest({ unixSocketPath: '/var/run/openheaders/other.sock' }));
+    const agents = [callInit(0).dispatcher, callInit(1).dispatcher];
+    for (const a of agents) expect(a).toBeInstanceOf(Agent);
+    expect(new Set(agents).size).toBe(2);
+  });
+
+  it('the socket combines with TLS, h2, and certificate options into its own distinct tuples', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }));
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH, sslVerification: false }));
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH, allowHttp2: true }));
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH, ...CERT_FIELDS }));
+    await transport().send(makeRequest({ sslVerification: false }));
+    const agents = [
+      callInit(0).dispatcher,
+      callInit(1).dispatcher,
+      callInit(2).dispatcher,
+      callInit(3).dispatcher,
+      callInit(4).dispatcher,
+    ];
+    for (const a of agents) expect(a).toBeInstanceOf(Agent);
+    expect(new Set(agents).size).toBe(5);
+  });
+
+  it('the socket-pinned dispatcher rides EVERY hop of a redirect chain, cross-host hops included', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
+      .mockResolvedValueOnce(new Response('ok'));
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('fails BEFORE the wire when the request sets both a Unix socket and a proxy', async () => {
+    const attempt = transport().send(makeRequest({ unixSocketPath: SOCKET_PATH, proxyUrl: PROXY_URL }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/proxy tunnel can't dial a local socket/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('fails BEFORE the wire when the request sets both a Unix socket and a resolve-to-address pin', async () => {
+    const attempt = transport().send(makeRequest({ unixSocketPath: SOCKET_PATH, resolveToAddress: '10.0.0.7' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/socket dial resolves no hostname/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('classifies a missing socket file naming the setting and the path', async () => {
+    fetchMock.mockRejectedValue(fetchError('ENOENT'));
+    await expect(transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }))).rejects.toThrow(
+      /No socket at \/var\/run\/openheaders\/api\.sock — the request's Unix-socket setting dials it/,
+    );
+  });
+
+  it('hints at the OS path-length limit when a long path fails as ENOENT', async () => {
+    const longPath = `/tmp/${'x'.repeat(120)}.sock`;
+    fetchMock.mockRejectedValue(fetchError('ENOENT'));
+    await expect(transport().send(makeRequest({ unixSocketPath: longPath }))).rejects.toThrow(
+      /Paths longer than the OS limit on socket paths/,
+    );
+  });
+
+  it('classifies a non-socket file at the path', async () => {
+    fetchMock.mockRejectedValue(fetchError('ENOTSOCK'));
+    await expect(transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }))).rejects.toThrow(
+      /exists but is not a socket/,
+    );
+  });
+
+  it('classifies a permission-denied socket open', async () => {
+    fetchMock.mockRejectedValue(fetchError('EACCES'));
+    await expect(transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }))).rejects.toThrow(
+      /Permission denied opening the socket at \/var\/run\/openheaders\/api\.sock/,
+    );
+  });
+
+  it('classifies a refused socket connection (stale socket, nothing listening)', async () => {
+    fetchMock.mockRejectedValue(fetchError('ECONNREFUSED'));
+    await expect(transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }))).rejects.toThrow(
+      /Connection refused on the socket at \/var\/run\/openheaders\/api\.sock/,
+    );
+  });
+
+  it('classifies a connect timeout naming the socket', async () => {
+    fetchMock.mockRejectedValue(fetchError('UND_ERR_CONNECT_TIMEOUT'));
+    await expect(transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }))).rejects.toThrow(
+      /Connection on the socket at \/var\/run\/openheaders\/api\.sock timed out/,
+    );
+  });
+
+  it('a target-leg TLS error on a socket-pinned send keeps its direct classification', async () => {
+    fetchMock.mockRejectedValue(fetchError('DEPTH_ZERO_SELF_SIGNED_CERT'));
+    await expect(transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }))).rejects.toThrow(
+      /TLS certificate error reaching api\.openheaders\.io/,
+    );
+  });
+
+  it('an unsocketed refused connection keeps the plain host message', async () => {
+    fetchMock.mockRejectedValue(fetchError('ECONNREFUSED'));
+    await expect(transport().send(makeRequest())).rejects.toThrow(
+      /^Connection refused by api\.openheaders\.io\. Is the service running on that host\/port\?$/,
+    );
+  });
+});
+
 describe('createNodeRequestTransport — hand-rolled redirect follow', () => {
   it('follows a redirect chain to the final response and reports the final URL', async () => {
     fetchMock

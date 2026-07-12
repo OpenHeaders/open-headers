@@ -45,6 +45,7 @@ export interface RequestSaveBatch {
   clientCertificateRef: string | undefined;
   proxyUrl: string | undefined;
   proxyCredentialRef: string | undefined;
+  unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -74,6 +75,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     clientCertificateRef: req.clientCertificateRef,
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
+    unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -125,6 +127,7 @@ export function mergeRequestForSave(
     clientCertificateRef: form.clientCertificateRef,
     proxyUrl: form.proxyUrl,
     proxyCredentialRef: form.proxyCredentialRef,
+    unixSocketPath: form.unixSocketPath,
     timeoutMs: form.timeoutMs,
     maxResponseBytes: form.maxResponseBytes,
     maxRedirects: form.maxRedirects,
@@ -149,6 +152,7 @@ export function mergeRequestForSave(
     clientCertificateRef: baseProj.clientCertificateRef,
     proxyUrl: baseProj.proxyUrl,
     proxyCredentialRef: baseProj.proxyCredentialRef,
+    unixSocketPath: baseProj.unixSocketPath,
     timeoutMs: baseProj.timeoutMs,
     maxResponseBytes: baseProj.maxResponseBytes,
     maxRedirects: baseProj.maxRedirects,
@@ -173,6 +177,7 @@ export function mergeRequestForSave(
     clientCertificateRef: liveProj.clientCertificateRef,
     proxyUrl: liveProj.proxyUrl,
     proxyCredentialRef: liveProj.proxyCredentialRef,
+    unixSocketPath: liveProj.unixSocketPath,
     timeoutMs: liveProj.timeoutMs,
     maxResponseBytes: liveProj.maxResponseBytes,
     maxRedirects: liveProj.maxRedirects,
@@ -207,6 +212,7 @@ export function mergeRequestForSave(
     clientCertificateRef: merged.clientCertificateRef as string | undefined,
     proxyUrl: merged.proxyUrl as string | undefined,
     proxyCredentialRef: merged.proxyCredentialRef as string | undefined,
+    unixSocketPath: merged.unixSocketPath as string | undefined,
     timeoutMs: merged.timeoutMs as number | undefined,
     maxResponseBytes: merged.maxResponseBytes as number | undefined,
     maxRedirects: merged.maxRedirects as number | undefined,

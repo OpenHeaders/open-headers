@@ -35,7 +35,10 @@
  *     target; the other connection options ride the tunnel's target
  *     leg via `requestTls` — see {@link buildProxyAgent}), with
  *     credentials resolved from a vault ref (see
- *     {@link proxyCredKeySegment}). Dispatchers are cached per
+ *     {@link proxyCredKeySegment}); `unixSocketPath` pins the dial to
+ *     a local Unix domain socket / Windows named pipe via
+ *     `connect.socketPath` (the URL's host stays cosmetic for dialing;
+ *     Host / SNI / cert verification keep it). Dispatchers are cached per
  *     distinct option tuple (see
  *     {@link dispatcherFor}) so pooled connections are shared, never
  *     minted per send. `fetch` + `Agent` come from the same undici
@@ -174,12 +177,14 @@ interface ConnectOptions {
   key?: string;
   passphrase?: string;
   allowH2?: boolean;
+  socketPath?: string;
 }
 
 function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
   const insecure = request.sslVerification === false;
   const allowH2 = request.allowHttp2 === true;
   const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress, clientCertificateRef, proxyUrl } = request;
+  const { unixSocketPath } = request;
   if (
     !insecure &&
     !allowH2 &&
@@ -188,7 +193,8 @@ function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
     tlsCipherSuites === undefined &&
     resolveToAddress === undefined &&
     clientCertificateRef === undefined &&
-    proxyUrl === undefined
+    proxyUrl === undefined &&
+    unixSocketPath === undefined
   ) {
     return undefined;
   }
@@ -202,6 +208,7 @@ function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
     clientCertKeySegment(request),
     proxyUrl ?? '',
     proxyUrl !== undefined ? proxyCredKeySegment(request) : '',
+    unixSocketPath ?? '',
   ].join('|');
   const cached = agentCache.get(key);
   if (cached) return cached;
@@ -214,6 +221,10 @@ function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
   if (request.clientCertificatePem !== undefined) connect.cert = request.clientCertificatePem;
   if (request.clientCertificateKeyPem !== undefined) connect.key = request.clientCertificateKeyPem;
   if (request.clientCertificatePassphrase !== undefined) connect.passphrase = request.clientCertificatePassphrase;
+  // The connector passes `socketPath` as `path` into net.connect /
+  // tls.connect, where it wins over host+port — the URL's host stays
+  // cosmetic for dialing while Host / SNI / cert verification keep it.
+  if (unixSocketPath !== undefined) connect.socketPath = unixSocketPath;
   const dispatcher =
     proxyUrl !== undefined ? buildProxyAgent(proxyUrl, request, connect, allowH2) : buildAgent(connect, allowH2);
   if (agentCache.size >= MAX_AGENTS) {
@@ -305,6 +316,23 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         throw new TransportError(
           `The request's client-certificate setting references the vault entry "${request.clientCertificateRef}", which doesn't exist on this device. Add a client-certificate entry with that name to the vault, or clear the setting.`,
         );
+      }
+      if (request.unixSocketPath !== undefined) {
+        // A socket-pinned send never opens a TCP connection, so a
+        // CONNECT tunnel has nowhere to run — silently picking one of
+        // the two would downgrade the other.
+        if (request.proxyUrl !== undefined) {
+          throw new TransportError(
+            "The request sets both a proxy and a Unix socket target, but a proxy tunnel can't dial a local socket. Clear one of the two settings.",
+          );
+        }
+        // Likewise nothing is resolved on a socket dial — the address
+        // pin can't apply.
+        if (request.resolveToAddress !== undefined) {
+          throw new TransportError(
+            "The request sets both a Unix socket target and resolve-to-address, but a socket dial resolves no hostname — the address pin can't apply. Clear one of the two settings.",
+          );
+        }
       }
       if (request.proxyUrl !== undefined) {
         // A resolve-to-address pin cannot be honored through a proxy —
@@ -680,10 +708,15 @@ function proxyHostOf(proxyUrl: string): string {
  * names the proxy-credentials setting, anything else names the tunnel.
  * Connect-level failures on a send that pins its address name the
  * resolve-to-address setting (the user's first question is "did my
- * pin do this?"); handshake failures name the TLS settings only when
- * they are tuned; certificate-demand alerts, cert-material load
- * failures, and mid-handshake closes name the client-certificate
- * setting when one is configured.
+ * pin do this?"); a socket-pinned send names the Unix-socket setting
+ * and the path on every dial-level failure (missing socket file =
+ * `ENOENT` — an overlong path fails the same way; non-socket file =
+ * `ENOTSOCK`; permissions = `EACCES`; nothing listening =
+ * `ECONNREFUSED`; all probed against a live socket rig); handshake
+ * failures name the TLS settings only when they are tuned;
+ * certificate-demand alerts, cert-material load failures, and
+ * mid-handshake closes name the client-certificate setting when one
+ * is configured.
  */
 function classifyFetchFailure(url: string, err: unknown, request: TransportRequest): string {
   const tuned = tlsTuned(request);
@@ -713,6 +746,33 @@ function classifyFetchFailure(url: string, err: unknown, request: TransportReque
           : `The proxy at ${proxyHostOf(proxied)} requires authentication (407). Set the request's proxy-credentials setting to a vault string entry holding user:password.`;
       }
       return `The proxy at ${proxyHostOf(proxied)} could not open a tunnel to ${host} (HTTP ${status}). The proxy is reachable — the failure is between the proxy and the target.`;
+    }
+  }
+  // A socket-pinned send never dials TCP, so every dial-level failure
+  // is about the socket itself — name the setting and the path. Codes
+  // outside this set (TLS handshake, cert material, resets) fall
+  // through to the shared classification below.
+  const socketPath = request.unixSocketPath;
+  if (socketPath !== undefined) {
+    switch (code) {
+      case 'ENOENT': {
+        // An overlong path fails as ENOENT too — the OS truncates or
+        // rejects anything past its sun_path limit (probed live).
+        const lengthHint =
+          socketPath.length > 100
+            ? ' Paths longer than the OS limit on socket paths (~104 characters) also fail this way.'
+            : '';
+        return `No socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service running and the path right?${lengthHint}`;
+      }
+      case 'ENOTSOCK':
+        return `The path ${socketPath} exists but is not a socket — the request's Unix-socket setting dials it.`;
+      case 'EACCES':
+        return `Permission denied opening the socket at ${socketPath} — the request's Unix-socket setting dials it.`;
+      case 'ECONNREFUSED':
+        return `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service still listening on that socket?`;
+      case 'ETIMEDOUT':
+      case 'UND_ERR_CONNECT_TIMEOUT':
+        return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
     }
   }
   switch (code) {

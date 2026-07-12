@@ -79,6 +79,7 @@ export const REQUEST_FIELD_ORDER = [
   'clientCertificateRef',
   'proxyUrl',
   'proxyCredentialRef',
+  'unixSocketPath',
   'timeoutMs',
   'maxResponseBytes',
   'maxRedirects',

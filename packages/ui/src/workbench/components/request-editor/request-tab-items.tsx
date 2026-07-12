@@ -93,6 +93,7 @@ export function buildRequestTabItems(
     // bare synced ref never dots; a set ref implies a set URL, which
     // already counts.
     (!browserRuntime && draft.proxyUrl !== undefined) ||
+    (!browserRuntime && draft.unixSocketPath !== undefined) ||
     draft.timeoutMs !== undefined ||
     (!browserRuntime && draft.maxResponseBytes !== undefined) ||
     // The redirect trio's rows hide while follow-redirects is off; no

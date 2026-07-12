@@ -44,6 +44,7 @@ function batchOf(req: Request): RequestSaveBatch {
     clientCertificateRef: req.clientCertificateRef,
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
+    unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -109,6 +110,16 @@ describe('mergeRequestForSave', () => {
       live,
     );
     expect(touched.proxyUrl).toBe('http://other-proxy.openheaders.io:8080');
+  });
+
+  it('merges unixSocketPath per leaf like the other scalars', () => {
+    const baseline = makeReq();
+    const live = makeReq({ unixSocketPath: '/var/run/openheaders/api.sock' });
+    const untouched = mergeRequestForSave(batchOf(baseline), baseline, live);
+    expect(untouched.unixSocketPath).toBe('/var/run/openheaders/api.sock');
+
+    const touched = mergeRequestForSave(batchOf(makeReq({ unixSocketPath: '/tmp/other.sock' })), baseline, live);
+    expect(touched.unixSocketPath).toBe('/tmp/other.sock');
   });
 
   it('per-row merges headers by uid', () => {

@@ -265,4 +265,10 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     expect(sent().proxyCredentialRef).toBe('missing-entry');
     expect(sent().proxyCredential).toBeUndefined();
   });
+
+  it('carries unixSocketPath through the real resolver onto the seam', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ unixSocketPath: '/var/run/openheaders/api.sock' }), opts(transport));
+    expect(sent().unixSocketPath).toBe('/var/run/openheaders/api.sock');
+  });
 });

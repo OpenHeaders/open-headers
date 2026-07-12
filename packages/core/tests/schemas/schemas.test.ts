@@ -488,6 +488,31 @@ describe('RequestSchema', () => {
     expect(v.safeParse(RequestSchema, { ...base, proxyCredentialRef: '' }).success).toBe(false);
     expect(v.safeParse(RequestSchema, { ...base, proxyCredentialRef: 'x'.repeat(257) }).success).toBe(false);
   });
+
+  it('accepts a unixSocketPath as an absolute Unix path or a Windows named pipe; rejects other shapes', () => {
+    const base = {
+      schemaVersion: 5,
+      uid: 'abcd1234',
+      path: 'x',
+      name: 'x',
+      method: 'GET',
+      url: 'x',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    };
+    expect(v.parse(RequestSchema, { ...base, unixSocketPath: '/var/run/docker.sock' })).toBeTruthy();
+    expect(v.safeParse(RequestSchema, { ...base, unixSocketPath: '/tmp/oh test.sock' }).success).toBe(true);
+    expect(v.safeParse(RequestSchema, { ...base, unixSocketPath: '\\\\.\\pipe\\openheaders' }).success).toBe(true);
+    // Relative paths, bare prefixes, and non-path garbage are shape
+    // errors; whether the socket EXISTS is a connect-time question.
+    expect(v.safeParse(RequestSchema, { ...base, unixSocketPath: 'var/run/docker.sock' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, unixSocketPath: '/' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, unixSocketPath: '\\\\.\\pipe\\' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, unixSocketPath: '' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, unixSocketPath: `/${'x'.repeat(256)}` }).success).toBe(false);
+  });
 });
 
 describe('RuleSchema', () => {

@@ -36,6 +36,7 @@ export interface RequestPathBundle {
   clientCertificateRef: string;
   proxyUrl: string;
   proxyCredentialRef: string;
+  unixSocketPath: string;
   timeoutMs: string;
   maxResponseBytes: string;
   maxRedirects: string;
@@ -69,6 +70,7 @@ export const REQUEST_PATHS: RequestPathBundle = {
   clientCertificateRef: 'clientCertificateRef',
   proxyUrl: 'proxyUrl',
   proxyCredentialRef: 'proxyCredentialRef',
+  unixSocketPath: 'unixSocketPath',
   timeoutMs: 'timeoutMs',
   maxResponseBytes: 'maxResponseBytes',
   maxRedirects: 'maxRedirects',

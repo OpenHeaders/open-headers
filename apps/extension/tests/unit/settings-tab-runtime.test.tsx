@@ -57,6 +57,7 @@ interface KnobValues {
   clientCertificateRef?: string;
   proxyUrl?: string;
   proxyCredentialRef?: string;
+  unixSocketPath?: string;
 }
 
 function renderTab(value: KnobValues = {}) {
@@ -204,6 +205,15 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     fireEvent.click(screen.getByText('10 browser-managed'));
     expect(screen.queryByText('Proxy')).toBeNull();
     expect(settingsDotCount({ proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(0);
+  });
+
+  it('shows no Unix-socket control or fact row and never dots a synced path', () => {
+    renderTab({ unixSocketPath: '/var/run/openheaders/api.sock' });
+    expect(screen.queryByRole('textbox', { name: 'Unix socket' })).toBeNull();
+    // Not a sheet-listed fact — the browser sheet stays at 10 rows.
+    fireEvent.click(screen.getByText('10 browser-managed'));
+    expect(screen.queryByText('Unix socket')).toBeNull();
+    expect(settingsDotCount({ unixSocketPath: '/var/run/openheaders/api.sock' })).toBe(0);
   });
 });
 
@@ -610,6 +620,64 @@ describe('SettingsTab on a node runtime', () => {
     expect(settingsDotCount({ proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(1);
     // The credentials row hides while no URL is set — no control, no dot.
     expect(settingsDotCount({ proxyCredentialRef: 'corp-proxy' })).toBe(0);
+    expect(settingsDotCount()).toBe(0);
+  });
+
+  it('shows the Unix-socket field without touching the fact sheet', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    expect(screen.getByRole('textbox', { name: 'Unix socket' })).toBeTruthy();
+    expect(screen.getByPlaceholderText('No socket — TCP connection')).toBeTruthy();
+    // Not trust-relaxing, not a sheet-listed fact — the node sheet
+    // stays at 4 rows and the label exists exactly once.
+    fireEvent.click(screen.getByText('4 runtime-managed'));
+    expect(screen.getAllByText('Unix socket')).toHaveLength(1);
+  });
+
+  it('flags a malformed socket path in place', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ unixSocketPath: 'var/run/docker.sock' });
+    expect(screen.getByText(/Absolute Unix socket path/)).toBeTruthy();
+
+    cleanup();
+    renderTab({ unixSocketPath: '/var/run/docker.sock' });
+    expect(screen.queryByText(/Absolute Unix socket path/)).toBeNull();
+
+    cleanup();
+    renderTab({ unixSocketPath: '\\\\.\\pipe\\openheaders' });
+    expect(screen.queryByText(/Absolute Unix socket path/)).toBeNull();
+  });
+
+  it('warns in place while the socket is combined with a proxy or an address pin', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ unixSocketPath: '/var/run/docker.sock', proxyUrl: 'http://proxy.openheaders.io:3128' });
+    expect(screen.getByText(/a proxy tunnel can’t dial a local socket/)).toBeTruthy();
+
+    cleanup();
+    renderTab({ unixSocketPath: '/var/run/docker.sock', resolveToAddress: '10.0.0.7' });
+    expect(screen.getByText(/a socket dial resolves no hostname/)).toBeTruthy();
+
+    cleanup();
+    renderTab({ unixSocketPath: '/var/run/docker.sock' });
+    expect(screen.queryByText(/a proxy tunnel can’t dial a local socket/)).toBeNull();
+    expect(screen.queryByText(/a socket dial resolves no hostname/)).toBeNull();
+  });
+
+  it('reports the socket path verbatim and clears to undefined when emptied', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ unixSocketPath: '/var/run/docker.sock' }} onChange={onChange} />);
+    const knob = screen.getByRole('textbox', { name: 'Unix socket' }) as HTMLInputElement;
+    expect(knob.value).toBe('/var/run/docker.sock');
+    fireEvent.change(knob, { target: { value: '/tmp/other.sock' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ unixSocketPath: '/tmp/other.sock' }));
+    fireEvent.change(knob, { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ unixSocketPath: undefined }));
+  });
+
+  it('dots the tab while a socket path is set', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ unixSocketPath: '/var/run/openheaders/api.sock' })).toBe(1);
     expect(settingsDotCount()).toBe(0);
   });
 });
