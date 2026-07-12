@@ -105,7 +105,11 @@
  *     browser runtime rides the browser's own jar via
  *     `credentialsMode`, so there is no browser control; the node
  *     sheet's former 'Cookies · Not sent' fact row graduated into this
- *     knob.
+ *     knob. A quiet row under the knob (`CookieJarRow`) shows the
+ *     jar's current contents (count + value-free metadata) with a
+ *     Clear action; it rides the `getCookieJarSummary` /
+ *     `clearCookieJar` bridge RPCs and hides on hosts that don't
+ *     answer them.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -146,6 +150,7 @@ import {
 import type { TlsVersion } from '@openheaders/core/types';
 import { useVaultContext } from '@openheaders/ui/context';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import CookieJarRow from './CookieJarRow';
 
 const { Text } = Typography;
 
@@ -716,6 +721,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
             onChange={(checked) => onChange({ ...value, cookieJar: checked || undefined })}
             info="Store this request's Set-Cookie responses in the app's own cookie jar and attach matching cookies automatically — so a login request followed by an authenticated call works without copying cookie values by hand. The jar lives in memory per workspace, is used only by requests with this setting on, never syncs, and is cleared when the app quits. A Cookie header you set yourself always wins. Off is the default: no cookies are attached and Set-Cookie responses are discarded."
           />
+          <CookieJarRow />
         </>
       )}
       <NumericKnobRow

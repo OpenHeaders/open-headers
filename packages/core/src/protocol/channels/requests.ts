@@ -7,6 +7,25 @@
 import type { Collection, CollectionTree, ExecutedRequestSnapshot, Request, RequestSeed } from '../../types';
 import type { FolderDescriptor } from './common';
 
+/**
+ * One cookie in a node runtime's per-workspace cookie jar, as the jar
+ * inspection surface may see it. Deliberately value-free: cookie VALUES
+ * are session credentials and never leave the transport — the summary
+ * carries only the matching metadata a user needs to recognize an entry.
+ */
+export interface CookieJarEntryWire {
+  name: string;
+  /** Lowercase match domain, no leading dot. */
+  domain: string;
+  /** True when the cookie had no Domain attribute — exact-host match only. */
+  hostOnly: boolean;
+  path: string;
+  /** Attached over https: only. */
+  secure: boolean;
+  /** Epoch ms; absent = session cookie (lives as long as the jar). */
+  expiresAt?: number;
+}
+
 export interface RequestRpc {
   getLocalRequests: {
     req: Record<string, never>;
@@ -100,5 +119,22 @@ export interface RequestRpc {
       environmentId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
+  };
+  /**
+   * Inspect a workspace's in-memory cookie jar on a node runtime.
+   * `workspaceId` omitted = the host's active workspace (the same pin
+   * an unpinned send's jar key resolves from). Hosts without a jar
+   * (browser runtimes, surfaces whose node runtime is remote) leave
+   * the channel unhandled and the UI hides the affordance on rejection.
+   */
+  getCookieJarSummary: {
+    req: { workspaceId?: string };
+    res: { cookies: CookieJarEntryWire[] };
+  };
+  /** Empty a workspace's in-memory cookie jar. Same scoping as
+   *  `getCookieJarSummary`; clearing an absent jar is a quiet no-op. */
+  clearCookieJar: {
+    req: { workspaceId?: string };
+    res: { success: boolean };
   };
 }

@@ -26,6 +26,8 @@
  * first, then the oldest stored.
  */
 
+import type { CookieJarEntryWire } from '@openheaders/core/bridge';
+
 /** Parsed `Set-Cookie` fields the jar consumes — the transport maps
  *  undici's `getSetCookies` records down to this plain shape. */
 export interface SetCookieInput {
@@ -172,6 +174,32 @@ export class CookieJar {
     this.cookies.clear();
   }
 
+  /**
+   * The jar's live entries for the inspection surface, in storage
+   * order, with the same lazy expiry sweep an attach runs. Cookie
+   * VALUES stay behind by construction — they are session credentials
+   * and only the attach path may read them.
+   */
+  list(): CookieJarEntryWire[] {
+    const now = Date.now();
+    const entries: CookieJarEntryWire[] = [];
+    for (const [key, cookie] of this.cookies) {
+      if (cookie.expiresAt !== undefined && cookie.expiresAt <= now) {
+        this.cookies.delete(key);
+        continue;
+      }
+      entries.push({
+        name: cookie.name,
+        domain: cookie.domain,
+        hostOnly: cookie.hostOnly,
+        path: cookie.path,
+        secure: cookie.secure,
+        ...(cookie.expiresAt !== undefined ? { expiresAt: cookie.expiresAt } : {}),
+      });
+    }
+    return entries;
+  }
+
   /** Drop expired entries first, then the oldest stored, until the jar
    *  fits its bound again. */
   private enforceBound(): void {
@@ -206,6 +234,12 @@ export function cookieJarFor(key: string): CookieJar {
     jars.set(key, jar);
   }
   return jar;
+}
+
+/** The jar under `key` if one was ever minted — the inspection surface
+ *  reads through this so a lookup never creates an empty jar. */
+export function peekCookieJar(key: string): CookieJar | undefined {
+  return jars.get(key);
 }
 
 /** Drop every jar — test isolation only. */

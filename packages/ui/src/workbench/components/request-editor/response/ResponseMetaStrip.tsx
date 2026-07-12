@@ -374,6 +374,51 @@ function authForwardedContent(): InfoPopoverContent {
   };
 }
 
+/** Body of the cookie-jar popover: what the jar attached on the first
+ *  hop and what it stored across the chain — the snapshot's record of
+ *  what the send actually did, never a live jar read. */
+function CookieJarFacts({ response }: { response: ExecutedRequestSnapshot }) {
+  const { token } = theme.useToken();
+  const captured = response.cookiesCaptured ?? [];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 220, maxWidth: 360 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ fontSize: 12, color: token.colorTextSecondary }}>Attached to the first request</span>
+        {response.cookieHeaderAttached !== undefined ? (
+          <span style={{ fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+            Cookie: {response.cookieHeaderAttached}
+          </span>
+        ) : (
+          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
+            Nothing — no stored cookie matched, or a Cookie header set on the request won.
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ fontSize: 12, color: token.colorTextSecondary }}>Stored from Set-Cookie responses</span>
+        {captured.length > 0 ? (
+          <span style={{ fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all' }}>{captured.join(', ')}</span>
+        ) : (
+          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>Nothing — no response set a cookie.</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Popover for the neutral tag on a run sent with its cookie-jar knob
+ *  on — attribution of what the jar did (informational), unlike the
+ *  warning tags above: using the jar relaxes no trust decision. */
+function cookieJarContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
+  return {
+    title: 'Cookie jar',
+    kicker: 'Response meta',
+    summary:
+      'This request used the workspace’s in-memory cookie jar: matching stored cookies were attached automatically, and Set-Cookie responses were kept for later jar-enabled sends.',
+    description: <CookieJarFacts response={response} />,
+  };
+}
+
 function networkContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
   return {
     title: 'Network',
@@ -471,6 +516,16 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >
               Authorization forwarded
+            </Tag>
+          </InfoPopover>
+        </>
+      )}
+      {(response.cookieHeaderAttached !== undefined || response.cookiesCaptured !== undefined) && (
+        <>
+          <MetaDot />
+          <InfoPopover content={cookieJarContent(response)} trigger="hover">
+            <Tag color="default" data-testid="oh-response-cookie-jar" style={{ marginInlineEnd: 0, cursor: 'help' }}>
+              Cookie jar
             </Tag>
           </InfoPopover>
         </>

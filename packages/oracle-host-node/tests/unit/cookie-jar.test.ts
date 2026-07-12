@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { CookieJar, cookieJarFor, resetCookieJars } from '../../src/live/cookie-jar';
+import { CookieJar, cookieJarFor, peekCookieJar, resetCookieJars } from '../../src/live/cookie-jar';
 
 describe('CookieJar', () => {
   describe('store + cookieHeaderFor', () => {
@@ -116,6 +116,45 @@ describe('CookieJar', () => {
     });
   });
 
+  describe('list', () => {
+    it('exposes matching metadata only — cookie values never appear', () => {
+      const jar = new CookieJar();
+      jar.store('https://api.openheaders.io/auth/login', [
+        { name: 'session', value: 'top-secret' },
+        { name: 'tenant', value: 't1', domain: '.openheaders.io', path: '/', secure: true },
+      ]);
+      const entries = jar.list();
+      expect(entries).toEqual([
+        { name: 'session', domain: 'api.openheaders.io', hostOnly: true, path: '/auth', secure: false },
+        { name: 'tenant', domain: 'openheaders.io', hostOnly: false, path: '/', secure: true },
+      ]);
+      for (const entry of entries) {
+        expect(entry).not.toHaveProperty('value');
+        expect(JSON.stringify(entry)).not.toContain('top-secret');
+      }
+    });
+
+    it('carries expiry as epoch ms and sweeps lapsed entries out', async () => {
+      const jar = new CookieJar();
+      jar.store('https://openheaders.io/', [
+        { name: 'brief', value: '1', expires: new Date(Date.now() + 20) },
+        { name: 'lasting', value: '1', maxAge: 3600 },
+      ]);
+      const before = jar.list();
+      expect(before).toHaveLength(2);
+      expect(before[0].expiresAt).toBeDefined();
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      expect(jar.list().map((c) => c.name)).toEqual(['lasting']);
+    });
+
+    it('empties after clear', () => {
+      const jar = new CookieJar();
+      jar.store('https://openheaders.io/', [{ name: 'session', value: 's' }]);
+      jar.clear();
+      expect(jar.list()).toEqual([]);
+    });
+  });
+
   describe('registry', () => {
     beforeEach(() => {
       resetCookieJars();
@@ -126,6 +165,13 @@ describe('CookieJar', () => {
       a.store('https://openheaders.io/', [{ name: 'session', value: 'a' }]);
       expect(cookieJarFor('ws-a')).toBe(a);
       expect(cookieJarFor('ws-b').cookieHeaderFor('https://openheaders.io/')).toBeUndefined();
+    });
+
+    it('peeking never mints a jar; an existing one is returned as-is', () => {
+      expect(peekCookieJar('ws-a')).toBeUndefined();
+      const a = cookieJarFor('ws-a');
+      expect(peekCookieJar('ws-a')).toBe(a);
+      expect(peekCookieJar('ws-b')).toBeUndefined();
     });
   });
 });

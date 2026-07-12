@@ -18,6 +18,7 @@ export type {
   CacheEntryHeaderWire,
   CacheEntryWire,
   CacheStorageCacheWire,
+  CookieJarEntryWire,
   DomStorageAreaWire,
   DomStorageEntryWire,
   DomStorageRenameFailureWire,

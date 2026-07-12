@@ -91,6 +91,7 @@ import { evictConsumedWorkspace } from '@openheaders/oracle/workspace/workspace-
 import { FileSystemBlobBackend } from '../files/fs-blob-backend';
 import { createPairingHttpHandler } from '../host-runtime/pairing-http';
 import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-server';
+import { peekCookieJar } from '../live/cookie-jar';
 import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './activity-installer';
@@ -666,6 +667,23 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     }
     if (type === 'clearObservabilityLog') {
       observabilityLog.clear();
+      return { success: true };
+    }
+    // Cookie-jar inspection — the jar registry lives in this process
+    // (the transport stores per-workspace session cookies in memory),
+    // so this host answers the summary/clear channels directly. The
+    // summary is value-free by construction (`CookieJar.list`); an
+    // unspecified workspace resolves to the active one, matching the
+    // jar key an unpinned send runs under.
+    if (type === 'getCookieJarSummary') {
+      const workspaceId =
+        typeof message.workspaceId === 'string' ? message.workspaceId : (getActiveWorkspaceId() ?? 'default');
+      return { cookies: peekCookieJar(workspaceId)?.list() ?? [] };
+    }
+    if (type === 'clearCookieJar') {
+      const workspaceId =
+        typeof message.workspaceId === 'string' ? message.workspaceId : (getActiveWorkspaceId() ?? 'default');
+      peekCookieJar(workspaceId)?.clear();
       return { success: true };
     }
     // Daemon-admin channels (pairing/tokens/users/grants + the admin

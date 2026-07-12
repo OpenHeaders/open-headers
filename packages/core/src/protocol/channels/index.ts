@@ -72,6 +72,7 @@ export type {
 } from './devtools';
 export type { EnvironmentsSnapshot } from './environments';
 export type { LiveWorkflowRunSnapshot } from './live';
+export type { CookieJarEntryWire } from './requests';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 
 /**
