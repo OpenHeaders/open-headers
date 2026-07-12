@@ -4,6 +4,7 @@
  * selection feeding the payload preview, and the honest empty states.
  */
 
+import '@openheaders/ui/workbench/settings/schema';
 import type { RequestLifecycle, StreamMessage } from '@openheaders/core/request-lifecycle';
 import type { Rule, WsAction, WsRule } from '@openheaders/core/types';
 import MessagesView from '@openheaders/ui/panel/components/detail/MessagesView';

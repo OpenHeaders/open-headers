@@ -7,6 +7,7 @@
  * payload preview, and the honest empty states.
  */
 
+import '@openheaders/ui/workbench/settings/schema';
 import type { RequestLifecycle, StreamMessage } from '@openheaders/core/request-lifecycle';
 import type { Rule, SseAction, SseRule } from '@openheaders/core/types';
 import EventStreamView from '@openheaders/ui/panel/components/detail/EventStreamView';

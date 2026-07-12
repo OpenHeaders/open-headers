@@ -7,7 +7,7 @@
  * the panel only when rows are hidden) and must render accordingly.
  */
 
-import '@openheaders/ui/workbench/settings/schema/devpanel-layout';
+import '@openheaders/ui/workbench/settings/schema';
 import PanelStatusBar from '@openheaders/ui/panel/components/PanelStatusBar';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
 import {
