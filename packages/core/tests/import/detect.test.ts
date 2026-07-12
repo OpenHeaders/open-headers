@@ -173,6 +173,40 @@ describe('detectImportSource', () => {
     });
   });
 
+  describe('Bruno', () => {
+    it('detects a .bru request file', () => {
+      const bru = `meta {\n  name: Ping\n  type: http\n  seq: 1\n}\n\nget {\n  url: https://api.openheaders.io/ping\n}\n`;
+      expect(detectImportSource(bru)).toEqual({ kind: 'bruno' });
+    });
+
+    it('detects a .bru file with headers and body blocks', () => {
+      const bru = `meta {\n  name: Create\n}\n\npost {\n  url: {{host}}/v1/rules\n  body: json\n}\n\nbody:json {\n  {"a": 1}\n}\n`;
+      expect(detectImportSource(bru)).toEqual({ kind: 'bruno' });
+    });
+
+    it('requires the method block — meta alone stays unknown', () => {
+      expect(detectImportSource(`meta {\n  name: Folder\n}\n`)).toEqual({ kind: 'unknown' });
+    });
+
+    it('requires the url line — meta + method without url stays unknown', () => {
+      expect(detectImportSource(`meta {\n  name: X\n}\n\nget {\n  body: json\n}\n`)).toEqual({ kind: 'unknown' });
+    });
+
+    it('does not misfire on prose containing braces', () => {
+      const prose = `the meta { information } about\nget { url: is not a bru file }\n`;
+      expect(detectImportSource(prose)).toEqual({ kind: 'unknown' });
+    });
+
+    it('does not shadow curl commands carrying bru-looking text', () => {
+      expect(detectImportSource("curl 'https://api.openheaders.io/ping'")).toEqual({ kind: 'curl' });
+    });
+
+    it('does not misfire on YAML with url keys', () => {
+      const yaml = `meta:\n  name: X\nget:\n  url: https://api.openheaders.io\n`;
+      expect(detectImportSource(yaml)).toEqual({ kind: 'unknown' });
+    });
+  });
+
   describe('workspace export', () => {
     it('detects the JSON form by kind discriminator', () => {
       const exp = JSON.stringify({ kind: 'workspace-export', schemaVersion: 5, workspace: {} });

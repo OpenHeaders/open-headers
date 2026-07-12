@@ -1,8 +1,11 @@
 import { hostBridge } from '@openheaders/core/bridge';
 import { type DetectedImportSource, detectImportSource } from '@openheaders/core/import';
+import type { RuleSeed } from '@openheaders/core/utils';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
+import { applyRuleCreate } from '@openheaders/ui/shared/sync/rule-write-client';
 import { App as AntApp } from 'antd';
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -10,6 +13,7 @@ import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWor
 import ImportCurlModal from '../import/ImportCurlModal';
 import ImportHarModal from '../import/ImportHarModal';
 import ImportPostmanModal from '../import/ImportPostmanModal';
+import ImportSectionedModal, { type SectionedPreset, type SectionedSourceKind } from '../import/ImportSectionedModal';
 import ExportModal, { type ExportModalScope } from './ExportModal';
 import ImportPreviewModal, { type ImportPreviewSource } from './ImportPreviewModal';
 import ImportSourceModal from './ImportSourceModal';
@@ -64,6 +68,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
 ) {
   const requestsApi = useRequests();
   const envApi = useEnvironments();
+  const rulesApi = useRules();
   const workspacesApi = useWorkspaces();
   const editingScopeWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
   const { message } = AntApp.useApp();
@@ -78,6 +83,9 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
   >(undefined);
   const [importPostmanOpen, setImportPostmanOpen] = useState(false);
   const [importPostmanInitialText, setImportPostmanInitialText] = useState<string | undefined>(undefined);
+  const [importSectionedState, setImportSectionedState] = useState<
+    { open: false } | { open: true; kind: SectionedSourceKind; text: string }
+  >({ open: false });
   const [importSourceContext, setImportSourceContext] = useState<{ collectionId?: string } | undefined>(undefined);
   const [exportModalState, setExportModalState] = useState<{ open: false } | { open: true; scope: ExportModalScope }>({
     open: false,
@@ -230,6 +238,11 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         case 'postman':
           openImportPostman(text);
           break;
+        case 'postman-backup':
+        case 'insomnia':
+        case 'bruno':
+          setImportSectionedState({ open: true, kind: detected.kind, text });
+          break;
         case 'workspace':
           setImportPreviewState({ open: true, rawText: text, source: 'clipboard' });
           break;
@@ -252,6 +265,46 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
       routeText(detected, text, ctx?.collectionId);
     },
     [routeText],
+  );
+
+  /**
+   * Materialize backup header presets as UNPUBLISHED header rules
+   * (MIGRATION_STATUS.md S2 decision): one rule per preset, all-`add`
+   * modifications, no conditions — the publication gate keeps them
+   * inert until the user scopes and publishes them. They land in a
+   * dedicated rule collection so the sidebar shows one obvious home.
+   */
+  const materializeHeaderPresets = useCallback(
+    async (presets: SectionedPreset[]): Promise<number> => {
+      if (presets.length === 0 || !editingScopeWorkspaceId) return 0;
+      const targetName = 'Imported header presets';
+      const collection =
+        rulesApi.localCollections.find((c) => c.name === targetName) ??
+        (await rulesApi.createLocalCollection(targetName));
+      if (!collection) return 0;
+      let created = 0;
+      for (const preset of presets) {
+        const seed: RuleSeed = {
+          name: preset.name,
+          type: 'header',
+          enabled: true,
+          conditions: [],
+          action: {
+            requestHeaders: preset.headers
+              .filter((h) => h.enabled !== false)
+              .map((h) => ({ uid: h.uid, operation: 'add' as const, headerName: h.key, value: h.value })),
+            responseHeaders: [],
+          },
+        };
+        const result = await applyRuleCreate(
+          { rule: seed, parentPath: collection.path },
+          { workspaceId: editingScopeWorkspaceId, surfaceId: 'workbench-import' },
+        );
+        if (result.ok) created += 1;
+      }
+      return created;
+    },
+    [rulesApi, editingScopeWorkspaceId],
   );
 
   const onImportFileChosen = useCallback(
@@ -374,6 +427,38 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         }}
       />
 
+      <ImportSectionedModal
+        open={importSectionedState.open}
+        sourceKind={importSectionedState.open ? importSectionedState.kind : 'postman-backup'}
+        initialText={importSectionedState.open ? importSectionedState.text : undefined}
+        onCancel={() => setImportSectionedState({ open: false })}
+        createCollection={async (name) => {
+          const c = await requestsApi.createCollection(name);
+          return c ? { uid: c.uid, path: c.path } : null;
+        }}
+        createFolder={async (name, parentPath) => {
+          const f = await requestsApi.createFolder(name, parentPath);
+          return f ? { uid: f.uid, path: f.path } : null;
+        }}
+        createRequest={async ({ name, parentPath, seed }) => {
+          const r = await requestsApi.createRequest({ name, parentPath, seed });
+          return r ? { uid: r.uid } : null;
+        }}
+        createEnvironment={async ({ name, variables }) => {
+          const e = await envApi.createEnvironment(name, variables);
+          return e ? { uid: e.uid } : null;
+        }}
+        createHeaderRules={materializeHeaderPresets}
+        findPreviousReport={findPreviousImportReport}
+        onImported={({ report }) => {
+          setImportSectionedState({ open: false });
+          // Multi-entity import — like HAR/Postman, no editor tab is
+          // auto-opened; the sidebar shows the new collections. The
+          // structured report lands in storage for audit.
+          void hostBridge.call('recordImportReport', { report }).catch(() => undefined);
+        }}
+      />
+
       {exportModalState.open && workspacesApi.activeWorkspace ? (
         <ExportModal
           open
@@ -387,7 +472,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
       <input
         ref={importFileInputRef}
         type="file"
-        accept=".yaml,.yml,.json,application/yaml,application/json,text/yaml,text/plain"
+        accept=".yaml,.yml,.json,.bru,application/yaml,application/json,text/yaml,text/plain"
         multiple
         style={{ display: 'none' }}
         onChange={(e) => {

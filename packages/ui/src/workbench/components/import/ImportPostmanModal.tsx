@@ -19,14 +19,7 @@
  * curl / HAR flows. Single `recordImportReport` per import run.
  */
 
-import {
-  ExperimentOutlined,
-  FolderOutlined,
-  ImportOutlined,
-  InfoCircleOutlined,
-  UploadOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
+import { ExperimentOutlined, FolderOutlined, ImportOutlined, UploadOutlined } from '@ant-design/icons';
 import {
   diffImportReports,
   hashImportSource,
@@ -43,6 +36,7 @@ import { generateUid } from '@openheaders/core/utils';
 import { Alert, App as AntApp, Button, Divider, Input, type InputRef, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import ImportReportPanel from './ImportReportPanel';
 import ReimportDiffPanel from './ReimportDiffPanel';
 import { useImportShortcut } from './use-import-shortcut';
 
@@ -418,7 +412,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
 
           <EnvironmentSlot envFile={stage.envFile} onPick={handleEnvFilePicked} onClear={clearEnv} token={token} />
 
-          <ReportPanel report={stage.result.report} token={token} />
+          <ImportReportPanel report={stage.result.report} token={token} />
         </>
       )}
     </Modal>
@@ -575,58 +569,6 @@ const EnvironmentSlot: React.FC<{
           {envFile.result.report.drops.length} env variable
           {envFile.result.report.drops.length === 1 ? '' : 's'} dropped (disabled entries)
         </Text>
-      )}
-    </div>
-  );
-};
-
-// ── Report panel (drops + transforms — non-diff flow) ─────────────
-
-const ReportPanel: React.FC<{
-  report: ImportReport;
-  token: ReturnType<typeof theme.useToken>['token'];
-}> = ({ report, token }) => {
-  if (report.drops.length === 0 && report.transforms.length === 0) return null;
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {report.transforms.length > 0 && (
-        <Alert
-          type="info"
-          showIcon
-          icon={<InfoCircleOutlined />}
-          message={`${report.transforms.length} transform${report.transforms.length === 1 ? '' : 's'}`}
-          description={
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, maxHeight: 140, overflowY: 'auto' }}>
-              {report.transforms.map((t, i) => (
-                <li key={i}>
-                  <strong>{t.path}:</strong> <span style={{ color: token.colorTextSecondary }}>{t.from}</span> →{' '}
-                  <span style={{ color: token.colorPrimary }}>{t.to}</span>
-                  <div style={{ color: token.colorTextTertiary, fontSize: 11 }}>{t.reason}</div>
-                </li>
-              ))}
-            </ul>
-          }
-        />
-      )}
-      {report.drops.length > 0 && (
-        <Alert
-          type="warning"
-          showIcon
-          icon={<WarningOutlined />}
-          message={`${report.drops.length} item${report.drops.length === 1 ? '' : 's'} dropped`}
-          description={
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, maxHeight: 160, overflowY: 'auto' }}>
-              {report.drops.map((d, i) => (
-                <li key={i}>
-                  <strong>{d.path}:</strong> {d.reason}
-                  {d.tracking && (
-                    <div style={{ color: token.colorTextTertiary, fontSize: 11 }}>tracking: {d.tracking}</div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          }
-        />
       )}
     </div>
   );

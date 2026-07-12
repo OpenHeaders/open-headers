@@ -172,7 +172,8 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onTextDetected, on
               </div>
               {pasteText.trim().length > 0 && !recognized && (
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
-                  Not recognized yet — paste a curl command, a URL, a HAR, a Postman export, or a workspace export.
+                  Not recognized yet — paste a curl command, a URL, a HAR, a Postman / Insomnia / Bruno export, or a
+                  workspace export.
                 </Text>
               )}
             </div>
@@ -222,8 +223,8 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onTextDetected, on
                 Drop a file to import
               </Text>
               <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', maxWidth: 360 }}>
-                HAR, Postman collection, or <code>.openheaders.yaml</code> workspace export — the format is recognized
-                automatically.
+                HAR, Postman collection or backup, Insomnia export, Bruno <code>.bru</code> file, or{' '}
+                <code>.openheaders.yaml</code> workspace export — the format is recognized automatically.
               </Text>
               <Button
                 type="primary"
@@ -242,7 +243,7 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onTextDetected, on
               <input
                 ref={inputRef}
                 type="file"
-                accept=".har,.json,.yaml,.yml,application/json,application/yaml,text/yaml,text/plain"
+                accept=".har,.json,.yaml,.yml,.bru,application/json,application/yaml,text/yaml,text/plain"
                 multiple
                 style={{ display: 'none' }}
                 onChange={(e) => {

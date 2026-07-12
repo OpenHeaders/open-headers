@@ -22,6 +22,8 @@ export type DetectedImportSource =
   | { kind: 'postman-backup' }
   /** An Insomnia export — v4 JSON envelope or v5 YAML/JSON document. */
   | { kind: 'insomnia' }
+  /** A Bruno `.bru` request file. */
+  | { kind: 'bruno' }
   /** An `.openheaders.*` workspace export (JSON or YAML). */
   | { kind: 'workspace' }
   /** Nothing recognizable — the hub shows a hint, never a dead-end. */
@@ -107,6 +109,20 @@ export function detectImportSource(text: string): DetectedImportSource {
   // Insomnia v5 YAML document — keyed on the `type:` discriminator line
   // (`collection.insomnia.rest/5.0` and siblings), same shallow approach.
   if (/^type:\s*['"]?[\w.-]+\.insomnia\.rest\/\d/m.test(trimmed)) return { kind: 'insomnia' };
+
+  // Bruno `.bru` request file — the grammar has no JSON/YAML envelope,
+  // so key on the block-line signature: a `meta {` block plus a method
+  // block plus a `url:` line. Requiring all three keeps prose with
+  // braces, curl commands, and YAML from misfiring. (Environment-only
+  // .bru files carry just a `vars` block and stay unknown here — they
+  // arrive via the folder flow, not a lone drop.)
+  if (
+    /^meta\s*\{\s*$/m.test(trimmed) &&
+    /^(?:get|post|put|patch|delete|head|options|connect|trace)\s*\{\s*$/m.test(trimmed) &&
+    /^\s*url:\s*\S/m.test(trimmed)
+  ) {
+    return { kind: 'bruno' };
+  }
 
   return { kind: 'unknown' };
 }

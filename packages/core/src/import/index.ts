@@ -5,6 +5,17 @@
  * entities so users can audit drops/transforms per ARCHITECTURE.md §23.
  */
 
+export {
+  type BrunoFile,
+  type BrunoParsedEnvironment,
+  type BrunoParsedEnvironmentVariable,
+  type BrunoParsedFolder,
+  type BrunoParsedRequest,
+  BrunoParseError,
+  type BrunoParseResult,
+  parseBruno,
+  parseBrunoFiles,
+} from './bruno';
 export { CurlParseError, type CurlParseResult, type CurlRequest, parseCurl, tokenize } from './curl';
 export { type DetectedImportSource, detectImportSource } from './detect';
 export {

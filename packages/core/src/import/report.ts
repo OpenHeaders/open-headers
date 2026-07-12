@@ -32,7 +32,15 @@ export { type MissingDep, MissingDepSchema, type MissingDepType, MissingDepTypeS
 
 // ── Source discriminator ────────────────────────────────────────────
 
-export const FLAT_IMPORT_SOURCES = ['curl', 'har', 'postman-v2.1', 'postman-backup', 'insomnia', 'openapi'] as const;
+export const FLAT_IMPORT_SOURCES = [
+  'curl',
+  'har',
+  'postman-v2.1',
+  'postman-backup',
+  'insomnia',
+  'bruno',
+  'openapi',
+] as const;
 export const IMPORT_SOURCES = [...FLAT_IMPORT_SOURCES, 'workspace-export'] as const;
 export const ImportSourceSchema = v.picklist(IMPORT_SOURCES);
 export type ImportSource = v.InferOutput<typeof ImportSourceSchema>;
@@ -122,6 +130,7 @@ export const FlatImportReportSchema = v.variant('source', [
   flatArm('postman-v2.1'),
   flatArm('postman-backup'),
   flatArm('insomnia'),
+  flatArm('bruno'),
   flatArm('openapi'),
 ]);
 
@@ -143,6 +152,7 @@ export const ImportReportSchema = v.variant('source', [
   v.object({ ...baseFields, source: v.literal('postman-v2.1') }),
   v.object({ ...baseFields, source: v.literal('postman-backup') }),
   v.object({ ...baseFields, source: v.literal('insomnia') }),
+  v.object({ ...baseFields, source: v.literal('bruno') }),
   v.object({ ...baseFields, source: v.literal('openapi') }),
   WorkspaceExportImportReportSchema,
 ]);
