@@ -15,6 +15,7 @@ import type { AppUpdateState } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useEffect } from 'react';
+import { readIgnoredVersion } from '../updates/release-notes';
 import { pushNotification } from './store';
 
 function pushAppUpdateEntry(version: string, options: { url?: string; security?: boolean } = {}): void {
@@ -48,6 +49,9 @@ function pushAppUpdateEntry(version: string, options: { url?: string; security?:
 function pushFromState(state: AppUpdateState): void {
   const pending = state.phase === 'available' || state.phase === 'downloading' || state.phase === 'downloaded';
   if (pending && state.availableVersion !== null) {
+    // An explicitly ignored version stays out of the timeline — unless
+    // it's below the security floor, which always speaks.
+    if (!state.belowSafeFloor && readIgnoredVersion() === state.availableVersion) return;
     pushAppUpdateEntry(state.availableVersion, { security: state.belowSafeFloor });
   }
 }

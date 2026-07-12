@@ -361,7 +361,7 @@ const TabBar: React.FC<TabBarProps> = ({
           they overflow. The `+` button lives OUTSIDE this element
           (sibling below) so it stays anchored at the right edge of
           the strip when the user scrolls horizontally — same pattern
-          as the JetBrains IDE / VS Code editor tabs. */}
+          as IDE editor tabs. */}
       <div className={`rules-tabs-scroll${hasOverflow ? ' is-overflow' : ''}`} ref={scrollRef} onWheel={handleWheel}>
         <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
           {tabs.map((tab, index) => (

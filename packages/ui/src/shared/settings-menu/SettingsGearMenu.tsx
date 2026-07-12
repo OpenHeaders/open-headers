@@ -28,6 +28,7 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { Button, Input, type InputRef, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { readIgnoredVersion } from '../updates/release-notes';
 
 const UPDATE_ACK_KEY = 'oh.gearUpdateAck';
 
@@ -133,17 +134,21 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
   }, []);
 
   // A security-floor update ignores the ack — the red badge keeps
-  // asking until the user actually updates.
-  const showDot = update !== null && (update.security || acked !== update.version);
+  // asking until the user actually updates. An explicitly ignored
+  // version never lights the dot (unless it's below the floor).
+  const showDot =
+    update !== null && (update.security || (acked !== update.version && readIgnoredVersion() !== update.version));
 
   const groups = useMemo<MenuItem[][]>(() => {
     const close = () => setOpen(false);
     const out: MenuItem[][] = [];
     if (update) {
+      // Version-only labels — the popover is narrow and the product
+      // name adds nothing the surrounding chrome doesn't already say.
       const byPhase = {
-        available: { label: `Download Open Headers ${update.version}`, icon: <DownloadOutlined /> },
-        downloading: { label: `Downloading Open Headers ${update.version}…`, icon: <SyncOutlined spin /> },
-        downloaded: { label: `Restart to Install Open Headers ${update.version}`, icon: <ReloadOutlined /> },
+        available: { label: `Download ${update.version}`, icon: <DownloadOutlined /> },
+        downloading: { label: `Downloading ${update.version}…`, icon: <SyncOutlined spin /> },
+        downloaded: { label: `Restart to Install ${update.version}`, icon: <ReloadOutlined /> },
       } as const;
       out.push([
         {
@@ -157,11 +162,13 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
               const openUrl = getCapability('openExternalUrl');
               if (openUrl) void openUrl(update.url);
               else window.open(update.url, '_blank', 'noopener');
-            } else {
-              // In-app updater host — the Settings update row owns
-              // download/restart.
-              onOpenSettings({ categoryId: 'about' });
+              return;
             }
+            // In-app updater host — each phase's item does exactly what
+            // it says, same as the native menu items.
+            const bridge = getHostBridge();
+            if (update.phase === 'available') void bridge?.call('oh.updates.download');
+            else if (update.phase === 'downloaded') void bridge?.call('oh.updates.install');
           },
         },
       ]);

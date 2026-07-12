@@ -25,21 +25,13 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { App, Button, Progress } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { readIgnoredVersion, releasePageUrl } from '../updates/release-notes';
+import { openUpdateDialog } from '../updates/store';
 import { pushNotification } from './store';
 
 const TOAST_ACK_KEY = 'oh.updateToastAck';
 const TOAST_KEY = 'oh-app-update';
 const LAST_RUN_VERSION_KEY = 'oh.lastRunVersion';
-
-/**
- * Release page for an installed version — the "What's new" fallback on
- * hosts without the bundled What's New tab. The public releases repo is
- * the same feed the updater checks, so the tag always exists for any
- * version that reached a user.
- */
-function releasePageUrl(version: string): string {
-  return `https://github.com/OpenHeaders/open-headers-releases/releases/tag/v${version}`;
-}
 
 function readAck(): string | null {
   try {
@@ -58,25 +50,23 @@ function writeAck(version: string): void {
 }
 
 /**
- * Compact notification-balloon shape: narrow card, small type, close
+ * Compact balloon shape: narrow card, small type, close
  * affordance revealed on hover.
  */
 const TOAST_CSS =
-  '.oh-update-toast.ant-notification-notice{width:300px;padding:10px 14px}' +
-  '.oh-update-toast .ant-notification-notice-message{font-size:13px;margin-bottom:2px}' +
-  '.oh-update-toast .ant-notification-notice-description{font-size:12px}' +
-  '.oh-update-toast .ant-notification-notice-icon{font-size:15px;line-height:1.4}' +
+  '.oh-update-toast.ant-notification-notice{width:272px;padding:8px 12px}' +
+  '.oh-update-toast .ant-notification-notice-message{font-size:12px;line-height:1.4;margin-bottom:0}' +
+  '.oh-update-toast .ant-notification-notice-description{font-size:11px;line-height:1.4}' +
+  '.oh-update-toast .ant-notification-notice-icon{font-size:13px;line-height:1.4}' +
   '.oh-update-toast .ant-notification-notice-with-icon .ant-notification-notice-message,' +
-  '.oh-update-toast .ant-notification-notice-with-icon .ant-notification-notice-description{margin-inline-start:24px}' +
-  '.oh-update-toast .ant-notification-notice-close{opacity:0;transition:opacity 0.15s ease}' +
+  '.oh-update-toast .ant-notification-notice-with-icon .ant-notification-notice-description{margin-inline-start:20px}' +
+  '.oh-update-toast .ant-notification-notice-close{top:8px;inset-inline-end:8px;width:16px;height:16px;font-size:11px;opacity:0;transition:opacity 0.15s ease}' +
   '.oh-update-toast:hover .ant-notification-notice-close,' +
   '.oh-update-toast .ant-notification-notice-close:focus-visible{opacity:1}';
 
-const LINK_STYLE: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 12 };
+const LINK_STYLE: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 11 };
 
 interface AppUpdateToastProps {
-  /** Route to the Settings update row (in-app updater hosts). */
-  onOpenAbout: () => void;
   /**
    * Open the bundled What's New tab. When provided AND the host
    * registers `getWhatsNew`, the post-update "See what's new" actions
@@ -86,7 +76,7 @@ interface AppUpdateToastProps {
   onOpenWhatsNew?: () => void;
 }
 
-const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout, onOpenWhatsNew }) => {
+const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenWhatsNew }) => {
   const { notification } = App.useApp();
   // `${version}:${phase}` whose balloon closed — that phase stays
   // quiet. Any close counts: a ✕ is a dismissal, an action click means
@@ -183,11 +173,13 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout, onOpenWhat
 
       switch (state.phase) {
         case 'available':
-          // Announce once per version, ever.
+          // Announce once per version, ever — and never for a version
+          // the user chose to ignore in the update dialog.
+          if (readIgnoredVersion() === version) return;
           if (!isOpen && (announcedRef.current.has(marker) || readAck() === version)) return;
           announcedRef.current.add(marker);
           writeAck(version);
-          show(marker, `Open Headers ${version} available`, updateLink('Update…', onOpenAbout));
+          show(marker, `Open Headers ${version} available`, updateLink('Update…', openUpdateDialog));
           break;
         case 'downloading':
           // Only keep an open balloon in sync — never conjure one.
@@ -310,7 +302,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenAbout, onOpenWhat
     return () => {
       cancelled = true;
     };
-  }, [notification, onOpenAbout, onOpenWhatsNew]);
+  }, [notification, onOpenWhatsNew]);
 
   return <style>{TOAST_CSS}</style>;
 };

@@ -121,6 +121,7 @@ import {
   useAppUpdateNotification,
   useSeedNotifications,
 } from '@openheaders/ui/shared/notifications';
+import { UpdateDialog } from '@openheaders/ui/shared/updates';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
@@ -1275,7 +1276,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onSwitchWorkspace={handleSwitchWorkspace}
           />
 
-          <AppUpdateToast onOpenAbout={() => openSettings({ categoryId: 'about' })} onOpenWhatsNew={openWhatsNew} />
+          <AppUpdateToast onOpenWhatsNew={openWhatsNew} />
+          <UpdateDialog onConfigureUpdates={() => openSettings({ categoryId: 'about' })} />
 
           <ShellLayout
             tl={tl}

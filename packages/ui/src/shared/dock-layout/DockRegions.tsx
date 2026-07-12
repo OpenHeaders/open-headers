@@ -18,9 +18,9 @@ import type { DockLayoutApi } from './use-dock-layout';
 /**
  * Dock body wrapper that subscribes to the focus store and adds
  * `.rules-dock-body--focused` when this slot is the focused dock. The
- * CSS rule layers on the persistent "actions visible" state — matches
- * the IDE behavior where clicking into a panel (blue activity-bar
- * chip) keeps its action row shown even after the mouse leaves.
+ * CSS rule layers on the persistent "actions visible" state — clicking
+ * into a panel (blue activity-bar chip) keeps its action row shown
+ * even after the mouse leaves.
  */
 interface FocusAwareDockBodyProps {
   slot: DockSlot;

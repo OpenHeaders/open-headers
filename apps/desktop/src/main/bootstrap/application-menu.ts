@@ -7,7 +7,7 @@
  *
  * Update + Settings affordances follow the platform convention:
  *   - macOS: both live in the app menu (About → Check for Updates… →
- *     Settings…), the JetBrains/system layout.
+ *     Settings…), the standard system layout.
  *   - Windows / Linux: Settings… under File, Check for Updates… under
  *     Help.
  * The update item is state-driven — the menu registers with

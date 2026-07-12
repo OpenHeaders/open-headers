@@ -1,5 +1,5 @@
 /**
- * Result-pane action gutter — the JetBrains-shape affordance row.
+ * Result-pane action gutter — the per-hunk affordance row.
  *
  * Two of these flank the result editor (one per side: left = theirs
  * decision, right = mine decision). Each row aligns to a hunk's start

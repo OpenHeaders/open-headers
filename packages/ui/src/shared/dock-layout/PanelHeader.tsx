@@ -1,6 +1,6 @@
 /**
  * PanelHeader — shared 32 px header row used across every tool-window
- * panel in the shell. Matches the IDE pattern:
+ * panel in the shell. Layout:
  *
  *   [left slot: title or custom node] [inline actions] [⋯] [−]
  *

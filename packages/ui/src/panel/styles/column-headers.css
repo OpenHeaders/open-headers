@@ -33,7 +33,7 @@
  * so the grip can overflow the cell's right edge slightly (gives a
  * wider hit target without affecting the grid-column's pixel width).
  * Fine 1px right border gives each column a subtle vertical separator
- * (IDE-style) without the header row needing a grey fill. */
+ * without the header row needing a grey fill. */
 .dt-col-header-cell {
   position: relative;
   display: flex;
