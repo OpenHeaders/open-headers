@@ -49,6 +49,18 @@ export {
   rewriteTemplateRefs,
 } from './insomnia';
 export {
+  type InstallProbe,
+  type InstallProbePlatform,
+  type InstallProbeResult,
+  type InstallProbeRoots,
+  listInstallProbes,
+  MIGRATION_TOOL_NAMES,
+  MIGRATION_TOOLS,
+  type MigrationTool,
+  resolveInstallFindings,
+  type ToolInstallFinding,
+} from './install-detect';
+export {
   type PostmanCollectionVariable,
   type PostmanEnvironmentParseResult,
   type PostmanParsedEnvironmentVariable,

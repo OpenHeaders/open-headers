@@ -50,6 +50,10 @@
       "import": "./src/mcp/index.ts",
       "default": "./dist/mcp/index.js"
     },
+    "./migration": {
+      "import": "./src/migration/index.ts",
+      "default": "./dist/migration/index.js"
+    },
     "./sync/*": {
       "import": "./src/sync/*.ts",
       "default": "./dist/sync/*.js"
