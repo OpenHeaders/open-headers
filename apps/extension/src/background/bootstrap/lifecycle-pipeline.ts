@@ -4,6 +4,7 @@ import { ConsoleStreamHub } from '@openheaders/oracle/console-stream-hub';
 import { type CdpTabControlState, EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
+import { JsContextHub } from '@openheaders/oracle/js-context-hub';
 import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { resolveRulesForCompile } from '@openheaders/oracle/rule-engine/variables-resolver';
@@ -29,6 +30,7 @@ import { messageCaptureSource } from '../correlator-host/message-capture-source'
 import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
 import { getRulesPaused, registerCdpRulesReplay } from '../dnr-manager';
 import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager';
+import { startJsContextPortHost } from '../js-context-port-host';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/cache-bypass';
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/net/network-conditions';
@@ -338,6 +340,31 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   const consoleStreamHub = new ConsoleStreamHub({ bus: tabLifecycleBus });
   startConsoleStreamPortHost({ hub: consoleStreamHub });
   lifecycleHost.debuggerSource.subscribeConsole((tabId, entry) => consoleStreamHub.recordEntry(tabId, entry));
+
+  // JS-contexts registry (JS contexts Phase A): the live execution-context
+  // set of a CDP-attached tab, from the executionContext* events the standing
+  // Runtime.enable already delivers (formerly dropped). Replace semantics —
+  // live state, not a log: the set self-seeds on attach (the enable replays
+  // live contexts), a session's subset drops when it clears or detaches, and
+  // the whole set dies with the attachment (tab-detached → forgetTab).
+  const jsContextHub = new JsContextHub({ bus: tabLifecycleBus });
+  startJsContextPortHost({ hub: jsContextHub });
+  lifecycleHost.debuggerSource.subscribeContexts((event) => {
+    switch (event.kind) {
+      case 'context-created':
+        jsContextHub.recordCreated(event.tabId, event.context);
+        break;
+      case 'context-destroyed':
+        jsContextHub.recordDestroyed(event.tabId, event.contextKey);
+        break;
+      case 'session-cleared':
+        jsContextHub.clearSession(event.tabId, event.sessionKey);
+        break;
+      case 'tab-detached':
+        jsContextHub.forgetTab(event.tabId);
+        break;
+    }
+  });
 
   setupOnRuleMatchedDebugBridge({
     onAuthoritativeFire: (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record),

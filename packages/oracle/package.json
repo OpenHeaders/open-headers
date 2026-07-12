@@ -120,6 +120,10 @@
       "import": "./src/console-stream-hub/index.ts",
       "default": "./dist/console-stream-hub/index.js"
     },
+    "./js-context-hub": {
+      "import": "./src/js-context-hub/index.ts",
+      "default": "./dist/js-context-hub/index.js"
+    },
     "./tab-lifecycle-bus": {
       "import": "./src/tab-lifecycle-bus/index.ts",
       "default": "./dist/tab-lifecycle-bus/index.js"

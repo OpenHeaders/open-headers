@@ -43,13 +43,14 @@ describe('normalizeConsoleApiCalled — level bucketing', () => {
     ['table', 'log'],
     ['trace', 'log'],
   ] as const)('buckets console type %s → level %s', (type, level) => {
-    expect(normalizeConsoleApiCalled(consoleCall(type, [])).level).toBe(level);
+    expect(normalizeConsoleApiCalled('page', consoleCall(type, [])).level).toBe(level);
   });
 });
 
 describe('normalizeConsoleApiCalled — arg rendering', () => {
   it('renders primitives from value, preserving the arg boundary + type', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         { type: 'string', value: 'hello' },
         { type: 'number', value: 42 },
@@ -65,6 +66,7 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
 
   it('renders undefined / null / unserializable values', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         { type: 'undefined' },
         { type: 'object', subtype: 'null', value: null },
@@ -76,6 +78,7 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
 
   it('renders an object from its inline preview as {k: v}', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         {
           type: 'object',
@@ -97,6 +100,7 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
 
   it('renders an array preview as [v, v] and marks overflow with an ellipsis', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         {
           type: 'object',
@@ -120,6 +124,7 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
 
   it('falls back to description when no preview is present', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [{ type: 'function', className: 'Function', description: 'function foo() {}' }]),
     );
     expect(entry.args[0].text).toBe('function foo() {}');
@@ -128,6 +133,7 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
   it('renders an error arg as its description stack, not the {stack, message} preview', () => {
     const stack = 'Error: kaboom\n    at f (https://app.openheaders.io/m.js:3:9)';
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('error', [
         {
           type: 'object',
@@ -152,6 +158,7 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
 
   it('lifts the top stack frame into the entry location', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [{ type: 'string', value: 'x' }], {
         stackTrace: {
           callFrames: [
@@ -179,6 +186,7 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
 describe('normalizeConsoleApiCalled — format substitution', () => {
   it('substitutes %s / %d value specifiers from the trailing args into one string', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         { type: 'string', value: 'user %s aged %d' },
         { type: 'string', value: 'Alice' },
@@ -189,12 +197,13 @@ describe('normalizeConsoleApiCalled — format substitution', () => {
   });
 
   it('renders %% as a literal percent', () => {
-    const entry = normalizeConsoleApiCalled(consoleCall('log', [{ type: 'string', value: '100%% done' }]));
+    const entry = normalizeConsoleApiCalled('page', consoleCall('log', [{ type: 'string', value: '100%% done' }]));
     expect(entry.args).toEqual([{ type: 'string', text: '100% done' }]);
   });
 
   it('substitutes %o by rendering the object arg inline', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         { type: 'string', value: 'data %o' },
         {
@@ -214,6 +223,7 @@ describe('normalizeConsoleApiCalled — format substitution', () => {
 
   it('appends args left over after substitution as their own rendered args', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         { type: 'string', value: 'hi %s' },
         { type: 'string', value: 'there' },
@@ -228,6 +238,7 @@ describe('normalizeConsoleApiCalled — format substitution', () => {
 
   it('leaves a value specifier literal when no arg is available to consume', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         { type: 'string', value: '%s %s' },
         { type: 'string', value: 'a' },
@@ -238,6 +249,7 @@ describe('normalizeConsoleApiCalled — format substitution', () => {
 
   it('consumes a %c style arg and drops the styling (panel-side CSS deferred)', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         { type: 'string', value: '%cTitle' },
         { type: 'string', value: 'color: red' },
@@ -248,6 +260,7 @@ describe('normalizeConsoleApiCalled — format substitution', () => {
 
   it('coerces a non-numeric arg to NaN for %d', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         { type: 'string', value: 'n=%d' },
         { type: 'string', value: 'abc' },
@@ -258,6 +271,7 @@ describe('normalizeConsoleApiCalled — format substitution', () => {
 
   it('leaves a plain string arg untouched when it carries no specifiers', () => {
     const entry = normalizeConsoleApiCalled(
+      'page',
       consoleCall('log', [
         { type: 'string', value: 'just text' },
         { type: 'string', value: 'next' },
@@ -267,6 +281,16 @@ describe('normalizeConsoleApiCalled — format substitution', () => {
       { type: 'string', text: 'just text' },
       { type: 'string', text: 'next' },
     ]);
+  });
+});
+
+describe('normalizeConsoleApiCalled — context attribution', () => {
+  it('mints contextKey from the session + executionContextId, omitting it when the id is absent', () => {
+    expect(normalizeConsoleApiCalled('page', consoleCall('log', [])).contextKey).toBe('page::1');
+    expect(
+      normalizeConsoleApiCalled('child-iframe-1', consoleCall('log', [], { executionContextId: 4 })).contextKey,
+    ).toBe('child-iframe-1::4');
+    expect(normalizeConsoleApiCalled('page', { type: 'log', args: [], timestamp: 1700 }).contextKey).toBeUndefined();
   });
 });
 
@@ -282,7 +306,7 @@ describe('normalizeExceptionThrown', () => {
         exception: { type: 'object', subtype: 'error', className: 'TypeError', description: 'TypeError: boom' },
       },
     };
-    const entry = normalizeExceptionThrown(raw);
+    const entry = normalizeExceptionThrown('page', raw);
     expect(entry.source).toBe('exception');
     expect(entry.level).toBe('error');
     expect(entry.args).toEqual([{ type: 'error', subtype: 'error', text: 'TypeError: boom' }]);
@@ -291,7 +315,7 @@ describe('normalizeExceptionThrown', () => {
   });
 
   it('falls back to the text label when no exception value is carried', () => {
-    const entry = normalizeExceptionThrown({
+    const entry = normalizeExceptionThrown('page', {
       timestamp: 1810,
       exceptionDetails: { text: 'Uncaught (in promise)', lineNumber: 0, columnNumber: 0 },
     });
@@ -300,7 +324,7 @@ describe('normalizeExceptionThrown', () => {
   });
 
   it('prefers the stack top frame location over the details fields', () => {
-    const entry = normalizeExceptionThrown({
+    const entry = normalizeExceptionThrown('page', {
       timestamp: 1820,
       exceptionDetails: {
         text: 'Uncaught',
@@ -360,9 +384,7 @@ describe('normalizeLogEntryAdded', () => {
   });
 
   it('passes an unrecognized category through verbatim (open vocabulary)', () => {
-    expect(normalizeLogEntryAdded('page', logEntryAdded({ source: 'recommendation' })).category).toBe(
-      'recommendation',
-    );
+    expect(normalizeLogEntryAdded('page', logEntryAdded({ source: 'recommendation' })).category).toBe('recommendation');
   });
 
   it('mints the session-namespaced request join id from networkRequestId', () => {
@@ -402,12 +424,24 @@ describe('normalizeLogEntryAdded', () => {
       logEntryAdded({
         stackTrace: {
           callFrames: [
-            { functionName: 'send', scriptId: '3', url: 'https://app.openheaders.io/a.ts', lineNumber: 1, columnNumber: 2 },
+            {
+              functionName: 'send',
+              scriptId: '3',
+              url: 'https://app.openheaders.io/a.ts',
+              lineNumber: 1,
+              columnNumber: 2,
+            },
             { functionName: 'native', scriptId: '4', url: '', lineNumber: 0, columnNumber: 0 },
           ],
           parent: {
             callFrames: [
-              { functionName: 'boot', scriptId: '5', url: 'https://app.openheaders.io/b.ts', lineNumber: 9, columnNumber: 0 },
+              {
+                functionName: 'boot',
+                scriptId: '5',
+                url: 'https://app.openheaders.io/b.ts',
+                lineNumber: 9,
+                columnNumber: 0,
+              },
             ],
           },
         },

@@ -131,6 +131,10 @@
       "import": "./src/console-stream/index.ts",
       "default": "./dist/console-stream/index.js"
     },
+    "./js-contexts": {
+      "import": "./src/js-contexts/index.ts",
+      "default": "./dist/js-contexts/index.js"
+    },
     "./request-lifecycle": {
       "import": "./src/request-lifecycle/index.ts",
       "default": "./dist/request-lifecycle/index.js"

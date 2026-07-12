@@ -7,7 +7,7 @@
  */
 
 import type { ConsoleArg, ConsoleEntry, ConsoleLevel, ConsoleStackFrame } from '@openheaders/core/console-stream';
-import { cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
+import { type JsContext, type JsContextTargetKind, jsContextKey } from '@openheaders/core/js-contexts';
 import type {
   CdpAuthRequired,
   CdpCallFrame,
@@ -21,6 +21,7 @@ import type {
   CdpResponseParams,
   CdpStackTrace,
 } from '@openheaders/oracle/correlator-cdp';
+import { cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import type {
   RawAuthRequired,
   RawCallFrame,
@@ -29,6 +30,7 @@ import type {
   RawEventSourceMessageReceived,
   RawExceptionDetails,
   RawExceptionThrown,
+  RawExecutionContextCreated,
   RawFrameNavigated,
   RawFrameStoppedLoading,
   RawInitiator,
@@ -343,17 +345,26 @@ export function parseBindingFire(tabId: number, payload: string): CdpBindingFire
  * value/description/preview — no `Runtime.getProperties` round-trip in v1, so
  * a deep object shows its shallow preview, not its full contents. A leading
  * format string with `printf` specifiers consumes the trailing args (see
- * {@link substituteFormat}).
+ * {@link substituteFormat}). The event's `executionContextId` mints the
+ * `contextKey` join into the tab's JS-contexts plane, so a consumer
+ * attributes the entry to its context exactly — mirror of the network
+ * entries' `requestId` join.
  */
-export function normalizeConsoleApiCalled(p: RawConsoleApiCalled): ConsoleEntry {
+export function normalizeConsoleApiCalled(sessionKey: string, p: RawConsoleApiCalled): ConsoleEntry {
   return {
     source: 'console-api',
     level: consoleApiLevel(p.type),
     args: renderConsoleArgs(p.args),
     timestamp: p.timestamp,
+    ...mintContextKey(sessionKey, p.executionContextId),
     ...stackTraceFrames(p.stackTrace),
     ...topFrameLocation(p.stackTrace),
   };
+}
+
+/** The context join key, when the event named a context. */
+function mintContextKey(sessionKey: string, executionContextId: number | undefined): Pick<ConsoleEntry, 'contextKey'> {
+  return executionContextId !== undefined ? { contextKey: jsContextKey(sessionKey, executionContextId) } : {};
 }
 
 /** Render console args, applying leading-format-string substitution if present. */
@@ -441,15 +452,44 @@ function numericValue(o: RawRemoteObject): number {
  * …`), falling back to the `Uncaught` label; location prefers the top stack
  * frame, then the details' own `url`/`lineNumber`.
  */
-export function normalizeExceptionThrown(p: RawExceptionThrown): ConsoleEntry {
+export function normalizeExceptionThrown(sessionKey: string, p: RawExceptionThrown): ConsoleEntry {
   const d = p.exceptionDetails;
   return {
     source: 'exception',
     level: 'error',
     args: [{ type: 'error', subtype: 'error', text: exceptionText(d) }],
     timestamp: p.timestamp,
+    ...mintContextKey(sessionKey, d.executionContextId),
     ...stackTraceFrames(d.stackTrace),
     ...exceptionLocation(d),
+  };
+}
+
+// ── runtime-domain normalizers (JS contexts, Phase A) ────────────────
+
+/**
+ * `Runtime.executionContextCreated` → host-neutral {@link JsContext}. The
+ * session decides `targetKind` (root = `page`; a kept child carries its
+ * target kind); `worldType` passes the aux `type` through open-ended,
+ * defaulting to `default` when absent (older wire shapes omit it for the
+ * main world). A missing `isDefault` reads as `false` — only an explicit
+ * main-world flag counts.
+ */
+export function normalizeExecutionContextCreated(
+  sessionKey: string,
+  targetKind: JsContextTargetKind,
+  p: RawExecutionContextCreated,
+): JsContext {
+  const context = p.context;
+  const aux = context.auxData;
+  return {
+    contextKey: jsContextKey(sessionKey, context.id),
+    origin: context.origin,
+    name: context.name,
+    isDefault: aux?.isDefault === true,
+    ...(aux?.frameId !== undefined ? { frameId: aux.frameId } : {}),
+    targetKind,
+    worldType: aux?.type ?? 'default',
   };
 }
 

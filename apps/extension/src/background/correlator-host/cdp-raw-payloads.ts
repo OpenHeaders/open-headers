@@ -270,6 +270,33 @@ export interface RawExceptionDetails {
   readonly url?: string;
   readonly exception?: RawRemoteObject;
   readonly stackTrace?: RawStackTrace;
+  readonly executionContextId?: number;
+}
+
+/** `Runtime.ExecutionContextDescription` — one live JS context on a session.
+ *  `auxData` carries the frame binding, main-world flag, and world type
+ *  (`default` / `isolated` / `worker`). */
+export interface RawExecutionContextDescription {
+  readonly id: number;
+  readonly origin: string;
+  readonly name: string;
+  readonly auxData?: {
+    readonly frameId?: string;
+    readonly isDefault?: boolean;
+    readonly type?: string;
+  };
+}
+
+/** `Runtime.executionContextCreated` — a context came alive (also replayed
+ *  for every already-live context when Runtime is enabled). */
+export interface RawExecutionContextCreated {
+  readonly context: RawExecutionContextDescription;
+}
+
+/** `Runtime.executionContextDestroyed` — a context died. `executionContextId`
+ *  is the session-scoped numeric id. */
+export interface RawExecutionContextDestroyed {
+  readonly executionContextId: number;
 }
 
 /** `Runtime.exceptionThrown` — an uncaught error or unhandled rejection. */

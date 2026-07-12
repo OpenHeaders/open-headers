@@ -24,7 +24,11 @@ import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-sto
 import { OH_BINDING } from '@openheaders/rule-engine/content-scripts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type CdpBindingFire, ChromeDebuggerEventSource } from '@/background/correlator-host/chrome-debugger-source';
+import {
+  type CdpBindingFire,
+  type CdpJsContextEvent,
+  ChromeDebuggerEventSource,
+} from '@/background/correlator-host/chrome-debugger-source';
 import { clearMainFrameId, isMainFrame } from '@/background/correlator-host/main-frame-registry';
 import { chrome as chromeMock } from '../../../__mocks__/chrome';
 
@@ -1121,27 +1125,30 @@ describe('ChromeDebuggerEventSource — Runtime.bindingCalled (private fire-brid
     expect(out).toHaveLength(0);
   });
 
-  it('drops the residual Runtime.* the enable emits but we never consume (executionContext*) on every plane', async () => {
+  it('drops a residual Runtime.* outside the consumed subset on every plane', async () => {
     source = new ChromeDebuggerEventSource();
     const fires: CdpBindingFire[] = [];
     const net: CdpNetworkEvent[] = [];
     const pages: CdpPageEvent[] = [];
     const console: ConsoleEntry[] = [];
+    const contexts: CdpJsContextEvent[] = [];
     source.subscribeBinding((f) => fires.push(f));
     source.subscribe((e) => net.push(e));
     source.subscribePage((e) => pages.push(e));
     source.subscribeConsole((_tabId, entry) => console.push(entry));
+    source.subscribeContexts((e) => contexts.push(e));
     await source.attach(TAB);
 
-    // consoleAPICalled / exceptionThrown are now consumed (console capture);
-    // the execution-context lifecycle events stay the dropped byproduct.
-    emitRoot('Runtime.executionContextCreated', { context: { id: 1, name: '' } });
-    emitRoot('Runtime.executionContextsCleared', {});
+    // consoleAPICalled / exceptionThrown (console capture) and the
+    // executionContext lifecycle (contexts registry) are consumed; anything
+    // else Runtime emits stays dropped on every plane.
+    emitRoot('Runtime.inspectRequested', { object: { type: 'object' }, hints: {} });
 
     expect(fires).toHaveLength(0);
     expect(net).toHaveLength(0);
     expect(pages).toHaveLength(0);
     expect(console).toHaveLength(0);
+    expect(contexts).toHaveLength(0);
   });
 
   it('drops a malformed or foreign-name bindingCalled (a page can call the fixed-name binding)', async () => {
@@ -1172,6 +1179,8 @@ describe('ChromeDebuggerEventSource — Runtime console capture (Phase G)', () =
     expect(out[0].entry.source).toBe('console-api');
     expect(out[0].entry.level).toBe('warning');
     expect(out[0].entry.args).toEqual([{ type: 'string', text: 'careful' }]);
+    // The context join key is minted from the session + executionContextId.
+    expect(out[0].entry.contextKey).toBe('page::1');
   });
 
   it('routes an exceptionThrown as an error entry with location on the root', async () => {
@@ -1323,6 +1332,185 @@ describe('ChromeDebuggerEventSource — Runtime console capture (Phase G)', () =
 
     expect(consoleOut).toHaveLength(1);
     expect(fires).toEqual([{ tabId: TAB, ruleUid: 'wsr00001', url: 'wss://stream.openheaders.io/feed', t: 1234 }]);
+  });
+
+  it('mints the child-session contextKey on an OOPIF console entry and the exception contextKey when named', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: ConsoleEntry[] = [];
+    source.subscribeConsole((_tabId, entry) => out.push(entry));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitChild(
+      CHILD_SESSION,
+      'Runtime.consoleAPICalled',
+      rawConsoleApiCalled('log', [{ type: 'string', value: 'x' }], { executionContextId: 4 }),
+    );
+    emitRoot('Runtime.exceptionThrown', {
+      timestamp: 1800,
+      exceptionDetails: { text: 'Uncaught', lineNumber: 1, columnNumber: 1, executionContextId: 2 },
+    });
+    emitRoot('Runtime.exceptionThrown', {
+      timestamp: 1801,
+      exceptionDetails: { text: 'Uncaught', lineNumber: 1, columnNumber: 1 },
+    });
+
+    expect(out[0].contextKey).toBe(`${CHILD_SESSION}::4`);
+    expect(out[1].contextKey).toBe('page::2');
+    // No executionContextId on the details — no join key is invented.
+    expect(out[2].contextKey).toBeUndefined();
+  });
+});
+
+describe('ChromeDebuggerEventSource — Runtime executionContext lifecycle (JS contexts Phase A)', () => {
+  function rawContextCreated(id: number, overrides: Record<string, unknown> = {}): object {
+    return {
+      context: {
+        id,
+        origin: 'https://app.openheaders.io',
+        name: '',
+        auxData: { frameId: 'F1', isDefault: true, type: 'default' },
+        ...overrides,
+      },
+    };
+  }
+
+  it('fans a context-created on the root as a page-kind JsContext with the minted key', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Runtime.executionContextCreated', rawContextCreated(1));
+
+    expect(out).toEqual([
+      {
+        kind: 'context-created',
+        tabId: TAB,
+        context: {
+          contextKey: 'page::1',
+          origin: 'https://app.openheaders.io',
+          name: '',
+          isDefault: true,
+          frameId: 'F1',
+          targetKind: 'page',
+          worldType: 'default',
+        },
+      },
+    ]);
+  });
+
+  it('carries an isolated world through with its name and world type', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot(
+      'Runtime.executionContextCreated',
+      rawContextCreated(5, { name: 'Open Headers', auxData: { frameId: 'F1', isDefault: false, type: 'isolated' } }),
+    );
+
+    expect(out[0]).toMatchObject({
+      kind: 'context-created',
+      context: { contextKey: 'page::5', name: 'Open Headers', isDefault: false, worldType: 'isolated' },
+    });
+  });
+
+  it('fans child-session contexts with the child target kind and session-scoped keys', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitRoot('Target.attachedToTarget', attachedToTarget('child-worker-1', 'worker'));
+    emitChild(CHILD_SESSION, 'Runtime.executionContextCreated', rawContextCreated(1));
+    emitChild(
+      'child-worker-1',
+      'Runtime.executionContextCreated',
+      rawContextCreated(1, { auxData: { isDefault: true, type: 'worker' } }),
+    );
+
+    // Same numeric id on two sessions — distinct keys by session.
+    expect(out[0]).toMatchObject({
+      kind: 'context-created',
+      context: { contextKey: `${CHILD_SESSION}::1`, targetKind: 'iframe', frameId: 'F1' },
+    });
+    expect(out[1]).toMatchObject({
+      kind: 'context-created',
+      context: { contextKey: 'child-worker-1::1', targetKind: 'worker', worldType: 'worker' },
+    });
+    expect(out[1].kind === 'context-created' && 'frameId' in out[1].context).toBe(false);
+  });
+
+  it('fans context-destroyed with the session-scoped key', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Runtime.executionContextDestroyed', { executionContextId: 3 });
+
+    expect(out).toEqual([{ kind: 'context-destroyed', tabId: TAB, contextKey: 'page::3' }]);
+  });
+
+  it('fans session-cleared for executionContextsCleared on the emitting session', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    // The cleared event carries no parameters on the wire — the router must
+    // dispatch it without a params object.
+    chromeMock.debugger.emitEvent({ tabId: TAB }, 'Runtime.executionContextsCleared', undefined);
+    emitChild(CHILD_SESSION, 'Runtime.executionContextsCleared', {});
+
+    expect(out).toEqual([
+      { kind: 'session-cleared', tabId: TAB, sessionKey: 'page' },
+      { kind: 'session-cleared', tabId: TAB, sessionKey: CHILD_SESSION },
+    ]);
+  });
+
+  it('fans session-cleared when a kept child detaches', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitRoot('Target.detachedFromTarget', { sessionId: CHILD_SESSION });
+
+    expect(out).toEqual([{ kind: 'session-cleared', tabId: TAB, sessionKey: CHILD_SESSION }]);
+  });
+
+  it('fans tab-detached on chrome-initiated detach and on our own detach', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    chromeMock.debugger.emitDetach({ tabId: TAB }, 'canceled_by_user');
+    expect(out).toEqual([{ kind: 'tab-detached', tabId: TAB }]);
+
+    out.length = 0;
+    await source.attach(TAB);
+    await source.detach(TAB);
+    expect(out).toEqual([{ kind: 'tab-detached', tabId: TAB }]);
+  });
+
+  it('drops executionContext events from an unkept child session (target-type filter)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
+    emitChild('sw-session', 'Runtime.executionContextCreated', rawContextCreated(1));
+    emitChild('sw-session', 'Runtime.executionContextDestroyed', { executionContextId: 1 });
+
+    expect(out).toHaveLength(0);
   });
 });
 

@@ -35,6 +35,7 @@
  */
 
 import type { ConsoleEntry } from '@openheaders/core/console-stream';
+import { type JsContext, jsContextKey } from '@openheaders/core/js-contexts';
 import type {
   CdpBufferedResponseBody,
   CdpEventSource,
@@ -52,6 +53,7 @@ import {
   normalizeDataReceived,
   normalizeEventSourceMessageReceived,
   normalizeExceptionThrown,
+  normalizeExecutionContextCreated,
   normalizeFrameNavigated,
   normalizeFrameStoppedLoading,
   normalizeLoadingFailed,
@@ -80,6 +82,8 @@ import type {
   RawDetachedFromTarget,
   RawEventSourceMessageReceived,
   RawExceptionThrown,
+  RawExecutionContextCreated,
+  RawExecutionContextDestroyed,
   RawFrameNavigated,
   RawFrameStoppedLoading,
   RawGetFrameTree,
@@ -118,9 +122,23 @@ type DetachListener = (tabId: number, reason: string) => void;
 type ChildSessionListener = (tabId: number, sessionId: string, kind: ChildTargetKind) => void;
 type BindingListener = (fire: CdpBindingFire) => void;
 type ConsoleListener = (tabId: number, entry: ConsoleEntry) => void;
+type JsContextsListener = (event: CdpJsContextEvent) => void;
 type StorageTrackingKind = 'indexeddb' | 'cachestorage';
 type StorageTrackingListener = (tabId: number, storageKey: string, kind: StorageTrackingKind) => void;
 type DebuggerApi = BrowserAPI['debugger'];
+
+/**
+ * Engine-input event for the JS-contexts plane (Phase A) — the adapter's fan
+ * shape toward `JsContextHub`. Session-level teardown is explicit
+ * (`session-cleared` when one session's contexts all die while the tab stays
+ * attached; `tab-detached` when the whole attachment ends) so the hub can
+ * drop exactly the affected subset.
+ */
+export type CdpJsContextEvent =
+  | { kind: 'context-created'; tabId: number; context: JsContext }
+  | { kind: 'context-destroyed'; tabId: number; contextKey: string }
+  | { kind: 'session-cleared'; tabId: number; sessionKey: string }
+  | { kind: 'tab-detached'; tabId: number };
 
 /** Protocol version handed to `chrome.debugger.attach`. */
 const CDP_PROTOCOL_VERSION = '1.3';
@@ -171,6 +189,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   private readonly childDetachListeners = new Set<ChildSessionListener>();
   private readonly bindingListeners = new Set<BindingListener>();
   private readonly consoleListeners = new Set<ConsoleListener>();
+  private readonly jsContextsListeners = new Set<JsContextsListener>();
   private readonly storageTrackingListeners = new Set<StorageTrackingListener>();
   /** Root (page-target) tabs we hold a `chrome.debugger` attachment for. */
   private readonly attachedTabs = new Set<number>();
@@ -241,6 +260,24 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.consoleListeners.add(listener);
     return () => {
       this.consoleListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Subscribe to JS execution-context lifecycle (JS contexts Phase A) — the
+   * `Runtime.executionContextCreated/Destroyed/executionContextsCleared`
+   * events the standing `Runtime.enable` already delivers on the root and
+   * every kept child session, formerly dropped by the router. The enable
+   * replays already-live contexts as `created` on attach, so the registry
+   * self-seeds — no snapshot pull. Session teardown fans explicitly:
+   * `session-cleared` when a kept child detaches, `tab-detached` when the
+   * tab's attachment ends. NOT part of the oracle `CdpEventSource` interface
+   * — contexts are a host concern (mirror of `subscribeConsole`).
+   */
+  subscribeContexts(listener: JsContextsListener): () => void {
+    this.jsContextsListeners.add(listener);
+    return () => {
+      this.jsContextsListeners.delete(listener);
     };
   }
 
@@ -442,6 +479,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.attachedTabs.delete(tabId);
     this.forgetChildrenOf(tabId);
     clearMainFrameId(tabId);
+    this.fanContexts({ kind: 'tab-detached', tabId });
     await this.send({ tabId }, 'Network.disable');
     try {
       await api.detach({ tabId });
@@ -465,6 +503,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.childDetachListeners.clear();
     this.bindingListeners.clear();
     this.consoleListeners.clear();
+    this.jsContextsListeners.clear();
     this.storageTrackingListeners.clear();
     this.attachedTabs.clear();
     this.childSessions.clear();
@@ -527,22 +566,44 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       return;
     }
     if (method.startsWith('Runtime.')) {
-      // E4 fire-bridge + Phase G console capture both ride the standing
-      // Runtime.enable: bindingCalled is the page-invisible fire channel;
-      // consoleAPICalled/exceptionThrown are the page's console output +
-      // uncaught errors. All three route by tabId (a worker/OOPIF line belongs
-      // to the tab) but gate the session like Network./Fetch.: only the root or
-      // a kept child. Every other Runtime.* the enable emits
-      // (executionContextCreated/…) is not consumed.
-      if (params === undefined) return;
+      // E4 fire-bridge + Phase G console capture + JS-contexts Phase A all
+      // ride the standing Runtime.enable: bindingCalled is the page-invisible
+      // fire channel; consoleAPICalled/exceptionThrown are the page's console
+      // output + uncaught errors; executionContextCreated/Destroyed/
+      // executionContextsCleared are the live context registry. All route by
+      // tabId (a worker/OOPIF line belongs to the tab) but gate the session
+      // like Network./Fetch.: only the root or a kept child.
       const runtimeChildSessionId = source.sessionId;
       if (runtimeChildSessionId !== undefined && !this.childSessions.has(runtimeChildSessionId)) return;
+      const sessionKey = runtimeChildSessionId ?? ROOT_SESSION_ID;
+      if (method === 'Runtime.executionContextsCleared') {
+        // The one consumed Runtime event with no parameters — dispatch it
+        // before the params gate.
+        this.fanContexts({ kind: 'session-cleared', tabId, sessionKey });
+        return;
+      }
+      if (params === undefined) return;
       if (method === 'Runtime.bindingCalled') {
         this.handleBindingCalled(tabId, params as RawBindingCalled);
       } else if (method === 'Runtime.consoleAPICalled') {
-        this.fanConsole(tabId, normalizeConsoleApiCalled(params as RawConsoleApiCalled));
+        this.fanConsole(tabId, normalizeConsoleApiCalled(sessionKey, params as RawConsoleApiCalled));
       } else if (method === 'Runtime.exceptionThrown') {
-        this.fanConsole(tabId, normalizeExceptionThrown(params as RawExceptionThrown));
+        this.fanConsole(tabId, normalizeExceptionThrown(sessionKey, params as RawExceptionThrown));
+      } else if (method === 'Runtime.executionContextCreated') {
+        const kind = runtimeChildSessionId === undefined ? 'page' : this.childSessions.get(runtimeChildSessionId)?.kind;
+        if (kind === undefined) return;
+        this.fanContexts({
+          kind: 'context-created',
+          tabId,
+          context: normalizeExecutionContextCreated(sessionKey, kind, params as RawExecutionContextCreated),
+        });
+      } else if (method === 'Runtime.executionContextDestroyed') {
+        const destroyed = params as RawExecutionContextDestroyed;
+        this.fanContexts({
+          kind: 'context-destroyed',
+          tabId,
+          contextKey: jsContextKey(sessionKey, destroyed.executionContextId),
+        });
       }
       return;
     }
@@ -724,6 +785,9 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     const child = this.childSessions.get(params.sessionId);
     if (child === undefined) return;
     this.childSessions.delete(params.sessionId);
+    // The session's contexts died with it and no executionContextDestroyed
+    // will arrive for them — clear the session's subset explicitly.
+    this.fanContexts({ kind: 'session-cleared', tabId: child.owner, sessionKey: params.sessionId });
     for (const listener of this.childDetachListeners) listener(child.owner, params.sessionId, child.kind);
   }
 
@@ -733,6 +797,9 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.attachedTabs.delete(tabId);
     this.forgetChildrenOf(tabId);
     clearMainFrameId(tabId);
+    // The context set is live state, not history — it dies with the
+    // attachment (unlike the console log, which persists as backlog).
+    this.fanContexts({ kind: 'tab-detached', tabId });
     for (const listener of this.detachListeners) listener(tabId, reason);
   }
 
@@ -762,9 +829,9 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
    * Enable the Runtime domain and install the page-invisible fire binding on a
    * session (E4). `Runtime.bindingCalled` is delivered only to a client that
    * has enabled Runtime, so the enable is required, not optional — it also
-   * turns on executionContextCreated/consoleAPICalled/exceptionThrown, which
-   * the event router drops (we consume only bindingCalled; Phase G console
-   * capture reuses this enable and keeps those). The binding (no
+   * turns on consoleAPICalled/exceptionThrown (kept by Phase G console
+   * capture) and the executionContext lifecycle events (kept by the
+   * JS-contexts registry). The binding (no
    * executionContextId) lands on every global on the session — main world
    * included — and survives reloads, so a bootstrap wrapper on a fresh document
    * finds it already present. Enable precedes addBinding so no early fire is
@@ -850,6 +917,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private fanConsole(tabId: number, entry: ConsoleEntry): void {
     for (const listener of this.consoleListeners) listener(tabId, entry);
+  }
+
+  private fanContexts(event: CdpJsContextEvent): void {
+    for (const listener of this.jsContextsListeners) listener(event);
   }
 
   private fanStorageTracking(tabId: number, storageKey: string, kind: StorageTrackingKind): void {

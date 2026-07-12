@@ -86,6 +86,14 @@ export interface ConsoleEntry {
    * initiator stack) exactly, no heuristics.
    */
   readonly requestId?: string;
+  /**
+   * Correlation key into the tab's JS-contexts plane
+   * (`@openheaders/core/js-contexts`) — `${sessionKey}::${executionContextId}`,
+   * present when the event carried a context id (console-api calls always
+   * do; exceptions when the details name one). Lets a consumer attribute the
+   * entry to its execution context exactly, no heuristics.
+   */
+  readonly contextKey?: string;
   /** Full stack trace, when the event carried one (expandable in the UI). */
   readonly stackTrace?: readonly ConsoleStackFrame[];
   /** Top stack-frame location, when the event carried a stack. */
