@@ -1,5 +1,7 @@
 import { hasCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
+import type { MessageKey } from '@openheaders/i18n';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Typography } from 'antd';
@@ -39,28 +41,17 @@ interface ShortcutGroup {
  * can't accidentally show a key here that the dispatcher doesn't
  * recognize, or rebind in settings without updating this overlay.
  */
-const GROUP_TITLES: Record<PopupShortcutGroup, string> = {
-  navigation: 'Navigation',
-  actions: 'Actions',
-  row: 'Table rows',
-  browser: 'Browser',
-  tourGuide: 'Tour Guide',
+const GROUP_TITLE_KEYS: Record<PopupShortcutGroup, MessageKey> = {
+  navigation: 'popup.shortcuts.groupNavigation',
+  actions: 'popup.shortcuts.groupActions',
+  row: 'popup.shortcuts.groupRow',
+  browser: 'popup.shortcuts.groupBrowser',
+  tourGuide: 'popup.shortcuts.groupTour',
 };
 
 const GROUP_ORDER: readonly PopupShortcutGroup[] = ['navigation', 'actions', 'row', 'tourGuide', 'browser'];
 
-const BROWSER_SHORTCUT: ShortcutEntry = {
-  keys: isMac ? ['\u2318', '\u21E7', ','] : ['Ctrl', 'Shift', ','],
-  combo: true,
-  description: 'Open extension',
-};
-
-const BROWSER_HINT = {
-  label: 'Customize extension shortcut \u2197',
-  onClick: (): void => {
-    hostNavigation.openShortcutSettings();
-  },
-};
+const BROWSER_SHORTCUT_KEYS: readonly string[] = isMac ? ['\u2318', '\u21E7', ','] : ['Ctrl', 'Shift', ','];
 
 /**
  * Display helpers — convert a normalized chord string (the format used
@@ -141,7 +132,7 @@ interface OverlayColumns {
   right: ShortcutGroup[];
 }
 
-function useOverlayColumns(): OverlayColumns {
+function useOverlayColumns(t: Translate): OverlayColumns {
   // One subscription drives the entire overlay — if the user rebinds
   // any popup chord from Settings → Keyboard, the underlying store
   // replaces the snapshot and every overlay row repaints on the next
@@ -169,7 +160,7 @@ function useOverlayColumns(): OverlayColumns {
         id: def.id,
         keys: entry.keys,
         combo: entry.combo,
-        description: def.description,
+        description: t(def.descriptionKey),
       });
     }
     if (debugAvailable) {
@@ -177,24 +168,35 @@ function useOverlayColumns(): OverlayColumns {
       grouped.actions.push({
         keys: parts.length > 0 ? parts : ['—'],
         combo: true,
-        description: 'Toggle debug mode',
+        description: t('popup.shortcuts.toggleDebugMode'),
       });
     }
-    grouped.browser.push(BROWSER_SHORTCUT);
+    grouped.browser.push({
+      keys: [...BROWSER_SHORTCUT_KEYS],
+      combo: true,
+      description: t('popup.shortcuts.openExtension'),
+    });
 
     const groups: ShortcutGroup[] = GROUP_ORDER.map((group) => ({
-      title: GROUP_TITLES[group],
+      title: t(GROUP_TITLE_KEYS[group]),
       shortcuts: grouped[group],
-      hint: group === 'browser' ? BROWSER_HINT : undefined,
+      hint:
+        group === 'browser'
+          ? {
+              label: t('popup.shortcuts.customize'),
+              onClick: (): void => {
+                hostNavigation.openShortcutSettings();
+              },
+            }
+          : undefined,
     }));
 
+    const leftTitles = new Set([t(GROUP_TITLE_KEYS.navigation), t(GROUP_TITLE_KEYS.actions)]);
     return {
-      left: groups.filter((g) => g.title === GROUP_TITLES.navigation || g.title === GROUP_TITLES.actions),
-      right: groups.filter(
-        (g) => g.title === GROUP_TITLES.row || g.title === GROUP_TITLES.browser || g.title === GROUP_TITLES.tourGuide,
-      ),
+      left: groups.filter((g) => leftTitles.has(g.title)),
+      right: groups.filter((g) => !leftTitles.has(g.title)),
     };
-  }, [chords, debugChord, debugAvailable]);
+  }, [chords, debugChord, debugAvailable, t]);
 }
 
 const Kbd: React.FC<{ children: string }> = ({ children }) => <span className="kbd-key">{children}</span>;
@@ -243,7 +245,8 @@ const ShortcutColumn: React.FC<{ groups: ShortcutGroup[] }> = ({ groups }) => (
 
 const KeyboardShortcutsOverlay: React.FC<KeyboardShortcutsOverlayProps> = ({ visible, onClose }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
-  const columns = useOverlayColumns();
+  const t = useT();
+  const columns = useOverlayColumns(t);
 
   // Close on click outside
   useEffect(() => {
@@ -269,19 +272,19 @@ const KeyboardShortcutsOverlay: React.FC<KeyboardShortcutsOverlayProps> = ({ vis
       <div className="keyboard-shortcuts-overlay" ref={overlayRef}>
         <div className="keyboard-shortcuts-header">
           <Text strong style={{ fontSize: '14px' }}>
-            Keyboard Shortcuts
+            {t('popup.shortcuts.title')}
           </Text>
           <span className="keyboard-shortcuts-close">
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              press
+              {t('popup.shortcuts.press')}
             </Text>
             <Kbd>Esc</Kbd>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              or
+              {t('popup.shortcuts.or')}
             </Text>
             <Kbd>?</Kbd>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              to close
+              {t('popup.shortcuts.toClose')}
             </Text>
           </span>
         </div>

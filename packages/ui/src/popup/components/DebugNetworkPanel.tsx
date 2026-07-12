@@ -1,4 +1,5 @@
 import { BugFilled, CheckCircleFilled, InfoCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -16,6 +17,7 @@ interface DebugNetworkPanelProps {
 
 const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const browser = useMemo(detectBrowser, []);
 
   const kbdStyle: React.CSSProperties = {
@@ -91,9 +93,9 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <BugFilled style={{ fontSize: 18, color: token.colorPrimary }} />
-          <span style={{ fontSize: 15, fontWeight: 600 }}>Debug Network</span>
+          <span style={{ fontSize: 15, fontWeight: 600 }}>{t('popup.debug.title')}</span>
           <Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic' }}>
-            Like it should be
+            {t('popup.footer.tagline')}
           </Text>
         </div>
       }
@@ -104,24 +106,24 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
           <div className="oh-debug-step-body" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <Text strong style={{ fontSize: 13 }}>
-                Open browser DevTools
+                {t('popup.debug.step1')}
               </Text>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 4 }}>
                 <span style={subStepIndex}>a</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    On a regular page e.g.{' '}
+                    {t('popup.debug.step1a')}{' '}
                     <Text code style={{ fontSize: 11 }}>
                       https://example.com
                     </Text>
                   </Text>
                   <div style={{ marginTop: 2 }}>
                     <Text type="secondary" style={{ fontSize: 11 }}>
-                      Not{' '}
+                      {t('popup.debug.notPrefix')}{' '}
                       <Text code style={{ fontSize: 11 }}>
                         chrome://
                       </Text>{' '}
-                      or new tab (extensions: blocked there).
+                      {t('popup.debug.notSuffix')}
                     </Text>
                   </div>
                 </div>
@@ -136,11 +138,11 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
                     </span>
                   ))}
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    on {browser.shortcut.platform}
+                    {t('popup.debug.onPlatform', { platform: browser.shortcut.platform })}
                   </Text>
                 </div>
               </div>
-              {browser.menuHint && (
+              {browser.menuHintKey && (
                 <div
                   style={{
                     display: 'flex',
@@ -153,7 +155,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
                   }}
                 >
                   <InfoCircleOutlined style={{ marginTop: 2, fontSize: 11 }} />
-                  <Text style={{ fontSize: 11, color: token.colorInfoText }}>{browser.menuHint}</Text>
+                  <Text style={{ fontSize: 11, color: token.colorInfoText }}>{t(browser.menuHintKey)}</Text>
                 </div>
               )}
             </div>
@@ -168,7 +170,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
           <div className="oh-debug-step-body" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
             <Text strong style={{ fontSize: 13 }}>
-              Click the{' '}
+              {t('popup.debug.clickThePrefix')}{' '}
               <span
                 style={{
                   display: 'inline-flex',
@@ -185,15 +187,15 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
                 <span style={{ fontSize: 11, lineHeight: 1 }}>🟦</span>
                 Open Headers
               </span>{' '}
-              tab
+              {t('popup.debug.clickTheSuffix')}
             </Text>
             <div style={{ marginTop: 2 }}>
               <Text type="secondary" style={{ fontSize: 11 }}>
-                Last tab — may hide in the{' '}
+                {t('popup.debug.overflowPrefix')}{' '}
                 <Text code style={{ fontSize: 11 }}>
                   »
                 </Text>{' '}
-                overflow menu.
+                {t('popup.debug.overflowSuffix')}
               </Text>
             </div>
             </div>
@@ -207,7 +209,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
           <span style={stepIndex}>3</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Text strong style={{ fontSize: 13 }}>
-              Super-charge your debugging
+              {t('popup.debug.step3')}
             </Text>
             <div
               style={{
@@ -222,7 +224,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>Modify headers, requests & responses</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureModify')}</Text>
                 <span
                   style={{
                     display: 'inline-flex',
@@ -238,17 +240,17 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  + Add/Override
+                  {t('popup.devtools.addOverride')}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>Multi-tab request metadata panels</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureTabs')}</Text>
                 <LayoutMenuIcon kind="close-tabs-left" size={16} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>Advanced search & filter</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureSearch')}</Text>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                   <SearchOutlined style={{ fontSize: 11, color: token.colorTextSecondary }} />
                   {['Aa', 'ab', '.*'].map((label) => (
@@ -277,7 +279,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>Drag & drop sidebar panels</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureDock')}</Text>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                   <DockSlotIcon slot="left-top" size={16} />
                   <DockSlotIcon slot="right-bottom" size={16} />

@@ -1,4 +1,5 @@
 import { CheckOutlined, CopyTwoTone } from '@ant-design/icons';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dispatch, SetStateAction } from 'react';
@@ -7,7 +8,7 @@ import {
   formatTimestampShort,
   renderHighlightedUrl,
   RESOURCE_TYPE_LABEL,
-  RESOURCE_TYPE_TOOLTIP,
+  resourceTypeTooltip,
 } from './format';
 import type { MatchedRequestRow } from './types';
 
@@ -17,6 +18,8 @@ export interface MatchedRequestColumnsOptions {
   copiedRowId: string | number | null;
   setCopiedRowId: Dispatch<SetStateAction<string | number | null>>;
   shadowDetection: boolean;
+  t: Translate;
+  locale: string;
 }
 
 /**
@@ -29,10 +32,12 @@ export function buildMatchedRequestColumns({
   copiedRowId,
   setCopiedRowId,
   shadowDetection,
+  t,
+  locale,
 }: MatchedRequestColumnsOptions): ColumnsType<MatchedRequestRow> {
   return [
     {
-      title: 'Time',
+      title: t('popup.matched.columnTime'),
       dataIndex: 't',
       key: 'timestamp',
       width: 100,
@@ -40,7 +45,7 @@ export function buildMatchedRequestColumns({
       sorter: (a, b) => a.t - b.t,
       defaultSortOrder: 'descend',
       render: (ts: number) => (
-        <Tooltip title={formatTimestampFull(ts)}>
+        <Tooltip title={formatTimestampFull(ts, locale)}>
           <Text type="secondary" style={{ fontSize: '11px', fontFamily: 'monospace', cursor: 'default' }}>
             {formatTimestampShort(ts)}
           </Text>
@@ -48,7 +53,7 @@ export function buildMatchedRequestColumns({
       ),
     },
     {
-      title: 'Request URL',
+      title: t('popup.matched.columnUrl'),
       dataIndex: 'url',
       key: 'url',
       width: 380,
@@ -88,7 +93,7 @@ export function buildMatchedRequestColumns({
                       gap: 6,
                     }}
                   >
-                    <span style={{ opacity: 0.5, fontSize: 11 }}>matched by</span>
+                    <span style={{ opacity: 0.5, fontSize: 11 }}>{t('popup.matched.matchedBy')}</span>
                     <span style={{ color: '#69b1ff', fontSize: 11 }}>{matchRecord.pattern}</span>
                   </div>
                 </div>
@@ -130,7 +135,7 @@ export function buildMatchedRequestColumns({
       },
     },
     {
-      title: 'Type',
+      title: t('popup.matched.columnType'),
       key: 'type',
       width: 80,
       align: 'center',
@@ -141,7 +146,7 @@ export function buildMatchedRequestColumns({
       render: (_: unknown, matchRecord: MatchedRequestRow) => {
         const rt = matchRecord.resourceType || (matchRecord.isTabUrl ? 'main_frame' : 'other');
         const label = RESOURCE_TYPE_LABEL[rt] ?? rt;
-        const tooltip = RESOURCE_TYPE_TOOLTIP[rt] ?? rt;
+        const tooltip = resourceTypeTooltip(rt, t);
         return (
           <Tooltip title={tooltip}>
             <Tag variant="outlined" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
@@ -152,7 +157,7 @@ export function buildMatchedRequestColumns({
       },
     },
     {
-      title: 'Delivery',
+      title: t('popup.matched.columnDelivery'),
       key: 'delivery',
       width: 90,
       align: 'center',
@@ -161,23 +166,23 @@ export function buildMatchedRequestColumns({
         switch (matchRecord.deliveryMode) {
           case 'network':
             return (
-              <Tooltip title="Request went to the network this session; response was not served from cache.">
+              <Tooltip title={t('popup.matched.deliveryLiveTip')}>
                 <Tag color="green" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
-                  ● live
+                  ● {t('popup.matched.deliveryLive')}
                 </Tag>
               </Tooltip>
             );
           case 'cached':
             return (
-              <Tooltip title="Response was served from Chrome's HTTP cache. Your rule applied when this response was originally fetched or on the revalidation round-trip.">
-                <Tag style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>● cached</Tag>
+              <Tooltip title={t('popup.matched.deliveryCachedTip')}>
+                <Tag style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>● {t('popup.matched.deliveryCached')}</Tag>
               </Tooltip>
             );
           case 'service-worker':
             return (
-              <Tooltip title="A service worker intercepted the request. Whether your rule applied depends on what the service worker did next.">
+              <Tooltip title={t('popup.matched.deliverySwTip')}>
                 <Tag color="blue" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
-                  ● sw
+                  ● {t('popup.matched.deliverySw')}
                 </Tag>
               </Tooltip>
             );
@@ -190,7 +195,7 @@ export function buildMatchedRequestColumns({
       },
     },
     {
-      title: 'Evidence',
+      title: t('popup.matched.columnEvidence'),
       key: 'evidence',
       width: 110,
       align: 'center',
@@ -201,11 +206,9 @@ export function buildMatchedRequestColumns({
         // experimental setting is on.
         if (shadowDetection && matchRecord.shadowedBy) {
           return (
-            <Tooltip
-              title={`This request was terminated by "${matchRecord.shadowedBy.name}" (block rule, higher priority). This rule never ran on it.`}
-            >
+            <Tooltip title={t('popup.matched.evidenceShadowedTip', { name: matchRecord.shadowedBy.name })}>
               <Tag color="warning" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
-                ⚠ shadowed
+                ⚠ {t('popup.matched.evidenceShadowed')}
               </Tag>
             </Tooltip>
           );
@@ -213,33 +216,33 @@ export function buildMatchedRequestColumns({
         switch (matchRecord.evidence) {
           case 'confirmed':
             return (
-              <Tooltip title="Script confirmed this fire from the in-page injection — ground truth that the rule ran.">
+              <Tooltip title={t('popup.matched.evidenceConfirmedTip')}>
                 <Tag color="success" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
-                  ✓ confirmed
+                  ✓ {t('popup.matched.evidenceConfirmed')}
                 </Tag>
               </Tooltip>
             );
           case 'matched-fallback':
             return (
-              <Tooltip title="Matched via URL, but the in-page script reporter didn't confirm. Common causes: a strict Content-Security-Policy blocking the MAIN-world injection, or a resource type (stylesheet, image, manifest link) that bypasses fetch/XHR interception.">
+              <Tooltip title={t('popup.matched.evidenceFallbackTip')}>
                 <Tag color="gold" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
-                  ~ fallback
+                  ~ {t('popup.matched.evidenceFallback')}
                 </Tag>
               </Tooltip>
             );
           case 'silent':
             return (
-              <Tooltip title="Pattern matched this subresource but the response was served from cache / a service worker / bfcache, so the rule's action could not run. Reload bypassing cache to force a fresh request.">
+              <Tooltip title={t('popup.matched.evidenceSilentTip')}>
                 <Tag color="gold" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
-                  ⊘ silent
+                  ⊘ {t('popup.matched.evidenceSilent')}
                 </Tag>
               </Tooltip>
             );
           default:
             return (
-              <Tooltip title="URL matched this rule's conditions. Chrome's declarativeNetRequest doesn't report which rule wins arbitration — we observe URL matches, not execution.">
+              <Tooltip title={t('popup.matched.evidenceMatchedTip')}>
                 <Tag color="blue" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
-                  ~ matched
+                  ~ {t('popup.matched.evidenceMatched')}
                 </Tag>
               </Tooltip>
             );
@@ -247,7 +250,7 @@ export function buildMatchedRequestColumns({
       },
     },
     {
-      title: 'Pattern',
+      title: t('popup.matched.columnPattern'),
       dataIndex: 'pattern',
       key: 'pattern',
       width: 140,

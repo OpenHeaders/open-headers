@@ -6,6 +6,7 @@ import {
 } from '@ant-design/icons';
 import type { RequestRecord } from '@openheaders/core/types';
 import { type PauseMarkers, resolvePauseState } from '@openheaders/core/utils';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { VERDICT_TOOLTIP } from '@openheaders/ui/shared/verdict';
 import type { WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import type { TrackedResourceType } from '@openheaders/ui/workbench/settings/schema/rules-engine';
@@ -14,7 +15,7 @@ import type { GlobalToken } from 'antd/es/theme/interface';
 import type { SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useState } from 'react';
-import { ALL_RESOURCE_TYPES, RESOURCE_TYPE_LABEL, RESOURCE_TYPE_TOOLTIP } from './format';
+import { ALL_RESOURCE_TYPES, RESOURCE_TYPE_LABEL, resourceTypeTooltip } from './format';
 import { buildSortOrderMenuItems } from './sort-order-menu';
 import type { ActiveRule, CurrentTabInfo, SortMode, TableRecord } from './types';
 
@@ -76,6 +77,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
   sortedFilteredRules,
   uniqueRequestCount,
 }) => {
+  const t = useT();
   // Suppress the sort button's tooltip while its menu is open so the
   // two popups never overlap on the same trigger.
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -95,7 +97,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
           </Tooltip>
           <Space className="oh-toolbar-status" size={4} style={{ display: 'flex', flexWrap: 'wrap' }}>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              {activeCount} of {activeRules.length} active
+              {t('popup.rules.activeSummary', { active: activeCount, total: activeRules.length })}
             </Text>
             <span className="oh-status-detail" style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
               {(() => {
@@ -106,7 +108,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                       ·
                     </Text>
                     <Text type="warning" style={{ fontSize: '11px' }}>
-                      {pausedCount} rule{pausedCount !== 1 ? 's' : ''} paused by collection
+                      {t('popup.thisPage.rulesPausedByCollection', { count: pausedCount })}
                     </Text>
                   </>
                 ) : null;
@@ -118,7 +120,9 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                   </Text>
                   {verdictCounts.firing > 0 && (
                     <Tooltip title={VERDICT_TOOLTIP.firing}>
-                      <Text style={{ fontSize: '11px', color: '#1677ff' }}>{verdictCounts.firing} firing</Text>
+                      <Text style={{ fontSize: '11px', color: '#1677ff' }}>
+                        {t('popup.thisPage.firing', { count: verdictCounts.firing })}
+                      </Text>
                     </Tooltip>
                   )}
                   {verdictCounts.silent > 0 && (
@@ -130,7 +134,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                       )}
                       <Tooltip title={VERDICT_TOOLTIP.silent}>
                         <Text style={{ fontSize: '11px', color: '#d48806' }}>
-                          {verdictCounts.silent} silent (cached)
+                          {t('popup.thisPage.silentCached', { count: verdictCounts.silent })}
                         </Text>
                       </Tooltip>
                     </>
@@ -142,7 +146,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                       </Text>
                       <Tooltip title={VERDICT_TOOLTIP.related}>
                         <Text type="secondary" style={{ fontSize: '11px' }}>
-                          {verdictCounts.related} related
+                          {t('popup.thisPage.related', { count: verdictCounts.related })}
                         </Text>
                       </Tooltip>
                     </>
@@ -157,12 +161,12 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
             <Space className="oh-toolbar-secondary" size={6} align="center">
               <Badge status="processing" />
               <Text className="oh-monitoring-text" type="secondary" style={{ fontSize: '11px' }}>
-                Live — monitoring requests
+                {t('popup.thisPage.liveMonitoring')}
               </Text>
             </Space>
             <Input.Search
               className="oh-search oh-toolbar-secondary"
-              placeholder="Search anything..."
+              placeholder={t('popup.table.searchPlaceholder')}
               allowClear
               size="small"
               style={{ width: 260 }}
@@ -177,13 +181,13 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
             />
             <Dropdown
               menu={{
-                items: buildSortOrderMenuItems({ sortMode, sortedInfo, onSortModeChange }),
+                items: buildSortOrderMenuItems({ sortMode, sortedInfo, onSortModeChange, t }),
               }}
               placement="bottomRight"
               trigger={['click']}
               onOpenChange={setSortMenuOpen}
             >
-              <Tooltip title="Sort order" open={sortMenuOpen ? false : undefined}>
+              <Tooltip title={t('popup.table.sortOrder')} open={sortMenuOpen ? false : undefined}>
                 <Button className="oh-toolbar-secondary" type="text" size="small" icon={<SortAscendingOutlined />} />
               </Tooltip>
             </Dropdown>
@@ -203,7 +207,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                 >
                   <div style={{ padding: '5px 12px' }}>
                     <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
-                      VISIBLE RESOURCE TYPES
+                      {t('popup.thisPage.visibleResourceTypes')}
                     </Text>
                   </div>
                   <div
@@ -236,7 +240,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                           }}
                         >
                           <Tooltip
-                            title={RESOURCE_TYPE_TOOLTIP[type] ?? type}
+                            title={resourceTypeTooltip(type, t)}
                             placement="left"
                             styles={{ root: { maxWidth: 280 } }}
                           >
@@ -264,7 +268,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                       color: token.colorText,
                     }}
                   >
-                    <span style={{ fontSize: 12 }}>Show all</span>
+                    <span style={{ fontSize: 12 }}>{t('popup.thisPage.showAll')}</span>
                     {visibleResourceTypes.length === ALL_RESOURCE_TYPES.length && (
                       <CheckOutlined style={{ color: '#1677ff', fontSize: 12 }} />
                     )}
@@ -275,8 +279,11 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
               <Tooltip
                 title={
                   visibleResourceTypes.length < ALL_RESOURCE_TYPES.length
-                    ? `Filter resource types (${visibleResourceTypes.length} of ${ALL_RESOURCE_TYPES.length} shown)`
-                    : 'Filter resource types'
+                    ? t('popup.thisPage.filterResourceTypesCount', {
+                        shown: visibleResourceTypes.length,
+                        total: ALL_RESOURCE_TYPES.length,
+                      })
+                    : t('popup.thisPage.filterResourceTypes')
                 }
               >
                 <Badge
@@ -320,12 +327,12 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                     const totalCount = allUrls.size;
                     const silentCount = silentUrls.size;
                     if (silentCount === 0) {
-                      return `${totalCount} request${totalCount !== 1 ? 's' : ''}`;
+                      return t('popup.thisPage.requestCount', { count: totalCount });
                     }
                     if (silentCount === totalCount) {
-                      return `${totalCount} silent request${totalCount !== 1 ? 's' : ''} (cached)`;
+                      return t('popup.thisPage.requestCountAllSilent', { count: totalCount });
                     }
-                    return `${totalCount} request${totalCount !== 1 ? 's' : ''} (${silentCount} silent)`;
+                    return t('popup.thisPage.requestCountSomeSilent', { count: totalCount, silent: silentCount });
                   }
                   const q = searchText.toLowerCase();
                   const filteredRequests = new Set<string>();
@@ -336,20 +343,20 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                   }
                   const parts: string[] = [];
                   parts.push(
-                    `${sortedFilteredRules.length} of ${activeRules.length} rule${activeRules.length !== 1 ? 's' : ''}`,
+                    t('popup.thisPage.rulesOfTotal', { matched: sortedFilteredRules.length, total: activeRules.length }),
                   );
                   if (filteredRequests.size > 0) {
                     parts.push(
-                      `${filteredRequests.size} of ${uniqueRequestCount} request${uniqueRequestCount !== 1 ? 's' : ''}`,
+                      t('popup.thisPage.requestsOfTotal', { matched: filteredRequests.size, total: uniqueRequestCount }),
                     );
                   }
-                  return `${parts.join(', ')} matched`;
+                  return t('popup.thisPage.matchedJoin', { parts: parts.join(', ') });
                 })()}
               </Text>
               {copiedRowId === '__stats__' ? (
                 <CheckOutlined style={{ fontSize: '11px', color: '#52c41a', cursor: 'default' }} />
               ) : (
-                <Tooltip title="Copy requests as TSV">
+                <Tooltip title={t('popup.thisPage.copyTsv')}>
                   <CopyTwoTone
                     className="value-copy-icon"
                     style={{ fontSize: '11px', cursor: 'pointer' }}

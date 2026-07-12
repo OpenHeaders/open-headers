@@ -1,9 +1,10 @@
 import { getCapability } from '@openheaders/core/capabilities';
-import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/dom/useRowActionRegistration';
+import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import type { RowActions } from '@openheaders/ui/shared/table-shared';
 import type { WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
-import { App } from 'antd';
+import type { App } from 'antd';
 import { type Dispatch, type RefObject, type SetStateAction, useCallback } from 'react';
 import type { ActiveRule, TableRecord } from './types';
 
@@ -36,6 +37,7 @@ export function useThisPageRuleRowActions({
   message,
   onRowActionsChange,
 }: ThisPageRuleRowActionsOptions): void {
+  const t = useT();
   const handleToggleRow = useCallback(
     (index: number) => {
       const record = dataSourceRef.current[index];
@@ -78,13 +80,13 @@ export function useThisPageRuleRowActions({
       setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
       void ruleMutator.deleteRule(record.id).then((resp) => {
         if (resp.ok) {
-          void message.success('Rule deleted');
+          void message.success(t('popup.rule.deleted'));
         } else {
-          void message.error('Failed to delete rule');
+          void message.error(t('popup.rule.deleteFailed'));
         }
       });
     },
-    [message, ruleMutator],
+    [message, ruleMutator, t],
   );
 
   useRowActionRegistration(onRowActionsChange, {

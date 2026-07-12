@@ -13,6 +13,7 @@
 
 import { CodeOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { TEMPLATES_BY_TYPE } from '@openheaders/ui/workbench/rule-templates';
 import { ALL_RULE_TYPES, ruleTypeBadge } from '@openheaders/ui/workbench/rule-type-menu';
 import { Empty, Input, Modal, Typography } from 'antd';
@@ -32,28 +33,28 @@ interface PaletteItem {
   groupIcon: React.ReactNode;
 }
 
-function buildPaletteItems(): PaletteItem[] {
+function buildPaletteItems(t: Translate): PaletteItem[] {
   const items: PaletteItem[] = [];
-  for (const t of ALL_RULE_TYPES) {
+  for (const type of ALL_RULE_TYPES) {
     items.push({
-      id: `${t.key}-blank`,
-      ruleType: t.key,
-      title: 'Blank rule',
-      subtitle: t.description,
+      id: `${type.key}-blank`,
+      ruleType: type.key,
+      title: t('popup.palette.blankRule'),
+      subtitle: type.description,
       icon: <CodeOutlined style={{ opacity: 0.55 }} />,
-      group: t.label,
-      groupIcon: ruleTypeBadge(t.key),
+      group: type.label,
+      groupIcon: ruleTypeBadge(type.key),
     });
-    for (const tpl of TEMPLATES_BY_TYPE[t.key] ?? []) {
+    for (const tpl of TEMPLATES_BY_TYPE[type.key] ?? []) {
       items.push({
-        id: `${t.key}-${tpl.key}`,
-        ruleType: t.key,
+        id: `${type.key}-${tpl.key}`,
+        ruleType: type.key,
         templateKey: tpl.key,
         title: tpl.name,
         subtitle: tpl.description,
         icon: <span style={{ fontSize: 14 }}>{tpl.icon}</span>,
-        group: t.label,
-        groupIcon: ruleTypeBadge(t.key),
+        group: type.label,
+        groupIcon: ruleTypeBadge(type.key),
       });
     }
   }
@@ -67,7 +68,8 @@ interface AddRulePaletteProps {
 }
 
 export function AddRulePalette({ open, onClose, onSelect }: AddRulePaletteProps): React.ReactElement {
-  const allItems = useMemo(buildPaletteItems, []);
+  const t = useT();
+  const allItems = useMemo(() => buildPaletteItems(t), [t]);
   const [query, setQuery] = useState('');
   const [focusIndex, setFocusIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -179,7 +181,7 @@ export function AddRulePalette({ open, onClose, onSelect }: AddRulePaletteProps)
           autoFocus
           size="large"
           variant="borderless"
-          placeholder="Search rule types and templates…"
+          placeholder={t('popup.palette.searchPlaceholder')}
           prefix={<SearchOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -193,7 +195,7 @@ export function AddRulePalette({ open, onClose, onSelect }: AddRulePaletteProps)
           {grouped.length === 0 ? (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={`No matches for "${query}"`}
+              description={t('popup.palette.noMatches', { query })}
               style={{ padding: '32px 0' }}
             />
           ) : (

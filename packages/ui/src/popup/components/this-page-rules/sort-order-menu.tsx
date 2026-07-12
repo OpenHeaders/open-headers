@@ -1,4 +1,5 @@
 import { CheckOutlined } from '@ant-design/icons';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { type MenuProps, Typography } from 'antd';
 import type { SorterResult } from 'antd/es/table/interface';
 import type { SortMode, TableRecord } from './types';
@@ -9,6 +10,7 @@ export interface SortOrderMenuOptions {
   sortMode: SortMode;
   sortedInfo: SorterResult<TableRecord>;
   onSortModeChange: (mode: SortMode) => void;
+  t: Translate;
 }
 
 /**
@@ -21,13 +23,14 @@ export function buildSortOrderMenuItems({
   sortMode,
   sortedInfo,
   onSortModeChange,
+  t,
 }: SortOrderMenuOptions): MenuProps['items'] {
   return [
     {
       key: 'label',
       label: (
         <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
-          SORT ORDER
+          {t('popup.table.sortOrderHeading')}
         </Text>
       ),
       disabled: true,
@@ -44,9 +47,9 @@ export function buildSortOrderMenuItems({
           }}
         >
           <div>
-            <div>By status</div>
+            <div>{t('popup.table.sortByStatus')}</div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              Active → Paused → Disabled · priority within each
+              {t('popup.table.sortByStatusHintThisPage')}
             </Text>
           </div>
           {sortMode === 'status' && !sortedInfo.order && <CheckOutlined style={{ color: '#1677ff' }} />}
@@ -66,9 +69,9 @@ export function buildSortOrderMenuItems({
           }}
         >
           <div>
-            <div>By priority</div>
+            <div>{t('popup.table.sortByPriority')}</div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              Block → Redirect → Query → Header → Inject · A-Z within each
+              {t('popup.table.sortByPriorityHint')}
             </Text>
           </div>
           {sortMode === 'priority' && !sortedInfo.order && <CheckOutlined style={{ color: '#1677ff' }} />}
@@ -88,9 +91,9 @@ export function buildSortOrderMenuItems({
           }}
         >
           <div>
-            <div>Workspace order</div>
+            <div>{t('popup.table.sortWorkspaceOrder')}</div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              Matches the workspace sidebar tree order
+              {t('popup.table.sortWorkspaceOrderHint')}
             </Text>
           </div>
           {sortMode === 'manual' && !sortedInfo.order && <CheckOutlined style={{ color: '#1677ff' }} />}
@@ -113,9 +116,9 @@ export function buildSortOrderMenuItems({
                 }}
               >
                 <div>
-                  <div>By column</div>
+                  <div>{t('popup.table.sortByColumn')}</div>
                   <Text type="secondary" style={{ fontSize: '11px' }}>
-                    Sorted by {String(sortedInfo.columnKey)} — click an option above to reset
+                    {t('popup.table.sortByColumnHint', { column: String(sortedInfo.columnKey) })}
                   </Text>
                 </div>
                 <CheckOutlined style={{ color: '#1677ff' }} />

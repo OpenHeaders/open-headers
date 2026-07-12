@@ -1,28 +1,42 @@
 import type { TabTelemetrySnapshot as TelemetrySnapshot } from '@openheaders/core/types';
+import { getDateTimeFormat, type MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { TrackedResourceType } from '@openheaders/ui/workbench/settings/schema/rules-engine';
 import type React from 'react';
 
-export const RULE_TYPE_LABEL: Record<string, string> = {
-  header: 'Header',
-  block: 'Block',
-  redirect: 'Redirect',
-  'query-param': 'Query Param',
-  inject: 'Inject',
-  'request-body': 'API Request',
-  delay: 'Delay',
-  response: 'API Response',
+const RULE_TYPE_LABEL_KEY: Record<string, MessageKey> = {
+  header: 'popup.ruleType.header',
+  block: 'popup.ruleType.block',
+  redirect: 'popup.ruleType.redirect',
+  'query-param': 'popup.ruleType.queryParam',
+  inject: 'popup.ruleType.inject',
+  'request-body': 'popup.ruleType.requestBody',
+  delay: 'popup.ruleType.delay',
+  response: 'popup.ruleType.response',
 };
 
-export const RULE_TYPE_DESCRIPTION: Record<string, string> = {
-  header: 'Modify HTTP headers',
-  block: 'Block requests',
-  redirect: 'Redirect requests',
-  'query-param': 'Modify query parameters',
-  inject: 'Inject scripts or CSS',
-  'request-body': 'Modify API request body (fetch/XHR)',
-  delay: 'Delay response',
-  response: 'Mock or modify API response (fetch/XHR)',
+const RULE_TYPE_DESCRIPTION_KEY: Record<string, MessageKey> = {
+  header: 'popup.ruleType.headerDesc',
+  block: 'popup.ruleType.blockDesc',
+  redirect: 'popup.ruleType.redirectDesc',
+  'query-param': 'popup.ruleType.queryParamDesc',
+  inject: 'popup.ruleType.injectDesc',
+  'request-body': 'popup.ruleType.requestBodyDesc',
+  delay: 'popup.ruleType.delayDesc',
+  response: 'popup.ruleType.responseDesc',
 };
+
+/** Display label for a rule type, falling back to the raw type. */
+export function ruleTypeLabel(type: string, t: Translate): string {
+  const key = RULE_TYPE_LABEL_KEY[type];
+  return key ? t(key) : type;
+}
+
+/** One-line description for a rule type, falling back to the raw type. */
+export function ruleTypeDescription(type: string, t: Translate): string {
+  const key = RULE_TYPE_DESCRIPTION_KEY[type];
+  return key ? t(key) : type;
+}
 
 export const EMPTY_SNAPSHOT: TelemetrySnapshot = {
   counters: {},
@@ -46,19 +60,25 @@ export const RESOURCE_TYPE_LABEL: Record<string, string> = {
   other: 'Other',
 };
 
-export const RESOURCE_TYPE_TOOLTIP: Record<string, string> = {
-  main_frame: 'Matches the page URL directly',
-  sub_frame: 'Applied to an iframe loaded by this page',
-  xmlhttprequest: 'Applied to fetch() and XMLHttpRequest calls',
-  script: 'Applied to script resources',
-  stylesheet: 'Applied to stylesheets',
-  image: 'Applied to images',
-  font: 'Applied to font files',
-  media: 'Applied to audio/video resources',
-  websocket: 'Applied to WebSocket connections',
-  ping: 'Applied to ping/beacon requests',
-  other: 'Applied to other resources',
+const RESOURCE_TYPE_TOOLTIP_KEY: Record<string, MessageKey> = {
+  main_frame: 'popup.resourceType.mainFrameTip',
+  sub_frame: 'popup.resourceType.subFrameTip',
+  xmlhttprequest: 'popup.resourceType.xhrTip',
+  script: 'popup.resourceType.scriptTip',
+  stylesheet: 'popup.resourceType.stylesheetTip',
+  image: 'popup.resourceType.imageTip',
+  font: 'popup.resourceType.fontTip',
+  media: 'popup.resourceType.mediaTip',
+  websocket: 'popup.resourceType.websocketTip',
+  ping: 'popup.resourceType.pingTip',
+  other: 'popup.resourceType.otherTip',
 };
+
+/** Explanation tooltip for a resource type, falling back to the raw type. */
+export function resourceTypeTooltip(type: string, t: Translate): string {
+  const key = RESOURCE_TYPE_TOOLTIP_KEY[type];
+  return key ? t(key) : type;
+}
 
 /**
  * Render order for the inline resource-type filter row at the top of
@@ -94,32 +114,16 @@ export function formatTimestampShort(timestamp: number): React.ReactNode {
   );
 }
 
-export function formatTimestampFull(timestamp: number): React.ReactNode {
+export function formatTimestampFull(timestamp: number, locale: string): React.ReactNode {
   const d = new Date(timestamp);
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-  const day = d.getDate();
-  const month = months[d.getMonth()];
-  const year = d.getFullYear();
+  const date = getDateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
   const h = String(d.getHours()).padStart(2, '0');
   const m = String(d.getMinutes()).padStart(2, '0');
   const s = String(d.getSeconds()).padStart(2, '0');
   const ms = String(d.getMilliseconds()).padStart(3, '0');
   return (
     <>
-      {day} {month} {year} {h}:{m}:{s}
+      {date} {h}:{m}:{s}
       <span style={{ fontSize: '9px', opacity: 0.6 }}>.{ms}</span>
     </>
   );

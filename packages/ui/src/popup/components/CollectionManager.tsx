@@ -1,5 +1,6 @@
 import { CheckOutlined, FolderTwoTone, SortAscendingOutlined } from '@ant-design/icons';
 import type { FolderNode, TreeNode } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/dom/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -43,6 +44,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   const { rules, activeWorkspaceId, localCollectionTrees, pauseMarkers, togglePause } = useRules();
   const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'popup' });
   const { message } = App.useApp();
+  const t = useT();
   const surface = useSurface();
   const { setFocusedRowIndex } = useKeyboardNav();
   const togglePauseFocusedLabel = usePopupShortcutLabel('toggle-pause-focused');
@@ -109,13 +111,13 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
     (record: CollectionTreeRecord) => {
       if (record.nodeType === 'rule') {
         void ruleMutator.toggleRule(record.uid, !record.isEnabled).then((resp) => {
-          if (!resp.ok) message.error('Failed to toggle rule');
+          if (!resp.ok) message.error(t('popup.rule.toggleFailed'));
         });
       } else {
         togglePause(record.path);
       }
     },
-    [message, ruleMutator, togglePause],
+    [message, ruleMutator, togglePause, t],
   );
 
   // Keyboard row actions — index into the flat visible list
@@ -185,6 +187,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   const columns = buildCollectionManagerColumns({
     togglePauseFocusedLabel,
     handleToggle,
+    t,
   });
 
   return (
@@ -192,17 +195,18 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       <div className="table-toolbar">
         <div className="header-rules-title">
           <div>
-            <Text style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Collections</Text>
+            <Text style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {t('popup.collections.title')}
+            </Text>
             <Text className="oh-toolbar-status" type="secondary" style={{ fontSize: '11px', display: 'block' }}>
-              {localCollectionTrees.length} collection{localCollectionTrees.length !== 1 ? 's' : ''}, {totalRules} rule
-              {totalRules !== 1 ? 's' : ''}
+              {t('popup.collections.summary', { collections: localCollectionTrees.length, rules: totalRules })}
             </Text>
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', height: 36 }}>
               <Input.Search
                 className="oh-search oh-toolbar-secondary"
-                placeholder="Search anything..."
+                placeholder={t('popup.table.searchPlaceholder')}
                 allowClear
                 size="small"
                 style={{ width: 260 }}
@@ -222,7 +226,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                       key: 'label',
                       label: (
                         <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
-                          SORT ORDER
+                          {t('popup.table.sortOrderHeading')}
                         </Text>
                       ),
                       disabled: true,
@@ -239,9 +243,9 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                           }}
                         >
                           <div>
-                            <div>By status</div>
+                            <div>{t('popup.table.sortByStatus')}</div>
                             <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Active → Paused · A-Z within each
+                              {t('popup.table.sortByStatusHintCollections')}
                             </Text>
                           </div>
                           {sortMode === 'status' && <CheckOutlined style={{ color: '#1677ff' }} />}
@@ -261,9 +265,9 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                           }}
                         >
                           <div>
-                            <div>Workspace order</div>
+                            <div>{t('popup.table.sortWorkspaceOrder')}</div>
                             <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Matches the workspace sidebar tree order
+                              {t('popup.table.sortWorkspaceOrderHint')}
                             </Text>
                           </div>
                           {sortMode === 'manual' && <CheckOutlined style={{ color: '#1677ff' }} />}
@@ -276,7 +280,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                 placement="bottomRight"
                 trigger={['click']}
               >
-                <Tooltip title="Sort order">
+                <Tooltip title={t('popup.table.sortOrder')}>
                   <Button className="oh-toolbar-secondary" type="text" size="small" icon={<SortAscendingOutlined />} />
                 </Tooltip>
               </Dropdown>
@@ -284,8 +288,8 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
             <div className="oh-toolbar-secondary" style={{ textAlign: 'right', marginTop: 2 }}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
                 {searchText
-                  ? `${filteredRecords.length} of ${treeRecords.length} collection${treeRecords.length !== 1 ? 's' : ''} matched`
-                  : `${totalRules} rule${totalRules !== 1 ? 's' : ''}`}
+                  ? t('popup.collections.matchedCount', { matched: filteredRecords.length, total: treeRecords.length })
+                  : t('shared.count.rules', { count: totalRules })}
               </Text>
             </div>
           </div>
@@ -332,12 +336,12 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                 image={<FolderTwoTone style={{ fontSize: 28 }} />}
                 description={
                   searchText ? (
-                    <Text type="secondary">No matching collections found</Text>
+                    <Text type="secondary">{t('popup.collections.emptyNoMatch')}</Text>
                   ) : (
                     <Space direction="vertical" size={4}>
-                      <Text type="secondary">No collections</Text>
+                      <Text type="secondary">{t('popup.collections.emptyNone')}</Text>
                       <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Create rules in the workspace editor to organize them into collections
+                        {t('popup.collections.emptyHint')}
                       </Text>
                     </Space>
                   )

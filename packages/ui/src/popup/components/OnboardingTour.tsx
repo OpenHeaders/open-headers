@@ -17,6 +17,7 @@ import {
 import { hostAssets } from '@openheaders/core/assets';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { hostStorage, UI } from '@openheaders/core/storage';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DockSlotIcon, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { isFirefox } from '@openheaders/ui/shared/platform';
 import { Space, Tour, type TourProps, Typography } from 'antd';
@@ -57,6 +58,7 @@ const StepDescription: React.FC<{ children: React.ReactNode }> = ({ children }) 
 );
 
 const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
+  const t = useT();
   const { setIsTourOpen } = useKeyboardNav();
   const [isVisible, setIsVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -96,10 +98,10 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
   const indicatorsRender: TourProps['indicatorsRender'] = useCallback(
     (current: number) => (
       <Text type="secondary" style={{ fontSize: 11 }}>
-        Step {current + 1} of {TOTAL_STEPS}
+        {t('popup.tour.stepIndicator', { current: current + 1, total: TOTAL_STEPS })}
       </Text>
     ),
-    [],
+    [t],
   );
 
   const btnRow: React.CSSProperties = useMemo(() => ({ display: 'inline-flex', alignItems: 'center', gap: 4 }), []);
@@ -110,14 +112,14 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         children: (
           <span style={btnRow}>
             <Kbd small>{'\u2190'}</Kbd>
-            <span>Previous</span>
+            <span>{t('popup.tour.previous')}</span>
           </span>
         ),
       },
       nextButtonProps: {
         children: (
           <span style={btnRow}>
-            <span>Next</span>
+            <span>{t('popup.tour.next')}</span>
             <Kbd small>{'\u2192'}</Kbd>
           </span>
         ),
@@ -134,7 +136,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         ),
       },
     }),
-    [btnRow],
+    [btnRow, t],
   );
 
   const lastStepProps = useMemo(
@@ -142,16 +144,16 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
       ...sharedStepProps,
       nextButtonProps: {
         children: isFirefox ? (
-          <span>Finish</span>
+          <span>{t('popup.tour.finish')}</span>
         ) : (
           <span style={btnRow}>
-            <span>Finish</span>
+            <span>{t('popup.tour.finish')}</span>
             <Kbd small>Esc</Kbd>
           </span>
         ),
       },
     }),
-    [sharedStepProps, btnRow],
+    [sharedStepProps, btnRow, t],
   );
 
   const steps: TourProps['steps'] = useMemo(
@@ -160,14 +162,14 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         title: (
           <Space size={8}>
             <img src={logoUrl} alt="Open Headers" style={{ width: 20, height: 20 }} />
-            <span>Welcome to Open Headers</span>
+            <span>{t('popup.tour.welcomeTitle')}</span>
           </Space>
         ),
         styles: { section: { width: 380 } },
         description: (
           <StepDescription>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Intercept and modify HTTP traffic in real time.
+              {t('popup.tour.welcomeSubtitle')}
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -187,11 +189,11 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 </div>
                 <div>
                   <Text strong style={{ fontSize: 13 }}>
-                    Modify
+                    {t('popup.tour.modify')}
                   </Text>
                   <div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Headers, cookies, auth tokens, CORS, payloads
+                      {t('popup.tour.modifyDesc')}
                     </Text>
                   </div>
                 </div>
@@ -213,11 +215,11 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 </div>
                 <div>
                   <Text strong style={{ fontSize: 13 }}>
-                    Route
+                    {t('popup.tour.route')}
                   </Text>
                   <div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Redirect requests, block trackers, rewrite URLs
+                      {t('popup.tour.routeDesc')}
                     </Text>
                   </div>
                 </div>
@@ -239,11 +241,11 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 </div>
                 <div>
                   <Text strong style={{ fontSize: 13 }}>
-                    Debug
+                    {t('popup.tour.debug')}
                   </Text>
                   <div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Inspect live requests, inject scripts, record sessions
+                      {t('popup.tour.debugDesc')}
                     </Text>
                   </div>
                 </div>
@@ -259,31 +261,31 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         title: (
           <Space size={8}>
             <LayoutTwoTone />
-            <span>Switch Between Tabs</span>
+            <span>{t('popup.tour.tabsTitle')}</span>
           </Space>
         ),
         description: (
           <StepDescription>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Press a number key to switch instantly.
+              {t('popup.tour.tabsSubtitle')}
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
               <Space size={6}>
                 <Kbd>1</Kbd>
                 <Text style={{ fontSize: 12 }}>
-                  <Text strong>This Page</Text> — rules matching the current tab
+                  <Text strong>{t('popup.tabs.thisPage')}</Text> {t('popup.tour.thisPageHint')}
                 </Text>
               </Space>
               <Space size={6}>
                 <Kbd>2</Kbd>
                 <Text style={{ fontSize: 12 }}>
-                  <Text strong>All Rules</Text> — every rule you've created
+                  <Text strong>{t('popup.tabs.allRules')}</Text> {t('popup.tour.allRulesHint')}
                 </Text>
               </Space>
               <Space size={6}>
                 <Kbd>3</Kbd>
                 <Text style={{ fontSize: 12 }}>
-                  <Text strong>Tags</Text> — organize and pause groups
+                  <Text strong>{t('popup.tour.tagsLabel')}</Text> {t('popup.tour.tagsHint')}
                 </Text>
               </Space>
             </div>
@@ -297,13 +299,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         title: (
           <Space size={8}>
             <ControlTwoTone />
-            <span>Browse & Navigate Rules</span>
+            <span>{t('popup.tour.navTitle')}</span>
           </Space>
         ),
         description: (
           <StepDescription>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Navigate rows with keyboard shortcuts
+              {t('popup.tour.navSubtitle')}
             </Text>
             <div
               style={{
@@ -319,23 +321,23 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 <Kbd>{'\u2191'}</Kbd>
                 <Kbd>{'\u2193'}</Kbd>
               </Space>
-              <Text style={{ fontSize: 11 }}>Move</Text>
+              <Text style={{ fontSize: 11 }}>{t('popup.tour.keyMove')}</Text>
               <Space size={2}>
                 <Kbd>{'\u2192'}</Kbd>
                 <Kbd>{'\u2190'}</Kbd>
               </Space>
-              <Text style={{ fontSize: 11 }}>Expand</Text>
+              <Text style={{ fontSize: 11 }}>{t('popup.tour.keyExpand')}</Text>
               <Kbd>Space</Kbd>
-              <Text style={{ fontSize: 11 }}>Toggle</Text>
+              <Text style={{ fontSize: 11 }}>{t('popup.tour.keyToggle')}</Text>
               <Kbd>e</Kbd>
-              <Text style={{ fontSize: 11 }}>Edit</Text>
+              <Text style={{ fontSize: 11 }}>{t('popup.tour.keyEdit')}</Text>
               <Kbd>c</Kbd>
-              <Text style={{ fontSize: 11 }}>Copy</Text>
+              <Text style={{ fontSize: 11 }}>{t('popup.tour.keyCopy')}</Text>
               <Space size={2}>
                 <Kbd>d</Kbd>
                 <Kbd>d</Kbd>
               </Space>
-              <Text style={{ fontSize: 11 }}>Delete</Text>
+              <Text style={{ fontSize: 11 }}>{t('popup.tour.keyDelete')}</Text>
             </div>
           </StepDescription>
         ),
@@ -348,13 +350,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         title: (
           <Space size={8}>
             <BugTwoTone />
-            <span>Debug Network in DevTools</span>
+            <span>{t('popup.tour.devtoolsTitle')}</span>
           </Space>
         ),
         description: (
           <StepDescription>
             <Text style={{ fontSize: 12 }}>
-              Find the{' '}
+              {t('popup.tour.findThePrefix')}{' '}
               <span
                 style={{
                   display: 'inline-flex',
@@ -371,12 +373,12 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 <span style={{ fontSize: 11, lineHeight: 1 }}>🟦</span>
                 Open Headers
               </span>{' '}
-              tab in DevTools:
+              {t('popup.tour.findTheSuffix')}
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: 'var(--ant-color-success)', fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>Modify headers, requests & responses</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureModify')}</Text>
                 <span
                   style={{
                     display: 'inline-flex',
@@ -392,17 +394,17 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  + Add/Override
+                  {t('popup.devtools.addOverride')}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: 'var(--ant-color-success)', fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>Multi-tab request metadata panels</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureTabs')}</Text>
                 <LayoutMenuIcon kind="close-tabs-left" size={16} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: 'var(--ant-color-success)', fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>Advanced search & filter</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureSearch')}</Text>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                   <SearchOutlined style={{ fontSize: 11, color: 'var(--ant-color-text-secondary)' }} />
                   {['Aa', 'ab', '.*'].map((label) => (
@@ -431,7 +433,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircleFilled style={{ color: 'var(--ant-color-success)', fontSize: 11 }} />
-                <Text style={{ fontSize: 12, flex: 1 }}>Drag & drop sidebar panels</Text>
+                <Text style={{ fontSize: 12, flex: 1 }}>{t('popup.devtools.featureDock')}</Text>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                   <DockSlotIcon slot="left-top" size={16} />
                   <DockSlotIcon slot="right-bottom" size={16} />
@@ -440,7 +442,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
               </div>
             </div>
             <Text type="secondary" style={{ fontSize: 11, marginTop: 6, display: 'block' }}>
-              Click this button anytime for setup.
+              {t('popup.tour.devtoolsHint')}
             </Text>
           </StepDescription>
         ),
@@ -452,18 +454,18 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         title: (
           <Space size={8}>
             <ThunderboltTwoTone />
-            <span>All Keyboard Shortcuts</span>
+            <span>{t('popup.tour.shortcutsTitle')}</span>
           </Space>
         ),
         description: (
           <StepDescription>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              The popup is fully keyboard-navigable.
+              {t('popup.tour.shortcutsSubtitle')}
             </Text>
             <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 12 }}>Press</Text>
+              <Text style={{ fontSize: 12 }}>{t('popup.tour.pressLabel')}</Text>
               <Kbd>?</Kbd>
-              <Text style={{ fontSize: 12 }}>at any time to see every shortcut</Text>
+              <Text style={{ fontSize: 12 }}>{t('popup.tour.shortcutsHint')}</Text>
             </div>
           </StepDescription>
         ),
@@ -475,13 +477,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         title: (
           <Space size={8}>
             <DashboardTwoTone />
-            <span>System Status</span>
+            <span>{t('popup.tour.statusTitle')}</span>
           </Space>
         ),
         description: (
           <StepDescription>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Click the dot for a health breakdown across Sync, Rules, Requests, Permissions, Secrets, and Live.
+              {t('popup.tour.statusSubtitle')}
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -489,7 +491,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                   style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#52c41a' }}
                 />
                 <Text style={{ fontSize: 12 }}>
-                  <Text strong>Green</Text> — everything is healthy
+                  <Text strong>{t('popup.tour.statusGreen')}</Text> {t('popup.tour.statusGreenDesc')}
                 </Text>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -497,7 +499,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                   style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#faad14' }}
                 />
                 <Text style={{ fontSize: 12 }}>
-                  <Text strong>Yellow</Text> — a subsystem is reporting a warning
+                  <Text strong>{t('popup.tour.statusYellow')}</Text> {t('popup.tour.statusYellowDesc')}
                 </Text>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -505,7 +507,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                   style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#ff4d4f' }}
                 />
                 <Text style={{ fontSize: 12 }}>
-                  <Text strong>Red</Text> — a subsystem has failed
+                  <Text strong>{t('popup.tour.statusRed')}</Text> {t('popup.tour.statusRedDesc')}
                 </Text>
               </div>
             </div>
@@ -519,13 +521,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         title: (
           <Space size={8}>
             <SmileTwoTone />
-            <span>Help Us Grow</span>
+            <span>{t('popup.tour.growTitle')}</span>
           </Space>
         ),
         description: (
           <StepDescription>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Help us grow and reach more developers.
+              {t('popup.tour.growSubtitle')}
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -544,12 +546,12 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                     color: 'var(--ant-color-link)',
                   }}
                 >
-                  Give us a star on GitHub
+                  {t('popup.tour.starGithub')}
                 </button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <LikeTwoTone style={{ fontSize: 14 }} />
-                <Text style={{ fontSize: 13 }}>Recommend us to your friends & colleagues</Text>
+                <Text style={{ fontSize: 13 }}>{t('popup.tour.recommend')}</Text>
               </div>
             </div>
           </StepDescription>
@@ -559,7 +561,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         ...lastStepProps,
       },
     ],
-    [sharedStepProps, lastStepProps],
+    [sharedStepProps, lastStepProps, t],
   );
 
   return (

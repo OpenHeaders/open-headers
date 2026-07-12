@@ -4,6 +4,7 @@ import {
   PauseCircleOutlined,
 } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { Button, Space, Switch, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -15,6 +16,7 @@ const { Text } = Typography;
 export interface CollectionManagerColumnsOptions {
   togglePauseFocusedLabel: string;
   handleToggle: (record: CollectionTreeRecord) => void;
+  t: Translate;
 }
 
 /**
@@ -26,10 +28,11 @@ export interface CollectionManagerColumnsOptions {
 export function buildCollectionManagerColumns({
   togglePauseFocusedLabel,
   handleToggle,
+  t,
 }: CollectionManagerColumnsOptions): ColumnsType<CollectionTreeRecord> {
   return [
     {
-      title: 'Name',
+      title: t('popup.table.columnName'),
       dataIndex: 'name',
       key: 'name',
       width: 200,
@@ -61,25 +64,31 @@ export function buildCollectionManagerColumns({
       },
     },
     {
-      title: 'Details',
+      title: t('popup.table.columnDetails'),
       key: 'details',
       width: 150,
       render: (_: unknown, record: CollectionTreeRecord) => {
         if (record.nodeType === 'rule' && record.actionDetail) {
           const active = (record.isEnabled ?? false) && (record.isComplete ?? false) && !record.effectivelyPaused;
-          return renderActionDetails(record.actionDetail, record.effectivelyPaused ? 0.5 : 1, 28, active);
+          return renderActionDetails(record.actionDetail, t, record.effectivelyPaused ? 0.5 : 1, 28, active);
         }
         if (record.nodeType !== 'rule') {
           if (record.effectivelyPaused) {
             return (
               <Text type="warning" style={{ fontSize: '12px' }}>
-                Paused · {record.enabledCount} of {record.ruleCount} enabled
+                {t('popup.collections.pausedEnabledSummary', {
+                  enabled: record.enabledCount ?? 0,
+                  total: record.ruleCount ?? 0,
+                })}
               </Text>
             );
           }
           return (
             <Text type="secondary" style={{ fontSize: '12px' }}>
-              {record.enabledCount} of {record.ruleCount} rule{record.ruleCount !== 1 ? 's' : ''} enabled
+              {t('popup.collections.enabledSummary', {
+                enabled: record.enabledCount ?? 0,
+                total: record.ruleCount ?? 0,
+              })}
             </Text>
           );
         }
@@ -87,12 +96,12 @@ export function buildCollectionManagerColumns({
       },
     },
     {
-      title: 'Conditions',
+      title: t('popup.table.columnConditions'),
       key: 'conditions',
       width: 110,
       render: (_: unknown, record: CollectionTreeRecord) => {
         if (record.nodeType === 'rule' && record.conditions) {
-          return renderConditionsSummary(record.conditions, false);
+          return renderConditionsSummary(record.conditions, false, t);
         }
         return null;
       },
@@ -127,16 +136,16 @@ export function buildCollectionManagerColumns({
               title={
                 <ShortcutHintTitle label={togglePauseFocusedLabel}>
                   {record.effectivelyPaused
-                    ? `Resume — pin ${record.ruleCount} rules active (overrides parent if needed)`
-                    : `Pause — suspend ${record.ruleCount} rules without changing individual settings`}
+                    ? t('popup.collections.resumeTooltip', { count: record.ruleCount ?? 0 })
+                    : t('popup.collections.pauseTooltip', { count: record.ruleCount ?? 0 })}
                 </ShortcutHintTitle>
               }
             >
               <Switch
                 checked={!record.effectivelyPaused}
                 onChange={() => handleToggle(record)}
-                checkedChildren="Active"
-                unCheckedChildren="Paused"
+                checkedChildren={t('popup.status.active')}
+                unCheckedChildren={t('popup.status.paused')}
               />
             </Tooltip>
           </span>

@@ -1,4 +1,5 @@
 import { DeleteOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -9,6 +10,7 @@ interface DeleteConfirmOverlayProps {
 }
 
 const DeleteConfirmOverlay: React.FC<DeleteConfirmOverlayProps> = ({ pendingDeleteIndex, itemName }) => {
+  const t = useT();
   const [targetRow, setTargetRow] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -30,20 +32,20 @@ const DeleteConfirmOverlay: React.FC<DeleteConfirmOverlayProps> = ({ pendingDele
   return createPortal(
     <div className="delete-confirm-overlay">
       <DeleteOutlined style={{ fontSize: 13, color: '#ff4d4f' }} />
-      <span className="delete-confirm-name">Delete "{displayName}"?</span>
+      <span className="delete-confirm-name">{t('popup.deleteConfirm.title', { name: displayName })}</span>
       <div className="delete-confirm-actions">
         <span className="delete-confirm-action delete-action">
           <span className="kbd-key" style={{ fontSize: 10, minWidth: 18 }}>
             d
           </span>
-          <span>confirm</span>
+          <span>{t('popup.deleteConfirm.confirm')}</span>
         </span>
         <div className="delete-confirm-divider" />
         <span className="delete-confirm-action">
           <span className="kbd-key" style={{ fontSize: 10, minWidth: 28 }}>
             esc
           </span>
-          <span>cancel</span>
+          <span>{t('popup.deleteConfirm.cancel')}</span>
         </span>
       </div>
     </div>,

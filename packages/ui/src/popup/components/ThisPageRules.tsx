@@ -1,4 +1,5 @@
 import { ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
@@ -56,6 +57,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   onRowActionsChange,
 }) => {
   const { message } = App.useApp();
+  const t = useT();
   const { token } = theme.useToken();
   const { pauseMarkers, activeWorkspaceId } = useRules();
   const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'popup' });
@@ -190,6 +192,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     message,
     setActiveRules,
     openRulesIntent,
+    t,
   });
 
   if (loading)
@@ -197,7 +200,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       <div style={{ textAlign: 'center', padding: '40px' }}>
         <Spin size="large" />
         <Text type="secondary" style={{ display: 'block', marginTop: '16px' }}>
-          Loading current tab information...
+          {t('popup.thisPage.loading')}
         </Text>
       </div>
     );
@@ -205,7 +208,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     return (
       <Empty
         image={<ExclamationCircleOutlined style={{ fontSize: 32, color: 'var(--text-tertiary)' }} />}
-        description="Unable to get current tab information"
+        description={t('popup.thisPage.noTab')}
         style={{ padding: '40px 0' }}
       />
     );
@@ -284,7 +287,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                       {uniqueRequestCount}
                     </Tag>
                     <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>
-                      Click badge on each row to see matched requests
+                      {t('popup.thisPage.expandHeaderBadgeHint')}
                     </span>
                     <Tag
                       variant="outlined"
@@ -292,7 +295,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                     >
                       i
                     </Tag>
-                    <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>Click icon below to see documentation</span>
+                    <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>{t('popup.thisPage.expandHeaderDocsHint')}</span>
                   </div>
                 }
               >
@@ -317,18 +320,20 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               // counts list both, and pure-fire counts read plain.
               const silentCount = record.records.filter((r) => r.evidence === 'silent').length;
               const firingCount = totalRequests - silentCount;
-              const describeRequests = (n: number): string => `${n} matched request${n !== 1 ? 's' : ''}`;
-              const expandHint = 'click to expand';
               const badgeTooltip =
                 searchUrlMatches > 0
-                  ? `${searchUrlMatches} of ${totalRequests} request${totalRequests !== 1 ? 's' : ''} match "${searchText}" — ${expandHint}`
+                  ? t('popup.thisPage.badgeSearchMatch', {
+                      matched: searchUrlMatches,
+                      total: totalRequests,
+                      query: searchText,
+                    })
                   : badgeCount === 0
-                    ? 'No matched requests yet — click to expand'
+                    ? t('popup.thisPage.badgeNone')
                     : silentCount === totalRequests
-                      ? `${describeRequests(totalRequests)}, all cache-served (silent) — ${expandHint}`
+                      ? t('popup.thisPage.badgeAllSilent', { count: totalRequests })
                       : silentCount > 0
-                        ? `${describeRequests(firingCount)} fired + ${silentCount} silent (cached) — ${expandHint}`
-                        : `${describeRequests(totalRequests)} — ${expandHint}`;
+                        ? t('popup.thisPage.badgeMixed', { fired: firingCount, silent: silentCount })
+                        : t('popup.thisPage.badgeMatched', { count: totalRequests });
               return (
                 <Tooltip title={badgeTooltip}>
                   <span
@@ -393,9 +398,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 image={<ExclamationCircleOutlined style={{ fontSize: 28, color: 'var(--text-tertiary)' }} />}
                 description={
                   <Space orientation="vertical" size={4}>
-                    <Text type="secondary">System Page</Text>
+                    <Text type="secondary">{t('popup.thisPage.systemPage')}</Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Header rules do not apply to browser system pages
+                      {t('popup.thisPage.systemPageHint')}
                     </Text>
                   </Space>
                 }
@@ -406,9 +411,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 image={<RequestRulesIcon style={{ fontSize: 28, color: 'var(--text-tertiary)' }} />}
                 description={
                   <Space orientation="vertical" size={4}>
-                    <Text type="secondary">No rules match this page</Text>
+                    <Text type="secondary">{t('popup.thisPage.emptyNoRules')}</Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
-                      No rules are configured for this domain
+                      {t('popup.thisPage.emptyNoRulesHint')}
                     </Text>
                   </Space>
                 }

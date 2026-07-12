@@ -1,5 +1,6 @@
 import { AppstoreOutlined, AppstoreTwoTone, FolderTwoTone, ThunderboltTwoTone } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { Button, Tabs, Tooltip } from 'antd';
@@ -13,12 +14,13 @@ import ThisPageRules from './ThisPageRules';
 const RulesList: React.FC = () => {
   const { activeTab, onTabChange, focusedRowIndex, pendingDeleteIndex, setPageInfo, setRowActions } = useKeyboardNav();
   const surface = useSurface();
+  const t = useT();
   const openWorkspaceLabel = usePopupShortcutLabel('open-workspace');
 
   const items = [
     {
       key: 'active-workbench',
-      label: <span className="oh-tab-label">This Page</span>,
+      label: <span className="oh-tab-label">{t('popup.tabs.thisPage')}</span>,
       children: (
         <ThisPageRules
           isActive={activeTab === 'active-workbench'}
@@ -32,7 +34,7 @@ const RulesList: React.FC = () => {
     },
     {
       key: 'all-workbench',
-      label: <span className="oh-tab-label">All Rules</span>,
+      label: <span className="oh-tab-label">{t('popup.tabs.allRules')}</span>,
       children: (
         <RulesTable
           focusedRowIndex={activeTab === 'all-workbench' ? focusedRowIndex : -1}
@@ -45,7 +47,7 @@ const RulesList: React.FC = () => {
     },
     {
       key: 'collections',
-      label: <span className="oh-tab-label">Collections</span>,
+      label: <span className="oh-tab-label">{t('popup.tabs.collections')}</span>,
       children: (
         <CollectionManager
           isActive={activeTab === 'collections'}
@@ -76,7 +78,9 @@ const RulesList: React.FC = () => {
       tabBarGutter={4}
       tabBarExtraContent={{
         right: (
-          <Tooltip title={<ShortcutHintTitle label={openWorkspaceLabel}>Open full workspace editor</ShortcutHintTitle>}>
+          <Tooltip
+            title={<ShortcutHintTitle label={openWorkspaceLabel}>{t('popup.tabs.openWorkspaceEditor')}</ShortcutHintTitle>}
+          >
             <Button
               size="small"
               icon={<AppstoreOutlined />}
@@ -84,7 +88,7 @@ const RulesList: React.FC = () => {
                 void openWorkspace({ kind: 'open-workspace' }, surface.mode);
               }}
             >
-              Workspace
+              {t('popup.tabs.workspace')}
             </Button>
           </Tooltip>
         ),

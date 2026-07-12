@@ -1,4 +1,5 @@
 import { PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import { resolvePauseState } from '@openheaders/core/utils';
@@ -53,6 +54,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
   onRowActionsChange,
 }) => {
   const { message } = App.useApp();
+  const t = useT();
 
   const { rules, activeWorkspaceId, uiState, updateUiState, pauseMarkers } = useRules();
   const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'popup' });
@@ -124,10 +126,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
       if (!record) return;
       const resp = await ruleMutator.toggleRule(record.id, !record.isEnabled);
       if (!resp.ok) {
-        message.error('Failed to toggle rule');
+        message.error(t('popup.rule.toggleFailed'));
       }
     },
-    [message, ruleMutator],
+    [message, ruleMutator, t],
   );
 
   const handleEditRow = useCallback(
@@ -151,12 +153,12 @@ const RulesTable: React.FC<RulesTableProps> = ({
       if (!record) return;
       const resp = await ruleMutator.deleteRule(record.id);
       if (resp.ok) {
-        message.success('Rule deleted');
+        message.success(t('popup.rule.deleted'));
       } else {
-        message.error('Failed to delete rule');
+        message.error(t('popup.rule.deleteFailed'));
       }
     },
-    [message, ruleMutator],
+    [message, ruleMutator, t],
   );
 
   const [addRulePaletteOpen, setAddRulePaletteOpen] = useState(false);
@@ -234,6 +236,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     ruleMutator,
     message,
     openRulesIntent,
+    t,
   });
 
   const handlePaletteSelect = useCallback(
@@ -243,7 +246,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     [openRulesIntent],
   );
 
-  const sortMenuItems = buildRulesTableSortMenu({ sortMode, sortedInfo, handleSortModeChange });
+  const sortMenuItems = buildRulesTableSortMenu({ sortMode, sortedInfo, handleSortModeChange, t });
 
   // Compute the table's `scroll.x` from the columns Ant will actually
   // render at the current viewport. Hardcoding `scroll.x: 680` (the
@@ -264,12 +267,14 @@ const RulesTable: React.FC<RulesTableProps> = ({
       <div className="table-toolbar">
         <div className="header-rules-title">
           <div>
-            <Text style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Rules</Text>
+            <Text style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {t('popup.rules.title')}
+            </Text>
             {totalCount > 0 && (
               <Space className="oh-toolbar-status" size={4} style={{ display: 'flex' }}>
                 <Text type="secondary" style={{ fontSize: '11px' }}>
-                  {activeCount} of {totalCount} active
-                  {draftCount > 0 ? `, ${draftCount} draft` : ''}
+                  {t('popup.rules.activeSummary', { active: activeCount, total: totalCount })}
+                  {draftCount > 0 ? t('popup.rules.draftSuffix', { count: draftCount }) : ''}
                 </Text>
                 {pausedCount > 0 && (
                   <span className="oh-status-detail" style={{ display: 'inline-flex', gap: 4 }}>
@@ -277,7 +282,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
                       ·
                     </Text>
                     <Text type="warning" style={{ fontSize: '11px' }}>
-                      {pausedCount} paused by collection
+                      {t('popup.rules.pausedByCollection', { count: pausedCount })}
                     </Text>
                   </span>
                 )}
@@ -286,7 +291,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36 }}>
-              <Tooltip title="Add a rule — search across types and templates">
+              <Tooltip title={t('popup.rules.addRuleTooltip')}>
                 <Button
                   type="primary"
                   size="middle"
@@ -295,13 +300,13 @@ const RulesTable: React.FC<RulesTableProps> = ({
                 >
                   <Space>
                     <PlusOutlined />
-                    <span className="oh-collapse-label">Add Rule</span>
+                    <span className="oh-collapse-label">{t('popup.rules.addRule')}</span>
                   </Space>
                 </Button>
               </Tooltip>
               <Search
                 className="oh-search oh-toolbar-secondary"
-                placeholder="Search anything..."
+                placeholder={t('popup.table.searchPlaceholder')}
                 allowClear
                 size="small"
                 style={{ width: 260 }}
@@ -320,7 +325,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
                 trigger={['click']}
                 onOpenChange={setSortMenuOpen}
               >
-                <Tooltip title="Sort order" open={sortMenuOpen ? false : undefined}>
+                <Tooltip title={t('popup.table.sortOrder')} open={sortMenuOpen ? false : undefined}>
                   <Button className="oh-toolbar-secondary" type="text" size="small" icon={<SortAscendingOutlined />} />
                 </Tooltip>
               </Dropdown>
@@ -328,8 +333,8 @@ const RulesTable: React.FC<RulesTableProps> = ({
             <div className="oh-toolbar-secondary" style={{ textAlign: 'right', marginTop: 2 }}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
                 {searchText
-                  ? `${filteredData.length} of ${totalCount} rule${totalCount !== 1 ? 's' : ''} matched`
-                  : `${totalCount} rule${totalCount !== 1 ? 's' : ''}`}
+                  ? t('popup.rules.matchedCount', { matched: filteredData.length, total: totalCount })
+                  : t('shared.count.rules', { count: totalCount })}
               </Text>
             </div>
           </div>
@@ -367,12 +372,12 @@ const RulesTable: React.FC<RulesTableProps> = ({
                 image={<RequestRulesIcon style={{ fontSize: 28, color: 'var(--text-tertiary)' }} />}
                 description={
                   searchText ? (
-                    <Text type="secondary">No matching rules found</Text>
+                    <Text type="secondary">{t('popup.rules.emptyNoMatch')}</Text>
                   ) : (
                     <Space orientation="vertical" size={4}>
-                      <Text type="secondary">No rules yet</Text>
+                      <Text type="secondary">{t('popup.rules.emptyNone')}</Text>
                       <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Click "Add Rule" to modify live browser requests
+                        {t('popup.rules.emptyHint')}
                       </Text>
                     </Space>
                   )

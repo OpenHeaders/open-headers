@@ -13,6 +13,7 @@
 
 import { DownOutlined } from '@ant-design/icons';
 import { describeOrg, orgCatalogue } from '@openheaders/core/identity';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import { useSurface } from '@openheaders/ui/shared/surface';
@@ -26,6 +27,7 @@ import { useMemo, useState } from 'react';
 
 const WorkspacePill: React.FC = () => {
   const { token } = theme.useToken();
+  const t = useT();
   const surface = useSurface();
   const { workspaces, activeWorkspaceId, activeWorkspace, setActiveWorkspace } = useWorkspaces();
   const snapshot = useIdentitySnapshot();
@@ -76,7 +78,7 @@ const WorkspacePill: React.FC = () => {
       <Button
         size="small"
         className="oh-workspace-pill"
-        aria-label={`Active workspace: ${activeWorkspace.name}`}
+        aria-label={t('popup.header.activeWorkspace', { name: activeWorkspace.name })}
         style={{
           display: 'inline-flex',
           alignItems: 'center',

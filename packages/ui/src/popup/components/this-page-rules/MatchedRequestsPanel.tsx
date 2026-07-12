@@ -1,4 +1,5 @@
 import { CheckOutlined, CopyTwoTone } from '@ant-design/icons';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { Badge, Table, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
@@ -53,6 +54,7 @@ const MatchedRequestsPanel: React.FC<MatchedRequestsPanelProps> = ({
   nestedFocusIndex,
   setNestedFocusIndex,
 }) => {
+  const { t, locale } = useLocale();
   // Only render content for the active expanded row — destroys stale virtual tables
   if (record.key !== expandedRowKey) return null;
   // `record.records` is already newest-first (reversed in dataSource build).
@@ -77,12 +79,12 @@ const MatchedRequestsPanel: React.FC<MatchedRequestsPanelProps> = ({
     //   (b) the rule has no fires and no silent matches — in
     //       which case the verdict tells us what would help
     const emptyHint = searchText
-      ? `No matched requests contain "${searchText}". Clear or widen the search to see all matches.`
+      ? t('popup.matched.emptySearch', { query: searchText })
       : record.verdict === 'related'
-        ? 'Rule targets a related domain — matches will appear if the page makes requests to that domain.'
+        ? t('popup.matched.emptyRelated')
         : record.verdict === 'page'
-          ? 'Pattern matches this page. Matches will appear as the page issues requests that fit the pattern — interact with the page or reload to trigger them.'
-          : 'No matched requests yet — reload the page to capture.';
+          ? t('popup.matched.emptyPage')
+          : t('popup.matched.emptyNone');
     return (
       <Text type="secondary" style={{ fontSize: '12px', fontStyle: 'italic' }}>
         {emptyHint}
@@ -96,7 +98,7 @@ const MatchedRequestsPanel: React.FC<MatchedRequestsPanelProps> = ({
     isTabUrl: m.url === currentTab?.url,
   }));
 
-  const matchedColumns = buildMatchedRequestColumns({ copiedRowId, setCopiedRowId, shadowDetection });
+  const matchedColumns = buildMatchedRequestColumns({ copiedRowId, setCopiedRowId, shadowDetection, t, locale });
 
   const formatTimestamp = (ts: number) => {
     const d = new Date(ts);
@@ -123,14 +125,14 @@ const MatchedRequestsPanel: React.FC<MatchedRequestsPanelProps> = ({
       <div className="value-cell" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
         <Text type="secondary" style={{ fontSize: '11px' }}>
           {hasUrlMatches
-            ? `${matches.length} of ${allMatches.length} request${allMatches.length !== 1 ? 's' : ''} matching "${searchText}"`
-            : `${matches.length} request${matches.length !== 1 ? 's' : ''} matched`}
+            ? t('popup.matched.searchSummary', { matched: matches.length, total: allMatches.length, query: searchText })
+            : t('popup.matched.countSummary', { count: matches.length })}
         </Text>
         <Badge status="processing" />
         {copiedRowId === '__all_requests__' ? (
           <CheckOutlined style={{ fontSize: '11px', color: '#52c41a', cursor: 'default' }} />
         ) : (
-          <Tooltip title="Copy requests as TSV">
+          <Tooltip title={t('popup.thisPage.copyTsv')}>
             <CopyTwoTone
               className="value-copy-icon"
               style={{ fontSize: '11px', cursor: 'pointer' }}

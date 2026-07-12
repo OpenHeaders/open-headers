@@ -1,6 +1,7 @@
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { type PauseMarkers, resolvePauseState } from '@openheaders/core/utils';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { VERDICT_COLOR, VERDICT_LABEL, VERDICT_TOOLTIP } from '@openheaders/ui/shared/verdict';
 import type { WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
@@ -14,7 +15,7 @@ import {
   type TagDescriptor,
   truncateValue,
 } from '../columns/sharedColumnRenderers';
-import { RESOURCE_TYPE_LABEL, RESOURCE_TYPE_TOOLTIP, RULE_TYPE_DESCRIPTION, RULE_TYPE_LABEL } from './format';
+import { RESOURCE_TYPE_LABEL, resourceTypeTooltip, ruleTypeDescription, ruleTypeLabel } from './format';
 import type { ActiveRule, TableRecord } from './types';
 
 const { Text } = Typography;
@@ -32,6 +33,7 @@ export interface ThisPageRulesColumnsOptions {
   message: ThisPageMessageApi;
   setActiveRules: Dispatch<SetStateAction<ActiveRule[]>>;
   openRulesIntent: (intent: WorkspaceIntent) => void;
+  t: Translate;
 }
 
 /**
@@ -50,10 +52,11 @@ export function buildThisPageRulesColumns({
   message,
   setActiveRules,
   openRulesIntent,
+  t,
 }: ThisPageRulesColumnsOptions): ColumnsType<TableRecord> {
   return [
     {
-      title: 'Name',
+      title: t('popup.table.columnName'),
       dataIndex: 'name',
       key: 'name',
       width: 170,
@@ -85,7 +88,7 @@ export function buildThisPageRulesColumns({
         // of the expand panel.
         const countTooltip = (() => {
           if (outOfPlay) {
-            return !isEnabled ? 'Rule is disabled' : 'Rule is paused by its collection or folder';
+            return !isEnabled ? t('popup.thisPage.ruleDisabled') : t('popup.thisPage.rulePausedByGroup');
           }
           if (count === 0) {
             // Zero only happens for `page` / `related` verdicts — `firing`
@@ -94,26 +97,29 @@ export function buildThisPageRulesColumns({
             // page" when the page isn't the problem.
             const verdict = record.verdict ?? 'page';
             if (verdict === 'related') {
-              return 'Rule targets a related domain — no requests to that domain have been observed yet. It will fire if the page makes one.';
+              return t('popup.thisPage.zeroRelated');
             }
-            return 'Pattern matches this page but no matching requests have been observed yet. Interact with the page or reload to trigger them.';
+            return t('popup.thisPage.zeroPage');
           }
           if (shadowed && record.dominantShadow) {
             const allShadowed = record.shadowedCount === record.records.length;
             const prefix = allShadowed
-              ? `All ${record.shadowedCount} matched request${record.shadowedCount !== 1 ? 's' : ''}`
-              : `${record.shadowedCount} of ${record.records.length} matched requests`;
-            return `${prefix} are terminated by "${record.dominantShadow.name}" (higher-priority block rule) — so this rule has no visible effect on them. Experimental: shadow detection may over- or under-report. Disable in settings to hide.`;
+              ? t('popup.thisPage.shadowAllPrefix', { count: record.shadowedCount })
+              : t('popup.thisPage.shadowSomePrefix', {
+                  shadowed: record.shadowedCount,
+                  total: record.records.length,
+                });
+            return t('popup.thisPage.shadowTooltip', { prefix, name: record.dominantShadow.name });
           }
           switch (record.dominantEvidence) {
             case 'confirmed':
-              return `Script confirmed ${count} fire${count !== 1 ? 's' : ''} on this page (ground truth from in-page injection).`;
+              return t('popup.thisPage.evidenceConfirmed', { count });
             case 'matched-fallback':
-              return `Matched ${count} request${count !== 1 ? 's' : ''} via URL, but the in-page script reporter didn't confirm. Common causes: a strict Content-Security-Policy blocking the injection, or the resource type (stylesheet, image, manifest link) bypassing fetch/XHR interception.`;
+              return t('popup.thisPage.evidenceFallback', { count });
             case 'silent':
-              return `Pattern matched ${count} cached subresource${count !== 1 ? 's' : ''} — the action couldn't run because the response bypassed the network. Reload bypassing cache to force a fresh request.`;
+              return t('popup.thisPage.evidenceSilent', { count });
             default:
-              return `Matched ${count} request${count !== 1 ? 's' : ''} on this page. Chrome's declarativeNetRequest doesn't report which rule wins when several match — we observe URL matches, not arbitration outcomes.`;
+              return t('popup.thisPage.evidenceMatched', { count });
           }
         })();
         // When the rule has only silent matches (cached subresources),
@@ -185,7 +191,7 @@ export function buildThisPageRulesColumns({
       },
     },
     {
-      title: 'Details',
+      title: t('popup.table.columnDetails'),
       key: 'details',
       width: 240,
       render: (_: unknown, record: TableRecord) =>
@@ -199,13 +205,14 @@ export function buildThisPageRulesColumns({
             tooltip: record.actionTooltip || record.summary,
             items: record.actionItems,
           },
+          t,
           1,
           24,
           record.isEnabled !== false,
         ),
     },
     {
-      title: 'Match',
+      title: t('popup.thisPage.columnMatch'),
       key: 'match',
       width: 110,
       align: 'center',
@@ -213,16 +220,14 @@ export function buildThisPageRulesColumns({
         // Sort by rule type label — the Match column's dominant tag. Two rules
         // of the same type with different resource-type histories end up
         // adjacent, which matches how users scan for "all my header rules".
-        const labelA = RULE_TYPE_LABEL[a.ruleType] ?? a.ruleType;
-        const labelB = RULE_TYPE_LABEL[b.ruleType] ?? b.ruleType;
-        return labelA.localeCompare(labelB);
+        return ruleTypeLabel(a.ruleType, t).localeCompare(ruleTypeLabel(b.ruleType, t));
       },
       sortOrder: sortedInfo.columnKey === 'match' ? sortedInfo.order : null,
       filters: [
         ...new Set([
-          'Paused',
+          t('popup.status.paused'),
           ...Object.values(RESOURCE_TYPE_LABEL),
-          ...dataSource.map((item) => RULE_TYPE_LABEL[item.ruleType] ?? item.ruleType),
+          ...dataSource.map((item) => ruleTypeLabel(item.ruleType, t)),
         ]),
       ].map((label) => ({ text: label, value: label })),
       filteredValue: filteredInfo.match || null,
@@ -233,8 +238,8 @@ export function buildThisPageRulesColumns({
         ];
         const labels = [
           ...resourceLabels,
-          ...(resolvePauseState(record.path ?? '', pauseMarkers) ? ['Paused'] : []),
-          RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
+          ...(resolvePauseState(record.path ?? '', pauseMarkers) ? [t('popup.status.paused')] : []),
+          ruleTypeLabel(record.ruleType, t),
         ];
         return labels.includes(value as string);
       },
@@ -242,9 +247,9 @@ export function buildThisPageRulesColumns({
         const allTags: TagDescriptor[] = [];
         if (resolvePauseState(record.path ?? '', pauseMarkers)) {
           allTags.push({
-            label: 'Paused',
+            label: t('popup.status.paused'),
             color: 'default',
-            tooltip: 'Collection or folder is paused — rule not applied',
+            tooltip: t('popup.thisPage.pausedTagTooltip'),
           });
         }
         // Derive unique resource type tags from telemetry records.
@@ -269,16 +274,16 @@ export function buildThisPageRulesColumns({
           if (seenTypes.has(rt)) {
             allTags.push({
               label: RESOURCE_TYPE_LABEL[rt] ?? rt,
-              tooltip: RESOURCE_TYPE_TOOLTIP[rt] ?? rt,
+              tooltip: resourceTypeTooltip(rt, t),
             });
           }
         }
         allTags.push({
-          label: RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
-          tooltip: RULE_TYPE_DESCRIPTION[record.ruleType] ?? record.ruleType,
+          label: ruleTypeLabel(record.ruleType, t),
+          tooltip: ruleTypeDescription(record.ruleType, t),
         });
         const resourceLabelValues = new Set(Object.values(RESOURCE_TYPE_LABEL));
-        const hasStatusTag = allTags[0]?.label === 'Paused' || resourceLabelValues.has(allTags[0]?.label);
+        const hasStatusTag = allTags[0]?.label === t('popup.status.paused') || resourceLabelValues.has(allTags[0]?.label);
         return renderTagOverflow(allTags, hasStatusTag ? 1 : 2);
       },
     },
@@ -303,7 +308,7 @@ export function buildThisPageRulesColumns({
                   void getCapability('notifyRulesChanged')?.().catch(() => undefined);
                 } else {
                   setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
-                  void message.error('Failed to toggle rule');
+                  void message.error(t('popup.rule.toggleFailed'));
                 }
               });
             }}
@@ -328,21 +333,21 @@ export function buildThisPageRulesColumns({
               onClick={() => openRulesIntent({ kind: 'edit-rule', uid: record.id })}
             />
             <Popconfirm
-              title="Delete rule"
-              description={`Delete "${record.name}"?`}
+              title={t('popup.rule.delete')}
+              description={t('popup.deleteConfirm.title', { name: record.name })}
               onConfirm={() => {
                 setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
                 void ruleMutator.deleteRule(record.id).then((resp) => {
                   if (resp.ok) {
-                    void message.success('Rule deleted');
+                    void message.success(t('popup.rule.deleted'));
                   } else {
-                    void message.error('Failed to delete rule');
+                    void message.error(t('popup.rule.deleteFailed'));
                   }
                 });
               }}
-              okText="Delete"
+              okText={t('popup.rule.deleteOk')}
               okType="danger"
-              cancelText="Cancel"
+              cancelText={t('shared.action.cancel')}
             >
               <Button type="text" danger icon={<DeleteOutlined />} size="small" />
             </Popconfirm>

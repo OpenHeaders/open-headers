@@ -1,6 +1,7 @@
 import { BugOutlined } from '@ant-design/icons';
 import { isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
@@ -16,6 +17,7 @@ import DebugNetworkPanel from './DebugNetworkPanel';
 
 const Footer: React.FC = () => {
   const { setFooterActions, setIsShortcutsOverlayVisible } = useKeyboardNav();
+  const t = useT();
   const surface = useSurface();
   const { token } = theme.useToken();
   const { rules } = useRules();
@@ -61,7 +63,7 @@ const Footer: React.FC = () => {
       style={{ backgroundColor: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}` }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Tooltip title="How to reach our super-charged browser dev-tools.">
+        <Tooltip title={t('popup.footer.debugTooltip')}>
           <Button
             icon={<BugOutlined />}
             size="middle"
@@ -70,14 +72,14 @@ const Footer: React.FC = () => {
             style={{ height: '36px', padding: '0 14px', fontWeight: 500, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
           >
             <span className="oh-collapse-label">
-              <span style={{ fontSize: 13 }}>Network Debug.</span>{' '}
+              <span style={{ fontSize: 13 }}>{t('popup.footer.networkDebug')}</span>{' '}
               <span style={{ fontSize: 10, fontStyle: 'italic', color: token.colorTextSecondary }}>
-                Like it should be
+                {t('popup.footer.tagline')}
               </span>
             </span>
           </Button>
         </Tooltip>
-        <Tooltip title={<ShortcutHintTitle label={helpLabel}>Keyboard shortcuts</ShortcutHintTitle>}>
+        <Tooltip title={<ShortcutHintTitle label={helpLabel}>{t('popup.footer.keyboardShortcuts')}</ShortcutHintTitle>}>
           <span
             className="kbd-key oh-help-shortcut"
             role="button"
@@ -100,7 +102,7 @@ const Footer: React.FC = () => {
           <StatusPill
             className="rules-statusbar-item footer-system-status"
             density="full"
-            label="System status"
+            label={t('popup.footer.systemStatus')}
             placement="top"
             renderSubsystemExtras={productStatusExtras}
             onOpenDocs={handleOpenDocs}

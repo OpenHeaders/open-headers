@@ -12,7 +12,7 @@
  * A shortcut entry defines:
  *   - id            — stable identifier for lookups
  *   - settingKey    — chord storage location (editable in Settings)
- *   - description   — user-facing label in the overlay
+ *   - descriptionKey — catalog key of the user-facing overlay label
  *   - group         — overlay column grouping
  *   - hardcodedAliases — additional event.key values that always match
  *                        this action regardless of the user chord
@@ -23,6 +23,7 @@
  * and dead-key handling stay consistent across contexts.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import { buildChordsFromEvent } from '@openheaders/ui/workbench/hooks/useWorkspaceShortcuts';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
@@ -60,7 +61,7 @@ export type PopupShortcutGroup = 'navigation' | 'actions' | 'row' | 'browser' | 
 export interface PopupShortcutDef {
   id: PopupShortcutId;
   settingKey: SettingKey;
-  description: string;
+  descriptionKey: MessageKey;
   group: PopupShortcutGroup;
   /**
    * Additional `event.key` values that always match this action, even
@@ -76,37 +77,37 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
   {
     id: 'tab-this-page',
     settingKey: 'keyboard.popup.tabThisPage',
-    description: 'This Page tab',
+    descriptionKey: 'popup.shortcuts.tabThisPage',
     group: 'navigation',
   },
   {
     id: 'tab-all-rules',
     settingKey: 'keyboard.popup.tabAllRules',
-    description: 'All Rules tab',
+    descriptionKey: 'popup.shortcuts.tabAllRules',
     group: 'navigation',
   },
   {
     id: 'tab-collections',
     settingKey: 'keyboard.popup.tabCollections',
-    description: 'Collections tab',
+    descriptionKey: 'popup.shortcuts.tabCollections',
     group: 'navigation',
   },
   {
     id: 'focus-search',
     settingKey: 'keyboard.popup.focusSearch',
-    description: 'Focus search',
+    descriptionKey: 'popup.shortcuts.focusSearch',
     group: 'navigation',
   },
   {
     id: 'prev-page',
     settingKey: 'keyboard.popup.prevPage',
-    description: 'Previous page',
+    descriptionKey: 'popup.shortcuts.prevPage',
     group: 'navigation',
   },
   {
     id: 'next-page',
     settingKey: 'keyboard.popup.nextPage',
-    description: 'Next page',
+    descriptionKey: 'popup.shortcuts.nextPage',
     group: 'navigation',
   },
 
@@ -114,61 +115,61 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
   {
     id: 'add-rule',
     settingKey: 'keyboard.popup.addRule',
-    description: 'Add new rule',
+    descriptionKey: 'popup.shortcuts.addRule',
     group: 'actions',
   },
   {
     id: 'open-workspace',
     settingKey: 'keyboard.popup.openWorkspace',
-    description: 'Open workspace',
+    descriptionKey: 'popup.shortcuts.openWorkspace',
     group: 'actions',
   },
   {
     id: 'open-settings',
     settingKey: 'keyboard.popup.openSettings',
-    description: 'Open settings',
+    descriptionKey: 'popup.shortcuts.openSettings',
     group: 'actions',
   },
   {
     id: 'toggle-surface',
     settingKey: 'keyboard.popup.toggleSurface',
-    description: 'Toggle popup / side panel',
+    descriptionKey: 'popup.shortcuts.toggleSurface',
     group: 'actions',
   },
   {
     id: 'toggle-rules-pause',
     settingKey: 'keyboard.popup.toggleRulesPause',
-    description: 'Pause / resume all rules',
+    descriptionKey: 'popup.shortcuts.toggleRulesPause',
     group: 'actions',
   },
   {
     id: 'toggle-pause-focused',
     settingKey: 'keyboard.popup.togglePauseFocused',
-    description: 'Pause / resume collection or folder',
+    descriptionKey: 'popup.shortcuts.togglePauseFocused',
     group: 'row',
   },
   {
     id: 'toggle-options-menu',
     settingKey: 'keyboard.popup.toggleOptionsMenu',
-    description: 'Options menu',
+    descriptionKey: 'popup.shortcuts.toggleOptionsMenu',
     group: 'actions',
   },
   {
     id: 'cycle-theme',
     settingKey: 'keyboard.popup.cycleTheme',
-    description: 'Cycle theme',
+    descriptionKey: 'popup.shortcuts.cycleTheme',
     group: 'actions',
   },
   {
     id: 'toggle-compact-mode',
     settingKey: 'keyboard.popup.toggleCompactMode',
-    description: 'Compact mode',
+    descriptionKey: 'popup.shortcuts.toggleCompactMode',
     group: 'actions',
   },
   {
     id: 'toggle-shortcuts-help',
     settingKey: 'keyboard.popup.toggleShortcutsHelp',
-    description: 'This panel',
+    descriptionKey: 'popup.shortcuts.toggleShortcutsHelp',
     group: 'actions',
   },
 
@@ -176,53 +177,53 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
   {
     id: 'move-down',
     settingKey: 'keyboard.popup.moveDown',
-    description: 'Move down',
+    descriptionKey: 'popup.shortcuts.moveDown',
     group: 'row',
     hardcodedAliases: ['ArrowDown'],
   },
   {
     id: 'move-up',
     settingKey: 'keyboard.popup.moveUp',
-    description: 'Move up',
+    descriptionKey: 'popup.shortcuts.moveUp',
     group: 'row',
     hardcodedAliases: ['ArrowUp'],
   },
   {
     id: 'expand-row',
     settingKey: 'keyboard.popup.expandRow',
-    description: 'Expand / enter sub-rows',
+    descriptionKey: 'popup.shortcuts.expandRow',
     group: 'row',
     hardcodedAliases: ['ArrowRight', 'Enter'],
   },
   {
     id: 'collapse-row',
     settingKey: 'keyboard.popup.collapseRow',
-    description: 'Collapse / exit sub-rows',
+    descriptionKey: 'popup.shortcuts.collapseRow',
     group: 'row',
     hardcodedAliases: ['ArrowLeft'],
   },
   {
     id: 'toggle-row',
     settingKey: 'keyboard.popup.toggleRow',
-    description: 'Toggle on / off',
+    descriptionKey: 'popup.shortcuts.toggleRow',
     group: 'row',
   },
   {
     id: 'edit-row',
     settingKey: 'keyboard.popup.editRow',
-    description: 'Edit rule',
+    descriptionKey: 'popup.shortcuts.editRow',
     group: 'row',
   },
   {
     id: 'copy-value',
     settingKey: 'keyboard.popup.copyValue',
-    description: 'Copy value',
+    descriptionKey: 'popup.shortcuts.copyValue',
     group: 'row',
   },
   {
     id: 'delete-row',
     settingKey: 'keyboard.popup.deleteRow',
-    description: 'Delete (press twice)',
+    descriptionKey: 'popup.shortcuts.deleteRow',
     group: 'row',
   },
 
@@ -230,7 +231,7 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
   {
     id: 'open-tour-guide',
     settingKey: 'keyboard.popup.openTourGuide',
-    description: 'Open tour guide',
+    descriptionKey: 'popup.shortcuts.openTourGuide',
     group: 'tourGuide',
   },
 ];

@@ -6,11 +6,13 @@
  */
 
 import type { Catalog } from '../../types';
+import { popup } from './popup';
 import { shared } from './shared';
 import { workbench } from './workbench';
 
 export const en = {
   ...shared,
+  ...popup,
   ...workbench,
 } as const satisfies Catalog;
 

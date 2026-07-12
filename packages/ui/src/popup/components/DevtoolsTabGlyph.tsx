@@ -1,6 +1,8 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
 
 export const DevtoolsTabGlyph: React.FC = () => {
+  const t = useT();
   const BG_CONTAINER = 'var(--ant-color-bg-container)';
   const FILL_SECONDARY = 'var(--ant-color-fill-secondary)';
   const FILL_TERTIARY = 'var(--ant-color-fill-tertiary)';
@@ -41,7 +43,7 @@ export const DevtoolsTabGlyph: React.FC = () => {
       width={320}
       height={192}
       role="img"
-      aria-label="DevTools docked with Open Headers tab selected — sidebars, network list and multi-tab split panes"
+      aria-label={t('popup.debug.tabGlyphAria')}
       style={{ flexShrink: 0 }}
     >
       <rect x={FX} y={FY} width={FW} height={FH} rx={5} fill={BG_CONTAINER} stroke={BORDER} />

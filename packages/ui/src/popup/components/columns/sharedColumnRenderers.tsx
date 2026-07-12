@@ -1,5 +1,6 @@
-import { CheckOutlined, CopyTwoTone } from '@ant-design/icons';
 import type { ActionDetail } from '@openheaders/core/utils';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
 import { Space, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
@@ -61,85 +62,6 @@ function renderTooltipGrid(rows: TooltipRow[]): React.ReactNode {
           )}
         </React.Fragment>
       ))}
-    </div>
-  );
-}
-
-export function renderDomainTags(domains: string[], showAllDomains = true): React.ReactNode {
-  if (!domains || domains.length === 0) {
-    return showAllDomains ? (
-      <Tag variant="outlined" color="default">
-        All domains
-      </Tag>
-    ) : null;
-  }
-  const first = domains[0].length > 14 ? `${domains[0].substring(0, 14)}...` : domains[0];
-  const overflowCount = domains.length - 1;
-  const tooltip = (
-    <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
-      {domains.map((d, i) => (
-        <div key={i}>
-          <span style={{ opacity: 0.6 }}>{i + 1}. </span>
-          {d}
-        </div>
-      ))}
-    </div>
-  );
-  return (
-    <Tooltip title={tooltip} styles={{ root: { maxWidth: 500 } }}>
-      <Space size={2}>
-        <Tag variant="outlined" style={{ fontSize: '12px', cursor: 'default', margin: 0 }}>
-          {first}
-        </Tag>
-        {overflowCount > 0 && (
-          <Tag variant="outlined" style={{ fontSize: '12px', cursor: 'default', margin: 0 }}>
-            +{overflowCount}
-          </Tag>
-        )}
-      </Space>
-    </Tooltip>
-  );
-}
-
-export function renderValueWithCopy({
-  fullValue,
-  displayValue,
-  rowKey,
-  copiedRowId,
-  setCopiedRowId,
-  opacity = 1,
-}: {
-  fullValue: string;
-  displayValue: string;
-  rowKey: string | number;
-  copiedRowId: string | number | null;
-  setCopiedRowId: (id: string | number | null) => void;
-  opacity?: number;
-}): React.ReactNode {
-  return (
-    <div
-      className="value-cell"
-      style={{ display: 'flex', alignItems: 'center', gap: 4, opacity, whiteSpace: 'nowrap' }}
-    >
-      <Text style={{ fontSize: '13px', flex: 1, minWidth: 0 }}>{displayValue}</Text>
-      {fullValue &&
-        (copiedRowId === rowKey ? (
-          <CheckOutlined
-            className="value-copy-icon"
-            style={{ fontSize: '12px', color: '#52c41a', flexShrink: 0, opacity: 1 }}
-          />
-        ) : (
-          <CopyTwoTone
-            className="value-copy-icon"
-            style={{ fontSize: '12px', cursor: 'pointer', flexShrink: 0, opacity: 0 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              void navigator.clipboard.writeText(fullValue);
-              setCopiedRowId(rowKey);
-              setTimeout(() => setCopiedRowId(null), 1000);
-            }}
-          />
-        ))}
     </div>
   );
 }
@@ -209,37 +131,37 @@ export type { ActionDetail } from '@openheaders/core/utils';
 // ── Conditions summary ──────────────────────────────────────────
 
 /** Short labels for inline tags (cell display). */
-const CONDITION_TYPE_SHORT: Record<string, string> = {
-  'url-filter': 'URL',
-  'url-regex': 'Regex',
-  'request-domains': 'Domain',
-  'exclude-request-domains': 'Excl Domain',
-  'initiator-domains': 'From',
-  'exclude-initiator-domains': 'Excl From',
-  'request-methods': 'Method',
-  'exclude-request-methods': 'Excl Method',
-  'resource-types': 'Resource',
-  'exclude-resource-types': 'Excl Resource',
-  'domain-type': 'Domain Type',
-  'response-header': 'Resp Hdr',
-  'exclude-response-header': 'Excl Resp Hdr',
+const CONDITION_TYPE_SHORT: Record<string, MessageKey> = {
+  'url-filter': 'popup.conditions.short.urlFilter',
+  'url-regex': 'popup.conditions.short.urlRegex',
+  'request-domains': 'popup.conditions.short.requestDomains',
+  'exclude-request-domains': 'popup.conditions.short.excludeRequestDomains',
+  'initiator-domains': 'popup.conditions.short.initiatorDomains',
+  'exclude-initiator-domains': 'popup.conditions.short.excludeInitiatorDomains',
+  'request-methods': 'popup.conditions.short.requestMethods',
+  'exclude-request-methods': 'popup.conditions.short.excludeRequestMethods',
+  'resource-types': 'popup.conditions.short.resourceTypes',
+  'exclude-resource-types': 'popup.conditions.short.excludeResourceTypes',
+  'domain-type': 'popup.conditions.short.domainType',
+  'response-header': 'popup.conditions.short.responseHeader',
+  'exclude-response-header': 'popup.conditions.short.excludeResponseHeader',
 };
 
 /** Full labels for tooltip tags. */
-const CONDITION_TYPE_LABEL: Record<string, string> = {
-  'url-filter': 'URL Pattern',
-  'url-regex': 'URL Regex',
-  'request-domains': 'Domains',
-  'exclude-request-domains': 'Excl Domains',
-  'initiator-domains': 'Initiator',
-  'exclude-initiator-domains': 'Excl Initiator',
-  'request-methods': 'Methods',
-  'exclude-request-methods': 'Excl Methods',
-  'resource-types': 'Resources',
-  'exclude-resource-types': 'Excl Resources',
-  'domain-type': 'Domain Type',
-  'response-header': 'Resp Header',
-  'exclude-response-header': 'Excl Resp Header',
+const CONDITION_TYPE_LABEL: Record<string, MessageKey> = {
+  'url-filter': 'popup.conditions.full.urlFilter',
+  'url-regex': 'popup.conditions.full.urlRegex',
+  'request-domains': 'popup.conditions.full.requestDomains',
+  'exclude-request-domains': 'popup.conditions.full.excludeRequestDomains',
+  'initiator-domains': 'popup.conditions.full.initiatorDomains',
+  'exclude-initiator-domains': 'popup.conditions.full.excludeInitiatorDomains',
+  'request-methods': 'popup.conditions.full.requestMethods',
+  'exclude-request-methods': 'popup.conditions.full.excludeRequestMethods',
+  'resource-types': 'popup.conditions.full.resourceTypes',
+  'exclude-resource-types': 'popup.conditions.full.excludeResourceTypes',
+  'domain-type': 'popup.conditions.full.domainType',
+  'response-header': 'popup.conditions.full.responseHeader',
+  'exclude-response-header': 'popup.conditions.full.excludeResponseHeader',
 };
 
 /**
@@ -267,9 +189,15 @@ function cleanUrlPattern(pattern: string): string {
   return pattern.replace(/^\*:\/\//, '').replace(/\/\*$/, '');
 }
 
+/** Resolve a condition type's display label, falling back to the raw type. */
+function conditionTypeLabel(map: Record<string, MessageKey>, type: string, t: Translate): string {
+  const key = map[type];
+  return key ? t(key) : type;
+}
+
 /** Build a compact inline label for a condition. */
-function conditionToLabel(cond: { type: string; values: string[] }): string {
-  if (cond.values.length === 0) return CONDITION_TYPE_SHORT[cond.type] ?? cond.type;
+function conditionToLabel(cond: { type: string; values: string[] }, t: Translate): string {
+  if (cond.values.length === 0) return conditionTypeLabel(CONDITION_TYPE_SHORT, cond.type, t);
 
   const firstVal = cond.values[0];
 
@@ -282,7 +210,7 @@ function conditionToLabel(cond: { type: string; values: string[] }): string {
   }
 
   // Other conditions: prefix + short value
-  const prefix = CONDITION_TYPE_SHORT[cond.type] ?? cond.type;
+  const prefix = conditionTypeLabel(CONDITION_TYPE_SHORT, cond.type, t);
   const short = firstVal.length > 10 ? `${firstVal.substring(0, 8)}…` : firstVal;
   return `${prefix}: ${short}`;
 }
@@ -290,12 +218,13 @@ function conditionToLabel(cond: { type: string; values: string[] }): string {
 /** Render a compact conditions summary for table columns. */
 export function renderConditionsSummary(
   conditions: Array<{ type: string; values: string[]; headerName?: string }>,
-  showAllDomains = true,
+  showAllDomains: boolean,
+  t: Translate,
 ): React.ReactNode {
   if (!conditions || conditions.length === 0) {
     return showAllDomains ? (
       <Tag variant="outlined" color="default">
-        No conditions
+        {t('popup.conditions.none')}
       </Tag>
     ) : null;
   }
@@ -313,14 +242,14 @@ export function renderConditionsSummary(
   // ellipsis below acts as a last-resort fallback if the column
   // narrows further.
   const allTags: TagDescriptor[] = sorted.map((cond) => ({
-    label: truncateValue(conditionToLabel(cond), 24),
+    label: truncateValue(conditionToLabel(cond, t), 24),
     color: cond.type.startsWith('exclude-') ? 'warning' : undefined,
   }));
 
   if (allTags.length === 0) {
     return showAllDomains ? (
       <Tag variant="outlined" color="default">
-        All domains
+        {t('popup.conditions.allDomains')}
       </Tag>
     ) : null;
   }
@@ -329,7 +258,7 @@ export function renderConditionsSummary(
   const merged = new Map<string, string[]>();
   const mergedOrder: string[] = [];
   for (const c of sorted) {
-    const key = (CONDITION_TYPE_LABEL[c.type] ?? c.type) + (c.headerName ? ` [${c.headerName}]` : '');
+    const key = conditionTypeLabel(CONDITION_TYPE_LABEL, c.type, t) + (c.headerName ? ` [${c.headerName}]` : '');
     if (!merged.has(key)) {
       merged.set(key, []);
       mergedOrder.push(key);
@@ -356,9 +285,30 @@ export function renderConditionsSummary(
 
 // ── Render action details ────────────────────────────────────────
 
+/** Rule-type-specific tag names for the label row in the tooltip grid. */
+const ACTION_LABEL_KEY: Record<string, MessageKey> = {
+  header: 'popup.actionDetail.name',
+  redirect: 'popup.actionDetail.url',
+  'query-param': 'popup.actionDetail.count',
+  inject: 'popup.actionDetail.type',
+  delay: 'popup.actionDetail.duration',
+  'request-body': 'popup.actionDetail.format',
+  response: 'popup.actionDetail.status',
+};
+
+/** Rule-type-specific tag names for the value row in the tooltip grid. */
+const ACTION_VALUE_KEY: Record<string, MessageKey> = {
+  header: 'popup.actionDetail.value',
+  redirect: 'popup.actionDetail.url',
+  inject: 'popup.actionDetail.position',
+  'request-body': 'popup.actionDetail.body',
+  response: 'popup.actionDetail.contentType',
+};
+
 /** Render structured action details: shared icon (with direction + placeholder) + label tag + value. */
 export function renderActionDetails(
   detail: ActionDetail,
+  t: Translate,
   opacity = 1,
   maxValueLen = 16,
   isActive = true,
@@ -371,30 +321,15 @@ export function renderActionDetails(
       .filter(Boolean)
       .join(' ') || detail.ruleType.charAt(0).toUpperCase() + detail.ruleType.slice(1);
 
-  // Rule-type-specific tag names for label and value rows
-  const labelKey: Record<string, string> = {
-    header: 'Name',
-    redirect: 'URL',
-    'query-param': 'Count',
-    inject: 'Type',
-    delay: 'Duration',
-    'request-body': 'Format',
-    response: 'Status',
-  };
-  const valueKey: Record<string, string> = {
-    header: 'Value',
-    redirect: 'URL',
-    inject: 'Position',
-    'request-body': 'Body',
-    response: 'Content-Type',
-  };
-
   const rows: Array<{ key: string; value: string | string[] }> = [{ key: typeLabel, value: detail.tooltip }];
   if (detail.items) {
-    rows.push({ key: detail.ruleType === 'header' ? 'Headers' : 'Params', value: detail.items });
+    rows.push({
+      key: detail.ruleType === 'header' ? t('popup.actionDetail.headers') : t('popup.actionDetail.params'),
+      value: detail.items,
+    });
   } else {
-    if (detail.label) rows.push({ key: labelKey[detail.ruleType] ?? 'Label', value: detail.label });
-    if (detail.value) rows.push({ key: valueKey[detail.ruleType] ?? 'Value', value: detail.value });
+    if (detail.label) rows.push({ key: t(ACTION_LABEL_KEY[detail.ruleType] ?? 'popup.actionDetail.label'), value: detail.label });
+    if (detail.value) rows.push({ key: t(ACTION_VALUE_KEY[detail.ruleType] ?? 'popup.actionDetail.value'), value: detail.value });
   }
 
   const tooltipContent = renderTooltipGrid(rows);

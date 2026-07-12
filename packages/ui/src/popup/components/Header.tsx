@@ -2,6 +2,7 @@ import { NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
@@ -19,6 +20,7 @@ const { Title, Text } = Typography;
 const Header: React.FC = () => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const surface = useSurface();
   const { setHeaderActions } = useKeyboardNav();
   const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useSetting('rulesEngine.paused');
@@ -32,7 +34,7 @@ const Header: React.FC = () => {
     try {
       await hostNavigation.switchViewMode(next);
     } catch {
-      message.error('Could not switch view');
+      message.error(t('popup.header.switchFailed'));
       return;
     }
     if (surface.mode === 'popup') {
@@ -44,7 +46,7 @@ const Header: React.FC = () => {
     // host's renderer-side adapter call. On Chromium the popup
     // auto-opens via action.openPopup; on Firefox the user clicks the
     // toolbar themselves once the binding has switched.
-  }, [surface.mode, message]);
+  }, [surface.mode, message, t]);
 
   useEffect(() => {
     setHeaderActions({
@@ -55,13 +57,11 @@ const Header: React.FC = () => {
   }, [setHeaderActions, handleSwitchSurface]);
 
   const switchTooltip =
-    surface.mode === 'popup'
-      ? 'Switch to side panel (stays open as you browse)'
-      : 'Switch to popup mode (toolbar click)';
+    surface.mode === 'popup' ? t('popup.header.switchToSidePanel') : t('popup.header.switchToPopup');
 
   const handleGlobalRulesToggle = async (checked: boolean): Promise<void> => {
     setIsRulesExecutionPaused(!checked);
-    message.success(checked ? 'Rules execution resumed' : 'Rules execution paused');
+    message.success(checked ? t('popup.header.rulesResumed') : t('popup.header.rulesPaused'));
   };
 
   const handleOpenSettings = (): void => {
@@ -115,7 +115,7 @@ const Header: React.FC = () => {
               color: isRulesExecutionPaused ? token.colorWarning : token.colorTextSecondary,
             }}
           >
-            Rules
+            {t('popup.header.rulesLabel')}
           </Text>
           {/* Mount the switch only after settings hydrate, else it animates from
               the default on popup re-open; width reserved so the chip can't shift. */}
@@ -124,9 +124,7 @@ const Header: React.FC = () => {
               <Tooltip
                 title={
                   <ShortcutHintTitle label={togglePauseLabel}>
-                    {isRulesExecutionPaused
-                      ? 'Resume rules execution'
-                      : 'Pause all rules (preserves individual rule settings)'}
+                    {isRulesExecutionPaused ? t('popup.header.resumeRules') : t('popup.header.pauseRules')}
                   </ShortcutHintTitle>
                 }
               >
@@ -134,8 +132,8 @@ const Header: React.FC = () => {
                   size="default"
                   checked={!isRulesExecutionPaused}
                   onChange={handleGlobalRulesToggle}
-                  checkedChildren="Active"
-                  unCheckedChildren="Paused"
+                  checkedChildren={t('popup.status.active')}
+                  unCheckedChildren={t('popup.status.paused')}
                 />
               </Tooltip>
             )}
@@ -158,7 +156,7 @@ const Header: React.FC = () => {
             }}
           />
         </Tooltip>
-        <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>Open settings</ShortcutHintTitle>}>
+        <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>{t('popup.header.openSettings')}</ShortcutHintTitle>}>
           <Button
             type="text"
             size="small"
@@ -172,7 +170,7 @@ const Header: React.FC = () => {
             }}
           />
         </Tooltip>
-        <Tooltip title="Notifications">
+        <Tooltip title={t('popup.header.notifications')}>
           <Button
             type="text"
             size="small"
@@ -180,7 +178,7 @@ const Header: React.FC = () => {
             onClick={() => {
               void openWorkspace({ kind: 'open-notifications' }, surface.mode);
             }}
-            aria-label="Open notifications"
+            aria-label={t('popup.header.openNotifications')}
             style={{
               padding: '4px 8px',
               height: 'auto',

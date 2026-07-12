@@ -1,6 +1,8 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
 
 export const DevtoolsMenuGlyph: React.FC = () => {
+  const t = useT();
   const BG_CONTAINER = 'var(--ant-color-bg-container)';
   const FILL_SECONDARY = 'var(--ant-color-fill-secondary)';
   const FILL_TERTIARY = 'var(--ant-color-fill-tertiary)';
@@ -49,7 +51,7 @@ export const DevtoolsMenuGlyph: React.FC = () => {
       width={260}
       height={113}
       role="img"
-      aria-label="Open View menu → Developer → Developer Tools"
+      aria-label={t('popup.debug.menuGlyphAria')}
       style={{ flexShrink: 0 }}
     >
       {/* System menu bar (above the browser window) */}

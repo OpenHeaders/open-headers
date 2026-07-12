@@ -1,3 +1,4 @@
+import type { MessageKey } from '@openheaders/i18n';
 import { isMac } from '@openheaders/ui/shared/platform';
 
 export interface DevtoolsShortcut {
@@ -9,7 +10,7 @@ export interface BrowserCopy {
   name: string;
   shortcut: DevtoolsShortcut;
   alternative: string;
-  menuHint?: string;
+  menuHintKey?: MessageKey;
 }
 
 export function detectBrowser(): BrowserCopy {
@@ -28,7 +29,7 @@ export function detectBrowser(): BrowserCopy {
       name: 'Safari',
       shortcut: macShortcut,
       alternative: 'F12',
-      menuHint: 'Enable Develop first — Safari → Settings → Advanced → "Show features for web developers".',
+      menuHintKey: 'popup.debug.menuHintSafari',
     };
   }
   if (isEdge) return { name: 'Edge', shortcut, alternative: 'F12' };

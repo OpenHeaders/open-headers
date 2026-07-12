@@ -1,4 +1,5 @@
 import { CheckOutlined } from '@ant-design/icons';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { SortMode } from '@openheaders/ui/shared/table-shared';
 import { Typography } from 'antd';
 import type { MenuProps } from 'antd';
@@ -11,6 +12,7 @@ export interface RulesTableSortMenuOptions {
   sortMode: SortMode;
   sortedInfo: SorterResult<TableRecord>;
   handleSortModeChange: (mode: SortMode) => void;
+  t: Translate;
 }
 
 /**
@@ -22,6 +24,7 @@ export function buildRulesTableSortMenu({
   sortMode,
   sortedInfo,
   handleSortModeChange,
+  t,
 }: RulesTableSortMenuOptions): MenuProps['items'] {
   const hasColumnSort = !!sortedInfo.order;
   return [
@@ -29,7 +32,7 @@ export function buildRulesTableSortMenu({
       key: 'label',
       label: (
         <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
-          SORT ORDER
+          {t('popup.table.sortOrderHeading')}
         </Text>
       ),
       disabled: true,
@@ -39,9 +42,9 @@ export function buildRulesTableSortMenu({
       label: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
           <div>
-            <div>By status</div>
+            <div>{t('popup.table.sortByStatus')}</div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              Active → Paused → Disabled → Draft · priority within each
+              {t('popup.table.sortByStatusHintAll')}
             </Text>
           </div>
           {sortMode === 'status' && !hasColumnSort && <CheckOutlined style={{ color: '#1677ff' }} />}
@@ -54,9 +57,9 @@ export function buildRulesTableSortMenu({
       label: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
           <div>
-            <div>By priority</div>
+            <div>{t('popup.table.sortByPriority')}</div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              Block → Redirect → Query → Header → Inject · A-Z within each
+              {t('popup.table.sortByPriorityHint')}
             </Text>
           </div>
           {sortMode === 'priority' && !hasColumnSort && <CheckOutlined style={{ color: '#1677ff' }} />}
@@ -69,9 +72,9 @@ export function buildRulesTableSortMenu({
       label: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
           <div>
-            <div>Workspace order</div>
+            <div>{t('popup.table.sortWorkspaceOrder')}</div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              Matches the workspace sidebar tree order
+              {t('popup.table.sortWorkspaceOrderHint')}
             </Text>
           </div>
           {sortMode === 'manual' && !hasColumnSort && <CheckOutlined style={{ color: '#1677ff' }} />}
@@ -87,9 +90,9 @@ export function buildRulesTableSortMenu({
             label: (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
                 <div>
-                  <div>By column</div>
+                  <div>{t('popup.table.sortByColumn')}</div>
                   <Text type="secondary" style={{ fontSize: '11px' }}>
-                    Sorted by {String(sortedInfo.columnKey)} — click an option above to reset
+                    {t('popup.table.sortByColumnHint', { column: String(sortedInfo.columnKey) })}
                   </Text>
                 </div>
                 <CheckOutlined style={{ color: '#1677ff' }} />

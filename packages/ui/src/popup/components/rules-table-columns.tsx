@@ -1,25 +1,29 @@
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import type { WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import { App, Button, Popconfirm, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
+import type React from 'react';
 import { renderActionDetails, renderConditionsSummary, truncateValue } from './columns/sharedColumnRenderers';
 import type { TableRecord } from './rules-table-records';
 
 const { Text } = Typography;
 
-const NOT_CONNECTED_TIP = (
-  <>
-    App not connected
-    <div style={{ marginTop: 4 }}>
-      <Tag color="blue" style={{ marginInlineEnd: 4 }}>
-        Desktop
-      </Tag>
-      coming soon
-    </div>
-  </>
-);
+function notConnectedTip(t: Translate): React.ReactNode {
+  return (
+    <>
+      {t('popup.rule.notConnected')}
+      <div style={{ marginTop: 4 }}>
+        <Tag color="blue" style={{ marginInlineEnd: 4 }}>
+          {t('popup.rule.desktopTag')}
+        </Tag>
+        {t('popup.rule.comingSoon')}
+      </div>
+    </>
+  );
+}
 
 /** Antd `message` API handed down from the popup's `App.useApp()` context. */
 type RulesTableMessageApi = ReturnType<typeof App.useApp>['message'];
@@ -31,6 +35,7 @@ export interface RulesTableColumnsOptions {
   ruleMutator: UseRuleMutatorApi;
   message: RulesTableMessageApi;
   openRulesIntent: (intent: WorkspaceIntent) => void;
+  t: Translate;
 }
 
 /**
@@ -46,10 +51,11 @@ export function buildRulesTableColumns({
   ruleMutator,
   message,
   openRulesIntent,
+  t,
 }: RulesTableColumnsOptions): ColumnsType<TableRecord> {
   return [
     {
-      title: 'Name',
+      title: t('popup.table.columnName'),
       dataIndex: 'name',
       key: 'name',
       width: 170,
@@ -72,7 +78,7 @@ export function buildRulesTableColumns({
       },
     },
     {
-      title: 'Details',
+      title: t('popup.table.columnDetails'),
       key: 'details',
       width: 270,
       // Hidden below 'md' (<768px viewport) — at narrow sidepanel widths
@@ -80,10 +86,10 @@ export function buildRulesTableColumns({
       // accessible via the row's expand/edit affordances.
       responsive: ['md'],
       render: (_: unknown, record: TableRecord) =>
-        renderActionDetails(record.actionDetail, 1, 28, record.isEnabled && record.isComplete),
+        renderActionDetails(record.actionDetail, t, 1, 28, record.isEnabled && record.isComplete),
     },
     {
-      title: 'Conditions',
+      title: t('popup.table.columnConditions'),
       dataIndex: 'conditions',
       key: 'conditions',
       width: 120,
@@ -99,7 +105,7 @@ export function buildRulesTableColumns({
       filterSearch: true,
       onFilter: (value, record) => record.domains.includes(value as string),
       sortOrder: sortedInfo.columnKey === 'conditions' ? sortedInfo.order : null,
-      render: (_: unknown, record: TableRecord) => renderConditionsSummary(record.conditions, false),
+      render: (_: unknown, record: TableRecord) => renderConditionsSummary(record.conditions, false, t),
     },
     {
       title: '',
@@ -117,7 +123,7 @@ export function buildRulesTableColumns({
             onChange={async () => {
               const resp = await ruleMutator.toggleRule(record.id, !enabled);
               if (!resp.ok) {
-                message.error('Failed to toggle rule');
+                message.error(t('popup.rule.toggleFailed'));
               }
             }}
             size="small"
@@ -135,7 +141,7 @@ export function buildRulesTableColumns({
         const canAct = true;
         return (
           <Space size={2}>
-            <Tooltip title={!canAct ? NOT_CONNECTED_TIP : 'Edit rule'}>
+            <Tooltip title={!canAct ? notConnectedTip(t) : t('popup.rule.edit')}>
               <Button
                 type="text"
                 icon={<EditOutlined />}
@@ -144,21 +150,21 @@ export function buildRulesTableColumns({
                 onClick={() => openRulesIntent({ kind: 'edit-rule', uid: record.id })}
               />
             </Tooltip>
-            <Tooltip title={!canAct ? NOT_CONNECTED_TIP : 'Delete rule'}>
+            <Tooltip title={!canAct ? notConnectedTip(t) : t('popup.rule.delete')}>
               <Popconfirm
-                title="Delete rule"
-                description={`Delete "${record.name}"?`}
+                title={t('popup.rule.delete')}
+                description={t('popup.deleteConfirm.title', { name: record.name })}
                 onConfirm={async () => {
                   const resp = await ruleMutator.deleteRule(record.id);
                   if (resp.ok) {
-                    message.success('Rule deleted');
+                    message.success(t('popup.rule.deleted'));
                   } else {
-                    message.error('Failed to delete rule');
+                    message.error(t('popup.rule.deleteFailed'));
                   }
                 }}
-                okText="Delete"
+                okText={t('popup.rule.deleteOk')}
                 okType="danger"
-                cancelText="Cancel"
+                cancelText={t('shared.action.cancel')}
                 disabled={!canAct}
               >
                 <Button type="text" danger icon={<DeleteOutlined />} size="small" disabled={!canAct} />
