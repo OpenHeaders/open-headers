@@ -404,6 +404,81 @@ describe('createNodeRequestTransport — per-request HTTP/2 offer', () => {
   });
 });
 
+describe('createNodeRequestTransport — per-request resolve-to-address pin', () => {
+  it('a pin-only tuple mints a dedicated agent, reused per tuple', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7' }));
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7' }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('an absent pin keeps the default dispatcher', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest());
+    expect(callInit(0).dispatcher).toBeUndefined();
+  });
+
+  it('distinct pinned addresses get distinct agents', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7' }));
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.8' }));
+    const agents = [callInit(0).dispatcher, callInit(1).dispatcher];
+    for (const a of agents) expect(a).toBeInstanceOf(Agent);
+    expect(new Set(agents).size).toBe(2);
+  });
+
+  it('the pin combines with TLS and h2 options into its own distinct tuples', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7' }));
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7', tlsMinVersion: '1.2' }));
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7', allowHttp2: true }));
+    await transport().send(makeRequest({ tlsMinVersion: '1.2' }));
+    const agents = [callInit(0).dispatcher, callInit(1).dispatcher, callInit(2).dispatcher, callInit(3).dispatcher];
+    for (const a of agents) expect(a).toBeInstanceOf(Agent);
+    expect(new Set(agents).size).toBe(4);
+  });
+
+  it('the pinned dispatcher rides EVERY hop of a redirect chain, cross-host hops included', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
+      .mockResolvedValueOnce(new Response('ok'));
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7' }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('classifies a refused connection naming the resolve-to-address setting when pinned', async () => {
+    fetchMock.mockRejectedValue(fetchError('ECONNREFUSED'));
+    await expect(transport().send(makeRequest({ resolveToAddress: '10.0.0.7' }))).rejects.toThrow(
+      /resolve-to-address setting points api\.openheaders\.io there/,
+    );
+  });
+
+  it('classifies an unreachable pinned address naming the setting', async () => {
+    fetchMock.mockRejectedValue(fetchError('EHOSTUNREACH'));
+    await expect(transport().send(makeRequest({ resolveToAddress: '10.255.0.1' }))).rejects.toThrow(
+      /No route to 10\.255\.0\.1 \(EHOSTUNREACH\) — the request's resolve-to-address setting/,
+    );
+  });
+
+  it('classifies a connect timeout naming the pinned address', async () => {
+    fetchMock.mockRejectedValue(fetchError('UND_ERR_CONNECT_TIMEOUT'));
+    await expect(transport().send(makeRequest({ resolveToAddress: '10.0.0.7' }))).rejects.toThrow(
+      /timed out — the request's resolve-to-address setting points it at 10\.0\.0\.7/,
+    );
+  });
+
+  it('does NOT name the setting on an unpinned refused connection', async () => {
+    fetchMock.mockRejectedValue(fetchError('ECONNREFUSED'));
+    await expect(transport().send(makeRequest())).rejects.toThrow(
+      /^Connection refused by api\.openheaders\.io\. Is the service running on that host\/port\?$/,
+    );
+  });
+});
+
 describe('createNodeRequestTransport — hand-rolled redirect follow', () => {
   it('follows a redirect chain to the final response and reports the final URL', async () => {
     fetchMock

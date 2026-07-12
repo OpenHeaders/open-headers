@@ -49,6 +49,15 @@
  *     force-h2 mode — and pure configuration: not trust-relaxing, no
  *     response marker. The browser negotiates protocol on its own, so
  *     there 'HTTP version' stays a browser-managed fact row.
+ *   • `resolveToAddress` — node-runtime only: the node transport's
+ *     dispatcher pins its resolver to the one address, while SNI, the
+ *     Host header, and certificate verification all keep the URL's
+ *     hostname — the "test one specific backend behind the load
+ *     balancer" knob. Not trust-relaxing (with verification on, the
+ *     certificate must still match the URL's host), no response
+ *     marker. The browser owns its resolver outright, so there is no
+ *     browser control — and no fact row on either sheet: resolution
+ *     was never a sheet-listed fact, so nothing graduates.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -72,11 +81,13 @@ import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabi
 import {
   MAX_MAX_REDIRECTS,
   MAX_REQUEST_TIMEOUT_MS,
+  MAX_RESOLVE_TO_ADDRESS_LENGTH,
   MAX_RESPONSE_BYTES,
   MAX_TLS_CIPHER_SUITES_LENGTH,
   MIN_MAX_REDIRECTS,
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
+  RESOLVE_TO_ADDRESS_PATTERN,
   TLS_CIPHER_SUITES_PATTERN,
   TLS_VERSIONS,
 } from '@openheaders/core/schemas';
@@ -105,6 +116,10 @@ export interface RequestSettingsDraft {
   /** Offer HTTP/2 on secure connections (the server picks the
    *  protocol). Defaults to false = HTTP/1.1 only. Node runtimes only. */
   allowHttp2?: boolean;
+  /** IPv4/IPv6 address the URL's hostname resolves to at connect time;
+   *  SNI / Host / cert verification keep the original hostname.
+   *  Undefined = system DNS. Node runtimes only. */
+  resolveToAddress?: string;
   /** Round-trip ceiling in milliseconds. Undefined = no per-request
    *  limit. Honored on both runtimes. */
   timeoutMs?: number;
@@ -518,6 +533,19 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
             checked={value.allowHttp2 === true}
             onChange={(checked) => onChange({ ...value, allowHttp2: checked || undefined })}
             info="Offer HTTP/2 alongside HTTP/1.1 when connecting over https — the server picks the protocol from the offer, so a server without HTTP/2 support still answers over HTTP/1.1. Plain http:// requests always use HTTP/1.1. Off, requests are sent over HTTP/1.1 only."
+          />
+          <TextKnobRow
+            label="Resolve to address"
+            value={value.resolveToAddress}
+            onChange={(resolveToAddress) => onChange({ ...value, resolveToAddress })}
+            info="Send this request to a specific server address instead of whatever DNS answers — the URL's hostname is still used for TLS and the Host header, so with verification on the certificate must still match it. Useful to test one specific backend behind a load balancer. The URL keeps its own port, and a redirect to another host also lands on this address. Leave empty to resolve through DNS as usual."
+            placeholder="System DNS"
+            maxLength={MAX_RESOLVE_TO_ADDRESS_LENGTH}
+            error={
+              value.resolveToAddress !== undefined && !RESOLVE_TO_ADDRESS_PATTERN.test(value.resolveToAddress)
+                ? 'IPv4 or IPv6 address only — no hostname, no port.'
+                : undefined
+            }
           />
         </>
       )}

@@ -203,4 +203,10 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     await runStepRequest(makeRequest({ allowHttp2: true }), opts(transport));
     expect(sent().allowHttp2).toBe(true);
   });
+
+  it('carries resolveToAddress through resolve to the transport', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ resolveToAddress: '10.0.0.7' }), opts(transport));
+    expect(sent().resolveToAddress).toBe('10.0.0.7');
+  });
 });

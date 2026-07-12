@@ -119,6 +119,17 @@ export interface TransportRequest {
    */
   allowHttp2?: boolean;
   /**
+   * IPv4/IPv6 address the URL's hostname resolves to at connect time
+   * instead of asking DNS — while SNI, the Host header, and certificate
+   * verification all keep the ORIGINAL hostname (that preservation is
+   * the point: with verification on, the certificate must still match
+   * the URL's host). The URL keeps its own port. The pin applies to
+   * every hop of a redirect chain, cross-host hops included. Plain
+   * data — the transport mints its own resolver from it. Transports
+   * whose network stack owns resolution (the browser SW) ignore it.
+   */
+  resolveToAddress?: string;
+  /**
    * Optional per-attempt wall-clock ceiling in milliseconds. The
    * transport MUST abort the whole round-trip — connection, response,
    * and body read — once this elapses, surfacing a

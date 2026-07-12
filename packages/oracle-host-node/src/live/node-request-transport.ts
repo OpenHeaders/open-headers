@@ -15,17 +15,21 @@
  *     `TypeError: Failed to fetch`, undici exposes `err.cause.code`
  *     (`ECONNREFUSED` / `ENOTFOUND` / …), so the message is precise.
  *   - **Per-request connection policy.** `sslVerification: false`,
- *     `tlsMinVersion` / `tlsMaxVersion`, `tlsCipherSuites`, and
- *     `allowHttp2` route the send through a dispatcher carrying exactly
- *     those options — knobs browser fetch can never honor. The TLS
- *     options ride the agent's TLS connector; `allowHttp2` maps to the
- *     agent's `allowH2`, which adds h2 to the ALPN offer on TLS
- *     connects (the server picks the protocol; plain http:// stays
- *     HTTP/1.1 — undici fetch has no h2c). Dispatchers are cached per
- *     distinct option tuple (see {@link dispatcherFor}) so pooled
- *     connections are shared, never minted per send. `fetch` + `Agent`
- *     come from the same undici package so the dispatcher and the
- *     fetch pipeline are one stack, one version.
+ *     `tlsMinVersion` / `tlsMaxVersion`, `tlsCipherSuites`,
+ *     `allowHttp2`, and `resolveToAddress` route the send through a
+ *     dispatcher carrying exactly those options — knobs browser fetch
+ *     can never honor. The TLS options ride the agent's TLS connector;
+ *     `allowHttp2` maps to the agent's `allowH2`, which adds h2 to the
+ *     ALPN offer on TLS connects (the server picks the protocol; plain
+ *     http:// stays HTTP/1.1 — undici fetch has no h2c);
+ *     `resolveToAddress` maps to a pinned `connect.lookup` (see
+ *     {@link pinnedLookup}) that answers every hostname with the one
+ *     address while SNI / Host / cert verification keep the URL's
+ *     hostname. Dispatchers are cached per distinct option tuple (see
+ *     {@link dispatcherFor}) so pooled connections are shared, never
+ *     minted per send. `fetch` + `Agent` come from the same undici
+ *     package so the dispatcher and the fetch pipeline are one stack,
+ *     one version.
  *   - **Hand-rolled redirect follow.** Every fetch goes out with
  *     `redirect: 'manual'` — server-side manual mode returns the REAL
  *     3xx with readable headers (no browser-style opaque filtering), so
@@ -37,6 +41,7 @@
  *     strip per hop, and the knobs relax exactly those two policies.
  */
 
+import { isIP, type LookupFunction } from 'node:net';
 import type { SecureVersion } from 'node:tls';
 import {
   type RequestTransport,
@@ -88,16 +93,39 @@ const MAX_AGENTS = 32;
  */
 const agentCache = new Map<string, Agent>();
 
+/**
+ * Resolver pinned to one address: answers EVERY hostname it is asked
+ * about with `address`, in both callback shapes Node's `net.connect`
+ * uses (`all: true` Happy-Eyeballs mode expects an address list; the
+ * family-pinned path expects `(err, address, family)`). The connector
+ * derives `servername` from the URL's hostname BEFORE dialing, so SNI,
+ * the Host header, and certificate verification all keep the original
+ * name — the pin only changes where the socket goes. Sharing one agent
+ * between requests that pin DIFFERENT hosts to the SAME address is
+ * correct by construction: the lookup pins everything the agent dials.
+ */
+function pinnedLookup(address: string): LookupFunction {
+  const family = isIP(address);
+  return (_hostname, options, callback) => {
+    if (options.all) {
+      callback(null, [{ address, family }]);
+      return;
+    }
+    callback(null, address, family);
+  };
+}
+
 function dispatcherFor(request: TransportRequest): Agent | undefined {
   const insecure = request.sslVerification === false;
   const allowH2 = request.allowHttp2 === true;
-  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites } = request;
+  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress } = request;
   if (
     !insecure &&
     !allowH2 &&
     tlsMinVersion === undefined &&
     tlsMaxVersion === undefined &&
-    tlsCipherSuites === undefined
+    tlsCipherSuites === undefined &&
+    resolveToAddress === undefined
   ) {
     return undefined;
   }
@@ -107,6 +135,7 @@ function dispatcherFor(request: TransportRequest): Agent | undefined {
     tlsMaxVersion ?? '',
     tlsCipherSuites ?? '',
     allowH2 ? 'h2' : '',
+    resolveToAddress ?? '',
   ].join('|');
   const cached = agentCache.get(key);
   if (cached) return cached;
@@ -115,11 +144,13 @@ function dispatcherFor(request: TransportRequest): Agent | undefined {
     minVersion?: SecureVersion;
     maxVersion?: SecureVersion;
     ciphers?: string;
+    lookup?: LookupFunction;
   } = {};
   if (insecure) connect.rejectUnauthorized = false;
   if (tlsMinVersion !== undefined) connect.minVersion = TLS_VERSION_TOKEN[tlsMinVersion];
   if (tlsMaxVersion !== undefined) connect.maxVersion = TLS_VERSION_TOKEN[tlsMaxVersion];
   if (tlsCipherSuites !== undefined) connect.ciphers = tlsCipherSuites;
+  if (resolveToAddress !== undefined) connect.lookup = pinnedLookup(resolveToAddress);
   // `allowH2` is an Agent option, NOT a `connect` option — it sits
   // beside the connector and switches the ALPN offer to h2+http/1.1.
   const agent = new Agent({ connect, ...(allowH2 ? { allowH2: true } : {}) });
@@ -301,7 +332,7 @@ async function fetchHop(
     return await fetchFn(hop.url, init);
   } catch (err) {
     if (deadline?.expired()) throw timeoutError(request.timeoutMs);
-    throw new TransportError(classifyFetchFailure(hop.url, err, tlsTuned(request)));
+    throw new TransportError(classifyFetchFailure(hop.url, err, request));
   }
 }
 
@@ -477,9 +508,14 @@ function buildBody(body: TransportBody): NodeRequestInit['body'] {
 /**
  * Turn a thrown Node `fetch` error into a user-actionable message.
  * undici wraps the OS error as `err.cause` with a `code` — far more
- * precise than the browser's opaque "Failed to fetch".
+ * precise than the browser's opaque "Failed to fetch". Connect-level
+ * failures on a send that pins its address name the resolve-to-address
+ * setting (the user's first question is "did my pin do this?");
+ * handshake failures name the TLS settings only when they are tuned.
  */
-function classifyFetchFailure(url: string, err: unknown, tlsTuned = false): string {
+function classifyFetchFailure(url: string, err: unknown, request: TransportRequest): string {
+  const tuned = tlsTuned(request);
+  const pinned = request.resolveToAddress;
   let host = '';
   try {
     host = new URL(url).hostname;
@@ -494,10 +530,19 @@ function classifyFetchFailure(url: string, err: unknown, tlsTuned = false): stri
     case 'EAI_AGAIN':
       return `Could not resolve host ${host} (DNS lookup failed). Check the URL and your network.`;
     case 'ECONNREFUSED':
-      return `Connection refused by ${host}. Is the service running on that host/port?`;
+      return pinned !== undefined
+        ? `Connection refused at ${pinned} — the request's resolve-to-address setting points ${host} there. Is the service listening on that address and the URL's port?`
+        : `Connection refused by ${host}. Is the service running on that host/port?`;
+    case 'EHOSTUNREACH':
+    case 'ENETUNREACH':
+      return pinned !== undefined
+        ? `No route to ${pinned} (${code}) — the request's resolve-to-address setting points ${host} there.`
+        : `No route to host ${host} (${code}).`;
     case 'ETIMEDOUT':
     case 'UND_ERR_CONNECT_TIMEOUT':
-      return `Connection to ${host} timed out.`;
+      return pinned !== undefined
+        ? `Connection to ${host} timed out — the request's resolve-to-address setting points it at ${pinned}.`
+        : `Connection to ${host} timed out.`;
     case 'ECONNRESET':
       return `Connection to ${host} was reset.`;
     case 'CERT_HAS_EXPIRED':
@@ -512,7 +557,7 @@ function classifyFetchFailure(url: string, err: unknown, tlsTuned = false): stri
       // its TLS options, name them — the mismatch is usually between
       // the configured version window and what the server accepts.
       if (code !== undefined && (code.startsWith('ERR_SSL_') || code === 'EPROTO')) {
-        return tlsTuned
+        return tuned
           ? `TLS handshake with ${host} failed (${code}). Check the request's TLS version and cipher suite settings against what the server accepts.`
           : `TLS handshake with ${host} failed (${code}).`;
       }

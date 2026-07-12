@@ -147,6 +147,19 @@ describe('executeOverTransport', () => {
     expect(bare.sent().allowHttp2).toBeUndefined();
   });
 
+  it('passes resolveToAddress through to the transport without marking the snapshot', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(makeResolved({ resolveToAddress: '10.0.0.7' }), transport);
+    expect(sent().resolveToAddress).toBe('10.0.0.7');
+    // Pinning an address with cert verification intact is not
+    // trust-relaxing — no snapshot marker of any kind.
+    expect('resolveToAddress' in snap).toBe(false);
+
+    const bare = captureTransport();
+    await executeOverTransport(makeResolved(), bare.transport);
+    expect(bare.sent().resolveToAddress).toBeUndefined();
+  });
+
   it('marks a lowered-floor run on the snapshot — success and failure alike', async () => {
     const { transport } = captureTransport();
     const ok = await executeOverTransport(makeResolved({ tlsMinVersion: '1.0' }), transport);

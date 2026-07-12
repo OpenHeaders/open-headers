@@ -52,6 +52,7 @@ interface KnobValues {
   tlsMaxVersion?: '1.0' | '1.1' | '1.2' | '1.3';
   tlsCipherSuites?: string;
   allowHttp2?: boolean;
+  resolveToAddress?: string;
 }
 
 function renderTab(value: KnobValues = {}) {
@@ -170,6 +171,16 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     fireEvent.click(screen.getByText('10 browser-managed'));
     expect(screen.getByText('HTTP version')).toBeTruthy();
     expect(settingsDotCount({ allowHttp2: true })).toBe(0);
+  });
+
+  it('shows no resolve-to-address control or fact row and never dots a synced value', () => {
+    renderTab();
+    expect(screen.queryByRole('textbox', { name: 'Resolve to address' })).toBeNull();
+    // Resolution was never a sheet-listed fact — the sheet stays at 10
+    // rows with no DNS/resolution row.
+    fireEvent.click(screen.getByText('10 browser-managed'));
+    expect(screen.queryByText('Resolve to address')).toBeNull();
+    expect(settingsDotCount({ resolveToAddress: '10.0.0.7' })).toBe(0);
   });
 });
 
@@ -390,6 +401,43 @@ describe('SettingsTab on a node runtime', () => {
     registerCapability('requestRuntime', () => 'node');
     expect(settingsDotCount({ allowHttp2: true })).toBe(1);
     expect(settingsDotCount({ allowHttp2: false })).toBe(0);
+    expect(settingsDotCount()).toBe(0);
+  });
+
+  it('shows the resolve-to-address knob without touching the fact sheet', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    const pin = screen.getByRole('textbox', { name: 'Resolve to address' }) as HTMLInputElement;
+    expect(pin.value).toBe('');
+    expect(pin.placeholder).toBe('System DNS');
+    // Nothing graduates — resolution was never a sheet-listed fact, so
+    // the node sheet stays at 4 rows and the label exists exactly once.
+    fireEvent.click(screen.getByText('4 runtime-managed'));
+    expect(screen.getAllByText('Resolve to address')).toHaveLength(1);
+  });
+
+  it('reports the address verbatim, clears to undefined, and flags a malformed one', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ resolveToAddress: '10.0.0.7' }} onChange={onChange} />);
+    const pin = screen.getByRole('textbox', { name: 'Resolve to address' }) as HTMLInputElement;
+    expect(pin.value).toBe('10.0.0.7');
+    fireEvent.change(pin, { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ resolveToAddress: undefined }));
+    expect(screen.queryByText(/IPv4 or IPv6 address only/)).toBeNull();
+
+    cleanup();
+    renderTab({ resolveToAddress: 'backend.openheaders.io' });
+    expect(screen.getByText(/IPv4 or IPv6 address only/)).toBeTruthy();
+
+    cleanup();
+    renderTab({ resolveToAddress: '2001:db8::1' });
+    expect(screen.queryByText(/IPv4 or IPv6 address only/)).toBeNull();
+  });
+
+  it('dots the tab only while an address is set', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ resolveToAddress: '10.0.0.7' })).toBe(1);
     expect(settingsDotCount()).toBe(0);
   });
 });

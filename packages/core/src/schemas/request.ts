@@ -102,6 +102,28 @@ export const TlsCipherSuitesSchema = v.pipe(
   v.maxLength(MAX_TLS_CIPHER_SUITES_LENGTH),
 );
 
+/**
+ * IPv4 / IPv6 address literal for the per-request resolve-to-address
+ * override. The IPv4 branch is an exact dotted-quad (octets 0–255);
+ * the IPv6 branch is a pragmatic alphabet check — hex digits, colons,
+ * dots (IPv4-mapped forms), an optional `%zone` suffix — rather than
+ * the full RFC 4291 grammar. Whether the address is REACHABLE is only
+ * known at connect time; the transport classifies that failure naming
+ * this setting.
+ */
+export const MAX_RESOLVE_TO_ADDRESS_LENGTH = 64;
+
+/** Shared with the Settings tab so the editor flags a malformed
+ *  address in place instead of failing at save validation. */
+export const RESOLVE_TO_ADDRESS_PATTERN =
+  /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}|[0-9A-Fa-f]*:[0-9A-Fa-f:.]*(?:%[0-9A-Za-z._~-]+)?)$/;
+
+export const ResolveToAddressSchema = v.pipe(
+  v.string(),
+  v.regex(RESOLVE_TO_ADDRESS_PATTERN, 'Must be an IPv4 or IPv6 address literal'),
+  v.maxLength(MAX_RESOLVE_TO_ADDRESS_LENGTH),
+);
+
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
 /**
@@ -555,6 +577,21 @@ export const RequestSchema = v.object({
    * the value).
    */
   allowHttp2: v.optional(v.boolean()),
+  /**
+   * Resolve the URL's hostname to this IPv4/IPv6 address at connect
+   * time instead of asking DNS — while SNI, the Host header, and
+   * certificate verification all keep the ORIGINAL hostname. That
+   * preservation is the point: test one specific backend behind a load
+   * balancer as if DNS had answered with it. The pin applies to every
+   * hop of a redirect chain, cross-host hops included. Not
+   * trust-relaxing on its own — with verification on, the certificate
+   * must still match the URL's host. The URL keeps its own port; this
+   * is an address only. Honored by node runtimes; browser runtimes own
+   * their resolver outright and ignore it (the request still syncs it —
+   * one schema, all runtimes carry the value). Pattern-validated — see
+   * {@link ResolveToAddressSchema}.
+   */
+  resolveToAddress: v.optional(ResolveToAddressSchema),
   /**
    * Wall-clock ceiling (ms) on the whole round-trip — connection,
    * response, and body read. Honored by BOTH runtimes (the browser

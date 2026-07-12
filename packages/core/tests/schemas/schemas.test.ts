@@ -376,6 +376,33 @@ describe('RequestSchema', () => {
     expect(v.safeParse(RequestSchema, { ...base, tlsCipherSuites: 'AES128, AES256' }).success).toBe(false);
     expect(v.safeParse(RequestSchema, { ...base, tlsCipherSuites: '' }).success).toBe(false);
   });
+
+  it('accepts only IPv4/IPv6 address literals for resolveToAddress', () => {
+    const base = {
+      schemaVersion: 5,
+      uid: 'abcd1234',
+      path: 'x',
+      name: 'x',
+      method: 'GET',
+      url: 'x',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    };
+    expect(v.parse(RequestSchema, { ...base, resolveToAddress: '10.0.0.7' })).toBeTruthy();
+    expect(v.parse(RequestSchema, { ...base, resolveToAddress: '255.255.255.255' })).toBeTruthy();
+    expect(v.parse(RequestSchema, { ...base, resolveToAddress: '::1' })).toBeTruthy();
+    expect(v.parse(RequestSchema, { ...base, resolveToAddress: '2001:db8::1' })).toBeTruthy();
+    // IPv4-mapped and zoned IPv6 forms ride the pragmatic branch.
+    expect(v.parse(RequestSchema, { ...base, resolveToAddress: '::ffff:192.0.2.1' })).toBeTruthy();
+    expect(v.parse(RequestSchema, { ...base, resolveToAddress: 'fe80::1%en0' })).toBeTruthy();
+    // Address only — no hostname, no port, no octet overflow, no empty.
+    expect(v.safeParse(RequestSchema, { ...base, resolveToAddress: 'backend.openheaders.io' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, resolveToAddress: '10.0.0.7:8443' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, resolveToAddress: '999.0.0.1' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, resolveToAddress: '' }).success).toBe(false);
+  });
 });
 
 describe('RuleSchema', () => {

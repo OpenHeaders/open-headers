@@ -75,6 +75,7 @@ export const REQUEST_FIELD_ORDER = [
   'tlsMaxVersion',
   'tlsCipherSuites',
   'allowHttp2',
+  'resolveToAddress',
   'timeoutMs',
   'maxResponseBytes',
   'maxRedirects',

@@ -32,6 +32,7 @@ export interface RequestPathBundle {
   tlsMaxVersion: string;
   tlsCipherSuites: string;
   allowHttp2: string;
+  resolveToAddress: string;
   timeoutMs: string;
   maxResponseBytes: string;
   maxRedirects: string;
@@ -61,6 +62,7 @@ export const REQUEST_PATHS: RequestPathBundle = {
   tlsMaxVersion: 'tlsMaxVersion',
   tlsCipherSuites: 'tlsCipherSuites',
   allowHttp2: 'allowHttp2',
+  resolveToAddress: 'resolveToAddress',
   timeoutMs: 'timeoutMs',
   maxResponseBytes: 'maxResponseBytes',
   maxRedirects: 'maxRedirects',

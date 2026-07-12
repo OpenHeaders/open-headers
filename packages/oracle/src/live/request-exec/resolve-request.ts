@@ -53,6 +53,9 @@ export interface ResolvedRequest {
   /** Offer HTTP/2 on secure connections (the server picks); absent /
    *  `false` → HTTP/1.1 only. */
   allowHttp2?: boolean;
+  /** Address the hostname resolves to at connect time; SNI / Host /
+   *  cert verification keep the original hostname. Absent → DNS. */
+  resolveToAddress?: string;
   /** Per-request round-trip ceiling (ms). A workflow step's own
    *  per-attempt timeout takes precedence at execute time. */
   timeoutMs?: number;
@@ -211,6 +214,7 @@ export async function resolveRequest(
       tlsMaxVersion: request.tlsMaxVersion,
       tlsCipherSuites: request.tlsCipherSuites,
       allowHttp2: request.allowHttp2,
+      resolveToAddress: request.resolveToAddress,
       timeoutMs: request.timeoutMs,
       maxResponseBytes: request.maxResponseBytes,
       maxRedirects: request.maxRedirects,

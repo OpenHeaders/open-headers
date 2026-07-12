@@ -40,6 +40,7 @@ function batchOf(req: Request): RequestSaveBatch {
     tlsMaxVersion: req.tlsMaxVersion,
     tlsCipherSuites: req.tlsCipherSuites,
     allowHttp2: req.allowHttp2,
+    resolveToAddress: req.resolveToAddress,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -70,6 +71,16 @@ describe('mergeRequestForSave', () => {
     const form = batchOf(makeReq({ method: 'POST' }));
     const merged = mergeRequestForSave(form, baseline, live);
     expect(merged.method).toBe('POST');
+  });
+
+  it('merges resolveToAddress per leaf like the other scalars', () => {
+    const baseline = makeReq();
+    const live = makeReq({ resolveToAddress: '10.0.0.7' });
+    const untouched = mergeRequestForSave(batchOf(baseline), baseline, live);
+    expect(untouched.resolveToAddress).toBe('10.0.0.7');
+
+    const touched = mergeRequestForSave(batchOf(makeReq({ resolveToAddress: '10.0.0.9' })), baseline, live);
+    expect(touched.resolveToAddress).toBe('10.0.0.9');
   });
 
   it('per-row merges headers by uid', () => {

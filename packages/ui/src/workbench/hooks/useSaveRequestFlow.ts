@@ -64,6 +64,7 @@ export interface DraftData {
   tlsMaxVersion?: TlsVersion;
   tlsCipherSuites?: string;
   allowHttp2?: boolean;
+  resolveToAddress?: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -129,6 +130,7 @@ export function useSaveRequestFlow({
             tlsMaxVersion: draftData.tlsMaxVersion,
             tlsCipherSuites: draftData.tlsCipherSuites,
             allowHttp2: draftData.allowHttp2,
+            resolveToAddress: draftData.resolveToAddress,
             timeoutMs: draftData.timeoutMs,
             maxResponseBytes: draftData.maxResponseBytes,
             maxRedirects: draftData.maxRedirects,
@@ -176,6 +178,7 @@ export function useSaveRequestFlow({
           tlsMaxVersion: saveModalDraftData.tlsMaxVersion,
           tlsCipherSuites: saveModalDraftData.tlsCipherSuites,
           allowHttp2: saveModalDraftData.allowHttp2,
+          resolveToAddress: saveModalDraftData.resolveToAddress,
           timeoutMs: saveModalDraftData.timeoutMs,
           maxResponseBytes: saveModalDraftData.maxResponseBytes,
           maxRedirects: saveModalDraftData.maxRedirects,
