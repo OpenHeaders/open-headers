@@ -3,7 +3,7 @@
  *
  * Seeds a fan-out/fan-in workflow via real RPC (request + workflow +
  * one bound LV for the exposure mark), opens its editor from the
- * Workflows sidebar, and drives the Form | Graph toggle:
+ * Workflows sidebar, and drives the Editor | Preview toggle:
  *
  *   - Graph pane renders one node per step (`wf-graph-node-<stepId>`),
  *     one edge per resolved dependsOn (`wf-graph-edge-<from>-<to>`),
@@ -157,7 +157,7 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   await saveButton.waitFor({ state: 'visible', timeout: 10000 });
   await expect(page.getByTestId('wf-graph-pane')).toHaveCount(0);
 
-  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
 
   // One node per step, one edge per resolved dependsOn parent.
@@ -180,7 +180,7 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   // Run overlay on a never-run workflow: the summary says so and every
   // node carries the not-run state. The exposed capture's LV exists but
   // is unpublished — pending first run, never presented as live.
-  await expect(page.getByTestId('wf-graph-run-summary')).toContainText('never run for this env');
+  await expect(page.getByTestId('wf-run-status-strip')).toContainText('never run for this env');
   for (const stepId of ['root', 'left', 'right', 'sink']) {
     await expect(page.getByTestId(`wf-graph-run-${stepId}`)).toHaveAttribute('data-run-state', 'not-run');
   }
@@ -223,13 +223,13 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   // Focusing a field in another step moves the selection; returning
   // to Graph highlights that node.
   await page.locator('[data-step-card="sink"] input').first().click();
-  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-node-sink')).toHaveAttribute('data-selected', 'true');
   await expect(page.getByTestId('wf-graph-node-left')).not.toHaveAttribute('data-selected', 'true');
 
   // Back to Form: step editors return, the toggle never dirtied the
   // draft, so Save stays disabled.
-  await page.getByText('Form', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Editor', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toHaveCount(0);
   await expect(page.getByText('Steps (4)', { exact: false }).first()).toBeVisible();
   await expect(saveButton).toBeDisabled();
@@ -299,7 +299,7 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
   await saveButton.waitFor({ state: 'visible', timeout: 10000 });
   await expect(saveButton).toBeDisabled();
-  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
 
   // ── Connect b → c ────────────────────────────────────────────────
@@ -328,7 +328,7 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   await expect(page.getByText('changed externally', { exact: false })).toHaveCount(0);
 
   // The form shows the materialized explicit parents on step c.
-  await page.getByText('Form', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Editor', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.locator('[data-step-card="c"]')).toContainText('after a, b');
 
   // Save persists the graph-made edit through the normal save path.
@@ -336,7 +336,7 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   await expect(saveButton).toBeDisabled();
 
   // ── Select + remove the edge ─────────────────────────────────────
-  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-edge-hit-b-c')).toHaveCount(1);
   // The b→c edge is a vertical line here (same column), so its hit
   // path has a zero-width bounding box — Playwright's locator click
@@ -463,12 +463,12 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
     .filter({ visible: true })
     .first()
     .waitFor({ state: 'visible', timeout: 10000 });
-  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
 
   // Summary reflects the successful run; per-node states carry the
   // runner's attestation: completed vs gate-skipped.
-  await expect(page.getByTestId('wf-graph-run-summary')).toContainText('last');
+  await expect(page.getByTestId('wf-run-status-strip')).toContainText('last');
   await expect(page.getByTestId('wf-graph-run-introspect')).toHaveAttribute('data-run-state', 'completed');
   await expect(page.getByTestId('wf-graph-run-refresh')).toHaveAttribute('data-run-state', 'skipped');
 

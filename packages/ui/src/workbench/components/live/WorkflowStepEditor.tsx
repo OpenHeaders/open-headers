@@ -67,8 +67,6 @@ interface Props {
   onScrollDone?: () => void;
 }
 
-const INDENT_PX = 18;
-
 const WorkflowStepEditor: React.FC<Props> = ({
   step,
   index,
@@ -252,12 +250,12 @@ const WorkflowStepEditor: React.FC<Props> = ({
         borderRadius: 6,
         padding: 12,
         marginBottom: 12,
-        marginLeft: indent * INDENT_PX,
         background: token.colorBgContainer,
         // Connector rail on the left edge for children — a thin vertical
         // stripe in the primary-color family. Pure visual cue that this
         // step is NOT a root; actual dependency info is in the
-        // "Depends on" section.
+        // "Depends on" section. All cards sit flush left — depth is
+        // conveyed by the rail + "after" chip, never by indentation.
         borderLeft: indent > 0 ? `3px solid ${token.colorPrimaryBorder}` : `1px solid ${edgeColor}`,
         position: 'relative',
       }}

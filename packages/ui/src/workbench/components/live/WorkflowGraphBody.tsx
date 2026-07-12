@@ -18,11 +18,11 @@
  * Run overlay (slice 3): when the editor passes the active env's run
  * row (`run` — edit mode only; `undefined` disables the overlay), each
  * node carries a `classifyStepRun` state dot with a masked-by-default
- * captured-values popover, exposed capture chips carry the LV's
+ * captured-values popover, and exposed capture chips carry the LV's
  * publication state (Save activates the workflow; a successful RUN is
- * what publishes the vars — pending until then), and a summary row
- * above the canvas mirrors the form strip's schedule/circuit/error
- * wording. Read-only and environment-scoped by construction: it
+ * what publishes the vars — pending until then). The whole-run summary
+ * lives on the editor's bottom `WorkflowRunStatusStrip`, shared with
+ * the form view. Read-only and environment-scoped by construction: it
  * renders one `pickActiveRun` row, derived at render time.
  *
  * Editing (slice 4): when the editor passes `setDraft`, the graph
@@ -40,10 +40,19 @@
  * Rubber-banding is component-local state; only the drop mutates the
  * draft, so `isDirty` (a fingerprint comparison) can never move on a
  * gesture that didn't commit.
+ *
+ * Canvas chrome: dotted-grid background (scrolls with the content),
+ * a compact right-click context menu on the background (add step) and
+ * on nodes (edit / delete), keyboard shortcuts on the focused pane
+ * (⏎ edit, ⌫ delete node or selected edge, Esc dismiss), and a
+ * pointer-transparent legend pinned bottom-right naming all of them.
+ * Delete mirrors the form's remove button via `removeDraftStep` —
+ * last step stays, dangling references badge.
  */
 
 import {
   CloseOutlined,
+  DeleteOutlined,
   EditOutlined,
   FilterOutlined,
   PlusOutlined,
@@ -56,14 +65,14 @@ import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/c
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { LiveVariable, LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
-import { Button, Tooltip, Typography, theme } from 'antd';
+import { Button, Menu, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { METHOD_COLORS } from '../sidebar/icons';
-import { addGraphDependency, appendDraftStep, removeGraphDependency } from './graph-edit';
+import { addGraphDependency, appendDraftStep, removeDraftStep, removeGraphDependency } from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
 import { classifyStepRun, type StepRunState } from './live-display';
-import { GraphRunSummary, StepRunDot } from './WorkflowGraphRunOverlay';
+import { StepRunDot } from './WorkflowGraphRunOverlay';
 
 const { Text } = Typography;
 
@@ -121,6 +130,9 @@ interface ConnectDrag {
   y: number;
 }
 
+/** Right-click context menu — canvas-relative position + target. */
+type GraphMenu = { x: number; y: number } & ({ kind: 'canvas' } | { kind: 'node'; stepId: string });
+
 const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   draft,
   setDraft,
@@ -138,6 +150,8 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const [drag, setDrag] = useState<ConnectDrag | null>(null);
   // Edge selection for the remove affordance — graph-only UI state.
   const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string } | null>(null);
+  // Right-click context menu — graph-only UI state, canvas coordinates.
+  const [menu, setMenu] = useState<GraphMenu | null>(null);
 
   // Same synthetic-workflow construction the form body uses — the
   // layout helper + validators only inspect cross-reference shape.
@@ -207,7 +221,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       ? selectedEdge
       : null;
 
-  const canvasPoint = (e: React.PointerEvent): { x: number; y: number } => {
+  const canvasPoint = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const rect = canvasRef.current?.getBoundingClientRect();
     return rect ? { x: e.clientX - rect.left, y: e.clientY - rect.top } : { x: 0, y: 0 };
   };
@@ -257,11 +271,93 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     onSelectStep?.(appended.stepId, draft.steps.length);
   };
 
+  const handleDeleteStep = (stepId: string) => {
+    if (!setDraft) return;
+    const next = removeDraftStep(draft, stepId);
+    if (next) setDraft(next);
+    setMenu(null);
+  };
+
+  // Pane-scoped shortcuts — the wrapper is focusable (pointer-down
+  // focuses it), so these never fire while a form field has focus.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      setMenu(null);
+      setSelectedEdge(null);
+      return;
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (!editable) return;
+      if (activeEdge) {
+        e.preventDefault();
+        removeEdge(activeEdge.from, activeEdge.to);
+        return;
+      }
+      if (selectedStepId) {
+        e.preventDefault();
+        handleDeleteStep(selectedStepId);
+      }
+      return;
+    }
+    if (e.key === 'Enter' && selectedStepId && onOpenStep) {
+      e.preventDefault();
+      onOpenStep(selectedStepId);
+    }
+  };
+
+  const handleCanvasContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!editable) return;
+    e.preventDefault();
+    setSelectedEdge(null);
+    setMenu({ ...canvasPoint(e), kind: 'canvas' });
+  };
+
+  const handleNodeContextMenu = (node: { stepId: string; declaredIndex: number }) => (e: React.MouseEvent) => {
+    if (!editable && !onOpenStep) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onSelectStep?.(node.stepId, node.declaredIndex);
+    setMenu({ ...canvasPoint(e), kind: 'node', stepId: node.stepId });
+  };
+
+  const menuItems: MenuProps['items'] =
+    menu === null
+      ? []
+      : menu.kind === 'canvas'
+        ? [{ key: 'add-step', icon: <PlusOutlined />, label: <MenuLabel text="Add step" /> }]
+        : [
+            ...(onOpenStep ? [{ key: 'edit-step', icon: <EditOutlined />, label: <MenuLabel text="Edit step" kbd="⏎" /> }] : []),
+            ...(editable
+              ? [
+                  {
+                    key: 'delete-step',
+                    icon: <DeleteOutlined />,
+                    danger: true,
+                    disabled: draft.steps.length <= 1,
+                    label: <MenuLabel text="Delete step" kbd="⌫" />,
+                  },
+                ]
+              : []),
+          ];
+
+  const handleMenuClick = ({ key }: { key: string }) => {
+    if (menu === null) return;
+    setMenu(null);
+    if (key === 'add-step') handleAddStep();
+    if (menu.kind !== 'node') return;
+    if (key === 'edit-step') onOpenStep?.(menu.stepId);
+    if (key === 'delete-step') handleDeleteStep(menu.stepId);
+  };
+
   const dragSource = drag ? positions.get(drag.from) : undefined;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {run !== undefined && <GraphRunSummary run={run} refresh={draft.refresh} />}
+    <div
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', outline: 'none' }}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      onPointerDown={(e) => e.currentTarget.focus({ preventScroll: true })}
+    >
       <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
       {editable && (
         <Button
@@ -274,11 +370,24 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           Step
         </Button>
       )}
+      <GraphLegend editable={editable} canOpen={onOpenStep !== undefined} />
       <div data-testid="wf-graph-pane" style={{ overflow: 'auto', height: '100%' }}>
       <div
         ref={canvasRef}
-        style={{ position: 'relative', width: canvasW, height: canvasH }}
-        onClick={() => setSelectedEdge(null)}
+        style={{
+          position: 'relative',
+          width: canvasW,
+          height: canvasH,
+          minWidth: '100%',
+          minHeight: '100%',
+          backgroundImage: `radial-gradient(circle, ${token.colorBorderSecondary} 1px, transparent 1px)`,
+          backgroundSize: '16px 16px',
+        }}
+        onClick={() => {
+          setSelectedEdge(null);
+          setMenu(null);
+        }}
+        onContextMenu={handleCanvasContextMenu}
       >
         <svg
           width={canvasW}
@@ -350,6 +459,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               selected={selectedStepId === node.step.id}
               onSelect={onSelectStep ? () => onSelectStep(node.step.id, node.declaredIndex) : undefined}
               onOpen={onOpenStep ? () => onOpenStep(node.step.id) : undefined}
+              onContextMenu={handleNodeContextMenu({ stepId: node.step.id, declaredIndex: node.declaredIndex })}
               draftStep={draftStep}
               runIf={node.step.runIf}
               hasPriority={node.step.priorityFrom !== undefined}
@@ -447,9 +557,107 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               </Tooltip>
             );
           })()}
+        {menu !== null && menuItems.length > 0 && (
+          <div
+            data-testid="wf-graph-context-menu"
+            style={{
+              position: 'absolute',
+              left: menu.x,
+              top: menu.y,
+              zIndex: 5,
+              minWidth: 168,
+              background: token.colorBgElevated,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: 8,
+              boxShadow: token.boxShadowSecondary,
+              padding: 4,
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <Menu
+              selectable={false}
+              mode="vertical"
+              items={menuItems}
+              onClick={handleMenuClick}
+              style={{ border: 'none', background: 'transparent', fontSize: 12 }}
+            />
+          </div>
+        )}
       </div>
       </div>
       </div>
+    </div>
+  );
+};
+
+/** Context-menu row — action text left, shortcut hint right. */
+const MenuLabel: React.FC<{ text: string; kbd?: string }> = ({ text, kbd }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 24, width: '100%' }}>
+    <span style={{ flex: 1, fontSize: 12 }}>{text}</span>
+    {kbd !== undefined && <span style={{ fontSize: 11, opacity: 0.5 }}>{kbd}</span>}
+  </span>
+);
+
+/**
+ * Pointer-transparent shortcut legend pinned to the pane's bottom-right
+ * corner — names every canvas gesture so nothing is discover-by-luck.
+ */
+const GraphLegend: React.FC<{ editable: boolean; canOpen: boolean }> = ({ editable, canOpen }) => {
+  const { token } = theme.useToken();
+  const entries: { keys: string; action: string }[] = [
+    { keys: 'click', action: 'select' },
+    ...(canOpen ? [{ keys: '2×click / ⏎', action: 'edit' }] : []),
+    ...(editable
+      ? [
+          { keys: '⌫', action: 'delete' },
+          { keys: 'drag ○', action: 'connect' },
+          { keys: 'right-click', action: 'menu' },
+        ]
+      : []),
+  ];
+  return (
+    <div
+      data-testid="wf-graph-legend"
+      style={{
+        position: 'absolute',
+        bottom: 10,
+        right: 16,
+        zIndex: 3,
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '4px 10px',
+        borderRadius: 6,
+        background: token.colorBgElevated,
+        border: `1px solid ${token.colorBorderSecondary}`,
+        boxShadow: token.boxShadowTertiary,
+        opacity: 0.9,
+        fontSize: 10,
+        color: token.colorTextTertiary,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {entries.map((entry) => (
+        <span key={entry.action} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span
+            style={{
+              padding: '0 4px',
+              borderRadius: 3,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              background: token.colorFillTertiary,
+              fontFamily: "'SF Mono', monospace",
+              fontSize: 9,
+              lineHeight: '14px',
+            }}
+          >
+            {entry.keys}
+          </span>
+          {entry.action}
+        </span>
+      ))}
     </div>
   );
 };
@@ -459,6 +667,8 @@ interface GraphNodeCardProps {
   selected?: boolean;
   onSelect?: () => void;
   onOpen?: () => void;
+  /** Right-click — selects the node and opens the compact context menu. */
+  onContextMenu?: (e: React.MouseEvent) => void;
   /** Draft overlay for the step — supplies capture exposure state. */
   draftStep: DraftStep | undefined;
   runIf: WorkflowStep['runIf'];
@@ -489,6 +699,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   selected,
   onSelect,
   onOpen,
+  onContextMenu,
   draftStep,
   runIf,
   hasPriority,
@@ -526,6 +737,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
       data-cycle-target={cycleWarn ? 'true' : undefined}
       onClick={onSelect}
       onDoubleClick={onOpen}
+      onContextMenu={onContextMenu}
       style={{
         position: 'absolute',
         left: x,

@@ -32,7 +32,7 @@
  *     per the show-but-disable catalog.
  */
 
-import { ReloadOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, FormOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
@@ -56,7 +56,7 @@ import { applyLiveWorkflowPublish } from '@openheaders/ui/shared/sync/live-workf
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { WorkflowSeedStep } from '../../types';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { App, Button, Segmented, Tag, Typography, theme } from 'antd';
+import { App, Button, ConfigProvider, Segmented, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import EditorHeader from '../shell/EditorHeader';
@@ -147,23 +147,39 @@ interface CreateProps {
 type Props = EditProps | CreateProps;
 
 /**
- * Editor↔graph view toggle (WORKFLOW_GRAPH_PLAN.md §4). Component-local
+ * Editor↔preview view toggle (WORKFLOW_GRAPH_PLAN.md §4). Component-local
  * UI state — never persisted, never on the tab or entity. Both panes
  * render from the same draft, so switching is loss-free by construction.
+ * The selected segment fills primary so the control reads as a mode
+ * switch, not a button.
  */
 type WorkflowView = 'form' | 'graph';
 
-const viewToggle = (view: WorkflowView, setView: (v: WorkflowView) => void): React.ReactNode => (
-  <Segmented
-    size="small"
-    value={view}
-    onChange={(v) => setView(v as WorkflowView)}
-    options={[
-      { label: 'Form', value: 'form' },
-      { label: 'Graph', value: 'graph' },
-    ]}
-  />
-);
+const ViewToggle: React.FC<{ view: WorkflowView; setView: (v: WorkflowView) => void }> = ({ view, setView }) => {
+  const { token } = theme.useToken();
+  return (
+    <ConfigProvider
+      theme={{
+        components: {
+          Segmented: {
+            itemSelectedBg: token.colorPrimary,
+            itemSelectedColor: token.colorWhite,
+          },
+        },
+      }}
+    >
+      <Segmented
+        size="small"
+        value={view}
+        onChange={(v) => setView(v as WorkflowView)}
+        options={[
+          { label: 'Editor', value: 'form', icon: <FormOutlined /> },
+          { label: 'Preview', value: 'graph', icon: <ApartmentOutlined /> },
+        ]}
+      />
+    </ConfigProvider>
+  );
+};
 
 // ── Unified dispatcher ─────────────────────────────────────────────
 
@@ -452,7 +468,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
   const editHeaderActions = (
     <>
-      {viewToggle(view, setView)}
+      <ViewToggle view={view} setView={setView} />
       <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
         Refresh
       </Button>
@@ -477,7 +493,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
       {view === 'form' ? (
         <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
-            <WorkflowRunStatusStrip runs={runs} refresh={draft.refresh} boundCount={boundVars.length} />
             <WorkflowFormBody
               draft={draft}
               setDraft={setDraft}
@@ -500,6 +515,9 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
           />
         </div>
       )}
+      {/* Live-status surface — pinned below both views so "what's
+          resolved RIGHT NOW per env" is always visible while editing. */}
+      <WorkflowRunStatusStrip runs={runs} refresh={draft.refresh} boundCount={boundVars.length} />
       <EntityConflictDialog
         open={isConflictDialogOpen}
         savedText={savedText}
@@ -636,7 +654,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
       style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
       onFocusCapture={handleFocusCapture}
     >
-      <EditorHeader title={createHeaderTitle} actions={viewToggle(view, setView)} shell={shell.headerProps} />
+      <EditorHeader title={createHeaderTitle} actions={<ViewToggle view={view} setView={setView} />} shell={shell.headerProps} />
       {view === 'form' ? (
         <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>

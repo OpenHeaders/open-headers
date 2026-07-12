@@ -12,6 +12,8 @@
  *     the edge isn't an effective parent.
  *   - appendDraftStep / nextStepId mirror the form's "+ Step"
  *     defaults with collision-safe ids.
+ *   - removeDraftStep mirrors the form's remove button: last step
+ *     stays, dangling references are left for the validator.
  */
 
 import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
@@ -19,6 +21,7 @@ import {
   addGraphDependency,
   appendDraftStep,
   nextStepId,
+  removeDraftStep,
   removeGraphDependency,
 } from '@openheaders/ui/workbench/components/live/graph-edit';
 import { describe, expect, it } from 'vitest';
@@ -111,6 +114,36 @@ describe('removeGraphDependency', () => {
     expect(removeGraphDependency(draft, 'a', 'b')).toBeNull();
     expect(removeGraphDependency(draft, 'ghost', 'b')).toBeNull();
     expect(removeGraphDependency(draft, 'a', 'ghost')).toBeNull();
+  });
+});
+
+describe('removeDraftStep', () => {
+  it('removes the step by id', () => {
+    const draft = mkDraft([mkStep('a'), mkStep('b'), mkStep('c')]);
+    const next = removeDraftStep(draft, 'b');
+    expect(next?.steps.map((s) => s.id)).toEqual(['a', 'c']);
+  });
+
+  it('leaves dangling references for the validator — same as the form', () => {
+    const draft = mkDraft([mkStep('a'), mkStep('b', { dependsOn: ['a'] })]);
+    const next = removeDraftStep(draft, 'a');
+    expect(next?.steps.map((s) => s.id)).toEqual(['b']);
+    expect(next?.steps[0].dependsOn).toEqual(['a']);
+  });
+
+  it('refuses to remove the last remaining step', () => {
+    expect(removeDraftStep(mkDraft([mkStep('a')]), 'a')).toBeNull();
+  });
+
+  it('no-ops on an unknown id', () => {
+    expect(removeDraftStep(mkDraft([mkStep('a'), mkStep('b')]), 'ghost')).toBeNull();
+  });
+
+  it('does not mutate the input draft', () => {
+    const draft = mkDraft([mkStep('a'), mkStep('b')]);
+    const frozen = JSON.stringify(draft);
+    removeDraftStep(draft, 'a');
+    expect(JSON.stringify(draft)).toBe(frozen);
   });
 });
 

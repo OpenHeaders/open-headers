@@ -1,17 +1,12 @@
 /**
  * Run-status overlay for the workflow graph view (WORKFLOW_GRAPH_PLAN.md
- * §6.3) — the pieces `WorkflowGraphBody` composes when the editor hands
- * it the active environment's run row:
- *
- *   - `GraphRunSummary` — one non-scrolling row above the canvas with
- *     the whole-run state: status dot (`classifyRun`), last/expiry
- *     schedule, circuit pill (shared with the form strip), last error,
- *     definitional-staleness badge. Same helpers as the form strip so
- *     both surfaces speak one vocabulary.
- *   - `StepRunDot` — the per-node state dot (`classifyStepRun`
- *     vocabulary). When the step has captured values, clicking opens a
- *     masked-by-default value popover (capture sets can hold tokens;
- *     reveal is an explicit eye toggle, matching the LV editor idiom).
+ * §6.3) — `StepRunDot`, the per-node state dot (`classifyStepRun`
+ * vocabulary) `WorkflowGraphBody` composes when the editor hands it the
+ * active environment's run row. When the step has captured values,
+ * clicking opens a masked-by-default value popover (capture sets can
+ * hold tokens; reveal is an explicit eye toggle, matching the LV editor
+ * idiom). The whole-run summary lives on the editor's bottom
+ * `WorkflowRunStatusStrip` — one surface for both views.
  *
  * Everything here derives at render time from the cache row — the
  * overlay holds no state beyond the popover's reveal toggle, and it
@@ -19,88 +14,12 @@
  */
 
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
-import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
-import type { RefreshPolicy } from '@openheaders/core/types';
 import { Button, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import {
-  classifyRun,
-  describeRunSchedule,
-  describeStepRun,
-  maskValue,
-  statusColor,
-  type StepRunState,
-  stepRunLevel,
-} from './live-display';
-import { CircuitInlineStatus } from './WorkflowRunStatusStrip';
+import { describeStepRun, maskValue, statusColor, type StepRunState, stepRunLevel } from './live-display';
 
 const { Text } = Typography;
-
-// ── Whole-run summary row ──────────────────────────────────────────
-
-interface GraphRunSummaryProps {
-  /** Active env's run row — `null` when the env has never run. */
-  run: LiveWorkflowRunSnapshot | null;
-  refresh: RefreshPolicy;
-}
-
-export const GraphRunSummary: React.FC<GraphRunSummaryProps> = ({ run, refresh }) => {
-  const { token } = theme.useToken();
-  const level = classifyRun(run);
-  return (
-    <div
-      data-testid="wf-graph-run-summary"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        flexWrap: 'wrap',
-        padding: '5px 12px',
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        background: token.colorFillAlter,
-        fontSize: 11,
-        flexShrink: 0,
-      }}
-    >
-      <span
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: '50%',
-          background: statusColor(level),
-          flexShrink: 0,
-        }}
-      />
-      {run ? (
-        <>
-          {describeRunSchedule(run, refresh).map((chunk) => (
-            <Text key={chunk.text} type={chunk.tone} style={{ fontSize: 11 }}>
-              {chunk.text}
-            </Text>
-          ))}
-          <CircuitInlineStatus run={run} />
-          {run.lastErrorMessage && (
-            <Text type="danger" style={{ fontSize: 11 }}>
-              {`· ${run.lastErrorMessage}${run.lastErrorStepId ? ` (${run.lastErrorStepId})` : ''}`}
-            </Text>
-          )}
-          {run.definitionallyStale === true && (
-            <Tooltip title="The workflow or an input it resolves changed since this value was extracted — run Refresh to re-extract.">
-              <Text type="warning" style={{ fontSize: 11 }}>
-                · needs re-run
-              </Text>
-            </Tooltip>
-          )}
-        </>
-      ) : (
-        <Text type="warning" style={{ fontSize: 11 }}>
-          never run for this env — click Refresh to populate
-        </Text>
-      )}
-    </div>
-  );
-};
 
 // ── Per-node state dot + captured-values popover ───────────────────
 

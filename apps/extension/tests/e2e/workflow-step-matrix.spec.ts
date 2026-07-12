@@ -242,9 +242,9 @@ test('seeded combinations render section summaries + controls, survive view togg
 
   // Expansion never dirties the draft; summaries survive Form↔Graph.
   await expect(saveButton).toBeDisabled();
-  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
-  await page.getByText('Form', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Editor', { exact: true }).filter({ visible: true }).first().click();
   await expect(sectionHeader(card(page, 's1'), 'Retry policy')).toContainText('(3 attempts, exponential)');
   await expect(sectionHeader(card(page, 's3'), 'Depends on')).toContainText('(root)');
   await expect(saveButton).toBeDisabled();

@@ -1,11 +1,12 @@
 /**
- * WorkflowRunStatusStrip — the per-env run summary embedded at the top
- * of `LiveWorkflowEditor` edit mode. Top row carries workflow-level
- * facts that don't vary by env (refresh policy + bound-variable
- * count); below it, one row per env that has a cache, plus the active
- * env row even when no cache exists for it. Distinct from
- * `WorkflowStatusPanel` (the tool-window circuit dashboard across ALL
- * workflows) — this strip is scoped to one workflow's editor.
+ * WorkflowRunStatusStrip — the per-env run summary pinned to the bottom
+ * of `LiveWorkflowEditor` edit mode (below both the Editor and Preview
+ * panes, above nothing — it IS the editor's floor). Top row carries
+ * workflow-level facts that don't vary by env (refresh policy +
+ * bound-variable count); below it, one row per env that has a cache,
+ * plus the active env row even when no cache exists for it. Distinct
+ * from `WorkflowStatusPanel` (the tool-window circuit dashboard across
+ * ALL workflows) — this strip is scoped to one workflow's editor.
  */
 
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
@@ -13,7 +14,7 @@ import type { RefreshPolicy } from '@openheaders/core/types';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   classifyRun,
   describeCircuit,
@@ -32,9 +33,36 @@ interface WorkflowRunStatusStripProps {
   boundCount: number;
 }
 
+// Resize bounds for the drag divider. Below MIN the strip is useless
+// (less than one env row); above MAX it starts eating the editor.
+const STRIP_MIN_H = 44;
+const STRIP_MAX_H = 320;
+// Natural-height cap before the user has ever dragged.
+const STRIP_NATURAL_MAX_H = 140;
+
 const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, refresh, boundCount }) => {
   const { token } = theme.useToken();
   const { environments, activeEnvironmentId } = useEnvironments();
+
+  // Divider drag — ephemeral UI state. `null` = natural height (capped);
+  // set once the user drags, clamped to [MIN, MAX].
+  const rootRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+  const [stripHeight, setStripHeight] = useState<number | null>(null);
+
+  const handleResizeDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { startY: e.clientY, startH: rootRef.current?.offsetHeight ?? STRIP_NATURAL_MAX_H };
+  }, []);
+  const handleResizeMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const next = drag.startH + (drag.startY - e.clientY);
+    setStripHeight(Math.min(STRIP_MAX_H, Math.max(STRIP_MIN_H, next)));
+  }, []);
+  const handleResizeUp = useCallback(() => {
+    dragRef.current = null;
+  }, []);
 
   const perEnvRuns = useMemo(() => summarizeRunsByEnv(runs, activeEnvironmentId ?? null), [runs, activeEnvironmentId]);
   const envName = useCallback(
@@ -47,16 +75,39 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
 
   return (
     <div
+      ref={rootRef}
+      data-testid="wf-run-status-strip"
       style={{
         display: 'flex',
         flexDirection: 'column',
-        padding: '6px 10px',
         background: token.colorFillAlter,
-        borderRadius: 4,
-        marginBottom: 14,
+        borderTop: `1px solid ${token.colorBorderSecondary}`,
         fontSize: 11,
+        flexShrink: 0,
+        height: stripHeight ?? undefined,
+        maxHeight: stripHeight ?? STRIP_NATURAL_MAX_H,
       }}
     >
+      {/* Drag divider — resizes the strip between MIN and MAX. */}
+      <div
+        data-testid="wf-run-status-strip-resize"
+        title="Drag to resize"
+        onPointerDown={handleResizeDown}
+        onPointerMove={handleResizeMove}
+        onPointerUp={handleResizeUp}
+        style={{
+          height: 8,
+          flexShrink: 0,
+          cursor: 'row-resize',
+          touchAction: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <span style={{ width: 28, height: 3, borderRadius: 2, background: token.colorBorderSecondary }} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 12px 6px' }}>
       {/* Top row: refresh policy + binding count — workflow-level facts that don't vary by env */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Text type="secondary" style={{ fontSize: 11 }}>
@@ -127,6 +178,13 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
                       {entry.run.lastErrorStepId ? ` (${entry.run.lastErrorStepId})` : ''}
                     </Text>
                   )}
+                  {entry.run.definitionallyStale === true && (
+                    <Tooltip title="The workflow or an input it resolves changed since this value was extracted — run Refresh to re-extract.">
+                      <Text type="warning" style={{ fontSize: 11 }}>
+                        · needs re-run
+                      </Text>
+                    </Tooltip>
+                  )}
                 </>
               ) : (
                 <Text type="warning" style={{ fontSize: 11 }}>
@@ -136,6 +194,7 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );
@@ -159,11 +218,8 @@ export default WorkflowRunStatusStrip;
 // Ticking uses a 1-second interval only when the circuit is OPEN and
 // `nextAttemptAt` is in the future — no-op for every other state
 // (no React timer, no wasted re-renders on healthy rows).
-//
-// Exported for the graph view's run summary row — same circuit
-// wording on both surfaces, per the shared-vocabulary rule.
 
-export const CircuitInlineStatus: React.FC<{ run: LiveWorkflowRunSnapshot }> = ({ run }) => {
+const CircuitInlineStatus: React.FC<{ run: LiveWorkflowRunSnapshot }> = ({ run }) => {
   const [, setNow] = useState(Date.now());
   const descriptor = describeCircuit(run);
   const needsTick = descriptor.nextAttemptAt !== null && descriptor.nextAttemptAt > Date.now();

@@ -175,7 +175,7 @@ test('collection ⋯ → Create Workflow… picker seeds, opens, and saves a cha
   await saveButton.waitFor({ state: 'visible', timeout: 10000 });
   await expect(page.getByText('Auth flow', { exact: true }).first()).toBeVisible();
 
-  await page.getByText('Graph', { exact: true }).filter({ visible: true }).first().click();
+  await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
   for (const [i, req] of expected.entries()) {
     await expect(page.getByTestId(`wf-graph-node-step${i + 1}`)).toContainText(req.name);

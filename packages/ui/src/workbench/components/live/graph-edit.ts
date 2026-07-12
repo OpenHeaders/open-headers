@@ -103,6 +103,19 @@ export function nextStepId(steps: readonly DraftStep[]): string {
 }
 
 /**
+ * Remove a step by id — the graph's delete gesture (context menu /
+ * ⌫ on a selected node). Mirrors the form's remove button exactly:
+ * the last remaining step can't be removed, and references to the
+ * deleted id are left in place for the validator to badge — same as
+ * deleting from the form.
+ */
+export function removeDraftStep(draft: DraftWorkflow, stepId: string): DraftWorkflow | null {
+  if (draft.steps.length <= 1) return null;
+  if (!draft.steps.some((s) => s.id === stepId)) return null;
+  return { ...draft, steps: draft.steps.filter((s) => s.id !== stepId) };
+}
+
+/**
  * Append a fresh step (implicit prior-step dep, no captures) — the
  * same defaults the form's "+ Step" button produces. Returns the new
  * draft plus the generated step id so callers can select it.
