@@ -20,6 +20,7 @@ import type {
   MultipartPart,
   Request,
   RequestBody,
+  TlsVersion,
   Vault,
   VaultSecretTotp,
 } from '@openheaders/core/types';
@@ -43,6 +44,12 @@ export interface ResolvedRequest {
   /** `false` → the transport skips TLS certificate verification;
    *  `undefined`/`true` → verify (the runtime default). */
   sslVerification?: boolean;
+  /** TLS negotiation floor; absent → the runtime default (1.2). */
+  tlsMinVersion?: TlsVersion;
+  /** TLS negotiation ceiling; absent → the runtime default (1.3). */
+  tlsMaxVersion?: TlsVersion;
+  /** OpenSSL-format cipher list; absent → the runtime's default suites. */
+  tlsCipherSuites?: string;
   /** Per-request round-trip ceiling (ms). A workflow step's own
    *  per-attempt timeout takes precedence at execute time. */
   timeoutMs?: number;
@@ -197,6 +204,9 @@ export async function resolveRequest(
       credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
       followRedirects: request.followRedirects,
       sslVerification: request.sslVerification,
+      tlsMinVersion: request.tlsMinVersion,
+      tlsMaxVersion: request.tlsMaxVersion,
+      tlsCipherSuites: request.tlsCipherSuites,
       timeoutMs: request.timeoutMs,
       maxResponseBytes: request.maxResponseBytes,
       maxRedirects: request.maxRedirects,

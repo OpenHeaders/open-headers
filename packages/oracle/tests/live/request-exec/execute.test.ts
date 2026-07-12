@@ -118,6 +118,49 @@ describe('executeOverTransport', () => {
     expect(explicit.sslVerificationDisabled).toBeUndefined();
   });
 
+  it('passes the TLS version window + cipher list through to the transport', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(
+      makeResolved({ tlsMinVersion: '1.1', tlsMaxVersion: '1.2', tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' }),
+      transport,
+    );
+    expect(sent().tlsMinVersion).toBe('1.1');
+    expect(sent().tlsMaxVersion).toBe('1.2');
+    expect(sent().tlsCipherSuites).toBe('TLS_AES_128_GCM_SHA256');
+
+    const bare = captureTransport();
+    await executeOverTransport(makeResolved(), bare.transport);
+    expect(bare.sent().tlsMinVersion).toBeUndefined();
+    expect(bare.sent().tlsMaxVersion).toBeUndefined();
+    expect(bare.sent().tlsCipherSuites).toBeUndefined();
+  });
+
+  it('marks a lowered-floor run on the snapshot — success and failure alike', async () => {
+    const { transport } = captureTransport();
+    const ok = await executeOverTransport(makeResolved({ tlsMinVersion: '1.0' }), transport);
+    expect(ok.tlsFloorLowered).toBe(true);
+
+    const failing: RequestTransport = {
+      async send() {
+        throw new TransportError('Connection refused by api.openheaders.io.');
+      },
+    };
+    const failed = await executeOverTransport(makeResolved({ tlsMinVersion: '1.1' }), failing);
+    expect(failed.error).toBe('Connection refused by api.openheaders.io.');
+    expect(failed.tlsFloorLowered).toBe(true);
+  });
+
+  it('leaves a default-or-raised-floor run unmarked', async () => {
+    const { transport } = captureTransport();
+    const snap = await executeOverTransport(makeResolved(), transport);
+    expect(snap.tlsFloorLowered).toBeUndefined();
+    // Keeping or raising the floor is not trust-relaxing — no marker.
+    const raised = await executeOverTransport(makeResolved({ tlsMinVersion: '1.3' }), transport);
+    expect(raised.tlsFloorLowered).toBeUndefined();
+    const kept = await executeOverTransport(makeResolved({ tlsMinVersion: '1.2' }), transport);
+    expect(kept.tlsFloorLowered).toBeUndefined();
+  });
+
   it('serializes a json body as raw content', async () => {
     const { transport, sent } = captureTransport();
     await executeOverTransport(makeResolved({ body: { type: 'json', content: '{"a":1}' } }), transport);

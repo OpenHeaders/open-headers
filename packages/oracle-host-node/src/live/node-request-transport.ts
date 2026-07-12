@@ -14,11 +14,14 @@
  *   - **Rich error classification.** Unlike the browser's opaque
  *     `TypeError: Failed to fetch`, undici exposes `err.cause.code`
  *     (`ECONNREFUSED` / `ENOTFOUND` / …), so the message is precise.
- *   - **Per-request TLS policy.** `sslVerification: false` routes the
- *     send through a dedicated dispatcher whose TLS connector skips
- *     certificate-chain verification — the knob browser fetch can never
- *     honor. `fetch` + `Agent` come from the same undici package so the
- *     dispatcher and the fetch pipeline are one stack, one version.
+ *   - **Per-request TLS policy.** `sslVerification: false`,
+ *     `tlsMinVersion` / `tlsMaxVersion`, and `tlsCipherSuites` route the
+ *     send through a dispatcher whose TLS connector carries exactly
+ *     those options — knobs browser fetch can never honor. Dispatchers
+ *     are cached per distinct option tuple (see {@link tlsDispatcher})
+ *     so pooled connections are shared, never minted per send. `fetch`
+ *     + `Agent` come from the same undici package so the dispatcher and
+ *     the fetch pipeline are one stack, one version.
  *   - **Hand-rolled redirect follow.** Every fetch goes out with
  *     `redirect: 'manual'` — server-side manual mode returns the REAL
  *     3xx with readable headers (no browser-style opaque filtering), so
@@ -30,6 +33,7 @@
  *     strip per hop, and the knobs relax exactly those two policies.
  */
 
+import type { SecureVersion } from 'node:tls';
 import {
   type RequestTransport,
   type TransportBody,
@@ -53,17 +57,62 @@ export interface NodeRequestTransportOptions {
   fetchFn?: NodeFetchFn;
 }
 
+/** Seam value (`'1.2'`) → Node `tls.connect` version token (`'TLSv1.2'`). */
+const TLS_VERSION_TOKEN: Record<string, SecureVersion> = {
+  '1.0': 'TLSv1',
+  '1.1': 'TLSv1.1',
+  '1.2': 'TLSv1.2',
+  '1.3': 'TLSv1.3',
+};
+
 /**
- * Shared dispatcher for verification-off sends. Verified sends ride
- * undici's global default dispatcher (pass no override); minting an
- * agent per send would leak a connection pool each time, so every
- * verification-off request across every workflow shares this one,
- * built on first use.
+ * Ceiling on cached TLS-option agents. Distinct TLS tuples per install
+ * are tiny in practice (a handful of dev targets), so a plain Map with
+ * oldest-entry eviction is enough — an LRU would never see the
+ * difference. Evicted agents close gracefully (in-flight requests
+ * finish); a re-request of an evicted tuple just mints a fresh agent.
  */
-let insecureAgent: Agent | null = null;
-function insecureDispatcher(): Agent {
-  insecureAgent ??= new Agent({ connect: { rejectUnauthorized: false } });
-  return insecureAgent;
+const MAX_TLS_AGENTS = 32;
+
+/**
+ * Shared dispatchers keyed by the canonical TLS-option tuple. Default
+ * sends (no TLS-affecting option set) ride undici's global default
+ * dispatcher (no override); every send carrying the SAME option tuple
+ * shares ONE agent, built on first use — minting an agent per send
+ * would leak a connection pool each time. Future TLS-affecting knobs
+ * (HTTP version, mTLS client certs) join the tuple here.
+ */
+const tlsAgents = new Map<string, Agent>();
+
+function tlsDispatcher(request: TransportRequest): Agent | undefined {
+  const insecure = request.sslVerification === false;
+  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites } = request;
+  if (!insecure && tlsMinVersion === undefined && tlsMaxVersion === undefined && tlsCipherSuites === undefined) {
+    return undefined;
+  }
+  const key = [insecure ? 'insecure' : '', tlsMinVersion ?? '', tlsMaxVersion ?? '', tlsCipherSuites ?? ''].join('|');
+  const cached = tlsAgents.get(key);
+  if (cached) return cached;
+  const connect: {
+    rejectUnauthorized?: boolean;
+    minVersion?: SecureVersion;
+    maxVersion?: SecureVersion;
+    ciphers?: string;
+  } = {};
+  if (insecure) connect.rejectUnauthorized = false;
+  if (tlsMinVersion !== undefined) connect.minVersion = TLS_VERSION_TOKEN[tlsMinVersion];
+  if (tlsMaxVersion !== undefined) connect.maxVersion = TLS_VERSION_TOKEN[tlsMaxVersion];
+  if (tlsCipherSuites !== undefined) connect.ciphers = tlsCipherSuites;
+  const agent = new Agent({ connect });
+  if (tlsAgents.size >= MAX_TLS_AGENTS) {
+    const oldest = tlsAgents.entries().next().value;
+    if (oldest) {
+      tlsAgents.delete(oldest[0]);
+      void oldest[1].close();
+    }
+  }
+  tlsAgents.set(key, agent);
+  return agent;
 }
 
 /** Redirect-hop ceiling when the request carries no `maxRedirects`. */
@@ -105,6 +154,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       // chain plus the final body read; the abort also cancels a body
       // stream stalled mid-read, which a fetch-only signal would miss.
       const deadline = startDeadline(request.timeoutMs);
+      // ONE dispatcher per send — the TLS options can't change across
+      // hops, and the cache lookup here keeps `fetchHop` the single
+      // place a dispatcher is applied.
+      const dispatcher = tlsDispatcher(request);
       try {
         if (request.redirect === 'manual') {
           // Single-shot: surface the first response verbatim, 3xx included.
@@ -114,10 +167,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
             headers: request.headers,
             body: request.body,
           };
-          const response = await fetchHop(fetchFn, request, hop, deadline);
+          const response = await fetchHop(fetchFn, request, hop, deadline, dispatcher);
           return await finalizeResponse(response, request, hop.url, deadline, false);
         }
-        return await followRedirectChain(fetchFn, request, deadline);
+        return await followRedirectChain(fetchFn, request, deadline, dispatcher);
       } finally {
         deadline?.clear();
       }
@@ -138,13 +191,14 @@ async function followRedirectChain(
   fetchFn: NodeFetchFn,
   request: TransportRequest,
   deadline: Deadline,
+  dispatcher: Agent | undefined,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
   let authorizationForwarded = false;
   let redirects = 0;
   while (true) {
-    const response = await fetchHop(fetchFn, request, hop, deadline);
+    const response = await fetchHop(fetchFn, request, hop, deadline, dispatcher);
     const location = REDIRECT_STATUSES.has(response.status) ? response.headers.get('location') : null;
     if (location === null) return finalizeResponse(response, request, hop.url, deadline, authorizationForwarded);
     await response.body?.cancel();
@@ -210,6 +264,7 @@ async function fetchHop(
   request: TransportRequest,
   hop: HopState,
   deadline: Deadline,
+  dispatcher: Agent | undefined,
 ): Promise<Awaited<ReturnType<NodeFetchFn>>> {
   const init: NodeRequestInit = {
     method: hop.method,
@@ -219,7 +274,7 @@ async function fetchHop(
     // nothing to ride — Node fetch never attaches cookies by default.
   };
   // The per-request TLS policy rides EVERY hop of the chain.
-  if (request.sslVerification === false) init.dispatcher = insecureDispatcher();
+  if (dispatcher !== undefined) init.dispatcher = dispatcher;
   const body = buildBody(hop.body);
   if (body !== undefined) init.body = body;
   if (deadline) init.signal = deadline.signal;
@@ -227,8 +282,16 @@ async function fetchHop(
     return await fetchFn(hop.url, init);
   } catch (err) {
     if (deadline?.expired()) throw timeoutError(request.timeoutMs);
-    throw new TransportError(classifyFetchFailure(hop.url, err));
+    throw new TransportError(classifyFetchFailure(hop.url, err, tlsTuned(request)));
   }
+}
+
+/** Whether this request carries any TLS version / cipher tuning — the
+ *  error classifier only points at those settings when they exist. */
+function tlsTuned(request: TransportRequest): boolean {
+  return (
+    request.tlsMinVersion !== undefined || request.tlsMaxVersion !== undefined || request.tlsCipherSuites !== undefined
+  );
 }
 
 /** Read the final response's body under the cap and map it to the
@@ -397,7 +460,7 @@ function buildBody(body: TransportBody): NodeRequestInit['body'] {
  * undici wraps the OS error as `err.cause` with a `code` — far more
  * precise than the browser's opaque "Failed to fetch".
  */
-function classifyFetchFailure(url: string, err: unknown): string {
+function classifyFetchFailure(url: string, err: unknown, tlsTuned = false): string {
   let host = '';
   try {
     host = new URL(url).hostname;
@@ -422,7 +485,18 @@ function classifyFetchFailure(url: string, err: unknown): string {
     case 'DEPTH_ZERO_SELF_SIGNED_CERT':
     case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
       return `TLS certificate error reaching ${host} (${code}).`;
+    case 'ERR_SSL_NO_CIPHER_MATCH':
+      return `No usable cipher suite for ${host} (${code}). Check the request's "TLS cipher suites" setting — none of the listed suites could be used for this connection.`;
     default: {
+      // Handshake-level failures (protocol version alerts, unsupported
+      // protocol) surface as ERR_SSL_* / EPROTO. When the request tuned
+      // its TLS options, name them — the mismatch is usually between
+      // the configured version window and what the server accepts.
+      if (code !== undefined && (code.startsWith('ERR_SSL_') || code === 'EPROTO')) {
+        return tlsTuned
+          ? `TLS handshake with ${host} failed (${code}). Check the request's TLS version and cipher suite settings against what the server accepts.`
+          : `TLS handshake with ${host} failed (${code}).`;
+      }
       const causeMsg = cause instanceof Error ? cause.message : undefined;
       if (causeMsg) return `Could not reach ${host}: ${causeMsg}`;
       return err instanceof Error ? err.message : String(err);

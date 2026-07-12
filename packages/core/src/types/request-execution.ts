@@ -105,6 +105,16 @@ export interface ExecutedRequestSnapshot {
    */
   sslVerificationDisabled?: boolean;
   /**
+   * True when this send ran with its TLS protocol floor LOWERED below
+   * the runtime's TLS 1.2 default (the per-request `tlsMinVersion:
+   * '1.0' | '1.1'` opt-in, honored by node runtimes). Like
+   * `sslVerificationDisabled`, the policy is known before the wire —
+   * recorded on success and error snapshots alike so the response
+   * surface can mark the run even after the setting is raised back.
+   * Absent = the send kept the runtime's own floor.
+   */
+  tlsFloorLowered?: boolean;
+  /**
    * True when this send actually RE-SENT the `Authorization` header
    * across a cross-origin redirect hop (the per-request
    * `followAuthorizationHeader` opt-in, honored by node runtimes).

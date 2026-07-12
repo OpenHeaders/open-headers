@@ -185,4 +185,16 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     expect(sent().followOriginalHttpMethod).toBe(true);
     expect(sent().followAuthorizationHeader).toBe(true);
   });
+
+  it('carries the TLS version window + cipher list through resolve to the transport', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(
+      makeRequest({ tlsMinVersion: '1.1', tlsMaxVersion: '1.2', tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' }),
+      opts(transport),
+    );
+    expect(sent().tlsMinVersion).toBe('1.1');
+    expect(sent().tlsMaxVersion).toBe('1.2');
+    expect(sent().tlsCipherSuites).toBe('TLS_AES_128_GCM_SHA256');
+    expect(snap.tlsFloorLowered).toBe(true);
+  });
 });

@@ -226,6 +226,9 @@ describe('yaml codec — round-trip parity', () => {
     if (parsed.value.body.type !== 'json') throw new Error('expected json body');
     expect(parsed.value.body.content).toBe(bodyJson);
     expect(parsed.value.sslVerification).toBe(false);
+    expect(parsed.value.tlsMinVersion).toBe('1.1');
+    expect(parsed.value.tlsMaxVersion).toBe('1.2');
+    expect(parsed.value.tlsCipherSuites).toBe('TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256');
     expect(parsed.value.timeoutMs).toBe(15000);
     expect(parsed.value.maxResponseBytes).toBe(4096);
     expect(parsed.value.maxRedirects).toBe(5);

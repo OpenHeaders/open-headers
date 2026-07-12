@@ -87,6 +87,29 @@ export interface TransportRequest {
    */
   sslVerification?: boolean;
   /**
+   * Lowest TLS protocol version the transport may negotiate. Absent →
+   * the runtime default floor (TLS 1.2). `'1.0'` / `'1.1'` LOWER the
+   * floor below the runtime default — a per-request explicit opt-in
+   * for legacy servers, recorded on the executed-run snapshot.
+   * Transports whose network stack fixes its protocol window (the
+   * browser SW) ignore it.
+   */
+  tlsMinVersion?: '1.0' | '1.1' | '1.2' | '1.3';
+  /**
+   * Highest TLS protocol version the transport may negotiate. Absent →
+   * the runtime default ceiling (TLS 1.3). Same transport caveat as
+   * {@link tlsMinVersion}.
+   */
+  tlsMaxVersion?: '1.0' | '1.1' | '1.2' | '1.3';
+  /**
+   * Cipher suites offered during the TLS handshake, as ONE
+   * OpenSSL-format colon-joined list (TLS ≤1.2 suites and TLS 1.3
+   * suites both ride it). Absent → the runtime's default list. The
+   * server still picks the suite from what's offered. Transports whose
+   * network stack owns cipher negotiation ignore it.
+   */
+  tlsCipherSuites?: string;
+  /**
    * Optional per-attempt wall-clock ceiling in milliseconds. The
    * transport MUST abort the whole round-trip — connection, response,
    * and body read — once this elapses, surfacing a

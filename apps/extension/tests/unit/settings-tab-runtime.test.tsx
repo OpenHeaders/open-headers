@@ -16,7 +16,21 @@ import { buildRequestTabItems } from '@openheaders/ui/workbench/components/reque
 import SettingsTab from '@openheaders/ui/workbench/components/request-editor/SettingsTab';
 import type { SectionUnresolved } from '@openheaders/ui/workbench/components/request-editor/useSectionUnresolved';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// The antd Select dropdown measures itself via rc-resize-observer;
+// jsdom doesn't ship a ResizeObserver.
+beforeAll(() => {
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
 
 afterEach(() => {
   unregisterCapability('requestRuntime');
@@ -34,10 +48,28 @@ interface KnobValues {
   maxRedirects?: number;
   followOriginalHttpMethod?: boolean;
   followAuthorizationHeader?: boolean;
+  tlsMinVersion?: '1.0' | '1.1' | '1.2' | '1.3';
+  tlsMaxVersion?: '1.0' | '1.1' | '1.2' | '1.3';
+  tlsCipherSuites?: string;
 }
 
 function renderTab(value: KnobValues = {}) {
   return render(<SettingsTab value={value} onChange={() => {}} />);
+}
+
+/** Open an AntD Select dropdown; subsequent queries find the rendered items. */
+function openCombobox(combobox: HTMLElement): void {
+  fireEvent.mouseDown(combobox);
+  fireEvent.click(combobox);
+}
+
+/** The dropdown item for `label` in the currently open Select. AntD
+ *  renders items outside the RTL container, so query the document. */
+function dropdownOption(label: string): HTMLElement {
+  const items = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-item-option'));
+  const hit = items.find((el) => el.getAttribute('title') === label);
+  if (!hit) throw new Error(`no open dropdown option "${label}"`);
+  return hit;
 }
 
 /** Render the Settings tab label and count default-tone dots on it. */
@@ -114,6 +146,22 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(settingsDotCount({ followOriginalHttpMethod: true })).toBe(0);
     expect(settingsDotCount({ followAuthorizationHeader: true })).toBe(0);
   });
+
+  it('keeps the TLS version window + cipher suites browser-managed facts, not knobs', () => {
+    renderTab();
+    expect(screen.queryByRole('combobox', { name: 'TLS version minimum' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'TLS version maximum' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'TLS cipher suites' })).toBeNull();
+    fireEvent.click(screen.getByText('10 browser-managed'));
+    expect(screen.getByText('TLS/SSL protocol versions')).toBeTruthy();
+    expect(screen.getByText('Server cipher suite order')).toBeTruthy();
+  });
+
+  it('does not dot the Settings tab for synced TLS fields', () => {
+    expect(settingsDotCount({ tlsMinVersion: '1.0' })).toBe(0);
+    expect(settingsDotCount({ tlsMaxVersion: '1.2' })).toBe(0);
+    expect(settingsDotCount({ tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' })).toBe(0);
+  });
 });
 
 describe('SettingsTab on a node runtime', () => {
@@ -123,7 +171,7 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getByText('Automatically follow redirects')).toBeTruthy();
     expect(screen.queryByText('Send browser cookies')).toBeNull();
 
-    fireEvent.click(screen.getByText('7 runtime-managed'));
+    fireEvent.click(screen.getByText('5 runtime-managed'));
     expect(screen.getByText(/Fixed by the app’s network runtime for every request/)).toBeTruthy();
     expect(screen.getByText('1.1')).toBeTruthy();
     expect(screen.getByText('Cookies')).toBeTruthy();
@@ -137,7 +185,7 @@ describe('SettingsTab on a node runtime', () => {
     const knob = screen.getByRole('switch', { name: 'SSL certificate verification' });
     expect(knob.getAttribute('aria-checked')).toBe('true');
     // Graduated out of the fact sheet — the row lives above the reveal.
-    fireEvent.click(screen.getByText('7 runtime-managed'));
+    fireEvent.click(screen.getByText('5 runtime-managed'));
     expect(screen.getAllByText('SSL certificate verification')).toHaveLength(1);
   });
 
@@ -195,7 +243,7 @@ describe('SettingsTab on a node runtime', () => {
     expect(method.getAttribute('aria-checked')).toBe('false');
     expect(auth.getAttribute('aria-checked')).toBe('false');
     // Graduated out of the fact sheet — each label exists exactly once.
-    fireEvent.click(screen.getByText('7 runtime-managed'));
+    fireEvent.click(screen.getByText('5 runtime-managed'));
     expect(screen.getAllByText('Maximum redirects')).toHaveLength(1);
     expect(screen.getAllByText('Follow original HTTP method')).toHaveLength(1);
     expect(screen.getAllByText('Follow Authorization header')).toHaveLength(1);
@@ -239,6 +287,70 @@ describe('SettingsTab on a node runtime', () => {
     // follow-redirects knob itself contributes.
     expect(settingsDotCount({ followRedirects: false, maxRedirects: 5 })).toBe(1);
     expect(settingsDotCount({ followRedirects: false })).toBe(1);
+    expect(settingsDotCount()).toBe(0);
+  });
+
+  it('graduates the TLS version window + cipher list to live controls', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    expect(screen.getByRole('combobox', { name: 'TLS version minimum' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'TLS version maximum' })).toBeTruthy();
+    const cipher = screen.getByRole('textbox', { name: 'TLS cipher suites' }) as HTMLInputElement;
+    expect(cipher.value).toBe('');
+    expect(cipher.placeholder).toBe('Runtime default suites');
+    // Graduated out of the fact sheet — the cipher label exists exactly
+    // once, and the protocol-versions fact row is gone entirely.
+    fireEvent.click(screen.getByText('5 runtime-managed'));
+    expect(screen.getAllByText('TLS cipher suites')).toHaveLength(1);
+    expect(screen.queryByText('TLS/SSL protocol versions')).toBeNull();
+  });
+
+  it('selecting a minimum below 1.2 reports it and warns in place', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{}} onChange={onChange} />);
+    openCombobox(screen.getByRole('combobox', { name: 'TLS version minimum' }));
+    fireEvent.click(dropdownOption('1.0'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ tlsMinVersion: '1.0' }));
+
+    cleanup();
+    renderTab({ tlsMinVersion: '1.1' });
+    expect(screen.getByText(/protocol versions with known weaknesses/)).toBeTruthy();
+
+    cleanup();
+    renderTab({ tlsMinVersion: '1.3' });
+    expect(screen.queryByText(/protocol versions with known weaknesses/)).toBeNull();
+  });
+
+  it('disables minimum options above a pinned maximum', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ tlsMaxVersion: '1.2' });
+    openCombobox(screen.getByRole('combobox', { name: 'TLS version minimum' }));
+    const disabledOf = (label: string) => dropdownOption(label).classList.contains('ant-select-item-option-disabled');
+    expect(disabledOf('1.3')).toBe(true);
+    expect(disabledOf('1.1')).toBe(false);
+  });
+
+  it('reports the cipher list verbatim, clears to undefined, and flags a malformed one', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' }} onChange={onChange} />);
+    const cipher = screen.getByRole('textbox', { name: 'TLS cipher suites' }) as HTMLInputElement;
+    expect(cipher.value).toBe('TLS_AES_128_GCM_SHA256');
+    fireEvent.change(cipher, { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ tlsCipherSuites: undefined }));
+    expect(screen.queryByText(/no spaces/)).toBeNull();
+
+    cleanup();
+    renderTab({ tlsCipherSuites: 'AES128, AES256' });
+    expect(screen.getByText(/no spaces/)).toBeTruthy();
+  });
+
+  it('dots the tab for each TLS field', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ tlsMinVersion: '1.0' })).toBe(1);
+    expect(settingsDotCount({ tlsMaxVersion: '1.2' })).toBe(1);
+    expect(settingsDotCount({ tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' })).toBe(1);
     expect(settingsDotCount()).toBe(0);
   });
 });

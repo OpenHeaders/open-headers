@@ -19,6 +19,7 @@ import type {
   Request,
   RequestBody,
   RequestHeader,
+  TlsVersion,
 } from '@openheaders/core/types';
 import { parseUrlQuery } from '@openheaders/core/utils';
 import { type KeyValueRow, makeKvRow } from './KeyValueTable';
@@ -34,6 +35,9 @@ export interface Draft {
   credentialsMode?: CredentialsMode;
   followRedirects?: boolean;
   sslVerification?: boolean;
+  tlsMinVersion?: TlsVersion;
+  tlsMaxVersion?: TlsVersion;
+  tlsCipherSuites?: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -57,6 +61,9 @@ export interface RequestUpdates {
   credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
   sslVerification: boolean | undefined;
+  tlsMinVersion: TlsVersion | undefined;
+  tlsMaxVersion: TlsVersion | undefined;
+  tlsCipherSuites: string | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -170,6 +177,9 @@ export function draftFromRequest(req: Request): Draft {
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
     sslVerification: req.sslVerification,
+    tlsMinVersion: req.tlsMinVersion,
+    tlsMaxVersion: req.tlsMaxVersion,
+    tlsCipherSuites: req.tlsCipherSuites,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -204,6 +214,9 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     credentialsMode: draft.credentialsMode,
     followRedirects: draft.followRedirects,
     sslVerification: draft.sslVerification,
+    tlsMinVersion: draft.tlsMinVersion,
+    tlsMaxVersion: draft.tlsMaxVersion,
+    tlsCipherSuites: draft.tlsCipherSuites,
     timeoutMs: draft.timeoutMs,
     maxResponseBytes: draft.maxResponseBytes,
     maxRedirects: draft.maxRedirects,

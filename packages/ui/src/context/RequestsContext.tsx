@@ -296,11 +296,18 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           ...(seed?.credentialsMode ? { credentialsMode: seed.credentialsMode } : {}),
           ...(seed?.followRedirects !== undefined ? { followRedirects: seed.followRedirects } : {}),
           ...(seed?.sslVerification !== undefined ? { sslVerification: seed.sslVerification } : {}),
+          ...(seed?.tlsMinVersion !== undefined ? { tlsMinVersion: seed.tlsMinVersion } : {}),
+          ...(seed?.tlsMaxVersion !== undefined ? { tlsMaxVersion: seed.tlsMaxVersion } : {}),
+          ...(seed?.tlsCipherSuites !== undefined ? { tlsCipherSuites: seed.tlsCipherSuites } : {}),
           ...(seed?.timeoutMs !== undefined ? { timeoutMs: seed.timeoutMs } : {}),
           ...(seed?.maxResponseBytes !== undefined ? { maxResponseBytes: seed.maxResponseBytes } : {}),
-    ...(seed?.maxRedirects !== undefined ? { maxRedirects: seed.maxRedirects } : {}),
-    ...(seed?.followOriginalHttpMethod !== undefined ? { followOriginalHttpMethod: seed.followOriginalHttpMethod } : {}),
-    ...(seed?.followAuthorizationHeader !== undefined ? { followAuthorizationHeader: seed.followAuthorizationHeader } : {}),
+          ...(seed?.maxRedirects !== undefined ? { maxRedirects: seed.maxRedirects } : {}),
+          ...(seed?.followOriginalHttpMethod !== undefined
+            ? { followOriginalHttpMethod: seed.followOriginalHttpMethod }
+            : {}),
+          ...(seed?.followAuthorizationHeader !== undefined
+            ? { followAuthorizationHeader: seed.followAuthorizationHeader }
+            : {}),
           ...(seed?.preRequestScript ? { preRequestScript: seed.preRequestScript } : {}),
           ...(seed?.postResponseScript ? { postResponseScript: seed.postResponseScript } : {}),
         };

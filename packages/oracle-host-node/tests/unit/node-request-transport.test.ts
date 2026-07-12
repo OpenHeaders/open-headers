@@ -256,7 +256,7 @@ describe('createNodeRequestTransport — per-attempt timeout', () => {
 });
 
 describe('createNodeRequestTransport — per-request TLS policy', () => {
-  it('rides the default dispatcher when sslVerification is absent or true', async () => {
+  it('rides the default dispatcher when no TLS-affecting option is set', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest());
     await transport().send(makeRequest({ sslVerification: true }));
@@ -278,6 +278,90 @@ describe('createNodeRequestTransport — per-request TLS policy', () => {
     const second = callInit(1).dispatcher;
     expect(first).toBeInstanceOf(Agent);
     expect(second).toBe(first);
+  });
+
+  it('routes a TLS version / cipher tuple through a dedicated agent, reused per tuple', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    const tuple = { tlsMinVersion: '1.0' as const, tlsMaxVersion: '1.2' as const };
+    await transport().send(makeRequest(tuple));
+    await transport().send(makeRequest(tuple));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('distinct TLS tuples get distinct agents', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ tlsMinVersion: '1.0' }));
+    await transport().send(makeRequest({ tlsMaxVersion: '1.2' }));
+    await transport().send(makeRequest({ tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' }));
+    const agents = [callInit(0).dispatcher, callInit(1).dispatcher, callInit(2).dispatcher];
+    for (const a of agents) expect(a).toBeInstanceOf(Agent);
+    expect(new Set(agents).size).toBe(3);
+  });
+
+  it('combines verification-off with version/cipher options on ONE shared agent', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    const tuple = {
+      sslVerification: false,
+      tlsMinVersion: '1.1' as const,
+      tlsCipherSuites: 'ECDHE-RSA-AES128-GCM-SHA256',
+    };
+    await transport().send(makeRequest(tuple));
+    await transport().send(makeRequest(tuple));
+    await transport().send(makeRequest({ sslVerification: false }));
+    const combined = callInit(0).dispatcher;
+    expect(combined).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(combined);
+    // Insecure-only is a DIFFERENT tuple — different agent.
+    expect(callInit(2).dispatcher).not.toBe(combined);
+  });
+
+  it('the per-tuple dispatcher rides EVERY hop of a redirect chain', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
+      .mockResolvedValueOnce(new Response('ok'));
+    await transport().send(makeRequest({ tlsMinVersion: '1.0' }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('evicts the oldest agent past the cache cap; a re-request mints a fresh one', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    const tuple = { tlsCipherSuites: 'EVICTION-PROBE' };
+    await transport().send(makeRequest(tuple));
+    const original = callInit(0).dispatcher;
+    expect(original).toBeInstanceOf(Agent);
+    // Flood the cache with more distinct tuples than the 32-entry cap
+    // holds — the probe tuple's agent must age out.
+    for (let i = 0; i < 35; i++) {
+      await transport().send(makeRequest({ tlsCipherSuites: `FLOOD-${i}` }));
+    }
+    await transport().send(makeRequest(tuple));
+    const remade = callInit(36).dispatcher;
+    expect(remade).toBeInstanceOf(Agent);
+    expect(remade).not.toBe(original);
+  });
+
+  it('classifies a no-usable-cipher failure naming the cipher setting', async () => {
+    fetchMock.mockRejectedValue(fetchError('ERR_SSL_NO_CIPHER_MATCH'));
+    await expect(transport().send(makeRequest({ tlsCipherSuites: 'BOGUS-SUITE' }))).rejects.toThrow(
+      /"TLS cipher suites" setting/,
+    );
+  });
+
+  it('classifies a handshake failure pointing at the TLS settings when they are tuned', async () => {
+    fetchMock.mockRejectedValue(fetchError('ERR_SSL_TLSV1_ALERT_PROTOCOL_VERSION'));
+    await expect(transport().send(makeRequest({ tlsMinVersion: '1.0', tlsMaxVersion: '1.1' }))).rejects.toThrow(
+      /TLS version and cipher suite settings/,
+    );
+  });
+
+  it('classifies a handshake failure WITHOUT naming settings when none are tuned', async () => {
+    fetchMock.mockRejectedValue(fetchError('EPROTO'));
+    const attempt = transport().send(makeRequest());
+    await expect(attempt).rejects.toThrow(/TLS handshake with api\.openheaders\.io failed \(EPROTO\)\.$/);
   });
 });
 

@@ -64,6 +64,7 @@ export {
   MAX_MAX_REDIRECTS,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BYTES,
+  MAX_TLS_CIPHER_SUITES_LENGTH,
   MaxRedirectsSchema,
   MaxResponseBytesSchema,
   MIN_MAX_REDIRECTS,
@@ -75,6 +76,10 @@ export {
   RequestSchema,
   RequestSeedSchema,
   RequestTimeoutMsSchema,
+  TLS_CIPHER_SUITES_PATTERN,
+  TLS_VERSIONS,
+  TlsCipherSuitesSchema,
+  TlsVersionSchema,
 } from './request';
 export { CapturedRequestSchema, CapturedResponseSchema, ResponseExampleSchema } from './response-example';
 export {

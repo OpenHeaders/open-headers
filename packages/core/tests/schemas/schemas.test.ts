@@ -350,6 +350,32 @@ describe('RequestSchema', () => {
     expect(v.safeParse(RequestSchema, { ...base, maxRedirects: 51 }).success).toBe(false);
     expect(v.safeParse(RequestSchema, { ...base, maxRedirects: 2.5 }).success).toBe(false);
   });
+
+  it('bounds the TLS version window and cipher suite list', () => {
+    const base = {
+      schemaVersion: 5,
+      uid: 'abcd1234',
+      path: 'x',
+      name: 'x',
+      method: 'GET',
+      url: 'x',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    };
+    expect(v.parse(RequestSchema, { ...base, tlsMinVersion: '1.0', tlsMaxVersion: '1.3' })).toBeTruthy();
+    expect(
+      v.parse(RequestSchema, { ...base, tlsCipherSuites: 'TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256' }),
+    ).toBeTruthy();
+    // Only the four known version tokens are accepted.
+    expect(v.safeParse(RequestSchema, { ...base, tlsMinVersion: '1.4' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, tlsMaxVersion: 'TLSv1.2' }).success).toBe(false);
+    // Cipher list is one colon-joined OpenSSL token string — no spaces,
+    // no empty string.
+    expect(v.safeParse(RequestSchema, { ...base, tlsCipherSuites: 'AES128, AES256' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, tlsCipherSuites: '' }).success).toBe(false);
+  });
 });
 
 describe('RuleSchema', () => {

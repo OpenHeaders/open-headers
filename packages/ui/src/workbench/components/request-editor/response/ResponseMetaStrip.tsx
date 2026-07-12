@@ -340,6 +340,18 @@ function unverifiedTlsContent(): InfoPopoverContent {
   };
 }
 
+/** Popover for the warning tag on a run whose per-request TLS floor
+ *  sat below the runtime's 1.2 default — the snapshot records the
+ *  policy the send actually ran under. */
+function tlsFloorLoweredContent(): InfoPopoverContent {
+  return {
+    title: 'TLS floor lowered',
+    kicker: 'Response meta',
+    summary:
+      'This request was sent with its minimum TLS version set below 1.2 in its Settings, so the connection was allowed to negotiate TLS 1.0 or 1.1 — protocol versions with known weaknesses that runtimes disable by default.',
+  };
+}
+
 /** Popover for the warning tag on a run whose redirect chain actually
  *  re-sent the Authorization header across origins — stamped only when
  *  the `followAuthorizationHeader` opt-in fired, not merely configured. */
@@ -421,6 +433,20 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >
               Unverified TLS
+            </Tag>
+          </InfoPopover>
+        </>
+      )}
+      {response.tlsFloorLowered && (
+        <>
+          <MetaDot />
+          <InfoPopover content={tlsFloorLoweredContent()} trigger="hover">
+            <Tag
+              color="warning"
+              data-testid="oh-response-tls-floor-lowered"
+              style={{ marginInlineEnd: 0, cursor: 'help' }}
+            >
+              TLS floor lowered
             </Tag>
           </InfoPopover>
         </>

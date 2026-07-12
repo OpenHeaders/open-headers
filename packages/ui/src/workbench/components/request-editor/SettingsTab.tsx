@@ -33,6 +33,15 @@
  *     three rows are hidden while "Automatically follow redirects" is
  *     off — they configure the chase, and there is no chase — matching
  *     the dot rule: a hidden knob contributes no tab dot.
+ *   • `tlsMinVersion` / `tlsMaxVersion` / `tlsCipherSuites` — the TLS
+ *     long tail, node-runtime only: the node transport's per-tuple
+ *     dispatcher cache carries the protocol window + offered suites
+ *     into the TLS connector. The browser owns its TLS stack outright,
+ *     so there both stay browser-managed fact rows. Lowering the floor
+ *     below 1.2 is trust-relaxing (warned in place, response marked);
+ *     raising it or listing suites is not. Cipher-suite ORDER stays a
+ *     fact everywhere: the server picks the suite, so preference order
+ *     is not a client-side knob.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -49,7 +58,7 @@
  */
 
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
-import { Button, InputNumber, Switch, Typography, theme } from 'antd';
+import { Button, Input, InputNumber, Select, Switch, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
@@ -57,10 +66,14 @@ import {
   MAX_MAX_REDIRECTS,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BYTES,
+  MAX_TLS_CIPHER_SUITES_LENGTH,
   MIN_MAX_REDIRECTS,
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
+  TLS_CIPHER_SUITES_PATTERN,
+  TLS_VERSIONS,
 } from '@openheaders/core/schemas';
+import type { TlsVersion } from '@openheaders/core/types';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 
 const { Text } = Typography;
@@ -73,6 +86,15 @@ export interface RequestSettingsDraft {
   /** Whether the node runtime verifies the server's TLS certificate
    *  chain. Defaults to true; browser runtimes always verify. */
   sslVerification?: boolean;
+  /** Lowest TLS version a send may negotiate. Undefined = the runtime
+   *  default (1.2). Node runtimes only. */
+  tlsMinVersion?: TlsVersion;
+  /** Highest TLS version a send may negotiate. Undefined = the runtime
+   *  default (1.3). Node runtimes only. */
+  tlsMaxVersion?: TlsVersion;
+  /** OpenSSL-format colon-joined cipher list offered in the handshake.
+   *  Undefined = the runtime's default suites. Node runtimes only. */
+  tlsCipherSuites?: string;
   /** Round-trip ceiling in milliseconds. Undefined = no per-request
    *  limit. Honored on both runtimes. */
   timeoutMs?: number;
@@ -191,17 +213,6 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
     description:
       'The URL path and query are percent-encoded by the URL parser before the request goes on the wire. Type already-encoded sequences to keep them verbatim.',
   },
-  {
-    label: 'TLS/SSL protocol versions',
-    value: '1.2–1.3',
-    description: 'The runtime enables TLS 1.2 and 1.3 by default; per-request selection is not exposed.',
-  },
-  {
-    label: 'TLS cipher suites',
-    value: 'Runtime',
-    description:
-      'Cipher negotiation uses the runtime’s default suite list; neither the list nor its order is configurable per request.',
-  },
 ];
 
 interface RuntimeManagedSheet {
@@ -301,6 +312,81 @@ const NumericKnobRow: React.FC<{
   </div>
 );
 
+/** Compact picklist-knob row: same `label · (i) · control` geometry as
+ *  {@link KnobRow}, with a clearable Select. An empty select means "no
+ *  explicit value" — the placeholder states the runtime default so the
+ *  empty state is never ambiguous. `warning` renders under the row
+ *  while the selected value is a risky one (the caller decides). */
+const SelectKnobRow: React.FC<{
+  label: string;
+  value: string | undefined;
+  onChange: (value: string | undefined) => void;
+  info: string;
+  options: Array<{ value: string; label: string; disabled?: boolean }>;
+  placeholder: string;
+  warning?: string;
+}> = ({ label, value, onChange, info, options, placeholder, warning }) => (
+  <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
+      <Text style={{ fontSize: 13 }}>{label}</Text>
+      <InfoTrigger content={{ title: label, summary: info }} />
+      <span style={{ flex: 1 }} />
+      <Select
+        size="small"
+        aria-label={label}
+        value={value}
+        onChange={(v) => onChange(v)}
+        options={options}
+        allowClear
+        placeholder={placeholder}
+        style={{ width: 148 }}
+      />
+    </div>
+    {warning !== undefined && (
+      <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
+        {warning}
+      </Text>
+    )}
+  </div>
+);
+
+/** Compact text-knob row: same geometry, with a wider free-text input.
+ *  Empty means "no explicit value" — the placeholder states the
+ *  effective default. `error` renders under the row (and tints the
+ *  field) while the current text is malformed. */
+const TextKnobRow: React.FC<{
+  label: string;
+  value: string | undefined;
+  onChange: (value: string | undefined) => void;
+  info: string;
+  placeholder: string;
+  maxLength: number;
+  error?: string;
+}> = ({ label, value, onChange, info, placeholder, maxLength, error }) => (
+  <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
+      <Text style={{ fontSize: 13 }}>{label}</Text>
+      <InfoTrigger content={{ title: label, summary: info }} />
+      <span style={{ flex: 1 }} />
+      <Input
+        size="small"
+        aria-label={label}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        status={error !== undefined ? 'error' : undefined}
+        style={{ width: 220 }}
+      />
+    </div>
+    {error !== undefined && (
+      <Text type="danger" style={{ fontSize: 11, marginBottom: 4 }}>
+        {error}
+      </Text>
+    )}
+  </div>
+);
+
 const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
   label,
   value,
@@ -317,6 +403,11 @@ const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
     </div>
   );
 };
+
+/** Position of a version token in the ordered {@link TLS_VERSIONS}
+ *  list — the min/max selects disable options outside the window the
+ *  OTHER select already pinned, so min ≤ max holds by construction. */
+const tlsVersionRank = (version: TlsVersion): number => TLS_VERSIONS.indexOf(version);
 
 const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
   const { token } = theme.useToken();
@@ -368,13 +459,57 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
         />
       )}
       {runtime === 'node' && (
-        <KnobRow
-          label="SSL certificate verification"
-          checked={value.sslVerification !== false}
-          onChange={(checked) => onChange({ ...value, sslVerification: checked })}
-          info="Verify the server's TLS certificate against the runtime's trusted CA store. A host with a self-signed, expired, or otherwise untrusted certificate fails with a TLS certificate error — switch verification off to reach it anyway, e.g. a development server with a self-signed certificate."
-          warning="Sends skip the server identity check — any certificate is accepted, including self-signed and expired ones. The response is marked as unverified."
-        />
+        <>
+          <KnobRow
+            label="SSL certificate verification"
+            checked={value.sslVerification !== false}
+            onChange={(checked) => onChange({ ...value, sslVerification: checked })}
+            info="Verify the server's TLS certificate against the runtime's trusted CA store. A host with a self-signed, expired, or otherwise untrusted certificate fails with a TLS certificate error — switch verification off to reach it anyway, e.g. a development server with a self-signed certificate."
+            warning="Sends skip the server identity check — any certificate is accepted, including self-signed and expired ones. The response is marked as unverified."
+          />
+          <SelectKnobRow
+            label="TLS version minimum"
+            value={value.tlsMinVersion}
+            onChange={(v) => onChange({ ...value, tlsMinVersion: v as TlsVersion | undefined })}
+            info="Lowest TLS protocol version a send may negotiate. Leave empty for the runtime default of TLS 1.2. Choosing 1.0 or 1.1 lowers the floor below the default to reach legacy servers — a response sent with a lowered floor is marked."
+            options={TLS_VERSIONS.map((v) => ({
+              value: v,
+              label: v,
+              disabled: value.tlsMaxVersion !== undefined && tlsVersionRank(v) > tlsVersionRank(value.tlsMaxVersion),
+            }))}
+            placeholder="1.2 (default)"
+            warning={
+              value.tlsMinVersion === '1.0' || value.tlsMinVersion === '1.1'
+                ? 'Sends may negotiate TLS below 1.2 — protocol versions with known weaknesses. The response is marked.'
+                : undefined
+            }
+          />
+          <SelectKnobRow
+            label="TLS version maximum"
+            value={value.tlsMaxVersion}
+            onChange={(v) => onChange({ ...value, tlsMaxVersion: v as TlsVersion | undefined })}
+            info="Highest TLS protocol version a send may negotiate. Leave empty for the runtime default of TLS 1.3. Lower it to check how a server behaves on an older protocol — the minimum may need lowering too, or the two won't overlap."
+            options={TLS_VERSIONS.map((v) => ({
+              value: v,
+              label: v,
+              disabled: value.tlsMinVersion !== undefined && tlsVersionRank(v) < tlsVersionRank(value.tlsMinVersion),
+            }))}
+            placeholder="1.3 (default)"
+          />
+          <TextKnobRow
+            label="TLS cipher suites"
+            value={value.tlsCipherSuites}
+            onChange={(tlsCipherSuites) => onChange({ ...value, tlsCipherSuites })}
+            info="Cipher suites offered during the TLS handshake, as a colon-separated OpenSSL-format list — TLS 1.3 suite names and older suite names both go in the one list. Leave empty to offer the runtime's default suites. The server picks the suite from what is offered, in its own preference order."
+            placeholder="Runtime default suites"
+            maxLength={MAX_TLS_CIPHER_SUITES_LENGTH}
+            error={
+              value.tlsCipherSuites !== undefined && !TLS_CIPHER_SUITES_PATTERN.test(value.tlsCipherSuites)
+                ? 'Colon-separated OpenSSL suite names only — no spaces.'
+                : undefined
+            }
+          />
+        </>
       )}
       <NumericKnobRow
         label="Request timeout"

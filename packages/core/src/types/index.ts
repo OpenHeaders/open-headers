@@ -151,6 +151,7 @@ export type {
   RequestBody,
   RequestHeader,
   RequestSeed,
+  TlsVersion,
 } from './request';
 
 // ── Request execution ──────────────────────────────────────────────

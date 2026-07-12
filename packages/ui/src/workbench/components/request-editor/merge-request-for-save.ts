@@ -22,6 +22,7 @@ import type {
   Request,
   RequestBody,
   RequestHeader,
+  TlsVersion,
 } from '@openheaders/core/types';
 import { deepEqual, mergeRowsByIdentity, mergeScalarLeaves } from '@openheaders/ui/shared/forms/per-field-merge';
 
@@ -36,6 +37,9 @@ export interface RequestSaveBatch {
   credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
   sslVerification: boolean | undefined;
+  tlsMinVersion: TlsVersion | undefined;
+  tlsMaxVersion: TlsVersion | undefined;
+  tlsCipherSuites: string | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -57,6 +61,9 @@ function projectRequest(req: Request): RequestSaveBatch {
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
     sslVerification: req.sslVerification,
+    tlsMinVersion: req.tlsMinVersion,
+    tlsMaxVersion: req.tlsMaxVersion,
+    tlsCipherSuites: req.tlsCipherSuites,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -100,6 +107,9 @@ export function mergeRequestForSave(
     credentialsMode: form.credentialsMode,
     followRedirects: form.followRedirects,
     sslVerification: form.sslVerification,
+    tlsMinVersion: form.tlsMinVersion,
+    tlsMaxVersion: form.tlsMaxVersion,
+    tlsCipherSuites: form.tlsCipherSuites,
     timeoutMs: form.timeoutMs,
     maxResponseBytes: form.maxResponseBytes,
     maxRedirects: form.maxRedirects,
@@ -116,6 +126,9 @@ export function mergeRequestForSave(
     credentialsMode: baseProj.credentialsMode,
     followRedirects: baseProj.followRedirects,
     sslVerification: baseProj.sslVerification,
+    tlsMinVersion: baseProj.tlsMinVersion,
+    tlsMaxVersion: baseProj.tlsMaxVersion,
+    tlsCipherSuites: baseProj.tlsCipherSuites,
     timeoutMs: baseProj.timeoutMs,
     maxResponseBytes: baseProj.maxResponseBytes,
     maxRedirects: baseProj.maxRedirects,
@@ -132,6 +145,9 @@ export function mergeRequestForSave(
     credentialsMode: liveProj.credentialsMode,
     followRedirects: liveProj.followRedirects,
     sslVerification: liveProj.sslVerification,
+    tlsMinVersion: liveProj.tlsMinVersion,
+    tlsMaxVersion: liveProj.tlsMaxVersion,
+    tlsCipherSuites: liveProj.tlsCipherSuites,
     timeoutMs: liveProj.timeoutMs,
     maxResponseBytes: liveProj.maxResponseBytes,
     maxRedirects: liveProj.maxRedirects,
@@ -158,6 +174,9 @@ export function mergeRequestForSave(
     credentialsMode: merged.credentialsMode as CredentialsMode | undefined,
     followRedirects: merged.followRedirects as boolean | undefined,
     sslVerification: merged.sslVerification as boolean | undefined,
+    tlsMinVersion: merged.tlsMinVersion as TlsVersion | undefined,
+    tlsMaxVersion: merged.tlsMaxVersion as TlsVersion | undefined,
+    tlsCipherSuites: merged.tlsCipherSuites as string | undefined,
     timeoutMs: merged.timeoutMs as number | undefined,
     maxResponseBytes: merged.maxResponseBytes as number | undefined,
     maxRedirects: merged.maxRedirects as number | undefined,

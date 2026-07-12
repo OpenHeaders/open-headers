@@ -18,6 +18,7 @@ import type {
   Request,
   RequestBody,
   RequestHeader,
+  TlsVersion,
 } from '@openheaders/core/types';
 import { useCallback, useState } from 'react';
 import { stashHandoffResponse } from '../components/request-editor/response-handoff';
@@ -59,6 +60,9 @@ export interface DraftData {
   credentialsMode?: CredentialsMode;
   followRedirects?: boolean;
   sslVerification?: boolean;
+  tlsMinVersion?: TlsVersion;
+  tlsMaxVersion?: TlsVersion;
+  tlsCipherSuites?: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -120,6 +124,9 @@ export function useSaveRequestFlow({
             credentialsMode: draftData.credentialsMode,
             followRedirects: draftData.followRedirects,
             sslVerification: draftData.sslVerification,
+            tlsMinVersion: draftData.tlsMinVersion,
+            tlsMaxVersion: draftData.tlsMaxVersion,
+            tlsCipherSuites: draftData.tlsCipherSuites,
             timeoutMs: draftData.timeoutMs,
             maxResponseBytes: draftData.maxResponseBytes,
             maxRedirects: draftData.maxRedirects,
@@ -163,6 +170,9 @@ export function useSaveRequestFlow({
           credentialsMode: saveModalDraftData.credentialsMode,
           followRedirects: saveModalDraftData.followRedirects,
           sslVerification: saveModalDraftData.sslVerification,
+          tlsMinVersion: saveModalDraftData.tlsMinVersion,
+          tlsMaxVersion: saveModalDraftData.tlsMaxVersion,
+          tlsCipherSuites: saveModalDraftData.tlsCipherSuites,
           timeoutMs: saveModalDraftData.timeoutMs,
           maxResponseBytes: saveModalDraftData.maxResponseBytes,
           maxRedirects: saveModalDraftData.maxRedirects,

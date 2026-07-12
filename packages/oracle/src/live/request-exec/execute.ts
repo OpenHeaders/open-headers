@@ -76,6 +76,9 @@ export async function executeOverTransport(
     redirect: resolved.followRedirects === false ? 'manual' : 'follow',
     credentials: resolved.credentialsMode,
     sslVerification: resolved.sslVerification,
+    tlsMinVersion: resolved.tlsMinVersion,
+    tlsMaxVersion: resolved.tlsMaxVersion,
+    tlsCipherSuites: resolved.tlsCipherSuites,
     maxBodyBytes,
     timeoutMs: options.timeoutMs ?? resolved.timeoutMs,
     maxRedirects: resolved.maxRedirects,
@@ -87,6 +90,10 @@ export async function executeOverTransport(
   // failure) so the response surface marks the run even after the
   // request's setting is flipped back.
   const verificationOff = resolved.sslVerification === false;
+  // Likewise a send that ran with the TLS floor lowered below the
+  // runtime's 1.2 default — the policy is known before the wire, so
+  // success and error paths mark alike.
+  const tlsFloorLowered = resolved.tlsMinVersion === '1.0' || resolved.tlsMinVersion === '1.1';
 
   const startedAt = performance.now();
   try {
@@ -108,6 +115,7 @@ export async function executeOverTransport(
       bodyBytes: response.bodyBytes,
       durationMs,
       ...(verificationOff ? { sslVerificationDisabled: true } : {}),
+      ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
       // The transport reports an actual cross-origin Authorization
       // re-send (only the redirect loop can know); stamp it so the
       // response surface marks the run.
@@ -120,7 +128,12 @@ export async function executeOverTransport(
     // The transport classifies network failures into a user-actionable
     // message; anything else surfaces its raw message.
     const message = err instanceof TransportError ? err.message : err instanceof Error ? err.message : String(err);
-    return { ...errorSnapshot(message), durationMs, ...(verificationOff ? { sslVerificationDisabled: true } : {}) };
+    return {
+      ...errorSnapshot(message),
+      durationMs,
+      ...(verificationOff ? { sslVerificationDisabled: true } : {}),
+      ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
+    };
   }
 }
 

@@ -72,6 +72,36 @@ export const MaxRedirectsSchema = v.pipe(
   v.maxValue(MAX_MAX_REDIRECTS),
 );
 
+/**
+ * TLS protocol versions selectable for the per-request negotiation
+ * window. UI-facing tokens (`'1.2'`), translated to the runtime's own
+ * version tokens at the transport. Exported as a list so the Settings
+ * tab builds its selects from the same source the schema validates.
+ */
+export const TLS_VERSIONS = ['1.0', '1.1', '1.2', '1.3'] as const;
+
+export const TlsVersionSchema = v.picklist(TLS_VERSIONS);
+
+/**
+ * OpenSSL-format cipher suite list: colon-joined suite names (TLS ≤1.2
+ * and TLS 1.3 suites both ride the one string). The token alphabet is
+ * OpenSSL's — suite names plus the list operators (`:`, `!`, `+`, `-`,
+ * `=`, `@`) — with whitespace rejected so a stray space never ships in
+ * YAML. Whether the listed suites are USABLE is only known at connect
+ * time; the transport classifies that failure naming this setting.
+ */
+export const MAX_TLS_CIPHER_SUITES_LENGTH = 2_048;
+
+/** Shared with the Settings tab so the editor flags a malformed list
+ *  in place instead of failing at save validation. */
+export const TLS_CIPHER_SUITES_PATTERN = /^[A-Za-z0-9:_+!@=-]+$/;
+
+export const TlsCipherSuitesSchema = v.pipe(
+  v.string(),
+  v.regex(TLS_CIPHER_SUITES_PATTERN, 'Must be an OpenSSL-format cipher list (colon-separated, no spaces)'),
+  v.maxLength(MAX_TLS_CIPHER_SUITES_LENGTH),
+);
+
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
 /**
@@ -489,6 +519,32 @@ export const RequestSchema = v.object({
    * marked.
    */
   sslVerification: v.optional(v.boolean()),
+  /**
+   * Lowest TLS protocol version the send may negotiate. Absent = the
+   * runtime default floor (TLS 1.2). `'1.0'` / `'1.1'` LOWER the floor
+   * below the runtime default — a per-request explicit opt-in for
+   * legacy servers, never a workspace/global default; a send that ran
+   * with a lowered floor is recorded on the executed-run snapshot so
+   * the response is visibly marked. Honored by node runtimes; browser
+   * runtimes fix their protocol window and ignore it (the request
+   * still syncs it — one schema, all runtimes carry the value).
+   */
+  tlsMinVersion: v.optional(TlsVersionSchema),
+  /**
+   * Highest TLS protocol version the send may negotiate. Absent = the
+   * runtime default ceiling (TLS 1.3). Useful to force an older
+   * protocol against a server under test. Node-only for the same
+   * reason as `tlsMinVersion`; not trust-relaxing on its own.
+   */
+  tlsMaxVersion: v.optional(TlsVersionSchema),
+  /**
+   * Cipher suites offered during the TLS handshake, as one
+   * OpenSSL-format colon-joined list. Absent = the runtime's default
+   * list. The server still picks the suite from what is offered, in
+   * its own preference order. Node-only for the same reason as
+   * `tlsMinVersion`. Bounded — see {@link TlsCipherSuitesSchema}.
+   */
+  tlsCipherSuites: v.optional(TlsCipherSuitesSchema),
   /**
    * Wall-clock ceiling (ms) on the whole round-trip — connection,
    * response, and body read. Honored by BOTH runtimes (the browser

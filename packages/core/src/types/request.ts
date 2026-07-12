@@ -34,6 +34,7 @@ import type {
   RequestHeaderSchema,
   RequestSchema,
   RequestSeedSchema,
+  TlsVersionSchema,
 } from '../schemas/request';
 
 // ── HTTP method ────────────────────────────────────────────────────
@@ -95,6 +96,13 @@ export type FormField = v.InferOutput<typeof FormFieldSchema>;
  * See ARCHITECTURE.md §14 — cookie-jar policy.
  */
 export type CredentialsMode = v.InferOutput<typeof CredentialsModeSchema>;
+
+/**
+ * TLS protocol version token for the per-request negotiation window
+ * (`tlsMinVersion` / `tlsMaxVersion`). UI-facing form (`'1.2'`);
+ * transports translate to their runtime's own tokens.
+ */
+export type TlsVersion = v.InferOutput<typeof TlsVersionSchema>;
 
 export type Request = v.InferOutput<typeof RequestSchema>;
 

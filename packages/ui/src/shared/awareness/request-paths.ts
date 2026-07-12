@@ -28,6 +28,9 @@ export interface RequestPathBundle {
   credentialsMode: string;
   followRedirects: string;
   sslVerification: string;
+  tlsMinVersion: string;
+  tlsMaxVersion: string;
+  tlsCipherSuites: string;
   timeoutMs: string;
   maxResponseBytes: string;
   maxRedirects: string;
@@ -53,6 +56,9 @@ export const REQUEST_PATHS: RequestPathBundle = {
   credentialsMode: 'credentialsMode',
   followRedirects: 'followRedirects',
   sslVerification: 'sslVerification',
+  tlsMinVersion: 'tlsMinVersion',
+  tlsMaxVersion: 'tlsMaxVersion',
+  tlsCipherSuites: 'tlsCipherSuites',
   timeoutMs: 'timeoutMs',
   maxResponseBytes: 'maxResponseBytes',
   maxRedirects: 'maxRedirects',
