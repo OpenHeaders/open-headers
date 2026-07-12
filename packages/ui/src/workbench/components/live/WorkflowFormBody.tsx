@@ -16,7 +16,7 @@ import { useMemo } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
 import { buildDependencyRows } from './dependencies-view';
 import { appendDraftStep } from './graph-edit';
-import { InlineDescription, Section } from './layout';
+import { InlineDescription, LIVE_FORM_PAD_X, Section } from './layout';
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
 import RefreshPolicyEditor from './RefreshPolicyEditor';
@@ -278,6 +278,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
           header above. One block — sticky content below a bottom-stuck
           element would be unreachable while it's pinned. */}
       <div
+        data-testid="wf-form-floor"
         style={{
           position: 'sticky',
           bottom: 0,
@@ -288,6 +289,8 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
+          marginInline: -LIVE_FORM_PAD_X,
+          paddingInline: LIVE_FORM_PAD_X,
         }}
       >
       <div data-field-path={LIVE_WORKFLOW_FIELD.refresh}>

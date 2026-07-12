@@ -63,6 +63,7 @@ import EditorHeader from '../shell/EditorHeader';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { LIVE_WORKFLOW_FIELD, liveWorkflowStepIndexFromPath } from '@openheaders/ui/shared/awareness/live-paths';
 import { appendDraftStep } from './graph-edit';
+import { LIVE_FORM_PAD_X } from './layout';
 import { classifyRun, pickActiveRun, statusColor } from './live-display';
 import WorkflowFormBody from './WorkflowFormBody';
 import WorkflowGraphBody from './WorkflowGraphBody';
@@ -497,7 +498,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
         // `oh-persistent-scroll` keeps the scrollbar visible whenever
         // the step list overflows.
         <div className="oh-persistent-scroll" style={{ flex: 1 }}>
-          <div style={{ maxWidth: 920, margin: '0 auto', padding: '16px 20px 0' }}>
+          <div style={{ maxWidth: 920, margin: '0 auto', padding: `16px ${LIVE_FORM_PAD_X}px 0` }}>
             <WorkflowFormBody
               draft={draft}
               setDraft={setDraft}
@@ -664,7 +665,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
         // Same scroll/padding structure as EditMode — see the comment
         // there for why the container itself carries no padding.
         <div className="oh-persistent-scroll" style={{ flex: 1 }}>
-          <div style={{ maxWidth: 920, margin: '0 auto', padding: '16px 20px 0' }}>
+          <div style={{ maxWidth: 920, margin: '0 auto', padding: `16px ${LIVE_FORM_PAD_X}px 0` }}>
             <WorkflowFormBody
               draft={draft}
               setDraft={setDraft}

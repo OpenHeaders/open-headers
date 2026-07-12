@@ -21,6 +21,12 @@ const { Text } = Typography;
 
 export const LIVE_ROW_LABEL_WIDTH = 108;
 export const LIVE_ROW_GAP = 12;
+/** Horizontal padding of the Live editors' form scroll wrapper. Sticky
+ *  header/floor surfaces bleed by this amount so their background spans
+ *  the full scrollport — otherwise content (e.g. a selected card's
+ *  1px selection ring, which paints outside its box) peeks through the
+ *  padding gutters while scrolling. */
+export const LIVE_FORM_PAD_X = 20;
 
 interface FieldRowProps {
   label: string;
@@ -91,6 +97,8 @@ export const Section: React.FC<SectionProps> = ({ title, sticky = false, childre
             zIndex: 3,
             background: token.colorBgContainer,
             paddingTop: 6,
+            marginInline: -LIVE_FORM_PAD_X,
+            paddingInline: LIVE_FORM_PAD_X,
           }),
         }}
       >
