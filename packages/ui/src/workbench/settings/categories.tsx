@@ -238,9 +238,12 @@ registerCategory({
   description:
     'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 10 active users per daemon.',
   renderPane: LicensePane,
-  // The extension carries no license plumbing; desktop and the served
-  // web workbench both reach the host's license slot over their bridge.
-  when: () => getCurrentHost() !== 'extension',
+  // License state is an admin surface: the desktop operator always
+  // administers their own spine, while a served web tab shows it only
+  // to subjects whose `daemon.admin` probe resolves — seat users see
+  // nothing. The extension carries no license plumbing and its probe
+  // reads denied.
+  when: ({ daemonAdmin }) => getCurrentHost() === 'desktop' || daemonAdmin === 'admin',
 });
 
 registerCategory({

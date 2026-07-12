@@ -11,6 +11,7 @@ import { UndoOutlined } from '@ant-design/icons';
 import { Button, ConfigProvider, type InputRef, Popconfirm, Skeleton, theme } from 'antd';
 import type React from 'react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDaemonAdminStatus } from '../../components/daemon-admin/use-daemon-admin-status';
 import { useModifiedCount, useResetAllSettings } from '../hooks';
 import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
@@ -61,14 +62,15 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   // ── Active category (first non-empty, by category order) ────────────
   // Categories with a custom pane stay selectable even with zero setting
   // defs — group landing pages own no settings of their own.
+  const daemonAdmin = useDaemonAdminStatus();
   const orderedCategories = useMemo(() => {
-    const cats = allCategories().filter((c) => c.when?.() !== false);
+    const cats = allCategories().filter((c) => c.when?.({ daemonAdmin }) !== false);
     const visible: CategoryDef[] = [];
     for (const cat of cats) {
       if ((byCategory.get(cat.id)?.length ?? 0) > 0 || cat.renderPane) visible.push(cat);
     }
     return { all: cats, visible };
-  }, [byCategory]);
+  }, [byCategory, daemonAdmin]);
 
   // The setting's own category wins over an explicit initialCategoryId
   // when both are passed — otherwise deep-linking to a key in a different

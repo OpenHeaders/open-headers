@@ -195,6 +195,20 @@ export interface CategoryPaneProps {
   onSelectCategory?: (categoryId: string) => void;
 }
 
+/**
+ * Render-time signals available to category `when` predicates beyond
+ * what module scope can answer synchronously (host kind is read via
+ * `getCurrentHost()`; admin-ness arrives async from the daemon probe).
+ */
+export interface CategoryVisibilityContext {
+  /**
+   * Whether the calling subject may administer the reachable daemon —
+   * the client-side read of the server's `daemon.admin` resolution
+   * (`useDaemonAdminStatus`). `unknown` while the probe is in flight.
+   */
+  daemonAdmin: 'unknown' | 'admin' | 'denied';
+}
+
 export interface CategoryDef {
   id: string;
   label: string;
@@ -220,9 +234,10 @@ export interface CategoryDef {
    * removes it from the nav and the pane rotation on this host —
    * setting-level `when` still governs individual rows reached through
    * search. Evaluated at render time, so boot-injected host signals
-   * (e.g. `getCurrentHost()`) are safe to read here.
+   * (e.g. `getCurrentHost()`) are safe to read here; async signals
+   * (admin-ness) arrive through the context and re-evaluate on change.
    */
-  when?: () => boolean;
+  when?: (ctx: CategoryVisibilityContext) => boolean;
   /**
    * Optional custom renderer for the right-hand pane. When omitted the
    * default `CategoryPane` (rows-in-cards) is used. Categories with
