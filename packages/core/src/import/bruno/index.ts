@@ -33,7 +33,7 @@
  *     defaults drop with per-block report entries — never silently.
  */
 
-export { parseBruno, parseBrunoFiles } from './parse';
+export { isBrunoImportPath, parseBruno, parseBrunoFiles, stripBrunoRootPrefix } from './parse';
 export {
   type BrunoFile,
   type BrunoParsedEnvironment,

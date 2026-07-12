@@ -1,5 +1,11 @@
 import { hostBridge } from '@openheaders/core/bridge';
-import { type DetectedImportSource, detectImportSource } from '@openheaders/core/import';
+import {
+  type BrunoFile,
+  type DetectedImportSource,
+  detectImportSource,
+  isBrunoImportPath,
+  stripBrunoRootPrefix,
+} from '@openheaders/core/import';
 import type { RuleSeed } from '@openheaders/core/utils';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
@@ -17,6 +23,7 @@ import ImportSectionedModal, { type SectionedPreset, type SectionedSourceKind } 
 import ExportModal, { type ExportModalScope } from './ExportModal';
 import ImportPreviewModal, { type ImportPreviewSource } from './ImportPreviewModal';
 import ImportSourceModal from './ImportSourceModal';
+import type { PickedFile } from './picked-files';
 
 /**
  * Imperative surface the workbench shell drives from its various
@@ -84,7 +91,9 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
   const [importPostmanOpen, setImportPostmanOpen] = useState(false);
   const [importPostmanInitialText, setImportPostmanInitialText] = useState<string | undefined>(undefined);
   const [importSectionedState, setImportSectionedState] = useState<
-    { open: false } | { open: true; kind: SectionedSourceKind; text: string }
+    | { open: false }
+    | { open: true; kind: SectionedSourceKind; text: string }
+    | { open: true; kind: 'bruno'; files: BrunoFile[] }
   >({ open: false });
   const [importSourceContext, setImportSourceContext] = useState<{ collectionId?: string } | undefined>(undefined);
   const [exportModalState, setExportModalState] = useState<{ open: false } | { open: true; scope: ExportModalScope }>({
@@ -328,6 +337,39 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     [routeDetectedText],
   );
 
+  /**
+   * A picked/dropped folder is a Bruno collection candidate: strip the
+   * folder's own name off the paths, keep only importable files
+   * (`.bru` / `bruno.json` — nothing else is ever opened), read those,
+   * and land in the sectioned modal. An empty result keeps the hub
+   * open with a warning instead of dead-ending.
+   */
+  const onImportFolderChosen = useCallback(
+    async (picked: PickedFile[]) => {
+      const importable = stripBrunoRootPrefix(picked).filter((p) => isBrunoImportPath(p.path));
+      if (importable.length === 0) {
+        message.warning('No Bruno files in that folder — expected .bru files or a bruno.json.');
+        return;
+      }
+      const files: BrunoFile[] = [];
+      let unreadable = 0;
+      for (const p of importable) {
+        try {
+          files.push({ path: p.path, content: await p.file.text() });
+        } catch {
+          unreadable += 1;
+        }
+      }
+      if (unreadable > 0) {
+        message.warning(`${unreadable} file${unreadable === 1 ? '' : 's'} could not be read and were skipped.`);
+      }
+      if (files.length === 0) return;
+      setImportSourceModalOpen(false);
+      setImportSectionedState({ open: true, kind: 'bruno', files });
+    },
+    [message],
+  );
+
   useImperativeHandle(
     ref,
     () => ({ openExportModal, openImportSource, openImportText }),
@@ -430,7 +472,10 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
       <ImportSectionedModal
         open={importSectionedState.open}
         sourceKind={importSectionedState.open ? importSectionedState.kind : 'postman-backup'}
-        initialText={importSectionedState.open ? importSectionedState.text : undefined}
+        initialText={importSectionedState.open && 'text' in importSectionedState ? importSectionedState.text : undefined}
+        initialFiles={
+          importSectionedState.open && 'files' in importSectionedState ? importSectionedState.files : undefined
+        }
         onCancel={() => setImportSectionedState({ open: false })}
         createCollection={async (name) => {
           const c = await requestsApi.createCollection(name);
@@ -496,6 +541,9 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         onTextDetected={routeDetectedText}
         onFileChosen={(file) => {
           void onImportFileChosen(file);
+        }}
+        onFolderChosen={(picked) => {
+          void onImportFolderChosen(picked);
         }}
       />
 

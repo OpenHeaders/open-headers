@@ -8,7 +8,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { BrunoParseError, parseBruno, parseBrunoFiles } from '../../src/import/bruno';
+import {
+  BrunoParseError,
+  isBrunoImportPath,
+  parseBruno,
+  parseBrunoFiles,
+  stripBrunoRootPrefix,
+} from '../../src/import/bruno';
 import { stripUids } from './_kv-utils';
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -424,6 +430,21 @@ describe('parseBrunoFiles — folder composition', () => {
     expect(result.report.drops.some((d) => d.path === 'readme.md')).toBe(true);
   });
 
+  it('composes a picker-shaped folder after root-prefix stripping', () => {
+    const picked = stripBrunoRootPrefix([
+      { path: 'My Collection/bruno.json', content: JSON.stringify({ version: '1', name: 'Picked API' }) },
+      { path: 'My Collection/ping.bru', content: PING },
+      {
+        path: 'My Collection/environments/staging.bru',
+        content: `vars {\n  host: https://staging.openheaders.io\n}\n`,
+      },
+    ]);
+    const result = parseBrunoFiles(picked);
+    expect(result.collectionName).toBe('Picked API');
+    expect(result.requests.map((r) => r.request.name)).toEqual(['Ping']);
+    expect(result.environments.map((e) => e.name)).toEqual(['staging']);
+  });
+
   it('never leaks secret values into the report', () => {
     const secret = 'super-secret-password-xyz';
     const result = parseBrunoFiles([
@@ -433,5 +454,63 @@ describe('parseBrunoFiles — folder composition', () => {
       },
     ]);
     expect(JSON.stringify(result.report)).not.toContain(secret);
+  });
+});
+
+// ── Picker helpers ─────────────────────────────────────────────────
+
+describe('isBrunoImportPath', () => {
+  it('accepts .bru files and bruno.json at any depth', () => {
+    expect(isBrunoImportPath('ping.bru')).toBe(true);
+    expect(isBrunoImportPath('auth/login.BRU')).toBe(true);
+    expect(isBrunoImportPath('bruno.json')).toBe(true);
+    expect(isBrunoImportPath('environments/staging.bru')).toBe(true);
+  });
+
+  it('rejects other files, dot-paths, and node_modules', () => {
+    expect(isBrunoImportPath('readme.md')).toBe(false);
+    expect(isBrunoImportPath('assets/logo.png')).toBe(false);
+    expect(isBrunoImportPath('.git/config.bru')).toBe(false);
+    expect(isBrunoImportPath('auth/.hidden.bru')).toBe(false);
+    expect(isBrunoImportPath('node_modules/pkg/x.bru')).toBe(false);
+  });
+});
+
+describe('stripBrunoRootPrefix', () => {
+  it('strips the one shared leading directory', () => {
+    expect(
+      stripBrunoRootPrefix([
+        { path: 'coll/bruno.json' },
+        { path: 'coll/ping.bru' },
+        { path: 'coll/auth/login.bru' },
+      ]).map((f) => f.path),
+    ).toEqual(['bruno.json', 'ping.bru', 'auth/login.bru']);
+  });
+
+  it('strips exactly one level — genuine shared subfolders survive', () => {
+    expect(stripBrunoRootPrefix([{ path: 'coll/auth/login.bru' }, { path: 'coll/auth/logout.bru' }]).map((f) => f.path)).toEqual([
+      'auth/login.bru',
+      'auth/logout.bru',
+    ]);
+  });
+
+  it('leaves unshared, root-level, and environments-rooted paths alone', () => {
+    expect(stripBrunoRootPrefix([{ path: 'a/x.bru' }, { path: 'b/y.bru' }]).map((f) => f.path)).toEqual([
+      'a/x.bru',
+      'b/y.bru',
+    ]);
+    expect(stripBrunoRootPrefix([{ path: 'ping.bru' }]).map((f) => f.path)).toEqual(['ping.bru']);
+    expect(
+      stripBrunoRootPrefix([{ path: 'environments/staging.bru' }, { path: 'environments/prod.bru' }]).map(
+        (f) => f.path,
+      ),
+    ).toEqual(['environments/staging.bru', 'environments/prod.bru']);
+  });
+
+  it('normalizes separators while stripping', () => {
+    expect(stripBrunoRootPrefix([{ path: 'coll\\ping.bru' }, { path: '/coll/auth/login.bru' }]).map((f) => f.path)).toEqual([
+      'ping.bru',
+      'auth/login.bru',
+    ]);
   });
 });

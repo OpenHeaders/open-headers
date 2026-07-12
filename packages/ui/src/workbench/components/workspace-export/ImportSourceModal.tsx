@@ -12,15 +12,19 @@
  *     half-typed commands don't get yanked away mid-keystroke.
  *   • Drop zone / file picker: files are handed to `onFileChosen`; the
  *     host reads the text and routes by the same detection.
+ *   • Folder picker / directory drag: a picked folder (Bruno
+ *     collection) hands its files to `onFolderChosen` — consent-shaped,
+ *     the user chooses the folder; nothing is scanned beyond it.
  *
  * Unknown input renders an inline hint — the hub never dead-ends.
  */
 
-import { ArrowRightOutlined, CloseOutlined, InboxOutlined, UploadOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, CloseOutlined, FolderOpenOutlined, InboxOutlined, UploadOutlined } from '@ant-design/icons';
 import { detectImportSource } from '@openheaders/core/import';
 import { Button, Input, Modal, Skeleton, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { type PickedFile, pickedFromEntries, pickedFromInput } from './picked-files';
 
 const { Text } = Typography;
 
@@ -34,6 +38,9 @@ interface Props {
   onTextDetected: (detected: ReturnType<typeof detectImportSource>, text: string) => void;
   /** Hand-off for picked/dropped files; the host routes by content. */
   onFileChosen: (file: File) => void;
+  /** Hand-off for a picked/dropped folder (Bruno collection); the host
+   *  filters to importable paths, reads them, and routes. */
+  onFolderChosen: (files: PickedFile[]) => void;
   /** When true, the drop zone is replaced with a skeleton + "Reading
    *  file…" line. The host flips this on right after `onFileChosen`
    *  fires and clears it (or closes the modal) once the next modal
@@ -42,9 +49,17 @@ interface Props {
   loading?: boolean;
 }
 
-const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onTextDetected, onFileChosen, loading = false }) => {
+const ImportSourceModal: React.FC<Props> = ({
+  open,
+  onCancel,
+  onTextDetected,
+  onFileChosen,
+  onFolderChosen,
+  loading = false,
+}) => {
   const { token } = theme.useToken();
   const inputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const pasteJustHappened = useRef(false);
@@ -53,6 +68,7 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onTextDetected, on
   const recognized = detected.kind !== 'unknown';
 
   const pickFile = useCallback(() => inputRef.current?.click(), []);
+  const pickFolder = useCallback(() => folderInputRef.current?.click(), []);
 
   const handleFiles = useCallback(
     (files: FileList | File[] | null) => {
@@ -202,6 +218,15 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onTextDetected, on
               onDrop={(e) => {
                 e.preventDefault();
                 setDragActive(false);
+                // Entries must be grabbed synchronously — the
+                // DataTransfer is only readable during the event.
+                const entries = Array.from(e.dataTransfer.items ?? []).map(
+                  (item) => item.webkitGetAsEntry?.() ?? null,
+                );
+                if (entries.some((entry) => entry?.isDirectory)) {
+                  void pickedFromEntries(entries).then(onFolderChosen);
+                  return;
+                }
                 handleFiles(e.dataTransfer.files);
               }}
               style={{
@@ -220,26 +245,36 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onTextDetected, on
                 style={{ fontSize: 40, color: dragActive ? token.colorPrimary : token.colorTextTertiary }}
               />
               <Text strong style={{ fontSize: 14 }}>
-                Drop a file to import
+                Drop a file or folder to import
               </Text>
               <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', maxWidth: 360 }}>
-                HAR, Postman collection or backup, Insomnia export, Bruno <code>.bru</code> file, or{' '}
-                <code>.openheaders.yaml</code> workspace export — the format is recognized automatically.
+                HAR, Postman collection or backup, Insomnia export, Bruno <code>.bru</code> file or collection folder,
+                or <code>.openheaders.yaml</code> workspace export — the format is recognized automatically.
               </Text>
-              <Button
-                type="primary"
-                icon={<UploadOutlined />}
-                // Stop propagation: the parent zone div is also `role="button"`
-                // wired to `pickFile`, so without this the Button's click
-                // bubbles up and the OS file picker opens twice.
-                onClick={(e) => {
-                  e.stopPropagation();
-                  pickFile();
-                }}
-                style={{ marginTop: 4 }}
-              >
-                Browse files…
-              </Button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <Button
+                  type="primary"
+                  icon={<UploadOutlined />}
+                  // Stop propagation: the parent zone div is also `role="button"`
+                  // wired to `pickFile`, so without this the Button's click
+                  // bubbles up and the OS file picker opens twice.
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pickFile();
+                  }}
+                >
+                  Browse files…
+                </Button>
+                <Button
+                  icon={<FolderOpenOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pickFolder();
+                  }}
+                >
+                  Browse folder…
+                </Button>
+              </div>
               <input
                 ref={inputRef}
                 type="file"
@@ -249,6 +284,22 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onTextDetected, on
                 onChange={(e) => {
                   handleFiles(e.target.files);
                   if (inputRef.current) inputRef.current.value = '';
+                }}
+              />
+              <input
+                // React's typings carry no `webkitdirectory`; it must
+                // land as a real DOM attribute to switch the native
+                // dialog into folder mode (Chromium and Firefox).
+                ref={(el) => {
+                  folderInputRef.current = el;
+                  el?.setAttribute('webkitdirectory', '');
+                }}
+                type="file"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  onFolderChosen(pickedFromInput(e.target.files));
+                  if (folderInputRef.current) folderInputRef.current.value = '';
                 }}
               />
             </div>

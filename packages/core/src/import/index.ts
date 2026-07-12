@@ -13,8 +13,10 @@ export {
   type BrunoParsedRequest,
   BrunoParseError,
   type BrunoParseResult,
+  isBrunoImportPath,
   parseBruno,
   parseBrunoFiles,
+  stripBrunoRootPrefix,
 } from './bruno';
 export { CurlParseError, type CurlParseResult, type CurlRequest, parseCurl, tokenize } from './curl';
 export { type DetectedImportSource, detectImportSource } from './detect';

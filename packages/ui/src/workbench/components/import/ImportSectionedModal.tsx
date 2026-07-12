@@ -2,8 +2,8 @@
  * ImportSectionedModal — stage-2 confirmation for multi-section import
  * sources: a Postman backup (N collections + M environments + header
  * presets), an Insomnia export (collections + environments), or a
- * Bruno `.bru` file. One component parameterized by the parse result;
- * `ImportPostmanModal` is the styling template.
+ * Bruno `.bru` file / collection folder. One component parameterized
+ * by the parse result; `ImportPostmanModal` is the styling template.
  *
  * Sections render per-source counts, a parsed preview, and import
  * notes (drops/transforms with full reasons). Target collections are
@@ -18,7 +18,9 @@
 
 import { ExperimentOutlined, FolderOutlined, ImportOutlined, TagsOutlined } from '@ant-design/icons';
 import {
+  type BrunoFile,
   BrunoParseError,
+  type BrunoParseResult,
   type CurlRequest,
   diffImportReports,
   hashImportSource,
@@ -27,6 +29,7 @@ import {
   InsomniaParseError,
   PostmanBackupParseError,
   parseBruno,
+  parseBrunoFiles,
   parseInsomnia,
   parsePostmanBackup,
   recordDrop,
@@ -85,10 +88,20 @@ const SOURCE_LABELS: Record<SectionedSourceKind, { title: string; blurb: string 
   bruno: {
     title: 'IMPORT FROM BRUNO',
     blurb:
-      'Import a Bruno .bru request. Method, headers, params, body, and basic/bearer/api-key auth are preserved; ' +
+      'Import a Bruno .bru request or a whole collection folder. Method, headers, params, body, and ' +
+      'basic/bearer/api-key auth are preserved; a folder brings its folder tree, ordering, and environments; ' +
       'scripts, tests, and docs blocks are tracked as drops.',
   },
 };
+
+function fromBrunoResult(r: BrunoParseResult): SectionedParse {
+  return {
+    collections: [{ name: r.collectionName, folders: r.folders, requests: r.requests }],
+    environments: r.environments.map((e) => ({ name: e.name, variables: e.variables })),
+    headerPresets: [],
+    report: r.report,
+  };
+}
 
 function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse {
   switch (kind) {
@@ -117,15 +130,8 @@ function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse
         report: r.report,
       };
     }
-    case 'bruno': {
-      const r = parseBruno(text);
-      return {
-        collections: [{ name: r.collectionName, folders: r.folders, requests: r.requests }],
-        environments: r.environments.map((e) => ({ name: e.name, variables: e.variables })),
-        headerPresets: [],
-        report: r.report,
-      };
-    }
+    case 'bruno':
+      return fromBrunoResult(parseBruno(text));
   }
 }
 
@@ -136,6 +142,9 @@ interface ImportSectionedModalProps {
   sourceKind: SectionedSourceKind;
   /** The recognized paste/file text — parsed on open, like the hub's Postman hand-off. */
   initialText?: string;
+  /** A picked Bruno collection folder (`bruno` only) — collection-relative
+   *  paths + contents from the hub's folder picker. Wins over `initialText`. */
+  initialFiles?: BrunoFile[];
   onCancel: () => void;
   onImported: (result: { importedCollections: number; report: ImportReport }) => void;
   createCollection: (name: string) => Promise<{ uid: string; path: string } | null>;
@@ -157,13 +166,31 @@ interface ImportSectionedModalProps {
 
 type Stage = { kind: 'empty' } | { kind: 'parsed'; source: string; result: SectionedParse } | { kind: 'error'; message: string };
 
+function toStageError(err: unknown): Stage {
+  const known =
+    err instanceof PostmanBackupParseError || err instanceof InsomniaParseError || err instanceof BrunoParseError;
+  return { kind: 'error', message: known ? (err as Error).message : `Failed to read input: ${String(err)}` };
+}
+
 function parseText(sourceKind: SectionedSourceKind, text: string): Stage {
   try {
     return { kind: 'parsed', source: text, result: parseSectioned(sourceKind, text) };
   } catch (err) {
-    const known =
-      err instanceof PostmanBackupParseError || err instanceof InsomniaParseError || err instanceof BrunoParseError;
-    return { kind: 'error', message: known ? (err as Error).message : `Failed to read input: ${String(err)}` };
+    return toStageError(err);
+  }
+}
+
+function parseFiles(files: BrunoFile[]): Stage {
+  try {
+    // The re-import hash needs one stable string per folder — the same
+    // folder re-picked must hash identically regardless of walk order.
+    const source = [...files]
+      .sort((a, b) => a.path.localeCompare(b.path))
+      .map((f) => `${f.path}\n${f.content}`)
+      .join('\n');
+    return { kind: 'parsed', source, result: fromBrunoResult(parseBrunoFiles(files)) };
+  } catch (err) {
+    return toStageError(err);
   }
 }
 
@@ -171,6 +198,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   open,
   sourceKind,
   initialText,
+  initialFiles,
   onCancel,
   onImported,
   createCollection,
@@ -189,12 +217,16 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
 
   useEffect(() => {
     if (!open) return;
-    const next = initialText ? parseText(sourceKind, initialText) : ({ kind: 'empty' } as const);
+    const next = initialFiles
+      ? parseFiles(initialFiles)
+      : initialText
+        ? parseText(sourceKind, initialText)
+        : ({ kind: 'empty' } as const);
     setStage(next);
     setCollectionNames(next.kind === 'parsed' ? next.result.collections.map((c) => c.name) : []);
     setBusy(false);
     setDiff(null);
-  }, [open, sourceKind, initialText]);
+  }, [open, sourceKind, initialText, initialFiles]);
 
   // Re-import-diff lookup on every parse — same contract as the other
   // stage-2 modals (keyed by sourceHash, nice-to-have on failure).

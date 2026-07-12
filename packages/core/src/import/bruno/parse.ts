@@ -11,6 +11,43 @@ import type {
 } from './types';
 import { BrunoParseError } from './types';
 
+// ── Picker helpers ─────────────────────────────────────────────────
+
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\/+/, '');
+}
+
+/**
+ * Which paths inside a user-picked folder the import surface should
+ * read: `.bru` files and `bruno.json`. Everything else — assets, VCS
+ * internals, `node_modules`, dot-directories — is never opened.
+ */
+export function isBrunoImportPath(path: string): boolean {
+  const segments = normalizePath(path)
+    .split('/')
+    .filter((s) => s.length > 0);
+  if (segments.some((s) => s.startsWith('.') || s === 'node_modules')) return false;
+  const fileName = segments[segments.length - 1] ?? '';
+  return fileName === 'bruno.json' || fileName.toLowerCase().endsWith('.bru');
+}
+
+/**
+ * A picked folder arrives with every path prefixed by the folder's own
+ * name (`webkitRelativePath` / drag-entry `fullPath`). Strip that one
+ * shared leading directory so paths are collection-relative. Only
+ * strips when ALL paths share the segment and none would lose its file
+ * name; a shared `environments` root never strips — picking the
+ * environments folder itself keeps its meaning.
+ */
+export function stripBrunoRootPrefix<T extends { path: string }>(files: T[]): T[] {
+  if (files.length === 0) return files;
+  const segmented = files.map((f) => normalizePath(f.path).split('/').filter((s) => s.length > 0));
+  const head = segmented[0]?.[0];
+  if (!head || head === 'environments') return files;
+  if (!segmented.every((s) => s.length >= 2 && s[0] === head)) return files;
+  return files.map((f, i) => ({ ...f, path: (segmented[i] ?? []).slice(1).join('/') }));
+}
+
 // ── Entry points ───────────────────────────────────────────────────
 
 /**
@@ -41,7 +78,7 @@ export function parseBrunoFiles(files: BrunoFile[]): BrunoParseResult {
   const environments: BrunoParsedEnvironment[] = [];
 
   for (const file of files) {
-    const normalized = file.path.replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\/+/, '');
+    const normalized = normalizePath(file.path);
     const segments = normalized.split('/').filter((s) => s.length > 0);
     const fileName = segments[segments.length - 1] ?? '';
     const dirs = segments.slice(0, -1);
