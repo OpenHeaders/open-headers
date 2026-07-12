@@ -54,6 +54,11 @@ let variableEditDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 function snapshotVaultVars(): Map<string, string> {
   const out = new Map<string, string>();
   for (const secret of getVault().secrets) {
+    if (secret.kind === 'client-certificate') {
+      // Never template-resolvable — contributes no value content.
+      out.set(secret.name, '');
+      continue;
+    }
     out.set(
       secret.name,
       secret.kind === 'string'

@@ -139,6 +139,7 @@ export function requestExecutableFingerprint(request: Request): string {
     tlsCipherSuites: request.tlsCipherSuites ?? null,
     allowHttp2: request.allowHttp2 ?? null,
     resolveToAddress: request.resolveToAddress ?? null,
+    clientCertificateRef: request.clientCertificateRef ?? null,
     timeoutMs: request.timeoutMs ?? null,
     maxResponseBytes: request.maxResponseBytes ?? null,
     maxRedirects: request.maxRedirects ?? null,

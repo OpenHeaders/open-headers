@@ -231,6 +231,7 @@ describe('yaml codec — round-trip parity', () => {
     expect(parsed.value.tlsCipherSuites).toBe('TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256');
     expect(parsed.value.allowHttp2).toBe(true);
     expect(parsed.value.resolveToAddress).toBe('10.0.0.7');
+    expect(parsed.value.clientCertificateRef).toBe('gateway-mtls');
     expect(parsed.value.timeoutMs).toBe(15000);
     expect(parsed.value.maxResponseBytes).toBe(4096);
     expect(parsed.value.maxRedirects).toBe(5);

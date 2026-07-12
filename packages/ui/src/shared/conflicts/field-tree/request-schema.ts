@@ -161,6 +161,7 @@ export const REQUEST_SCHEMA: FieldNode = obj({
   tlsCipherSuites: leaf('string', { coercion: 'optional-string' }),
   allowHttp2: leaf('boolean', { coercion: 'boolean-strict' }),
   resolveToAddress: leaf('string', { coercion: 'optional-string' }),
+  clientCertificateRef: leaf('string', { coercion: 'optional-string' }),
   timeoutMs: leaf('number', { coercion: 'optional-number' }),
   maxResponseBytes: leaf('number', { coercion: 'optional-number' }),
   maxRedirects: leaf('number', { coercion: 'optional-number' }),

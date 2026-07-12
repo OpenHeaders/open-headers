@@ -40,6 +40,7 @@ export interface Draft {
   tlsCipherSuites?: string;
   allowHttp2?: boolean;
   resolveToAddress?: string;
+  clientCertificateRef?: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -68,6 +69,7 @@ export interface RequestUpdates {
   tlsCipherSuites: string | undefined;
   allowHttp2: boolean | undefined;
   resolveToAddress: string | undefined;
+  clientCertificateRef: string | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -186,6 +188,7 @@ export function draftFromRequest(req: Request): Draft {
     tlsCipherSuites: req.tlsCipherSuites,
     allowHttp2: req.allowHttp2,
     resolveToAddress: req.resolveToAddress,
+    clientCertificateRef: req.clientCertificateRef,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -225,6 +228,7 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     tlsCipherSuites: draft.tlsCipherSuites,
     allowHttp2: draft.allowHttp2,
     resolveToAddress: draft.resolveToAddress,
+    clientCertificateRef: draft.clientCertificateRef,
     timeoutMs: draft.timeoutMs,
     maxResponseBytes: draft.maxResponseBytes,
     maxRedirects: draft.maxRedirects,

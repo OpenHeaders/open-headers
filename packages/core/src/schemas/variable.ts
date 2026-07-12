@@ -47,8 +47,16 @@ export const VariableSchema = v.object({
 //            chrome.storage.local today (noop cipher tier); the v2
 //            AES-GCM cipher upgrade encrypts the whole vault payload,
 //            including the seed, transparently.
+// `client-certificate` — a TLS client certificate + private key PAIR
+//            (PEM strings, optional key passphrase). One entry is the
+//            unit users install, rotate, and revoke — never two string
+//            entries a request must stitch. NOT template-resolvable:
+//            `{{vault.X}}` never returns PEM material; requests carry
+//            only a reference (`clientCertificateRef`, the entry NAME)
+//            and the executor resolves the pair at send time. The PEM
+//            never leaves the vault file.
 
-export const VaultSecretKindSchema = v.picklist(['string', 'totp']);
+export const VaultSecretKindSchema = v.picklist(['string', 'totp', 'client-certificate']);
 
 export const TotpAlgorithmSchema = v.picklist(['SHA1', 'SHA256', 'SHA512']);
 
@@ -70,7 +78,23 @@ export const VaultSecretTotpSchema = v.object({
   issuer: v.optional(v.string()),
 });
 
-export const VaultSecretSchema = v.variant('kind', [VaultSecretStringSchema, VaultSecretTotpSchema]);
+export const VaultSecretClientCertificateSchema = v.object({
+  uid: UidSchema,
+  kind: v.literal('client-certificate'),
+  name: v.string(),
+  /** Certificate (chain) in PEM form. */
+  cert: v.string(),
+  /** Private key in PEM form. */
+  key: v.string(),
+  /** Passphrase for an encrypted private key. */
+  passphrase: v.optional(v.string()),
+});
+
+export const VaultSecretSchema = v.variant('kind', [
+  VaultSecretStringSchema,
+  VaultSecretTotpSchema,
+  VaultSecretClientCertificateSchema,
+]);
 
 export const VaultSchema = v.object({
   schemaVersion: SchemaVersionSchema,

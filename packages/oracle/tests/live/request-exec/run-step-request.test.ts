@@ -209,4 +209,34 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     await runStepRequest(makeRequest({ resolveToAddress: '10.0.0.7' }), opts(transport));
     expect(sent().resolveToAddress).toBe('10.0.0.7');
   });
+
+  it('resolves clientCertificateRef to the vault entry PEM pair on the seam', async () => {
+    vault.mockReturnValue({
+      schemaVersion: 5,
+      secrets: [
+        {
+          uid: 'cert0001',
+          kind: 'client-certificate',
+          name: 'gateway-mtls',
+          cert: '-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----',
+          key: '-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----',
+          passphrase: 'pw',
+        },
+      ],
+    });
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ clientCertificateRef: 'gateway-mtls' }), opts(transport));
+    expect(sent().clientCertificateRef).toBe('gateway-mtls');
+    expect(sent().clientCertificatePem).toContain('BEGIN CERTIFICATE');
+    expect(sent().clientCertificateKeyPem).toContain('BEGIN PRIVATE KEY');
+    expect(sent().clientCertificatePassphrase).toBe('pw');
+  });
+
+  it('an unresolved clientCertificateRef still reaches the transport as the bare ref', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ clientCertificateRef: 'missing-entry' }), opts(transport));
+    expect(sent().clientCertificateRef).toBe('missing-entry');
+    expect(sent().clientCertificatePem).toBeUndefined();
+    expect(sent().clientCertificateKeyPem).toBeUndefined();
+  });
 });

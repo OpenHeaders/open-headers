@@ -162,6 +162,16 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
               period: TOTP_DEFAULTS.period,
               issuer: undefined,
             };
+          } else if (patch.kind === 'client-certificate') {
+            row = {
+              ...prior,
+              ...patch,
+              isPlaceholder: false,
+              isSensitive: true,
+              cert: '',
+              certKey: '',
+              passphrase: undefined,
+            };
           } else {
             row = { ...prior, ...patch, value: '', isPlaceholder: false };
           }

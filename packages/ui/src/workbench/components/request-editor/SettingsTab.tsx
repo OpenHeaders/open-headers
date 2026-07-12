@@ -58,6 +58,16 @@
  *     marker. The browser owns its resolver outright, so there is no
  *     browser control — and no fact row on either sheet: resolution
  *     was never a sheet-listed fact, so nothing graduates.
+ *   • `clientCertificateRef` — node-runtime only: the node transport
+ *     presents the vault entry's cert + key PEM pair in the TLS
+ *     handshake (mutual-TLS gateways). The knob is a picker over the
+ *     vault's client-certificate entries; the request stores the entry
+ *     NAME, each device resolves it against its own local vault, and a
+ *     ref with no matching entry warns in place. Not trust-relaxing —
+ *     presenting a client certificate doesn't weaken server
+ *     verification — so no response marker, and no fact row on either
+ *     sheet. The browser picks client certificates from its own
+ *     store/prompt, so there is no browser control.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -92,6 +102,7 @@ import {
   TLS_VERSIONS,
 } from '@openheaders/core/schemas';
 import type { TlsVersion } from '@openheaders/core/types';
+import { useVaultContext } from '@openheaders/ui/context';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 
 const { Text } = Typography;
@@ -120,6 +131,9 @@ export interface RequestSettingsDraft {
    *  SNI / Host / cert verification keep the original hostname.
    *  Undefined = system DNS. Node runtimes only. */
   resolveToAddress?: string;
+  /** Name of a vault client-certificate entry presented during the TLS
+   *  handshake. Undefined = no client certificate. Node runtimes only. */
+  clientCertificateRef?: string;
   /** Round-trip ceiling in milliseconds. Undefined = no per-request
    *  limit. Honored on both runtimes. */
   timeoutMs?: number;
@@ -433,6 +447,16 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
   const [showRuntimeManaged, setShowRuntimeManaged] = useState(false);
   const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const sheet = MANAGED_SHEETS[runtime];
+  // Vault client-certificate entries feed the picker's options. The
+  // context defaults to an empty vault when no provider is mounted, so
+  // the tab stays renderable everywhere.
+  const { vault } = useVaultContext();
+  const clientCertificateOptions = vault.secrets
+    .filter((s) => s.kind === 'client-certificate')
+    .map((s) => ({ value: s.name, label: s.name }));
+  const clientCertificateRefDangling =
+    value.clientCertificateRef !== undefined &&
+    !clientCertificateOptions.some((o) => o.value === value.clientCertificateRef);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 560 }}>
@@ -544,6 +568,19 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
             error={
               value.resolveToAddress !== undefined && !RESOLVE_TO_ADDRESS_PATTERN.test(value.resolveToAddress)
                 ? 'IPv4 or IPv6 address only — no hostname, no port.'
+                : undefined
+            }
+          />
+          <SelectKnobRow
+            label="Client certificate"
+            value={value.clientCertificateRef}
+            onChange={(clientCertificateRef) => onChange({ ...value, clientCertificateRef })}
+            info="Present a client certificate during the TLS handshake, for APIs behind mutual-TLS gateways that authenticate the caller by certificate. Pick a certificate entry from the vault — the request saves only the entry's name, and each device presents its own vault entry of that name; the certificate and key never leave the vault. Leave empty to connect without a client certificate."
+            options={clientCertificateOptions}
+            placeholder="No client certificate"
+            warning={
+              clientCertificateRefDangling
+                ? `No vault certificate entry named "${value.clientCertificateRef}" on this device — sends will fail until the entry exists or this setting is cleared.`
                 : undefined
             }
           />

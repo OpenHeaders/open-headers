@@ -185,11 +185,16 @@ export class VariableResolver {
    *     `deferred: true` and an empty value. Renderer surfaces use
    *     this for "is the reference valid?" checks without needing
    *     a real code (the SW computes the actual code at request time).
+   *
+   * `client-certificate` kind always returns `null` — the PEM pair only
+   * leaves the vault through the executor's `clientCertificateRef`
+   * resolution, never through `{{vault.X}}`.
    */
   private projectVaultValue(secret: VaultSecret, name: string): ResolvedVariable | null {
     if (secret.kind === 'string') {
       return { name, value: secret.value, scope: 'vault', isSensitive: true };
     }
+    if (secret.kind === 'client-certificate') return null;
     const code = this.totpRegistry.get(secret.name);
     if (code !== undefined) {
       return { name, value: code, scope: 'vault', isSensitive: true };

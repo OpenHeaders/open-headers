@@ -65,6 +65,7 @@ export interface DraftData {
   tlsCipherSuites?: string;
   allowHttp2?: boolean;
   resolveToAddress?: string;
+  clientCertificateRef?: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -131,6 +132,7 @@ export function useSaveRequestFlow({
             tlsCipherSuites: draftData.tlsCipherSuites,
             allowHttp2: draftData.allowHttp2,
             resolveToAddress: draftData.resolveToAddress,
+            clientCertificateRef: draftData.clientCertificateRef,
             timeoutMs: draftData.timeoutMs,
             maxResponseBytes: draftData.maxResponseBytes,
             maxRedirects: draftData.maxRedirects,
@@ -179,6 +181,7 @@ export function useSaveRequestFlow({
           tlsCipherSuites: saveModalDraftData.tlsCipherSuites,
           allowHttp2: saveModalDraftData.allowHttp2,
           resolveToAddress: saveModalDraftData.resolveToAddress,
+          clientCertificateRef: saveModalDraftData.clientCertificateRef,
           timeoutMs: saveModalDraftData.timeoutMs,
           maxResponseBytes: saveModalDraftData.maxResponseBytes,
           maxRedirects: saveModalDraftData.maxRedirects,

@@ -1,6 +1,7 @@
 /**
  * Conflict tracking + resolve adapters for Vault (singleton, secrets
- * keyed by uid). Each row is a `{kind: 'string' | 'totp'}` union;
+ * keyed by uid). Each row is a `{kind: 'string' | 'totp' |
+ * 'client-certificate'}` union;
  * partial leaf-write of the discriminator is refused — kind transitions
  * resolve via Use Saved on the row (carries the full payload).
  *
@@ -12,17 +13,24 @@
  */
 
 import type { Vault, VaultSecret } from '@openheaders/core/types';
-import type { ConflictResolveAdapter, ConflictTrackingAdapter } from '@openheaders/ui/shared/conflicts/conflict-adapters';
+import type {
+  ConflictResolveAdapter,
+  ConflictTrackingAdapter,
+} from '@openheaders/ui/shared/conflicts/conflict-adapters';
 import { enumLeaf, leaf, obj, setByUid, union } from '@openheaders/ui/shared/conflicts/field-tree/descriptor';
 import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
 
 const MASK = new Set<'mask' | 'redact-presence'>(['mask']);
 
+const VAULT_KINDS = ['string', 'totp', 'client-certificate'];
+
 const VAULT_SCHEMA = obj({
   secrets: setByUid({
     summary: (row) => {
       const s = row as VaultSecret;
-      return s.kind === 'totp' ? `${s.name} (TOTP)` : s.name;
+      if (s.kind === 'totp') return `${s.name} (TOTP)`;
+      if (s.kind === 'client-certificate') return `${s.name} (certificate)`;
+      return s.name;
     },
     rowLabel: (row) => {
       const s = row as VaultSecret;
@@ -33,12 +41,12 @@ const VAULT_SCHEMA = obj({
       kindTransitionUnsafe: true,
       branches: {
         string: obj({
-          kind: enumLeaf(['string', 'totp']),
+          kind: enumLeaf(VAULT_KINDS),
           name: leaf('string'),
           value: leaf('string', { flags: MASK }),
         }),
         totp: obj({
-          kind: enumLeaf(['string', 'totp']),
+          kind: enumLeaf(VAULT_KINDS),
           name: leaf('string'),
           seed: leaf('string', { flags: MASK }),
           algorithm: enumLeaf(['SHA1', 'SHA256', 'SHA512']),
@@ -46,12 +54,20 @@ const VAULT_SCHEMA = obj({
           period: leaf('number', { coercion: 'number-strict' }),
           issuer: leaf('string', { coercion: 'optional-string' }),
         }),
+        'client-certificate': obj({
+          kind: enumLeaf(VAULT_KINDS),
+          name: leaf('string'),
+          cert: leaf('string', { flags: MASK }),
+          key: leaf('string', { flags: MASK }),
+          passphrase: leaf('string', { coercion: 'optional-string', flags: MASK }),
+        }),
       },
     }),
   }),
 });
 
-const SECRET_PATH_RE = /^secrets\.([a-z0-9]{8})\.(name|kind|value|seed|algorithm|digits|period|issuer)$/;
+const SECRET_PATH_RE =
+  /^secrets\.([a-z0-9]{8})\.(name|kind|value|seed|algorithm|digits|period|issuer|cert|key|passphrase)$/;
 
 const LEAF_LABEL: Record<string, string> = {
   name: 'name',
@@ -62,6 +78,9 @@ const LEAF_LABEL: Record<string, string> = {
   digits: 'digits',
   period: 'period',
   issuer: 'issuer',
+  cert: 'certificate',
+  key: 'private key',
+  passphrase: 'passphrase',
 };
 
 type VaultEntity = Vault & { uid: string };

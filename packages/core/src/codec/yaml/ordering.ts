@@ -76,6 +76,7 @@ export const REQUEST_FIELD_ORDER = [
   'tlsCipherSuites',
   'allowHttp2',
   'resolveToAddress',
+  'clientCertificateRef',
   'timeoutMs',
   'maxResponseBytes',
   'maxRedirects',

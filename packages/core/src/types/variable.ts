@@ -24,6 +24,7 @@ import type {
   VariableSchema,
   VariableTypeSchema,
   VaultSchema,
+  VaultSecretClientCertificateSchema,
   VaultSecretKindSchema,
   VaultSecretSchema,
   VaultSecretStringSchema,
@@ -54,15 +55,7 @@ import type {
  * `{{dynamic.timestamp}}`, …) — a fresh value per resolution pass.
  * Only reachable via the explicit form; never part of the flat walk.
  */
-export type VariableScope =
-  | 'vault'
-  | 'environment'
-  | 'collection'
-  | 'workspace'
-  | 'file'
-  | 'live'
-  | 'step'
-  | 'dynamic';
+export type VariableScope = 'vault' | 'environment' | 'collection' | 'workspace' | 'file' | 'live' | 'step' | 'dynamic';
 
 // ── Variable ───────────────────────────────────────────────────────
 
@@ -76,8 +69,12 @@ export type Variable = v.InferOutput<typeof VariableSchema>;
  *   - `string` — literal value returned verbatim by `{{vault.X}}`.
  *   - `totp`   — base32 seed + RFC 6238 parameters; `{{vault.X}}` resolves
  *                to the current code, never the seed.
+ *   - `client-certificate` — TLS client cert + key PEM pair (+ optional
+ *                passphrase). Not template-resolvable — requests reference
+ *                it by NAME via `clientCertificateRef` and the executor
+ *                resolves the pair at send time.
  *
- * Both kinds are local-per-device (highest scope priority, never synced).
+ * All kinds are local-per-device (highest scope priority, never synced).
  * The discriminated union keeps the storage shape, the suggester, the
  * resolver, and the editor in lockstep — adding a future kind (HOTP,
  * etc.) is one schema variant + one resolver arm + one row renderer.
@@ -86,6 +83,7 @@ export type VaultSecretKind = v.InferOutput<typeof VaultSecretKindSchema>;
 export type TotpAlgorithm = v.InferOutput<typeof TotpAlgorithmSchema>;
 export type VaultSecretString = v.InferOutput<typeof VaultSecretStringSchema>;
 export type VaultSecretTotp = v.InferOutput<typeof VaultSecretTotpSchema>;
+export type VaultSecretClientCertificate = v.InferOutput<typeof VaultSecretClientCertificateSchema>;
 export type VaultSecret = v.InferOutput<typeof VaultSecretSchema>;
 export type Vault = v.InferOutput<typeof VaultSchema>;
 

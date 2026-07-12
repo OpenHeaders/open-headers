@@ -11,6 +11,7 @@
  */
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
+import { VaultContext, type VaultContextValue } from '@openheaders/ui/context';
 import { emptyDraft } from '@openheaders/ui/workbench/components/request-editor/draft';
 import { buildRequestTabItems } from '@openheaders/ui/workbench/components/request-editor/request-tab-items';
 import SettingsTab from '@openheaders/ui/workbench/components/request-editor/SettingsTab';
@@ -53,6 +54,7 @@ interface KnobValues {
   tlsCipherSuites?: string;
   allowHttp2?: boolean;
   resolveToAddress?: string;
+  clientCertificateRef?: string;
 }
 
 function renderTab(value: KnobValues = {}) {
@@ -181,6 +183,15 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     fireEvent.click(screen.getByText('10 browser-managed'));
     expect(screen.queryByText('Resolve to address')).toBeNull();
     expect(settingsDotCount({ resolveToAddress: '10.0.0.7' })).toBe(0);
+  });
+
+  it('shows no client-certificate control or fact row and never dots a synced ref', () => {
+    renderTab();
+    expect(screen.queryByRole('combobox', { name: 'Client certificate' })).toBeNull();
+    // Not a sheet-listed fact — the browser sheet stays at 10 rows.
+    fireEvent.click(screen.getByText('10 browser-managed'));
+    expect(screen.queryByText('Client certificate')).toBeNull();
+    expect(settingsDotCount({ clientCertificateRef: 'gateway-mtls' })).toBe(0);
   });
 });
 
@@ -438,6 +449,59 @@ describe('SettingsTab on a node runtime', () => {
   it('dots the tab only while an address is set', () => {
     registerCapability('requestRuntime', () => 'node');
     expect(settingsDotCount({ resolveToAddress: '10.0.0.7' })).toBe(1);
+    expect(settingsDotCount()).toBe(0);
+  });
+
+  it('shows the client-certificate picker without touching the fact sheet', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    expect(screen.getByRole('combobox', { name: 'Client certificate' })).toBeTruthy();
+    expect(screen.getByText('No client certificate')).toBeTruthy();
+    // Not trust-relaxing, not a sheet-listed fact — the node sheet
+    // stays at 4 rows and the label exists exactly once.
+    fireEvent.click(screen.getByText('4 runtime-managed'));
+    expect(screen.getAllByText('Client certificate')).toHaveLength(1);
+  });
+
+  it('offers the vault client-certificate entries as picker options', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const vault: VaultContextValue = {
+      vault: {
+        schemaVersion: 5,
+        secrets: [
+          { uid: 'stri0001', kind: 'string', name: 'api-token', value: 't' },
+          { uid: 'cert0001', kind: 'client-certificate', name: 'gateway-mtls', cert: 'CERT', key: 'KEY' },
+        ],
+      },
+      isReady: true,
+      isLocked: false,
+      setVaultSecret: () => Promise.resolve({ ok: true }),
+      removeVaultSecret: () => Promise.resolve({ ok: true }),
+      replaceVault: () => Promise.resolve({ ok: true }),
+    };
+    const onChange = vi.fn();
+    render(
+      <VaultContext.Provider value={vault}>
+        <SettingsTab value={{}} onChange={onChange} />
+      </VaultContext.Provider>,
+    );
+    openCombobox(screen.getByRole('combobox', { name: 'Client certificate' }));
+    // Only certificate-kind entries are options — string entries never appear.
+    expect(dropdownOption('gateway-mtls')).toBeTruthy();
+    expect(document.querySelectorAll('.ant-select-item-option')).toHaveLength(1);
+    fireEvent.click(dropdownOption('gateway-mtls'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ clientCertificateRef: 'gateway-mtls' }));
+  });
+
+  it('warns in place when the ref names no vault entry on this device', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ clientCertificateRef: 'gateway-mtls' });
+    expect(screen.getByText(/No vault certificate entry named "gateway-mtls" on this device/)).toBeTruthy();
+  });
+
+  it('dots the tab only while a certificate ref is set', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ clientCertificateRef: 'gateway-mtls' })).toBe(1);
     expect(settingsDotCount()).toBe(0);
   });
 });

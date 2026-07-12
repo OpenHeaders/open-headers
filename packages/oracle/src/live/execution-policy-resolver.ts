@@ -61,6 +61,11 @@ function collectionVarMap(workspaceId: string): Map<string, string> {
 function vaultVarMap(vault: Vault): Map<string, string> {
   const out = new Map<string, string>();
   for (const secret of vault.secrets) {
+    if (secret.kind === 'client-certificate') {
+      // Never template-resolvable — contributes no value content to scan.
+      out.set(secret.name, '');
+      continue;
+    }
     out.set(
       secret.name,
       secret.kind === 'string'

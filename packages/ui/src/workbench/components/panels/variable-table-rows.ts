@@ -36,7 +36,7 @@ export interface VariableTableConflictBridge {
   onDismiss(path: string): void;
 }
 
-export type RowKind = 'string' | 'totp';
+export type RowKind = 'string' | 'totp' | 'client-certificate';
 
 /**
  * Internal row state — superset of every persisted shape the table
@@ -58,6 +58,10 @@ export interface LocalRow {
   digits: number;
   period: number;
   issuer?: string;
+  // ── Client-certificate-only fields (PEM strings) ──
+  cert: string;
+  certKey: string;
+  passphrase?: string;
 }
 
 export const TOTP_DEFAULTS = { algorithm: 'SHA1' as TotpAlgorithm, digits: 6, period: 30 };
@@ -83,6 +87,8 @@ export function emptyRow(isPlaceholder: boolean): LocalRow {
     algorithm: TOTP_DEFAULTS.algorithm,
     digits: TOTP_DEFAULTS.digits,
     period: TOTP_DEFAULTS.period,
+    cert: '',
+    certKey: '',
   };
 }
 
@@ -117,29 +123,42 @@ export function variablesFingerprint(vars: Variable[]): string {
 }
 
 export function secretsToLocal(secrets: VaultSecret[]): LocalRow[] {
-  const rows: LocalRow[] = secrets.map((s) =>
-    s.kind === 'totp'
-      ? {
-          ...emptyRow(false),
-          uid: s.uid,
-          kind: 'totp',
-          name: s.name,
-          isSensitive: true,
-          seed: s.seed,
-          algorithm: s.algorithm,
-          digits: s.digits,
-          period: s.period,
-          ...(s.issuer ? { issuer: s.issuer } : {}),
-        }
-      : {
-          ...emptyRow(false),
-          uid: s.uid,
-          kind: 'string',
-          name: s.name,
-          value: s.value,
-          isSensitive: true,
-        },
-  );
+  const rows: LocalRow[] = secrets.map((s) => {
+    if (s.kind === 'totp') {
+      return {
+        ...emptyRow(false),
+        uid: s.uid,
+        kind: 'totp' as const,
+        name: s.name,
+        isSensitive: true,
+        seed: s.seed,
+        algorithm: s.algorithm,
+        digits: s.digits,
+        period: s.period,
+        ...(s.issuer ? { issuer: s.issuer } : {}),
+      };
+    }
+    if (s.kind === 'client-certificate') {
+      return {
+        ...emptyRow(false),
+        uid: s.uid,
+        kind: 'client-certificate' as const,
+        name: s.name,
+        isSensitive: true,
+        cert: s.cert,
+        certKey: s.key,
+        ...(s.passphrase !== undefined ? { passphrase: s.passphrase } : {}),
+      };
+    }
+    return {
+      ...emptyRow(false),
+      uid: s.uid,
+      kind: 'string' as const,
+      name: s.name,
+      value: s.value,
+      isSensitive: true,
+    };
+  });
   rows.push(emptyRow(true));
   return rows;
 }
@@ -160,6 +179,15 @@ export function secretsFromLocal(rows: LocalRow[]): VaultSecret[] {
         period: row.period,
         ...(row.issuer ? { issuer: row.issuer } : {}),
       });
+    } else if (row.kind === 'client-certificate') {
+      out.push({
+        uid: row.uid,
+        kind: 'client-certificate',
+        name,
+        cert: row.cert,
+        key: row.certKey,
+        ...(row.passphrase ? { passphrase: row.passphrase } : {}),
+      });
     } else {
       out.push({ uid: row.uid, kind: 'string', name, value: row.value });
     }
@@ -169,10 +197,11 @@ export function secretsFromLocal(rows: LocalRow[]): VaultSecret[] {
 
 export function secretsFingerprint(secrets: VaultSecret[]): string {
   return JSON.stringify(
-    secrets.map((s) =>
-      s.kind === 'totp'
-        ? ['totp', s.uid, s.name, s.seed, s.algorithm, s.digits, s.period, s.issuer ?? '']
-        : ['string', s.uid, s.name, s.value],
-    ),
+    secrets.map((s) => {
+      if (s.kind === 'totp') return ['totp', s.uid, s.name, s.seed, s.algorithm, s.digits, s.period, s.issuer ?? ''];
+      if (s.kind === 'client-certificate')
+        return ['client-certificate', s.uid, s.name, s.cert, s.key, s.passphrase ?? ''];
+      return ['string', s.uid, s.name, s.value];
+    }),
   );
 }

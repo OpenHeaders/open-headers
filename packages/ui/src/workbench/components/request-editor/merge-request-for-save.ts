@@ -42,6 +42,7 @@ export interface RequestSaveBatch {
   tlsCipherSuites: string | undefined;
   allowHttp2: boolean | undefined;
   resolveToAddress: string | undefined;
+  clientCertificateRef: string | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -68,6 +69,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     tlsCipherSuites: req.tlsCipherSuites,
     allowHttp2: req.allowHttp2,
     resolveToAddress: req.resolveToAddress,
+    clientCertificateRef: req.clientCertificateRef,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -116,6 +118,7 @@ export function mergeRequestForSave(
     tlsCipherSuites: form.tlsCipherSuites,
     allowHttp2: form.allowHttp2,
     resolveToAddress: form.resolveToAddress,
+    clientCertificateRef: form.clientCertificateRef,
     timeoutMs: form.timeoutMs,
     maxResponseBytes: form.maxResponseBytes,
     maxRedirects: form.maxRedirects,
@@ -137,6 +140,7 @@ export function mergeRequestForSave(
     tlsCipherSuites: baseProj.tlsCipherSuites,
     allowHttp2: baseProj.allowHttp2,
     resolveToAddress: baseProj.resolveToAddress,
+    clientCertificateRef: baseProj.clientCertificateRef,
     timeoutMs: baseProj.timeoutMs,
     maxResponseBytes: baseProj.maxResponseBytes,
     maxRedirects: baseProj.maxRedirects,
@@ -158,6 +162,7 @@ export function mergeRequestForSave(
     tlsCipherSuites: liveProj.tlsCipherSuites,
     allowHttp2: liveProj.allowHttp2,
     resolveToAddress: liveProj.resolveToAddress,
+    clientCertificateRef: liveProj.clientCertificateRef,
     timeoutMs: liveProj.timeoutMs,
     maxResponseBytes: liveProj.maxResponseBytes,
     maxRedirects: liveProj.maxRedirects,
@@ -189,6 +194,7 @@ export function mergeRequestForSave(
     tlsCipherSuites: merged.tlsCipherSuites as string | undefined,
     allowHttp2: merged.allowHttp2 as boolean | undefined,
     resolveToAddress: merged.resolveToAddress as string | undefined,
+    clientCertificateRef: merged.clientCertificateRef as string | undefined,
     timeoutMs: merged.timeoutMs as number | undefined,
     maxResponseBytes: merged.maxResponseBytes as number | undefined,
     maxRedirects: merged.maxRedirects as number | undefined,

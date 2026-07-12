@@ -6,10 +6,7 @@
 
 import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { Vault, VaultSecret } from '@openheaders/core/types';
-import {
-  type EntityConflictsApi,
-  useEntityConflicts,
-} from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
+import { type EntityConflictsApi, useEntityConflicts } from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
 import { vaultConflictAdapter } from './vault-conflict-adapter';
 
 export interface UseVaultConflictsArgs {
@@ -48,6 +45,10 @@ export function projectSecretsToForm(secrets: readonly VaultSecret[]): Record<st
     out[`secrets.${s.uid}.kind`] = s.kind;
     if (s.kind === 'string') {
       out[`secrets.${s.uid}.value`] = String(s.value ?? '');
+    } else if (s.kind === 'client-certificate') {
+      out[`secrets.${s.uid}.cert`] = String(s.cert ?? '');
+      out[`secrets.${s.uid}.key`] = String(s.key ?? '');
+      if (s.passphrase !== undefined) out[`secrets.${s.uid}.passphrase`] = String(s.passphrase);
     } else {
       out[`secrets.${s.uid}.seed`] = String(s.seed ?? '');
       out[`secrets.${s.uid}.algorithm`] = String(s.algorithm ?? '');

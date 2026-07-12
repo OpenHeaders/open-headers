@@ -130,6 +130,28 @@ export interface TransportRequest {
    */
   resolveToAddress?: string;
   /**
+   * Vault `client-certificate` entry NAME the request presents during
+   * the TLS handshake. The stable ref — never the PEM bytes — is what
+   * keys any per-tuple connection cache. Rides alongside the resolved
+   * material below; set whenever the request configured a client
+   * certificate, even when the ref didn't resolve on this device (the
+   * honoring transport fails that send loudly instead of silently
+   * dialing without a certificate). Transports whose network stack
+   * picks client certificates itself (the browser SW) ignore it.
+   */
+  clientCertificateRef?: string;
+  /**
+   * Client certificate (chain) in PEM form, resolved from the vault by
+   * the executor — the transport cannot reach the vault. Plain data on
+   * the seam; never part of a cache key.
+   */
+  clientCertificatePem?: string;
+  /** Private key in PEM form. See {@link clientCertificatePem}. */
+  clientCertificateKeyPem?: string;
+  /** Passphrase for an encrypted private key, when the vault entry
+   *  carries one. See {@link clientCertificatePem}. */
+  clientCertificatePassphrase?: string;
+  /**
    * Optional per-attempt wall-clock ceiling in milliseconds. The
    * transport MUST abort the whole round-trip — connection, response,
    * and body read — once this elapses, surfacing a

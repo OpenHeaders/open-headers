@@ -9,6 +9,10 @@
  *   - `string` rows hold a literal value returned verbatim by `{{vault.X}}`.
  *   - `totp`   rows hold a base32 seed + RFC 6238 parameters; `{{vault.X}}`
  *              resolves to the freshly-computed code at request time.
+ *   - `client-certificate` rows hold a TLS client cert + key PEM pair
+ *              (+ optional passphrase). Not template-resolvable —
+ *              requests reference the entry by name via their
+ *              "Client certificate" setting.
  *
  * Save commits via `useVariableMutator.replaceVault`, which delegates
  * to the sync engine (`applyVaultReplacement` → `oh.sync.apply`); dirty
@@ -244,11 +248,13 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const counts = useMemo(() => {
     let strings = 0;
     let totps = 0;
+    let certs = 0;
     for (const s of draft) {
       if (s.kind === 'totp') totps++;
+      else if (s.kind === 'client-certificate') certs++;
       else strings++;
     }
-    return { strings, totps };
+    return { strings, totps, certs };
   }, [draft]);
 
   const localInstanceId = useLocalInstanceId();
@@ -298,7 +304,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
             ) : (
               <>
                 <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-                  SECRETS ({counts.strings} string · {counts.totps} TOTP)
+                  SECRETS ({counts.strings} string · {counts.totps} TOTP · {counts.certs} certificate)
                 </Text>
 
                 <VariableTable mode="vault" secrets={draft} onChange={setDraft} conflictBridge={conflictBridge} />

@@ -10,7 +10,12 @@
  */
 
 import type { LiveVariable, LiveVariableOverride, Variable, VariableScope, VaultSecret } from '@openheaders/core/types';
-import { DYNAMIC_GENERATORS, parseReference, parseStepRefName, type VariableNamespace } from '@openheaders/core/variables';
+import {
+  DYNAMIC_GENERATORS,
+  parseReference,
+  parseStepRefName,
+  type VariableNamespace,
+} from '@openheaders/core/variables';
 import { findCollectionByUid } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
 import { useEnvVarVault } from '../readers/useEnvVarVault';
@@ -24,7 +29,7 @@ import { useVariableResolver } from './useVariableResolver';
 export type VariableCandidate =
   | {
       scope: 'vault';
-      kind: 'string' | 'totp';
+      kind: VaultSecret['kind'];
       secret: VaultSecret;
     }
   | {

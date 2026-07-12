@@ -45,6 +45,7 @@ export type RequestScalarPath =
   | 'tlsCipherSuites'
   | 'allowHttp2'
   | 'resolveToAddress'
+  | 'clientCertificateRef'
   | 'timeoutMs'
   | 'maxResponseBytes'
   | 'maxRedirects'

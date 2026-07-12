@@ -160,6 +160,31 @@ describe('executeOverTransport', () => {
     expect(bare.sent().resolveToAddress).toBeUndefined();
   });
 
+  it('passes the client-certificate seam fields through without marking the snapshot', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        clientCertificateRef: 'gateway-mtls',
+        clientCertificatePem: 'CERT-PEM',
+        clientCertificateKeyPem: 'KEY-PEM',
+        clientCertificatePassphrase: 'pw',
+      }),
+      transport,
+    );
+    expect(sent().clientCertificateRef).toBe('gateway-mtls');
+    expect(sent().clientCertificatePem).toBe('CERT-PEM');
+    expect(sent().clientCertificateKeyPem).toBe('KEY-PEM');
+    expect(sent().clientCertificatePassphrase).toBe('pw');
+    // Presenting a client certificate does not weaken server
+    // verification — not trust-relaxing, no snapshot marker.
+    expect('clientCertificateRef' in snap).toBe(false);
+
+    const bare = captureTransport();
+    await executeOverTransport(makeResolved(), bare.transport);
+    expect(bare.sent().clientCertificateRef).toBeUndefined();
+    expect(bare.sent().clientCertificatePem).toBeUndefined();
+  });
+
   it('marks a lowered-floor run on the snapshot — success and failure alike', async () => {
     const { transport } = captureTransport();
     const ok = await executeOverTransport(makeResolved({ tlsMinVersion: '1.0' }), transport);

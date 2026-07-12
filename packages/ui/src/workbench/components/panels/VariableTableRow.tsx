@@ -48,6 +48,8 @@ interface ValueCellProps {
   masked: boolean;
   onChange: (next: string) => void;
   onReveal?: () => void;
+  /** Field hint; defaults to "Value" (the PEM cells name their field). */
+  placeholder?: string;
 }
 
 // `-webkit-text-security` isn't in csstype yet, so React.CSSProperties
@@ -58,7 +60,7 @@ type CSSWithTextSecurity = React.CSSProperties & {
   WebkitTextSecurity?: 'none' | 'disc' | 'circle' | 'square';
 };
 
-function ValueCell({ value, masked, onChange, onReveal }: ValueCellProps) {
+function ValueCell({ value, masked, onChange, onReveal, placeholder }: ValueCellProps) {
   const handleFocus = useCallback(() => {
     if (masked) onReveal?.();
   }, [masked, onReveal]);
@@ -80,7 +82,7 @@ function ValueCell({ value, masked, onChange, onReveal }: ValueCellProps) {
   return (
     <Input.TextArea
       value={value}
-      placeholder="Value"
+      placeholder={placeholder ?? 'Value'}
       variant="borderless"
       autoSize={{ minRows: 1, maxRows: 4 }}
       onChange={(e) => onChange(e.target.value)}
@@ -131,6 +133,7 @@ export function SortableRow({
 
   const isVault = mode === 'vault';
   const isTotp = isVault && row.kind === 'totp' && !row.isPlaceholder;
+  const isCert = isVault && row.kind === 'client-certificate' && !row.isPlaceholder;
   const setPathPrefix = isVault ? 'secrets' : 'variables';
   const conflictPathFor = (leaf: string) => `${setPathPrefix}.${row.uid}.${leaf}`;
   const nameConflict =
@@ -138,7 +141,7 @@ export function SortableRow({
       ? conflictBridge.getLeafConflict(conflictPathFor('name'), row.name)
       : null;
   const valueConflict =
-    !row.isPlaceholder && conflictBridge && !isTotp
+    !row.isPlaceholder && conflictBridge && !isTotp && !isCert
       ? conflictBridge.getLeafConflict(conflictPathFor('value'), row.value)
       : null;
   // Set-level conflict: this row was removed externally while still in
@@ -158,7 +161,7 @@ export function SortableRow({
     transform: CSS.Translate.toString(transform),
     transition,
     ...(isDragging ? { position: 'relative' as const, zIndex: 50, opacity: 0.85 } : {}),
-    alignItems: isTotp ? 'flex-start' : 'stretch',
+    alignItems: isTotp || isCert ? 'flex-start' : 'stretch',
   };
 
   return (
@@ -273,13 +276,59 @@ export function SortableRow({
               options={[
                 { value: 'string', label: 'Text' },
                 { value: 'totp', label: 'TOTP' },
+                { value: 'client-certificate', label: 'Certificate' },
               ]}
-              style={{ width: 72, flexShrink: 0 }}
+              style={{ width: 96, flexShrink: 0 }}
               disabled={row.isPlaceholder}
               popupMatchSelectWidth={false}
             />
           )}
-          {isTotp ? (
+          {isCert ? (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+                <ValueCell
+                  value={row.cert}
+                  masked={!isRevealed}
+                  placeholder="Certificate (PEM)"
+                  onChange={(v) => update(index, { cert: v })}
+                  onReveal={() => {
+                    if (!isRevealed) toggleReveal(row.uid);
+                  }}
+                />
+                <ValueCell
+                  value={row.certKey}
+                  masked={!isRevealed}
+                  placeholder="Private key (PEM)"
+                  onChange={(v) => update(index, { certKey: v })}
+                  onReveal={() => {
+                    if (!isRevealed) toggleReveal(row.uid);
+                  }}
+                />
+                <Input
+                  size="small"
+                  type={isRevealed ? 'text' : 'password'}
+                  variant="borderless"
+                  value={row.passphrase ?? ''}
+                  placeholder="Key passphrase (optional)"
+                  onChange={(e) => update(index, { passphrase: e.target.value === '' ? undefined : e.target.value })}
+                  style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12, padding: '4px 6px' }}
+                />
+              </div>
+              <Tooltip title={isRevealed ? 'Hide certificate' : 'Show certificate'}>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleReveal(row.uid)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') toggleReveal(row.uid);
+                  }}
+                  style={{ cursor: 'pointer', fontSize: 12, color: token.colorTextTertiary, padding: '0 4px' }}
+                >
+                  {isRevealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                </span>
+              </Tooltip>
+            </>
+          ) : isTotp ? (
             <>
               <input
                 value={row.seed}

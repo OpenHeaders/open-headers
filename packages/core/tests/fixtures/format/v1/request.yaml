@@ -27,6 +27,7 @@ tlsMaxVersion: "1.2"
 tlsCipherSuites: TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256
 allowHttp2: true
 resolveToAddress: 10.0.0.7
+clientCertificateRef: gateway-mtls
 timeoutMs: 15000
 maxResponseBytes: 4096
 maxRedirects: 5

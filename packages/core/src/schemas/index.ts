@@ -59,8 +59,10 @@ export { parseEntity, parseEntityArray } from './parse';
 export {
   AuthConfigSchema,
   BodyTypeSchema,
+  ClientCertificateRefSchema,
   CredentialsModeSchema,
   HttpMethodSchema,
+  MAX_CLIENT_CERTIFICATE_REF_LENGTH,
   MAX_MAX_REDIRECTS,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESOLVE_TO_ADDRESS_LENGTH,
@@ -139,6 +141,7 @@ export {
   VariableSchema,
   VariableTypeSchema,
   VaultSchema,
+  VaultSecretClientCertificateSchema,
   VaultSecretKindSchema,
   VaultSecretSchema,
   VaultSecretStringSchema,

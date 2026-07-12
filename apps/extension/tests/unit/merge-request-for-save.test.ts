@@ -41,6 +41,7 @@ function batchOf(req: Request): RequestSaveBatch {
     tlsCipherSuites: req.tlsCipherSuites,
     allowHttp2: req.allowHttp2,
     resolveToAddress: req.resolveToAddress,
+    clientCertificateRef: req.clientCertificateRef,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -81,6 +82,16 @@ describe('mergeRequestForSave', () => {
 
     const touched = mergeRequestForSave(batchOf(makeReq({ resolveToAddress: '10.0.0.9' })), baseline, live);
     expect(touched.resolveToAddress).toBe('10.0.0.9');
+  });
+
+  it('merges clientCertificateRef per leaf like the other scalars', () => {
+    const baseline = makeReq();
+    const live = makeReq({ clientCertificateRef: 'gateway-mtls' });
+    const untouched = mergeRequestForSave(batchOf(baseline), baseline, live);
+    expect(untouched.clientCertificateRef).toBe('gateway-mtls');
+
+    const touched = mergeRequestForSave(batchOf(makeReq({ clientCertificateRef: 'other-gateway' })), baseline, live);
+    expect(touched.clientCertificateRef).toBe('other-gateway');
   });
 
   it('per-row merges headers by uid', () => {

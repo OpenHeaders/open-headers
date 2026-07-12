@@ -269,6 +269,7 @@ export type {
   VariableScope,
   Vault,
   VaultSecret,
+  VaultSecretClientCertificate,
   VaultSecretKind,
   VaultSecretString,
   VaultSecretTotp,

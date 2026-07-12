@@ -9,7 +9,8 @@
  * Every other request field — `name`, `description`, `method`, `url`,
  * `auth`, `body`, `credentialsMode`, `followRedirects`,
  * `sslVerification`, `tlsMinVersion`, `tlsMaxVersion`,
- * `tlsCipherSuites`, `allowHttp2`, `resolveToAddress`, `timeoutMs`,
+ * `tlsCipherSuites`, `allowHttp2`, `resolveToAddress`,
+ * `clientCertificateRef`, `timeoutMs`,
  * `maxResponseBytes`, `maxRedirects`,
  * `followOriginalHttpMethod`, `followAuthorizationHeader`,
  * `preRequestScript`, `postResponseScript` — flows

@@ -16,16 +16,21 @@
  *     (`ECONNREFUSED` / `ENOTFOUND` / …), so the message is precise.
  *   - **Per-request connection policy.** `sslVerification: false`,
  *     `tlsMinVersion` / `tlsMaxVersion`, `tlsCipherSuites`,
- *     `allowHttp2`, and `resolveToAddress` route the send through a
- *     dispatcher carrying exactly those options — knobs browser fetch
- *     can never honor. The TLS options ride the agent's TLS connector;
+ *     `allowHttp2`, `resolveToAddress`, and the client-certificate
+ *     fields route the send through a dispatcher carrying exactly
+ *     those options — knobs browser fetch can never honor. The TLS
+ *     options ride the agent's TLS connector;
  *     `allowHttp2` maps to the agent's `allowH2`, which adds h2 to the
  *     ALPN offer on TLS connects (the server picks the protocol; plain
  *     http:// stays HTTP/1.1 — undici fetch has no h2c);
  *     `resolveToAddress` maps to a pinned `connect.lookup` (see
  *     {@link pinnedLookup}) that answers every hostname with the one
  *     address while SNI / Host / cert verification keep the URL's
- *     hostname. Dispatchers are cached per distinct option tuple (see
+ *     hostname; the client-certificate PEM pair rides `connect.cert` /
+ *     `connect.key` (+ `passphrase`), keyed in the tuple by its vault
+ *     ref + a content hash (see {@link clientCertKeySegment}) so
+ *     rotation mints a fresh agent. Dispatchers are cached per
+ *     distinct option tuple (see
  *     {@link dispatcherFor}) so pooled connections are shared, never
  *     minted per send. `fetch` + `Agent` come from the same undici
  *     package so the dispatcher and the fetch pipeline are one stack,
@@ -41,6 +46,7 @@
  *     strip per hop, and the knobs relax exactly those two policies.
  */
 
+import { createHash } from 'node:crypto';
 import { isIP, type LookupFunction } from 'node:net';
 import type { SecureVersion } from 'node:tls';
 import {
@@ -89,7 +95,7 @@ const MAX_AGENTS = 32;
  * global default dispatcher (no override); every send carrying the
  * SAME option tuple shares ONE agent, built on first use — minting an
  * agent per send would leak a connection pool each time. Future
- * dispatcher-affecting knobs (mTLS client certs) join the tuple here.
+ * dispatcher-affecting knobs (per-request proxy) join the tuple here.
  */
 const agentCache = new Map<string, Agent>();
 
@@ -115,17 +121,33 @@ function pinnedLookup(address: string): LookupFunction {
   };
 }
 
+/**
+ * Client-certificate segment of the tuple key: the stable vault ref
+ * plus a short content hash of the PEM material. The hash — never the
+ * PEM itself — rides the key so ROTATING the vault entry under the
+ * same name naturally mints a fresh agent (the S5 cache has no
+ * invalidation input, and needs none). A hash of the material is not
+ * the secret; the material itself must never sit in a Map key.
+ */
+function clientCertKeySegment(request: TransportRequest): string {
+  if (request.clientCertificateRef === undefined) return '';
+  const material = `${request.clientCertificatePem ?? ''}\n${request.clientCertificateKeyPem ?? ''}\n${request.clientCertificatePassphrase ?? ''}`;
+  const hash = createHash('sha256').update(material).digest('hex').slice(0, 16);
+  return `${request.clientCertificateRef}#${hash}`;
+}
+
 function dispatcherFor(request: TransportRequest): Agent | undefined {
   const insecure = request.sslVerification === false;
   const allowH2 = request.allowHttp2 === true;
-  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress } = request;
+  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress, clientCertificateRef } = request;
   if (
     !insecure &&
     !allowH2 &&
     tlsMinVersion === undefined &&
     tlsMaxVersion === undefined &&
     tlsCipherSuites === undefined &&
-    resolveToAddress === undefined
+    resolveToAddress === undefined &&
+    clientCertificateRef === undefined
   ) {
     return undefined;
   }
@@ -136,6 +158,7 @@ function dispatcherFor(request: TransportRequest): Agent | undefined {
     tlsCipherSuites ?? '',
     allowH2 ? 'h2' : '',
     resolveToAddress ?? '',
+    clientCertKeySegment(request),
   ].join('|');
   const cached = agentCache.get(key);
   if (cached) return cached;
@@ -145,12 +168,18 @@ function dispatcherFor(request: TransportRequest): Agent | undefined {
     maxVersion?: SecureVersion;
     ciphers?: string;
     lookup?: LookupFunction;
+    cert?: string;
+    key?: string;
+    passphrase?: string;
   } = {};
   if (insecure) connect.rejectUnauthorized = false;
   if (tlsMinVersion !== undefined) connect.minVersion = TLS_VERSION_TOKEN[tlsMinVersion];
   if (tlsMaxVersion !== undefined) connect.maxVersion = TLS_VERSION_TOKEN[tlsMaxVersion];
   if (tlsCipherSuites !== undefined) connect.ciphers = tlsCipherSuites;
   if (resolveToAddress !== undefined) connect.lookup = pinnedLookup(resolveToAddress);
+  if (request.clientCertificatePem !== undefined) connect.cert = request.clientCertificatePem;
+  if (request.clientCertificateKeyPem !== undefined) connect.key = request.clientCertificateKeyPem;
+  if (request.clientCertificatePassphrase !== undefined) connect.passphrase = request.clientCertificatePassphrase;
   // `allowH2` is an Agent option, NOT a `connect` option — it sits
   // beside the connector and switches the ALPN offer to h2+http/1.1.
   const agent = new Agent({ connect, ...(allowH2 ? { allowH2: true } : {}) });
@@ -200,6 +229,16 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
   const fetchFn = options.fetchFn ?? undiciFetch;
   return {
     async send(request: TransportRequest): Promise<TransportResponse> {
+      // A configured client certificate whose vault entry didn't
+      // resolve on this device fails BEFORE the wire — silently
+      // dialing a mutual-TLS gateway without the certificate would
+      // surface as an opaque handshake failure instead of the real
+      // problem.
+      if (request.clientCertificateRef !== undefined && request.clientCertificatePem === undefined) {
+        throw new TransportError(
+          `The request's client-certificate setting references the vault entry "${request.clientCertificateRef}", which doesn't exist on this device. Add a client-certificate entry with that name to the vault, or clear the setting.`,
+        );
+      }
       // ONE deadline spans the whole send — every hop of a redirect
       // chain plus the final body read; the abort also cancels a body
       // stream stalled mid-read, which a fetch-only signal would miss.
@@ -511,11 +550,15 @@ function buildBody(body: TransportBody): NodeRequestInit['body'] {
  * precise than the browser's opaque "Failed to fetch". Connect-level
  * failures on a send that pins its address name the resolve-to-address
  * setting (the user's first question is "did my pin do this?");
- * handshake failures name the TLS settings only when they are tuned.
+ * handshake failures name the TLS settings only when they are tuned;
+ * certificate-demand alerts, cert-material load failures, and
+ * mid-handshake closes name the client-certificate setting when one
+ * is configured.
  */
 function classifyFetchFailure(url: string, err: unknown, request: TransportRequest): string {
   const tuned = tlsTuned(request);
   const pinned = request.resolveToAddress;
+  const certRef = request.clientCertificateRef;
   let host = '';
   try {
     host = new URL(url).hostname;
@@ -545,6 +588,20 @@ function classifyFetchFailure(url: string, err: unknown, request: TransportReque
         : `Connection to ${host} timed out.`;
     case 'ECONNRESET':
       return `Connection to ${host} was reset.`;
+    // ── Client-certificate handshake alerts (verified live on Node
+    // 22.18 / undici 7.24.6 against a certificate-demanding server).
+    // TLS 1.3 gateways send certificate_required; TLS 1.2 stacks send
+    // a bare handshake_failure alert; a presented-but-rejected cert
+    // surfaces as bad_certificate on either.
+    case 'ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED':
+      return certRef !== undefined
+        ? `${host} requires a client certificate and rejected the handshake (${code}). The request presents the vault entry "${certRef}" — check that its certificate is one this server accepts.`
+        : `${host} requires a client certificate (${code}). Pick one in the request's "Client certificate" setting.`;
+    case 'ERR_SSL_SSLV3_ALERT_BAD_CERTIFICATE':
+    case 'ERR_SSL_SSLV3_ALERT_CERTIFICATE_UNKNOWN':
+      return certRef !== undefined
+        ? `${host} rejected the presented client certificate (${code}). Check the request's client-certificate setting — the vault entry "${certRef}" may be expired, revoked, or signed by a CA this server doesn't trust.`
+        : `${host} rejected a certificate during the TLS handshake (${code}).`;
     case 'CERT_HAS_EXPIRED':
     case 'DEPTH_ZERO_SELF_SIGNED_CERT':
     case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
@@ -552,11 +609,33 @@ function classifyFetchFailure(url: string, err: unknown, request: TransportReque
     case 'ERR_SSL_NO_CIPHER_MATCH':
       return `No usable cipher suite for ${host} (${code}). Check the request's "TLS cipher suites" setting — none of the listed suites could be used for this connection.`;
     default: {
+      // A mutual-TLS server that dislikes the presented client
+      // certificate may simply sever the connection instead of sending
+      // an alert — verified live: a Node-style TLS 1.3 server demanding
+      // a certificate surfaces UND_ERR_SOCKET, not certificate_required.
+      // Named only when a certificate IS configured; an unrelated
+      // socket close keeps the generic message below.
+      if (code === 'UND_ERR_SOCKET' && certRef !== undefined) {
+        return `${host} closed the connection during the exchange. Servers requiring a client certificate close like this when they reject one — check the request's client-certificate setting (vault entry "${certRef}").`;
+      }
+      // Malformed vault material fails at connect time, before any
+      // bytes go out (verified: bad PEM → ERR_OSSL_PEM_NO_START_LINE,
+      // mismatched pair → ERR_OSSL_X509_KEY_VALUES_MISMATCH; a wrong
+      // key passphrase is an ERR_OSSL_* decrypt error too).
+      if (certRef !== undefined && code?.startsWith('ERR_OSSL_')) {
+        return `The client certificate from vault entry "${certRef}" could not be loaded (${code}). Check that the entry's certificate and key are valid PEM, belong together, and that the passphrase is right.`;
+      }
       // Handshake-level failures (protocol version alerts, unsupported
-      // protocol) surface as ERR_SSL_* / EPROTO. When the request tuned
-      // its TLS options, name them — the mismatch is usually between
-      // the configured version window and what the server accepts.
+      // protocol) surface as ERR_SSL_* / EPROTO. A TLS 1.2 server
+      // demanding a client certificate sends a bare handshake_failure
+      // alert (verified live), so name the client-certificate setting
+      // when one is configured; otherwise, when the request tuned its
+      // TLS options, name those — the mismatch is usually between the
+      // configured version window and what the server accepts.
       if (code !== undefined && (code.startsWith('ERR_SSL_') || code === 'EPROTO')) {
+        if (certRef !== undefined) {
+          return `TLS handshake with ${host} failed (${code}). The request presents the client certificate from vault entry "${certRef}" — the server may not accept it${tuned ? ', or the TLS version and cipher suite settings may not match what the server accepts' : ''}.`;
+        }
         return tuned
           ? `TLS handshake with ${host} failed (${code}). Check the request's TLS version and cipher suite settings against what the server accepts.`
           : `TLS handshake with ${host} failed (${code}).`;

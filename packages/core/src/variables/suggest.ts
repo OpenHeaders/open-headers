@@ -87,10 +87,15 @@ export interface VariableEntry {
  * suggester runs in renderer contexts (popovers, Monaco) that should
  * never see seed material; the resolver produces codes from the seed
  * one layer down where the precomputed `TotpRegistry` lives.
+ *
+ * `client-certificate` rows are accepted (callers pass the raw vault
+ * list) but never suggested — they are not template-resolvable, so no
+ * PEM field crosses this surface either.
  */
 export type VaultSecretEntry =
   | { kind: 'string'; name: string; value: string }
-  | { kind: 'totp'; name: string; algorithm: string; digits: number; period: number; issuer?: string };
+  | { kind: 'totp'; name: string; algorithm: string; digits: number; period: number; issuer?: string }
+  | { kind: 'client-certificate'; name: string };
 
 export interface EnvironmentEntry {
   uid: string;
@@ -293,6 +298,9 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
   if (scopeAllowed('vault', context)) {
     let order = 0;
     for (const secret of registries.vault) {
+      // Client-certificate entries are not template-resolvable — never
+      // suggest a `{{vault.X}}` reference that could only fail.
+      if (secret.kind === 'client-certificate') continue;
       const preview: SuggestionPreview =
         secret.kind === 'totp'
           ? {

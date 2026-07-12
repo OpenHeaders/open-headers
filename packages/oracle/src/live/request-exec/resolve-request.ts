@@ -56,6 +56,18 @@ export interface ResolvedRequest {
   /** Address the hostname resolves to at connect time; SNI / Host /
    *  cert verification keep the original hostname. Absent → DNS. */
   resolveToAddress?: string;
+  /** Vault `client-certificate` entry NAME to present in the TLS
+   *  handshake. Carried even when unresolved on this device — the
+   *  transport owns that failure. Absent → no client certificate. */
+  clientCertificateRef?: string;
+  /** PEM material resolved from the vault entry named by
+   *  `clientCertificateRef`; absent when the ref is absent OR the
+   *  entry doesn't exist on this device. */
+  clientCertificatePem?: string;
+  /** See {@link clientCertificatePem}. */
+  clientCertificateKeyPem?: string;
+  /** See {@link clientCertificatePem}. */
+  clientCertificatePassphrase?: string;
   /** Per-request round-trip ceiling (ms). A workflow step's own
    *  per-attempt timeout takes precedence at execute time. */
   timeoutMs?: number;
@@ -185,6 +197,9 @@ export async function resolveRequest(
   // Append params after auth — api-key-in-query lives in enabledParams.
   resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
+  // ── Client certificate (ref → PEM against the local vault) ──
+  const clientCertificate = resolveClientCertificate(request.clientCertificateRef, scope.vault);
+
   // ── Body ──
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
 
@@ -215,6 +230,7 @@ export async function resolveRequest(
       tlsCipherSuites: request.tlsCipherSuites,
       allowHttp2: request.allowHttp2,
       resolveToAddress: request.resolveToAddress,
+      ...clientCertificate,
       timeoutMs: request.timeoutMs,
       maxResponseBytes: request.maxResponseBytes,
       maxRedirects: request.maxRedirects,
@@ -222,6 +238,31 @@ export async function resolveRequest(
       followAuthorizationHeader: request.followAuthorizationHeader,
     },
     totpUsed: [...totpUsed.values()],
+  };
+}
+
+/**
+ * Resolve a `clientCertificateRef` against the local vault. The ref
+ * always passes through when set — even unresolved — so the honoring
+ * transport can fail the send loudly instead of silently dialing
+ * without a certificate; the PEM material attaches only when the named
+ * entry exists on this device with the right kind.
+ */
+function resolveClientCertificate(
+  ref: string | undefined,
+  vault: Vault,
+): Pick<
+  ResolvedRequest,
+  'clientCertificateRef' | 'clientCertificatePem' | 'clientCertificateKeyPem' | 'clientCertificatePassphrase'
+> {
+  if (ref === undefined) return {};
+  const entry = vault.secrets.find((s) => s.kind === 'client-certificate' && s.name === ref);
+  if (!entry || entry.kind !== 'client-certificate') return { clientCertificateRef: ref };
+  return {
+    clientCertificateRef: ref,
+    clientCertificatePem: entry.cert,
+    clientCertificateKeyPem: entry.key,
+    ...(entry.passphrase !== undefined ? { clientCertificatePassphrase: entry.passphrase } : {}),
   };
 }
 

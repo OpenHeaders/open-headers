@@ -124,6 +124,24 @@ export const ResolveToAddressSchema = v.pipe(
   v.maxLength(MAX_RESOLVE_TO_ADDRESS_LENGTH),
 );
 
+/**
+ * Reference to a vault `client-certificate` entry by NAME. The vault is
+ * local-per-device and never syncs, so the entry name is the only
+ * cross-device contract — a synced request finds each device's own
+ * certificate under the same name (the `{{vault.X}}` model). The PEM
+ * material itself never rides the request: the executor resolves the
+ * ref against the vault at send time. Whether the named entry EXISTS
+ * is a device-local question the editor and the transport both answer
+ * in place.
+ */
+export const MAX_CLIENT_CERTIFICATE_REF_LENGTH = 256;
+
+export const ClientCertificateRefSchema = v.pipe(
+  v.string(),
+  v.minLength(1),
+  v.maxLength(MAX_CLIENT_CERTIFICATE_REF_LENGTH),
+);
+
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
 /**
@@ -592,6 +610,20 @@ export const RequestSchema = v.object({
    * {@link ResolveToAddressSchema}.
    */
   resolveToAddress: v.optional(ResolveToAddressSchema),
+  /**
+   * Present a TLS client certificate during the handshake, for APIs
+   * behind mutual-TLS gateways. The value is the NAME of a vault
+   * `client-certificate` entry (cert + key PEM pair, optional
+   * passphrase) — never the PEM material itself; the executor resolves
+   * the ref against the local vault at send time, and a ref that
+   * doesn't resolve on this device fails the send with an error naming
+   * this setting. Not trust-relaxing — presenting a client certificate
+   * does not weaken server verification; no snapshot marker. Honored
+   * by node runtimes; browser runtimes pick client certificates from
+   * their own store/prompt and ignore it (the request still syncs it —
+   * one schema, all runtimes carry the value).
+   */
+  clientCertificateRef: v.optional(ClientCertificateRefSchema),
   /**
    * Wall-clock ceiling (ms) on the whole round-trip — connection,
    * response, and body read. Honored by BOTH runtimes (the browser

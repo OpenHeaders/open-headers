@@ -84,6 +84,26 @@ describe('VaultSchema', () => {
     expect(v.safeParse(VaultSchema, { schemaVersion: 6, secrets: [] }).success).toBe(true);
     expect(v.safeParse(VaultSchema, { schemaVersion: 100, secrets: [] }).success).toBe(true);
   });
+
+  it('accepts a client-certificate entry — cert + key PEM pair, optional passphrase', () => {
+    const entry = {
+      uid: 'abcd1234',
+      kind: 'client-certificate',
+      name: 'gateway-mtls',
+      cert: '-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----',
+      key: '-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----',
+    };
+    expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [entry] }).success).toBe(true);
+    expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [{ ...entry, passphrase: 'pw' }] }).success).toBe(
+      true,
+    );
+  });
+
+  it('rejects a client-certificate entry missing either half of the pair', () => {
+    const base = { uid: 'abcd1234', kind: 'client-certificate', name: 'gateway-mtls' };
+    expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [{ ...base, cert: 'c' }] }).success).toBe(false);
+    expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [{ ...base, key: 'k' }] }).success).toBe(false);
+  });
 });
 
 describe('EnvironmentSchema', () => {
@@ -402,6 +422,25 @@ describe('RequestSchema', () => {
     expect(v.safeParse(RequestSchema, { ...base, resolveToAddress: '10.0.0.7:8443' }).success).toBe(false);
     expect(v.safeParse(RequestSchema, { ...base, resolveToAddress: '999.0.0.1' }).success).toBe(false);
     expect(v.safeParse(RequestSchema, { ...base, resolveToAddress: '' }).success).toBe(false);
+  });
+
+  it('accepts a clientCertificateRef vault-entry name; rejects empty and overlong', () => {
+    const base = {
+      schemaVersion: 5,
+      uid: 'abcd1234',
+      path: 'x',
+      name: 'x',
+      method: 'GET',
+      url: 'x',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    };
+    expect(v.parse(RequestSchema, { ...base, clientCertificateRef: 'gateway-mtls' })).toBeTruthy();
+    expect(v.safeParse(RequestSchema, { ...base }).success).toBe(true);
+    expect(v.safeParse(RequestSchema, { ...base, clientCertificateRef: '' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, clientCertificateRef: 'x'.repeat(257) }).success).toBe(false);
   });
 });
 

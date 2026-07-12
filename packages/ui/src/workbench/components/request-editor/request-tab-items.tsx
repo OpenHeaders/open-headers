@@ -88,6 +88,7 @@ export function buildRequestTabItems(
       (draft.tlsMinVersion !== undefined || draft.tlsMaxVersion !== undefined || draft.tlsCipherSuites !== undefined)) ||
     (!browserRuntime && draft.allowHttp2 === true) ||
     (!browserRuntime && draft.resolveToAddress !== undefined) ||
+    (!browserRuntime && draft.clientCertificateRef !== undefined) ||
     draft.timeoutMs !== undefined ||
     (!browserRuntime && draft.maxResponseBytes !== undefined) ||
     // The redirect trio's rows hide while follow-redirects is off; no

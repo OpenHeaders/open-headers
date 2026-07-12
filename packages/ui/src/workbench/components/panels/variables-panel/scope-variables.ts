@@ -67,6 +67,18 @@ export function buildAllScopeVariables(input: AllScopeVariablesInput): AllScopeV
         totp: { seed: s.seed, algorithm: s.algorithm, digits: s.digits, period: s.period },
       };
     }
+    // Client-certificate entries list so users see the entry exists,
+    // but carry no template value — they're consumed by the request
+    // "Client certificate" setting, not by `{{vault.X}}`.
+    if (s.kind === 'client-certificate') {
+      return {
+        name: s.name,
+        value: '',
+        scope: 'vault',
+        isSensitive: true,
+        resolved: true,
+      };
+    }
     return {
       name: s.name,
       value: s.value,

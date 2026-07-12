@@ -479,6 +479,137 @@ describe('createNodeRequestTransport — per-request resolve-to-address pin', ()
   });
 });
 
+// Throwaway placeholder material — dispatcher IDENTITY is what these
+// tests assert; a real handshake is the live pass.
+const CERT_FIELDS = {
+  clientCertificateRef: 'gateway-mtls',
+  clientCertificatePem: '-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----',
+  clientCertificateKeyPem: '-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----',
+};
+
+describe('createNodeRequestTransport — per-request client certificate', () => {
+  it('a certificate-only tuple mints a dedicated agent, reused per tuple', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ ...CERT_FIELDS }));
+    await transport().send(makeRequest({ ...CERT_FIELDS }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('an absent ref keeps the default dispatcher', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest());
+    expect(callInit(0).dispatcher).toBeUndefined();
+  });
+
+  it('distinct refs get distinct agents', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ ...CERT_FIELDS }));
+    await transport().send(makeRequest({ ...CERT_FIELDS, clientCertificateRef: 'other-gateway' }));
+    const agents = [callInit(0).dispatcher, callInit(1).dispatcher];
+    for (const a of agents) expect(a).toBeInstanceOf(Agent);
+    expect(new Set(agents).size).toBe(2);
+  });
+
+  it('the SAME ref with rotated material mints a fresh agent (content-hash key segment)', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ ...CERT_FIELDS }));
+    await transport().send(
+      makeRequest({
+        ...CERT_FIELDS,
+        clientCertificatePem: '-----BEGIN CERTIFICATE-----\nrotated-cert\n-----END CERTIFICATE-----',
+      }),
+    );
+    const agents = [callInit(0).dispatcher, callInit(1).dispatcher];
+    for (const a of agents) expect(a).toBeInstanceOf(Agent);
+    expect(new Set(agents).size).toBe(2);
+  });
+
+  it('a passphrase change also rotates the tuple', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ ...CERT_FIELDS }));
+    await transport().send(makeRequest({ ...CERT_FIELDS, clientCertificatePassphrase: 'swordfish' }));
+    const agents = [callInit(0).dispatcher, callInit(1).dispatcher];
+    expect(new Set(agents).size).toBe(2);
+  });
+
+  it('the certificate combines with TLS and pin options into its own distinct tuples', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ ...CERT_FIELDS }));
+    await transport().send(makeRequest({ ...CERT_FIELDS, tlsMinVersion: '1.2' }));
+    await transport().send(makeRequest({ ...CERT_FIELDS, resolveToAddress: '10.0.0.7' }));
+    await transport().send(makeRequest({ tlsMinVersion: '1.2' }));
+    const agents = [callInit(0).dispatcher, callInit(1).dispatcher, callInit(2).dispatcher, callInit(3).dispatcher];
+    for (const a of agents) expect(a).toBeInstanceOf(Agent);
+    expect(new Set(agents).size).toBe(4);
+  });
+
+  it('the certificate-bearing dispatcher rides EVERY hop of a redirect chain', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
+      .mockResolvedValueOnce(new Response('ok'));
+    await transport().send(makeRequest({ ...CERT_FIELDS }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('fails BEFORE the wire when the ref did not resolve to vault material', async () => {
+    const attempt = transport().send(makeRequest({ clientCertificateRef: 'gateway-mtls' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/vault entry "gateway-mtls", which doesn't exist on this device/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('classifies certificate_required naming the configured vault entry', async () => {
+    fetchMock.mockRejectedValue(fetchError('ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED'));
+    await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
+      /requires a client certificate and rejected the handshake .* vault entry "gateway-mtls"/,
+    );
+  });
+
+  it('classifies certificate_required pointing at the setting when NO certificate is configured', async () => {
+    fetchMock.mockRejectedValue(fetchError('ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED'));
+    await expect(transport().send(makeRequest())).rejects.toThrow(
+      /requires a client certificate .* Pick one in the request's "Client certificate" setting/,
+    );
+  });
+
+  it('classifies bad_certificate naming the vault entry when configured', async () => {
+    fetchMock.mockRejectedValue(fetchError('ERR_SSL_SSLV3_ALERT_BAD_CERTIFICATE'));
+    await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
+      /rejected the presented client certificate .* vault entry "gateway-mtls"/,
+    );
+  });
+
+  it('classifies a mid-handshake close naming the setting ONLY when a certificate is configured', async () => {
+    fetchMock.mockRejectedValue(fetchError('UND_ERR_SOCKET'));
+    await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
+      /closed the connection during the exchange\..*client-certificate setting/,
+    );
+  });
+
+  it('keeps the generic message on a socket close with no certificate configured', async () => {
+    fetchMock.mockRejectedValue(fetchError('UND_ERR_SOCKET'));
+    await expect(transport().send(makeRequest())).rejects.toThrow(/^Could not reach api\.openheaders\.io/);
+  });
+
+  it('classifies unloadable PEM material naming the vault entry', async () => {
+    fetchMock.mockRejectedValue(fetchError('ERR_OSSL_PEM_NO_START_LINE'));
+    await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
+      /client certificate from vault entry "gateway-mtls" could not be loaded \(ERR_OSSL_PEM_NO_START_LINE\)/,
+    );
+  });
+
+  it('a TLS 1.2 handshake_failure names the client certificate when one is configured', async () => {
+    fetchMock.mockRejectedValue(fetchError('ERR_SSL_SSLV3_ALERT_HANDSHAKE_FAILURE'));
+    await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
+      /TLS handshake with api\.openheaders\.io failed .* vault entry "gateway-mtls"/,
+    );
+  });
+});
+
 describe('createNodeRequestTransport — hand-rolled redirect follow', () => {
   it('follows a redirect chain to the final response and reports the final URL', async () => {
     fetchMock
