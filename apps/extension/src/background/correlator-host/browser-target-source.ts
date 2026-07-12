@@ -160,6 +160,19 @@ export class ChromeBrowserTargetSource {
     }
   }
 
+  /**
+   * Control-plane seam — issue one CDP command on an attached target and
+   * return its raw result (the target plane's `sendOnSession` counterpart;
+   * the console REPL evaluates in SW contexts through here). Rejects on an
+   * absent transport; surfaces command errors to the caller, which owns
+   * the tolerance decision.
+   */
+  async sendOnTarget(targetId: string, method: string, params?: Record<string, unknown>): Promise<unknown> {
+    const api = this.api();
+    if (!api) throw new Error('CDP transport unavailable');
+    return api.sendCommand({ targetId }, method, params);
+  }
+
   /** Context-registry events for attached targets (target-keyed). */
   subscribeContexts(listener: ContextsListener): () => void {
     this.contextsListeners.add(listener);

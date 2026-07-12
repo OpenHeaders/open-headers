@@ -253,3 +253,56 @@ button.dt-console-caret:hover {
 .dt-console-option-toggle .anticon {
   font-size: 11px;
 }
+
+/* ── REPL prompt + echo rows (JS contexts Phase D) ───────────────────
+   The prompt row pins under the console body; command/result rows swap
+   the level dot for the browser's chevron vocabulary (`›` command, `‹`
+   result). */
+.dt-console-glyph {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  color: var(--dt-link);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dt-console-row[data-source='result'] .dt-console-glyph {
+  color: var(--dt-text-muted);
+}
+
+.dt-console-prompt {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-top: 1px solid var(--dt-border);
+}
+
+.dt-console-prompt-glyph {
+  color: var(--dt-link);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dt-console-prompt-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--dt-text);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.dt-console-prompt-input::placeholder {
+  color: var(--dt-text-muted);
+}
+
+.dt-console-prompt-input:disabled {
+  opacity: 0.6;
+}

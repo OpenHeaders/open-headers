@@ -260,6 +260,13 @@ export interface RawConsoleApiCalled {
   readonly stackTrace?: RawStackTrace;
 }
 
+/** `Runtime.evaluate` result (subset) — the value of a console-prompt
+ *  evaluation (`result`) or its throw (`exceptionDetails`). */
+export interface RawEvaluateResult {
+  readonly result?: RawRemoteObject;
+  readonly exceptionDetails?: RawExceptionDetails;
+}
+
 /** `Runtime.ExceptionDetails` (subset) — the body of an uncaught error /
  *  unhandled rejection. `exception` is the thrown value; `text` is the
  *  fallback label (`Uncaught` / `Uncaught (in promise)`). */

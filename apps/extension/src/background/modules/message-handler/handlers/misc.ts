@@ -4,6 +4,7 @@ import type { JarCookieEditWire, JarCookieKeyWire } from '@openheaders/core/brid
 import { getBackendSyncStatusSnapshot } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import { logger } from '@utils/logger';
+import { evalConsoleExpression } from '../../console-eval-access';
 import {
   clearCookiesForSite as clearCookiesForSiteHandler,
   fetchCookieJarForSite as fetchCookieJarForSiteHandler,
@@ -15,6 +16,20 @@ import { fetchSourceMapText as fetchSourceMapTextHandler } from '../../net/fetch
 import type { HandlerMap } from '../types';
 
 export const miscHandlers: HandlerMap = {
+  consoleEval: ({ message, respond }) => {
+    const tabId = message.tabId as number;
+    const contextKey = message.contextKey as string;
+    const expression = message.expression as string;
+    // The outcome rides the console stream as command/result entries; the
+    // response only acks dispatch (false = no evaluator on this host).
+    evalConsoleExpression(tabId, contextKey, expression)
+      .then((dispatched) =>
+        respond(dispatched ? { success: true } : { success: false, error: 'console evaluation unavailable' }),
+      )
+      .catch((err: Error) => respond({ success: false, error: err.message }));
+    return true;
+  },
+
   fetchSourceMapText: ({ message, respond }) => {
     fetchSourceMapTextHandler(message.jsUrl as string)
       .then((res) => respond(res))

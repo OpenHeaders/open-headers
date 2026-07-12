@@ -27,6 +27,7 @@ import type {
   RawCallFrame,
   RawConsoleApiCalled,
   RawDataReceived,
+  RawEvaluateResult,
   RawEventSourceMessageReceived,
   RawExceptionDetails,
   RawExceptionThrown,
@@ -462,6 +463,67 @@ export function normalizeExceptionThrown(sessionKey: string, p: RawExceptionThro
     ...mintContextKey(sessionKey, d.executionContextId),
     ...stackTraceFrames(d.stackTrace),
     ...exceptionLocation(d),
+  };
+}
+
+// ── console REPL normalizers (JS contexts, Phase D) ──────────────────
+
+/**
+ * A console-prompt command echo (JS contexts Phase D) — the user's typed
+ * expression as a `command` entry, tagged with the target context and
+ * stamped at record time (there is no wire event to take a clock from).
+ */
+export function normalizeEvalCommand(contextKey: string, expression: string, timestamp: number): ConsoleEntry {
+  return {
+    source: 'command',
+    level: 'log',
+    args: [{ type: 'string', text: expression }],
+    timestamp,
+    contextKey,
+  };
+}
+
+/**
+ * A console-prompt evaluation outcome → a `result` entry. A clean value
+ * renders through the same RemoteObject pipeline as `console.*` args; a
+ * throw renders as an error-level entry with the exception's text +
+ * location (mirror of {@link normalizeExceptionThrown}, minus the
+ * `Uncaught` framing — the prompt itself is the frame).
+ */
+export function normalizeEvalResult(contextKey: string, raw: RawEvaluateResult, timestamp: number): ConsoleEntry {
+  const d = raw.exceptionDetails;
+  if (d !== undefined) {
+    return {
+      source: 'result',
+      level: 'error',
+      args: [{ type: 'error', subtype: 'error', text: exceptionText(d) }],
+      timestamp,
+      contextKey,
+      ...stackTraceFrames(d.stackTrace),
+      ...exceptionLocation(d),
+    };
+  }
+  return {
+    source: 'result',
+    level: 'log',
+    args: [raw.result !== undefined ? renderRemoteObject(raw.result) : { type: 'undefined', text: 'undefined' }],
+    timestamp,
+    contextKey,
+  };
+}
+
+/**
+ * A console-prompt evaluation that never reached the page — transport
+ * refusal, timeout, dead context. Rendered as an error-level `result`
+ * entry so the prompt is never silent.
+ */
+export function evalFailureEntry(contextKey: string, message: string, timestamp: number): ConsoleEntry {
+  return {
+    source: 'result',
+    level: 'error',
+    args: [{ type: 'error', subtype: 'error', text: message }],
+    timestamp,
+    contextKey,
   };
 }
 

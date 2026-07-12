@@ -281,6 +281,23 @@ export type SiteDataTypeWire =
   | 'sessionStorage';
 
 export interface DevToolsRpc {
+  // ── DevTools panel: console REPL evaluation ────────────────────
+  /**
+   * Evaluate a console-prompt expression in one JS execution context of a
+   * CDP-attached tab (JS contexts Phase D). `contextKey` is the registry's
+   * `${sessionKey}::${executionContextId}` join key — the engine resolves
+   * the session (tab root, kept child, or browser-scoped target) and issues
+   * `Runtime.evaluate` there.
+   *
+   * The response only acks dispatch: the command echo AND its result/error
+   * are recorded as console-stream entries (`source: 'command'` /
+   * `'result'`), so the transcript stays one ordered, replayable feed.
+   */
+  consoleEval: {
+    req: { tabId: number; contextKey: string; expression: string };
+    res: { success: boolean; error?: string };
+  };
+
   // ── DevTools panel: source-map resolution ──────────────────────
   /**
    * Fetch the source map associated with a JS URL — the DevTools panel

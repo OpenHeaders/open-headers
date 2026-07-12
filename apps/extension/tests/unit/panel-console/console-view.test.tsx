@@ -46,12 +46,27 @@ vi.mock('@openheaders/ui/workbench/settings/hooks', () => ({
   useSetting: () => [false, setCdpEnabledSpy],
 }));
 
+const { bridgeCallSpy } = vi.hoisted(() => ({
+  bridgeCallSpy: vi.fn(() => Promise.resolve({ success: true })),
+}));
+
+vi.mock('@openheaders/core/bridge', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@openheaders/core/bridge')>();
+  return {
+    ...actual,
+    hostBridge: { ...actual.hostBridge, call: bridgeCallSpy },
+  };
+});
+
 import type { HostNavigation } from '@openheaders/core/navigation';
 import { setHostNavigation } from '@openheaders/core/navigation';
 import { ConsoleView } from '@openheaders/ui/panel/components/ConsoleView';
 import type { ConsoleRequestJoin } from '@openheaders/ui/panel/data/console-request-join';
 
-function installNavigation(openResource: HostNavigation['openResource']): void {
+function installNavigation(
+  openResource: HostNavigation['openResource'],
+  inspectedTabId: () => number | null = () => null,
+): void {
   setHostNavigation({
     switchViewMode: () => Promise.resolve({ opened: false }),
     currentWindowId: () => Promise.resolve(undefined),
@@ -60,7 +75,7 @@ function installNavigation(openResource: HostNavigation['openResource']): void {
     openShortcutSettings: () => {},
     getActiveTab: () => Promise.resolve(null),
     observeActiveTabContext: () => () => {},
-    inspectedTabId: () => null,
+    inspectedTabId,
     reloadInspectedTab: () => {},
     getInspectedHar: () => Promise.resolve(null),
     openResource,
@@ -412,5 +427,77 @@ describe('ConsoleView context selector + "Selected context only" (JS contexts Ph
     );
     expect(depths).toEqual(['0', '1', '1', '0']);
     expect(screen.getByText('Open Headers')).toBeTruthy();
+  });
+});
+
+describe('ConsoleView REPL prompt + echo rows (JS contexts Phase D)', () => {
+  const TOP = makeContext({ contextKey: 'page::1', isTopFrame: true });
+
+  beforeEach(() => {
+    bridgeCallSpy.mockClear();
+    installNavigation(vi.fn(), () => 5);
+  });
+
+  it('renders the prompt while capturing and hides it when capture stops', () => {
+    renderView([], { contexts: [TOP] });
+    expect(screen.getByLabelText('Console prompt')).toBeTruthy();
+    cleanup();
+    mockScope.cdpOwned = false;
+    renderView([], { contexts: [] });
+    expect(screen.queryByLabelText('Console prompt')).toBeNull();
+  });
+
+  it('disables the prompt until a context exists', () => {
+    renderView([]);
+    const input = screen.getByLabelText('Console prompt') as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+    expect(input.placeholder).toContain('Waiting for a JavaScript context');
+  });
+
+  it('Enter dispatches consoleEval against the effective context and clears the input', () => {
+    renderView([], { contexts: [TOP] });
+    const input = screen.getByLabelText('Console prompt') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '41 + 1' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(bridgeCallSpy).toHaveBeenCalledWith('consoleEval', {
+      tabId: 5,
+      contextKey: 'page::1',
+      expression: '41 + 1',
+    });
+    expect(input.value).toBe('');
+  });
+
+  it('walks history with arrows and returns to the draft below the bottom', () => {
+    renderView([], { contexts: [TOP] });
+    const input = screen.getByLabelText('Console prompt') as HTMLInputElement;
+    for (const expression of ['one', 'two']) {
+      fireEvent.change(input, { target: { value: expression } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+    }
+    fireEvent.change(input, { target: { value: 'draft' } });
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(input.value).toBe('two');
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(input.value).toBe('one');
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(input.value).toBe('one');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input.value).toBe('two');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input.value).toBe('draft');
+  });
+
+  it('renders command/result rows with the chevron glyphs and error results with the badge', () => {
+    const { container } = renderView(
+      [
+        entry('41 + 1', { source: 'command', contextKey: 'page::1' }),
+        entry('42', { source: 'result', contextKey: 'page::1' }),
+        entry('boom', { source: 'result', level: 'error', contextKey: 'page::1' }),
+      ],
+      { contexts: [TOP] },
+    );
+    const glyphs = [...container.querySelectorAll('.dt-console-glyph')].map((el) => el.textContent);
+    expect(glyphs).toEqual(['›', '‹']);
+    expect(container.querySelector('.dt-console-row[data-source="result"] .dt-console-dot--error')).not.toBeNull();
   });
 });

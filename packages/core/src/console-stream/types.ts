@@ -61,11 +61,14 @@ export interface ConsoleStackFrame {
  */
 export interface ConsoleEntry {
   /**
-   * Capture origin: a `console.*` call, an uncaught exception/rejection, or
-   * a browser-generated log entry (the browser's own console messages —
-   * failed/blocked network requests, deprecations, violations, …).
+   * Capture origin: a `console.*` call, an uncaught exception/rejection, a
+   * browser-generated log entry (the browser's own console messages —
+   * failed/blocked network requests, deprecations, violations, …), or the
+   * REPL's echo pair — `command` is the user's typed expression, `result`
+   * its evaluation outcome. Command/result ride the same ordered stream so
+   * the transcript interleaves correctly with live output and replays.
    */
-  readonly source: 'console-api' | 'exception' | 'browser';
+  readonly source: 'console-api' | 'exception' | 'browser' | 'command' | 'result';
   readonly level: ConsoleLevel;
   /** Rendered args (a `console.*` call) or the single message text. */
   readonly args: readonly ConsoleArg[];

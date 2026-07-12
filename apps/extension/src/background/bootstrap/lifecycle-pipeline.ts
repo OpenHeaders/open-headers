@@ -20,6 +20,7 @@ import {
   ChromeCdpRequestControlPort,
   ChromeCdpTabControlPort,
   createCdpControlReplay,
+  createConsoleEval,
   deriveTabControlState,
   installCdpPinTabCleanup,
   originOfTab,
@@ -36,6 +37,7 @@ import { getRulesPaused, registerCdpRulesReplay } from '../dnr-manager';
 import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager';
 import { startJsContextPortHost } from '../js-context-port-host';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
+import { registerConsoleEval } from '../modules/console-eval-access';
 import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/cache-bypass';
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/net/network-conditions';
 import { registerExtensionTrafficSource } from '../modules/request-executor/wire-capture';
@@ -399,6 +401,20 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
       browserTargetController.requestDiscovery();
     }
   });
+
+  // Console REPL (JS contexts Phase D): the panel prompt's `consoleEval` RPC
+  // evaluates in the context the selector picked — `target:<id>` sessions
+  // route to the browser-target plane, everything else to the tab plane's
+  // session sender. Command echo + result record through the console hub, so
+  // the transcript is one ordered, replayable feed.
+  registerConsoleEval(
+    createConsoleEval({
+      sendOnSession: (tabId, sessionId, method, params) =>
+        lifecycleHost.debuggerSource.sendOnSession(tabId, sessionId, method, params),
+      sendOnTarget: (targetId, method, params) => browserTargetSource.sendOnTarget(targetId, method, params),
+      recordEntry: (tabId, entry) => consoleStreamHub.recordEntry(tabId, entry),
+    }),
+  );
 
   setupOnRuleMatchedDebugBridge({
     onAuthoritativeFire: (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record),

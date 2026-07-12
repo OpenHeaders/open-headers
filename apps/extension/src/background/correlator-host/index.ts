@@ -40,6 +40,8 @@ export { ChromeCdpTabControlPort } from './chrome-cdp-tab-control-port';
 export { ChromeDebuggerEventSource, cdpRootTarget, ROOT_SESSION_ID } from './chrome-debugger-source';
 export { ChromeHarEventSource } from './chrome-har-source';
 export { ChromeWebRequestEventSource } from './chrome-webrequest-source';
+export type { ConsoleEvalExecutor, ConsoleEvalOptions } from './console-eval';
+export { createConsoleEval } from './console-eval';
 export { deriveTabControlState } from './derive-tab-control-state';
 export type { DevtoolsPortPresence, DevtoolsPortPresenceOptions } from './devtools-port-presence';
 export { startDevtoolsPortPresence } from './devtools-port-presence';

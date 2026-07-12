@@ -25,6 +25,7 @@
  */
 
 import { CheckOutlined } from '@ant-design/icons';
+import { hostBridge } from '@openheaders/core/bridge';
 import type { ConsoleEntry, ConsoleLevel, ConsoleStackFrame } from '@openheaders/core/console-stream';
 import type { JsContext } from '@openheaders/core/js-contexts';
 import { hostNavigation } from '@openheaders/core/navigation';
@@ -43,6 +44,7 @@ import { useStickToBottom } from './detail/streams/use-stick-to-bottom';
 import { formatClock } from '../data/timing/format-time';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
 import { ConsoleContextSelector } from './ConsoleContextSelector';
+import { ConsolePrompt } from './ConsolePrompt';
 import { IconClear, IconCollapseAll, IconExpandAll } from './toolbar-icons';
 
 interface ConsoleViewProps {
@@ -299,6 +301,14 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
 
   const enableDebug = (): void => setCdpEnabled(true);
 
+  // REPL dispatch (Phase D): the echo pair (command + result entries) comes
+  // back on the console stream, so submission is fire-and-forget here.
+  const evaluate = (expression: string): void => {
+    const tabId = hostNavigation.inspectedTabId();
+    if (tabId == null || effectiveContextKey === null) return;
+    void hostBridge.call('consoleEval', { tabId, contextKey: effectiveContextKey, expression }).catch(() => {});
+  };
+
   return (
     <div className="dt-panel">
       <PanelHeader
@@ -412,6 +422,7 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
           </>
         )}
       </div>
+      {capturing && <ConsolePrompt contextKey={effectiveContextKey} onSubmit={evaluate} />}
     </div>
   );
 }
@@ -432,7 +443,14 @@ function ConsoleRowView({ row, resolvedFrames, expanded, onToggleExpanded, onReq
   return (
     <>
       <div className="dt-console-row" data-level={entry.level} data-source={entry.source}>
-        {entry.level === 'error' ? (
+        {entry.source === 'command' || (entry.source === 'result' && entry.level !== 'error') ? (
+          // REPL echo pair (Phase D): `›` marks the typed command, `‹` its
+          // value — the browser's chevron vocabulary. An error result keeps
+          // the standard error badge below.
+          <span className="dt-console-dot dt-console-glyph" aria-hidden="true">
+            {entry.source === 'command' ? '›' : '‹'}
+          </span>
+        ) : entry.level === 'error' ? (
           // Chrome's error badge: a red disc with a white ✕.
           <svg className="dt-console-dot dt-console-dot--error" viewBox="0 0 12 12" role="img" aria-hidden="true">
             <circle cx="6" cy="6" r="6" fill="var(--dt-icon-error)" />
