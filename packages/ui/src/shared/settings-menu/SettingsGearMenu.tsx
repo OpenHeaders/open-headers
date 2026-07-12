@@ -7,7 +7,8 @@
  * `getAppUpdate` capability (desktop app); when it reports a newer
  * build, a "Download …" item leads the menu and the gear carries an
  * attention dot. Opening the menu acknowledges the dot (persisted per
- * version), the item stays until the user updates.
+ * version), the item stays until the user updates. Below the published
+ * security floor the dot turns red and ignores the ack.
  *
  * Type-to-search: typing while the menu is open swaps the header to a
  * search field and filters the items live — Esc clears back to the
@@ -51,6 +52,8 @@ interface PendingUpdate {
   version: string;
   url?: string;
   phase: 'available' | 'downloading' | 'downloaded';
+  /** Below the published security floor — red badge, ack ignored. */
+  security: boolean;
 }
 
 interface MenuItem {
@@ -88,10 +91,11 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     const applyState = (state: {
       phase: string;
       availableVersion: string | null;
+      belowSafeFloor?: boolean;
     }): void => {
       const { phase } = state;
       if ((phase === 'available' || phase === 'downloading' || phase === 'downloaded') && state.availableVersion) {
-        setUpdate({ version: state.availableVersion, phase });
+        setUpdate({ version: state.availableVersion, phase, security: state.belowSafeFloor === true });
       } else {
         setUpdate(null);
       }
@@ -109,14 +113,14 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
         .catch(() => {
           // Host without the updater RPC — fall back to the probe.
           void probe().then((info) => {
-            if (!cancelled) setUpdate(info ? { ...info, phase: 'available' } : null);
+            if (!cancelled) setUpdate(info ? { ...info, phase: 'available', security: false } : null);
           });
         });
     } else {
       // URL-reporting host: pending-but-not-installed is by definition
       // the 'available' phase.
       void probe().then((info) => {
-        if (!cancelled) setUpdate(info ? { ...info, phase: 'available' } : null);
+        if (!cancelled) setUpdate(info ? { ...info, phase: 'available', security: false } : null);
       });
     }
     // Live transitions light the dot and advance the item label
@@ -128,7 +132,9 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     };
   }, []);
 
-  const showDot = update !== null && acked !== update.version;
+  // A security-floor update ignores the ack — the red badge keeps
+  // asking until the user actually updates.
+  const showDot = update !== null && (update.security || acked !== update.version);
 
   const groups = useMemo<MenuItem[][]>(() => {
     const close = () => setOpen(false);
@@ -377,7 +383,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
                 width: 7,
                 height: 7,
                 borderRadius: '50%',
-                background: token.colorPrimary,
+                background: update?.security ? token.colorError : token.colorPrimary,
                 border: `1px solid ${token.colorBgContainer}`,
                 pointerEvents: 'none',
               }}

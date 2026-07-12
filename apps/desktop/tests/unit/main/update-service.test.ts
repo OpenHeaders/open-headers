@@ -8,6 +8,7 @@ import {
   type UpdaterPort,
   type UpdateServiceDeps,
 } from '../../../src/main/update-service';
+import type { SeverityInfo } from '../../../src/main/versions-manifest';
 
 interface Harness {
   service: ReturnType<typeof createUpdateService>;
@@ -17,6 +18,7 @@ interface Harness {
     checkCalls: number;
     downloadCalls: number;
     installCalls: number;
+    severityCalls: number;
   };
   setPreferences(next: Partial<UpdatePreferences>): void;
 }
@@ -25,13 +27,14 @@ function makeHarness(
   overrides: {
     checkResult?: AvailableUpdate | null | Error;
     downloadResult?: Error;
+    severityResult?: SeverityInfo | null;
     supported?: boolean;
     preferences?: Partial<UpdatePreferences>;
   } = {},
 ): Harness {
   const broadcasts: AppUpdateState[] = [];
   const timers: Array<{ fn: () => void; ms: number }> = [];
-  const counters = { checkCalls: 0, downloadCalls: 0, installCalls: 0 };
+  const counters = { checkCalls: 0, downloadCalls: 0, installCalls: 0, severityCalls: 0 };
   let prefs: UpdatePreferences = { check: 'all', autoDownload: false, ...overrides.preferences };
 
   const updater: UpdaterPort = {
@@ -55,6 +58,10 @@ function makeHarness(
 
   const deps: UpdateServiceDeps = {
     updater,
+    async fetchSeverity() {
+      counters.severityCalls += 1;
+      return overrides.severityResult ?? null;
+    },
     currentVersion: '2026.7.2',
     supported: overrides.supported ?? true,
     getPreferences: () => prefs,
@@ -194,6 +201,83 @@ describe('update service state machine', () => {
     await Promise.resolve();
     expect(h.updater.checkCalls).toBe(0);
     expect(h.service.state().phase).toBe('idle');
+  });
+
+  it('populates severity + belowSafeFloor from the manifest on every check', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      severityResult: { latest: '2026.8.0', severity: 'security', minimumSafeVersion: '2026.8.0' },
+    });
+    const state = await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(state).toMatchObject({ phase: 'available', severity: 'security', belowSafeFloor: true });
+    expect(h.updater.severityCalls).toBe(1);
+  });
+
+  it('running at or above the safe floor never escalates', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      severityResult: { latest: '2026.8.0', severity: 'security', minimumSafeVersion: '2026.7.0' },
+    });
+    const state = await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(state).toMatchObject({ severity: 'security', belowSafeFloor: false });
+  });
+
+  it('an unreachable manifest leaves severity unknown and the feed check unaffected', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      severityResult: null,
+    });
+    const state = await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(state).toMatchObject({ phase: 'available', severity: null, belowSafeFloor: false });
+  });
+
+  it('security-only scheduled check without exposure skips the feed and ends idle silently', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      severityResult: { latest: '2026.8.0', severity: 'normal' },
+      preferences: { check: 'security-only' },
+    });
+    h.service.start();
+    h.timers[0]?.fn();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h.updater.severityCalls).toBe(1);
+    expect(h.updater.checkCalls).toBe(0);
+    expect(h.service.state()).toMatchObject({
+      phase: 'idle',
+      availableVersion: null,
+      severity: 'normal',
+      lastCheckedAt: 1_752_000_000_000,
+    });
+    // The next daily check is still armed.
+    expect(h.timers).toHaveLength(2);
+  });
+
+  it('security-only scheduled check below the floor runs the feed check', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      severityResult: { latest: '2026.8.0', severity: 'security', minimumSafeVersion: '2026.8.0' },
+      preferences: { check: 'security-only' },
+    });
+    h.service.start();
+    h.timers[0]?.fn();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h.updater.checkCalls).toBe(1);
+    expect(h.service.state()).toMatchObject({
+      phase: 'available',
+      availableVersion: '2026.8.0',
+      belowSafeFloor: true,
+    });
+  });
+
+  it('security-only manual check always runs the feed check', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      severityResult: { latest: '2026.8.0', severity: 'normal' },
+      preferences: { check: 'security-only' },
+    });
+    const state = await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(h.updater.checkCalls).toBe(1);
+    expect(state).toMatchObject({ phase: 'available', availableVersion: '2026.8.0', belowSafeFloor: false });
   });
 
   it('non-updates RPC types fall through as undefined', async () => {

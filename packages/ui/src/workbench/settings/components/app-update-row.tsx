@@ -10,6 +10,7 @@
 import { DownloadOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 import type { AppUpdateState, BridgeRpcType } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
+import { getCapability } from '@openheaders/core/capabilities';
 import { Button, Progress, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -52,6 +53,24 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
     void bridge.call(type).then(setState);
   };
 
+  const releaseNotesLink =
+    state?.releaseNotesUrl !== null && state?.releaseNotesUrl !== undefined ? (
+      <Button
+        type="link"
+        size="small"
+        style={{ padding: 0, height: 'auto' }}
+        onClick={() => {
+          const url = state.releaseNotesUrl;
+          if (url === null) return;
+          const openUrl = getCapability('openExternalUrl');
+          if (openUrl) void openUrl(url);
+          else window.open(url, '_blank', 'noopener');
+        }}
+      >
+        Release notes
+      </Button>
+    ) : null;
+
   let body: React.ReactNode;
   if (state === null || !state.supported) {
     body = <Text type="secondary">Updates are handled by your install channel in this build.</Text>;
@@ -67,10 +86,17 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       case 'available':
         body = (
           <>
-            <Text>Version {state.availableVersion} is available.</Text>
+            {state.belowSafeFloor ? (
+              <Text type="danger">
+                {`Version ${state.availableVersion} fixes a security issue affecting this version.`}
+              </Text>
+            ) : (
+              <Text>Version {state.availableVersion} is available.</Text>
+            )}
             <Button size="small" type="primary" icon={<DownloadOutlined />} onClick={() => run('oh.updates.download')}>
               Download
             </Button>
+            {releaseNotesLink}
           </>
         );
         break;
@@ -89,6 +115,7 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
             <Button size="small" type="primary" icon={<ReloadOutlined />} onClick={() => run('oh.updates.install')}>
               Restart to install
             </Button>
+            {releaseNotesLink}
           </>
         );
         break;

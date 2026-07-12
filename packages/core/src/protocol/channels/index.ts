@@ -72,7 +72,7 @@ export type {
 } from './devtools';
 export type { EnvironmentsSnapshot } from './environments';
 export type { LiveWorkflowRunSnapshot } from './live';
-export type { AppUpdatePhase, AppUpdateState } from './updates';
+export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 
 /**
  * RPC contract: map of message-type → { req, res }.

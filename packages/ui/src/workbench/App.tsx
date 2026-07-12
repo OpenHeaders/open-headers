@@ -114,7 +114,12 @@ import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
 import { useAppUpdateTask } from '@openheaders/ui/shared/background-tasks';
-import { AppUpdateToast, useAppUpdateNotification, useSeedNotifications } from '@openheaders/ui/shared/notifications';
+import {
+  AppUpdateToast,
+  SecurityUpdateBanner,
+  useAppUpdateNotification,
+  useSeedNotifications,
+} from '@openheaders/ui/shared/notifications';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
@@ -1255,6 +1260,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             allCollections={allCollectionsForEnv}
             onSetCollectionPinnedEnvs={setCollectionPinnedEnvsByFamily}
           />
+
+          <SecurityUpdateBanner onOpenAbout={() => openSettings({ categoryId: 'about' })} />
 
           <OrgWorkspaceAccessNotice
             workspaces={workspacesApi.workspaces}

@@ -58,6 +58,7 @@ import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
 import { createUpdateService, readUpdatePreferences } from './update-service';
+import { fetchDesktopSeverity } from './versions-manifest';
 import { readServeWebApp, webAppRootCandidate } from './web-app-root';
 
 const SCOPE = 'install-rpc-host';
@@ -142,6 +143,7 @@ export async function installRpcHost(): Promise<void> {
   // deb/rpm — so it never dials a feed from a test harness.
   const updateService = createUpdateService({
     updater: createElectronUpdaterPort(),
+    fetchSeverity: fetchDesktopSeverity,
     currentVersion: app.getVersion(),
     supported: updaterSupported(),
     getPreferences: () => updatePreferences,

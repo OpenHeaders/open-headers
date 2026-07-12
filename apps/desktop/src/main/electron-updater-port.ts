@@ -41,9 +41,10 @@ export function updaterSupported(): boolean {
 function toAvailableUpdate(info: UpdateInfo): AvailableUpdate {
   return {
     version: info.version,
-    // The feed's releaseNotes is inline HTML/markdown, not a URL; the
-    // release page link joins with the severity manifest (Phase 3).
-    releaseNotesUrl: null,
+    // The feed's releaseNotes field is inline HTML/markdown, not a URL.
+    // The feed host IS the public releases repo, so the offered
+    // version's tag page exists by construction.
+    releaseNotesUrl: `https://github.com/OpenHeaders/open-headers-releases/releases/tag/v${info.version}`,
   };
 }
 

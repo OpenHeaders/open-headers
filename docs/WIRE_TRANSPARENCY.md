@@ -82,15 +82,25 @@ update requests.
   `security-only` to limit notifications), `OH_DISABLE_UPDATE_CHECKS=1`
   for test rigs.
 
-## 3. Notifications / severity manifest (planned)
+## 3. Severity manifest
 
-Phase 3 of the updates plan adds a small static severity manifest
-(`versions.json`) published alongside each release on the same public
-releases repository — `{ latest, severity, minimumSafeVersion }` per
-app, so a security release can escalate loudly. Same posture as the
-update check: a plain `GET` of a static file, no request payload, same
-off switch. This section will be updated with the exact URL when it
-ships; until then, no such request is made.
+A small static severity manifest (`versions.json`) published alongside
+each release on the same public releases repository —
+`{ latest, severity, minimumSafeVersion }` per app, so a security
+release can escalate loudly (red badge, entry banner). Severity is
+authored by a human before each release, never derived from anything
+about your install.
+
+- **Endpoint**: `GET https://github.com/OpenHeaders/open-headers-releases/releases/latest/download/versions.json`
+- **Request body**: none — a plain HTTP `GET` of a static file; no
+  identifier, license, or machine information is attached. The
+  comparison against your running version happens locally.
+- **Cadence**: fetched only as part of an update check (section 2) —
+  the same daily schedule and explicit "Check now" clicks; never on its
+  own timer.
+- **Off switch**: the same as the update check — `updates.check: off`
+  disables both, `OH_DISABLE_UPDATE_CHECKS=1` for test rigs. If the
+  manifest is unreachable, the app simply treats severity as unknown.
 
 ---
 

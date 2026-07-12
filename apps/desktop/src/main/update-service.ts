@@ -13,9 +13,15 @@
  *     natural app quit applying an already-staged download).
  * `updates.autoDownload` collapses check→download into one step when
  * the user opted in; it never touches the install step.
+ *
+ * Every check also reads the published severity manifest
+ * (`versions-manifest.ts`): `severity`/`belowSafeFloor` ride the state
+ * so the UI can escalate, and the `security-only` tier silences
+ * scheduled checks that find no security exposure.
  */
 
 import type { AppUpdateState } from '@openheaders/core/bridge';
+import { isBelowSafeFloor, type SeverityInfo } from './versions-manifest';
 
 /** What a check found. `null` — already on the latest. */
 export interface AvailableUpdate {
@@ -53,6 +59,12 @@ export function readUpdatePreferences(settings: Record<string, unknown> | undefi
 
 export interface UpdateServiceDeps {
   updater: UpdaterPort;
+  /**
+   * Resolve the published severity manifest's desktop entry
+   * (`versions-manifest.ts`); null when unreachable or unparseable —
+   * severity then stays unknown, the feed check is unaffected.
+   */
+  fetchSeverity(): Promise<SeverityInfo | null>;
   currentVersion: string;
   /** False on dev/unpackaged builds and channels that own updates (deb/rpm). */
   supported: boolean;
@@ -98,6 +110,8 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     errorMessage: null,
     lastCheckedAt: null,
     lastCheckReason: null,
+    severity: null,
+    belowSafeFloor: false,
     supported: deps.supported,
   };
   let timer: NodeJS.Timeout | null = null;
@@ -136,6 +150,26 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     if (!deps.supported || state.phase === 'checking' || state.phase === 'downloading') return state;
     if (reason === 'scheduled' && deps.getPreferences().check === 'off') return state;
     transition({ phase: 'checking', errorMessage: null, lastCheckReason: reason });
+    // Severity first (same static-GET posture as the feed): the tier
+    // gate below needs it, and escalation state must never lag a check.
+    const severityInfo = await deps.fetchSeverity();
+    if (severityInfo === null) deps.log.warn('severity manifest unreachable — severity unknown this check');
+    const severity = severityInfo?.severity ?? null;
+    const belowSafeFloor = severityInfo !== null && isBelowSafeFloor(severityInfo, deps.currentVersion);
+    if (severity !== state.severity || belowSafeFloor !== state.belowSafeFloor) {
+      transition({ severity, belowSafeFloor });
+      if (belowSafeFloor) {
+        deps.log.warn(`running ${deps.currentVersion} is below the security floor ${severityInfo?.minimumSafeVersion}`);
+      }
+    }
+    // The security-only tier keys off the safe floor: a scheduled check
+    // that finds no security exposure ends silently — no feed check, no
+    // "available" surfaces. Manual checks always look (the user asked).
+    if (reason === 'scheduled' && deps.getPreferences().check === 'security-only' && !belowSafeFloor) {
+      transition({ phase: 'idle', availableVersion: null, releaseNotesUrl: null, lastCheckedAt: deps.now() });
+      scheduleNext(CHECK_INTERVAL_MS);
+      return state;
+    }
     try {
       const found = await deps.updater.check();
       transition({

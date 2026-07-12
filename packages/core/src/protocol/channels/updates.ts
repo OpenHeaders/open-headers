@@ -11,6 +11,13 @@
 /** Where the updater currently is. One phase at a time, no overlap. */
 export type AppUpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error';
 
+/**
+ * Severity of the latest published release, from the static
+ * `versions.json` manifest (`docs/UPDATES_PLAN.md` §4). Authored by a
+ * human before tagging, never inferred.
+ */
+export type AppUpdateSeverity = 'normal' | 'security';
+
 export interface AppUpdateState {
   phase: AppUpdatePhase;
   /** Version the running app reports (CalVer). */
@@ -31,6 +38,17 @@ export interface AppUpdateState {
    * silent about scheduled ones; null before the first check.
    */
   lastCheckReason: 'manual' | 'scheduled' | null;
+  /**
+   * Severity of the latest release per the manifest; null before a
+   * check has seen it (or when the manifest is unreachable).
+   */
+  severity: AppUpdateSeverity | null;
+  /**
+   * True when a `security` release names a `minimumSafeVersion` above
+   * the running version — the escalation trigger: timeline entry turns
+   * warning, gear dot turns red, and the entry banner names the fix.
+   */
+  belowSafeFloor: boolean;
   /**
    * False where no updater can run: dev builds, unpackaged runs, and
    * install channels that own updates themselves (Linux deb/rpm). The

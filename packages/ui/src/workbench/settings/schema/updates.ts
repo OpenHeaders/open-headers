@@ -7,10 +7,10 @@
  * quit.
  *
  * Desktop-only rows: the store updates the extension itself, and a web
- * tab updates with the daemon that serves it. The tier vocabulary
- * already carries `security-only`; the UI exposes it in Phase 3, when
- * the severity manifest gives it meaning — shipping a selectable tier
- * that cannot fire yet would be dishonest UI.
+ * tab updates with the daemon that serves it. The `security-only` tier
+ * keys off the published severity manifest (`versions.json`): scheduled
+ * checks stay silent unless a security release names a safe floor above
+ * the running version.
  */
 
 import { lazy } from 'react';
@@ -56,6 +56,7 @@ registerSetting({
   description:
     'Look for new versions once a day and show a notification dot when one is available. ' +
     'The check downloads nothing and sends nothing about you or this install — it reads a public version listing and compares locally. ' +
+    '"Security fixes only" stays silent unless a release fixes a security issue affecting the version you are running. ' +
     'Updates are never installed without your explicit action.',
   category: 'about',
   tags: ['update', 'version', 'release', 'notify', 'check'],
@@ -63,6 +64,7 @@ registerSetting({
   when: () => getCurrentHost() === 'desktop',
   enumOptions: [
     { value: 'all', label: 'All releases' },
+    { value: 'security-only', label: 'Security fixes only' },
     { value: 'off', label: 'Off' },
   ],
 });
