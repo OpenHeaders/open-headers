@@ -143,6 +143,7 @@ export function requestExecutableFingerprint(request: Request): string {
     proxyUrl: request.proxyUrl ?? null,
     proxyCredentialRef: request.proxyCredentialRef ?? null,
     unixSocketPath: request.unixSocketPath ?? null,
+    cookieJar: request.cookieJar ?? null,
     timeoutMs: request.timeoutMs ?? null,
     maxResponseBytes: request.maxResponseBytes ?? null,
     maxRedirects: request.maxRedirects ?? null,

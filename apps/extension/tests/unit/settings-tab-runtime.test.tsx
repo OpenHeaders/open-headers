@@ -58,6 +58,7 @@ interface KnobValues {
   proxyUrl?: string;
   proxyCredentialRef?: string;
   unixSocketPath?: string;
+  cookieJar?: boolean;
 }
 
 function renderTab(value: KnobValues = {}) {
@@ -215,20 +216,61 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(screen.queryByText('Unix socket')).toBeNull();
     expect(settingsDotCount({ unixSocketPath: '/var/run/openheaders/api.sock' })).toBe(0);
   });
+
+  it('shows no cookie-jar control and never dots a synced cookieJar', () => {
+    renderTab({ cookieJar: true });
+    // The browser rides its own jar via 'Send browser cookies' — the
+    // app-jar knob is node-only.
+    expect(screen.queryByRole('switch', { name: 'Use cookie jar' })).toBeNull();
+    expect(settingsDotCount({ cookieJar: true })).toBe(0);
+  });
 });
 
 describe('SettingsTab on a node runtime', () => {
-  it('hides the cookies knob and shows the node fact sheet', () => {
+  it('hides the browser cookies knob and shows the node fact sheet', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
     expect(screen.getByText('Automatically follow redirects')).toBeTruthy();
     expect(screen.queryByText('Send browser cookies')).toBeNull();
 
-    fireEvent.click(screen.getByText('4 runtime-managed'));
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.getByText(/Fixed by the app’s network runtime for every request/)).toBeTruthy();
-    expect(screen.getByText('Cookies')).toBeTruthy();
+    // The 'Cookies · Not sent' fact row graduated into the cookie-jar
+    // knob — only the Referer fact still reads 'Not sent'.
+    expect(screen.queryByText('Cookies')).toBeNull();
     expect(screen.getByText('Referer header')).toBeTruthy();
-    expect(screen.getAllByText('Not sent')).toHaveLength(2);
+    expect(screen.getAllByText('Not sent')).toHaveLength(1);
+  });
+
+  it('graduates the cookie fact into a live cookie-jar knob, defaulting to Disabled', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    const knob = screen.getByRole('switch', { name: 'Use cookie jar' });
+    expect(knob.getAttribute('aria-checked')).toBe('false');
+    // Graduated out of the fact sheet — the label exists exactly once.
+    fireEvent.click(screen.getByText('3 runtime-managed'));
+    expect(screen.getAllByText('Use cookie jar')).toHaveLength(1);
+  });
+
+  it('reports cookieJar true when switched on and clears to undefined when switched off', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{}} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('switch', { name: 'Use cookie jar' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ cookieJar: true }));
+
+    cleanup();
+    const onChangeOff = vi.fn();
+    render(<SettingsTab value={{ cookieJar: true }} onChange={onChangeOff} />);
+    fireEvent.click(screen.getByRole('switch', { name: 'Use cookie jar' }));
+    expect(onChangeOff).toHaveBeenCalledWith(expect.objectContaining({ cookieJar: undefined }));
+  });
+
+  it('dots the tab only while the cookie jar is on', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ cookieJar: true })).toBe(1);
+    expect(settingsDotCount({ cookieJar: false })).toBe(0);
+    expect(settingsDotCount()).toBe(0);
   });
 
   it('graduates SSL verification to a live knob, defaulting to Enabled', () => {
@@ -237,7 +279,7 @@ describe('SettingsTab on a node runtime', () => {
     const knob = screen.getByRole('switch', { name: 'SSL certificate verification' });
     expect(knob.getAttribute('aria-checked')).toBe('true');
     // Graduated out of the fact sheet — the row lives above the reveal.
-    fireEvent.click(screen.getByText('4 runtime-managed'));
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.getAllByText('SSL certificate verification')).toHaveLength(1);
   });
 
@@ -295,7 +337,7 @@ describe('SettingsTab on a node runtime', () => {
     expect(method.getAttribute('aria-checked')).toBe('false');
     expect(auth.getAttribute('aria-checked')).toBe('false');
     // Graduated out of the fact sheet — each label exists exactly once.
-    fireEvent.click(screen.getByText('4 runtime-managed'));
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.getAllByText('Maximum redirects')).toHaveLength(1);
     expect(screen.getAllByText('Follow original HTTP method')).toHaveLength(1);
     expect(screen.getAllByText('Follow Authorization header')).toHaveLength(1);
@@ -352,7 +394,7 @@ describe('SettingsTab on a node runtime', () => {
     expect(cipher.placeholder).toBe('Runtime default suites');
     // Graduated out of the fact sheet — the cipher label exists exactly
     // once, and the protocol-versions fact row is gone entirely.
-    fireEvent.click(screen.getByText('4 runtime-managed'));
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.getAllByText('TLS cipher suites')).toHaveLength(1);
     expect(screen.queryByText('TLS/SSL protocol versions')).toBeNull();
   });
@@ -412,7 +454,7 @@ describe('SettingsTab on a node runtime', () => {
     const knob = screen.getByRole('switch', { name: 'Allow HTTP/2' });
     expect(knob.getAttribute('aria-checked')).toBe('false');
     // Graduated out of the fact sheet — no HTTP version fact row remains.
-    fireEvent.click(screen.getByText('4 runtime-managed'));
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.queryByText('HTTP version')).toBeNull();
   });
 
@@ -444,8 +486,8 @@ describe('SettingsTab on a node runtime', () => {
     expect(pin.value).toBe('');
     expect(pin.placeholder).toBe('System DNS');
     // Nothing graduates — resolution was never a sheet-listed fact, so
-    // the node sheet stays at 4 rows and the label exists exactly once.
-    fireEvent.click(screen.getByText('4 runtime-managed'));
+    // the node sheet stays at 3 rows and the label exists exactly once.
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.getAllByText('Resolve to address')).toHaveLength(1);
   });
 
@@ -480,8 +522,8 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getByRole('combobox', { name: 'Client certificate' })).toBeTruthy();
     expect(screen.getByText('No client certificate')).toBeTruthy();
     // Not trust-relaxing, not a sheet-listed fact — the node sheet
-    // stays at 4 rows and the label exists exactly once.
-    fireEvent.click(screen.getByText('4 runtime-managed'));
+    // stays at 3 rows and the label exists exactly once.
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.getAllByText('Client certificate')).toHaveLength(1);
   });
 
@@ -535,8 +577,8 @@ describe('SettingsTab on a node runtime', () => {
     // No proxy URL set — nothing to authenticate against, no row.
     expect(screen.queryByRole('combobox', { name: 'Proxy credentials' })).toBeNull();
     // Not trust-relaxing, not a sheet-listed fact — the node sheet
-    // stays at 4 rows and the label exists exactly once.
-    fireEvent.click(screen.getByText('4 runtime-managed'));
+    // stays at 3 rows and the label exists exactly once.
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.getAllByText('Proxy')).toHaveLength(1);
   });
 
@@ -629,8 +671,8 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getByRole('textbox', { name: 'Unix socket' })).toBeTruthy();
     expect(screen.getByPlaceholderText('No socket — TCP connection')).toBeTruthy();
     // Not trust-relaxing, not a sheet-listed fact — the node sheet
-    // stays at 4 rows and the label exists exactly once.
-    fireEvent.click(screen.getByText('4 runtime-managed'));
+    // stays at 3 rows and the label exists exactly once.
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.getAllByText('Unix socket')).toHaveLength(1);
   });
 

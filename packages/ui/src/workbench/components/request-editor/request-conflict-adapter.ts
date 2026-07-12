@@ -49,6 +49,7 @@ const SCALAR_LABEL: Record<string, string> = {
   [REQUEST_PATHS.proxyUrl]: 'Proxy URL',
   [REQUEST_PATHS.proxyCredentialRef]: 'Proxy credentials',
   [REQUEST_PATHS.unixSocketPath]: 'Unix socket',
+  [REQUEST_PATHS.cookieJar]: 'Cookie jar',
   [REQUEST_PATHS.timeoutMs]: 'Request timeout',
   [REQUEST_PATHS.maxResponseBytes]: 'Response size limit',
   [REQUEST_PATHS.maxRedirects]: 'Maximum redirects',

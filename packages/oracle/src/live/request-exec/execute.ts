@@ -89,6 +89,7 @@ export async function executeOverTransport(
     proxyCredentialRef: resolved.proxyCredentialRef,
     proxyCredential: resolved.proxyCredential,
     unixSocketPath: resolved.unixSocketPath,
+    cookieJarKey: resolved.cookieJarKey,
     maxBodyBytes,
     timeoutMs: options.timeoutMs ?? resolved.timeoutMs,
     maxRedirects: resolved.maxRedirects,
@@ -130,6 +131,11 @@ export async function executeOverTransport(
       // re-send (only the redirect loop can know); stamp it so the
       // response surface marks the run.
       ...(response.authorizationForwarded ? { authorizationForwarded: true } : {}),
+      // Jar activity is only knowable transport-side (per-hop attach and
+      // capture happen inside the redirect loop); stamp what it reports
+      // so the run stays reproducible after the jar changes.
+      ...(response.cookieHeaderAttached !== undefined ? { cookieHeaderAttached: response.cookieHeaderAttached } : {}),
+      ...(response.cookiesCaptured !== undefined ? { cookiesCaptured: response.cookiesCaptured } : {}),
       error: null,
       scripts: null,
     };

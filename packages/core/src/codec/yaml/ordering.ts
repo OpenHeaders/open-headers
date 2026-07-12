@@ -80,6 +80,7 @@ export const REQUEST_FIELD_ORDER = [
   'proxyUrl',
   'proxyCredentialRef',
   'unixSocketPath',
+  'cookieJar',
   'timeoutMs',
   'maxResponseBytes',
   'maxRedirects',

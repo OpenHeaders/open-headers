@@ -124,6 +124,22 @@ export interface ExecutedRequestSnapshot {
    * configured.
    */
   authorizationForwarded?: boolean;
+  /**
+   * The `Cookie` header value the runtime's cookie jar attached to the
+   * FIRST hop of this send (the per-request `cookieJar` opt-in, honored
+   * by node runtimes). Recorded for reproducibility — the wire request
+   * is not reconstructible without it — never read from live jar
+   * state. Absent when the jar was off, empty, matched nothing, or a
+   * user-set `Cookie` header won. Not a trust marker.
+   */
+  cookieHeaderAttached?: string;
+  /**
+   * Names of the cookies this send's `Set-Cookie` responses stored
+   * into the runtime's cookie jar, across every hop of the chain in
+   * arrival order (the per-request `cookieJar` opt-in). Absent when
+   * the jar was off or nothing was stored.
+   */
+  cookiesCaptured?: string[];
   /** Non-null when the request failed before producing a response. */
   error: string | null;
   /** Actionable remedy for the failure — present only alongside

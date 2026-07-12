@@ -37,6 +37,7 @@ export interface RequestPathBundle {
   proxyUrl: string;
   proxyCredentialRef: string;
   unixSocketPath: string;
+  cookieJar: string;
   timeoutMs: string;
   maxResponseBytes: string;
   maxRedirects: string;
@@ -71,6 +72,7 @@ export const REQUEST_PATHS: RequestPathBundle = {
   proxyUrl: 'proxyUrl',
   proxyCredentialRef: 'proxyCredentialRef',
   unixSocketPath: 'unixSocketPath',
+  cookieJar: 'cookieJar',
   timeoutMs: 'timeoutMs',
   maxResponseBytes: 'maxResponseBytes',
   maxRedirects: 'maxRedirects',

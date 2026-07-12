@@ -44,6 +44,7 @@ export interface Draft {
   proxyUrl?: string;
   proxyCredentialRef?: string;
   unixSocketPath?: string;
+  cookieJar?: boolean;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -76,6 +77,7 @@ export interface RequestUpdates {
   proxyUrl: string | undefined;
   proxyCredentialRef: string | undefined;
   unixSocketPath: string | undefined;
+  cookieJar: boolean | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -198,6 +200,7 @@ export function draftFromRequest(req: Request): Draft {
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
+    cookieJar: req.cookieJar,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -241,6 +244,7 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     proxyUrl: draft.proxyUrl,
     proxyCredentialRef: draft.proxyCredentialRef,
     unixSocketPath: draft.unixSocketPath,
+    cookieJar: draft.cookieJar,
     timeoutMs: draft.timeoutMs,
     maxResponseBytes: draft.maxResponseBytes,
     maxRedirects: draft.maxRedirects,

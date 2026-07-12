@@ -31,6 +31,7 @@ clientCertificateRef: gateway-mtls
 proxyUrl: http://proxy.openheaders.io:3128
 proxyCredentialRef: corp-proxy
 unixSocketPath: /var/run/openheaders/api.sock
+cookieJar: true
 timeoutMs: 15000
 maxResponseBytes: 4096
 maxRedirects: 5

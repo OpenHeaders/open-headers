@@ -46,6 +46,7 @@ export interface RequestSaveBatch {
   proxyUrl: string | undefined;
   proxyCredentialRef: string | undefined;
   unixSocketPath: string | undefined;
+  cookieJar: boolean | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -76,6 +77,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
+    cookieJar: req.cookieJar,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -128,6 +130,7 @@ export function mergeRequestForSave(
     proxyUrl: form.proxyUrl,
     proxyCredentialRef: form.proxyCredentialRef,
     unixSocketPath: form.unixSocketPath,
+    cookieJar: form.cookieJar,
     timeoutMs: form.timeoutMs,
     maxResponseBytes: form.maxResponseBytes,
     maxRedirects: form.maxRedirects,
@@ -153,6 +156,7 @@ export function mergeRequestForSave(
     proxyUrl: baseProj.proxyUrl,
     proxyCredentialRef: baseProj.proxyCredentialRef,
     unixSocketPath: baseProj.unixSocketPath,
+    cookieJar: baseProj.cookieJar,
     timeoutMs: baseProj.timeoutMs,
     maxResponseBytes: baseProj.maxResponseBytes,
     maxRedirects: baseProj.maxRedirects,
@@ -178,6 +182,7 @@ export function mergeRequestForSave(
     proxyUrl: liveProj.proxyUrl,
     proxyCredentialRef: liveProj.proxyCredentialRef,
     unixSocketPath: liveProj.unixSocketPath,
+    cookieJar: liveProj.cookieJar,
     timeoutMs: liveProj.timeoutMs,
     maxResponseBytes: liveProj.maxResponseBytes,
     maxRedirects: liveProj.maxRedirects,
@@ -213,6 +218,7 @@ export function mergeRequestForSave(
     proxyUrl: merged.proxyUrl as string | undefined,
     proxyCredentialRef: merged.proxyCredentialRef as string | undefined,
     unixSocketPath: merged.unixSocketPath as string | undefined,
+    cookieJar: merged.cookieJar as boolean | undefined,
     timeoutMs: merged.timeoutMs as number | undefined,
     maxResponseBytes: merged.maxResponseBytes as number | undefined,
     maxRedirects: merged.maxRedirects as number | undefined,

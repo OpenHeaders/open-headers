@@ -165,6 +165,7 @@ export const REQUEST_SCHEMA: FieldNode = obj({
   proxyUrl: leaf('string', { coercion: 'optional-string' }),
   proxyCredentialRef: leaf('string', { coercion: 'optional-string' }),
   unixSocketPath: leaf('string', { coercion: 'optional-string' }),
+  cookieJar: leaf('boolean', { coercion: 'boolean-strict' }),
   timeoutMs: leaf('number', { coercion: 'optional-number' }),
   maxResponseBytes: leaf('number', { coercion: 'optional-number' }),
   maxRedirects: leaf('number', { coercion: 'optional-number' }),

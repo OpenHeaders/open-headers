@@ -235,6 +235,7 @@ describe('yaml codec — round-trip parity', () => {
     expect(parsed.value.proxyUrl).toBe('http://proxy.openheaders.io:3128');
     expect(parsed.value.proxyCredentialRef).toBe('corp-proxy');
     expect(parsed.value.unixSocketPath).toBe('/var/run/openheaders/api.sock');
+    expect(parsed.value.cookieJar).toBe(true);
     expect(parsed.value.timeoutMs).toBe(15000);
     expect(parsed.value.maxResponseBytes).toBe(4096);
     expect(parsed.value.maxRedirects).toBe(5);

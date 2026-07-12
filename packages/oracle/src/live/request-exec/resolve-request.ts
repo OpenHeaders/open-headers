@@ -81,6 +81,9 @@ export interface ResolvedRequest {
   /** Local socket (Unix domain socket path or Windows named pipe) the
    *  send dials instead of a TCP connection; absent → TCP. */
   unixSocketPath?: string;
+  /** Runtime-local cookie-jar key (the workspace id) — present only
+   *  when the request opted into the jar. Absent → no jar. */
+  cookieJarKey?: string;
   /** Per-request round-trip ceiling (ms). A workflow step's own
    *  per-attempt timeout takes precedence at execute time. */
   timeoutMs?: number;
@@ -250,6 +253,10 @@ export async function resolveRequest(
       proxyUrl: request.proxyUrl,
       ...proxyCredential,
       unixSocketPath: request.unixSocketPath,
+      // The jar is keyed by the same workspace pin the resolver scope
+      // used, so sessions never bleed across workspaces; sends without
+      // a pin share one fallback jar.
+      ...(request.cookieJar === true ? { cookieJarKey: scope.workspaceId ?? 'default' } : {}),
       timeoutMs: request.timeoutMs,
       maxResponseBytes: request.maxResponseBytes,
       maxRedirects: request.maxRedirects,

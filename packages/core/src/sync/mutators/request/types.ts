@@ -11,7 +11,7 @@
  * `sslVerification`, `tlsMinVersion`, `tlsMaxVersion`,
  * `tlsCipherSuites`, `allowHttp2`, `resolveToAddress`,
  * `clientCertificateRef`, `proxyUrl`, `proxyCredentialRef`,
- * `unixSocketPath`, `timeoutMs`,
+ * `unixSocketPath`, `cookieJar`, `timeoutMs`,
  * `maxResponseBytes`, `maxRedirects`,
  * `followOriginalHttpMethod`, `followAuthorizationHeader`,
  * `preRequestScript`, `postResponseScript` — flows

@@ -94,6 +94,7 @@ export function buildRequestTabItems(
     // already counts.
     (!browserRuntime && draft.proxyUrl !== undefined) ||
     (!browserRuntime && draft.unixSocketPath !== undefined) ||
+    (!browserRuntime && draft.cookieJar === true) ||
     draft.timeoutMs !== undefined ||
     (!browserRuntime && draft.maxResponseBytes !== undefined) ||
     // The redirect trio's rows hide while follow-redirects is off; no

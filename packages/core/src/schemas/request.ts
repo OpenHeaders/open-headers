@@ -744,6 +744,24 @@ export const RequestSchema = v.object({
    */
   unixSocketPath: v.optional(UnixSocketPathSchema),
   /**
+   * Attach cookies from — and store Set-Cookie responses into — the
+   * app's own per-workspace cookie jar, so multi-step API sessions
+   * (login, then an authenticated call) work without hand-copying
+   * cookie values. Absent / `false` = today's behavior: no cookies
+   * attached, Set-Cookie discarded. The jar lives in the executing
+   * process's memory only — per workspace, never persisted, never
+   * synced, gone when the app quits. Capture and attach are symmetric:
+   * only jar-enabled requests read or write it, on every hop of a
+   * redirect chain, and a user-set `Cookie` header always wins (the
+   * jar stands down for that hop). Not trust-relaxing — no snapshot
+   * marker; the attached header is recorded on the executed-run
+   * snapshot for reproducibility. Honored by node runtimes; browser
+   * runtimes have the browser's own jar via `credentialsMode` and
+   * ignore this (the request still syncs it — one schema, all
+   * runtimes carry the value).
+   */
+  cookieJar: v.optional(v.boolean()),
+  /**
    * Wall-clock ceiling (ms) on the whole round-trip — connection,
    * response, and body read. Honored by BOTH runtimes (the browser
    * fetch aborts on a deadline just like the node transport). Absent =

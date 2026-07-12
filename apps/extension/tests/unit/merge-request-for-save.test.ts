@@ -45,6 +45,7 @@ function batchOf(req: Request): RequestSaveBatch {
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
+    cookieJar: req.cookieJar,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -120,6 +121,16 @@ describe('mergeRequestForSave', () => {
 
     const touched = mergeRequestForSave(batchOf(makeReq({ unixSocketPath: '/tmp/other.sock' })), baseline, live);
     expect(touched.unixSocketPath).toBe('/tmp/other.sock');
+  });
+
+  it('merges cookieJar per leaf like the other scalars', () => {
+    const baseline = makeReq();
+    const live = makeReq({ cookieJar: true });
+    const untouched = mergeRequestForSave(batchOf(baseline), baseline, live);
+    expect(untouched.cookieJar).toBe(true);
+
+    const touched = mergeRequestForSave(batchOf(makeReq({ cookieJar: false })), baseline, live);
+    expect(touched.cookieJar).toBe(false);
   });
 
   it('per-row merges headers by uid', () => {

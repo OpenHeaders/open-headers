@@ -271,4 +271,14 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     await runStepRequest(makeRequest({ unixSocketPath: '/var/run/openheaders/api.sock' }), opts(transport));
     expect(sent().unixSocketPath).toBe('/var/run/openheaders/api.sock');
   });
+
+  it('resolves a cookieJar opt-in to the workspace-keyed jar on the seam', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ cookieJar: true }), opts(transport));
+    expect(sent().cookieJarKey).toBe('ws-1');
+
+    const bare = captureTransport();
+    await runStepRequest(makeRequest(), opts(bare.transport));
+    expect(bare.sent().cookieJarKey).toBeUndefined();
+  });
 });

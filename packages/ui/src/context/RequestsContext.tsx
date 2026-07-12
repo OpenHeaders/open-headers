@@ -305,6 +305,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           ...(seed?.proxyUrl !== undefined ? { proxyUrl: seed.proxyUrl } : {}),
           ...(seed?.proxyCredentialRef !== undefined ? { proxyCredentialRef: seed.proxyCredentialRef } : {}),
           ...(seed?.unixSocketPath !== undefined ? { unixSocketPath: seed.unixSocketPath } : {}),
+          ...(seed?.cookieJar !== undefined ? { cookieJar: seed.cookieJar } : {}),
           ...(seed?.timeoutMs !== undefined ? { timeoutMs: seed.timeoutMs } : {}),
           ...(seed?.maxResponseBytes !== undefined ? { maxResponseBytes: seed.maxResponseBytes } : {}),
           ...(seed?.maxRedirects !== undefined ? { maxRedirects: seed.maxRedirects } : {}),

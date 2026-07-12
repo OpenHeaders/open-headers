@@ -44,6 +44,16 @@
  *     minted per send. `fetch` + `Agent` come from the same undici
  *     package so the dispatcher and the fetch pipeline are one stack,
  *     one version.
+ *   - **Opt-in cookie jar.** The main process has no ambient cookie
+ *     jar; `cookieJarKey` opts a send into the transport-owned
+ *     in-memory jar for that key (the workspace id — see
+ *     {@link cookieJarFor}). Every hop stores its `Set-Cookie` values
+ *     (parsed by undici's `getSetCookies`) and gets a matching
+ *     `Cookie` header attached — unless the hop already carries a
+ *     user-set one, which always wins. First-hop attachment and the
+ *     stored names are reported on the response for snapshot
+ *     attribution. Without the key, sends attach nothing and discard
+ *     `Set-Cookie` — the historical behavior.
  *   - **Hand-rolled redirect follow.** Every fetch goes out with
  *     `redirect: 'manual'` — server-side manual mode returns the REAL
  *     3xx with readable headers (no browser-style opaque filtering), so
@@ -66,7 +76,8 @@ import {
   type TransportRequest,
   type TransportResponse,
 } from '@openheaders/oracle/live/request-exec/transport';
-import { Agent, type Dispatcher, FormData, ProxyAgent, fetch as undiciFetch } from 'undici';
+import { Agent, type Dispatcher, FormData, getSetCookies, ProxyAgent, fetch as undiciFetch } from 'undici';
+import { type CookieJar, cookieJarFor, type SetCookieInput } from './cookie-jar';
 
 /** The fetch pipeline behind the transport — undici's fetch in
  *  production; injectable so tests observe the exact init (including
@@ -303,6 +314,51 @@ interface HopState {
 /** Abort deadline over a whole send — see {@link startDeadline}. */
 type Deadline = ReturnType<typeof startDeadline>;
 
+/** What the jar did during one send — reported on the response so the
+ *  executed-run snapshot can record it. */
+interface JarActivity {
+  /** `Cookie` header value attached to the FIRST hop, when any. */
+  cookieHeaderAttached?: string;
+  /** Names stored from `Set-Cookie` across the chain, arrival order. */
+  cookiesCaptured: string[];
+}
+
+/**
+ * A hop's headers with the jar's `Cookie` contribution appended — or
+ * untouched when the jar matches nothing for this URL, or when the hop
+ * already carries a Cookie header (a user-set header always wins; the
+ * jar only fills the gap).
+ */
+function withJarCookie(jar: CookieJar, hop: HopState): { headers: ReadonlyArray<TransportHeader>; attached?: string } {
+  if (hop.headers.some((h) => h.key.toLowerCase() === 'cookie')) return { headers: hop.headers };
+  const value = jar.cookieHeaderFor(hop.url);
+  if (value === undefined) return { headers: hop.headers };
+  return { headers: [...hop.headers, { key: 'Cookie', value }], attached: value };
+}
+
+/**
+ * Store a hop response's `Set-Cookie` values into the jar, returning
+ * the names stored. undici's `getSetCookies` does the attribute
+ * parsing (fetch `Headers` would otherwise join multiple `Set-Cookie`
+ * values into one unsplittable string); the jar owns matching and
+ * expiry.
+ */
+function captureJarCookies(jar: CookieJar, url: string, headers: Headers): string[] {
+  const incoming: SetCookieInput[] = getSetCookies(headers).map((c) => ({
+    name: c.name,
+    value: c.value,
+    ...(c.domain !== undefined && c.domain !== null ? { domain: c.domain } : {}),
+    ...(c.path !== undefined && c.path !== null ? { path: c.path } : {}),
+    ...(c.expires !== undefined && c.expires !== null
+      ? { expires: c.expires instanceof Date ? c.expires : new Date(c.expires) }
+      : {}),
+    ...(c.maxAge !== undefined && c.maxAge !== null ? { maxAge: c.maxAge } : {}),
+    ...(c.secure !== undefined && c.secure !== null ? { secure: c.secure } : {}),
+  }));
+  if (incoming.length === 0) return [];
+  return jar.store(url, incoming);
+}
+
 export function createNodeRequestTransport(options: NodeRequestTransportOptions = {}): RequestTransport {
   const fetchFn = options.fetchFn ?? undiciFetch;
   return {
@@ -362,19 +418,34 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       // across hops, and the cache lookup here keeps `fetchHop` the
       // single place a dispatcher is applied.
       const dispatcher = dispatcherFor(request);
+      // ONE jar per send, looked up by the request's key — absent key
+      // means no cookies attached, Set-Cookie discarded.
+      const jar = request.cookieJarKey !== undefined ? cookieJarFor(request.cookieJarKey) : undefined;
       try {
         if (request.redirect === 'manual') {
           // Single-shot: surface the first response verbatim, 3xx included.
-          const hop: HopState = {
+          let hop: HopState = {
             url: request.url,
             method: request.method,
             headers: request.headers,
             body: request.body,
           };
+          let jarActivity: JarActivity | undefined;
+          if (jar !== undefined) {
+            const { headers, attached } = withJarCookie(jar, hop);
+            hop = { ...hop, headers };
+            jarActivity = {
+              ...(attached !== undefined ? { cookieHeaderAttached: attached } : {}),
+              cookiesCaptured: [],
+            };
+          }
           const response = await fetchHop(fetchFn, request, hop, deadline, dispatcher);
-          return await finalizeResponse(response, request, hop.url, deadline, false);
+          if (jar !== undefined && jarActivity !== undefined) {
+            jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
+          }
+          return await finalizeResponse(response, request, hop.url, deadline, false, jarActivity);
         }
-        return await followRedirectChain(fetchFn, request, deadline, dispatcher);
+        return await followRedirectChain(fetchFn, request, deadline, dispatcher, jar);
       } finally {
         deadline?.clear();
       }
@@ -396,15 +467,33 @@ async function followRedirectChain(
   request: TransportRequest,
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
+  jar: CookieJar | undefined,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
   let authorizationForwarded = false;
   let redirects = 0;
+  let jarActivity: JarActivity | undefined = jar !== undefined ? { cookiesCaptured: [] } : undefined;
   while (true) {
-    const response = await fetchHop(fetchFn, request, hop, deadline, dispatcher);
+    // The jar contributes per hop, computed fresh against the CURRENT
+    // hop's URL — a cookie set mid-chain rides the next hop, and a
+    // cookie that doesn't domain/path-match a cross-origin hop stays
+    // home (the jar's matching IS the cross-origin discipline). The
+    // contribution never joins the persistent hop state, so it can't
+    // masquerade as a user-set header on later hops.
+    let sendHop = hop;
+    if (jar !== undefined && jarActivity !== undefined) {
+      const { headers, attached } = withJarCookie(jar, hop);
+      sendHop = { ...hop, headers };
+      if (redirects === 0 && attached !== undefined) jarActivity = { ...jarActivity, cookieHeaderAttached: attached };
+    }
+    const response = await fetchHop(fetchFn, request, sendHop, deadline, dispatcher);
+    if (jar !== undefined && jarActivity !== undefined) {
+      jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
+    }
     const location = REDIRECT_STATUSES.has(response.status) ? response.headers.get('location') : null;
-    if (location === null) return finalizeResponse(response, request, hop.url, deadline, authorizationForwarded);
+    if (location === null)
+      return finalizeResponse(response, request, hop.url, deadline, authorizationForwarded, jarActivity);
     await response.body?.cancel();
     if (redirects >= maxRedirects) {
       throw new TransportError(`Stopped after ${maxRedirects} redirects — the request's redirect limit.`);
@@ -475,7 +564,8 @@ async function fetchHop(
     headers: buildHeaders(hop.headers),
     redirect: 'manual',
     // No ambient cookie jar in the main process, so `credentials` has
-    // nothing to ride — Node fetch never attaches cookies by default.
+    // nothing to ride — cookies only travel when the send's opt-in jar
+    // attached a header upstream (see `withJarCookie`).
   };
   // The per-request connection policy rides EVERY hop of the chain.
   if (dispatcher !== undefined) init.dispatcher = dispatcher;
@@ -507,6 +597,7 @@ async function finalizeResponse(
   finalUrl: string,
   deadline: Deadline,
   authorizationForwarded: boolean,
+  jarActivity?: JarActivity,
 ): Promise<TransportResponse> {
   const headers: TransportHeader[] = [];
   response.headers.forEach((value, key) => {
@@ -528,6 +619,12 @@ async function finalizeResponse(
     bodyBytes: read.bodyBytes,
     bodyTruncated: read.bodyTruncated,
     ...(authorizationForwarded ? { authorizationForwarded: true } : {}),
+    ...(jarActivity?.cookieHeaderAttached !== undefined
+      ? { cookieHeaderAttached: jarActivity.cookieHeaderAttached }
+      : {}),
+    ...(jarActivity !== undefined && jarActivity.cookiesCaptured.length > 0
+      ? { cookiesCaptured: jarActivity.cookiesCaptured }
+      : {}),
   };
 }
 

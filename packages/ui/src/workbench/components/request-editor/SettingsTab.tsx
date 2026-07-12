@@ -9,8 +9,8 @@
  *   • `credentialsMode` — "Send browser cookies" (`'include'`); off
  *     (`undefined`/`'omit'`) is the safe default. Browser-runtime only:
  *     a Node fetch stack has no ambient cookie jar for the flag to
- *     ride, so the knob is hidden there and the cookie fact moves into
- *     the managed sheet.
+ *     ride — there the app's own opt-in jar is the `cookieJar` knob
+ *     below.
  *   • `sslVerification` — node-runtime only: the node transport routes
  *     a verification-off send through a dedicated TLS dispatcher, the
  *     escape hatch for self-signed / private-CA targets. The browser
@@ -95,6 +95,17 @@
  *     the transport fails the send loudly. Not trust-relaxing, no
  *     response marker, no fact row on either sheet. The browser cannot
  *     dial local sockets, so there is no browser control.
+ *   • `cookieJar` — node-runtime only: opts the send into the app's
+ *     own in-memory cookie jar (one per workspace, never persisted,
+ *     never synced, gone on quit). Jar-enabled sends store Set-Cookie
+ *     responses and attach matching cookies on every hop of a redirect
+ *     chain; a user-set Cookie header always wins for its hop. Not
+ *     trust-relaxing, no response marker — the attached header is
+ *     recorded on the executed-run snapshot for reproducibility. The
+ *     browser runtime rides the browser's own jar via
+ *     `credentialsMode`, so there is no browser control; the node
+ *     sheet's former 'Cookies · Not sent' fact row graduated into this
+ *     knob.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -175,6 +186,10 @@ export interface RequestSettingsDraft {
    *  the send dials instead of a TCP connection. Undefined = TCP.
    *  Node runtimes only. */
   unixSocketPath?: string;
+  /** Opt this request into the app's in-memory per-workspace cookie
+   *  jar (store Set-Cookie, attach matching cookies). Defaults to
+   *  false = no cookies. Node runtimes only. */
+  cookieJar?: boolean;
   /** Round-trip ceiling in milliseconds. Undefined = no per-request
    *  limit. Honored on both runtimes. */
   timeoutMs?: number;
@@ -264,12 +279,6 @@ const BROWSER_MANAGED: RuntimeManagedDef[] = [
 ];
 
 const NODE_MANAGED: RuntimeManagedDef[] = [
-  {
-    label: 'Cookies',
-    value: 'Not sent',
-    description:
-      'The runtime has no cookie jar, so no cookies are attached automatically and Set-Cookie responses are not stored between requests. Add a Cookie header to send one explicitly.',
-  },
   {
     label: 'Referer header',
     value: 'Not sent',
@@ -700,6 +709,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
                   ? 'Also sets resolve-to-address, but a socket dial resolves no hostname — sends will fail until one of the two is cleared.'
                   : undefined
             }
+          />
+          <KnobRow
+            label="Use cookie jar"
+            checked={value.cookieJar === true}
+            onChange={(checked) => onChange({ ...value, cookieJar: checked || undefined })}
+            info="Store this request's Set-Cookie responses in the app's own cookie jar and attach matching cookies automatically — so a login request followed by an authenticated call works without copying cookie values by hand. The jar lives in memory per workspace, is used only by requests with this setting on, never syncs, and is cleared when the app quits. A Cookie header you set yourself always wins. Off is the default: no cookies are attached and Set-Cookie responses are discarded."
           />
         </>
       )}

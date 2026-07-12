@@ -69,6 +69,7 @@ export interface DraftData {
   proxyUrl?: string;
   proxyCredentialRef?: string;
   unixSocketPath?: string;
+  cookieJar?: boolean;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -139,6 +140,7 @@ export function useSaveRequestFlow({
             proxyUrl: draftData.proxyUrl,
             proxyCredentialRef: draftData.proxyCredentialRef,
             unixSocketPath: draftData.unixSocketPath,
+            cookieJar: draftData.cookieJar,
             timeoutMs: draftData.timeoutMs,
             maxResponseBytes: draftData.maxResponseBytes,
             maxRedirects: draftData.maxRedirects,
@@ -191,6 +193,7 @@ export function useSaveRequestFlow({
           proxyUrl: saveModalDraftData.proxyUrl,
           proxyCredentialRef: saveModalDraftData.proxyCredentialRef,
           unixSocketPath: saveModalDraftData.unixSocketPath,
+          cookieJar: saveModalDraftData.cookieJar,
           timeoutMs: saveModalDraftData.timeoutMs,
           maxResponseBytes: saveModalDraftData.maxResponseBytes,
           maxRedirects: saveModalDraftData.maxRedirects,

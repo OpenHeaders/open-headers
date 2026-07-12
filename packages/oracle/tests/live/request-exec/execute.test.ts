@@ -225,6 +225,25 @@ describe('executeOverTransport', () => {
     expect(bare.sent().unixSocketPath).toBeUndefined();
   });
 
+  it('passes cookieJarKey through and stamps the transport-reported jar activity', async () => {
+    const { transport, sent } = captureTransport({
+      cookieHeaderAttached: 'session=abc123',
+      cookiesCaptured: ['session', 'theme'],
+    });
+    const snap = await executeOverTransport(makeResolved({ cookieJarKey: 'ws-a' }), transport);
+    expect(sent().cookieJarKey).toBe('ws-a');
+    // Attribution, not a trust marker: the snapshot records what the
+    // jar did so the run stays reproducible after the jar changes.
+    expect(snap.cookieHeaderAttached).toBe('session=abc123');
+    expect(snap.cookiesCaptured).toEqual(['session', 'theme']);
+
+    const bare = captureTransport();
+    const quiet = await executeOverTransport(makeResolved(), bare.transport);
+    expect(bare.sent().cookieJarKey).toBeUndefined();
+    expect(quiet.cookieHeaderAttached).toBeUndefined();
+    expect(quiet.cookiesCaptured).toBeUndefined();
+  });
+
   it('marks a lowered-floor run on the snapshot — success and failure alike', async () => {
     const { transport } = captureTransport();
     const ok = await executeOverTransport(makeResolved({ tlsMinVersion: '1.0' }), transport);

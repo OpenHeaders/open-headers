@@ -192,6 +192,19 @@ export interface TransportRequest {
    */
   unixSocketPath?: string;
   /**
+   * Key of the runtime-local cookie jar this send reads and writes —
+   * present only when the request opted into the jar (`cookieJar:
+   * true`); the value is the workspace id, so sessions never bleed
+   * across workspaces. Plain data on the seam: the honoring transport
+   * owns the jar itself (an in-memory, never-persisted store in the
+   * executing process), attaching a matching `Cookie` header to every
+   * hop that carries no user-set one and storing every hop's
+   * `Set-Cookie`. Absent → no cookies attached, `Set-Cookie`
+   * discarded. Transports whose network stack owns its own jar (the
+   * browser SW) ignore it.
+   */
+  cookieJarKey?: string;
+  /**
    * Optional per-attempt wall-clock ceiling in milliseconds. The
    * transport MUST abort the whole round-trip — connection, response,
    * and body read — once this elapses, surfacing a
@@ -254,6 +267,21 @@ export interface TransportResponse {
    * what was configured.
    */
   authorizationForwarded?: true;
+  /**
+   * The `Cookie` header value the transport's jar attached to the
+   * FIRST hop — present only when {@link TransportRequest.cookieJarKey}
+   * was set AND the jar actually contributed one (absent when the jar
+   * was empty, matched nothing, or a user-set `Cookie` header won).
+   * Recorded for reproducibility on the executed-run snapshot.
+   */
+  cookieHeaderAttached?: string;
+  /**
+   * Names of the cookies the transport's jar stored from this send's
+   * `Set-Cookie` responses, across every hop in arrival order. Present
+   * only when {@link TransportRequest.cookieJarKey} was set and at
+   * least one cookie was stored.
+   */
+  cookiesCaptured?: string[];
 }
 
 /**
