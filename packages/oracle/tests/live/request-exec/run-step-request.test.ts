@@ -239,4 +239,30 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     expect(sent().clientCertificatePem).toBeUndefined();
     expect(sent().clientCertificateKeyPem).toBeUndefined();
   });
+
+  it('resolves proxyCredentialRef to the vault string entry value on the seam', async () => {
+    vault.mockReturnValue({
+      schemaVersion: 5,
+      secrets: [{ uid: 'cred0001', kind: 'string', name: 'corp-proxy', value: 'user:secret' }],
+    });
+    const { transport, sent } = captureTransport();
+    await runStepRequest(
+      makeRequest({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }),
+      opts(transport),
+    );
+    expect(sent().proxyUrl).toBe('http://proxy.openheaders.io:3128');
+    expect(sent().proxyCredentialRef).toBe('corp-proxy');
+    expect(sent().proxyCredential).toBe('user:secret');
+  });
+
+  it('an unresolved proxyCredentialRef still reaches the transport as the bare ref', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(
+      makeRequest({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'missing-entry' }),
+      opts(transport),
+    );
+    expect(sent().proxyUrl).toBe('http://proxy.openheaders.io:3128');
+    expect(sent().proxyCredentialRef).toBe('missing-entry');
+    expect(sent().proxyCredential).toBeUndefined();
+  });
 });

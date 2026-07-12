@@ -152,6 +152,34 @@ export interface TransportRequest {
    *  carries one. See {@link clientCertificatePem}. */
   clientCertificatePassphrase?: string;
   /**
+   * HTTP(S) proxy the send tunnels through (HTTP CONNECT) instead of
+   * connecting directly. End-to-end TLS and certificate verification
+   * still run against the TARGET; the proxy sees the tunnel endpoint.
+   * Applies to every hop of a redirect chain. Not honorable together
+   * with {@link resolveToAddress} — the proxy resolves the hostname
+   * itself, so the honoring transport fails a send carrying both
+   * loudly. Transports whose network stack owns proxying (the browser
+   * SW rides the browser's proxy settings) ignore it.
+   */
+  proxyUrl?: string;
+  /**
+   * Vault string entry NAME holding the proxy's `user:password`. The
+   * stable ref — never the credential value — is what keys any
+   * per-tuple connection cache (alongside a content hash of the
+   * value, so a rotated credential mints a fresh connection). Set
+   * whenever the request configured proxy credentials, even when the
+   * ref didn't resolve on this device (the honoring transport fails
+   * that send loudly instead of silently dialing unauthenticated).
+   */
+  proxyCredentialRef?: string;
+  /**
+   * The `user:password` pair resolved from the vault by the executor —
+   * the transport cannot reach the vault. The transport encodes it as
+   * a `Proxy-Authorization: Basic …` header for the proxy leg only.
+   * Plain data on the seam; never part of a cache key.
+   */
+  proxyCredential?: string;
+  /**
    * Optional per-attempt wall-clock ceiling in milliseconds. The
    * transport MUST abort the whole round-trip — connection, response,
    * and body read — once this elapses, surfacing a

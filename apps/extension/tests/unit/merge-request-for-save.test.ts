@@ -42,6 +42,8 @@ function batchOf(req: Request): RequestSaveBatch {
     allowHttp2: req.allowHttp2,
     resolveToAddress: req.resolveToAddress,
     clientCertificateRef: req.clientCertificateRef,
+    proxyUrl: req.proxyUrl,
+    proxyCredentialRef: req.proxyCredentialRef,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -92,6 +94,21 @@ describe('mergeRequestForSave', () => {
 
     const touched = mergeRequestForSave(batchOf(makeReq({ clientCertificateRef: 'other-gateway' })), baseline, live);
     expect(touched.clientCertificateRef).toBe('other-gateway');
+  });
+
+  it('merges the proxy pair per leaf like the other scalars', () => {
+    const baseline = makeReq();
+    const live = makeReq({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' });
+    const untouched = mergeRequestForSave(batchOf(baseline), baseline, live);
+    expect(untouched.proxyUrl).toBe('http://proxy.openheaders.io:3128');
+    expect(untouched.proxyCredentialRef).toBe('corp-proxy');
+
+    const touched = mergeRequestForSave(
+      batchOf(makeReq({ proxyUrl: 'http://other-proxy.openheaders.io:8080' })),
+      baseline,
+      live,
+    );
+    expect(touched.proxyUrl).toBe('http://other-proxy.openheaders.io:8080');
   });
 
   it('per-row merges headers by uid', () => {

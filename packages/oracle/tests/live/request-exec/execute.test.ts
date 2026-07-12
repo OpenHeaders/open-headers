@@ -185,6 +185,30 @@ describe('executeOverTransport', () => {
     expect(bare.sent().clientCertificatePem).toBeUndefined();
   });
 
+  it('passes the proxy seam fields through without marking the snapshot', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        proxyUrl: 'http://proxy.openheaders.io:3128',
+        proxyCredentialRef: 'corp-proxy',
+        proxyCredential: 'user:secret',
+      }),
+      transport,
+    );
+    expect(sent().proxyUrl).toBe('http://proxy.openheaders.io:3128');
+    expect(sent().proxyCredentialRef).toBe('corp-proxy');
+    expect(sent().proxyCredential).toBe('user:secret');
+    // CONNECT tunneling keeps end-to-end TLS and verification runs
+    // against the target — not trust-relaxing, no snapshot marker.
+    expect('proxyUrl' in snap).toBe(false);
+
+    const bare = captureTransport();
+    await executeOverTransport(makeResolved(), bare.transport);
+    expect(bare.sent().proxyUrl).toBeUndefined();
+    expect(bare.sent().proxyCredentialRef).toBeUndefined();
+    expect(bare.sent().proxyCredential).toBeUndefined();
+  });
+
   it('marks a lowered-floor run on the snapshot — success and failure alike', async () => {
     const { transport } = captureTransport();
     const ok = await executeOverTransport(makeResolved({ tlsMinVersion: '1.0' }), transport);

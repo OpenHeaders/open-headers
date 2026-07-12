@@ -68,6 +68,16 @@ export interface ResolvedRequest {
   clientCertificateKeyPem?: string;
   /** See {@link clientCertificatePem}. */
   clientCertificatePassphrase?: string;
+  /** HTTP(S) proxy the send tunnels through; absent → direct. */
+  proxyUrl?: string;
+  /** Vault string entry NAME holding the proxy's `user:password`.
+   *  Carried even when unresolved on this device — the transport owns
+   *  that failure. Absent → unauthenticated proxy. */
+  proxyCredentialRef?: string;
+  /** The `user:password` value resolved from the vault entry named by
+   *  `proxyCredentialRef`; absent when the ref is absent OR the entry
+   *  doesn't exist on this device. */
+  proxyCredential?: string;
   /** Per-request round-trip ceiling (ms). A workflow step's own
    *  per-attempt timeout takes precedence at execute time. */
   timeoutMs?: number;
@@ -200,6 +210,9 @@ export async function resolveRequest(
   // ── Client certificate (ref → PEM against the local vault) ──
   const clientCertificate = resolveClientCertificate(request.clientCertificateRef, scope.vault);
 
+  // ── Proxy credential (ref → user:password against the local vault) ──
+  const proxyCredential = resolveProxyCredential(request.proxyCredentialRef, scope.vault);
+
   // ── Body ──
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
 
@@ -231,6 +244,8 @@ export async function resolveRequest(
       allowHttp2: request.allowHttp2,
       resolveToAddress: request.resolveToAddress,
       ...clientCertificate,
+      proxyUrl: request.proxyUrl,
+      ...proxyCredential,
       timeoutMs: request.timeoutMs,
       maxResponseBytes: request.maxResponseBytes,
       maxRedirects: request.maxRedirects,
@@ -264,6 +279,24 @@ function resolveClientCertificate(
     clientCertificateKeyPem: entry.key,
     ...(entry.passphrase !== undefined ? { clientCertificatePassphrase: entry.passphrase } : {}),
   };
+}
+
+/**
+ * Resolve a `proxyCredentialRef` against the local vault. Same contract
+ * as {@link resolveClientCertificate}: the ref always passes through
+ * when set — even unresolved — so the honoring transport can fail the
+ * send loudly instead of silently dialing the proxy unauthenticated;
+ * the `user:password` value attaches only when a string entry with that
+ * name exists on this device.
+ */
+function resolveProxyCredential(
+  ref: string | undefined,
+  vault: Vault,
+): Pick<ResolvedRequest, 'proxyCredentialRef' | 'proxyCredential'> {
+  if (ref === undefined) return {};
+  const entry = vault.secrets.find((s) => s.kind === 'string' && s.name === ref);
+  if (!entry || entry.kind !== 'string') return { proxyCredentialRef: ref };
+  return { proxyCredentialRef: ref, proxyCredential: entry.value };
 }
 
 function indexTotpEntries(vault: Vault): Map<string, VaultSecretTotp> {

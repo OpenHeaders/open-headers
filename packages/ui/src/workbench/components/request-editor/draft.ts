@@ -41,6 +41,8 @@ export interface Draft {
   allowHttp2?: boolean;
   resolveToAddress?: string;
   clientCertificateRef?: string;
+  proxyUrl?: string;
+  proxyCredentialRef?: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -70,6 +72,8 @@ export interface RequestUpdates {
   allowHttp2: boolean | undefined;
   resolveToAddress: string | undefined;
   clientCertificateRef: string | undefined;
+  proxyUrl: string | undefined;
+  proxyCredentialRef: string | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
   maxRedirects: number | undefined;
@@ -189,6 +193,8 @@ export function draftFromRequest(req: Request): Draft {
     allowHttp2: req.allowHttp2,
     resolveToAddress: req.resolveToAddress,
     clientCertificateRef: req.clientCertificateRef,
+    proxyUrl: req.proxyUrl,
+    proxyCredentialRef: req.proxyCredentialRef,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
     maxRedirects: req.maxRedirects,
@@ -229,6 +235,8 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     allowHttp2: draft.allowHttp2,
     resolveToAddress: draft.resolveToAddress,
     clientCertificateRef: draft.clientCertificateRef,
+    proxyUrl: draft.proxyUrl,
+    proxyCredentialRef: draft.proxyCredentialRef,
     timeoutMs: draft.timeoutMs,
     maxResponseBytes: draft.maxResponseBytes,
     maxRedirects: draft.maxRedirects,

@@ -89,6 +89,10 @@ export function buildRequestTabItems(
     (!browserRuntime && draft.allowHttp2 === true) ||
     (!browserRuntime && draft.resolveToAddress !== undefined) ||
     (!browserRuntime && draft.clientCertificateRef !== undefined) ||
+    // The proxy-credentials row hides while no proxy URL is set, so a
+    // bare synced ref never dots; a set ref implies a set URL, which
+    // already counts.
+    (!browserRuntime && draft.proxyUrl !== undefined) ||
     draft.timeoutMs !== undefined ||
     (!browserRuntime && draft.maxResponseBytes !== undefined) ||
     // The redirect trio's rows hide while follow-redirects is off; no

@@ -66,6 +66,8 @@ export interface DraftData {
   allowHttp2?: boolean;
   resolveToAddress?: string;
   clientCertificateRef?: string;
+  proxyUrl?: string;
+  proxyCredentialRef?: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
   maxRedirects?: number;
@@ -133,6 +135,8 @@ export function useSaveRequestFlow({
             allowHttp2: draftData.allowHttp2,
             resolveToAddress: draftData.resolveToAddress,
             clientCertificateRef: draftData.clientCertificateRef,
+            proxyUrl: draftData.proxyUrl,
+            proxyCredentialRef: draftData.proxyCredentialRef,
             timeoutMs: draftData.timeoutMs,
             maxResponseBytes: draftData.maxResponseBytes,
             maxRedirects: draftData.maxRedirects,
@@ -182,6 +186,8 @@ export function useSaveRequestFlow({
           allowHttp2: saveModalDraftData.allowHttp2,
           resolveToAddress: saveModalDraftData.resolveToAddress,
           clientCertificateRef: saveModalDraftData.clientCertificateRef,
+          proxyUrl: saveModalDraftData.proxyUrl,
+          proxyCredentialRef: saveModalDraftData.proxyCredentialRef,
           timeoutMs: saveModalDraftData.timeoutMs,
           maxResponseBytes: saveModalDraftData.maxResponseBytes,
           maxRedirects: saveModalDraftData.maxRedirects,

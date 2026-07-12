@@ -7,7 +7,7 @@
  */
 
 import { TransportError, type TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
-import { Agent, FormData, Response } from 'undici';
+import { Agent, FormData, ProxyAgent, Response } from 'undici';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createNodeRequestTransport, type NodeFetchFn } from '../../src/live/node-request-transport';
 
@@ -606,6 +606,171 @@ describe('createNodeRequestTransport — per-request client certificate', () => 
     fetchMock.mockRejectedValue(fetchError('ERR_SSL_SSLV3_ALERT_HANDSHAKE_FAILURE'));
     await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
       /TLS handshake with api\.openheaders\.io failed .* vault entry "gateway-mtls"/,
+    );
+  });
+});
+
+const PROXY_URL = 'http://proxy.openheaders.io:3128';
+
+const PROXY_CRED_FIELDS = {
+  proxyUrl: PROXY_URL,
+  proxyCredentialRef: 'corp-proxy',
+  proxyCredential: 'user:secret',
+};
+
+/** Build the REAL shape of a rejected proxy CONNECT (verified against a
+ *  live CONNECT proxy): the first cause carries a NUMERIC `code: 0` and
+ *  only its own cause holds the status-bearing tunnel message. */
+function proxyTunnelError(status: number): Error {
+  const abort = Object.assign(new Error(`Proxy response (${status}) !== 200 when HTTP Tunneling`), {
+    name: 'AbortError',
+    code: 'UND_ERR_ABORTED',
+  });
+  const cancelled = Object.assign(new Error('Request was cancelled.'), { code: 0, cause: abort });
+  return Object.assign(new TypeError('fetch failed'), { cause: cancelled });
+}
+
+describe('createNodeRequestTransport — per-request proxy', () => {
+  it('a proxy-only tuple mints a dedicated ProxyAgent, reused per tuple', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL }));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(ProxyAgent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('distinct proxy URLs get distinct dispatchers', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL }));
+    await transport().send(makeRequest({ proxyUrl: 'http://other-proxy.openheaders.io:8080' }));
+    const dispatchers = [callInit(0).dispatcher, callInit(1).dispatcher];
+    for (const d of dispatchers) expect(d).toBeInstanceOf(ProxyAgent);
+    expect(new Set(dispatchers).size).toBe(2);
+  });
+
+  it('the SAME credential ref with a rotated value mints a fresh dispatcher (content-hash key segment)', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ ...PROXY_CRED_FIELDS }));
+    await transport().send(makeRequest({ ...PROXY_CRED_FIELDS, proxyCredential: 'user:rotated' }));
+    const dispatchers = [callInit(0).dispatcher, callInit(1).dispatcher];
+    for (const d of dispatchers) expect(d).toBeInstanceOf(ProxyAgent);
+    expect(new Set(dispatchers).size).toBe(2);
+  });
+
+  it('an authenticated and an unauthenticated send to the same proxy are distinct tuples', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL }));
+    await transport().send(makeRequest({ ...PROXY_CRED_FIELDS }));
+    const dispatchers = [callInit(0).dispatcher, callInit(1).dispatcher];
+    for (const d of dispatchers) expect(d).toBeInstanceOf(ProxyAgent);
+    expect(new Set(dispatchers).size).toBe(2);
+  });
+
+  it('the proxy combines with TLS, h2, and certificate options into its own distinct tuples', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL }));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL, sslVerification: false }));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL, allowHttp2: true }));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL, ...CERT_FIELDS }));
+    await transport().send(makeRequest({ sslVerification: false }));
+    const dispatchers = [
+      callInit(0).dispatcher,
+      callInit(1).dispatcher,
+      callInit(2).dispatcher,
+      callInit(3).dispatcher,
+      callInit(4).dispatcher,
+    ];
+    for (const d of dispatchers.slice(0, 4)) expect(d).toBeInstanceOf(ProxyAgent);
+    // The direct insecure send is a plain Agent, not a ProxyAgent.
+    expect(dispatchers[4]).toBeInstanceOf(Agent);
+    expect(new Set(dispatchers).size).toBe(5);
+  });
+
+  it('a credential ref WITHOUT a proxy URL contributes nothing — default dispatcher, no failure', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    const res = await transport().send(makeRequest({ proxyCredentialRef: 'corp-proxy' }));
+    expect(res.status).toBe(200);
+    expect(callInit(0).dispatcher).toBeUndefined();
+  });
+
+  it('the proxied dispatcher rides EVERY hop of a redirect chain, cross-host hops included', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
+      .mockResolvedValueOnce(new Response('ok'));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(ProxyAgent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('fails BEFORE the wire when the credential ref did not resolve to a vault value', async () => {
+    const attempt = transport().send(makeRequest({ proxyUrl: PROXY_URL, proxyCredentialRef: 'corp-proxy' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/vault entry "corp-proxy", which doesn't exist on this device/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('fails BEFORE the wire when the request sets both a proxy and a resolve-to-address pin', async () => {
+    const attempt = transport().send(makeRequest({ proxyUrl: PROXY_URL, resolveToAddress: '10.0.0.7' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/proxy resolves the hostname itself/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('classifies a refused connection naming the PROXY, not the target', async () => {
+    fetchMock.mockRejectedValue(fetchError('ECONNREFUSED'));
+    await expect(transport().send(makeRequest({ proxyUrl: PROXY_URL }))).rejects.toThrow(
+      /Connection refused by the proxy at proxy\.openheaders\.io:3128/,
+    );
+  });
+
+  it('classifies a DNS failure naming the proxy host', async () => {
+    fetchMock.mockRejectedValue(fetchError('ENOTFOUND'));
+    await expect(transport().send(makeRequest({ proxyUrl: PROXY_URL }))).rejects.toThrow(
+      /Could not resolve the proxy host proxy\.openheaders\.io:3128/,
+    );
+  });
+
+  it('classifies a connect timeout naming the proxy', async () => {
+    fetchMock.mockRejectedValue(fetchError('UND_ERR_CONNECT_TIMEOUT'));
+    await expect(transport().send(makeRequest({ proxyUrl: PROXY_URL }))).rejects.toThrow(
+      /Connection to the proxy at proxy\.openheaders\.io:3128 timed out/,
+    );
+  });
+
+  it('classifies a 407 tunnel rejection naming the configured credential entry', async () => {
+    fetchMock.mockRejectedValue(proxyTunnelError(407));
+    await expect(transport().send(makeRequest({ ...PROXY_CRED_FIELDS }))).rejects.toThrow(
+      /rejected the credentials \(407\).*vault entry "corp-proxy"/,
+    );
+  });
+
+  it('classifies a 407 tunnel rejection pointing at the setting when NO credentials are configured', async () => {
+    fetchMock.mockRejectedValue(proxyTunnelError(407));
+    await expect(transport().send(makeRequest({ proxyUrl: PROXY_URL }))).rejects.toThrow(
+      /requires authentication \(407\)\. Set the request's proxy-credentials setting/,
+    );
+  });
+
+  it('classifies a non-407 tunnel rejection as a proxy-to-target failure', async () => {
+    fetchMock.mockRejectedValue(proxyTunnelError(502));
+    await expect(transport().send(makeRequest({ proxyUrl: PROXY_URL }))).rejects.toThrow(
+      /could not open a tunnel to api\.openheaders\.io \(HTTP 502\)/,
+    );
+  });
+
+  it('a target-leg certificate error through the proxy keeps its direct classification', async () => {
+    fetchMock.mockRejectedValue(fetchError('DEPTH_ZERO_SELF_SIGNED_CERT'));
+    await expect(transport().send(makeRequest({ proxyUrl: PROXY_URL }))).rejects.toThrow(
+      /TLS certificate error reaching api\.openheaders\.io/,
+    );
+  });
+
+  it('an unproxied send never mentions a proxy on a refused connection', async () => {
+    fetchMock.mockRejectedValue(fetchError('ECONNREFUSED'));
+    await expect(transport().send(makeRequest())).rejects.toThrow(
+      /^Connection refused by api\.openheaders\.io\. Is the service running on that host\/port\?$/,
     );
   });
 });

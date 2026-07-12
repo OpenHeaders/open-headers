@@ -29,7 +29,13 @@
  *     hostname; the client-certificate PEM pair rides `connect.cert` /
  *     `connect.key` (+ `passphrase`), keyed in the tuple by its vault
  *     ref + a content hash (see {@link clientCertKeySegment}) so
- *     rotation mints a fresh agent. Dispatchers are cached per
+ *     rotation mints a fresh agent; `proxyUrl` swaps the dispatcher
+ *     CLASS to a `ProxyAgent` that tunnels the send through an HTTP(S)
+ *     proxy with CONNECT (end-to-end TLS still runs against the
+ *     target; the other connection options ride the tunnel's target
+ *     leg via `requestTls` — see {@link buildProxyAgent}), with
+ *     credentials resolved from a vault ref (see
+ *     {@link proxyCredKeySegment}). Dispatchers are cached per
  *     distinct option tuple (see
  *     {@link dispatcherFor}) so pooled connections are shared, never
  *     minted per send. `fetch` + `Agent` come from the same undici
@@ -57,7 +63,7 @@ import {
   type TransportRequest,
   type TransportResponse,
 } from '@openheaders/oracle/live/request-exec/transport';
-import { Agent, FormData, fetch as undiciFetch } from 'undici';
+import { Agent, type Dispatcher, FormData, ProxyAgent, fetch as undiciFetch } from 'undici';
 
 /** The fetch pipeline behind the transport — undici's fetch in
  *  production; injectable so tests observe the exact init (including
@@ -93,11 +99,13 @@ const MAX_AGENTS = 32;
  * Shared dispatchers keyed by the canonical connection-option tuple.
  * Default sends (no dispatcher-affecting option set) ride undici's
  * global default dispatcher (no override); every send carrying the
- * SAME option tuple shares ONE agent, built on first use — minting an
- * agent per send would leak a connection pool each time. Future
- * dispatcher-affecting knobs (per-request proxy) join the tuple here.
+ * SAME option tuple shares ONE dispatcher, built on first use —
+ * minting one per send would leak a connection pool each time. The
+ * value is a plain `Agent` for direct sends and a `ProxyAgent` (a
+ * different dispatcher CLASS, not an `Agent` option) for proxied
+ * ones — both close gracefully on eviction.
  */
-const agentCache = new Map<string, Agent>();
+const agentCache = new Map<string, Dispatcher>();
 
 /**
  * Resolver pinned to one address: answers EVERY hostname it is asked
@@ -136,10 +144,42 @@ function clientCertKeySegment(request: TransportRequest): string {
   return `${request.clientCertificateRef}#${hash}`;
 }
 
-function dispatcherFor(request: TransportRequest): Agent | undefined {
+/**
+ * Proxy-credential segment of the tuple key: the stable vault ref plus
+ * a short content hash of the `user:password` value — same discipline
+ * as {@link clientCertKeySegment}: rotating the vault entry under the
+ * same name mints a fresh dispatcher, and the credential itself never
+ * sits in a Map key. Only contributes while a proxy URL is set — a
+ * credential without a proxy has nothing to authenticate against.
+ */
+function proxyCredKeySegment(request: TransportRequest): string {
+  if (request.proxyCredentialRef === undefined) return '';
+  const hash = createHash('sha256')
+    .update(request.proxyCredential ?? '')
+    .digest('hex')
+    .slice(0, 16);
+  return `${request.proxyCredentialRef}#${hash}`;
+}
+
+/** The TLS/connection option bag shared by the direct path (`Agent`'s
+ *  `connect`) and the proxied path (`ProxyAgent`'s `requestTls` — the
+ *  TARGET leg of the tunnel; `ProxyAgent` ignores a plain `connect`). */
+interface ConnectOptions {
+  rejectUnauthorized?: boolean;
+  minVersion?: SecureVersion;
+  maxVersion?: SecureVersion;
+  ciphers?: string;
+  lookup?: LookupFunction;
+  cert?: string;
+  key?: string;
+  passphrase?: string;
+  allowH2?: boolean;
+}
+
+function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
   const insecure = request.sslVerification === false;
   const allowH2 = request.allowHttp2 === true;
-  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress, clientCertificateRef } = request;
+  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress, clientCertificateRef, proxyUrl } = request;
   if (
     !insecure &&
     !allowH2 &&
@@ -147,7 +187,8 @@ function dispatcherFor(request: TransportRequest): Agent | undefined {
     tlsMaxVersion === undefined &&
     tlsCipherSuites === undefined &&
     resolveToAddress === undefined &&
-    clientCertificateRef === undefined
+    clientCertificateRef === undefined &&
+    proxyUrl === undefined
   ) {
     return undefined;
   }
@@ -159,19 +200,12 @@ function dispatcherFor(request: TransportRequest): Agent | undefined {
     allowH2 ? 'h2' : '',
     resolveToAddress ?? '',
     clientCertKeySegment(request),
+    proxyUrl ?? '',
+    proxyUrl !== undefined ? proxyCredKeySegment(request) : '',
   ].join('|');
   const cached = agentCache.get(key);
   if (cached) return cached;
-  const connect: {
-    rejectUnauthorized?: boolean;
-    minVersion?: SecureVersion;
-    maxVersion?: SecureVersion;
-    ciphers?: string;
-    lookup?: LookupFunction;
-    cert?: string;
-    key?: string;
-    passphrase?: string;
-  } = {};
+  const connect: ConnectOptions = {};
   if (insecure) connect.rejectUnauthorized = false;
   if (tlsMinVersion !== undefined) connect.minVersion = TLS_VERSION_TOKEN[tlsMinVersion];
   if (tlsMaxVersion !== undefined) connect.maxVersion = TLS_VERSION_TOKEN[tlsMaxVersion];
@@ -180,9 +214,8 @@ function dispatcherFor(request: TransportRequest): Agent | undefined {
   if (request.clientCertificatePem !== undefined) connect.cert = request.clientCertificatePem;
   if (request.clientCertificateKeyPem !== undefined) connect.key = request.clientCertificateKeyPem;
   if (request.clientCertificatePassphrase !== undefined) connect.passphrase = request.clientCertificatePassphrase;
-  // `allowH2` is an Agent option, NOT a `connect` option — it sits
-  // beside the connector and switches the ALPN offer to h2+http/1.1.
-  const agent = new Agent({ connect, ...(allowH2 ? { allowH2: true } : {}) });
+  const dispatcher =
+    proxyUrl !== undefined ? buildProxyAgent(proxyUrl, request, connect, allowH2) : buildAgent(connect, allowH2);
   if (agentCache.size >= MAX_AGENTS) {
     const oldest = agentCache.entries().next().value;
     if (oldest) {
@@ -190,8 +223,42 @@ function dispatcherFor(request: TransportRequest): Agent | undefined {
       void oldest[1].close();
     }
   }
-  agentCache.set(key, agent);
-  return agent;
+  agentCache.set(key, dispatcher);
+  return dispatcher;
+}
+
+function buildAgent(connect: ConnectOptions, allowH2: boolean): Agent {
+  // `allowH2` is an Agent option, NOT a `connect` option — it sits
+  // beside the connector and switches the ALPN offer to h2+http/1.1.
+  return new Agent({ connect, ...(allowH2 ? { allowH2: true } : {}) });
+}
+
+/**
+ * Proxied dispatcher. `ProxyAgent` tunnels the target connection
+ * through the proxy with HTTP CONNECT, so the per-request connection
+ * options apply to the TARGET leg via `requestTls` — a plain `connect`
+ * option is silently overridden by the tunnel's own connector
+ * (verified against a live CONNECT proxy). `allowH2` must ride BOTH
+ * seats: inside `requestTls` it puts h2 in the ALPN offer on the
+ * tunneled TLS connect; at the top level it keeps the inner client
+ * h2-capable (Agent semantics). Credentials become the
+ * `Proxy-Authorization` header via `token`, proxy leg only.
+ */
+function buildProxyAgent(
+  proxyUrl: string,
+  request: TransportRequest,
+  connect: ConnectOptions,
+  allowH2: boolean,
+): ProxyAgent {
+  const requestTls: ConnectOptions = { ...connect, ...(allowH2 ? { allowH2: true } : {}) };
+  return new ProxyAgent({
+    uri: proxyUrl,
+    requestTls,
+    ...(allowH2 ? { allowH2: true } : {}),
+    ...(request.proxyCredential !== undefined
+      ? { token: `Basic ${Buffer.from(request.proxyCredential).toString('base64')}` }
+      : {}),
+  });
 }
 
 /** Redirect-hop ceiling when the request carries no `maxRedirects`. */
@@ -239,6 +306,26 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           `The request's client-certificate setting references the vault entry "${request.clientCertificateRef}", which doesn't exist on this device. Add a client-certificate entry with that name to the vault, or clear the setting.`,
         );
       }
+      if (request.proxyUrl !== undefined) {
+        // A resolve-to-address pin cannot be honored through a proxy —
+        // the proxy resolves the hostname itself, and the target leg
+        // rides the tunnel socket, never a local lookup. Silently
+        // letting the proxy win would downgrade the pin.
+        if (request.resolveToAddress !== undefined) {
+          throw new TransportError(
+            "The request sets both a proxy and resolve-to-address, but a proxy resolves the hostname itself — the address pin can't apply. Clear one of the two settings.",
+          );
+        }
+        // Configured proxy credentials whose vault entry didn't resolve
+        // on this device fail BEFORE the wire — silently dialing the
+        // proxy unauthenticated would surface as an opaque 407 instead
+        // of the real problem.
+        if (request.proxyCredentialRef !== undefined && request.proxyCredential === undefined) {
+          throw new TransportError(
+            `The request's proxy-credentials setting references the vault entry "${request.proxyCredentialRef}", which doesn't exist on this device. Add a string entry with that name (holding user:password) to the vault, or clear the setting.`,
+          );
+        }
+      }
       // ONE deadline spans the whole send — every hop of a redirect
       // chain plus the final body read; the abort also cancels a body
       // stream stalled mid-read, which a fetch-only signal would miss.
@@ -280,7 +367,7 @@ async function followRedirectChain(
   fetchFn: NodeFetchFn,
   request: TransportRequest,
   deadline: Deadline,
-  dispatcher: Agent | undefined,
+  dispatcher: Dispatcher | undefined,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
@@ -353,7 +440,7 @@ async function fetchHop(
   request: TransportRequest,
   hop: HopState,
   deadline: Deadline,
-  dispatcher: Agent | undefined,
+  dispatcher: Dispatcher | undefined,
 ): Promise<Awaited<ReturnType<NodeFetchFn>>> {
   const init: NodeRequestInit = {
     method: hop.method,
@@ -544,45 +631,116 @@ function buildBody(body: TransportBody): NodeRequestInit['body'] {
   }
 }
 
+/** One link of a thrown error's `cause` chain — see {@link causeChain}. */
+interface CauseLink {
+  code?: string;
+  message?: string;
+}
+
+/**
+ * Flatten an error's `cause` chain (the error itself included) into
+ * plain links. undici wraps failures in LAYERS: a direct connect error
+ * is one `cause` deep, but a rejected proxy CONNECT is two — the first
+ * cause carries a NUMERIC `code: 0` ("Request was cancelled.") and only
+ * its own cause holds the meaningful `UND_ERR_ABORTED` + the
+ * "Proxy response (N) !== 200" message (verified against a live
+ * CONNECT proxy). Callers pick the first STRING code in the chain and
+ * search every message. Depth-capped defensively.
+ */
+function causeChain(err: unknown): CauseLink[] {
+  const links: CauseLink[] = [];
+  let current: unknown = err;
+  for (let depth = 0; depth < 8 && current !== null && typeof current === 'object'; depth++) {
+    const record = current as { code?: unknown; message?: unknown; cause?: unknown };
+    links.push({
+      ...(typeof record.code === 'string' ? { code: record.code } : {}),
+      ...(typeof record.message === 'string' ? { message: record.message } : {}),
+    });
+    current = record.cause;
+  }
+  return links;
+}
+
+/** `host:port` of the request's proxy URL, for error messages. */
+function proxyHostOf(proxyUrl: string): string {
+  try {
+    return new URL(proxyUrl).host;
+  } catch {
+    return proxyUrl;
+  }
+}
+
 /**
  * Turn a thrown Node `fetch` error into a user-actionable message.
- * undici wraps the OS error as `err.cause` with a `code` — far more
- * precise than the browser's opaque "Failed to fetch". Connect-level
- * failures on a send that pins its address name the resolve-to-address
- * setting (the user's first question is "did my pin do this?");
- * handshake failures name the TLS settings only when they are tuned;
- * certificate-demand alerts, cert-material load failures, and
- * mid-handshake closes name the client-certificate setting when one
- * is configured.
+ * undici wraps the OS error in a `cause` chain with a `code` — far
+ * more precise than the browser's opaque "Failed to fetch". Proxied
+ * sends distinguish WHICH hop failed: a refused/unresolved/timed-out
+ * connect can only be the proxy itself (target dialing happens at the
+ * proxy), and a rejected CONNECT surfaces the proxy's status — 407
+ * names the proxy-credentials setting, anything else names the tunnel.
+ * Connect-level failures on a send that pins its address name the
+ * resolve-to-address setting (the user's first question is "did my
+ * pin do this?"); handshake failures name the TLS settings only when
+ * they are tuned; certificate-demand alerts, cert-material load
+ * failures, and mid-handshake closes name the client-certificate
+ * setting when one is configured.
  */
 function classifyFetchFailure(url: string, err: unknown, request: TransportRequest): string {
   const tuned = tlsTuned(request);
   const pinned = request.resolveToAddress;
   const certRef = request.clientCertificateRef;
+  const proxied = request.proxyUrl;
   let host = '';
   try {
     host = new URL(url).hostname;
   } catch {
     // Fall through with an empty host — the raw message still helps.
   }
+  const chain = causeChain(err);
+  const code = chain.find((link) => link.code !== undefined && link.code !== '')?.code;
   const cause = err && typeof err === 'object' && 'cause' in err ? (err as { cause: unknown }).cause : undefined;
-  const code =
-    cause && typeof cause === 'object' && 'code' in cause ? String((cause as { code: unknown }).code) : undefined;
+  if (proxied !== undefined) {
+    // A rejected CONNECT is a normal proxy RESPONSE undici turns into
+    // an abort — the status only survives in the wrapped message.
+    const tunnel = chain
+      .map((link) => (link.message !== undefined ? /Proxy response \((\d+)\) !== 200/.exec(link.message) : null))
+      .find((match) => match !== null);
+    if (tunnel) {
+      const status = Number(tunnel[1]);
+      if (status === 407) {
+        return request.proxyCredentialRef !== undefined
+          ? `The proxy at ${proxyHostOf(proxied)} rejected the credentials (407). Check the request's proxy-credentials setting — the vault entry "${request.proxyCredentialRef}" may hold the wrong user:password.`
+          : `The proxy at ${proxyHostOf(proxied)} requires authentication (407). Set the request's proxy-credentials setting to a vault string entry holding user:password.`;
+      }
+      return `The proxy at ${proxyHostOf(proxied)} could not open a tunnel to ${host} (HTTP ${status}). The proxy is reachable — the failure is between the proxy and the target.`;
+    }
+  }
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
-      return `Could not resolve host ${host} (DNS lookup failed). Check the URL and your network.`;
+      return proxied !== undefined
+        ? `Could not resolve the proxy host ${proxyHostOf(proxied)} (DNS lookup failed). Check the request's proxy URL.`
+        : `Could not resolve host ${host} (DNS lookup failed). Check the URL and your network.`;
     case 'ECONNREFUSED':
+      if (proxied !== undefined) {
+        return `Connection refused by the proxy at ${proxyHostOf(proxied)} — the request routes this send through it. Is the proxy running?`;
+      }
       return pinned !== undefined
         ? `Connection refused at ${pinned} — the request's resolve-to-address setting points ${host} there. Is the service listening on that address and the URL's port?`
         : `Connection refused by ${host}. Is the service running on that host/port?`;
     case 'EHOSTUNREACH':
     case 'ENETUNREACH':
+      if (proxied !== undefined) {
+        return `No route to the proxy at ${proxyHostOf(proxied)} (${code}) — the request routes this send through it.`;
+      }
       return pinned !== undefined
         ? `No route to ${pinned} (${code}) — the request's resolve-to-address setting points ${host} there.`
         : `No route to host ${host} (${code}).`;
     case 'ETIMEDOUT':
     case 'UND_ERR_CONNECT_TIMEOUT':
+      if (proxied !== undefined) {
+        return `Connection to the proxy at ${proxyHostOf(proxied)} timed out — the request routes this send through it.`;
+      }
       return pinned !== undefined
         ? `Connection to ${host} timed out — the request's resolve-to-address setting points it at ${pinned}.`
         : `Connection to ${host} timed out.`;

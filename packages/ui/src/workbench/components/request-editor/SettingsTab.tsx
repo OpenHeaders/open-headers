@@ -68,6 +68,22 @@
  *     verification — so no response marker, and no fact row on either
  *     sheet. The browser picks client certificates from its own
  *     store/prompt, so there is no browser control.
+ *   • `proxyUrl` / `proxyCredentialRef` — node-runtime only: the node
+ *     transport tunnels the send through the HTTP(S) proxy with
+ *     CONNECT, so end-to-end TLS and certificate verification still
+ *     run against the target. Credentials ride a vault string entry
+ *     (`user:password`) picked by name, never the URL — the runtime
+ *     would honor `user:pass@` userinfo, which is exactly why the
+ *     schema rejects it (secrets must not land in synced YAML).
+ *     SOCKS schemes are rejected. Not honorable together with
+ *     `resolveToAddress` (the proxy resolves the hostname itself) —
+ *     the row warns in place while both are set and the transport
+ *     fails the send loudly. Not trust-relaxing, no response marker,
+ *     no fact row on either sheet. The browser routes through its own
+ *     proxy settings, so there is no browser control. The credentials
+ *     row hides while no proxy URL is set (nothing to authenticate
+ *     against), matching the dot rule: a hidden knob contributes no
+ *     tab dot.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -89,7 +105,9 @@ import type React from 'react';
 import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
 import {
+  isValidProxyUrl,
   MAX_MAX_REDIRECTS,
+  MAX_PROXY_URL_LENGTH,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESOLVE_TO_ADDRESS_LENGTH,
   MAX_RESPONSE_BYTES,
@@ -134,6 +152,12 @@ export interface RequestSettingsDraft {
   /** Name of a vault client-certificate entry presented during the TLS
    *  handshake. Undefined = no client certificate. Node runtimes only. */
   clientCertificateRef?: string;
+  /** HTTP(S) proxy URL the send tunnels through. Undefined = direct
+   *  connection. Node runtimes only. */
+  proxyUrl?: string;
+  /** Name of a vault string entry holding the proxy's `user:password`.
+   *  Undefined = unauthenticated proxy. Node runtimes only. */
+  proxyCredentialRef?: string;
   /** Round-trip ceiling in milliseconds. Undefined = no per-request
    *  limit. Honored on both runtimes. */
   timeoutMs?: number;
@@ -386,7 +410,9 @@ const SelectKnobRow: React.FC<{
 /** Compact text-knob row: same geometry, with a wider free-text input.
  *  Empty means "no explicit value" — the placeholder states the
  *  effective default. `error` renders under the row (and tints the
- *  field) while the current text is malformed. */
+ *  field) while the current text is malformed; `warning` renders under
+ *  the row while the value is well-formed but conflicts with another
+ *  setting (error wins when both apply). */
 const TextKnobRow: React.FC<{
   label: string;
   value: string | undefined;
@@ -395,7 +421,8 @@ const TextKnobRow: React.FC<{
   placeholder: string;
   maxLength: number;
   error?: string;
-}> = ({ label, value, onChange, info, placeholder, maxLength, error }) => (
+  warning?: string;
+}> = ({ label, value, onChange, info, placeholder, maxLength, error, warning }) => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
@@ -415,6 +442,11 @@ const TextKnobRow: React.FC<{
     {error !== undefined && (
       <Text type="danger" style={{ fontSize: 11, marginBottom: 4 }}>
         {error}
+      </Text>
+    )}
+    {error === undefined && warning !== undefined && (
+      <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
+        {warning}
       </Text>
     )}
   </div>
@@ -457,6 +489,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
   const clientCertificateRefDangling =
     value.clientCertificateRef !== undefined &&
     !clientCertificateOptions.some((o) => o.value === value.clientCertificateRef);
+  // Vault string entries feed the proxy-credentials picker — a
+  // `user:password` pair is string-shaped, no dedicated entry kind.
+  const proxyCredentialOptions = vault.secrets
+    .filter((s) => s.kind === 'string')
+    .map((s) => ({ value: s.name, label: s.name }));
+  const proxyCredentialRefDangling =
+    value.proxyCredentialRef !== undefined &&
+    !proxyCredentialOptions.some((o) => o.value === value.proxyCredentialRef);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 560 }}>
@@ -584,6 +624,46 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
                 : undefined
             }
           />
+          <TextKnobRow
+            label="Proxy"
+            value={value.proxyUrl}
+            onChange={(proxyUrl) =>
+              onChange(
+                // Clearing the proxy URL also clears its credentials —
+                // they have nothing to authenticate against, and a
+                // hidden row must not keep a stale ref alive.
+                proxyUrl === undefined ? { ...value, proxyUrl, proxyCredentialRef: undefined } : { ...value, proxyUrl },
+              )
+            }
+            info="Route this request through an HTTP(S) proxy instead of connecting directly. The connection to the target tunnels through the proxy, so an https exchange stays end-to-end encrypted and certificate verification still runs against the target. SOCKS proxies are not supported. Credentials go in the 'Proxy credentials' setting below, never in this URL. Leave empty for a direct connection."
+            placeholder="No proxy — direct connection"
+            maxLength={MAX_PROXY_URL_LENGTH}
+            error={
+              value.proxyUrl !== undefined && !isValidProxyUrl(value.proxyUrl)
+                ? 'http:// or https:// URL with host and port only — no credentials in the URL, no SOCKS.'
+                : undefined
+            }
+            warning={
+              value.proxyUrl !== undefined && value.resolveToAddress !== undefined
+                ? 'Also sets resolve-to-address, but a proxy resolves the hostname itself — sends will fail until one of the two is cleared.'
+                : undefined
+            }
+          />
+          {value.proxyUrl !== undefined && (
+            <SelectKnobRow
+              label="Proxy credentials"
+              value={value.proxyCredentialRef}
+              onChange={(proxyCredentialRef) => onChange({ ...value, proxyCredentialRef })}
+              info="Authenticate against the proxy with credentials from the vault, as user:password in a string entry. The request saves only the entry's name, and each device resolves it against its own local vault — the credentials never leave the vault and are sent only to the proxy, never to the target. Leave empty for a proxy that needs no authentication."
+              options={proxyCredentialOptions}
+              placeholder="No authentication"
+              warning={
+                proxyCredentialRefDangling
+                  ? `No vault string entry named "${value.proxyCredentialRef}" on this device — sends will fail until the entry exists or this setting is cleared.`
+                  : undefined
+              }
+            />
+          )}
         </>
       )}
       <NumericKnobRow

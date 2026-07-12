@@ -59,6 +59,8 @@ describe('requestExecutableFingerprint', () => {
     expect(requestExecutableFingerprint(makeRequest({ allowHttp2: true }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ resolveToAddress: '10.0.0.7' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ clientCertificateRef: 'gateway-mtls' }))).not.toBe(base);
+    expect(requestExecutableFingerprint(makeRequest({ proxyUrl: 'http://proxy.openheaders.io:3128' }))).not.toBe(base);
+    expect(requestExecutableFingerprint(makeRequest({ proxyCredentialRef: 'corp-proxy' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ timeoutMs: 15000 }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ maxResponseBytes: 4096 }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ maxRedirects: 5 }))).not.toBe(base);

@@ -140,6 +140,8 @@ export function requestExecutableFingerprint(request: Request): string {
     allowHttp2: request.allowHttp2 ?? null,
     resolveToAddress: request.resolveToAddress ?? null,
     clientCertificateRef: request.clientCertificateRef ?? null,
+    proxyUrl: request.proxyUrl ?? null,
+    proxyCredentialRef: request.proxyCredentialRef ?? null,
     timeoutMs: request.timeoutMs ?? null,
     maxResponseBytes: request.maxResponseBytes ?? null,
     maxRedirects: request.maxRedirects ?? null,

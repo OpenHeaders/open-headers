@@ -162,6 +162,8 @@ export const REQUEST_SCHEMA: FieldNode = obj({
   allowHttp2: leaf('boolean', { coercion: 'boolean-strict' }),
   resolveToAddress: leaf('string', { coercion: 'optional-string' }),
   clientCertificateRef: leaf('string', { coercion: 'optional-string' }),
+  proxyUrl: leaf('string', { coercion: 'optional-string' }),
+  proxyCredentialRef: leaf('string', { coercion: 'optional-string' }),
   timeoutMs: leaf('number', { coercion: 'optional-number' }),
   maxResponseBytes: leaf('number', { coercion: 'optional-number' }),
   maxRedirects: leaf('number', { coercion: 'optional-number' }),

@@ -10,7 +10,7 @@
  * `auth`, `body`, `credentialsMode`, `followRedirects`,
  * `sslVerification`, `tlsMinVersion`, `tlsMaxVersion`,
  * `tlsCipherSuites`, `allowHttp2`, `resolveToAddress`,
- * `clientCertificateRef`, `timeoutMs`,
+ * `clientCertificateRef`, `proxyUrl`, `proxyCredentialRef`, `timeoutMs`,
  * `maxResponseBytes`, `maxRedirects`,
  * `followOriginalHttpMethod`, `followAuthorizationHeader`,
  * `preRequestScript`, `postResponseScript` — flows

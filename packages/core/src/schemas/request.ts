@@ -142,6 +142,56 @@ export const ClientCertificateRefSchema = v.pipe(
   v.maxLength(MAX_CLIENT_CERTIFICATE_REF_LENGTH),
 );
 
+/**
+ * Per-request HTTP(S) proxy URL: scheme + host + optional port, nothing
+ * else. `http://` or `https://` only — SOCKS schemes are rejected (the
+ * node fetch stack does not support SOCKS proxies). Userinfo is
+ * rejected outright: the runtime WOULD honor `user:pass@` credentials,
+ * which is exactly why they must not land in synced request YAML by
+ * muscle memory — credentials ride a vault ref instead (see
+ * `proxyCredentialRef`). Validated by {@link isValidProxyUrl}, shared
+ * with the Settings tab so the editor flags a malformed URL in place.
+ */
+export const MAX_PROXY_URL_LENGTH = 512;
+
+/** Shared with the Settings tab so the editor flags a malformed proxy
+ *  URL in place instead of failing at save validation. */
+export function isValidProxyUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  if (url.username !== '' || url.password !== '') return false;
+  if (url.search !== '' || url.hash !== '') return false;
+  return url.pathname === '' || url.pathname === '/';
+}
+
+export const ProxyUrlSchema = v.pipe(
+  v.string(),
+  v.maxLength(MAX_PROXY_URL_LENGTH),
+  v.check(isValidProxyUrl, 'Must be an http:// or https:// proxy URL — host and port only, no credentials'),
+);
+
+/**
+ * Reference to a vault string entry by NAME, holding the proxy
+ * credentials as `user:password`. Same contract as
+ * {@link ClientCertificateRefSchema}: the vault is local-per-device and
+ * never syncs, so the entry name is the only cross-device contract, and
+ * the credential value itself never rides the request. Whether the
+ * named entry EXISTS is a device-local question the editor and the
+ * transport both answer in place.
+ */
+export const MAX_PROXY_CREDENTIAL_REF_LENGTH = 256;
+
+export const ProxyCredentialRefSchema = v.pipe(
+  v.string(),
+  v.minLength(1),
+  v.maxLength(MAX_PROXY_CREDENTIAL_REF_LENGTH),
+);
+
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
 /**
@@ -624,6 +674,31 @@ export const RequestSchema = v.object({
    * one schema, all runtimes carry the value).
    */
   clientCertificateRef: v.optional(ClientCertificateRefSchema),
+  /**
+   * Route the send through this HTTP(S) proxy instead of connecting
+   * directly. The connection to the target tunnels through the proxy
+   * (HTTP CONNECT), so end-to-end TLS and certificate verification
+   * still run against the TARGET — the proxy sees the tunnel endpoint,
+   * not the decrypted exchange; not trust-relaxing, no snapshot marker.
+   * Applies to every hop of a redirect chain. Incompatible with
+   * `resolveToAddress` — the proxy resolves the hostname itself, so a
+   * send carrying both fails with an error naming the conflict.
+   * Credentials never ride this URL — see `proxyCredentialRef`. Honored
+   * by node runtimes; browser runtimes route through the browser's own
+   * proxy settings and ignore it (the request still syncs it — one
+   * schema, all runtimes carry the value). Validated — see
+   * {@link ProxyUrlSchema}.
+   */
+  proxyUrl: v.optional(ProxyUrlSchema),
+  /**
+   * Authenticate against the proxy with the credentials from this
+   * vault string entry (by NAME), holding `user:password`. Sent as a
+   * `Proxy-Authorization: Basic …` header on the proxy leg only — never
+   * to the target. Only meaningful alongside `proxyUrl`; a ref that
+   * doesn't resolve on this device fails the send with an error naming
+   * this setting. Node-only for the same reason as `proxyUrl`.
+   */
+  proxyCredentialRef: v.optional(ProxyCredentialRefSchema),
   /**
    * Wall-clock ceiling (ms) on the whole round-trip — connection,
    * response, and body read. Honored by BOTH runtimes (the browser

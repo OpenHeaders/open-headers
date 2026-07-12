@@ -77,6 +77,8 @@ export const REQUEST_FIELD_ORDER = [
   'allowHttp2',
   'resolveToAddress',
   'clientCertificateRef',
+  'proxyUrl',
+  'proxyCredentialRef',
   'timeoutMs',
   'maxResponseBytes',
   'maxRedirects',

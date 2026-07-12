@@ -34,6 +34,8 @@ export interface RequestPathBundle {
   allowHttp2: string;
   resolveToAddress: string;
   clientCertificateRef: string;
+  proxyUrl: string;
+  proxyCredentialRef: string;
   timeoutMs: string;
   maxResponseBytes: string;
   maxRedirects: string;
@@ -65,6 +67,8 @@ export const REQUEST_PATHS: RequestPathBundle = {
   allowHttp2: 'allowHttp2',
   resolveToAddress: 'resolveToAddress',
   clientCertificateRef: 'clientCertificateRef',
+  proxyUrl: 'proxyUrl',
+  proxyCredentialRef: 'proxyCredentialRef',
   timeoutMs: 'timeoutMs',
   maxResponseBytes: 'maxResponseBytes',
   maxRedirects: 'maxRedirects',

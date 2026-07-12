@@ -55,6 +55,8 @@ interface KnobValues {
   allowHttp2?: boolean;
   resolveToAddress?: string;
   clientCertificateRef?: string;
+  proxyUrl?: string;
+  proxyCredentialRef?: string;
 }
 
 function renderTab(value: KnobValues = {}) {
@@ -192,6 +194,16 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     fireEvent.click(screen.getByText('10 browser-managed'));
     expect(screen.queryByText('Client certificate')).toBeNull();
     expect(settingsDotCount({ clientCertificateRef: 'gateway-mtls' })).toBe(0);
+  });
+
+  it('shows no proxy controls or fact row and never dots a synced proxy', () => {
+    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' });
+    expect(screen.queryByRole('textbox', { name: 'Proxy' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Proxy credentials' })).toBeNull();
+    // Not a sheet-listed fact — the browser sheet stays at 10 rows.
+    fireEvent.click(screen.getByText('10 browser-managed'));
+    expect(screen.queryByText('Proxy')).toBeNull();
+    expect(settingsDotCount({ proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(0);
   });
 });
 
@@ -502,6 +514,102 @@ describe('SettingsTab on a node runtime', () => {
   it('dots the tab only while a certificate ref is set', () => {
     registerCapability('requestRuntime', () => 'node');
     expect(settingsDotCount({ clientCertificateRef: 'gateway-mtls' })).toBe(1);
+    expect(settingsDotCount()).toBe(0);
+  });
+
+  it('shows the proxy URL field without touching the fact sheet; credentials row hides while empty', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    expect(screen.getByRole('textbox', { name: 'Proxy' })).toBeTruthy();
+    expect(screen.getByPlaceholderText('No proxy — direct connection')).toBeTruthy();
+    // No proxy URL set — nothing to authenticate against, no row.
+    expect(screen.queryByRole('combobox', { name: 'Proxy credentials' })).toBeNull();
+    // Not trust-relaxing, not a sheet-listed fact — the node sheet
+    // stays at 4 rows and the label exists exactly once.
+    fireEvent.click(screen.getByText('4 runtime-managed'));
+    expect(screen.getAllByText('Proxy')).toHaveLength(1);
+  });
+
+  it('flags a malformed, userinfo-bearing, or SOCKS proxy URL in place', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ proxyUrl: 'socks5://127.0.0.1:1080' });
+    expect(screen.getByText(/no credentials in the URL, no SOCKS/)).toBeTruthy();
+
+    cleanup();
+    renderTab({ proxyUrl: 'http://user:pass@proxy.openheaders.io' });
+    expect(screen.getByText(/no credentials in the URL, no SOCKS/)).toBeTruthy();
+
+    cleanup();
+    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128' });
+    expect(screen.queryByText(/no credentials in the URL, no SOCKS/)).toBeNull();
+  });
+
+  it('warns in place while both a proxy and a resolve-to-address pin are set', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128', resolveToAddress: '10.0.0.7' });
+    expect(screen.getByText(/a proxy resolves the hostname itself/)).toBeTruthy();
+
+    cleanup();
+    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128' });
+    expect(screen.queryByText(/a proxy resolves the hostname itself/)).toBeNull();
+  });
+
+  it('offers the vault string entries as credential options once a proxy URL is set', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const vault: VaultContextValue = {
+      vault: {
+        schemaVersion: 5,
+        secrets: [
+          { uid: 'stri0001', kind: 'string', name: 'corp-proxy', value: 'user:secret' },
+          { uid: 'cert0001', kind: 'client-certificate', name: 'gateway-mtls', cert: 'CERT', key: 'KEY' },
+        ],
+      },
+      isReady: true,
+      isLocked: false,
+      setVaultSecret: () => Promise.resolve({ ok: true }),
+      removeVaultSecret: () => Promise.resolve({ ok: true }),
+      replaceVault: () => Promise.resolve({ ok: true }),
+    };
+    const onChange = vi.fn();
+    render(
+      <VaultContext.Provider value={vault}>
+        <SettingsTab value={{ proxyUrl: 'http://proxy.openheaders.io:3128' }} onChange={onChange} />
+      </VaultContext.Provider>,
+    );
+    openCombobox(screen.getByRole('combobox', { name: 'Proxy credentials' }));
+    // Only string-kind entries are options — certificate entries never appear.
+    expect(dropdownOption('corp-proxy')).toBeTruthy();
+    expect(document.querySelectorAll('.ant-select-item-option')).toHaveLength(1);
+    fireEvent.click(dropdownOption('corp-proxy'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ proxyCredentialRef: 'corp-proxy' }));
+  });
+
+  it('warns in place when the credential ref names no vault entry on this device', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' });
+    expect(screen.getByText(/No vault string entry named "corp-proxy" on this device/)).toBeTruthy();
+  });
+
+  it('clearing the proxy URL also clears its credential ref', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(
+      <SettingsTab
+        value={{ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'Proxy' }), { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ proxyUrl: undefined, proxyCredentialRef: undefined }),
+    );
+  });
+
+  it('dots the tab while a proxy URL is set; a bare synced credential ref never dots', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(1);
+    // The credentials row hides while no URL is set — no control, no dot.
+    expect(settingsDotCount({ proxyCredentialRef: 'corp-proxy' })).toBe(0);
     expect(settingsDotCount()).toBe(0);
   });
 });

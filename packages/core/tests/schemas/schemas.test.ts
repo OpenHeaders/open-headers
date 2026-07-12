@@ -442,6 +442,52 @@ describe('RequestSchema', () => {
     expect(v.safeParse(RequestSchema, { ...base, clientCertificateRef: '' }).success).toBe(false);
     expect(v.safeParse(RequestSchema, { ...base, clientCertificateRef: 'x'.repeat(257) }).success).toBe(false);
   });
+
+  it('accepts an http/https proxyUrl; rejects userinfo, SOCKS, paths, and garbage', () => {
+    const base = {
+      schemaVersion: 5,
+      uid: 'abcd1234',
+      path: 'x',
+      name: 'x',
+      method: 'GET',
+      url: 'x',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    };
+    expect(v.parse(RequestSchema, { ...base, proxyUrl: 'http://proxy.openheaders.io:3128' })).toBeTruthy();
+    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'https://proxy.openheaders.io' }).success).toBe(true);
+    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'http://127.0.0.1:8080/' }).success).toBe(true);
+    // Userinfo would be honored by the runtime — rejected so credentials
+    // never land in synced YAML; they ride a vault ref instead.
+    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'http://user:pass@proxy.openheaders.io' }).success).toBe(
+      false,
+    );
+    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'socks5://127.0.0.1:1080' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'http://proxy.openheaders.io/path' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'http://proxy.openheaders.io?q=1' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'proxy.openheaders.io:3128' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: '' }).success).toBe(false);
+  });
+
+  it('accepts a proxyCredentialRef vault-entry name; rejects empty and overlong', () => {
+    const base = {
+      schemaVersion: 5,
+      uid: 'abcd1234',
+      path: 'x',
+      name: 'x',
+      method: 'GET',
+      url: 'x',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    };
+    expect(v.parse(RequestSchema, { ...base, proxyCredentialRef: 'corp-proxy' })).toBeTruthy();
+    expect(v.safeParse(RequestSchema, { ...base, proxyCredentialRef: '' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, proxyCredentialRef: 'x'.repeat(257) }).success).toBe(false);
+  });
 });
 
 describe('RuleSchema', () => {

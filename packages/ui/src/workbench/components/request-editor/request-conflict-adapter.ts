@@ -46,6 +46,8 @@ const SCALAR_LABEL: Record<string, string> = {
   [REQUEST_PATHS.allowHttp2]: 'Allow HTTP/2',
   [REQUEST_PATHS.resolveToAddress]: 'Resolve to address',
   [REQUEST_PATHS.clientCertificateRef]: 'Client certificate',
+  [REQUEST_PATHS.proxyUrl]: 'Proxy URL',
+  [REQUEST_PATHS.proxyCredentialRef]: 'Proxy credentials',
   [REQUEST_PATHS.timeoutMs]: 'Request timeout',
   [REQUEST_PATHS.maxResponseBytes]: 'Response size limit',
   [REQUEST_PATHS.maxRedirects]: 'Maximum redirects',

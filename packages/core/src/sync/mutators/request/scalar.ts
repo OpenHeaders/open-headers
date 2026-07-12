@@ -46,6 +46,8 @@ export type RequestScalarPath =
   | 'allowHttp2'
   | 'resolveToAddress'
   | 'clientCertificateRef'
+  | 'proxyUrl'
+  | 'proxyCredentialRef'
   | 'timeoutMs'
   | 'maxResponseBytes'
   | 'maxRedirects'

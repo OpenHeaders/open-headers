@@ -232,6 +232,8 @@ describe('yaml codec — round-trip parity', () => {
     expect(parsed.value.allowHttp2).toBe(true);
     expect(parsed.value.resolveToAddress).toBe('10.0.0.7');
     expect(parsed.value.clientCertificateRef).toBe('gateway-mtls');
+    expect(parsed.value.proxyUrl).toBe('http://proxy.openheaders.io:3128');
+    expect(parsed.value.proxyCredentialRef).toBe('corp-proxy');
     expect(parsed.value.timeoutMs).toBe(15000);
     expect(parsed.value.maxResponseBytes).toBe(4096);
     expect(parsed.value.maxRedirects).toBe(5);
