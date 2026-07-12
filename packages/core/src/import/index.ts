@@ -19,6 +19,22 @@ export {
   stripBrunoRootPrefix,
 } from './bruno';
 export { CurlParseError, type CurlParseResult, type CurlRequest, parseCurl, tokenize } from './curl';
+export {
+  type DataScanInterpretation,
+  type DataScanSkip,
+  type DataScanStore,
+  type DataScanTarget,
+  type InsomniaNedbFinding,
+  interpretDataScanFiles,
+  interpretInsomniaStores,
+  interpretPostmanBackups,
+  listDataScanTargets,
+  matchesDataScanFile,
+  type PostmanBackupFinding,
+  parseNedbLines,
+  type ScannedFile,
+  type ToolDataFinding,
+} from './data-scan';
 export { type DetectedImportSource, detectImportSource } from './detect';
 export {
   diffImportReports,
