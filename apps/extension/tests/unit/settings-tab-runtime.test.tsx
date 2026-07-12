@@ -16,7 +16,7 @@ import { buildRequestTabItems } from '@openheaders/ui/workbench/components/reque
 import SettingsTab from '@openheaders/ui/workbench/components/request-editor/SettingsTab';
 import type { SectionUnresolved } from '@openheaders/ui/workbench/components/request-editor/useSectionUnresolved';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(() => {
   unregisterCapability('requestRuntime');
@@ -25,12 +25,19 @@ afterEach(() => {
 
 const NONE: SectionUnresolved = { url: false, params: false, headers: false, auth: false, body: false };
 
-function renderTab(value: { credentialsMode?: 'omit' | 'include'; sslVerification?: boolean } = {}) {
+interface KnobValues {
+  credentialsMode?: 'omit' | 'include';
+  sslVerification?: boolean;
+  timeoutMs?: number;
+  maxResponseBytes?: number;
+}
+
+function renderTab(value: KnobValues = {}) {
   return render(<SettingsTab value={value} onChange={() => {}} />);
 }
 
 /** Render the Settings tab label and count default-tone dots on it. */
-function settingsDotCount(knobs: { credentialsMode?: 'omit' | 'include'; sslVerification?: boolean } = {}): number {
+function settingsDotCount(knobs: KnobValues = {}): number {
   const draft = { ...emptyDraft(), ...knobs };
   const item = buildRequestTabItems(draft, NONE).find((i) => i.key === 'settings');
   const { container } = render(<div>{item?.label}</div>);
@@ -64,6 +71,27 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
 
   it('does not dot the Settings tab for a synced sslVerification', () => {
     expect(settingsDotCount({ sslVerification: false })).toBe(0);
+  });
+
+  it('shows the timeout knob but no per-request size-cap knob', () => {
+    renderTab();
+    expect(screen.getByRole('spinbutton', { name: 'Request timeout' })).toBeTruthy();
+    expect(screen.queryByRole('spinbutton', { name: 'Response size limit' })).toBeNull();
+  });
+
+  it('dots the tab for a set timeout, never for a synced size cap', () => {
+    expect(settingsDotCount({ timeoutMs: 15000 })).toBe(1);
+    expect(settingsDotCount({ maxResponseBytes: 4096 })).toBe(0);
+  });
+
+  it('reports the timeout in ms and clears to undefined when emptied', () => {
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ timeoutMs: 15000 }} onChange={onChange} />);
+    const knob = screen.getByRole('spinbutton', { name: 'Request timeout' }) as HTMLInputElement;
+    expect(knob.value).toBe('15000');
+    fireEvent.change(knob, { target: { value: '' } });
+    fireEvent.blur(knob);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: undefined }));
   });
 });
 
@@ -113,6 +141,25 @@ describe('SettingsTab on a node runtime', () => {
     registerCapability('requestRuntime', () => 'node');
     expect(settingsDotCount({ sslVerification: false })).toBe(1);
     expect(settingsDotCount({ sslVerification: true })).toBe(0);
+    expect(settingsDotCount()).toBe(0);
+  });
+
+  it('shows both numeric knobs, displaying the size cap in KB', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ maxResponseBytes: 4096 }} onChange={onChange} />);
+    expect(screen.getByRole('spinbutton', { name: 'Request timeout' })).toBeTruthy();
+    const cap = screen.getByRole('spinbutton', { name: 'Response size limit' }) as HTMLInputElement;
+    expect(cap.value).toBe('4');
+    fireEvent.change(cap, { target: { value: '8' } });
+    fireEvent.blur(cap);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ maxResponseBytes: 8192 }));
+  });
+
+  it('dots the tab for either numeric knob', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ timeoutMs: 15000 })).toBe(1);
+    expect(settingsDotCount({ maxResponseBytes: 4096 })).toBe(1);
     expect(settingsDotCount()).toBe(0);
   });
 });

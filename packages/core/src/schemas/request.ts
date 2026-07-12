@@ -22,6 +22,40 @@ export const HttpMethodSchema = v.pipe(
 
 export const BodyTypeSchema = v.picklist(['none', 'json', 'xml', 'graphql', 'form', 'multipart', 'text']);
 
+/**
+ * Bounds on the per-request wall-clock timeout. The 1 s floor keeps a
+ * typo (e.g. "5" meant as seconds) from making every send abort
+ * instantly; the 1 h ceiling exists only so the value stays a sane
+ * duration — anything longer is indistinguishable from "no limit".
+ */
+export const MIN_REQUEST_TIMEOUT_MS = 1_000;
+export const MAX_REQUEST_TIMEOUT_MS = 3_600_000;
+
+export const RequestTimeoutMsSchema = v.pipe(
+  v.number(),
+  v.integer(),
+  v.minValue(MIN_REQUEST_TIMEOUT_MS),
+  v.maxValue(MAX_REQUEST_TIMEOUT_MS),
+);
+
+/**
+ * Bounds on the per-request response-body cap. The 1 KiB floor keeps
+ * the knob usable for truncation testing without allowing a zero cap
+ * that would blank every response. The ceiling is a hard 10 MiB: the
+ * executor's own default is 2 MiB (the always-on process's memory
+ * bound), and a per-request value may RAISE it up to this ceiling for
+ * legitimately large payloads — never beyond.
+ */
+export const MIN_RESPONSE_BYTES = 1_024;
+export const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+
+export const MaxResponseBytesSchema = v.pipe(
+  v.number(),
+  v.integer(),
+  v.minValue(MIN_RESPONSE_BYTES),
+  v.maxValue(MAX_RESPONSE_BYTES),
+);
+
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
 /**
@@ -439,6 +473,27 @@ export const RequestSchema = v.object({
    * marked.
    */
   sslVerification: v.optional(v.boolean()),
+  /**
+   * Wall-clock ceiling (ms) on the whole round-trip — connection,
+   * response, and body read. Honored by BOTH runtimes (the browser
+   * fetch aborts on a deadline just like the node transport). Absent =
+   * no per-request ceiling; only the network stack's own timeouts
+   * apply. A workflow step's own per-attempt timeout, when set, takes
+   * precedence over this value for that step's sends. Bounded — see
+   * {@link RequestTimeoutMsSchema}.
+   */
+  timeoutMs: v.optional(RequestTimeoutMsSchema),
+  /**
+   * Cap (bytes) on the response body read off the wire. Node runtimes
+   * stream + abort past it; a truncated run records the cap on the
+   * snapshot (`bodyCapBytes`) so the response labels the actual limit.
+   * May raise the runtime's 2 MiB default up to the hard 10 MiB
+   * ceiling, or lower it for truncation testing. Browser runtimes keep
+   * their app-wide cap and ignore this (the request still syncs it —
+   * one schema, all runtimes carry the value). Bounded — see
+   * {@link MaxResponseBytesSchema}.
+   */
+  maxResponseBytes: v.optional(MaxResponseBytesSchema),
   body: RequestBodySchema,
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),

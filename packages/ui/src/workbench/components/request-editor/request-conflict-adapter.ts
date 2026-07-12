@@ -40,6 +40,8 @@ const SCALAR_LABEL: Record<string, string> = {
   [REQUEST_PATHS.credentialsMode]: 'Credentials mode',
   [REQUEST_PATHS.followRedirects]: 'Follow redirects',
   [REQUEST_PATHS.sslVerification]: 'SSL verification',
+  [REQUEST_PATHS.timeoutMs]: 'Request timeout',
+  [REQUEST_PATHS.maxResponseBytes]: 'Response size limit',
   [REQUEST_PATHS.preRequestScript]: 'Pre-request script',
   [REQUEST_PATHS.postResponseScript]: 'Post-response script',
 };

@@ -43,6 +43,12 @@ export interface ResolvedRequest {
   /** `false` → the transport skips TLS certificate verification;
    *  `undefined`/`true` → verify (the runtime default). */
   sslVerification?: boolean;
+  /** Per-request round-trip ceiling (ms). A workflow step's own
+   *  per-attempt timeout takes precedence at execute time. */
+  timeoutMs?: number;
+  /** Per-request response-body cap (bytes); overrides the executor's
+   *  default when present. */
+  maxResponseBytes?: number;
 }
 
 /** One TOTP vault entry the resolved request used. Carries the code (so
@@ -185,6 +191,8 @@ export async function resolveRequest(
       credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
       followRedirects: request.followRedirects,
       sslVerification: request.sslVerification,
+      timeoutMs: request.timeoutMs,
+      maxResponseBytes: request.maxResponseBytes,
     },
     totpUsed: [...totpUsed.values()],
   };

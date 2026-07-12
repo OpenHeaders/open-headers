@@ -71,6 +71,8 @@ export const REQUEST_FIELD_ORDER = [
   'credentialsMode',
   'followRedirects',
   'sslVerification',
+  'timeoutMs',
+  'maxResponseBytes',
   'body',
 ] as const;
 

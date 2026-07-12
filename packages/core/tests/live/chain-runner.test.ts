@@ -558,7 +558,7 @@ describe('runChain — retry policy', () => {
   it('fixed backoff repeats the base delay; default delay is 1000 ms', async () => {
     const wf = workflow([retryStep('down', { maxAttempts: 3 })]);
     const executeStep = vi.fn().mockRejectedValue(new Error('x'));
-    const sleep = vi.fn(async () => {});
+    const sleep = vi.fn(async (_ms: number) => {});
     await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
     expect(sleep.mock.calls.map((c) => c[0])).toEqual([1000, 1000]);
   });
@@ -566,7 +566,7 @@ describe('runChain — retry policy', () => {
   it('exponential backoff doubles the base delay per attempt', async () => {
     const wf = workflow([retryStep('down', { maxAttempts: 4, delayMs: 500, backoff: 'exponential' })]);
     const executeStep = vi.fn().mockRejectedValue(new Error('x'));
-    const sleep = vi.fn(async () => {});
+    const sleep = vi.fn(async (_ms: number) => {});
     await runChain({ workflow: wf, adapter: { executeStep }, context, sleep });
     expect(sleep.mock.calls.map((c) => c[0])).toEqual([500, 1000, 2000]);
   });

@@ -215,7 +215,15 @@ function SizeStats({ response }: { response: ExecutedRequestSnapshot }) {
   if (response.requestSize) {
     notes.push('Request headers count only what this send set; the browser adds its own (Host, User-Agent, …).');
   }
-  if (response.bodyTruncated) notes.push('Body view truncated; the full size is counted.');
+  if (response.bodyTruncated) {
+    // `bodyCapBytes` records the cap this send actually ran under (a
+    // user setting or per-request limit) — label it when present.
+    notes.push(
+      response.bodyCapBytes !== undefined
+        ? `Body truncated at the ${formatBytes(response.bodyCapBytes)} response size limit; the full size is counted.`
+        : 'Body view truncated; the full size is counted.',
+    );
+  }
   if (response.requestSize?.bodyApproximate) {
     notes.push('Request body size is approximate — the multipart boundary is browser-generated.');
   }

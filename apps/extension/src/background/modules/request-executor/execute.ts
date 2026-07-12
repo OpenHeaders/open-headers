@@ -25,9 +25,30 @@ import {
 } from './timing';
 import { startWireCapture } from './wire-capture';
 
-/** Body cap in bytes — a user setting (MB), read per send. */
+/** Body cap in bytes — a user setting (MB), read per send. The
+ *  per-request `maxResponseBytes` knob is node-runtime-only and is
+ *  deliberately not consulted here. */
 function maxBodyBytes(): number {
   return getSetting('requests.responseBodyCapMB') * 1024 * 1024;
+}
+
+/** Arm an abort deadline for the round-trip; `null` when the request
+ *  carries no timeout. One deadline spans the whole exchange —
+ *  connect, response, and body read — so a body stream stalled
+ *  mid-read aborts too, which a fetch-only signal would miss. */
+function startDeadline(timeoutMs: number | undefined) {
+  if (timeoutMs === undefined) return null;
+  const controller = new AbortController();
+  let expired = false;
+  const timer = setTimeout(() => {
+    expired = true;
+    controller.abort();
+  }, timeoutMs);
+  return {
+    signal: controller.signal,
+    expired: () => expired,
+    clear: () => clearTimeout(timer),
+  };
 }
 
 export async function executeResolved(
@@ -201,6 +222,12 @@ export async function executeResolved(
     ...(bodyApproximate ? { bodyApproximate: true } : {}),
   };
 
+  // Per-request timeout — the abort surfaces below with a message
+  // naming the configured ceiling, mirroring the node transport's
+  // "Request timed out after N ms." (the raw AbortError is useless).
+  const deadline = startDeadline(req.timeoutMs);
+  if (deadline) init.signal = deadline.signal;
+
   const startedAt = performance.now();
   // Window-scoped observer for this fetch's resource-timing entry —
   // opened right at the mark so the pick can anchor on `startedAt`.
@@ -269,6 +296,10 @@ export async function executeResolved(
     capture.cancel();
     const durationMs = Math.round(performance.now() - startedAt);
     const rawMessage = err instanceof Error ? err.message : String(err);
+    // An expired per-request deadline aborts the exchange with an
+    // opaque AbortError — replace it with a message naming the
+    // configured ceiling (same string the node transport surfaces).
+    const timedOut = deadline?.expired() === true;
     // `fetch()` opaques every network error — DNS failure, connection
     // refused, bad certificate, missing host permission — into the
     // exact same `TypeError: Failed to fetch` with no `err.cause`
@@ -277,16 +308,18 @@ export async function executeResolved(
     // settled (not canceled) to recover it; classification leads with
     // that code — the same string the browser's own Network panel
     // shows — and falls back to protocol/host heuristics without it.
-    const isGenericFetchFail = err instanceof TypeError && /failed to fetch/i.test(rawMessage);
+    const isGenericFetchFail = !timedOut && err instanceof TypeError && /failed to fetch/i.test(rawMessage);
     let netError: string | undefined;
     if (isGenericFetchFail) {
       netError = await wireCapture.settleNetError();
     } else {
       wireCapture.cancel();
     }
-    const { message, hint } = isGenericFetchFail
-      ? classifyFetchFailure(req.url, rawMessage, netError)
-      : { message: rawMessage, hint: undefined };
+    const { message, hint } = timedOut
+      ? { message: `Request timed out after ${req.timeoutMs} ms.`, hint: undefined }
+      : isGenericFetchFail
+        ? classifyFetchFailure(req.url, rawMessage, netError)
+        : { message: rawMessage, hint: undefined };
     logger.info('RequestExecutor', `fetch failed for ${req.url}: ${netError ?? rawMessage}`);
     recordLog({
       subsystem: 'request-executor',
@@ -326,6 +359,8 @@ export async function executeResolved(
       ...(hint ? { errorHint: hint } : {}),
       scripts: null,
     };
+  } finally {
+    deadline?.clear();
   }
 }
 

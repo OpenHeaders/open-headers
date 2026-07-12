@@ -15,6 +15,7 @@ export type CoercionPolicyName =
   | 'optional-string'
   | 'boolean-strict'
   | 'number-strict'
+  | 'optional-number'
   | 'array-comma-space-join';
 
 export interface CoercionPolicy {
@@ -44,6 +45,10 @@ const POLICIES: Record<CoercionPolicyName, CoercionPolicy> = {
   'number-strict': {
     read: (v) => (typeof v === 'number' ? String(v) : ''),
     write: (s) => Number(s),
+  },
+  'optional-number': {
+    read: (v) => (typeof v === 'number' ? String(v) : ''),
+    write: (s) => (s === '' ? undefined : Number(s)),
   },
   'array-comma-space-join': {
     read: (v) => (Array.isArray(v) ? v.map((x) => String(x)).join(', ') : ''),

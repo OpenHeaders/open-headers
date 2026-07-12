@@ -61,11 +61,17 @@ export {
   BodyTypeSchema,
   CredentialsModeSchema,
   HttpMethodSchema,
+  MAX_REQUEST_TIMEOUT_MS,
+  MAX_RESPONSE_BYTES,
+  MaxResponseBytesSchema,
+  MIN_REQUEST_TIMEOUT_MS,
+  MIN_RESPONSE_BYTES,
   QueryParamSchema,
   RequestBodySchema,
   RequestHeaderSchema,
   RequestSchema,
   RequestSeedSchema,
+  RequestTimeoutMsSchema,
 } from './request';
 export { CapturedRequestSchema, CapturedResponseSchema, ResponseExampleSchema } from './response-example';
 export {

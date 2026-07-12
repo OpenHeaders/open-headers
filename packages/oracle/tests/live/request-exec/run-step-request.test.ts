@@ -161,4 +161,17 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     expect(sent().sslVerification).toBeUndefined();
     expect(snap.sslVerificationDisabled).toBeUndefined();
   });
+
+  it('carries the per-request timeout and response cap through resolve to the transport', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ timeoutMs: 15000, maxResponseBytes: 4096 }), opts(transport));
+    expect(sent().timeoutMs).toBe(15000);
+    expect(sent().maxBodyBytes).toBe(4096);
+  });
+
+  it('lets a step-level timeout override the request value', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ timeoutMs: 15000 }), { ...opts(transport), timeoutMs: 5000 });
+    expect(sent().timeoutMs).toBe(5000);
+  });
 });

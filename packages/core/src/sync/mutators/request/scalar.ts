@@ -40,6 +40,8 @@ export type RequestScalarPath =
   | 'credentialsMode'
   | 'followRedirects'
   | 'sslVerification'
+  | 'timeoutMs'
+  | 'maxResponseBytes'
   | 'preRequestScript'
   | 'postResponseScript';
 

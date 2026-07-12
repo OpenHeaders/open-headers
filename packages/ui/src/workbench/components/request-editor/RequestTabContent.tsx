@@ -90,6 +90,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
             credentialsMode: draft.credentialsMode,
             followRedirects: draft.followRedirects,
             sslVerification: draft.sslVerification,
+            timeoutMs: draft.timeoutMs,
+            maxResponseBytes: draft.maxResponseBytes,
           }}
           onChange={(next) =>
             setDraft((d) => ({
@@ -97,6 +99,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
               credentialsMode: next.credentialsMode,
               followRedirects: next.followRedirects,
               sslVerification: next.sslVerification,
+              timeoutMs: next.timeoutMs,
+              maxResponseBytes: next.maxResponseBytes,
             }))
           }
         />

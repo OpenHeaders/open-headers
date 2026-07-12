@@ -83,7 +83,9 @@ export function buildRequestTabItems(
   const settingsDirty =
     (browserRuntime && draft.credentialsMode === 'include') ||
     (draft.followRedirects !== undefined && draft.followRedirects !== true) ||
-    (!browserRuntime && draft.sslVerification === false);
+    (!browserRuntime && draft.sslVerification === false) ||
+    draft.timeoutMs !== undefined ||
+    (!browserRuntime && draft.maxResponseBytes !== undefined);
 
   return [
     { key: 'docs', label: 'Docs' },

@@ -36,6 +36,8 @@ export interface RequestSaveBatch {
   credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
   sslVerification: boolean | undefined;
+  timeoutMs: number | undefined;
+  maxResponseBytes: number | undefined;
   preRequestScript: string | undefined;
   postResponseScript: string | undefined;
 }
@@ -52,6 +54,8 @@ function projectRequest(req: Request): RequestSaveBatch {
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
     sslVerification: req.sslVerification,
+    timeoutMs: req.timeoutMs,
+    maxResponseBytes: req.maxResponseBytes,
     preRequestScript: req.preRequestScript,
     postResponseScript: req.postResponseScript,
   };
@@ -90,6 +94,8 @@ export function mergeRequestForSave(
     credentialsMode: form.credentialsMode,
     followRedirects: form.followRedirects,
     sslVerification: form.sslVerification,
+    timeoutMs: form.timeoutMs,
+    maxResponseBytes: form.maxResponseBytes,
     preRequestScript: form.preRequestScript,
     postResponseScript: form.postResponseScript,
   };
@@ -101,6 +107,8 @@ export function mergeRequestForSave(
     credentialsMode: baseProj.credentialsMode,
     followRedirects: baseProj.followRedirects,
     sslVerification: baseProj.sslVerification,
+    timeoutMs: baseProj.timeoutMs,
+    maxResponseBytes: baseProj.maxResponseBytes,
     preRequestScript: baseProj.preRequestScript,
     postResponseScript: baseProj.postResponseScript,
   };
@@ -112,6 +120,8 @@ export function mergeRequestForSave(
     credentialsMode: liveProj.credentialsMode,
     followRedirects: liveProj.followRedirects,
     sslVerification: liveProj.sslVerification,
+    timeoutMs: liveProj.timeoutMs,
+    maxResponseBytes: liveProj.maxResponseBytes,
     preRequestScript: liveProj.preRequestScript,
     postResponseScript: liveProj.postResponseScript,
   };
@@ -133,6 +143,8 @@ export function mergeRequestForSave(
     credentialsMode: merged.credentialsMode as CredentialsMode | undefined,
     followRedirects: merged.followRedirects as boolean | undefined,
     sslVerification: merged.sslVerification as boolean | undefined,
+    timeoutMs: merged.timeoutMs as number | undefined,
+    maxResponseBytes: merged.maxResponseBytes as number | undefined,
     preRequestScript: merged.preRequestScript as string | undefined,
     postResponseScript: merged.postResponseScript as string | undefined,
   };

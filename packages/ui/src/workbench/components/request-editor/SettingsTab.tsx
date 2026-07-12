@@ -16,6 +16,13 @@
  *     escape hatch for self-signed / private-CA targets. The browser
  *     cannot relax verification per request, so there the same setting
  *     stays a browser-managed fact row.
+ *   • `timeoutMs` — numeric, real on every host: both the browser wire
+ *     layer and the node transport arm an abort deadline spanning the
+ *     whole round-trip. Empty = no per-request limit.
+ *   • `maxResponseBytes` — numeric, node-runtime only: the node
+ *     transport streams + caps the body read; the knob exposes that
+ *     ceiling per request (KB in the UI, bytes on disk). The browser
+ *     keeps its app-wide response cap, so no per-request control there.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -32,10 +39,16 @@
  */
 
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
-import { Button, Switch, Typography, theme } from 'antd';
+import { Button, InputNumber, Switch, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
+import {
+  MAX_REQUEST_TIMEOUT_MS,
+  MAX_RESPONSE_BYTES,
+  MIN_REQUEST_TIMEOUT_MS,
+  MIN_RESPONSE_BYTES,
+} from '@openheaders/core/schemas';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 
 const { Text } = Typography;
@@ -48,6 +61,12 @@ export interface RequestSettingsDraft {
   /** Whether the node runtime verifies the server's TLS certificate
    *  chain. Defaults to true; browser runtimes always verify. */
   sslVerification?: boolean;
+  /** Round-trip ceiling in milliseconds. Undefined = no per-request
+   *  limit. Honored on both runtimes. */
+  timeoutMs?: number;
+  /** Response-body cap in bytes. Undefined = the runtime's default
+   *  (2 MB). Node runtimes only; the browser keeps its app-wide cap. */
+  maxResponseBytes?: number;
 }
 
 interface SettingsTabProps {
@@ -241,6 +260,41 @@ const KnobRow: React.FC<{
   </div>
 );
 
+/** Compact numeric-knob row: same `label · (i) · control` geometry as
+ *  {@link KnobRow}, with an InputNumber (unit suffix, bounded) instead
+ *  of a switch. An empty field means "no explicit value" — the
+ *  placeholder states the effective behavior ("No limit", the default
+ *  cap) so the empty state is never ambiguous. */
+const NumericKnobRow: React.FC<{
+  label: string;
+  value: number | undefined;
+  onChange: (value: number | undefined) => void;
+  info: string;
+  unit: string;
+  min: number;
+  max: number;
+  placeholder: string;
+}> = ({ label, value, onChange, info, unit, min, max, placeholder }) => (
+  <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
+    <Text style={{ fontSize: 13 }}>{label}</Text>
+    <InfoTrigger content={{ title: label, summary: info }} />
+    <span style={{ flex: 1 }} />
+    <InputNumber
+      size="small"
+      aria-label={label}
+      value={value ?? null}
+      onChange={(v) => onChange(typeof v === 'number' ? Math.round(v) : undefined)}
+      min={min}
+      max={max}
+      precision={0}
+      controls={false}
+      placeholder={placeholder}
+      suffix={unit}
+      style={{ width: 148 }}
+    />
+  </div>
+);
+
 const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
   label,
   value,
@@ -287,6 +341,28 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
           onChange={(checked) => onChange({ ...value, sslVerification: checked })}
           info="Verify the server's TLS certificate against the runtime's trusted CA store. A host with a self-signed, expired, or otherwise untrusted certificate fails with a TLS certificate error — switch verification off to reach it anyway, e.g. a development server with a self-signed certificate."
           warning="Sends skip the server identity check — any certificate is accepted, including self-signed and expired ones. The response is marked as unverified."
+        />
+      )}
+      <NumericKnobRow
+        label="Request timeout"
+        value={value.timeoutMs}
+        onChange={(timeoutMs) => onChange({ ...value, timeoutMs })}
+        info="Maximum time the whole request may take — connecting, waiting for the response, and reading the body. When the limit elapses the send is aborted and fails with a timeout error naming it. Leave empty for no per-request limit; only the network stack's own timeouts apply."
+        unit="ms"
+        min={MIN_REQUEST_TIMEOUT_MS}
+        max={MAX_REQUEST_TIMEOUT_MS}
+        placeholder="No limit"
+      />
+      {runtime === 'node' && (
+        <NumericKnobRow
+          label="Response size limit"
+          value={value.maxResponseBytes !== undefined ? Math.round(value.maxResponseBytes / 1024) : undefined}
+          onChange={(kb) => onChange({ ...value, maxResponseBytes: kb !== undefined ? kb * 1024 : undefined })}
+          info="Maximum response body size read off the wire; anything past it is cut off and the response is marked as truncated. Leave empty for the default limit of 2,048 KB (2 MB). Raise it up to 10,240 KB (10 MB) for larger payloads, or lower it to test how a truncated response looks."
+          unit="KB"
+          min={MIN_RESPONSE_BYTES / 1024}
+          max={MAX_RESPONSE_BYTES / 1024}
+          placeholder="2048"
         />
       )}
 

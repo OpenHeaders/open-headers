@@ -307,6 +307,29 @@ describe('RequestSchema', () => {
       }),
     ).toBeTruthy();
   });
+
+  it('bounds timeoutMs and maxResponseBytes', () => {
+    const base = {
+      schemaVersion: 5,
+      uid: 'abcd1234',
+      path: 'x',
+      name: 'x',
+      method: 'GET',
+      url: 'x',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    };
+    expect(v.parse(RequestSchema, { ...base, timeoutMs: 1000, maxResponseBytes: 1024 })).toBeTruthy();
+    expect(v.parse(RequestSchema, { ...base, timeoutMs: 3_600_000, maxResponseBytes: 10 * 1024 * 1024 })).toBeTruthy();
+    // Below the floor / above the ceiling / non-integers all reject.
+    expect(v.safeParse(RequestSchema, { ...base, timeoutMs: 999 }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, timeoutMs: 3_600_001 }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, timeoutMs: 1500.5 }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, maxResponseBytes: 1023 }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, maxResponseBytes: 10 * 1024 * 1024 + 1 }).success).toBe(false);
+  });
 });
 
 describe('RuleSchema', () => {

@@ -28,6 +28,8 @@ export interface RequestPathBundle {
   credentialsMode: string;
   followRedirects: string;
   sslVerification: string;
+  timeoutMs: string;
+  maxResponseBytes: string;
   preRequestScript: string;
   postResponseScript: string;
   // Set roots (used for path-prefix presence + set-level conflict keys).
@@ -48,6 +50,8 @@ export const REQUEST_PATHS: RequestPathBundle = {
   credentialsMode: 'credentialsMode',
   followRedirects: 'followRedirects',
   sslVerification: 'sslVerification',
+  timeoutMs: 'timeoutMs',
+  maxResponseBytes: 'maxResponseBytes',
   preRequestScript: 'preRequestScript',
   postResponseScript: 'postResponseScript',
   headerSet: 'headers',

@@ -22,5 +22,7 @@ auth:
 credentialsMode: omit
 followRedirects: false
 sslVerification: false
+timeoutMs: 15000
+maxResponseBytes: 4096
 body:
   type: json

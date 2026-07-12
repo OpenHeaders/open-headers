@@ -216,6 +216,30 @@ describe('executeOverTransport', () => {
     expect(sent().maxBodyBytes).toBe(2 * 1024 * 1024);
   });
 
+  it('lets a per-request maxResponseBytes override the default byte cap', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved({ maxResponseBytes: 4096 }), transport);
+    expect(sent().maxBodyBytes).toBe(4096);
+  });
+
+  it("maps the request's own timeoutMs into the transport request", async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved({ timeoutMs: 15000 }), transport);
+    expect(sent().timeoutMs).toBe(15000);
+  });
+
+  it('prefers the step-level timeout option over the request value', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved({ timeoutMs: 15000 }), transport, { timeoutMs: 5000 });
+    expect(sent().timeoutMs).toBe(5000);
+  });
+
+  it('leaves the transport timeout unset when neither request nor step set one', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved(), transport);
+    expect(sent().timeoutMs).toBeUndefined();
+  });
+
   it('surfaces the transport-reported truncation + byte count verbatim (no re-slice)', async () => {
     // Capping moved into the transport (only it can stream + abort the
     // read); execute passes the already-capped result straight through.
@@ -228,6 +252,21 @@ describe('executeOverTransport', () => {
     expect(snap.bodyTruncated).toBe(true);
     expect(snap.bodyBytes).toBe(2 * 1024 * 1024);
     expect(snap.body).toBe('capped-prefix');
+  });
+
+  it('stamps the cap in force on a truncated snapshot — default and per-request alike', async () => {
+    const truncated = { body: 'capped', bodyTruncated: true, bodyBytes: 4096 };
+    const viaDefault = captureTransport(truncated);
+    const snapDefault = await executeOverTransport(makeResolved(), viaDefault.transport);
+    expect(snapDefault.bodyCapBytes).toBe(2 * 1024 * 1024);
+
+    const viaKnob = captureTransport(truncated);
+    const snapKnob = await executeOverTransport(makeResolved({ maxResponseBytes: 4096 }), viaKnob.transport);
+    expect(snapKnob.bodyCapBytes).toBe(4096);
+
+    const { transport } = captureTransport();
+    const untruncated = await executeOverTransport(makeResolved(), transport);
+    expect(untruncated.bodyCapBytes).toBeUndefined();
   });
 
   it('surfaces a TransportError as a structured error snapshot', async () => {

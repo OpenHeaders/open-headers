@@ -543,6 +543,40 @@ describe('fetch-failure classification', () => {
       });
     }
   });
+
+  it('aborts at the per-request timeout with a message naming the configured limit', async () => {
+    vi.useFakeTimers();
+    // A fetch that never resolves on its own — it only rejects when the
+    // executor's deadline fires its abort signal, like a stalled server.
+    vi.stubGlobal(
+      'fetch',
+      (_input: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted.', 'AbortError')),
+          );
+        }),
+    );
+    try {
+      const pending = executeRequestDraft(makeRequest({ timeoutMs: 1000 }));
+      await vi.advanceTimersByTimeAsync(1000);
+      const res = await pending;
+      expect(res.status).toBe(0);
+      expect(res.error).toBe('Request timed out after 1000 ms.');
+    } finally {
+      vi.useRealTimers();
+      vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+        fetchMock(input, init);
+        return Promise.resolve(new Response('ok', { status: 200 }));
+      });
+    }
+  });
+
+  it('does not arm a deadline when the request has no timeout', async () => {
+    await executeRequestDraft(makeRequest());
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.signal).toBeUndefined();
+  });
 });
 
 describe('pre-request script mutations', () => {

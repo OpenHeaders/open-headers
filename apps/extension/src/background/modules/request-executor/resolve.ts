@@ -37,6 +37,14 @@ export interface ResolvedRequest {
    * max-redirects cap.
    */
   followRedirects?: boolean;
+  /**
+   * Wall-clock ceiling (ms) on the whole round-trip — the wire layer
+   * arms an abort deadline spanning connect, response, and body read.
+   * Absent = no per-request ceiling. The response size cap is NOT
+   * carried here: on the browser runtime it stays the app-wide user
+   * setting, read per send at the wire.
+   */
+  timeoutMs?: number;
   // auth folds into `url` + `headers`; params ride structured to the wire.
 }
 
@@ -183,6 +191,7 @@ export async function resolveRequest(
       // never ride the browser's cookie jar by accident. See ARCHITECTURE.md §14.
       credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
       followRedirects: request.followRedirects,
+      timeoutMs: request.timeoutMs,
     },
     totpUsed: [...totpUsed.values()],
   };

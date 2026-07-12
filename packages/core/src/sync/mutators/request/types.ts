@@ -8,7 +8,8 @@
  *
  * Every other request field — `name`, `description`, `method`, `url`,
  * `auth`, `body`, `credentialsMode`, `followRedirects`,
- * `sslVerification`, `preRequestScript`, `postResponseScript` — flows
+ * `sslVerification`, `timeoutMs`, `maxResponseBytes`,
+ * `preRequestScript`, `postResponseScript` — flows
  * through `setField`
  * scalars. Two design choices to call out:
  *

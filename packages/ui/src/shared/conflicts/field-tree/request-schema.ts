@@ -156,6 +156,8 @@ export const REQUEST_SCHEMA: FieldNode = obj({
   credentialsMode: leaf('string', { coercion: 'optional-string' }),
   followRedirects: leaf('boolean', { coercion: 'boolean-strict' }),
   sslVerification: leaf('boolean', { coercion: 'boolean-strict' }),
+  timeoutMs: leaf('number', { coercion: 'optional-number' }),
+  maxResponseBytes: leaf('number', { coercion: 'optional-number' }),
   preRequestScript: leaf('string', { coercion: 'optional-string' }),
   postResponseScript: leaf('string', { coercion: 'optional-string' }),
   headers: setByUid({ summary: summarizeKv('header'), child: HEADER_ROW }),

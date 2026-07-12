@@ -32,7 +32,14 @@ import {
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 export interface ExecuteOverTransportOptions {
-  /** Per-attempt timeout the transport enforces — see {@link TransportRequest.timeoutMs}. */
+  /**
+   * Per-attempt timeout the transport enforces — see
+   * {@link TransportRequest.timeoutMs}. Takes precedence over the
+   * request's own `timeoutMs` when both are set: the step-level option
+   * is the more specific execution context (a workflow tuned its
+   * retry/timeout policy for this step); the request value is the
+   * default for sends without one.
+   */
   timeoutMs?: number;
 }
 
@@ -60,6 +67,7 @@ export async function executeOverTransport(
   const body = await buildTransportBody(resolved.body);
   const headers = transportHeaders(resolved.headers, body);
 
+  const maxBodyBytes = resolved.maxResponseBytes ?? MAX_BODY_BYTES;
   const request: TransportRequest = {
     method: resolved.method,
     url,
@@ -68,8 +76,8 @@ export async function executeOverTransport(
     redirect: resolved.followRedirects === false ? 'manual' : 'follow',
     credentials: resolved.credentialsMode,
     sslVerification: resolved.sslVerification,
-    maxBodyBytes: MAX_BODY_BYTES,
-    timeoutMs: options.timeoutMs,
+    maxBodyBytes,
+    timeoutMs: options.timeoutMs ?? resolved.timeoutMs,
   };
 
   // A verification-off send is stamped on the snapshot (success or
@@ -91,6 +99,9 @@ export async function executeOverTransport(
       headers: [...response.headers],
       body: response.body,
       bodyTruncated: response.bodyTruncated,
+      // A truncated read records the cap that was in force so the UI
+      // labels the actual limit, not an assumed constant.
+      ...(response.bodyTruncated ? { bodyCapBytes: maxBodyBytes } : {}),
       bodyBytes: response.bodyBytes,
       durationMs,
       ...(verificationOff ? { sslVerificationDisabled: true } : {}),

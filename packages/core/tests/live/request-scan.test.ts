@@ -53,6 +53,8 @@ describe('requestExecutableFingerprint', () => {
     expect(requestExecutableFingerprint(makeRequest({ credentialsMode: 'include' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ followRedirects: false }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ sslVerification: false }))).not.toBe(base);
+    expect(requestExecutableFingerprint(makeRequest({ timeoutMs: 15000 }))).not.toBe(base);
+    expect(requestExecutableFingerprint(makeRequest({ maxResponseBytes: 4096 }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ preRequestScript: 'oh.set("x", 1)' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ postResponseScript: 'oh.capture()' }))).not.toBe(base);
   });

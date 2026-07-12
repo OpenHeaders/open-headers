@@ -34,6 +34,8 @@ export interface Draft {
   credentialsMode?: CredentialsMode;
   followRedirects?: boolean;
   sslVerification?: boolean;
+  timeoutMs?: number;
+  maxResponseBytes?: number;
   preRequestScript?: string;
   postResponseScript?: string;
 }
@@ -52,6 +54,8 @@ export interface RequestUpdates {
   credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
   sslVerification: boolean | undefined;
+  timeoutMs: number | undefined;
+  maxResponseBytes: number | undefined;
   preRequestScript: string | undefined;
   postResponseScript: string | undefined;
 }
@@ -160,6 +164,8 @@ export function draftFromRequest(req: Request): Draft {
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
     sslVerification: req.sslVerification,
+    timeoutMs: req.timeoutMs,
+    maxResponseBytes: req.maxResponseBytes,
     preRequestScript: req.preRequestScript,
     postResponseScript: req.postResponseScript,
   };
@@ -189,6 +195,8 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     credentialsMode: draft.credentialsMode,
     followRedirects: draft.followRedirects,
     sslVerification: draft.sslVerification,
+    timeoutMs: draft.timeoutMs,
+    maxResponseBytes: draft.maxResponseBytes,
     preRequestScript: draft.preRequestScript,
     postResponseScript: draft.postResponseScript,
   };

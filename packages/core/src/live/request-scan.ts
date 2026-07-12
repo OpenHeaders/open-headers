@@ -134,6 +134,8 @@ export function requestExecutableFingerprint(request: Request): string {
     credentialsMode: request.credentialsMode ?? null,
     followRedirects: request.followRedirects ?? null,
     sslVerification: request.sslVerification ?? null,
+    timeoutMs: request.timeoutMs ?? null,
+    maxResponseBytes: request.maxResponseBytes ?? null,
     body: request.body,
     preRequestScript: request.preRequestScript ?? null,
     postResponseScript: request.postResponseScript ?? null,
