@@ -41,16 +41,20 @@
  * draft, so `isDirty` (a fingerprint comparison) can never move on a
  * gesture that didn't commit.
  *
- * Canvas chrome: dotted-grid background (scrolls with the content),
- * a compact right-click context menu on the background (add step) and
- * on nodes (edit / delete), keyboard shortcuts on the focused pane
- * (⏎ edit, ⌫ delete node or selected edge, Esc dismiss), and a
- * pointer-transparent legend pinned bottom-right naming all of them.
- * Delete mirrors the form's remove button via `removeDraftStep` —
- * last step stays, dangling references badge.
+ * Canvas chrome: a pan/zoom viewport (drag the background to pan,
+ * wheel/pinch to zoom around the cursor, bottom-left controls with a
+ * re-center/fit action — the dotted grid rides the transform), edges
+ * carry direction arrowheads, a compact right-click context menu on
+ * the background (add step) and on nodes (edit / delete), keyboard
+ * shortcuts on the focused pane (⏎ edit, ⌫ delete node or selected
+ * edge, Esc dismiss), and a pointer-transparent legend pinned
+ * bottom-right naming all of them. Delete mirrors the form's remove
+ * button via `removeDraftStep` — last step stays, dangling references
+ * badge.
  */
 
 import {
+  AimOutlined,
   CloseOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -59,15 +63,17 @@ import {
   SortAscendingOutlined,
   ThunderboltFilled,
   WarningOutlined,
+  ZoomInOutlined,
+  ZoomOutOutlined,
 } from '@ant-design/icons';
 import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
 import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { LiveVariable, LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
-import { Button, Menu, type MenuProps, Tooltip, Typography, theme } from 'antd';
+import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { METHOD_COLORS } from '../sidebar/icons';
 import { addGraphDependency, appendDraftStep, removeDraftStep, removeGraphDependency } from './graph-edit';
 import { buildWorkflowGraphLayout } from './graph-layout';
@@ -130,8 +136,28 @@ interface ConnectDrag {
   y: number;
 }
 
-/** Right-click context menu — canvas-relative position + target. */
+/** Right-click context menu — pane-relative position + target (the
+ *  pane never transforms, so the menu doesn't scale with the zoom). */
 type GraphMenu = { x: number; y: number } & ({ kind: 'canvas' } | { kind: 'node'; stepId: string });
+
+/** Pan/zoom viewport — translate-then-scale, origin top-left. */
+interface Viewport {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+const MIN_SCALE = 0.25;
+const MAX_SCALE = 2;
+const FIT_PAD = 32;
+const GRID_STEP = 16;
+
+const clampScale = (s: number): number => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+
+/** Interactive graph elements the background pan must never claim. */
+const PAN_EXCLUDE_SELECTOR =
+  '[data-testid^="wf-graph-node"], [data-testid^="wf-graph-connect"], [data-testid^="wf-graph-edge"],' +
+  ' [data-testid="wf-graph-context-menu"], button';
 
 const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   draft,
@@ -145,13 +171,21 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   const { token } = theme.useToken();
   const { requests, isReady: requestsReady } = useRequests();
   const editable = setDraft !== undefined;
+  const paneRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   // Rubber-band connect gesture — component-local, never on the draft.
   const [drag, setDrag] = useState<ConnectDrag | null>(null);
   // Edge selection for the remove affordance — graph-only UI state.
   const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string } | null>(null);
-  // Right-click context menu — graph-only UI state, canvas coordinates.
+  // Right-click context menu — graph-only UI state, pane coordinates.
   const [menu, setMenu] = useState<GraphMenu | null>(null);
+  // Pan/zoom viewport — graph-only UI state, never on the draft.
+  const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 });
+  // Background pan gesture; `moved` suppresses the click-through that
+  // would otherwise clear the selection after every pan.
+  const panRef = useRef<{ pointerId: number; startX: number; startY: number; ox: number; oy: number } | null>(null);
+  const panMovedRef = useRef(false);
+  const [panning, setPanning] = useState(false);
 
   // Same synthetic-workflow construction the form body uses — the
   // layout helper + validators only inspect cross-reference shape.
@@ -221,9 +255,82 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       ? selectedEdge
       : null;
 
+  // Canvas coordinates (layout space). The canvas rect is already
+  // transformed, so the offset only needs dividing by the zoom.
   const canvasPoint = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return { x: (e.clientX - rect.left) / viewport.scale, y: (e.clientY - rect.top) / viewport.scale };
+  };
+
+  // Pane coordinates (untransformed) — context menu + overlays.
+  const panePoint = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
+    const rect = paneRef.current?.getBoundingClientRect();
     return rect ? { x: e.clientX - rect.left, y: e.clientY - rect.top } : { x: 0, y: 0 };
+  };
+
+  // Wheel = zoom around the cursor. Native non-passive listener —
+  // React's synthetic wheel handlers can't preventDefault reliably.
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = pane.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      setViewport((v) => {
+        const scale = clampScale(v.scale * Math.exp(-e.deltaY * 0.0015));
+        const k = scale / v.scale;
+        return { scale, x: px - (px - v.x) * k, y: py - (py - v.y) * k };
+      });
+    };
+    pane.addEventListener('wheel', onWheel, { passive: false });
+    return () => pane.removeEventListener('wheel', onWheel);
+  }, []);
+
+  const zoomBy = (factor: number) => {
+    const pane = paneRef.current;
+    const rect = pane?.getBoundingClientRect();
+    const px = rect ? rect.width / 2 : 0;
+    const py = rect ? rect.height / 2 : 0;
+    setViewport((v) => {
+      const scale = clampScale(v.scale * factor);
+      const k = scale / v.scale;
+      return { scale, x: px - (px - v.x) * k, y: py - (py - v.y) * k };
+    });
+  };
+
+  // Fit-and-center the whole graph in the pane (the re-focus action).
+  const fitView = () => {
+    const rect = paneRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const scale = clampScale(Math.min((rect.width - FIT_PAD) / canvasW, (rect.height - FIT_PAD) / canvasH, 1));
+    setViewport({ scale, x: (rect.width - canvasW * scale) / 2, y: (rect.height - canvasH * scale) / 2 });
+  };
+
+  const beginPan = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    if ((e.target as Element).closest(PAN_EXCLUDE_SELECTOR)) return;
+    panRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, ox: viewport.x, oy: viewport.y };
+    panMovedRef.current = false;
+    setPanning(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const movePan = (e: React.PointerEvent<HTMLDivElement>) => {
+    const pan = panRef.current;
+    if (!pan || pan.pointerId !== e.pointerId) return;
+    const dx = e.clientX - pan.startX;
+    const dy = e.clientY - pan.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 3) panMovedRef.current = true;
+    setViewport((v) => ({ ...v, x: pan.ox + dx, y: pan.oy + dy }));
+  };
+
+  const endPan = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (panRef.current?.pointerId !== e.pointerId) return;
+    panRef.current = null;
+    setPanning(false);
   };
 
   const beginConnect = (stepId: string) => (e: React.PointerEvent<HTMLDivElement>) => {
@@ -309,7 +416,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     if (!editable) return;
     e.preventDefault();
     setSelectedEdge(null);
-    setMenu({ ...canvasPoint(e), kind: 'canvas' });
+    setMenu({ ...panePoint(e), kind: 'canvas' });
   };
 
   const handleNodeContextMenu = (node: { stepId: string; declaredIndex: number }) => (e: React.MouseEvent) => {
@@ -317,37 +424,40 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     e.preventDefault();
     e.stopPropagation();
     onSelectStep?.(node.stepId, node.declaredIndex);
-    setMenu({ ...canvasPoint(e), kind: 'node', stepId: node.stepId });
+    setMenu({ ...panePoint(e), kind: 'node', stepId: node.stepId });
   };
 
-  const menuItems: MenuProps['items'] =
+  const menuActions: GraphMenuAction[] =
     menu === null
       ? []
       : menu.kind === 'canvas'
-        ? [{ key: 'add-step', icon: <PlusOutlined />, label: <MenuLabel text="Add step" /> }]
+        ? [{ key: 'add-step', icon: <PlusOutlined />, text: 'Add step', onClick: handleAddStep }]
         : [
-            ...(onOpenStep ? [{ key: 'edit-step', icon: <EditOutlined />, label: <MenuLabel text="Edit step" kbd="⏎" /> }] : []),
+            ...(onOpenStep
+              ? [
+                  {
+                    key: 'edit-step',
+                    icon: <EditOutlined />,
+                    text: 'Edit step',
+                    kbd: '⏎',
+                    onClick: () => onOpenStep(menu.stepId),
+                  },
+                ]
+              : []),
             ...(editable
               ? [
                   {
                     key: 'delete-step',
                     icon: <DeleteOutlined />,
+                    text: 'Delete step',
+                    kbd: '⌫',
                     danger: true,
                     disabled: draft.steps.length <= 1,
-                    label: <MenuLabel text="Delete step" kbd="⌫" />,
+                    onClick: () => handleDeleteStep(menu.stepId),
                   },
                 ]
               : []),
           ];
-
-  const handleMenuClick = ({ key }: { key: string }) => {
-    if (menu === null) return;
-    setMenu(null);
-    if (key === 'add-step') handleAddStep();
-    if (menu.kind !== 'node') return;
-    if (key === 'edit-step') onOpenStep?.(menu.stepId);
-    if (key === 'delete-step') handleDeleteStep(menu.stepId);
-  };
 
   const dragSource = drag ? positions.get(drag.from) : undefined;
 
@@ -371,23 +481,45 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
         </Button>
       )}
       <GraphLegend editable={editable} canOpen={onOpenStep !== undefined} />
-      <div data-testid="wf-graph-pane" style={{ overflow: 'auto', height: '100%' }}>
+      <GraphViewControls onZoomIn={() => zoomBy(1.2)} onZoomOut={() => zoomBy(1 / 1.2)} onFit={fitView} />
+      {/* Viewport: the pane never moves (dots ride backgroundPosition so
+          the grid pans/zooms with the content); the canvas carries the
+          translate+scale transform. Background drag pans, wheel zooms. */}
+      <div
+        ref={paneRef}
+        data-testid="wf-graph-pane"
+        style={{
+          overflow: 'hidden',
+          height: '100%',
+          position: 'relative',
+          backgroundImage: `radial-gradient(circle, ${token.colorBorderSecondary} 1px, transparent 1px)`,
+          backgroundSize: `${GRID_STEP * viewport.scale}px ${GRID_STEP * viewport.scale}px`,
+          backgroundPosition: `${viewport.x}px ${viewport.y}px`,
+          cursor: panning ? 'grabbing' : undefined,
+        }}
+        onPointerDown={beginPan}
+        onPointerMove={movePan}
+        onPointerUp={endPan}
+        onPointerCancel={endPan}
+        onClick={() => {
+          if (panMovedRef.current) {
+            panMovedRef.current = false;
+            return;
+          }
+          setSelectedEdge(null);
+          setMenu(null);
+        }}
+        onContextMenu={handleCanvasContextMenu}
+      >
       <div
         ref={canvasRef}
         style={{
           position: 'relative',
           width: canvasW,
           height: canvasH,
-          minWidth: '100%',
-          minHeight: '100%',
-          backgroundImage: `radial-gradient(circle, ${token.colorBorderSecondary} 1px, transparent 1px)`,
-          backgroundSize: '16px 16px',
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
+          transformOrigin: '0 0',
         }}
-        onClick={() => {
-          setSelectedEdge(null);
-          setMenu(null);
-        }}
-        onContextMenu={handleCanvasContextMenu}
       >
         <svg
           width={canvasW}
@@ -395,6 +527,31 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
           aria-hidden="true"
         >
+          {/* Direction arrowheads — dependsOn edges run parent → child. */}
+          <defs>
+            <marker
+              id="wf-graph-arrow"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1 L 8 5 L 0 9 z" fill={token.colorBorder} />
+            </marker>
+            <marker
+              id="wf-graph-arrow-active"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1 L 8 5 L 0 9 z" fill={token.colorPrimary} />
+            </marker>
+          </defs>
           {layout.edges.map((edge) => {
             const from = positions.get(edge.from);
             const to = positions.get(edge.to);
@@ -415,6 +572,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
                   fill="none"
                   stroke={selected ? token.colorPrimary : token.colorBorder}
                   strokeWidth={selected ? 2 : 1.5}
+                  markerEnd={`url(#wf-graph-arrow${selected ? '-active' : ''})`}
                 />
                 {editable && (
                   // Widened transparent twin — the click target. SVG
@@ -443,6 +601,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               stroke={token.colorPrimary}
               strokeWidth={1.5}
               strokeDasharray="4 4"
+              markerEnd="url(#wf-graph-arrow-active)"
             />
           )}
         </svg>
@@ -557,48 +716,136 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               </Tooltip>
             );
           })()}
-        {menu !== null && menuItems.length > 0 && (
-          <div
-            data-testid="wf-graph-context-menu"
-            style={{
-              position: 'absolute',
-              left: menu.x,
-              top: menu.y,
-              zIndex: 5,
-              minWidth: 168,
-              background: token.colorBgElevated,
-              border: `1px solid ${token.colorBorderSecondary}`,
-              borderRadius: 8,
-              boxShadow: token.boxShadowSecondary,
-              padding: 4,
-              overflow: 'hidden',
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            <Menu
-              selectable={false}
-              mode="vertical"
-              items={menuItems}
-              onClick={handleMenuClick}
-              style={{ border: 'none', background: 'transparent', fontSize: 12 }}
-            />
-          </div>
-        )}
       </div>
+      {menu !== null && menuActions.length > 0 && (
+        <div
+          data-testid="wf-graph-context-menu"
+          style={{
+            position: 'absolute',
+            left: menu.x,
+            top: menu.y,
+            zIndex: 5,
+            minWidth: 148,
+            background: token.colorBgElevated,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: 6,
+            boxShadow: token.boxShadowSecondary,
+            padding: 3,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {menuActions.map((action) => (
+            <GraphMenuRow
+              key={action.key}
+              action={action}
+              onDone={() => {
+                setMenu(null);
+                action.onClick();
+              }}
+            />
+          ))}
+        </div>
+      )}
       </div>
       </div>
     </div>
   );
 };
 
-/** Context-menu row — action text left, shortcut hint right. */
-const MenuLabel: React.FC<{ text: string; kbd?: string }> = ({ text, kbd }) => (
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 24, width: '100%' }}>
-    <span style={{ flex: 1, fontSize: 12 }}>{text}</span>
-    {kbd !== undefined && <span style={{ fontSize: 11, opacity: 0.5 }}>{kbd}</span>}
-  </span>
-);
+interface GraphMenuAction {
+  key: string;
+  icon: React.ReactNode;
+  text: string;
+  kbd?: string;
+  danger?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}
+
+/** Compact context-menu row — icon, action text, shortcut hint. */
+const GraphMenuRow: React.FC<{ action: GraphMenuAction; onDone: () => void }> = ({ action, onDone }) => {
+  const { token } = theme.useToken();
+  const [hover, setHover] = useState(false);
+  const color = action.disabled ? token.colorTextQuaternary : action.danger ? token.colorError : token.colorText;
+  return (
+    <button
+      type="button"
+      data-testid={`wf-graph-menu-${action.key}`}
+      disabled={action.disabled}
+      onClick={onDone}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        width: '100%',
+        padding: '3px 8px',
+        border: 'none',
+        borderRadius: 4,
+        background: hover && !action.disabled ? token.colorFillTertiary : 'transparent',
+        color,
+        fontSize: 12,
+        lineHeight: '20px',
+        textAlign: 'left',
+        cursor: action.disabled ? 'not-allowed' : 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ display: 'inline-flex', fontSize: 12 }}>{action.icon}</span>
+      <span style={{ flex: 1 }}>{action.text}</span>
+      {action.kbd !== undefined && (
+        <span style={{ fontSize: 11, color: token.colorTextQuaternary }}>{action.kbd}</span>
+      )}
+    </button>
+  );
+};
+
+/** Zoom in / zoom out / fit-and-center controls, pinned bottom-left. */
+const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void; onFit: () => void }> = ({
+  onZoomIn,
+  onZoomOut,
+  onFit,
+}) => {
+  const { token } = theme.useToken();
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 10,
+        left: 16,
+        zIndex: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: 6,
+        border: `1px solid ${token.colorBorderSecondary}`,
+        background: token.colorBgElevated,
+        boxShadow: token.boxShadowTertiary,
+        overflow: 'hidden',
+      }}
+    >
+      <Tooltip title="Zoom in" placement="right">
+        <Button type="text" size="small" data-testid="wf-graph-zoom-in" icon={<ZoomInOutlined />} onClick={onZoomIn} />
+      </Tooltip>
+      <Tooltip title="Zoom out" placement="right">
+        <Button
+          type="text"
+          size="small"
+          data-testid="wf-graph-zoom-out"
+          icon={<ZoomOutOutlined />}
+          onClick={onZoomOut}
+        />
+      </Tooltip>
+      <Tooltip title="Re-center" placement="right">
+        <Button type="text" size="small" data-testid="wf-graph-fit" icon={<AimOutlined />} onClick={onFit} />
+      </Tooltip>
+    </div>
+  );
+};
 
 /**
  * Pointer-transparent shortcut legend pinned to the pane's bottom-right
@@ -616,6 +863,8 @@ const GraphLegend: React.FC<{ editable: boolean; canOpen: boolean }> = ({ editab
           { keys: 'right-click', action: 'menu' },
         ]
       : []),
+    { keys: 'drag bg', action: 'pan' },
+    { keys: 'scroll', action: 'zoom' },
   ];
   return (
     <div

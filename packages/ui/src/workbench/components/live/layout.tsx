@@ -62,10 +62,13 @@ export const FieldRow: React.FC<FieldRowProps> = ({ label, hint, center = true, 
 
 interface SectionProps {
   title: React.ReactNode;
+  /** Pin the header row to the top of the nearest scroll container so
+   *  its affordances stay reachable while the body scrolls. */
+  sticky?: boolean;
   children: React.ReactNode;
 }
 
-export const Section: React.FC<SectionProps> = ({ title, children }) => {
+export const Section: React.FC<SectionProps> = ({ title, sticky = false, children }) => {
   const { token } = theme.useToken();
   return (
     <div>
@@ -82,6 +85,13 @@ export const Section: React.FC<SectionProps> = ({ title, children }) => {
           color: token.colorTextSecondary,
           textTransform: 'uppercase',
           letterSpacing: 0.4,
+          ...(sticky && {
+            position: 'sticky' as const,
+            top: 0,
+            zIndex: 3,
+            background: token.colorBgContainer,
+            paddingTop: 6,
+          }),
         }}
       >
         {title}

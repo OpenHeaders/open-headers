@@ -190,16 +190,6 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* The workflow name is owned by the tab strip / sidebar rename, so
-          the form body carries only the description (no redundant name
-          input). */}
-      <div data-field-path={LIVE_WORKFLOW_FIELD.description}>
-        <InlineDescription
-          description={draft.description}
-          onChangeDescription={(description) => setDraft({ ...draft, description })}
-        />
-      </div>
-
       {workflowLevelErrors.length > 0 && (
         <Alert
           type="error"
@@ -218,10 +208,23 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
       )}
 
       <div data-field-path={LIVE_WORKFLOW_FIELD.steps}>
+      {/* Sticky header: the count, the inline description (the workflow
+          name is owned by the tab strip / sidebar rename), and "+ Step"
+          stay reachable while scrolling a long step list. */}
       <Section
+        sticky
         title={
           <>
-            <span style={{ flex: 1 }}>Steps ({draft.steps.length})</span>
+            <span style={{ flexShrink: 0 }}>Steps ({draft.steps.length})</span>
+            <span
+              data-field-path={LIVE_WORKFLOW_FIELD.description}
+              style={{ flex: 1, minWidth: 0, textTransform: 'none', letterSpacing: 'normal', fontWeight: 400 }}
+            >
+              <InlineDescription
+                description={draft.description}
+                onChangeDescription={(description) => setDraft({ ...draft, description })}
+              />
+            </span>
             <Button size="small" icon={<PlusOutlined />} onClick={addStep}>
               Step
             </Button>
@@ -270,6 +273,23 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
       </Section>
       </div>
 
+      {/* Sticky floor: refresh policy + the enabled footer stay visible
+          while scrolling the step list, mirroring the sticky steps
+          header above. One block — sticky content below a bottom-stuck
+          element would be unreachable while it's pinned. */}
+      <div
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 3,
+          background: token.colorBgContainer,
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+          paddingTop: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
       <div data-field-path={LIVE_WORKFLOW_FIELD.refresh}>
       <Section title="Refresh policy">
         <RefreshPolicyEditor
@@ -286,8 +306,8 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
           gap: 20,
           alignItems: 'center',
           flexWrap: 'wrap',
-          marginTop: 4,
-          paddingTop: 10,
+          paddingTop: 8,
+          paddingBottom: 12,
           borderTop: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
@@ -309,6 +329,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
             <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
           </div>
         </Tooltip>
+      </div>
       </div>
     </div>
   );
