@@ -10,7 +10,7 @@ import { TransportError, type TransportRequest } from '@openheaders/oracle/live/
 import { Agent, FormData, Headers, ProxyAgent, Response } from 'undici';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCookieJars } from '../../src/live/cookie-jar';
-import { createNodeRequestTransport, type NodeFetchFn } from '../../src/live/node-request-transport';
+import { connectOptionsFor, createNodeRequestTransport, type NodeFetchFn } from '../../src/live/node-request-transport';
 
 const fetchMock = vi.fn<NodeFetchFn>();
 
@@ -343,6 +343,23 @@ describe('createNodeRequestTransport — per-request TLS policy', () => {
     const remade = callInit(36).dispatcher;
     expect(remade).toBeInstanceOf(Agent);
     expect(remade).not.toBe(original);
+  });
+
+  it('a floor lowered below 1.2 without an explicit cipher list supplies the legacy security level', () => {
+    // OpenSSL 3 blocks TLS < 1.2 signature algorithms at its default
+    // security level — the lowered floor alone could never negotiate.
+    expect(connectOptionsFor(makeRequest({ tlsMinVersion: '1.1' })).ciphers).toBe('DEFAULT@SECLEVEL=0');
+    expect(connectOptionsFor(makeRequest({ tlsMinVersion: '1.0' })).ciphers).toBe('DEFAULT@SECLEVEL=0');
+  });
+
+  it('an explicit cipher list wins verbatim over the lowered-floor default', () => {
+    const bag = connectOptionsFor(makeRequest({ tlsMinVersion: '1.1', tlsCipherSuites: 'AES128-SHA' }));
+    expect(bag.ciphers).toBe('AES128-SHA');
+  });
+
+  it('a 1.2+ floor (or none) supplies no cipher override', () => {
+    expect(connectOptionsFor(makeRequest({ tlsMinVersion: '1.2' })).ciphers).toBeUndefined();
+    expect(connectOptionsFor(makeRequest()).ciphers).toBeUndefined();
   });
 
   it('classifies a no-usable-cipher failure naming the cipher setting', async () => {

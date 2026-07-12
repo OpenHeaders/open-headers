@@ -178,7 +178,7 @@ function proxyCredKeySegment(request: TransportRequest): string {
 /** The TLS/connection option bag shared by the direct path (`Agent`'s
  *  `connect`) and the proxied path (`ProxyAgent`'s `requestTls` — the
  *  TARGET leg of the tunnel; `ProxyAgent` ignores a plain `connect`). */
-interface ConnectOptions {
+export interface ConnectOptions {
   rejectUnauthorized?: boolean;
   minVersion?: SecureVersion;
   maxVersion?: SecureVersion;
@@ -223,19 +223,7 @@ function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
   ].join('|');
   const cached = agentCache.get(key);
   if (cached) return cached;
-  const connect: ConnectOptions = {};
-  if (insecure) connect.rejectUnauthorized = false;
-  if (tlsMinVersion !== undefined) connect.minVersion = TLS_VERSION_TOKEN[tlsMinVersion];
-  if (tlsMaxVersion !== undefined) connect.maxVersion = TLS_VERSION_TOKEN[tlsMaxVersion];
-  if (tlsCipherSuites !== undefined) connect.ciphers = tlsCipherSuites;
-  if (resolveToAddress !== undefined) connect.lookup = pinnedLookup(resolveToAddress);
-  if (request.clientCertificatePem !== undefined) connect.cert = request.clientCertificatePem;
-  if (request.clientCertificateKeyPem !== undefined) connect.key = request.clientCertificateKeyPem;
-  if (request.clientCertificatePassphrase !== undefined) connect.passphrase = request.clientCertificatePassphrase;
-  // The connector passes `socketPath` as `path` into net.connect /
-  // tls.connect, where it wins over host+port — the URL's host stays
-  // cosmetic for dialing while Host / SNI / cert verification keep it.
-  if (unixSocketPath !== undefined) connect.socketPath = unixSocketPath;
+  const connect = connectOptionsFor(request);
   const dispatcher =
     proxyUrl !== undefined ? buildProxyAgent(proxyUrl, request, connect, allowH2) : buildAgent(connect, allowH2);
   if (agentCache.size >= MAX_AGENTS) {
@@ -247,6 +235,41 @@ function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
   }
   agentCache.set(key, dispatcher);
   return dispatcher;
+}
+
+/**
+ * The connection-option bag a request's knobs map to — one place, pure,
+ * so the mapping is testable without inspecting a minted `Agent`. The
+ * caller keys the agent cache on the same request fields, so the bag is
+ * deterministic per tuple.
+ */
+export function connectOptionsFor(request: TransportRequest): ConnectOptions {
+  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress, unixSocketPath } = request;
+  const connect: ConnectOptions = {};
+  if (request.sslVerification === false) connect.rejectUnauthorized = false;
+  if (tlsMinVersion !== undefined) connect.minVersion = TLS_VERSION_TOKEN[tlsMinVersion];
+  if (tlsMaxVersion !== undefined) connect.maxVersion = TLS_VERSION_TOKEN[tlsMaxVersion];
+  if (tlsCipherSuites !== undefined) {
+    connect.ciphers = tlsCipherSuites;
+  } else if (tlsMinVersion === '1.0' || tlsMinVersion === '1.1') {
+    // OpenSSL 3 disallows the legacy signature algorithms a TLS < 1.2
+    // handshake needs at its default security level, so a lowered floor
+    // alone can never negotiate 1.0/1.1 (probed live:
+    // ERR_SSL_LEGACY_SIGALG_DISALLOWED_OR_UNSUPPORTED). Lowering the
+    // floor is the explicit opt-in — the default suites at security
+    // level 0 are what makes the knob honorable. An explicit cipher
+    // list above wins verbatim.
+    connect.ciphers = 'DEFAULT@SECLEVEL=0';
+  }
+  if (resolveToAddress !== undefined) connect.lookup = pinnedLookup(resolveToAddress);
+  if (request.clientCertificatePem !== undefined) connect.cert = request.clientCertificatePem;
+  if (request.clientCertificateKeyPem !== undefined) connect.key = request.clientCertificateKeyPem;
+  if (request.clientCertificatePassphrase !== undefined) connect.passphrase = request.clientCertificatePassphrase;
+  // The connector passes `socketPath` as `path` into net.connect /
+  // tls.connect, where it wins over host+port — the URL's host stays
+  // cosmetic for dialing while Host / SNI / cert verification keep it.
+  if (unixSocketPath !== undefined) connect.socketPath = unixSocketPath;
+  return connect;
 }
 
 function buildAgent(connect: ConnectOptions, allowH2: boolean): Agent {
