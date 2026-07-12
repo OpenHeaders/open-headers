@@ -68,6 +68,7 @@
     "compression": "maximum",
     "afterSign": "./scripts/build/notarize.js",
     "afterPack": "./scripts/build/afterPackHook.js",
+    "msiProjectCreated": "./scripts/build/msi-project-created.js",
     "extraResources": [
       {
         "from": "dev-app-update.yml",
