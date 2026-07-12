@@ -1,0 +1,95 @@
+/*
+ * Corner notifications — one compact look for EVERY antd notice, not
+ * just the update balloons: same width as the Processes panel (380px),
+ * same type scale (13px title / 13px body), low-profile height, close
+ * affordances revealed on hover, and instant enter/leave (no slide or
+ * fade).
+ *
+ * Selectors ride antd's own wrapper chain — the library styles the
+ * notice with three-class specificity, so anything weaker silently
+ * loses (titles would render at the 16px default).
+ */
+
+.ant-notification .ant-notification-notice-wrapper .ant-notification-notice {
+  width: 380px;
+  padding: 10px 14px;
+}
+
+.ant-notification .ant-notification-notice-wrapper .ant-notification-notice-message {
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+.ant-notification .ant-notification-notice-wrapper .ant-notification-notice-description {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ant-notification .ant-notification-notice-wrapper .ant-notification-notice-icon {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.ant-notification
+  .ant-notification-notice-wrapper
+  .ant-notification-notice-with-icon
+  .ant-notification-notice-message,
+.ant-notification
+  .ant-notification-notice-wrapper
+  .ant-notification-notice-with-icon
+  .ant-notification-notice-description {
+  margin-inline-start: 24px;
+}
+
+.ant-notification .ant-notification-notice-wrapper .ant-notification-notice-close {
+  top: 10px;
+  inset-inline-end: 10px;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* The ⋮ options button the update balloon renders next to the ✕. */
+.ant-notification .ant-notification-notice-wrapper .oh-update-toast-menu {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 32px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.ant-notification .ant-notification-notice-wrapper .oh-update-toast-menu:hover {
+  background: rgba(128, 128, 128, 0.18);
+}
+
+.ant-notification .ant-notification-notice-wrapper .ant-notification-notice:hover .ant-notification-notice-close,
+.ant-notification .ant-notification-notice-wrapper .ant-notification-notice:hover .oh-update-toast-menu,
+.ant-notification .ant-notification-notice-wrapper .oh-update-toast-menu:focus-visible,
+.ant-notification .ant-notification-notice-wrapper .ant-notification-notice-close:focus-visible {
+  opacity: 1;
+}
+
+/*
+ * Instant appear/disappear. Near-zero durations (not none): the
+ * motion-end events must still fire so notices unmount instead of
+ * waiting out rc-motion's deadline.
+ */
+.ant-notification .ant-notification-notice-wrapper {
+  animation-duration: 0.01s !important;
+  transition-duration: 0.01s !important;
+}

@@ -28,6 +28,7 @@ import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { readIgnoredVersion, releasePageUrl, writeIgnoredVersion } from '../updates/release-notes';
 import { openUpdateDialog } from '../updates/store';
+import './corner-notifications.css';
 import { pushNotification } from './store';
 
 // Above the notification layer (antd notices sit at ~2050), so the ⋮
@@ -54,35 +55,9 @@ function writeAck(version: string): void {
   }
 }
 
-/**
- * Compact balloon shape: narrow card, small type, close
- * affordance revealed on hover.
- */
-// Every selector is prefixed with antd's own wrapper chain — the
-// library styles the notice with three-class specificity, so anything
-// weaker silently loses (the title rendered at the 16px default).
-const P = '.ant-notification .ant-notification-notice-wrapper ';
-const TOAST_CSS =
-  `${P}.oh-update-toast.ant-notification-notice{width:320px;padding:10px 14px}` +
-  `${P}.oh-update-toast .ant-notification-notice-message{font-size:13px;line-height:1.4;margin-bottom:2px}` +
-  `${P}.oh-update-toast .ant-notification-notice-description{font-size:13px;line-height:1.4}` +
-  `${P}.oh-update-toast .ant-notification-notice-icon{font-size:15px;line-height:1.4}` +
-  `${P}.oh-update-toast .ant-notification-notice-with-icon .ant-notification-notice-message,` +
-  `${P}.oh-update-toast .ant-notification-notice-with-icon .ant-notification-notice-description{margin-inline-start:24px}` +
-  `${P}.oh-update-toast .ant-notification-notice-close{top:10px;inset-inline-end:10px;width:18px;height:18px;font-size:12px;opacity:0;transition:opacity 0.15s ease}` +
-  `${P}.oh-update-toast .oh-update-toast-menu{position:absolute;top:10px;inset-inline-end:32px;width:18px;height:18px;` +
-  'display:inline-flex;align-items:center;justify-content:center;padding:0;border:none;border-radius:4px;' +
-  'background:transparent;color:inherit;font-size:13px;cursor:pointer;opacity:0;transition:opacity 0.15s ease}' +
-  `${P}.oh-update-toast .oh-update-toast-menu:hover{background:rgba(128,128,128,0.18)}` +
-  `${P}.oh-update-toast:hover .ant-notification-notice-close,` +
-  `${P}.oh-update-toast:hover .oh-update-toast-menu,` +
-  `${P}.oh-update-toast .oh-update-toast-menu:focus-visible,` +
-  `${P}.oh-update-toast .ant-notification-notice-close:focus-visible{opacity:1}` +
-  // Corner notifications appear and vanish instantly — no slide/fade.
-  // Near-zero (not none): the motion-end events must still fire so the
-  // notice unmounts instead of waiting out a deadline.
-  '.ant-notification .ant-notification-notice-wrapper{animation-duration:0.01s!important;transition-duration:0.01s!important}';
-
+// Compact balloon shape (width, type scale, hover-revealed controls,
+// instant motion) lives in `corner-notifications.css` and applies to
+// every corner notice, not just the update balloons.
 const LINK_STYLE: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 13 };
 
 interface AppUpdateToastProps {
@@ -366,7 +341,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
     };
   }, [notification, onOpenUpdateSettings, onOpenWhatsNew]);
 
-  return <style>{TOAST_CSS}</style>;
+  return null;
 };
 
 export default AppUpdateToast;
