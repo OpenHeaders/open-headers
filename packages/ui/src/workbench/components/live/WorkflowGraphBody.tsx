@@ -159,6 +159,14 @@ const PAN_EXCLUDE_SELECTOR =
   '[data-testid^="wf-graph-node"], [data-testid^="wf-graph-connect"], [data-testid^="wf-graph-edge"],' +
   ' [data-testid="wf-graph-context-menu"], button';
 
+/**
+ * Clickable node children the card drag must never claim. Pointer
+ * capture retargets the derived `click` to the capturing card, so a
+ * press starting on the run dot or the edit pencil would silently
+ * eat their click handlers if the drag captured it.
+ */
+const NODE_DRAG_EXCLUDE_SELECTOR = '[data-testid^="wf-graph-run-"], [data-testid^="wf-graph-open-"]';
+
 const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   draft,
   setDraft,
@@ -327,6 +335,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   // canvas units through the zoom so the node tracks the cursor 1:1.
   const beginNodeDrag = (stepId: string) => (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
+    if ((e.target as Element).closest(NODE_DRAG_EXCLUDE_SELECTOR)) return;
     const offset = nodeOffsets.get(stepId);
     nodeDragRef.current = {
       stepId,

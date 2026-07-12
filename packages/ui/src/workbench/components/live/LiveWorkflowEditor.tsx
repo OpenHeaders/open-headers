@@ -457,12 +457,9 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
           display: 'inline-block',
         }}
       />
-      <Title level={5} style={{ margin: 0 }}>
+      <Title level={5} ellipsis style={{ margin: 0, minWidth: 0 }}>
         {workflow.name}
       </Title>
-      <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-        Workflow
-      </Tag>
       {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>Disabled</Tag>}
     </>
   );
@@ -645,12 +642,9 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
           display: 'inline-block',
         }}
       />
-      <Title level={5} style={{ margin: 0 }}>
+      <Title level={5} ellipsis style={{ margin: 0, minWidth: 0 }}>
         {displayName}
       </Title>
-      <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-        Workflow
-      </Tag>
     </>
   );
 

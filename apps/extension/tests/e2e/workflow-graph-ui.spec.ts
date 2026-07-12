@@ -180,7 +180,10 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
   // Run overlay on a never-run workflow: the summary says so and every
   // node carries the not-run state. The exposed capture's LV exists but
   // is unpublished — pending first run, never presented as live.
-  await expect(page.getByTestId('wf-run-status-strip')).toContainText('never run for this env');
+  // Earlier tests' editor tabs stay mounted — scope to the visible strip.
+  await expect(page.getByTestId('wf-run-status-strip').filter({ visible: true }).first()).toContainText(
+    'never run for this env',
+  );
   for (const stepId of ['root', 'left', 'right', 'sink']) {
     await expect(page.getByTestId(`wf-graph-run-${stepId}`)).toHaveAttribute('data-run-state', 'not-run');
   }
@@ -468,7 +471,7 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
 
   // Summary reflects the successful run; per-node states carry the
   // runner's attestation: completed vs gate-skipped.
-  await expect(page.getByTestId('wf-run-status-strip')).toContainText('last');
+  await expect(page.getByTestId('wf-run-status-strip').filter({ visible: true }).first()).toContainText('last');
   await expect(page.getByTestId('wf-graph-run-introspect')).toHaveAttribute('data-run-state', 'completed');
   await expect(page.getByTestId('wf-graph-run-refresh')).toHaveAttribute('data-run-state', 'skipped');
 
