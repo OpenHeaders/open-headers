@@ -86,6 +86,93 @@ describe('detectImportSource', () => {
     });
   });
 
+  describe('Postman backup', () => {
+    function backup(overrides: Record<string, unknown> = {}): string {
+      return JSON.stringify({
+        version: 1,
+        collections: [],
+        environments: [],
+        headerPresets: [],
+        globals: [],
+        ...overrides,
+      });
+    }
+
+    it('detects the backup envelope (version + four section arrays)', () => {
+      expect(detectImportSource(backup())).toEqual({ kind: 'postman-backup' });
+    });
+
+    it('detects a populated backup', () => {
+      const populated = backup({
+        collections: [{ info: { name: 'API', _postman_id: 'abc' }, item: [] }],
+        headerPresets: [{ name: 'Tracing', headers: [{ key: 'X-Trace', value: '1' }] }],
+      });
+      expect(detectImportSource(populated)).toEqual({ kind: 'postman-backup' });
+    });
+
+    it('requires every section array — a partial envelope stays unknown', () => {
+      expect(detectImportSource(JSON.stringify({ version: 1, collections: [], environments: [] }))).toEqual({
+        kind: 'unknown',
+      });
+    });
+
+    it('requires a numeric version', () => {
+      const stringVersion = backup({ version: '1' });
+      expect(detectImportSource(stringVersion)).toEqual({ kind: 'unknown' });
+    });
+
+    it('does not shadow a plain collection export', () => {
+      const col = JSON.stringify({ info: { name: 'API', _postman_id: 'abc' }, item: [] });
+      expect(detectImportSource(col)).toEqual({ kind: 'postman' });
+    });
+
+    it('does not shadow an environment export carrying a values array', () => {
+      const env = JSON.stringify({ name: 'Staging', values: [], _postman_variable_scope: 'environment' });
+      expect(detectImportSource(env)).toEqual({ kind: 'postman' });
+    });
+
+    it('does not shadow a HAR whose log sits beside a version field', () => {
+      const har = JSON.stringify({ version: 1, log: { version: '1.2', entries: [] } });
+      expect(detectImportSource(har)).toEqual({ kind: 'har' });
+    });
+  });
+
+  describe('Insomnia', () => {
+    it('detects a v4 export envelope', () => {
+      const v4 = JSON.stringify({ _type: 'export', __export_format: 4, __export_date: '', resources: [] });
+      expect(detectImportSource(v4)).toEqual({ kind: 'insomnia' });
+    });
+
+    it('detects a v5 document saved as JSON', () => {
+      const v5 = JSON.stringify({ type: 'collection.insomnia.rest/5.0', name: 'API', collection: [] });
+      expect(detectImportSource(v5)).toEqual({ kind: 'insomnia' });
+    });
+
+    it('detects a v5 YAML collection document', () => {
+      const yaml = `type: collection.insomnia.rest/5.0\nname: Openheaders API\ncollection: []\n`;
+      expect(detectImportSource(yaml)).toEqual({ kind: 'insomnia' });
+    });
+
+    it('detects a v5 YAML environment document with quoted type', () => {
+      const yaml = `type: 'environment.insomnia.rest/5.0'\nname: Staging\ndata:\n  host: api.openheaders.io\n`;
+      expect(detectImportSource(yaml)).toEqual({ kind: 'insomnia' });
+    });
+
+    it('rejects a v4-looking envelope without a numeric export format', () => {
+      expect(detectImportSource(JSON.stringify({ _type: 'export', resources: [] }))).toEqual({ kind: 'unknown' });
+    });
+
+    it('rejects unrelated type discriminators', () => {
+      expect(detectImportSource(JSON.stringify({ type: 'something-else' }))).toEqual({ kind: 'unknown' });
+      expect(detectImportSource('type: something-else\nname: X\n')).toEqual({ kind: 'unknown' });
+    });
+
+    it('does not shadow a YAML workspace export', () => {
+      const yaml = `kind: workspace-export\nschemaVersion: 5\nworkspace:\n  name: QA\n`;
+      expect(detectImportSource(yaml)).toEqual({ kind: 'workspace' });
+    });
+  });
+
   describe('workspace export', () => {
     it('detects the JSON form by kind discriminator', () => {
       const exp = JSON.stringify({ kind: 'workspace-export', schemaVersion: 5, workspace: {} });

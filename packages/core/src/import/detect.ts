@@ -18,6 +18,10 @@ export type DetectedImportSource =
   | { kind: 'har' }
   /** A Postman collection or environment export. */
   | { kind: 'postman' }
+  /** A Postman data-dump backup (`backup-*.json`: version + four section arrays). */
+  | { kind: 'postman-backup' }
+  /** An Insomnia export — v4 JSON envelope or v5 YAML/JSON document. */
+  | { kind: 'insomnia' }
   /** An `.openheaders.*` workspace export (JSON or YAML). */
   | { kind: 'workspace' }
   /** Nothing recognizable — the hub shows a hint, never a dead-end. */
@@ -64,6 +68,26 @@ export function detectImportSource(text: string): DetectedImportSource {
 
     if (isRecord(parsed.log) && Array.isArray(parsed.log.entries)) return { kind: 'har' };
 
+    // Postman backup envelope — `version` plus all four section arrays.
+    // Checked before the collection/environment signatures; the envelope
+    // carries neither `info` nor `values`, so it never shadows them.
+    if (
+      typeof parsed.version === 'number' &&
+      Array.isArray(parsed.collections) &&
+      Array.isArray(parsed.environments) &&
+      Array.isArray(parsed.headerPresets) &&
+      Array.isArray(parsed.globals)
+    ) {
+      return { kind: 'postman-backup' };
+    }
+
+    // Insomnia — v4 export envelope (`_type: export` + `__export_format`)
+    // or a v5 document saved as JSON (`type: <kind>.insomnia.rest/5.x`).
+    if (parsed._type === 'export' && typeof parsed.__export_format === 'number' && Array.isArray(parsed.resources)) {
+      return { kind: 'insomnia' };
+    }
+    if (typeof parsed.type === 'string' && /\.insomnia\.rest\//.test(parsed.type)) return { kind: 'insomnia' };
+
     // Postman collection (`info` with schema marker) or environment
     // export (`name` + `values[]`, optionally `_postman_variable_scope`).
     const info = parsed.info;
@@ -79,6 +103,10 @@ export function detectImportSource(text: string): DetectedImportSource {
   // YAML workspace export — keyed on the `kind: workspace-export`
   // discriminator line without pulling in a YAML parser here.
   if (/^kind:\s*['"]?workspace-export['"]?\s*$/m.test(trimmed)) return { kind: 'workspace' };
+
+  // Insomnia v5 YAML document — keyed on the `type:` discriminator line
+  // (`collection.insomnia.rest/5.0` and siblings), same shallow approach.
+  if (/^type:\s*['"]?[\w.-]+\.insomnia\.rest\/\d/m.test(trimmed)) return { kind: 'insomnia' };
 
   return { kind: 'unknown' };
 }
