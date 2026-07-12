@@ -106,7 +106,7 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
       open={open}
       onCancel={closeUpdateDialog}
       centered
-      width={440}
+      width={520}
       title="Open Headers Update"
       footer={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -126,7 +126,7 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
     >
       <div style={{ fontSize: 13 }}>
         <div style={{ marginBottom: 8 }}>
-          <strong>Open Headers {version}</strong> is now available!
+          <strong>v{version}</strong> is now available!
         </div>
         <div style={{ marginBottom: 14 }}>
           For more details, see the{' '}

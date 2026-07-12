@@ -61,8 +61,8 @@ const BackgroundTasksIndicator: React.FC = () => {
       aria-label={label}
       onClick={onClick}
       style={{
-        width: 14,
-        height: 14,
+        width: 16,
+        height: 16,
         flex: 'none',
         padding: 0,
         border: 'none',
@@ -75,7 +75,7 @@ const BackgroundTasksIndicator: React.FC = () => {
         cursor: 'pointer',
       }}
     >
-      <CloseOutlined style={{ fontSize: 8 }} />
+      <CloseOutlined style={{ fontSize: 9 }} />
     </button>
   );
 
@@ -89,8 +89,11 @@ const BackgroundTasksIndicator: React.FC = () => {
             right: 10,
             // Clears the 24 px status bar.
             bottom: 30,
-            width: 280,
-            padding: '8px 12px',
+            width: 380,
+            // Roomy fixed-feel body — the panel keeps its size as tasks
+            // come and go instead of collapsing around one row.
+            minHeight: 200,
+            padding: '10px 14px',
             borderRadius: token.borderRadiusLG,
             background: token.colorBgElevated,
             boxShadow: token.boxShadowSecondary,
@@ -98,8 +101,8 @@ const BackgroundTasksIndicator: React.FC = () => {
             zIndex: token.zIndexPopupBase,
           }}
         >
-          <div style={{ position: 'relative', marginBottom: 6 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, textAlign: 'center' }}>Processes</div>
+          <div style={{ position: 'relative', marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, textAlign: 'center' }}>Processes</div>
             <button
               type="button"
               aria-label="Hide processes panel"
@@ -124,22 +127,24 @@ const BackgroundTasksIndicator: React.FC = () => {
             </button>
           </div>
           {tasks.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 12 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13 }} />
               <span style={{ color: token.colorTextSecondary }}>All background tasks completed</span>
             </div>
           ) : (
             tasks.map((task) => (
-              <div key={task.id} style={{ padding: '2px 0' }}>
-                <div style={{ fontSize: 12, color: token.colorText }}>{task.title}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div key={task.id} style={{ padding: '4px 0' }}>
+                <div style={{ fontSize: 13, color: token.colorText, marginBottom: 4 }}>{task.title}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {taskProgress(task)}
                   {circleClose((e) => {
                     e.stopPropagation();
                     setHiddenIds((prev) => new Set(prev).add(task.id));
                   }, 'Hide background task')}
                 </div>
-                {task.detail && <div style={{ fontSize: 11, color: token.colorTextTertiary }}>{task.detail}</div>}
+                {task.detail && (
+                  <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 2 }}>{task.detail}</div>
+                )}
               </div>
             ))
           )}

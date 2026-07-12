@@ -20,14 +20,19 @@
  *     change may speak again per the rules above.
  */
 
+import { CloseOutlined, MoreOutlined } from '@ant-design/icons';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
-import { App, Button, Progress } from 'antd';
+import { App, Button, Dropdown, Progress, Tooltip } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
-import { readIgnoredVersion, releasePageUrl } from '../updates/release-notes';
+import { readIgnoredVersion, releasePageUrl, writeIgnoredVersion } from '../updates/release-notes';
 import { openUpdateDialog } from '../updates/store';
 import { pushNotification } from './store';
+
+// Above the notification layer (antd notices sit at ~2050), so the ⋮
+// dropdown and the tooltips paint over the balloon, not under it.
+const OVERLAY_Z = 2100;
 
 const TOAST_ACK_KEY = 'oh.updateToastAck';
 const TOAST_KEY = 'oh-app-update';
@@ -53,20 +58,36 @@ function writeAck(version: string): void {
  * Compact balloon shape: narrow card, small type, close
  * affordance revealed on hover.
  */
+// Every selector is prefixed with antd's own wrapper chain — the
+// library styles the notice with three-class specificity, so anything
+// weaker silently loses (the title rendered at the 16px default).
+const P = '.ant-notification .ant-notification-notice-wrapper ';
 const TOAST_CSS =
-  '.oh-update-toast.ant-notification-notice{width:272px;padding:8px 12px}' +
-  '.oh-update-toast .ant-notification-notice-message{font-size:12px;line-height:1.4;margin-bottom:0}' +
-  '.oh-update-toast .ant-notification-notice-description{font-size:11px;line-height:1.4}' +
-  '.oh-update-toast .ant-notification-notice-icon{font-size:13px;line-height:1.4}' +
-  '.oh-update-toast .ant-notification-notice-with-icon .ant-notification-notice-message,' +
-  '.oh-update-toast .ant-notification-notice-with-icon .ant-notification-notice-description{margin-inline-start:20px}' +
-  '.oh-update-toast .ant-notification-notice-close{top:8px;inset-inline-end:8px;width:16px;height:16px;font-size:11px;opacity:0;transition:opacity 0.15s ease}' +
-  '.oh-update-toast:hover .ant-notification-notice-close,' +
-  '.oh-update-toast .ant-notification-notice-close:focus-visible{opacity:1}';
+  `${P}.oh-update-toast.ant-notification-notice{width:320px;padding:10px 14px}` +
+  `${P}.oh-update-toast .ant-notification-notice-message{font-size:13px;line-height:1.4;margin-bottom:2px}` +
+  `${P}.oh-update-toast .ant-notification-notice-description{font-size:13px;line-height:1.4}` +
+  `${P}.oh-update-toast .ant-notification-notice-icon{font-size:15px;line-height:1.4}` +
+  `${P}.oh-update-toast .ant-notification-notice-with-icon .ant-notification-notice-message,` +
+  `${P}.oh-update-toast .ant-notification-notice-with-icon .ant-notification-notice-description{margin-inline-start:24px}` +
+  `${P}.oh-update-toast .ant-notification-notice-close{top:10px;inset-inline-end:10px;width:18px;height:18px;font-size:12px;opacity:0;transition:opacity 0.15s ease}` +
+  `${P}.oh-update-toast .oh-update-toast-menu{position:absolute;top:10px;inset-inline-end:32px;width:18px;height:18px;` +
+  'display:inline-flex;align-items:center;justify-content:center;padding:0;border:none;border-radius:4px;' +
+  'background:transparent;color:inherit;font-size:13px;cursor:pointer;opacity:0;transition:opacity 0.15s ease}' +
+  `${P}.oh-update-toast .oh-update-toast-menu:hover{background:rgba(128,128,128,0.18)}` +
+  `${P}.oh-update-toast:hover .ant-notification-notice-close,` +
+  `${P}.oh-update-toast:hover .oh-update-toast-menu,` +
+  `${P}.oh-update-toast .oh-update-toast-menu:focus-visible,` +
+  `${P}.oh-update-toast .ant-notification-notice-close:focus-visible{opacity:1}` +
+  // Corner notifications appear and vanish instantly — no slide/fade.
+  // Near-zero (not none): the motion-end events must still fire so the
+  // notice unmounts instead of waiting out a deadline.
+  '.ant-notification .ant-notification-notice-wrapper{animation-duration:0.01s!important;transition-duration:0.01s!important}';
 
-const LINK_STYLE: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 11 };
+const LINK_STYLE: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 13 };
 
 interface AppUpdateToastProps {
+  /** Route to the Settings update row (the ⋮ menu's Settings… item). */
+  onOpenUpdateSettings: () => void;
   /**
    * Open the bundled What's New tab. When provided AND the host
    * registers `getWhatsNew`, the post-update "See what's new" actions
@@ -76,7 +97,7 @@ interface AppUpdateToastProps {
   onOpenWhatsNew?: () => void;
 }
 
-const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenWhatsNew }) => {
+const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, onOpenWhatsNew }) => {
   const { notification } = App.useApp();
   // `${version}:${phase}` whose balloon closed — that phase stays
   // quiet. Any close counts: a ✕ is a dismissal, an action click means
@@ -96,13 +117,52 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenWhatsNew }) => {
       notification.destroy(TOAST_KEY);
     };
 
-    const show = (marker: string | null, message: string, description: React.ReactNode): void => {
+    // The ⋮ next to the ✕ — Settings… plus a per-version mute, so the
+    // balloon can be tamed without hunting through Settings.
+    const cornerMenu = (version: string): React.ReactNode => (
+      <Dropdown
+        trigger={['click']}
+        placement="bottomRight"
+        overlayStyle={{ zIndex: OVERLAY_Z }}
+        menu={{
+          items: [
+            { key: 'settings', label: 'Settings…' },
+            { key: 'ignore', label: "Don't Show Again" },
+          ],
+          onClick: ({ key }) => {
+            close();
+            if (key === 'settings') onOpenUpdateSettings();
+            else writeIgnoredVersion(version);
+          },
+        }}
+      >
+        <Tooltip title="Turn off or change behavior" zIndex={OVERLAY_Z}>
+          <button type="button" aria-label="Update notification options" className="oh-update-toast-menu">
+            <MoreOutlined />
+          </button>
+        </Tooltip>
+      </Dropdown>
+    );
+
+    const show = (marker: string | null, message: string, description: React.ReactNode, version?: string): void => {
       shownMarkerRef.current = marker;
       notification.info({
         key: TOAST_KEY,
         className: 'oh-update-toast',
         message,
-        description,
+        description: version ? (
+          <>
+            {description}
+            {cornerMenu(version)}
+          </>
+        ) : (
+          description
+        ),
+        closeIcon: (
+          <Tooltip title="Close" zIndex={OVERLAY_Z}>
+            <CloseOutlined />
+          </Tooltip>
+        ),
         placement: 'bottomRight',
         duration: 0,
         onClose: () => {
@@ -179,7 +239,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenWhatsNew }) => {
           if (!isOpen && (announcedRef.current.has(marker) || readAck() === version)) return;
           announcedRef.current.add(marker);
           writeAck(version);
-          show(marker, `Open Headers ${version} available`, updateLink('Update…', openUpdateDialog));
+          show(marker, `Open Headers ${version} available`, updateLink('Update…', openUpdateDialog), version);
           break;
         case 'downloading':
           // Only keep an open balloon in sync — never conjure one.
@@ -188,6 +248,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenWhatsNew }) => {
             marker,
             `Downloading Open Headers ${version}…`,
             <Progress percent={state.progressPercent ?? 0} size="small" style={{ marginTop: 2 }} />,
+            version,
           );
           break;
         case 'downloaded':
@@ -200,6 +261,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenWhatsNew }) => {
             updateLink('Restart to install', () => {
               void bridge?.call('oh.updates.install');
             }),
+            version,
           );
           break;
       }
@@ -302,7 +364,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenWhatsNew }) => {
     return () => {
       cancelled = true;
     };
-  }, [notification, onOpenWhatsNew]);
+  }, [notification, onOpenUpdateSettings, onOpenWhatsNew]);
 
   return <style>{TOAST_CSS}</style>;
 };

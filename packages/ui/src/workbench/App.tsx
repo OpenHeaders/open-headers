@@ -1276,7 +1276,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onSwitchWorkspace={handleSwitchWorkspace}
           />
 
-          <AppUpdateToast onOpenWhatsNew={openWhatsNew} />
+          <AppUpdateToast
+            onOpenUpdateSettings={() => openSettings({ categoryId: 'about' })}
+            onOpenWhatsNew={openWhatsNew}
+          />
           <UpdateDialog onConfigureUpdates={() => openSettings({ categoryId: 'about' })} />
 
           <ShellLayout
