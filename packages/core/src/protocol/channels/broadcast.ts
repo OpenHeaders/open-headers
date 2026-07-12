@@ -5,6 +5,7 @@
  */
 
 import type { FileRef } from '../../files';
+import type { PostmanPullEvent } from '../../import/api-pull/types';
 import type { LicenseSnapshot } from '../../licensing';
 import type { ActivityEntry, MutationEnvelope, MutatorOutcome } from '../../sync';
 import type {
@@ -119,6 +120,16 @@ export interface BridgeBroadcastContract {
    * simply never emit it.
    */
   appUpdateState: AppUpdateState;
+  /**
+   * Migration pull progress — ONE message for every connected surface
+   * (MIGRATION_STATUS.md S5 addendum): each `PostmanPullEvent` the run
+   * produces, in order. `seq` is a per-run monotonic counter so mirrors
+   * can drop stale/duplicate deliveries; late joiners hydrate via the
+   * `oh.migration.postmanPull.getState` RPC and fold from there with
+   * the same core `foldPullEvent` reducer. Hosts without the migration
+   * ladder never emit it.
+   */
+  migrationPullEvent: { runId: string; seq: number; event: PostmanPullEvent };
   /**
    * Host-shell navigation request: open the Settings surface, optionally
    * at a category or a specific setting. Emitted by the desktop main

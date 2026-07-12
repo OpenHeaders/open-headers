@@ -11,3 +11,16 @@ export {
   detectInstalledTools,
   runInstallProbes,
 } from './install-detect';
+export {
+  type LandingWorkspaceRef,
+  type MaterializePostmanPullOptions,
+  MIGRATION_SURFACE_ID,
+  materializePostmanPull,
+  POSTMAN_LANDING_WORKSPACE_NAME,
+} from './materialize';
+export {
+  createMigrationPullRunner,
+  type MigrationPullRunner,
+  type MigrationPullRunnerOptions,
+  type MigrationPullStartResult,
+} from './pull-run';

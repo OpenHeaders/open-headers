@@ -63,9 +63,13 @@ async function writeRing(workspaceId: string, reports: ImportReport[]): Promise<
  * already exists (and the hash is non-empty), it's replaced;
  * otherwise the report is appended. Ring is capped at {@link RING_CAP}
  * entries — oldest fall out.
+ *
+ * `workspaceId` targets an explicit workspace's ring (background
+ * imports landing outside the active workspace, e.g. the migration
+ * pull's landing workspace); omitted, the active workspace applies.
  */
-export async function recordImportReport(report: ImportReport): Promise<void> {
-  const workspaceId = requireActiveWorkspaceId();
+export async function recordImportReport(report: ImportReport, targetWorkspaceId?: string): Promise<void> {
+  const workspaceId = targetWorkspaceId ?? requireActiveWorkspaceId();
   await withReportsLock(workspaceId, async () => {
     const current = await readRing(workspaceId);
     let next: ImportReport[];
@@ -103,9 +107,12 @@ export async function listImportReports(): Promise<ImportReport[]> {
  * to detect a re-paste of the same source text and render a diff
  * panel against the prior report.
  */
-export async function findImportReportBySourceHash(sourceHash: string): Promise<ImportReport | null> {
+export async function findImportReportBySourceHash(
+  sourceHash: string,
+  targetWorkspaceId?: string,
+): Promise<ImportReport | null> {
   if (!sourceHash || sourceHash.length === 0) return null;
-  const workspaceId = requireActiveWorkspaceId();
+  const workspaceId = targetWorkspaceId ?? requireActiveWorkspaceId();
   const current = await readRing(workspaceId);
   return current.find((r) => r.sourceHash === sourceHash) ?? null;
 }

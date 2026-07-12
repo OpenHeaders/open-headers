@@ -49,6 +49,7 @@ import { forwardAwarenessToBackend } from '@openheaders/oracle/sync/client/aware
 import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { reportBaselineSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
+import { createMigrationPullRunner } from '@openheaders/oracle-host-node/migration';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app } from 'electron';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
@@ -217,10 +218,28 @@ export async function installRpcHost(): Promise<void> {
   // plane composes over are live.
   await installBackendClient({ hostStorage, appVersion: app.getVersion() });
 
-  // Desktop-shell RPCs (`oh.updates.*`) answer ahead of the engine
-  // dispatcher — they are Electron concerns the spine never learns.
+  // Migration pull (MIGRATION_PLAN.md §3.3) — the desktop runs the
+  // ladder, so the run orchestrator lives here beside the engine it
+  // writes through. Progress fans to every open renderer as the ONE
+  // `migrationPullEvent` broadcast; the key arrives in the start RPC,
+  // stays in the runner's closure for the run, and is never persisted
+  // or logged.
+  const migrationPullRunner = createMigrationPullRunner({ broadcast: broadcastToAllRenderers });
+
+  // Desktop-shell RPCs (`oh.updates.*`, `oh.migration.*`) answer ahead
+  // of the engine dispatcher — they are host-shell concerns the spine
+  // never learns.
   rpcDispatcher = async (raw) => {
-    const type = ((raw ?? {}) as Record<string, unknown>).type;
+    const message = (raw ?? {}) as Record<string, unknown>;
+    const type = message.type;
+    if (type === 'oh.migration.postmanPull.start') {
+      const apiKey = typeof message.apiKey === 'string' ? message.apiKey.trim() : '';
+      if (!apiKey) return { started: false, reason: 'An API key is required to start the pull.' };
+      return migrationPullRunner.start(apiKey);
+    }
+    if (type === 'oh.migration.postmanPull.getState') {
+      return migrationPullRunner.getState();
+    }
     const updateState = await updateService.dispatchRpc(type);
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);
   };

@@ -87,10 +87,26 @@ export interface PostmanPullResult {
 }
 
 /**
+ * What the landing-workspace materialization produced — the pulled
+ * payloads after the standard parser path minted real entities.
+ */
+export interface PostmanImportSummary {
+  workspaceId: string;
+  workspaceName: string;
+  collections: number;
+  environments: number;
+  requests: number;
+  /** Aggregated-report drop count — the "view report" teaser number. */
+  drops: number;
+}
+
+/**
  * Progress vocabulary for the background-tasks surface: per-item
- * progress, the 429 pause countdown, and the remaining monthly budget.
- * The broadcast protocol message (built with the surfaces) carries
- * exactly these events to every connected surface.
+ * progress, the 429 pause countdown, the remaining monthly budget, and
+ * the landing-workspace materialization tail. The `migrationPullEvent`
+ * broadcast carries exactly these events to every connected surface.
+ * The puller emits everything up to `finished`; the run orchestrator
+ * emits the `importing` / `imported` / `import-failed` tail.
  */
 export type PostmanPullEvent =
   | { kind: 'enumerating'; step: 'workspace-list' | 'workspace-detail'; completedCalls: number }
@@ -114,4 +130,7 @@ export type PostmanPullEvent =
       collections: number;
       environments: number;
       skipped: number;
-    };
+    }
+  | { kind: 'importing' }
+  | { kind: 'imported'; summary: PostmanImportSummary }
+  | { kind: 'import-failed'; reason: string };

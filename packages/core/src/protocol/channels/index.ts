@@ -34,6 +34,7 @@ import type { DevToolsRpc } from './devtools';
 import type { EnvironmentRpc } from './environments';
 import type { FileRpc } from './files';
 import type { LiveRpc } from './live';
+import type { MigrationRpc } from './migration';
 import type { NavigationRpc } from './navigation';
 import type { OAuthRpc } from './oauth';
 import type { ObservabilityRpc } from './observability';
@@ -72,6 +73,7 @@ export type {
 } from './devtools';
 export type { EnvironmentsSnapshot } from './environments';
 export type { LiveWorkflowRunSnapshot } from './live';
+export type { MigrationPullStartResult } from './migration';
 export type { CookieJarEntryWire } from './requests';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 
@@ -101,7 +103,8 @@ export interface BridgeRpcContract
     AwarenessRpc,
     DevToolsRpc,
     DaemonRpc,
-    UpdatesRpc {}
+    UpdatesRpc,
+    MigrationRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages
