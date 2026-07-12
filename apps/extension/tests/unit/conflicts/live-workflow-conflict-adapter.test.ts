@@ -37,7 +37,32 @@ describe('liveWorkflowConflictAdapter', () => {
       [`steps.${STEP_UID}.dependsOn`]: '[]',
       [`steps.${STEP_UID}.runIf`]: '',
       [`steps.${STEP_UID}.priorityFrom`]: '',
+      [`steps.${STEP_UID}.retry`]: '',
+      [`steps.${STEP_UID}.timeoutMs`]: '',
     });
+  });
+
+  it('extracts retry + timeoutMs leaves with canonical key order', () => {
+    const baseline = liveWorkflowConflictAdapter.extractBaseline(
+      makeWf({
+        steps: [
+          {
+            uid: STEP_UID,
+            id: 'step1',
+            requestUid: 'req-bbbb',
+            captures: [],
+            // Edit-insertion key order — the leaf must come out sorted so
+            // it compares equal to chrome.storage's alphabetized echo.
+            retry: { maxAttempts: 4, delayMs: 2000, backoff: 'exponential', retryOn: ['eq', 429] },
+            timeoutMs: 1500,
+          },
+        ],
+      }),
+    );
+    expect(baseline[`steps.${STEP_UID}.retry`]).toBe(
+      '{"backoff":"exponential","delayMs":2000,"maxAttempts":4,"retryOn":["eq",429]}',
+    );
+    expect(baseline[`steps.${STEP_UID}.timeoutMs`]).toBe('1500');
   });
 
   it('extracts expires-in refresh leaves', () => {
@@ -174,6 +199,38 @@ describe('liveWorkflowResolveAdapter', () => {
       }),
     ).toBe(true);
     expect(wf.steps[0].dependsOn).toEqual(['other']);
+  });
+
+  it('writes retry via JSON parse and timeoutMs numerically; empty clears both', () => {
+    const wf = makeWf();
+    expect(
+      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.retry`, {
+        base: '',
+        theirs: '{"maxAttempts":3,"backoff":"exponential"}',
+      }),
+    ).toBe(true);
+    expect(wf.steps[0].retry).toEqual({ maxAttempts: 3, backoff: 'exponential' });
+    expect(
+      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.timeoutMs`, {
+        base: '',
+        theirs: '2500',
+      }),
+    ).toBe(true);
+    expect(wf.steps[0].timeoutMs).toBe(2500);
+    expect(
+      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.retry`, { base: '', theirs: '' }),
+    ).toBe(true);
+    expect(wf.steps[0].retry).toBeUndefined();
+    expect(
+      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.timeoutMs`, { base: '', theirs: '' }),
+    ).toBe(true);
+    expect(wf.steps[0].timeoutMs).toBeUndefined();
+    expect(
+      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.timeoutMs`, {
+        base: '',
+        theirs: 'not-a-number',
+      }),
+    ).toBe(false);
   });
 
   it('rejects malformed JSON on opaque leaves', () => {

@@ -43,8 +43,41 @@ describe('projectLiveWorkflowToForm', () => {
     expect(out[`steps.${STEP_UID}.dependsOn`]).toBe('[]');
     expect(out[`steps.${STEP_UID}.runIf`]).toBe('');
     expect(out[`steps.${STEP_UID}.priorityFrom`]).toBe('');
+    expect(out[`steps.${STEP_UID}.retry`]).toBe('');
+    expect(out[`steps.${STEP_UID}.timeoutMs`]).toBe('');
     expect(out[`steps.${STEP_UID}.captures.${CAP_UID}.name`]).toBe('token');
     expect(out[`steps.${STEP_UID}.captures.${CAP_UID}.extractor`]).toBe('{"kind":"whole-body"}');
+  });
+
+  it('encodes opaque leaves canonically — key order never distinguishes equal values', () => {
+    // chrome.storage alphabetizes object keys on round-trip while the
+    // form builds retry / gate / priority objects in edit-insertion
+    // order; the leaf encoding must erase that difference or the
+    // tracker reads every saved edit as an external conflict.
+    const step = {
+      uid: STEP_UID,
+      id: 'login',
+      requestUid: 'req-aaaa',
+      captures: [],
+      retry: { maxAttempts: 4, delayMs: 2000, backoff: 'exponential' as const, retryOn: ['eq', 429] as ['eq', number] },
+      timeoutMs: 1500,
+      priorityFrom: { stepId: 'a', captureName: 'token' },
+    };
+    const sortedStep = {
+      uid: STEP_UID,
+      id: 'login',
+      requestUid: 'req-aaaa',
+      captures: [],
+      retry: { backoff: 'exponential' as const, delayMs: 2000, maxAttempts: 4, retryOn: ['eq', 429] as ['eq', number] },
+      timeoutMs: 1500,
+      priorityFrom: { captureName: 'token', stepId: 'a' },
+    };
+    const base = { name: 'X', description: '', enabled: true, refresh: refreshManual };
+    const a = projectLiveWorkflowToForm({ ...base, steps: [step] });
+    const b = projectLiveWorkflowToForm({ ...base, steps: [sortedStep] });
+    expect(a[`steps.${STEP_UID}.retry`]).toBe(b[`steps.${STEP_UID}.retry`]);
+    expect(a[`steps.${STEP_UID}.priorityFrom`]).toBe(b[`steps.${STEP_UID}.priorityFrom`]);
+    expect(a[`steps.${STEP_UID}.timeoutMs`]).toBe('1500');
   });
 
   it('mirrors the adapter baseline shape so per-leaf conflict detection works symmetrically', () => {
@@ -79,7 +112,9 @@ describe('projectLiveWorkflowToForm', () => {
       `steps.${STEP_UID}.id`,
       `steps.${STEP_UID}.priorityFrom`,
       `steps.${STEP_UID}.requestUid`,
+      `steps.${STEP_UID}.retry`,
       `steps.${STEP_UID}.runIf`,
+      `steps.${STEP_UID}.timeoutMs`,
     ]);
   });
 });

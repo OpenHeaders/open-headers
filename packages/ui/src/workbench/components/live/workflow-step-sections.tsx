@@ -120,7 +120,7 @@ export function buildWorkflowStepSections({
         </span>
       ),
       children: (
-        <div style={{ padding: '0 0 4px' }}>
+        <div style={{ padding: '0 0 4px' }} data-testid={`wf-step-${index}-deps`}>
           <Tooltip open={dependsOnError ? undefined : false} title={dependsOnError?.message}>
             <Select
               size="small"
@@ -128,6 +128,7 @@ export function buildWorkflowStepSections({
               style={{ width: '100%' }}
               placeholder="Select ancestor step(s) — empty = root step"
               status={dependsOnError ? 'error' : undefined}
+              data-testid={`wf-step-${index}-deps-select`}
               value={dependsOnValue ?? []}
               options={allStepIds.map((s) => ({ value: s.id, label: s.label }))}
               onChange={handleDependsOnChange}
@@ -184,7 +185,7 @@ export function buildWorkflowStepSections({
         </span>
       ),
       children: (
-        <div data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'gate')}>
+        <div data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'gate')} data-testid={`wf-step-${index}-runif`}>
           <StepGateEditor
             value={runIf}
             onChange={handleRunIfChange}
@@ -208,7 +209,7 @@ export function buildWorkflowStepSections({
         </span>
       ),
       children: (
-        <div style={{ padding: '0 0 4px' }}>
+        <div style={{ padding: '0 0 4px' }} data-testid={`wf-step-${index}-priority`}>
           <Space wrap size={6} style={{ width: '100%' }}>
             <Tooltip
               open={priorityError && priorityError.issue !== 'priority-unknown-capture' ? undefined : false}
@@ -219,6 +220,7 @@ export function buildWorkflowStepSections({
                 placeholder="Ancestor step"
                 style={{ width: 160 }}
                 status={priorityError && priorityError.issue !== 'priority-unknown-capture' ? 'error' : undefined}
+                data-testid={`wf-step-${index}-priority-step`}
                 value={priority?.stepId}
                 options={priorityStepOptions}
                 onChange={(stepId) => {
@@ -240,6 +242,7 @@ export function buildWorkflowStepSections({
                 style={{ width: 160 }}
                 disabled={!priority?.stepId}
                 status={priorityError?.issue === 'priority-unknown-capture' ? 'error' : undefined}
+                data-testid={`wf-step-${index}-priority-capture`}
                 value={priority?.captureName}
                 options={priorityCaptureOptions}
                 onChange={(captureName) => {
@@ -252,6 +255,7 @@ export function buildWorkflowStepSections({
               size="small"
               style={{ width: 140 }}
               disabled={!priority?.stepId}
+              data-testid={`wf-step-${index}-priority-sort`}
               value={priority?.sort ?? 'numeric'}
               options={[
                 { value: 'numeric', label: 'Numeric' },
@@ -403,7 +407,7 @@ export function buildWorkflowStepSections({
         </span>
       ),
       children: (
-        <div style={{ padding: '0 0 4px' }}>
+        <div style={{ padding: '0 0 4px' }} data-testid={`wf-step-${index}-timeout-section`}>
           <Space wrap size={6} style={{ width: '100%' }}>
             <InputNumber
               size="small"

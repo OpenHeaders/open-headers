@@ -46,7 +46,7 @@ import {
   planLiveVariableReconcile,
   stripDraftSteps,
 } from '@openheaders/core/live';
-import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
+import { canonicalJson, LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
 import { EntityScopeProvider, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
 import { EntityConflictBanner, EntityConflictDialog, hasDialogOnlyConflict } from '@openheaders/ui/shared/conflicts';
@@ -84,7 +84,11 @@ function fingerprint(d: Draft): string {
   // Include exposure fields so editing the switch or the live-name
   // flips isDirty correctly. Everything in the draft is user-editable
   // state, so a full JSON dump is the simplest correct fingerprint.
-  return JSON.stringify(d);
+  // Canonical (recursively key-sorted) because chrome.storage
+  // alphabetizes object keys on round-trip while form-built objects
+  // (retry, gate clauses, priorityFrom) carry edit-insertion order —
+  // a plain stringify would keep the editor dirty after its own save.
+  return canonicalJson(d);
 }
 
 function emptyDraft(seedSteps?: readonly WorkflowSeedStep[]): Draft {

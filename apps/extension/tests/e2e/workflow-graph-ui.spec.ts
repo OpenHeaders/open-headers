@@ -98,19 +98,21 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
     refresh: { kind: 'manual' },
     steps: [
       {
+        uid: 'stpgrf01',
         id: 'root',
         requestUid,
-        captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+        captures: [{ uid: 'capgrf01', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
       },
       {
+        uid: 'stpgrf02',
         id: 'left',
         requestUid,
         dependsOn: ['root'],
-        runIf: { all: [{ kind: 'capture-exists', stepId: 'root', captureName: 'token' }] },
+        runIf: { all: [{ uid: 'gatgrf01', kind: 'capture-exists', stepId: 'root', captureName: 'token' }] },
         captures: [],
       },
-      { id: 'right', requestUid, dependsOn: ['root'], captures: [] },
-      { id: 'sink', requestUid, dependsOn: ['left', 'right'], captures: [] },
+      { uid: 'stpgrf03', id: 'right', requestUid, dependsOn: ['root'], captures: [] },
+      { uid: 'stpgrf04', id: 'sink', requestUid, dependsOn: ['left', 'right'], captures: [] },
     ],
   });
   expect(wfRes.success).toBe(true);
@@ -265,9 +267,9 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
     enabled: true,
     refresh: { kind: 'manual' },
     steps: [
-      { id: 'a', requestUid, captures: [] },
-      { id: 'b', requestUid, dependsOn: ['a'], captures: [] },
-      { id: 'c', requestUid, dependsOn: ['a'], captures: [] },
+      { uid: 'stpged01', id: 'a', requestUid, captures: [] },
+      { uid: 'stpged02', id: 'b', requestUid, dependsOn: ['a'], captures: [] },
+      { uid: 'stpged03', id: 'c', requestUid, dependsOn: ['a'], captures: [] },
     ],
   });
   expect(wfRes.success).toBe(true);
@@ -321,6 +323,9 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
   await expect(page.getByTestId('wf-graph-edge-b-c')).toHaveCount(1);
   await expect(page.getByTestId('wf-graph-rubberband')).toHaveCount(0);
   await expect(saveButton).toBeEnabled();
+  // A dirty draft with no peer writes must never raise the
+  // external-change banner (conflict tracking keys steps by uid).
+  await expect(page.getByText('changed externally', { exact: false })).toHaveCount(0);
 
   // The form shows the materialized explicit parents on step c.
   await page.getByText('Form', { exact: true }).filter({ visible: true }).first().click();
@@ -399,18 +404,22 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
     refresh: { kind: 'manual' },
     steps: [
       {
+        uid: 'stpovl01',
         id: 'introspect',
         requestUid: introspectReq.request!.uid,
-        captures: [{ name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
+        captures: [{ uid: 'capovl01', name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
       },
       {
+        uid: 'stpovl02',
         id: 'refresh',
         requestUid: refreshReq.request!.uid,
         dependsOn: ['introspect'],
         runIf: {
-          all: [{ kind: 'capture-equals', stepId: 'introspect', captureName: 'active', value: 'false' }],
+          all: [
+            { uid: 'gatovl01', kind: 'capture-equals', stepId: 'introspect', captureName: 'active', value: 'false' },
+          ],
         },
-        captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+        captures: [{ uid: 'capovl02', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
       },
     ],
   });

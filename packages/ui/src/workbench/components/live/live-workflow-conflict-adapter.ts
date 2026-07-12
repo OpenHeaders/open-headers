@@ -21,6 +21,7 @@
  * extractor is opaque (variant union); same trade-off as the gates.
  */
 
+import { canonicalJson } from '@openheaders/core/sync';
 import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import type {
@@ -40,7 +41,7 @@ const PATH_REFRESH_STEP_ID = 'refresh.stepId';
 const PATH_REFRESH_CAPTURE_NAME = 'refresh.captureName';
 const PATH_REFRESH_LEAD_SECONDS = 'refresh.leadSeconds';
 
-const STEP_LEAF_RE = /^steps\.([a-z0-9]{8})\.(id|description|requestUid|dependsOn|runIf|priorityFrom)$/;
+const STEP_LEAF_RE = /^steps\.([a-z0-9]{8})\.(id|description|requestUid|dependsOn|runIf|priorityFrom|retry|timeoutMs)$/;
 const CAPTURE_LEAF_RE = /^steps\.([a-z0-9]{8})\.captures\.([a-z0-9]{8})\.(name|extractor)$/;
 
 const STEP_SET_PATH = 'steps';
@@ -48,13 +49,15 @@ const stepCapturesSetPath = (stepUid: string): string => `steps.${stepUid}.captu
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-/** Stable JSON for opaque-leaf payloads. Object key order matches
- *  the runtime insertion order; arrays preserve their order. We don't
- *  re-sort because the schema's array order is semantic
- *  (e.g. dependsOn declares topological intent). */
+/** Stable JSON for opaque-leaf payloads — object keys sorted
+ *  recursively, array order preserved (it is semantic, e.g. dependsOn
+ *  declares topological intent). Key order MUST be normalized:
+ *  Chrome's storage round-trip alphabetizes object keys while
+ *  form-built objects carry edit-insertion order, so a plain
+ *  stringify reads the same structure as two different values. */
 function opaqueStringify(value: unknown): string {
   if (value === undefined || value === null) return '';
-  return JSON.stringify(value);
+  return canonicalJson(value);
 }
 
 function findStep(wf: LiveWorkflow, stepUid: string): WorkflowStep | undefined {
@@ -79,6 +82,10 @@ function readStepLeaf(step: WorkflowStep, leaf: string): string | null {
       return opaqueStringify(step.runIf);
     case 'priorityFrom':
       return opaqueStringify(step.priorityFrom);
+    case 'retry':
+      return opaqueStringify(step.retry);
+    case 'timeoutMs':
+      return step.timeoutMs === undefined ? '' : String(step.timeoutMs);
     default:
       return null;
   }
@@ -167,6 +174,8 @@ function extractBaseline(wf: LiveWorkflow): PathMap {
     out[`steps.${step.uid}.dependsOn`] = opaqueStringify(step.dependsOn ?? []);
     out[`steps.${step.uid}.runIf`] = opaqueStringify(step.runIf);
     out[`steps.${step.uid}.priorityFrom`] = opaqueStringify(step.priorityFrom);
+    out[`steps.${step.uid}.retry`] = opaqueStringify(step.retry);
+    out[`steps.${step.uid}.timeoutMs`] = step.timeoutMs === undefined ? '' : String(step.timeoutMs);
     for (const capture of step.captures) {
       out[`steps.${step.uid}.captures.${capture.uid}.name`] = capture.name;
       out[`steps.${step.uid}.captures.${capture.uid}.extractor`] = opaqueStringify(capture.extractor);
@@ -278,6 +287,8 @@ const STEP_LEAF_LABEL: Record<string, string> = {
   dependsOn: 'dependsOn',
   runIf: 'runIf',
   priorityFrom: 'priorityFrom',
+  retry: 'retry policy',
+  timeoutMs: 'timeout',
 };
 
 const CAPTURE_LEAF_LABEL: Record<string, string> = {
@@ -298,16 +309,28 @@ function writeStepLeaf(step: WorkflowStep, leaf: string, value: string): boolean
       return true;
     case 'dependsOn':
     case 'runIf':
-    case 'priorityFrom': {
+    case 'priorityFrom':
+    case 'retry': {
       try {
         const parsed = value === '' ? undefined : (JSON.parse(value) as unknown);
         if (leaf === 'dependsOn') step.dependsOn = parsed as WorkflowStep['dependsOn'];
         else if (leaf === 'runIf') step.runIf = parsed as WorkflowStep['runIf'];
+        else if (leaf === 'retry') step.retry = parsed as WorkflowStep['retry'];
         else step.priorityFrom = parsed as WorkflowStep['priorityFrom'];
         return true;
       } catch {
         return false;
       }
+    }
+    case 'timeoutMs': {
+      if (value === '') {
+        step.timeoutMs = undefined;
+        return true;
+      }
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return false;
+      step.timeoutMs = parsed;
+      return true;
     }
     default:
       return false;

@@ -269,7 +269,14 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
           borderTop: clauses.length > 0 ? `1px solid ${token.colorBorderSecondary}` : undefined,
         }}
       >
-        <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={addClause} style={{ fontSize: 12 }}>
+        <Button
+          type="dashed"
+          size="small"
+          icon={<PlusOutlined />}
+          onClick={addClause}
+          style={{ fontSize: 12 }}
+          data-testid="gate-add-condition"
+        >
           Add condition
         </Button>
       </div>
@@ -335,6 +342,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
         size="small"
         style={{ width: 180, flexShrink: 0 }}
         status={stepError ? 'error' : undefined}
+        data-testid={`gate-clause-${index}-step`}
         placeholder="Step"
         value={clause.stepId || undefined}
         options={stepOptions}
@@ -347,6 +355,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
     <Select
       size="small"
       style={{ width: 180, flexShrink: 0 }}
+      data-testid={`gate-clause-${index}-kind`}
       value={clause.kind}
       popupMatchSelectWidth={220}
       options={CLAUSE_KINDS.map((k) => ({
@@ -366,6 +375,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
 
   return (
     <div
+      data-testid={`gate-clause-${index}`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -402,6 +412,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
             size="small"
             style={{ flex: 1, minWidth: 160 }}
             status={captureError ? 'error' : undefined}
+            data-testid={`gate-clause-${index}-capture`}
             placeholder="Capture name"
             value={clause.captureName || undefined}
             options={captureOptions}
@@ -415,6 +426,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
               size="small"
               style={{ width: 160, flexShrink: 0 }}
               status={captureError ? 'error' : undefined}
+              data-testid={`gate-clause-${index}-capture`}
               placeholder="Capture name"
               value={clause.captureName || undefined}
               options={captureOptions}
@@ -425,6 +437,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
             size="small"
             style={{ flex: 1, minWidth: 100 }}
             placeholder="Equals value"
+            data-testid={`gate-clause-${index}-value`}
             value={clause.value}
             onChange={(e) => onChange({ ...clause, value: e.target.value })}
           />
@@ -437,6 +450,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
               size="small"
               style={{ width: 160, flexShrink: 0 }}
               status={captureError ? 'error' : undefined}
+              data-testid={`gate-clause-${index}-capture`}
               placeholder="Capture name"
               value={clause.captureName || undefined}
               options={captureOptions}
@@ -448,6 +462,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
             style={{ flex: 1, minWidth: 100, fontFamily: 'monospace' }}
             placeholder="^Bearer .+$"
             status={captureError?.issue === 'gate-invalid-regex' ? 'error' : undefined}
+            data-testid={`gate-clause-${index}-pattern`}
             value={clause.pattern}
             onChange={(e) => onChange({ ...clause, pattern: e.target.value })}
           />

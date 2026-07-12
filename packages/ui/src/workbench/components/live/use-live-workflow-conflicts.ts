@@ -3,11 +3,9 @@
  * adapter for the entity-agnostic `useEntityConflicts`.
  */
 
+import { canonicalJson } from '@openheaders/core/sync';
 import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
-import {
-  type EntityConflictsApi,
-  useEntityConflicts,
-} from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
+import { type EntityConflictsApi, useEntityConflicts } from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
 import { liveWorkflowConflictAdapter } from './live-workflow-conflict-adapter';
 
 export interface UseLiveWorkflowConflictsArgs {
@@ -18,9 +16,7 @@ export interface UseLiveWorkflowConflictsArgs {
   entityType: string;
 }
 
-export function useLiveWorkflowConflicts(
-  args: UseLiveWorkflowConflictsArgs,
-): EntityConflictsApi<LiveWorkflow> {
+export function useLiveWorkflowConflicts(args: UseLiveWorkflowConflictsArgs): EntityConflictsApi<LiveWorkflow> {
   return useEntityConflicts<LiveWorkflow>({
     liveEntity: args.liveEntity ?? null,
     isDirty: args.isDirty,
@@ -47,9 +43,14 @@ export interface LiveWorkflowFormProjectionInput {
   steps?: readonly WorkflowStep[];
 }
 
+/** Key-order-insensitive JSON for opaque-leaf payloads. Chrome's
+ *  storage round-trip alphabetizes object keys, while form-built
+ *  objects carry edit-insertion order — a plain stringify would read
+ *  the same structure as two different values. Array order is
+ *  preserved (it is semantic, e.g. dependsOn). */
 function opaqueStringify(value: unknown): string {
   if (value === undefined || value === null) return '';
-  return JSON.stringify(value);
+  return canonicalJson(value);
 }
 
 export function projectLiveWorkflowToForm(d: LiveWorkflowFormProjectionInput): Record<string, string> {
@@ -80,6 +81,8 @@ export function projectLiveWorkflowToForm(d: LiveWorkflowFormProjectionInput): R
     out[`${sp}.dependsOn`] = opaqueStringify(step.dependsOn ?? []);
     out[`${sp}.runIf`] = opaqueStringify(step.runIf);
     out[`${sp}.priorityFrom`] = opaqueStringify(step.priorityFrom);
+    out[`${sp}.retry`] = opaqueStringify(step.retry);
+    out[`${sp}.timeoutMs`] = step.timeoutMs === undefined ? '' : String(step.timeoutMs);
     for (const capture of step.captures) {
       const cp = `${sp}.captures.${capture.uid}`;
       out[`${cp}.name`] = capture.name;
