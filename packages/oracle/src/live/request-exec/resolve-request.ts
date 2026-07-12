@@ -28,6 +28,7 @@ import { appendQueryParams, encodeBase64Bytes, isRequestResolvable } from '@open
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getTokenBundle } from '../../entity/oauth-token-store';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
+import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from './resolver-scope';
 
 /** Resolved, wire-ready request. Auth + params are folded into `url`
@@ -253,10 +254,12 @@ export async function resolveRequest(
       proxyUrl: request.proxyUrl,
       ...proxyCredential,
       unixSocketPath: request.unixSocketPath,
-      // The jar is keyed by the same workspace pin the resolver scope
-      // used, so sessions never bleed across workspaces; sends without
-      // a pin share one fallback jar.
-      ...(request.cookieJar === true ? { cookieJarKey: scope.workspaceId ?? 'default' } : {}),
+      // The jar is keyed by the workspace the run resolved against, so
+      // sessions never bleed across workspaces. An unpinned send
+      // resolved against the runtime-Active workspace's mirrors, so its
+      // jar key is that workspace's id — the same key the jar
+      // inspection RPCs resolve an omitted workspaceId to.
+      ...(request.cookieJar === true ? { cookieJarKey: scope.workspaceId ?? getActiveWorkspaceId() } : {}),
       timeoutMs: request.timeoutMs,
       maxResponseBytes: request.maxResponseBytes,
       maxRedirects: request.maxRedirects,

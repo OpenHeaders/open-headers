@@ -58,6 +58,9 @@ vi.mock('../../../src/entity/totp-cooldown-store', () => ({
   checkCooldown: (...args: unknown[]) => checkCooldownMock(...(args as [])),
   recordUsage: (...args: unknown[]) => recordUsageMock(...args),
 }));
+vi.mock('../../../src/workspace/extension-workspace-store', () => ({
+  getActiveWorkspaceId: () => 'ws-active',
+}));
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
@@ -280,5 +283,51 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     const bare = captureTransport();
     await runStepRequest(makeRequest(), opts(bare.transport));
     expect(bare.sent().cookieJarKey).toBeUndefined();
+  });
+});
+
+describe('runStepRequest — unpinned (runtime-Active) run', () => {
+  const unpinned = (transport: RequestTransport) => ({ workspaceId: null, environmentId: null, transport });
+
+  it('resolves against the Active-bound mirrors and executes', async () => {
+    wsVars.mockReturnValue({
+      schemaVersion: 5,
+      variables: [{ uid: '1abc6d8c', name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
+    });
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ url: 'https://{{HOST}}/ping' }), unpinned(transport));
+    expect(snap.error).toBeNull();
+    expect(sent().url).toBe('https://api.openheaders.io/ping');
+  });
+
+  it('stamps an unpinned cookieJar opt-in with the runtime-Active workspace id', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ cookieJar: true }), unpinned(transport));
+    expect(sent().cookieJarKey).toBe('ws-active');
+  });
+
+  it('partitions the TOTP cooldown by the runtime-Active workspace id', async () => {
+    vault.mockReturnValue({
+      schemaVersion: 5,
+      secrets: [
+        {
+          uid: 'totp0001',
+          kind: 'totp',
+          name: 'otp',
+          seed: 'JBSWY3DPEHPK3PXP',
+          algorithm: 'SHA1',
+          digits: 6,
+          period: 30,
+        },
+      ],
+    });
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(
+      makeRequest({ headers: [{ uid: 'h1', key: 'X-OTP', value: '{{vault.otp}}' }] }),
+      unpinned(transport),
+    );
+    expect(snap.error).toBeNull();
+    expect(checkCooldownMock).toHaveBeenCalledWith('ws-active', 'otp', expect.any(String));
+    expect(recordUsageMock).toHaveBeenCalledWith('ws-active', 'otp', expect.any(String), 30);
   });
 });

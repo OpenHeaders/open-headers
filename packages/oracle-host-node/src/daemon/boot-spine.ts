@@ -102,6 +102,7 @@ import { type DaemonAuditForwardingConfig, installAuditForwarder } from './audit
 import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
+import { handleExecuteRequestRpc } from './execute-request-rpc';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { createHealthzHandler } from './healthz';
 import { installLicenseRefreshAgent } from './license-refresh-agent';
@@ -685,6 +686,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         typeof message.workspaceId === 'string' ? message.workspaceId : (getActiveWorkspaceId() ?? 'default');
       peekCookieJar(workspaceId)?.clear();
       return { success: true };
+    }
+    // Workbench Send — the node host's user-facing request execution,
+    // answered in-process where the transport (and its cookie jar)
+    // lives. Same channel contract the extension SW handles.
+    if (type === 'executeRequest') {
+      return await handleExecuteRequestRpc(message);
     }
     // Daemon-admin channels (pairing/tokens/users/grants + the admin
     // probe) — the shared table built above. The local caller is the

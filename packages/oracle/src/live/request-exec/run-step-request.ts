@@ -1,27 +1,38 @@
 /**
- * Single chain-step request — the host-neutral orchestration a Live
- * Workflow step runs: resolve the request, gate on TOTP cooldown,
- * execute over the host transport, and record TOTP usage on success.
+ * Single scriptless request run — the host-neutral orchestration shared
+ * by Live Workflow chain steps, the MCP `requests_send` tool, and the
+ * node host's workbench Send: resolve the request, gate on TOTP
+ * cooldown, execute over the host transport, and record TOTP usage on
+ * success.
  *
- * This is the chain-path counterpart to the user-facing send: it has NO
- * pre/post script hooks (chain fetches are pure data-source fetches) and
- * NO Status-pill reporting (workflow refresh belongs to the `live`
- * subsystem). Both hosts — the browser SW and the desktop main process —
- * run this exact code; only the injected {@link RequestTransport} (and
- * optional OAuth-refresh hook) differ.
+ * It has NO pre/post script hooks and NO Status-pill reporting — those
+ * are caller concerns layered above (the extension's user-facing
+ * executor runs its own script pipeline; chain fetches are pure
+ * data-source fetches). Both hosts — the browser SW and the desktop
+ * main process — run this exact code; only the injected
+ * {@link RequestTransport} (and optional OAuth-refresh hook) differ.
  */
 
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
+import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { errorSnapshot, executeOverTransport } from './execute';
 import { type OAuthRefreshFn, resolveRequest, UnresolvedRequestError } from './resolve-request';
 import type { RequestTransport } from './transport';
 
 export interface RunStepRequestOptions {
-  /** Workspace owning the workflow — threaded through every store read
-   *  and the TOTP cooldown partition. */
-  workspaceId: string;
-  /** Env the chain was scheduled under. `null` = "No environment". */
+  /**
+   * Workspace the run resolves against — threaded through every store
+   * read and the TOTP cooldown partition. `null` = the runtime-Active
+   * workspace via the Active-bound module mirrors (the workbench Send
+   * path: active environment pointer + Active live registry). Chain and
+   * MCP dispatches always pin an explicit id so a non-Active
+   * workspace's run never reads another workspace's scopes.
+   */
+  workspaceId: string | null;
+  /** Env the run executes under. `null` = "No environment" on a pinned
+   *  dispatch; on an unpinned (Active-bound) run it defers to the
+   *  workspace's active-environment pointer. */
   environmentId: string | null;
   /** Captures from prior steps, installed for `{{step.<id>.<name>}}`. */
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>;
@@ -37,10 +48,13 @@ export async function runStepRequest(
   request: Request,
   options: RunStepRequestOptions,
 ): Promise<ExecutedRequestSnapshot> {
+  // The cooldown partition needs a concrete key even for an unpinned
+  // run — the runtime-Active workspace is what that run resolved against.
+  const cooldownWorkspaceId = options.workspaceId ?? getActiveWorkspaceId();
   let outcome: Awaited<ReturnType<typeof resolveRequest>>;
   try {
     outcome = await resolveRequest(request, {
-      workspaceId: options.workspaceId,
+      workspaceId: options.workspaceId ?? undefined,
       environmentId: options.environmentId ?? undefined,
       stepCaptures: options.stepCaptures,
       refreshOAuth: options.refreshOAuth,
@@ -55,7 +69,7 @@ export async function runStepRequest(
   // reject the reuse with a 401 anyway; surfacing it here gives an
   // actionable "wait Ns" instead of a wasted round-trip + confusing error.
   for (const usage of outcome.totpUsed) {
-    const status = checkCooldown(options.workspaceId, usage.name, usage.code);
+    const status = checkCooldown(cooldownWorkspaceId, usage.name, usage.code);
     if (status.inCooldown) {
       return errorSnapshot(
         `TOTP '${usage.name}' code can't be reused — wait ${status.remainingSeconds}s for the next window.`,
@@ -71,7 +85,7 @@ export async function runStepRequest(
   // transient blip into an avoidable wait.
   if (wireResult.error == null) {
     for (const usage of outcome.totpUsed) {
-      recordUsage(options.workspaceId, usage.name, usage.code, usage.period);
+      recordUsage(cooldownWorkspaceId, usage.name, usage.code, usage.period);
     }
   }
 
