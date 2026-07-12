@@ -2,17 +2,20 @@
  * BackgroundTasksIndicator — footer slot for in-flight background work.
  *
  * Renders the newest task inline (title + slim progress + a circled ✕
- * that hides the inline display without touching the work), and opens
- * the "Processes" popover listing every task. When the last task
- * settles while the popover is open, the popover shows its completed
- * state instead of vanishing mid-glance; with it closed, the slot
- * renders nothing.
+ * that hides the inline display without touching the work). Clicking
+ * the slot toggles the standalone "Processes" panel — a card pinned to
+ * the window's bottom-right corner above the status bar. The panel is
+ * deliberately NOT a click-away popover: it stays up while the user
+ * works and only the − button (or clicking the slot again) hides it.
+ * When the last task settles while the panel is up, it shows its
+ * completed state instead of vanishing mid-glance.
  */
 
-import { CheckCircleFilled, CloseOutlined } from '@ant-design/icons';
-import { Popover, Progress, theme } from 'antd';
+import { CheckCircleFilled, CloseOutlined, MinusOutlined } from '@ant-design/icons';
+import { Progress, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { type BackgroundTask, useBackgroundTasks } from './store';
 
 function taskProgress(task: BackgroundTask, width?: number): React.ReactNode {
@@ -32,9 +35,9 @@ function taskProgress(task: BackgroundTask, width?: number): React.ReactNode {
 const BackgroundTasksIndicator: React.FC = () => {
   const { token } = theme.useToken();
   const tasks = useBackgroundTasks();
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   // Inline-dismissed task ids: hidden from the footer, still listed in
-  // the popover. Pruned when the task leaves the store so a later run
+  // the panel. Pruned when the task leaves the store so a later run
   // with the same id shows again.
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
 
@@ -48,7 +51,7 @@ const BackgroundTasksIndicator: React.FC = () => {
 
   const visible = tasks.filter((t) => !hiddenIds.has(t.id));
   const anchor = visible[visible.length - 1];
-  if (!anchor && !popoverOpen) return null;
+  if (!anchor && !panelOpen) return null;
 
   // The ✕ sits in a small grey disc, vertically centered on the row it
   // dismisses.
@@ -76,47 +79,88 @@ const BackgroundTasksIndicator: React.FC = () => {
     </button>
   );
 
-  const content = (
-    <div style={{ width: 280 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, textAlign: 'center', marginBottom: 6 }}>Processes</div>
-      {tasks.length === 0 ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-          <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 12 }} />
-          <span style={{ color: token.colorTextSecondary }}>All background tasks completed</span>
-        </div>
-      ) : (
-        tasks.map((task) => (
-          <div key={task.id} style={{ padding: '2px 0' }}>
-            <div style={{ fontSize: 12, color: token.colorText }}>{task.title}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {taskProgress(task)}
-              {circleClose((e) => {
-                e.stopPropagation();
-                setHiddenIds((prev) => new Set(prev).add(task.id));
-              }, 'Hide background task')}
-            </div>
-            {task.detail && <div style={{ fontSize: 11, color: token.colorTextTertiary }}>{task.detail}</div>}
+  const panel = panelOpen
+    ? createPortal(
+        <div
+          role="dialog"
+          aria-label="Processes"
+          style={{
+            position: 'fixed',
+            right: 10,
+            // Clears the 24 px status bar.
+            bottom: 30,
+            width: 280,
+            padding: '8px 12px',
+            borderRadius: token.borderRadiusLG,
+            background: token.colorBgElevated,
+            boxShadow: token.boxShadowSecondary,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            zIndex: token.zIndexPopupBase,
+          }}
+        >
+          <div style={{ position: 'relative', marginBottom: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, textAlign: 'center' }}>Processes</div>
+            <button
+              type="button"
+              aria-label="Hide processes panel"
+              onClick={() => setPanelOpen(false)}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: -4,
+                width: 16,
+                height: 16,
+                padding: 0,
+                border: 'none',
+                background: 'transparent',
+                color: token.colorTextSecondary,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <MinusOutlined style={{ fontSize: 10 }} />
+            </button>
           </div>
-        ))
-      )}
-    </div>
-  );
+          {tasks.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 12 }} />
+              <span style={{ color: token.colorTextSecondary }}>All background tasks completed</span>
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <div key={task.id} style={{ padding: '2px 0' }}>
+                <div style={{ fontSize: 12, color: token.colorText }}>{task.title}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {taskProgress(task)}
+                  {circleClose((e) => {
+                    e.stopPropagation();
+                    setHiddenIds((prev) => new Set(prev).add(task.id));
+                  }, 'Hide background task')}
+                </div>
+                {task.detail && <div style={{ fontSize: 11, color: token.colorTextTertiary }}>{task.detail}</div>}
+              </div>
+            ))
+          )}
+        </div>,
+        document.body,
+      )
+    : null;
 
   return (
-    <Popover
-      content={content}
-      open={popoverOpen}
-      onOpenChange={setPopoverOpen}
-      trigger={['click']}
-      placement="topRight"
-      arrow={false}
-      align={{ offset: [0, -2] }}
-      overlayInnerStyle={{ padding: '8px 12px' }}
-    >
+    <>
       <div
         className="rules-statusbar-item"
         role="button"
         tabIndex={0}
+        onClick={() => setPanelOpen((prev) => !prev)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setPanelOpen((prev) => !prev);
+          }
+        }}
         style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', minWidth: 0 }}
       >
         {anchor ? (
@@ -143,7 +187,8 @@ const BackgroundTasksIndicator: React.FC = () => {
           <span style={{ fontSize: 10, color: token.colorTextTertiary }}>Processes</span>
         )}
       </div>
-    </Popover>
+      {panel}
+    </>
   );
 };
 
