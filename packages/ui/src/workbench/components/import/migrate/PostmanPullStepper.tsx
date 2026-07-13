@@ -42,7 +42,7 @@ const QUIP_SECONDS = 3;
 
 /** A star that swells and shrinks — the terminal-spinner idiom, no CSS keyframes needed. */
 const STAR_FRAMES = ['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳', '✢'];
-const STAR_FRAME_MS = 400;
+const STAR_FRAME_MS = 300;
 
 const WorkingTicker: React.FC = () => {
   const { token } = theme.useToken();
