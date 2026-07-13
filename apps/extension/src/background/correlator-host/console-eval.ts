@@ -18,7 +18,12 @@
 
 import type { ConsoleEntry } from '@openheaders/core/console-stream';
 import { logger } from '@utils/logger';
-import { evalFailureEntry, normalizeEvalCommand, normalizeEvalResult } from './cdp-normalizers';
+import {
+  evalFailureEntry,
+  normalizeEvalCommand,
+  normalizeEvalPreviewText,
+  normalizeEvalResult,
+} from './cdp-normalizers';
 import type { RawEvaluateResult } from './cdp-raw-payloads';
 
 /** The tab plane's session sender (`ChromeDebuggerEventSource.sendOnSession`). */
@@ -45,9 +50,17 @@ export interface ConsoleEvalExecutor {
    *  `userGesture` mirrors the browser's "Treat code evaluation as user
    *  action" console setting. */
   evaluate(tabId: number, contextKey: string, expression: string, userGesture: boolean): Promise<void>;
+  /**
+   * Eager evaluation — silent, side-effect-free preview of the prompt text.
+   * NEVER records to the console stream; `null` means nothing to show (a
+   * refused side-effecting expression, a throw, a timeout, a dead context).
+   */
+  evaluatePreview(tabId: number, contextKey: string, expression: string): Promise<string | null>;
 }
 
 const EVAL_TIMEOUT_MS = 5_000;
+/** The engine-side ceiling for an eager-eval preview (the browser's own). */
+const PREVIEW_TIMEOUT_MS = 500;
 const BROWSER_TARGET_PREFIX = 'target:';
 
 export function createConsoleEval(options: ConsoleEvalOptions): ConsoleEvalExecutor {
@@ -87,6 +100,39 @@ export function createConsoleEval(options: ConsoleEvalOptions): ConsoleEvalExecu
         const message = err instanceof Error ? err.message : String(err);
         logger.debug('ConsoleEval', 'Runtime.evaluate failed', { contextKey, error: message });
         options.recordEntry(tabId, evalFailureEntry(contextKey, `Evaluation failed: ${message}`, now()));
+      }
+    },
+
+    async evaluatePreview(tabId: number, contextKey: string, expression: string): Promise<string | null> {
+      const address = parseContextKey(contextKey);
+      if (address === null) return null;
+
+      // The browser's eager-eval params: side-effect-free or refused,
+      // silent (a throw must not surface as an exception event), short
+      // engine timeout, breakpoints disabled — a preview must never pause.
+      const params: Record<string, unknown> = {
+        expression,
+        contextId: address.contextId,
+        replMode: true,
+        includeCommandLineAPI: true,
+        generatePreview: true,
+        throwOnSideEffect: true,
+        silent: true,
+        disableBreaks: true,
+        timeout: PREVIEW_TIMEOUT_MS,
+        objectGroup: 'oh-console',
+      };
+
+      try {
+        const send =
+          address.targetId !== null
+            ? options.sendOnTarget(address.targetId, 'Runtime.evaluate', params)
+            : options.sendOnSession(tabId, address.sessionKey, 'Runtime.evaluate', params);
+        const raw = (await withTimeout(send)) as RawEvaluateResult;
+        return normalizeEvalPreviewText(raw);
+      } catch {
+        // A preview is best-effort by contract — refusals stay quiet.
+        return null;
       }
     },
   };

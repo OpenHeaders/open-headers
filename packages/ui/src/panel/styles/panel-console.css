@@ -340,11 +340,12 @@ button.dt-console-caret:hover {
 }
 
 /* ── Console settings pane — the gear's inline pane under the toolbar
-   (the browser's console-settings surface: wrapped checkbox columns). */
+   (the browser's console-settings surface). A grid, not a wrap: rows and
+   columns stay aligned however many settings fit per row. */
 .dt-console-settings-pane {
   flex: 0 0 auto;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   column-gap: 24px;
   row-gap: 4px;
   padding: 6px 10px;
@@ -384,13 +385,74 @@ button.dt-console-caret:hover {
   color: var(--dt-text-muted);
 }
 
-.dt-console-prompt {
+.dt-console-prompt-area {
   flex: 0 0 auto;
+  border-top: 1px solid var(--dt-border);
+}
+
+.dt-console-prompt {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 3px 8px;
-  border-top: 1px solid var(--dt-border);
+}
+
+/* Positioning context for the history-autocomplete ghost underlay. */
+.dt-console-prompt-editor {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+/* The ghost renders UNDER the transparent input in the input's own font,
+   with an invisible copy of the typed text keeping the dimmed remainder
+   aligned with the caret. */
+.dt-console-prompt-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 2px 0;
+  color: var(--dt-text-muted);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.dt-console-prompt-ghost-typed {
+  visibility: hidden;
+  white-space: pre;
+}
+
+.dt-console-prompt-input {
+  position: relative;
+}
+
+/* ── Eager-evaluation preview — the grey line under the prompt. */
+.dt-console-prompt-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 3px;
+  color: var(--dt-text-muted);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+}
+
+.dt-console-prompt-preview-glyph {
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dt-console-prompt-preview-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dt-console-prompt-glyph {

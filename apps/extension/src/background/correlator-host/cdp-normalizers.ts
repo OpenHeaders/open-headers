@@ -527,6 +527,35 @@ export function evalFailureEntry(contextKey: string, message: string, timestamp:
   };
 }
 
+/** The engine's refusal marker for a side-effecting eager-eval attempt
+ *  (`Runtime.evaluate` with `throwOnSideEffect`). */
+const SIDE_EFFECT_REFUSAL = 'EvalError: Possible side-effect in debug-evaluate';
+
+/** Preview text cap — long values elide, matching the browser's preview. */
+const MAX_PREVIEW_TEXT = 400;
+
+/**
+ * An eager-evaluation outcome → its preview text, or `null` when there is
+ * nothing safe to show. The browser's preview stays quiet about throws —
+ * including the engine's side-effect refusal — EXCEPT TypeErrors, which
+ * surface (they are the "this expression can never work" signal worth
+ * showing while typing). A clean value renders through the same
+ * RemoteObject pipeline as console args.
+ */
+export function normalizeEvalPreviewText(raw: RawEvaluateResult): string | null {
+  const d = raw.exceptionDetails;
+  if (d !== undefined) {
+    const description = d.exception?.description;
+    if (description === undefined || description.startsWith(SIDE_EFFECT_REFUSAL)) return null;
+    if (!description.startsWith('TypeError: ')) return null;
+    // First line only — the preview is a single grey line, not a stack.
+    return `${d.text} ${description.split('\n', 1)[0]}`;
+  }
+  if (raw.result === undefined) return null;
+  const text = renderRemoteObject(raw.result).text;
+  return text.length > MAX_PREVIEW_TEXT ? `${text.slice(0, MAX_PREVIEW_TEXT - 1)}…` : text;
+}
+
 // ── runtime-domain normalizers (JS contexts, Phase A) ────────────────
 
 /**

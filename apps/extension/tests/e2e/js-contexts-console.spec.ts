@@ -286,3 +286,80 @@ test('history ring: ArrowUp recalls, ArrowDown returns to the draft', async () =
   await expect(input).toHaveValue('draft-in-progress');
   await input.fill('');
 });
+
+/** Open the gear's settings pane if a prior test left it closed. */
+async function openSettingsPane(): Promise<void> {
+  const pane = panelPage.getByRole('group', { name: 'Console settings' });
+  if (!(await pane.isVisible().catch(() => false))) {
+    await panelPage.getByRole('button', { name: 'Console settings' }).click();
+    await expect(pane).toBeVisible();
+  }
+}
+
+test('settings pane lists all nine settings in the browser order', async () => {
+  await openSettingsPane();
+  const labels = await panelPage
+    .getByRole('group', { name: 'Console settings' })
+    .locator('.dt-console-setting')
+    .allTextContents();
+  expect(labels.map((t) => t.trim())).toEqual([
+    'Hide network',
+    'Log XMLHttpRequests',
+    'Preserve log',
+    'Eager evaluation',
+    'Selected context only',
+    'Autocomplete from history',
+    'Group similar messages in console',
+    'Treat code evaluation as user action',
+    'Show CORS errors in console',
+  ]);
+});
+
+test('"Log XMLHttpRequests" synthesizes finished-loading rows for page fetches, gated live', async () => {
+  await openSettingsPane();
+  const checkbox = panelPage.getByRole('checkbox', { name: 'Log XMLHttpRequests' });
+  await checkbox.click();
+
+  // A page fetch of this page's own document — an XHR-category request.
+  await contextsPage.evaluate(() => fetch('/src/contexts/index.html?oh-xhr-log').then((r) => r.text()));
+  const xhrRow = rowsWithText('Fetch finished loading: GET').filter({ hasText: 'oh-xhr-log' });
+  await expect(xhrRow.first()).toBeVisible({ timeout: 15_000 });
+  // The URL is a live link into the Network plane.
+  await expect(xhrRow.first().locator('.dt-console-req-link')).toBeVisible();
+
+  // The gate is render-time: toggling off hides the synthesized rows again.
+  await checkbox.click();
+  await expect(xhrRow).toHaveCount(0);
+});
+
+test('eager evaluation previews the prompt text and obeys its setting', async () => {
+  const input = panelPage.locator('.dt-console-prompt-input');
+  await expect(input).toBeEnabled();
+  await input.fill('40 + 2');
+  await expect(panelPage.locator('.dt-console-prompt-preview-text')).toHaveText('42', { timeout: 10_000 });
+
+  await openSettingsPane();
+  await panelPage.getByRole('checkbox', { name: 'Eager evaluation' }).click();
+  await expect(panelPage.locator('.dt-console-prompt-preview')).toHaveCount(0);
+  await panelPage.getByRole('checkbox', { name: 'Eager evaluation' }).click();
+  await input.fill('');
+});
+
+test('autocomplete from history ghosts the matching command and Tab accepts it', async () => {
+  const input = panelPage.locator('.dt-console-prompt-input');
+  await evaluate('globalThis.location.origin');
+  await input.fill('globalThis.loc');
+  const ghost = panelPage.locator('.dt-console-prompt-ghost');
+  await expect(ghost).toHaveText('globalThis.location.origin');
+  await input.press('Tab');
+  await expect(input).toHaveValue('globalThis.location.origin');
+  await expect(ghost).toHaveCount(0);
+
+  // The setting suspends the ghost.
+  await openSettingsPane();
+  await panelPage.getByRole('checkbox', { name: 'Autocomplete from history' }).click();
+  await input.fill('globalThis.loc');
+  await expect(ghost).toHaveCount(0);
+  await panelPage.getByRole('checkbox', { name: 'Autocomplete from history' }).click();
+  await input.fill('');
+});

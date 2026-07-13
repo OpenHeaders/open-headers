@@ -31,7 +31,7 @@ import type { JsContext } from '@openheaders/core/js-contexts';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { resolveContextSelection, topContextKey } from '../data/console-context-selector';
 import {
   DEFAULT_LEVELS,
@@ -42,6 +42,7 @@ import {
 } from '../data/console-levels';
 import { noteTopContext, setConsolePrefs, useConsolePrefs } from '../data/console-prefs';
 import type { ConsoleRequestJoin } from '../data/console-request-join';
+import { isXhrLogEntry, type XhrLogConsoleEntry } from '../data/console-xhr-log';
 import {
   frameKey,
   type ResolvedFramePosition,
@@ -58,6 +59,9 @@ import { ToolbarMenuPopover } from './ToolbarMenuPopover';
 
 interface ConsoleViewProps {
   entries: readonly ConsoleEntry[];
+  /** Synthesized "finished/failed loading" rows derived from the network
+   *  plane ("Log XMLHttpRequests"); the pref gates them here. */
+  xhrLogEntries: readonly XhrLogConsoleEntry[];
   /** Live JS execution contexts of the inspected tab (the selector's list). */
   contexts: readonly JsContext[];
   /** Exact join from a browser entry's `requestId` to its network row. */
@@ -169,8 +173,9 @@ function networkErrorTail(text: string): string {
 
 interface ConsoleRow {
   entry: ConsoleEntry;
-  /** Index into the source `entries` array — stable across filter changes. */
-  entryIndex: number;
+  /** Stable row key — the buffer index for real entries, the request id for
+   *  synthesized XHR-log rows — so expansion survives filter changes. */
+  rowKey: string;
   /** Full display text — what the text filter matches and the row titles. */
   displayText: string;
   /** Joined network row, when the entry carries a resolvable request id. */
@@ -185,14 +190,48 @@ interface ConsoleRow {
   repeat: number;
 }
 
-function buildRow(entry: ConsoleEntry, entryIndex: number, resolveRequest: ConsoleViewProps['resolveRequest']): ConsoleRow {
+function buildRow(entry: ConsoleEntry, rowKey: string, resolveRequest: ConsoleViewProps['resolveRequest']): ConsoleRow {
   const text = entry.args.map((a) => a.text).join(' ');
   const request = entry.requestId !== undefined ? resolveRequest(entry.requestId) : null;
-  const requestTail = request !== null ? networkErrorTail(text) : '';
+  // A synthesized XHR-log row keeps the browser's own phrasing (the URL is
+  // linkified inside it); only a real network log entry reduces to the
+  // `METHOD url <failure>` form.
+  const joinRewrites = request !== null && !isXhrLogEntry(entry);
+  const requestTail = joinRewrites ? networkErrorTail(text) : '';
   const stack = entry.stackTrace ?? request?.stack ?? null;
   const location = stack !== null && stack.length > 0 ? frameLocation(stack[0]) : sourceLocation(entry);
-  const displayText = request !== null ? `${request.method} ${request.url} ${requestTail}`.trimEnd() : text;
-  return { entry, entryIndex, displayText, request, requestTail, stack, location, repeat: 1 };
+  const displayText = joinRewrites && request !== null ? `${request.method} ${request.url} ${requestTail}`.trimEnd() : text;
+  return { entry, rowKey, displayText, request, requestTail, stack, location, repeat: 1 };
+}
+
+/**
+ * The visible entry sequence — the buffered entries from the navigation
+ * cutoff, with the synthesized XHR-log rows merged in by timestamp when
+ * "Log XMLHttpRequests" is on. Keys stay stable: a buffered entry keeps its
+ * buffer index, a derived row its request id.
+ */
+function mergeXhrLogEntries(
+  entries: readonly ConsoleEntry[],
+  cutoff: number,
+  xhrLogEntries: readonly XhrLogConsoleEntry[],
+  cutoffMs: number,
+): ReadonlyArray<{ entry: ConsoleEntry; key: string }> {
+  const merged: { entry: ConsoleEntry; key: string }[] = [];
+  let j = 0;
+  // Derived rows honor the same cut as buffered ones — by instant, since
+  // they have no buffer index.
+  while (j < xhrLogEntries.length && xhrLogEntries[j].timestamp < cutoffMs) j++;
+  for (let i = cutoff; i < entries.length; i++) {
+    while (j < xhrLogEntries.length && xhrLogEntries[j].timestamp <= entries[i].timestamp) {
+      merged.push({ entry: xhrLogEntries[j], key: `x${xhrLogEntries[j].requestId}` });
+      j++;
+    }
+    merged.push({ entry: entries[i], key: `e${i}` });
+  }
+  for (; j < xhrLogEntries.length; j++) {
+    merged.push({ entry: xhrLogEntries[j], key: `x${xhrLogEntries[j].requestId}` });
+  }
+  return merged;
 }
 
 /** The browser's CORS explanation messages ("Access to fetch at … has been
@@ -217,9 +256,17 @@ function isGroupable(entry: ConsoleEntry): boolean {
   return entry.source !== 'command' && entry.source !== 'result';
 }
 
-export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick, onClear, onHide }: ConsoleViewProps) {
+export function ConsoleView({
+  entries,
+  xhrLogEntries,
+  contexts,
+  resolveRequest,
+  onRequestClick,
+  onClear,
+  onHide,
+}: ConsoleViewProps) {
   const [textFilter, setTextFilter] = useState('');
-  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const { hasCdpCapability, cdpEnabled, cdpOwned } = useInspectedTabCdp();
   const [, setCdpEnabled] = useSetting('inspection.cdpEnabled');
 
@@ -256,11 +303,15 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
+  const visibleEntries = useMemo(
+    () => mergeXhrLogEntries(entries, cutoff, prefs.logXhr ? xhrLogEntries : [], prefs.cutoffMs),
+    [entries, cutoff, prefs.logXhr, xhrLogEntries, prefs.cutoffMs],
+  );
+
   const rows = useMemo<ConsoleRow[]>(() => {
     const needle = textFilter.trim().toLowerCase();
     const result: ConsoleRow[] = [];
-    for (let i = cutoff; i < entries.length; i++) {
-      const entry = entries[i];
+    for (const { entry, key } of visibleEntries) {
       if (!passesLevelMask(entry.level, prefs.levels)) continue;
       // "Hide network" hides the browser's own network log entries (failed /
       // blocked requests) — the page's console.* output always stays.
@@ -278,7 +329,7 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
       ) {
         continue;
       }
-      const row = buildRow(entry, i, resolveRequest);
+      const row = buildRow(entry, key, resolveRequest);
       if (
         needle &&
         !row.displayText.toLowerCase().includes(needle) &&
@@ -303,8 +354,7 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
     }
     return result;
   }, [
-    entries,
-    cutoff,
+    visibleEntries,
     prefs.levels,
     prefs.hideNetwork,
     prefs.selectedContextOnly,
@@ -328,29 +378,29 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
   }, [rows]);
   const resolvedFrames = useResolvedFrames(allFrames);
 
-  // Expansion is keyed by entry index; a cleared stream restarts at 0, so
-  // stale keys must not pre-expand fresh entries.
+  // Expansion is keyed by row key; a cleared stream restarts the buffer
+  // indices at 0, so stale keys must not pre-expand fresh entries.
   useEffect(() => {
     if (entries.length === 0) setExpanded((prev) => (prev.size > 0 ? new Set() : prev));
   }, [entries.length]);
 
-  const toggleExpanded = (entryIndex: number): void => {
+  const toggleExpanded = (rowKey: string): void => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (!next.delete(entryIndex)) next.add(entryIndex);
+      if (!next.delete(rowKey)) next.add(rowKey);
       return next;
     });
   };
 
   // Expand-all / collapse-all toggle over the visible rows that carry a
   // stack — the browser's single toolbar button beside Clear.
-  const expandableIndexes = useMemo(
-    () => rows.filter((row) => row.stack !== null && row.stack.length > 0).map((row) => row.entryIndex),
+  const expandableKeys = useMemo(
+    () => rows.filter((row) => row.stack !== null && row.stack.length > 0).map((row) => row.rowKey),
     [rows],
   );
-  const allExpanded = expandableIndexes.length > 0 && expandableIndexes.every((i) => expanded.has(i));
+  const allExpanded = expandableKeys.length > 0 && expandableKeys.every((key) => expanded.has(key));
   const toggleAllExpanded = (): void => {
-    setExpanded(allExpanded ? new Set() : new Set(expandableIndexes));
+    setExpanded(allExpanded ? new Set() : new Set(expandableKeys));
   };
 
   const { onScroll } = useStickToBottom(bodyRef, rows.length);
@@ -362,6 +412,12 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
   const canEnableDebug = hasCdpCapability && !cdpEnabled;
 
   const enableDebug = (): void => setCdpEnabled(true);
+
+  // Clear also cuts the DERIVED rows (they have no buffer index to shrink).
+  const clearConsole = (): void => {
+    setConsolePrefs({ cutoffMs: Date.now() });
+    onClear();
+  };
 
   // REPL dispatch (Phase D): the echo pair (command + result entries) comes
   // back on the console stream, so submission is fire-and-forget here.
@@ -378,6 +434,21 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
       .catch(() => {});
   };
 
+  // Eager evaluation (the prompt debounces): a silent, side-effect-free
+  // preview in the same effective context. Memoized — the prompt's debounce
+  // effect keys on it.
+  const previewExpression = useCallback(
+    (expression: string): Promise<string | null> => {
+      const tabId = hostNavigation.inspectedTabId();
+      if (tabId == null || effectiveContextKey === null) return Promise.resolve(null);
+      return hostBridge
+        .call('consoleEvalPreview', { tabId, contextKey: effectiveContextKey, expression })
+        .then((res) => (res.success && res.text !== undefined ? res.text : null))
+        .catch(() => null);
+    },
+    [effectiveContextKey],
+  );
+
   return (
     <div className="dt-panel">
       <PanelHeader
@@ -389,7 +460,7 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
             <button
               type="button"
               className="dt-toolbar-icon"
-              onClick={onClear}
+              onClick={clearConsole}
               title="Clear console"
               aria-label="Clear console"
             >
@@ -399,7 +470,7 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
               type="button"
               className="dt-toolbar-icon"
               onClick={toggleAllExpanded}
-              disabled={expandableIndexes.length === 0}
+              disabled={expandableKeys.length === 0}
               title={allExpanded ? 'Collapse all' : 'Expand all'}
               aria-label={allExpanded ? 'Collapse all' : 'Expand all'}
             >
@@ -471,6 +542,7 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
       />
 
       {prefs.settingsOpen && (
+        // Rows in the browser's settings-pane order.
         <div className="dt-console-settings-pane" role="group" aria-label="Console settings">
           <label className="dt-console-setting" title="Hide the browser's network log entries (failed and blocked requests)">
             <input
@@ -480,6 +552,14 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
             />
             Hide network
           </label>
+          <label className="dt-console-setting" title="Log a message when an XHR, fetch, or EventSource request finishes or fails">
+            <input
+              type="checkbox"
+              checked={prefs.logXhr}
+              onChange={(e) => setConsolePrefs({ logXhr: e.target.checked })}
+            />
+            Log XMLHttpRequests
+          </label>
           <label className="dt-console-setting" title="Do not clear the log on navigation">
             <input
               type="checkbox"
@@ -487,6 +567,14 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
               onChange={(e) => setConsolePrefs({ preserveLog: e.target.checked })}
             />
             Preserve log
+          </label>
+          <label className="dt-console-setting" title="Eagerly evaluate text in the prompt (side-effect-free preview)">
+            <input
+              type="checkbox"
+              checked={prefs.eagerEval}
+              onChange={(e) => setConsolePrefs({ eagerEval: e.target.checked })}
+            />
+            Eager evaluation
           </label>
           <label className="dt-console-setting" title="Only show messages from the selected context">
             <input
@@ -496,6 +584,14 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
             />
             Selected context only
           </label>
+          <label className="dt-console-setting" title="Suggest commands you ran before as you type in the prompt">
+            <input
+              type="checkbox"
+              checked={prefs.autocompleteHistory}
+              onChange={(e) => setConsolePrefs({ autocompleteHistory: e.target.checked })}
+            />
+            Autocomplete from history
+          </label>
           <label className="dt-console-setting" title="Collapse repeated identical messages into one row with a count">
             <input
               type="checkbox"
@@ -503,14 +599,6 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
               onChange={(e) => setConsolePrefs({ groupSimilar: e.target.checked })}
             />
             Group similar messages in console
-          </label>
-          <label className="dt-console-setting" title="Show CORS policy errors alongside the page's own output">
-            <input
-              type="checkbox"
-              checked={prefs.showCorsErrors}
-              onChange={(e) => setConsolePrefs({ showCorsErrors: e.target.checked })}
-            />
-            Show CORS errors in console
           </label>
           <label
             className="dt-console-setting"
@@ -523,11 +611,19 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
             />
             Treat code evaluation as user action
           </label>
+          <label className="dt-console-setting" title="Show CORS policy errors alongside the page's own output">
+            <input
+              type="checkbox"
+              checked={prefs.showCorsErrors}
+              onChange={(e) => setConsolePrefs({ showCorsErrors: e.target.checked })}
+            />
+            Show CORS errors in console
+          </label>
         </div>
       )}
 
       <div className="dt-console-body" ref={bodyRef} onScroll={onScroll}>
-        {entries.length === 0 ? (
+        {entries.length === 0 && visibleEntries.length === 0 ? (
           <ConsoleEmpty
             hasCdpCapability={hasCdpCapability}
             cdpEnabled={cdpEnabled}
@@ -556,10 +652,10 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
             ) : (
               rows.map((row) => (
                 <ConsoleRowView
-                  key={row.entryIndex}
+                  key={row.rowKey}
                   row={row}
                   resolvedFrames={resolvedFrames}
-                  expanded={expanded.has(row.entryIndex)}
+                  expanded={expanded.has(row.rowKey)}
                   onToggleExpanded={toggleExpanded}
                   onRequestClick={onRequestClick}
                 />
@@ -568,7 +664,7 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
           </>
         )}
       </div>
-      {capturing && <ConsolePrompt contextKey={effectiveContextKey} onSubmit={evaluate} />}
+      {capturing && <ConsolePrompt contextKey={effectiveContextKey} onSubmit={evaluate} onPreview={previewExpression} />}
     </div>
   );
 }
@@ -577,7 +673,7 @@ interface ConsoleRowViewProps {
   row: ConsoleRow;
   resolvedFrames: ResolvedFrames;
   expanded: boolean;
-  onToggleExpanded: (entryIndex: number) => void;
+  onToggleExpanded: (rowKey: string) => void;
   onRequestClick: (requestId: string) => void;
 }
 
@@ -610,7 +706,7 @@ function ConsoleRowView({ row, resolvedFrames, expanded, onToggleExpanded, onReq
             type="button"
             className="dt-console-caret"
             data-expanded={expanded}
-            onClick={() => onToggleExpanded(row.entryIndex)}
+            onClick={() => onToggleExpanded(row.rowKey)}
             aria-label={expanded ? 'Collapse stack trace' : 'Expand stack trace'}
             aria-expanded={expanded}
           >
@@ -631,13 +727,25 @@ function ConsoleRowView({ row, resolvedFrames, expanded, onToggleExpanded, onReq
         <span className="dt-console-time">{formatClock(entry.timestamp, 'local')}</span>
         <span className="dt-console-msg" title={row.displayText}>
           {request !== null && requestId !== undefined ? (
-            <>
-              {request.method}{' '}
-              <button type="button" className="dt-console-req-link" onClick={() => onRequestClick(requestId)}>
-                {request.url}
-              </button>
-              {row.requestTail.length > 0 ? ` ${row.requestTail}` : ''}
-            </>
+            isXhrLogEntry(entry) ? (
+              // The browser's synthesized phrasing, URL linkified in place:
+              // `Fetch finished loading: GET "https://…".`
+              <>
+                {`${entry.xhrLog.kindLabel} ${entry.xhrLog.failed ? 'failed' : 'finished'} loading: ${request.method} "`}
+                <button type="button" className="dt-console-req-link" onClick={() => onRequestClick(requestId)}>
+                  {request.url}
+                </button>
+                {'".'}
+              </>
+            ) : (
+              <>
+                {request.method}{' '}
+                <button type="button" className="dt-console-req-link" onClick={() => onRequestClick(requestId)}>
+                  {request.url}
+                </button>
+                {row.requestTail.length > 0 ? ` ${row.requestTail}` : ''}
+              </>
+            )
           ) : (
             row.displayText
           )}

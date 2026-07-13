@@ -74,6 +74,7 @@ import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
 import { matchesPanelFilters } from './components/traffic/row-filter';
 import { type ConsoleRequestJoin, consoleRequestJoin } from './data/console-request-join';
+import { deriveXhrLogEntries } from './data/console-xhr-log';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/stores/focus-store';
@@ -719,6 +720,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     [data.lookupByRequestId],
   );
 
+  // "Log XMLHttpRequests" rows, derived from the network plane (the pref
+  // gates them inside ConsoleView, where the console settings live).
+  const xhrLogEntries = useMemo(() => deriveXhrLogEntries(data.rows), [data.rows]);
+
   // ── Tool window content ────────────────────────────────────
   const renderToolWindow = useCallback(
     (windowId: PanelToolWindowId, _slot: DockSlot): React.ReactNode => {
@@ -759,6 +764,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           return (
             <ConsoleView
               entries={consoleClient.snapshot.entries}
+              xhrLogEntries={xhrLogEntries}
               contexts={jsContexts.snapshot.contexts}
               resolveRequest={resolveConsoleRequest}
               onRequestClick={handleCrossNav}
@@ -832,6 +838,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       data.pages,
       consoleClient,
       resolveConsoleRequest,
+      xhrLogEntries,
       lifecycleClient.source,
       selectedId,
       handleSelect,

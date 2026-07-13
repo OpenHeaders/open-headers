@@ -302,6 +302,23 @@ export interface DevToolsRpc {
     res: { success: boolean; error?: string };
   };
 
+  /**
+   * Eager evaluation — the console's silent, side-effect-free preview of the
+   * prompt text as it is typed. `Runtime.evaluate` with `throwOnSideEffect` +
+   * a short timeout in the same context `consoleEval` would use; NEVER
+   * recorded to the console stream (the browser's own eager-eval contract).
+   *
+   * `text` is the rendered preview, absent when there is nothing safe to
+   * show: the engine refused the evaluation as side-effecting, it threw
+   * (previews stay quiet about errors), it timed out, or no evaluator is
+   * registered on this host. `success: false` only means dispatch failed —
+   * a clean "no preview" is `success: true` with no `text`.
+   */
+  consoleEvalPreview: {
+    req: { tabId: number; contextKey: string; expression: string };
+    res: { success: boolean; text?: string; error?: string };
+  };
+
   // ── DevTools panel: source-map resolution ──────────────────────
   /**
    * Fetch the source map associated with a JS URL — the DevTools panel

@@ -4,7 +4,7 @@ import type { JarCookieEditWire, JarCookieKeyWire } from '@openheaders/core/brid
 import { getBackendSyncStatusSnapshot } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import { logger } from '@utils/logger';
-import { evalConsoleExpression } from '../../console-eval-access';
+import { evalConsoleExpression, previewConsoleExpression } from '../../console-eval-access';
 import {
   clearCookiesForSite as clearCookiesForSiteHandler,
   fetchCookieJarForSite as fetchCookieJarForSiteHandler,
@@ -29,6 +29,14 @@ export const miscHandlers: HandlerMap = {
       .then((dispatched) =>
         respond(dispatched ? { success: true } : { success: false, error: 'console evaluation unavailable' }),
       )
+      .catch((err: Error) => respond({ success: false, error: err.message }));
+    return true;
+  },
+
+  consoleEvalPreview: ({ message, respond }) => {
+    // Eager evaluation — a clean "nothing to show" is success with no text.
+    previewConsoleExpression(message.tabId as number, message.contextKey as string, message.expression as string)
+      .then((text) => respond(text === null ? { success: true } : { success: true, text }))
       .catch((err: Error) => respond({ success: false, error: err.message }));
     return true;
   },

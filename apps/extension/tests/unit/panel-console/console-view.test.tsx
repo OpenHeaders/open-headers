@@ -6,7 +6,7 @@
 
 import type { ConsoleEntry } from '@openheaders/core/console-stream';
 import type { JsContext } from '@openheaders/core/js-contexts';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The context-selector popover measures itself via rc-resize-observer;
@@ -47,7 +47,10 @@ vi.mock('@openheaders/ui/workbench/settings/hooks', () => ({
 }));
 
 const { bridgeCallSpy } = vi.hoisted(() => ({
-  bridgeCallSpy: vi.fn(() => Promise.resolve({ success: true })),
+  bridgeCallSpy: vi.fn(
+    (_channel: string, _payload?: unknown): Promise<{ success: boolean; text?: string }> =>
+      Promise.resolve({ success: true }),
+  ),
 }));
 
 vi.mock('@openheaders/core/bridge', async (importOriginal) => {
@@ -61,8 +64,9 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
 import type { HostNavigation } from '@openheaders/core/navigation';
 import { setHostNavigation } from '@openheaders/core/navigation';
 import { ConsoleView } from '@openheaders/ui/panel/components/ConsoleView';
-import { resetConsolePrefs } from '@openheaders/ui/panel/data/console-prefs';
+import { resetConsolePrefs, setConsolePrefs } from '@openheaders/ui/panel/data/console-prefs';
 import type { ConsoleRequestJoin } from '@openheaders/ui/panel/data/console-request-join';
+import type { XhrLogConsoleEntry } from '@openheaders/ui/panel/data/console-xhr-log';
 
 function installNavigation(
   openResource: HostNavigation['openResource'],
@@ -97,12 +101,14 @@ interface RenderOptions {
   resolveRequest?: (requestId: string) => ConsoleRequestJoin | null;
   onRequestClick?: (requestId: string) => void;
   contexts?: readonly JsContext[];
+  xhrLogEntries?: readonly XhrLogConsoleEntry[];
 }
 
 function renderView(entries: readonly ConsoleEntry[], options: RenderOptions = {}) {
   return render(
     <ConsoleView
       entries={entries}
+      xhrLogEntries={options.xhrLogEntries ?? []}
       contexts={options.contexts ?? []}
       resolveRequest={options.resolveRequest ?? (() => null)}
       onRequestClick={options.onRequestClick ?? vi.fn()}
@@ -404,6 +410,7 @@ describe('ConsoleView context selector + "Selected context only" (JS contexts Ph
     view.rerender(
       <ConsoleView
         entries={[]}
+        xhrLogEntries={[]}
         contexts={[TOP]}
         resolveRequest={() => null}
         onRequestClick={vi.fn()}
@@ -491,6 +498,7 @@ describe('ConsoleView settings pane (gear)', () => {
       view.rerender(
         <ConsoleView
           entries={rows}
+          xhrLogEntries={[]}
           contexts={contexts}
           resolveRequest={() => null}
           onRequestClick={vi.fn()}
@@ -570,6 +578,7 @@ describe('ConsoleView settings pane (gear)', () => {
     view.rerender(
       <ConsoleView
         entries={before}
+        xhrLogEntries={[]}
         contexts={[TOP2]}
         resolveRequest={() => null}
         onRequestClick={vi.fn()}
@@ -580,6 +589,7 @@ describe('ConsoleView settings pane (gear)', () => {
     view.rerender(
       <ConsoleView
         entries={[...before, entry('after nav')]}
+        xhrLogEntries={[]}
         contexts={[TOP2]}
         resolveRequest={() => null}
         onRequestClick={vi.fn()}
@@ -662,5 +672,233 @@ describe('ConsoleView REPL prompt + echo rows (JS contexts Phase D)', () => {
     const glyphs = [...container.querySelectorAll('.dt-console-glyph')].map((el) => el.textContent);
     expect(glyphs).toEqual(['›', '‹']);
     expect(container.querySelector('.dt-console-row[data-source="result"] .dt-console-dot--error')).not.toBeNull();
+  });
+});
+
+describe('ConsoleView "Log XMLHttpRequests" (synthesized request rows)', () => {
+  const finished: XhrLogConsoleEntry = {
+    source: 'browser',
+    level: 'info',
+    category: 'network',
+    requestId: 'page::9.1',
+    args: [{ type: 'string', text: 'Fetch finished loading: GET "https://api.openheaders.io/data".' }],
+    timestamp: 2000,
+    xhrLog: { kindLabel: 'Fetch', failed: false },
+  };
+  const failed: XhrLogConsoleEntry = {
+    ...finished,
+    requestId: 'page::9.2',
+    args: [{ type: 'string', text: 'XHR failed loading: POST "https://api.openheaders.io/save".' }],
+    timestamp: 2500,
+    xhrLog: { kindLabel: 'XHR', failed: true },
+  };
+  const join: ConsoleRequestJoin = { method: 'GET', url: 'https://api.openheaders.io/data' };
+
+  it('renders nothing while the setting is off (the browser default)', () => {
+    const { container } = renderView([], { xhrLogEntries: [finished], resolveRequest: () => join });
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(0);
+  });
+
+  it('the settings checkbox turns the rows on, phrased like the browser with the URL linkified', () => {
+    const onRequestClick = vi.fn();
+    const { container } = renderView([], {
+      xhrLogEntries: [finished],
+      resolveRequest: () => join,
+      onRequestClick,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    fireEvent.click(screen.getByLabelText('Log XMLHttpRequests'));
+    const row = container.querySelector('.dt-console-row') as HTMLElement;
+    expect(row.textContent).toContain('Fetch finished loading: GET "');
+    expect(row.getAttribute('data-level')).toBe('info');
+    fireEvent.click(row.querySelector('.dt-console-req-link') as HTMLElement);
+    expect(onRequestClick).toHaveBeenCalledWith('page::9.1');
+  });
+
+  it('a failure or HTTP error phrases as "failed loading" at the same Info level (browser parity)', () => {
+    setConsolePrefs({ logXhr: true });
+    const { container } = renderView([], {
+      xhrLogEntries: [failed],
+      resolveRequest: () => ({ method: 'POST', url: 'https://api.openheaders.io/save' }),
+    });
+    const row = container.querySelector('.dt-console-row') as HTMLElement;
+    expect(row.textContent).toContain('XHR failed loading: POST "');
+    expect(row.getAttribute('data-level')).toBe('info');
+  });
+
+  it('merges by timestamp into the buffered entries', () => {
+    setConsolePrefs({ logXhr: true });
+    const { container } = renderView([entry('before', { timestamp: 1000 }), entry('after', { timestamp: 3000 })], {
+      xhrLogEntries: [finished],
+      resolveRequest: () => join,
+    });
+    const rows = [...container.querySelectorAll('.dt-console-row')].map((el) => el.textContent ?? '');
+    expect(rows[0]).toContain('before');
+    expect(rows[1]).toContain('Fetch finished loading');
+    expect(rows[2]).toContain('after');
+  });
+
+  it('"Hide network" hides the synthesized rows too (they are Network-source messages)', () => {
+    setConsolePrefs({ logXhr: true, hideNetwork: true });
+    const { container } = renderView([], { xhrLogEntries: [finished], resolveRequest: () => join });
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(0);
+  });
+
+  it('Clear cuts the derived rows even though they have no buffer index', () => {
+    setConsolePrefs({ logXhr: true });
+    // The buffered entry stays only because onClear is mocked here — in
+    // production the client store empties the buffer; the derived cut is
+    // the piece the view itself owns.
+    const { container } = renderView([entry('buffered')], { xhrLogEntries: [finished], resolveRequest: () => join });
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear console' }));
+    const rows = container.querySelectorAll('.dt-console-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('buffered');
+  });
+
+  it('falls back to the raw text when the join misses (row cleared from the network plane)', () => {
+    setConsolePrefs({ logXhr: true });
+    const { container } = renderView([], { xhrLogEntries: [finished] });
+    const row = container.querySelector('.dt-console-row') as HTMLElement;
+    expect(row.textContent).toContain('Fetch finished loading: GET "https://api.openheaders.io/data".');
+    expect(row.querySelector('.dt-console-req-link')).toBeNull();
+  });
+});
+
+describe('ConsoleView eager evaluation (prompt preview)', () => {
+  const TOP = makeContext({ contextKey: 'page::1', isTopFrame: true });
+
+  beforeEach(() => {
+    bridgeCallSpy.mockClear();
+    installNavigation(vi.fn(), () => 5);
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    bridgeCallSpy.mockImplementation(() => Promise.resolve({ success: true }));
+  });
+
+  it('previews the typed text on the grey line after the debounce', async () => {
+    bridgeCallSpy.mockImplementation((channel: string) =>
+      Promise.resolve(channel === 'consoleEvalPreview' ? { success: true, text: '2' } : { success: true }),
+    );
+    const { container } = renderView([], { contexts: [TOP] });
+    fireEvent.change(screen.getByLabelText('Console prompt'), { target: { value: '1 + 1' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(bridgeCallSpy).toHaveBeenCalledWith('consoleEvalPreview', {
+      tabId: 5,
+      contextKey: 'page::1',
+      expression: '1 + 1',
+    });
+    expect(container.querySelector('.dt-console-prompt-preview-text')?.textContent).toBe('2');
+  });
+
+  it('a "nothing to show" response leaves the preview line absent', async () => {
+    bridgeCallSpy.mockImplementation(() => Promise.resolve({ success: true }));
+    const { container } = renderView([], { contexts: [TOP] });
+    fireEvent.change(screen.getByLabelText('Console prompt'), { target: { value: 'location.reload()' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(container.querySelector('.dt-console-prompt-preview')).toBeNull();
+  });
+
+  it('the setting off suppresses the preview entirely', async () => {
+    setConsolePrefs({ eagerEval: false });
+    const { container } = renderView([], { contexts: [TOP] });
+    fireEvent.change(screen.getByLabelText('Console prompt'), { target: { value: '1 + 1' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(bridgeCallSpy).not.toHaveBeenCalledWith('consoleEvalPreview', expect.anything());
+    expect(container.querySelector('.dt-console-prompt-preview')).toBeNull();
+  });
+
+  it('a stale response (text moved on) never lands', async () => {
+    bridgeCallSpy.mockImplementation((channel: string) =>
+      Promise.resolve(channel === 'consoleEvalPreview' ? { success: true, text: 'stale' } : { success: true }),
+    );
+    const { container } = renderView([], { contexts: [TOP] });
+    const input = screen.getByLabelText('Console prompt');
+    fireEvent.change(input, { target: { value: '1 +' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    // Second keystroke before the debounce fires — the first request never
+    // dispatches; then the text clears before the second one resolves.
+    fireEvent.change(input, { target: { value: '' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(container.querySelector('.dt-console-prompt-preview')).toBeNull();
+  });
+});
+
+describe('ConsoleView autocomplete from history', () => {
+  const TOP = makeContext({ contextKey: 'page::1', isTopFrame: true });
+
+  beforeEach(() => {
+    bridgeCallSpy.mockClear();
+    installNavigation(vi.fn(), () => 5);
+  });
+
+  const submitCommand = (input: HTMLElement, expression: string): void => {
+    fireEvent.change(input, { target: { value: expression } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+  };
+
+  it('ghosts the most recent history entry extending the typed prefix; Tab accepts it', () => {
+    const { container } = renderView([], { contexts: [TOP] });
+    const input = screen.getByLabelText('Console prompt') as HTMLInputElement;
+    submitCommand(input, 'document.title');
+    fireEvent.change(input, { target: { value: 'doc' } });
+    const ghost = container.querySelector('.dt-console-prompt-ghost') as HTMLElement;
+    expect(ghost.textContent).toBe('document.title');
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(input.value).toBe('document.title');
+    expect(container.querySelector('.dt-console-prompt-ghost')).toBeNull();
+  });
+
+  it('the setting off shows no ghost', () => {
+    setConsolePrefs({ autocompleteHistory: false });
+    const { container } = renderView([], { contexts: [TOP] });
+    const input = screen.getByLabelText('Console prompt') as HTMLInputElement;
+    submitCommand(input, 'document.title');
+    fireEvent.change(input, { target: { value: 'doc' } });
+    expect(container.querySelector('.dt-console-prompt-ghost')).toBeNull();
+  });
+
+  it('the history ring survives a prompt remount (tool-window switch)', () => {
+    const view = renderView([], { contexts: [TOP] });
+    submitCommand(screen.getByLabelText('Console prompt'), 'one');
+    view.unmount();
+    renderView([], { contexts: [TOP] });
+    const input = screen.getByLabelText('Console prompt') as HTMLInputElement;
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(input.value).toBe('one');
+  });
+});
+
+describe('ConsoleView settings pane order (browser parity)', () => {
+  it('lists all nine settings in the browser pane order', () => {
+    renderView([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    const pane = screen.getByRole('group', { name: 'Console settings' });
+    const labels = [...pane.querySelectorAll('.dt-console-setting')].map((el) => el.textContent?.trim());
+    expect(labels).toEqual([
+      'Hide network',
+      'Log XMLHttpRequests',
+      'Preserve log',
+      'Eager evaluation',
+      'Selected context only',
+      'Autocomplete from history',
+      'Group similar messages in console',
+      'Treat code evaluation as user action',
+      'Show CORS errors in console',
+    ]);
   });
 });

@@ -156,3 +156,100 @@ describe('createConsoleEval', () => {
     ]);
   });
 });
+
+describe('createConsoleEval — eager-evaluation preview', () => {
+  it('evaluates silently with the side-effect guard and short timeout, recording NOTHING', async () => {
+    const rig = makeRig({ sessionResult: { result: { type: 'number', value: 2, description: '2' } } });
+    const text = await rig.executor.evaluatePreview(TAB, 'page::3', '1 + 1');
+
+    expect(text).toBe('2');
+    expect(rig.sendOnSession).toHaveBeenCalledWith(TAB, 'page', 'Runtime.evaluate', {
+      expression: '1 + 1',
+      contextId: 3,
+      replMode: true,
+      includeCommandLineAPI: true,
+      generatePreview: true,
+      throwOnSideEffect: true,
+      silent: true,
+      disableBreaks: true,
+      timeout: 500,
+      objectGroup: 'oh-console',
+    });
+    expect(rig.entries).toHaveLength(0);
+  });
+
+  it('routes a target context through the target sender', async () => {
+    const rig = makeRig({ targetResult: { result: { type: 'string', value: 'sw' } } });
+    const text = await rig.executor.evaluatePreview(TAB, 'target:SW1::1', 'self.name');
+    expect(text).toBe('sw');
+    expect(rig.sendOnTarget).toHaveBeenCalledWith('SW1', 'Runtime.evaluate', expect.objectContaining({ contextId: 1 }));
+  });
+
+  it("the engine's side-effect refusal previews as nothing", async () => {
+    const rig = makeRig({
+      sessionResult: {
+        exceptionDetails: {
+          text: 'Uncaught',
+          lineNumber: 0,
+          columnNumber: 0,
+          exception: {
+            type: 'object',
+            subtype: 'error',
+            description: 'EvalError: Possible side-effect in debug-evaluate',
+          },
+        },
+      },
+    });
+    expect(await rig.executor.evaluatePreview(TAB, 'page::1', 'location.reload()')).toBeNull();
+    expect(rig.entries).toHaveLength(0);
+  });
+
+  it('a TypeError surfaces (first line), other throws stay quiet — browser parity', async () => {
+    const typeError = makeRig({
+      sessionResult: {
+        exceptionDetails: {
+          text: 'Uncaught',
+          lineNumber: 0,
+          columnNumber: 0,
+          exception: {
+            type: 'object',
+            subtype: 'error',
+            description: 'TypeError: undefined is not a function\n    at <anonymous>:1:1',
+          },
+        },
+      },
+    });
+    expect(await typeError.executor.evaluatePreview(TAB, 'page::1', 'x()')).toBe(
+      'Uncaught TypeError: undefined is not a function',
+    );
+
+    const referenceError = makeRig({
+      sessionResult: {
+        exceptionDetails: {
+          text: 'Uncaught',
+          lineNumber: 0,
+          columnNumber: 0,
+          exception: { type: 'object', subtype: 'error', description: 'ReferenceError: nope is not defined' },
+        },
+      },
+    });
+    expect(await referenceError.executor.evaluatePreview(TAB, 'page::1', 'nope')).toBeNull();
+  });
+
+  it('transport refusal, timeout, and a malformed key all preview as nothing, never throwing', async () => {
+    const refused = makeRig({ sessionError: new Error('Detached while handling command') });
+    expect(await refused.executor.evaluatePreview(TAB, 'page::1', '1')).toBeNull();
+    expect(refused.entries).toHaveLength(0);
+
+    vi.useFakeTimers();
+    const hung = makeRig({ hang: true });
+    const pending = hung.executor.evaluatePreview(TAB, 'page::1', '1');
+    await vi.advanceTimersByTimeAsync(5_100);
+    expect(await pending).toBeNull();
+    vi.useRealTimers();
+
+    const malformed = makeRig();
+    expect(await malformed.executor.evaluatePreview(TAB, 'garbage', '1')).toBeNull();
+    expect(malformed.sendOnSession).not.toHaveBeenCalled();
+  });
+});

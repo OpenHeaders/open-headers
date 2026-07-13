@@ -35,6 +35,20 @@ export async function evalConsoleExpression(
   return true;
 }
 
+/**
+ * Eager-evaluation preview of a prompt expression — silent, side-effect-free,
+ * never recorded to the stream. `null` when there is nothing to show OR no
+ * evaluator is registered (a host without CDP never registers one).
+ */
+export async function previewConsoleExpression(
+  tabId: number,
+  contextKey: string,
+  expression: string,
+): Promise<string | null> {
+  if (!executor) return null;
+  return executor.evaluatePreview(tabId, contextKey, expression);
+}
+
 /** Test-only — drop the registration so tests start from a clean seam. */
 export function __resetConsoleEvalForTests(): void {
   executor = null;
