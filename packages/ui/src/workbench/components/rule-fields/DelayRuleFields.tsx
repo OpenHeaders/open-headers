@@ -4,6 +4,7 @@
 
 import { Alert, Form, InputNumber, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { getDocId } from '../docs/doc-ids';
 import SectionInfo from '../shared/SectionInfo';
@@ -12,19 +13,20 @@ import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictC
 const { Text } = Typography;
 
 const DelayRuleFields: React.FC = () => {
+  const t = useT();
   const paths = useActionPaths();
 
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: 'Delay Rule',
-            title: 'Actions',
-            summary: 'Holds matching requests for the configured time before letting them continue.',
+            kicker: t('workbench.editors.rule.fields.delay.kicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: t('workbench.editors.rule.fields.delay.infoSummary'),
           }}
           docId={getDocId('delay', 'action')}
         />
@@ -33,11 +35,11 @@ const DelayRuleFields: React.FC = () => {
         type="warning"
         showIcon
         style={{ marginBottom: 12, fontSize: 12 }}
-        message="Document and iframe navigations are delayed up to 30,000ms via a local waiting page. JS-initiated XHR/Fetch is capped at 5,000ms to avoid HTTP connection pool starvation. Sub-resources (CSS, JS, images) are not delayed."
+        message={t('workbench.editors.rule.fields.delay.capsAlert')}
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-          Delay
+          {t('workbench.editors.rule.fields.delay.label')}
         </Text>
         <EntityField path={paths.delayMs}>
           <Form.Item name="delayMs" style={{ marginBottom: 0 }}>
@@ -49,7 +51,7 @@ const DelayRuleFields: React.FC = () => {
         </EntityField>
         <ScalarConflictChip formName="delayMs" schemaPath={paths.delayMs} />
         <Text type="secondary" style={{ fontSize: 11 }}>
-          Max 30,000 ms
+          {t('workbench.editors.rule.fields.delay.maxNote')}
         </Text>
       </div>
     </div>

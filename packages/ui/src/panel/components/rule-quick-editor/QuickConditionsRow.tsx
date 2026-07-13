@@ -17,6 +17,7 @@
 
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import type { RuleCondition } from '@openheaders/core/types';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import ConditionEditor from '@openheaders/ui/workbench/components/rule/ConditionEditor';
 import { DOMAIN_TYPES, getTypeDef } from '@openheaders/ui/workbench/components/rule/condition-types';
 import { ConfigProvider, theme } from 'antd';
@@ -24,15 +25,20 @@ import { useState } from 'react';
 
 /** One-line digest of a condition list — `<type label> <values>` per
  *  row, joined with `·` (the AND connector reads as noise at this
- *  size). Pure so the collapsed row's wording is pinnable in tests. */
-export function summarizeConditions(conditions: readonly RuleCondition[]): string {
+ *  size). Pure — the caller passes its `useT()` translator (shared-
+ *  module rule) — so the collapsed row's wording is pinnable in tests. */
+export function summarizeConditions(conditions: readonly RuleCondition[], t: Translate): string {
   if (conditions.length === 0) return 'none — matches no requests';
   return conditions
     .map((c) => {
-      const label = getTypeDef(c.type)?.label ?? c.type;
+      const def = getTypeDef(c.type);
+      const label = def ? t(def.labelKey) : c.type;
       const values =
         c.type === 'domain-type'
-          ? (DOMAIN_TYPES.find((d) => d.value === c.values[0])?.label ?? c.values[0] ?? '')
+          ? (() => {
+              const domainType = DOMAIN_TYPES.find((d) => d.value === c.values[0]);
+              return domainType ? t(domainType.labelKey) : (c.values[0] ?? '');
+            })()
           : c.values.join(', ');
       const name = c.headerName ? `${c.headerName}: ` : '';
       const text = `${name}${values}`.trim();
@@ -47,6 +53,7 @@ export interface QuickConditionsRowProps {
 }
 
 export function QuickConditionsRow({ value, onChange }: QuickConditionsRowProps) {
+  const t = useT();
   const { token } = theme.useToken();
   const [open, setOpen] = useState(false);
 
@@ -71,7 +78,7 @@ export function QuickConditionsRow({ value, onChange }: QuickConditionsRowProps)
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
           Conditions{' '}
           <span style={{ color: value.length > 0 ? token.colorText : token.colorTextTertiary }}>
-            {summarizeConditions(value)}
+            {summarizeConditions(value, t)}
           </span>
         </span>
       </button>

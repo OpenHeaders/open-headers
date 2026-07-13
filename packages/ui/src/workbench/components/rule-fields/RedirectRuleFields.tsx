@@ -4,6 +4,7 @@
 
 import { Form, Radio, Tooltip, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { getDocId } from '../docs/doc-ids';
 import DocInfo from '../shared/DocInfo';
@@ -14,21 +15,21 @@ import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictC
 const { Text } = Typography;
 
 const RedirectRuleFields: React.FC = () => {
+  const t = useT();
   const paths = useActionPaths();
 
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: 'Redirect Rule',
-            title: 'Actions',
-            summary: 'Sends matching requests to a different URL before they reach the network.',
-            description:
-              'With a URL Regex condition, \\1, \\2 … substitute the captured groups into the target URL.',
+            kicker: t('workbench.editors.rule.fields.redirect.kicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: t('workbench.editors.rule.fields.redirect.infoSummary'),
+            description: t('workbench.editors.rule.fields.redirect.infoDescription'),
           }}
           docId={getDocId('redirect', 'action')}
         />
@@ -36,17 +37,17 @@ const RedirectRuleFields: React.FC = () => {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          Redirects to
+          {t('workbench.editors.rule.fields.redirect.redirectsTo')}
         </Text>
         <DocInfo docId={getDocId('redirect-regex', 'action')} />
       </div>
 
       <div style={{ marginBottom: 10 }}>
         <Radio.Group value="url" size="small">
-          <Radio.Button value="url">Another URL</Radio.Button>
-          <Tooltip title="Available in desktop app">
+          <Radio.Button value="url">{t('workbench.editors.rule.fields.redirect.anotherUrl')}</Radio.Button>
+          <Tooltip title={t('workbench.editors.rule.fields.redirect.desktopOnly')}>
             <Radio.Button value="local" disabled>
-              Local file
+              {t('workbench.editors.rule.fields.redirect.localFile')}
             </Radio.Button>
           </Tooltip>
         </Radio.Group>
@@ -56,7 +57,7 @@ const RedirectRuleFields: React.FC = () => {
         <EntityField path={paths.redirectTo}>
           <Form.Item name="redirectTo" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
             <DetectedValueInput
-              placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions"
+              placeholder={t('workbench.editors.rule.fields.redirect.targetPlaceholder')}
               wrap
               maxRows={4}
               resizable

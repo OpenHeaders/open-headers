@@ -27,6 +27,7 @@ import { Alert, App, Button, Dropdown, Form, type MenuProps, Switch, Tooltip, Ty
 import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ActionPathsProvider,
   EntityScopeProvider,
@@ -138,6 +139,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   registerDuplicateRef,
 }) => {
   const isCreateMode = mode === 'rule-create';
+  const t = useT();
   const { message } = App.useApp();
   const { token } = theme.useToken();
   // Actions/conditions split orientation — global, persisted preference
@@ -367,7 +369,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       const values = form.getFieldsValue();
       const built = buildRule(values, ruleName, isEnabled);
       if (!built) {
-        message.error('Unknown rule type');
+        message.error(t('workbench.editors.rule.toast.unknownType'));
         return;
       }
       onSaveDraft?.(built as RuleDraftData);
@@ -411,7 +413,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           if (formatted !== current) form.setFieldValue(field, formatted);
         } catch (err) {
           const reason = err instanceof Error ? err.message : 'Unknown error';
-          message.warning(`Format on save skipped: ${reason}`);
+          message.warning(t('workbench.editors.rule.toast.formatSkipped', { reason }));
         }
       }
     }
@@ -421,7 +423,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     try {
       const rule = buildRule(values, ruleName, isEnabled);
       if (!rule) {
-        message.error('Unknown rule type');
+        message.error(t('workbench.editors.rule.toast.unknownType'));
         return;
       }
       // Save = the only broadcast point (rules intercept live HTTP traffic;
@@ -439,8 +441,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       const updates = merged as Partial<Omit<Rule, 'uid' | 'path' | 'schemaVersion'>>;
       const updated = await mutator.updateRule(ruleUid, updates);
       if (!updated.ok) {
-        if (updated.reason === 'not-found') message.error('Rule was deleted from another tab');
-        else message.error(`Failed to update rule${updated.message ? `: ${updated.message}` : ''}`);
+        if (updated.reason === 'not-found') message.error(t('workbench.editors.rule.toast.deletedOtherTab'));
+        else
+          message.error(
+            updated.message
+              ? t('workbench.editors.rule.toast.updateFailedDetail', { message: updated.message })
+              : t('workbench.editors.rule.toast.updateFailed'),
+          );
         return;
       }
       const published = await applyRulePublish(ruleUid, {
@@ -448,10 +455,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         surfaceId: 'workbench',
       });
       if (!published.ok) {
-        message.error('Rule saved but publication failed');
+        message.error(t('workbench.editors.rule.toast.publishFailed'));
         return;
       }
-      message.success(isPublished ? 'Rule updated' : 'Rule published');
+      message.success(
+        isPublished ? t('workbench.editors.rule.toast.updated') : t('workbench.editors.rule.toast.published'),
+      );
       // Dirty derives from form vs canonical equality; once the
       // commit broadcast lands and the mirror updates `liveRule` to
       // match the form's values, the next render reports dirty=false
@@ -476,6 +485,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     onSaveDraft,
     onSaved,
     clearDismissed,
+    t,
   ]);
 
   const handleSaveSync = useCallback(() => {
@@ -505,7 +515,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     const collection = localCollections[0];
     const parentPath = collection?.path;
     if (!parentPath) {
-      message.error('No collection found');
+      message.error(t('workbench.editors.rule.toast.noCollection'));
       return;
     }
     const { uid: _uid, path: _path, schemaVersion: _sv, ...payload } = last;
@@ -515,16 +525,16 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     const opts = { workspaceId: activeWorkspaceId, surfaceId: 'workbench' };
     const created = await applyRuleCreate({ rule: payload, parentPath }, opts);
     if (!created.ok) {
-      message.error('Failed to restore rule');
+      message.error(t('workbench.editors.rule.toast.restoreFailed'));
       return;
     }
     if (last.published === true) {
       await applyRulePublish(created.rule.uid, opts);
     }
     lastSeenRuleRef.current = null;
-    message.success('Rule restored');
+    message.success(t('workbench.editors.rule.toast.restored'));
     onSaved?.(created.rule.uid);
-  }, [activeWorkspaceId, localCollections, message, onSaved]);
+  }, [activeWorkspaceId, localCollections, message, onSaved, t]);
 
   const openSaveAsTemplate = useCallback(() => setSaveAsTemplateOpen(true), []);
   useEffect(() => {
@@ -550,13 +560,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     {
       key: 'blank',
       icon: <FileOutlined />,
-      label: 'Blank',
+      label: t('workbench.editors.rule.templates.blank'),
       onClick: () => selectTemplate('empty'),
     },
     {
       key: 'system-templates',
       icon: <FolderOpenOutlined />,
-      label: 'System',
+      label: t('workbench.editors.rule.templates.system'),
       disabled: systemMenuItems.length === 0,
       children: systemMenuItems,
     },
@@ -565,7 +575,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       // an explanatory empty state, so the feature stays discoverable.
       key: 'user-templates',
       icon: <FolderOpenTwoTone />,
-      label: 'User',
+      label: t('workbench.editors.rule.templates.user'),
       children: userMenuItems.length
         ? userMenuItems
         : [
@@ -574,11 +584,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               disabled: true,
               label: (
                 <div style={{ maxWidth: 280, whiteSpace: 'normal', padding: '4px 2px' }}>
-                  <div style={{ fontWeight: 600, color: token.colorText, marginBottom: 2 }}>No user templates yet</div>
+                  <div style={{ fontWeight: 600, color: token.colorText, marginBottom: 2 }}>
+                    {t('workbench.editors.rule.templates.emptyTitle')}
+                  </div>
                   <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-                    User templates are your own reusable presets for this rule type. Configure the rule the way you
-                    want, then choose <strong>⋮ → Save as User Template</strong> in the header — it will show up here
-                    for every new rule of this type.
+                    {t('workbench.editors.rule.templates.emptyBeforeMenu')}{' '}
+                    <strong>{t('workbench.editors.rule.templates.emptyMenuPath')}</strong>{' '}
+                    {t('workbench.editors.rule.templates.emptyAfterMenu')}
                   </div>
                 </div>
               ),
@@ -597,24 +609,23 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       {activeUserTemplate.name}
     </span>
   ) : (
-    <span>Blank</span>
+    <span>{t('workbench.editors.rule.templates.blank')}</span>
   );
 
   const headerTitle = (
     <>
       <Text strong style={{ fontSize: 13 }}>
-        Templates
+        {t('workbench.editors.rule.templates.title')}
       </Text>
       {/* No `docId` — templates have no docs section yet, so the
           popover carries the whole explanation without a "More
           information" link. */}
       <SectionInfo
         content={{
-          kicker: 'Rule Editor',
-          title: 'Templates',
-          summary: 'Start from a preset instead of a blank form.',
-          description:
-            'System templates ship with the app; user templates are ones you save yourself via ⋮ → Save as User Template. Applying a template only pre-fills the fields — adjust anything before saving.',
+          kicker: t('workbench.editors.rule.kicker'),
+          title: t('workbench.editors.rule.templates.title'),
+          summary: t('workbench.editors.rule.templates.infoSummary'),
+          description: t('workbench.editors.rule.templates.infoDescription'),
         }}
       />
       <Dropdown
@@ -651,15 +662,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       size="small"
       checked={isEnabled}
       onChange={handleToggleEnabled}
-      checkedChildren="Enabled"
-      unCheckedChildren="Disabled"
+      checkedChildren={t('workbench.editors.rule.enabled')}
+      unCheckedChildren={t('workbench.editors.rule.disabled')}
     />
   );
   const overflowItems = [
     {
       key: 'save-as-template',
       icon: <FileOutlined />,
-      label: 'Save as User Template',
+      label: t('workbench.editors.rule.saveAsTemplate'),
       onClick: openSaveAsTemplate,
     },
   ];
@@ -677,11 +688,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           type="warning"
           showIcon
           style={{ margin: 12, fontSize: 12 }}
-          message="This rule was deleted from another surface."
-          description="Restore creates a fresh copy with a new id (the original tombstone is permanent — see sync engine spec §7.2)."
+          message={t('workbench.editors.rule.deleted.message')}
+          description={t('workbench.editors.rule.deleted.description')}
           action={
             <Button size="small" type="primary" onClick={() => void handleUndelete()}>
-              Restore
+              {t('workbench.editors.rule.deleted.restore')}
             </Button>
           }
         />
@@ -789,23 +800,26 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                               }}
                             >
                               <Text strong style={{ fontSize: 12 }}>
-                                Conditions
+                                {t('workbench.editors.rule.conditionsPane.title')}
                               </Text>
                               <SectionInfo
                                 content={{
-                                  kicker: 'Rule Editor',
-                                  title: 'Conditions',
-                                  summary: 'Conditions decide which requests this rule applies to.',
+                                  kicker: t('workbench.editors.rule.kicker'),
+                                  title: t('workbench.editors.rule.conditionsPane.title'),
+                                  summary: t('workbench.editors.rule.conditionsPane.infoSummary'),
                                   description: (
                                     <>
                                       <p>
-                                        Rows combine with <strong>AND</strong> — every row must match.
+                                        {t('workbench.editors.rule.conditionsPane.infoAndBefore')}{' '}
+                                        <strong>{t('workbench.editors.rule.condition.andTag')}</strong>{' '}
+                                        {t('workbench.editors.rule.conditionsPane.infoAndAfter')}
                                       </p>
                                       <p>
-                                        Values inside one row combine with <strong>OR</strong> (the OR badge marks rows
-                                        that accept multiple values).
+                                        {t('workbench.editors.rule.conditionsPane.infoOrBefore')}{' '}
+                                        <strong>{t('workbench.editors.rule.condition.orTag')}</strong>{' '}
+                                        {t('workbench.editors.rule.conditionsPane.infoOrAfter')}
                                       </p>
-                                      <p>Add at least one condition.</p>
+                                      <p>{t('workbench.editors.rule.conditionsPane.infoAddOne')}</p>
                                     </>
                                   ),
                                 }}

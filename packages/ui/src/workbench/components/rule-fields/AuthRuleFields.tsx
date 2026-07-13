@@ -10,6 +10,7 @@
 
 import { Form, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 import { getDocId } from '../docs/doc-ids';
@@ -19,21 +20,21 @@ import { DetectedValueInput } from '../value-editors';
 const { Text } = Typography;
 
 const AuthRuleFields: React.FC = () => {
+  const t = useT();
   const paths = useActionPaths();
 
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: 'Auth Rule',
-            title: 'Actions',
-            summary: 'Answers HTTP or proxy authentication challenges on matching requests with these credentials.',
-            description:
-              'Both fields resolve {{templates}}, so the real secret can live in the vault ({{vault.*}}) instead of plaintext on the rule. Takes effect only on tabs in Debug-mode scope.',
+            kicker: t('workbench.editors.rule.fields.auth.kicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: t('workbench.editors.rule.fields.auth.infoSummary'),
+            description: t('workbench.editors.rule.fields.auth.infoDescription'),
           }}
           docId={getDocId('auth', 'action')}
         />
@@ -47,13 +48,13 @@ const AuthRuleFields: React.FC = () => {
           marginBottom: 10,
         }}
       >
-        Answers a server (401) or proxy (407) authentication challenge on matching requests. Reference a vault secret —
-        e.g. <Text code>{'{{vault.STAGING_PW}}'}</Text> — so the credential isn't stored in the rule.
+        {t('workbench.editors.rule.fields.auth.introBefore')} <Text code>{'{{vault.STAGING_PW}}'}</Text>{' '}
+        {t('workbench.editors.rule.fields.auth.introAfter')}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          Username
+          {t('workbench.editors.rule.fields.auth.username')}
         </Text>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
@@ -73,7 +74,7 @@ const AuthRuleFields: React.FC = () => {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          Password
+          {t('workbench.editors.rule.fields.auth.password')}
         </Text>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

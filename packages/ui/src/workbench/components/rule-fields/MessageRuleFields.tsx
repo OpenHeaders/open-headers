@@ -14,6 +14,7 @@
 
 import { Alert, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 import CodeEditor from '../shared/CodeEditor';
@@ -44,48 +45,52 @@ const FIELD = {
   },
 } as const;
 
-const INTRO = {
-  ws: 'Intercepts page-created WebSocket connections whose socket URL matches the conditions. Frames are modified, injected, or dropped in the page before they reach page code (incoming) or the wire (outgoing).',
-  sse: 'Intercepts page-created EventSource streams whose URL matches the conditions. Events are modified, injected, or dropped in the page before listeners see them.',
-} as const;
-
 const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
+  const t = useT();
   const paths = useActionPaths();
   const f = FIELD[kind];
-  const unit = kind === 'ws' ? 'frame' : 'event';
+  const isWs = kind === 'ws';
 
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: kind === 'ws' ? 'WebSocket Rule' : 'SSE Rule',
-            title: 'Actions',
-            summary:
-              kind === 'ws'
-                ? 'Modifies, injects, or drops WebSocket frames on matching connections before the page or the wire sees them.'
-                : 'Modifies, injects, or drops server-sent events on matching streams before listeners see them.',
+            kicker: isWs
+              ? t('workbench.editors.rule.fields.message.wsKicker')
+              : t('workbench.editors.rule.fields.message.sseKicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: isWs
+              ? t('workbench.editors.rule.fields.message.wsInfoSummary')
+              : t('workbench.editors.rule.fields.message.sseInfoSummary'),
           }}
           docId="execution"
         />
       </div>
-      <Alert type="info" showIcon style={{ marginBottom: 12, fontSize: 12 }} message={INTRO[kind]} />
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 12, fontSize: 12 }}
+        message={
+          isWs ? t('workbench.editors.rule.fields.message.wsIntro') : t('workbench.editors.rule.fields.message.sseIntro')
+        }
+      />
 
       {/* Operation */}
       <div style={{ marginBottom: 12 }}>
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-          Operation
+          {t('workbench.editors.rule.fields.message.operation')}
         </Text>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <EntityField path={paths.messageOperation}>
             <Form.Item name={f.operation} style={{ marginBottom: 0 }}>
               <Radio.Group size="small">
-                <Radio.Button value="modify">Replace</Radio.Button>
-                <Radio.Button value="inject">Inject</Radio.Button>
-                <Radio.Button value="drop">Drop</Radio.Button>
+                <Radio.Button value="modify">{t('workbench.editors.rule.fields.message.opReplace')}</Radio.Button>
+                <Radio.Button value="inject">{t('workbench.editors.rule.fields.message.opInject')}</Radio.Button>
+                <Radio.Button value="drop">{t('workbench.editors.rule.fields.message.opDrop')}</Radio.Button>
               </Radio.Group>
             </Form.Item>
           </EntityField>
@@ -97,14 +102,14 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
       {kind === 'ws' && (
         <div style={{ marginBottom: 12 }}>
           <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-            Direction
+            {t('workbench.editors.rule.fields.message.direction')}
           </Text>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <EntityField path={paths.messageDirection}>
               <Form.Item name={FIELD.ws.direction} style={{ marginBottom: 0 }}>
                 <Radio.Group>
-                  <Radio value="receive">Incoming (server → page)</Radio>
-                  <Radio value="send">Outgoing (page → server)</Radio>
+                  <Radio value="receive">{t('workbench.editors.rule.fields.message.incoming')}</Radio>
+                  <Radio value="send">{t('workbench.editors.rule.fields.message.outgoing')}</Radio>
                 </Radio.Group>
               </Form.Item>
             </EntityField>
@@ -117,17 +122,18 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
       {kind === 'sse' && (
         <div style={{ marginBottom: 12 }}>
           <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-            Event name
+            {t('workbench.editors.rule.fields.message.eventName')}
           </Text>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <EntityField path={paths.messageEventName}>
               <Form.Item name={FIELD.sse.eventName} style={{ marginBottom: 0, width: 260 }}>
-                <Input size="small" placeholder="Empty = default message events" />
+                <Input size="small" placeholder={t('workbench.editors.rule.fields.message.eventNamePlaceholder')} />
               </Form.Item>
             </EntityField>
             <ScalarConflictChip formName={FIELD.sse.eventName} schemaPath={paths.messageEventName} />
             <Text type="secondary" style={{ fontSize: 11 }}>
-              Matches the stream's <code>event:</code> field
+              {t('workbench.editors.rule.fields.message.eventFieldNoteBefore')} <code>event:</code>{' '}
+              {t('workbench.editors.rule.fields.message.eventFieldNoteAfter')}
             </Text>
           </div>
         </div>
@@ -136,7 +142,9 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
       {/* Content filter */}
       <div style={{ marginBottom: 12 }}>
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-          {kind === 'ws' ? 'Frame filter' : 'Data filter'}
+          {isWs
+            ? t('workbench.editors.rule.fields.message.frameFilter')
+            : t('workbench.editors.rule.fields.message.dataFilter')}
         </Text>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <EntityField path={paths.messageFilterType}>
@@ -144,9 +152,14 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
               <Select
                 size="small"
                 options={[
-                  { value: 'none', label: `Every ${unit}` },
-                  { value: 'contains', label: 'Contains' },
-                  { value: 'regex', label: 'Regex' },
+                  {
+                    value: 'none',
+                    label: isWs
+                      ? t('workbench.editors.rule.fields.message.everyFrame')
+                      : t('workbench.editors.rule.fields.message.everyEvent'),
+                  },
+                  { value: 'contains', label: t('workbench.editors.rule.fields.operatorContains') },
+                  { value: 'regex', label: t('workbench.editors.rule.fields.message.filterRegex') },
                 ]}
               />
             </Form.Item>
@@ -172,7 +185,9 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
           </Form.Item>
         </div>
         <Text type="secondary" style={{ fontSize: 11 }}>
-          Filters match text {unit}s only{kind === 'ws' ? ' — binary frames pass through when a filter is set' : ''}.
+          {isWs
+            ? t('workbench.editors.rule.fields.message.filterNoteWs')
+            : t('workbench.editors.rule.fields.message.filterNoteSse')}
         </Text>
       </div>
 
@@ -185,14 +200,22 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
               {operation === 'inject' && (
                 <div style={{ marginBottom: 12 }}>
                   <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-                    Inject when
+                    {t('workbench.editors.rule.fields.message.injectWhen')}
                   </Text>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <EntityField path={paths.messageInjectTrigger}>
                       <Form.Item name={f.injectTrigger} style={{ marginBottom: 0 }}>
                         <Radio.Group>
-                          <Radio value="open">{kind === 'ws' ? 'Connection opens' : 'Stream opens'}</Radio>
-                          <Radio value="message">A matching {unit} arrives</Radio>
+                          <Radio value="open">
+                            {isWs
+                              ? t('workbench.editors.rule.fields.message.connectionOpens')
+                              : t('workbench.editors.rule.fields.message.streamOpens')}
+                          </Radio>
+                          <Radio value="message">
+                            {isWs
+                              ? t('workbench.editors.rule.fields.message.matchingFrameArrives')
+                              : t('workbench.editors.rule.fields.message.matchingEventArrives')}
+                          </Radio>
                         </Radio.Group>
                       </Form.Item>
                     </EntityField>
@@ -204,7 +227,13 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                     <Text strong style={{ fontSize: 12 }}>
-                      {operation === 'inject' ? `Injected ${unit}` : `Replacement ${unit}`}
+                      {operation === 'inject'
+                        ? isWs
+                          ? t('workbench.editors.rule.fields.message.injectedFrame')
+                          : t('workbench.editors.rule.fields.message.injectedEvent')
+                        : isWs
+                          ? t('workbench.editors.rule.fields.message.replacementFrame')
+                          : t('workbench.editors.rule.fields.message.replacementEvent')}
                     </Text>
                     <ScalarConflictChip formName={f.payload} schemaPath={paths.messagePayload} />
                   </div>

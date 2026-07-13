@@ -19,17 +19,25 @@
  */
 
 import { WarningFilled } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import type { HeaderModification, QueryParamRule, Rule, RuleCondition, RuleType } from '@openheaders/core/types';
-import { type ActionValueIssue, validateActionValues } from '@openheaders/core/utils';
+import {
+  type ActionValueIssue,
+  type ActionValueIssueKind,
+  buildMessageFilter,
+  validateActionValues,
+} from '@openheaders/core/utils';
 import { Form, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 
 interface ActionValueBannerProps {
   ruleType: RuleType;
 }
 
 export const ActionValueBanner: React.FC<ActionValueBannerProps> = ({ ruleType }) => {
+  const t = useT();
   const { token } = theme.useToken();
   // Subscribe to the entire form — validators are cheap (synchronous,
   // no allocations beyond the issue array) and per-field subscriptions
@@ -67,7 +75,7 @@ export const ActionValueBanner: React.FC<ActionValueBannerProps> = ({ ruleType }
         >
           <WarningFilled style={{ color: token.colorError, fontSize: 12, marginTop: 1, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            {dedupeMessages(errors).map((line, i) => (
+            {dedupeMessages(errors, t).map((line, i) => (
               <div key={i}>{line}</div>
             ))}
           </div>
@@ -90,7 +98,7 @@ export const ActionValueBanner: React.FC<ActionValueBannerProps> = ({ ruleType }
         >
           <WarningFilled style={{ color: token.colorWarning, fontSize: 12, marginTop: 1, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            {dedupeMessages(warnings).map((line, i) => (
+            {dedupeMessages(warnings, t).map((line, i) => (
               <div key={i}>{line}</div>
             ))}
           </div>
@@ -100,13 +108,37 @@ export const ActionValueBanner: React.FC<ActionValueBannerProps> = ({ ruleType }
   );
 };
 
-function dedupeMessages(issues: readonly ActionValueIssue[]): string[] {
+/**
+ * Kind → catalog key for every action issue whose copy converted. The
+ * header-plane kinds (name / value / operation) delegate to core's
+ * shared `headers.ts` messages and render raw until that plane
+ * converts alongside the panel surface.
+ */
+const ACTION_ISSUE_KEY: Partial<Record<ActionValueIssueKind, MessageKey>> = {
+  'redirect-url-whitespace': 'workbench.editors.rule.actionIssue.redirectWhitespace',
+  'invalid-redirect-url': 'workbench.editors.rule.actionIssue.invalidRedirectUrl',
+  'inject-url-scheme': 'workbench.editors.rule.actionIssue.injectUrlScheme',
+  'inject-url-invalid': 'workbench.editors.rule.actionIssue.injectUrlInvalid',
+  'invalid-status-code': 'workbench.editors.rule.actionIssue.invalidStatusCode',
+  'invalid-param-name': 'workbench.editors.rule.actionIssue.invalidParamName',
+  'delay-above-navigation-cap': 'workbench.editors.rule.actionIssue.delayAboveNavigationCap',
+  'delay-above-fetch-cap': 'workbench.editors.rule.actionIssue.delayAboveFetchCap',
+  'invalid-content-type': 'workbench.editors.rule.actionIssue.invalidContentType',
+  'invalid-graphql-filter': 'workbench.editors.rule.actionIssue.graphqlKeyRequired',
+  'message-filter-value-required': 'workbench.editors.rule.actionIssue.messageFilterValueRequired',
+  'message-filter-invalid-regex': 'workbench.editors.rule.actionIssue.messageFilterInvalidRegex',
+  'inject-trigger-requires-filter': 'workbench.editors.rule.actionIssue.injectTriggerRequiresFilter',
+};
+
+function dedupeMessages(issues: readonly ActionValueIssue[], t: Translate): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const issue of issues) {
-    if (seen.has(issue.message)) continue;
-    seen.add(issue.message);
-    out.push(issue.message);
+    const key = ACTION_ISSUE_KEY[issue.kind];
+    const line = key ? t(key) : issue.message;
+    if (seen.has(line)) continue;
+    seen.add(line);
+    out.push(line);
   }
   return out;
 }
@@ -252,7 +284,7 @@ function assembleSyntheticRule(
         action: {
           operation: ((formValues.wsOperation as string) ?? 'modify') as 'modify' | 'inject' | 'drop',
           direction: ((formValues.wsDirection as string) ?? 'receive') as 'send' | 'receive',
-          messageFilter: syntheticMessageFilter(formValues.wsFilterType, formValues.wsFilterValue),
+          messageFilter: buildMessageFilter(formValues.wsFilterType, formValues.wsFilterValue),
           payload: (formValues.wsPayload as string) ?? '',
           injectTrigger: formValues.wsInjectTrigger as 'open' | 'message' | undefined,
         },
@@ -264,7 +296,7 @@ function assembleSyntheticRule(
         action: {
           operation: ((formValues.sseOperation as string) ?? 'modify') as 'modify' | 'inject' | 'drop',
           eventName: (formValues.sseEventName as string)?.trim() || undefined,
-          messageFilter: syntheticMessageFilter(formValues.sseFilterType, formValues.sseFilterValue),
+          messageFilter: buildMessageFilter(formValues.sseFilterType, formValues.sseFilterValue),
           payload: (formValues.ssePayload as string) ?? '',
           injectTrigger: formValues.sseInjectTrigger as 'open' | 'message' | undefined,
         },
@@ -272,17 +304,4 @@ function assembleSyntheticRule(
     default:
       return null;
   }
-}
-
-/**
- * Mirrors RuleEditor's save-path filter assembly, EXCEPT an empty value
- * with a configured filter type stays as a filter — the validator's
- * "filter value required" error must surface while the user is mid-edit.
- */
-function syntheticMessageFilter(
-  filterType: unknown,
-  filterValue: unknown,
-): { matchType: 'contains' | 'regex'; value: string } | undefined {
-  if (filterType !== 'contains' && filterType !== 'regex') return undefined;
-  return { matchType: filterType, value: (filterValue as string) ?? '' };
 }

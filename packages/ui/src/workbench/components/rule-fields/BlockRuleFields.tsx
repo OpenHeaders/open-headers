@@ -6,24 +6,26 @@
 import { StopOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import SectionInfo from '../shared/SectionInfo';
 import { getDocId } from '../docs/doc-ids';
 
 const { Text } = Typography;
 
 const BlockRuleFields: React.FC = () => {
+  const t = useT();
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: 'Block Rule',
-            title: 'Actions',
-            summary: 'Blocking cancels matching requests before they leave the browser.',
-            description: 'No action configuration is needed — the block itself is the action; conditions decide what gets blocked.',
+            kicker: t('workbench.editors.rule.fields.block.kicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: t('workbench.editors.rule.fields.block.infoSummary'),
+            description: t('workbench.editors.rule.fields.block.infoDescription'),
           }}
           docId={getDocId('block', 'action')}
         />
@@ -42,10 +44,10 @@ const BlockRuleFields: React.FC = () => {
         <StopOutlined style={{ color: 'var(--ant-color-text-tertiary)', fontSize: 16, marginTop: 2 }} />
         <div>
           <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 2 }}>
-            Block requests
+            {t('workbench.editors.rule.fields.block.title')}
           </Text>
           <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.5 }}>
-            Requests matching the conditions below will be blocked. The browser will show a network error to the page.
+            {t('workbench.editors.rule.fields.block.body')}
           </Text>
         </div>
       </div>

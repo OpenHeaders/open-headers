@@ -33,6 +33,7 @@
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import { AutoComplete, Button, Form, Input, Radio, Segmented, Select, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import CodeEditor from '../shared/CodeEditor';
 import { getDocId } from '../docs/doc-ids';
@@ -61,6 +62,7 @@ export const RESPONSE_BUILD_TEMPLATE = `function buildResponse({ method, url, re
 }`;
 
 const ResponseRuleFields: React.FC = () => {
+  const t = useT();
   const form = Form.useFormInstance();
   const paths = useActionPaths();
 
@@ -68,14 +70,14 @@ const ResponseRuleFields: React.FC = () => {
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: 'Response Rule',
-            title: 'Actions',
-            summary: 'Serves a substitute response for matching requests instead of what the server returned.',
-            description: 'Static data serves a fixed payload; Dynamic runs JavaScript against the original response.',
+            kicker: t('workbench.editors.rule.fields.response.kicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: t('workbench.editors.rule.fields.response.infoSummary'),
+            description: t('workbench.editors.rule.fields.response.infoDescription'),
           }}
           docId={() => {
             const bodyType = form.getFieldValue('responseBodyType');
@@ -88,15 +90,14 @@ const ResponseRuleFields: React.FC = () => {
       <div style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
           <Text strong style={{ fontSize: 12 }}>
-            Response source
+            {t('workbench.editors.rule.fields.response.sourceLabel')}
           </Text>
           <SectionInfo
             content={{
-              kicker: 'Response Rule',
-              title: 'Response source',
-              summary: 'Acts on fetch() and XMLHttpRequest responses for REST or GraphQL API requests.',
-              description:
-                "Mock serves your body without calling the server; Modify sends the real request and edits the reply before the page sees it.",
+              kicker: t('workbench.editors.rule.fields.response.kicker'),
+              title: t('workbench.editors.rule.fields.response.sourceLabel'),
+              summary: t('workbench.editors.rule.fields.response.sourceInfoSummary'),
+              description: t('workbench.editors.rule.fields.response.sourceInfoDescription'),
             }}
           />
         </div>
@@ -105,8 +106,8 @@ const ResponseRuleFields: React.FC = () => {
             <Segmented
               size="small"
               options={[
-                { value: 'mock', label: '⚡ Mock — no request sent' },
-                { value: 'network', label: "🌐 Modify — edit the server's reply" },
+                { value: 'mock', label: t('workbench.editors.rule.fields.response.sourceMock') },
+                { value: 'network', label: t('workbench.editors.rule.fields.response.sourceNetwork') },
               ]}
             />
           </Form.Item>
@@ -124,8 +125,8 @@ const ResponseRuleFields: React.FC = () => {
                 }}
               >
                 {isNetwork
-                  ? 'The real request is sent; your changes are applied to the reply before the page sees it.'
-                  : 'The request never leaves the browser — the page gets your response directly.'}
+                  ? t('workbench.editors.rule.fields.response.sourceNoteNetwork')
+                  : t('workbench.editors.rule.fields.response.sourceNoteMock')}
               </div>
             );
           }}
@@ -140,15 +141,14 @@ const ResponseRuleFields: React.FC = () => {
         <div style={{ flex: '0 0 140px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <Text strong style={{ fontSize: 12 }}>
-              Resource Type
+              {t('workbench.editors.rule.fields.response.resourceType')}
             </Text>
             <SectionInfo
               content={{
-                kicker: 'Response Rule',
-                title: 'Resource Type',
-                summary: 'Which API payload shape the rule targets — REST or GraphQL.',
-                description:
-                  'GraphQL unlocks an operation filter below, so the rule can match a single operation inside a shared endpoint.',
+                kicker: t('workbench.editors.rule.fields.response.kicker'),
+                title: t('workbench.editors.rule.fields.response.resourceType'),
+                summary: t('workbench.editors.rule.fields.response.resourceTypeInfoSummary'),
+                description: t('workbench.editors.rule.fields.response.resourceTypeInfoDescription'),
               }}
               docId={getDocId('response-graphql', 'action')}
             />
@@ -157,8 +157,8 @@ const ResponseRuleFields: React.FC = () => {
             <Form.Item name="responseResourceType" style={{ marginBottom: 0 }}>
               <Select
                 options={[
-                  { value: 'rest', label: 'REST API' },
-                  { value: 'graphql', label: 'GraphQL API' },
+                  { value: 'rest', label: t('workbench.editors.rule.fields.restApi') },
+                  { value: 'graphql', label: t('workbench.editors.rule.fields.graphqlApi') },
                 ]}
                 style={{ width: '100%' }}
               />
@@ -168,15 +168,14 @@ const ResponseRuleFields: React.FC = () => {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <Text strong style={{ fontSize: 12 }}>
-              Status Code
+              {t('workbench.editors.rule.fields.response.statusCode')}
             </Text>
             <SectionInfo
               content={{
-                kicker: 'Response Rule',
-                title: 'Status Code',
-                summary: 'The HTTP status served with your response.',
-                description:
-                  "Pick a code to serve, or keep the original one from the server's reply when calling the server.",
+                kicker: t('workbench.editors.rule.fields.response.kicker'),
+                title: t('workbench.editors.rule.fields.response.statusCode'),
+                summary: t('workbench.editors.rule.fields.response.statusCodeInfoSummary'),
+                description: t('workbench.editors.rule.fields.response.statusCodeInfoDescription'),
               }}
               docId={getDocId('response-static', 'action')}
             />
@@ -187,8 +186,8 @@ const ResponseRuleFields: React.FC = () => {
                 <Select
                   allowClear={{ clearIcon: <span style={{ fontSize: 12, padding: '0 4px' }}>✕</span> }}
                   showSearch
-                  placeholder="Keep original status code"
-                  options={[{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES]}
+                  placeholder={t('workbench.editors.rule.fields.response.keepOriginalStatus')}
+                  options={[{ value: 0, label: t('workbench.editors.rule.fields.response.keepOriginalStatus') }, ...STATUS_CODES]}
                   style={{ width: '100%' }}
                   filterOption={(input, option) => {
                     const label = String(option?.label ?? '');
@@ -203,15 +202,14 @@ const ResponseRuleFields: React.FC = () => {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <Text strong style={{ fontSize: 12 }}>
-              Content-Type
+              {t('workbench.editors.rule.fields.response.contentType')}
             </Text>
             <SectionInfo
               content={{
-                kicker: 'Response Rule',
-                title: 'Content-Type',
-                summary: 'The Content-Type header served with the body — controls how the browser parses it.',
-                description:
-                  "Type any value; the suggestions are a convenience. When calling the server, it overrides the real reply's Content-Type only when set.",
+                kicker: t('workbench.editors.rule.fields.response.kicker'),
+                title: t('workbench.editors.rule.fields.response.contentType'),
+                summary: t('workbench.editors.rule.fields.response.contentTypeInfoSummary'),
+                description: t('workbench.editors.rule.fields.response.contentTypeInfoDescription'),
               }}
               docId={getDocId('response-static', 'action')}
             />
@@ -240,14 +238,14 @@ const ResponseRuleFields: React.FC = () => {
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  GraphQL Operation (Request Payload Filter)
+                  {t('workbench.editors.rule.fields.graphqlFilterLabel')}
                 </Text>
                 <DocInfo docId={getDocId('response-graphql', 'action')} />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <EntityField path={paths.graphqlKey}>
                   <Form.Item name="responseGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
-                    <Input size="small" placeholder="Key e.g. operationName" />
+                    <Input size="small" placeholder={t('workbench.editors.rule.fields.graphqlKeyPlaceholder')} />
                   </Form.Item>
                 </EntityField>
                 <EntityField path={paths.graphqlOperator}>
@@ -255,15 +253,15 @@ const ResponseRuleFields: React.FC = () => {
                     <Select
                       size="small"
                       options={[
-                        { value: 'Equals', label: 'Equals' },
-                        { value: 'Contains', label: 'Contains' },
+                        { value: 'Equals', label: t('workbench.editors.rule.fields.operatorEquals') },
+                        { value: 'Contains', label: t('workbench.editors.rule.fields.operatorContains') },
                       ]}
                     />
                   </Form.Item>
                 </EntityField>
                 <EntityField path={paths.graphqlValue}>
                   <Form.Item name="responseGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
-                    <Input size="small" placeholder="value e.g. getUsers" />
+                    <Input size="small" placeholder={t('workbench.editors.rule.fields.graphqlValuePlaceholder')} />
                   </Form.Item>
                 </EntityField>
                 <Button
@@ -277,7 +275,7 @@ const ResponseRuleFields: React.FC = () => {
                     });
                   }}
                 >
-                  Reset
+                  {t('workbench.editors.rule.fields.reset')}
                 </Button>
               </div>
             </div>
@@ -295,18 +293,17 @@ const ResponseRuleFields: React.FC = () => {
       <div style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
           <Text strong style={{ fontSize: 12 }}>
-            Response Headers
+            {t('workbench.editors.rule.fields.response.headersLabel')}
           </Text>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            (optional)
+            {t('workbench.editors.rule.fields.optionalTag')}
           </Text>
           <SectionInfo
             content={{
-              kicker: 'Response Rule',
-              title: 'Response Headers',
-              summary: 'Extra headers served alongside Content-Type.',
-              description:
-                "When calling the server these merge over the real reply's headers; when mocking they become the reply's headers. Empty rows are dropped on save.",
+              kicker: t('workbench.editors.rule.fields.response.kicker'),
+              title: t('workbench.editors.rule.fields.response.headersLabel'),
+              summary: t('workbench.editors.rule.fields.response.headersInfoSummary'),
+              description: t('workbench.editors.rule.fields.response.headersInfoDescription'),
             }}
             docId={getDocId('response-static', 'action')}
           />
@@ -340,7 +337,7 @@ const ResponseRuleFields: React.FC = () => {
                             name={[field.name, 'name']}
                             style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                           >
-                            <Input size="small" placeholder="Header name (e.g. X-Custom)" />
+                            <Input size="small" placeholder={t('workbench.editors.rule.fields.response.headerNamePlaceholder')} />
                           </Form.Item>,
                         )}
                         {wrap(
@@ -352,7 +349,7 @@ const ResponseRuleFields: React.FC = () => {
                           >
                             <TemplateInput
                               size="small"
-                              placeholder="Header value"
+                              placeholder={t('workbench.editors.rule.fields.response.headerValuePlaceholder')}
                               wrap
                               maxRows={4}
                               resizable
@@ -379,7 +376,7 @@ const ResponseRuleFields: React.FC = () => {
                 onClick={() => add({ name: '', value: '' })}
                 style={{ fontSize: 12 }}
               >
-                Add header
+                {t('workbench.editors.rule.fields.response.addHeader')}
               </Button>
             </>
           )}
@@ -390,15 +387,14 @@ const ResponseRuleFields: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Text strong style={{ fontSize: 12 }}>
-              Response Body
+              {t('workbench.editors.rule.fields.response.bodyLabel')}
             </Text>
             <SectionInfo
               content={{
-                kicker: 'Response Rule',
-                title: 'Response Body',
-                summary: 'The payload served to the page for matching requests.',
-                description:
-                  'Static Data serves a fixed body; Dynamic (JavaScript) builds or transforms it at request time.',
+                kicker: t('workbench.editors.rule.fields.response.kicker'),
+                title: t('workbench.editors.rule.fields.response.bodyLabel'),
+                summary: t('workbench.editors.rule.fields.response.bodyInfoSummary'),
+                description: t('workbench.editors.rule.fields.response.bodyInfoDescription'),
               }}
               docId={() => {
                 const bodyType = form.getFieldValue('responseBodyType');
@@ -410,10 +406,10 @@ const ResponseRuleFields: React.FC = () => {
             <Form.Item name="responseBodyType" style={{ marginBottom: 0 }}>
               <Radio.Group size="small">
                 <Radio.Button value="static">
-                  Static Data <DocInfo docId={getDocId('response-static', 'action')} />
+                  {t('workbench.editors.rule.fields.staticData')} <DocInfo docId={getDocId('response-static', 'action')} />
                 </Radio.Button>
                 <Radio.Button value="dynamic">
-                  Dynamic (JavaScript) <DocInfo docId={getDocId('response-dynamic', 'action')} />
+                  {t('workbench.editors.rule.fields.dynamicJs')} <DocInfo docId={getDocId('response-dynamic', 'action')} />
                 </Radio.Button>
               </Radio.Group>
             </Form.Item>
@@ -448,15 +444,15 @@ const ResponseRuleFields: React.FC = () => {
                   >
                     {isNetwork ? (
                       <>
-                        The real request is made first. Your <code>modifyResponse()</code> function receives the response
-                        and request context, then returns the modified response. Return a string or an object
-                        (auto-serialized to JSON).
+                        {t('workbench.editors.rule.fields.response.dynNetworkBefore')} <code>modifyResponse()</code>{' '}
+                        {t('workbench.editors.rule.fields.response.dynNetworkAfter')}
                       </>
                     ) : (
                       <>
-                        No request is sent. Your <code>buildResponse()</code> function receives{' '}
-                        <code>{'{method, url, requestBody}'}</code> and returns the response body. Return a string or an
-                        object (auto-serialized to JSON).
+                        {t('workbench.editors.rule.fields.response.dynMockBefore')} <code>buildResponse()</code>{' '}
+                        {t('workbench.editors.rule.fields.response.dynMockMid')}{' '}
+                        <code>{'{method, url, requestBody}'}</code>{' '}
+                        {t('workbench.editors.rule.fields.response.dynMockAfter')}
                       </>
                     )}
                   </div>

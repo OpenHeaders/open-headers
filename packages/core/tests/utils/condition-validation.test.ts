@@ -230,19 +230,19 @@ describe('validateConditionValues', () => {
 
     it('flags whitespace inside the pattern', () => {
       const issues = validateConditionValues(cond('url-filter', ['*://api openheaders io/*']));
-      expect(issues[0]).toMatchObject({ kind: 'invalid-url-filter', severity: 'error' });
+      expect(issues[0]).toMatchObject({ kind: 'url-filter-whitespace', severity: 'error' });
       expect(issues[0].message.toLowerCase()).toContain('whitespace');
     });
 
     it('flags non-ASCII characters and suggests punycode', () => {
       const issues = validateConditionValues(cond('url-filter', ['*://éxample.com/*']));
-      expect(issues[0]).toMatchObject({ kind: 'invalid-url-filter', severity: 'error' });
+      expect(issues[0]).toMatchObject({ kind: 'url-filter-non-ascii', severity: 'error' });
       expect(issues[0].message).toContain('punycode');
     });
 
     it('warns when the pattern looks like a regex', () => {
       const issues = validateConditionValues(cond('url-filter', ['^https://(api|cdn)\\.openheaders\\.io/.*']));
-      expect(issues[0]).toMatchObject({ kind: 'invalid-url-filter', severity: 'warning' });
+      expect(issues[0]).toMatchObject({ kind: 'url-filter-regex-syntax', severity: 'warning' });
       expect(issues[0].message).toContain('URL Regex');
     });
 
@@ -260,12 +260,12 @@ describe('validateConditionValues', () => {
 
     it('still warns on quantifiers outside a literal URL shape', () => {
       const issues = validateConditionValues(cond('url-filter', ['wss?://openheaders.io/live']));
-      expect(issues[0]).toMatchObject({ kind: 'invalid-url-filter', severity: 'warning' });
+      expect(issues[0]).toMatchObject({ kind: 'url-filter-regex-syntax', severity: 'warning' });
     });
 
     it('still warns on strong regex tells inside a literal URL shape', () => {
       const issues = validateConditionValues(cond('url-filter', ['https://openheaders.io/(v1|v2)/api']));
-      expect(issues[0]).toMatchObject({ kind: 'invalid-url-filter', severity: 'warning' });
+      expect(issues[0]).toMatchObject({ kind: 'url-filter-regex-syntax', severity: 'warning' });
     });
 
     it('does not lex template references', () => {
@@ -291,13 +291,13 @@ describe('validateConditionValues', () => {
 
     it('warns about lookbehind assertions (RE2 unsupported)', () => {
       const issues = validateConditionValues(cond('url-regex', ['(?<=foo)bar']));
-      expect(issues[0]).toMatchObject({ kind: 'unsupported-regex-feature', severity: 'warning' });
+      expect(issues[0]).toMatchObject({ kind: 'regex-lookbehind', severity: 'warning' });
       expect(issues[0].message).toContain('lookbehind');
     });
 
     it('warns about Python-style named groups (RE2 unsupported)', () => {
       const issues = validateConditionValues(cond('url-regex', ['(?P<name>foo)']));
-      expect(issues[0]).toMatchObject({ kind: 'unsupported-regex-feature', severity: 'warning' });
+      expect(issues[0]).toMatchObject({ kind: 'regex-named-group', severity: 'warning' });
     });
 
     it('skips templates', () => {

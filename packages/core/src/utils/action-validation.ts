@@ -40,13 +40,19 @@ export type ActionValueIssueKind =
   | 'invalid-header-name'
   | 'invalid-header-value'
   | 'invalid-header-operation'
-  | 'invalid-url'
+  | 'redirect-url-whitespace'
+  | 'invalid-redirect-url'
+  | 'inject-url-scheme'
+  | 'inject-url-invalid'
   | 'invalid-status-code'
   | 'invalid-param-name'
-  | 'delay-out-of-range'
+  | 'delay-above-navigation-cap'
+  | 'delay-above-fetch-cap'
   | 'invalid-content-type'
   | 'invalid-graphql-filter'
-  | 'invalid-message-filter';
+  | 'message-filter-value-required'
+  | 'message-filter-invalid-regex'
+  | 'inject-trigger-requires-filter';
 
 export type ActionValueSeverity = 'error' | 'warning';
 
@@ -220,7 +226,7 @@ function validateRedirectAction(rule: RedirectRule): ActionValueIssue[] {
     out.push({
       path: 'redirectTo',
       raw: target,
-      kind: 'invalid-url',
+      kind: 'redirect-url-whitespace',
       severity: 'error',
       message: 'Redirect target cannot contain whitespace.',
     });
@@ -231,7 +237,7 @@ function validateRedirectAction(rule: RedirectRule): ActionValueIssue[] {
     out.push({
       path: 'redirectTo',
       raw: target,
-      kind: 'invalid-url',
+      kind: 'invalid-redirect-url',
       severity: 'error',
       message: 'Redirect target must be a full URL (http://, https://, chrome-extension://) or a path starting with /.',
     });
@@ -302,7 +308,7 @@ function validateInjectAction(rule: InjectRule): ActionValueIssue[] {
       out.push({
         path: 'sourceUrl',
         raw: url,
-        kind: 'invalid-url',
+        kind: 'inject-url-scheme',
         severity: 'error',
         message: 'Source URL must use http://, https://, or chrome-extension://.',
       });
@@ -311,7 +317,7 @@ function validateInjectAction(rule: InjectRule): ActionValueIssue[] {
     out.push({
       path: 'sourceUrl',
       raw: url,
-      kind: 'invalid-url',
+      kind: 'inject-url-invalid',
       severity: 'error',
       message: 'Source URL is not a valid URL.',
     });
@@ -339,7 +345,7 @@ function validateDelayAction(rule: DelayRule): ActionValueIssue[] {
     out.push({
       path: 'delayMs',
       raw: String(ms),
-      kind: 'delay-out-of-range',
+      kind: 'delay-above-navigation-cap',
       severity: 'warning',
       message: `Main-frame delay is capped at ${DNR_DELAY_MAX_MS}ms; values above are clamped on the wire.`,
     });
@@ -347,7 +353,7 @@ function validateDelayAction(rule: DelayRule): ActionValueIssue[] {
     out.push({
       path: 'delayMs',
       raw: String(ms),
-      kind: 'delay-out-of-range',
+      kind: 'delay-above-fetch-cap',
       severity: 'warning',
       message: `XHR/fetch monkey-patch caps delays at ${SCRIPTABLE_DELAY_MAX_MS}ms to avoid HTTP connection-pool starvation. Main-frame redirects honor up to ${DNR_DELAY_MAX_MS}ms.`,
     });
@@ -442,7 +448,7 @@ function validateMessageAction(action: WsRule['action'] | SseRule['action']): Ac
       out.push({
         path: 'messageFilter.value',
         raw: '',
-        kind: 'invalid-message-filter',
+        kind: 'message-filter-value-required',
         severity: 'error',
         message: 'Message filter value is required when a filter is configured.',
       });
@@ -453,7 +459,7 @@ function validateMessageAction(action: WsRule['action'] | SseRule['action']): Ac
         out.push({
           path: 'messageFilter.value',
           raw: value,
-          kind: 'invalid-message-filter',
+          kind: 'message-filter-invalid-regex',
           severity: 'error',
           message: 'Message filter is not a valid regular expression.',
         });
@@ -465,7 +471,7 @@ function validateMessageAction(action: WsRule['action'] | SseRule['action']): Ac
     out.push({
       path: 'injectTrigger',
       raw: 'message',
-      kind: 'invalid-message-filter',
+      kind: 'inject-trigger-requires-filter',
       severity: 'error',
       message: 'Injecting after a matching message requires a message filter.',
     });

@@ -51,6 +51,7 @@ import {
 import { Button, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ConflictDiffChip, EntityField, SetRowConflictChip, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useFieldConflicts } from '@openheaders/ui/shared/conflicts/Field';
 import { getDocId } from '../docs/doc-ids';
@@ -135,6 +136,7 @@ function ConditionSetRowChip({
 // ── Component ────────────────────────────────────────────────────
 
 const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange }) => {
+  const t = useT();
   const paths = useActionPaths();
   const { token } = theme.useToken();
 
@@ -242,7 +244,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
     >
       {value.length === 0 && (
         <div style={{ padding: '12px 16px', color: token.colorTextTertiary, fontSize: 12, textAlign: 'center' }}>
-          No conditions — rule will not match any requests
+          {t('workbench.editors.rule.condition.empty')}
         </div>
       )}
 
@@ -280,7 +282,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {/* AND badge — connector between rows. */}
               {index > 0 && (
-                <Tooltip title="Rows combine with AND — every row must match for the rule to fire. Each row targets a different DNR field, so AND across rows is exact. To OR multiple values within one field, list them inside one row (see the row's OR badge).">
+                <Tooltip title={t('workbench.editors.rule.condition.andTooltip')}>
                   <Tag
                     color="blue"
                     style={{
@@ -294,14 +296,14 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                       cursor: 'help',
                     }}
                   >
-                    AND
+                    {t('workbench.editors.rule.condition.andTag')}
                   </Tag>
                 </Tooltip>
               )}
 
               {/* Exclude indicator */}
               {isExclude && (
-                <Tooltip title="This is an exclusion condition — the rule fires only when NONE of the listed values match.">
+                <Tooltip title={t('workbench.editors.rule.condition.notTooltip')}>
                   <Tag
                     color="warning"
                     style={{
@@ -314,7 +316,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                       cursor: 'help',
                     }}
                   >
-                    NOT
+                    {t('workbench.editors.rule.condition.notTag')}
                   </Tag>
                 </Tooltip>
               )}
@@ -327,7 +329,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                   onChange={(type) => handleTypeChange(index, type)}
                   style={{ width: 160, flexShrink: 0 }}
                   popupMatchSelectWidth={240}
-                  options={buildTypeOptions(value, index)}
+                  options={buildTypeOptions(value, index, t)}
                 />
               </EntityField>
               <DocInfo docId={getDocId(condition.type, 'condition')} />
@@ -337,7 +339,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 <EntityField path={paths.condition(condition.uid, 'headerName')}>
                   <TemplateInput
                     size="small"
-                    placeholder="Header name equals..."
+                    placeholder={t('workbench.editors.rule.condition.headerNamePlaceholder')}
                     wrap
                     maxRows={4}
                     resizable
@@ -361,7 +363,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                     onChange={(vals) => updateCondition(index, { values: vals })}
                     style={{ flex: 1, minWidth: 0 }}
                     options={HTTP_METHODS.map((v) => ({ value: v, label: v }))}
-                    placeholder="Select methods"
+                    placeholder={t('workbench.editors.rule.condition.selectMethods')}
                     maxTagCount="responsive"
                   />
                 ) : def?.inputType === 'multi-select-resources' ? (
@@ -372,7 +374,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                     onChange={(vals) => updateCondition(index, { values: vals })}
                     style={{ flex: 1, minWidth: 0 }}
                     options={RESOURCE_TYPES.map((v) => ({ value: v, label: v }))}
-                    placeholder="Select types"
+                    placeholder={t('workbench.editors.rule.condition.selectTypes')}
                     maxTagCount="responsive"
                   />
                 ) : def?.inputType === 'single-select-domain-type' ? (
@@ -381,8 +383,8 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                     value={condition.values[0]}
                     onChange={(val) => updateCondition(index, { values: [val] })}
                     style={{ width: 140, flexShrink: 0 }}
-                    options={DOMAIN_TYPES}
-                    placeholder="Select type"
+                    options={DOMAIN_TYPES.map((d) => ({ value: d.value, label: t(d.labelKey) }))}
+                    placeholder={t('workbench.editors.rule.condition.selectType')}
                   />
                 ) : (
                   (() => {
@@ -401,7 +403,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                         maxRows={4}
                         resizable
                         allowClear
-                        placeholder={def?.placeholder ?? 'value'}
+                        placeholder={def?.placeholder ?? t('workbench.editors.rule.condition.valuePlaceholder')}
                         value={condition.values.join(isDomainList ? ', ' : ', ')}
                         onChange={(next) => handleValuesText(index, next)}
                         style={{ flex: 1, minWidth: 0, ...(isDomainList ? { minHeight: 32 } : null) }}
@@ -455,8 +457,8 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 style={{ color: token.colorTextTertiary, flexShrink: 0 }}
               />
             </div>
-            {structuralIssues.length > 0 && <StructuralIssueBanner issues={structuralIssues} />}
-            {valueIssues.length > 0 && <ValueIssueBanner issues={valueIssues} />}
+            {structuralIssues.length > 0 && <StructuralIssueBanner issues={structuralIssues} conditions={value} />}
+            {valueIssues.length > 0 && <ValueIssueBanner issues={valueIssues} conditionType={condition.type} />}
             {domainIssues.length > 0 && (
               <DomainIssueBanner
                 issues={domainIssues}
@@ -477,7 +479,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
         }}
       >
         <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={addCondition} style={{ fontSize: 12 }}>
-          Add condition
+          {t('workbench.editors.rule.condition.add')}
         </Button>
       </div>
     </div>

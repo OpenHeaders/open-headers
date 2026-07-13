@@ -20,6 +20,7 @@
 import { CheckOutlined, MoreOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Divider, Dropdown, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import type { EditorLifecycleStatus, EditorShellHeaderWiring } from '@openheaders/ui/shared/editor-shell';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
@@ -64,6 +65,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
   const wiring = shell as unknown as
     | { isDirty: boolean; isPublished?: boolean; status: EditorLifecycleStatus; onSave: () => void }
     | undefined;
+  const t = useT();
   const isDirty = !!wiring?.isDirty;
   const onSave = wiring?.onSave;
   const { token } = theme.useToken();
@@ -96,20 +98,20 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
     {
       key: 'editor-header-top',
       icon: menuIconWrap(<LayoutMenuIcon kind="header-top" />),
-      label: positionLabel('Header on Top', !atBottom),
+      label: positionLabel(t('workbench.editors.header.onTop'), !atBottom),
       onClick: () => setHeaderPosition('top'),
     },
     {
       key: 'editor-header-bottom',
       icon: menuIconWrap(<LayoutMenuIcon kind="header-bottom" />),
-      label: positionLabel('Header at Bottom', atBottom),
+      label: positionLabel(t('workbench.editors.header.atBottom'), atBottom),
       onClick: () => setHeaderPosition('bottom'),
     },
   ];
 
   const saveDisabled = !isDirty;
   const saveAccent = isDirty;
-  const saveLabelText = isDirty ? 'Save' : 'Saved';
+  const saveLabelText = isDirty ? t('shared.action.save') : t('workbench.editors.header.saved');
 
   return (
     <div
@@ -123,7 +125,10 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
         {actions}
         {actions != null && <Divider type="vertical" style={{ margin: '0 4px', height: 20 }} />}
         {onSave && (
-          <Tooltip title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>} placement={popupPlacement}>
+          <Tooltip
+            title={<ShortcutHintTitle label={saveLabel}>{t('shared.action.save')}</ShortcutHintTitle>}
+            placement={popupPlacement}
+          >
             <Button
               size="small"
               type="primary"
@@ -148,7 +153,12 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
           placement={popupPlacement}
           overlayStyle={{ minWidth: 220 }}
         >
-          <Button size="small" icon={<MoreOutlined />} style={{ fontSize: 11 }} aria-label="More actions" />
+          <Button
+            size="small"
+            icon={<MoreOutlined />}
+            style={{ fontSize: 11 }}
+            aria-label={t('workbench.editors.header.moreActions')}
+          />
         </Dropdown>
       </div>
     </div>

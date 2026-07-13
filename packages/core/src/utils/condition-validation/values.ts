@@ -22,9 +22,12 @@ import { validateHeaderName } from '../headers';
 
 export type ConditionValueIssueKind =
   | 'empty'
-  | 'invalid-url-filter'
+  | 'url-filter-whitespace'
+  | 'url-filter-non-ascii'
+  | 'url-filter-regex-syntax'
   | 'invalid-url-regex'
-  | 'unsupported-regex-feature'
+  | 'regex-lookbehind'
+  | 'regex-named-group'
   | 'invalid-method'
   | 'invalid-resource-type'
   | 'invalid-domain-type'
@@ -45,6 +48,9 @@ export interface ConditionValueIssue {
   severity: ConditionValueSeverity;
   /** Human-readable message suitable for inline display. */
   message: string;
+  /** Engine-supplied detail for `invalid-url-regex` — the raw parse
+   *  reason from `new RegExp()`, rendered verbatim by the UI. */
+  detail?: string;
 }
 
 const VALID_METHODS: ReadonlySet<string> = new Set([
@@ -178,7 +184,7 @@ function validateUrlFilter(values: readonly string[]): ConditionValueIssue[] {
       out.push({
         valueIndex: i,
         raw,
-        kind: 'invalid-url-filter',
+        kind: 'url-filter-whitespace',
         severity: 'error',
         message: 'URL pattern cannot contain whitespace — Chrome rejects rules with spaces in url-filter.',
       });
@@ -188,7 +194,7 @@ function validateUrlFilter(values: readonly string[]): ConditionValueIssue[] {
       out.push({
         valueIndex: i,
         raw,
-        kind: 'invalid-url-filter',
+        kind: 'url-filter-non-ascii',
         severity: 'error',
         message:
           'URL pattern contains non-ASCII characters — Chrome rejects them. Use punycode (xn--…) for IDN hostnames.',
@@ -203,7 +209,7 @@ function validateUrlFilter(values: readonly string[]): ConditionValueIssue[] {
       out.push({
         valueIndex: i,
         raw,
-        kind: 'invalid-url-filter',
+        kind: 'url-filter-regex-syntax',
         severity: 'warning',
         message:
           'This looks like a regex — in URL Pattern, characters like `(`, `[`, `+`, `?`, `\\d` are matched literally. Switch to URL Regex if you need regex syntax.',
@@ -215,9 +221,9 @@ function validateUrlFilter(values: readonly string[]): ConditionValueIssue[] {
 
 // ── url-regex ────────────────────────────────────────────────────
 
-const RE2_UNSUPPORTED: Array<{ probe: RegExp; label: string }> = [
-  { probe: /\(\?<[=!]/, label: 'lookbehind assertions ((?<=…), (?<!…))' },
-  { probe: /\(\?P</, label: 'Python-style named groups ((?P<name>…))' },
+const RE2_UNSUPPORTED: Array<{ probe: RegExp; kind: 'regex-lookbehind' | 'regex-named-group'; label: string }> = [
+  { probe: /\(\?<[=!]/, kind: 'regex-lookbehind', label: 'lookbehind assertions ((?<=…), (?<!…))' },
+  { probe: /\(\?P</, kind: 'regex-named-group', label: 'Python-style named groups ((?P<name>…))' },
 ];
 
 function validateUrlRegex(values: readonly string[]): ConditionValueIssue[] {
@@ -238,12 +244,12 @@ function validateUrlRegex(values: readonly string[]): ConditionValueIssue[] {
     // actionable. Lookbehinds compile under modern JS but still trip
     // RE2 — that branch isn't masked by JS, only by ordering.
     let flaggedRe2 = false;
-    for (const { probe, label } of RE2_UNSUPPORTED) {
+    for (const { probe, kind, label } of RE2_UNSUPPORTED) {
       if (probe.test(trimmed)) {
         out.push({
           valueIndex: i,
           raw,
-          kind: 'unsupported-regex-feature',
+          kind,
           severity: 'warning',
           message: `Chrome's regex engine (RE2) does not support ${label}. The rule may fail to load.`,
         });
@@ -266,6 +272,7 @@ function validateUrlRegex(values: readonly string[]): ConditionValueIssue[] {
         kind: 'invalid-url-regex',
         severity: 'error',
         message: `Invalid regex: ${reason}`,
+        detail: reason,
       });
     }
   }

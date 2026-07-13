@@ -9,12 +9,14 @@ import type { Catalog } from '../../types';
 import { popup } from './popup';
 import { shared } from './shared';
 import { workbench } from './workbench';
+import { workbenchEditors } from './workbench-editors';
 import { workbenchSettings } from './workbench-settings';
 
 export const en = {
   ...shared,
   ...popup,
   ...workbench,
+  ...workbenchEditors,
   ...workbenchSettings,
 } as const satisfies Catalog;
 

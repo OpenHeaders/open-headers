@@ -34,17 +34,19 @@ import { VariableResolver } from '@openheaders/core/variables';
 import { Alert, Form, Space, Tag, Typography } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { collectTemplateStrings } from '../../variable-references';
 
 const { Text } = Typography;
 
-const REASON_LABEL: Record<ResolutionError['reason'], string> = {
-  unresolved: 'unresolved',
-  'unset-in-scope': 'not in scope',
-  'unknown-namespace': 'unknown namespace',
-  'step-out-of-context': 'step ref out of scope',
-  empty: 'empty',
-  'invalid-resolved-value': 'invalid value',
+const REASON_LABEL_KEY: Record<ResolutionError['reason'], MessageKey> = {
+  unresolved: 'workbench.editors.rule.resolution.reason.unresolved',
+  'unset-in-scope': 'workbench.editors.rule.resolution.reason.unsetInScope',
+  'unknown-namespace': 'workbench.editors.rule.resolution.reason.unknownNamespace',
+  'step-out-of-context': 'workbench.editors.rule.resolution.reason.stepOutOfContext',
+  empty: 'workbench.editors.rule.resolution.reason.empty',
+  'invalid-resolved-value': 'workbench.editors.rule.resolution.reason.invalidResolvedValue',
 };
 
 interface RuleResolutionBannerProps {
@@ -61,6 +63,7 @@ interface RuleResolutionBannerProps {
  * values via `Form.useWatch` and recomputes errors on every change.
  */
 const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionId }) => {
+  const t = useT();
   const values = Form.useWatch<Record<string, unknown>>([], { preserve: true });
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
   const { localCollections } = useRules();
@@ -124,8 +127,9 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
     >();
     const envName =
       activeEnvironmentId === null
-        ? 'No environment'
-        : (environments.find((e) => e.uid === activeEnvironmentId)?.name ?? 'active env');
+        ? t('workbench.editors.rule.resolution.noEnvironment')
+        : (environments.find((e) => e.uid === activeEnvironmentId)?.name ??
+          t('workbench.editors.rule.resolution.activeEnvFallback'));
     for (const lv of liveVariables) {
       const runs = liveCaches[lv.workflowUid] ?? [];
       const hasActiveEnvRun = runs.some((r) => r.environmentId === activeEnvironmentId);
@@ -142,7 +146,7 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
       out.set(lv.name, { kind: 'no-cache-for-env', envName });
     }
     return out;
-  }, [liveVariables, liveCaches, activeEnvironmentId, environments]);
+  }, [liveVariables, liveCaches, activeEnvironmentId, environments, t]);
 
   const resolver = useMemo(() => {
     const r = new VariableResolver();
@@ -188,11 +192,7 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
       type="warning"
       showIcon
       style={{ marginBottom: 12 }}
-      message={
-        <Text strong>
-          {errors.length} unresolved {errors.length === 1 ? 'variable' : 'variables'} in this rule
-        </Text>
-      }
+      message={<Text strong>{t('workbench.editors.rule.resolution.header', { count: errors.length })}</Text>}
       description={
         <Space direction="vertical" size={4} style={{ width: '100%' }}>
           {errors.map((err) => {
@@ -206,18 +206,21 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
                 ? err.reference
                 : null;
             const liveDx = liveBareName ? liveDiagnostics.get(liveBareName) : undefined;
+            // `err.hint` stays the resolver's raw English — the shared
+            // resolution-hint plane (SW status pill + popup) converts as
+            // one unit in a later slice.
             const enrichedHint =
               liveDx?.kind === 'no-cache-for-env'
-                ? `no cached run for env "${liveDx.envName}" — open the workflow and click Refresh under this env to populate`
+                ? t('workbench.editors.rule.resolution.hint.noCacheForEnv', { envName: liveDx.envName })
                 : liveDx?.kind === 'disabled-lv'
-                  ? `live variable is disabled — enable it in the Live Variables editor`
+                  ? t('workbench.editors.rule.resolution.hint.disabledLv')
                   : liveDx?.kind === 'draft-lv'
-                    ? `live variable is a draft — open it and click Save to publish`
+                    ? t('workbench.editors.rule.resolution.hint.draftLv')
                     : err.hint;
             return (
               <div key={err.reference} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                 <Tag color="warning" style={{ fontSize: 10, marginTop: 2, minWidth: 88, textAlign: 'center' }}>
-                  {REASON_LABEL[err.reason]}
+                  {t(REASON_LABEL_KEY[err.reason])}
                 </Tag>
                 <Text style={{ fontSize: 12 }}>
                   <Text code style={{ fontSize: 12 }}>{`{{${err.reference}}}`}</Text>

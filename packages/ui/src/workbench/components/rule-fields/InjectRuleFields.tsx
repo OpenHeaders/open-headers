@@ -17,6 +17,7 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Checkbox, Form, type FormInstance, Input, Select, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../shared/CodeEditor';
@@ -53,6 +54,7 @@ export function maybePrefillInjectCode(form: FormInstance, injectType: unknown):
 }
 
 const InjectRuleFields: React.FC = () => {
+  const t = useT();
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const paths = useActionPaths();
@@ -61,13 +63,13 @@ const InjectRuleFields: React.FC = () => {
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: 'Inject Rule',
-            title: 'Actions',
-            summary: 'Injects a script or stylesheet into matching pages as they load.',
+            kicker: t('workbench.editors.rule.fields.inject.kicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: t('workbench.editors.rule.fields.inject.infoSummary'),
           }}
           docId={() =>
             getDocId(form.getFieldValue('injectType') === 'css' ? 'inject-css' : 'inject-script', 'action')
@@ -78,7 +80,7 @@ const InjectRuleFields: React.FC = () => {
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            Language:
+            {t('workbench.editors.rule.fields.inject.language')}
           </Text>
           <EntityField path={paths.injectType}>
             <Form.Item name="injectType" style={{ marginBottom: 0 }}>
@@ -96,7 +98,7 @@ const InjectRuleFields: React.FC = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            Code Source:
+            {t('workbench.editors.rule.fields.inject.codeSource')}
           </Text>
           <EntityField path={paths.injectSource}>
             <Form.Item name="injectSource" style={{ marginBottom: 0 }}>
@@ -105,8 +107,8 @@ const InjectRuleFields: React.FC = () => {
                 style={{ width: 90 }}
                 options={[
                   // TitleCase to match Header/QueryParam editor convention.
-                  { value: 'code', label: 'Code' },
-                  { value: 'url', label: 'URL' },
+                  { value: 'code', label: t('workbench.editors.rule.fields.inject.sourceCode') },
+                  { value: 'url', label: t('workbench.editors.rule.fields.inject.sourceUrl') },
                 ]}
               />
             </Form.Item>
@@ -119,7 +121,7 @@ const InjectRuleFields: React.FC = () => {
             return (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Text type="secondary" style={{ fontSize: 11 }}>
-                  Insert:
+                  {t('workbench.editors.rule.fields.inject.insert')}
                 </Text>
                 <EntityField path={paths.injectPosition}>
                   <Form.Item name="injectPosition" style={{ marginBottom: 0 }}>
@@ -127,8 +129,8 @@ const InjectRuleFields: React.FC = () => {
                       size="small"
                       style={{ width: 170 }}
                       options={[
-                        { value: 'body-end', label: 'After Page Load' },
-                        { value: 'head', label: 'As Soon As Possible' },
+                        { value: 'body-end', label: t('workbench.editors.rule.fields.inject.afterPageLoad') },
+                        { value: 'head', label: t('workbench.editors.rule.fields.inject.asSoonAsPossible') },
                       ]}
                     />
                   </Form.Item>
@@ -153,18 +155,18 @@ const InjectRuleFields: React.FC = () => {
             return (
               <div style={{ marginBottom: 16 }}>
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-                  Source
+                  {t('workbench.editors.rule.fields.inject.source')}
                 </Text>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                   <EntityField path={paths.injectSourceUrl}>
                     <Form.Item name="injectSourceUrl" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-                      <Input size="small" placeholder="Enter Source URL (relative or absolute)" />
+                      <Input size="small" placeholder={t('workbench.editors.rule.fields.inject.sourceUrlPlaceholder')} />
                     </Form.Item>
                   </EntityField>
                   <ScalarConflictChip formName="injectSourceUrl" schemaPath={paths.injectSourceUrl} />
                 </div>
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-                  Code
+                  {t('workbench.editors.rule.fields.inject.code')}
                 </Text>
                 <CodeEditor language={language} value={urlPreview} readOnly minHeight={100} />
               </div>
@@ -174,7 +176,7 @@ const InjectRuleFields: React.FC = () => {
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <Text type="secondary" style={{ fontSize: 11 }}>
-                  Code
+                  {t('workbench.editors.rule.fields.inject.code')}
                 </Text>
                 <ScalarConflictChip formName="injectCode" schemaPath={paths.injectCode} />
               </div>
@@ -191,7 +193,7 @@ const InjectRuleFields: React.FC = () => {
       {/* CSP Bypass */}
       <Form.Item name="injectBypassCSP" valuePropName="checked" style={{ marginBottom: 0 }}>
         <Checkbox>
-          <Text style={{ fontSize: 12 }}>Bypass Content-Security-Policy so injected scripts always execute</Text>
+          <Text style={{ fontSize: 12 }}>{t('workbench.editors.rule.fields.inject.bypassCsp')}</Text>
         </Checkbox>
       </Form.Item>
       {/* Degraded-coverage hint — JS only (CSS injection is CSP-exempt by itself). */}

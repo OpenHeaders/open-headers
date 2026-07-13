@@ -8,6 +8,7 @@
  */
 
 import type { RuleCondition } from '@openheaders/core/types';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   QuickConditionsRow,
   summarizeConditions,
@@ -22,6 +23,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 
 const testIdentity = resolveWorkbenchIdentity();
+const t = getTranslator(DEFAULT_LOCALE);
 
 beforeAll(() => {
   class ResizeObserverStub implements ResizeObserver {
@@ -55,23 +57,23 @@ function renderRow(value: RuleCondition[], onChange = vi.fn()) {
 
 describe('summarizeConditions', () => {
   it('digests each row as "<type label> <values>"', () => {
-    expect(summarizeConditions(CONDITIONS)).toBe('URL Pattern *://api.openheaders.io/* · Methods GET, POST');
+    expect(summarizeConditions(CONDITIONS, t)).toBe('URL Pattern *://api.openheaders.io/* · Methods GET, POST');
   });
 
   it('renders the domain-type enum by its display label', () => {
-    expect(summarizeConditions([{ uid: 'c1', type: 'domain-type', values: ['thirdParty'] }])).toBe(
+    expect(summarizeConditions([{ uid: 'c1', type: 'domain-type', values: ['thirdParty'] }], t)).toBe(
       'Domain Type Third-party',
     );
   });
 
   it('includes the header name on per-header rows', () => {
     expect(
-      summarizeConditions([{ uid: 'c1', type: 'response-header', headerName: 'content-type', values: ['json'] }]),
+      summarizeConditions([{ uid: 'c1', type: 'response-header', headerName: 'content-type', values: ['json'] }], t),
     ).toBe('Response Header content-type: json');
   });
 
   it('states the matches-nothing consequence for an empty list', () => {
-    expect(summarizeConditions([])).toBe('none — matches no requests');
+    expect(summarizeConditions([], t)).toBe('none — matches no requests');
   });
 });
 

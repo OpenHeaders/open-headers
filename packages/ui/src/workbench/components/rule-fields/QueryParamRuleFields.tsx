@@ -9,6 +9,7 @@ import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, Button, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { FieldConflictChip, SetRowChip } from '@openheaders/ui/shared/conflicts/Field';
 import { getDocId } from '../docs/doc-ids';
@@ -27,6 +28,7 @@ interface QueryParamRuleFieldsProps {
 }
 
 const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) => {
+  const t = useT();
   const paths = useActionPaths();
   // Shared param/value column boundary — same primitive as header rows,
   // driven by the TemplateInputs' two-axis corner grips.
@@ -36,15 +38,14 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: 'Query Param Rule',
-            title: 'Actions',
-            summary: 'Adds, replaces, or removes query parameters on matching request URLs.',
-            description:
-              'Remove All strips the entire query string; Add / Replace entries in the same rule then become the new query. Replace Only and Remove entries have nothing left to act on and are ignored alongside Remove All.',
+            kicker: t('workbench.editors.rule.fields.queryParam.kicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: t('workbench.editors.rule.fields.queryParam.infoSummary'),
+            description: t('workbench.editors.rule.fields.queryParam.infoDescription'),
           }}
           docId={getDocId('query-param', 'action')}
         />
@@ -65,7 +66,7 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
               type="warning"
               showIcon
               style={{ marginBottom: 8, fontSize: 12 }}
-              message="Remove All strips the entire query string, so Replace Only and Remove entries have nothing to act on and are ignored. Add / Replace entries still apply — they become the new query."
+              message={t('workbench.editors.rule.fields.queryParam.removeAllWarning')}
             />
           );
         }}
@@ -113,10 +114,10 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
                         // — query-param's `'override'` skips URLs that don't
                         // already carry the param, while header `'override'`
                         // always sets.
-                        { value: 'add', label: 'Add / Replace' },
-                        { value: 'override', label: 'Replace Only' },
-                        { value: 'remove', label: 'Remove' },
-                        { value: 'remove-all', label: 'Remove All' },
+                        { value: 'add', label: t('workbench.editors.rule.fields.opAddReplace') },
+                        { value: 'override', label: t('workbench.editors.rule.fields.opReplaceOnly') },
+                        { value: 'remove', label: t('workbench.editors.rule.fields.opRemove') },
+                        { value: 'remove-all', label: t('workbench.editors.rule.fields.opRemoveAll') },
                       ]}
                     />
                   </Form.Item>,
@@ -157,7 +158,7 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
                     if (op === 'remove-all') {
                       return (
                         <Text type="secondary" style={{ fontSize: 11 }}>
-                          Removes all query parameters from the URL
+                          {t('workbench.editors.rule.fields.queryParam.removesAllNote')}
                         </Text>
                       );
                     }
@@ -173,7 +174,7 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
                             >
                               <TemplateInput
                                 size="small"
-                                placeholder="Param Name"
+                                placeholder={t('workbench.editors.rule.fields.queryParam.namePlaceholder')}
                                 wrap
                                 maxRows={4}
                                 resizable
@@ -194,7 +195,7 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
                               >
                                 <DetectedValueInput
                                   size="small"
-                                  placeholder="Param Value"
+                                  placeholder={t('workbench.editors.rule.fields.queryParam.valuePlaceholder')}
                                   wrap
                                   maxRows={4}
                                   resizable
@@ -249,7 +250,7 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
               size="small"
               style={{ fontSize: 12 }}
             >
-              Add action
+              {t('workbench.editors.rule.fields.addAction')}
             </Button>
           </>
         )}

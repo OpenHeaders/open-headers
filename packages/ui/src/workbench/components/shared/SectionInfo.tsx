@@ -8,6 +8,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 
@@ -26,6 +27,7 @@ export interface SectionInfoProps {
 }
 
 const SectionInfo: React.FC<SectionInfoProps> = ({ content, docId, className, ariaLabel }) => {
+  const t = useT();
   const { openDocs } = useInspectorNav();
   return (
     <InfoTrigger
@@ -36,7 +38,7 @@ const SectionInfo: React.FC<SectionInfoProps> = ({ content, docId, className, ar
           ? {
               ...content,
               headerLink: {
-                label: 'More information',
+                label: t('workbench.editors.sectionInfo.moreInformation'),
                 onClick: () => openDocs(typeof docId === 'function' ? docId() : docId),
               },
             }

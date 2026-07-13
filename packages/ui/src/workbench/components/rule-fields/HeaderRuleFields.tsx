@@ -31,6 +31,7 @@ import type { HeaderDirection } from '@openheaders/core/utils';
 import { generateUid, getHeaderOperationCapability } from '@openheaders/core/utils';
 import { Button, Form, Input, Select, Tabs, Typography } from 'antd';
 import type React from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, TabPresenceBadge, useActionPaths, useEntityScope } from '@openheaders/ui/shared/awareness';
 import { FieldConflictChip, SetRowChip } from '@openheaders/ui/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
@@ -44,15 +45,15 @@ import { useColumnSplit } from './use-column-split';
 
 const { Text } = Typography;
 
-const OPERATIONS = [
-  // Labels describe what each op does to a header. The schema literals stay
-  // ('override', 'add') for back-compat with the compiler; the user-facing
-  // labels are unified across rule types so the same concept always reads
-  // the same way (header "Add / Replace" matches query-param "Add / Replace").
-  { value: 'override', label: 'Add / Replace' },
-  { value: 'add', label: 'Append' },
-  { value: 'remove', label: 'Remove' },
-  { value: 'merge', label: 'Merge' },
+// Labels describe what each op does to a header. The schema literals stay
+// ('override', 'add') for back-compat with the compiler; the user-facing
+// labels are unified across rule types so the same concept always reads
+// the same way (header "Add / Replace" matches query-param "Add / Replace").
+const buildOperationOptions = (t: Translate) => [
+  { value: 'override', label: t('workbench.editors.rule.fields.opAddReplace') },
+  { value: 'add', label: t('workbench.editors.rule.fields.opAppend') },
+  { value: 'remove', label: t('workbench.editors.rule.fields.opRemove') },
+  { value: 'merge', label: t('workbench.editors.rule.fields.opMerge') },
 ];
 
 type HeaderOp = 'override' | 'add' | 'remove' | 'merge';
@@ -72,6 +73,7 @@ interface ModificationListProps {
 }
 
 function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }: ModificationListProps) {
+  const t = useT();
   const { openDocs: openDocsInline } = useInspectorNav();
   const paths = useActionPaths();
   const form = Form.useFormInstance();
@@ -117,7 +119,9 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                   textAlign: 'center',
                 }}
               >
-                No actions — this rule leaves {direction} headers unchanged
+                {direction === 'request'
+                  ? t('workbench.editors.rule.fields.header.emptyRequest')
+                  : t('workbench.editors.rule.fields.header.emptyResponse')}
               </div>
             )}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -136,7 +140,11 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                   ) =>
                     rowUid ? <EntityField path={paths.headerMod(direction, rowUid, leaf)}>{child}</EntityField> : child;
                   return (
-                    <SortableHeaderRow key={field.key} id={field.key}>
+                    <SortableHeaderRow
+                      key={field.key}
+                      id={field.key}
+                      ariaLabel={t('workbench.editors.rule.fields.header.dragToReorder')}
+                    >
                       <div {...split.rowProps} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                         {/* Hidden uid binding — preserves the row's persisted
                          *  identity through `getFieldsValue` so reorders /
@@ -159,7 +167,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                             name={[field.name, 'operation']}
                             style={{ marginBottom: 0, width: 125, flexShrink: 0 }}
                           >
-                            <Select size="small" options={OPERATIONS} />
+                            <Select size="small" options={buildOperationOptions(t)} />
                           </Form.Item>,
                         )}
                         <Form.Item
@@ -208,7 +216,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                                   >
                                     <TemplateInput
                                       size="small"
-                                      placeholder="Header Name"
+                                      placeholder={t('workbench.editors.rule.fields.header.namePlaceholder')}
                                       wrap
                                       maxRows={4}
                                       resizable
@@ -238,7 +246,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                                   <Input
                                     size="small"
                                     disabled
-                                    value="existing value"
+                                    value={t('workbench.editors.rule.fields.header.existingValue')}
                                     style={{
                                       marginBottom: 0,
                                       width: 105,
@@ -271,7 +279,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                                       >
                                         <DetectedValueInput
                                           size="small"
-                                          placeholder="Value to append"
+                                          placeholder={t('workbench.editors.rule.fields.header.appendValuePlaceholder')}
                                           wrap
                                           maxRows={4}
                                           resizable
@@ -295,7 +303,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                                   >
                                     <DetectedValueInput
                                       size="small"
-                                      placeholder="Header Value"
+                                      placeholder={t('workbench.editors.rule.fields.header.valuePlaceholder')}
                                       wrap
                                       maxRows={4}
                                       resizable
@@ -429,8 +437,12 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                                       onClick={switchToSuggested}
                                       style={{ padding: 0, height: 'auto', fontSize: 11 }}
                                     >
-                                      Switch to{' '}
-                                      {capability.suggestion === 'override' ? 'Add / Replace' : capability.suggestion}
+                                      {t('workbench.editors.rule.fields.header.switchTo', {
+                                        operation:
+                                          capability.suggestion === 'override'
+                                            ? t('workbench.editors.rule.fields.opAddReplace')
+                                            : capability.suggestion,
+                                      })}
                                     </Button>
                                   </>
                                 )}
@@ -461,7 +473,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                 onClick={() => add({ uid: generateUid(), operation: 'override', headerName: '', value: '' })}
                 style={{ fontSize: 12 }}
               >
-                Add action
+                {t('workbench.editors.rule.fields.addAction')}
               </Button>
             </div>
           </div>
@@ -480,7 +492,15 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
  * pipeline emits the minimum diff (`moveBefore` per row outside the
  * LIS) via the unified set-diff synthesizer (session 40).
  */
-function SortableHeaderRow({ id, children }: { id: string | number; children: React.ReactNode }): React.ReactElement {
+function SortableHeaderRow({
+  id,
+  ariaLabel,
+  children,
+}: {
+  id: string | number;
+  ariaLabel: string;
+  children: React.ReactNode;
+}): React.ReactElement {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style: React.CSSProperties = {
     display: 'flex',
@@ -497,7 +517,7 @@ function SortableHeaderRow({ id, children }: { id: string | number; children: Re
       <span
         {...attributes}
         {...listeners}
-        aria-label="Drag to reorder"
+        aria-label={ariaLabel}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -565,6 +585,7 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   ruleUid,
   excludeInstanceId,
 }) => {
+  const t = useT();
   const paths = useActionPaths();
   const scope = useEntityScope();
   const entityType = scope.entityType;
@@ -576,15 +597,14 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: 'Header Rule',
-            title: 'Actions',
-            summary: 'Rewrites request and response headers on matching traffic.',
-            description:
-              'Invalid combinations (e.g. Append on a custom header) mark the rule as a draft. Drafts are saved but not executed.',
+            kicker: t('workbench.editors.rule.fields.header.kicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: t('workbench.editors.rule.fields.header.infoSummary'),
+            description: t('workbench.editors.rule.fields.header.infoDescription'),
           }}
           docId="header-actions"
         />
@@ -599,12 +619,12 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
             key: 'request',
             label: (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                Request Headers
+                {t('workbench.editors.rule.fields.header.requestTab')}
                 <SectionInfo
                   content={{
-                    kicker: 'Header Rule',
-                    title: 'Request Headers',
-                    summary: 'Header actions applied to the outgoing request before it leaves the browser.',
+                    kicker: t('workbench.editors.rule.fields.header.kicker'),
+                    title: t('workbench.editors.rule.fields.header.requestTab'),
+                    summary: t('workbench.editors.rule.fields.header.requestTabSummary'),
                   }}
                   docId="header-actions"
                 />
@@ -633,14 +653,13 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
             key: 'response',
             label: (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                Response Headers
+                {t('workbench.editors.rule.fields.header.responseTab')}
                 <SectionInfo
                   content={{
-                    kicker: 'Header Rule',
-                    title: 'Response Headers',
-                    summary: 'Header actions applied to the response before the page sees it.',
-                    description:
-                      'The browser’s own DevTools Network tab always shows the original server headers, so these changes are invisible there even though they are applied. The Open Headers DevTools window has no such limitation — it shows the headers exactly as served to the page.',
+                    kicker: t('workbench.editors.rule.fields.header.kicker'),
+                    title: t('workbench.editors.rule.fields.header.responseTab'),
+                    summary: t('workbench.editors.rule.fields.header.responseTabSummary'),
+                    description: t('workbench.editors.rule.fields.header.responseTabDescription'),
                   }}
                   docId="header-actions"
                 />

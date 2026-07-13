@@ -15,10 +15,12 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 const { Text } = Typography;
 
 const CspBypassHint: React.FC = () => {
+  const t = useT();
   const [exempt, setExempt] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -41,8 +43,7 @@ const CspBypassHint: React.FC = () => {
   return (
     <div style={{ marginTop: 4, paddingLeft: 24 }}>
       <Text type="warning" style={{ fontSize: 11 }}>
-        Covers header CSP only right now — a &lt;meta&gt; CSP can still block this script. To bypass both, enable
-        &quot;Allow user scripts&quot; for this extension in your browser&apos;s extension settings.
+        {t('workbench.editors.rule.fields.inject.cspBypassHint')}
       </Text>
     </div>
   );

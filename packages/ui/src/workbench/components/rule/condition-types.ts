@@ -1,20 +1,25 @@
 /**
  * Condition type registry — display metadata for condition rows and the
  * type-picker option builder. Each entry maps one editor row type to its
- * label, category group, and input shape. The DNR semantics (slot keys,
- * mutex groups, value logic) live in core's `CONDITION_META`; this file
- * only renders them. See ConditionEditor's header for the one-row-per-slot
- * / AND-model contract the picker enforces.
+ * label key, category group key, and input shape. The DNR semantics
+ * (slot keys, mutex groups, value logic) live in core's `CONDITION_META`;
+ * this file only renders them. See ConditionEditor's header for the
+ * one-row-per-slot / AND-model contract the picker enforces.
+ *
+ * Placeholders stay literal pattern/domain examples — format-example
+ * precedent, not chrome copy.
  */
 
 import type { ConditionType, RuleCondition } from '@openheaders/core/types';
 import { CONDITION_META, getConditionTypeSlotKey, isConditionSupportedByDnr } from '@openheaders/core/utils';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
 
 export interface ConditionTypeDef {
   value: ConditionType;
-  label: string;
-  group: string;
+  labelKey: MessageKey;
+  groupKey: MessageKey;
   inputType: 'text' | 'multi-select-methods' | 'multi-select-resources' | 'single-select-domain-type' | 'header';
   placeholder?: string;
 }
@@ -23,75 +28,90 @@ const CONDITION_TYPES: ConditionTypeDef[] = [
   // URL Matching
   {
     value: 'url-filter',
-    label: 'URL Pattern',
-    group: 'URL Matching',
+    labelKey: 'workbench.editors.rule.condition.type.urlFilter',
+    groupKey: 'workbench.editors.rule.condition.group.urlMatching',
     inputType: 'text',
     placeholder: '*://api.openheaders.io/*',
   },
   {
     value: 'url-regex',
-    label: 'URL Regex',
-    group: 'URL Matching',
+    labelKey: 'workbench.editors.rule.condition.type.urlRegex',
+    groupKey: 'workbench.editors.rule.condition.group.urlMatching',
     inputType: 'text',
     placeholder: '^https://.*\\.openheaders\\.io/api/.*',
   },
   // Domain Filtering
   {
     value: 'request-domains',
-    label: 'Request Domains',
-    group: 'Domain Filtering',
+    labelKey: 'workbench.editors.rule.condition.type.requestDomains',
+    groupKey: 'workbench.editors.rule.condition.group.domainFiltering',
     inputType: 'text',
     placeholder: 'openheaders.io, api.openheaders.io',
   },
   {
     value: 'exclude-request-domains',
-    label: 'Exclude Domains',
-    group: 'Domain Filtering',
+    labelKey: 'workbench.editors.rule.condition.type.excludeRequestDomains',
+    groupKey: 'workbench.editors.rule.condition.group.domainFiltering',
     inputType: 'text',
     placeholder: 'staging.openheaders.io',
   },
   {
     value: 'initiator-domains',
-    label: 'Initiator Domains',
-    group: 'Domain Filtering',
+    labelKey: 'workbench.editors.rule.condition.type.initiatorDomains',
+    groupKey: 'workbench.editors.rule.condition.group.domainFiltering',
     inputType: 'text',
     placeholder: 'portal.openheaders.io',
   },
   {
     value: 'exclude-initiator-domains',
-    label: 'Excl. Initiator',
-    group: 'Domain Filtering',
+    labelKey: 'workbench.editors.rule.condition.type.excludeInitiatorDomains',
+    groupKey: 'workbench.editors.rule.condition.group.domainFiltering',
     inputType: 'text',
     placeholder: 'external.com',
   },
   // Request Filtering
-  { value: 'request-methods', label: 'Methods', group: 'Request Filtering', inputType: 'multi-select-methods' },
   {
-    value: 'exclude-request-methods',
-    label: 'Excl. Methods',
-    group: 'Request Filtering',
+    value: 'request-methods',
+    labelKey: 'workbench.editors.rule.condition.type.requestMethods',
+    groupKey: 'workbench.editors.rule.condition.group.requestFiltering',
     inputType: 'multi-select-methods',
   },
-  { value: 'resource-types', label: 'Resource Types', group: 'Request Filtering', inputType: 'multi-select-resources' },
   {
-    value: 'exclude-resource-types',
-    label: 'Excl. Resources',
-    group: 'Request Filtering',
+    value: 'exclude-request-methods',
+    labelKey: 'workbench.editors.rule.condition.type.excludeRequestMethods',
+    groupKey: 'workbench.editors.rule.condition.group.requestFiltering',
+    inputType: 'multi-select-methods',
+  },
+  {
+    value: 'resource-types',
+    labelKey: 'workbench.editors.rule.condition.type.resourceTypes',
+    groupKey: 'workbench.editors.rule.condition.group.requestFiltering',
     inputType: 'multi-select-resources',
   },
-  { value: 'domain-type', label: 'Domain Type', group: 'Request Filtering', inputType: 'single-select-domain-type' },
+  {
+    value: 'exclude-resource-types',
+    labelKey: 'workbench.editors.rule.condition.type.excludeResourceTypes',
+    groupKey: 'workbench.editors.rule.condition.group.requestFiltering',
+    inputType: 'multi-select-resources',
+  },
+  {
+    value: 'domain-type',
+    labelKey: 'workbench.editors.rule.condition.type.domainType',
+    groupKey: 'workbench.editors.rule.condition.group.requestFiltering',
+    inputType: 'single-select-domain-type',
+  },
   // Header Matching (Chrome 128+, response-side only — DNR has no request-header matching)
   {
     value: 'response-header',
-    label: 'Response Header',
-    group: 'Header Matching',
+    labelKey: 'workbench.editors.rule.condition.type.responseHeader',
+    groupKey: 'workbench.editors.rule.condition.group.headerMatching',
     inputType: 'header',
     placeholder: 'Header value equals...',
   },
   {
     value: 'exclude-response-header',
-    label: 'Excl. Resp Header',
-    group: 'Header Matching',
+    labelKey: 'workbench.editors.rule.condition.type.excludeResponseHeader',
+    groupKey: 'workbench.editors.rule.condition.group.headerMatching',
     inputType: 'header',
     placeholder: 'Header value equals...',
   },
@@ -99,9 +119,9 @@ const CONDITION_TYPES: ConditionTypeDef[] = [
 
 export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 export const RESOURCE_TYPES = ['page', 'xhr', 'script', 'stylesheet', 'image', 'font', 'media', 'websocket', 'other'];
-export const DOMAIN_TYPES = [
-  { value: 'firstParty', label: 'First-party' },
-  { value: 'thirdParty', label: 'Third-party' },
+export const DOMAIN_TYPES: Array<{ value: string; labelKey: MessageKey }> = [
+  { value: 'firstParty', labelKey: 'workbench.editors.rule.condition.firstParty' },
+  { value: 'thirdParty', labelKey: 'workbench.editors.rule.condition.thirdParty' },
 ];
 
 /**
@@ -131,6 +151,7 @@ export const DOMAIN_TYPES = [
 export function buildTypeOptions(
   conditions: readonly RuleCondition[],
   currentIndex: number,
+  t: Translate,
 ): Array<{ label: string; options: Array<{ value: ConditionType; label: React.ReactNode; disabled?: boolean }> }> {
   // Slot keys claimed by OTHER rows. We use the type-only slot key here
   // (not the per-row key) — header types intentionally never gate the
@@ -145,29 +166,33 @@ export function buildTypeOptions(
   }
   const currentType = conditions[currentIndex]?.type;
 
-  const groups = new Map<string, ConditionTypeDef[]>();
-  for (const t of CONDITION_TYPES) {
-    if (!groups.has(t.group)) groups.set(t.group, []);
-    groups.get(t.group)!.push(t);
+  const groups = new Map<MessageKey, ConditionTypeDef[]>();
+  for (const def of CONDITION_TYPES) {
+    if (!groups.has(def.groupKey)) groups.set(def.groupKey, []);
+    groups.get(def.groupKey)!.push(def);
   }
 
-  return [...groups.entries()].map(([group, items]) => ({
-    label: group,
-    options: items.map((t) => {
-      const isCurrent = t.value === currentType;
+  return [...groups.entries()].map(([groupKey, items]) => ({
+    label: t(groupKey),
+    options: items.map((def) => {
+      const isCurrent = def.value === currentType;
       // Hide the type completely if it's unsupported AND not the current
       // row's value. Showing it on the current row lets the user switch
       // away from a legacy import without first deleting the row.
-      const unsupported = !isConditionSupportedByDnr(t.value) && !isCurrent;
-      const meta = CONDITION_META[t.value];
+      const unsupported = !isConditionSupportedByDnr(def.value) && !isCurrent;
+      const meta = CONDITION_META[def.value];
       // Header types skip the slot gate — see the comment above.
-      const slotKey = meta?.perHeader ? null : getConditionTypeSlotKey(t.value);
+      const slotKey = meta?.perHeader ? null : getConditionTypeSlotKey(def.value);
       const slotClash = !isCurrent && slotKey !== null && claimedSlots.has(slotKey);
       const disabled = unsupported || slotClash;
-      const suffix = unsupported ? ' — not supported by Chrome DNR' : slotClash ? ' — already used' : '';
+      const suffix = unsupported
+        ? t('workbench.editors.rule.condition.suffix.notSupported')
+        : slotClash
+          ? t('workbench.editors.rule.condition.suffix.alreadyUsed')
+          : '';
       return {
-        value: t.value,
-        label: suffix ? `${t.label}${suffix}` : t.label,
+        value: def.value,
+        label: suffix ? `${t(def.labelKey)}${suffix}` : t(def.labelKey),
         disabled,
       };
     }),
@@ -175,5 +200,5 @@ export function buildTypeOptions(
 }
 
 export function getTypeDef(type: ConditionType): ConditionTypeDef | undefined {
-  return CONDITION_TYPES.find((t) => t.value === type);
+  return CONDITION_TYPES.find((def) => def.value === type);
 }

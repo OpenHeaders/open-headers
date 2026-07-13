@@ -157,12 +157,12 @@ describe('validateActionValues — redirect', () => {
 
   it('flags whitespace inside the target', () => {
     const issues = validateActionValues(redirect({ redirectTo: 'https://example.com/with space' }));
-    expect(issues[0]).toMatchObject({ kind: 'invalid-url', severity: 'error' });
+    expect(issues[0]).toMatchObject({ kind: 'redirect-url-whitespace', severity: 'error' });
   });
 
   it('flags an unparseable URL when no regex condition is present', () => {
     const issues = validateActionValues(redirect({ redirectTo: 'not-a-url' }));
-    expect(issues[0]).toMatchObject({ kind: 'invalid-url', severity: 'error' });
+    expect(issues[0]).toMatchObject({ kind: 'invalid-redirect-url', severity: 'error' });
   });
 
   it('accepts a regex-substitution-style target when paired with url-regex condition', () => {
@@ -194,13 +194,13 @@ describe('validateActionValues — delay', () => {
 
   it('warns when between scriptable cap and DNR cap', () => {
     const issues = validateActionValues(delayRule({ delayMs: 10_000 }));
-    expect(issues[0]).toMatchObject({ kind: 'delay-out-of-range', severity: 'warning' });
+    expect(issues[0]).toMatchObject({ kind: 'delay-above-fetch-cap', severity: 'warning' });
     expect(issues[0].message).toContain('5000');
   });
 
   it('warns when over the DNR cap', () => {
     const issues = validateActionValues(delayRule({ delayMs: 60_000 }));
-    expect(issues[0]).toMatchObject({ kind: 'delay-out-of-range', severity: 'warning' });
+    expect(issues[0]).toMatchObject({ kind: 'delay-above-navigation-cap', severity: 'warning' });
     expect(issues[0].message).toContain('30000');
   });
 
@@ -263,7 +263,7 @@ describe('validateActionValues — inject (URL mode)', () => {
         position: 'head',
       }),
     );
-    expect(issues[0]).toMatchObject({ kind: 'invalid-url', severity: 'error' });
+    expect(issues[0]).toMatchObject({ kind: 'inject-url-invalid', severity: 'error' });
   });
 
   it('flags a URL with a non-allowed scheme', () => {
@@ -276,7 +276,7 @@ describe('validateActionValues — inject (URL mode)', () => {
         position: 'head',
       }),
     );
-    expect(issues[0]).toMatchObject({ kind: 'invalid-url', severity: 'error' });
+    expect(issues[0]).toMatchObject({ kind: 'inject-url-scheme', severity: 'error' });
   });
 
   it('does not validate sourceUrl when source is code', () => {
@@ -479,7 +479,7 @@ describe('validateActionValues — ws/sse', () => {
     );
     expect(issues[0]).toMatchObject({
       path: 'messageFilter.value',
-      kind: 'invalid-message-filter',
+      kind: 'message-filter-value-required',
       severity: 'error',
     });
   });
@@ -490,7 +490,7 @@ describe('validateActionValues — ws/sse', () => {
     );
     expect(issues[0]).toMatchObject({
       path: 'messageFilter.value',
-      kind: 'invalid-message-filter',
+      kind: 'message-filter-invalid-regex',
       severity: 'error',
     });
   });
@@ -507,7 +507,7 @@ describe('validateActionValues — ws/sse', () => {
     const issues = validateActionValues(
       ws({ operation: 'inject', direction: 'receive', payload: 'pong', injectTrigger: 'message' }),
     );
-    expect(issues[0]).toMatchObject({ path: 'injectTrigger', kind: 'invalid-message-filter', severity: 'error' });
+    expect(issues[0]).toMatchObject({ path: 'injectTrigger', kind: 'inject-trigger-requires-filter', severity: 'error' });
   });
 
   it('accepts inject-on-message with a filter', () => {

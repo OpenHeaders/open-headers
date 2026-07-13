@@ -26,6 +26,7 @@
 
 import { Alert, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import CodeEditor from '../shared/CodeEditor';
 import { getDocId } from '../docs/doc-ids';
@@ -43,6 +44,7 @@ export const REQUEST_BODY_DYNAMIC_TEMPLATE = `function modifyRequestBody(args) {
 }`;
 
 const RequestBodyRuleFields: React.FC = () => {
+  const t = useT();
   const form = Form.useFormInstance();
   const paths = useActionPaths();
 
@@ -50,14 +52,14 @@ const RequestBodyRuleFields: React.FC = () => {
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Actions
+          {t('workbench.editors.rule.fields.actionsTitle')}
         </Text>
         <SectionInfo
           content={{
-            kicker: 'Request Body Rule',
-            title: 'Actions',
-            summary: 'Replaces the body of matching requests before they are sent.',
-            description: 'Static data swaps in a fixed payload; Dynamic runs JavaScript against the original body.',
+            kicker: t('workbench.editors.rule.fields.requestBody.kicker'),
+            title: t('workbench.editors.rule.fields.actionsTitle'),
+            summary: t('workbench.editors.rule.fields.requestBody.infoSummary'),
+            description: t('workbench.editors.rule.fields.requestBody.infoDescription'),
           }}
           docId={() => {
             const bodyType = form.getFieldValue('requestBodyType');
@@ -69,19 +71,19 @@ const RequestBodyRuleFields: React.FC = () => {
         type="info"
         showIcon
         style={{ marginBottom: 12, fontSize: 12 }}
-        message="Intercepts fetch() and XMLHttpRequest calls for REST or GraphQL API requests."
+        message={t('workbench.editors.rule.fields.requestBody.interceptsAlert')}
       />
 
       {/* Resource Type */}
       <div style={{ marginBottom: 12 }}>
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-          Select Resource Type
+          {t('workbench.editors.rule.fields.requestBody.selectResourceType')}
         </Text>
         <EntityField path={paths.apiResourceType}>
           <Form.Item name="requestResourceType" style={{ marginBottom: 0 }}>
             <Radio.Group>
-              <Radio value="rest">REST API</Radio>
-              <Radio value="graphql">GraphQL API</Radio>
+              <Radio value="rest">{t('workbench.editors.rule.fields.restApi')}</Radio>
+              <Radio value="graphql">{t('workbench.editors.rule.fields.graphqlApi')}</Radio>
             </Radio.Group>
           </Form.Item>
         </EntityField>
@@ -95,14 +97,14 @@ const RequestBodyRuleFields: React.FC = () => {
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  GraphQL Operation (Request Payload Filter)
+                  {t('workbench.editors.rule.fields.graphqlFilterLabel')}
                 </Text>
                 <DocInfo docId={getDocId('request-body-graphql', 'action')} />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <EntityField path={paths.graphqlKey}>
                   <Form.Item name="requestGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
-                    <Input size="small" placeholder="Key e.g. operationName" />
+                    <Input size="small" placeholder={t('workbench.editors.rule.fields.graphqlKeyPlaceholder')} />
                   </Form.Item>
                 </EntityField>
                 <EntityField path={paths.graphqlOperator}>
@@ -110,15 +112,15 @@ const RequestBodyRuleFields: React.FC = () => {
                     <Select
                       size="small"
                       options={[
-                        { value: 'Equals', label: 'Equals' },
-                        { value: 'Contains', label: 'Contains' },
+                        { value: 'Equals', label: t('workbench.editors.rule.fields.operatorEquals') },
+                        { value: 'Contains', label: t('workbench.editors.rule.fields.operatorContains') },
                       ]}
                     />
                   </Form.Item>
                 </EntityField>
                 <EntityField path={paths.graphqlValue}>
                   <Form.Item name="requestGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
-                    <Input size="small" placeholder="value e.g. getUsers" />
+                    <Input size="small" placeholder={t('workbench.editors.rule.fields.graphqlValuePlaceholder')} />
                   </Form.Item>
                 </EntityField>
                 <Button
@@ -132,7 +134,7 @@ const RequestBodyRuleFields: React.FC = () => {
                     });
                   }}
                 >
-                  Reset
+                  {t('workbench.editors.rule.fields.reset')}
                 </Button>
               </div>
             </div>
@@ -144,14 +146,14 @@ const RequestBodyRuleFields: React.FC = () => {
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <Text strong style={{ fontSize: 12 }}>
-            Request Body
+            {t('workbench.editors.rule.fields.requestBody.bodyLabel')}
           </Text>
           <EntityField path={paths.requestBodyType}>
             <Form.Item name="requestBodyType" style={{ marginBottom: 0 }}>
               <Radio.Group size="small">
-                <Radio.Button value="static">Static Data</Radio.Button>
+                <Radio.Button value="static">{t('workbench.editors.rule.fields.staticData')}</Radio.Button>
                 <Radio.Button value="dynamic">
-                  Dynamic (JavaScript) <DocInfo docId={getDocId('request-body-dynamic', 'action')} />
+                  {t('workbench.editors.rule.fields.dynamicJs')} <DocInfo docId={getDocId('request-body-dynamic', 'action')} />
                 </Radio.Button>
               </Radio.Group>
             </Form.Item>
@@ -177,8 +179,9 @@ const RequestBodyRuleFields: React.FC = () => {
                       borderRadius: 4,
                     }}
                   >
-                    Your function receives <code>{'{method, url, body, bodyAsJson}'}</code> and should return the
-                    modified body. Return a string or an object (auto-serialized to JSON).
+                    {t('workbench.editors.rule.fields.requestBody.dynamicHintBefore')}{' '}
+                    <code>{'{method, url, body, bodyAsJson}'}</code>{' '}
+                    {t('workbench.editors.rule.fields.requestBody.dynamicHintAfter')}
                   </div>
                 )}
                 {isDynamic ? (
