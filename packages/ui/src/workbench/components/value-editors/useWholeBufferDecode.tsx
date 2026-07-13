@@ -11,8 +11,9 @@
  * JWT-only by design — this hook is whole-buffer detection only.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
-  COMPACT_VALUE_TITLES,
+  COMPACT_VALUE_TITLE_KEYS,
   compactDecodedText,
   detectValueType,
   encodeDetectedValue,
@@ -53,6 +54,7 @@ export function useWholeBufferDecode({
   onApply,
   enabled = true,
 }: WholeBufferDecodeOptions): WholeBufferDecodeResult {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   const detected = useMemo(() => {
@@ -90,17 +92,19 @@ export function useWholeBufferDecode({
       <button
         type="button"
         className="dt-codeviewer-decode"
-        title={`${viewerOnly ? 'View decoded' : 'Decode and edit'} — ${COMPACT_VALUE_TITLES[detected.type]}`}
+        title={t(viewerOnly ? 'shared.valueEditors.decodeChipView' : 'shared.valueEditors.decodeChipEdit', {
+          title: t(COMPACT_VALUE_TITLE_KEYS[detected.type]),
+        })}
         onClick={() => setOpen(true)}
       >
-        Decode
+        {t('shared.valueEditors.decode')}
       </button>
     ),
     decodeModal: open ? (
       <Suspense fallback={null}>
         <EncodedValueModalLazy
           open
-          title={COMPACT_VALUE_TITLES[detected.type]}
+          title={t(COMPACT_VALUE_TITLE_KEYS[detected.type])}
           decoded={compactDecodedText(detected)}
           encode={encodeCurrent}
           onSave={viewerOnly ? undefined : handleSave}

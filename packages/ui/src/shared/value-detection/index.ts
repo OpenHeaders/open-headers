@@ -2,7 +2,7 @@
 // and zero Monaco. The workbench edit affordances (useValueEditAction,
 // modals) and the panel's read-only introspection both build on this.
 
-export { COMPACT_VALUE_TITLES, compactDecodedText, encodeDetectedValue } from './compact-codec';
+export { COMPACT_VALUE_TITLE_KEYS, compactDecodedText, encodeDetectedValue } from './compact-codec';
 export {
   type DetectedAcceptList,
   type DetectedAuthParams,

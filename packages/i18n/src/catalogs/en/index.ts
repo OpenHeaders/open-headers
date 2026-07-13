@@ -8,12 +8,14 @@
 import type { Catalog } from '../../types';
 import { popup } from './popup';
 import { shared } from './shared';
+import { sharedComponents } from './shared-components';
 import { workbench } from './workbench';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchSettings } from './workbench-settings';
 
 export const en = {
   ...shared,
+  ...sharedComponents,
   ...popup,
   ...workbench,
   ...workbenchEditors,

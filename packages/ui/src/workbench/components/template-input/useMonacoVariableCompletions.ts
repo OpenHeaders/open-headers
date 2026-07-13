@@ -17,8 +17,9 @@
  * one.
  */
 
-import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/variables/useVariableSuggestions';
 import type { SuggestionContext, VariableSuggestion } from '@openheaders/core/variables';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/variables/useVariableSuggestions';
 import type * as monacoType from 'monaco-editor';
 import { useCallback, useEffect, useRef } from 'react';
 import { useSettingValue } from '../../settings/hooks';
@@ -32,6 +33,13 @@ export function useMonacoVariableCompletions(contextOverride?: SuggestionContext
 
   const suggestionsRef = useRef<ReadonlyArray<VariableSuggestion>>(suggestions);
   suggestionsRef.current = suggestions;
+
+  // Live translator ref — completion items are built per popover fire,
+  // so resolving through the ref keeps labels current across a locale
+  // switch without re-registering the provider.
+  const t = useT();
+  const tRef = useRef(t);
+  tRef.current = t;
 
   // Track the active registration so we can dispose on unmount or when
   // the caller re-mounts the editor.
@@ -54,10 +62,15 @@ export function useMonacoVariableCompletions(contextOverride?: SuggestionContext
       // setting flipped off).
       disposeRef.current?.();
       if (!enabled) return;
-      const d = registerVariableCompletionProvider(monaco, {
-        getSuggestions: () => suggestionsRef.current,
-        context,
-      });
+      const liveT: Translate = (key, args) => tRef.current(key, args);
+      const d = registerVariableCompletionProvider(
+        monaco,
+        {
+          getSuggestions: () => suggestionsRef.current,
+          context,
+        },
+        liveT,
+      );
       disposeRef.current = () => d.dispose();
     },
     [context, enabled],

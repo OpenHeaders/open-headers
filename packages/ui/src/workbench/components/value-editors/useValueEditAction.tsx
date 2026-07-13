@@ -10,10 +10,13 @@
  * with the panel's value-document tab.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
+import type { DetectedValue } from '@openheaders/ui/shared/value-detection';
 import type React from 'react';
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
-  COMPACT_VALUE_TITLES,
+  COMPACT_VALUE_TITLE_KEYS,
   compactDecodedText,
   detectValueType,
   encodeDetectedValue,
@@ -51,32 +54,33 @@ export interface ValueEditActionOptions {
   onOpenDocument?: () => void;
 }
 
-const EDIT_TOOLTIPS = {
-  jwt: 'Edit as JWT',
-  'url-encoded': 'Edit URL-encoded value',
-  base64: 'Edit Base64 value',
-  hex: 'Edit hex-encoded value',
-  timestamp: 'Edit timestamp',
-  json: 'Edit as JSON',
-  'json-string': 'Edit quoted string',
-  'data-uri': 'Edit data URI content',
-  cookie: 'Edit cookie pairs',
-  csp: 'Edit CSP directives',
-  'http-date': 'Edit HTTP date',
-  'query-string': 'Edit query pairs',
-  'cache-control': 'Edit cache directives',
-  hsts: 'Edit HSTS directives',
-  'content-disposition': 'Edit disposition parameters',
-  link: 'Edit links',
-  'auth-params': 'Edit auth parameters',
-  'accept-list': 'Edit accept list',
-} as const;
+const EDIT_TOOLTIP_KEYS: Record<DetectedValue['type'], MessageKey> = {
+  jwt: 'shared.valueEditors.editTooltip.jwt',
+  'url-encoded': 'shared.valueEditors.editTooltip.urlEncoded',
+  base64: 'shared.valueEditors.editTooltip.base64',
+  hex: 'shared.valueEditors.editTooltip.hex',
+  timestamp: 'shared.valueEditors.editTooltip.timestamp',
+  json: 'shared.valueEditors.editTooltip.json',
+  'json-string': 'shared.valueEditors.editTooltip.jsonString',
+  'data-uri': 'shared.valueEditors.editTooltip.dataUri',
+  cookie: 'shared.valueEditors.editTooltip.cookie',
+  csp: 'shared.valueEditors.editTooltip.csp',
+  'http-date': 'shared.valueEditors.editTooltip.httpDate',
+  'query-string': 'shared.valueEditors.editTooltip.queryString',
+  'cache-control': 'shared.valueEditors.editTooltip.cacheControl',
+  hsts: 'shared.valueEditors.editTooltip.hsts',
+  'content-disposition': 'shared.valueEditors.editTooltip.contentDisposition',
+  link: 'shared.valueEditors.editTooltip.link',
+  'auth-params': 'shared.valueEditors.editTooltip.authParams',
+  'accept-list': 'shared.valueEditors.editTooltip.acceptList',
+};
 
 export function useValueEditAction(
   value: string | undefined,
   onChange: (next: string) => void,
   options?: ValueEditActionOptions,
 ): ValueEditActionResult {
+  const t = useT();
   const variant = options?.variant ?? 'modal';
   const onOpenDocument = options?.onOpenDocument;
   const [open, setOpen] = useState(false);
@@ -124,10 +128,10 @@ export function useValueEditAction(
 
   if (variant === 'compact') {
     return {
-      editProps: { onValueEdit: openModal, editTooltip: EDIT_TOOLTIPS[detected.type] },
+      editProps: { onValueEdit: openModal, editTooltip: t(EDIT_TOOLTIP_KEYS[detected.type]) },
       editorModal: open ? (
         <CompactValueEditor
-          title={COMPACT_VALUE_TITLES[detected.type]}
+          title={t(COMPACT_VALUE_TITLE_KEYS[detected.type])}
           decoded={compactDecoded}
           encode={encodeCurrent}
           onSave={handleEncodedSave}
@@ -139,7 +143,7 @@ export function useValueEditAction(
   }
 
   return {
-    editProps: { onValueEdit: openModal, editTooltip: EDIT_TOOLTIPS[detected.type] },
+    editProps: { onValueEdit: openModal, editTooltip: t(EDIT_TOOLTIP_KEYS[detected.type]) },
     editorModal: open ? (
       <Suspense fallback={null}>
         {detected.type === 'jwt' ? (
@@ -147,7 +151,7 @@ export function useValueEditAction(
         ) : (
           <EncodedValueModalLazy
             open={open}
-            title={COMPACT_VALUE_TITLES[detected.type]}
+            title={t(COMPACT_VALUE_TITLE_KEYS[detected.type])}
             decoded={compactDecoded}
             encode={encodeCurrent}
             onSave={handleEncodedSave}

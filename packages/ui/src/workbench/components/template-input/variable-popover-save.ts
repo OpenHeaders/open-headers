@@ -24,6 +24,7 @@ import type {
   WorkspaceVariables,
 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { MutationResult, useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import type { VariableCandidate } from '@openheaders/ui/shared/hooks/variables/useVariableLookup';
 import type { App } from 'antd';
@@ -49,18 +50,19 @@ export async function runUpdate(
   c: VariableCandidate,
   draft: string,
   snap: UpdateSnapshot,
+  t: Translate,
 ): Promise<MutationResult> {
   switch (c.scope) {
     case 'vault': {
       if (c.secret.kind !== 'string') {
-        return { ok: false, reason: 'other', message: 'TOTP secrets must be edited in the Vault editor' };
+        return { ok: false, reason: 'other', message: t('shared.templateInput.save.totpInVaultEditor') };
       }
       const idx = snap.vault.secrets.findIndex((s) => s.name === c.secret.name);
       if (idx === -1) return { ok: false, reason: 'not-found' };
       const next = snap.vault.secrets.slice();
       const target = next[idx];
       if (target.kind !== 'string') {
-        return { ok: false, reason: 'other', message: 'Vault entry kind changed under us' };
+        return { ok: false, reason: 'other', message: t('shared.templateInput.save.vaultKindChanged') };
       }
       next[idx] = { ...target, value: draft };
       return mutator.replaceVault(next);
@@ -96,7 +98,7 @@ export async function runUpdate(
     case 'step':
     case 'file':
     case 'dynamic':
-      return { ok: false, reason: 'other', message: 'Not editable' };
+      return { ok: false, reason: 'other', message: t('shared.templateInput.save.notEditable') };
   }
 }
 
@@ -106,6 +108,7 @@ export async function runCreate(
   name: string,
   value: string,
   snap: CreateSnapshot,
+  t: Translate,
 ): Promise<MutationResult> {
   switch (scope) {
     case 'workspace': {
@@ -127,7 +130,7 @@ export async function runCreate(
     }
     case 'environment': {
       const env = snap.activeEnvironment;
-      if (!env) return { ok: false, reason: 'other', message: 'No active environment' };
+      if (!env) return { ok: false, reason: 'other', message: t('shared.templateInput.save.noActiveEnv') };
       if (env.variables.some((v) => v.name === name)) {
         return { ok: false, reason: 'duplicate-name' };
       }
@@ -135,7 +138,9 @@ export async function runCreate(
       return mutator.replaceEnvironmentVariables(env.uid, next);
     }
     case 'collection': {
-      if (!snap.collectionId) return { ok: false, reason: 'other', message: 'No collection in context' };
+      if (!snap.collectionId) {
+        return { ok: false, reason: 'other', message: t('shared.templateInput.save.noCollection') };
+      }
       const collection = snap.localCollections.find((c) => c.uid === snap.collectionId);
       if (!collection) return { ok: false, reason: 'not-found' };
       const variables = collection.variables ?? [];
@@ -154,21 +159,22 @@ export function surfaceResult(
   result: MutationResult,
   message: ReturnType<typeof App.useApp>['message'],
   onSuccess: () => void,
+  t: Translate,
 ): void {
   if (result.ok) {
-    message.success('Saved');
+    message.success(t('shared.templateInput.save.saved'));
     onSuccess();
     return;
   }
   switch (result.reason) {
     case 'duplicate-name':
-      message.error('A variable with that name already exists in this scope.');
+      message.error(t('shared.templateInput.save.duplicateName'));
       return;
     case 'not-found':
-      message.error('Variable not found — it may have been deleted.');
+      message.error(t('shared.templateInput.save.notFound'));
       return;
     case 'other':
-      message.error(result.message ?? 'Save failed');
+      message.error(result.message ?? t('shared.templateInput.save.failed'));
       return;
   }
 }

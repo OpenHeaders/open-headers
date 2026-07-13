@@ -9,11 +9,14 @@
  */
 
 import type { VariableSuggestion } from '@openheaders/core/variables';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   COMPLETION_LANGUAGES,
   registerVariableCompletionProvider,
 } from '@openheaders/ui/workbench/components/template-input/monaco-completion';
 import { describe, expect, it, vi } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 // ── Fake Monaco shim ──────────────────────────────────────────────
 
@@ -70,26 +73,26 @@ function fakeModel(line: string) {
 describe('registerVariableCompletionProvider', () => {
   it('registers one provider per default language', () => {
     const fake = fakeMonaco();
-    registerVariableCompletionProvider(fake.api, { getSuggestions: () => [] });
+    registerVariableCompletionProvider(fake.api, { getSuggestions: () => [] }, t);
     expect(fake.captured.map((c) => c.language).sort()).toEqual([...COMPLETION_LANGUAGES].sort());
   });
 
   it('registers only against explicitly-requested languages', () => {
     const fake = fakeMonaco();
-    registerVariableCompletionProvider(fake.api, { getSuggestions: () => [], languages: ['json'] });
+    registerVariableCompletionProvider(fake.api, { getSuggestions: () => [], languages: ['json'] }, t);
     expect(fake.captured.map((c) => c.language)).toEqual(['json']);
   });
 
   it('returns a disposable that disposes every registration', () => {
     const fake = fakeMonaco();
-    const handle = registerVariableCompletionProvider(fake.api, { getSuggestions: () => [] });
+    const handle = registerVariableCompletionProvider(fake.api, { getSuggestions: () => [] }, t);
     handle.dispose();
     for (const c of fake.captured) expect(c.dispose).toHaveBeenCalledTimes(1);
   });
 
   it('includes `{` and `.` in triggerCharacters', () => {
     const fake = fakeMonaco();
-    registerVariableCompletionProvider(fake.api, { getSuggestions: () => [] });
+    registerVariableCompletionProvider(fake.api, { getSuggestions: () => [] }, t);
     const provider = fake.captured[0].provider;
     expect(provider.triggerCharacters).toEqual(['{', '.']);
   });
@@ -97,7 +100,7 @@ describe('registerVariableCompletionProvider', () => {
   describe('provideCompletionItems', () => {
     function firstProvider(getSuggestions: () => VariableSuggestion[]) {
       const fake = fakeMonaco();
-      registerVariableCompletionProvider(fake.api, { getSuggestions, languages: ['json'] });
+      registerVariableCompletionProvider(fake.api, { getSuggestions, languages: ['json'] }, t);
       return fake.captured[0].provider;
     }
 

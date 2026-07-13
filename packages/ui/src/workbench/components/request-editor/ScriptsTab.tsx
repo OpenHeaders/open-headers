@@ -215,7 +215,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           placeholder={t(SCRIPT_PLACEHOLDER_KEY[active])}
           onEditorMount={(editor) => {
             editorRef.current = editor;
-            installMenuIconInjector(editor);
+            installMenuIconInjector(editor, t('workbench.editors.scriptEditor.saveToPackage'));
             const container = editor.getContainerDomNode();
             const selectedText = (): string => {
               const model = editor.getModel();
@@ -249,7 +249,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             };
             editor.addAction({
               id: 'oh.set-as-variable',
-              label: 'Set as variable',
+              label: t('shared.templateInput.setAsVariable'),
               contextMenuGroupId: '9_oh_actions',
               contextMenuOrder: 1,
               precondition: 'editorHasSelection',
@@ -262,7 +262,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             });
             editor.addAction({
               id: 'oh.save-to-package',
-              label: 'Save to Package Library',
+              label: t('workbench.editors.scriptEditor.saveToPackage'),
               contextMenuGroupId: '9_oh_actions',
               contextMenuOrder: 2,
               precondition: 'editorHasSelection',
@@ -291,7 +291,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             });
             editor.addAction({
               id: 'oh.find-selection',
-              label: 'Find',
+              label: t('workbench.editors.scriptEditor.menuFind'),
               contextMenuGroupId: '9_oh_transform',
               contextMenuOrder: 3,
               precondition: 'editorHasSelection',

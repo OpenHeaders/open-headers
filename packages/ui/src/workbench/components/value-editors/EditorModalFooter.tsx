@@ -7,6 +7,7 @@
 
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { Button, Tooltip } from 'antd';
 import type React from 'react';
@@ -22,19 +23,25 @@ interface EditorModalFooterProps {
   onCancel: () => void;
 }
 
-export const EditorModalFooter: React.FC<EditorModalFooterProps> = ({ saveDisabled, onSave, onCancel }) => (
-  <>
-    <Button onClick={onCancel}>Cancel</Button>
-    <Tooltip title={<ShortcutHintTitle label={SAVE_SHORTCUT}>Save</ShortcutHintTitle>} placement="top">
-      <Button
-        type="primary"
-        icon={<SaveOutlined />}
-        disabled={saveDisabled}
-        onClick={onSave}
-        style={saveDisabled ? undefined : { background: SAVE_ACCENT, borderColor: SAVE_ACCENT }}
+export const EditorModalFooter: React.FC<EditorModalFooterProps> = ({ saveDisabled, onSave, onCancel }) => {
+  const t = useT();
+  return (
+    <>
+      <Button onClick={onCancel}>{t('shared.action.cancel')}</Button>
+      <Tooltip
+        title={<ShortcutHintTitle label={SAVE_SHORTCUT}>{t('shared.action.save')}</ShortcutHintTitle>}
+        placement="top"
       >
-        Save
-      </Button>
-    </Tooltip>
-  </>
-);
+        <Button
+          type="primary"
+          icon={<SaveOutlined />}
+          disabled={saveDisabled}
+          onClick={onSave}
+          style={saveDisabled ? undefined : { background: SAVE_ACCENT, borderColor: SAVE_ACCENT }}
+        >
+          {t('shared.action.save')}
+        </Button>
+      </Tooltip>
+    </>
+  );
+};

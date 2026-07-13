@@ -17,6 +17,7 @@
 import type React from 'react';
 import { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getSelectionOffsets, setCaretOffset } from './caret';
 import DismissLayer from './DismissLayer';
 import SelectionContextMenu, { type SelectionMenuRow } from './SelectionContextMenu';
@@ -69,6 +70,7 @@ export function useSelectionContextMenu({
   onChange,
   collectionId,
 }: UseSelectionContextMenuParams): UseSelectionContextMenuApi {
+  const t = useT();
   const [menu, setMenu] = useState<MenuSession | null>(null);
   const [varPopover, setVarPopover] = useState<{ text: string } | null>(null);
 
@@ -106,13 +108,13 @@ export function useSelectionContextMenu({
     (session: MenuSession): SelectionMenuRow[] => [
       {
         key: 'set-as-variable',
-        label: 'Set as variable',
+        label: t('shared.templateInput.setAsVariable'),
         onClick: () => setVarPopover({ text: session.text }),
       },
       { type: 'divider' },
       {
         key: 'cut',
-        label: 'Cut',
+        label: t('shared.templateInput.menu.cut'),
         disabled: !onChange,
         onClick: () => {
           void copyText(session.text);
@@ -121,14 +123,14 @@ export function useSelectionContextMenu({
       },
       {
         key: 'copy',
-        label: 'Copy',
+        label: t('shared.action.copy'),
         onClick: () => {
           void copyText(session.text);
         },
       },
       {
         key: 'paste',
-        label: 'Paste',
+        label: t('shared.templateInput.menu.paste'),
         disabled: !onChange,
         onClick: () => {
           void navigator.clipboard
@@ -161,7 +163,7 @@ export function useSelectionContextMenu({
         },
       },
     ],
-    [onChange, replaceRange],
+    [onChange, replaceRange, t],
   );
 
   const contextMenuLayer = (

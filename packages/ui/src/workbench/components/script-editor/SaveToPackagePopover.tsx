@@ -24,6 +24,7 @@ import {
   applyScriptPackageUpdate,
 } from '../../../shared/sync/script-package-write-client';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 const { Text } = Typography;
 
@@ -46,6 +47,7 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const packages = useScriptPackages(workspaceId);
   const { position, popoverRef, measured } = usePopoverPlacement(anchorEl, POPOVER_WIDTH);
 
@@ -88,11 +90,15 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
       const source = pkg.source.trim() ? `${pkg.source.replace(/\n+$/, '')}\n\n${selectionText}` : selectionText;
       const result = await applyScriptPackageUpdate(pkg.uid, { source }, { workspaceId, surfaceId: SURFACE_ID });
       if (result.ok) {
-        message.success(`Saved to “${pkg.name}”`);
+        message.success(t('workbench.editors.scriptEditor.savedTo', { name: pkg.name }));
         onClose();
         return;
       }
-      message.error(result.reason === 'not-found' ? 'Package not found — it may have been deleted.' : 'Save failed');
+      message.error(
+        result.reason === 'not-found'
+          ? t('workbench.editors.scriptEditor.packageNotFound')
+          : t('workbench.editors.scriptEditor.saveFailed'),
+      );
     } finally {
       setSaving(false);
     }
@@ -108,15 +114,15 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
         { workspaceId, surfaceId: SURFACE_ID },
       );
       if (result.ok) {
-        message.success(`Package “${name}” created`);
+        message.success(t('workbench.editors.scriptEditor.packageCreated', { name }));
         onClose();
         return;
       }
       if (result.reason === 'duplicate-name') {
-        message.error(`A package named “${name}” already exists in this workspace.`);
+        message.error(t('workbench.editors.scriptEditor.duplicatePackage', { name }));
         return;
       }
-      message.error('Save failed');
+      message.error(t('workbench.editors.scriptEditor.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -141,7 +147,9 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
         pointerEvents: measured ? undefined : 'none',
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Save to Package Library</div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+        {t('workbench.editors.scriptEditor.saveToPackage')}
+      </div>
       {creating ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Input
@@ -149,12 +157,12 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="package_name"
-            aria-label="New package name"
+            aria-label={t('workbench.editors.scriptEditor.newPackageName')}
             onPressEnter={() => void createNew()}
           />
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button size="small" onClick={() => setCreating(false)}>
-              Back
+              {t('workbench.editors.scriptEditor.back')}
             </Button>
             <Button
               size="small"
@@ -163,21 +171,25 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
               disabled={!newName.trim()}
               onClick={() => void createNew()}
             >
-              Create
+              {t('workbench.editors.scriptEditor.create')}
             </Button>
           </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Button size="small" onClick={() => setCreating(true)} style={{ alignSelf: 'flex-start' }}>
-            New Package
+            {t('workbench.editors.scriptEditor.newPackage')}
           </Button>
           <Text type="secondary" style={{ fontSize: 11, marginTop: 4 }}>
-            Or append to an existing package:
+            {t('workbench.editors.scriptEditor.orAppend')}
           </Text>
           <div style={{ maxHeight: 180, overflowY: 'auto', overscrollBehavior: 'none', display: 'flex', flexDirection: 'column', gap: 2 }}>
             {packages.length === 0 && (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No packages yet" style={{ margin: '8px 0' }} />
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={t('workbench.editors.scriptEditor.noPackagesYet')}
+                style={{ margin: '8px 0' }}
+              />
             )}
             {packages.map((pkg) => (
               <button

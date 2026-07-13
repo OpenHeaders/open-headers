@@ -9,21 +9,23 @@
  */
 
 import type { ScriptKind } from '@openheaders/core/scripts';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 
 export interface ScriptSnippet {
   id: string;
-  label: string;
+  labelKey: MessageKey;
   code: string;
 }
 
 export interface ScriptSnippetGroup {
-  label: string;
+  labelKey: MessageKey;
   snippets: ScriptSnippet[];
 }
 
 const SEND_REQUEST: ScriptSnippet = {
   id: 'send-request',
-  label: 'Send an HTTP request',
+  labelKey: 'workbench.editors.scriptEditor.snippet.sendRequest',
   code: `try {
   const response = await oh.sendRequest({
     url: 'https://api.openheaders.io/v1/items',
@@ -37,7 +39,7 @@ const SEND_REQUEST: ScriptSnippet = {
 
 const SEND_REQUEST_WITH_BODY: ScriptSnippet = {
   id: 'send-request-with-body',
-  label: 'Send an HTTP request with a JSON body',
+  labelKey: 'workbench.editors.scriptEditor.snippet.sendRequestJsonBody',
   code: `try {
   const response = await oh.sendRequest({
     url: 'https://api.openheaders.io/v1/items',
@@ -53,77 +55,77 @@ const SEND_REQUEST_WITH_BODY: ScriptSnippet = {
 
 const GET_VARIABLE: ScriptSnippet = {
   id: 'get-variable',
-  label: 'Get a variable',
+  labelKey: 'workbench.editors.scriptEditor.snippet.getVariable',
   code: `const value = await oh.variables.get('variable_name');
 console.log(value);`,
 };
 
 const SET_VARIABLE: ScriptSnippet = {
   id: 'set-variable',
-  label: 'Set a variable',
+  labelKey: 'workbench.editors.scriptEditor.snippet.setVariable',
   code: `await oh.variables.set('variable_name', 'variable_value');`,
 };
 
 const GET_VAULT_SECRET: ScriptSnippet = {
   id: 'get-vault-secret',
-  label: 'Get a vault secret',
+  labelKey: 'workbench.editors.scriptEditor.snippet.getVaultSecret',
   code: `const secret = await oh.vault.get('secret_name');`,
 };
 
 const USE_PACKAGE: ScriptSnippet = {
   id: 'use-package',
-  label: 'Use a package',
+  labelKey: 'workbench.editors.scriptEditor.snippet.usePackage',
   code: `const pkg = oh.require('package_name');
 console.log(pkg);`,
 };
 
 const WORKFLOWS_GROUP: ScriptSnippetGroup = {
-  label: 'Workflows',
+  labelKey: 'workbench.editors.scriptEditor.group.workflows',
   snippets: [SEND_REQUEST, SEND_REQUEST_WITH_BODY],
 };
 
 const PACKAGES_GROUP: ScriptSnippetGroup = {
-  label: 'Packages',
+  labelKey: 'workbench.editors.scriptEditor.group.packages',
   snippets: [USE_PACKAGE],
 };
 
 const PRE_REQUEST_GROUPS: ScriptSnippetGroup[] = [
   {
-    label: 'Request',
+    labelKey: 'workbench.editors.scriptEditor.group.request',
     snippets: [
       {
         id: 'set-header',
-        label: 'Set a header',
+        labelKey: 'workbench.editors.scriptEditor.snippet.setHeader',
         code: `oh.setHeader('X-Api-Key', 'value');`,
       },
       {
         id: 'remove-header',
-        label: 'Remove a header',
+        labelKey: 'workbench.editors.scriptEditor.snippet.removeHeader',
         code: `oh.removeHeader('X-Api-Key');`,
       },
       {
         id: 'set-query-param',
-        label: 'Set a query parameter',
+        labelKey: 'workbench.editors.scriptEditor.snippet.setQueryParam',
         code: `oh.setQueryParam('page', '1');`,
       },
       {
         id: 'remove-query-param',
-        label: 'Remove a query parameter',
+        labelKey: 'workbench.editors.scriptEditor.snippet.removeQueryParam',
         code: `oh.removeQueryParam('page');`,
       },
       {
         id: 'set-url',
-        label: 'Set the URL',
+        labelKey: 'workbench.editors.scriptEditor.snippet.setUrl',
         code: `oh.setUrl('https://api.openheaders.io/v1/items');`,
       },
       {
         id: 'set-method',
-        label: 'Set the method',
+        labelKey: 'workbench.editors.scriptEditor.snippet.setMethod',
         code: `oh.setMethod('POST');`,
       },
       {
         id: 'set-json-body',
-        label: 'Set a JSON body',
+        labelKey: 'workbench.editors.scriptEditor.snippet.setJsonBody',
         code: `oh.setBody({
   type: 'json',
   content: JSON.stringify({ name: 'value' }),
@@ -134,39 +136,39 @@ const PRE_REQUEST_GROUPS: ScriptSnippetGroup[] = [
   WORKFLOWS_GROUP,
   PACKAGES_GROUP,
   {
-    label: 'Variables',
+    labelKey: 'workbench.editors.scriptEditor.group.variables',
     snippets: [GET_VARIABLE, SET_VARIABLE, GET_VAULT_SECRET],
   },
 ];
 
 const POST_RESPONSE_GROUPS: ScriptSnippetGroup[] = [
   {
-    label: 'Tests',
+    labelKey: 'workbench.editors.scriptEditor.group.tests',
     snippets: [
       {
         id: 'status-code-200',
-        label: 'Status code is 200',
+        labelKey: 'workbench.editors.scriptEditor.snippet.statusCode200',
         code: `await oh.test('Status code is 200', () => {
   oh.expect(oh.response).toHaveStatus(200);
 });`,
       },
       {
         id: 'body-contains',
-        label: 'Response body contains a string',
+        labelKey: 'workbench.editors.scriptEditor.snippet.bodyContains',
         code: `await oh.test('Body contains string', () => {
   oh.expect(oh.response.body).toContain('string_to_find');
 });`,
       },
       {
         id: 'body-equals',
-        label: 'Response body equals a string',
+        labelKey: 'workbench.editors.scriptEditor.snippet.bodyEquals',
         code: `await oh.test('Body is the expected string', () => {
   oh.expect(oh.response.body).toBe('expected_body');
 });`,
       },
       {
         id: 'json-value-check',
-        label: 'Response body JSON value check',
+        labelKey: 'workbench.editors.scriptEditor.snippet.jsonValueCheck',
         code: `await oh.test('JSON value is correct', () => {
   const data = JSON.parse(oh.response.body);
   oh.expect(data.name).toBe('value');
@@ -174,7 +176,7 @@ const POST_RESPONSE_GROUPS: ScriptSnippetGroup[] = [
       },
       {
         id: 'header-check',
-        label: 'Response header check',
+        labelKey: 'workbench.editors.scriptEditor.snippet.headerCheck',
         code: `await oh.test('Content-Type header is present', () => {
   const header = oh.response.headers.find((h) => h.key.toLowerCase() === 'content-type');
   oh.expect(header?.value).toContain('application/json');
@@ -182,7 +184,7 @@ const POST_RESPONSE_GROUPS: ScriptSnippetGroup[] = [
       },
       {
         id: 'response-time',
-        label: 'Response time is below 200 ms',
+        labelKey: 'workbench.editors.scriptEditor.snippet.responseTime',
         code: `await oh.test('Response time is below 200 ms', () => {
   oh.expect(oh.response.durationMs < 200).toBeTruthy();
 });`,
@@ -192,13 +194,13 @@ const POST_RESPONSE_GROUPS: ScriptSnippetGroup[] = [
   WORKFLOWS_GROUP,
   PACKAGES_GROUP,
   {
-    label: 'Variables',
+    labelKey: 'workbench.editors.scriptEditor.group.variables',
     snippets: [
       GET_VARIABLE,
       SET_VARIABLE,
       {
         id: 'save-response-value',
-        label: 'Save a response value to a variable',
+        labelKey: 'workbench.editors.scriptEditor.snippet.saveResponseValue',
         code: `const data = JSON.parse(oh.response.body);
 await oh.variables.set('auth_token', data.token);`,
       },
@@ -212,14 +214,19 @@ export function getScriptSnippetGroups(kind: ScriptKind): ScriptSnippetGroup[] {
 }
 
 /** Case-insensitive label filter that preserves the group structure;
- *  groups with no surviving snippets drop out. */
-export function filterScriptSnippetGroups(groups: ScriptSnippetGroup[], query: string): ScriptSnippetGroup[] {
+ *  groups with no surviving snippets drop out. Matches against the
+ *  RESOLVED labels — what the user actually reads in the menu. */
+export function filterScriptSnippetGroups(
+  groups: ScriptSnippetGroup[],
+  query: string,
+  t: Translate,
+): ScriptSnippetGroup[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return groups;
   return groups
     .map((group) => ({
-      label: group.label,
-      snippets: group.snippets.filter((s) => s.label.toLowerCase().includes(needle)),
+      labelKey: group.labelKey,
+      snippets: group.snippets.filter((s) => t(s.labelKey).toLowerCase().includes(needle)),
     }))
     .filter((group) => group.snippets.length > 0);
 }

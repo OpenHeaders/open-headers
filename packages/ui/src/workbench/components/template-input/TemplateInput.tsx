@@ -22,6 +22,7 @@
  */
 
 import { CloseCircleFilled, EditOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { theme, Tooltip } from 'antd';
 import type React from 'react';
@@ -88,6 +89,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       [ref],
     );
 
+    const t = useT();
     const autoContext = useAutoSuggestionContext();
     const effectiveContext = suggestionContext ?? autoContext;
     const resolver = useVariableResolver();
@@ -347,21 +349,33 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           >
             {onValueEdit && (
               <Tooltip title={editTooltip}>
-                <EditOutlined className="oh-template-input-action" aria-label={editTooltip ?? 'Edit value'} onClick={onValueEdit} />
+                <EditOutlined
+                  className="oh-template-input-action"
+                  aria-label={editTooltip ?? t('shared.templateInput.editValue')}
+                  onClick={onValueEdit}
+                />
               </Tooltip>
             )}
             {onSecretToggle &&
               (secret ? (
-                <EyeOutlined className="oh-template-input-action" aria-label="Show value" onClick={onSecretToggle} />
+                <EyeOutlined
+                  className="oh-template-input-action"
+                  aria-label={t('shared.templateInput.showValue')}
+                  onClick={onSecretToggle}
+                />
               ) : (
                 <EyeInvisibleOutlined
                   className="oh-template-input-action"
-                  aria-label="Hide value"
+                  aria-label={t('shared.templateInput.hideValue')}
                   onClick={onSecretToggle}
                 />
               ))}
             {showClear && (
-              <CloseCircleFilled className="oh-template-input-action" aria-label="Clear value" onClick={handleClear} />
+              <CloseCircleFilled
+                className="oh-template-input-action"
+                aria-label={t('shared.templateInput.clearValue')}
+                onClick={handleClear}
+              />
             )}
           </span>
         )}
@@ -386,15 +400,14 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
                 createAction={
                   createTarget
                     ? {
-                        label: createTarget.scopeLabel ? (
-                          <>
-                            Create “{createTarget.name}” variable in {createTarget.scopeLabel}
-                          </>
-                        ) : (
-                          // Bare reference — the create popover's "Add to"
-                          // picker chooses the destination scope.
-                          <>Create “{createTarget.name}” variable</>
-                        ),
+                        label: createTarget.scopeLabel
+                          ? t('shared.templateInput.createNamedInScope', {
+                              name: createTarget.name,
+                              scope: createTarget.scopeLabel,
+                            })
+                          : // Bare reference — the create popover's "Add to"
+                            // picker chooses the destination scope.
+                            t('shared.templateInput.createNamed', { name: createTarget.name }),
                         onSelect: triggerCreate,
                       }
                     : undefined
@@ -407,7 +420,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           <span
             className="oh-template-input-unresolved-dot"
             aria-hidden="true"
-            title="Contains an unresolved variable"
+            title={t('shared.templateInput.unresolvedDot')}
           />
         )}
       </span>

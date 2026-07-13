@@ -19,6 +19,7 @@ import type { JsonObject } from '@openheaders/core/types';
 import { Alert, App, Button, Input, Modal, Segmented, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import CodeEditor from '../shared/CodeEditor';
 import { EditorModalFooter } from './EditorModalFooter';
 import { decodeJWT, encodeJWT, formatJSON, getJWTExpiration, JWT_CLAIM_DESCRIPTIONS, type JWTExpirationInfo, signableJwtAlgorithm, signJWT, validateJSON } from '@openheaders/ui/shared/value-detection';
@@ -49,6 +50,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const [decodedHeader, setDecodedHeader] = useState('');
   const [decodedPayload, setDecodedPayload] = useState('');
   const [signature, setSignature] = useState('');
@@ -235,9 +237,9 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
   const copyToClipboard = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(displayToken);
-      message.success('JWT copied to clipboard');
+      message.success(t('shared.valueEditors.jwt.copied'));
     } catch {
-      message.error('Failed to copy to clipboard');
+      message.error(t('shared.valueEditors.copyFailed'));
     }
   }, [displayToken, message]);
 
@@ -307,8 +309,8 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
     <Modal
       title={
         <Space>
-          <span>{readOnly ? 'JWT' : 'JWT Editor'}</span>
-          {isModified && <Tag color="orange">Modified</Tag>}
+          <span>{readOnly ? t('shared.valueEditors.jwt.titleViewer') : t('shared.valueEditors.jwt.title')}</span>
+          {isModified && <Tag color="orange">{t('shared.valueEditors.jwt.modified')}</Tag>}
         </Space>
       }
       open={open}
@@ -316,7 +318,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
       width={980}
       footer={
         readOnly ? (
-          <Button onClick={onCancel}>Close</Button>
+          <Button onClick={onCancel}>{t('shared.action.close')}</Button>
         ) : (
           <EditorModalFooter saveDisabled={saveDisabled} onSave={handleSave} onCancel={onCancel} />
         )
@@ -325,7 +327,13 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
       destroyOnHidden
     >
       {error && (
-        <Alert type="error" showIcon message="Could not decode token" description={error} style={{ marginBottom: 12 }} />
+        <Alert
+          type="error"
+          showIcon
+          message={t('shared.valueEditors.jwt.decodeErrorTitle')}
+          description={error}
+          style={{ marginBottom: 12 }}
+        />
       )}
 
       <div style={{ display: 'flex', gap: 16 }} onKeyDown={handleKeyDown}>
@@ -335,8 +343,8 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
             value={editMode}
             onChange={(mode) => handleModeSwitch(mode as EditMode)}
             options={[
-              { label: 'Decoded', value: 'decoded', icon: <CodeOutlined /> },
-              { label: 'Encoded', value: 'encoded', icon: <FileTextOutlined /> },
+              { label: t('shared.valueEditors.jwt.decoded'), value: 'decoded', icon: <CodeOutlined /> },
+              { label: t('shared.valueEditors.jwt.encoded'), value: 'encoded', icon: <FileTextOutlined /> },
             ]}
             style={{ alignSelf: 'flex-start' }}
           />
@@ -346,7 +354,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
               <div>
                 <Space style={{ marginBottom: 4 }}>
                   <Text strong style={{ fontSize: 12 }}>
-                    Header
+                    {t('shared.valueEditors.jwt.header')}
                   </Text>
                   {headerError && (
                     <Text type="danger" style={{ fontSize: 12 }}>
@@ -366,7 +374,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
               <div>
                 <Space style={{ marginBottom: 4 }}>
                   <Text strong style={{ fontSize: 12 }}>
-                    Payload
+                    {t('shared.valueEditors.jwt.payload')}
                   </Text>
                   {payloadError && (
                     <Text type="danger" style={{ fontSize: 12 }}>
@@ -388,7 +396,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
                   // up against each other.
                   <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Claims:
+                      {t('shared.valueEditors.jwt.claims')}
                     </Text>
                     {recognizedClaims.map((claim) => (
                       <Tooltip key={claim} title={JWT_CLAIM_DESCRIPTIONS[claim]}>
@@ -404,7 +412,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <Text strong style={{ fontSize: 12 }}>
-                {readOnly ? 'Raw token' : 'Paste or edit the raw token'}
+                {readOnly ? t('shared.valueEditors.jwt.rawToken') : t('shared.valueEditors.jwt.pasteOrEdit')}
               </Text>
               <TextArea
                 value={encodedInput}
@@ -416,7 +424,12 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
                 readOnly={readOnly}
               />
               {encodedInputError && (
-                <Alert type="error" showIcon message="Not a decodable JWT" description={encodedInputError} />
+                <Alert
+                  type="error"
+                  showIcon
+                  message={t('shared.valueEditors.jwt.notDecodable')}
+                  description={encodedInputError}
+                />
               )}
             </div>
           )}
@@ -426,10 +439,10 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
         <div style={{ flex: 9, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text strong style={{ fontSize: 12 }}>
-              Encoded preview
+              {t('shared.valueEditors.encodedPreview')}
             </Text>
             <Button size="small" icon={<CopyOutlined />} onClick={() => void copyToClipboard()}>
-              Copy
+              {t('shared.action.copy')}
             </Button>
           </div>
           <div
@@ -460,7 +473,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
           </div>
           <div style={{ fontSize: 12, fontFamily: 'monospace' }}>
             <Text type="secondary" style={{ fontSize: 12, marginRight: 8 }}>
-              Structure:
+              {t('shared.valueEditors.jwt.structure')}
             </Text>
             <Text style={{ color: segmentColors[0] }}>header</Text>
             <Text>.</Text>
@@ -473,7 +486,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Space>
                 <Text strong style={{ fontSize: 12 }}>
-                  Re-sign with secret
+                  {t('shared.valueEditors.jwt.resignWithSecret')}
                 </Text>
                 {signingAlgorithm && (
                   // Single string child: multi-node children give antd's
@@ -482,18 +495,18 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
                   // max-update-depth crash when the modal mounts inside a
                   // sync layout cascade (the panel's storage documents).
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {`${signingAlgorithm} from header`}
+                    {t('shared.valueEditors.jwt.algFromHeader', { algorithm: signingAlgorithm })}
                   </Text>
                 )}
               </Space>
               <Input.Password
                 value={signingSecret}
                 onChange={handleSecretChange}
-                placeholder="Signing secret"
+                placeholder={t('shared.valueEditors.jwt.signingSecret')}
                 autoComplete="new-password"
               />
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Kept in memory only and discarded when the editor closes.
+                {t('shared.valueEditors.jwt.secretMemoryNote')}
               </Text>
             </div>
           )}
@@ -503,8 +516,15 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
               type={expirationInfo.isExpired ? 'error' : 'success'}
               showIcon
               icon={expirationInfo.isExpired ? <CloseCircleOutlined /> : <CheckCircleOutlined />}
-              message={expirationInfo.isExpired ? 'Token expired' : 'Token not expired'}
-              description={`${expirationInfo.isExpired ? 'Expired' : 'Expires'} on ${expirationInfo.expiresAt?.toLocaleString()}`}
+              message={
+                expirationInfo.isExpired
+                  ? t('shared.valueEditors.jwt.tokenExpired')
+                  : t('shared.valueEditors.jwt.tokenNotExpired')
+              }
+              description={t(
+                expirationInfo.isExpired ? 'shared.valueEditors.jwt.expiredOn' : 'shared.valueEditors.jwt.expiresOn',
+                { date: expirationInfo.expiresAt?.toLocaleString() ?? '' },
+              )}
             />
           )}
 
@@ -512,27 +532,27 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
             <Alert
               type="success"
               showIcon
-              message={`Token re-signed with ${signingAlgorithm}`}
-              description="Save writes the token signed with your secret — the preview above is exactly what gets saved."
+              message={t('shared.valueEditors.jwt.resigned', { algorithm: signingAlgorithm ?? '' })}
+              description={t('shared.valueEditors.jwt.resignedDescription')}
             />
           )}
           {signingStatus === 'unsupported' && (
             <Alert
               type="warning"
               showIcon
-              message="Cannot re-sign this algorithm"
-              description="Only HMAC algorithms (HS256, HS384, HS512) can be re-signed here. The original signature is carried over instead."
+              message={t('shared.valueEditors.jwt.cannotResign')}
+              description={t('shared.valueEditors.jwt.cannotResignDescription')}
             />
           )}
           {signingStatus === 'error' && (
-            <Alert type="error" showIcon message="Could not sign token" description={signingError} />
+            <Alert type="error" showIcon message={t('shared.valueEditors.jwt.signError')} description={signingError} />
           )}
           {isModified && signingStatus === null && (
             <Alert
               type="warning"
               showIcon
-              message="Signature no longer valid"
-              description="The original signature is kept as-is, so servers that verify it will reject the edited token. Enter a signing secret to re-sign it."
+              message={t('shared.valueEditors.jwt.signatureInvalid')}
+              description={t('shared.valueEditors.jwt.signatureInvalidDescription')}
             />
           )}
         </div>

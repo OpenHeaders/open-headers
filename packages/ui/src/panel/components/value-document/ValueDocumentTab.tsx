@@ -21,8 +21,9 @@ import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
-  COMPACT_VALUE_TITLES,
+  COMPACT_VALUE_TITLE_KEYS,
   compactDecodedText,
   type DetectedValue,
   detectValueType,
@@ -80,6 +81,7 @@ interface ValueDocumentTabProps {
 }
 
 export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDocument }: ValueDocumentTabProps) {
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
   const liveRule = useLiveRule(tab.ruleUid, workspaceId);
@@ -179,7 +181,7 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
     void openWorkspace({ kind: 'edit-rule', uid: tab.ruleUid }, 'devpanel');
   }, [tab.ruleUid]);
 
-  const title = canonical.kind === 'detected' ? COMPACT_VALUE_TITLES[canonical.detected.type] : null;
+  const title = canonical.kind === 'detected' ? t(COMPACT_VALUE_TITLE_KEYS[canonical.detected.type]) : null;
   // Pair-shaped values (cookie, query-string) edit as a name/value
   // grid over the same decoded text — draft, drift, and save are
   // untouched. A draft held over a vanished field falls back to the

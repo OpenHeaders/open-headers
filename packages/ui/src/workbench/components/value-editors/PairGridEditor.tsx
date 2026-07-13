@@ -15,6 +15,8 @@
  */
 
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
 import {
   decodePairSegments,
@@ -33,9 +35,29 @@ interface PairGridRow extends PairSegment {
   id: number;
 }
 
-const COLUMN_LABELS: Record<PairGridType, { name: string; value: string }> = {
-  cookie: { name: 'Name', value: 'Value' },
-  'query-string': { name: 'Key', value: 'Value' },
+interface ColumnKeys {
+  name: MessageKey;
+  value: MessageKey;
+  ariaPairs: MessageKey;
+  ariaRowName: MessageKey;
+  ariaRowValue: MessageKey;
+}
+
+const COLUMN_KEYS: Record<PairGridType, ColumnKeys> = {
+  cookie: {
+    name: 'shared.valueEditors.grid.name',
+    value: 'shared.valueEditors.grid.value',
+    ariaPairs: 'shared.valueEditors.grid.ariaNamePairs',
+    ariaRowName: 'shared.valueEditors.grid.ariaRowName',
+    ariaRowValue: 'shared.valueEditors.grid.ariaRowValue',
+  },
+  'query-string': {
+    name: 'shared.valueEditors.grid.key',
+    value: 'shared.valueEditors.grid.value',
+    ariaPairs: 'shared.valueEditors.grid.ariaKeyPairs',
+    ariaRowName: 'shared.valueEditors.grid.ariaRowKey',
+    ariaRowValue: 'shared.valueEditors.grid.ariaRowValue',
+  },
 };
 
 interface GridCellInputProps {
@@ -134,6 +156,7 @@ interface PairGridEditorProps {
 
 export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value, onChange, readOnly }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const nextIdRef = useRef(0);
   const mintRows = useCallback((segments: PairSegment[]): PairGridRow[] => {
     return segments.map((s) => {
@@ -211,12 +234,12 @@ export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value,
     [rows, commit],
   );
 
-  const labels = COLUMN_LABELS[gridType];
+  const columns = COLUMN_KEYS[gridType];
   const cellLabel = (row: PairGridRow, index: number, column: 'name' | 'value'): string =>
-    `Row ${index + 1} ${column === 'name' ? labels.name.toLowerCase() : labels.value.toLowerCase()}`;
+    t(column === 'name' ? columns.ariaRowName : columns.ariaRowValue, { row: index + 1 });
 
   return (
-    <div role="group" aria-label={`${labels.name}/${labels.value} pairs`}>
+    <div role="group" aria-label={t(columns.ariaPairs)}>
       <div
         style={{
           display: 'grid',
@@ -226,10 +249,10 @@ export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value,
         }}
       >
         <Text type="secondary" style={{ fontSize: 11 }}>
-          {labels.name}
+          {t(columns.name)}
         </Text>
         <Text type="secondary" style={{ fontSize: 11 }}>
-          {labels.value}
+          {t(columns.value)}
         </Text>
         <span />
         {rows.map((row, index) => (
@@ -245,7 +268,7 @@ export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value,
               value={row.value ?? ''}
               onValueChange={(text) => updateCell(row.id, 'value', text)}
               aria-label={cellLabel(row, index, 'value')}
-              placeholder={row.value === null ? 'flag' : undefined}
+              placeholder={row.value === null ? t('shared.valueEditors.grid.flag') : undefined}
               readOnly={readOnly}
             />
             {readOnly ? (
@@ -256,7 +279,7 @@ export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value,
                   type="text"
                   size="small"
                   icon={<ArrowUpOutlined />}
-                  aria-label={`Move row ${index + 1} up`}
+                  aria-label={t('shared.valueEditors.grid.moveRowUp', { row: index + 1 })}
                   disabled={index === 0}
                   onClick={() => moveRow(row.id, -1)}
                 />
@@ -264,7 +287,7 @@ export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value,
                   type="text"
                   size="small"
                   icon={<ArrowDownOutlined />}
-                  aria-label={`Move row ${index + 1} down`}
+                  aria-label={t('shared.valueEditors.grid.moveRowDown', { row: index + 1 })}
                   disabled={index === rows.length - 1}
                   onClick={() => moveRow(row.id, 1)}
                 />
@@ -272,7 +295,7 @@ export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value,
                   type="text"
                   size="small"
                   icon={<DeleteOutlined />}
-                  aria-label={`Delete row ${index + 1}`}
+                  aria-label={t('shared.valueEditors.grid.deleteRow', { row: index + 1 })}
                   onClick={() => removeRow(row.id)}
                 />
               </span>
@@ -288,7 +311,7 @@ export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value,
           onClick={addRow}
           style={{ fontSize: 11, padding: 0, height: 'auto', marginTop: 6, color: token.colorTextSecondary }}
         >
-          Add row
+          {t('shared.valueEditors.grid.addRow')}
         </Button>
       )}
     </div>

@@ -14,6 +14,7 @@ import { scanForJWTs } from '@openheaders/ui/shared/value-detection';
 import type * as monacoType from 'monaco-editor';
 import type React from 'react';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { attachJwtEditTarget, buildJwtDecorations, type JwtLinkTarget, registerJwtLinkPlane } from './monaco-jwt-links';
 
 // Same lazy treatment as `useValueEditAction` — the modal mounts
@@ -44,6 +45,7 @@ export interface MonacoJwtEditResult {
 }
 
 export function useMonacoJwtEdit({ readOnly = false }: MonacoJwtEditOptions = {}): MonacoJwtEditResult {
+  const t = useT();
   const [pending, setPending] = useState<PendingEdit | null>(null);
   const pendingRef = useRef<PendingEdit | null>(null);
   const detachRef = useRef<(() => void) | null>(null);
@@ -91,7 +93,10 @@ export function useMonacoJwtEdit({ readOnly = false }: MonacoJwtEditOptions = {}
       let underlineIds: string[] = [];
       let refreshTimer: ReturnType<typeof setTimeout> | null = null;
       const refresh = () => {
-        underlineIds = model.deltaDecorations(underlineIds, buildJwtDecorations(model, id, readOnly ? 'view' : 'edit'));
+        underlineIds = model.deltaDecorations(
+          underlineIds,
+          buildJwtDecorations(model, id, readOnly ? 'view' : 'edit', t),
+        );
       };
       refresh();
       const contentListener = model.onDidChangeContent(() => {
@@ -120,7 +125,7 @@ export function useMonacoJwtEdit({ readOnly = false }: MonacoJwtEditOptions = {}
         detachTarget();
       };
     },
-    [readOnly],
+    [readOnly, t],
   );
 
   const clearPending = useCallback((edit: PendingEdit) => {

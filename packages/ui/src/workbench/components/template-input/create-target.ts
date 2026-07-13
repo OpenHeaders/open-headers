@@ -9,6 +9,8 @@
  */
 
 import { parseReference } from '@openheaders/core/variables';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 
 export interface CreateTarget {
   /** The full reference inside the braces, e.g. `vault.okay`. */
@@ -21,24 +23,24 @@ export interface CreateTarget {
   scopeLabel: string | null;
 }
 
-const CREATABLE_NS_LABEL: Record<string, string> = {
-  vault: 'Vault',
-  env: 'Environment',
-  collection: 'Collection',
-  workspace: 'Workspace',
+const CREATABLE_NS_LABEL_KEY: Record<string, MessageKey> = {
+  vault: 'shared.templateInput.createScope.vault',
+  env: 'shared.templateInput.createScope.environment',
+  collection: 'shared.templateInput.createScope.collection',
+  workspace: 'shared.templateInput.createScope.workspace',
 };
 
 /** Returns the create target for `query` when it's a bare name or a
  *  scoped reference to a creatable namespace, else null. Collection
  *  needs an active collection context to be creatable. */
-export function detectCreateTarget(query: string, collectionId: string | undefined): CreateTarget | null {
+export function detectCreateTarget(query: string, collectionId: string | undefined, t: Translate): CreateTarget | null {
   const parsed = parseReference(query);
   if (!parsed.ok) return null;
   const { namespace, name } = parsed.ref;
   if (!name) return null;
   if (!namespace) return { reference: query, name, scopeLabel: null };
-  const scopeLabel = CREATABLE_NS_LABEL[namespace];
-  if (!scopeLabel) return null;
+  const scopeLabelKey = CREATABLE_NS_LABEL_KEY[namespace];
+  if (!scopeLabelKey) return null;
   if (namespace === 'collection' && !collectionId) return null;
-  return { reference: query, name, scopeLabel };
+  return { reference: query, name, scopeLabel: t(scopeLabelKey) };
 }

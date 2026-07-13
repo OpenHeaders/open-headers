@@ -21,6 +21,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { App, Button, Dropdown, Input, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { scopeBadge } from '../shared/scope-colors';
 import TemplateInput from './TemplateInput';
@@ -52,6 +53,7 @@ const SetAsVariablePopover: React.FC<SetAsVariablePopoverProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const { activeEnvironmentId, activeEnvironment, workspaceVariables, vault } = useEnvVarVault();
   const { localCollections } = useRules();
   const mutator = useVariableMutator();
@@ -69,8 +71,8 @@ const SetAsVariablePopover: React.FC<SetAsVariablePopoverProps> = ({
   }, [measured]);
 
   const createOptions = useMemo(
-    () => buildCreateOptions(NO_NAMESPACE, !!activeEnvironmentId, !!collectionId),
-    [activeEnvironmentId, collectionId],
+    () => buildCreateOptions(NO_NAMESPACE, !!activeEnvironmentId, !!collectionId, t),
+    [activeEnvironmentId, collectionId, t],
   );
   const createFlow = resolveCreateFlow(null, addTo, createOptions);
   const effectiveAddTo = createFlow.scope;
@@ -81,14 +83,21 @@ const SetAsVariablePopover: React.FC<SetAsVariablePopoverProps> = ({
     if (!effectiveAddTo) return;
     setSaving(true);
     try {
-      const result = await runCreate(mutator, effectiveAddTo, name.trim(), value, {
-        activeEnvironment,
-        workspaceVariables,
-        vault,
-        localCollections,
-        collectionId,
-      });
-      surfaceResult(result, message, onClose);
+      const result = await runCreate(
+        mutator,
+        effectiveAddTo,
+        name.trim(),
+        value,
+        {
+          activeEnvironment,
+          workspaceVariables,
+          vault,
+          localCollections,
+          collectionId,
+        },
+        t,
+      );
+      surfaceResult(result, message, onClose, t);
     } finally {
       setSaving(false);
     }
@@ -114,14 +123,16 @@ const SetAsVariablePopover: React.FC<SetAsVariablePopoverProps> = ({
         pointerEvents: measured ? undefined : 'none',
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Set as new variable</div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
+        {t('shared.templateInput.setAsNewVariable')}
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Input
           ref={nameRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Variable name"
-          aria-label="Variable name"
+          placeholder={t('shared.templateInput.variableName')}
+          aria-label={t('shared.templateInput.variableName')}
           onPressEnter={() => {
             if (canSave) void handleSave();
           }}
@@ -132,8 +143,8 @@ const SetAsVariablePopover: React.FC<SetAsVariablePopoverProps> = ({
           multiline
           maxRows={6}
           disableSuggestions
-          placeholder="Value"
-          aria-label="Variable value"
+          placeholder={t('shared.templateInput.valuePlaceholder')}
+          aria-label={t('shared.templateInput.variableValue')}
           style={{ width: '100%', fontFamily: token.fontFamilyCode, fontSize: 12 }}
         />
       </div>
@@ -158,10 +169,13 @@ const SetAsVariablePopover: React.FC<SetAsVariablePopoverProps> = ({
         >
           <Button size="small" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             {effectiveAddTo && scopeBadge(createScopeToColorKey(effectiveAddTo), 14)}
-            Add to: {effectiveAddTo ? labelForCreateScope(effectiveAddTo) : 'pick scope'} ▾
+            {effectiveAddTo
+              ? t('shared.templateInput.addToScope', { scope: labelForCreateScope(effectiveAddTo, t) })
+              : t('shared.templateInput.addToPickScope')}{' '}
+            ▾
           </Button>
         </Dropdown>
-        <Tooltip title="Save" placement="bottomRight" zIndex={1090}>
+        <Tooltip title={t('shared.action.save')} placement="bottomRight" zIndex={1090}>
           <Button
             size="small"
             type="primary"
@@ -171,13 +185,13 @@ const SetAsVariablePopover: React.FC<SetAsVariablePopoverProps> = ({
             onClick={() => void handleSave()}
             style={{ fontSize: 11 }}
           >
-            Save
+            {t('shared.action.save')}
           </Button>
         </Tooltip>
       </div>
       {createFlow.unavailable === 'no-active-env' && (
         <div style={{ marginTop: 8, fontSize: 11, color: token.colorTextSecondary }}>
-          No environment selected — pick one in the env switcher to add an environment variable.
+          {t('shared.templateInput.noActiveEnvHint')}
         </div>
       )}
     </div>

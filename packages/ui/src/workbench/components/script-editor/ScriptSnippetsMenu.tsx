@@ -9,6 +9,7 @@ import type { ScriptKind } from '@openheaders/core/scripts';
 import { Button, Input, Popover, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { filterScriptSnippetGroups, getScriptSnippetGroups } from './script-snippets';
 
 interface ScriptSnippetsMenuProps {
@@ -18,10 +19,11 @@ interface ScriptSnippetsMenuProps {
 
 const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
-  const groups = useMemo(() => filterScriptSnippetGroups(getScriptSnippetGroups(kind), query), [kind, query]);
+  const groups = useMemo(() => filterScriptSnippetGroups(getScriptSnippetGroups(kind), query, t), [kind, query, t]);
 
   const setOpenAndReset = (next: boolean) => {
     setOpen(next);
@@ -35,7 +37,7 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
         autoFocus
         allowClear
         prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-        placeholder="Search snippets"
+        placeholder={t('workbench.editors.scriptEditor.searchSnippets')}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -58,11 +60,11 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
               fontSize: 12,
             }}
           >
-            No snippet found
+            {t('workbench.editors.scriptEditor.noSnippetFound')}
           </div>
         )}
         {groups.map((group) => (
-          <div key={group.label} style={{ display: 'flex', flexDirection: 'column' }}>
+          <div key={group.labelKey} style={{ display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
                 padding: '6px 4px 2px',
@@ -73,7 +75,7 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
                 letterSpacing: 0.4,
               }}
             >
-              {group.label}
+              {t(group.labelKey)}
             </div>
             {group.snippets.map((snippet) => (
               <button
@@ -97,7 +99,7 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
                   e.currentTarget.style.background = 'transparent';
                 }}
               >
-                {snippet.label}
+                {t(snippet.labelKey)}
               </button>
             ))}
           </div>
@@ -117,7 +119,7 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
       styles={{ container: { padding: 8 } }}
     >
       <Button size="small" type="text" icon={<CodeOutlined />} data-testid="oh-script-snippets">
-        Snippets
+        {t('workbench.editors.scriptEditor.snippets')}
       </Button>
     </Popover>
   );

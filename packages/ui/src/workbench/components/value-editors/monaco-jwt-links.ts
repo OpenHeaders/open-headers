@@ -10,6 +10,7 @@
  * lives in `useMonacoJwtEdit`.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { isJWT, scanForJWTs } from '@openheaders/ui/shared/value-detection';
 import type * as monaco from 'monaco-editor';
@@ -55,9 +56,10 @@ export type JwtLinkMode = 'edit' | 'view';
 export function buildJwtDecorations(
   model: JwtLinkModel,
   registrationId: number,
-  mode: JwtLinkMode = 'edit',
+  mode: JwtLinkMode,
+  t: Translate,
 ): JwtDecorationSpec[] {
-  const label = mode === 'view' ? 'View JWT' : 'Edit JWT';
+  const label = mode === 'view' ? t('shared.valueEditors.viewJwt') : t('shared.valueEditors.editJwt');
   return scanForJWTs(model.getValue()).map((hit) => {
     const startPos = model.getPositionAt(hit.start);
     const endPos = model.getPositionAt(hit.end);

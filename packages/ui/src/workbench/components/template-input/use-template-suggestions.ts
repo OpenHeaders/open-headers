@@ -8,6 +8,7 @@
  */
 
 import { filterSuggestions, type SuggestionContext, type VariableSuggestion } from '@openheaders/core/variables';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/variables/useVariableSuggestions';
 import { claimEscape } from '@openheaders/ui/shared/popover';
@@ -47,6 +48,7 @@ export function useTemplateSuggestions({
 }: TemplateSuggestionsInputs) {
   const { suggestions: allSuggestions } = useVariableSuggestions(effectiveContext);
   const { activeWorkspaceId } = useWorkspaces();
+  const t = useT();
 
   // One-shot: set when a keyboard action opens the create popover, so
   // the Enter/Tab key's own keyup doesn't immediately re-open the
@@ -338,8 +340,8 @@ export function useTemplateSuggestions({
   // to create it in that scope instead of a dead-end "No matches".
   const createTarget = useMemo<CreateTarget | null>(() => {
     if (!measureDouble || suggestions.length > 0) return null;
-    return detectCreateTarget(query, effectiveContext.collectionId);
-  }, [measureDouble, suggestions.length, query, effectiveContext.collectionId]);
+    return detectCreateTarget(query, effectiveContext.collectionId, t);
+  }, [measureDouble, suggestions.length, query, effectiveContext.collectionId, t]);
 
   // Called when the create popover closes (Escape / save / outside-click).
   // Drop the user back into the field exactly where they left off — focus,

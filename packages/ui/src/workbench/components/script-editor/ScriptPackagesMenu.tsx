@@ -11,6 +11,7 @@ import { CodeSandboxOutlined, SearchOutlined } from '@ant-design/icons';
 import { Button, Input, Popover, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useScriptPackages } from '../../../shared/hooks/readers/useScriptPackages';
 
 interface ScriptPackagesMenuProps {
@@ -29,6 +30,7 @@ function toIdentifier(name: string): string {
 
 const ScriptPackagesMenu: React.FC<ScriptPackagesMenuProps> = ({ workspaceId, onInsert, onOpenLibrary }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const packages = useScriptPackages(workspaceId);
@@ -51,7 +53,7 @@ const ScriptPackagesMenu: React.FC<ScriptPackagesMenuProps> = ({ workspaceId, on
         autoFocus
         allowClear
         prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-        placeholder="Search packages"
+        placeholder={t('workbench.editors.scriptEditor.searchPackages')}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -73,7 +75,9 @@ const ScriptPackagesMenu: React.FC<ScriptPackagesMenuProps> = ({ workspaceId, on
               padding: '0 12px',
             }}
           >
-            {packages.length === 0 ? 'No packages in this workspace yet' : 'No package found'}
+            {packages.length === 0
+              ? t('workbench.editors.scriptEditor.noPackagesInWorkspace')
+              : t('workbench.editors.scriptEditor.noPackageFound')}
           </div>
         )}
         {filtered.map((pkg) => (
@@ -124,7 +128,7 @@ const ScriptPackagesMenu: React.FC<ScriptPackagesMenuProps> = ({ workspaceId, on
             textAlign: 'left',
           }}
         >
-          Open Package Library →
+          {t('workbench.editors.scriptEditor.openPackageLibrary')}
         </button>
       )}
     </div>
@@ -141,7 +145,7 @@ const ScriptPackagesMenu: React.FC<ScriptPackagesMenuProps> = ({ workspaceId, on
       styles={{ container: { padding: 8 } }}
     >
       <Button size="small" type="text" icon={<CodeSandboxOutlined />} data-testid="oh-script-packages">
-        Packages
+        {t('workbench.editors.scriptEditor.packages')}
       </Button>
     </Popover>
   );

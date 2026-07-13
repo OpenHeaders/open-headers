@@ -16,6 +16,7 @@ import { type PairGridType, validateJSON } from '@openheaders/ui/shared/value-de
 import { App, Button, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import CodeEditor from '../shared/CodeEditor';
 import { EditorModalFooter } from './EditorModalFooter';
 import { PairGridEditor } from './PairGridEditor';
@@ -56,6 +57,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const [text, setText] = useState(decoded);
 
   useEffect(() => {
@@ -97,9 +99,9 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
     if (encoded === null) return;
     try {
       await navigator.clipboard.writeText(encoded);
-      message.success('Encoded value copied to clipboard');
+      message.success(t('shared.valueEditors.encodedCopied'));
     } catch {
-      message.error('Failed to copy to clipboard');
+      message.error(t('shared.valueEditors.copyFailed'));
     }
   }, [encoded, message]);
 
@@ -111,7 +113,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
       width={760}
       footer={
         readOnly ? (
-          <Button onClick={onCancel}>Close</Button>
+          <Button onClick={onCancel}>{t('shared.action.close')}</Button>
         ) : (
           <EditorModalFooter saveDisabled={saveDisabled} onSave={handleSave} onCancel={onCancel} />
         )
@@ -122,7 +124,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} onKeyDown={handleKeyDown}>
         <div>
           <Text strong style={{ fontSize: 12, display: 'inline-block', marginBottom: 4 }}>
-            Decoded
+            {t('shared.valueEditors.decoded')}
           </Text>
           {gridType ? (
             <div style={{ maxHeight: 320, overflowY: 'auto', overscrollBehavior: 'none' }} className="dt-scrollbar">
@@ -142,10 +144,10 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <Text strong style={{ fontSize: 12 }}>
-              Encoded preview
+              {t('shared.valueEditors.encodedPreview')}
             </Text>
             <Button size="small" icon={<CopyOutlined />} disabled={encoded === null} onClick={() => void copyEncoded()}>
-              Copy
+              {t('shared.action.copy')}
             </Button>
           </div>
           <div
@@ -164,7 +166,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
           >
             {encoded === null ? (
               <Text type="danger" italic style={{ fontSize: 12 }}>
-                Cannot encode — the edited value is not valid for this type
+                {t('shared.valueEditors.cannotEncode')}
               </Text>
             ) : (
               encoded

@@ -4,6 +4,7 @@
  * unavailability hint, all derived together so they can't drift.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { VariableLookupResult } from '@openheaders/ui/shared/hooks/variables/useVariableLookup';
 import type { ScopeKey } from '../shared/scope-colors';
 
@@ -27,16 +28,16 @@ export interface CreateOption {
   hint?: string;
 }
 
-export function labelForCreateScope(s: CreateScope): string {
+export function labelForCreateScope(s: CreateScope, t: Translate): string {
   switch (s) {
     case 'environment':
-      return 'Environment';
+      return t('shared.templateInput.createScope.environment');
     case 'collection':
-      return 'Collection';
+      return t('shared.templateInput.createScope.collection');
     case 'workspace':
-      return 'Workspace';
+      return t('shared.templateInput.createScope.workspace');
     case 'vault':
-      return 'Vault';
+      return t('shared.templateInput.createScope.vault');
   }
 }
 
@@ -48,6 +49,7 @@ export function buildCreateOptions(
   namespace: VariableLookupResult['namespace'],
   hasActiveEnv: boolean,
   hasCollection: boolean,
+  t: Translate,
 ): CreateOption[] {
   // Reserved / runtime-only namespaces aren't creatable from the
   // popover — they need their dedicated editors (Live Variables, file
@@ -66,17 +68,19 @@ export function buildCreateOptions(
         case 'environment':
           return {
             key: 'environment',
-            label: 'Environment',
+            label: t('shared.templateInput.createScope.environment'),
             colorKey: 'environment',
             disabled: !hasActiveEnv,
-            hint: hasActiveEnv ? undefined : 'no active env',
+            hint: hasActiveEnv ? undefined : t('shared.templateInput.createScope.noActiveEnvHint'),
           };
         case 'collection':
-          return hasCollection ? { key: 'collection', label: 'Collection', colorKey: 'collection' } : null;
+          return hasCollection
+            ? { key: 'collection', label: t('shared.templateInput.createScope.collection'), colorKey: 'collection' }
+            : null;
         case 'workspace':
-          return { key: 'workspace', label: 'Workspace', colorKey: 'workspace' };
+          return { key: 'workspace', label: t('shared.templateInput.createScope.workspace'), colorKey: 'workspace' };
         case 'vault':
-          return { key: 'vault', label: 'Vault', colorKey: 'vault' };
+          return { key: 'vault', label: t('shared.templateInput.createScope.vault'), colorKey: 'vault' };
         default:
           return null;
       }

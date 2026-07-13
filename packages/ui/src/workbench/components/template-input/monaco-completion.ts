@@ -11,6 +11,8 @@
  */
 
 import { filterSuggestions, type SuggestionContext, type VariableSuggestion } from '@openheaders/core/variables';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type * as monaco from 'monaco-editor';
 
 /**
@@ -37,15 +39,15 @@ export interface RegisterOptions {
 
 /** Scope pill color — mirrors SuggestionRow's palette so the Monaco
  *  hover detail matches the line-input rendering. */
-const SCOPE_LABEL: Record<VariableSuggestion['scope'], string> = {
-  vault: 'Vault secret',
-  env: 'Environment',
-  collection: 'Collection',
-  workspace: 'Workspace',
-  live: 'Source',
-  step: 'Source flow step capture',
-  file: 'File reference',
-  dynamic: 'Dynamic generator',
+const SCOPE_LABEL_KEY: Record<VariableSuggestion['scope'], MessageKey> = {
+  vault: 'shared.templateInput.completion.scope.vault',
+  env: 'shared.templateInput.completion.scope.env',
+  collection: 'shared.templateInput.completion.scope.collection',
+  workspace: 'shared.templateInput.completion.scope.workspace',
+  live: 'shared.templateInput.completion.scope.live',
+  step: 'shared.templateInput.completion.scope.step',
+  file: 'shared.templateInput.completion.scope.file',
+  dynamic: 'shared.templateInput.completion.scope.dynamic',
 };
 
 /**
@@ -57,6 +59,7 @@ const SCOPE_LABEL: Record<VariableSuggestion['scope'], string> = {
 export function registerVariableCompletionProvider(
   monacoApi: typeof monaco,
   opts: RegisterOptions,
+  t: Translate,
 ): monaco.IDisposable {
   const languages = opts.languages ?? COMPLETION_LANGUAGES;
   const disposables: monaco.IDisposable[] = [];
@@ -102,13 +105,13 @@ export function registerVariableCompletionProvider(
           };
 
           const items: monaco.languages.CompletionItem[] = ranked.map((s, idx) => {
-            const detail = scopeDetail(s);
+            const detail = scopeDetail(s, t);
             const insertText = s.disabled ? `${s.reference}}}` : `${s.reference}}}`;
-            const documentation = previewDocumentation(s);
+            const documentation = previewDocumentation(s, t);
             return {
               label: {
                 label: s.reference,
-                description: SCOPE_LABEL[s.scope],
+                description: t(SCOPE_LABEL_KEY[s.scope]),
               },
               kind: monacoApi.languages.CompletionItemKind.Variable,
               detail,
@@ -143,43 +146,77 @@ export function registerVariableCompletionProvider(
   };
 }
 
-function scopeDetail(s: VariableSuggestion): string {
+// The em-dash join between the scope label and its qualifier is list
+// punctuation, not sentence grammar — composed here with each part
+// keyed (the masking dots and namespace-scaffold subtitles from core's
+// dynamic-generator registry stay raw).
+function scopeDetail(s: VariableSuggestion, t: Translate): string {
+  const label = t(SCOPE_LABEL_KEY[s.scope]);
   switch (s.preview.kind) {
     case 'value':
     case 'stale': {
-      const tag = s.preview.kind === 'stale' ? ' (stale)' : '';
-      return s.preview.masked ? `${SCOPE_LABEL[s.scope]}${tag} — ••••` : `${SCOPE_LABEL[s.scope]}${tag}`;
+      const tag = s.preview.kind === 'stale' ? ` ${t('shared.templateInput.completion.staleSuffix')}` : '';
+      return s.preview.masked ? `${label}${tag} — ••••` : `${label}${tag}`;
     }
     case 'reserved':
-      return `${SCOPE_LABEL[s.scope]} — coming soon`;
+      return `${label} — ${t('shared.templateInput.completion.comingSoon')}`;
     case 'namespace':
     case 'dynamic':
-      return `${SCOPE_LABEL[s.scope]} — ${s.preview.subtitle}`;
+      return `${label} — ${scaffoldSubtitleFor(s, t)}`;
     case 'step-runtime':
-      return `${SCOPE_LABEL[s.scope]} — captured at runtime`;
+      return `${label} — ${t('shared.templateInput.completion.capturedAtRuntime')}`;
     case 'totp':
-      return `${SCOPE_LABEL[s.scope]} — TOTP code (${s.preview.digits} digits, ${s.preview.period}s)`;
+      return `${label} — ${t('shared.templateInput.completion.totpDetail', {
+        digits: s.preview.digits,
+        period: s.preview.period,
+      })}`;
   }
 }
 
-function previewDocumentation(s: VariableSuggestion): string | null {
+// Namespace-scaffold subtitles resolve here instead of rendering core's
+// English (S8 core-copy rule); per-generator descriptions stay core data.
+const SCAFFOLD_SUBTITLE_KEY: Partial<Record<VariableSuggestion['scope'], MessageKey>> = {
+  vault: 'shared.templateInput.scaffold.vault',
+  env: 'shared.templateInput.scaffold.env',
+  collection: 'shared.templateInput.scaffold.collection',
+  workspace: 'shared.templateInput.scaffold.workspace',
+  dynamic: 'shared.templateInput.scaffold.dynamic',
+};
+
+function scaffoldSubtitleFor(s: VariableSuggestion, t: Translate): string {
+  if (s.preview.kind !== 'namespace' && s.preview.kind !== 'dynamic' && s.preview.kind !== 'reserved') return '';
+  if (s.preview.kind === 'dynamic') return s.preview.subtitle;
+  if (s.preview.kind === 'reserved') {
+    return s.scope === 'file' ? t('shared.templateInput.reservedFile') : s.preview.subtitle;
+  }
+  const key = SCAFFOLD_SUBTITLE_KEY[s.scope];
+  return key ? t(key) : s.preview.subtitle;
+}
+
+function previewDocumentation(s: VariableSuggestion, t: Translate): string | null {
   switch (s.preview.kind) {
     case 'value':
       // Only expose the literal value to Monaco's hover when the
       // scope's default says it's safe — match the line-input
       // masking discipline.
-      return s.preview.masked ? 'Value hidden (sensitive scope).' : `**Value:** \`${s.preview.value}\``;
+      return s.preview.masked
+        ? t('shared.templateInput.completion.valueHiddenSensitive')
+        : t('shared.templateInput.completion.valueDoc', { value: s.preview.value });
     case 'stale':
-      return s.preview.masked ? 'Value hidden (stale live variable).' : `**Stale value:** \`${s.preview.value}\``;
+      return s.preview.masked
+        ? t('shared.templateInput.completion.valueHiddenStale')
+        : t('shared.templateInput.completion.staleValueDoc', { value: s.preview.value });
     case 'reserved':
     case 'namespace':
     case 'dynamic':
-      return s.preview.subtitle;
+      return scaffoldSubtitleFor(s, t);
     case 'step-runtime':
-      return 'Captured when the workflow runs.';
+      return t('shared.templateInput.completion.capturedWhenRuns');
     case 'totp': {
-      const issuer = s.preview.issuer ? ` for **${s.preview.issuer}**` : '';
-      return `**TOTP code**${issuer} — ${s.preview.algorithm}, ${s.preview.digits} digits, refreshes every ${s.preview.period}s.`;
+      const args = { algorithm: s.preview.algorithm, digits: s.preview.digits, period: s.preview.period };
+      return s.preview.issuer
+        ? t('shared.templateInput.completion.totpDocIssuer', { ...args, issuer: s.preview.issuer })
+        : t('shared.templateInput.completion.totpDoc', args);
     }
   }
 }

@@ -24,6 +24,7 @@
 
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { DEFAULT_LOCALE, getTranslator } from '../../../../packages/i18n/src';
 import { getScriptSnippetGroups } from '../../../../packages/ui/src/workbench/components/script-editor/script-snippets';
 import { API_ECHO_URL } from '../../../../playground/scripts/api-client-matrix';
 import { WorkbenchPage } from './pages/workbench-page';
@@ -114,15 +115,17 @@ function squash(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+const t = getTranslator(DEFAULT_LOCALE);
+
 test.describe('Scripts tab — snippets popover UI', () => {
   test('the popover lists the full catalog for each rail', async () => {
     await openScripts('snip-ui');
     await workbench.toggleScriptSnippets();
     const popover = workbench.scriptSnippetsPopover();
     for (const group of getScriptSnippetGroups('pre-request')) {
-      await expect(popover.getByText(group.label, { exact: true })).toBeVisible();
+      await expect(popover.getByText(t(group.labelKey), { exact: true })).toBeVisible();
       for (const snippet of group.snippets) {
-        await expect(popover.getByRole('button', { name: snippet.label, exact: true })).toBeVisible();
+        await expect(popover.getByRole('button', { name: t(snippet.labelKey), exact: true })).toBeVisible();
       }
     }
     await expect(popover.getByText('Tests', { exact: true })).toHaveCount(0);
@@ -132,9 +135,9 @@ test.describe('Scripts tab — snippets popover UI', () => {
     await workbench.selectScriptRail('Post-response');
     await workbench.toggleScriptSnippets();
     for (const group of getScriptSnippetGroups('post-response')) {
-      await expect(popover.getByText(group.label, { exact: true })).toBeVisible();
+      await expect(popover.getByText(t(group.labelKey), { exact: true })).toBeVisible();
       for (const snippet of group.snippets) {
-        await expect(popover.getByRole('button', { name: snippet.label, exact: true })).toBeVisible();
+        await expect(popover.getByRole('button', { name: t(snippet.labelKey), exact: true })).toBeVisible();
       }
     }
     await expect(popover.getByText('Request', { exact: true })).toHaveCount(0);

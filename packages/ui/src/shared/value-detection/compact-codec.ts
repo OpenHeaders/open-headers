@@ -10,6 +10,7 @@
  * disabled on it. Pure: no React, no Monaco.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import type { DetectedValue } from './detect';
 import {
   encodeBase64,
@@ -33,28 +34,30 @@ import {
 } from './header-values';
 import { decodeJWT, encodeJWT, formatJSON, validateJSON } from './jwt';
 
-/** Editor titles per detected type — the JWT title reflects the
+/** Editor title keys per detected type — the JWT title reflects the
  *  payload-only edit these single-text editors perform (the two-pane
- *  header/payload split belongs to the JWT modal). */
-export const COMPACT_VALUE_TITLES: Record<DetectedValue['type'], string> = {
-  jwt: 'JWT payload',
-  'url-encoded': 'URL-encoded value',
-  base64: 'Base64 value',
-  hex: 'Hex-encoded value',
-  timestamp: 'Unix timestamp',
-  json: 'JSON value',
-  'json-string': 'Quoted string',
-  'data-uri': 'Data URI',
-  cookie: 'Cookie value',
-  csp: 'Content Security Policy',
-  'http-date': 'HTTP date',
-  'query-string': 'Query string',
-  'cache-control': 'Cache-Control',
-  hsts: 'Strict-Transport-Security',
-  'content-disposition': 'Content-Disposition',
-  link: 'Link header',
-  'auth-params': 'Authorization parameters',
-  'accept-list': 'Accept list',
+ *  header/payload split belongs to the JWT modal). Consumers resolve
+ *  via `t()`; the wire nouns inside (Base64, Cache-Control, HSTS…) are
+ *  glossary-protected. */
+export const COMPACT_VALUE_TITLE_KEYS: Record<DetectedValue['type'], MessageKey> = {
+  jwt: 'shared.valueEditors.valueTitle.jwt',
+  'url-encoded': 'shared.valueEditors.valueTitle.urlEncoded',
+  base64: 'shared.valueEditors.valueTitle.base64',
+  hex: 'shared.valueEditors.valueTitle.hex',
+  timestamp: 'shared.valueEditors.valueTitle.timestamp',
+  json: 'shared.valueEditors.valueTitle.json',
+  'json-string': 'shared.valueEditors.valueTitle.jsonString',
+  'data-uri': 'shared.valueEditors.valueTitle.dataUri',
+  cookie: 'shared.valueEditors.valueTitle.cookie',
+  csp: 'shared.valueEditors.valueTitle.csp',
+  'http-date': 'shared.valueEditors.valueTitle.httpDate',
+  'query-string': 'shared.valueEditors.valueTitle.queryString',
+  'cache-control': 'shared.valueEditors.valueTitle.cacheControl',
+  hsts: 'shared.valueEditors.valueTitle.hsts',
+  'content-disposition': 'shared.valueEditors.valueTitle.contentDisposition',
+  link: 'shared.valueEditors.valueTitle.link',
+  'auth-params': 'shared.valueEditors.valueTitle.authParams',
+  'accept-list': 'shared.valueEditors.valueTitle.acceptList',
 };
 
 /** The decoded seed text for a single-text edit — JWTs seed the

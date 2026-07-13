@@ -12,6 +12,7 @@
 
 import { ExportOutlined, SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { claimEscape } from '@openheaders/ui/shared/popover';
 import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -48,6 +49,7 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
   onOpenDocument,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [text, setText] = useState(decoded);
 
   // Hold the Escape claim while mounted: the quick-editor popover's
@@ -137,7 +139,7 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
       {isDirty && (
         <div style={{ marginTop: 6 }}>
           <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-            Encoded preview
+            {t('shared.valueEditors.encodedPreview')}
           </Text>
           <div
             style={{
@@ -156,7 +158,7 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
           >
             {encoded === null ? (
               <Text type="danger" italic style={{ fontSize: 11 }}>
-                Cannot encode — the edited value is not valid for this type
+                {t('shared.valueEditors.cannotEncode')}
               </Text>
             ) : (
               encoded
@@ -173,14 +175,17 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
             onClick={onOpenDocument}
             style={{ fontSize: 11, padding: 0, height: 'auto' }}
           >
-            Open as document
+            {t('shared.valueEditors.openAsDocument')}
           </Button>
         )}
         <span style={{ flex: 1 }} />
         <Button size="small" onClick={onCancel} style={{ fontSize: 11 }}>
-          Cancel
+          {t('shared.action.cancel')}
         </Button>
-        <Tooltip title={<ShortcutHintTitle label={SAVE_SHORTCUT}>Save</ShortcutHintTitle>} placement="top">
+        <Tooltip
+          title={<ShortcutHintTitle label={SAVE_SHORTCUT}>{t('shared.action.save')}</ShortcutHintTitle>}
+          placement="top"
+        >
           <Button
             size="small"
             type="primary"
@@ -192,7 +197,7 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
               ...(saveDisabled ? {} : { background: SAVE_ACCENT, borderColor: SAVE_ACCENT }),
             }}
           >
-            Save
+            {t('shared.action.save')}
           </Button>
         </Tooltip>
       </div>

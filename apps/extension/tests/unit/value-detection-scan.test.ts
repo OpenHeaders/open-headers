@@ -9,6 +9,7 @@
  *     model handler with the clicked token.
  */
 
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import { scanForJWTs } from '@openheaders/ui/shared/value-detection';
 import {
   attachJwtEditTarget,
@@ -20,6 +21,8 @@ import {
 } from '@openheaders/ui/workbench/components/value-editors';
 import type * as monaco from 'monaco-editor';
 import { describe, expect, it, vi } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 function buildJWT(header: object, payload: object, sig = 'fakesig'): string {
   const encode = (obj: object) => btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -81,7 +84,7 @@ function makeModelStub(text: string) {
 describe('buildJwtDecorations', () => {
   it('maps hits onto ranges with a trusted hover carrying the edit command', () => {
     const text = `line one\n"token": "${TOKEN}"`;
-    const decorations = buildJwtDecorations(makeModelStub(text), 42);
+    const decorations = buildJwtDecorations(makeModelStub(text), 42, 'edit', t);
     expect(decorations).toHaveLength(1);
     expect(decorations[0].options.inlineClassName).toBe(JWT_LINK_CLASS);
     expect(decorations[0].range.startLineNumber).toBe(2);
@@ -95,7 +98,7 @@ describe('buildJwtDecorations', () => {
 
   it('labels the hover link "View JWT" in view mode, same command wiring', () => {
     const text = `"token": "${TOKEN}"`;
-    const decorations = buildJwtDecorations(makeModelStub(text), 7, 'view');
+    const decorations = buildJwtDecorations(makeModelStub(text), 7, 'view', t);
     expect(decorations).toHaveLength(1);
     const start = text.indexOf(TOKEN);
     const url = `command:${JWT_EDIT_COMMAND}?${encodeURIComponent(JSON.stringify([7, start, start + TOKEN.length]))}`;
@@ -124,7 +127,7 @@ describe('registerJwtLinkPlane + attachJwtEditTarget', () => {
     const onOpen = vi.fn();
     const { id, detach } = attachJwtEditTarget(model as unknown as monaco.editor.ITextModel, onOpen);
 
-    const decorations = buildJwtDecorations(model, id);
+    const decorations = buildJwtDecorations(model, id, 'edit', t);
     expect(decorations).toHaveLength(1);
     const args = JSON.parse(
       decodeURIComponent(decorations[0].options.hoverMessage.value.match(/command:[^?]+\?([^)]+)\)/)?.[1] ?? ''),

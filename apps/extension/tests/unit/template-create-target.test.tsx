@@ -9,6 +9,7 @@
  * why a create is being offered.
  */
 
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import { detectCreateTarget } from '@openheaders/ui/workbench/components/template-input/create-target';
 import SuggestionPopover from '@openheaders/ui/workbench/components/template-input/SuggestionPopover';
 import { cleanup, fireEvent, render } from '@testing-library/react';
@@ -16,14 +17,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(cleanup);
 
+const t = getTranslator(DEFAULT_LOCALE);
+
 describe('detectCreateTarget', () => {
   it('targets the namespace of a creatable scoped reference', () => {
-    expect(detectCreateTarget('vault.okay', undefined)).toEqual({
+    expect(detectCreateTarget('vault.okay', undefined, t)).toEqual({
       reference: 'vault.okay',
       name: 'okay',
       scopeLabel: 'Vault',
     });
-    expect(detectCreateTarget('workspace.whatever', undefined)).toEqual({
+    expect(detectCreateTarget('workspace.whatever', undefined, t)).toEqual({
       reference: 'workspace.whatever',
       name: 'whatever',
       scopeLabel: 'Workspace',
@@ -31,7 +34,7 @@ describe('detectCreateTarget', () => {
   });
 
   it('offers a bare reference with the scope left to the Add-to picker', () => {
-    expect(detectCreateTarget('whatever', undefined)).toEqual({
+    expect(detectCreateTarget('whatever', undefined, t)).toEqual({
       reference: 'whatever',
       name: 'whatever',
       scopeLabel: null,
@@ -39,8 +42,8 @@ describe('detectCreateTarget', () => {
   });
 
   it('needs an active collection for collection-scoped refs', () => {
-    expect(detectCreateTarget('collection.token', undefined)).toBeNull();
-    expect(detectCreateTarget('collection.token', 'col-1')).toEqual({
+    expect(detectCreateTarget('collection.token', undefined, t)).toBeNull();
+    expect(detectCreateTarget('collection.token', 'col-1', t)).toEqual({
       reference: 'collection.token',
       name: 'token',
       scopeLabel: 'Collection',
@@ -48,10 +51,10 @@ describe('detectCreateTarget', () => {
   });
 
   it('rejects non-creatable namespaces, unknown namespaces, and empty refs', () => {
-    expect(detectCreateTarget('dynamic.uuid', undefined)).toBeNull();
-    expect(detectCreateTarget('foo.x', undefined)).toBeNull();
-    expect(detectCreateTarget('', undefined)).toBeNull();
-    expect(detectCreateTarget('env.', undefined)).toBeNull();
+    expect(detectCreateTarget('dynamic.uuid', undefined, t)).toBeNull();
+    expect(detectCreateTarget('foo.x', undefined, t)).toBeNull();
+    expect(detectCreateTarget('', undefined, t)).toBeNull();
+    expect(detectCreateTarget('env.', undefined, t)).toBeNull();
   });
 });
 

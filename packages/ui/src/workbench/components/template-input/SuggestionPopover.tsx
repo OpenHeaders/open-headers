@@ -18,6 +18,7 @@
 
 import { PlusOutlined } from '@ant-design/icons';
 import type { VariableSuggestion } from '@openheaders/core/variables';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef } from 'react';
@@ -53,6 +54,7 @@ const SuggestionPopover: React.FC<SuggestionPopoverProps> = ({
   createAction,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const listRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   // Index of the last hover-set active row. Hover selection must not
@@ -105,7 +107,7 @@ const SuggestionPopover: React.FC<SuggestionPopoverProps> = ({
           <>
             <div className="oh-template-popover-empty">
               <Text type="secondary" style={{ fontSize: 12 }}>
-                No matches
+                {t('shared.templateInput.noMatches')}
               </Text>
             </div>
             {createAction && (
@@ -178,9 +180,9 @@ const SuggestionPopover: React.FC<SuggestionPopoverProps> = ({
           background: token.colorFillQuaternary,
         }}
       >
-        <span>↑↓ navigate</span>
-        <span>↵ select</span>
-        <span>esc close</span>
+        <span>{t('shared.templateInput.footerNavigate')}</span>
+        <span>{t('shared.templateInput.footerSelect')}</span>
+        <span>{t('shared.templateInput.footerClose')}</span>
       </div>
     </div>
   );

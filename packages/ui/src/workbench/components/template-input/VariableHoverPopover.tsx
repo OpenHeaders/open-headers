@@ -22,6 +22,7 @@ import { type MutationResult, useVariableMutator } from '@openheaders/ui/shared/
 import type { VariableScope } from '@openheaders/core/types';
 import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import { useEnvSwitcher } from '../../services/env-switcher';
@@ -80,6 +81,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const lookup = useVariableLookup(reference, collectionId);
 
   // Pull the popover's own data snapshot from `useEnvironments` /
@@ -174,7 +176,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   const editable = candidate ? isCandidateEditable(candidate) : false;
   const resolvedScope: VariableScope | 'none' = lookup.active?.scope ?? candidate?.scope ?? 'none';
   const scopeKey = toScopeKey(resolvedScope);
-  const scopeLabel = candidate ? scopeLabelFor(candidate) : 'Unresolved';
+  const scopeLabel = candidate ? scopeLabelFor(candidate, t) : t('shared.templateInput.scope.unresolved');
 
   // Resolved-from-default badge: active env doesn't define this name,
   // but the default env does. The resolver fell through.
@@ -189,7 +191,9 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   // Create-flow: only when the ref is unresolved AND the namespace
   // (if any) maps to a creatable scope.
   const isUnresolved = !lookup.active && !lookup.parseError;
-  const createOptions = isUnresolved ? buildCreateOptions(lookup.namespace, !!activeEnvironmentId, !!collectionId) : [];
+  const createOptions = isUnresolved
+    ? buildCreateOptions(lookup.namespace, !!activeEnvironmentId, !!collectionId, t)
+    : [];
   // The create flow (picker / committed scope / hint) is derived as one
   // view-model so the three can't drift. A namespaced reference locks the
   // scope to its prefix; a bare reference is a free choice.
@@ -219,30 +223,48 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
       let result: MutationResult;
       if (isUnresolved) {
         if (!effectiveAddTo) {
-          result = { ok: false, reason: 'other', message: 'Pick a scope from "Add to"' };
+          result = { ok: false, reason: 'other', message: t('shared.templateInput.save.pickScope') };
         } else {
-          result = await runCreate(mutator, effectiveAddTo, lookup.name, liveDraft, {
-            activeEnvironment,
+          result = await runCreate(
+            mutator,
+            effectiveAddTo,
+            lookup.name,
+            liveDraft,
+            {
+              activeEnvironment,
+              workspaceVariables,
+              vault,
+              localCollections,
+              collectionId,
+            },
+            t,
+          );
+        }
+      } else if (candidate) {
+        result = await runUpdate(
+          mutator,
+          candidate,
+          liveDraft,
+          {
+            environments,
             workspaceVariables,
             vault,
             localCollections,
-            collectionId,
-          });
-        }
-      } else if (candidate) {
-        result = await runUpdate(mutator, candidate, liveDraft, {
-          environments,
-          workspaceVariables,
-          vault,
-          localCollections,
-        });
+          },
+          t,
+        );
       } else {
         result = { ok: false, reason: 'not-found' };
       }
-      surfaceResult(result, message, () => {
-        setDraftDirty(false);
-        onClose();
-      });
+      surfaceResult(
+        result,
+        message,
+        () => {
+          setDraftDirty(false);
+          onClose();
+        },
+        t,
+      );
     } finally {
       setSaving(false);
     }
@@ -335,7 +357,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
           resizable
           allowClear
           disableSuggestions
-          placeholder={isUnresolved ? 'Enter value' : ''}
+          placeholder={isUnresolved ? t('shared.templateInput.enterValue') : ''}
           style={{ width: '100%', fontFamily: token.fontFamilyCode, fontSize: 12 }}
         />
       ) : (
@@ -359,7 +381,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
             color: token.colorTextSecondary,
           }}
         >
-          <span>Found in:</span>
+          <span>{t('shared.templateInput.foundIn')}</span>
           {envSuggestions.map((c) => (
             <button
               key={c.envUid}
@@ -407,12 +429,12 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
           {isUnresolved ? (
             createFlow.fixedScope ? (
               <Tooltip
-                title={`Scope is fixed by the {{${lookup.namespace}.}} prefix — edit the reference to change it.`}
+                title={t('shared.templateInput.scopeFixedTooltip', { prefix: `{{${lookup.namespace}.}}` })}
                 zIndex={1090}
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
                   {scopeBadge(createScopeToColorKey(createFlow.fixedScope), 14)}
-                  Add to: {labelForCreateScope(createFlow.fixedScope)}
+                  {t('shared.templateInput.addToScope', { scope: labelForCreateScope(createFlow.fixedScope, t) })}
                 </span>
               </Tooltip>
             ) : createFlow.picker === 'dropdown' ? (
@@ -441,12 +463,15 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
               >
                 <Button size="small" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   {effectiveAddTo && scopeBadge(createScopeToColorKey(effectiveAddTo), 14)}
-                  Add to: {effectiveAddTo ? labelForCreateScope(effectiveAddTo) : 'pick scope'} ▾
+                  {effectiveAddTo
+                    ? t('shared.templateInput.addToScope', { scope: labelForCreateScope(effectiveAddTo, t) })
+                    : t('shared.templateInput.addToPickScope')}{' '}
+                  ▾
                 </Button>
               </Dropdown>
             ) : (
               <Tag color="default" style={{ marginInlineEnd: 0 }}>
-                {describeUnresolved(lookup, candidate)}
+                {describeUnresolved(lookup, candidate, t)}
               </Tag>
             )
           ) : (
@@ -463,7 +488,9 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
               )}
               {resolvedFromDefault && (
                 <Tag color="default" style={{ marginInlineEnd: 0 }}>
-                  {noActiveEnv ? 'Resolved: default (no active env)' : 'Resolved: default'}
+                  {noActiveEnv
+                    ? t('shared.templateInput.resolvedDefaultNoEnv')
+                    : t('shared.templateInput.resolvedDefault')}
                 </Tag>
               )}
             </>
@@ -471,7 +498,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
         </div>
         {(isUnresolved ? createFlow.picker !== 'none' : editable) && (
           <Tooltip
-            title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>}
+            title={<ShortcutHintTitle label={saveLabel}>{t('shared.action.save')}</ShortcutHintTitle>}
             placement="bottomRight"
             // The popover is `position: fixed; zIndex: 1080`. Antd's
             // default Tooltip zIndex is 1070, so the tooltip renders
@@ -491,7 +518,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
                 ...(canSave ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
               }}
             >
-              Save
+              {t('shared.action.save')}
             </Button>
           </Tooltip>
         )}
@@ -499,12 +526,12 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
 
       {createFlow.unavailable === 'no-active-env' && (
         <div style={{ marginTop: 8, fontSize: 11, color: token.colorTextSecondary }}>
-          No environment selected — pick one in the env switcher to add an environment variable.
+          {t('shared.templateInput.noActiveEnvHint')}
         </div>
       )}
       {createFlow.unavailable === 'no-collection' && (
         <div style={{ marginTop: 8, fontSize: 11, color: token.colorTextSecondary }}>
-          No active collection — open a collection to add a collection variable.
+          {t('shared.templateInput.noCollectionHint')}
         </div>
       )}
     </div>
@@ -545,45 +572,49 @@ function currentValue(c: VariableCandidate | null, fallback: string): string {
   }
 }
 
-function scopeLabelFor(c: VariableCandidate): string {
+function scopeLabelFor(c: VariableCandidate, t: Translate): string {
   switch (c.scope) {
     case 'vault':
-      return c.kind === 'totp' ? 'Vault · TOTP' : 'Vault';
+      return c.kind === 'totp' ? t('shared.templateInput.scope.vaultTotp') : t('shared.templateInput.scope.vault');
     case 'environment':
-      return `Environment · ${c.envName}`;
+      return t('shared.templateInput.scope.environmentNamed', { name: c.envName });
     case 'collection':
-      return `Collection · ${c.collectionName}`;
+      return t('shared.templateInput.scope.collectionNamed', { name: c.collectionName });
     case 'workspace':
-      return 'Workspace';
+      return t('shared.templateInput.scope.workspace');
     case 'live':
-      return c.override ? 'Live · override' : 'Live';
+      return c.override ? t('shared.templateInput.scope.liveOverride') : t('shared.templateInput.scope.live');
     case 'step':
-      return `Step · ${c.stepId}.${c.captureName}`;
+      return t('shared.templateInput.scope.stepNamed', { capture: `${c.stepId}.${c.captureName}` });
     case 'file':
-      return `File · ${c.name}`;
+      return t('shared.templateInput.scope.fileNamed', { name: c.name });
     case 'dynamic':
-      return 'Dynamic';
+      return t('shared.templateInput.scope.dynamic');
   }
 }
 
-function describeUnresolved(lookup: ReturnType<typeof useVariableLookup>, candidate: VariableCandidate | null): string {
-  if (lookup.parseError === 'empty') return 'Empty reference';
-  if (lookup.parseError === 'unknown-namespace') return 'Unknown namespace';
+function describeUnresolved(
+  lookup: ReturnType<typeof useVariableLookup>,
+  candidate: VariableCandidate | null,
+  t: Translate,
+): string {
+  if (lookup.parseError === 'empty') return t('shared.templateInput.unresolved.emptyReference');
+  if (lookup.parseError === 'unknown-namespace') return t('shared.templateInput.unresolved.unknownNamespace');
   if (lookup.namespace === 'dynamic') {
-    return 'No built-in generator by that name. Pick one from the {{dynamic.…}} suggestion list.';
+    return t('shared.templateInput.unresolved.dynamic');
   }
   if (candidate?.scope === 'step') {
-    return 'Only resolves while a Live Workflow chain is running.';
+    return t('shared.templateInput.unresolved.step');
   }
   if (lookup.namespace === 'env') {
     return lookup.activeEnvName
-      ? `Not set in environment "${lookup.activeEnvName}".`
-      : 'No active environment is selected.';
+      ? t('shared.templateInput.unresolved.envNotSet', { name: lookup.activeEnvName })
+      : t('shared.templateInput.unresolved.noActiveEnv');
   }
   if (lookup.namespace === 'live') {
-    return 'No Live Variable by that name (or no cached value yet).';
+    return t('shared.templateInput.unresolved.live');
   }
-  return 'Not defined in any scope.';
+  return t('shared.templateInput.unresolved.notDefined');
 }
 
 export default VariableHoverPopover;
