@@ -34,6 +34,7 @@
   /* Visible-height cap; defined in panel.css :root. */
   max-height: var(--oh-multiline-cap, 96px);
   overflow-y: auto;
+  overscroll-behavior: none;
   overflow-x: hidden;
 }
 

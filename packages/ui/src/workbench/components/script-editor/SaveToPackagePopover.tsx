@@ -175,7 +175,7 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
           <Text type="secondary" style={{ fontSize: 11, marginTop: 4 }}>
             Or append to an existing package:
           </Text>
-          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ maxHeight: 180, overflowY: 'auto', overscrollBehavior: 'none', display: 'flex', flexDirection: 'column', gap: 2 }}>
             {packages.length === 0 && (
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No packages yet" style={{ margin: '8px 0' }} />
             )}

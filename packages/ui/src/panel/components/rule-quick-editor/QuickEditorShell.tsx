@@ -233,7 +233,7 @@ export function QuickEditorShell({
         style={{
           flex: '1 1 auto',
           minHeight: 0,
-          overflowY: 'auto',
+          overflowY: 'auto', overscrollBehavior: 'none',
           overflowX: 'hidden',
           padding: '12px 12px 8px',
         }}

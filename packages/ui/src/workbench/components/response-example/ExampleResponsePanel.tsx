@@ -261,7 +261,7 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
             children: (
               <div
                 className="rules-thin-scrollbar"
-                style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 0' }}
+                style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'none', padding: '8px 0' }}
               >
                 <KeyValueTable
                   rows={value.headers}

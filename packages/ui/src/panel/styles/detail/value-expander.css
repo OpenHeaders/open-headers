@@ -28,6 +28,7 @@
      panel.css :root, matching the headers value + rule popover. */
   max-height: var(--oh-multiline-cap, 96px);
   overflow-y: auto;
+  overscroll-behavior: none;
   /* Keep the wrapped text off the always-on scrollbar gutter — the bar
      itself comes from the shared `.dt-scrollbar` class on the element. */
   padding-right: 6px;

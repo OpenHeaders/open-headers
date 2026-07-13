@@ -259,7 +259,7 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
       {showEditor ? (
         <>
           {gridType !== null ? (
-            <div className="dt-storagedoc-source dt-scrollbar" style={{ overflowY: 'auto', padding: 12 }}>
+            <div className="dt-storagedoc-source dt-scrollbar" style={{ overflowY: 'auto', overscrollBehavior: 'none', padding: 12 }}>
               <PairGridEditor gridType={gridType} value={text} onChange={handleChange} />
             </div>
           ) : (

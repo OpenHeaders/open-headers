@@ -39,6 +39,7 @@
 .dt-table {
   flex: 1;
   overflow: auto;
+  overscroll-behavior: none;
   /* We own the scroll position (virtualization re-windows the mounted
    * slice and the tail-follow pins to the bottom). Browser scroll
    * anchoring would fight that: when a burst grows the top spacer, it
@@ -673,6 +674,7 @@
    * popover on screen — and only scrolls when it truly can't fit. */
   max-height: calc(100vh - 48px);
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 /* Always-visible scrollbar (same treatment as the View menu) — the thumb shows
@@ -1095,6 +1097,7 @@
   margin-top: 8px;
   padding: 0 56px;
   overflow-x: auto;
+  overscroll-behavior: none;
 }
 
 .dt-wf-h-stage {

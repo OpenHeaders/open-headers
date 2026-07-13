@@ -378,7 +378,7 @@ const TwoToneIconPicker: React.FC<TwoToneIconPickerProps> = ({ value, onChange }
           gridTemplateColumns: 'repeat(8, 1fr)',
           gap: 2,
           maxHeight: 200,
-          overflowY: 'auto',
+          overflowY: 'auto', overscrollBehavior: 'none',
         }}
       >
         {filtered.map((key) => {

@@ -97,6 +97,7 @@
    * the strip can grow tall enough to dominate the Timing tab. */
   max-height: calc((11px * 1.5 + 4px) * 3 + 6px * 2 + 12px);
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 .dt-timing-chip {
   display: inline-flex;

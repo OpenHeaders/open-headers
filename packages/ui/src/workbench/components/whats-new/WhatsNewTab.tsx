@@ -23,7 +23,7 @@ const WhatsNewTab: React.FC = () => {
   const { version } = getBuildInfo();
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', background: token.colorBgContainer }}>
+    <div style={{ height: '100%', overflow: 'auto', overscrollBehavior: 'none', background: token.colorBgContainer }}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px 48px' }}>
         <Title level={3} style={{ marginBottom: 4 }}>
           {`What's New in Open Headers ${version}`}

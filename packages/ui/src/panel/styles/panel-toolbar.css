@@ -264,6 +264,7 @@
    * never runs past the viewport (which would force a panel-wide scrollbar). */
   max-height: calc(100vh - 96px);
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 .dt-morefilters-item {
@@ -475,6 +476,7 @@
   min-width: 280px;
   max-height: calc(100vh - 96px);
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 /* Submenus reuse `.dt-morefilters-popover` overlay styling, which
  * already caps height via `.dt-morefilters-menu`. The submenu marker
@@ -760,6 +762,7 @@
   min-width: 120px;
   max-height: calc(100vh - 96px);
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 .dt-filter-pills--vertical .dt-filter-pill {
@@ -1039,6 +1042,7 @@
   /* Capped to the room below the trigger (inline `max-height`) so a tall
    * override list scrolls inside the popover instead of overrunning the panel. */
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 /* Each facet is a label + control row; most sit side by side, the User-Agent

@@ -89,6 +89,7 @@
    * hidden` clips any spillover instead of growing the zone. */
   white-space: nowrap;
   overflow-x: auto;
+  overscroll-behavior: none;
   overflow-y: hidden;
 }
 

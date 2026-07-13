@@ -302,7 +302,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 fontSize: Math.max(11, fontSize - 1),
                 lineHeight: 1.45,
                 whiteSpace: 'pre',
-                overflowX: 'auto',
+                overflowX: 'auto', overscrollBehavior: 'none',
                 color: 'inherit',
                 background: 'transparent',
               }}

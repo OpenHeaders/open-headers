@@ -58,7 +58,7 @@ const ScriptPackagesMenu: React.FC<ScriptPackagesMenuProps> = ({ workspaceId, on
       {/* Same fixed-footprint scroll surface as the Snippets popover. */}
       <div
         className="oh-persistent-scroll"
-        style={{ height: 240, overflowY: 'scroll', display: 'flex', flexDirection: 'column', paddingRight: 2 }}
+        style={{ height: 240, overflowY: 'scroll', overscrollBehavior: 'none', display: 'flex', flexDirection: 'column', paddingRight: 2 }}
       >
         {filtered.length === 0 && (
           <div

@@ -157,7 +157,7 @@ export function SnapshotBlock({
     minWidth: 0,
     // Same cap as the editable value field below — see panel.css :root.
     maxHeight: 'var(--oh-multiline-cap, 96px)',
-    overflowY: 'auto',
+    overflowY: 'auto', overscrollBehavior: 'none',
     overflowX: 'hidden',
   };
   const labelStyle: React.CSSProperties = {

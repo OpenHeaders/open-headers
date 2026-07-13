@@ -8,6 +8,7 @@
   border-bottom: 1px solid var(--dt-border);
   background: var(--dt-bg);
   overflow-x: auto;
+  overscroll-behavior: none;
 }
 
 .dt-detail-section-tab {

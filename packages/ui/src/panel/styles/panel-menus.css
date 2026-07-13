@@ -227,6 +227,7 @@
 .dt-tab-search-list {
   max-height: 240px;
   overflow-y: auto;
+  overscroll-behavior: none;
   padding: 2px 0;
 }
 

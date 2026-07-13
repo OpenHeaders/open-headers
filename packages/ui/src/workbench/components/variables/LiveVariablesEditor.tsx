@@ -107,7 +107,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
       <EditorHeader title={headerTitle} actions={headerActions} />
-      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+      <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: 24 }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
           <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
             Each binding maps a name to a capture from a Workflow (a scheduled request chain). Referenced in rules and

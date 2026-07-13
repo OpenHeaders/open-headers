@@ -268,6 +268,7 @@
 .oh-template-popover-list {
   max-height: 320px;
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 /* Always-visible list scrollbar — styling `::-webkit-scrollbar` opts out

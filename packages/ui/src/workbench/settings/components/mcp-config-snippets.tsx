@@ -75,7 +75,7 @@ const SnippetBlock: React.FC<{ title: string; body: string }> = ({ title, body }
           background: token.colorBgLayout,
           border: `1px solid ${token.colorBorderSecondary}`,
           borderRadius: 6,
-          overflowX: 'auto',
+          overflowX: 'auto', overscrollBehavior: 'none',
         }}
       >
         {body}

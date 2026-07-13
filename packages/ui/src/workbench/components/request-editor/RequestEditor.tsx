@@ -708,7 +708,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                     container's vertical padding at 0 the header pins flush
                     to the scrollport top; the inner padding just scrolls
                     away. */}
-                  <div style={{ flex: 1, overflow: 'auto', padding: '0 16px' }}>
+                  <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: '0 16px' }}>
                     <div style={{ padding: '10px 0' }}>
                       <RequestTabContent
                         tab={activeTab}

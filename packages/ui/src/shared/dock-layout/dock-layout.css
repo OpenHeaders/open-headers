@@ -145,6 +145,7 @@
   padding-bottom: 12px;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: none;
   overflow-x: hidden;
   scrollbar-width: none;
   outline: none;

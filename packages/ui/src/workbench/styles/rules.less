@@ -42,17 +42,6 @@ html, body, #root {
   overscroll-behavior: none;
 }
 
-// Kill the macOS elastic rubber-band on EVERY scroller, not just the
-// root above: `overscroll-behavior` is not inherited, and each overflow
-// container bounces independently at its own edges. `none` (not
-// `contain` — that still allows the local bounce) also stops scroll
-// chaining, which is right for a paneled shell whose root never
-// scrolls: a wheel past an inner scroller's edge should stop, not
-// start dragging some ancestor pane.
-* {
-  overscroll-behavior: none;
-}
-
 // ThemeContext writes `--oh-ui-font-family` on :root from the active
 // `appearance.fontFamilyPreset`. Routing the body through the variable
 // keeps plain HTML in step with the AntD token — without it, every
@@ -475,6 +464,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overscroll-behavior: none;
   font-size: 12px;
   min-height: 0;
 }
@@ -708,6 +698,7 @@ body {
 // styling and fall back to overlay auto-hide scrollbars.
 .oh-persistent-scroll {
   overflow-y: auto;
+  overscroll-behavior: none;
 
   &::-webkit-scrollbar {
     width: 8px;
@@ -857,6 +848,7 @@ body {
   gap: 2px;
   padding: 0 4px;
   overflow-x: auto;
+  overscroll-behavior: none;
   overflow-y: hidden;
 
   // Edge-fade only when the strip is overflowing (the renderer adds
@@ -1351,6 +1343,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: none;
   container-type: inline-size;
   container-name: editor;
 }
@@ -1910,6 +1903,7 @@ body {
 .rules-cmd-results {
   max-height: 340px;
   overflow-y: auto;
+  overscroll-behavior: none;
   padding: 4px 0;
 }
 

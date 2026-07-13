@@ -376,7 +376,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
           borderRadius: 6,
           maxHeight: 300,
           minHeight: 200,
-          overflowY: 'auto',
+          overflowY: 'auto', overscrollBehavior: 'none',
           background: token.colorBgContainer,
           outline: 'none',
         }}

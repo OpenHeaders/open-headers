@@ -107,7 +107,7 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
       >
         <span style={{ width: 28, height: 3, borderRadius: 2, background: token.colorBorderSecondary }} />
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 12px 6px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'none', padding: '0 12px 6px' }}>
       {/* Top row: refresh policy + binding count — workflow-level facts that don't vary by env */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Text type="secondary" style={{ fontSize: 11 }}>

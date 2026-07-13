@@ -500,6 +500,7 @@
   gap: 2px;
   max-height: 240px;
   overflow-y: auto;
+  overscroll-behavior: none;
   min-width: 180px;
 }
 .dt-header-noise-name {

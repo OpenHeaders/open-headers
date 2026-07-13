@@ -124,6 +124,7 @@
   line-height: 1.5;
   white-space: pre;
   overflow: auto;
+  overscroll-behavior: none;
   height: calc(4 * 1.5em + 20px);
   background: var(--dt-bg-alt, rgba(0, 0, 0, 0.02));
 }

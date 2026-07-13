@@ -49,7 +49,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
     >
       <PanelHeader wiring={headerWiring} title={<strong>Variable Scope</strong>} info={info} />
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
         <PanelSection title={inContextTitle} info={IN_CONTEXT_INFO} docId="variables-inspecting">
           <InContextView
             vars={vm.inContextVars}

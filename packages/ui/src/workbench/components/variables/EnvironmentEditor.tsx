@@ -332,7 +332,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
           onKeepAllMine={handleKeepAllMine}
           onUseAllSaved={handleUseAllSaved}
         />
-        <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+        <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: 24 }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
               VARIABLES ({nonEmptyCount})

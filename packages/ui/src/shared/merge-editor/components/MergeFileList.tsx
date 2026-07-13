@@ -112,7 +112,7 @@ const MergeFileList = ({
         width: 280,
         minWidth: 220,
         height: '100%',
-        overflowY: 'auto',
+        overflowY: 'auto', overscrollBehavior: 'none',
         borderRight: `1px solid ${token.colorBorderSecondary}`,
         display: 'flex',
         flexDirection: 'column',

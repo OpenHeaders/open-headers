@@ -3,6 +3,7 @@
 .dt-executions {
   flex: 1;
   overflow: auto;
+  overscroll-behavior: none;
   padding: 6px 8px;
 }
 

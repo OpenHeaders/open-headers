@@ -88,7 +88,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
       width={700}
       centered
       styles={{
-        body: { maxHeight: '90vh', overflowY: 'auto', paddingRight: 4 },
+        body: { maxHeight: '90vh', overflowY: 'auto', overscrollBehavior: 'none', paddingRight: 4 },
       }}
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

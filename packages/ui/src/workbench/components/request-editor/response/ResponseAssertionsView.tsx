@@ -10,7 +10,7 @@ import type React from 'react';
 const { Text } = Typography;
 
 const ResponseAssertionsView: React.FC<{ assertions: TestAssertion[] }> = ({ assertions }) => (
-  <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingTop: 4 }}>
+  <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', minHeight: 0, paddingTop: 4 }}>
     {assertions.map((a, idx) => (
       <div
         key={`${a.name}:${idx}`}

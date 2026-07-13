@@ -125,7 +125,7 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
             Decoded
           </Text>
           {gridType ? (
-            <div style={{ maxHeight: 320, overflowY: 'auto' }} className="dt-scrollbar">
+            <div style={{ maxHeight: 320, overflowY: 'auto', overscrollBehavior: 'none' }} className="dt-scrollbar">
               <PairGridEditor gridType={gridType} value={text} onChange={setText} readOnly={readOnly} />
             </div>
           ) : (

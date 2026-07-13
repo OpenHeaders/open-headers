@@ -13,6 +13,7 @@
 
 .oh-env-scroll {
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 .oh-env-scroll::-webkit-scrollbar {

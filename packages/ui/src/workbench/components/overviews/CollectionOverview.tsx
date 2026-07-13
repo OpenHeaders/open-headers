@@ -215,7 +215,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
   }
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 720, overflowY: 'auto', height: '100%' }}>
+    <div style={{ padding: '24px 32px', maxWidth: 720, overflowY: 'auto', overscrollBehavior: 'none', height: '100%' }}>
       {/* Stats bar */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 13, color: token.colorTextSecondary }}>

@@ -24,7 +24,7 @@ const ImportReportPanel: React.FC<{
           icon={<InfoCircleOutlined />}
           message={`${report.transforms.length} transform${report.transforms.length === 1 ? '' : 's'}`}
           description={
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, maxHeight: 140, overflowY: 'auto' }}>
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, maxHeight: 140, overflowY: 'auto', overscrollBehavior: 'none' }}>
               {report.transforms.map((t, i) => (
                 <li key={i}>
                   <strong>{t.path}:</strong> <span style={{ color: token.colorTextSecondary }}>{t.from}</span> →{' '}

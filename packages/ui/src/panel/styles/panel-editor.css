@@ -53,6 +53,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: none;
   overflow-x: hidden;
 }
 
@@ -78,6 +79,7 @@
   min-width: 0;
   gap: 2px;
   overflow-x: auto;
+  overscroll-behavior: none;
   overflow-y: hidden;
   scrollbar-width: none;
 }

@@ -115,6 +115,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: none;
 }
 
 /* Secondary title text inside a PanelHeader (e.g. the request method

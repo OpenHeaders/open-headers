@@ -314,7 +314,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
           onKeepAllMine={handleKeepAllMine}
           onUseAllSaved={handleUseAllSaved}
         />
-        <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+        <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: 24 }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
               Variables available to every {scopeNoun} inside this collection. Overridden by environment and vault scopes;

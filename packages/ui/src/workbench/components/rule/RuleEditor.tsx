@@ -742,7 +742,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                             className="rules-thin-scrollbar rules-rule-editor rules-rule-editor--pane"
                             style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
                           >
-                            <div style={{ flex: 1, overflow: 'auto', padding: '0 16px' }}>
+                            <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: '0 16px' }}>
                               <div style={{ padding: '10px 0' }}>
                                 {selectedType === 'header' && (
                                   <HeaderRuleFields

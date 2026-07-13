@@ -507,7 +507,7 @@ const ParsedPreview: React.FC<{
         </Tag>
       </Space>
       {result.folders.length > 0 && (
-        <div style={{ marginTop: 8, maxHeight: 140, overflowY: 'auto' }}>
+        <div style={{ marginTop: 8, maxHeight: 140, overflowY: 'auto', overscrollBehavior: 'none' }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
             Folder tree
           </Text>

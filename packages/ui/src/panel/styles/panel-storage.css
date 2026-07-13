@@ -19,6 +19,7 @@
   padding: 4px 0;
   border-right: 1px solid var(--dt-border);
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 .dt-storage-nav-item {
@@ -114,6 +115,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: none;
   display: flex;
   flex-direction: column;
 }
@@ -560,6 +562,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: none;
   padding: 6px 10px;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
@@ -593,6 +596,7 @@
 .dt-valuedoc-preview-body {
   max-height: 88px;
   overflow-y: auto;
+  overscroll-behavior: none;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   word-break: break-all;
   line-height: 1.5;
@@ -609,6 +613,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: none;
   padding: 8px 12px;
 }
 
@@ -1063,6 +1068,7 @@
   flex: 0 1 auto;
   max-height: 40%;
   overflow: auto;
+  overscroll-behavior: none;
   min-height: 0;
   padding: 2px 10px 6px;
   border-bottom: 1px solid var(--dt-border);
@@ -1101,6 +1107,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: none;
   padding: 10px;
 }
 

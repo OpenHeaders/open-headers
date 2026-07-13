@@ -127,7 +127,7 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ info, onClose, on
           <List<(typeof groups)[number]>
             size="small"
             dataSource={groups}
-            style={{ overflow: 'auto', flex: '1 1 auto' }}
+            style={{ overflow: 'auto', overscrollBehavior: 'none', flex: '1 1 auto' }}
             renderItem={(group) => (
               <List.Item style={{ display: 'block', padding: '6px 10px' }}>
                 <ActivityFeedCard

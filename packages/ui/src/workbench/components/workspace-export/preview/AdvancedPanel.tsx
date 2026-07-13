@@ -171,7 +171,7 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({
           <CloseOutlined style={{ fontSize: 12 }} />
         </button>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 12 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'none', padding: 12 }}>
         <AdvancedTogglesList
           backupRestore={backupRestore}
           onBackupRestoreChange={onBackupRestoreChange}

@@ -22,6 +22,7 @@
 .dt-matched-rules-panel-body {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: none;
   overflow-x: hidden;
   /* No top padding: the section summaries are sticky at top 0, and a
      padding inset would let scrolled rows peek through the gap above
@@ -122,6 +123,7 @@
 .dt-search-panel-results {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: none;
   overflow-x: hidden;
 }
 

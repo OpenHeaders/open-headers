@@ -233,7 +233,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow })
       }}
     >
       {header}
-      <div style={{ flex: 1, overflow: 'auto' }}>{body}</div>
+      <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none' }}>{body}</div>
     </div>
   );
 };

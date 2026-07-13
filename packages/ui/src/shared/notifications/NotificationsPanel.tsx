@@ -173,7 +173,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
       style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
     >
       <PanelHeader wiring={wiring} title={<strong>Notifications</strong>} info={info} />
-      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '8px 10px' }}>
+      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'none', padding: '8px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
           <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>Timeline</span>
           <Button

@@ -14,7 +14,7 @@ const ResponseConsoleView: React.FC<{ preLog: ScriptConsoleEntry[]; postLog: Scr
   preLog,
   postLog,
 }) => (
-  <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingTop: 4 }}>
+  <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', minHeight: 0, paddingTop: 4 }}>
     {preLog.length > 0 && (
       <>
         <Text strong style={{ fontSize: 11 }}>

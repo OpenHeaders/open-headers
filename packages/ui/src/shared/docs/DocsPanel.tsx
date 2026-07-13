@@ -398,7 +398,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
 
       {/* Body — switches between TOC and Reading; same physical space. */}
       {view === 'toc' ? (
-        <div ref={tocScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
+        <div ref={tocScrollRef} style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none', padding: '10px 12px' }}>
           <Input
             ref={filterInputRef}
             size="small"

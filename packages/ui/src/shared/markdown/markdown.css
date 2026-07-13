@@ -78,6 +78,7 @@
   background: var(--ant-color-fill-quaternary);
   border: 1px solid var(--ant-color-border-secondary);
   overflow-x: auto;
+  overscroll-behavior: none;
 }
 
 /* Highlighted block body — carries `monaco-editor` so Monaco's token
@@ -158,6 +159,7 @@
   display: block;
   max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior: none;
 }
 
 .oh-markdown th,

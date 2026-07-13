@@ -213,7 +213,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
                   <div
                     style={{
                       maxHeight: 160,
-                      overflowY: 'auto',
+                      overflowY: 'auto', overscrollBehavior: 'none',
                       borderTop: `1px solid ${token.colorBorderSecondary}`,
                       borderBottom: `1px solid ${token.colorBorderSecondary}`,
                     }}

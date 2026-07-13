@@ -120,7 +120,7 @@ const CreateWorkflowFromRequestsModal: React.FC<Props> = ({ target, onCancel, on
                 const flat = Array.isArray(keys) ? keys : keys.checked;
                 setCheckedUids(new Set(flat.map(String).filter((k) => requestUids.has(k))));
               }}
-              style={{ maxHeight: 320, overflowY: 'auto' }}
+              style={{ maxHeight: 320, overflowY: 'auto', overscrollBehavior: 'none' }}
             />
           </>
         )}

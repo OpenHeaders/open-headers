@@ -121,7 +121,7 @@ const WorkspaceIdentityPicker: React.FC<WorkspaceIdentityPickerProps> = ({ value
           gridTemplateColumns: 'repeat(8, 1fr)',
           gap: 2,
           maxHeight: 200,
-          overflowY: 'auto',
+          overflowY: 'auto', overscrollBehavior: 'none',
         }}
       >
         <Tooltip title="No icon — show color square only" placement="top">

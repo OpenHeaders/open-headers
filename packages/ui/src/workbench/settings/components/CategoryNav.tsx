@@ -297,7 +297,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
           flexShrink: 0,
           padding: showLabels ? 6 : 4,
           borderRight: `1px solid ${token.colorBorderSecondary}`,
-          overflowY: 'auto',
+          overflowY: 'auto', overscrollBehavior: 'none',
           background: token.colorBgContainer,
           transition: 'width 120ms ease, padding 120ms ease',
         }}

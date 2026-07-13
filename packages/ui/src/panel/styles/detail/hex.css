@@ -5,6 +5,7 @@
   font-size: 11px;
   line-height: 1.6;
   overflow: auto;
+  overscroll-behavior: none;
   flex: 1;
   padding: 4px 8px;
 }

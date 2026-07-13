@@ -45,7 +45,7 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
           scrollbar class keep the gutter always visible as a cue. */}
       <div
         className="oh-persistent-scroll"
-        style={{ height: 240, overflowY: 'scroll', display: 'flex', flexDirection: 'column', paddingRight: 2 }}
+        style={{ height: 240, overflowY: 'scroll', overscrollBehavior: 'none', display: 'flex', flexDirection: 'column', paddingRight: 2 }}
       >
         {groups.length === 0 && (
           <div

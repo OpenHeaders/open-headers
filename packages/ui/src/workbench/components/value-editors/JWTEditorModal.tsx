@@ -435,7 +435,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
           <div
             style={{
               maxHeight: 180,
-              overflowY: 'auto',
+              overflowY: 'auto', overscrollBehavior: 'none',
               border: `1px solid ${token.colorBorder}`,
               borderRadius: 4,
               padding: 8,

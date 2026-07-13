@@ -66,7 +66,7 @@ const RulesSection: React.FC<RulesSectionProps> = ({
         }
       />
       {sectionsExpanded.rules && (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
           {renderFolderDndNodes(rulesNodes, rulesFolderDndConfig, () => void createNewCollection())}
         </div>
       )}

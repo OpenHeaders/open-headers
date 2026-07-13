@@ -143,7 +143,7 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
       <div
         style={{
           flex: 1,
-          overflow: 'auto',
+          overflow: 'auto', overscrollBehavior: 'none',
           minHeight: 0,
           border: `1px solid ${token.colorBorderSecondary}`,
           borderRadius: 4,

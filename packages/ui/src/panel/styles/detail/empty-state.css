@@ -43,6 +43,7 @@
 .dt-tab-body {
   flex: 1;
   overflow: auto;
+  overscroll-behavior: none;
   padding: 0 8px;
   background: var(--dt-bg);
 }

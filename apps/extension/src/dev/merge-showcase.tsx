@@ -55,7 +55,7 @@ function ShowcaseApp(): ReactElement {
             </Title>
           </Header>
           <Layout>
-            <Sider width={320} style={{ background: '#fafafa', overflowY: 'auto' }}>
+            <Sider width={320} style={{ background: '#fafafa', overflowY: 'auto', overscrollBehavior: 'none' }}>
               <Menu
                 mode="inline"
                 selectedKeys={[activeId]}

@@ -142,7 +142,7 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
           <div
             style={{
               maxHeight: 64,
-              overflowY: 'auto',
+              overflowY: 'auto', overscrollBehavior: 'none',
               border: `1px solid ${token.colorBorderSecondary}`,
               borderRadius: token.borderRadius,
               padding: 6,

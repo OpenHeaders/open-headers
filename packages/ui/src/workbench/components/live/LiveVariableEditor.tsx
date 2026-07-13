@@ -284,7 +284,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
           onKeepAllMine={handleKeepAllMine}
           onUseAllSaved={handleUseAllSaved}
         />
-      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+      <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: '16px 20px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           {/* Current value — single compact row */}
           <div

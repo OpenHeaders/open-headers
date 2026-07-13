@@ -78,7 +78,7 @@ export function buildMatchedRequestColumns({
                     style={{
                       marginBottom: 6,
                       maxHeight: 80,
-                      overflowY: 'auto',
+                      overflowY: 'auto', overscrollBehavior: 'none',
                       wordBreak: 'break-all',
                     }}
                   >

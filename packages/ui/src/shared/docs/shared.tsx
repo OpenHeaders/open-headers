@@ -252,7 +252,7 @@ export function CodeBlock({ children, language }: { children: string; language?:
           padding: '8px 36px 8px 10px',
           background: 'var(--ant-color-fill-quaternary)',
           borderRadius: 4,
-          overflow: 'auto',
+          overflow: 'auto', overscrollBehavior: 'none',
           margin: 0,
           fontFamily: 'monospace',
         }}

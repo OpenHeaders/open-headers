@@ -110,7 +110,7 @@ const LiveVariableCreateMode: React.FC<CreateProps> = ({
     <EntityScopeProvider shell={shell.scopeProps}>
     <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
       <EditorHeader title={createHeaderTitle} shell={shell.headerProps} />
-      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+      <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: '16px 20px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <InlineNameDescription

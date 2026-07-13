@@ -138,7 +138,7 @@ const CollectionPickerPanel = forwardRef<CollectionPickerHandle, CollectionPicke
           borderRadius: 6,
           maxHeight: listMaxHeight,
           minHeight: listMinHeight,
-          overflowY: 'auto',
+          overflowY: 'auto', overscrollBehavior: 'none',
           background: token.colorBgContainer,
           outline: 'none',
         }}

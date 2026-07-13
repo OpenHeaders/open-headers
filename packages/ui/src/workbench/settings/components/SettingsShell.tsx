@@ -207,7 +207,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
             isSearching={isSearching}
             onLeaveTop={focusSearch}
           />
-          <div ref={paneRef} style={{ flex: 1, overflowY: 'auto', background: token.colorBgContainer }}>
+          <div ref={paneRef} style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none', background: token.colorBgContainer }}>
             {isSearching ? (
               <SearchResultsPane results={results} query={query} onJumpToCategory={handleSelectCategory} />
             ) : activeCategory ? (

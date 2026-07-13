@@ -142,7 +142,7 @@ function DeepNetworkInspectionPlaceholder() {
         style={{
           flex: '1 1 auto',
           minHeight: 0,
-          overflow: 'auto',
+          overflow: 'auto', overscrollBehavior: 'none',
           padding: '14px 16px',
           fontFamily:
             'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',

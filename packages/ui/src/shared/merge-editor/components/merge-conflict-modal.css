@@ -19,6 +19,7 @@
   height: min(calc(85vh - 120px), calc(100vh - 220px));
   min-height: min(480px, calc(100vh - 220px));
   overflow-y: scroll;
+  overscroll-behavior: none;
   overflow-x: hidden;
   margin-right: -18px;
   padding-right: 12px;

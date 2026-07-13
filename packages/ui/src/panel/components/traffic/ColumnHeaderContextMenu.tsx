@@ -116,7 +116,7 @@ export function ColumnHeaderContextMenu({
     <div ref={menuRef} className="dt-ctx-menu dt-ctx-menu--scrollhost" style={{ left: state.x, top: state.y }}>
       <div
         className="dt-ctx-menu-scroll"
-        style={{ maxHeight: `calc(100vh - ${state.y}px - 8px)`, overflowY: 'auto' }}
+        style={{ maxHeight: `calc(100vh - ${state.y}px - 8px)`, overflowY: 'auto', overscrollBehavior: 'none' }}
       >
         {/* The two OH-native rails ahead of the Chrome-parity columns —
             listed for completeness, rendered like the mandatory Name entry

@@ -177,7 +177,7 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
         borderRadius: 6,
         fontSize: 12,
         lineHeight: '20px',
-        overflowX: 'auto',
+        overflowX: 'auto', overscrollBehavior: 'none',
       }}
     >
       {code}

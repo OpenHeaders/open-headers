@@ -136,7 +136,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
             style={{ fontSize: 12 }}
           />
         </div>
-        <div style={{ maxHeight: 300, overflowY: 'auto', padding: '0 4px 4px' }}>
+        <div style={{ maxHeight: 300, overflowY: 'auto', overscrollBehavior: 'none', padding: '0 4px 4px' }}>
           {/* Open tabs */}
           {filteredTabs.map((tab, idx) => {
             const isActive = tab.id === activeTabId;

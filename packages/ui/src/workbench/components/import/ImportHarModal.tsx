@@ -526,7 +526,7 @@ const EntryList: React.FC<EntryListProps> = ({ entries, selection, onToggle, tok
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 6,
         maxHeight: 280,
-        overflowY: 'auto',
+        overflowY: 'auto', overscrollBehavior: 'none',
         marginBottom: 12,
       }}
     >

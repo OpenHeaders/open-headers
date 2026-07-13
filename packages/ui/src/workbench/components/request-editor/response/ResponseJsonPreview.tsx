@@ -115,7 +115,7 @@ const ResponseJsonPreview: React.FC<{ value: unknown }> = ({ value }) => {
       data-testid="oh-response-json-preview"
       style={{
         flex: 1,
-        overflow: 'auto',
+        overflow: 'auto', overscrollBehavior: 'none',
         minHeight: 0,
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 4,

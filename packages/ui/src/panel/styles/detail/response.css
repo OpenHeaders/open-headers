@@ -24,6 +24,7 @@
   margin: 0;
   max-height: 480px;
   overflow: auto;
+  overscroll-behavior: none;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -132,6 +133,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: none;
   padding: 4px 8px;
   /*
    * Flex column so a single Monaco viewer child (`.dt-codemirror-wrap`)
@@ -383,6 +385,7 @@
   justify-content: center;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: none;
   padding: 12px;
   background: repeating-conic-gradient(#f0f0f0 0% 25%, transparent 0% 50%) 50%/16px 16px;
 }
@@ -416,6 +419,7 @@
 }
 .dt-body-pre--virtual {
   overflow: auto;
+  overscroll-behavior: none;
   line-height: 16px;
 }
 

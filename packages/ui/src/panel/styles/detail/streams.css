@@ -135,6 +135,7 @@
 .dt-ws-list {
   height: 100%;
   overflow: auto;
+  overscroll-behavior: none;
   min-height: 0;
   outline: none;
   /* Single-column grid wrapper (same trick as the traffic table): the
@@ -349,6 +350,7 @@
 .dt-msg-preview-content {
   flex: 1;
   overflow: auto;
+  overscroll-behavior: none;
   min-height: 0;
   padding: 4px 8px;
 }
@@ -430,6 +432,7 @@
 .dt-sse-list {
   height: 100%;
   overflow: auto;
+  overscroll-behavior: none;
   min-height: 0;
   outline: none;
   display: grid;

@@ -393,7 +393,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
         </div>
       )}
       {mode === 'raw' && (
-        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', minHeight: 0 }}>
           <pre
             // Role-less rendered body — same exception as the status chip:
             // a single inline test id so e2e can read the wire text
