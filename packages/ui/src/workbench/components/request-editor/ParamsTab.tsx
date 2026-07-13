@@ -11,6 +11,7 @@
 import type { AuthConfig } from '@openheaders/core/types';
 import type React from 'react';
 import { useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
 import { previewAuthContributions } from './auth-preview';
 import KeyValueTable, {
@@ -75,6 +76,7 @@ function annotateHasEquals(rows: KeyValueRow[]): KeyValueRow[] {
 }
 
 const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, auth, onAuthChange, onNavigateTab, conflictBridge }) => {
+  const t = useT();
   // Always-visible preview rows for an auth credential that rides on
   // the URL (API Key → Query Params, OAuth 2.0 → Request URL). Unlike
   // Headers there are no browser-managed auto-params to hide, so the
@@ -83,7 +85,7 @@ const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, auth, onAuthChang
   // (`auth.disabled`), and a query-borne API-key value is editable
   // inline, two-way bound to the auth config. OAuth 2.0's runtime
   // token stays a read-only placeholder.
-  const authParams = useMemo(() => previewAuthContributions(auth).params, [auth]);
+  const authParams = useMemo(() => previewAuthContributions(auth, t).params, [auth, t]);
   const authRowToggle = (next: boolean) => onAuthChange({ ...auth, disabled: next ? undefined : true });
   const suggestions: SuggestionRow[] = authParams.map((p) => {
     const row: SuggestionRow = {
@@ -92,7 +94,9 @@ const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, auth, onAuthChang
       hint: p.hint,
       enabled: !auth.disabled,
       onToggle: authRowToggle,
-      action: onNavigateTab ? { label: 'Go to authorization', onClick: () => onNavigateTab('authorization') } : undefined,
+      action: onNavigateTab
+        ? { label: t('workbench.editors.request.goToAuthorization'), onClick: () => onNavigateTab('authorization') }
+        : undefined,
     };
     if (auth.type === 'api-key' && auth.in === 'query') {
       row.value = auth.value;
@@ -109,8 +113,6 @@ const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, auth, onAuthChang
       <KeyValueTable
         rows={rows}
         onChange={(next) => onChange(annotateHasEquals(next))}
-        keyPlaceholder="Key"
-        valuePlaceholder="Value"
         suggestionRows={suggestions}
         bulkEdit={{
           serialize: rowsToText,

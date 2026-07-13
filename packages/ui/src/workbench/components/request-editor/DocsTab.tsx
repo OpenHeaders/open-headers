@@ -15,6 +15,7 @@
 import { Segmented, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { MarkdownView } from '@openheaders/ui/shared/markdown';
 import CodeEditor from '../shared/CodeEditor';
@@ -26,8 +27,6 @@ const { Text } = Typography;
 
 type DocsMode = 'write' | 'preview';
 
-const DOCS_PLACEHOLDER = 'What does this request do?\nWhy it exists, when to run it, expected auth scope.';
-
 const renderDocsCodeBlock = (code: string, lang?: string) => <HighlightedCodeBlock code={code} lang={lang} />;
 
 interface DocsTabProps {
@@ -37,6 +36,7 @@ interface DocsTabProps {
 
 const DocsTab: React.FC<DocsTabProps> = ({ value, onChange }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [mode, setMode] = useState<DocsMode>(() => (value.trim() ? 'preview' : 'write'));
   const [editor, setEditor] = useState<MarkdownEditor | null>(null);
 
@@ -59,15 +59,14 @@ const DocsTab: React.FC<DocsTabProps> = ({ value, onChange }) => {
           value={mode}
           onChange={(next) => setMode(next as DocsMode)}
           options={[
-            { value: 'write', label: 'Write' },
-            { value: 'preview', label: 'Preview' },
+            { value: 'write', label: t('workbench.editors.request.docs.write') },
+            { value: 'preview', label: t('workbench.editors.request.docs.preview') },
           ]}
         />
         <InfoTrigger
           content={{
-            title: 'Docs',
-            summary:
-              'Document this request — why it exists, when to run it, expected auth scope. Markdown supported: headings, lists, tables, code blocks, links. {{variable}} references render as chips in the preview.',
+            title: t('workbench.editors.request.docs.infoTitle'),
+            summary: t('workbench.editors.request.docs.infoSummary'),
           }}
         />
         {mode === 'write' && (
@@ -82,7 +81,7 @@ const DocsTab: React.FC<DocsTabProps> = ({ value, onChange }) => {
           onChange={onChange}
           language="markdown"
           minHeight={280}
-          placeholder={DOCS_PLACEHOLDER}
+          placeholder={t('workbench.editors.request.docs.placeholder')}
           variableAutoComplete={false}
           onEditorMount={(ed, monacoApi) => {
             setEditor(ed);
@@ -93,7 +92,7 @@ const DocsTab: React.FC<DocsTabProps> = ({ value, onChange }) => {
         <MarkdownView renderCodeBlock={renderDocsCodeBlock}>{value}</MarkdownView>
       ) : (
         <Text type="secondary" style={{ fontSize: 12, padding: '24px 0', textAlign: 'center' }}>
-          Nothing documented yet — switch to Write to add notes.
+          {t('workbench.editors.request.docs.empty')}
         </Text>
       )}
     </div>

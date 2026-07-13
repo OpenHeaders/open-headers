@@ -36,6 +36,7 @@ import { generateUid } from '@openheaders/core/utils';
 import { Alert, App, Button, Checkbox, Input, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import KeyValueTable, { type KeyValueRow } from './KeyValueTable';
 
 const { Text, Link } = Typography;
@@ -115,6 +116,7 @@ interface OAuth2AuthEditorProps {
 
 const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { message } = App.useApp();
   const { tokens, redirectUri, authorize, clientCredentials, refresh, revoke } = useOAuthBundlesContext();
   const [busy, setBusy] = useState<null | 'authorize' | 'refresh' | 'revoke'>(null);
@@ -141,12 +143,12 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
     try {
       if (auth.flow === 'client-credentials') {
         const res = await clientCredentials(auth);
-        if (res.success) message.success('OAuth: token received');
-        else message.error(`OAuth failed: ${res.error}`);
+        if (res.success) message.success(t('workbench.editors.request.oauth.toast.tokenReceived'));
+        else message.error(t('workbench.editors.request.oauth.toast.failed', { error: res.error ?? '' }));
       } else {
         const res = await authorize(auth);
-        if (res.success) message.success('OAuth: authorization complete');
-        else message.error(`OAuth failed: ${res.error}`);
+        if (res.success) message.success(t('workbench.editors.request.oauth.toast.authorizationComplete'));
+        else message.error(t('workbench.editors.request.oauth.toast.failed', { error: res.error ?? '' }));
       }
     } finally {
       setBusy(null);
@@ -157,8 +159,8 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
     setBusy('refresh');
     try {
       const res = await refresh(auth);
-      if (res.success) message.success('OAuth: access token refreshed');
-      else message.error(`Refresh failed: ${res.error}`);
+      if (res.success) message.success(t('workbench.editors.request.oauth.toast.refreshed'));
+      else message.error(t('workbench.editors.request.oauth.toast.refreshFailed', { error: res.error ?? '' }));
     } finally {
       setBusy(null);
     }
@@ -168,7 +170,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
     setBusy('revoke');
     try {
       const removed = await revoke(auth.credentialRef);
-      if (removed) message.success('OAuth: disconnected');
+      if (removed) message.success(t('workbench.editors.request.oauth.toast.disconnected'));
     } finally {
       setBusy(null);
     }
@@ -178,9 +180,9 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
     if (!redirectUri) return;
     try {
       await navigator.clipboard.writeText(redirectUri);
-      message.success('Callback URL copied');
+      message.success(t('workbench.editors.request.oauth.toast.callbackCopied'));
     } catch {
-      message.warning('Copy not supported — select the URL manually');
+      message.warning(t('workbench.editors.request.oauth.toast.copyUnsupported'));
     }
   };
 
@@ -190,12 +192,11 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         <Alert
           type="warning"
           showIcon
-          message="Sending the access token in the URL is deprecated"
+          message={t('workbench.editors.request.oauth.queryWarningTitle')}
           description={
             <>
-              RFC 6750 §2.3 kept the URI query-parameter method available but warns against it: tokens leak into server
-              logs, HTTP `Referer` headers, browser history, and intermediary caches. Prefer the default{' '}
-              <code>Authorization: Bearer</code> header unless the provider requires the query form.
+              {t('workbench.editors.request.oauth.queryWarningBefore')} <code>Authorization: Bearer</code>{' '}
+              {t('workbench.editors.request.oauth.queryWarningAfter')}
             </>
           }
         />
@@ -204,23 +205,23 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
       {/* ── Current Token ────────────────────────────────────────────── */}
       <div>
         <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 12 }}>
-          Current Token
+          {t('workbench.editors.request.oauth.currentToken')}
         </Text>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <LabeledRow label="Token">
+          <LabeledRow label={t('workbench.editors.request.oauth.tokenLabel')}>
             <Input
               size="small"
               readOnly
               value={bundle ? `${bundle.accessToken.slice(0, 8)}…` : ''}
-              placeholder="No token yet — use Get new access token below"
+              placeholder={t('workbench.editors.request.oauth.noTokenPlaceholder')}
             />
           </LabeledRow>
-          <LabeledRow label="Header Prefix">
+          <LabeledRow label={t('workbench.editors.request.oauth.headerPrefix')}>
             <Input size="small" readOnly value={bundle?.tokenType ?? 'Bearer'} />
           </LabeledRow>
           <LabeledRow
-            label="Auto-refresh Token"
-            description="Your expired token will be auto-refreshed before sending a request."
+            label={t('workbench.editors.request.oauth.autoRefresh')}
+            description={t('workbench.editors.request.oauth.autoRefreshDesc')}
           >
             <Checkbox
               checked={Boolean(bundle?.refreshToken)}
@@ -230,21 +231,23 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           </LabeledRow>
           {bundle && (
             <LabeledRow
-              label="Status"
+              label={t('workbench.editors.request.oauth.status')}
               description={
                 expired
-                  ? 'Expired — next send will auto-refresh when a refresh_token is stored.'
-                  : `Valid · ${formatDuration(secondsUntilExpiry(bundle) ?? 0)}`
+                  ? t('workbench.editors.request.oauth.statusExpired')
+                  : t('workbench.editors.request.oauth.statusValid', {
+                      duration: formatDuration(secondsUntilExpiry(bundle) ?? 0),
+                    })
               }
             >
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 {bundle.refreshToken && (
                   <Button size="small" onClick={() => void handleRefresh()} disabled={busy !== null}>
-                    Refresh now
+                    {t('workbench.editors.request.oauth.refreshNow')}
                   </Button>
                 )}
                 <Button size="small" danger onClick={() => void handleRevoke()} disabled={busy !== null}>
-                  Disconnect
+                  {t('workbench.editors.request.oauth.disconnect')}
                 </Button>
               </div>
             </LabeledRow>
@@ -257,16 +260,16 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
       {/* ── Configure New Token ──────────────────────────────────────── */}
       <div>
         <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 12 }}>
-          Configure New Token
+          {t('workbench.editors.request.oauth.configureNewToken')}
         </Text>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <LabeledRow
-            label="Token Name"
-            description="Free-form label, surfaced in the credentials list when a workspace has several tokens against the same provider."
+            label={t('workbench.editors.request.oauth.tokenName')}
+            description={t('workbench.editors.request.oauth.tokenNameDesc')}
           >
             <Input
               size="small"
-              placeholder="Enter a token name…"
+              placeholder={t('workbench.editors.request.oauth.tokenNamePlaceholder')}
               value={auth.label ?? ''}
               onChange={(e) => {
                 const label = e.target.value;
@@ -275,7 +278,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             />
           </LabeledRow>
 
-          <LabeledRow label="Grant type">
+          <LabeledRow label={t('workbench.editors.request.oauth.grantType')}>
             <Select
               size="small"
               style={{ width: '100%' }}
@@ -287,19 +290,21 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
 
           {grantType.fields.callbackUrl && (
             <>
-              <LabeledRow label="Callback URL">
+              <LabeledRow label={t('workbench.editors.request.oauth.callbackUrl')}>
                 <Input
                   size="small"
                   readOnly
-                  value={redirectUri ?? 'Detecting…'}
+                  value={redirectUri ?? t('workbench.editors.request.oauth.detecting')}
                   suffix={
                     <Tooltip
                       title={
                         <span>
-                          Register this URL at your OAuth provider. It looks different from the{' '}
-                          <code>chrome-extension://…</code> URL in your address bar because Chrome exposes a dedicated{' '}
-                          <code>chromiumapp.org</code> redirect host for <code>chrome.identity.launchWebAuthFlow</code>.
-                          The extension ID is the same; only the host + scheme differ.
+                          {t('workbench.editors.request.oauth.callbackTipBeforeExtUrl')}{' '}
+                          <code>chrome-extension://…</code>{' '}
+                          {t('workbench.editors.request.oauth.callbackTipBeforeHost')} <code>chromiumapp.org</code>{' '}
+                          {t('workbench.editors.request.oauth.callbackTipBeforeApi')}{' '}
+                          <code>chrome.identity.launchWebAuthFlow</code>
+                          {t('workbench.editors.request.oauth.callbackTipAfterApi')}
                         </span>
                       }
                       overlayStyle={{ maxWidth: 380 }}
@@ -308,7 +313,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                     </Tooltip>
                   }
                   addonAfter={
-                    <Tooltip title="Copy">
+                    <Tooltip title={t('shared.action.copy')}>
                       <CopyOutlined onClick={handleCopyRedirect} />
                     </Tooltip>
                   }
@@ -316,14 +321,14 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
               </LabeledRow>
               <div style={{ marginLeft: 152, marginTop: -4 }}>
                 <Checkbox disabled checked={false}>
-                  Authorize using browser
+                  {t('workbench.editors.request.oauth.authorizeUsingBrowser')}
                 </Checkbox>
               </div>
             </>
           )}
 
           {grantType.fields.authUrl && (
-            <LabeledRow label="Auth URL">
+            <LabeledRow label={t('workbench.editors.request.oauth.authUrl')}>
               <Input
                 size="small"
                 placeholder="https://example.com/login/oauth/authorize"
@@ -334,7 +339,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           )}
 
           {grantType.fields.accessTokenUrl && (
-            <LabeledRow label="Access Token URL">
+            <LabeledRow label={t('workbench.editors.request.oauth.accessTokenUrl')}>
               <Input
                 size="small"
                 placeholder="https://example.com/login/oauth/access_token"
@@ -345,10 +350,10 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           )}
 
           {grantType.fields.clientId && (
-            <LabeledRow label="Client ID">
+            <LabeledRow label={t('workbench.editors.request.oauth.clientId')}>
               <Input
                 size="small"
-                placeholder="Client ID"
+                placeholder={t('workbench.editors.request.oauth.clientId')}
                 value={auth.clientId}
                 onChange={(e) => onChange({ ...auth, clientId: e.target.value })}
               />
@@ -356,10 +361,10 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           )}
 
           {grantType.fields.clientSecret && (
-            <LabeledRow label="Client Secret">
+            <LabeledRow label={t('workbench.editors.request.oauth.clientSecret')}>
               <Input.Password
                 size="small"
-                placeholder="Client Secret"
+                placeholder={t('workbench.editors.request.oauth.clientSecret')}
                 value={auth.clientSecret ?? ''}
                 onChange={(e) => onChange({ ...auth, clientSecret: e.target.value || undefined })}
               />
@@ -368,7 +373,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
 
           {grantType.fields.pkce && (
             <>
-              <LabeledRow label="Code Challenge Method">
+              <LabeledRow label={t('workbench.editors.request.oauth.codeChallengeMethod')}>
                 <Select
                   size="small"
                   value="SHA-256"
@@ -376,14 +381,14 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                   style={{ width: '100%' }}
                 />
               </LabeledRow>
-              <LabeledRow label="Code Verifier">
-                <Input size="small" placeholder="Automatically generated if left blank" disabled />
+              <LabeledRow label={t('workbench.editors.request.oauth.codeVerifier')}>
+                <Input size="small" placeholder={t('workbench.editors.request.oauth.codeVerifierPlaceholder')} disabled />
               </LabeledRow>
             </>
           )}
 
           {grantType.fields.scope && (
-            <LabeledRow label="Scope">
+            <LabeledRow label={t('workbench.editors.request.oauth.scope')}>
               <Select
                 mode="tags"
                 size="small"
@@ -397,14 +402,19 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           )}
 
           {grantType.fields.state && (
-            <LabeledRow label="State">
-              <Input size="small" placeholder="State" disabled value="Automatically generated per authorize request" />
+            <LabeledRow label={t('workbench.editors.request.oauth.state')}>
+              <Input
+                size="small"
+                placeholder={t('workbench.editors.request.oauth.state')}
+                disabled
+                value={t('workbench.editors.request.oauth.stateAuto')}
+              />
             </LabeledRow>
           )}
 
           <LabeledRow
-            label="Client Authentication"
-            description="Where client_id / client_secret ride on token POSTs. Providers vary — Auth0 / Keycloak typically require the Basic header form."
+            label={t('workbench.editors.request.oauth.clientAuthentication')}
+            description={t('workbench.editors.request.oauth.clientAuthenticationDesc')}
           >
             <Select
               size="small"
@@ -413,8 +423,8 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                 onChange({ ...auth, clientAuthentication: next === 'body' ? undefined : next })
               }
               options={[
-                { value: 'body', label: 'Send client credentials in body' },
-                { value: 'basic-header', label: 'Send as Basic Auth header' },
+                { value: 'body', label: t('workbench.editors.request.oauth.clientAuthBody') },
+                { value: 'basic-header', label: t('workbench.editors.request.oauth.clientAuthBasicHeader') },
               ]}
               style={{ width: '100%' }}
             />
@@ -438,7 +448,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                 fontWeight: 500,
               }}
             >
-              {advancedOpen ? <DownOutlined /> : <RightOutlined />} Advanced
+              {advancedOpen ? <DownOutlined /> : <RightOutlined />} {t('workbench.editors.request.oauth.advanced')}
             </button>
             {advancedOpen && (
               <div
@@ -450,13 +460,13 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                 }}
               >
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  You can add more specific customizations to your OAuth2 requests here.{' '}
-                  <Link>Learn more about configuration</Link>.
+                  {t('workbench.editors.request.oauth.advancedIntro')}{' '}
+                  <Link>{t('workbench.editors.request.oauth.advancedLearnMore')}</Link>.
                 </Text>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
                   <LabeledRow
-                    label="Refresh Token URL"
-                    description="Most providers reuse the Access Token URL for refresh; supply an override only when the provider exposes a distinct path."
+                    label={t('workbench.editors.request.oauth.refreshTokenUrl')}
+                    description={t('workbench.editors.request.oauth.refreshTokenUrlDesc')}
                   >
                     <Input
                       size="small"
@@ -469,21 +479,21 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                     />
                   </LabeledRow>
                   <ParamsBlock
-                    title="Auth Request"
+                    title={t('workbench.editors.request.oauth.authRequest')}
                     entries={auth.extraAuthParams ?? []}
                     onChange={(entries) =>
                       onChange({ ...auth, extraAuthParams: entries.length === 0 ? undefined : entries })
                     }
                   />
                   <ParamsBlock
-                    title="Token Request"
+                    title={t('workbench.editors.request.oauth.tokenRequest')}
                     entries={auth.extraTokenParams ?? []}
                     onChange={(entries) =>
                       onChange({ ...auth, extraTokenParams: entries.length === 0 ? undefined : entries })
                     }
                   />
                   <ParamsBlock
-                    title="Refresh Request"
+                    title={t('workbench.editors.request.oauth.refreshRequest')}
                     entries={auth.extraRefreshParams ?? []}
                     onChange={(entries) =>
                       onChange({ ...auth, extraRefreshParams: entries.length === 0 ? undefined : entries })
@@ -502,11 +512,11 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
               loading={busy === 'authorize'}
               style={{ background: token.colorWarning, borderColor: token.colorWarning }}
             >
-              Get new access token
+              {t('workbench.editors.request.oauth.getNewToken')}
             </Button>
             {bundle && (
               <Button size="middle" onClick={() => void handleRevoke()} disabled={busy !== null}>
-                Clear cookies
+                {t('workbench.editors.request.oauth.clearCookies')}
               </Button>
             )}
           </div>
@@ -514,7 +524,8 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
       </div>
 
       <Text type="secondary" style={{ fontSize: 11, marginTop: 4 }}>
-        Tokens are stored per workspace under <code>{auth.credentialRef}</code>. Delete the workspace to purge.
+        {t('workbench.editors.request.oauth.storedFootnoteBefore')} <code>{auth.credentialRef}</code>
+        {t('workbench.editors.request.oauth.storedFootnoteAfter')}
       </Text>
     </div>
   );
@@ -589,8 +600,6 @@ const ParamsBlock: React.FC<{
               .map((r) => ({ uid: r.uid || generateUid(), key: r.key, value: r.value })),
           );
         }}
-        keyPlaceholder="Key"
-        valuePlaceholder="Value"
       />
     </div>
   );

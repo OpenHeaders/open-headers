@@ -47,6 +47,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { Button, Checkbox, Input, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { GripResizeXEvent } from '../template-input';
 import {
   cellFont,
@@ -75,7 +76,7 @@ export function EditableGridTable<Row>({
   renderValueCell,
   renderKeyCell,
   renderDescriptionCell,
-  keyPlaceholder = 'Key',
+  keyPlaceholder,
   hideEnabled = false,
   suggestionRows = [],
   bulkEdit,
@@ -84,6 +85,8 @@ export function EditableGridTable<Row>({
   conflictBridge,
 }: EditableGridTableProps<Row>): React.ReactElement {
   const { token } = theme.useToken();
+  const t = useT();
+  const effectiveKeyPlaceholder = keyPlaceholder ?? t('workbench.editors.grid.key');
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [showValueColumn, setShowValueColumn] = useState(true);
@@ -260,10 +263,12 @@ export function EditableGridTable<Row>({
   const optionsPopoverContent = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 160 }}>
       <div style={{ fontSize: 11, color: token.colorTextSecondary, fontWeight: 500, padding: '2px 8px' }}>
-        Show columns
+        {t('workbench.editors.grid.showColumns')}
       </div>
-      {toggleColumnItem('Value', showValueColumn, () => setShowValueColumn((v) => !v))}
-      {toggleColumnItem('Description', showDescriptionColumn, () => setShowDescriptionColumn((v) => !v))}
+      {toggleColumnItem(t('workbench.editors.grid.value'), showValueColumn, () => setShowValueColumn((v) => !v))}
+      {toggleColumnItem(t('workbench.editors.grid.description'), showDescriptionColumn, () =>
+        setShowDescriptionColumn((v) => !v),
+      )}
     </div>
   );
 
@@ -280,7 +285,7 @@ export function EditableGridTable<Row>({
           size="small"
           type="text"
           icon={<MoreOutlined />}
-          aria-label="Table options"
+          aria-label={t('workbench.editors.grid.tableOptions')}
           style={{ color: token.colorTextTertiary }}
         />
       </Popover>
@@ -301,7 +306,7 @@ export function EditableGridTable<Row>({
       onClick={() => (bulkMode ? exitBulk() : enterBulk())}
       style={{ fontSize: 11, height: 20, padding: '0 6px', color: token.colorTextSecondary, flexShrink: 0 }}
     >
-      {bulkMode ? 'Key-Value' : 'Bulk'}
+      {bulkMode ? t('workbench.editors.grid.keyValue') : t('workbench.editors.grid.bulk')}
     </Button>
   ) : null;
 
@@ -353,7 +358,7 @@ export function EditableGridTable<Row>({
             className={GRID_COL_RESIZER_CLASS}
             role="separator"
             aria-orientation="vertical"
-            aria-label={`Resize ${col} column`}
+            aria-label={t('workbench.editors.grid.resizeColumnAria', { column: col })}
             style={{ left: x - 4 }}
             onPointerDown={(e) => resize.beginResize(e, col)}
             onDoubleClick={() => resize.resetColumn(col)}
@@ -390,17 +395,17 @@ export function EditableGridTable<Row>({
                 className="editable-grid-select-all"
                 checked={allEnabled}
                 onChange={(e) => toggleAll(e.target.checked)}
-                aria-label="Enable or disable all rows"
-                title="Enable / disable all"
+                aria-label={t('workbench.editors.grid.selectAllAria')}
+                title={t('workbench.editors.grid.selectAllTitle')}
                 style={{ width: 14, height: 14, cursor: 'pointer' }}
               />
             </span>
           ) : (
             <span />
           ))}
-        {renderHeaderLabel('key', 'Key', false)}
-        {showValueColumn && renderHeaderLabel('value', 'Value', true)}
-        {showDescriptionColumn && renderHeaderLabel('description', 'Description', true)}
+        {renderHeaderLabel('key', t('workbench.editors.grid.key'), false)}
+        {showValueColumn && renderHeaderLabel('value', t('workbench.editors.grid.value'), true)}
+        {showDescriptionColumn && renderHeaderLabel('description', t('workbench.editors.grid.description'), true)}
         {trailingActionsCell}
       </div>
 
@@ -443,7 +448,7 @@ export function EditableGridTable<Row>({
             ) : null;
             const withOverrideTooltip = (node: React.ReactElement) =>
               s.overriddenBy ? (
-                <Tooltip title={`Duplicate — overridden by the ${s.overriddenBy} row you added.`}>{node}</Tooltip>
+                <Tooltip title={t('workbench.editors.grid.overriddenBy', { header: s.overriddenBy })}>{node}</Tooltip>
               ) : (
                 node
               );
@@ -528,7 +533,7 @@ export function EditableGridTable<Row>({
                         secret={Boolean(s.editableValue.secret) && !revealedSuggestionKeys.has(s.key)}
                         onSecretToggle={s.editableValue.secret ? () => toggleSuggestionRevealed(s.key) : undefined}
                         onResizeX={showDescriptionColumn ? handleValueGripResizeX : undefined}
-                        ariaLabel={`${s.key} value`}
+                        ariaLabel={t('workbench.editors.grid.suggestionValueAria', { key: s.key })}
                         style={{
                           ...cellFont,
                           flex: 1,
@@ -613,7 +618,7 @@ export function EditableGridTable<Row>({
                     hideEnabled={hideEnabled}
                     showValueColumn={showValueColumn}
                     showDescriptionColumn={showDescriptionColumn}
-                    keyPlaceholder={keyPlaceholder}
+                    keyPlaceholder={effectiveKeyPlaceholder}
                     renderValueCell={renderValueCell}
                     renderKeyCell={renderKeyCell}
                     renderDescriptionCell={renderDescriptionCell}

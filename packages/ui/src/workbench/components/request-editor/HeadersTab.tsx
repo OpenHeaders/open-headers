@@ -17,9 +17,11 @@
 
 import { EyeInvisibleOutlined, EyeOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { AuthConfig, RequestBody } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
 import { previewAuthContributions } from './auth-preview';
 import KeyValueTable, {
@@ -60,8 +62,12 @@ function headerTextToRows(text: string): KeyValueRow[] {
 
 interface AutoHeaderDef {
   key: string;
-  value: string;
-  hint: string;
+  /** Literal wire value, or absent when the value is a keyed
+   *  descriptive placeholder (`placeholderKey`, defaulting to the
+   *  "<calculated when request is sent>" one). */
+  value?: string;
+  placeholderKey?: MessageKey;
+  hintKey: MessageKey;
   /** When true, only include this row when the request has a body. */
   bodyOnly?: boolean;
   /** A user row with the same key actually replaces this value on the
@@ -80,51 +86,49 @@ const BASE_AUTO_HEADERS: AutoHeaderDef[] = [
   {
     key: 'Cache-Control',
     value: 'no-cache',
-    hint: '"Cache-Control: no-cache" is added as a precautionary measure to prevent the server from returning stale responses when you make repeated requests. You can remove this header in the request settings or enter a new one with a different value.',
+    hintKey: 'workbench.editors.request.headers.hint.cacheControl',
     overridable: true,
     goTo: 'settings',
   },
   {
     key: 'Content-Type',
-    value: '<calculated when request is sent>',
-    hint: 'The runtime computes Content-Type from the body encoding (form-data → multipart/form-data with a boundary; x-www-form-urlencoded → application/x-www-form-urlencoded; raw JSON → application/json; etc.). Set your own header to override.',
+    hintKey: 'workbench.editors.request.headers.hint.contentType',
     bodyOnly: true,
     overridable: true,
     goTo: 'body',
   },
   {
     key: 'Content-Length',
-    value: '<calculated when request is sent>',
-    hint: 'Content-Length is computed from the serialized body byte size before the request is sent. The browser refuses to honour a user-set Content-Length that does not match the actual body length.',
+    hintKey: 'workbench.editors.request.headers.hint.contentLength',
     bodyOnly: true,
     goTo: 'body',
   },
   {
     key: 'Host',
-    value: '<calculated when request is sent>',
-    hint: 'The browser derives Host from the target URL and refuses to let userland code override it.',
+    hintKey: 'workbench.editors.request.headers.hint.host',
   },
   {
     key: 'User-Agent',
-    value: typeof navigator !== 'undefined' ? navigator.userAgent : '<browser user agent>',
-    hint: 'The User-Agent identifies the client. Requests go out with the browser’s own User-Agent; add your own User-Agent row below to override it.',
+    value: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+    placeholderKey: 'workbench.editors.request.headers.browserUserAgent',
+    hintKey: 'workbench.editors.request.headers.hint.userAgent',
     overridable: true,
   },
   {
     key: 'Accept',
     value: '*/*',
-    hint: 'Accept tells the server which media types the client can parse. `*/*` lets the server pick; override with a narrower set (e.g. `application/json`) to constrain responses.',
+    hintKey: 'workbench.editors.request.headers.hint.accept',
     overridable: true,
   },
   {
     key: 'Accept-Encoding',
     value: 'gzip, deflate, br',
-    hint: 'Compression algorithms the browser supports. Set by the browser and negotiated per-connection; not overridable from userland.',
+    hintKey: 'workbench.editors.request.headers.hint.acceptEncoding',
   },
   {
     key: 'Connection',
     value: 'keep-alive',
-    hint: 'HTTP/1.1 connection reuse. The browser manages the connection pool and does not let userland code override this header.',
+    hintKey: 'workbench.editors.request.headers.hint.connection',
   },
 ];
 
@@ -156,6 +160,7 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
   conflictBridge,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [showAuto, setShowAuto] = useState(false);
   const [disabledAutoKeys, setDisabledAutoKeys] = useState<Set<string>>(new Set());
 
@@ -184,7 +189,7 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
   // hint points at the Authorization tab. The browser-managed
   // auto-headers stay behind the Show/Hide toggle since they're
   // environment noise the user rarely cares about.
-  const authHeaders = useMemo(() => previewAuthContributions(auth).headers, [auth]);
+  const authHeaders = useMemo(() => previewAuthContributions(auth, t).headers, [auth, t]);
   const authRowToggle = (next: boolean) => onAuthChange({ ...auth, disabled: next ? undefined : true });
 
   // Keys of the user's own enabled rows — a generated row with the same
@@ -208,9 +213,9 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
   const rowWarning = (row: KeyValueRow) =>
     row.enabled && row.key.trim() && authHeaderKeys.has(row.key.trim().toLowerCase())
       ? {
-          message: `Duplicate — replaced on send by the ${row.key.trim()} header generated from the Authorization tab.`,
+          message: t('workbench.editors.request.headers.duplicateAuthOverride', { header: row.key.trim() }),
           action: onNavigateTab
-            ? { label: 'Go to authorization', onClick: () => onNavigateTab('authorization') }
+            ? { label: t('workbench.editors.request.goToAuthorization'), onClick: () => onNavigateTab('authorization') }
             : undefined,
         }
       : null;
@@ -222,7 +227,9 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
       hint: h.hint,
       enabled: !auth.disabled,
       onToggle: authRowToggle,
-      action: onNavigateTab ? { label: 'Go to authorization', onClick: () => onNavigateTab('authorization') } : undefined,
+      action: onNavigateTab
+        ? { label: t('workbench.editors.request.goToAuthorization'), onClick: () => onNavigateTab('authorization') }
+        : undefined,
     };
     if (auth.type === 'bearer') {
       row.value = `Bearer ${auth.token}`;
@@ -241,14 +248,20 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
   });
   const browserSuggestions: SuggestionRow[] = autoHeaders.map((h) => ({
     key: h.key,
-    value: h.value,
-    hint: h.hint,
+    value: h.value ?? t(h.placeholderKey ?? 'workbench.editors.request.headers.calculated'),
+    hint: t(h.hintKey),
     enabled: !disabledAutoKeys.has(h.key),
     onToggle: (next: boolean) => toggleAutoKey(h.key, next),
     overriddenBy: h.overridable ? overrideBy(h.key) : undefined,
     action:
       h.goTo && onNavigateTab
-        ? { label: `Go to ${h.goTo}`, onClick: () => onNavigateTab(h.goTo as 'body' | 'settings') }
+        ? {
+            label:
+              h.goTo === 'body'
+                ? t('workbench.editors.request.goToBody')
+                : t('workbench.editors.request.goToSettings'),
+            onClick: () => onNavigateTab(h.goTo as 'body' | 'settings'),
+          }
         : undefined,
   }));
   const suggestions: SuggestionRow[] = showAuto
@@ -266,10 +279,12 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
             onClick={() => setShowAuto((s) => !s)}
             style={{ color: token.colorTextSecondary, fontSize: 12 }}
           >
-            {showAuto ? 'Hide auto-generated headers' : `${browserSuggestions.length} hidden`}
+            {showAuto
+              ? t('workbench.editors.request.headers.hideAuto')
+              : t('workbench.editors.request.headers.hiddenCount', { count: browserSuggestions.length })}
           </Button>
           {showAuto && (
-            <Tooltip title="These headers will be automatically added and sent with the request. Click the info icon on a row for per-header detail.">
+            <Tooltip title={t('workbench.editors.request.headers.autoInfo')}>
               <InfoCircleOutlined style={{ color: token.colorTextTertiary, fontSize: 12, cursor: 'help' }} />
             </Tooltip>
           )}
@@ -278,8 +293,7 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
       <KeyValueTable
         rows={rows}
         onChange={onChange}
-        keyPlaceholder="Header"
-        valuePlaceholder="Value"
+        keyPlaceholder={t('workbench.editors.request.headers.keyPlaceholder')}
         suggestionRows={suggestions}
         bulkEdit={{
           serialize: headerRowsToText,

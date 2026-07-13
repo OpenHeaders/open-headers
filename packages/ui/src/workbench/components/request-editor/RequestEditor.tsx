@@ -37,6 +37,7 @@ import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getRequestSyncMirrorForWorkspace, getResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   applyResponseExampleCreate,
   nextExampleName,
@@ -147,6 +148,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const { requests, collections: requestCollections, getRequest, updateRequest, execute } = useRequests();
 
   const isCreateMode = mode === 'request-create';
@@ -385,9 +387,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       // Dirty derives from form-vs-canonical equality; the broadcast
       // echo brings live in line with form, auto-rebase clears.
     } else if (result.reason === 'not-found') {
-      message.error('Request was deleted from another tab');
+      message.error(t('workbench.editors.request.toast.deletedOtherTab'));
     } else {
-      message.error(`Failed to update request${'message' in result ? `: ${result.message}` : ''}`);
+      message.error(
+        'message' in result
+          ? t('workbench.editors.request.toast.updateFailedDetail', { message: result.message })
+          : t('workbench.editors.request.toast.updateFailed'),
+      );
     }
   }, [
     isCreateMode,
@@ -401,6 +407,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     onSaveDraft,
     conflicts,
     message,
+    t,
   ]);
 
   const handleSaveSync = useCallback(() => {
@@ -475,12 +482,16 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       { workspaceId: editingScopeWorkspaceId, surfaceId: 'workbench' },
     );
     if (result.ok) {
-      message.success(`Saved example "${name}"`);
+      message.success(t('workbench.editors.request.toast.savedExample', { name }));
       onOpenResponseExample?.(result.responseExample.uid, name, requestUid);
     } else {
-      message.error(`Failed to save example${'message' in result && result.message ? `: ${result.message}` : ''}`);
+      message.error(
+        'message' in result && result.message
+          ? t('workbench.editors.request.toast.saveExampleFailedDetail', { message: result.message })
+          : t('workbench.editors.request.toast.saveExampleFailed'),
+      );
     }
-  }, [summary, requestUid, editingScopeWorkspaceId, response, draft, message, onOpenResponseExample]);
+  }, [summary, requestUid, editingScopeWorkspaceId, response, draft, message, onOpenResponseExample, t]);
 
   const handleSend = useCallback(async () => {
     if (sending) return;
@@ -556,7 +567,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   if (!isCreateMode && !summary) {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>
-        <Text type="secondary">Request not found.</Text>
+        <Text type="secondary">{t('workbench.editors.request.notFound')}</Text>
       </div>
     );
   }
@@ -566,13 +577,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       <div style={{ padding: 24, textAlign: 'center' }}>
         <Text type="secondary">
           <LoadingOutlined style={{ marginRight: 6 }} />
-          Loading request…
+          {t('workbench.editors.request.loading')}
         </Text>
       </div>
     );
   }
 
-  const tabItems = buildRequestTabItems(draft, sectionUnresolved);
+  const tabItems = buildRequestTabItems(draft, sectionUnresolved, t);
 
   // Header consolidates the full URL row: method select + URL input in
   // the title (title has flex:1 so the URL input grows), Send in the
@@ -593,9 +604,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     <Tooltip
       placement="bottom"
       title={
-        hasUnresolvedRefs
-          ? 'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.'
-          : <ShortcutHintTitle label={SEND_SHORTCUT}>Send</ShortcutHintTitle>
+        hasUnresolvedRefs ? (
+          t('workbench.editors.request.send.unresolvedTooltip')
+        ) : (
+          <ShortcutHintTitle label={SEND_SHORTCUT}>{t('workbench.editors.request.send.label')}</ShortcutHintTitle>
+        )
       }
     >
       <Button
@@ -606,7 +619,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         disabled={sending || hasUnresolvedRefs}
         style={{ fontSize: 11 }}
       >
-        {sending ? 'Sending…' : 'Send'}
+        {sending ? t('workbench.editors.request.send.sending') : t('workbench.editors.request.send.label')}
       </Button>
     </Tooltip>
   );
@@ -643,10 +656,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                 borderBottom: `1px solid ${token.colorBorderSecondary}`,
               }}
             >
-              <Tooltip
-                title="Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in."
-                placement="bottomLeft"
-              >
+              <Tooltip title={t('workbench.editors.request.schemeHint')} placement="bottomLeft">
                 <span
                   style={{
                     fontSize: 11,

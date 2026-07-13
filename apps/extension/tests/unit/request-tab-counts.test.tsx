@@ -10,6 +10,7 @@
  */
 
 import type { AuthConfig } from '@openheaders/core/types';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import { emptyDraft } from '@openheaders/ui/workbench/components/request-editor/draft';
 import type { KeyValueRow } from '@openheaders/ui/workbench/components/request-editor/KeyValueTable';
 import {
@@ -26,6 +27,8 @@ afterEach(() => {
 
 const NONE: SectionUnresolved = { url: false, params: false, headers: false, auth: false, body: false };
 
+const t = getTranslator(DEFAULT_LOCALE);
+
 function kvRow(key: string, value: string, enabled = true): KeyValueRow {
   return { uid: `uid-${key}`, key, value, description: '', enabled };
 }
@@ -34,7 +37,7 @@ function kvRow(key: string, value: string, enabled = true): KeyValueRow {
  *  "Headers 3"). Lets us read the badge number without reaching into the
  *  JSX structure. */
 function labelText(tab: TabKey, draft = emptyDraft()): string {
-  const items = buildRequestTabItems(draft, NONE);
+  const items = buildRequestTabItems(draft, NONE, t);
   const item = items.find((i) => i.key === tab);
   const { container } = render(<div>{item?.label}</div>);
   return (container.textContent ?? '').replace(/\s+/g, ' ').trim();

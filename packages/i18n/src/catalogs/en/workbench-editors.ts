@@ -1,9 +1,18 @@
 /**
- * Workbench editors station (Phase C) — the rule editor family:
- * RuleEditor shell, ConditionEditor + condition-type registry, the
- * condition/action issue banners, the resolution banner, and the
- * twelve rule-fields modules. Grows per editors-station slice
- * (request editor family lands next).
+ * Workbench editors station (Phase C) — the rule editor family
+ * (RuleEditor shell, ConditionEditor + condition-type registry, the
+ * condition/action issue banners, the resolution banner, the twelve
+ * rule-fields modules) and the request editor family, request side
+ * (RequestEditor shell + URL bar + tab registry, the seven tab bodies,
+ * the shared editable-grid chrome). Grows per editors-station slice.
+ *
+ * Namespaces: rule copy under `workbench.editors.rule.*`, request copy
+ * under `workbench.editors.request.*`. The editable-grid chrome is a
+ * shared component (request editor + response-example editor), so it
+ * carries its own `workbench.editors.grid.*` namespace — a component
+ * namespace per the pane-shared rule, NOT a cross-editor vocabulary
+ * promotion (no `workbench.editors.fields.*` exists; the two editor
+ * families share no field vocab).
  *
  * Conventions carried from the settings station:
  *   - Registry text converts to keys outright (S5) — `condition-types.ts`
@@ -427,4 +436,416 @@ export const workbenchEditors = {
   'workbench.editors.rule.fields.auth.introAfter': "— so the credential isn't stored in the rule.",
   'workbench.editors.rule.fields.auth.username': 'Username',
   'workbench.editors.rule.fields.auth.password': 'Password',
+
+  // ── Editable-grid chrome (shared: request editor + response-example) ─
+  'workbench.editors.grid.key': 'Key',
+  'workbench.editors.grid.value': 'Value',
+  'workbench.editors.grid.description': 'Description',
+  'workbench.editors.grid.showColumns': 'Show columns',
+  'workbench.editors.grid.tableOptions': 'Table options',
+  'workbench.editors.grid.bulk': 'Bulk',
+  'workbench.editors.grid.keyValue': 'Key-Value',
+  'workbench.editors.grid.selectAllAria': 'Enable or disable all rows',
+  'workbench.editors.grid.selectAllTitle': 'Enable / disable all',
+  // {column} interpolates the internal column id (key/value/description).
+  'workbench.editors.grid.resizeColumnAria': 'Resize {column} column',
+  'workbench.editors.grid.overriddenBy': 'Duplicate — overridden by the {header} row you added.',
+  'workbench.editors.grid.suggestionValueAria': '{key} value',
+
+  // ── Request editor shell ───────────────────────────────────────────
+  'workbench.editors.request.notFound': 'Request not found.',
+  'workbench.editors.request.loading': 'Loading request…',
+  'workbench.editors.request.toast.deletedOtherTab': 'Request was deleted from another tab',
+  'workbench.editors.request.toast.updateFailed': 'Failed to update request',
+  'workbench.editors.request.toast.updateFailedDetail': 'Failed to update request: {message}',
+  'workbench.editors.request.toast.savedExample': 'Saved example "{name}"',
+  'workbench.editors.request.toast.saveExampleFailed': 'Failed to save example',
+  'workbench.editors.request.toast.saveExampleFailedDetail': 'Failed to save example: {message}',
+  'workbench.editors.request.send.label': 'Send',
+  'workbench.editors.request.send.sending': 'Sending…',
+  'workbench.editors.request.send.unresolvedTooltip':
+    'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.',
+  'workbench.editors.request.schemeHint':
+    'Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in.',
+
+  // ── Request editor tab registry ────────────────────────────────────
+  'workbench.editors.request.tab.docs': 'Docs',
+  'workbench.editors.request.tab.params': 'Params',
+  'workbench.editors.request.tab.authorization': 'Authorization',
+  'workbench.editors.request.tab.headers': 'Headers',
+  'workbench.editors.request.tab.body': 'Body',
+  'workbench.editors.request.tab.scripts': 'Scripts',
+  'workbench.editors.request.tab.settings': 'Settings',
+
+  // ── URL bar + method picker (method names stay raw parity vocab) ───
+  'workbench.editors.request.url.placeholder': 'Enter URL or paste text',
+  'workbench.editors.request.method.customGroup': 'Custom',
+  'workbench.editors.request.method.usePrefix': 'Use',
+  'workbench.editors.request.method.forbiddenSuffix': "can't be sent from a browser.",
+  'workbench.editors.request.method.invalidHint': 'Methods use letters, digits, and hyphens (max 32).',
+  'workbench.editors.request.method.removeCustomAria': 'Remove custom method {method}',
+
+  // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.goToAuthorization': 'Go to authorization',
+  'workbench.editors.request.goToBody': 'Go to body',
+  'workbench.editors.request.goToSettings': 'Go to settings',
+  'workbench.editors.request.headers.keyPlaceholder': 'Header',
+  'workbench.editors.request.headers.hideAuto': 'Hide auto-generated headers',
+  'workbench.editors.request.headers.hiddenCount': '{count} hidden',
+  'workbench.editors.request.headers.autoInfo':
+    'These headers will be automatically added and sent with the request. Click the info icon on a row for per-header detail.',
+  'workbench.editors.request.headers.duplicateAuthOverride':
+    'Duplicate — replaced on send by the {header} header generated from the Authorization tab.',
+  'workbench.editors.request.headers.calculated': '<calculated when request is sent>',
+  'workbench.editors.request.headers.browserUserAgent': '<browser user agent>',
+  'workbench.editors.request.headers.hint.cacheControl':
+    '"Cache-Control: no-cache" is added as a precautionary measure to prevent the server from returning stale responses when you make repeated requests. You can remove this header in the request settings or enter a new one with a different value.',
+  'workbench.editors.request.headers.hint.contentType':
+    'The runtime computes Content-Type from the body encoding (form-data → multipart/form-data with a boundary; x-www-form-urlencoded → application/x-www-form-urlencoded; raw JSON → application/json; etc.). Set your own header to override.',
+  'workbench.editors.request.headers.hint.contentLength':
+    'Content-Length is computed from the serialized body byte size before the request is sent. The browser refuses to honour a user-set Content-Length that does not match the actual body length.',
+  'workbench.editors.request.headers.hint.host':
+    'The browser derives Host from the target URL and refuses to let userland code override it.',
+  'workbench.editors.request.headers.hint.userAgent':
+    'The User-Agent identifies the client. Requests go out with the browser’s own User-Agent; add your own User-Agent row below to override it.',
+  'workbench.editors.request.headers.hint.accept':
+    'Accept tells the server which media types the client can parse. `*/*` lets the server pick; override with a narrower set (e.g. `application/json`) to constrain responses.',
+  'workbench.editors.request.headers.hint.acceptEncoding':
+    'Compression algorithms the browser supports. Set by the browser and negotiated per-connection; not overridable from userland.',
+  'workbench.editors.request.headers.hint.connection':
+    'HTTP/1.1 connection reuse. The browser manages the connection pool and does not let userland code override this header.',
+
+  // ── Auth preview rows (Headers/Params generated rows) ──────────────
+  'workbench.editors.request.authPreview.basicValue': 'Basic <credentials>',
+  'workbench.editors.request.authPreview.bearerValue': 'Bearer <token>',
+  'workbench.editors.request.authPreview.apiKeyValue': '<value>',
+  'workbench.editors.request.authPreview.accessTokenValue': '<access token>',
+  'workbench.editors.request.authPreview.bearerAccessTokenValue': 'Bearer <access token>',
+  'workbench.editors.request.authPreview.basicHint':
+    'Generated from the Authorization tab (Basic Auth). Username and password are base64-encoded into this header when the request is sent.',
+  'workbench.editors.request.authPreview.bearerHint':
+    'Generated from the Authorization tab (Bearer Token). The token is added to this header when the request is sent.',
+  'workbench.editors.request.authPreview.apiKeyHeaderHint':
+    'Generated from the Authorization tab (API Key). The value is added to this header when the request is sent.',
+  'workbench.editors.request.authPreview.apiKeyQueryHint':
+    'Generated from the Authorization tab (API Key). The value is added to this query param when the request is sent.',
+  'workbench.editors.request.authPreview.oauth2HeaderHint':
+    'Generated from the Authorization tab (OAuth 2.0). The access token is added to this header when the request is sent.',
+  'workbench.editors.request.authPreview.oauth2QueryHint':
+    'Generated from the Authorization tab (OAuth 2.0). The access token is appended to the request URL when the request is sent.',
+
+  // ── Authorization tab ──────────────────────────────────────────────
+  'workbench.editors.request.auth.typeLabel': 'Auth Type',
+  'workbench.editors.request.auth.type.inherit': 'Inherit auth from parent',
+  'workbench.editors.request.auth.type.none': 'No Auth',
+  'workbench.editors.request.auth.type.basic': 'Basic Auth',
+  'workbench.editors.request.auth.type.bearer': 'Bearer Token',
+  'workbench.editors.request.auth.type.apiKey': 'API Key',
+  'workbench.editors.request.auth.type.oauth2': 'OAuth 2.0',
+  'workbench.editors.request.auth.inheritNote':
+    'The authorization data will be automatically configured based on the parent collection.',
+  'workbench.editors.request.auth.noneNote': 'This request does not use any authorization.',
+  'workbench.editors.request.auth.inheritDetail':
+    "This request is using the authorization helper from its parent collection. Edit the collection's Authorization tab to change it.",
+  'workbench.editors.request.auth.resizeRailAria': 'Resize auth-type rail',
+  'workbench.editors.request.auth.username': 'Username',
+  'workbench.editors.request.auth.password': 'Password',
+  'workbench.editors.request.auth.token': 'Token',
+  'workbench.editors.request.auth.key': 'Key',
+  'workbench.editors.request.auth.value': 'Value',
+  'workbench.editors.request.auth.addTo': 'Add to',
+  'workbench.editors.request.auth.addToHeader': 'Header',
+  'workbench.editors.request.auth.addToQuery': 'Query Params',
+  'workbench.editors.request.auth.usernamePlaceholder': 'username',
+  'workbench.editors.request.auth.passwordPlaceholder': 'password',
+  'workbench.editors.request.auth.tokenPlaceholder': 'bearer token',
+  'workbench.editors.request.auth.valuePlaceholder': 'api key value',
+  'workbench.editors.request.auth.sendAsLabel': 'Add authorization data to',
+  'workbench.editors.request.auth.sendAsHeaders': 'Request Headers',
+  'workbench.editors.request.auth.sendAsUrl': 'Request URL',
+  'workbench.editors.request.auth.presetLabel': 'Provider preset',
+  'workbench.editors.request.auth.presetInfo':
+    'Picking a provider pre-fills its authorization/token endpoints, default scopes, and recommended flow. Pick Custom to configure everything manually.',
+  'workbench.editors.request.auth.presetCustom': 'Custom (no preset)',
+
+  // ── OAuth 2.0 editor (grant-type names stay raw spec vocabulary) ───
+  'workbench.editors.request.oauth.queryWarningTitle': 'Sending the access token in the URL is deprecated',
+  'workbench.editors.request.oauth.queryWarningBefore':
+    'RFC 6750 §2.3 kept the URI query-parameter method available but warns against it: tokens leak into server logs, HTTP `Referer` headers, browser history, and intermediary caches. Prefer the default',
+  'workbench.editors.request.oauth.queryWarningAfter': 'header unless the provider requires the query form.',
+  'workbench.editors.request.oauth.currentToken': 'Current Token',
+  'workbench.editors.request.oauth.configureNewToken': 'Configure New Token',
+  'workbench.editors.request.oauth.tokenLabel': 'Token',
+  'workbench.editors.request.oauth.noTokenPlaceholder': 'No token yet — use Get new access token below',
+  'workbench.editors.request.oauth.headerPrefix': 'Header Prefix',
+  'workbench.editors.request.oauth.autoRefresh': 'Auto-refresh Token',
+  'workbench.editors.request.oauth.autoRefreshDesc':
+    'Your expired token will be auto-refreshed before sending a request.',
+  'workbench.editors.request.oauth.status': 'Status',
+  'workbench.editors.request.oauth.statusExpired':
+    'Expired — next send will auto-refresh when a refresh_token is stored.',
+  'workbench.editors.request.oauth.statusValid': 'Valid · {duration}',
+  'workbench.editors.request.oauth.refreshNow': 'Refresh now',
+  'workbench.editors.request.oauth.disconnect': 'Disconnect',
+  'workbench.editors.request.oauth.tokenName': 'Token Name',
+  'workbench.editors.request.oauth.tokenNameDesc':
+    'Free-form label, surfaced in the credentials list when a workspace has several tokens against the same provider.',
+  'workbench.editors.request.oauth.tokenNamePlaceholder': 'Enter a token name…',
+  'workbench.editors.request.oauth.grantType': 'Grant type',
+  'workbench.editors.request.oauth.callbackUrl': 'Callback URL',
+  'workbench.editors.request.oauth.detecting': 'Detecting…',
+  'workbench.editors.request.oauth.callbackTipBeforeExtUrl':
+    'Register this URL at your OAuth provider. It looks different from the',
+  'workbench.editors.request.oauth.callbackTipBeforeHost': 'URL in your address bar because Chrome exposes a dedicated',
+  'workbench.editors.request.oauth.callbackTipBeforeApi': 'redirect host for',
+  'workbench.editors.request.oauth.callbackTipAfterApi':
+    '. The extension ID is the same; only the host + scheme differ.',
+  'workbench.editors.request.oauth.authorizeUsingBrowser': 'Authorize using browser',
+  'workbench.editors.request.oauth.authUrl': 'Auth URL',
+  'workbench.editors.request.oauth.accessTokenUrl': 'Access Token URL',
+  'workbench.editors.request.oauth.clientId': 'Client ID',
+  'workbench.editors.request.oauth.clientSecret': 'Client Secret',
+  'workbench.editors.request.oauth.codeChallengeMethod': 'Code Challenge Method',
+  'workbench.editors.request.oauth.codeVerifier': 'Code Verifier',
+  'workbench.editors.request.oauth.codeVerifierPlaceholder': 'Automatically generated if left blank',
+  'workbench.editors.request.oauth.scope': 'Scope',
+  'workbench.editors.request.oauth.state': 'State',
+  'workbench.editors.request.oauth.stateAuto': 'Automatically generated per authorize request',
+  'workbench.editors.request.oauth.clientAuthentication': 'Client Authentication',
+  'workbench.editors.request.oauth.clientAuthenticationDesc':
+    'Where client_id / client_secret ride on token POSTs. Providers vary — Auth0 / Keycloak typically require the Basic header form.',
+  'workbench.editors.request.oauth.clientAuthBody': 'Send client credentials in body',
+  'workbench.editors.request.oauth.clientAuthBasicHeader': 'Send as Basic Auth header',
+  'workbench.editors.request.oauth.advanced': 'Advanced',
+  'workbench.editors.request.oauth.advancedIntro':
+    'You can add more specific customizations to your OAuth2 requests here.',
+  'workbench.editors.request.oauth.advancedLearnMore': 'Learn more about configuration',
+  'workbench.editors.request.oauth.refreshTokenUrl': 'Refresh Token URL',
+  'workbench.editors.request.oauth.refreshTokenUrlDesc':
+    'Most providers reuse the Access Token URL for refresh; supply an override only when the provider exposes a distinct path.',
+  'workbench.editors.request.oauth.authRequest': 'Auth Request',
+  'workbench.editors.request.oauth.tokenRequest': 'Token Request',
+  'workbench.editors.request.oauth.refreshRequest': 'Refresh Request',
+  'workbench.editors.request.oauth.getNewToken': 'Get new access token',
+  'workbench.editors.request.oauth.clearCookies': 'Clear cookies',
+  'workbench.editors.request.oauth.storedFootnoteBefore': 'Tokens are stored per workspace under',
+  'workbench.editors.request.oauth.storedFootnoteAfter': '. Delete the workspace to purge.',
+  'workbench.editors.request.oauth.toast.tokenReceived': 'OAuth: token received',
+  'workbench.editors.request.oauth.toast.authorizationComplete': 'OAuth: authorization complete',
+  'workbench.editors.request.oauth.toast.failed': 'OAuth failed: {error}',
+  'workbench.editors.request.oauth.toast.refreshed': 'OAuth: access token refreshed',
+  'workbench.editors.request.oauth.toast.refreshFailed': 'Refresh failed: {error}',
+  'workbench.editors.request.oauth.toast.disconnected': 'OAuth: disconnected',
+  'workbench.editors.request.oauth.toast.callbackCopied': 'Callback URL copied',
+  'workbench.editors.request.oauth.toast.copyUnsupported': 'Copy not supported — select the URL manually',
+
+  // ── Body tab (encoding radios + format labels stay raw) ────────────
+  'workbench.editors.request.body.noBody': 'This request does not have a body',
+  'workbench.editors.request.body.beautify': 'Beautify',
+  'workbench.editors.request.body.format': 'Format',
+  'workbench.editors.request.body.formatAria': 'Format body',
+  'workbench.editors.request.body.queryTitle': 'Query',
+  'workbench.editors.request.body.queryInfoTitle': 'GraphQL query',
+  'workbench.editors.request.body.queryInfoSummary':
+    'Sent as a plain POST with a JSON body of { query, variables }. Schema introspection and query autocomplete are not available yet.',
+  'workbench.editors.request.body.variablesTitle': 'GraphQL Variables',
+  'workbench.editors.request.body.variablesInfoTitle': 'GraphQL variables',
+  'workbench.editors.request.body.variablesInfoSummary':
+    'Define variables in JSON format to reference from the query (e.g. $id).',
+  'workbench.editors.request.body.kindText': 'Text',
+  'workbench.editors.request.body.kindFile': 'File',
+  'workbench.editors.request.body.newFile': 'New file from local machine',
+  'workbench.editors.request.body.uploadedFiles': 'Uploaded files',
+  'workbench.editors.request.body.allAttached': 'All uploaded files already attached',
+  'workbench.editors.request.body.selectFiles': 'Select files',
+  'workbench.editors.request.body.loadingFiles': 'Loading files…',
+  'workbench.editors.request.body.addFile': '+ Add file',
+  'workbench.editors.request.body.uploadRequired': 'Upload required',
+  'workbench.editors.request.body.deleteFileAria': 'Delete {filename} from workspace',
+
+  // ── Docs tab ───────────────────────────────────────────────────────
+  'workbench.editors.request.docs.write': 'Write',
+  'workbench.editors.request.docs.preview': 'Preview',
+  'workbench.editors.request.docs.infoTitle': 'Docs',
+  'workbench.editors.request.docs.infoSummary':
+    'Document this request — why it exists, when to run it, expected auth scope. Markdown supported: headings, lists, tables, code blocks, links. {{variable}} references render as chips in the preview.',
+  'workbench.editors.request.docs.placeholder':
+    'What does this request do?\nWhy it exists, when to run it, expected auth scope.',
+  'workbench.editors.request.docs.empty': 'Nothing documented yet — switch to Write to add notes.',
+
+  // ── Scripts tab (oh.* API labels + Monaco menu plane stay raw) ─────
+  'workbench.editors.request.scripts.preRequest': 'Pre-request',
+  'workbench.editors.request.scripts.postResponse': 'Post-response',
+  'workbench.editors.request.scripts.preInfoTitle': 'Pre-request script',
+  'workbench.editors.request.scripts.preInfoSummary':
+    'Runs in a sandboxed iframe before the request is sent. Mutate the outgoing request with the oh API:',
+  'workbench.editors.request.scripts.postInfoTitle': 'Post-response script',
+  'workbench.editors.request.scripts.postInfoSummary':
+    'Runs in a sandboxed iframe after the response arrives. Assertion results land in the Response panel:',
+  'workbench.editors.request.scripts.apiHeading': 'API',
+  'workbench.editors.request.scripts.apiSetHeader': 'add or replace a header',
+  'workbench.editors.request.scripts.apiSetQueryParam': 'add or replace a query parameter',
+  'workbench.editors.request.scripts.apiSetUrl': 'rewrite the target URL',
+  'workbench.editors.request.scripts.apiSetBody': 'replace the request body',
+  'workbench.editors.request.scripts.apiRequire': 'load a script package from the Package Library',
+  'workbench.editors.request.scripts.apiTest': 'register an assertion',
+  'workbench.editors.request.scripts.prePlaceholder': 'Use JavaScript to modify this request before it is sent.',
+  'workbench.editors.request.scripts.postPlaceholder':
+    'Use JavaScript to test and read this response after it arrives.',
+  'workbench.editors.request.scripts.format': 'Format',
+  'workbench.editors.request.scripts.formatAria': 'Format script',
+
+  // ── Settings tab — wired knobs ─────────────────────────────────────
+  'workbench.editors.request.settings.enabled': 'Enabled',
+  'workbench.editors.request.settings.disabled': 'Disabled',
+  'workbench.editors.request.settings.followRedirects': 'Automatically follow redirects',
+  'workbench.editors.request.settings.followRedirectsInfo':
+    'Follow HTTP 3xx responses to their target. Switch off to stop at the redirect itself — the response shows as an opaque redirect with no headers or body, useful to confirm that a redirect happens at all.',
+  'workbench.editors.request.settings.maxRedirects': 'Maximum redirects',
+  'workbench.editors.request.settings.maxRedirectsInfo':
+    'How many redirects a send may follow before failing with an error naming the limit. Leave empty for the default of 20. Set 0 to fail on any redirect at all.',
+  'workbench.editors.request.settings.followOriginalMethod': 'Follow original HTTP method',
+  'workbench.editors.request.settings.followOriginalMethodInfo':
+    'Keep the original method and body when a 301, 302, or 303 redirect would normally switch the request to GET. 307 and 308 redirects always keep the method either way.',
+  'workbench.editors.request.settings.followAuthHeader': 'Follow Authorization header',
+  'workbench.editors.request.settings.followAuthHeaderInfo':
+    "Keep the Authorization header when a redirect crosses to a different origin. Normally it is dropped on a cross-origin hop so credentials never travel to a host the request didn't address.",
+  'workbench.editors.request.settings.followAuthHeaderWarning':
+    'Credentials travel to whatever host the redirect chain lands on. A response whose chain actually crossed origins is marked.',
+  'workbench.editors.request.settings.sendBrowserCookies': 'Send browser cookies',
+  'workbench.editors.request.settings.sendBrowserCookiesInfo':
+    "Attach the browser's existing cookies for the target site to this request. Off is the safe default: the request is sent with no cookies, so results don't depend on your logged-in browser state.",
+  'workbench.editors.request.settings.sslVerification': 'SSL certificate verification',
+  'workbench.editors.request.settings.sslVerificationInfo':
+    "Verify the server's TLS certificate against the runtime's trusted CA store. A host with a self-signed, expired, or otherwise untrusted certificate fails with a TLS certificate error — switch verification off to reach it anyway, e.g. a development server with a self-signed certificate.",
+  'workbench.editors.request.settings.sslVerificationWarning':
+    'Sends skip the server identity check — any certificate is accepted, including self-signed and expired ones. The response is marked as unverified.',
+  'workbench.editors.request.settings.tlsMin': 'TLS version minimum',
+  'workbench.editors.request.settings.tlsMinInfo':
+    'Lowest TLS protocol version a send may negotiate. Leave empty for the runtime default of TLS 1.2. Choosing 1.0 or 1.1 lowers the floor below the default to reach legacy servers — a response sent with a lowered floor is marked.',
+  'workbench.editors.request.settings.tlsMinPlaceholder': '1.2 (default)',
+  'workbench.editors.request.settings.tlsMinWarning':
+    'Sends may negotiate TLS below 1.2 — protocol versions with known weaknesses. The response is marked.',
+  'workbench.editors.request.settings.tlsMax': 'TLS version maximum',
+  'workbench.editors.request.settings.tlsMaxInfo':
+    "Highest TLS protocol version a send may negotiate. Leave empty for the runtime default of TLS 1.3. Lower it to check how a server behaves on an older protocol — the minimum may need lowering too, or the two won't overlap.",
+  'workbench.editors.request.settings.tlsMaxPlaceholder': '1.3 (default)',
+  'workbench.editors.request.settings.tlsCipherSuites': 'TLS cipher suites',
+  'workbench.editors.request.settings.tlsCipherSuitesInfo':
+    "Cipher suites offered during the TLS handshake, as a colon-separated OpenSSL-format list — TLS 1.3 suite names and older suite names both go in the one list. Leave empty to offer the runtime's default suites. The server picks the suite from what is offered, in its own preference order.",
+  'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Runtime default suites',
+  'workbench.editors.request.settings.tlsCipherSuitesError': 'Colon-separated OpenSSL suite names only — no spaces.',
+  'workbench.editors.request.settings.allowHttp2': 'Allow HTTP/2',
+  'workbench.editors.request.settings.allowHttp2Info':
+    'Offer HTTP/2 alongside HTTP/1.1 when connecting over https — the server picks the protocol from the offer, so a server without HTTP/2 support still answers over HTTP/1.1. Plain http:// requests always use HTTP/1.1. Off, requests are sent over HTTP/1.1 only.',
+  'workbench.editors.request.settings.resolveToAddress': 'Resolve to address',
+  'workbench.editors.request.settings.resolveToAddressInfo':
+    "Send this request to a specific server address instead of whatever DNS answers — the URL's hostname is still used for TLS and the Host header, so with verification on the certificate must still match it. Useful to test one specific backend behind a load balancer. The URL keeps its own port, and a redirect to another host also lands on this address. Leave empty to resolve through DNS as usual.",
+  'workbench.editors.request.settings.resolveToAddressPlaceholder': 'System DNS',
+  'workbench.editors.request.settings.resolveToAddressError': 'IPv4 or IPv6 address only — no hostname, no port.',
+  'workbench.editors.request.settings.clientCertificate': 'Client certificate',
+  'workbench.editors.request.settings.clientCertificateInfo':
+    "Present a client certificate during the TLS handshake, for APIs behind mutual-TLS gateways that authenticate the caller by certificate. Pick a certificate entry from the vault — the request saves only the entry's name, and each device presents its own vault entry of that name; the certificate and key never leave the vault. Leave empty to connect without a client certificate.",
+  'workbench.editors.request.settings.clientCertificatePlaceholder': 'No client certificate',
+  'workbench.editors.request.settings.clientCertificateDangling':
+    'No vault certificate entry named "{name}" on this device — sends will fail until the entry exists or this setting is cleared.',
+  'workbench.editors.request.settings.proxy': 'Proxy',
+  'workbench.editors.request.settings.proxyInfo':
+    "Route this request through an HTTP(S) proxy instead of connecting directly. The connection to the target tunnels through the proxy, so an https exchange stays end-to-end encrypted and certificate verification still runs against the target. SOCKS proxies are not supported. Credentials go in the 'Proxy credentials' setting below, never in this URL. Leave empty for a direct connection.",
+  'workbench.editors.request.settings.proxyPlaceholder': 'No proxy — direct connection',
+  'workbench.editors.request.settings.proxyError':
+    'http:// or https:// URL with host and port only — no credentials in the URL, no SOCKS.',
+  'workbench.editors.request.settings.proxyResolveConflict':
+    'Also sets resolve-to-address, but a proxy resolves the hostname itself — sends will fail until one of the two is cleared.',
+  'workbench.editors.request.settings.proxyCredentials': 'Proxy credentials',
+  'workbench.editors.request.settings.proxyCredentialsInfo':
+    "Authenticate against the proxy with credentials from the vault, as user:password in a string entry. The request saves only the entry's name, and each device resolves it against its own local vault — the credentials never leave the vault and are sent only to the proxy, never to the target. Leave empty for a proxy that needs no authentication.",
+  'workbench.editors.request.settings.proxyCredentialsPlaceholder': 'No authentication',
+  'workbench.editors.request.settings.proxyCredentialsDangling':
+    'No vault string entry named "{name}" on this device — sends will fail until the entry exists or this setting is cleared.',
+  'workbench.editors.request.settings.unixSocket': 'Unix socket',
+  'workbench.editors.request.settings.unixSocketInfo':
+    "Dial this local socket — an absolute Unix socket path, or a Windows named pipe like \\\\.\\pipe\\name — instead of opening a TCP connection, e.g. a Docker daemon or a local development service listening on a socket. The URL's host no longer decides where the connection goes, but the Host header, TLS server name, and certificate verification still use it, and a redirect to another host also dials this same socket. Leave empty for a normal TCP connection.",
+  'workbench.editors.request.settings.unixSocketPlaceholder': 'No socket — TCP connection',
+  'workbench.editors.request.settings.unixSocketError':
+    'Absolute Unix socket path (/…) or Windows named pipe (\\\\.\\pipe\\…) only.',
+  'workbench.editors.request.settings.unixSocketProxyConflict':
+    'Also sets a proxy, but a proxy tunnel can’t dial a local socket — sends will fail until one of the two is cleared.',
+  'workbench.editors.request.settings.unixSocketResolveConflict':
+    'Also sets resolve-to-address, but a socket dial resolves no hostname — sends will fail until one of the two is cleared.',
+  'workbench.editors.request.settings.cookieJar': 'Use cookie jar',
+  'workbench.editors.request.settings.cookieJarInfo':
+    "Store this request's Set-Cookie responses in the app's own cookie jar and attach matching cookies automatically — so a login request followed by an authenticated call works without copying cookie values by hand. The jar lives in memory per workspace, is used only by requests with this setting on, never syncs, and is cleared when the app quits. A Cookie header you set yourself always wins. Off is the default: no cookies are attached and Set-Cookie responses are discarded.",
+  'workbench.editors.request.settings.timeout': 'Request timeout',
+  'workbench.editors.request.settings.timeoutInfo':
+    "Maximum time the whole request may take — connecting, waiting for the response, and reading the body. When the limit elapses the send is aborted and fails with a timeout error naming it. Leave empty for no per-request limit; only the network stack's own timeouts apply.",
+  'workbench.editors.request.settings.timeoutPlaceholder': 'No limit',
+  'workbench.editors.request.settings.responseSizeLimit': 'Response size limit',
+  'workbench.editors.request.settings.responseSizeLimitInfo':
+    'Maximum response body size read off the wire; anything past it is cut off and the response is marked as truncated. Leave empty for the default limit of 2,048 KB (2 MB). Raise it up to 10,240 KB (10 MB) for larger payloads, or lower it to test how a truncated response looks.',
+
+  // ── Settings tab — runtime-managed fact sheets ─────────────────────
+  'workbench.editors.request.settings.managed.browserKicker': 'Browser-managed',
+  'workbench.editors.request.settings.managed.nodeKicker': 'Runtime-managed',
+  'workbench.editors.request.settings.managed.browserIntro':
+    'Fixed by the browser for every request sent from an extension — shown so you know what is not negotiable.',
+  'workbench.editors.request.settings.managed.nodeIntro':
+    'Fixed by the app’s network runtime for every request — shown so you know what is not negotiable.',
+  'workbench.editors.request.settings.managed.hideBrowser': 'Hide browser-managed settings',
+  'workbench.editors.request.settings.managed.hideNode': 'Hide runtime-managed settings',
+  'workbench.editors.request.settings.managed.countBrowser': '{count} browser-managed',
+  'workbench.editors.request.settings.managed.countNode': '{count} runtime-managed',
+  'workbench.editors.request.settings.managed.on': 'On',
+  'workbench.editors.request.settings.managed.off': 'Off',
+  'workbench.editors.request.settings.managed.auto': 'Auto',
+  'workbench.editors.request.settings.managed.policy': 'Policy',
+  'workbench.editors.request.settings.managed.browser': 'Browser',
+  'workbench.editors.request.settings.managed.about20': '~20',
+  'workbench.editors.request.settings.managed.notSent': 'Not sent',
+  'workbench.editors.request.settings.managed.httpVersion': 'HTTP version',
+  'workbench.editors.request.settings.managed.httpVersionDesc':
+    'The browser negotiates HTTP/1.1, HTTP/2, or HTTP/3 per connection; the fetch API does not expose a version selector.',
+  'workbench.editors.request.settings.managed.sslVerificationDesc':
+    'Certificates are verified by browser policy. A request to a host with an invalid certificate fails; verification cannot be disabled per request.',
+  'workbench.editors.request.settings.managed.followOriginalMethodDesc':
+    'On a 301/302/303 redirect the browser switches non-GET methods to GET per the fetch spec. 307/308 always preserve the method.',
+  'workbench.editors.request.settings.managed.followAuthHeaderDesc':
+    'The browser strips the Authorization header when a redirect crosses to a different origin; this safety behavior is not overridable.',
+  'workbench.editors.request.settings.managed.refererRedirect': 'Remove Referer header on redirect',
+  'workbench.editors.request.settings.managed.refererRedirectDesc':
+    'Referer handling across redirects follows the browser referrer policy for the extension context.',
+  'workbench.editors.request.settings.managed.strictParser': 'Strict HTTP parser',
+  'workbench.editors.request.settings.managed.strictParserBrowserDesc':
+    'The browser network stack always rejects malformed response headers; there is no lenient mode.',
+  'workbench.editors.request.settings.managed.strictParserNodeDesc':
+    'The runtime’s HTTP parser rejects malformed response headers; there is no lenient mode.',
+  'workbench.editors.request.settings.managed.encodeUrl': 'Encode URL automatically',
+  'workbench.editors.request.settings.managed.encodeUrlDesc':
+    'The URL path and query are percent-encoded by the URL parser before the request goes on the wire. Type already-encoded sequences to keep them verbatim.',
+  'workbench.editors.request.settings.managed.cipherOrder': 'Server cipher suite order',
+  'workbench.editors.request.settings.managed.cipherOrderDesc':
+    'TLS cipher negotiation is owned by the browser; neither suite list nor order is configurable.',
+  'workbench.editors.request.settings.managed.maxRedirectsDesc':
+    'The fetch API caps the redirect chain at about 20 hops. A per-request cap is not implementable: manual redirect mode returns an opaque response with no headers to follow.',
+  'workbench.editors.request.settings.managed.tlsVersions': 'TLS/SSL protocol versions',
+  'workbench.editors.request.settings.managed.tlsVersionsDesc':
+    'Enabled TLS protocol versions are fixed by the browser; per-request selection is not exposed.',
+  'workbench.editors.request.settings.managed.referer': 'Referer header',
+  'workbench.editors.request.settings.managed.refererDesc':
+    'The runtime has no page context, so no Referer goes on the wire unless you add one as a header yourself.',
+
+  // ── Settings tab — cookie jar row ──────────────────────────────────
+  'workbench.editors.request.settings.jar.count': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} cookie in this workspace’s jar',
+      other: '{count} cookies in this workspace’s jar',
+    }),
+  'workbench.editors.request.settings.jar.infoTitle': 'Cookie jar contents',
+  'workbench.editors.request.settings.jar.infoSummary':
+    'Cookies currently held by this workspace’s in-memory jar — stored by jar-enabled sends, attached to jar-enabled sends that match, and gone when the app quits. Values are session credentials and stay inside the app’s network runtime; only name, scope, and expiry are shown.',
+  'workbench.editors.request.settings.jar.storedHeading': 'Stored cookies',
+  'workbench.editors.request.settings.jar.clear': 'Clear',
+  'workbench.editors.request.settings.jar.expires': 'expires {date}',
+  'workbench.editors.request.settings.jar.session': 'session',
+  'workbench.editors.request.settings.jar.httpsOnly': 'https only',
 } as const satisfies Catalog;

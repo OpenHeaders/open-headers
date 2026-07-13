@@ -25,6 +25,7 @@ import { Allotment } from 'allotment';
 import { App, Button, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
@@ -90,6 +91,7 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
   registerSaveRef,
 }) => {
   const { message } = App.useApp();
+  const t = useT();
   const { example, hydrated } = useResponseExample(workspaceId, exampleUid);
   const { requests } = useRequests();
 
@@ -171,7 +173,7 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
     );
   }
 
-  const tabItems = buildRequestTabItems(draft.request, NO_UNRESOLVED).filter((item) =>
+  const tabItems = buildRequestTabItems(draft.request, NO_UNRESOLVED, t).filter((item) =>
     EXAMPLE_TAB_KEYS.includes(item.key),
   );
 

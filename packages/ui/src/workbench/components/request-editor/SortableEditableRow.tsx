@@ -11,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Button, Input, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ConflictDiffChip, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
 import type { GripResizeXHandler } from '../template-input';
 import { cellFont, ROW_CONTROL_HEIGHT } from './editable-grid-styles';
@@ -65,6 +66,7 @@ export function SortableEditableRow<Row>({
   onRemove,
 }: SortableEditableRowProps<Row>): React.ReactElement {
   const { token } = theme.useToken();
+  const t = useT();
   const id = adapter.getId(row);
 
   // ── Conflict lookups ──────────────────────────────────────────
@@ -271,7 +273,7 @@ export function SortableEditableRow<Row>({
             <Input
               variant="borderless"
               value={localDescription}
-              placeholder="Description"
+              placeholder={t('workbench.editors.grid.description')}
               onChange={(e) => onUpdate(adapter.setDescription(row, e.target.value))}
               style={{
                 padding: '4px 10px',

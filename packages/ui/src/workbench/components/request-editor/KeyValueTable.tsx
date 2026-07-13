@@ -15,6 +15,7 @@ import { RiseOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
 import {
   type BulkEditConfig,
@@ -112,8 +113,8 @@ const CELL_VERTICAL_PADDING = (32 - CELL_LINE_PX) / 2;
 const KeyValueTable: React.FC<KeyValueTableProps> = ({
   rows,
   onChange,
-  keyPlaceholder = 'Key',
-  valuePlaceholder = 'Value',
+  keyPlaceholder,
+  valuePlaceholder,
   suggestionRows,
   hideEnabled = false,
   bulkEdit,
@@ -122,6 +123,9 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
   rowWarning,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
+  const effectiveKeyPlaceholder = keyPlaceholder ?? t('workbench.editors.grid.key');
+  const effectiveValuePlaceholder = valuePlaceholder ?? t('workbench.editors.grid.value');
 
   // Every cell (Key / Value / Description) is the same rich field: a
   // borderless `TemplateInput` with `{{ref}}` highlighting that shows an
@@ -165,7 +169,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       rows={rows}
       onChange={onChange}
       adapter={KV_ADAPTER}
-      keyPlaceholder={keyPlaceholder}
+      keyPlaceholder={effectiveKeyPlaceholder}
       hideEnabled={hideEnabled}
       suggestionRows={suggestionRows}
       bulkEdit={bulkEdit}
@@ -174,7 +178,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       renderKeyCell={cellRenderer(
         (r) => r.key,
         (r, v) => ({ ...r, key: v }),
-        keyPlaceholder,
+        effectiveKeyPlaceholder,
         true,
       )}
       renderValueCell={(row, update, ctx) => {
@@ -184,7 +188,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
             expanded={ctx.expanded}
             flagUnresolved
             value={row.value}
-            placeholder={valuePlaceholder}
+            placeholder={effectiveValuePlaceholder}
             onChange={(next) => update({ ...row, value: next })}
             onResizeX={ctx.onValueResizeX}
             style={{
@@ -224,7 +228,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       renderDescriptionCell={cellRenderer(
         (r) => r.description ?? '',
         (r, v) => ({ ...r, description: v }),
-        'Description',
+        t('workbench.editors.grid.description'),
         false,
       )}
     />

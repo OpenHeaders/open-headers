@@ -8,6 +8,7 @@
 import { theme } from 'antd';
 import type React from 'react';
 import { getCapability } from '@openheaders/core/capabilities';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { previewAuthContributions } from './auth-preview';
 import type { Draft } from './draft';
 import type { SectionUnresolved } from './useSectionUnresolved';
@@ -64,6 +65,7 @@ const TabDot: React.FC<{ tone?: 'default' | 'error' }> = ({ tone = 'default' }) 
 export function buildRequestTabItems(
   draft: Draft,
   sectionUnresolved: SectionUnresolved,
+  t: Translate,
 ): { key: TabKey; label: React.ReactNode }[] {
   // Header badge counts the rows the user actually owns — their enabled
   // header rows plus the auth-derived `Authorization` row (shown locked
@@ -71,7 +73,7 @@ export function buildRequestTabItems(
   // counted: they're environment noise revealed behind the "N hidden"
   // toggle, not the user's own headers. Params likewise count user rows
   // plus any auth credential that rides on the URL.
-  const authContrib = previewAuthContributions(draft.auth);
+  const authContrib = previewAuthContributions(draft.auth, t);
   const paramCount = authContrib.params.length + draft.params.filter((p) => p.enabled && p.key.trim()).length;
   const headerCount = authContrib.headers.length + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
   const scriptsMark = (draft.preRequestScript?.trim() ? 1 : 0) + (draft.postResponseScript?.trim() ? 1 : 0);
@@ -106,12 +108,12 @@ export function buildRequestTabItems(
         draft.followAuthorizationHeader === true));
 
   return [
-    { key: 'docs', label: 'Docs' },
+    { key: 'docs', label: t('workbench.editors.request.tab.docs') },
     {
       key: 'params',
       label: (
         <span>
-          Params {paramCount > 0 && <TabCount n={paramCount} />}
+          {t('workbench.editors.request.tab.params')} {paramCount > 0 && <TabCount n={paramCount} />}
           {sectionUnresolved.params && <TabDot tone="error" />}
         </span>
       ),
@@ -120,7 +122,7 @@ export function buildRequestTabItems(
       key: 'authorization',
       label: (
         <span>
-          Authorization
+          {t('workbench.editors.request.tab.authorization')}
           {sectionUnresolved.auth && <TabDot tone="error" />}
         </span>
       ),
@@ -129,7 +131,7 @@ export function buildRequestTabItems(
       key: 'headers',
       label: (
         <span>
-          Headers {headerCount > 0 && <TabCount n={headerCount} />}
+          {t('workbench.editors.request.tab.headers')} {headerCount > 0 && <TabCount n={headerCount} />}
           {sectionUnresolved.headers && <TabDot tone="error" />}
         </span>
       ),
@@ -138,17 +140,26 @@ export function buildRequestTabItems(
       key: 'body',
       label: (
         <span>
-          Body {sectionUnresolved.body ? <TabDot tone="error" /> : draft.body.type !== 'none' ? <TabDot /> : null}
+          {t('workbench.editors.request.tab.body')}{' '}
+          {sectionUnresolved.body ? <TabDot tone="error" /> : draft.body.type !== 'none' ? <TabDot /> : null}
         </span>
       ),
     },
     {
       key: 'scripts',
-      label: <span>Scripts {scriptsMark > 0 && <TabDot />}</span>,
+      label: (
+        <span>
+          {t('workbench.editors.request.tab.scripts')} {scriptsMark > 0 && <TabDot />}
+        </span>
+      ),
     },
     {
       key: 'settings',
-      label: <span>Settings {settingsDirty && <TabDot />}</span>,
+      label: (
+        <span>
+          {t('workbench.editors.request.tab.settings')} {settingsDirty && <TabDot />}
+        </span>
+      ),
     },
   ];
 }

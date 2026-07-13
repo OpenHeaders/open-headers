@@ -34,6 +34,7 @@ import { Button, Radio, Select, Tooltip, Typography, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useMemo, useRef } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CodeEditor from '../shared/CodeEditor';
 import MultipartEditor from './MultipartEditor';
@@ -121,6 +122,7 @@ function rawBodyOf(raw: RawFormat, content: string): RequestBody {
 
 const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { radio, raw } = useMemo(() => classifyBody(body), [body]);
 
   // Per-radio draft cache: when the user toggles radio A → B → A, the
@@ -191,18 +193,18 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
           />
         )}
         {radio === 'raw' && raw !== 'text' && (
-          <Tooltip title="Format" placement="top">
+          <Tooltip title={t('workbench.editors.request.body.format')} placement="top">
             <Button
               size="small"
               type="text"
               icon={<AlignLeftOutlined />}
-              aria-label="Format body"
+              aria-label={t('workbench.editors.request.body.formatAria')}
               style={{ marginLeft: 'auto' }}
               onClick={() => {
                 void rawEditorRef.current?.getAction('editor.action.formatDocument')?.run();
               }}
             >
-              Beautify
+              {t('workbench.editors.request.body.beautify')}
             </Button>
           </Tooltip>
         )}
@@ -219,7 +221,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             fontSize: 13,
           }}
         >
-          This request does not have a body
+          {t('workbench.editors.request.body.noBody')}
         </div>
       )}
 
@@ -269,13 +271,12 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                   textTransform: 'uppercase',
                 }}
               >
-                Query
+                {t('workbench.editors.request.body.queryTitle')}
               </Text>
               <InfoTrigger
                 content={{
-                  title: 'GraphQL query',
-                  summary:
-                    'Sent as a plain POST with a JSON body of { query, variables }. Schema introspection and query autocomplete are not available yet.',
+                  title: t('workbench.editors.request.body.queryInfoTitle'),
+                  summary: t('workbench.editors.request.body.queryInfoSummary'),
                 }}
               />
             </div>
@@ -305,12 +306,12 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                   textTransform: 'uppercase',
                 }}
               >
-                GraphQL Variables
+                {t('workbench.editors.request.body.variablesTitle')}
               </Text>
               <InfoTrigger
                 content={{
-                  title: 'GraphQL variables',
-                  summary: 'Define variables in JSON format to reference from the query (e.g. $id).',
+                  title: t('workbench.editors.request.body.variablesInfoTitle'),
+                  summary: t('workbench.editors.request.body.variablesInfoSummary'),
                 }}
               />
             </div>

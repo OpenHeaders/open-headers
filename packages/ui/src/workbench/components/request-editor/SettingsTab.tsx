@@ -126,6 +126,7 @@
  */
 
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import { Button, Input, InputNumber, Select, Switch, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -149,6 +150,7 @@ import {
 } from '@openheaders/core/schemas';
 import type { TlsVersion } from '@openheaders/core/types';
 import { useVaultContext } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CookieJarRow from './CookieJarRow';
 
@@ -218,113 +220,108 @@ interface SettingsTabProps {
 }
 
 interface RuntimeManagedDef {
-  label: string;
+  labelKey: MessageKey;
   /** Effective behavior shown in the muted value column. */
-  value: string;
-  description: string;
+  valueKey: MessageKey;
+  descriptionKey: MessageKey;
 }
 
 const BROWSER_MANAGED: RuntimeManagedDef[] = [
   {
-    label: 'HTTP version',
-    value: 'Auto',
-    description:
-      'The browser negotiates HTTP/1.1, HTTP/2, or HTTP/3 per connection; the fetch API does not expose a version selector.',
+    labelKey: 'workbench.editors.request.settings.managed.httpVersion',
+    valueKey: 'workbench.editors.request.settings.managed.auto',
+    descriptionKey: 'workbench.editors.request.settings.managed.httpVersionDesc',
   },
   {
-    label: 'SSL certificate verification',
-    value: 'On',
-    description:
-      'Certificates are verified by browser policy. A request to a host with an invalid certificate fails; verification cannot be disabled per request.',
+    labelKey: 'workbench.editors.request.settings.sslVerification',
+    valueKey: 'workbench.editors.request.settings.managed.on',
+    descriptionKey: 'workbench.editors.request.settings.managed.sslVerificationDesc',
   },
   {
-    label: 'Follow original HTTP method',
-    value: 'Off',
-    description:
-      'On a 301/302/303 redirect the browser switches non-GET methods to GET per the fetch spec. 307/308 always preserve the method.',
+    labelKey: 'workbench.editors.request.settings.followOriginalMethod',
+    valueKey: 'workbench.editors.request.settings.managed.off',
+    descriptionKey: 'workbench.editors.request.settings.managed.followOriginalMethodDesc',
   },
   {
-    label: 'Follow Authorization header',
-    value: 'Off',
-    description:
-      'The browser strips the Authorization header when a redirect crosses to a different origin; this safety behavior is not overridable.',
+    labelKey: 'workbench.editors.request.settings.followAuthHeader',
+    valueKey: 'workbench.editors.request.settings.managed.off',
+    descriptionKey: 'workbench.editors.request.settings.managed.followAuthHeaderDesc',
   },
   {
-    label: 'Remove Referer header on redirect',
-    value: 'Policy',
-    description: 'Referer handling across redirects follows the browser referrer policy for the extension context.',
+    labelKey: 'workbench.editors.request.settings.managed.refererRedirect',
+    valueKey: 'workbench.editors.request.settings.managed.policy',
+    descriptionKey: 'workbench.editors.request.settings.managed.refererRedirectDesc',
   },
   {
-    label: 'Strict HTTP parser',
-    value: 'On',
-    description: 'The browser network stack always rejects malformed response headers; there is no lenient mode.',
+    labelKey: 'workbench.editors.request.settings.managed.strictParser',
+    valueKey: 'workbench.editors.request.settings.managed.on',
+    descriptionKey: 'workbench.editors.request.settings.managed.strictParserBrowserDesc',
   },
   {
-    label: 'Encode URL automatically',
-    value: 'On',
-    description:
-      'The URL path and query are percent-encoded by the URL parser before the request goes on the wire. Type already-encoded sequences to keep them verbatim.',
+    labelKey: 'workbench.editors.request.settings.managed.encodeUrl',
+    valueKey: 'workbench.editors.request.settings.managed.on',
+    descriptionKey: 'workbench.editors.request.settings.managed.encodeUrlDesc',
   },
   {
-    label: 'Server cipher suite order',
-    value: 'Browser',
-    description: 'TLS cipher negotiation is owned by the browser; neither suite list nor order is configurable.',
+    labelKey: 'workbench.editors.request.settings.managed.cipherOrder',
+    valueKey: 'workbench.editors.request.settings.managed.browser',
+    descriptionKey: 'workbench.editors.request.settings.managed.cipherOrderDesc',
   },
   {
-    label: 'Maximum redirects',
-    value: '~20',
-    description:
-      'The fetch API caps the redirect chain at about 20 hops. A per-request cap is not implementable: manual redirect mode returns an opaque response with no headers to follow.',
+    labelKey: 'workbench.editors.request.settings.maxRedirects',
+    valueKey: 'workbench.editors.request.settings.managed.about20',
+    descriptionKey: 'workbench.editors.request.settings.managed.maxRedirectsDesc',
   },
   {
-    label: 'TLS/SSL protocol versions',
-    value: 'Browser',
-    description: 'Enabled TLS protocol versions are fixed by the browser; per-request selection is not exposed.',
+    labelKey: 'workbench.editors.request.settings.managed.tlsVersions',
+    valueKey: 'workbench.editors.request.settings.managed.browser',
+    descriptionKey: 'workbench.editors.request.settings.managed.tlsVersionsDesc',
   },
 ];
 
 const NODE_MANAGED: RuntimeManagedDef[] = [
   {
-    label: 'Referer header',
-    value: 'Not sent',
-    description:
-      'The runtime has no page context, so no Referer goes on the wire unless you add one as a header yourself.',
+    labelKey: 'workbench.editors.request.settings.managed.referer',
+    valueKey: 'workbench.editors.request.settings.managed.notSent',
+    descriptionKey: 'workbench.editors.request.settings.managed.refererDesc',
   },
   {
-    label: 'Strict HTTP parser',
-    value: 'On',
-    description: 'The runtime’s HTTP parser rejects malformed response headers; there is no lenient mode.',
+    labelKey: 'workbench.editors.request.settings.managed.strictParser',
+    valueKey: 'workbench.editors.request.settings.managed.on',
+    descriptionKey: 'workbench.editors.request.settings.managed.strictParserNodeDesc',
   },
   {
-    label: 'Encode URL automatically',
-    value: 'On',
-    description:
-      'The URL path and query are percent-encoded by the URL parser before the request goes on the wire. Type already-encoded sequences to keep them verbatim.',
+    labelKey: 'workbench.editors.request.settings.managed.encodeUrl',
+    valueKey: 'workbench.editors.request.settings.managed.on',
+    descriptionKey: 'workbench.editors.request.settings.managed.encodeUrlDesc',
   },
 ];
 
 interface RuntimeManagedSheet {
   rows: RuntimeManagedDef[];
-  /** Noun on the reveal toggle: "N <noun>" / "Hide <noun> settings". */
-  noun: string;
+  /** Reveal-toggle variants: "N <noun>" collapsed / "Hide <noun> settings" open. */
+  countKey: MessageKey;
+  hideKey: MessageKey;
   /** Kicker on each row's info popover. */
-  kicker: string;
+  kickerKey: MessageKey;
   /** Intro line above the read-only rows. */
-  intro: string;
+  introKey: MessageKey;
 }
 
 const MANAGED_SHEETS: Record<RequestRuntimeKind, RuntimeManagedSheet> = {
   browser: {
     rows: BROWSER_MANAGED,
-    noun: 'browser-managed',
-    kicker: 'Browser-managed',
-    intro: 'Fixed by the browser for every request sent from an extension — shown so you know what is not negotiable.',
+    countKey: 'workbench.editors.request.settings.managed.countBrowser',
+    hideKey: 'workbench.editors.request.settings.managed.hideBrowser',
+    kickerKey: 'workbench.editors.request.settings.managed.browserKicker',
+    introKey: 'workbench.editors.request.settings.managed.browserIntro',
   },
   node: {
     rows: NODE_MANAGED,
-    noun: 'runtime-managed',
-    kicker: 'Runtime-managed',
-    intro: 'Fixed by the app’s network runtime for every request — shown so you know what is not negotiable.',
+    countKey: 'workbench.editors.request.settings.managed.countNode',
+    hideKey: 'workbench.editors.request.settings.managed.hideNode',
+    kickerKey: 'workbench.editors.request.settings.managed.nodeKicker',
+    introKey: 'workbench.editors.request.settings.managed.nodeIntro',
   },
 };
 
@@ -341,28 +338,31 @@ const KnobRow: React.FC<{
   info: string;
   warning?: string;
   warningWhenChecked?: boolean;
-}> = ({ label, checked, onChange, info, warning, warningWhenChecked }) => (
-  <div style={{ display: 'flex', flexDirection: 'column' }}>
-    <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
-      <Text style={{ fontSize: 13 }}>{label}</Text>
-      <InfoTrigger content={{ title: label, summary: info }} />
-      <span style={{ flex: 1 }} />
-      <Switch
-        size="small"
-        aria-label={label}
-        checked={checked}
-        onChange={onChange}
-        checkedChildren="Enabled"
-        unCheckedChildren="Disabled"
-      />
+}> = ({ label, checked, onChange, info, warning, warningWhenChecked }) => {
+  const t = useT();
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
+        <Text style={{ fontSize: 13 }}>{label}</Text>
+        <InfoTrigger content={{ title: label, summary: info }} />
+        <span style={{ flex: 1 }} />
+        <Switch
+          size="small"
+          aria-label={label}
+          checked={checked}
+          onChange={onChange}
+          checkedChildren={t('workbench.editors.request.settings.enabled')}
+          unCheckedChildren={t('workbench.editors.request.settings.disabled')}
+        />
+      </div>
+      {checked === (warningWhenChecked ?? false) && warning !== undefined && (
+        <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
+          {warning}
+        </Text>
+      )}
     </div>
-    {checked === (warningWhenChecked ?? false) && warning !== undefined && (
-      <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
-        {warning}
-      </Text>
-    )}
-  </div>
-);
+  );
+};
 
 /** Compact numeric-knob row: same `label · (i) · control` geometry as
  *  {@link KnobRow}, with an InputNumber (unit suffix, bounded) instead
@@ -484,18 +484,19 @@ const TextKnobRow: React.FC<{
 );
 
 const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
-  label,
-  value,
-  description,
+  labelKey,
+  valueKey,
+  descriptionKey,
   kicker,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 26 }}>
-      <Text style={{ fontSize: 12, color: token.colorTextSecondary }}>{label}</Text>
-      <InfoTrigger content={{ title: label, kicker, summary: description }} />
+      <Text style={{ fontSize: 12, color: token.colorTextSecondary }}>{t(labelKey)}</Text>
+      <InfoTrigger content={{ title: t(labelKey), kicker, summary: t(descriptionKey) }} />
       <span style={{ flex: 1 }} />
-      <Text style={{ fontSize: 12, color: token.colorTextTertiary }}>{value}</Text>
+      <Text style={{ fontSize: 12, color: token.colorTextTertiary }}>{t(valueKey)}</Text>
     </div>
   );
 };
@@ -507,6 +508,7 @@ const tlsVersionRank = (version: TlsVersion): number => TLS_VERSIONS.indexOf(ver
 
 const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [showRuntimeManaged, setShowRuntimeManaged] = useState(false);
   const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const sheet = MANAGED_SHEETS[runtime];
@@ -532,131 +534,133 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 560 }}>
       <KnobRow
-        label="Automatically follow redirects"
+        label={t('workbench.editors.request.settings.followRedirects')}
         checked={value.followRedirects ?? true}
         onChange={(checked) => onChange({ ...value, followRedirects: checked })}
-        info="Follow HTTP 3xx responses to their target. Switch off to stop at the redirect itself — the response shows as an opaque redirect with no headers or body, useful to confirm that a redirect happens at all."
+        info={t('workbench.editors.request.settings.followRedirectsInfo')}
       />
       {runtime === 'node' && value.followRedirects !== false && (
         <>
           <NumericKnobRow
-            label="Maximum redirects"
+            label={t('workbench.editors.request.settings.maxRedirects')}
             value={value.maxRedirects}
             onChange={(maxRedirects) => onChange({ ...value, maxRedirects })}
-            info="How many redirects a send may follow before failing with an error naming the limit. Leave empty for the default of 20. Set 0 to fail on any redirect at all."
+            info={t('workbench.editors.request.settings.maxRedirectsInfo')}
             min={MIN_MAX_REDIRECTS}
             max={MAX_MAX_REDIRECTS}
             placeholder="20"
           />
           <KnobRow
-            label="Follow original HTTP method"
+            label={t('workbench.editors.request.settings.followOriginalMethod')}
             checked={value.followOriginalHttpMethod === true}
             onChange={(checked) => onChange({ ...value, followOriginalHttpMethod: checked || undefined })}
-            info="Keep the original method and body when a 301, 302, or 303 redirect would normally switch the request to GET. 307 and 308 redirects always keep the method either way."
+            info={t('workbench.editors.request.settings.followOriginalMethodInfo')}
           />
           <KnobRow
-            label="Follow Authorization header"
+            label={t('workbench.editors.request.settings.followAuthHeader')}
             checked={value.followAuthorizationHeader === true}
             onChange={(checked) => onChange({ ...value, followAuthorizationHeader: checked || undefined })}
-            info="Keep the Authorization header when a redirect crosses to a different origin. Normally it is dropped on a cross-origin hop so credentials never travel to a host the request didn't address."
-            warning="Credentials travel to whatever host the redirect chain lands on. A response whose chain actually crossed origins is marked."
+            info={t('workbench.editors.request.settings.followAuthHeaderInfo')}
+            warning={t('workbench.editors.request.settings.followAuthHeaderWarning')}
             warningWhenChecked
           />
         </>
       )}
       {runtime === 'browser' && (
         <KnobRow
-          label="Send browser cookies"
+          label={t('workbench.editors.request.settings.sendBrowserCookies')}
           checked={value.credentialsMode === 'include'}
           onChange={(checked) => onChange({ ...value, credentialsMode: checked ? 'include' : undefined })}
-          info="Attach the browser's existing cookies for the target site to this request. Off is the safe default: the request is sent with no cookies, so results don't depend on your logged-in browser state."
+          info={t('workbench.editors.request.settings.sendBrowserCookiesInfo')}
         />
       )}
       {runtime === 'node' && (
         <>
           <KnobRow
-            label="SSL certificate verification"
+            label={t('workbench.editors.request.settings.sslVerification')}
             checked={value.sslVerification !== false}
             onChange={(checked) => onChange({ ...value, sslVerification: checked })}
-            info="Verify the server's TLS certificate against the runtime's trusted CA store. A host with a self-signed, expired, or otherwise untrusted certificate fails with a TLS certificate error — switch verification off to reach it anyway, e.g. a development server with a self-signed certificate."
-            warning="Sends skip the server identity check — any certificate is accepted, including self-signed and expired ones. The response is marked as unverified."
+            info={t('workbench.editors.request.settings.sslVerificationInfo')}
+            warning={t('workbench.editors.request.settings.sslVerificationWarning')}
           />
           <SelectKnobRow
-            label="TLS version minimum"
+            label={t('workbench.editors.request.settings.tlsMin')}
             value={value.tlsMinVersion}
             onChange={(v) => onChange({ ...value, tlsMinVersion: v as TlsVersion | undefined })}
-            info="Lowest TLS protocol version a send may negotiate. Leave empty for the runtime default of TLS 1.2. Choosing 1.0 or 1.1 lowers the floor below the default to reach legacy servers — a response sent with a lowered floor is marked."
+            info={t('workbench.editors.request.settings.tlsMinInfo')}
             options={TLS_VERSIONS.map((v) => ({
               value: v,
               label: v,
               disabled: value.tlsMaxVersion !== undefined && tlsVersionRank(v) > tlsVersionRank(value.tlsMaxVersion),
             }))}
-            placeholder="1.2 (default)"
+            placeholder={t('workbench.editors.request.settings.tlsMinPlaceholder')}
             warning={
               value.tlsMinVersion === '1.0' || value.tlsMinVersion === '1.1'
-                ? 'Sends may negotiate TLS below 1.2 — protocol versions with known weaknesses. The response is marked.'
+                ? t('workbench.editors.request.settings.tlsMinWarning')
                 : undefined
             }
           />
           <SelectKnobRow
-            label="TLS version maximum"
+            label={t('workbench.editors.request.settings.tlsMax')}
             value={value.tlsMaxVersion}
             onChange={(v) => onChange({ ...value, tlsMaxVersion: v as TlsVersion | undefined })}
-            info="Highest TLS protocol version a send may negotiate. Leave empty for the runtime default of TLS 1.3. Lower it to check how a server behaves on an older protocol — the minimum may need lowering too, or the two won't overlap."
+            info={t('workbench.editors.request.settings.tlsMaxInfo')}
             options={TLS_VERSIONS.map((v) => ({
               value: v,
               label: v,
               disabled: value.tlsMinVersion !== undefined && tlsVersionRank(v) < tlsVersionRank(value.tlsMinVersion),
             }))}
-            placeholder="1.3 (default)"
+            placeholder={t('workbench.editors.request.settings.tlsMaxPlaceholder')}
           />
           <TextKnobRow
-            label="TLS cipher suites"
+            label={t('workbench.editors.request.settings.tlsCipherSuites')}
             value={value.tlsCipherSuites}
             onChange={(tlsCipherSuites) => onChange({ ...value, tlsCipherSuites })}
-            info="Cipher suites offered during the TLS handshake, as a colon-separated OpenSSL-format list — TLS 1.3 suite names and older suite names both go in the one list. Leave empty to offer the runtime's default suites. The server picks the suite from what is offered, in its own preference order."
-            placeholder="Runtime default suites"
+            info={t('workbench.editors.request.settings.tlsCipherSuitesInfo')}
+            placeholder={t('workbench.editors.request.settings.tlsCipherSuitesPlaceholder')}
             maxLength={MAX_TLS_CIPHER_SUITES_LENGTH}
             error={
               value.tlsCipherSuites !== undefined && !TLS_CIPHER_SUITES_PATTERN.test(value.tlsCipherSuites)
-                ? 'Colon-separated OpenSSL suite names only — no spaces.'
+                ? t('workbench.editors.request.settings.tlsCipherSuitesError')
                 : undefined
             }
           />
           <KnobRow
-            label="Allow HTTP/2"
+            label={t('workbench.editors.request.settings.allowHttp2')}
             checked={value.allowHttp2 === true}
             onChange={(checked) => onChange({ ...value, allowHttp2: checked || undefined })}
-            info="Offer HTTP/2 alongside HTTP/1.1 when connecting over https — the server picks the protocol from the offer, so a server without HTTP/2 support still answers over HTTP/1.1. Plain http:// requests always use HTTP/1.1. Off, requests are sent over HTTP/1.1 only."
+            info={t('workbench.editors.request.settings.allowHttp2Info')}
           />
           <TextKnobRow
-            label="Resolve to address"
+            label={t('workbench.editors.request.settings.resolveToAddress')}
             value={value.resolveToAddress}
             onChange={(resolveToAddress) => onChange({ ...value, resolveToAddress })}
-            info="Send this request to a specific server address instead of whatever DNS answers — the URL's hostname is still used for TLS and the Host header, so with verification on the certificate must still match it. Useful to test one specific backend behind a load balancer. The URL keeps its own port, and a redirect to another host also lands on this address. Leave empty to resolve through DNS as usual."
-            placeholder="System DNS"
+            info={t('workbench.editors.request.settings.resolveToAddressInfo')}
+            placeholder={t('workbench.editors.request.settings.resolveToAddressPlaceholder')}
             maxLength={MAX_RESOLVE_TO_ADDRESS_LENGTH}
             error={
               value.resolveToAddress !== undefined && !RESOLVE_TO_ADDRESS_PATTERN.test(value.resolveToAddress)
-                ? 'IPv4 or IPv6 address only — no hostname, no port.'
+                ? t('workbench.editors.request.settings.resolveToAddressError')
                 : undefined
             }
           />
           <SelectKnobRow
-            label="Client certificate"
+            label={t('workbench.editors.request.settings.clientCertificate')}
             value={value.clientCertificateRef}
             onChange={(clientCertificateRef) => onChange({ ...value, clientCertificateRef })}
-            info="Present a client certificate during the TLS handshake, for APIs behind mutual-TLS gateways that authenticate the caller by certificate. Pick a certificate entry from the vault — the request saves only the entry's name, and each device presents its own vault entry of that name; the certificate and key never leave the vault. Leave empty to connect without a client certificate."
+            info={t('workbench.editors.request.settings.clientCertificateInfo')}
             options={clientCertificateOptions}
-            placeholder="No client certificate"
+            placeholder={t('workbench.editors.request.settings.clientCertificatePlaceholder')}
             warning={
               clientCertificateRefDangling
-                ? `No vault certificate entry named "${value.clientCertificateRef}" on this device — sends will fail until the entry exists or this setting is cleared.`
+                ? t('workbench.editors.request.settings.clientCertificateDangling', {
+                    name: value.clientCertificateRef ?? '',
+                  })
                 : undefined
             }
           />
           <TextKnobRow
-            label="Proxy"
+            label={t('workbench.editors.request.settings.proxy')}
             value={value.proxyUrl}
             onChange={(proxyUrl) =>
               onChange(
@@ -666,80 +670,82 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
                 proxyUrl === undefined ? { ...value, proxyUrl, proxyCredentialRef: undefined } : { ...value, proxyUrl },
               )
             }
-            info="Route this request through an HTTP(S) proxy instead of connecting directly. The connection to the target tunnels through the proxy, so an https exchange stays end-to-end encrypted and certificate verification still runs against the target. SOCKS proxies are not supported. Credentials go in the 'Proxy credentials' setting below, never in this URL. Leave empty for a direct connection."
-            placeholder="No proxy — direct connection"
+            info={t('workbench.editors.request.settings.proxyInfo')}
+            placeholder={t('workbench.editors.request.settings.proxyPlaceholder')}
             maxLength={MAX_PROXY_URL_LENGTH}
             error={
               value.proxyUrl !== undefined && !isValidProxyUrl(value.proxyUrl)
-                ? 'http:// or https:// URL with host and port only — no credentials in the URL, no SOCKS.'
+                ? t('workbench.editors.request.settings.proxyError')
                 : undefined
             }
             warning={
               value.proxyUrl !== undefined && value.resolveToAddress !== undefined
-                ? 'Also sets resolve-to-address, but a proxy resolves the hostname itself — sends will fail until one of the two is cleared.'
+                ? t('workbench.editors.request.settings.proxyResolveConflict')
                 : undefined
             }
           />
           {value.proxyUrl !== undefined && (
             <SelectKnobRow
-              label="Proxy credentials"
+              label={t('workbench.editors.request.settings.proxyCredentials')}
               value={value.proxyCredentialRef}
               onChange={(proxyCredentialRef) => onChange({ ...value, proxyCredentialRef })}
-              info="Authenticate against the proxy with credentials from the vault, as user:password in a string entry. The request saves only the entry's name, and each device resolves it against its own local vault — the credentials never leave the vault and are sent only to the proxy, never to the target. Leave empty for a proxy that needs no authentication."
+              info={t('workbench.editors.request.settings.proxyCredentialsInfo')}
               options={proxyCredentialOptions}
-              placeholder="No authentication"
+              placeholder={t('workbench.editors.request.settings.proxyCredentialsPlaceholder')}
               warning={
                 proxyCredentialRefDangling
-                  ? `No vault string entry named "${value.proxyCredentialRef}" on this device — sends will fail until the entry exists or this setting is cleared.`
+                  ? t('workbench.editors.request.settings.proxyCredentialsDangling', {
+                      name: value.proxyCredentialRef ?? '',
+                    })
                   : undefined
               }
             />
           )}
           <TextKnobRow
-            label="Unix socket"
+            label={t('workbench.editors.request.settings.unixSocket')}
             value={value.unixSocketPath}
             onChange={(unixSocketPath) => onChange({ ...value, unixSocketPath })}
-            info="Dial this local socket — an absolute Unix socket path, or a Windows named pipe like \\.\pipe\name — instead of opening a TCP connection, e.g. a Docker daemon or a local development service listening on a socket. The URL's host no longer decides where the connection goes, but the Host header, TLS server name, and certificate verification still use it, and a redirect to another host also dials this same socket. Leave empty for a normal TCP connection."
-            placeholder="No socket — TCP connection"
+            info={t('workbench.editors.request.settings.unixSocketInfo')}
+            placeholder={t('workbench.editors.request.settings.unixSocketPlaceholder')}
             maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
             error={
               value.unixSocketPath !== undefined && !isValidUnixSocketPath(value.unixSocketPath)
-                ? 'Absolute Unix socket path (/…) or Windows named pipe (\\\\.\\pipe\\…) only.'
+                ? t('workbench.editors.request.settings.unixSocketError')
                 : undefined
             }
             warning={
               value.unixSocketPath !== undefined && value.proxyUrl !== undefined
-                ? 'Also sets a proxy, but a proxy tunnel can’t dial a local socket — sends will fail until one of the two is cleared.'
+                ? t('workbench.editors.request.settings.unixSocketProxyConflict')
                 : value.unixSocketPath !== undefined && value.resolveToAddress !== undefined
-                  ? 'Also sets resolve-to-address, but a socket dial resolves no hostname — sends will fail until one of the two is cleared.'
+                  ? t('workbench.editors.request.settings.unixSocketResolveConflict')
                   : undefined
             }
           />
           <KnobRow
-            label="Use cookie jar"
+            label={t('workbench.editors.request.settings.cookieJar')}
             checked={value.cookieJar === true}
             onChange={(checked) => onChange({ ...value, cookieJar: checked || undefined })}
-            info="Store this request's Set-Cookie responses in the app's own cookie jar and attach matching cookies automatically — so a login request followed by an authenticated call works without copying cookie values by hand. The jar lives in memory per workspace, is used only by requests with this setting on, never syncs, and is cleared when the app quits. A Cookie header you set yourself always wins. Off is the default: no cookies are attached and Set-Cookie responses are discarded."
+            info={t('workbench.editors.request.settings.cookieJarInfo')}
           />
           <CookieJarRow />
         </>
       )}
       <NumericKnobRow
-        label="Request timeout"
+        label={t('workbench.editors.request.settings.timeout')}
         value={value.timeoutMs}
         onChange={(timeoutMs) => onChange({ ...value, timeoutMs })}
-        info="Maximum time the whole request may take — connecting, waiting for the response, and reading the body. When the limit elapses the send is aborted and fails with a timeout error naming it. Leave empty for no per-request limit; only the network stack's own timeouts apply."
+        info={t('workbench.editors.request.settings.timeoutInfo')}
         unit="ms"
         min={MIN_REQUEST_TIMEOUT_MS}
         max={MAX_REQUEST_TIMEOUT_MS}
-        placeholder="No limit"
+        placeholder={t('workbench.editors.request.settings.timeoutPlaceholder')}
       />
       {runtime === 'node' && (
         <NumericKnobRow
-          label="Response size limit"
+          label={t('workbench.editors.request.settings.responseSizeLimit')}
           value={value.maxResponseBytes !== undefined ? Math.round(value.maxResponseBytes / 1024) : undefined}
           onChange={(kb) => onChange({ ...value, maxResponseBytes: kb !== undefined ? kb * 1024 : undefined })}
-          info="Maximum response body size read off the wire; anything past it is cut off and the response is marked as truncated. Leave empty for the default limit of 2,048 KB (2 MB). Raise it up to 10,240 KB (10 MB) for larger payloads, or lower it to test how a truncated response looks."
+          info={t('workbench.editors.request.settings.responseSizeLimitInfo')}
           unit="KB"
           min={MIN_RESPONSE_BYTES / 1024}
           max={MAX_RESPONSE_BYTES / 1024}
@@ -755,7 +761,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
           onClick={() => setShowRuntimeManaged((s) => !s)}
           style={{ color: token.colorTextSecondary, fontSize: 12 }}
         >
-          {showRuntimeManaged ? `Hide ${sheet.noun} settings` : `${sheet.rows.length} ${sheet.noun}`}
+          {showRuntimeManaged ? t(sheet.hideKey) : t(sheet.countKey, { count: sheet.rows.length })}
         </Button>
       </div>
       {showRuntimeManaged && (
@@ -769,9 +775,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
             background: token.colorFillQuaternary,
           }}
         >
-          <Text style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 2 }}>{sheet.intro}</Text>
+          <Text style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 2 }}>{t(sheet.introKey)}</Text>
           {sheet.rows.map((def) => (
-            <RuntimeManagedRow key={def.label} {...def} kicker={sheet.kicker} />
+            <RuntimeManagedRow key={def.labelKey} {...def} kicker={t(sheet.kickerKey)} />
           ))}
         </div>
       )}

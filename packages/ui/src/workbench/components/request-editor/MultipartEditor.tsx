@@ -28,6 +28,7 @@ import type { MenuProps } from 'antd';
 import { Dropdown, Select, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { GripResizeXHandler } from '../template-input';
 import { EditableGridTable, type EditableRowAdapter } from './EditableGridTable';
 import { GridValueField } from './GridValueField';
@@ -184,6 +185,7 @@ const ValueCell: React.FC<ValueCellProps> = ({
   deleteFile,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
 
   const switchKind = (kind: 'text' | 'file') => {
     if (kind === row.kind) return;
@@ -209,8 +211,8 @@ const ValueCell: React.FC<ValueCellProps> = ({
         value={row.kind}
         onChange={switchKind}
         options={[
-          { value: 'text', label: 'Text' },
-          { value: 'file', label: 'File' },
+          { value: 'text', label: t('workbench.editors.request.body.kindText') },
+          { value: 'file', label: t('workbench.editors.request.body.kindFile') },
         ]}
         style={{ width: 72, flexShrink: 0 }}
         disabled={isPlaceholder}
@@ -221,7 +223,7 @@ const ValueCell: React.FC<ValueCellProps> = ({
           expanded={expanded}
           flagUnresolved
           value={row.value}
-          placeholder="Value"
+          placeholder={t('workbench.editors.grid.value')}
           onChange={(next) => update({ ...row, value: next })}
           onResizeX={onResizeX}
           style={{
@@ -269,6 +271,7 @@ const FileValueCell: React.FC<FileValueCellProps> = ({
   disabled,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   // `fileRefs` can be undefined on rows that pre-date the multi-file
   // schema widening; normalize to an empty list so the UI treats it
   // as "no selection yet".
@@ -353,7 +356,7 @@ const FileValueCell: React.FC<FileValueCellProps> = ({
       {
         key: '__new_file__',
         icon: <PlusOutlined />,
-        label: 'New file from local machine',
+        label: t('workbench.editors.request.body.newFile'),
         onClick: () => void promptUpload(),
       },
     ];
@@ -362,7 +365,11 @@ const FileValueCell: React.FC<FileValueCellProps> = ({
       items.push({
         key: '__uploaded_header__',
         type: 'group',
-        label: <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Uploaded files</span>,
+        label: (
+          <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
+            {t('workbench.editors.request.body.uploadedFiles')}
+          </span>
+        ),
         children:
           available.length > 0
             ? available.map((f) => ({
@@ -382,7 +389,7 @@ const FileValueCell: React.FC<FileValueCellProps> = ({
                     <button
                       type="button"
                       className="mp-file-menu-delete"
-                      aria-label={`Delete ${f.filename} from workspace`}
+                      aria-label={t('workbench.editors.request.body.deleteFileAria', { filename: f.filename })}
                       onClick={(e) => handleDelete(f.fileId, e)}
                       onMouseDown={(e) => e.stopPropagation()}
                       style={{
@@ -404,16 +411,20 @@ const FileValueCell: React.FC<FileValueCellProps> = ({
             : [
                 {
                   key: '__all_attached__',
-                  label: 'All uploaded files already attached',
+                  label: t('workbench.editors.request.body.allAttached'),
                   disabled: true,
                 },
               ],
       });
     }
     return items;
-  }, [files, fileRefs, filesReady, promptUpload, pickExisting, handleDelete, token]);
+  }, [files, fileRefs, filesReady, promptUpload, pickExisting, handleDelete, token, t]);
 
-  const triggerLabel = isEmpty ? (filesReady ? 'Select files' : 'Loading files…') : '+ Add file';
+  const triggerLabel = isEmpty
+    ? filesReady
+      ? t('workbench.editors.request.body.selectFiles')
+      : t('workbench.editors.request.body.loadingFiles')
+    : t('workbench.editors.request.body.addFile');
 
   return (
     <div
@@ -461,7 +472,7 @@ const FileValueCell: React.FC<FileValueCellProps> = ({
       </Dropdown>
       {hasPlaceholder && (
         <Tag icon={<WarningOutlined />} color="warning" style={{ fontSize: 10, margin: 0 }}>
-          Upload required
+          {t('workbench.editors.request.body.uploadRequired')}
         </Tag>
       )}
     </div>

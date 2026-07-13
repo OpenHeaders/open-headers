@@ -18,6 +18,7 @@ import { generateUid } from '@openheaders/core/utils';
 import { theme } from 'antd';
 import type React from 'react';
 import { useRef } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EditableGridTable, type EditableRowAdapter } from './EditableGridTable';
 import { GridValueField } from './GridValueField';
 
@@ -86,6 +87,7 @@ function textToFields(text: string): IdentifiedField[] {
 
 const FormEditor: React.FC<FormEditorProps> = ({ fields, onChange }) => {
   const { token } = theme.useToken();
+  const t = useT();
 
   // Hydrate transient ids. `idsRef` preserves ids across re-renders so
   // drag reorders + in-place edits don't remount the underlying row
@@ -117,7 +119,7 @@ const FormEditor: React.FC<FormEditorProps> = ({ fields, onChange }) => {
           expanded={ctx.expanded}
           flagUnresolved
           value={row.value}
-          placeholder="Value"
+          placeholder={t('workbench.editors.grid.value')}
           onChange={(next) => update({ ...row, value: next })}
           onResizeX={ctx.onValueResizeX}
           style={{

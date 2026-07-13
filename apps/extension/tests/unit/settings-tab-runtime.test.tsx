@@ -11,6 +11,7 @@
  */
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import { VaultContext, type VaultContextValue } from '@openheaders/ui/context';
 import { emptyDraft } from '@openheaders/ui/workbench/components/request-editor/draft';
 import { buildRequestTabItems } from '@openheaders/ui/workbench/components/request-editor/request-tab-items';
@@ -39,6 +40,8 @@ afterEach(() => {
 });
 
 const NONE: SectionUnresolved = { url: false, params: false, headers: false, auth: false, body: false };
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 interface KnobValues {
   credentialsMode?: 'omit' | 'include';
@@ -83,7 +86,7 @@ function dropdownOption(label: string): HTMLElement {
 /** Render the Settings tab label and count default-tone dots on it. */
 function settingsDotCount(knobs: KnobValues = {}): number {
   const draft = { ...emptyDraft(), ...knobs };
-  const item = buildRequestTabItems(draft, NONE).find((i) => i.key === 'settings');
+  const item = buildRequestTabItems(draft, NONE, t).find((i) => i.key === 'settings');
   const { container } = render(<div>{item?.label}</div>);
   return container.querySelectorAll('span[style*="border-radius: 50%"]').length;
 }

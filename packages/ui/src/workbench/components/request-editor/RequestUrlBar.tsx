@@ -15,6 +15,7 @@ import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
 import { Select } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
 import { useImportText } from '../../hooks/ImportTextContext';
 import { METHOD_COLORS } from '../sidebar/icons';
@@ -74,6 +75,7 @@ interface RequestUrlBarProps {
 }
 
 const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnresolved, onSend }) => {
+  const t = useT();
   const [customMethods, setCustomMethods] = useState<string[]>(readCustomMethods);
   const [methodSearch, setMethodSearch] = useState('');
   const importText = useImportText();
@@ -110,7 +112,9 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
     const q = methodSearch.trim().toUpperCase();
     if (!q) {
       const standard: (MethodOption | { label: React.ReactNode; options: MethodOption[] })[] = METHODS.map(toOption);
-      if (customs.length > 0) standard.push({ label: 'Custom', options: customs.map(toOption) });
+      if (customs.length > 0) {
+        standard.push({ label: t('workbench.editors.request.method.customGroup'), options: customs.map(toOption) });
+      }
       return standard;
     }
     const pool = [...METHODS, ...customs, ...EXTENDED_METHODS.filter((m) => !customs.includes(m))];
@@ -121,13 +125,13 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
         value: q,
         label: (
           <span style={{ fontSize: 12 }}>
-            Use <strong>{q}</strong>
+            {t('workbench.editors.request.method.usePrefix')} <strong>{q}</strong>
           </span>
         ),
       });
     }
     return options;
-  }, [methodSearch, customMethods, draft.method]);
+  }, [methodSearch, customMethods, draft.method, t]);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
@@ -149,7 +153,9 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
                 {option.label}
                 {/* biome-ignore lint/a11y/noStaticElementInteractions: inline remove affordance inside an option row */}
                 <DeleteOutlined
-                  aria-label={`Remove custom method ${String(option.value)}`}
+                  aria-label={t('workbench.editors.request.method.removeCustomAria', {
+                    method: String(option.value),
+                  })}
                   style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)' }}
                   onClick={(e) => {
                     e.preventDefault();
@@ -174,11 +180,11 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
             if (FORBIDDEN_METHODS.has(q)) {
               return (
                 <span style={{ fontSize: 12 }}>
-                  <strong>{q}</strong> can't be sent from a browser.
+                  <strong>{q}</strong> {t('workbench.editors.request.method.forbiddenSuffix')}
                 </span>
               );
             }
-            return <span style={{ fontSize: 12 }}>Methods use letters, digits, and hyphens (max 32).</span>;
+            return <span style={{ fontSize: 12 }}>{t('workbench.editors.request.method.invalidHint')}</span>;
           })()}
           searchValue={methodSearch}
           onSearch={(next) => setMethodSearch(next.toUpperCase())}
@@ -202,7 +208,7 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
               params: mergeParamsFromUrl(parsed.params, d.params),
             }));
           }}
-          placeholder="Enter URL or paste text"
+          placeholder={t('workbench.editors.request.url.placeholder')}
           size="small"
           status={urlUnresolved ? 'error' : undefined}
           flagUnresolved

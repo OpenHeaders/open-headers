@@ -9,9 +9,11 @@
 
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import { Select, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
 import { type GripResizeXEvent, TemplateInput } from '../template-input';
@@ -23,16 +25,16 @@ type AuthKind = AuthConfig['type'];
 
 interface AuthOption {
   value: AuthKind;
-  label: string;
+  labelKey: MessageKey;
 }
 
 const AUTH_OPTIONS: AuthOption[] = [
-  { value: 'inherit', label: 'Inherit auth from parent' },
-  { value: 'none', label: 'No Auth' },
-  { value: 'basic', label: 'Basic Auth' },
-  { value: 'bearer', label: 'Bearer Token' },
-  { value: 'api-key', label: 'API Key' },
-  { value: 'oauth2', label: 'OAuth 2.0' },
+  { value: 'inherit', labelKey: 'workbench.editors.request.auth.type.inherit' },
+  { value: 'none', labelKey: 'workbench.editors.request.auth.type.none' },
+  { value: 'basic', labelKey: 'workbench.editors.request.auth.type.basic' },
+  { value: 'bearer', labelKey: 'workbench.editors.request.auth.type.bearer' },
+  { value: 'api-key', labelKey: 'workbench.editors.request.auth.type.apiKey' },
+  { value: 'oauth2', labelKey: 'workbench.editors.request.auth.type.oauth2' },
 ];
 
 interface AuthorizationTabProps {
@@ -48,8 +50,10 @@ const RAIL_DEFAULT = 210;
 
 const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const authOptions = useMemo(() => AUTH_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })), [t]);
 
   const switchType = (type: AuthKind) => {
     if (type === 'none' || type === 'inherit') {
@@ -94,24 +98,24 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         }}
       >
         <Text strong style={{ fontSize: 12 }}>
-          Auth Type
+          {t('workbench.editors.request.auth.typeLabel')}
         </Text>
         <Select
           size="middle"
           data-testid="oh-auth-type"
           value={auth.type}
           onChange={switchType}
-          options={AUTH_OPTIONS}
+          options={authOptions}
           style={{ width: '100%' }}
         />
         {auth.type === 'inherit' && (
           <Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
-            The authorization data will be automatically configured based on the parent collection.
+            {t('workbench.editors.request.auth.inheritNote')}
           </Text>
         )}
         {auth.type === 'none' && (
           <Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
-            This request does not use any authorization.
+            {t('workbench.editors.request.auth.noneNote')}
           </Text>
         )}
         {auth.type === 'oauth2' && <OAuth2LeftRailControls auth={auth} onChange={onChange} />}
@@ -123,7 +127,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
       <div
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize auth-type rail"
+        aria-label={t('workbench.editors.request.auth.resizeRailAria')}
         onPointerDown={(e) => {
           e.preventDefault();
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -187,10 +191,10 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
               —
             </div>
             <Text strong style={{ fontSize: 14 }}>
-              No Auth
+              {t('workbench.editors.request.auth.type.none')}
             </Text>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              This request does not use any authorization.
+              {t('workbench.editors.request.auth.noneNote')}
             </Text>
           </div>
         )}
@@ -208,31 +212,30 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
             }}
           >
             <Text strong style={{ fontSize: 14 }}>
-              Inherit auth from parent
+              {t('workbench.editors.request.auth.type.inherit')}
             </Text>
             <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', maxWidth: 360 }}>
-              This request is using the authorization helper from its parent collection. Edit the collection's
-              Authorization tab to change it.
+              {t('workbench.editors.request.auth.inheritDetail')}
             </Text>
           </div>
         )}
 
         {auth.type === 'basic' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <LabeledRow label="Username">
+            <LabeledRow label={t('workbench.editors.request.auth.username')}>
               <TemplateInput
                 size="small"
                 value={auth.username}
                 onChange={(next) => onChange({ ...auth, username: next })}
-                placeholder="username"
+                placeholder={t('workbench.editors.request.auth.usernamePlaceholder')}
                 style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               />
             </LabeledRow>
-            <LabeledRow label="Password">
+            <LabeledRow label={t('workbench.editors.request.auth.password')}>
               <SecretField
                 value={auth.password}
                 onChange={(next) => onChange({ ...auth, password: next })}
-                placeholder="password"
+                placeholder={t('workbench.editors.request.auth.passwordPlaceholder')}
               />
             </LabeledRow>
           </div>
@@ -240,11 +243,11 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
 
         {auth.type === 'bearer' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <LabeledRow label="Token">
+            <LabeledRow label={t('workbench.editors.request.auth.token')}>
               <SecretField
                 value={auth.token}
                 onChange={(next) => onChange({ ...auth, token: next })}
-                placeholder="bearer token"
+                placeholder={t('workbench.editors.request.auth.tokenPlaceholder')}
               />
             </LabeledRow>
           </div>
@@ -252,7 +255,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
 
         {auth.type === 'api-key' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <LabeledRow label="Key">
+            <LabeledRow label={t('workbench.editors.request.auth.key')}>
               <TemplateInput
                 size="small"
                 value={auth.key}
@@ -261,22 +264,22 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
                 style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               />
             </LabeledRow>
-            <LabeledRow label="Value">
+            <LabeledRow label={t('workbench.editors.request.auth.value')}>
               <SecretField
                 value={auth.value}
                 onChange={(next) => onChange({ ...auth, value: next })}
-                placeholder="api key value"
+                placeholder={t('workbench.editors.request.auth.valuePlaceholder')}
               />
             </LabeledRow>
-            <LabeledRow label="Add to">
+            <LabeledRow label={t('workbench.editors.request.auth.addTo')}>
               <Select
                 size="small"
                 data-testid="oh-auth-apikey-in"
                 value={auth.in}
                 onChange={(next: 'header' | 'query') => onChange({ ...auth, in: next })}
                 options={[
-                  { value: 'header', label: 'Header' },
-                  { value: 'query', label: 'Query Params' },
+                  { value: 'header', label: t('workbench.editors.request.auth.addToHeader') },
+                  { value: 'query', label: t('workbench.editors.request.auth.addToQuery') },
                 ]}
                 style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               />
@@ -305,6 +308,7 @@ const OAuth2LeftRailControls: React.FC<{
   auth: Extract<AuthConfig, { type: 'oauth2' }>;
   onChange: (auth: AuthConfig) => void;
 }> = ({ auth, onChange }) => {
+  const t = useT();
   const applyPreset = useCallback(
     (presetId: string) => {
       if (presetId === 'custom') {
@@ -330,15 +334,15 @@ const OAuth2LeftRailControls: React.FC<{
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <Text strong style={{ fontSize: 12 }}>
-          Add authorization data to
+          {t('workbench.editors.request.auth.sendAsLabel')}
         </Text>
         <Select
           size="middle"
           value={auth.sendAs ?? 'header'}
           onChange={(next: 'header' | 'query') => onChange({ ...auth, sendAs: next })}
           options={[
-            { value: 'header', label: 'Request Headers' },
-            { value: 'query', label: 'Request URL' },
+            { value: 'header', label: t('workbench.editors.request.auth.sendAsHeaders') },
+            { value: 'query', label: t('workbench.editors.request.auth.sendAsUrl') },
           ]}
           style={{ width: '100%' }}
         />
@@ -346,13 +350,12 @@ const OAuth2LeftRailControls: React.FC<{
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Text strong style={{ fontSize: 12 }}>
-            Provider preset
+            {t('workbench.editors.request.auth.presetLabel')}
           </Text>
           <InfoTrigger
             content={{
-              title: 'Provider preset',
-              summary:
-                'Picking a provider pre-fills its authorization/token endpoints, default scopes, and recommended flow. Pick Custom to configure everything manually.',
+              title: t('workbench.editors.request.auth.presetLabel'),
+              summary: t('workbench.editors.request.auth.presetInfo'),
             }}
           />
         </div>
@@ -361,7 +364,7 @@ const OAuth2LeftRailControls: React.FC<{
           value={auth.providerPresetId ?? 'custom'}
           onChange={applyPreset}
           options={[
-            { value: 'custom', label: 'Custom (no preset)' },
+            { value: 'custom', label: t('workbench.editors.request.auth.presetCustom') },
             ...OAUTH2_PROVIDER_PRESETS.map((p) => ({ value: p.id, label: p.label })),
           ]}
           style={{ width: '100%' }}

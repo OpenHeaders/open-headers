@@ -16,6 +16,7 @@
  */
 
 import type { AuthConfig } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 
 export interface AuthPreviewEntry {
   key: string;
@@ -30,7 +31,7 @@ export interface AuthPreviewContributions {
 
 const EMPTY: AuthPreviewContributions = { headers: [], params: [] };
 
-export function previewAuthContributions(auth: AuthConfig): AuthPreviewContributions {
+export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPreviewContributions {
   switch (auth.type) {
     case 'none':
     case 'inherit':
@@ -40,8 +41,8 @@ export function previewAuthContributions(auth: AuthConfig): AuthPreviewContribut
         headers: [
           {
             key: 'Authorization',
-            value: 'Basic <credentials>',
-            hint: 'Generated from the Authorization tab (Basic Auth). Username and password are base64-encoded into this header when the request is sent.',
+            value: t('workbench.editors.request.authPreview.basicValue'),
+            hint: t('workbench.editors.request.authPreview.basicHint'),
           },
         ],
         params: [],
@@ -51,8 +52,8 @@ export function previewAuthContributions(auth: AuthConfig): AuthPreviewContribut
         headers: [
           {
             key: 'Authorization',
-            value: 'Bearer <token>',
-            hint: 'Generated from the Authorization tab (Bearer Token). The token is added to this header when the request is sent.',
+            value: t('workbench.editors.request.authPreview.bearerValue'),
+            hint: t('workbench.editors.request.authPreview.bearerHint'),
           },
         ],
         params: [],
@@ -63,10 +64,10 @@ export function previewAuthContributions(auth: AuthConfig): AuthPreviewContribut
       const inQuery = auth.in === 'query';
       const entry: AuthPreviewEntry = {
         key,
-        value: '<value>',
-        hint: `Generated from the Authorization tab (API Key). The value is added to this ${
-          inQuery ? 'query param' : 'header'
-        } when the request is sent.`,
+        value: t('workbench.editors.request.authPreview.apiKeyValue'),
+        hint: inQuery
+          ? t('workbench.editors.request.authPreview.apiKeyQueryHint')
+          : t('workbench.editors.request.authPreview.apiKeyHeaderHint'),
       };
       return inQuery ? { headers: [], params: [entry] } : { headers: [entry], params: [] };
     }
@@ -75,13 +76,13 @@ export function previewAuthContributions(auth: AuthConfig): AuthPreviewContribut
       const entry: AuthPreviewEntry = inQuery
         ? {
             key: 'access_token',
-            value: '<access token>',
-            hint: 'Generated from the Authorization tab (OAuth 2.0). The access token is appended to the request URL when the request is sent.',
+            value: t('workbench.editors.request.authPreview.accessTokenValue'),
+            hint: t('workbench.editors.request.authPreview.oauth2QueryHint'),
           }
         : {
             key: 'Authorization',
-            value: 'Bearer <access token>',
-            hint: 'Generated from the Authorization tab (OAuth 2.0). The access token is added to this header when the request is sent.',
+            value: t('workbench.editors.request.authPreview.bearerAccessTokenValue'),
+            hint: t('workbench.editors.request.authPreview.oauth2HeaderHint'),
           };
       return inQuery ? { headers: [], params: [entry] } : { headers: [entry], params: [] };
     }

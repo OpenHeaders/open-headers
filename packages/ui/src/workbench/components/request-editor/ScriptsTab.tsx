@@ -15,11 +15,13 @@
 
 import { AlignLeftOutlined } from '@ant-design/icons';
 import type { ScriptKind } from '@openheaders/core/scripts';
+import type { MessageKey } from '@openheaders/i18n';
 import { Button, Divider, Tooltip, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { installMenuIconInjector } from '../script-editor/monaco-menu-icons';
 import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
@@ -41,41 +43,45 @@ interface ScriptsTabProps {
   onOpenPackageLibrary?: () => void;
 }
 
-const SCRIPT_INFO: Record<ScriptKind, InfoPopoverContent> = {
-  'pre-request': {
-    title: 'Pre-request script',
-    summary: 'Runs in a sandboxed iframe before the request is sent. Mutate the outgoing request with the oh API:',
-    sections: [
-      {
-        heading: 'API',
-        items: [
-          { label: 'oh.setHeader(name, value)', desc: 'add or replace a header' },
-          { label: 'oh.setQueryParam(name, value)', desc: 'add or replace a query parameter' },
-          { label: 'oh.setUrl(url)', desc: 'rewrite the target URL' },
-          { label: 'oh.setBody(body)', desc: 'replace the request body' },
-          { label: 'oh.require(name)', desc: 'load a script package from the Package Library' },
+// `oh.*` API labels are code — only the descriptions localize.
+const scriptInfo = (kind: ScriptKind, t: Translate): InfoPopoverContent =>
+  kind === 'pre-request'
+    ? {
+        title: t('workbench.editors.request.scripts.preInfoTitle'),
+        summary: t('workbench.editors.request.scripts.preInfoSummary'),
+        sections: [
+          {
+            heading: t('workbench.editors.request.scripts.apiHeading'),
+            items: [
+              { label: 'oh.setHeader(name, value)', desc: t('workbench.editors.request.scripts.apiSetHeader') },
+              {
+                label: 'oh.setQueryParam(name, value)',
+                desc: t('workbench.editors.request.scripts.apiSetQueryParam'),
+              },
+              { label: 'oh.setUrl(url)', desc: t('workbench.editors.request.scripts.apiSetUrl') },
+              { label: 'oh.setBody(body)', desc: t('workbench.editors.request.scripts.apiSetBody') },
+              { label: 'oh.require(name)', desc: t('workbench.editors.request.scripts.apiRequire') },
+            ],
+          },
         ],
-      },
-    ],
-  },
-  'post-response': {
-    title: 'Post-response script',
-    summary: 'Runs in a sandboxed iframe after the response arrives. Assertion results land in the Response panel:',
-    sections: [
-      {
-        heading: 'API',
-        items: [
-          { label: 'oh.test(name, fn)', desc: 'register an assertion' },
-          { label: 'oh.require(name)', desc: 'load a script package from the Package Library' },
+      }
+    : {
+        title: t('workbench.editors.request.scripts.postInfoTitle'),
+        summary: t('workbench.editors.request.scripts.postInfoSummary'),
+        sections: [
+          {
+            heading: t('workbench.editors.request.scripts.apiHeading'),
+            items: [
+              { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
+              { label: 'oh.require(name)', desc: t('workbench.editors.request.scripts.apiRequire') },
+            ],
+          },
         ],
-      },
-    ],
-  },
-};
+      };
 
-const SCRIPT_PLACEHOLDER: Record<ScriptKind, string> = {
-  'pre-request': 'Use JavaScript to modify this request before it is sent.',
-  'post-response': 'Use JavaScript to test and read this response after it arrives.',
+const SCRIPT_PLACEHOLDER_KEY: Record<ScriptKind, MessageKey> = {
+  'pre-request': 'workbench.editors.request.scripts.prePlaceholder',
+  'post-response': 'workbench.editors.request.scripts.postPlaceholder',
 };
 
 const ScriptsTab: React.FC<ScriptsTabProps> = ({
@@ -87,6 +93,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   onOpenPackageLibrary,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [active, setActive] = useState<ScriptKind>('pre-request');
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suggestionContext = useAutoSuggestionContext();
@@ -166,7 +173,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
         }}
       >
         <span>{label}</span>
-        <InfoTrigger content={SCRIPT_INFO[kind]} />
+        <InfoTrigger content={scriptInfo(kind, t)} />
         <span style={{ flex: 1 }} />
         {hasScript && (
           <span
@@ -196,8 +203,8 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           alignSelf: 'start',
         }}
       >
-        <Rail kind="pre-request" label="Pre-request" />
-        <Rail kind="post-response" label="Post-response" />
+        <Rail kind="pre-request" label={t('workbench.editors.request.scripts.preRequest')} />
+        <Rail kind="post-response" label={t('workbench.editors.request.scripts.postResponse')} />
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
         <CodeEditor
@@ -205,7 +212,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           value={value}
           onChange={onChange}
           minHeight={300}
-          placeholder={SCRIPT_PLACEHOLDER[active]}
+          placeholder={t(SCRIPT_PLACEHOLDER_KEY[active])}
           onEditorMount={(editor) => {
             editorRef.current = editor;
             installMenuIconInjector(editor);
@@ -356,12 +363,12 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           <Divider type="vertical" style={{ margin: 0 }} />
           <ScriptSnippetsMenu kind={active} onInsert={insertSnippet} />
           <Divider type="vertical" style={{ margin: 0 }} />
-          <Tooltip title="Format" placement="top">
+          <Tooltip title={t('workbench.editors.request.scripts.format')} placement="top">
             <Button
               size="small"
               type="text"
               icon={<AlignLeftOutlined />}
-              aria-label="Format script"
+              aria-label={t('workbench.editors.request.scripts.formatAria')}
               onClick={() => {
                 void editorRef.current?.getAction('editor.action.formatDocument')?.run();
               }}
