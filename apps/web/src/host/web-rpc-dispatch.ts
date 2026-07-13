@@ -42,9 +42,9 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   if (isForwardedRequestsChannel(type)) {
     return forwardRequestsRpc(message);
   }
-  // Workspace export/import — the read-shaped channels answer from the
+  // Workspace export/import — the whole channel family answers from the
   // tab's own oracle over the same lifted modules the extension SW and
-  // daemon spine share; `importWorkspace` refuses for now (see module).
+  // daemon spine share; imports emit local mutations that sync upstream.
   if (isExportImportChannel(type)) {
     return dispatchExportImportRpc(type, message);
   }

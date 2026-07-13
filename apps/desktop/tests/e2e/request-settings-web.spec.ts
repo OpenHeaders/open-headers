@@ -394,11 +394,13 @@ test('Clear empties the jar over the wire — the next send carries nothing', as
   expect(await responseRawBody()).toBe('cookie=[]');
 });
 
-// ── S18: in-tab workspace export/import over the tab oracle ─────────
-// The tab answers the read-shaped export/import channels itself (same
-// lifted oracle modules as the extension SW and daemon spine); the
-// import write leg REFUSES for now — the post-import reseed applies
-// inbound-origin, so an in-tab import would never reach the daemon.
+// ── In-tab workspace export/import over the tab oracle ──────────────
+// The tab answers the whole export/import channel family itself (same
+// lifted oracle modules as the extension SW and daemon spine). The
+// import write leg emits ordinary LOCAL mutations through the tab's
+// resident sync engine, so an in-tab import crosses the outbound plane
+// and lands daemon-side — asserted below by polling the daemon's own
+// MCP view until the imported probe request appears.
 
 let webEnvelope: WorkspaceExport;
 
@@ -420,7 +422,7 @@ test('in-tab exportWorkspace mints a web-stamped envelope carrying the synced re
   expect(webEnvelope.entities.vault).toBeUndefined();
 });
 
-test('the read-shaped import channels answer in-tab; the write leg refuses honestly', async () => {
+test('the read-shaped import channels answer in-tab', async () => {
   const preview = await invokeTab<{ success: boolean; diff?: unknown; targetWorkspaceId?: string; error?: string }>({
     type: 'previewWorkspaceImport',
     incoming: webEnvelope,
@@ -450,16 +452,45 @@ test('the read-shaped import channels answer in-tab; the write leg refuses hones
 
   const review = await invokeTab<{ uids: string[] }>({ type: 'getRequestScriptsReviewPending' });
   expect(review.uids).toEqual([]);
+});
 
-  const imported = await invokeTab<{ success: boolean; error?: string }>({
+test('an in-tab import syncs up the wire — the daemon sees the imported request', async () => {
+  // Mutate the exported envelope into an import that ADDS one request:
+  // clone the echo request under a fresh uid + name so the diff plans a
+  // create (the untouched entities skip as unchanged uid-collisions).
+  const echo = webEnvelope.entities.requests.find((r) => r.name === 'web: echo');
+  expect(echo).toBeTruthy();
+  const probe = { ...(echo as Record<string, unknown>), uid: 'e2e0prb1', name: 'web: imported probe' };
+  const incoming: WorkspaceExport = {
+    ...webEnvelope,
+    entities: { ...webEnvelope.entities, requests: [...webEnvelope.entities.requests, probe] },
+    meta: {
+      ...webEnvelope.meta,
+      counts: { ...webEnvelope.meta.counts, requests: webEnvelope.meta.counts.requests + 1 },
+    },
+  } as WorkspaceExport;
+
+  const imported = await invokeTab<{ success: boolean; report?: unknown; error?: string }>({
     type: 'importWorkspace',
-    incoming: webEnvelope,
+    incoming,
     strategies: {},
     target: { mode: 'current' },
-    sourceHash: 'sha256:settings-web-refusal',
+    sourceHash: 'sha256:settings-web-roundtrip',
   });
-  expect(imported.success).toBe(false);
-  expect(imported.error).toContain('not yet supported on this surface');
+  expect(imported.success, imported.error).toBe(true);
+
+  // The imported request must reach the DAEMON — its own MCP view is
+  // the authority, not the tab's stores.
+  await expect
+    .poll(
+      async () => {
+        const payload = await callTool('requests_list', {});
+        const requests = payload.requests as Array<{ name: string }>;
+        return requests.some((r) => r.name === 'web: imported probe');
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
 });
 
 test('the cipher-less tab refuses a vault-inclusive export honestly', async () => {

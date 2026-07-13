@@ -6,14 +6,12 @@
  * (export, preview, dedup matches, snapshots, script review) answer
  * in-tab.
  *
- * `importWorkspace` REFUSES on this host for now: the orchestrator's
- * post-import reseed applies with `applyOrigin: 'inbound'`, which the
- * outbound mutation plane drops — an import would land in the tab's
- * stores only, never reach the serving daemon, and a later snapshot
- * bootstrap could clobber it. Lifting the import onto ordinary local
- * mutations (core/sync-builders batches per plan entry) is its own
- * slice; until then the honest answer is a clear refusal, not a
- * silently tab-local write.
+ * `importWorkspace` answers in-tab too: the orchestrator emits plan
+ * entries as ordinary LOCAL mutation batches through the workspace's
+ * resident sync service, so imported entities cross the outbound
+ * mutation plane and reach the serving daemon as the authenticated
+ * user's own edits — not a tab-local write a later snapshot bootstrap
+ * could clobber.
  *
  * Vault posture: this host has no at-rest cipher — the vault slot
  * reads as absent and refuses writes. Rather than ship a silently
@@ -35,7 +33,11 @@ import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { type ExportGatherScope, gatherWorkspaceExport } from '@openheaders/oracle/workspace/export-gatherer';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { findExportImportMatches } from '@openheaders/oracle/workspace/import-dedup';
-import { type ImportWorkspaceArgs, previewWorkspaceImport } from '@openheaders/oracle/workspace/import-orchestrator';
+import {
+  importWorkspace,
+  type ImportWorkspaceArgs,
+  previewWorkspaceImport,
+} from '@openheaders/oracle/workspace/import-orchestrator';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 
 const NO_VAULT_EXPORT_ERROR =
@@ -44,9 +46,6 @@ const NO_VAULT_EXPORT_ERROR =
 const NO_VAULT_IMPORT_ERROR =
   'This surface has no vault storage and cannot import vault secrets. ' +
   'Import a vault-free export here, or run this import in the app that will hold the secrets.';
-const NO_IMPORT_ERROR =
-  'Importing is not yet supported on this surface — the imported entities would not reach the ' +
-  'connected backend. Run this import in the app that hosts the workspace.';
 
 const EXPORT_IMPORT_CHANNELS = [
   'exportWorkspace',
@@ -121,7 +120,27 @@ export async function dispatchExportImportRpc(
     }
   }
   if (type === 'importWorkspace') {
-    return { success: false, error: NO_IMPORT_ERROR };
+    try {
+      const incoming = message.incoming as ImportWorkspaceArgs['incoming'];
+      if (carriesVaultSecrets(incoming)) {
+        return { success: false, error: NO_VAULT_IMPORT_ERROR };
+      }
+      const res = await importWorkspace({
+        incoming,
+        strategies: message.strategies as ImportWorkspaceArgs['strategies'],
+        backupRestore: message.backupRestore as boolean | undefined,
+        trustExport: message.trustExport as boolean | undefined,
+        stripScripts: message.stripScripts as boolean | undefined,
+        omitOAuthConfigs: message.omitOAuthConfigs as boolean | undefined,
+        keepTargetCollectionOrder: message.keepTargetCollectionOrder as boolean | undefined,
+        refuseUidCollision: message.refuseUidCollision as boolean | undefined,
+        target: message.target as ImportWorkspaceArgs['target'],
+        sourceHash: message.sourceHash as string,
+      });
+      return { success: true, report: res.report, targetWorkspaceId: res.targetWorkspaceId };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   }
   if (type === 'getLastImportedSnapshots') {
     try {
