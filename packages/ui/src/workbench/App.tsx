@@ -40,6 +40,7 @@ import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { hostBridge } from '@openheaders/core/bridge';
+import type { PostmanImportSummary } from '@openheaders/core/import';
 import type { InputRef } from 'antd';
 import { App as AntApp, theme } from 'antd';
 import type React from 'react';
@@ -64,6 +65,7 @@ import CommandPalette from './components/shell/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/shell/EditorGroupRenderer';
 import EmptyState, { type VariableCreateScope } from './components/shell/EmptyState';
 import { viewActivityEntity } from './components/panels/activity-view-router';
+import MigrationReportModal from './components/import/MigrationReportModal';
 import SaveToCollectionModal from './components/save/SaveToCollectionModal';
 import ShellLayout from './components/shell/ShellLayout';
 import type { SidebarView } from './components/sidebar/types';
@@ -114,7 +116,7 @@ import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
-import { useAppUpdateTask } from '@openheaders/ui/shared/background-tasks';
+import { useAppUpdateTask, useMigrationPullTask } from '@openheaders/ui/shared/background-tasks';
 import {
   AppUpdateToast,
   SecurityUpdateBanner,
@@ -596,7 +598,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           {`${targetName ?? ''}${suffix}`}
         </span>
       );
-      const doSwitch = async (): Promise<void> => {
+      const doSwitch = async (): Promise<boolean> => {
         // Switch this tab's binding — the slice update flows through to
         // the URL via `useUrlWorkspaceBindingMirror`. ACTIVE is a
         // separate axis: only written when the caller opts in via
@@ -609,28 +611,49 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         }
         if (opts?.makeActive && targetId !== workspacesApi.activeWorkspaceId) {
           const ok = await workspacesApi.setActiveWorkspace(targetId);
-          if (ok && targetName) {
-            message.success(switchedContent(' and made it active'));
-            return;
+          if (ok) {
+            if (targetName) message.success(switchedContent(' and made it active'));
+            return true;
           }
+          if (!sameBinding && targetName) message.success(switchedContent(''));
+          return false;
         }
         if (!sameBinding && targetName) message.success(switchedContent(''));
+        return true;
       };
       if (hasDirty) {
-        modal.confirm({
-          title: 'Discard unsaved drafts?',
-          content: 'Switching workspaces will close editor tabs with unsaved changes.',
-          okText: 'Switch and discard',
-          cancelText: 'Cancel',
-          okButtonProps: { danger: true },
-          onOk: doSwitch,
+        return new Promise<boolean>((resolve) => {
+          modal.confirm({
+            title: 'Discard unsaved drafts?',
+            content: 'Switching workspaces will close editor tabs with unsaved changes.',
+            okText: 'Switch and discard',
+            cancelText: 'Cancel',
+            okButtonProps: { danger: true },
+            onOk: async () => resolve(await doSwitch()),
+            onCancel: () => resolve(false),
+          });
         });
-        return;
       }
-      void doSwitch();
+      return doSwitch();
     },
     [workspacesApi, modal, message, allTabs, perTab],
   );
+
+  // ── Migration pull — background-task tenant ────────────────────
+  //
+  // The corner entry mirrors the host's pull run; its completion
+  // click-through lands the user in the landing workspace with the
+  // run's aggregated report (MIGRATION_STATUS.md S5 addendum).
+  const [migrationReportSummary, setMigrationReportSummary] = useState<PostmanImportSummary | null>(null);
+  const handleViewMigrationReport = useCallback(
+    (summary: PostmanImportSummary) => {
+      void handleSwitchWorkspace(summary.workspaceId, { makeActive: true }).then((ok) => {
+        if (ok) setMigrationReportSummary(summary);
+      });
+    },
+    [handleSwitchWorkspace],
+  );
+  useMigrationPullTask({ onViewReport: handleViewMigrationReport });
 
   const openSettings = useCallback(
     (target?: { settingKey?: string; categoryId?: string }) => {
@@ -1452,6 +1475,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onSwitchWorkspace={handleSwitchWorkspace}
             onOpenRequest={openRequestEditTab}
             dropTargetRef={shellRef}
+          />
+
+          <MigrationReportModal
+            open={migrationReportSummary !== null}
+            summary={migrationReportSummary}
+            onClose={() => setMigrationReportSummary(null)}
           />
 
           <ConnectionProvider value={{ isConnected }}>

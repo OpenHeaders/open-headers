@@ -24,7 +24,7 @@ function taskProgress(task: BackgroundTask, width?: number): React.ReactNode {
       // Indeterminate work renders as a full pulsing bar — antd has no
       // dedicated indeterminate mode.
       percent={task.percent ?? 100}
-      status="active"
+      status={task.error ? 'exception' : 'active'}
       showInfo={false}
       size="small"
       style={{ width, margin: 0, flex: width === undefined ? 1 : undefined, lineHeight: 1 }}
@@ -134,7 +134,27 @@ const BackgroundTasksIndicator: React.FC = () => {
           ) : (
             tasks.map((task) => (
               <div key={task.id} style={{ padding: '4px 0' }}>
-                <div style={{ fontSize: 13, color: token.colorText, marginBottom: 4 }}>{task.title}</div>
+                {task.onActivate ? (
+                  <button
+                    type="button"
+                    onClick={task.onActivate}
+                    style={{
+                      display: 'block',
+                      padding: 0,
+                      border: 'none',
+                      background: 'transparent',
+                      fontSize: 13,
+                      color: token.colorPrimary,
+                      cursor: 'pointer',
+                      marginBottom: 4,
+                      textAlign: 'left',
+                    }}
+                  >
+                    {task.title}
+                  </button>
+                ) : (
+                  <div style={{ fontSize: 13, color: token.colorText, marginBottom: 4 }}>{task.title}</div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {taskProgress(task)}
                   {circleClose((e) => {
@@ -171,9 +191,19 @@ const BackgroundTasksIndicator: React.FC = () => {
         {anchor ? (
           <>
             <span
+              // A settled task's title is its click-through ("view
+              // report"); the rest of the slot still toggles the panel.
+              onClick={
+                anchor.onActivate
+                  ? (e) => {
+                      e.stopPropagation();
+                      anchor.onActivate?.();
+                    }
+                  : undefined
+              }
               style={{
                 fontSize: 10,
-                color: token.colorTextSecondary,
+                color: anchor.onActivate ? token.colorPrimary : token.colorTextSecondary,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',

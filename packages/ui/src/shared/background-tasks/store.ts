@@ -19,6 +19,13 @@ export interface BackgroundTask {
   detail?: string;
   /** 0–100, or null for indeterminate. */
   percent: number | null;
+  /** Renders the progress bar in its failure state. */
+  error?: boolean;
+  /**
+   * Click-through for a settled task (e.g. "view report"). Producers
+   * must pass a stable reference — upserts compare it by identity.
+   */
+  onActivate?: () => void;
 }
 
 let tasks: readonly BackgroundTask[] = [];
@@ -37,7 +44,14 @@ export function upsertBackgroundTask(task: BackgroundTask): void {
     return;
   }
   const existing = tasks[index];
-  if (existing.title === task.title && existing.detail === task.detail && existing.percent === task.percent) return;
+  if (
+    existing.title === task.title &&
+    existing.detail === task.detail &&
+    existing.percent === task.percent &&
+    existing.error === task.error &&
+    existing.onActivate === task.onActivate
+  )
+    return;
   const next = tasks.slice();
   next[index] = task;
   commit(next);
