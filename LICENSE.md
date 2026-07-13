@@ -19,12 +19,12 @@ do not agree, do not install or use the Software.
   in a daemon deployment's user directory.
 - **Free Tier** — use of the Software without a License File, limited
   to 5 Active Users per daemon deployment.
-- **License File** — a cryptographically signed artifact issued by
-  Bithub Team that records the licensed seat count and validity period.
-- **Personal Seat License** — a License File issued to a named
+- **Individual Seat License** — a License File issued to a named
   individual (the "holder") that records the holder's email address
   and admits that individual, and only that individual, as one Active
   User in a daemon deployment that has reached its seat limit.
+- **License File** — a cryptographically signed artifact issued by
+  Bithub Team that records the licensed seat count and validity period.
 - **Seat** — the right for one Active User to be provisioned in a
   daemon deployment.
 
@@ -42,14 +42,15 @@ non-transferable, worldwide license to install and use the Software:
   recorded in your License File, for the validity period it records.
   Payment covers Seats; a paid subscription is never required to use
   any capability included in the Free Tier.
-- **Personal seat:** where a daemon deployment has reached its seat
-  limit, a Personal Seat License admits its holder as one additional
-  Active User of that deployment. A Personal Seat License admits only
-  the individual whose email address it records, and may be redeemed
-  on **one daemon deployment at a time**. Whether a deployment accepts
-  personal seats is at its operator's discretion. If a Personal Seat
-  License lapses, Section 3 applies: the holder is never removed from
-  a deployment they were already admitted to.
+- **Individual seat:** where a daemon deployment has reached its seat
+  limit, an Individual Seat License admits its holder as one
+  additional Active User of that deployment. An Individual Seat
+  License admits only the individual whose email address it records,
+  and may be redeemed on **one daemon deployment at a time**. Whether
+  a deployment accepts individual seats is at its operator's
+  discretion. If an Individual Seat License lapses, Section 3 applies:
+  the holder is never removed from a deployment they were already
+  admitted to.
 
 ## 3. License Files, verification, and lapse
 
