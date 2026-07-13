@@ -26,13 +26,21 @@
 
 import { CheckOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
-import type { ConsoleEntry, ConsoleLevel, ConsoleStackFrame } from '@openheaders/core/console-stream';
+import type { ConsoleEntry, ConsoleStackFrame } from '@openheaders/core/console-stream';
 import type { JsContext } from '@openheaders/core/js-contexts';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { resolveContextSelection } from '../data/console-context-selector';
+import { resolveContextSelection, topContextKey } from '../data/console-context-selector';
+import {
+  DEFAULT_LEVELS,
+  isCustomLevels,
+  LEVEL_MENU_ITEMS,
+  levelMenuLabel,
+  passesLevelMask,
+} from '../data/console-levels';
+import { noteTopContext, setConsolePrefs, useConsolePrefs } from '../data/console-prefs';
 import type { ConsoleRequestJoin } from '../data/console-request-join';
 import {
   frameKey,
@@ -45,7 +53,8 @@ import { formatClock } from '../data/timing/format-time';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
 import { ConsoleContextSelector } from './ConsoleContextSelector';
 import { ConsolePrompt } from './ConsolePrompt';
-import { IconClear, IconCollapseAll, IconExpandAll } from './toolbar-icons';
+import { IconClear, IconCollapseAll, IconExpandAll, IconGear } from './toolbar-icons';
+import { ToolbarMenuPopover } from './ToolbarMenuPopover';
 
 interface ConsoleViewProps {
   entries: readonly ConsoleEntry[];
@@ -58,21 +67,6 @@ interface ConsoleViewProps {
   /** Client-local clear — empties the view, leaves the engine log intact. */
   onClear: () => void;
   onHide: () => void;
-}
-
-type LevelFilter = 'all' | 'warnings' | 'errors';
-
-const LEVEL_FILTERS: ReadonlyArray<{ value: LevelFilter; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'warnings', label: 'Warnings' },
-  { value: 'errors', label: 'Errors' },
-];
-
-/** Severity-threshold level filter: "Warnings" keeps warnings *and* errors. */
-function passesLevel(level: ConsoleLevel, filter: LevelFilter): boolean {
-  if (filter === 'all') return true;
-  if (filter === 'errors') return level === 'error';
-  return level === 'warning' || level === 'error';
 }
 
 /**
@@ -199,19 +193,21 @@ function buildRow(entry: ConsoleEntry, entryIndex: number, resolveRequest: Conso
 }
 
 export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick, onClear, onHide }: ConsoleViewProps) {
-  const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
   const [textFilter, setTextFilter] = useState('');
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
   const { hasCdpCapability, cdpEnabled, cdpOwned } = useInspectedTabCdp();
   const [, setCdpEnabled] = useSetting('inspection.cdpEnabled');
 
+  // Console settings + level mask live in a panel-session store (the view
+  // unmounts on tool-window switches; the settings must not reset with it).
+  const prefs = useConsolePrefs();
+
   // Context selection (Phase C): an explicit pick holds while its context is
   // live, then falls back to `top` (navigation clears the picked context, so
   // the browser's reset-on-nav comes for free). Selection drives evaluation
   // (Phase D) and the highlight; hiding other contexts' rows is the separate
-  // "Selected context only" toggle in the `⋯` menu.
+  // "Selected context only" toggle in the settings pane.
   const [pickedContextKey, setPickedContextKey] = useState<string | null>(null);
-  const [selectedContextOnly, setSelectedContextOnly] = useState(false);
   const effectiveContextKey = resolveContextSelection(contexts, pickedContextKey);
   useEffect(() => {
     // Drop a pick whose context died so the next explicit pick starts clean.
@@ -220,20 +216,35 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
     }
   }, [contexts, pickedContextKey]);
 
+  // Preserve-log semantics: a recreated `top` context is a navigation —
+  // without "Preserve log" the view cuts to the entries arriving from there.
+  // A shrinking buffer (client-local Clear) re-bases the cutoff.
+  const topKey = topContextKey(contexts);
+  useEffect(() => {
+    noteTopContext(topKey, entries.length);
+  }, [topKey, entries.length]);
+  useEffect(() => {
+    if (entries.length < prefs.cutoff) setConsolePrefs({ cutoff: entries.length });
+  }, [entries.length, prefs.cutoff]);
+  const cutoff = Math.min(prefs.cutoff, entries.length);
+
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const rows = useMemo<ConsoleRow[]>(() => {
     const needle = textFilter.trim().toLowerCase();
     const result: ConsoleRow[] = [];
-    for (let i = 0; i < entries.length; i++) {
+    for (let i = cutoff; i < entries.length; i++) {
       const entry = entries[i];
-      if (!passesLevel(entry.level, levelFilter)) continue;
+      if (!passesLevelMask(entry.level, prefs.levels)) continue;
+      // "Hide network" hides the browser's own network log entries (failed /
+      // blocked requests) — the page's console.* output always stays.
+      if (prefs.hideNetwork && entry.source === 'browser' && entry.category === 'network') continue;
       // "Selected context only" hides rows from other contexts by their
       // `contextKey` join; entries with no key (browser-plane log entries,
       // pre-upgrade backlog) are never hidden.
       if (
-        selectedContextOnly &&
+        prefs.selectedContextOnly &&
         effectiveContextKey !== null &&
         entry.contextKey !== undefined &&
         entry.contextKey !== effectiveContextKey
@@ -251,7 +262,16 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
       result.push(row);
     }
     return result;
-  }, [entries, levelFilter, textFilter, resolveRequest, selectedContextOnly, effectiveContextKey]);
+  }, [
+    entries,
+    cutoff,
+    prefs.levels,
+    prefs.hideNetwork,
+    prefs.selectedContextOnly,
+    textFilter,
+    resolveRequest,
+    effectiveContextKey,
+  ]);
 
   // Source-map resolution over every distinct frame the visible rows carry —
   // the same cache + host fetcher the Network call-stack view uses, so
@@ -313,18 +333,6 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
     <div className="dt-panel">
       <PanelHeader
         wiring={wiring}
-        optionsMenuItems={[
-          {
-            key: 'selected-context-only',
-            label: (
-              <span className="dt-console-option-toggle" data-active={selectedContextOnly}>
-                Selected context only
-                {selectedContextOnly && <CheckOutlined />}
-              </span>
-            ),
-            onClick: () => setSelectedContextOnly((prev) => !prev),
-          },
-        ]}
         title={
           <div className="dt-header-filter-row">
             <strong className="dt-header-panel-name">Console</strong>
@@ -363,22 +371,84 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
               onChange={(e) => setTextFilter(e.target.value)}
             />
             <div className="dt-filter-separator" />
-            <div className="dt-filter-pills">
-              {LEVEL_FILTERS.map((f) => (
+            <span
+              className={`dt-console-levels${isCustomLevels(prefs.levels) ? ' dt-console-levels--warn' : ''}`}
+              title={`Log level: ${levelMenuLabel(prefs.levels)}`}
+            >
+              <ToolbarMenuPopover
+                label={levelMenuLabel(prefs.levels)}
+                activeCount={0}
+                active={false}
+                placement="bottomRight"
+                menuClassName="dt-console-levels-menu"
+              >
                 <button
-                  key={f.value}
                   type="button"
-                  className="dt-filter-pill"
-                  data-active={levelFilter === f.value}
-                  onClick={() => setLevelFilter(f.value)}
+                  className="dt-sortmode-item dt-console-levels-item"
+                  onClick={() => setConsolePrefs({ levels: DEFAULT_LEVELS })}
                 >
-                  {f.label}
+                  <span className="dt-console-levels-check" aria-hidden="true" />
+                  <div className="dt-sortmode-item-title">Default</div>
                 </button>
-              ))}
-            </div>
+                <div className="dt-console-levels-sep" />
+                {LEVEL_MENU_ITEMS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="dt-sortmode-item dt-console-levels-item"
+                    onClick={() => setConsolePrefs({ levels: { ...prefs.levels, [key]: !prefs.levels[key] } })}
+                  >
+                    <span className="dt-console-levels-check" aria-hidden="true">
+                      {prefs.levels[key] && <CheckOutlined />}
+                    </span>
+                    <div className="dt-sortmode-item-title">{label}</div>
+                  </button>
+                ))}
+              </ToolbarMenuPopover>
+            </span>
+            <div className="dt-filter-separator" />
+            <button
+              type="button"
+              className="dt-toolbar-icon"
+              data-active={prefs.settingsOpen}
+              onClick={() => setConsolePrefs({ settingsOpen: !prefs.settingsOpen })}
+              title="Console settings"
+              aria-label="Console settings"
+            >
+              <IconGear />
+            </button>
           </div>
         }
       />
+
+      {prefs.settingsOpen && (
+        <div className="dt-console-settings-pane" role="group" aria-label="Console settings">
+          <label className="dt-console-setting" title="Hide the browser's network log entries (failed and blocked requests)">
+            <input
+              type="checkbox"
+              checked={prefs.hideNetwork}
+              onChange={(e) => setConsolePrefs({ hideNetwork: e.target.checked })}
+            />
+            Hide network
+          </label>
+          <label className="dt-console-setting" title="Do not clear the log on navigation">
+            <input
+              type="checkbox"
+              checked={prefs.preserveLog}
+              onChange={(e) => setConsolePrefs({ preserveLog: e.target.checked })}
+            />
+            Preserve log
+          </label>
+          <label className="dt-console-setting" title="Only show messages from the selected context">
+            <input
+              type="checkbox"
+              checked={prefs.selectedContextOnly}
+              onChange={(e) => setConsolePrefs({ selectedContextOnly: e.target.checked })}
+            />
+            Selected context only
+          </label>
+        </div>
+      )}
 
       <div className="dt-console-body" ref={bodyRef} onScroll={onScroll}>
         {entries.length === 0 ? (

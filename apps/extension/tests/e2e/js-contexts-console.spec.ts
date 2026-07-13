@@ -221,9 +221,11 @@ test('"Selected context only" hides other contexts\' rows and restores on toggle
   await contextsPage.evaluate((t) => window.ohContexts.logAll(t), tag);
   await expect(rowsWithText(tag)).toHaveCount(5, { timeout: 15_000 });
 
+  // The toggle lives in the Console settings pane behind the gear; the pane
+  // stays open across toggles, so open it once and click the checkbox.
+  await panelPage.getByRole('button', { name: 'Console settings' }).click();
   const toggle = async (): Promise<void> => {
-    await panelPage.getByRole('button', { name: 'Panel options' }).click();
-    await panelPage.locator('.dt-console-option-toggle').filter({ visible: true }).click();
+    await panelPage.getByRole('checkbox', { name: 'Selected context only' }).click();
   };
 
   // top selected → only the top-context row with this tag survives.

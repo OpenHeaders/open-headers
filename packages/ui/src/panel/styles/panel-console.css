@@ -235,23 +235,100 @@ button.dt-console-caret:hover {
   background: color-mix(in srgb, var(--dt-status-orange) 12%, transparent);
 }
 
-.dt-console-context-item[data-depth='1'] {
-  padding-left: 24px;
+/* Menu rows mirror the browser's picker: uniform two-line rows (title over
+   a dimmed subtitle), depth indent inline (8px + 15px per hop), a hover
+   highlight with the browser's rounded accent outline, and the check on
+   the selected row. */
+.dt-console-context-menu .dt-console-context-item {
+  align-items: center;
+  min-height: 30px;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
-.dt-console-context-item[data-depth='2'] {
-  padding-left: 40px;
+.dt-console-context-menu .dt-console-context-item .dt-sortmode-item-title {
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* The `⋯` menu's check-toggle row ("Selected context only"). */
-.dt-console-option-toggle {
+.dt-console-context-menu .dt-console-context-item .dt-sortmode-item-subtitle {
+  margin-top: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-console-context-menu .dt-console-context-item:hover {
+  background: var(--dt-row-hover);
+  outline: 1.5px solid var(--dt-link);
+  outline-offset: -1.5px;
+  border-radius: 3px;
+}
+
+/* ── Level filter menu — the browser's "Default levels ▾" ────────────
+   One dropdown replaces the severity pills: a "Default" reset row, a
+   separator, then four independent level checks. The trigger warns when
+   the mask is neither all nor default (custom filtering in effect). */
+.dt-console-levels--warn .dt-toolbar-dropdown {
+  color: var(--dt-status-orange);
+  background: color-mix(in srgb, var(--dt-status-orange) 12%, transparent);
+}
+
+.dt-console-levels-item {
+  align-items: center;
+  gap: 6px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.dt-console-levels-item .dt-sortmode-item-title {
+  font-weight: 400;
+}
+
+/* Fixed check slot before the label so all rows align (the browser's
+   context-menu checkbox column). */
+.dt-console-levels-check {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  flex: 0 0 14px;
+  color: var(--dt-text);
+  font-size: 10px;
 }
 
-.dt-console-option-toggle .anticon {
+.dt-console-levels-sep {
+  height: 1px;
+  margin: 3px 0;
+  background: var(--dt-border);
+}
+
+/* ── Console settings pane — the gear's inline pane under the toolbar
+   (the browser's console-settings surface: wrapped checkbox columns). */
+.dt-console-settings-pane {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 24px;
+  row-gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--dt-border);
   font-size: 11px;
+}
+
+.dt-console-setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dt-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-console-setting input[type='checkbox'] {
+  margin: 0;
+  accent-color: var(--dt-link);
 }
 
 /* ── REPL prompt + echo rows (JS contexts Phase D) ───────────────────

@@ -37,7 +37,13 @@ export function ConsoleContextSelector({ contexts, effectiveKey, onSelect }: Con
       className={`dt-console-context${warn ? ' dt-console-context--warn' : ''}`}
       title="JavaScript context — where console commands evaluate"
     >
-      <ToolbarMenuPopover label={truncateLabel(effective.label)} activeCount={0} active={false} placement="bottomLeft">
+      <ToolbarMenuPopover
+        label={truncateLabel(effective.label)}
+        activeCount={0}
+        active={false}
+        placement="bottomLeft"
+        menuClassName="dt-console-context-menu"
+      >
         {rows.map((row) => (
           <ContextRowView
             key={row.context.contextKey}
@@ -71,6 +77,8 @@ function ContextRowView({
       type="button"
       className="dt-sortmode-item dt-console-context-item"
       data-depth={row.depth}
+      // The browser's indent ladder: 8px base + 15px per frame/world hop.
+      style={{ paddingLeft: 8 + row.depth * 15 }}
       onClick={() => onSelect(row.context.contextKey)}
     >
       <div className="dt-sortmode-item-body">

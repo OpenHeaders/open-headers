@@ -31,6 +31,22 @@ export function IconExpandAll() {
   );
 }
 
+/** Settings gear — the browser's console-settings toggle. */
+export function IconGear() {
+  return (
+    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+      <circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6 11 5M5 11l-1.4 1.4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** Collapse-all: center bars with arrows pressing inward from both ends. */
 export function IconCollapseAll() {
   return (

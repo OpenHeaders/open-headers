@@ -61,6 +61,7 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
 import type { HostNavigation } from '@openheaders/core/navigation';
 import { setHostNavigation } from '@openheaders/core/navigation';
 import { ConsoleView } from '@openheaders/ui/panel/components/ConsoleView';
+import { resetConsolePrefs } from '@openheaders/ui/panel/data/console-prefs';
 import type { ConsoleRequestJoin } from '@openheaders/ui/panel/data/console-request-join';
 
 function installNavigation(
@@ -128,6 +129,7 @@ beforeEach(() => {
   mockScope.cdpOwned = true;
   setCdpEnabledSpy.mockClear();
   resolvedFramesMock.map.clear();
+  resetConsolePrefs();
 });
 
 afterEach(cleanup);
@@ -151,18 +153,42 @@ describe('ConsoleView list', () => {
     expect(container.querySelector('.dt-console-loc')?.textContent).toBe('app.js:42');
   });
 
-  it('filters to errors only', () => {
+  it('level mask: toggling Info off keeps warnings + errors and reads "Custom levels"', () => {
     const { container } = renderView(entries);
-    fireEvent.click(screen.getByText('Errors'));
+    fireEvent.click(screen.getByText('Default levels'));
+    fireEvent.click(screen.getByText('Info'));
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(2);
+    expect(screen.getByText('Custom levels')).toBeTruthy();
+  });
+
+  it('level mask: exactly one level on collapses the trigger to "{Level} only"', () => {
+    const { container } = renderView(entries);
+    fireEvent.click(screen.getByText('Default levels'));
+    fireEvent.click(screen.getByText('Info'));
+    fireEvent.click(screen.getByText('Warnings'));
     const rows = container.querySelectorAll('.dt-console-row');
     expect(rows).toHaveLength(1);
     expect(rows[0].getAttribute('data-level')).toBe('error');
+    expect(screen.getByText('Errors only')).toBeTruthy();
   });
 
-  it('warnings filter keeps warnings and errors', () => {
+  it('level mask: debug entries hide by default and show once Verbose is on ("All levels")', () => {
+    const { container } = renderView([...entries, entry('a verbose line', { level: 'debug' })]);
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(3);
+    fireEvent.click(screen.getByText('Default levels'));
+    fireEvent.click(screen.getByText('Verbose'));
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(4);
+    expect(screen.getByText('All levels')).toBeTruthy();
+  });
+
+  it('level mask: the Default row resets a custom mask', () => {
     const { container } = renderView(entries);
-    fireEvent.click(screen.getByText('Warnings'));
-    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(2);
+    fireEvent.click(screen.getByText('Default levels'));
+    fireEvent.click(screen.getByText('Info'));
+    expect(screen.getByText('Custom levels')).toBeTruthy();
+    fireEvent.click(screen.getByText('Default'));
+    expect(screen.getByText('Default levels')).toBeTruthy();
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(3);
   });
 
   it('text filter narrows by message content', () => {
@@ -399,8 +425,8 @@ describe('ConsoleView context selector + "Selected context only" (JS contexts Ph
     );
     expect(screen.getByText('from iframe')).toBeTruthy();
 
-    fireEvent.click(screen.getByLabelText('Panel options'));
-    fireEvent.click(screen.getByText('Selected context only'));
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    fireEvent.click(screen.getByLabelText('Selected context only'));
 
     expect(screen.getByText('from top')).toBeTruthy();
     expect(screen.queryByText('from iframe')).toBeNull();
@@ -427,6 +453,89 @@ describe('ConsoleView context selector + "Selected context only" (JS contexts Ph
     );
     expect(depths).toEqual(['0', '1', '1', '0']);
     expect(screen.getByText('Open Headers')).toBeTruthy();
+  });
+});
+
+describe('ConsoleView settings pane (gear)', () => {
+  it('the gear toggles the inline settings pane', () => {
+    renderView([]);
+    expect(screen.queryByRole('group', { name: 'Console settings' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    expect(screen.getByRole('group', { name: 'Console settings' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    expect(screen.queryByRole('group', { name: 'Console settings' })).toBeNull();
+  });
+
+  it('"Hide network" hides the browser network entries but never console output', () => {
+    const { container } = renderView([
+      entry('page log'),
+      entry('Failed to load resource: net::ERR_BLOCKED_BY_CLIENT', {
+        source: 'browser',
+        category: 'network',
+        level: 'error',
+      }),
+    ]);
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    fireEvent.click(screen.getByLabelText('Hide network'));
+    const rows = container.querySelectorAll('.dt-console-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('page log');
+  });
+
+  it('a navigation (recreated top context) clears the view unless "Preserve log"', () => {
+    const TOP1 = makeContext({ contextKey: 'page::1', isTopFrame: true });
+    const TOP2 = makeContext({ contextKey: 'page::7', isTopFrame: true });
+    const before = [entry('before nav')];
+    const rerenderWith = (view: ReturnType<typeof renderView>, rows: ConsoleEntry[], contexts: JsContext[]) =>
+      view.rerender(
+        <ConsoleView
+          entries={rows}
+          contexts={contexts}
+          resolveRequest={() => null}
+          onRequestClick={vi.fn()}
+          onClear={vi.fn()}
+          onHide={vi.fn()}
+        />,
+      );
+
+    const view = renderView(before, { contexts: [TOP1] });
+    // The nav signal (top recreated) lands before the new page's output.
+    rerenderWith(view, before, [TOP2]);
+    rerenderWith(view, [...before, entry('after nav')], [TOP2]);
+    expect(screen.queryByText('before nav')).toBeNull();
+    expect(screen.getByText('after nav')).toBeTruthy();
+  });
+
+  it('"Preserve log" keeps the pre-navigation entries', () => {
+    const TOP1 = makeContext({ contextKey: 'page::1', isTopFrame: true });
+    const TOP2 = makeContext({ contextKey: 'page::7', isTopFrame: true });
+    const before = [entry('before nav')];
+    const view = renderView(before, { contexts: [TOP1] });
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    fireEvent.click(screen.getByLabelText('Preserve log'));
+    view.rerender(
+      <ConsoleView
+        entries={before}
+        contexts={[TOP2]}
+        resolveRequest={() => null}
+        onRequestClick={vi.fn()}
+        onClear={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    );
+    view.rerender(
+      <ConsoleView
+        entries={[...before, entry('after nav')]}
+        contexts={[TOP2]}
+        resolveRequest={() => null}
+        onRequestClick={vi.fn()}
+        onClear={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('before nav')).toBeTruthy();
+    expect(screen.getByText('after nav')).toBeTruthy();
   });
 });
 
