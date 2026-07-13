@@ -12,6 +12,8 @@
  *   - `priorityFrom` row (step + capture + sort).
  *   - `retry` policy row (attempts + delay + backoff + retry-on) and
  *     `timeoutMs` row (per-attempt ceiling).
+ *   - `runScripts` toggle — opt the step into running its request's
+ *     pre/post scripts under the strict chain contract.
  *   - Disabled step-type selector (Request / Foreach / Composite) — the
  *     remaining show-but-disable catalog entry, with a tooltip naming
  *     the future capability.
@@ -251,6 +253,19 @@ const WorkflowStepEditor: React.FC<Props> = ({
     onChange(nextStep);
   };
 
+  // ── runScripts helper ───────────────────────────────────────────
+  // Off deletes the field rather than persisting `false` — absent is
+  // the canonical "no scripts" state (schema default, cleaner YAML).
+  const setRunScripts = (next: boolean | undefined) => {
+    const nextStep = { ...step };
+    if (next === undefined) {
+      delete nextStep.runScripts;
+    } else {
+      nextStep.runScripts = next;
+    }
+    onChange(nextStep);
+  };
+
   const indent = dependencyRow?.indent ?? 0;
 
   const edgeColor = stepLevelError || requestError ? token.colorError : selected ? token.colorPrimary : token.colorBorderSecondary;
@@ -345,6 +360,11 @@ const WorkflowStepEditor: React.FC<Props> = ({
         {priority && (
           <Tag color="cyan" style={{ fontSize: 10, lineHeight: '18px', margin: 0 }}>
             priority: {priority.stepId}.{priority.captureName}
+          </Tag>
+        )}
+        {step.runScripts === true && (
+          <Tag color="purple" style={{ fontSize: 10, lineHeight: '18px', margin: 0 }}>
+            scripts
           </Tag>
         )}
         {onMoveUp && (
@@ -533,12 +553,14 @@ const WorkflowStepEditor: React.FC<Props> = ({
             priorityCaptureOptions,
             retry: step.retry,
             timeoutMs: step.timeoutMs,
+            runScripts: step.runScripts,
             handleDependsOnChange,
             clearExplicitDependsOn,
             handleRunIfChange,
             setPriority,
             setRetry,
             setTimeoutMs,
+            setRunScripts,
           })}
         />
       </Space>

@@ -1,13 +1,19 @@
 /**
  * Collapse sections for {@link WorkflowStepEditor} — Depends on,
- * Run condition, Priority, Retry policy, and Timeout.
+ * Run condition, Priority, Retry policy, Timeout, and Scripts.
  * Pure factory rebuilt every render (as the inline array
  * was) so state and handlers stay current — no memoization is required
  * because no renderer closes over a value that must be referentially
  * stable.
  */
 
-import { BranchesOutlined, ClockCircleOutlined, InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import {
+  BranchesOutlined,
+  ClockCircleOutlined,
+  CodeOutlined,
+  InfoCircleOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
 import type { StructuralError } from '@openheaders/core/live';
 import {
   DEFAULT_RETRY_DELAY_MS,
@@ -19,7 +25,7 @@ import {
 } from '@openheaders/core/schemas';
 import type { PriorityRef, StatusMatch, StepGate, StepRetryPolicy } from '@openheaders/core/types';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import { Button, type CollapseProps, InputNumber, Select, Space, Tooltip, Typography } from 'antd';
+import { Button, type CollapseProps, InputNumber, Select, Space, Switch, Tooltip, Typography } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import StepGateEditor from './StepGateEditor';
 
@@ -42,12 +48,14 @@ export interface WorkflowStepSectionsOptions {
   priorityCaptureOptions: { value: string; label: string }[];
   retry: StepRetryPolicy | undefined;
   timeoutMs: number | undefined;
+  runScripts: boolean | undefined;
   handleDependsOnChange: (next: string[]) => void;
   clearExplicitDependsOn: () => void;
   handleRunIfChange: (next: StepGate | undefined) => void;
   setPriority: (next: PriorityRef | undefined) => void;
   setRetry: (next: StepRetryPolicy | undefined) => void;
   setTimeoutMs: (next: number | undefined) => void;
+  setRunScripts: (next: boolean | undefined) => void;
 }
 
 // ── Retry-on encoding — the UI's picklist over the StatusMatch union ──
@@ -93,12 +101,14 @@ export function buildWorkflowStepSections({
   priorityCaptureOptions,
   retry,
   timeoutMs,
+  runScripts,
   handleDependsOnChange,
   clearExplicitDependsOn,
   handleRunIfChange,
   setPriority,
   setRetry,
   setTimeoutMs,
+  setRunScripts,
 }: WorkflowStepSectionsOptions): CollapseProps['items'] {
   const retryOnChoice = encodeRetryOn(retry?.retryOn);
   return [
@@ -429,6 +439,37 @@ export function buildWorkflowStepSections({
                 Clear
               </Button>
             )}
+          </Space>
+        </div>
+      ),
+    },
+    {
+      key: 'scripts',
+      label: (
+        <span style={{ fontSize: 11 }}>
+          <CodeOutlined style={{ marginRight: 4 }} />
+          <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
+            Scripts
+          </span>
+          <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>{runScripts === true ? '(on)' : '(off)'}</span>
+        </span>
+      ),
+      children: (
+        <div style={{ padding: '0 0 4px' }} data-testid={`wf-step-${index}-scripts`}>
+          <Space wrap size={6} style={{ width: '100%' }}>
+            <Switch
+              size="small"
+              checked={runScripts === true}
+              data-testid={`wf-step-${index}-run-scripts`}
+              aria-label="Run the request's scripts on this step"
+              onChange={(on) => setRunScripts(on ? true : undefined)}
+            />
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Run the request&apos;s pre-request / post-response scripts
+            </Text>
+            <Tooltip title="Runs on every chain attempt. Step scripts get a read-only oh.* surface (oh.sendRequest and oh.variables.set are rejected). A script error or a failed oh.test assertion fails the step, so last-good values are preserved — assertions gate what this workflow publishes. Needs a script-capable runtime; on hosts without one the step runs without scripts.">
+              <InfoCircleOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+            </Tooltip>
           </Space>
         </div>
       ),

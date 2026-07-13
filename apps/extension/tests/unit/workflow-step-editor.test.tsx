@@ -190,4 +190,35 @@ describe('WorkflowStepEditor — Phase I', () => {
     const last = onChange.mock.calls.at(-1)?.[0] as DraftStep;
     expect(last.timeoutMs).toBeUndefined();
   });
+
+  // ── Scripts section (runScripts opt-in) ─────────────────────────────
+
+  it('Scripts header summarizes (off) by default and (on) when opted in', () => {
+    renderStep(mkStep());
+    expect(screen.getByRole('button', { name: /Scripts/i }).textContent).toContain('(off)');
+    cleanup();
+    renderStep(mkStep({ runScripts: true }));
+    expect(screen.getByRole('button', { name: /Scripts/i }).textContent).toContain('(on)');
+  });
+
+  it('toggling the switch on emits runScripts: true; off removes the field', () => {
+    const { onChange } = renderStep(mkStep());
+    fireEvent.click(screen.getByRole('button', { name: /Scripts/i }));
+    fireEvent.click(screen.getByRole('switch', { name: /Run the request's scripts/i }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ runScripts: true }));
+    cleanup();
+    const optedIn = renderStep(mkStep({ runScripts: true }));
+    fireEvent.click(screen.getByRole('button', { name: /Scripts/i }));
+    fireEvent.click(screen.getByRole('switch', { name: /Run the request's scripts/i }));
+    const last = optedIn.onChange.mock.calls.at(-1)?.[0] as DraftStep;
+    expect(last.runScripts).toBeUndefined();
+  });
+
+  it('shows a `scripts` chip in the step header when opted in', () => {
+    renderStep(mkStep({ runScripts: true }));
+    expect(screen.queryByText(/^scripts$/)).not.toBeNull();
+    cleanup();
+    renderStep(mkStep());
+    expect(screen.queryByText(/^scripts$/)).toBeNull();
+  });
 });
