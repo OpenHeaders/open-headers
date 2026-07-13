@@ -137,7 +137,18 @@ export function matchedPatternFor(rule: Rule, url: string): string {
   return '';
 }
 
-/** True unless a GraphQL filter is active and the request body fails it. */
+/**
+ * True unless a GraphQL filter is active and the request body fails it.
+ *
+ * Body-size bound (intentional): the gate reads only the INLINE
+ * `event.request.postData` — never the async `getRequestPostData` read. When
+ * CDP omits the inline text for a large body (`hasPostData:true`, no
+ * `postData`), the gate sees no body and the rule passes through: a large
+ * GraphQL body is never mock/rewritten in CDP scope. Reading the full body
+ * here would make the reaction resolvers async — the pure/sync resolver
+ * contract is settled architecture, so the bound is documented rather than
+ * restructured around.
+ */
 export function graphqlGate(action: ResponseAction | RequestBodyAction, postData: string | undefined): boolean {
   if (action.resourceType !== 'graphql' || !action.graphqlFilter?.key) return true;
   return matchesGraphqlBody(postData ?? '', action.graphqlFilter);

@@ -103,6 +103,15 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
  * literal body, the real status (or override), and the merged headers. A
  * failed real request, or no longer matching rule, releases the reply
  * untouched (pass-through → `continueResponse`).
+ *
+ * First-match limitation (intentional): only `network`-source rules are
+ * re-evaluated here. When the request-stage winner was a `network`-source rule
+ * whose deferred response-header condition fails against the real reply, a
+ * `mock` rule ordered after it does NOT become the fallback — the real request
+ * was already sent at the request stage, so a later mock short-circuit is
+ * structurally precluded by the await-response model. Preferring the mock up
+ * front would need response look-ahead before committing the real request;
+ * the reply is released unmodified instead.
  */
 export function resolveResponseReaction(event: CdpRequestPaused, rules: readonly Rule[]): CdpResponseReaction {
   // A network-layer failure has no reply to fulfill from — let it surface.
