@@ -1,17 +1,19 @@
 /**
  * ResponseCookiesView — columnar grid over the raw `Set-Cookie` lines
- * the wire capture observed: one attribute per column (Domain / Path /
- * Expires / HttpOnly / Secure / SameSite), derived at consume from the
- * wire line with RFC defaults filled in explicitly (host-only Domain,
- * `/` Path, `Session` expiry). Attribute docs (shared cookie-attributes
- * corpus) ride the column headers as hover-revealed (i); each row
- * hover-copies its wire line verbatim. A persistence note above the
- * grid says honestly what the browser did with the cookies under this
- * send's credentials mode.
+ * the snapshot carries (the browser wire capture, or the header rows
+ * themselves on node runtimes): one attribute per column (Domain /
+ * Path / Expires / HttpOnly / Secure / SameSite), derived at consume
+ * from the wire line with RFC defaults filled in explicitly (host-only
+ * Domain, `/` Path, `Session` expiry). Attribute docs (shared
+ * cookie-attributes corpus) ride the column headers as hover-revealed
+ * (i); each row hover-copies its wire line verbatim. A persistence
+ * note above the grid says honestly what the runtime did with the
+ * cookies — the browser under this send's credentials mode, or the
+ * workspace cookie jar per the snapshot's own attribution.
  */
 
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
-import type { ExecutedWireCapture } from '@openheaders/core/types';
+import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { getCookieAttributeInfoContent } from '@openheaders/ui/shared/info-popover/data/cookie-attributes';
 import { Button, Typography, theme } from 'antd';
@@ -19,9 +21,10 @@ import type React from 'react';
 import { useState } from 'react';
 import {
   type CookieGridRow,
-  cookiePersistenceNote,
   hostOfUrl,
   parseSetCookieLines,
+  persistenceNoteFor,
+  setCookieLinesOf,
   toCookieGridRow,
 } from './response-cookies';
 import './response-headers.css';
@@ -125,16 +128,19 @@ function HeaderCell({ label, attrKey, first = false }: { label: string; attrKey?
   );
 }
 
-const ResponseCookiesView: React.FC<{ wire: ExecutedWireCapture; url: string }> = ({ wire, url }) => {
+const ResponseCookiesView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ response }) => {
   const { token } = theme.useToken();
-  const requestHost = hostOfUrl(url);
-  const rows = parseSetCookieLines(wire.setCookieHeaders ?? []).map((c) => toCookieGridRow(c, requestHost));
+  const requestHost = hostOfUrl(response.url);
+  const rows = parseSetCookieLines(setCookieLinesOf(response)).map((c) => toCookieGridRow(c, requestHost));
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 8 }}>
       <div style={{ padding: '6px 0' }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          {cookiePersistenceNote(wire.credentialsMode)}
+          {persistenceNoteFor(
+            response,
+            rows.map((r) => r.name),
+          )}
         </Text>
       </div>
       <div

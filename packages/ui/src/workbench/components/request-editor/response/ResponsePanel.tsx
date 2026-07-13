@@ -35,6 +35,7 @@ import ResponseEmptyState from './ResponseEmptyState';
 import ResponseErrorState from './ResponseErrorState';
 import ResponseHeadersView from './ResponseHeadersView';
 import ResponseMetaStrip from './ResponseMetaStrip';
+import { setCookieLinesOf } from './response-cookies';
 import { detectBodyLanguage } from './response-format';
 import { withWireCookieHeaders } from './response-headers';
 import { downloadBodyAsFile } from './response-save';
@@ -153,7 +154,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   const preLog = scripts?.preRequest?.consoleLog ?? [];
   const postLog = scripts?.postResponse?.consoleLog ?? [];
   const hasScriptLog = preLog.length > 0 || postLog.length > 0;
-  const setCookieCount = response?.wire?.setCookieHeaders?.length ?? 0;
+  const setCookieCount = response ? setCookieLinesOf(response).length : 0;
   // The Headers grid shows the wire-captured Set-Cookie lines too —
   // fetch strips them from the snapshot (forbidden response header),
   // but they were genuinely on the wire. Memoized: the view's
@@ -310,12 +311,12 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               label: `Headers (${headerRows.length})`,
               children: <ResponseHeadersView headers={headerRows} />,
             },
-            ...(setCookieCount > 0 && response.wire
+            ...(setCookieCount > 0
               ? [
                   {
                     key: 'cookies' as ResponseTabKey,
                     label: `Cookies (${setCookieCount})`,
-                    children: <ResponseCookiesView wire={response.wire} url={response.url} />,
+                    children: <ResponseCookiesView response={response} />,
                   },
                 ]
               : []),

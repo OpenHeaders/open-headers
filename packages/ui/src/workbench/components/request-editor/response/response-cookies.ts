@@ -1,15 +1,24 @@
 /**
- * Pure helpers for the response Cookies tab — parse raw `Set-Cookie`
- * lines (captured verbatim at the wire by the executor's wire capture)
- * into name / value / attribute rows, and word the honest persistence
- * note for the credentials mode the request ran under.
+ * Pure helpers for the response Cookies tab — locate the snapshot's raw
+ * `Set-Cookie` lines, parse them into name / value / attribute rows,
+ * and word the honest persistence note for what the runtime actually
+ * did with the cookies.
+ *
+ * The lines live in one of two places, one per runtime: browser
+ * runtimes capture them at the wire-interception layer (`fetch()`
+ * strips Set-Cookie as a forbidden response header) onto
+ * `snapshot.wire.setCookieHeaders`; node runtimes expose them directly
+ * in `snapshot.headers` (undici withholds nothing). Persistence differs
+ * the same way — the browser's cookie store under the send's
+ * credentials mode vs the opt-in workspace cookie jar, attributed by
+ * `cookiesCaptured` on the snapshot.
  *
  * Parsing is display-oriented and forgiving: the wire line is the
  * source of truth (kept as `raw`), so a malformed line still renders —
  * nothing is dropped or corrected.
  */
 
-import type { CredentialsMode } from '@openheaders/core/types';
+import type { CredentialsMode, ExecutedRequestSnapshot } from '@openheaders/core/types';
 
 export interface SetCookieAttribute {
   key: string;
@@ -47,6 +56,19 @@ export function parseSetCookieLine(raw: string): ParsedSetCookie {
 
 export function parseSetCookieLines(lines: readonly string[]): ParsedSetCookie[] {
   return lines.map(parseSetCookieLine);
+}
+
+/**
+ * The snapshot's raw `Set-Cookie` lines, wherever its runtime put them:
+ * the browser wire capture when one exists (fetch strips the header
+ * from the snapshot's list, so the capture is the only witness), else
+ * the header rows themselves (node runtimes carry the lines verbatim,
+ * one row per cookie). Empty when the response set no cookies.
+ */
+export function setCookieLinesOf(response: ExecutedRequestSnapshot): string[] {
+  const wireLines = response.wire?.setCookieHeaders;
+  if (wireLines && wireLines.length > 0) return [...wireLines];
+  return response.headers.filter((h) => h.key.toLowerCase() === 'set-cookie').map((h) => h.value);
 }
 
 /** Columnar view of one cookie, derived at consume from the raw line —
@@ -112,4 +134,38 @@ export function cookiePersistenceNote(credentialsMode: CredentialsMode): string 
     return 'This request ran with credentials included, so the browser may have stored these cookies (subject to each cookie’s own attributes) and will send them on future credentialed requests.';
   }
   return 'The server sent these cookies, but this request ran with credentials omitted (the default), so the browser discarded them — nothing was stored.';
+}
+
+/**
+ * The node-runtime counterpart: what the workspace cookie jar did,
+ * read from the snapshot's own attribution (`cookiesCaptured` — the
+ * names the jar stored across every hop of the chain), never from live
+ * jar state. `rowNames` are the cookie names visible in the grid — a
+ * captured name missing from them arrived on an intermediate redirect
+ * hop, whose Set-Cookie lines the snapshot's headers (final hop only)
+ * don't carry, and the note says so.
+ */
+export function jarPersistenceNote(
+  cookiesCaptured: readonly string[] | undefined,
+  rowNames: readonly string[],
+): string {
+  if (cookiesCaptured === undefined || cookiesCaptured.length === 0) {
+    return 'These cookies were not stored — this request ran without the cookie jar (the default), or the jar accepted none of them.';
+  }
+  const base = `This request ran with the cookie jar on, which stored ${cookiesCaptured.join(', ')} in the workspace’s in-memory jar for future jar-enabled requests.`;
+  const midChain = cookiesCaptured.some((name) => !rowNames.includes(name));
+  return midChain
+    ? `${base} Some were set on intermediate redirect hops, so their Set-Cookie lines are not listed here — only the final response’s headers are.`
+    : base;
+}
+
+/**
+ * The persistence note for a snapshot, whichever runtime produced it —
+ * a wire capture carries the browser's credentials mode; without one
+ * the send ran on a node runtime, where storage is the opt-in cookie
+ * jar attributed on the snapshot itself.
+ */
+export function persistenceNoteFor(response: ExecutedRequestSnapshot, rowNames: readonly string[]): string {
+  if (response.wire) return cookiePersistenceNote(response.wire.credentialsMode);
+  return jarPersistenceNote(response.cookiesCaptured, rowNames);
 }
