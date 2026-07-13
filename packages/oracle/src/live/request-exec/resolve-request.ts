@@ -121,7 +121,9 @@ export type OAuthRefreshFn = (auth: Extract<AuthConfig, { type: 'oauth2' }>) => 
 
 export interface ResolveRequestOptions {
   workspaceId?: string;
-  environmentId?: string;
+  /** Tri-state: string pins an env, explicit `null` resolves with no
+   *  environment, absent defers to the scope's active pointer. */
+  environmentId?: string | null;
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** Host hook to refresh an expired OAuth token before attaching it. */
   refreshOAuth?: OAuthRefreshFn;

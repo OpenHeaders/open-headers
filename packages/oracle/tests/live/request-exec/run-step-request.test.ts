@@ -6,7 +6,7 @@
  * folds auth, and gates TOTP reuse on the desktop's code path.
  */
 
-import type { Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
+import type { Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStepRequest } from '../../../src/live/request-exec/run-step-request';
 import type { RequestTransport, TransportRequest, TransportResponse } from '../../../src/live/request-exec/transport';
@@ -17,13 +17,15 @@ const wsVars = vi.fn<() => WorkspaceVariables>(() => ({ schemaVersion: 5, variab
 const vault = vi.fn<() => Vault>(() => ({ schemaVersion: 5, secrets: [] }));
 const checkCooldownMock = vi.fn(() => ({ inCooldown: false }) as { inCooldown: boolean; remainingSeconds?: number });
 const recordUsageMock = vi.fn();
+const environments = vi.fn<() => Environment[]>(() => []);
+const activeEnvironmentId = vi.fn<() => string | null>(() => null);
 
 vi.mock('../../../src/entity/environment-store', () => ({
-  getActiveEnvironmentId: () => null,
+  getActiveEnvironmentId: () => activeEnvironmentId(),
   getDefaultEnvironmentId: () => null,
   getDefaultEnvironmentIdForWorkspace: async () => null,
-  getEnvironments: () => [],
-  getEnvironmentsForWorkspace: () => [],
+  getEnvironments: () => environments(),
+  getEnvironmentsForWorkspace: () => environments(),
   getVault: () => vault(),
   getVaultForWorkspace: () => vault(),
   getWorkspaceVariables: () => wsVars(),
@@ -111,6 +113,8 @@ const opts = (transport: RequestTransport) => ({ workspaceId: 'ws-1', environmen
 beforeEach(() => {
   wsVars.mockReturnValue({ schemaVersion: 5, variables: [] });
   vault.mockReturnValue({ schemaVersion: 5, secrets: [] });
+  environments.mockReturnValue([]);
+  activeEnvironmentId.mockReturnValue(null);
   checkCooldownMock.mockReturnValue({ inCooldown: false });
   recordUsageMock.mockReset();
 });
@@ -304,6 +308,72 @@ describe('runStepRequest — unpinned (runtime-Active) run', () => {
     const { transport, sent } = captureTransport();
     await runStepRequest(makeRequest({ cookieJar: true }), unpinned(transport));
     expect(sent().cookieJarKey).toBe('ws-active');
+  });
+
+  it('defers to the active-environment pointer when environmentId is undefined', async () => {
+    environments.mockReturnValue([
+      {
+        schemaVersion: 5,
+        uid: 'env-active',
+        name: 'Active',
+        variables: [{ uid: 'v1', name: 'HOST', value: 'active.openheaders.io', type: 'default' }],
+      },
+    ]);
+    activeEnvironmentId.mockReturnValue('env-active');
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ url: 'https://{{HOST}}/ping' }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport,
+    });
+    expect(snap.error).toBeNull();
+    expect(sent().url).toBe('https://active.openheaders.io/ping');
+  });
+
+  it('an explicit null runs with NO environment even though the pointer names one', async () => {
+    environments.mockReturnValue([
+      {
+        schemaVersion: 5,
+        uid: 'env-active',
+        name: 'Active',
+        variables: [{ uid: 'v1', name: 'HOST', value: 'active.openheaders.io', type: 'default' }],
+      },
+    ]);
+    activeEnvironmentId.mockReturnValue('env-active');
+    const { transport, calls } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ url: 'https://{{HOST}}/ping' }), {
+      workspaceId: null,
+      environmentId: null,
+      transport,
+    });
+    expect(snap.error).toMatch(/unresolved variables/i);
+    expect(calls()).toBe(0);
+  });
+
+  it('an explicit environment string overrides the pointer on the unpinned run', async () => {
+    environments.mockReturnValue([
+      {
+        schemaVersion: 5,
+        uid: 'env-active',
+        name: 'Active',
+        variables: [{ uid: 'v1', name: 'HOST', value: 'active.openheaders.io', type: 'default' }],
+      },
+      {
+        schemaVersion: 5,
+        uid: 'env-other',
+        name: 'Other',
+        variables: [{ uid: 'v2', name: 'HOST', value: 'other.openheaders.io', type: 'default' }],
+      },
+    ]);
+    activeEnvironmentId.mockReturnValue('env-active');
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ url: 'https://{{HOST}}/ping' }), {
+      workspaceId: null,
+      environmentId: 'env-other',
+      transport,
+    });
+    expect(snap.error).toBeNull();
+    expect(sent().url).toBe('https://other.openheaders.io/ping');
   });
 
   it('partitions the TOTP cooldown by the runtime-Active workspace id', async () => {

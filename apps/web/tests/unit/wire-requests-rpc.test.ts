@@ -1,8 +1,9 @@
 /**
  * Workbench request channels over the wire — the forwarding seam's
  * laws: frames leave stamped with the TAB's active workspace (and, for
- * a Send, its active environment) unless the caller already scoped
- * them; a Send that the daemon refuses or a dead wire resolves as an
+ * a Send, its active environment — verbatim tri-state, so a null
+ * pointer rides as an explicit "No environment") unless the caller
+ * already scoped them; a Send that the daemon refuses or a dead wire resolves as an
  * error SNAPSHOT (`success: true` + `snapshot.error` — the response
  * panel's honest degrade), while jar-channel rejections rethrow so the
  * row hides itself; a successful round-trip passes the daemon's
@@ -59,6 +60,15 @@ describe('wire-requests-rpc', () => {
     expect(sent[0]).toMatchObject({ type: 'executeRequest', workspaceId: 'ws-tab', environmentId: 'env-tab' });
     handleWireRpcResponseFrame({ type: 'executeRequest:response', payload: { success: true, snapshot: { id: 's' } } });
     await expect(call).resolves.toEqual({ success: true, snapshot: { id: 's' } });
+  });
+
+  it('stamps a No-environment tab as an explicit null — never a silent omission', async () => {
+    h.activeEnvironmentId = null;
+    const call = forwardRequestsRpc({ type: 'executeRequest', draft: { url: 'https://api.openheaders.io/x' } });
+    await Promise.resolve();
+    expect(sent[0]).toMatchObject({ type: 'executeRequest', workspaceId: 'ws-tab', environmentId: null });
+    handleWireRpcResponseFrame({ type: 'executeRequest:response', payload: { success: true } });
+    await call;
   });
 
   it('never overrides a caller-scoped workspace or environment', async () => {

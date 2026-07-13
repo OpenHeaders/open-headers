@@ -118,8 +118,10 @@ export interface ResolvedVariable {
 /** Resolution context — determines which scopes to check. */
 export interface ResolutionContext {
   /** Override the active environment for this resolution only. When
-   *  omitted, the resolver uses its configured active environment. */
-  environmentId?: string;
+   *  omitted, the resolver uses its configured active environment;
+   *  explicit `null` resolves with NO environment (the selectable
+   *  "No environment" state) even when an active one is configured. */
+  environmentId?: string | null;
   /** Collection uid for collection-scoped variable lookup. */
   collectionId?: string;
 }

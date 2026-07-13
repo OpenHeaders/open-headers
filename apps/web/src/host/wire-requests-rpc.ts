@@ -10,8 +10,11 @@
  * the TAB's active workspace id and active environment id before the
  * frame leaves; the daemon runs unpinned when the stamped workspace
  * matches its own active one and pinned (the chain-dispatch path)
- * otherwise. A tab on "No environment" can't be encoded (`environmentId`
- * is omitted) and defers to the daemon's pointer for that workspace.
+ * otherwise. The environment stamp is verbatim tri-state: the tab's
+ * pointer is `string | null`, and `null` — the selectable "No
+ * environment" state — rides the frame explicitly so the daemon runs
+ * env-free instead of deferring to its own pointer. Only a tab that
+ * doesn't know its workspace omits both stamps (full defer).
  *
  * Degradation is per surface: a refused/failed Send resolves as an
  * error SNAPSHOT (`success: true` + `snapshot.error`, the S13 error
@@ -54,9 +57,12 @@ interface ExecuteRequestResult {
 
 async function forwardExecuteRequest(message: Record<string, unknown>): Promise<ExecuteRequestResult> {
   const stamped = { ...withWorkspaceStamp(message) };
-  if (typeof stamped.environmentId !== 'string') {
-    const environmentId = getActiveEnvironmentId();
-    if (environmentId) stamped.environmentId = environmentId;
+  // Verbatim tri-state stamp: the tab's pointer is string | null, and
+  // null (No environment) must reach the daemon explicitly. The pointer
+  // only has meaning relative to a workspace, so a frame with no
+  // workspace scope omits the env stamp too — full defer.
+  if (stamped.environmentId === undefined && typeof stamped.workspaceId === 'string') {
+    stamped.environmentId = getActiveEnvironmentId();
   }
   const draft = stamped.draft as { timeoutMs?: number } | undefined;
   const timeoutMs =

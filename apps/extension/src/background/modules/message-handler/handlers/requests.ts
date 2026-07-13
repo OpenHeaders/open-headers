@@ -160,7 +160,7 @@ export const requestHandlers: HandlerMap = {
   executeRequest: ({ message, respond }) => {
     const requestUid = message.requestUid as string | undefined;
     const draft = message.draft as Request | undefined;
-    const environmentId = message.environmentId as string | undefined;
+    const environmentId = message.environmentId as string | null | undefined;
     const exec = requestUid
       ? executeRequest(requestUid, { environmentId })
       : draft

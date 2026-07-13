@@ -503,6 +503,134 @@ test('the cipher-less tab refuses a vault-inclusive export honestly', async () =
   expect(exported.error).toContain('no vault storage');
 });
 
+// ── The environment stamp: explicit "No environment" over the wire ──
+// The tab's active-environment pointer is tab-local and null here (the
+// fresh tab never picked one) while the daemon's pointer names an env
+// that resolves {{PROBE_HOST}}. The forwarded Send must carry the tab's
+// null EXPLICITLY, so the daemon runs env-free and refuses the
+// unresolved reference — deferring to its own pointer would resolve a
+// variable the user's surface has turned off.
+
+test('a No-environment tab forces an env-free run — the daemon pointer must not resolve it', async () => {
+  // Seed the env through the TAB's `importWorkspace` (environment
+  // writes have no direct bridge RPC by design; the in-tab import's
+  // local mutations up-sync to the daemon — the path the import leg
+  // above already proves), then point the DAEMON's pointer at it.
+  const envUid = 'e2eprbe1';
+  const seeded = await invokeTab<{ success: boolean; error?: string }>({
+    type: 'importWorkspace',
+    incoming: {
+      schemaVersion: 5,
+      kind: 'workspace-export',
+      exportFormatVersion: 1,
+      exportId: 'e2e0env1',
+      exportedAt: '2026-07-13T00:00:00.000Z',
+      source: { app: 'desktop', appVersion: '0.0.0', platform: 'electron', workspaceLabel: 'Settings Web Rig' },
+      scope: 'workspace',
+      workspace: { uid: '01905000-0000-7000-8000-00000000e2e1', name: 'Settings Web Rig' },
+      entities: {
+        collections: [],
+        folders: [],
+        rules: [],
+        requests: [],
+        templates: [],
+        environments: [
+          {
+            schemaVersion: 5,
+            uid: envUid,
+            name: 'web: probe env',
+            variables: [{ uid: 'e2eprbv1', name: 'PROBE_HOST', value: '127.0.0.1', type: 'default' }],
+          },
+        ],
+        workspaceVars: { schemaVersion: 5, variables: [] },
+        liveWorkflows: [],
+        liveVariables: [],
+      },
+      meta: {
+        redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
+        counts: {
+          rules: 0,
+          requests: 0,
+          environments: 1,
+          liveWorkflows: 0,
+          liveVariables: 0,
+          templates: 0,
+          secrets: 0,
+        },
+      },
+    },
+    strategies: {},
+    target: { mode: 'current' },
+    sourceHash: 'sha256:settings-web-env-probe',
+  });
+  expect(seeded.success, seeded.error).toBe(true);
+
+  // The import emits ordinary sync mutations and may re-mint the uid
+  // (foreign-workspace envelope) — poll the daemon's own view by NAME
+  // and adopt whatever uid landed.
+  let envUidOnDaemon = '';
+  await expect
+    .poll(
+      async () => {
+        const payload = await callTool('environments_list', {});
+        const environments = payload.environments as Array<{ uid: string; name: string }>;
+        envUidOnDaemon = environments.find((e) => e.name === 'web: probe env')?.uid ?? '';
+        return envUidOnDaemon !== '';
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+
+  const { activeWorkspaceId } = await workbench.evaluate(async () => {
+    const bridge = (window as unknown as { oh: { invoke(msg: Record<string, unknown>): Promise<unknown> } }).oh;
+    return (await bridge.invoke({ type: 'getActiveWorkspaceId' })) as { activeWorkspaceId: string | null };
+  });
+  expect(activeWorkspaceId).toBeTruthy();
+  await workbench.evaluate(
+    async ({ key, value }) => {
+      const bridge = (
+        window as unknown as { oh: { storage: { set(req: { key: string; value: unknown }): Promise<unknown> } } }
+      ).oh;
+      await bridge.storage.set({ key, value });
+    },
+    { key: `oh.ws.${activeWorkspaceId}.activeEnvironmentId`, value: envUidOnDaemon },
+  );
+
+  const probeUid = await seedRequest({
+    headers: [],
+    params: [],
+    auth: { type: 'none' },
+    body: { type: 'none' },
+    name: 'web: env probe',
+    method: 'GET',
+    url: `http://{{PROBE_HOST}}:${httpRig.port}/echo`,
+  });
+
+  // Control leg first — an explicit env string on the same wire
+  // resolves and sends, proving the refusal below is the encoding's.
+  const pinned = await invokeTab<{ success: boolean; snapshot?: { error: string | null; status: number } }>({
+    type: 'executeRequest',
+    requestUid: probeUid,
+    environmentId: envUidOnDaemon,
+  });
+  expect(pinned.success).toBe(true);
+  expect(pinned.snapshot?.error).toBeNull();
+  expect(pinned.snapshot?.status).toBe(200);
+
+  // The tab's own send — no environmentId on the message, so the seam
+  // stamps the tab's null pointer as an explicit "No environment" and
+  // the daemon must refuse the unresolved reference instead of
+  // resolving it under its own pointer. (The workbench UI never fires
+  // this shape itself — Send disables on a tab-unresolvable draft —
+  // so the RPC seam is the surface under test.)
+  const none = await invokeTab<{ success: boolean; snapshot?: { error: string | null } }>({
+    type: 'executeRequest',
+    requestUid: probeUid,
+  });
+  expect(none.success).toBe(true);
+  expect(none.snapshot?.error).toContain('unresolved variables');
+});
+
 // ── Hygiene ─────────────────────────────────────────────────────────
 
 test('zero console errors across every leg', async () => {

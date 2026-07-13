@@ -8,7 +8,7 @@
  * cooldown gates, and the runtime-Active cookie-jar key stamp.
  */
 
-import type { Request, Vault } from '@openheaders/core/types';
+import type { Environment, Request, Vault } from '@openheaders/core/types';
 import type {
   RequestTransport,
   TransportRequest,
@@ -21,14 +21,17 @@ const h = vi.hoisted(() => ({
   getRequest: vi.fn((_uid: string): Request | null => null),
   checkCooldown: vi.fn(() => ({ inCooldown: false }) as { inCooldown: boolean; remainingSeconds?: number }),
   recordUsage: vi.fn(),
+  environments: vi.fn((): Environment[] => []),
+  activeEnvironmentId: vi.fn((): string | null => null),
+  environmentsForWorkspace: vi.fn((_workspaceId: string): Environment[] => []),
 }));
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
-  getActiveEnvironmentId: () => null,
+  getActiveEnvironmentId: () => h.activeEnvironmentId(),
   getDefaultEnvironmentId: () => null,
   getDefaultEnvironmentIdForWorkspace: async () => null,
-  getEnvironments: () => [],
-  getEnvironmentsForWorkspace: () => [],
+  getEnvironments: () => h.environments(),
+  getEnvironmentsForWorkspace: (workspaceId: string) => h.environmentsForWorkspace(workspaceId),
   getVault: () => h.vault(),
   getVaultForWorkspace: () => h.vault(),
   getWorkspaceVariables: () => ({ schemaVersion: 5, variables: [] }),
@@ -118,6 +121,9 @@ beforeEach(() => {
   h.vault.mockReturnValue({ schemaVersion: 5, secrets: [] });
   h.getRequest.mockReturnValue(null);
   h.checkCooldown.mockReturnValue({ inCooldown: false });
+  h.environments.mockReturnValue([]);
+  h.activeEnvironmentId.mockReturnValue(null);
+  h.environmentsForWorkspace.mockReturnValue([]);
 });
 
 describe('handleExecuteRequestRpc — draft path', () => {
@@ -202,6 +208,73 @@ describe('handleExecuteRequestRpc — workspace scoping', () => {
     );
     expect(result.success).toBe(true);
     expect(sent().cookieJarKey).toBe('ws-other');
+  });
+});
+
+describe('handleExecuteRequestRpc — environment scoping (tri-state)', () => {
+  const activeEnv: Environment = {
+    schemaVersion: 5,
+    uid: 'env-active',
+    name: 'Active',
+    variables: [{ uid: 'v1', name: 'HOST', value: 'active.openheaders.io', type: 'default' }],
+  };
+  const otherEnv: Environment = {
+    schemaVersion: 5,
+    uid: 'env-other',
+    name: 'Other',
+    variables: [{ uid: 'v2', name: 'HOST', value: 'other.openheaders.io', type: 'default' }],
+  };
+
+  it('absent environmentId defers to this host’s active-environment pointer', async () => {
+    h.environments.mockReturnValue([activeEnv, otherEnv]);
+    h.activeEnvironmentId.mockReturnValue('env-active');
+    const { transport, sent } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ url: 'https://{{HOST}}/ping' }), workspaceId: 'ws-active' },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toBeNull();
+    expect(sent().url).toBe('https://active.openheaders.io/ping');
+  });
+
+  it('an explicit environment string pins that env over the pointer', async () => {
+    h.environments.mockReturnValue([activeEnv, otherEnv]);
+    h.activeEnvironmentId.mockReturnValue('env-active');
+    const { transport, sent } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ url: 'https://{{HOST}}/ping' }), workspaceId: 'ws-active', environmentId: 'env-other' },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    expect(sent().url).toBe('https://other.openheaders.io/ping');
+  });
+
+  it('explicit null runs with NO environment — the pointer must not resolve the send', async () => {
+    h.environments.mockReturnValue([activeEnv, otherEnv]);
+    h.environmentsForWorkspace.mockReturnValue([activeEnv, otherEnv]);
+    h.activeEnvironmentId.mockReturnValue('env-active');
+    const { transport, calls } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ url: 'https://{{HOST}}/ping' }), workspaceId: 'ws-active', environmentId: null },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toMatch(/unresolved variables/i);
+    expect(calls()).toBe(0);
+  });
+
+  it('explicit null forces the pinned dispatch — per-workspace scopes, same jar key', async () => {
+    const { transport, sent } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ cookieJar: true }), workspaceId: 'ws-active', environmentId: null },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    // The per-workspace env read proves the pinned scope was built...
+    expect(h.environmentsForWorkspace).toHaveBeenCalledWith('ws-active');
+    // ...while the jar key stays the same workspace either way.
+    expect(sent().cookieJarKey).toBe('ws-active');
   });
 });
 

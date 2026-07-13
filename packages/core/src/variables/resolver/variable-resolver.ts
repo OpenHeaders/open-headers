@@ -206,6 +206,15 @@ export class VariableResolver {
   }
 
   /**
+   * Environment consulted by one resolution pass. A context override —
+   * including explicit `null`, the "No environment" state — beats the
+   * configured active pointer; only an ABSENT override defers to it.
+   */
+  private effectiveEnvironmentId(context?: ResolutionContext): string | null {
+    return context?.environmentId === undefined ? this.activeEnvironmentId : context.environmentId;
+  }
+
+  /**
    * Try to resolve `name` from a single environment by uid. Returns null
    * when the env doesn't exist or doesn't carry `name`.
    */
@@ -245,7 +254,7 @@ export class VariableResolver {
     }
 
     // 2. Active environment (context-override first, then configured active).
-    const activeEnvId = context?.environmentId ?? this.activeEnvironmentId;
+    const activeEnvId = this.effectiveEnvironmentId(context);
     const fromActive = this.tryResolveFromEnv(activeEnvId, name);
     if (fromActive) return fromActive;
 
@@ -328,7 +337,7 @@ export class VariableResolver {
         return { resolved: projected };
       }
       case 'environment': {
-        const activeEnvId = context?.environmentId ?? this.activeEnvironmentId;
+        const activeEnvId = this.effectiveEnvironmentId(context);
         const fromActive = this.tryResolveFromEnv(activeEnvId, name);
         if (fromActive) return { resolved: fromActive };
         if (this.defaultEnvironmentId && this.defaultEnvironmentId !== activeEnvId) {
@@ -465,7 +474,7 @@ export class VariableResolver {
       (name) => this.resolve(name, context),
       (name, ns) => this.resolveScopedWithDiagnostics(name, ns, context),
       {
-        activeEnvironmentId: context?.environmentId ?? this.activeEnvironmentId,
+        activeEnvironmentId: this.effectiveEnvironmentId(context),
         defaultEnvironmentId: this.defaultEnvironmentId,
       },
     );
@@ -479,7 +488,7 @@ export class VariableResolver {
    */
   getEnvSnapshot(context?: ResolutionContext): ResolutionEnvSnapshot {
     return {
-      activeEnvironmentId: context?.environmentId ?? this.activeEnvironmentId,
+      activeEnvironmentId: this.effectiveEnvironmentId(context),
       defaultEnvironmentId: this.defaultEnvironmentId,
     };
   }

@@ -22,6 +22,15 @@
  * A forwarded send stamped with a DIFFERENT workspace runs pinned, the
  * chain-dispatch path: explicit env, per-workspace scopes, and the
  * documented `{{live.*}}` degradation under a null env.
+ *
+ * `environmentId` is tri-state on the channel: absent defers to this
+ * host's pointer (the unpinned run's mirrors carry it), a string pins
+ * that env, and explicit `null` is the caller's "No environment" state.
+ * An explicit none forces the PINNED dispatch even for the active
+ * workspace — the Active mirrors ARE the state the caller turned off
+ * (their live registry keys `{{live.*}}` rows on this host's active
+ * env), while the pinned scope resolves env-free with the
+ * `(workspace, null)` live mirror, exactly the caller's own view.
  */
 
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
@@ -57,10 +66,15 @@ export async function handleExecuteRequestRpc(
 ): Promise<ExecuteRequestRpcResult> {
   const requestUid = typeof message.requestUid === 'string' ? message.requestUid : undefined;
   const draft = message.draft as Request | undefined;
-  const environmentId = typeof message.environmentId === 'string' ? message.environmentId : null;
+  const environmentId =
+    typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
   const requestedWorkspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
   const workspaceId =
-    requestedWorkspaceId !== undefined && requestedWorkspaceId !== getActiveWorkspaceId() ? requestedWorkspaceId : null;
+    requestedWorkspaceId !== undefined && requestedWorkspaceId !== getActiveWorkspaceId()
+      ? requestedWorkspaceId
+      : environmentId === null
+        ? getActiveWorkspaceId()
+        : null;
 
   let request: Request | undefined;
   if (requestUid) {

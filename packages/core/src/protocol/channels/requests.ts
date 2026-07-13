@@ -118,12 +118,19 @@ export interface RequestRpc {
    * hosts resolve against it (pinned when it isn't their active
    * workspace); omitted = the answering host's active workspace, the
    * in-process Send path.
+   *
+   * `environmentId` is tri-state: a string pins that environment;
+   * explicit `null` is the caller's selectable "No environment" state —
+   * the run resolves with no environment even when the answering host's
+   * own pointer names one; omitted = defer to the answering host's
+   * active-environment pointer (the in-process Send path, where caller
+   * and host share the pointer).
    */
   executeRequest: {
     req: {
       requestUid?: string;
       draft?: Request;
-      environmentId?: string;
+      environmentId?: string | null;
       workspaceId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };

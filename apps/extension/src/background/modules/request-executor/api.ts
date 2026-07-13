@@ -32,9 +32,11 @@ export interface ExecuteRequestOptions {
    * variable values and capture garbage.
    */
   workspaceId?: string;
-  /** Pin a specific environment for this execution — leave undefined
-   *  to use the workspace's active environment. */
-  environmentId?: string;
+  /** Pin a specific environment for this execution. Explicit `null` is
+   *  the "No environment" state — resolve with no env even when the
+   *  workspace's active pointer names one; leave undefined to use that
+   *  pointer. */
+  environmentId?: string | null;
   /**
    * Install a step-capture context on the resolver for the duration of
    * this execution so `{{step.<stepId>.<captureName>}}` references in

@@ -30,10 +30,13 @@ export interface RunStepRequestOptions {
    * workspace's run never reads another workspace's scopes.
    */
   workspaceId: string | null;
-  /** Env the run executes under. `null` = "No environment" on a pinned
-   *  dispatch; on an unpinned (Active-bound) run it defers to the
-   *  workspace's active-environment pointer. */
-  environmentId: string | null;
+  /** Env the run executes under. A string pins that environment.
+   *  Explicit `null` is "No environment" on BOTH dispatch kinds — the
+   *  run resolves with no env even when the unpinned Active mirrors
+   *  carry an active-environment pointer. `undefined` defers to that
+   *  pointer (meaningful only unpinned; a pinned scope carries no
+   *  pointer, so deferring degrades to none). */
+  environmentId: string | null | undefined;
   /** Captures from prior steps, installed for `{{step.<id>.<name>}}`. */
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** Host network capability. */
@@ -55,7 +58,9 @@ export async function runStepRequest(
   try {
     outcome = await resolveRequest(request, {
       workspaceId: options.workspaceId ?? undefined,
-      environmentId: options.environmentId ?? undefined,
+      // Verbatim — an explicit null (No environment) must survive to the
+      // resolution context, where it overrides the active pointer.
+      environmentId: options.environmentId,
       stepCaptures: options.stepCaptures,
       refreshOAuth: options.refreshOAuth,
     });

@@ -146,6 +146,39 @@ describe('VariableResolver', () => {
       expect(result?.value).toBe('https://prod.openheaders.io');
     });
 
+    it('an explicit null override forces "No environment" over a configured active env', () => {
+      const dev = makeEnvironment('Dev', [makeVariable('URL', 'https://dev.openheaders.io')]);
+      resolver.setEnvironments([dev]);
+      resolver.setActiveEnvironmentId(dev.uid);
+
+      expect(resolver.resolve('URL', { environmentId: null })).toBeNull();
+      // Absent override still defers to the configured active env.
+      expect(resolver.resolve('URL', {})?.value).toBe('https://dev.openheaders.io');
+    });
+
+    it('an explicit null override still resolves lower scopes and the default env', () => {
+      const dev = makeEnvironment('Dev', [makeVariable('URL', 'https://dev.openheaders.io')]);
+      const fallback = makeEnvironment('Fallback', [makeVariable('URL', 'https://fallback.openheaders.io')]);
+      resolver.setEnvironments([dev, fallback]);
+      resolver.setActiveEnvironmentId(dev.uid);
+      resolver.setDefaultEnvironmentId(fallback.uid);
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOST', 'ws.openheaders.io')]));
+
+      // Same semantics as a null active pointer: default-env fallback
+      // and lower scopes stay live under "No environment".
+      expect(resolver.resolve('URL', { environmentId: null })?.value).toBe('https://fallback.openheaders.io');
+      expect(resolver.resolve('HOST', { environmentId: null })?.scope).toBe('workspace');
+    });
+
+    it('{{env.X}} honors the explicit null override', () => {
+      const dev = makeEnvironment('Dev', [makeVariable('URL', 'https://dev.openheaders.io')]);
+      resolver.setEnvironments([dev]);
+      resolver.setActiveEnvironmentId(dev.uid);
+
+      expect(resolver.resolveScoped('URL', 'env', { environmentId: null })).toBeNull();
+      expect(resolver.resolveScoped('URL', 'env', {})?.value).toBe('https://dev.openheaders.io');
+    });
+
     it('marks secret variables correctly', () => {
       const dev = makeEnvironment('Dev', [makeVariable('API_KEY', 'sk-123', 'secret')]);
       resolver.setEnvironments([dev]);
