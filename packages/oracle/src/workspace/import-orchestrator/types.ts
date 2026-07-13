@@ -14,6 +14,12 @@ export type ImportTargetSelector =
        *  `workspace.name` when omitted. Collision suffix is applied on
        *  top of whichever name we end up with. */
       name?: string;
+      /** Org the new workspace binds to. Absent = the host's home Org
+       *  (today's behavior). A consumed (backend) Org makes the created
+       *  workspace — and the imported entities riding the emission path
+       *  — sync upstream, admitted by `workspace.create` on the
+       *  backend's peer gate. */
+      orgId?: string;
     }
   | { mode: 'picked'; workspaceId: string };
 

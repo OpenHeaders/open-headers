@@ -61,6 +61,10 @@ export async function resolveTargetWorkspace(args: ImportWorkspaceArgs): Promise
     color: args.incoming.workspace.color,
     icon: args.incoming.workspace.icon,
     kind: 'personal', // forced (design §5.5)
+    // Org choice from the modal's new-target select; absent keeps the
+    // store's default (home Org). A consumed Org's list row syncs up,
+    // gated by `workspace.create` on the backend.
+    ...(args.target.mode === 'new' && args.target.orgId ? { orgId: args.target.orgId } : {}),
   });
   return meta.id;
 }

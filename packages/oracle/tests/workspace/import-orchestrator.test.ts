@@ -695,8 +695,8 @@ describe('importWorkspace — local-mutation emission (resident sync service)', 
     expect(stored[0].conditions.map((c) => c.uid).sort()).toEqual(['cond0001', 'cond0003']);
   });
 
-  it('mode=new still lands via the storage write (no resident service for a fresh workspace)', async () => {
-    await initService();
+  it('mode=new materializes the fresh workspace service and EMITS (S25 — content must reach the wire)', async () => {
+    const { events } = await initService();
     const result = await orchestrator.importWorkspace({
       incoming: makeExport(),
       strategies: {},
@@ -704,9 +704,41 @@ describe('importWorkspace — local-mutation emission (resident sync service)', 
       sourceHash: 'sha256:emit-new',
     });
     expect(result.targetWorkspaceId).toMatch(/^ws-new-/);
+
+    // Emission replaced the wholesale storage write — the fresh
+    // workspace's content is real LOCAL mutations the outbound plane
+    // can forward, not sync-invisible storage blobs.
     const { hostStorage } = await import('@openheaders/oracle/storage');
-    expect((hostStorage.setMany as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(0);
-    expect(blobs.has(`oh.ws.${result.targetWorkspaceId}.rules`)).toBe(true);
+    expect((hostStorage.setMany as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+    expect(events.some((e) => e.envelope.body.kind === 'create' && e.applyOrigin === 'local')).toBe(true);
+
+    // The per-family cache projection persisted the new workspace's key.
+    const stored = blobs.get(`oh.ws.${result.targetWorkspaceId}.rules`) as Array<{ enabled: boolean }>;
+    expect(stored).toHaveLength(1);
+    expect(stored[0].enabled).toBe(false);
+  });
+
+  it('mode=new passes the org choice through to the workspace mint', async () => {
+    await initService();
+    const { createWorkspace } = await import('@openheaders/oracle/workspace/extension-workspace-store');
+    await orchestrator.importWorkspace({
+      incoming: makeExport(),
+      strategies: {},
+      target: { mode: 'new', orgId: '01900000-0000-7000-8000-00000000c0de' },
+      sourceHash: 'sha256:emit-new-org',
+    });
+    const calls = (createWorkspace as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.at(-1)?.[0]).toMatchObject({ orgId: '01900000-0000-7000-8000-00000000c0de' });
+
+    // Absent orgId keeps the store's own default (home Org) — the input
+    // simply omits the key.
+    await orchestrator.importWorkspace({
+      incoming: makeExport(),
+      strategies: {},
+      target: { mode: 'new' },
+      sourceHash: 'sha256:emit-new-home',
+    });
+    expect(calls.at(-1)?.[0]).not.toHaveProperty('orgId');
   });
 });
 

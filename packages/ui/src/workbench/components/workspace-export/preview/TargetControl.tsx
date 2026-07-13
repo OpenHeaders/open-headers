@@ -3,21 +3,28 @@
  * field that morphs based on the choice:
  *   - Current → no extra field
  *   - New     → editable name input (defaults to the export's
- *               workspace name, user can override)
+ *               workspace name, user can override) + an Org select when
+ *               the identity holds more than one Org (defaults to the
+ *               new-workspace Org preference; a joined Org lands the
+ *               workspace on that back-end, the home Org stays local)
  *   - Pick    → workspace dropdown
  */
 
+import { defaultNewWorkspaceOrgId, orgCatalogue } from '@openheaders/core/identity';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { WorkspaceExport } from '@openheaders/core/workspace-export';
-import { Input, Segmented, Select, Typography } from 'antd';
+import { Input, Segmented, Select, Space, Typography } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
+import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
+import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 
 const { Text } = Typography;
 
 export type ImportTargetSelection =
   | { mode: 'current' }
-  | { mode: 'new'; name?: string }
+  | { mode: 'new'; name?: string; orgId?: string }
   | { mode: 'picked'; workspaceId: string };
 
 const TargetControl: React.FC<{
@@ -40,6 +47,17 @@ const TargetControl: React.FC<{
     if (target.mode === 'new' && target.name !== undefined) setNewName(target.name);
   }, [target]);
 
+  // Org binding for the new workspace — same source of truth as the
+  // Workspace Manager's create flow: the identity's Org catalogue with
+  // the stored new-workspace preference as the default. With a single
+  // Org there is nothing to choose and `orgId` stays absent.
+  const snapshot = useIdentitySnapshot();
+  const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
+  const { prefs } = useOrgBindingPrefs();
+  const defaultOrgId = prefs.defaultNewWorkspaceOrgId ?? defaultNewWorkspaceOrgId(snapshot, null);
+  const selectedOrgId = target.mode === 'new' ? (target.orgId ?? defaultOrgId ?? undefined) : undefined;
+  const selectedOrg = catalogue.find((d) => d.id === selectedOrgId);
+
   const options = [
     { label: 'Current', value: 'current', disabled: !activeWorkspaceId },
     { label: 'New', value: 'new' },
@@ -58,7 +76,8 @@ const TargetControl: React.FC<{
         onChange={(v) => {
           const mode = v as ImportTargetSelection['mode'];
           if (mode === 'current') onChange({ mode: 'current' });
-          else if (mode === 'new') onChange({ mode: 'new', name: newName });
+          else if (mode === 'new')
+            onChange({ mode: 'new', name: newName, ...(defaultOrgId ? { orgId: defaultOrgId } : {}) });
           else onChange({ mode: 'picked', workspaceId: workspaces[0]?.id ?? '' });
         }}
         options={options}
@@ -78,17 +97,43 @@ const TargetControl: React.FC<{
         />
       )}
       {target.mode === 'new' && (
-        <Input
-          size={size}
-          value={newName}
-          placeholder={exportName}
-          onChange={(e) => {
-            const v = e.target.value;
-            setNewName(v);
-            onChange({ mode: 'new', name: v });
-          }}
-          style={{ width: 260 }}
-        />
+        <>
+          <Input
+            size={size}
+            value={newName}
+            placeholder={exportName}
+            onChange={(e) => {
+              const v = e.target.value;
+              setNewName(v);
+              onChange({ mode: 'new', name: v, ...(selectedOrgId ? { orgId: selectedOrgId } : {}) });
+            }}
+            style={{ width: 260 }}
+          />
+          {catalogue.length > 1 && (
+            <>
+              <Select
+                size={size}
+                value={selectedOrgId}
+                onChange={(orgId) => onChange({ mode: 'new', name: newName, orgId })}
+                style={{ minWidth: 180 }}
+                options={catalogue.map((descriptor) => ({
+                  value: descriptor.id,
+                  label: (
+                    <Space size={6}>
+                      <OrgIcon descriptor={descriptor} size={13} />
+                      {descriptor.name}
+                    </Space>
+                  ),
+                }))}
+              />
+              <Text type="secondary" style={{ fontSize: labelFontSize - 1 }}>
+                {selectedOrg && !selectedOrg.isHome
+                  ? `Lands on ${selectedOrg.name} and syncs to its devices`
+                  : 'Stays on this device'}
+              </Text>
+            </>
+          )}
+        </>
       )}
       {target.mode === 'picked' && (
         <Select

@@ -12,11 +12,12 @@
  * family's cache re-projects on broadcast and persists its own key, so
  * the caller skips the wholesale `setMany` when emission ran.
  *
- * Resident-only by design: a workspace without a live sync service
- * (mode `new`, a picked non-resident target, hosts without the sync
- * runtime) falls back to the caller's storage-write path — emission
- * never force-materializes a service, and a client-minted new workspace
- * is home-Org (tenancy-withheld) anyway.
+ * Resident-first: a picked non-resident target (or a host without the
+ * sync runtime) falls back to the caller's storage-write path —
+ * emission never force-materializes a service SOMEONE ELSE owns. The
+ * one exception is mode `new` (`materializeIfAbsent`): the target was
+ * created inside this import, is empty, and — when bound to a consumed
+ * Org — needs emission for its content to reach the wire at all.
  */
 
 import type { MutatorContext } from '@openheaders/core/sync';
@@ -28,6 +29,7 @@ import { logger } from '@openheaders/core/utils';
 import type { ImportPlan, LocalFolder, PlanEntry } from '@openheaders/core/workspace-export';
 import {
   acquireResidentWorkspaceService,
+  getOrCreateWorkspaceService,
   releaseWorkspaceService,
   type WorkspaceServiceState,
 } from '@openheaders/oracle/sync/service';
@@ -38,6 +40,26 @@ export interface EmitPlanArgs {
   targetWorkspaceId: string;
   plan: ImportPlan;
   target: ReadTargetResult['target'];
+  /**
+   * Build the service when none is resident — the mode-`new` path,
+   * where the target was created moments ago inside this very import
+   * and CANNOT have a service yet. The just-minted workspace is empty,
+   * so materialization is cheap and safe; emission is what lets a
+   * consumed-Org new workspace's content propagate upstream instead of
+   * landing as sync-invisible storage writes. Hosts without a sync
+   * runtime (no deps factory installed) fall back to the caller's
+   * storage-write path via the catch.
+   */
+  materializeIfAbsent?: boolean;
+}
+
+function acquireForEmission(args: EmitPlanArgs): WorkspaceServiceState | null {
+  if (!args.materializeIfAbsent) return acquireResidentWorkspaceService(args.targetWorkspaceId);
+  try {
+    return getOrCreateWorkspaceService(args.targetWorkspaceId);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -49,7 +71,7 @@ export interface EmitPlanArgs {
  * report's storage-level error slots stay the caller's concern.
  */
 export async function emitPlanAsLocalMutations(args: EmitPlanArgs): Promise<boolean> {
-  const svc = acquireResidentWorkspaceService(args.targetWorkspaceId);
+  const svc = acquireForEmission(args);
   if (!svc) return false;
   try {
     await svc.hydrated;

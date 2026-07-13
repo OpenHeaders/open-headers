@@ -144,10 +144,17 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       // broadcast, persist via the per-family caches, and cross the
       // outbound plane as the user's own edits — a client-host import
       // (web tab, extension joined to a backend) propagates upstream.
-      // Without a resident service (mode `new`, non-resident picked
-      // target, hosts without the sync runtime) fall back to the
-      // wholesale storage write below.
-      const emitted = await emitPlanAsLocalMutations({ targetWorkspaceId, plan, target });
+      // Mode `new` materializes the just-created workspace's service
+      // and emits too (S25 — a consumed-Org new workspace must reach
+      // the wire; home-Org content stays local via the tenancy gate).
+      // Without a service (non-resident picked target, hosts without
+      // the sync runtime) fall back to the wholesale storage write.
+      const emitted = await emitPlanAsLocalMutations({
+        targetWorkspaceId,
+        plan,
+        target,
+        materializeIfAbsent: targetMode === 'new',
+      });
 
       if (!emitted) {
         // Demux flattened collection / folder arrays back into the three
