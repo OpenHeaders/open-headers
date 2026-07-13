@@ -30,6 +30,16 @@ export interface NotifyScheduler {
   schedule(flush: () => void): void;
   /** Run every queued flush synchronously now and clear the queue. */
   flushNow(): void;
+  /**
+   * Optional: defer pending and newly-scheduled flushes for the next `ms`
+   * milliseconds (extends, never shortens, an active hold). A flush burst
+   * re-runs projections + renders on the main thread — the same thread a
+   * manual scroll needs for its re-window commits — so surfaces that own a
+   * scroll (the traffic table) hold flushes for a beat on each user scroll
+   * event. Data is never lost: stores stay dirty and the burst fans out
+   * when the hold expires.
+   */
+  holdFor?(ms: number): void;
 }
 
 export interface RafNotifySchedulerOptions {
@@ -72,6 +82,7 @@ export function createRafNotifyScheduler(options: RafNotifySchedulerOptions = {}
   const pending = new Set<() => void>();
   let frameHandle: number | null = null;
   let timerHandle: ReturnType<typeof setTimeout> | null = null;
+  let holdUntil = 0;
 
   const disarm = (): void => {
     if (frameHandle !== null) {
@@ -84,6 +95,8 @@ export function createRafNotifyScheduler(options: RafNotifySchedulerOptions = {}
     }
   };
 
+  const holdRemainingMs = (): number => Math.max(0, holdUntil - Date.now());
+
   const flushNow = (): void => {
     disarm();
     if (pending.size === 0) return;
@@ -94,8 +107,11 @@ export function createRafNotifyScheduler(options: RafNotifySchedulerOptions = {}
 
   const arm = (): void => {
     if (frameHandle !== null || timerHandle !== null) return;
-    if (hasRaf && preferFrameCadence()) frameHandle = requestAnimationFrame(flushNow);
-    timerHandle = setTimeout(flushNow, fallbackMs);
+    const hold = holdRemainingMs();
+    // Under an active hold the frame path stays disarmed — the burst waits
+    // out the hold on a timer, then fans out.
+    if (hold === 0 && hasRaf && preferFrameCadence()) frameHandle = requestAnimationFrame(flushNow);
+    timerHandle = setTimeout(flushNow, Math.max(fallbackMs, hold));
   };
 
   return {
@@ -104,6 +120,17 @@ export function createRafNotifyScheduler(options: RafNotifySchedulerOptions = {}
       arm();
     },
     flushNow,
+    holdFor(ms) {
+      const until = Date.now() + ms;
+      if (until <= holdUntil) return;
+      holdUntil = until;
+      // A burst armed before (or during) the hold would still fire early —
+      // re-arm it under the new deadline.
+      if (pending.size > 0) {
+        disarm();
+        arm();
+      }
+    },
   };
 }
 

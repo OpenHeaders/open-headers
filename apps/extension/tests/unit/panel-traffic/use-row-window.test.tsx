@@ -18,8 +18,9 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useRowWindow } from '@openheaders/ui/panel/components/traffic/use-row-window';
 import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import { projectPanelData } from '@openheaders/ui/panel/data/panel-data-projection';
+import { setNotifyScheduler } from '@openheaders/ui/panel/data/stores/notify-scheduler';
 import { act, renderHook } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ROW_HEIGHT_PX = 20;
 const VIEWPORT_PX = 400;
@@ -156,6 +157,25 @@ describe('useRowWindow — tail-follow under bursts', () => {
 
     stream(makeRows(150));
     expect(scroll.el.scrollTop).toBe(300); // did not snap
+  });
+
+  it('holds notify flushes on user scrolls but not on tail-follow auto-scrolls', () => {
+    const holdFor = vi.fn();
+    setNotifyScheduler({ schedule: (flush) => flush(), flushNow() {}, holdFor });
+    try {
+      // The pin effect's own scrollTop write fires an async scroll event —
+      // simulated here by the bare onScroll — which must NOT hold flushes,
+      // or a pinned live capture would throttle its own update cadence.
+      stream(makeRows(50));
+      act(() => api.result.current.onScroll());
+      expect(holdFor).not.toHaveBeenCalled();
+
+      // A genuine user scroll holds the flushes for the trailing beat.
+      scrollTo(300);
+      expect(holdFor).toHaveBeenCalledWith(150);
+    } finally {
+      setNotifyScheduler(null);
+    }
   });
 
   it('re-pins once the user scrolls back to the tail', () => {

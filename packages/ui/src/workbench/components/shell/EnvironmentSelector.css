@@ -5,33 +5,15 @@
  * surface (workbench, devpanel) picks it up without importing the
  * workbench stylesheet.
  *
- * `scrollbar-width` is gated to non-WebKit engines on purpose:
- * Chromium honors it too, but any non-auto value makes it discard the
- * `::-webkit-scrollbar` styling below and fall back to overlay
- * auto-hide scrollbars — exactly the behavior this rule exists to
- * avoid. */
+ * Standard `scrollbar-width`/`scrollbar-color` (not the webkit
+ * pseudos) so the thumb stays compositor-driven and can't lag behind
+ * the scroll when the main thread is busy. A custom color also opts
+ * out of the platform's auto-hiding overlay bar, keeping the list's
+ * scrollbar persistently visible. */
 
 .oh-env-scroll {
   overflow-y: auto;
   overscroll-behavior: none;
-}
-
-.oh-env-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-
-.oh-env-scroll::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.35);
-  border-radius: 4px;
-}
-
-.oh-env-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-@supports not selector(::-webkit-scrollbar) {
-  .oh-env-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
-  }
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
 }

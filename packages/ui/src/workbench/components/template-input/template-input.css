@@ -47,26 +47,15 @@
 
 /* Expanded (focused, multi-line) field: an always-visible vertical
  * scrollbar so the user can see/grab it the whole time they're editing —
- * styling `::-webkit-scrollbar` opts out of the platform overlay bar that
- * otherwise only appears mid-scroll. (Fields inside a `.rules-thin-
- * scrollbar` pane keep that pane's thinner reveal treatment, which wins
- * on specificity; this covers the ones outside it, e.g. the URL bar.) */
-.oh-template-input-editable--expanded::-webkit-scrollbar {
-  width: 6px;
-}
-.oh-template-input-editable--expanded::-webkit-scrollbar-track {
-  background: transparent;
-  /* Stop the track above the bottom-right resize grip — mirrors the
-   * corner a native textarea reserves for its resizer, so the thumb
-   * never runs under the grip. */
-  margin-bottom: 12px;
-}
-.oh-template-input-editable--expanded::-webkit-scrollbar-thumb {
-  background: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
-  border-radius: 4px;
-}
-.oh-template-input-editable--expanded::-webkit-scrollbar-thumb:hover {
-  background: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+ * a custom `scrollbar-color` opts out of the platform overlay bar that
+ * otherwise only appears mid-scroll. Standard properties (not the webkit
+ * pseudos) so the thumb stays compositor-driven and can't lag behind the
+ * scroll when the main thread is busy. The old webkit track kept a 12px
+ * bottom margin clear of the resize grip; standards scrollbars can't
+ * inset the track, so the thumb may touch the grip corner — cosmetic. */
+.oh-template-input-editable--expanded {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25)) transparent;
 }
 
 /* Unresolved-variable flag: a small red dot pinned to the field's right
@@ -271,22 +260,13 @@
   overscroll-behavior: none;
 }
 
-/* Always-visible list scrollbar — styling `::-webkit-scrollbar` opts out
+/* Always-visible list scrollbar — a custom `scrollbar-color` opts out
  * of the platform overlay bar, so a scrollable list advertises itself
  * instead of hiding the bar until mid-scroll. Same treatment as the
  * expanded editable above. */
-.oh-template-popover-list::-webkit-scrollbar {
-  width: 6px;
-}
-.oh-template-popover-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.oh-template-popover-list::-webkit-scrollbar-thumb {
-  background: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
-  border-radius: 4px;
-}
-.oh-template-popover-list::-webkit-scrollbar-thumb:hover {
-  background: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+.oh-template-popover-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25)) transparent;
 }
 
 .oh-template-popover-row {

@@ -700,23 +700,11 @@
 /* Always-visible scrollbar (same treatment as the View menu) — the thumb shows
  * whenever the breakdown overflows, so the cue that there's more below isn't
  * hidden until hover. The popover is portaled to <body>, outside the dock-body
- * scrollbar styling, so it carries its own; grey reads on both themes. */
-.dt-waterfall-pop::-webkit-scrollbar {
-  width: 8px;
-}
-
-.dt-waterfall-pop::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.dt-waterfall-pop::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-  border-radius: 4px;
-  transition: background-color 0.2s ease-out;
-}
-
-.dt-waterfall-pop::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.75);
+ * scrollbar styling, so it carries its own; grey reads on both themes.
+ * Standard properties so the thumb stays compositor-driven (no scroll lag). */
+.dt-waterfall-pop {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.55) transparent;
 }
 
 .dt-waterfall-pop-start {

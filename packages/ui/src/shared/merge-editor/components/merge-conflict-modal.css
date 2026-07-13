@@ -5,13 +5,13 @@
  * room around a centered modal.
  *
  * The scrollbar is styled explicitly: `overflow-y: scroll` plus a
- * styled `::-webkit-scrollbar` opts out of the platform's auto-hiding
+ * custom `scrollbar-color` opts out of the platform's auto-hiding
  * overlay bar (same rationale as the panel's `.dt-scrollbar`), and the
  * negative right margin tucks the bar into the modal body's padding so
  * it hugs the modal edge instead of overlapping the toolbar's last
- * controls. No `scrollbar-width` here — Chromium ignores the webkit
- * pseudo styling (and reverts to the auto-hiding overlay bar) when the
- * standard property is set. */
+ * controls. Standard properties (not the webkit pseudos) so the thumb
+ * stays compositor-driven and can't lag behind the scroll when the
+ * main thread is busy. */
 .oh-merge__modal-body {
   display: flex;
   flex-direction: column;
@@ -23,21 +23,6 @@
   overflow-x: hidden;
   margin-right: -18px;
   padding-right: 12px;
-}
-
-.oh-merge__modal-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.oh-merge__modal-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.oh-merge__modal-body::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-  border-radius: 3px;
-}
-
-.oh-merge__modal-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.75);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.55) transparent;
 }

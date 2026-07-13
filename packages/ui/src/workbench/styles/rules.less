@@ -693,28 +693,15 @@ body {
 // instead of only revealing the thumb mid-scroll (macOS overlay default).
 // The env selector's `.oh-env-scroll` twin lives in
 // `components/shell/EnvironmentSelector.css` so non-workbench surfaces
-// get it too. `scrollbar-width` is gated to non-WebKit engines: any
-// non-auto value makes Chromium discard the `::-webkit-scrollbar`
-// styling and fall back to overlay auto-hide scrollbars.
+// get it too. Standard `scrollbar-width`/`scrollbar-color` (not the
+// webkit pseudos) so the thumb stays compositor-driven and can't lag
+// behind the scroll when the main thread is busy; a custom color also
+// opts out of the platform's auto-hiding overlay bar.
 .oh-persistent-scroll {
   overflow-y: auto;
   overscroll-behavior: none;
-
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(128, 128, 128, 0.35);
-    border-radius: 4px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  @supports not selector(::-webkit-scrollbar) {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
-  }
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
 }
 
 .rules-sidebar-action-icon {

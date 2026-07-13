@@ -63,20 +63,12 @@
 }
 /* Always-visible styled scrollbar matching the panel's popover menus — the
  * thumb shows whenever the body overflows so the user sees there's more to
- * read, darkening on thumb hover. Grey reads on both themes. */
-.oh-info-popover-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-.oh-info-popover-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.oh-info-popover-scroll::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-  border-radius: 4px;
-  transition: background-color 0.2s ease-out;
-}
-.oh-info-popover-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.75);
+ * read. Grey reads on both themes. Standard properties (not the webkit
+ * pseudos) so the thumb stays compositor-driven and can't lag behind the
+ * scroll when the main thread is busy. */
+.oh-info-popover-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.55) transparent;
 }
 .oh-info-popover-kicker {
   font-size: 10px;

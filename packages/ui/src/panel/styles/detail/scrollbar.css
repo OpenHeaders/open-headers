@@ -1,10 +1,14 @@
 /*
  * scrollbar.css — `.dt-scrollbar`, a shared always-visible inner scrollbar.
  *
- * Styling `::-webkit-scrollbar` opts the container out of the platform's
+ * A custom `scrollbar-color` opts the container out of the platform's
  * auto-hiding overlay scrollbar, so once the content is taller than the room
  * and scrolls, the bar stays shown instead of fading out — the user can
- * always see there's more above/below.
+ * always see there's more above/below. Standard properties (not the webkit
+ * pseudos) so the thumb stays compositor-driven and can't lag behind the
+ * scroll when the main thread is busy — same rationale as the dock-body
+ * treatment in dock-layout.css. Also overrides the color that treatment
+ * inherits into dock-hosted popovers, so this bar stays visible at rest.
  *
  * Applied (via className) to the inspector's edit popovers (header rule edit,
  * cookie edit), the shared value-expander readout, the toolbar's View
@@ -13,26 +17,7 @@
  * hiding). The context-menu's hover-reveal bar (`.dt-ctx-menu-scroll`)
  * is intentionally different and stays separate.
  */
-/* Some hosts sit inside a `.rules-dock-body`, whose reveal treatment
- * (dock-layout.css) sets `scrollbar-width: thin` via wildcard and an
- * inherited `scrollbar-color` — either of which makes Chromium ignore
- * the webkit pseudos below. Explicit `auto`s opt back out. */
 .dt-scrollbar {
-  scrollbar-width: auto;
-  scrollbar-color: auto;
-}
-.dt-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.dt-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.dt-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-  border-radius: 4px;
-  transition: background-color 0.2s ease-out;
-}
-.dt-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.75);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.55) transparent;
 }

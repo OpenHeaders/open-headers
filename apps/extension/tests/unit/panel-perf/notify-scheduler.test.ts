@@ -170,6 +170,44 @@ describe('createRafNotifyScheduler', () => {
     expect(notify).toHaveBeenCalledTimes(2);
   });
 
+  it('holdFor defers a pending burst past the hold instead of the next frame', () => {
+    const scheduler = createRafNotifyScheduler({ hiddenFallbackMs: 100, preferFrameCadence: () => true });
+    const notify = vi.fn();
+
+    scheduler.schedule(notify);
+    scheduler.holdFor?.(500);
+
+    // The pre-hold frame was disarmed; a frame during the hold is a noop.
+    raf.flushFrame();
+    expect(notify).not.toHaveBeenCalled();
+
+    // The fallback timer was re-armed to outlast the hold.
+    vi.advanceTimersByTime(100);
+    expect(notify).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(400);
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('holdFor extends but never shortens an active hold', () => {
+    const scheduler = createRafNotifyScheduler({ hiddenFallbackMs: 100, preferFrameCadence: () => true });
+    const notify = vi.fn();
+
+    scheduler.schedule(notify);
+    scheduler.holdFor?.(500);
+    scheduler.holdFor?.(100); // shorter — must not cut the 500ms hold
+
+    vi.advanceTimersByTime(400);
+    expect(notify).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(100);
+    expect(notify).toHaveBeenCalledTimes(1);
+
+    // After the hold expires, scheduling returns to frame cadence.
+    scheduler.schedule(notify);
+    expect(raf.pending()).toBe(1);
+    raf.flushFrame();
+    expect(notify).toHaveBeenCalledTimes(2);
+  });
+
   it('flushNow drains the queue synchronously and cancels pending frame/timer', () => {
     const scheduler = createRafNotifyScheduler();
     const notify = vi.fn();

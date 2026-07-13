@@ -1,5 +1,6 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
+import { getNotifyScheduler } from '../../data/stores/notify-scheduler';
 
 /**
  * Row virtualization geometry. Rows are a fixed height (mirrors the
@@ -21,6 +22,19 @@ const ROW_HEIGHT_PX = 20;
 const ROW_OVERSCAN = 30;
 /** Distance from the bottom (px, ~2 rows) within which the view counts as parked at the tail. */
 const STICK_THRESHOLD_PX = 40;
+/**
+ * How long a USER scroll event holds the store notify flushes. Manual
+ * scrolling rides the compositor; the main thread only catches up via
+ * scroll events, and mid-capture those re-window renders queue behind the
+ * ingestion flush bursts — the visible symptom is rows arriving blank and
+ * painting late. Holding the flushes for a trailing beat per scroll event
+ * gives the re-window commits the whole main thread; the burst fans out
+ * right after the scroll settles. Programmatic scrolls (tail-follow,
+ * scrollToRow) never hold — they re-window synchronously in the same task,
+ * and throttling ingestion on our own tail-follow events would cap the
+ * live capture's update cadence.
+ */
+const USER_SCROLL_HOLD_MS = 150;
 
 interface RowWindow {
   start: number;
@@ -65,6 +79,10 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
   // follows the tail until the user scrolls away.
   const pinnedToBottomRef = useRef(true);
   const lastScrollTopRef = useRef(0);
+  // Set right before each of our own `scrollTop` writes; the resulting async
+  // scroll event consumes it, so only genuine user scrolls hold the notify
+  // flushes (see USER_SCROLL_HOLD_MS).
+  const programmaticScrollRef = useRef(false);
   const [rowWindow, setRowWindow] = useState<RowWindow>({ start: 0, end: 0 });
 
   const recomputeWindow = useCallback((el: HTMLDivElement, count: number) => {
@@ -85,6 +103,8 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
   const onScroll = useCallback(() => {
     const el = tableRef.current;
     if (!el) return;
+    if (programmaticScrollRef.current) programmaticScrollRef.current = false;
+    else getNotifyScheduler().holdFor?.(USER_SCROLL_HOLD_MS);
     const top = el.scrollTop;
     // Re-pin the instant the tail is reached; release only on an upward
     // move. Content growth never moves `scrollTop`, and our catch-up
@@ -109,7 +129,12 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
       // offset (centered) rather than `scrollIntoView`, which only works
       // on already-rendered rows.
       if (aboveFold || belowFold) {
+        // Flag only when the write actually moved — an unmoved scrollTop
+        // fires no event, and a stale flag would swallow the next user
+        // scroll's flush hold. The event is async, so post-write is safe.
+        const before = el.scrollTop;
         el.scrollTop = Math.max(0, rowTop - viewport / 2);
+        if (el.scrollTop !== before) programmaticScrollRef.current = true;
         recomputeWindow(el, rowsRef.current.length);
       }
     },
@@ -128,7 +153,12 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
       return;
     }
     prevCountRef.current = rows.length;
-    if (pinnedToBottomRef.current) el.scrollTop = el.scrollHeight;
+    if (pinnedToBottomRef.current) {
+      // Same moved-only flagging as scrollToRow — see the comment there.
+      const before = el.scrollTop;
+      el.scrollTop = el.scrollHeight;
+      if (el.scrollTop !== before) programmaticScrollRef.current = true;
+    }
   }, [rows.length]);
 
   // Keep the window in sync with the viewport size (panel resize, divider
