@@ -177,7 +177,24 @@ export interface RunScriptOptions {
   response?: ResponseSnapshot;
   credentialRef?: string;
   timeoutMs?: number;
+  /**
+   * Which execution surface this script runs for. `'chain'` (a Live
+   * Workflow step with `runScripts: true`) gets a READ-ONLY host API:
+   * `oh.sendRequest` and `oh.variables.set` are rejected — a scheduled
+   * background refresh must not send unmetered extra requests (no
+   * rate-limit bucket, no bypass header → DNR feedback loop) or write
+   * workspace state; the chain's sanctioned output path is captures →
+   * live variables. Default `'interactive'` = full `oh.*` surface.
+   */
+  hostContext?: 'interactive' | 'chain';
 }
+
+/** Execution ids currently running under `hostContext: 'chain'` —
+ *  consulted by the host-RPC gate below. */
+const chainExecutionIds = new Set<string>();
+
+/** Host ops rejected for chain-context executions. */
+const CHAIN_BLOCKED_OPS = new Set<ScriptHostRequest['op']>(['sendRequest', 'variables.set']);
 
 let nextExecCounter = 0;
 
@@ -209,8 +226,9 @@ export async function runScript(opts: RunScriptOptions): Promise<ScriptExecution
   inFlight += 1;
 
   const packages = listActiveScriptPackages();
+  const executionId = nextExecutionId();
   const request: ScriptExecutionRequest = {
-    executionId: nextExecutionId(),
+    executionId,
     kind: opts.kind,
     source: opts.source,
     request: opts.request,
@@ -220,10 +238,12 @@ export async function runScript(opts: RunScriptOptions): Promise<ScriptExecution
     packages: packages.length > 0 ? packages : undefined,
   };
 
+  if (opts.hostContext === 'chain') chainExecutionIds.add(executionId);
   try {
     const result = await sendExecuteToOffscreen(request);
     return result;
   } finally {
+    chainExecutionIds.delete(executionId);
     inFlight -= 1;
     if (inFlight <= 0) scheduleIdleClose();
   }
@@ -296,6 +316,15 @@ async function sendExecuteToOffscreen(request: ScriptExecutionRequest): Promise<
  */
 export async function handleScriptHostRequest(request: ScriptHostRequest): Promise<ScriptHostResponse> {
   try {
+    // Chain-context gate — see `RunScriptOptions.hostContext`.
+    if (chainExecutionIds.has(request.executionId) && CHAIN_BLOCKED_OPS.has(request.op)) {
+      const api = request.op === 'sendRequest' ? 'oh.sendRequest' : 'oh.variables.set';
+      return errorReply(
+        request.executionId,
+        request.rpcId,
+        `${api} is not available in workflow runs — step scripts are read-only (captures publish values; requests belong to steps)`,
+      );
+    }
     switch (request.op) {
       case 'variables.get':
         return okReply(request, await resolveVariableByName(request.name));

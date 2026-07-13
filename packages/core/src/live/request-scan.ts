@@ -117,9 +117,12 @@ export function collectRequestTemplateStrings(request: Request): string[] {
  * (cosmetic). Editing any of those must NOT trigger a refresh — it
  * cannot change the produced value.
  *
- * Scripts ARE included: `preRequestScript` / `postResponseScript` can
- * rewrite the request or the captured response, so they are part of
- * the recipe.
+ * Scripts ARE included: a step with `runScripts: true` executes
+ * `preRequestScript` / `postResponseScript`, which can rewrite the
+ * request or gate the captured response, so they are part of the
+ * recipe. For opted-out steps the inclusion is conservative (a script
+ * edit triggers a refresh that can't change the value) — the harmless
+ * direction, and cheaper than a per-step fingerprint.
  *
  * Keyed through `canonicalJson` so structurally-equal requests
  * serialize byte-identically regardless of object key order.

@@ -104,6 +104,7 @@ function buildFetchAdapter(workspaceId: string, workflowUid: string, environment
           stepId: step.id,
           stepCaptures,
           timeoutMs: step.timeoutMs,
+          runScripts: step.runScripts === true,
         }),
       );
 

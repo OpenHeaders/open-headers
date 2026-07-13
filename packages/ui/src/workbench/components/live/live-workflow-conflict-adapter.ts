@@ -41,7 +41,8 @@ const PATH_REFRESH_STEP_ID = 'refresh.stepId';
 const PATH_REFRESH_CAPTURE_NAME = 'refresh.captureName';
 const PATH_REFRESH_LEAD_SECONDS = 'refresh.leadSeconds';
 
-const STEP_LEAF_RE = /^steps\.([a-z0-9]{8})\.(id|description|requestUid|dependsOn|runIf|priorityFrom|retry|timeoutMs)$/;
+const STEP_LEAF_RE =
+  /^steps\.([a-z0-9]{8})\.(id|description|requestUid|dependsOn|runIf|priorityFrom|retry|timeoutMs|runScripts)$/;
 const CAPTURE_LEAF_RE = /^steps\.([a-z0-9]{8})\.captures\.([a-z0-9]{8})\.(name|extractor)$/;
 
 const STEP_SET_PATH = 'steps';
@@ -86,6 +87,8 @@ function readStepLeaf(step: WorkflowStep, leaf: string): string | null {
       return opaqueStringify(step.retry);
     case 'timeoutMs':
       return step.timeoutMs === undefined ? '' : String(step.timeoutMs);
+    case 'runScripts':
+      return step.runScripts === undefined ? '' : String(step.runScripts);
     default:
       return null;
   }
@@ -176,6 +179,7 @@ function extractBaseline(wf: LiveWorkflow): PathMap {
     out[`steps.${step.uid}.priorityFrom`] = opaqueStringify(step.priorityFrom);
     out[`steps.${step.uid}.retry`] = opaqueStringify(step.retry);
     out[`steps.${step.uid}.timeoutMs`] = step.timeoutMs === undefined ? '' : String(step.timeoutMs);
+    out[`steps.${step.uid}.runScripts`] = step.runScripts === undefined ? '' : String(step.runScripts);
     for (const capture of step.captures) {
       out[`steps.${step.uid}.captures.${capture.uid}.name`] = capture.name;
       out[`steps.${step.uid}.captures.${capture.uid}.extractor`] = opaqueStringify(capture.extractor);
@@ -289,6 +293,7 @@ const STEP_LEAF_LABEL: Record<string, string> = {
   priorityFrom: 'priorityFrom',
   retry: 'retry policy',
   timeoutMs: 'timeout',
+  runScripts: 'run scripts',
 };
 
 const CAPTURE_LEAF_LABEL: Record<string, string> = {
@@ -332,6 +337,9 @@ function writeStepLeaf(step: WorkflowStep, leaf: string, value: string): boolean
       step.timeoutMs = parsed;
       return true;
     }
+    case 'runScripts':
+      step.runScripts = value === '' ? undefined : value === 'true';
+      return true;
     default:
       return false;
   }

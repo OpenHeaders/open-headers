@@ -21,6 +21,7 @@ import { getRequestInWorkspace } from '../../entity/request-store';
 import { withRefreshRateLimit } from './rate-limiter';
 import type { OAuthRefreshFn } from './resolve-request';
 import { runStepRequest } from './run-step-request';
+import type { StepScriptRunner } from './script-hooks';
 import type { RequestTransport } from './transport';
 
 export interface ChainFetchAdapterOptions {
@@ -40,10 +41,17 @@ export interface ChainFetchAdapterOptions {
    * them. Omitted on hosts without a DNR engine.
    */
   prepareRequest?: (request: Request) => Request;
+  /**
+   * Optional host script capability. Consulted ONLY for steps with
+   * `runScripts: true`; hosts without a script sandbox (the desktop
+   * main process today) omit it and opted-in steps run scriptless,
+   * same as every other step.
+   */
+  scriptRunner?: StepScriptRunner;
 }
 
 export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): FetchAdapter {
-  const { workspaceId, environmentId, transport, refreshOAuth, prepareRequest } = options;
+  const { workspaceId, environmentId, transport, refreshOAuth, prepareRequest, scriptRunner } = options;
   return {
     async executeStep(step, stepCaptures) {
       const request = getRequestInWorkspace(step.requestUid, workspaceId);
@@ -63,6 +71,7 @@ export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): Fetch
           transport,
           refreshOAuth,
           timeoutMs: step.timeoutMs,
+          scriptRunner: step.runScripts === true ? scriptRunner : undefined,
         }),
       );
 

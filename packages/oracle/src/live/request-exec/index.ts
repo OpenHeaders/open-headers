@@ -23,6 +23,13 @@ export {
 export { buildResolver, type ResolverContext } from './resolver-scope';
 export { type RunStepRequestOptions, runStepRequest } from './run-step-request';
 export {
+  applyScriptMutation,
+  firstFailedAssertion,
+  resolvedToScriptSnapshot,
+  type StepScriptInput,
+  type StepScriptRunner,
+} from './script-hooks';
+export {
   type RequestTransport,
   type TransportBody,
   TransportError,

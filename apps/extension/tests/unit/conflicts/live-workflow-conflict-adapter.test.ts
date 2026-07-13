@@ -39,7 +39,15 @@ describe('liveWorkflowConflictAdapter', () => {
       [`steps.${STEP_UID}.priorityFrom`]: '',
       [`steps.${STEP_UID}.retry`]: '',
       [`steps.${STEP_UID}.timeoutMs`]: '',
+      [`steps.${STEP_UID}.runScripts`]: '',
     });
+  });
+
+  it('extracts the runScripts leaf as its boolean string when set', () => {
+    const baseline = liveWorkflowConflictAdapter.extractBaseline(
+      makeWf({ steps: [{ uid: STEP_UID, id: 'step1', requestUid: 'req-bbbb', captures: [], runScripts: true }] }),
+    );
+    expect(baseline[`steps.${STEP_UID}.runScripts`]).toBe('true');
   });
 
   it('extracts retry + timeoutMs leaves with canonical key order', () => {
@@ -231,6 +239,28 @@ describe('liveWorkflowResolveAdapter', () => {
         theirs: 'not-a-number',
       }),
     ).toBe(false);
+  });
+
+  it('writes runScripts as a boolean; empty clears it', () => {
+    const wf = makeWf();
+    expect(
+      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.runScripts`, {
+        base: '',
+        theirs: 'true',
+      }),
+    ).toBe(true);
+    expect(wf.steps[0].runScripts).toBe(true);
+    expect(
+      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.runScripts`, {
+        base: '',
+        theirs: 'false',
+      }),
+    ).toBe(true);
+    expect(wf.steps[0].runScripts).toBe(false);
+    expect(
+      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, `steps.${STEP_UID}.runScripts`, { base: '', theirs: '' }),
+    ).toBe(true);
+    expect(wf.steps[0].runScripts).toBeUndefined();
   });
 
   it('rejects malformed JSON on opaque leaves', () => {

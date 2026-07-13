@@ -1,23 +1,32 @@
 /**
- * Single scriptless request run — the host-neutral orchestration shared
- * by Live Workflow chain steps, the MCP `requests_send` tool, and the
- * node host's workbench Send: resolve the request, gate on TOTP
- * cooldown, execute over the host transport, and record TOTP usage on
- * success.
+ * Single request run — the host-neutral orchestration shared by Live
+ * Workflow chain steps, the MCP `requests_send` tool, and the node
+ * host's workbench Send: resolve the request, gate on TOTP cooldown,
+ * execute over the host transport, and record TOTP usage on success.
  *
- * It has NO pre/post script hooks and NO Status-pill reporting — those
- * are caller concerns layered above (the extension's user-facing
- * executor runs its own script pipeline; chain fetches are pure
- * data-source fetches). Both hosts — the browser SW and the desktop
- * main process — run this exact code; only the injected
- * {@link RequestTransport} (and optional OAuth-refresh hook) differ.
+ * Scripts run ONLY when the caller injects a {@link StepScriptRunner}
+ * (a workflow step with `runScripts: true` on a host with a script
+ * sandbox). Without the port the run is scriptless — the MCP / daemon
+ * Send paths and every step that didn't opt in are unchanged. There is
+ * NO Status-pill reporting here; that stays a caller concern. Both
+ * hosts — the browser SW and the desktop main process — run this exact
+ * code; only the injected {@link RequestTransport} (and optional
+ * OAuth-refresh / script-runner hooks) differ.
  */
 
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
 import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { errorSnapshot, executeOverTransport } from './execute';
-import { type OAuthRefreshFn, resolveRequest, UnresolvedRequestError } from './resolve-request';
+import { type OAuthRefreshFn, type ResolvedRequest, resolveRequest, UnresolvedRequestError } from './resolve-request';
+import {
+  applyScriptMutation,
+  firstFailedAssertion,
+  resolvedToScriptSnapshot,
+  type StepScriptRunner,
+  toPostResponseOutcome,
+  toPreRequestOutcome,
+} from './script-hooks';
 import type { RequestTransport } from './transport';
 
 export interface RunStepRequestOptions {
@@ -45,6 +54,13 @@ export interface RunStepRequestOptions {
   refreshOAuth?: OAuthRefreshFn;
   /** Per-attempt timeout the transport enforces on the wire round-trip. */
   timeoutMs?: number;
+  /**
+   * Host script capability — inject ONLY for runs that should execute
+   * the request's pre/post scripts (a workflow step with
+   * `runScripts: true`). Chain semantics are strict: a script error or
+   * a failed assertion fails the run (see `script-hooks.ts`).
+   */
+  scriptRunner?: StepScriptRunner;
 }
 
 export async function runStepRequest(
@@ -82,7 +98,32 @@ export async function runStepRequest(
     }
   }
 
-  const wireResult = await executeOverTransport(outcome.resolved, options.transport, { timeoutMs: options.timeoutMs });
+  // ── Pre-request script hook ──
+  // Runs on top of the RESOLVED request (after variable substitution),
+  // same layering as the interactive executor. A script error fails the
+  // run before the wire — sending the unmutated request and committing
+  // its captures would cache silently-wrong data.
+  let scripts: ExecutedRequestSnapshot['scripts'] = null;
+  let finalResolved: ResolvedRequest = outcome.resolved;
+  const runner = options.scriptRunner;
+
+  if (runner && request.preRequestScript?.trim()) {
+    const result = await runner({
+      kind: 'pre-request',
+      source: request.preRequestScript,
+      request: resolvedToScriptSnapshot(finalResolved),
+    });
+    scripts = { preRequest: toPreRequestOutcome(result) };
+    if (!result.succeeded) {
+      return {
+        ...errorSnapshot(`Pre-request script failed: ${result.error?.message ?? 'unknown error'}`),
+        scripts,
+      };
+    }
+    if (result.mutation) finalResolved = applyScriptMutation(finalResolved, result.mutation);
+  }
+
+  const wireResult = await executeOverTransport(finalResolved, options.transport, { timeoutMs: options.timeoutMs });
 
   // ── TOTP cooldown record ──
   // Only on a successful round-trip — a fetch that never reached the wire
@@ -94,5 +135,42 @@ export async function runStepRequest(
     }
   }
 
-  return wireResult;
+  // ── Post-response script hook ──
+  // A script error or a failed `oh.test` assertion fails the run — for
+  // a chain step that gates the atomic capture commit, so last-good
+  // values survive a response whose shape went wrong. The wire result's
+  // response fields are kept on the failure snapshot for observability.
+  if (runner && request.postResponseScript?.trim() && wireResult.error == null) {
+    const result = await runner({
+      kind: 'post-response',
+      source: request.postResponseScript,
+      request: resolvedToScriptSnapshot(finalResolved),
+      response: {
+        status: wireResult.status,
+        statusText: wireResult.statusText,
+        url: wireResult.url,
+        headers: wireResult.headers,
+        body: wireResult.body,
+        durationMs: wireResult.durationMs,
+      },
+    });
+    scripts = { ...(scripts ?? {}), postResponse: toPostResponseOutcome(result) };
+    if (!result.succeeded) {
+      return {
+        ...wireResult,
+        scripts,
+        error: `Post-response script failed: ${result.error?.message ?? 'unknown error'}`,
+      };
+    }
+    const failed = firstFailedAssertion(result.assertions);
+    if (failed) {
+      return {
+        ...wireResult,
+        scripts,
+        error: `Assertion failed: ${failed.name}${failed.message ? ` — ${failed.message}` : ''}`,
+      };
+    }
+  }
+
+  return scripts ? { ...wireResult, scripts } : wireResult;
 }

@@ -147,4 +147,25 @@ describe('buildChainFetchAdapter', () => {
     await adapter.executeStep(makeStep(), new Map(), ctx);
     expect(runStepRequestMock.mock.calls[0][1]).toMatchObject({ refreshOAuth });
   });
+
+  it('passes the scriptRunner only for steps that opted in via runScripts', async () => {
+    getRequestInWorkspaceMock.mockReturnValue(makeRequest());
+    runStepRequestMock.mockResolvedValue(makeSnapshot());
+    const scriptRunner = vi.fn();
+    const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport, scriptRunner });
+
+    await adapter.executeStep(makeStep({ runScripts: true }), new Map(), ctx);
+    expect(runStepRequestMock.mock.calls[0][1].scriptRunner).toBe(scriptRunner);
+
+    await adapter.executeStep(makeStep(), new Map(), ctx);
+    expect(runStepRequestMock.mock.calls[1][1].scriptRunner).toBeUndefined();
+  });
+
+  it('an opted-in step on a host without a script runtime runs scriptless', async () => {
+    getRequestInWorkspaceMock.mockReturnValue(makeRequest());
+    runStepRequestMock.mockResolvedValue(makeSnapshot());
+    const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport });
+    await adapter.executeStep(makeStep({ runScripts: true }), new Map(), ctx);
+    expect(runStepRequestMock.mock.calls[0][1].scriptRunner).toBeUndefined();
+  });
 });

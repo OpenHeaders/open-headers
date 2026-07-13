@@ -8,9 +8,11 @@
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
+import type { StepScriptRunner } from '@openheaders/oracle/live/request-exec/script-hooks';
 import { logger } from '@utils/logger';
 import { browserRequestTransport } from '../net/browser-request-transport';
 import { OAuth2FlowError, performRefresh as performOAuthRefresh } from '../oauth-flow';
+import { isOffscreenSupported, runScript } from '../offscreen-host';
 
 /**
  * Bypass tag stamped on every Live Workflow chain fetch. Value is the
@@ -63,6 +65,14 @@ export interface LiveChainExecuteOptions {
   stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** Per-attempt timeout from the step definition, enforced by the transport. */
   timeoutMs?: number;
+  /**
+   * The step's `runScripts` opt-in. When true (and the runtime has an
+   * offscreen sandbox), the request's pre/post scripts run under the
+   * strict chain contract: read-only `oh.*` surface (`sendRequest` /
+   * `variables.set` rejected), script errors and failed assertions
+   * fail the step. Default / Firefox: scriptless, today's behavior.
+   */
+  runScripts?: boolean;
 }
 
 /**
@@ -70,9 +80,10 @@ export interface LiveChainExecuteOptions {
  * chain. Shares the resolve → fetch pipeline with `executeRequestDraft`
  * but:
  *   - threads the step-capture context into variable resolution,
- *   - skips pre/post script hooks (chain fetches are pure data-source
- *     fetches; running user scripts here would blur "my request" vs
- *     "workflow refresh" and trivially recurse via `oh.sendRequest`),
+ *   - runs pre/post script hooks ONLY for steps that opted in via
+ *     `runScripts: true`, under a read-only host API (see
+ *     `LiveChainExecuteOptions.runScripts`); all other steps stay pure
+ *     data-source fetches,
  *   - stamps the `X-OH-Live-Bypass` header so DNR rules referencing
  *     the workflow's LVs exclude themselves from this request,
  *   - suppresses the `requests` Status pill (workflow refresh belongs
@@ -99,10 +110,11 @@ export async function executeForLiveChain(
     ],
   };
   // Chain steps run on the host-neutral request executor (the same code
-  // the desktop runner uses), with the SW's fetch as the transport. No
-  // scripts + no Status-pill report are implicit in `runStepRequest`
-  // (chain refreshes belong to the `live` subsystem). The OAuth-refresh
-  // hook maps a recoverable `OAuth2FlowError` to `null` (attach the stale
+  // the desktop runner uses), with the SW's fetch as the transport and —
+  // for opted-in steps — the offscreen sandbox as the script runtime.
+  // No Status-pill report is implicit in `runStepRequest` (chain
+  // refreshes belong to the `live` subsystem). The OAuth-refresh hook
+  // maps a recoverable `OAuth2FlowError` to `null` (attach the stale
   // bundle → the target's 401 is the signal); any other error propagates
   // as a fetch-phase failure, matching the prior executor semantics.
   return runStepRequest(stamped, {
@@ -111,6 +123,7 @@ export async function executeForLiveChain(
     stepCaptures: options.stepCaptures,
     timeoutMs: options.timeoutMs,
     transport: browserRequestTransport,
+    scriptRunner: buildChainScriptRunner(options),
     refreshOAuth: (auth) =>
       performOAuthRefresh(auth, options.workspaceId).catch((err) => {
         if (err instanceof OAuth2FlowError) {
@@ -120,4 +133,39 @@ export async function executeForLiveChain(
         throw err;
       }),
   });
+}
+
+/**
+ * Offscreen-backed script runner for an opted-in step, or `undefined`
+ * to run scriptless. Firefox has no offscreen API — the opt-in is
+ * honored on capable runtimes only, and the skip is logged so a
+ * silent "my assertions never ran" has a trail.
+ */
+function buildChainScriptRunner(options: LiveChainExecuteOptions): StepScriptRunner | undefined {
+  if (options.runScripts !== true) return undefined;
+  if (!isOffscreenSupported()) {
+    logger.info(
+      'RequestExecutor',
+      `Step ${options.stepId} of workflow ${options.workflowUid} requested scripts, but this runtime has no script sandbox — running scriptless`,
+    );
+    return undefined;
+  }
+  return (input) =>
+    runScript({
+      kind: input.kind,
+      source: input.source,
+      request: input.request,
+      response: input.response,
+      hostContext: 'chain',
+    }).catch((err: unknown) => ({
+      // The port contract is "never throw" — an offscreen spawn failure
+      // surfaces as a failed script result, which the step runner turns
+      // into a step failure with the carrier message.
+      executionId: 'offscreen-unavailable',
+      succeeded: false,
+      error: { name: 'OffscreenSpawnError', message: err instanceof Error ? err.message : String(err) },
+      assertions: [],
+      consoleLog: [],
+      durationMs: 0,
+    }));
 }

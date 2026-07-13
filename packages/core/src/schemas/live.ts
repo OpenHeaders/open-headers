@@ -286,6 +286,17 @@ export const WorkflowStepSchema = v.object({
    * ceiling beyond the host's own network stack.
    */
   timeoutMs: v.optional(StepTimeoutMsSchema),
+  /**
+   * Run the referenced request's pre-request / post-response scripts
+   * as part of this step's execution. Absent / false = pure
+   * data-source fetch (no scripts — the long-standing chain behavior).
+   * Opt-in per step; hosts without a script runtime skip scripts even
+   * when set. Chain-run scripts get a read-only host API
+   * (`oh.sendRequest` / `oh.variables.set` are rejected), and a failed
+   * script or failed `oh.test` assertion fails the step — assertions
+   * act as publication gates for the run's captures.
+   */
+  runScripts: v.optional(v.boolean()),
 });
 
 // ── Refresh policy ────────────────────────────────────────────────

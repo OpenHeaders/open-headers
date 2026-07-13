@@ -59,6 +59,22 @@ describe('StepTimeoutMsSchema', () => {
   });
 });
 
+describe('WorkflowStepSchema — runScripts', () => {
+  it('stays absent when not set', () => {
+    const parsed = v.parse(WorkflowStepSchema, baseStep());
+    expect('runScripts' in parsed && parsed.runScripts !== undefined).toBe(false);
+  });
+
+  it('round-trips both boolean values', () => {
+    expect(v.parse(WorkflowStepSchema, baseStep({ runScripts: true })).runScripts).toBe(true);
+    expect(v.parse(WorkflowStepSchema, baseStep({ runScripts: false })).runScripts).toBe(false);
+  });
+
+  it('rejects non-boolean values', () => {
+    expect(() => v.parse(WorkflowStepSchema, baseStep({ runScripts: 'yes' }))).toThrow();
+  });
+});
+
 describe('WorkflowStepSchema — retry + timeoutMs', () => {
   it('round-trips a step without either field (both stay absent)', () => {
     const parsed = v.parse(WorkflowStepSchema, baseStep());

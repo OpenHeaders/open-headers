@@ -6,9 +6,11 @@
  * folds auth, and gates TOTP reuse on the desktop's code path.
  */
 
+import type { ScriptExecutionResult } from '@openheaders/core/scripts';
 import type { Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStepRequest } from '../../../src/live/request-exec/run-step-request';
+import type { StepScriptInput, StepScriptRunner } from '../../../src/live/request-exec/script-hooks';
 import type { RequestTransport, TransportRequest, TransportResponse } from '../../../src/live/request-exec/transport';
 
 // ── Entity-store leaves (the only host-state the resolver reads) ──────
@@ -399,5 +401,142 @@ describe('runStepRequest — unpinned (runtime-Active) run', () => {
     expect(snap.error).toBeNull();
     expect(checkCooldownMock).toHaveBeenCalledWith('ws-active', 'otp', expect.any(String));
     expect(recordUsageMock).toHaveBeenCalledWith('ws-active', 'otp', expect.any(String), 30);
+  });
+});
+
+describe('runStepRequest — step script hooks', () => {
+  const scriptResult = (over: Partial<ScriptExecutionResult> = {}): ScriptExecutionResult => ({
+    executionId: 'exec-test',
+    succeeded: true,
+    assertions: [],
+    consoleLog: [],
+    durationMs: 1,
+    ...over,
+  });
+
+  function captureRunner(results: Partial<Record<'pre-request' | 'post-response', ScriptExecutionResult>>): {
+    runner: StepScriptRunner;
+    inputs: StepScriptInput[];
+  } {
+    const inputs: StepScriptInput[] = [];
+    const runner: StepScriptRunner = async (input) => {
+      inputs.push(input);
+      return results[input.kind] ?? scriptResult();
+    };
+    return { runner, inputs };
+  }
+
+  const scripted = (over: Partial<Request> = {}) =>
+    makeRequest({ preRequestScript: 'pre();', postResponseScript: 'post();', ...over });
+
+  it('runs no scripts without an injected runner, even when the request carries them', async () => {
+    const { transport, calls } = captureTransport();
+    const snap = await runStepRequest(scripted(), opts(transport));
+    expect(snap.error).toBeNull();
+    expect(calls()).toBe(1);
+    expect(snap.scripts).toBeNull();
+  });
+
+  it('runs both hooks with the resolved request when the runner is injected', async () => {
+    const { runner, inputs } = captureRunner({});
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(scripted({ url: 'https://api.openheaders.io/ping?a=1' }), {
+      ...opts(transport),
+      scriptRunner: runner,
+    });
+    expect(snap.error).toBeNull();
+    expect(inputs.map((i) => i.kind)).toEqual(['pre-request', 'post-response']);
+    expect(inputs[0].request.url).toBe('https://api.openheaders.io/ping?a=1');
+    expect(inputs[0].request.params).toEqual([{ key: 'a', value: '1' }]);
+    expect(inputs[1].response?.status).toBe(200);
+    expect(snap.scripts?.preRequest?.succeeded).toBe(true);
+    expect(snap.scripts?.postResponse?.succeeded).toBe(true);
+  });
+
+  it('skips a hook whose script source is absent', async () => {
+    const { runner, inputs } = captureRunner({});
+    const { transport } = captureTransport();
+    await runStepRequest(makeRequest({ postResponseScript: 'post();' }), { ...opts(transport), scriptRunner: runner });
+    expect(inputs.map((i) => i.kind)).toEqual(['post-response']);
+  });
+
+  it('applies a pre-request header mutation before the wire', async () => {
+    const { runner } = captureRunner({
+      'pre-request': scriptResult({ mutation: { headers: [{ key: 'X-Signed', value: 'yes' }] } }),
+    });
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(scripted(), { ...opts(transport), scriptRunner: runner });
+    expect(snap.error).toBeNull();
+    expect(sent().headers).toEqual([{ key: 'X-Signed', value: 'yes' }]);
+  });
+
+  it('a params mutation replaces the resolved URL query wholesale', async () => {
+    const { runner } = captureRunner({
+      'pre-request': scriptResult({ mutation: { params: [{ key: 'b', value: '2' }] } }),
+    });
+    const { transport, sent } = captureTransport();
+    await runStepRequest(scripted({ url: 'https://api.openheaders.io/ping?a=1' }), {
+      ...opts(transport),
+      scriptRunner: runner,
+    });
+    expect(sent().url).toBe('https://api.openheaders.io/ping?b=2');
+  });
+
+  it('a pre-request script error fails the run before the wire', async () => {
+    const { runner } = captureRunner({
+      'pre-request': scriptResult({ succeeded: false, error: { name: 'Error', message: 'boom' } }),
+    });
+    const { transport, calls } = captureTransport();
+    const snap = await runStepRequest(scripted(), { ...opts(transport), scriptRunner: runner });
+    expect(snap.error).toMatch(/Pre-request script failed: boom/);
+    expect(calls()).toBe(0);
+    expect(snap.scripts?.preRequest?.succeeded).toBe(false);
+  });
+
+  it('a post-response script error fails the run but keeps the response for observability', async () => {
+    const { runner } = captureRunner({
+      'post-response': scriptResult({ succeeded: false, error: { name: 'Error', message: 'crash' } }),
+    });
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(scripted(), { ...opts(transport), scriptRunner: runner });
+    expect(snap.error).toMatch(/Post-response script failed: crash/);
+    expect(snap.status).toBe(200);
+  });
+
+  it('a failed assertion fails the run with the assertion name + message', async () => {
+    const { runner } = captureRunner({
+      'post-response': scriptResult({
+        assertions: [
+          { name: 'status is 200', passed: true },
+          { name: 'total matches', passed: false, message: 'expected 99.99, got 0' },
+        ],
+      }),
+    });
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(scripted(), { ...opts(transport), scriptRunner: runner });
+    expect(snap.error).toBe('Assertion failed: total matches — expected 99.99, got 0');
+    expect(snap.scripts?.postResponse?.assertions).toHaveLength(2);
+  });
+
+  it('passing assertions leave the run successful with outcomes attached', async () => {
+    const { runner } = captureRunner({
+      'post-response': scriptResult({ assertions: [{ name: 'status is 200', passed: true }] }),
+    });
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(scripted(), { ...opts(transport), scriptRunner: runner });
+    expect(snap.error).toBeNull();
+    expect(snap.scripts?.postResponse?.assertions).toEqual([{ name: 'status is 200', passed: true }]);
+  });
+
+  it('skips the post-response hook when the wire fetch failed', async () => {
+    const { runner, inputs } = captureRunner({});
+    const failing: RequestTransport = {
+      async send() {
+        throw new Error('network down');
+      },
+    };
+    const snap = await runStepRequest(scripted(), { ...opts(failing), scriptRunner: runner });
+    expect(snap.error).toMatch(/network down/);
+    expect(inputs.map((i) => i.kind)).toEqual(['pre-request']);
   });
 });
