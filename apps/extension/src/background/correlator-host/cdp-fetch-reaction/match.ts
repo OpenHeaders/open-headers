@@ -9,6 +9,7 @@ import {
   CDP_REQUEST_STAGE_CONDITIONS,
   CDP_RESPONSE_STAGE_CONDITIONS,
   doesHostMatchDomains,
+  doesUrlMatchEntry,
   doesUrlMatchRule,
   getRuleMatchPatterns,
 } from '@openheaders/core/utils';
@@ -121,6 +122,19 @@ function responseHasHeader(headers: readonly CdpHeaderEntry[], name: string, val
   if (matches.length === 0) return false;
   if (values.length === 0) return true;
   return matches.some((h) => values.some((v) => h.value.includes(v)));
+}
+
+/**
+ * The matched rule's pattern annotation for a fire record: the first URL
+ * pattern that matches the paused URL — the same entry the DNR fire ledger
+ * records. A rule with no URL conditions matched everything ('' — the
+ * matched-records surfaces omit the annotation and show the URL alone).
+ */
+export function matchedPatternFor(rule: Rule, url: string): string {
+  for (const entry of getRuleMatchPatterns(rule)) {
+    if (doesUrlMatchEntry(url, entry)) return entry.pattern;
+  }
+  return '';
 }
 
 /** True unless a GraphQL filter is active and the request body fails it. */

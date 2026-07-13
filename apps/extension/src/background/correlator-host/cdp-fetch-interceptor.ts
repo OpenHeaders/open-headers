@@ -29,13 +29,13 @@
  * detached) is logged and dropped — it must never throw into the event fan.
  */
 
-import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
 import type {
   InspectorRequestSnapshot,
   InspectorResponseSnapshot,
   RequestOverride,
   ResponseOverride,
 } from '@openheaders/core/request-lifecycle';
+import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
 import type { RequestRecord, Rule } from '@openheaders/core/types';
 import type {
   CdpAuthRequired,
@@ -262,11 +262,19 @@ function handleRequestStage(
         : requestControlPort.continueRequest(target, { requestId: event.requestId });
 
   const settled = command.then(() => {
-    if (reaction.kind !== 'pass-through') reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+    if (reaction.kind !== 'pass-through') {
+      reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid, reaction.pattern));
+    }
     // A static `request-body` rewrite (continue with new postData) — relay the
     // sent (rewritten) body beside the page's original for the Payload split.
     if (reaction.kind === 'continue' && reaction.request.postData !== undefined) {
-      emitRequestOverride(event, reaction.ruleUid, base64ToText(reaction.request.postData), event.request.postData ?? null, options);
+      emitRequestOverride(
+        event,
+        reaction.ruleUid,
+        base64ToText(reaction.request.postData),
+        event.request.postData ?? null,
+        options,
+      );
     }
     emitPauseIfMaterial(event, receivedAtMs, 0, reportPause);
   });
@@ -309,7 +317,7 @@ function handleEvalFulfill(
         return requestControlPort
           .fulfill(target, buildEvalFulfill(event.requestId, reaction.plan, outcome.value))
           .then(() => {
-            reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+            reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid, reaction.pattern));
             emitPauseIfMaterial(event, receivedAtMs, 0, reportPause);
           });
       }
@@ -380,7 +388,7 @@ function handleEvalContinue(
         return requestControlPort
           .continueRequest(target, buildRequestBodyEvalContinue(event.requestId, outcome.value))
           .then(() => {
-            reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+            reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid, reaction.pattern));
             emitRequestOverride(event, reaction.ruleUid, outcome.value, body, options);
             emitPauseIfMaterial(event, receivedAtMs, 0, reportPause);
           });
@@ -425,7 +433,7 @@ function handleResponseStage(
       )
       .then((originalBody) =>
         requestControlPort.fulfill(target, fulfillReaction.response).then(() => {
-          reportFire(event.tabId, buildFireRecord(event, fulfillReaction.ruleUid));
+          reportFire(event.tabId, buildFireRecord(event, fulfillReaction.ruleUid, fulfillReaction.pattern));
           emitResponseOverride(event, fulfillReaction.ruleUid, fulfillReaction.response, originalBody, options);
           settleResponsePause(event, receivedAtMs, pendingHolds, reportPause);
         }),
@@ -488,7 +496,7 @@ function handleResponseEvalFulfill(
           if (!outcome.ok) return release();
           const fulfill = buildNetworkEvalFulfill(event, reaction.plan, outcome.value);
           return requestControlPort.fulfill(target, fulfill).then(() => {
-            reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+            reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid, reaction.pattern));
             emitResponseOverride(event, reaction.ruleUid, fulfill, responseText, options);
             settleResponsePause(event, receivedAtMs, pendingHolds, reportPause);
           });
@@ -576,7 +584,7 @@ function handleAuthRequired(event: CdpAuthRequired, options: CdpFetchInterceptor
     requestId: event.requestId,
     authChallengeResponse: { response: 'ProvideCredentials', username: reaction.username, password: reaction.password },
   });
-  const fire = () => reportFire(event.tabId, buildAuthFireRecord(event, reaction.ruleUid));
+  const fire = () => reportFire(event.tabId, buildAuthFireRecord(event, reaction.ruleUid, reaction.pattern));
   answer(command.then(fire), event);
 }
 
@@ -591,11 +599,11 @@ function answer(command: Promise<void>, event: CdpRequestPaused | CdpAuthRequire
   });
 }
 
-function buildFireRecord(event: CdpRequestPaused, ruleUid: string): RequestRecord {
+function buildFireRecord(event: CdpRequestPaused, ruleUid: string, pattern: string): RequestRecord {
   return {
     ruleUid,
     url: event.request.url,
-    pattern: '',
+    pattern,
     resourceType: cdpResourceTypeToTracked(event.resourceType),
     t: Date.now(),
     evidence: 'confirmed',
@@ -606,11 +614,11 @@ function buildFireRecord(event: CdpRequestPaused, ruleUid: string): RequestRecor
 
 /** Fire record for an answered auth challenge. Carries no credentials — the
  *  auth event has no `networkId`, so no lifecycle id is attached either. */
-function buildAuthFireRecord(event: CdpAuthRequired, ruleUid: string): RequestRecord {
+function buildAuthFireRecord(event: CdpAuthRequired, ruleUid: string, pattern: string): RequestRecord {
   return {
     ruleUid,
     url: event.request.url,
-    pattern: '',
+    pattern,
     resourceType: cdpResourceTypeToTracked(event.resourceType),
     t: Date.now(),
     evidence: 'confirmed',

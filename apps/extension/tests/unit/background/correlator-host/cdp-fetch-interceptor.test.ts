@@ -179,6 +179,33 @@ describe('startCdpFetchInterceptor (D2)', () => {
     expect(fires[0]?.record.ruleUid).toBe('r1');
   });
 
+  it('annotates the fire with the rule pattern that matched the paused URL', async () => {
+    const rule = mockRule({
+      conditions: [
+        {
+          uid: 'cnd00001',
+          type: 'url-filter',
+          values: ['https://cdn.openheaders.io/*', 'https://api.openheaders.io/*'],
+        },
+      ],
+    } as Partial<Rule>);
+    const { stream, fires } = harness([rule]);
+
+    stream.emit(makePaused({ requestId: 'fx', networkId: 'net-9' }));
+    await Promise.resolve();
+
+    expect(fires[0]?.record.pattern).toBe('https://api.openheaders.io/*');
+  });
+
+  it('leaves the fire pattern empty for a match-all rule with no URL conditions', async () => {
+    const { stream, fires } = harness([mockRule({ conditions: [] })]);
+
+    stream.emit(makePaused({ requestId: 'fx', networkId: 'net-9' }));
+    await Promise.resolve();
+
+    expect(fires[0]?.record.pattern).toBe('');
+  });
+
   it('omits the fire requestId when the pause carries no networkId', async () => {
     const { stream, fires } = harness([mockRule()]);
 
@@ -742,6 +769,18 @@ describe('startCdpFetchInterceptor — auth challenges (D3)', () => {
 
     expect(fires).toHaveLength(1);
     expect(fires[0]).toMatchObject({ tabId: 7, record: { ruleUid: 'r1', evidence: 'confirmed' } });
+  });
+
+  it('annotates the auth fire with the rule pattern that matched the challenged URL', async () => {
+    const rule = authRule({
+      conditions: [{ uid: 'cnd00001', type: 'url-filter', values: ['https://staging.openheaders.io/*'] }],
+    } as Partial<Rule>);
+    const { stream, fires } = harness([rule]);
+
+    stream.emit(makeAuthRequired());
+    await Promise.resolve();
+
+    expect(fires[0]?.record.pattern).toBe('https://staging.openheaders.io/*');
   });
 
   it('the auth fire record carries no credentials and no requestId (the auth event has no networkId)', async () => {

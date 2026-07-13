@@ -51,32 +51,72 @@ export interface CdpRequestBodyEvalPlan {
   readonly userCode: string;
 }
 
-/** The answer the interceptor gives a paused request at the REQUEST stage. */
+/**
+ * The answer the interceptor gives a paused request at the REQUEST stage.
+ * Every rule-carrying variant also carries `pattern` — the rule's first URL
+ * pattern matching the paused URL, resolved at reaction time — so the fire
+ * record annotates like a DNR/injection fire.
+ */
 export type CdpFetchReaction =
-  | { readonly kind: 'fulfill'; readonly ruleUid: string; readonly response: CdpFulfillResponse }
-  | { readonly kind: 'continue'; readonly ruleUid: string; readonly request: CdpContinueRequest }
+  | {
+      readonly kind: 'fulfill';
+      readonly ruleUid: string;
+      readonly pattern: string;
+      readonly response: CdpFulfillResponse;
+    }
+  | {
+      readonly kind: 'continue';
+      readonly ruleUid: string;
+      readonly pattern: string;
+      readonly request: CdpContinueRequest;
+    }
   // Send the real request and intercept its reply: a `continueRequest` with
   // `interceptResponse:true`. The fire is DEFERRED to the Response stage —
   // the action only takes effect once the reply is fulfilled there.
-  | { readonly kind: 'await-response'; readonly ruleUid: string; readonly request: CdpContinueRequest }
+  | {
+      readonly kind: 'await-response';
+      readonly ruleUid: string;
+      readonly pattern: string;
+      readonly request: CdpContinueRequest;
+    }
   // A dynamic `mock`-source body: the interceptor evals the user fn, then
   // fulfills. The fire is DEFERRED to that fulfill — an eval fault releases the
   // request and never fires (fire = the modification actually ran).
-  | { readonly kind: 'eval-fulfill'; readonly ruleUid: string; readonly plan: CdpResponseEvalPlan }
+  | {
+      readonly kind: 'eval-fulfill';
+      readonly ruleUid: string;
+      readonly pattern: string;
+      readonly plan: CdpResponseEvalPlan;
+    }
   // A dynamic `request-body`: the interceptor reads the outgoing body, evals
   // `modifyRequestBody` over it, then continues with the rewritten body. The
   // fire is DEFERRED to that continue — an eval / body-read fault (or a
   // bodyless request) releases it with its original body and never fires.
-  | { readonly kind: 'eval-continue'; readonly ruleUid: string; readonly plan: CdpRequestBodyEvalPlan }
+  | {
+      readonly kind: 'eval-continue';
+      readonly ruleUid: string;
+      readonly pattern: string;
+      readonly plan: CdpRequestBodyEvalPlan;
+    }
   | { readonly kind: 'pass-through' };
 
 /** The answer the interceptor gives a paused request at the RESPONSE stage. */
 export type CdpResponseReaction =
-  | { readonly kind: 'fulfill'; readonly ruleUid: string; readonly response: CdpFulfillResponse }
+  | {
+      readonly kind: 'fulfill';
+      readonly ruleUid: string;
+      readonly pattern: string;
+      readonly response: CdpFulfillResponse;
+    }
   // A `network`+dynamic body: the interceptor reads the real reply, evals
   // `modifyResponse` over it, then fulfills. The fire is DEFERRED to that
   // fulfill — an eval / body-read fault releases the real reply and never fires.
-  | { readonly kind: 'eval-response-fulfill'; readonly ruleUid: string; readonly plan: CdpNetworkEvalPlan }
+  | {
+      readonly kind: 'eval-response-fulfill';
+      readonly ruleUid: string;
+      readonly pattern: string;
+      readonly plan: CdpNetworkEvalPlan;
+    }
   | { readonly kind: 'pass-through' };
 
 /**
@@ -86,5 +126,11 @@ export type CdpResponseReaction =
  * challenge — we never `CancelAuth` a challenge we didn't match.
  */
 export type CdpAuthReaction =
-  | { readonly kind: 'provide'; readonly ruleUid: string; readonly username: string; readonly password: string }
+  | {
+      readonly kind: 'provide';
+      readonly ruleUid: string;
+      readonly pattern: string;
+      readonly username: string;
+      readonly password: string;
+    }
   | { readonly kind: 'default' };

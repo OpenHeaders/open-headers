@@ -15,7 +15,13 @@ import {
   buildRequestBodyRewrite,
   buildResponseEvalPlan,
 } from './fulfill';
-import { graphqlGate, type RequestStageContext, requestStageMatches, responseStageMatches } from './match';
+import {
+  graphqlGate,
+  matchedPatternFor,
+  type RequestStageContext,
+  requestStageMatches,
+  responseStageMatches,
+} from './match';
 import { cdpResourceTypeToCondition } from './resource-types';
 import type { CdpAuthReaction, CdpFetchReaction, CdpResponseReaction } from './types';
 
@@ -44,6 +50,7 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
       return {
         kind: 'await-response',
         ruleUid: rule.uid,
+        pattern: matchedPatternFor(rule, ctx.url),
         request: { requestId: event.requestId, interceptResponse: true },
       };
     }
@@ -53,17 +60,37 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
       // A `mock`+dynamic body is user JS — defer to the interceptor's eval.
       // (network+dynamic resolves at the Response stage above.)
       if (rule.action.bodyType === 'dynamic') {
-        return { kind: 'eval-fulfill', ruleUid: rule.uid, plan: buildResponseEvalPlan(rule.action) };
+        return {
+          kind: 'eval-fulfill',
+          ruleUid: rule.uid,
+          pattern: matchedPatternFor(rule, ctx.url),
+          plan: buildResponseEvalPlan(rule.action),
+        };
       }
-      return { kind: 'fulfill', ruleUid: rule.uid, response: buildFulfill(event.requestId, rule.action) };
+      return {
+        kind: 'fulfill',
+        ruleUid: rule.uid,
+        pattern: matchedPatternFor(rule, ctx.url),
+        response: buildFulfill(event.requestId, rule.action),
+      };
     }
     // A dynamic `request-body` is `modifyRequestBody` user JS over the outgoing
     // body — defer to the interceptor's body-read + eval (D2b-2c). A static body
     // substitutes its literal here.
     if (rule.action.bodyType === 'dynamic') {
-      return { kind: 'eval-continue', ruleUid: rule.uid, plan: buildRequestBodyEvalPlan(rule.action) };
+      return {
+        kind: 'eval-continue',
+        ruleUid: rule.uid,
+        pattern: matchedPatternFor(rule, ctx.url),
+        plan: buildRequestBodyEvalPlan(rule.action),
+      };
     }
-    return { kind: 'continue', ruleUid: rule.uid, request: buildRequestBodyRewrite(event.requestId, rule.action) };
+    return {
+      kind: 'continue',
+      ruleUid: rule.uid,
+      pattern: matchedPatternFor(rule, ctx.url),
+      request: buildRequestBodyRewrite(event.requestId, rule.action),
+    };
   }
   return { kind: 'pass-through' };
 }
@@ -97,9 +124,19 @@ export function resolveResponseReaction(event: CdpRequestPaused, rules: readonly
     // A `network`+dynamic body is `modifyResponse` user JS over the real reply
     // — defer to the interceptor's body-read + eval (D2b-2b).
     if (rule.action.bodyType === 'dynamic') {
-      return { kind: 'eval-response-fulfill', ruleUid: rule.uid, plan: buildNetworkEvalPlan(rule.action) };
+      return {
+        kind: 'eval-response-fulfill',
+        ruleUid: rule.uid,
+        pattern: matchedPatternFor(rule, ctx.url),
+        plan: buildNetworkEvalPlan(rule.action),
+      };
     }
-    return { kind: 'fulfill', ruleUid: rule.uid, response: buildNetworkFulfill(event, rule.action) };
+    return {
+      kind: 'fulfill',
+      ruleUid: rule.uid,
+      pattern: matchedPatternFor(rule, ctx.url),
+      response: buildNetworkFulfill(event, rule.action),
+    };
   }
   return { kind: 'pass-through' };
 }
@@ -124,7 +161,13 @@ export function resolveAuthReaction(event: CdpAuthRequired, rules: readonly Rule
     if (rule.type !== 'auth') continue;
     if (!isFetchRealizableNow(rule)) continue;
     if (!requestStageMatches(rule, ctx)) continue;
-    return { kind: 'provide', ruleUid: rule.uid, username: rule.action.username, password: rule.action.password };
+    return {
+      kind: 'provide',
+      ruleUid: rule.uid,
+      pattern: matchedPatternFor(rule, ctx.url),
+      username: rule.action.username,
+      password: rule.action.password,
+    };
   }
   return { kind: 'default' };
 }
