@@ -92,6 +92,7 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
   config: FlatEntityCacheConfig<E, T>,
 ): FlatEntityCacheCore<E> {
   let entities: E[] = [];
+  let seeding = false;
   const listeners = new Set<() => void>();
   const filter = config.filterBroadcastByType ?? true;
 
@@ -108,20 +109,30 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
   };
 
   const unsubscribe = broadcast.subscribe((event: BroadcastEvent) => {
+    // Broadcasts fire synchronously per applied mutation, so a bulk
+    // seed would otherwise re-project + persist once per entity; the
+    // seed loop's end-of-loop refresh covers everything applied
+    // meanwhile (it projects the whole oracle).
+    if (seeding) return;
     if (filter && event.envelope.body.type !== config.entityType) return;
     refreshFromOracle();
   });
 
   const seedFromPersisted = async (persisted: readonly E[]): Promise<void> => {
-    for (const entity of persisted) {
-      const batch = config.seed(entity, contextFactory());
-      const result = await oracle.apply(batch, [], 'inbound');
-      if (!result.ok) {
-        logger.info(
-          config.loggerTag,
-          `seed: ${entity.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
-        );
+    seeding = true;
+    try {
+      for (const entity of persisted) {
+        const batch = config.seed(entity, contextFactory());
+        const result = await oracle.apply(batch, [], 'inbound');
+        if (!result.ok) {
+          logger.info(
+            config.loggerTag,
+            `seed: ${entity.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+          );
+        }
       }
+    } finally {
+      seeding = false;
     }
     // Last-line refresh — guards the zero-entities case where no
     // broadcast would fire to drive refreshFromOracle.
@@ -151,10 +162,7 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
         // service materialization. The cache stays empty; the next
         // mutation broadcast will populate it. Drift recorders inside
         // `loadFromStorage` already log the structured failure.
-        logger.info(
-          config.loggerTag,
-          `hydrateFromStorage(ws=${workspaceId}) failed: ${(err as Error).message}`,
-        );
+        logger.info(config.loggerTag, `hydrateFromStorage(ws=${workspaceId}) failed: ${(err as Error).message}`);
       }
     },
 

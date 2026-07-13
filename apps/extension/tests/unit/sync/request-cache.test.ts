@@ -12,12 +12,12 @@ import {
   setRequestField,
 } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
-import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
-import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { createRequestCache } from '@openheaders/oracle/sync/caches/request-cache';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
@@ -29,9 +29,7 @@ const makeRequest = (uid: string, overrides: Partial<Request> = {}): Request =>
     name: `req-${uid}`,
     method: 'GET',
     url: 'https://api.openheaders.io/v1',
-    headers: [
-      { key: 'X-Default', value: 'd' },
-    ],
+    headers: [{ key: 'X-Default', value: 'd' }],
     params: [],
     auth: { type: 'inherit' },
     body: { type: 'none' },
@@ -133,11 +131,20 @@ describe('RequestCache', () => {
     });
     await cache.seedFromPersistedRequests([makeRequest('rq')]);
     const before = fires;
-    await oracle.apply(
-      setRequestField(ctxFactory(), { requestUid: 'rq', path: 'name', value: 'updated' }).batch,
-      [],
-    );
+    await oracle.apply(setRequestField(ctxFactory(), { requestUid: 'rq', path: 'name', value: 'updated' }).batch, []);
     expect(fires).toBeGreaterThan(before);
+    cache.dispose();
+  });
+
+  it('bulk seed re-projects once — one listener fire for the whole batch', async () => {
+    const cache = createRequestCache('ws-1', oracle, broadcast, ctxFactory);
+    let fires = 0;
+    cache.onChange(() => {
+      fires += 1;
+    });
+    await cache.seedFromPersistedRequests([makeRequest('a'), makeRequest('b'), makeRequest('c')]);
+    expect(fires).toBe(1);
+    expect(cache.getRequests().map((r) => r.uid)).toEqual(['a', 'b', 'c']);
     cache.dispose();
   });
 

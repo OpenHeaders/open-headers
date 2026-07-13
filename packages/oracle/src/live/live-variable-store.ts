@@ -35,8 +35,8 @@ import type { LiveVariable, LiveVariableOverride } from '@openheaders/core/types
 import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
-import { LIVE_VARIABLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { LiveVariableCache } from '@openheaders/oracle/sync/caches/live-variable-cache';
+import { LIVE_VARIABLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,
@@ -290,14 +290,7 @@ export async function purgeLiveVariablesForWorkspace(workspaceId: string): Promi
 
 let cacheUnsubscribe: (() => void) | null = null;
 
-/**
- * Wire the local `variables` array to the active workspace's
- * {@link LiveVariableCache}. Idempotent — the prior subscription is
- * dropped first.
- */
-export async function bridgeLiveVariableSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<LiveVariableCache>(LIVE_VARIABLE_REGISTRATION);
-  if (!cache) return;
+function subscribeLiveVariableMirror(cache: LiveVariableCache): void {
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
@@ -306,6 +299,30 @@ export async function bridgeLiveVariableSyncEngine(): Promise<void> {
     variables = cache.getLiveVariables();
     notifyChange();
   });
+}
+
+/**
+ * Wire the local `variables` array to the active workspace's
+ * {@link LiveVariableCache} without seeding — the workspace service's
+ * `hydrated` gate already seeded the cache from the same storage keys.
+ * Idempotent — the prior subscription is dropped first.
+ */
+export function wireLiveVariableSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<LiveVariableCache>(LIVE_VARIABLE_REGISTRATION);
+  if (!cache) return;
+  subscribeLiveVariableMirror(cache);
+  variables = cache.getLiveVariables();
+}
+
+/**
+ * Wire the local `variables` array to the active workspace's
+ * {@link LiveVariableCache} AND seed the oracle. Idempotent — the
+ * prior subscription is dropped first.
+ */
+export async function bridgeLiveVariableSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<LiveVariableCache>(LIVE_VARIABLE_REGISTRATION);
+  if (!cache) return;
+  subscribeLiveVariableMirror(cache);
   await cache.seedFromPersistedLiveVariables(variables);
   variables = cache.getLiveVariables();
 }

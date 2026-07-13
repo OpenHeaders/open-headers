@@ -4,7 +4,7 @@
  *   1. `initGlobalSyncService` — global-scope oracle for `extensionWorkspace`.
  *   2. `bridgeExtensionWorkspaceSyncEngine` — seed the global oracle.
  *   3. `setRuntimeActive` — make the persisted-active workspace current.
- *   4. `reseedAllPerWorkspaceBridges` — seed every per-workspace bridge.
+ *   4. `reseedAllPerWorkspaceBridges` — re-point every per-workspace bridge.
  *   5. `ensureDefaultTemplateCollection` — seed the User Templates default.
  *   6. `attachGlobalWorkspaceCoordRunner` — drain SWAP / PURGE intents.
  *   7. `setupAwarenessLifelinePorts` — surface-connection refcounting.
@@ -27,10 +27,7 @@
 import { logger } from '@openheaders/core/utils';
 import { ensureDefaultTemplateCollection } from '../entity/template-store';
 import { setupAwarenessLifelinePorts } from '../sync/awareness/awareness-lifeline';
-import {
-  attachGlobalWorkspaceCoordRunner,
-  initGlobalSyncService,
-} from '../sync/global-service';
+import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from '../sync/global-service';
 import {
   getOrCreateWorkspaceService,
   releaseWorkspaceService,
@@ -42,10 +39,7 @@ import {
   getActiveWorkspaceId,
   peekActiveWorkspaceId,
 } from '../workspace/extension-workspace-store';
-import {
-  purgeWorkspaceData,
-  swapPerWorkspaceStores,
-} from '../workspace/workspace-coordinator';
+import { purgeWorkspaceData, swapPerWorkspaceStores } from '../workspace/workspace-coordinator';
 import { reseedAllPerWorkspaceBridges } from './reseed-bridges';
 
 export interface BootSyncEngineResult {
@@ -78,9 +72,12 @@ export async function bootSyncEngine(): Promise<BootSyncEngineResult> {
     logger.warn('HostRuntime', `boot setRuntimeActive failed: ${bootSetActive.reason}`);
   }
 
-  // 4. Seed every per-workspace bridge for the active workspace. After
-  //    this call, per-workspace entity writes route through the oracle;
-  //    reads stay synchronous off the local mirror.
+  // 4. Re-point every per-workspace bridge at the active workspace.
+  //    Entity caches were already seeded by the service's `hydrated`
+  //    gate inside `setRuntimeActive`; this pass wires the store
+  //    mirrors (and seeds the cheap singletons). After this call,
+  //    per-workspace entity writes route through the oracle; reads
+  //    stay synchronous off the local mirror.
   await reseedAllPerWorkspaceBridges();
 
   // 5. Seed the default "User Templates" collection so the Templates

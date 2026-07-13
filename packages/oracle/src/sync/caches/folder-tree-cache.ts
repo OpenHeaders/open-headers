@@ -21,9 +21,9 @@ import { type MutationBatch, type MutatorContext, newBatchId, type SideEffectInt
 import type { Collection, Folder } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, type PersistedLocalFolder, type StorageKey } from '@openheaders/oracle/storage';
-import { driftRecorder } from '../storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from '../broadcast';
 import type { EntityOracle } from '../oracle';
+import { driftRecorder } from '../storage-drift';
 import type { SwMutatorContextFactory } from '../sw-context';
 
 /**
@@ -83,6 +83,7 @@ export function createFolderTreeCache<P>(
   config: FolderTreeCacheConfig<P>,
 ): FolderTreeCacheCore {
   let folders: Folder[] = [];
+  let seeding = false;
   const listeners = new Set<() => void>();
 
   const refreshFromOracle = (): void => {
@@ -98,6 +99,11 @@ export function createFolderTreeCache<P>(
   };
 
   const unsubscribe = broadcast.subscribe((event: BroadcastEvent) => {
+    // Broadcasts fire synchronously per applied mutation, so a bulk
+    // seed would otherwise re-project + persist once per folder; the
+    // seed loop's own end-of-loop refresh covers everything applied
+    // meanwhile (it projects the whole oracle).
+    if (seeding) return;
     if (!affectsFolders(event, config)) return;
     refreshFromOracle();
   });
@@ -113,34 +119,39 @@ export function createFolderTreeCache<P>(
     const parentByPath = buildParentLookup(collections, persistedFolders, config);
     const batchId = `${config.hydrationBatchPrefix}-${newBatchId()}`;
 
-    for (const folder of ordered) {
-      const parentPath = parentPathOf(folder.path);
-      const parent = parentPath ? parentByPath.get(parentPath) : undefined;
-      if (!parent) {
-        logger.info(
-          config.loggerTag,
-          `seed: skipping folder ${folder.uid} — parent for path ${folder.path} not resolvable`,
+    seeding = true;
+    try {
+      for (const folder of ordered) {
+        const parentPath = parentPathOf(folder.path);
+        const parent = parentPath ? parentByPath.get(parentPath) : undefined;
+        if (!parent) {
+          logger.info(
+            config.loggerTag,
+            `seed: skipping folder ${folder.uid} — parent for path ${folder.path} not resolvable`,
+          );
+          continue;
+        }
+        const segment = lastSegmentOf(folder.path);
+        const ctx = { ...contextFactory(), batchId };
+        const intent = config.buildCreateBatch(
+          {
+            folderUid: folder.uid,
+            parent,
+            name: folder.name,
+            ...(segment ? { pathSegment: segment } : {}),
+          },
+          ctx,
         );
-        continue;
+        const result = await oracle.apply(intent.batch, intent.sideEffects, 'inbound');
+        if (!result.ok) {
+          logger.info(
+            config.loggerTag,
+            `seed: folder ${folder.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+          );
+        }
       }
-      const segment = lastSegmentOf(folder.path);
-      const ctx = { ...contextFactory(), batchId };
-      const intent = config.buildCreateBatch(
-        {
-          folderUid: folder.uid,
-          parent,
-          name: folder.name,
-          ...(segment ? { pathSegment: segment } : {}),
-        },
-        ctx,
-      );
-      const result = await oracle.apply(intent.batch, intent.sideEffects, 'inbound');
-      if (!result.ok) {
-        logger.info(
-          config.loggerTag,
-          `seed: folder ${folder.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
-        );
-      }
+    } finally {
+      seeding = false;
     }
     refreshFromOracle();
     logger.info(config.loggerTag, `Seeded ${persistedFolders.length} folders for ws=${workspaceId}`);

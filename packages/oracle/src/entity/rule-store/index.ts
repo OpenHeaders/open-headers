@@ -17,7 +17,14 @@
  * Bruno-style YAML directories managed by the desktop app.
  */
 
-export { bridgeCollectionSyncEngine, bridgeFolderSyncEngine, bridgeToSyncEngine } from './bridges';
+export {
+  bridgeCollectionSyncEngine,
+  bridgeFolderSyncEngine,
+  bridgeToSyncEngine,
+  wireRuleCollectionSyncEngine,
+  wireRuleFolderSyncEngine,
+  wireRuleSyncEngine,
+} from './bridges';
 export {
   type CollectionWriteResult,
   createCollection,

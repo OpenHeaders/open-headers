@@ -261,16 +261,7 @@ export async function purgeLiveWorkflowsForWorkspace(workspaceId: string): Promi
 
 let cacheUnsubscribe: (() => void) | null = null;
 
-/**
- * Wire the local `workflows` array to the active workspace's
- * {@link LiveWorkflowCache}. Idempotent — the prior subscription is
- * dropped first. Call BEFORE {@link bridgeLiveVariableSyncEngine} so
- * parent (workflow) state is already in the oracle when bound LVs
- * seed.
- */
-export async function bridgeLiveWorkflowSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<LiveWorkflowCache>(LIVE_WORKFLOW_REGISTRATION);
-  if (!cache) return;
+function subscribeLiveWorkflowMirror(cache: LiveWorkflowCache): void {
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
@@ -279,6 +270,32 @@ export async function bridgeLiveWorkflowSyncEngine(): Promise<void> {
     workflows = cache.getLiveWorkflows();
     notifyChange();
   });
+}
+
+/**
+ * Wire the local `workflows` array to the active workspace's
+ * {@link LiveWorkflowCache} without seeding — the workspace service's
+ * `hydrated` gate already seeded the cache from the same storage keys.
+ * Idempotent — the prior subscription is dropped first.
+ */
+export function wireLiveWorkflowSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<LiveWorkflowCache>(LIVE_WORKFLOW_REGISTRATION);
+  if (!cache) return;
+  subscribeLiveWorkflowMirror(cache);
+  workflows = cache.getLiveWorkflows();
+}
+
+/**
+ * Wire the local `workflows` array to the active workspace's
+ * {@link LiveWorkflowCache} AND seed the oracle. Idempotent — the
+ * prior subscription is dropped first. Call BEFORE
+ * {@link bridgeLiveVariableSyncEngine} so parent (workflow) state is
+ * already in the oracle when bound LVs seed.
+ */
+export async function bridgeLiveWorkflowSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<LiveWorkflowCache>(LIVE_WORKFLOW_REGISTRATION);
+  if (!cache) return;
+  subscribeLiveWorkflowMirror(cache);
   await cache.seedFromPersistedLiveWorkflows(workflows);
   workflows = cache.getLiveWorkflows();
 }

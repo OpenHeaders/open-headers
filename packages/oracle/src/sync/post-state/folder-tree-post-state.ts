@@ -18,8 +18,8 @@
 
 import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
-import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
 import type { EntityOracle } from '../oracle';
+import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
@@ -69,35 +69,26 @@ export function projectFolderByUidGeneric<C extends string, F extends string>(
   folderUid: string,
   kinds: FolderTreeKinds<C, F>,
 ): FolderPostStateProjection | null {
-  const materialized = oracle.materializeOne(kinds.folderType, folderUid);
-  if (!materialized) return null;
-
-  const parentPath = resolveParentPath(oracle, folderUid, kinds);
-  if (parentPath === null) return null;
-
-  const folder = kinds.projectFolder(materialized, parentPath);
-  if (!folder) return null;
-
-  return {
-    folder,
-    setOrderKeys: buildFolderChildrenOrderKeys(oracle, kinds.folderType, folderUid, kinds.childrenPath),
-  };
+  return projectFolderWithIndex(oracle, buildTreeIndex(oracle, kinds), folderUid, kinds);
 }
 
 /**
  * Project every folder the oracle holds under this tree. Skips folders
  * whose parent linkage isn't currently resolvable; those republish
- * once their parent slot lands.
+ * once their parent slot lands. One index build + memoized path
+ * resolution keeps the whole projection linear in entity count —
+ * this runs on every folder-affecting broadcast, so a per-folder
+ * parent scan here turns bulk seeding quadratic.
  */
 export function projectAllFoldersGeneric<C extends string, F extends string>(
   oracle: Reads,
   kinds: FolderTreeKinds<C, F>,
 ): Folder[] {
-  const materialized = oracle.materializeAll();
+  const index = buildTreeIndex(oracle, kinds);
   const out: Folder[] = [];
-  for (const m of materialized) {
+  for (const m of index.materialized) {
     if (m.type !== kinds.folderType) continue;
-    const parentPath = resolveParentPath(oracle, m.id, kinds);
+    const parentPath = resolveParentPath(oracle, index, m.id, kinds);
     if (parentPath === null) continue;
     const folder = kinds.projectFolder(m, parentPath);
     if (folder) out.push(folder);
@@ -112,73 +103,105 @@ interface ParentRef {
 }
 
 /**
- * Walk the oracle's full materialization to find which collection or
- * folder holds `folderUid` in its children-path set, then resolve that
- * parent's absolute path. Returns null when the slot has no live
- * parent. Folder graphs are trees in well-formed state, but a corrupt
- * persisted snapshot could carry a cycle; the visited guard bails
- * safely instead of looping forever.
+ * One-pass view of the tree: every live parent slot inverted into a
+ * `childUid → parent` map, plus a memo of resolved absolute paths.
+ * Parent linkage is unique per child (each uid occupies one slot), so
+ * the inverted map loses nothing the slot scan had.
+ */
+interface FolderTreeIndex {
+  materialized: MaterializedEntity[];
+  parentOf: Map<string, ParentRef>;
+  /** Memoized absolute path per `type:uid` node; null = unresolvable. */
+  pathOf: Map<string, string | null>;
+}
+
+function buildTreeIndex<C extends string, F extends string>(
+  oracle: Reads,
+  kinds: FolderTreeKinds<C, F>,
+): FolderTreeIndex {
+  const materialized = oracle.materializeAll();
+  const parentOf = new Map<string, ParentRef>();
+  for (const m of materialized) {
+    if (m.type !== kinds.collectionType && m.type !== kinds.folderType) continue;
+    for (const slot of oracle.liveSetItems(m.type, m.id, kinds.childrenPath)) {
+      parentOf.set(slot.itemId, { type: m.type, uid: m.id });
+    }
+  }
+  return { materialized, parentOf, pathOf: new Map() };
+}
+
+function projectFolderWithIndex<C extends string, F extends string>(
+  oracle: Reads,
+  index: FolderTreeIndex,
+  folderUid: string,
+  kinds: FolderTreeKinds<C, F>,
+): FolderPostStateProjection | null {
+  const materialized = oracle.materializeOne(kinds.folderType, folderUid);
+  if (!materialized) return null;
+
+  const parentPath = resolveParentPath(oracle, index, folderUid, kinds);
+  if (parentPath === null) return null;
+
+  const folder = kinds.projectFolder(materialized, parentPath);
+  if (!folder) return null;
+
+  return {
+    folder,
+    setOrderKeys: buildFolderChildrenOrderKeys(oracle, kinds.folderType, folderUid, kinds.childrenPath),
+  };
+}
+
+/**
+ * Resolve the absolute path of `folderUid`'s parent via the index.
+ * Returns null when the slot has no live parent or the chain doesn't
+ * terminate at a collection.
  */
 function resolveParentPath<C extends string, F extends string>(
   oracle: Reads,
+  index: FolderTreeIndex,
   folderUid: string,
   kinds: FolderTreeKinds<C, F>,
 ): string | null {
-  const materialized = oracle.materializeAll();
-  const visited = new Set<string>();
-
-  let current = findSlotParent(oracle, materialized, folderUid, kinds);
-  if (!current) return null;
-
-  const chain: ParentRef[] = [];
-  while (current) {
-    const key = `${current.type}:${current.uid}`;
-    if (visited.has(key)) return null;
-    visited.add(key);
-    chain.push(current);
-    if (current.type === kinds.collectionType) break;
-    const nextParent: ParentRef | null = findSlotParent(oracle, materialized, current.uid, kinds);
-    if (!nextParent) return null;
-    current = nextParent;
-  }
-
-  // Innermost ancestor (collection) sits at the end of `chain`. Walk
-  // root→leaf to assemble the absolute path.
-  let path: string | null = null;
-  for (let i = chain.length - 1; i >= 0; i -= 1) {
-    const node = chain[i];
-    if (node.type === kinds.collectionType) {
-      const collMat = oracle.materializeOne(kinds.collectionType, node.uid);
-      if (!collMat) return null;
-      const coll = kinds.projectCollection(collMat);
-      if (!coll) return null;
-      path = coll.path;
-      continue;
-    }
-    if (path === null) return null;
-    const folderMat = oracle.materializeOne(kinds.folderType, node.uid);
-    if (!folderMat) return null;
-    const folder = kinds.projectFolder(folderMat, path);
-    if (!folder) return null;
-    path = folder.path;
-  }
-  return path;
+  const parent = index.parentOf.get(folderUid);
+  if (!parent) return null;
+  return resolveNodePath(oracle, index, parent, kinds, new Set());
 }
 
-function findSlotParent<C extends string, F extends string>(
+/**
+ * Absolute path of a collection or folder node, memoized on the index.
+ * Folder graphs are trees in well-formed state, but a corrupt persisted
+ * snapshot could carry a cycle; the visiting guard bails safely instead
+ * of recursing forever.
+ */
+function resolveNodePath<C extends string, F extends string>(
   oracle: Reads,
-  materialized: MaterializedEntity[],
-  childUid: string,
+  index: FolderTreeIndex,
+  node: ParentRef,
   kinds: FolderTreeKinds<C, F>,
-): ParentRef | null {
-  for (const m of materialized) {
-    if (m.type !== kinds.collectionType && m.type !== kinds.folderType) continue;
-    const slots = oracle.liveSetItems(m.type, m.id, kinds.childrenPath);
-    for (const slot of slots) {
-      if (slot.itemId === childUid) {
-        return { type: m.type, uid: m.id };
-      }
+  visiting: Set<string>,
+): string | null {
+  const key = `${node.type}:${node.uid}`;
+  const memo = index.pathOf.get(key);
+  if (memo !== undefined) return memo;
+  if (visiting.has(key)) return null;
+  visiting.add(key);
+
+  let path: string | null = null;
+  if (node.type === kinds.collectionType) {
+    const collMat = oracle.materializeOne(kinds.collectionType, node.uid);
+    const coll = collMat ? kinds.projectCollection(collMat) : null;
+    path = coll ? coll.path : null;
+  } else {
+    const parent = index.parentOf.get(node.uid);
+    const parentPath = parent ? resolveNodePath(oracle, index, parent, kinds, visiting) : null;
+    if (parentPath !== null) {
+      const folderMat = oracle.materializeOne(kinds.folderType, node.uid);
+      const folder = folderMat ? kinds.projectFolder(folderMat, parentPath) : null;
+      path = folder ? folder.path : null;
     }
   }
-  return null;
+
+  visiting.delete(key);
+  index.pathOf.set(key, path);
+  return path;
 }

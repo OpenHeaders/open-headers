@@ -23,6 +23,9 @@ export {
   bridgeRequestCollectionSyncEngine,
   bridgeRequestFolderSyncEngine,
   bridgeRequestSyncEngine,
+  wireRequestCollectionSyncEngine,
+  wireRequestFolderSyncEngine,
+  wireRequestSyncEngine,
 } from './bridges';
 export {
   createRequestCollection,

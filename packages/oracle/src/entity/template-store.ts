@@ -595,14 +595,7 @@ let cacheUnsubscribe: (() => void) | null = null;
 let collectionCacheUnsubscribe: (() => void) | null = null;
 let folderCacheUnsubscribe: (() => void) | null = null;
 
-/**
- * Wire the local `templates` array to the active workspace's
- * {@link TemplateCache}. Idempotent — the prior subscription is dropped
- * first.
- */
-export async function bridgeTemplateSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<TemplateCache>(TEMPLATE_REGISTRATION);
-  if (!cache) return;
+function subscribeTemplateMirror(cache: TemplateCache): void {
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
@@ -611,17 +604,9 @@ export async function bridgeTemplateSyncEngine(): Promise<void> {
     templates = cache.getTemplates();
     notifyChange();
   });
-  await cache.seedFromPersistedTemplates(templates);
-  templates = cache.getTemplates();
 }
 
-/**
- * Wire the local `templateCollections` array to the active workspace's
- * template-collection cache.
- */
-export async function bridgeTemplateCollectionSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<TemplateCollectionCache>(TEMPLATE_COLLECTION_REGISTRATION);
-  if (!cache) return;
+function subscribeTemplateCollectionMirror(cache: TemplateCollectionCache): void {
   if (collectionCacheUnsubscribe) {
     collectionCacheUnsubscribe();
     collectionCacheUnsubscribe = null;
@@ -630,19 +615,9 @@ export async function bridgeTemplateCollectionSyncEngine(): Promise<void> {
     templateCollections = cache.getTemplateCollections();
     notifyChange();
   });
-  await cache.seedFromPersistedTemplateCollections(templateCollections);
-  templateCollections = cache.getTemplateCollections();
 }
 
-/**
- * Wire the local `templateFolders` array to the active workspace's
- * template-folder cache. Call AFTER {@link bridgeTemplateCollectionSyncEngine}
- * so the parent collection slots already exist in the oracle when each
- * folder seeds.
- */
-export async function bridgeTemplateFolderSyncEngine(): Promise<void> {
-  const cache = getActiveCacheForRegistration<TemplateFolderCache>(TEMPLATE_FOLDER_REGISTRATION);
-  if (!cache) return;
+function subscribeTemplateFolderMirror(cache: TemplateFolderCache): void {
   if (folderCacheUnsubscribe) {
     folderCacheUnsubscribe();
     folderCacheUnsubscribe = null;
@@ -651,6 +626,78 @@ export async function bridgeTemplateFolderSyncEngine(): Promise<void> {
     templateFolders = cache.getTemplateFolders();
     notifyChange();
   });
+}
+
+/**
+ * Wire the local `templates` array to the active workspace's
+ * {@link TemplateCache} without seeding — the workspace service's
+ * `hydrated` gate already seeded the cache from the same storage keys.
+ * Idempotent — the prior subscription is dropped first.
+ */
+export function wireTemplateSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<TemplateCache>(TEMPLATE_REGISTRATION);
+  if (!cache) return;
+  subscribeTemplateMirror(cache);
+  templates = cache.getTemplates();
+}
+
+/**
+ * Wire the local `templates` array to the active workspace's
+ * {@link TemplateCache} AND seed the oracle. Idempotent — the prior
+ * subscription is dropped first.
+ */
+export async function bridgeTemplateSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<TemplateCache>(TEMPLATE_REGISTRATION);
+  if (!cache) return;
+  subscribeTemplateMirror(cache);
+  await cache.seedFromPersistedTemplates(templates);
+  templates = cache.getTemplates();
+}
+
+/**
+ * Wire the local `templateCollections` array to the active workspace's
+ * template-collection cache without seeding.
+ */
+export function wireTemplateCollectionSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<TemplateCollectionCache>(TEMPLATE_COLLECTION_REGISTRATION);
+  if (!cache) return;
+  subscribeTemplateCollectionMirror(cache);
+  templateCollections = cache.getTemplateCollections();
+}
+
+/**
+ * Wire the local `templateCollections` array to the active workspace's
+ * template-collection cache AND seed the oracle.
+ */
+export async function bridgeTemplateCollectionSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<TemplateCollectionCache>(TEMPLATE_COLLECTION_REGISTRATION);
+  if (!cache) return;
+  subscribeTemplateCollectionMirror(cache);
+  await cache.seedFromPersistedTemplateCollections(templateCollections);
+  templateCollections = cache.getTemplateCollections();
+}
+
+/**
+ * Wire the local `templateFolders` array to the active workspace's
+ * template-folder cache without seeding.
+ */
+export function wireTemplateFolderSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<TemplateFolderCache>(TEMPLATE_FOLDER_REGISTRATION);
+  if (!cache) return;
+  subscribeTemplateFolderMirror(cache);
+  templateFolders = cache.getTemplateFolders();
+}
+
+/**
+ * Wire the local `templateFolders` array to the active workspace's
+ * template-folder cache AND seed the oracle. Call AFTER
+ * {@link bridgeTemplateCollectionSyncEngine} so the parent collection
+ * slots already exist in the oracle when each folder seeds.
+ */
+export async function bridgeTemplateFolderSyncEngine(): Promise<void> {
+  const cache = getActiveCacheForRegistration<TemplateFolderCache>(TEMPLATE_FOLDER_REGISTRATION);
+  if (!cache) return;
+  subscribeTemplateFolderMirror(cache);
   await cache.seedFromPersistedTemplateFolders(templateFolders, templateCollections);
   templateFolders = cache.getTemplateFolders();
 }

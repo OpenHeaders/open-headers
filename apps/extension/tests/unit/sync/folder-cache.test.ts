@@ -4,21 +4,16 @@
  * collection-cache.test.ts.
  */
 
-import {
-  COLLECTION_ENTITY_TYPE,
-  createFolder,
-  FOLDER_ENTITY_TYPE,
-  renameFolder,
-} from '@openheaders/core/sync';
+import { COLLECTION_ENTITY_TYPE, createFolder, FOLDER_ENTITY_TYPE, renameFolder } from '@openheaders/core/sync';
+import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { Collection } from '@openheaders/core/types';
-import { beforeEach, describe, expect, it } from 'vitest';
+import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { createFolderCache } from '@openheaders/oracle/sync/caches/folder-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
-import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
@@ -131,6 +126,48 @@ describe('FolderCache', () => {
     const byUid = new Map(folders.map((f) => [f.uid, f]));
     expect(byUid.get('r')?.path).toBe(`${coll.path}/root-r`);
     expect(byUid.get('l')?.path).toBe(`${coll.path}/root-r/leaf-l`);
+    cache.dispose();
+  });
+
+  it('bulk seed re-projects once — one listener fire for the whole batch', async () => {
+    const coll = makeCollection('col-b');
+    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
+    let fires = 0;
+    cache.onChange(() => {
+      fires += 1;
+    });
+    await cache.seedFromPersistedFolders(
+      [
+        { schemaVersion: 5, uid: 'f-1', path: `${coll.path}/a-f-1`, name: 'A' },
+        { schemaVersion: 5, uid: 'f-2', path: `${coll.path}/a-f-1/b-f-2`, name: 'B' },
+        { schemaVersion: 5, uid: 'f-3', path: `${coll.path}/a-f-1/b-f-2/c-f-3`, name: 'C' },
+      ],
+      [coll],
+    );
+    expect(fires).toBe(1);
+    cache.dispose();
+  });
+
+  it('resolves deep nesting across sibling branches', async () => {
+    const collA = makeCollection('col-da');
+    const collB = makeCollection('col-db');
+    await oracle.apply(seedCollection(collA, ctxFactory()), []);
+    await oracle.apply(seedCollection(collB, ctxFactory()), []);
+    const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
+    await cache.seedFromPersistedFolders(
+      [
+        { schemaVersion: 5, uid: 'da-1', path: `${collA.path}/x-da-1`, name: 'X' },
+        { schemaVersion: 5, uid: 'da-2', path: `${collA.path}/x-da-1/y-da-2`, name: 'Y' },
+        { schemaVersion: 5, uid: 'da-3', path: `${collA.path}/x-da-1/y-da-2/z-da-3`, name: 'Z' },
+        { schemaVersion: 5, uid: 'db-1', path: `${collB.path}/w-db-1`, name: 'W' },
+      ],
+      [collA, collB],
+    );
+    const byUid = new Map(cache.getFolders().map((f) => [f.uid, f]));
+    expect(byUid.get('da-3')?.path).toBe(`${collA.path}/x-da-1/y-da-2/z-da-3`);
+    expect(byUid.get('db-1')?.path).toBe(`${collB.path}/w-db-1`);
+    expect(byUid.size).toBe(4);
     cache.dispose();
   });
 

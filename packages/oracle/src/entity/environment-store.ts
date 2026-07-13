@@ -589,6 +589,34 @@ export async function purgeWorkspaceEnvironmentData(workspaceId: string): Promis
 
 let envCacheUnsubscribe: (() => void) | null = null;
 
+function subscribeEnvironmentMirror(cache: EnvironmentCache): void {
+  if (envCacheUnsubscribe) {
+    envCacheUnsubscribe();
+    envCacheUnsubscribe = null;
+  }
+  envCacheUnsubscribe = cache.onChange(() => {
+    environments = cache.getEnvironments();
+    notifyChange();
+  });
+}
+
+/**
+ * Wire the local `environments` array to the active workspace's
+ * {@link EnvironmentCache} without seeding — the workspace service's
+ * `hydrated` gate already seeded the cache from the same storage keys.
+ * Mirrors `rule-store.wireRuleSyncEngine`. Idempotent — the prior
+ * cache subscription is dropped first.
+ */
+export function wireEnvironmentSyncEngine(): void {
+  const cache = getActiveCacheForRegistration<EnvironmentCache>(ENVIRONMENT_REGISTRATION);
+  if (!cache) {
+    logger.info('EnvironmentStore', 'wireEnvironmentSyncEngine: no active cache; skipping');
+    return;
+  }
+  subscribeEnvironmentMirror(cache);
+  environments = cache.getEnvironments();
+}
+
 /**
  * Wire the local `environments` array to the active workspace's
  * {@link EnvironmentCache}: seed the oracle from the hydrated env list,
@@ -606,14 +634,7 @@ export async function bridgeEnvironmentSyncEngine(): Promise<void> {
     logger.info('EnvironmentStore', 'bridgeEnvironmentSyncEngine: no active cache; skipping');
     return;
   }
-  if (envCacheUnsubscribe) {
-    envCacheUnsubscribe();
-    envCacheUnsubscribe = null;
-  }
-  envCacheUnsubscribe = cache.onChange(() => {
-    environments = cache.getEnvironments();
-    notifyChange();
-  });
+  subscribeEnvironmentMirror(cache);
   await cache.seedFromPersistedEnvironments(environments);
   // Belt-and-braces — pick up the cache view explicitly so a
   // zero-environments workspace (no broadcasts → no listener fire)
