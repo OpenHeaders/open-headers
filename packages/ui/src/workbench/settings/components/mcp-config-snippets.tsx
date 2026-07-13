@@ -60,12 +60,12 @@ const SnippetBlock: React.FC<{ title: string; body: string }> = ({ title, body }
           style={{ fontSize: 11, color: token.colorTextSecondary }}
           onClick={() => {
             navigator.clipboard.writeText(body).then(
-              () => message.success(t('workbench.settings.mcpPane.snippet.copied')),
-              () => message.error(t('workbench.settings.mcpPane.snippet.copyFailed')),
+              () => message.success(t('shared.toast.copiedToClipboard')),
+              () => message.error(t('shared.toast.copyFailed')),
             );
           }}
         >
-          {t('workbench.settings.mcpPane.snippet.copy')}
+          {t('shared.action.copy')}
         </Button>
       </div>
       <pre

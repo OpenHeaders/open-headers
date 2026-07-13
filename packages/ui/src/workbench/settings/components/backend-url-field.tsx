@@ -22,12 +22,10 @@ import { Input, Select, Space } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { type PortValidation, validatePort } from '@openheaders/core/utils';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../fields/FieldRow';
 import { useBackendRecord } from './backend-record-context';
 import PortHint from './port-hint';
-
-const FIELD_LABEL = 'Backend address';
-const FIELD_DESCRIPTION = 'Where this client dials the back-end. `ws://` for local / LAN hosts, `wss://` for remote.';
 
 type Scheme = 'ws' | 'wss';
 interface UrlParts {
@@ -66,6 +64,7 @@ function portVerdict(port: string): PortValidation {
 }
 
 const BackendUrlField: React.FC = () => {
+  const t = useT();
   const handle = useBackendRecord();
   const url = handle?.record.url ?? '';
   const [parts, setParts] = useState<UrlParts>(() => parseUrl(url));
@@ -91,13 +90,18 @@ const BackendUrlField: React.FC = () => {
   if (!handle) return null;
 
   return (
-    <FieldRow settingKey="backend.url" label={FIELD_LABEL} description={FIELD_DESCRIPTION} block>
+    <FieldRow
+      settingKey="backend.url"
+      label={t('workbench.settings.backendPane.field.url.label')}
+      description={t('workbench.settings.backendPane.field.url.description')}
+      block
+    >
       <div style={{ width: '100%' }}>
         <Space.Compact style={{ width: '100%' }}>
           <Select
             value={parts.scheme}
             style={{ flex: '0 0 92px' }}
-            aria-label="Scheme"
+            aria-label={t('workbench.settings.backendPane.field.url.schemeAria')}
             onChange={(scheme: Scheme) => {
               const next = { ...parts, scheme };
               setParts(next);
@@ -112,7 +116,7 @@ const BackendUrlField: React.FC = () => {
             style={{ flex: 1 }}
             value={parts.address}
             placeholder="127.0.0.1"
-            aria-label="Address"
+            aria-label={t('workbench.settings.backendPane.field.url.addressAria')}
             onChange={(e) => setParts({ ...parts, address: e.target.value.trim() })}
             onBlur={() => commit(parts)}
             onPressEnter={() => commit(parts)}
@@ -123,7 +127,7 @@ const BackendUrlField: React.FC = () => {
             value={parts.port}
             placeholder="8137"
             inputMode="numeric"
-            aria-label="Port"
+            aria-label={t('workbench.settings.backendPane.field.url.portAria')}
             status={verdict.level === 'reject' ? 'error' : verdict.level === 'warn' ? 'warning' : undefined}
             onChange={(e) => setParts({ ...parts, port: e.target.value.replace(/\D/g, '') })}
             onBlur={() => commit(parts)}

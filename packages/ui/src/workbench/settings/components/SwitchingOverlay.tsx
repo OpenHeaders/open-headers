@@ -14,6 +14,7 @@
 
 import { Modal, Skeleton, Spin, Typography, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 export interface SwitchingOverlayProps {
   open: boolean;
@@ -23,6 +24,7 @@ export interface SwitchingOverlayProps {
 
 const SwitchingOverlay: React.FC<SwitchingOverlayProps> = ({ open, toLabel }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <Modal
       open={open}
@@ -37,7 +39,7 @@ const SwitchingOverlay: React.FC<SwitchingOverlayProps> = ({ open, toLabel }) =>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <Spin size="large" />
         <Typography.Text style={{ fontSize: 14, fontWeight: 600, color: token.colorText }}>
-          {`Connecting to ${toLabel}…`}
+          {t('workbench.settings.backendPane.enable.connectingTo', { label: toLabel })}
         </Typography.Text>
         <div style={{ width: '100%' }}>
           <Skeleton active paragraph={{ rows: 3 }} title={false} />

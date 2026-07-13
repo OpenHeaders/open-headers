@@ -3,29 +3,37 @@
  * title/badge/icon, capability bullets (carried vs new-in-tier),
  * supported platforms, and the connectivity footer with its expandable
  * address-range categories.
+ *
+ * Copy fields carry `MessageKey`s (single consumer, converted outright);
+ * technical literals stay raw: IP ranges / URL patterns (`range`, `url`)
+ * and platform proper nouns (`PlatformItem` uses the raw-or-key pair so
+ * Chrome / macOS / AWS stay literal while generic items key).
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import type { BackendMode } from '../schema/backend';
+import type { LabeledText } from '../types';
 
 export type Icon = 'browser' | 'desktop' | 'daemon' | 'vm';
-export type Bullet = { text: string; status: 'carried' | 'new' };
-export type PlatformItem = { label: string; note?: string };
-export type PlatformGroup = { label?: string; items: PlatformItem[] };
+export type Bullet = { textKey: MessageKey; status: 'carried' | 'new' };
+export type PlatformItem = LabeledText & { noteKey?: MessageKey };
+export type PlatformGroup = { labelKey?: MessageKey; items: PlatformItem[] };
 
-export type FooterCategory = { label: string; items: { range: string; note?: string }[] };
+export type FooterCategory = { labelKey: MessageKey; items: { range: string; noteKey?: MessageKey }[] };
 export type FooterInfo = {
   kind: 'cloud' | 'local';
-  label: string;
+  labelKey: MessageKey;
   url: string;
   categories?: FooterCategory[];
 };
 
 export type TierDef = {
-  title: string;
-  sub: string;
+  titleKey: MessageKey;
+  subKey: MessageKey;
   badge: 'TODAY' | 'ROADMAP';
   icon: Icon;
-  inheritsFrom?: string;
+  /** Tier this one builds on — resolved to its title in the card caption. */
+  inheritsFrom?: BackendMode;
   bullets: Bullet[];
   platforms: PlatformGroup[];
   footer?: FooterInfo;
@@ -33,49 +41,56 @@ export type TierDef = {
 
 export const TIERS: Partial<Record<BackendMode, TierDef>> = {
   'in-browser': {
-    title: 'In-browser',
-    sub: 'extension service worker',
+    titleKey: 'workbench.settings.backendPane.tier.in-browser.title',
+    subKey: 'workbench.settings.backendPane.tier.in-browser.sub',
     badge: 'TODAY',
     icon: 'browser',
     bullets: [
-      { text: 'zero setup', status: 'new' },
-      { text: 'single device', status: 'new' },
-      { text: 'per-browser instance', status: 'new' },
-      { text: 'multi-surface concurrent editing', status: 'new' },
-      { text: 'multi-window concurrent editing', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.zeroSetup', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.singleDevice', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.perBrowserInstance', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiSurfaceEditing', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiWindowEditing', status: 'new' },
     ],
     platforms: [
-      { items: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari', note: 'soon' }] },
+      {
+        items: [
+          { label: 'Chrome' },
+          { label: 'Firefox' },
+          { label: 'Edge' },
+          { label: 'Safari', noteKey: 'workbench.settings.backendPane.tier.note.soon' },
+        ],
+      },
     ],
     footer: {
       kind: 'cloud',
-      label: 'N/A',
+      labelKey: 'workbench.settings.backendPane.tier.reach.none',
       url: '(in-process — no clients)',
       categories: [
         {
-          label: 'Why no wire?',
+          labelKey: 'workbench.settings.backendPane.tier.cat.whyNoWire',
           items: [
             {
               range: 'The back-end IS the browser service worker',
-              note: 'no port to listen on, no IPC surface exposed to other devices',
+              noteKey: 'workbench.settings.backendPane.tier.rangeNote.backendIsSw',
             },
           ],
         },
         {
-          label: 'Same-browser surfaces',
+          labelKey: 'workbench.settings.backendPane.tier.cat.sameBrowserSurfaces',
           items: [
             {
               range: 'browser.runtime messaging',
-              note: 'popup / workbench / DevTools / side-panel talk to the SW in-process',
+              noteKey: 'workbench.settings.backendPane.tier.rangeNote.runtimeMessaging',
             },
           ],
         },
         {
-          label: 'Per-browser instance',
+          labelKey: 'workbench.settings.backendPane.tier.cat.perBrowserInstance',
           items: [
             {
               range: 'browser.storage.local',
-              note: 'Chrome ≠ Firefox ≠ Edge — separate data per browser, no cross-device, no cross-browser',
+              noteKey: 'workbench.settings.backendPane.tier.rangeNote.storageLocal',
             },
           ],
         },
@@ -83,172 +98,187 @@ export const TIERS: Partial<Record<BackendMode, TierDef>> = {
     },
   },
   'desktop-app': {
-    title: 'Desktop app',
-    sub: 'embedded server',
+    titleKey: 'workbench.settings.backendPane.tier.desktop-app.title',
+    subKey: 'workbench.settings.backendPane.tier.desktop-app.sub',
     badge: 'TODAY',
     icon: 'desktop',
-    inheritsFrom: 'In-browser',
+    inheritsFrom: 'in-browser',
     bullets: [
-      { text: 'zero setup', status: 'carried' },
-      { text: 'single device', status: 'carried' },
-      { text: 'multi-surface concurrent editing', status: 'carried' },
-      { text: 'multi-window concurrent editing', status: 'carried' },
-      { text: 'Localhost-only', status: 'new' },
-      { text: 'multi-browser instances', status: 'new' },
-      { text: 'per-app instance', status: 'new' },
-      { text: 'native filesystem', status: 'new' },
-      { text: 'YAML on disk', status: 'new' },
-      { text: 'git integration (local/remote)', status: 'new' },
-      { text: 'browser ext · desktop app · CLI', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.zeroSetup', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.singleDevice', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiSurfaceEditing', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiWindowEditing', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.localhostOnly', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiBrowserInstances', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.perAppInstance', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.nativeFilesystem', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.yamlOnDisk', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.gitIntegration', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.clients', status: 'new' },
     ],
     platforms: [{ items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] }],
     footer: {
       kind: 'cloud',
-      label: 'Localhost',
+      labelKey: 'workbench.settings.backendPane.tier.reach.localhost',
       url: 'ws://localhost:<port>',
       categories: [
         {
-          label: 'IPv4 loopback',
-          items: [{ range: '127.0.0.0/8', note: 'typically 127.0.0.1' }],
+          labelKey: 'workbench.settings.backendPane.tier.cat.ipv4Loopback',
+          items: [{ range: '127.0.0.0/8', noteKey: 'workbench.settings.backendPane.tier.rangeNote.typicalLoopback' }],
         },
         {
-          label: 'IPv6 loopback',
+          labelKey: 'workbench.settings.backendPane.tier.cat.ipv6Loopback',
           items: [{ range: '::1/128' }],
         },
         {
-          label: 'Default port',
-          items: [{ range: '8137', note: 'override in Backend → Connection' }],
+          labelKey: 'workbench.settings.backendPane.tier.cat.defaultPort',
+          items: [{ range: '8137', noteKey: 'workbench.settings.backendPane.tier.rangeNote.portOverride' }],
         },
       ],
     },
   },
   'local-self-hosted': {
-    title: 'Local server',
-    sub: 'on your LAN',
+    titleKey: 'workbench.settings.backendPane.tier.local-self-hosted.title',
+    subKey: 'workbench.settings.backendPane.tier.local-self-hosted.sub',
     badge: 'ROADMAP',
     icon: 'daemon',
-    inheritsFrom: 'Desktop app',
+    inheritsFrom: 'desktop-app',
     bullets: [
-      { text: 'multi-browser instances', status: 'carried' },
-      { text: 'multi-surface concurrent editing', status: 'carried' },
-      { text: 'multi-window concurrent editing', status: 'carried' },
-      { text: 'native filesystem', status: 'carried' },
-      { text: 'YAML on disk', status: 'carried' },
-      { text: 'git integration (local/remote)', status: 'carried' },
-      { text: 'browser ext · desktop app · CLI', status: 'carried' },
-      { text: 'minimal setup', status: 'new' },
-      { text: 'Localhost-supported', status: 'new' },
-      { text: 'LAN-reachable', status: 'new' },
-      { text: 'multi-app instances', status: 'new' },
-      { text: 'multiple devices', status: 'new' },
-      { text: 'headless by default · website opt-in', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiBrowserInstances', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiSurfaceEditing', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiWindowEditing', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.nativeFilesystem', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.yamlOnDisk', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.gitIntegration', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.clients', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.minimalSetup', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.localhostSupported', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.lanReachable', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiAppInstances', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multipleDevices', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.headlessByDefault', status: 'new' },
     ],
     platforms: [
-      { label: 'All OS', items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] },
       {
-        label: 'Embedded',
+        labelKey: 'workbench.settings.backendPane.tier.group.allOs',
+        items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }],
+      },
+      {
+        labelKey: 'workbench.settings.backendPane.tier.group.embedded',
         items: [
           { label: 'Raspberry Pi' },
           { label: 'NAS' },
-          { label: 'Mini PC' },
-          { label: 'Home server' },
-          { label: 'Old laptop' },
+          { labelKey: 'workbench.settings.backendPane.tier.platform.miniPc' },
+          { labelKey: 'workbench.settings.backendPane.tier.platform.homeServer' },
+          { labelKey: 'workbench.settings.backendPane.tier.platform.oldLaptop' },
         ],
       },
     ],
     footer: {
       kind: 'cloud',
-      label: 'Localhost/LAN',
+      labelKey: 'workbench.settings.backendPane.tier.reach.lan',
       url: 'ws://<lan-host>:<port>',
       categories: [
         {
-          label: 'Localhost / loopback',
+          labelKey: 'workbench.settings.backendPane.tier.cat.localhostLoopback',
           items: [
-            { range: '127.0.0.0/8', note: 'IPv4 — daemon on your own box (Docker, sidecar)' },
-            { range: '::1/128', note: 'IPv6' },
+            { range: '127.0.0.0/8', noteKey: 'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox' },
+            { range: '::1/128', noteKey: 'workbench.settings.backendPane.tier.rangeNote.ipv6' },
           ],
         },
         {
-          label: 'RFC1918 private IPv4',
+          labelKey: 'workbench.settings.backendPane.tier.cat.rfc1918',
           items: [{ range: '10.0.0.0/8' }, { range: '172.16.0.0/12' }, { range: '192.168.0.0/16' }],
         },
         {
-          label: 'IPv6 ULA',
-          items: [{ range: 'fc00::/7', note: 'practically fd00::/8 — IPv6 private allocation' }],
+          labelKey: 'workbench.settings.backendPane.tier.cat.ipv6Ula',
+          items: [{ range: 'fc00::/7', noteKey: 'workbench.settings.backendPane.tier.rangeNote.ulaPractically' }],
         },
         {
-          label: 'CGNAT / overlay',
-          items: [{ range: '100.64.0.0/10', note: 'Tailscale, etc.' }],
+          labelKey: 'workbench.settings.backendPane.tier.cat.cgnat',
+          items: [{ range: '100.64.0.0/10', noteKey: 'workbench.settings.backendPane.tier.rangeNote.overlayVendors' }],
         },
         {
-          label: 'Zero-config / no-DHCP fallback',
+          labelKey: 'workbench.settings.backendPane.tier.cat.zeroConfig',
           items: [
-            { range: '169.254.0.0/16', note: 'IPv4 link-local (APIPA)' },
-            { range: 'fe80::/10', note: 'IPv6 link-local — every interface auto-assigns one' },
+            { range: '169.254.0.0/16', noteKey: 'workbench.settings.backendPane.tier.rangeNote.ipv4LinkLocal' },
+            { range: 'fe80::/10', noteKey: 'workbench.settings.backendPane.tier.rangeNote.ipv6LinkLocal' },
           ],
         },
         {
-          label: 'mDNS hostnames',
-          items: [{ range: '*.local', note: 'Bonjour / Avahi' }],
+          labelKey: 'workbench.settings.backendPane.tier.cat.mdns',
+          items: [{ range: '*.local', noteKey: 'workbench.settings.backendPane.tier.rangeNote.bonjour' }],
         },
       ],
     },
   },
   'remote-self-hosted': {
-    title: 'Remote server',
-    sub: 'on the WAN',
+    titleKey: 'workbench.settings.backendPane.tier.remote-self-hosted.title',
+    subKey: 'workbench.settings.backendPane.tier.remote-self-hosted.sub',
     badge: 'ROADMAP',
     icon: 'vm',
-    inheritsFrom: 'Local server',
+    inheritsFrom: 'local-self-hosted',
     bullets: [
-      { text: 'multiple devices', status: 'carried' },
-      { text: 'multi-browser instances', status: 'carried' },
-      { text: 'multi-app instances', status: 'carried' },
-      { text: 'multi-surface concurrent editing', status: 'carried' },
-      { text: 'multi-window concurrent editing', status: 'carried' },
-      { text: 'native filesystem', status: 'carried' },
-      { text: 'YAML on disk', status: 'carried' },
-      { text: 'git integration (local/remote)', status: 'carried' },
-      { text: 'browser ext · desktop app · CLI', status: 'carried' },
-      { text: 'Localhost-supported', status: 'carried' },
-      { text: 'LAN-reachable', status: 'carried' },
-      { text: 'headless by default · website opt-in', status: 'carried' },
-      { text: 'standard setup', status: 'new' },
-      { text: 'WAN/Internet-reachable', status: 'new' },
-      { text: 'team-ready', status: 'new' },
-      { text: 'SSO Auth', status: 'new' },
-      { text: 'RBAC user management', status: 'new' },
-      { text: 'audit logs & reports', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multipleDevices', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiBrowserInstances', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiAppInstances', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiSurfaceEditing', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.multiWindowEditing', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.nativeFilesystem', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.yamlOnDisk', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.gitIntegration', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.clients', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.localhostSupported', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.lanReachable', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.headlessByDefault', status: 'carried' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.standardSetup', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.wanReachable', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.teamReady', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.ssoAuth', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.rbac', status: 'new' },
+      { textKey: 'workbench.settings.backendPane.tier.bullet.auditLogs', status: 'new' },
     ],
     platforms: [
-      { label: 'Hyperscalers', items: [{ label: 'AWS' }, { label: 'Azure' }, { label: 'Google Cloud' }] },
       {
-        label: 'EU-native',
+        labelKey: 'workbench.settings.backendPane.tier.group.hyperscalers',
+        items: [{ label: 'AWS' }, { label: 'Azure' }, { label: 'Google Cloud' }],
+      },
+      {
+        labelKey: 'workbench.settings.backendPane.tier.group.euNative',
         items: [{ label: 'Scaleway' }, { label: 'OVHcloud' }, { label: 'Hetzner' }, { label: 'IONOS' }],
       },
-      { label: 'Other', items: [{ label: 'DigitalOcean' }, { label: 'Heroku' }] },
-      { label: 'Enterprise', items: [{ label: 'Your cloud' }, { label: 'On-prem' }] },
+      {
+        labelKey: 'workbench.settings.backendPane.tier.group.other',
+        items: [{ label: 'DigitalOcean' }, { label: 'Heroku' }],
+      },
+      {
+        labelKey: 'workbench.settings.backendPane.tier.group.enterprise',
+        items: [
+          { labelKey: 'workbench.settings.backendPane.tier.platform.yourCloud' },
+          { labelKey: 'workbench.settings.backendPane.tier.platform.onPrem' },
+        ],
+      },
     ],
     footer: {
       kind: 'cloud',
-      label: 'Internet/WAN',
+      labelKey: 'workbench.settings.backendPane.tier.reach.wan',
       url: 'wss://<your-host>',
       categories: [
         {
-          label: 'Public DNS hostname',
-          items: [{ range: 'oh.example.com', note: 'recommended — TLS cert' }],
+          labelKey: 'workbench.settings.backendPane.tier.cat.publicDns',
+          items: [{ range: 'oh.example.com', noteKey: 'workbench.settings.backendPane.tier.rangeNote.tlsCert' }],
         },
         {
-          label: 'Public IPv4',
-          items: [{ range: 'a.b.c.d', note: 'anything outside RFC1918 / 100.64/10' }],
+          labelKey: 'workbench.settings.backendPane.tier.cat.publicIpv4',
+          items: [{ range: 'a.b.c.d', noteKey: 'workbench.settings.backendPane.tier.rangeNote.publicIpv4' }],
         },
         {
-          label: 'Public IPv6',
-          items: [{ range: '2000::/3', note: 'globally routable' }],
+          labelKey: 'workbench.settings.backendPane.tier.cat.publicIpv6',
+          items: [{ range: '2000::/3', noteKey: 'workbench.settings.backendPane.tier.rangeNote.globallyRoutable' }],
         },
         {
-          label: 'Transport',
-          items: [{ range: 'wss:// (TLS)', note: 'required — clients refuse ws:// to a non-loopback host' }],
+          labelKey: 'workbench.settings.backendPane.tier.cat.transport',
+          items: [{ range: 'wss:// (TLS)', noteKey: 'workbench.settings.backendPane.tier.rangeNote.tlsRequired' }],
         },
       ],
     },

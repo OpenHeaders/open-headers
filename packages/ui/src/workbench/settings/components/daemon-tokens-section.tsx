@@ -41,6 +41,7 @@ import { App as AntApp, Button, Form, Input, List, Modal, Popconfirm, Select, Ta
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import PairDeviceModal from './pair-device-modal';
 
 /** How often the ledger + connected-peer set are re-polled while this pane is open. */
@@ -89,6 +90,7 @@ function shortenId(id: string): string {
 const DaemonTokensSection: React.FC = () => {
   const { token: themeToken } = theme.useToken();
   const { message } = AntApp.useApp();
+  const t = useT();
   const [tokens, setTokens] = useState<readonly TokenRow[]>([]);
   const [connectedIds, setConnectedIds] = useState<ReadonlySet<string>>(new Set());
   const [bindableUsers, setBindableUsers] = useState<readonly BindableUser[]>([]);
@@ -165,7 +167,7 @@ const DaemonTokensSection: React.FC = () => {
       setMintResult({ open: true, secret: result.secret, tokenId: result.tokenId, rotated: false });
       await refresh();
     } catch (err) {
-      message.error(`Failed to mint token: ${(err as Error).message}`);
+      message.error(t('workbench.settings.daemonTokens.mintFailed', { message: (err as Error).message }));
     } finally {
       setMinting(false);
     }
@@ -178,7 +180,7 @@ const DaemonTokensSection: React.FC = () => {
       await refresh();
       message.success(successNote);
     } catch (err) {
-      message.error(`Failed to revoke: ${(err as Error).message}`);
+      message.error(t('workbench.settings.daemonTokens.revokeFailed', { message: (err as Error).message }));
     }
   }
 
@@ -187,17 +189,17 @@ const DaemonTokensSection: React.FC = () => {
   // failure leaves the device's existing token still valid rather than
   // locking it out. The revoke disconnects the device's live socket, so
   // it must reconnect with the new token.
-  async function handleRotate(t: TokenRow): Promise<void> {
-    setRotatingId(t.id);
+  async function handleRotate(row: TokenRow): Promise<void> {
+    setRotatingId(row.id);
     try {
-      const minted = await hostBridge.call('oh.daemon.tokens.mint', { label: t.label, userId: t.userId });
+      const minted = await hostBridge.call('oh.daemon.tokens.mint', { label: row.label, userId: row.userId });
       if (!minted.ok) throw new Error(minted.error);
-      const revoked = await hostBridge.call('oh.daemon.tokens.revoke', { tokenId: t.id });
+      const revoked = await hostBridge.call('oh.daemon.tokens.revoke', { tokenId: row.id });
       if (!revoked.ok) throw new Error(revoked.error);
       setMintResult({ open: true, secret: minted.secret, tokenId: minted.tokenId, rotated: true });
       await refresh();
     } catch (err) {
-      message.error(`Failed to rotate: ${(err as Error).message}`);
+      message.error(t('workbench.settings.daemonTokens.rotateFailed', { message: (err as Error).message }));
     } finally {
       setRotatingId(null);
     }
@@ -210,17 +212,17 @@ const DaemonTokensSection: React.FC = () => {
   async function copySecret(): Promise<void> {
     try {
       await navigator.clipboard.writeText(mintResult.secret);
-      message.success('Copied to clipboard');
+      message.success(t('shared.toast.copiedToClipboard'));
     } catch {
-      message.error('Clipboard access denied — copy the value manually');
+      message.error(t('shared.toast.copyFailed'));
     }
   }
 
   // Kind-grouped ledger: operator credentials (generate / pair / rotate)
   // versus SSO login sessions. Rows minted before the marker existed
   // carry no `kind` and read as devices.
-  const deviceTokens = tokens.filter((t) => t.kind !== 'session');
-  const sessionTokens = tokens.filter((t) => t.kind === 'session');
+  const deviceTokens = tokens.filter((row) => row.kind !== 'session');
+  const sessionTokens = tokens.filter((row) => row.kind === 'session');
 
   return (
     <section style={{ marginBottom: 12 }}>
@@ -235,11 +237,10 @@ const DaemonTokensSection: React.FC = () => {
             color: themeToken.colorTextSecondary,
           }}
         >
-          Paired devices
+          {t('workbench.settings.daemonTokens.sectionTitle')}
         </h3>
         <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginTop: 1 }}>
-          Each device that connects to this daemon authenticates with an access token. Connected devices are
-          highlighted; rotate a token to issue a fresh secret and retire the old one.
+          {t('workbench.settings.daemonTokens.sectionBlurb')}
         </div>
       </header>
       <div
@@ -260,7 +261,7 @@ const DaemonTokensSection: React.FC = () => {
         >
           <Form.Item name="label" style={{ flex: 1, marginRight: 8 }}>
             <Input
-              placeholder="Label (optional) — e.g. 'alice's phone'"
+              placeholder={t('workbench.settings.daemonTokens.labelPlaceholder')}
               maxLength={64}
               data-testid="daemon-tokens-mint-label"
             />
@@ -268,7 +269,7 @@ const DaemonTokensSection: React.FC = () => {
           {bindableUsers.length > 0 && (
             <Form.Item name="userId" style={{ minWidth: 180, marginRight: 8 }}>
               <Select
-                placeholder="Bind to user (optional)"
+                placeholder={t('workbench.settings.daemonTokens.bindUserPlaceholder')}
                 allowClear
                 showSearch
                 optionFilterProp="label"
@@ -281,67 +282,72 @@ const DaemonTokensSection: React.FC = () => {
           )}
           <Form.Item style={{ marginBottom: 0 }}>
             <Button type="primary" htmlType="submit" loading={minting} data-testid="daemon-tokens-mint">
-              Generate token
+              {t('workbench.settings.daemonTokens.generate')}
             </Button>
           </Form.Item>
           <Form.Item style={{ marginBottom: 0, marginLeft: 8 }}>
-            <Button onClick={() => setPairOpen(true)}>Pair a device</Button>
+            <Button onClick={() => setPairOpen(true)}>{t('workbench.settings.daemonTokens.pairDevice')}</Button>
           </Form.Item>
         </Form>
         <div
           style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginBottom: deviceTokens.length > 0 ? 12 : 0 }}
         >
-          Both add a token below. <strong>Generate token</strong> shows you the secret to copy and paste into the
-          device yourself. <strong>Pair a device</strong> shows a short code the device enters under Settings →
-          Backend → Pair with a code (or opens a link, as a fallback) — use it when someone else sets up the device.
+          {t('workbench.settings.daemonTokens.explainer.intro')}{' '}
+          <strong>{t('workbench.settings.daemonTokens.generate')}</strong>{' '}
+          {t('workbench.settings.daemonTokens.explainer.generateText')}{' '}
+          <strong>{t('workbench.settings.daemonTokens.pairDevice')}</strong>{' '}
+          {t('workbench.settings.daemonTokens.explainer.pairText')}
         </div>
         {deviceTokens.length === 0 ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            No devices yet. Generate a token and paste it into the device's Settings → Backend, or pair a device and
-            have it enter the code there.
+            {t('workbench.settings.daemonTokens.empty')}
           </Typography.Text>
         ) : (
           <List
             size="small"
             dataSource={[...deviceTokens].sort((a, b) => b.createdAt - a.createdAt)}
-            renderItem={(t) => {
-              const isRevoked = t.revokedAt !== null;
-              const isConnected = !isRevoked && connectedIds.has(t.id);
-              const boundUser = t.userId ? (bindableUsers.find((u) => u.userId === t.userId)?.displayName ?? shortenId(t.userId)) : null;
+            renderItem={(row) => {
+              const isRevoked = row.revokedAt !== null;
+              const isConnected = !isRevoked && connectedIds.has(row.id);
+              const boundUser = row.userId
+                ? (bindableUsers.find((u) => u.userId === row.userId)?.displayName ?? shortenId(row.userId))
+                : null;
               return (
                 <List.Item
-                  data-testid={`daemon-token-row-${t.id}`}
+                  data-testid={`daemon-token-row-${row.id}`}
                   actions={
                     isRevoked
                       ? [
                           <Tag key="revoked" color="default">
-                            Revoked {formatTimestamp(t.revokedAt)}
+                            {t('workbench.settings.daemonTokens.revokedTag', { when: formatTimestamp(row.revokedAt) })}
                           </Tag>,
                         ]
                       : [
                           <Popconfirm
                             key="rotate"
-                            title="Rotate this token?"
-                            description="A fresh secret is minted and the current one is revoked. The device must be given the new token before it can reconnect."
-                            okText="Rotate"
-                            cancelText="Cancel"
-                            onConfirm={() => handleRotate(t)}
+                            title={t('workbench.settings.daemonTokens.rotateConfirmTitle')}
+                            description={t('workbench.settings.daemonTokens.rotateConfirmBody')}
+                            okText={t('workbench.settings.daemonTokens.rotate')}
+                            cancelText={t('shared.action.cancel')}
+                            onConfirm={() => handleRotate(row)}
                           >
-                            <Button type="link" size="small" loading={rotatingId === t.id}>
-                              Rotate
+                            <Button type="link" size="small" loading={rotatingId === row.id}>
+                              {t('workbench.settings.daemonTokens.rotate')}
                             </Button>
                           </Popconfirm>,
                           <Popconfirm
                             key="revoke"
-                            title="Revoke this token?"
-                            description="Any device currently using it is disconnected immediately and can't reconnect."
-                            okText="Revoke"
-                            cancelText="Cancel"
+                            title={t('workbench.settings.daemonTokens.revokeConfirmTitle')}
+                            description={t('workbench.settings.daemonTokens.revokeConfirmBody')}
+                            okText={t('workbench.settings.daemonTokens.revoke')}
+                            cancelText={t('shared.action.cancel')}
                             okButtonProps={{ danger: true }}
-                            onConfirm={() => handleRevoke(t.id, 'Token revoked. Any device using it was disconnected.')}
+                            onConfirm={() =>
+                              handleRevoke(row.id, t('workbench.settings.daemonTokens.revokedDevice'))
+                            }
                           >
-                            <Button type="link" size="small" danger data-testid={`daemon-token-revoke-${t.id}`}>
-                              Revoke
+                            <Button type="link" size="small" danger data-testid={`daemon-token-revoke-${row.id}`}>
+                              {t('workbench.settings.daemonTokens.revoke')}
                             </Button>
                           </Popconfirm>,
                         ]
@@ -351,20 +357,27 @@ const DaemonTokensSection: React.FC = () => {
                     title={
                       <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 13 }}>
-                          {t.label || <Typography.Text type="secondary">(unlabeled)</Typography.Text>}
+                          {row.label || (
+                            <Typography.Text type="secondary">
+                              {t('workbench.settings.daemonTokens.unlabeled')}
+                            </Typography.Text>
+                          )}
                         </span>
                         {isConnected && (
                           <Tag color="green" style={{ marginInlineEnd: 0 }}>
-                            Connected
+                            {t('workbench.settings.daemonTokens.connectedTag')}
                           </Tag>
                         )}
                       </span>
                     }
                     description={
                       <span style={{ fontSize: 11, color: themeToken.colorTextTertiary }}>
-                        id {shortenId(t.id)} · created {formatTimestamp(t.createdAt)} · last used{' '}
-                        {formatTimestamp(t.lastUsedAt)}
-                        {boundUser && <> · user {boundUser}</>}
+                        {t('workbench.settings.daemonTokens.meta.device', {
+                          id: shortenId(row.id),
+                          created: formatTimestamp(row.createdAt),
+                          lastUsed: formatTimestamp(row.lastUsedAt),
+                        })}
+                        {boundUser && <> · {t('workbench.settings.daemonTokens.meta.boundUser', { user: boundUser })}</>}
                       </span>
                     }
                   />
@@ -388,11 +401,10 @@ const DaemonTokensSection: React.FC = () => {
                 color: themeToken.colorTextSecondary,
               }}
             >
-              SSO sessions
+              {t('workbench.settings.daemonTokens.ssoTitle')}
             </h3>
             <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginTop: 1 }}>
-              Each SSO login mints a session that expires on its own. Revoke one to sign the user out immediately —
-              they must log in through the identity provider again.
+              {t('workbench.settings.daemonTokens.ssoBlurb')}
             </div>
           </header>
           <div
@@ -421,21 +433,25 @@ const DaemonTokensSection: React.FC = () => {
                       isRevoked
                         ? [
                             <Tag key="revoked" color="default">
-                              Revoked {formatTimestamp(s.revokedAt)}
+                              {t('workbench.settings.daemonTokens.revokedTag', {
+                                when: formatTimestamp(s.revokedAt),
+                              })}
                             </Tag>,
                           ]
                         : [
                             <Popconfirm
                               key="revoke"
-                              title="Revoke this session?"
-                              description="The user is signed out and disconnected immediately. They must log in through the identity provider again."
-                              okText="Revoke"
-                              cancelText="Cancel"
+                              title={t('workbench.settings.daemonTokens.revokeSessionConfirmTitle')}
+                              description={t('workbench.settings.daemonTokens.revokeSessionConfirmBody')}
+                              okText={t('workbench.settings.daemonTokens.revoke')}
+                              cancelText={t('shared.action.cancel')}
                               okButtonProps={{ danger: true }}
-                              onConfirm={() => handleRevoke(s.id, 'Session revoked. The user was signed out.')}
+                              onConfirm={() =>
+                                handleRevoke(s.id, t('workbench.settings.daemonTokens.revokedSession'))
+                              }
                             >
                               <Button type="link" size="small" danger data-testid={`daemon-session-revoke-${s.id}`}>
-                                Revoke
+                                {t('workbench.settings.daemonTokens.revoke')}
                               </Button>
                             </Popconfirm>,
                           ]
@@ -445,24 +461,32 @@ const DaemonTokensSection: React.FC = () => {
                       title={
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 13 }}>
-                            {sessionUser ?? s.label ?? <Typography.Text type="secondary">(unbound)</Typography.Text>}
+                            {sessionUser ?? s.label ?? (
+                              <Typography.Text type="secondary">
+                                {t('workbench.settings.daemonTokens.unbound')}
+                              </Typography.Text>
+                            )}
                           </span>
                           {isConnected && (
                             <Tag color="green" style={{ marginInlineEnd: 0 }}>
-                              Connected
+                              {t('workbench.settings.daemonTokens.connectedTag')}
                             </Tag>
                           )}
                           {isExpired && (
                             <Tag color="orange" style={{ marginInlineEnd: 0 }}>
-                              Expired
+                              {t('workbench.settings.daemonTokens.expiredTag')}
                             </Tag>
                           )}
                         </span>
                       }
                       description={
                         <span style={{ fontSize: 11, color: themeToken.colorTextTertiary }}>
-                          signed in {formatTimestamp(s.createdAt)} · expires {formatTimestamp(s.expiresAt)} · last
-                          seen {formatTimestamp(s.lastUsedAt)} · id {shortenId(s.id)}
+                          {t('workbench.settings.daemonTokens.meta.session', {
+                            signedIn: formatTimestamp(s.createdAt),
+                            expires: formatTimestamp(s.expiresAt),
+                            lastSeen: formatTimestamp(s.lastUsedAt),
+                            id: shortenId(s.id),
+                          })}
                         </span>
                       }
                     />
@@ -476,27 +500,29 @@ const DaemonTokensSection: React.FC = () => {
 
       <Modal
         open={mintResult.open}
-        title={mintResult.rotated ? 'Copy the rotated token now' : 'Copy this token now'}
+        title={
+          mintResult.rotated
+            ? t('workbench.settings.daemonTokens.secretTitleRotated')
+            : t('workbench.settings.daemonTokens.secretTitle')
+        }
         closable={false}
         maskClosable={false}
         keyboard={false}
         onCancel={dismissMintModal}
         footer={[
           <Button key="copy" type="default" onClick={copySecret}>
-            Copy
+            {t('shared.action.copy')}
           </Button>,
           <Button key="done" type="primary" onClick={dismissMintModal} data-testid="daemon-tokens-secret-saved">
-            I've saved it
+            {t('workbench.settings.daemonTokens.secretSaved')}
           </Button>,
         ]}
         width={520}
       >
         <Typography.Paragraph>
           {mintResult.rotated
-            ? 'The previous token is now revoked — give this new secret to the device so it can reconnect. '
-            : ''}
-          The daemon stores only a hash of this value. Once this dialog closes the secret cannot be recovered — if you
-          lose it, revoke the token and mint a new one.
+            ? t('workbench.settings.daemonTokens.secretBodyRotated')
+            : t('workbench.settings.daemonTokens.secretBody')}
         </Typography.Paragraph>
         <Input.TextArea
           value={mintResult.secret}

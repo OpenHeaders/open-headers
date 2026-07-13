@@ -5,6 +5,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   FILL_BLUE,
   FILL_PURPLE,
@@ -15,56 +16,59 @@ import {
 import { OH_GREEN } from '../../components/docs/diagrams/open-headers/_shared';
 import type { FooterCategory, Icon } from './backend-tier-data';
 
-export const FooterDetails: React.FC<{ categories: FooterCategory[] }> = ({ categories }) => (
-  <div style={{ fontSize: 12, lineHeight: 1.55 }}>
-    {categories.map((cat, ci) => (
-      <div
-        key={cat.label}
-        style={{
-          marginBottom: ci === categories.length - 1 ? 0 : 10,
-          paddingBottom: ci === categories.length - 1 ? 0 : 8,
-          borderBottom: ci === categories.length - 1 ? 'none' : '1px solid var(--ant-color-border-secondary)',
-        }}
-      >
+export const FooterDetails: React.FC<{ categories: FooterCategory[] }> = ({ categories }) => {
+  const t = useT();
+  return (
+    <div style={{ fontSize: 12, lineHeight: 1.55 }}>
+      {categories.map((cat, ci) => (
         <div
+          key={cat.labelKey}
           style={{
-            fontWeight: 700,
-            fontSize: 10.5,
-            letterSpacing: 0.4,
-            textTransform: 'uppercase',
-            color: 'var(--ant-color-primary)',
-            marginBottom: 4,
+            marginBottom: ci === categories.length - 1 ? 0 : 10,
+            paddingBottom: ci === categories.length - 1 ? 0 : 8,
+            borderBottom: ci === categories.length - 1 ? 'none' : '1px solid var(--ant-color-border-secondary)',
           }}
         >
-          {cat.label}
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 10.5,
+              letterSpacing: 0.4,
+              textTransform: 'uppercase',
+              color: 'var(--ant-color-primary)',
+              marginBottom: 4,
+            }}
+          >
+            {t(cat.labelKey)}
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
+            {cat.items.map((it) => (
+              <li key={it.range} style={{ marginBottom: 2, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ color: 'var(--ant-color-primary)', flex: 'none' }}>•</span>
+                <code
+                  style={{
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    fontSize: 11.5,
+                    padding: '1px 6px',
+                    borderRadius: 3,
+                    background: 'var(--ant-color-fill-tertiary)',
+                    color: 'var(--ant-color-text)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {it.range}
+                </code>
+                {it.noteKey && (
+                  <span style={{ color: 'var(--ant-color-text-secondary)', marginLeft: 6 }}>— {t(it.noteKey)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
-          {cat.items.map((it) => (
-            <li key={it.range} style={{ marginBottom: 2, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ color: 'var(--ant-color-primary)', flex: 'none' }}>•</span>
-              <code
-                style={{
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                  fontSize: 11.5,
-                  padding: '1px 6px',
-                  borderRadius: 3,
-                  background: 'var(--ant-color-fill-tertiary)',
-                  color: 'var(--ant-color-text)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {it.range}
-              </code>
-              {it.note && (
-                <span style={{ color: 'var(--ant-color-text-secondary)', marginLeft: 6 }}>— {it.note}</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-    ))}
-  </div>
-);
+      ))}
+    </div>
+  );
+};
 
 export const CloudGlyph: React.FC<{ cx: number; cy: number; scale?: number; label?: string }> = ({
   cx,

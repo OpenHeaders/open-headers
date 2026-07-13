@@ -17,13 +17,13 @@
 import { InputNumber } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { type PortValidation, validatePort } from '@openheaders/core/utils';
+import { validatePort } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../fields/FieldRow';
 import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
 import { useSetting } from '../hooks';
-import PortHint from './port-hint';
+import PortHint, { type PortHintVerdict } from './port-hint';
 
 const BackendBindPortField: React.FC<{ def: SettingDef }> = ({ def }) => {
   const t = useT();
@@ -35,8 +35,10 @@ const BackendBindPortField: React.FC<{ def: SettingDef }> = ({ def }) => {
     setInput(port);
   }, [port]);
 
-  const verdict: PortValidation =
-    input === null ? { level: 'reject', message: 'Enter a port.' } : validatePort(input);
+  const verdict: PortHintVerdict =
+    input === null
+      ? { level: 'reject', messageKey: 'workbench.settings.backendPane.port.missing' }
+      : validatePort(input);
 
   function commit(): void {
     if (input === null || verdict.level === 'reject') return;

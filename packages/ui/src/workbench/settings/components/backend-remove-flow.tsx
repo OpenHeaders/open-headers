@@ -32,12 +32,15 @@ import { slugify } from '@openheaders/core/utils';
 import { App as AntApp, Button, Checkbox, Modal, Popconfirm, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useWorkspaces } from '../../../shared/hooks/readers/useWorkspaces';
 import { downloadYaml } from '../../components/workspace-export/download-yaml';
 
 type Outcome = 'keep' | 'discard';
 
 export interface DiscardRemovalDeps {
+  /** Active-locale translator for the progress copy. */
+  t: Translate;
   workspaces: ReadonlyArray<{ id: string; name: string }>;
   /** Export one workspace to a backup file. False aborts the whole flow. */
   backupWorkspace: (workspace: { id: string; name: string }) => Promise<boolean>;
@@ -63,14 +66,14 @@ export type DiscardRemovalResult =
  */
 export async function orchestrateDiscardRemoval(deps: DiscardRemovalDeps): Promise<DiscardRemovalResult> {
   for (const workspace of deps.workspaces) {
-    deps.onProgress(`Backing up "${workspace.name}"…`);
+    deps.onProgress(deps.t('workbench.settings.backendPane.remove.progress.backingUp', { name: workspace.name }));
     if (!(await deps.backupWorkspace(workspace))) return { ok: false, aborted: 'backup' };
   }
-  deps.onProgress('Removing back-end…');
+  deps.onProgress(deps.t('workbench.settings.backendPane.remove.progress.removing'));
   await deps.removeBackend();
   const failedDeletes: string[] = [];
   for (const workspace of deps.workspaces) {
-    deps.onProgress(`Deleting "${workspace.name}"…`);
+    deps.onProgress(deps.t('workbench.settings.backendPane.remove.progress.deleting', { name: workspace.name }));
     const result = await deps.evictWorkspace(workspace.id);
     if (!result.success) failedDeletes.push(workspace.name);
   }
@@ -84,35 +87,41 @@ export const BackendRemoveButton: React.FC<{
   onRemoved: () => void;
 }> = ({ record, label, consumedOrgs, onRemoved }) => {
   const { message } = AntApp.useApp();
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   if (consumedOrgs.length === 0) {
     const remove = async (): Promise<void> => {
       await removeBackend(record.id);
       onRemoved();
-      message.success(`Removed ${label}.`);
+      message.success(t('workbench.settings.backendPane.remove.removed', { label }));
     };
     return (
       <Popconfirm
-        title={`Remove ${label}?`}
-        description="Its address and pairing are forgotten. Nothing was synced from it yet."
-        okText="Remove"
+        title={t('workbench.settings.backendPane.remove.confirmTitle', { label })}
+        description={t('workbench.settings.backendPane.remove.confirmBody')}
+        okText={t('shared.action.remove')}
         okButtonProps={{ danger: true }}
         onConfirm={() => void remove()}
       >
-        <Button size="small" danger icon={<DeleteOutlined />} aria-label={`Remove ${label}`} />
+        <Button
+          size="small"
+          danger
+          icon={<DeleteOutlined />}
+          aria-label={t('workbench.settings.backendPane.remove.aria', { label })}
+        />
       </Popconfirm>
     );
   }
 
   return (
     <>
-      <Tooltip title="Remove this back-end — you choose what happens to its synced workspaces">
+      <Tooltip title={t('workbench.settings.backendPane.remove.tooltip')}>
         <Button
           size="small"
           danger
           icon={<DeleteOutlined />}
-          aria-label={`Remove ${label}`}
+          aria-label={t('workbench.settings.backendPane.remove.aria', { label })}
           onClick={() => setOpen(true)}
         />
       </Tooltip>
@@ -138,6 +147,7 @@ const BackendRemoveDialog: React.FC<{
 }> = ({ record, label, consumedOrgs, onClose, onRemoved }) => {
   const { token } = theme.useToken();
   const { message, notification } = AntApp.useApp();
+  const t = useT();
   const { workspaces } = useWorkspaces();
   const [outcome, setOutcome] = useState<Outcome>('keep');
   const [includeSecrets, setIncludeSecrets] = useState(false);
@@ -146,11 +156,13 @@ const BackendRemoveDialog: React.FC<{
   const orgIds = new Set(consumedOrgs.map((org) => org.id));
   const affected = workspaces.filter((w) => orgIds.has(w.orgId));
   const orgNames = consumedOrgs.map((org) => org.name).join(', ');
-  const workspaceCount = affected.length === 1 ? '1 workspace' : `${affected.length} workspaces`;
+  const workspaceCount = t('workbench.settings.backendPane.remove.workspaceCount', { count: affected.length });
 
   const runKeep = async (): Promise<void> => {
     await removeBackend(record.id);
-    message.success(`Removed ${label}. ${orgNames} stopped syncing; ${workspaceCount} stay on this device.`);
+    message.success(
+      t('workbench.settings.backendPane.remove.keepDone', { label, orgs: orgNames, workspaces: workspaceCount }),
+    );
   };
 
   const backupWorkspace = async (workspace: { id: string; name: string }): Promise<boolean> => {
@@ -163,8 +175,8 @@ const BackendRemoveDialog: React.FC<{
       .catch(() => null);
     if (!resp?.success || !resp.yaml) {
       notification.error({
-        message: `Backup of "${workspace.name}" failed`,
-        description: resp?.error ?? 'Export did not complete. Nothing was removed.',
+        message: t('workbench.settings.backendPane.remove.backupFailedTitle', { name: workspace.name }),
+        description: resp?.error ?? t('workbench.settings.backendPane.remove.backupFailedBody'),
       });
       return false;
     }
@@ -174,6 +186,7 @@ const BackendRemoveDialog: React.FC<{
 
   const runDiscard = async (): Promise<void> => {
     const result = await orchestrateDiscardRemoval({
+      t,
       workspaces: affected,
       backupWorkspace,
       removeBackend: async () => {
@@ -188,16 +201,29 @@ const BackendRemoveDialog: React.FC<{
     if (!result.ok) return;
     if (result.failedDeletes.length > 0) {
       notification.warning({
-        message: `Removed ${label}, but ${result.failedDeletes.length} workspace(s) stayed`,
-        description: `Could not delete: ${result.failedDeletes.join(', ')}. They remain as local data.`,
+        message: t('workbench.settings.backendPane.remove.discardStayedTitle', {
+          label,
+          count: result.failedDeletes.length,
+        }),
+        description: t('workbench.settings.backendPane.remove.discardStayedBody', {
+          names: result.failedDeletes.join(', '),
+        }),
       });
       return;
     }
-    message.success(`Removed ${label}. Backed up and deleted ${workspaceCount}; ${orgNames} unbound.`);
+    message.success(
+      t('workbench.settings.backendPane.remove.discardDone', { label, orgs: orgNames, workspaces: workspaceCount }),
+    );
   };
 
   const run = async (): Promise<void> => {
-    setBusy(outcome === 'keep' ? 'Removing back-end…' : 'Preparing backups…');
+    setBusy(
+      t(
+        outcome === 'keep'
+          ? 'workbench.settings.backendPane.remove.progress.removing'
+          : 'workbench.settings.backendPane.remove.progress.preparing',
+      ),
+    );
     try {
       if (outcome === 'keep') await runKeep();
       else await runDiscard();
@@ -210,7 +236,7 @@ const BackendRemoveDialog: React.FC<{
 
   return (
     <Modal
-      title={`Remove ${label}?`}
+      title={t('workbench.settings.backendPane.remove.confirmTitle', { label })}
       open
       onCancel={busy ? undefined : onClose}
       closable={!busy}
@@ -221,32 +247,43 @@ const BackendRemoveDialog: React.FC<{
           <span style={{ fontSize: 12, color: token.colorTextTertiary }}>{busy}</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button onClick={onClose} disabled={busy !== null}>
-              Cancel
+              {t('shared.action.cancel')}
             </Button>
             <Button danger type="primary" loading={busy !== null} onClick={() => void run()}>
-              {outcome === 'keep' ? 'Remove back-end' : 'Back up, then remove'}
+              {t(
+                outcome === 'keep'
+                  ? 'workbench.settings.backendPane.remove.removeBackend'
+                  : 'workbench.settings.backendPane.remove.backupThenRemove',
+              )}
             </Button>
           </div>
         </div>
       }
     >
       <p style={{ fontSize: 12.5, color: token.colorTextSecondary, margin: '4px 0 12px' }}>
-        This back-end provides <strong>{orgNames}</strong> with {workspaceCount} synced to this device. Its own data is
-        never touched — choose what happens to the local copies.
+        {t('workbench.settings.backendPane.remove.body.prefix')} <strong>{orgNames}</strong>{' '}
+        {t('workbench.settings.backendPane.remove.body.suffix', { workspaces: workspaceCount })}
       </p>
-      <div role="radiogroup" aria-label="Removal outcome" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div
+        role="radiogroup"
+        aria-label={t('workbench.settings.backendPane.remove.outcomeAria')}
+        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+      >
         <OutcomeCard
           selected={outcome === 'keep'}
           onSelect={() => setOutcome('keep')}
-          title="Keep local copies"
-          badge="Recommended"
-          description={`${orgNames} stop syncing. The ${workspaceCount} stay on this device as offline local data.`}
+          title={t('workbench.settings.backendPane.remove.keep.title')}
+          badge={t('workbench.settings.backendPane.remove.recommendedBadge')}
+          description={t('workbench.settings.backendPane.remove.keep.description', {
+            orgs: orgNames,
+            workspaces: workspaceCount,
+          })}
         />
         <OutcomeCard
           selected={outcome === 'discard'}
           onSelect={() => setOutcome('discard')}
-          title="Discard local copies"
-          description={`Each workspace is first backed up to a downloaded file, then deleted from this device. Re-joining the back-end later syncs them down again.`}
+          title={t('workbench.settings.backendPane.remove.discard.title')}
+          description={t('workbench.settings.backendPane.remove.discard.description')}
         >
           {outcome === 'discard' && (
             <Checkbox
@@ -255,7 +292,7 @@ const BackendRemoveDialog: React.FC<{
               onClick={(e) => e.stopPropagation()}
             >
               <span style={{ fontSize: 12 }}>
-                Include vault secrets in the backup files (plaintext — keep the files safe)
+                {t('workbench.settings.backendPane.remove.discard.includeSecrets')}
               </span>
             </Checkbox>
           )}

@@ -44,13 +44,10 @@ describe('validatePort', () => {
     expect(validatePort(MAX_PORT).level).toBe('warn');
   });
 
-  it('attaches a human-readable message to non-ok verdicts', () => {
-    const rejected = validatePort(80);
-    expect(rejected.level).toBe('reject');
-    expect(rejected.level !== 'ok' && rejected.message.length).toBeGreaterThan(0);
-
-    const warned = validatePort(55000);
-    expect(warned.level).toBe('warn');
-    expect(warned.level !== 'ok' && warned.message.length).toBeGreaterThan(0);
+  it('attaches a semantic reason to non-ok verdicts', () => {
+    expect(validatePort(8137.5)).toEqual({ level: 'reject', reason: 'not-integer' });
+    expect(validatePort(80)).toEqual({ level: 'reject', reason: 'privileged' });
+    expect(validatePort(70000)).toEqual({ level: 'reject', reason: 'above-max' });
+    expect(validatePort(55000)).toEqual({ level: 'warn', reason: 'ephemeral' });
   });
 });

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, BrowserWindow, STROKE } from '../../../components/docs/diagrams/_shared';
 import { OH_GREEN } from '../../../components/docs/diagrams/open-headers/_shared';
 import { SurfaceGlyphBody } from '../../../components/docs/shared';
@@ -6,6 +7,7 @@ import { DesktopContainer } from './device-frames';
 import { BackEndPill, FrontEndPill } from './pills';
 
 export const DesktopAppDetail: React.FC = () => {
+  const t = useT();
   const ID = 'be-desktop-app';
   // The big monitor IS the machine — its screen area holds every
   // process running on it (the browsers + the Open Headers back-end).
@@ -13,7 +15,12 @@ export const DesktopAppDetail: React.FC = () => {
   //   monitor at (30, 18) → (570, 228), screen inset 10 →
   //   usable screen area (40, 28) → (560, 218).
   return (
-    <svg viewBox="0 0 600 350" width="100%" role="img" aria-label="Desktop app back-end">
+    <svg
+      viewBox="0 0 600 350"
+      width="100%"
+      role="img"
+      aria-label={t('workbench.settings.backendPane.detail.aria.desktop-app')}
+    >
       <ArrowDefs id={ID} />
 
       <DesktopContainer x={30} y={18} w={540} h={280} label="Your device">

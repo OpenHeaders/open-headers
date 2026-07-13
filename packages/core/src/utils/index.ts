@@ -83,7 +83,7 @@ export {
 } from './org-logo';
 export type { PauseMarker, PauseMarkers } from './pause';
 export { computePausedUids, hasNestedPauseMarkers, resolvePauseState } from './pause';
-export type { PortValidation } from './port';
+export type { PortIssueReason, PortValidation } from './port';
 export { EPHEMERAL_PORT_START, MAX_PORT, MIN_UNPRIVILEGED_PORT, validatePort } from './port';
 export { shouldAutoUnpublishOnUpdate, UNIVERSAL_METADATA_KEYS } from './publication-gate';
 export type { BuildEmptyRequestInput } from './request-defaults';

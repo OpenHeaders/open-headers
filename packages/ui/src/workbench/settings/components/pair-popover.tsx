@@ -25,19 +25,24 @@ import { App as AntApp, Button, type ButtonProps, Input, Popover, Space, Typogra
 import type React from 'react';
 import { useCallback, useState } from 'react';
 import { getCapability, type PairWithCodeResult } from '@openheaders/core/capabilities';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 
-export function humanizePairFailure(result: Extract<PairWithCodeResult, { ok: false }>, url: string): string {
+export function humanizePairFailure(
+  result: Extract<PairWithCodeResult, { ok: false }>,
+  url: string,
+  t: Translate,
+): string {
   switch (result.reason) {
     case 'unknown':
-      return 'That code is unknown or has expired. Ask for a fresh code and try again.';
+      return t('workbench.settings.backendPane.pair.fail.unknown');
     case 'expired':
-      return 'That pairing code has expired. Generate a new one on the back-end.';
+      return t('workbench.settings.backendPane.pair.fail.expired');
     case 'consumed':
-      return 'That code was already used. Generate a new one on the back-end.';
+      return t('workbench.settings.backendPane.pair.fail.consumed');
     case 'unreachable':
-      return `Couldn't reach the back-end at ${url}. Is it running on that address?`;
+      return t('workbench.settings.backendPane.pair.fail.unreachable', { url });
     default:
-      return result.message ?? 'Pairing failed. Try again.';
+      return result.message ?? t('workbench.settings.backendPane.pair.fail.generic');
   }
 }
 
@@ -46,8 +51,9 @@ export const PairPopover: React.FC<{
   onPaired: (token: string) => void;
   buttonLabel?: string;
   buttonType?: ButtonProps['type'];
-}> = ({ url, onPaired, buttonLabel = 'Pair with a code', buttonType }) => {
+}> = ({ url, onPaired, buttonLabel, buttonType }) => {
   const { message } = AntApp.useApp();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'code' | 'token'>('code');
   const [code, setCode] = useState('');
@@ -66,21 +72,21 @@ export const PairPopover: React.FC<{
   const submitToken = useCallback(() => {
     const trimmed = token.trim();
     if (!trimmed) {
-      message.error('Paste the token the back-end displayed.');
+      message.error(t('workbench.settings.backendPane.pair.pasteTokenRequired'));
       return;
     }
     onPaired(trimmed);
-    message.success('Auth token saved.');
+    message.success(t('workbench.settings.backendPane.pair.tokenSaved'));
     setOpen(false);
     reset();
-  }, [token, onPaired, message, reset]);
+  }, [token, onPaired, message, reset, t]);
 
   const submit = useCallback(async () => {
     const exchange = getCapability('pairWithCode');
     if (!exchange) return;
     const trimmed = code.trim();
     if (!trimmed) {
-      message.error('Enter the pairing code shown on the back-end.');
+      message.error(t('workbench.settings.backendPane.pair.codeRequired'));
       return;
     }
     setPairing(true);
@@ -88,13 +94,13 @@ export const PairPopover: React.FC<{
     setPairing(false);
     if (result.ok) {
       onPaired(result.token);
-      message.success('Paired — auth token saved.');
+      message.success(t('workbench.settings.backendPane.pair.pairedSaved'));
       setOpen(false);
       reset();
       return;
     }
-    message.error(humanizePairFailure(result, url));
-  }, [code, deviceLabel, url, onPaired, message, reset]);
+    message.error(humanizePairFailure(result, url, t));
+  }, [code, deviceLabel, url, onPaired, message, reset, t]);
 
   return (
     <Popover
@@ -106,20 +112,23 @@ export const PairPopover: React.FC<{
       trigger="click"
       placement="topLeft"
       destroyTooltipOnHide
-      title={mode === 'code' ? 'Pair with a code' : 'Paste a token'}
+      title={
+        mode === 'code'
+          ? t('workbench.settings.backendPane.pair.pairWithCode')
+          : t('workbench.settings.backendPane.pair.pasteTokenTitle')
+      }
       content={
         <div style={{ width: 280 }}>
           {mode === 'code' ? (
             <>
               <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-                Enter the code the back-end displayed. We'll exchange it for an
-                auth token and connect this browser.
+                {t('workbench.settings.backendPane.pair.codeBlurb')}
               </Typography.Paragraph>
               <Space direction="vertical" size={8} style={{ width: '100%' }}>
                 <Input
                   autoFocus
                   value={code}
-                  placeholder="6-digit code"
+                  placeholder={t('workbench.settings.backendPane.pair.codePlaceholder')}
                   inputMode="numeric"
                   maxLength={12}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
@@ -127,21 +136,20 @@ export const PairPopover: React.FC<{
                 />
                 <Input
                   value={deviceLabel}
-                  placeholder="Device name (optional)"
+                  placeholder={t('workbench.settings.backendPane.pair.deviceNamePlaceholder')}
                   maxLength={64}
                   onChange={(e) => setDeviceLabel(e.target.value)}
                   onPressEnter={() => void submit()}
                 />
                 <Button type="primary" block loading={pairing} onClick={() => void submit()}>
-                  Pair
+                  {t('workbench.settings.backendPane.pair.pairAction')}
                 </Button>
               </Space>
             </>
           ) : (
             <>
               <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-                Paste the token the back-end displayed — a rotation shows the
-                new secret once. It's saved as this browser's credential.
+                {t('workbench.settings.backendPane.pair.tokenBlurb')}
               </Typography.Paragraph>
               <Space direction="vertical" size={8} style={{ width: '100%' }}>
                 <Input.Password
@@ -152,7 +160,7 @@ export const PairPopover: React.FC<{
                   onPressEnter={submitToken}
                 />
                 <Button type="primary" block onClick={submitToken}>
-                  Save token
+                  {t('workbench.settings.backendPane.pair.saveToken')}
                 </Button>
               </Space>
             </>
@@ -163,13 +171,15 @@ export const PairPopover: React.FC<{
             style={{ padding: 0, marginTop: 8, fontSize: 12 }}
             onClick={() => setMode(mode === 'code' ? 'token' : 'code')}
           >
-            {mode === 'code' ? 'Have a token? Paste it instead' : 'Have a pairing code instead?'}
+            {mode === 'code'
+              ? t('workbench.settings.backendPane.pair.switchToToken')
+              : t('workbench.settings.backendPane.pair.switchToCode')}
           </Button>
         </div>
       }
     >
       <Button type={buttonType} disabled={!url}>
-        {buttonLabel}
+        {buttonLabel ?? t('workbench.settings.backendPane.pair.pairWithCode')}
       </Button>
     </Popover>
   );

@@ -20,6 +20,8 @@ import { EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Checkbox, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type BackendConnectionPatch, createBackend, getBackend, updateBackend } from '@openheaders/core/backends';
 import { getOrgBackendBindings } from '@openheaders/core/identity';
 import type { BackendOrgConflict } from '@openheaders/core/storage';
@@ -39,6 +41,7 @@ import { type BackendRowStatus, useBackendRowStatus } from './use-backend-row-st
 
 export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const backends = useBackends();
   const orgConflicts = useBackendOrgConflicts();
   const enableSwitch = useBackendEnableSwitch();
@@ -72,15 +75,18 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
               color: token.colorTextSecondary,
             }}
           >
-            Connections
+            {t('workbench.settings.backendPane.connections.title')}
           </h3>
           <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-            Back-ends this {host === 'extension' ? 'browser' : 'app'} has joined. Their workspaces sync down and stay
-            usable offline.
+            {t(
+              host === 'extension'
+                ? 'workbench.settings.backendPane.connections.blurbBrowser'
+                : 'workbench.settings.backendPane.connections.blurbApp',
+            )}
           </div>
         </div>
         <Button size="small" icon={<PlusOutlined />} onClick={() => void add()}>
-          Add back-end
+          {t('workbench.settings.backendPane.connections.add')}
         </Button>
       </header>
       {backends.length === 0 ? (
@@ -94,8 +100,11 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
             borderRadius: 10,
           }}
         >
-          No connections — everything runs {host === 'extension' ? 'in this browser' : 'in this app'}. Add a back-end
-          to sync workspaces from the desktop app or a self-hosted server.
+          {t(
+            host === 'extension'
+              ? 'workbench.settings.backendPane.connections.emptyBrowser'
+              : 'workbench.settings.backendPane.connections.emptyApp',
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -117,12 +126,12 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   );
 };
 
-const STATUS_LABEL: Record<BackendRowStatus, string> = {
-  connected: 'Connected',
-  connecting: 'Connecting…',
-  'auth-required': 'Re-pair needed',
-  error: 'Connection down',
-  off: 'Off',
+const STATUS_LABEL: Record<BackendRowStatus, MessageKey> = {
+  connected: 'workbench.settings.backendPane.connections.status.connected',
+  connecting: 'workbench.settings.backendPane.connections.status.connecting',
+  'auth-required': 'workbench.settings.backendPane.connections.status.authRequired',
+  error: 'workbench.settings.backendPane.connections.status.error',
+  off: 'workbench.settings.backendPane.connections.status.off',
 };
 
 const ConnectionRow: React.FC<{
@@ -133,6 +142,7 @@ const ConnectionRow: React.FC<{
   onRemoved: () => void;
 }> = ({ record, orgConflicts, enableSwitch, onEdit, onRemoved }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { status, detail } = useBackendRowStatus(record);
   const consumedOrgs = useConsumedOrgs(record.id);
 
@@ -192,22 +202,41 @@ const ConnectionRow: React.FC<{
           <PairPopover
             url={record.url}
             onPaired={(next) => patch({ authToken: next })}
-            buttonLabel="Re-pair"
+            buttonLabel={t('workbench.settings.backendPane.connections.repair')}
             buttonType="primary"
           />
         )}
         <Checkbox checked={record.autoConnect} onChange={(e) => patch({ autoConnect: e.target.checked })}>
-          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>Auto-connect</span>
+          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+            {t('workbench.settings.backendPane.connections.autoConnect')}
+          </span>
         </Checkbox>
-        <Tooltip title={record.enabled ? 'Edit (disconnects first)' : 'Edit'}>
-          <Button size="small" icon={<EditOutlined />} aria-label={`Edit ${label}`} onClick={onEdit} />
+        <Tooltip
+          title={t(
+            record.enabled
+              ? 'workbench.settings.backendPane.connections.editTooltipConnected'
+              : 'workbench.settings.backendPane.connections.editTooltip',
+          )}
+        >
+          <Button
+            size="small"
+            icon={<EditOutlined />}
+            aria-label={t('workbench.settings.backendPane.connections.editAria', { label })}
+            onClick={onEdit}
+          />
         </Tooltip>
         <BackendRemoveButton record={record} label={label} consumedOrgs={consumedOrgs} onRemoved={onRemoved} />
-        <Tooltip title={record.enabled ? 'Disconnect (settings are kept)' : 'Verify and connect'}>
+        <Tooltip
+          title={t(
+            record.enabled
+              ? 'workbench.settings.backendPane.connections.disconnectTooltip'
+              : 'workbench.settings.backendPane.connections.connectTooltip',
+          )}
+        >
           <Switch
             checked={record.enabled}
             disabled={enableSwitch.busy}
-            aria-label={`${label} enabled`}
+            aria-label={t('workbench.settings.backendPane.connections.enabledAria', { label })}
             onChange={(next) => {
               void enableSwitch.setEnabled(record, next);
             }}
@@ -231,8 +260,11 @@ const ConnectionRow: React.FC<{
  */
 const OrgConflictNotice: React.FC<{ conflict: BackendOrgConflict }> = ({ conflict }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const provider = getBackend(conflict.boundBackendId);
-  const providerLabel = provider ? provider.label.trim() || provider.url : 'a removed back-end';
+  const providerLabel = provider
+    ? provider.label.trim() || provider.url
+    : t('workbench.settings.backendPane.connections.removedBackend');
   return (
     <div
       role="alert"
@@ -247,13 +279,14 @@ const OrgConflictNotice: React.FC<{ conflict: BackendOrgConflict }> = ({ conflic
         borderTop: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
-      Org “{conflict.orgName}” is already provided by {providerLabel} — not joined
+      {t('workbench.settings.backendPane.connections.orgConflict', { org: conflict.orgName, provider: providerLabel })}
     </div>
   );
 };
 
 const StatusDot: React.FC<{ status: BackendRowStatus; detail: string | null }> = ({ status, detail }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const color: Record<BackendRowStatus, string> = {
     connected: token.colorSuccess,
     connecting: token.colorWarning,
@@ -262,10 +295,10 @@ const StatusDot: React.FC<{ status: BackendRowStatus; detail: string | null }> =
     off: token.colorTextQuaternary,
   };
   return (
-    <Tooltip title={detail ?? STATUS_LABEL[status]}>
+    <Tooltip title={detail ?? t(STATUS_LABEL[status])}>
       <span
         role="status"
-        aria-label={STATUS_LABEL[status]}
+        aria-label={t(STATUS_LABEL[status])}
         style={{
           flex: 'none',
           width: 8,

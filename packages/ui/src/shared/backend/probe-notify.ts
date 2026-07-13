@@ -5,9 +5,12 @@
  * reachable-but-auth-required back-end reads the same everywhere.
  *
  * Pure: maps a {@link ProbeConnectionResult} to a level + title + body.
- * The caller fires it through whatever notification API it holds.
+ * The caller fires it through whatever notification API it holds, and
+ * passes its active-locale translator — shared modules never reach for
+ * a locale themselves.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { ProbeConnectionResult, ProbeFailure } from './probe-connection';
 
 export type ProbeNoticeLevel = 'success' | 'warning' | 'error';
@@ -19,48 +22,46 @@ export interface ProbeNotice {
 }
 
 /** Short notification title for a "reachable, but …" probe outcome. */
-export function probeWarningTitle(result: ProbeFailure): string {
+export function probeWarningTitle(result: ProbeFailure, t: Translate): string {
   if (result.reason === 'handshake-rejected') {
-    if (result.rejectReason === 'auth-required') return 'Reachable, but auth required';
-    if (result.rejectReason === 'workspace-unknown') return 'Reachable, but workspace not shared';
+    if (result.rejectReason === 'auth-required') return t('shared.probe.title.authRequired');
+    if (result.rejectReason === 'workspace-unknown') return t('shared.probe.title.workspaceUnknown');
     if (result.rejectReason === 'protocol-too-old' || result.rejectReason === 'protocol-too-new') {
-      return 'Reachable, but version mismatch';
+      return t('shared.probe.title.versionMismatch');
     }
   }
-  if (result.reason === 'protocol-mismatch') return 'Reachable, but version mismatch';
-  return 'Reachable, but not ready';
+  if (result.reason === 'protocol-mismatch') return t('shared.probe.title.versionMismatch');
+  return t('shared.probe.title.notReady');
 }
 
-export function humanizeProbeFailure(result: ProbeFailure): string {
+export function humanizeProbeFailure(result: ProbeFailure, t: Translate): string {
   switch (result.reason) {
     case 'invalid-url':
-      return `Invalid URL. ${result.detail ?? ''}`.trim();
+      return result.detail
+        ? t('shared.probe.fail.invalidUrlDetail', { detail: result.detail })
+        : t('shared.probe.fail.invalidUrl');
     case 'timeout':
-      return 'Timed out waiting for a response — is the back-end running?';
+      return t('shared.probe.fail.timeout');
     case 'closed-before-welcome':
-      return 'Connection closed before the handshake — back-end likely not running on that port.';
+      return t('shared.probe.fail.closedBeforeWelcome');
     case 'open-failed':
-      return `Could not open WebSocket${result.detail ? `: ${result.detail}` : ''}.`;
+      return result.detail
+        ? t('shared.probe.fail.openFailedDetail', { detail: result.detail })
+        : t('shared.probe.fail.openFailed');
     case 'protocol-mismatch':
-      return 'Reachable, but protocol versions are incompatible — update both apps.';
+      return t('shared.probe.fail.protocolMismatch');
     case 'handshake-rejected':
-      if (result.rejectReason === 'workspace-unknown') {
-        return "Reachable — the back-end is up but doesn't share this workspace yet. Switching will pair the two.";
-      }
-      if (result.rejectReason === 'protocol-too-old') {
-        return 'Reachable — but this app is older than the back-end. Update this side.';
-      }
-      if (result.rejectReason === 'protocol-too-new') {
-        return 'Reachable — but the back-end is older than this app. Update the back-end.';
-      }
-      if (result.rejectReason === 'auth-required') {
-        return "Reachable — but this device isn't authenticated yet. Pair with a code or paste a token above, then Switch.";
-      }
-      return `Rejected: ${result.rejectReason ?? 'unknown reason'}`;
+      if (result.rejectReason === 'workspace-unknown') return t('shared.probe.fail.workspaceUnknown');
+      if (result.rejectReason === 'protocol-too-old') return t('shared.probe.fail.protocolTooOld');
+      if (result.rejectReason === 'protocol-too-new') return t('shared.probe.fail.protocolTooNew');
+      if (result.rejectReason === 'auth-required') return t('shared.probe.fail.authRequired');
+      return result.rejectReason
+        ? t('shared.probe.fail.rejected', { reason: result.rejectReason })
+        : t('shared.probe.fail.rejectedUnknown');
     case 'malformed-welcome':
-      return "Reached a server, but it didn't speak the Open Headers protocol.";
+      return t('shared.probe.fail.malformedWelcome');
     default:
-      return 'Probe failed.';
+      return t('shared.probe.fail.generic');
   }
 }
 
@@ -71,14 +72,18 @@ export function humanizeProbeFailure(result: ProbeFailure): string {
  * "reachable, but …" warning; everything else is a hard "not reachable"
  * error. `label` names the back-end in the copy.
  */
-export function describeProbeResult(result: ProbeConnectionResult, label: string): ProbeNotice {
+export function describeProbeResult(result: ProbeConnectionResult, label: string, t: Translate): ProbeNotice {
   if (result.ok) {
-    return { level: 'success', message: 'Connection OK', description: `${label} is reachable.` };
+    return {
+      level: 'success',
+      message: t('shared.probe.connectionOk'),
+      description: t('shared.probe.reachableDescription', { label }),
+    };
   }
   const reachable = result.reason === 'protocol-mismatch' || result.reason === 'handshake-rejected';
-  const description = humanizeProbeFailure(result);
+  const description = humanizeProbeFailure(result, t);
   if (reachable) {
-    return { level: 'warning', message: probeWarningTitle(result), description };
+    return { level: 'warning', message: probeWarningTitle(result, t), description };
   }
-  return { level: 'error', message: 'Not reachable', description };
+  return { level: 'error', message: t('shared.probe.notReachable'), description };
 }

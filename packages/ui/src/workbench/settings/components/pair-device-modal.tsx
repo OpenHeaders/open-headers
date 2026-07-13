@@ -24,6 +24,7 @@ import { App as AntApp, Alert, Button, Divider, Input, Modal, QRCode, Space, Tag
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 const POLL_INTERVAL_MS = 1_000;
 
@@ -65,6 +66,7 @@ function formatRemaining(expiresAt: number, now: number): string {
 const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
+  const t = useT();
   const [active, setActive] = useState<ActivePairing | null>(null);
   const [status, setStatus] = useState<PairStatus | 'starting' | 'error'>('starting');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -148,16 +150,16 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
   async function copyToClipboard(value: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(value);
-      message.success('Copied to clipboard');
+      message.success(t('shared.toast.copiedToClipboard'));
     } catch {
-      message.error('Clipboard access denied — copy the value manually');
+      message.error(t('shared.toast.copyFailed'));
     }
   }
 
   return (
     <Modal
       open={open}
-      title="Pair a device"
+      title={t('workbench.settings.daemonTokens.pairDevice')}
       onCancel={close}
       // A stray click on the backdrop (or an Esc) mid-pairing would
       // discard the live code and force a fresh allocation. Only the X
@@ -166,19 +168,23 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
       keyboard={false}
       footer={[
         <Button key="done" type="primary" onClick={close}>
-          {status === 'confirmed' || status === 'consumed' ? 'Done' : 'Close'}
+          {status === 'confirmed' || status === 'consumed'
+            ? t('workbench.settings.daemonTokens.pairModal.done')
+            : t('shared.action.close')}
         </Button>,
       ]}
       width={520}
       destroyOnClose
     >
-      {status === 'starting' && <Typography.Text>Allocating code…</Typography.Text>}
+      {status === 'starting' && (
+        <Typography.Text>{t('workbench.settings.daemonTokens.pairModal.allocating')}</Typography.Text>
+      )}
 
       {status === 'error' && (
         <Alert
           type="error"
           showIcon
-          message="Could not start pairing"
+          message={t('workbench.settings.daemonTokens.pairModal.startFailed')}
           description={errorMessage}
         />
       )}
@@ -187,8 +193,8 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
         <Alert
           type="warning"
           showIcon
-          message="Pairing expired"
-          description="The 5-minute window elapsed without a confirmation. Close this dialog and click Pair a device again to start over."
+          message={t('workbench.settings.daemonTokens.pairModal.expiredTitle')}
+          description={t('workbench.settings.daemonTokens.pairModal.expiredBody')}
         />
       )}
 
@@ -196,17 +202,21 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
         <Alert
           type="success"
           showIcon
-          message="Paired"
-          description="The device confirmed the code. A fresh access token was issued and saved on that device; it appears in the list below. If the device can't connect, revoke the entry and pair again."
+          message={t('workbench.settings.daemonTokens.pairModal.pairedTitle')}
+          description={t('workbench.settings.daemonTokens.pairModal.pairedBody')}
         />
       )}
 
       {status === 'pending' && active && primary && (
         <div>
           <Typography.Paragraph style={{ marginBottom: 12 }}>
-            On the other device, open <strong>Settings → Backend</strong>, point
-            its <strong>Backend address</strong> at this app, then click{' '}
-            <strong>Pair with a code</strong> and enter:
+            {t('workbench.settings.daemonTokens.pairModal.intro.part1')}{' '}
+            <strong>{t('workbench.settings.daemonTokens.pairModal.intro.settingsPath')}</strong>
+            {t('workbench.settings.daemonTokens.pairModal.intro.part2')}{' '}
+            <strong>{t('workbench.settings.daemonTokens.pairModal.intro.address')}</strong>{' '}
+            {t('workbench.settings.daemonTokens.pairModal.intro.part3')}{' '}
+            <strong>{t('workbench.settings.backendPane.pair.pairWithCode')}</strong>{' '}
+            {t('workbench.settings.daemonTokens.pairModal.intro.part4')}
           </Typography.Paragraph>
 
           <div
@@ -219,7 +229,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
             }}
           >
             <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextTertiary }}>
-              Pairing code
+              {t('workbench.settings.daemonTokens.pairModal.codeLabel')}
             </div>
             <div
               style={{
@@ -233,12 +243,14 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
               {active.code}
             </div>
             <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 4 }}>
-              expires in {formatRemaining(active.expiresAt, tick)}
+              {t('workbench.settings.daemonTokens.pairModal.expiresIn', {
+                remaining: formatRemaining(active.expiresAt, tick),
+              })}
             </div>
           </div>
 
           <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 4 }}>
-            Backend address for this app
+            {t('workbench.settings.daemonTokens.pairModal.addressListLabel')}
           </div>
           <Space direction="vertical" size={6} style={{ width: '100%' }}>
             {active.pairingUrls.map((u) => {
@@ -247,7 +259,9 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
                 <div key={u.host} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Input value={wsUrl} readOnly size="small" style={{ fontFamily: 'monospace', fontSize: 12 }} />
                   <Tag style={{ marginInlineEnd: 0 }}>{u.iface ?? 'loopback'}</Tag>
-                  <Button size="small" onClick={() => void copyToClipboard(wsUrl)}>Copy</Button>
+                  <Button size="small" onClick={() => void copyToClipboard(wsUrl)}>
+                    {t('shared.action.copy')}
+                  </Button>
                 </div>
               );
             })}
@@ -256,9 +270,9 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
           <Divider style={{ margin: '14px 0 12px' }} />
 
           <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-            No <strong>Pair with a code</strong> option on that device? Open one of
-            these links there instead — it serves a page that hands over a token to
-            paste by hand.
+            {t('workbench.settings.daemonTokens.pairModal.fallback.prefix')}{' '}
+            <strong>{t('workbench.settings.backendPane.pair.pairWithCode')}</strong>{' '}
+            {t('workbench.settings.daemonTokens.pairModal.fallback.suffix')}
           </Typography.Paragraph>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
             <Space direction="vertical" size={6} style={{ flex: 1, minWidth: 0 }}>
@@ -266,7 +280,9 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
                 <div key={u.host} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Input value={u.url} readOnly size="small" style={{ fontFamily: 'monospace', fontSize: 12 }} />
                   <Tag style={{ marginInlineEnd: 0 }}>{u.iface ?? 'loopback'}</Tag>
-                  <Button size="small" onClick={() => void copyToClipboard(u.url)}>Copy</Button>
+                  <Button size="small" onClick={() => void copyToClipboard(u.url)}>
+                    {t('shared.action.copy')}
+                  </Button>
                 </div>
               ))}
             </Space>

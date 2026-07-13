@@ -12,6 +12,7 @@
  *   - a failed eviction is reported, never silently swallowed.
  */
 
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import { orchestrateDiscardRemoval } from '@openheaders/ui/workbench/settings/components/backend-remove-flow';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -23,6 +24,7 @@ const WORKSPACES = [
 function createDeps(overrides: Partial<Parameters<typeof orchestrateDiscardRemoval>[0]> = {}) {
   const calls: string[] = [];
   const deps = {
+    t: getTranslator(DEFAULT_LOCALE),
     workspaces: WORKSPACES,
     backupWorkspace: vi.fn(async (w: { id: string; name: string }) => {
       calls.push(`backup:${w.id}`);

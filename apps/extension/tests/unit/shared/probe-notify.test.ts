@@ -4,9 +4,12 @@
  * auth-required back-end reads the same on either surface.
  */
 
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import type { ProbeConnectionResult } from '@openheaders/ui/shared/backend';
 import { describeProbeResult, humanizeProbeFailure, probeWarningTitle } from '@openheaders/ui/shared/backend';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 describe('describeProbeResult', () => {
   it('maps a successful probe to a success notice naming the back-end', () => {
@@ -17,7 +20,7 @@ describe('describeProbeResult', () => {
       role: 'extension',
       agent: 'test',
     };
-    const notice = describeProbeResult(ok, 'Desktop Application');
+    const notice = describeProbeResult(ok, 'Desktop Application', t);
     expect(notice.level).toBe('success');
     expect(notice.description).toContain('Desktop Application');
   });
@@ -26,19 +29,20 @@ describe('describeProbeResult', () => {
     const notice = describeProbeResult(
       { ok: false, reason: 'handshake-rejected', rejectReason: 'auth-required' },
       'Local / LAN',
+      t,
     );
     expect(notice.level).toBe('warning');
     expect(notice.message).toBe('Reachable, but auth required');
   });
 
   it('maps a protocol mismatch to a "version mismatch" warning', () => {
-    const notice = describeProbeResult({ ok: false, reason: 'protocol-mismatch' }, 'Remote / WAN');
+    const notice = describeProbeResult({ ok: false, reason: 'protocol-mismatch' }, 'Remote / WAN', t);
     expect(notice.level).toBe('warning');
     expect(notice.message).toBe('Reachable, but version mismatch');
   });
 
   it('maps an unreachable failure to a hard error', () => {
-    const notice = describeProbeResult({ ok: false, reason: 'timeout' }, 'Desktop Application');
+    const notice = describeProbeResult({ ok: false, reason: 'timeout' }, 'Desktop Application', t);
     expect(notice.level).toBe('error');
     expect(notice.message).toBe('Not reachable');
   });
@@ -46,17 +50,17 @@ describe('describeProbeResult', () => {
 
 describe('probeWarningTitle / humanizeProbeFailure', () => {
   it('titles workspace-unknown as a not-shared warning', () => {
-    expect(probeWarningTitle({ ok: false, reason: 'handshake-rejected', rejectReason: 'workspace-unknown' })).toBe(
+    expect(probeWarningTitle({ ok: false, reason: 'handshake-rejected', rejectReason: 'workspace-unknown' }, t)).toBe(
       'Reachable, but workspace not shared',
     );
   });
 
   it('explains an auth-required rejection with a next step', () => {
-    const copy = humanizeProbeFailure({ ok: false, reason: 'handshake-rejected', rejectReason: 'auth-required' });
+    const copy = humanizeProbeFailure({ ok: false, reason: 'handshake-rejected', rejectReason: 'auth-required' }, t);
     expect(copy).toContain('Pair');
   });
 
   it('explains a timeout', () => {
-    expect(humanizeProbeFailure({ ok: false, reason: 'timeout' })).toContain('Timed out');
+    expect(humanizeProbeFailure({ ok: false, reason: 'timeout' }, t)).toContain('Timed out');
   });
 });

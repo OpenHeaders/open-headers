@@ -52,18 +52,14 @@ const LanPeersToggleEditor: React.FC<{ def: SettingDef }> = ({ def }) => {
     }
     setPending(true);
     modal.confirm({
-      title: 'Allow LAN peers?',
-      okText: 'Allow LAN peers',
-      cancelText: 'Keep loopback only',
+      title: t('workbench.settings.backendPane.lan.confirmTitle'),
+      okText: t('workbench.settings.backendPane.lan.confirmOk'),
+      cancelText: t('workbench.settings.backendPane.lan.confirmCancel'),
       okButtonProps: { danger: true },
       width: 480,
       content: (
         <Typography.Paragraph style={{ marginBottom: 0 }}>
-          The desktop daemon will bind every local network interface so other
-          devices on your network can connect. Every connection — LAN or
-          loopback — must present a paired auth token; there is no token-free
-          path. Devices pair with the code the daemon shows (or paste a token
-          into Settings → Backend → Daemon auth token).
+          {t('workbench.settings.backendPane.lan.confirmBody')}
         </Typography.Paragraph>
       ),
       onOk: () => {

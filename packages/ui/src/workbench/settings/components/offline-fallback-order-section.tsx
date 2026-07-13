@@ -27,6 +27,7 @@ import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySna
 import { App as AntApp, Button, Popconfirm, Tag, theme, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   applyFallbackPriorityPrune,
   applyFallbackPriorityReorder,
@@ -40,6 +41,7 @@ function shortenPrincipalId(id: string): string {
 const OfflineFallbackOrderSection: React.FC = () => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const selfPrincipalId = useIdentitySnapshot()?.principal.id ?? null;
   const [members, setMembers] = useState<LiveFallbackPriorityMember[]>([]);
@@ -69,10 +71,10 @@ const OfflineFallbackOrderSection: React.FC = () => {
       setMembers(next); // optimistic; the broadcast reconciles
       const surfaceId = getActiveRendererContext()?.surfaceId ?? 'workbench';
       void applyFallbackPriorityReorder(next, { workspaceId, surfaceId }).then((result) => {
-        if (!result.ok) message.error('Failed to save the new order');
+        if (!result.ok) message.error(t('workbench.settings.backendPane.fallback.saveFailed'));
       });
     },
-    [workspaceId, members, message],
+    [workspaceId, members, message, t],
   );
 
   const handlePrune = useCallback(
@@ -80,10 +82,10 @@ const OfflineFallbackOrderSection: React.FC = () => {
       if (!workspaceId) return;
       const surfaceId = getActiveRendererContext()?.surfaceId ?? 'workbench';
       void applyFallbackPriorityPrune(principalId, { workspaceId, surfaceId }).then((result) => {
-        if (!result.ok) message.error('Failed to remove the host');
+        if (!result.ok) message.error(t('workbench.settings.backendPane.fallback.removeFailed'));
       });
     },
-    [workspaceId, message],
+    [workspaceId, message, t],
   );
 
   return (
@@ -99,11 +101,10 @@ const OfflineFallbackOrderSection: React.FC = () => {
             color: token.colorTextSecondary,
           }}
         >
-          Offline fallback order
+          {t('workbench.settings.backendPane.fallback.title')}
         </h3>
         <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-          If the backend goes offline, the first reachable host on this list self-refreshes an exclusive workflow's
-          credential. Hosts enlist automatically; drag to re-rank.
+          {t('workbench.settings.backendPane.fallback.blurb')}
         </div>
       </header>
       <div
@@ -117,8 +118,7 @@ const OfflineFallbackOrderSection: React.FC = () => {
       >
         {members.length === 0 ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            No hosts have enlisted yet. A browser joins this list once it holds the seed for an exclusive Live Workflow
-            in this workspace.
+            {t('workbench.settings.backendPane.fallback.empty')}
           </Typography.Text>
         ) : (
           <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -167,6 +167,7 @@ const FallbackHostRow: React.FC<FallbackHostRowProps> = ({
   tokenColorPrimary,
   tokenColorTextTertiary,
 }) => {
+  const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: member.principalId,
   });
@@ -195,7 +196,7 @@ const FallbackHostRow: React.FC<FallbackHostRowProps> = ({
         type="button"
         {...attributes}
         {...listeners}
-        aria-label="Drag to reorder"
+        aria-label={t('workbench.settings.backendPane.fallback.dragAria')}
         style={{
           cursor: 'grab',
           color: tokenColorTextTertiary,
@@ -222,21 +223,21 @@ const FallbackHostRow: React.FC<FallbackHostRowProps> = ({
         </Typography.Text>
         {isSelf && (
           <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-            This browser
+            {t('workbench.settings.backendPane.fallback.selfTag')}
           </Tag>
         )}
       </div>
 
       <Popconfirm
-        title="Remove this host?"
-        description="It rejoins automatically if it still holds an exclusive workflow's seed."
-        okText="Remove"
-        cancelText="Cancel"
+        title={t('workbench.settings.backendPane.fallback.pruneTitle')}
+        description={t('workbench.settings.backendPane.fallback.pruneBody')}
+        okText={t('shared.action.remove')}
+        cancelText={t('shared.action.cancel')}
         okButtonProps={{ danger: true }}
         onConfirm={onPrune}
       >
         <Button type="link" size="small" danger>
-          Remove
+          {t('shared.action.remove')}
         </Button>
       </Popconfirm>
     </div>

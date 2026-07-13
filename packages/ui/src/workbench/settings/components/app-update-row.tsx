@@ -21,11 +21,6 @@ import type { SettingDef } from '../types';
 
 const { Text } = Typography;
 
-function formatLastChecked(lastCheckedAt: number | null): string | null {
-  if (lastCheckedAt === null) return null;
-  return `Last checked ${new Date(lastCheckedAt).toLocaleString()}`;
-}
-
 const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
   const t = useT();
   const [state, setState] = useState<AppUpdateState | null>(null);
@@ -70,19 +65,19 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
           else window.open(url, '_blank', 'noopener');
         }}
       >
-        Release notes
+        {t('workbench.settings.updatesRow.releaseNotes')}
       </Button>
     ) : null;
 
   let body: React.ReactNode;
   if (state === null || !state.supported) {
-    body = <Text type="secondary">Updates are handled by your install channel in this build.</Text>;
+    body = <Text type="secondary">{t('workbench.settings.updatesRow.unsupported')}</Text>;
   } else {
     switch (state.phase) {
       case 'checking':
         body = (
           <Text type="secondary">
-            <SyncOutlined spin /> Checking for updates…
+            <SyncOutlined spin /> {t('workbench.settings.updatesRow.checking')}
           </Text>
         );
         break;
@@ -91,13 +86,13 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
           <>
             {state.belowSafeFloor ? (
               <Text type="danger">
-                {`Version ${state.availableVersion} fixes a security issue affecting this version.`}
+                {t('workbench.settings.updatesRow.securityFix', { version: state.availableVersion ?? '' })}
               </Text>
             ) : (
-              <Text>Version {state.availableVersion} is available.</Text>
+              <Text>{t('workbench.settings.updatesRow.available', { version: state.availableVersion ?? '' })}</Text>
             )}
             <Button size="small" type="primary" icon={<DownloadOutlined />} onClick={() => run('oh.updates.download')}>
-              Download
+              {t('workbench.settings.updatesRow.download')}
             </Button>
             {releaseNotesLink}
           </>
@@ -106,7 +101,9 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       case 'downloading':
         body = (
           <div style={{ width: '100%', maxWidth: 320 }}>
-            <Text type="secondary">Downloading {state.availableVersion}…</Text>
+            <Text type="secondary">
+              {t('workbench.settings.updatesRow.downloading', { version: state.availableVersion ?? '' })}
+            </Text>
             <Progress percent={state.progressPercent ?? 0} size="small" />
           </div>
         );
@@ -114,9 +111,9 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       case 'downloaded':
         body = (
           <>
-            <Text>Version {state.availableVersion} is ready to install.</Text>
+            <Text>{t('workbench.settings.updatesRow.readyToInstall', { version: state.availableVersion ?? '' })}</Text>
             <Button size="small" type="primary" icon={<ReloadOutlined />} onClick={() => run('oh.updates.install')}>
-              Restart to install
+              {t('workbench.settings.updatesRow.restartToInstall')}
             </Button>
             {releaseNotesLink}
           </>
@@ -125,9 +122,11 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       case 'error':
         body = (
           <>
-            <Text type="danger">Update check failed: {state.errorMessage}</Text>
+            <Text type="danger">
+              {t('workbench.settings.updatesRow.checkFailed', { message: state.errorMessage ?? '' })}
+            </Text>
             <Button size="small" onClick={() => run('oh.updates.checkNow')}>
-              Retry
+              {t('workbench.settings.updatesRow.retry')}
             </Button>
           </>
         );
@@ -135,16 +134,21 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       default:
         body = (
           <>
-            <Text type="secondary">You're on the latest version ({state.currentVersion}).</Text>
+            <Text type="secondary">
+              {t('workbench.settings.updatesRow.upToDate', { version: state.currentVersion })}
+            </Text>
             <Button size="small" onClick={() => run('oh.updates.checkNow')}>
-              Check now
+              {t('workbench.settings.updatesRow.checkNow')}
             </Button>
           </>
         );
     }
   }
 
-  const lastChecked = state?.supported ? formatLastChecked(state.lastCheckedAt) : null;
+  const lastChecked =
+    state?.supported && state.lastCheckedAt !== null
+      ? t('workbench.settings.updatesRow.lastChecked', { when: new Date(state.lastCheckedAt).toLocaleString() })
+      : null;
 
   return (
     <FieldRow settingKey={def.key} label={resolveLabel(def, t)} description={resolveDescription(def, t)} block>

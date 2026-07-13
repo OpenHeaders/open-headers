@@ -25,6 +25,7 @@ import { App as AntApp, Button, Input, theme, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { getCapability, hasCapability } from '@openheaders/core/capabilities';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { deriveBackendMode } from '../schema/backend';
 import FieldRow from '../fields/FieldRow';
@@ -35,13 +36,10 @@ import { humanizePairFailure } from './pair-popover';
 type AuthMode = 'token' | 'code';
 const CODE_LENGTH = 6;
 
-const FIELD_LABEL = 'Authentication';
-const FIELD_DESCRIPTION =
-  'How this device proves itself to the back-end. Pair with a code, or paste a token directly.';
-
 const BackendAuthTokenField: React.FC = () => {
   const { token: themeToken } = theme.useToken();
   const { message } = AntApp.useApp();
+  const t = useT();
   const handle = useBackendRecord();
   const token = handle?.record.authToken ?? '';
   const url = handle?.record.url ?? '';
@@ -92,9 +90,9 @@ const BackendAuthTokenField: React.FC = () => {
       }
       // Keep the entered code on failure — a wrong code is usually a single
       // mistyped digit the user can fix in place, not a reason to retype all six.
-      message.error(humanizePairFailure(result, url));
+      message.error(humanizePairFailure(result, url, t));
     },
-    [url, message, setToken],
+    [url, message, setToken, t],
   );
 
   if (!handle) return null;
@@ -110,8 +108,8 @@ const BackendAuthTokenField: React.FC = () => {
   return (
     <FieldRow
       settingKey="backend.authToken"
-      label={FIELD_LABEL}
-      description={FIELD_DESCRIPTION}
+      label={t('workbench.settings.backendPane.field.auth.label')}
+      description={t('workbench.settings.backendPane.field.auth.description')}
       // Registry-backed: the store can't derive modified/reset for this
       // field. A saved token shows the dot; reset clears it — the
       // documented override for a locked (paired) code input.
@@ -129,7 +127,7 @@ const BackendAuthTokenField: React.FC = () => {
               length={CODE_LENGTH}
               value={code}
               disabled={pairing || !url || locked}
-              aria-label="Pairing code"
+              aria-label={t('workbench.settings.backendPane.field.auth.codeAria')}
               formatter={(s) => s.replace(/\D/g, '')}
               onChange={setCode}
             />
@@ -139,15 +137,15 @@ const BackendAuthTokenField: React.FC = () => {
               disabled={locked || code.length !== CODE_LENGTH || !url}
               onClick={() => void pair(code)}
             >
-              Pair
+              {t('workbench.settings.backendPane.pair.pairAction')}
             </Button>
           </div>
         ) : (
           <Input.Password
             style={{ width: '100%' }}
             value={draft}
-            placeholder="Paste a token"
-            aria-label="Auth token"
+            placeholder={t('workbench.settings.backendPane.field.auth.tokenPlaceholder')}
+            aria-label={t('workbench.settings.backendPane.field.auth.tokenAria')}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commit}
             onPressEnter={commit}
@@ -158,7 +156,7 @@ const BackendAuthTokenField: React.FC = () => {
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: themeToken.colorSuccess }}
           >
             <CheckCircleFilled />
-            Paired — access token saved
+            {t('workbench.settings.backendPane.field.auth.paired')}
           </span>
         )}
         {canPair && (
@@ -167,7 +165,11 @@ const BackendAuthTokenField: React.FC = () => {
             style={{ fontSize: 12 }}
             onClick={() => setAuthMode((m) => (m === 'code' ? 'token' : 'code'))}
           >
-            {inCodeMode ? 'Use an auth token instead' : 'Pair with a code instead'}
+            {t(
+              inCodeMode
+                ? 'workbench.settings.backendPane.field.auth.useToken'
+                : 'workbench.settings.backendPane.field.auth.useCode',
+            )}
           </Typography.Link>
         )}
       </div>

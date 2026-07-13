@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, BrowserWindow, STROKE } from '../../../components/docs/diagrams/_shared';
 import { OH_GREEN } from '../../../components/docs/diagrams/open-headers/_shared';
 import { SurfaceGlyphBody } from '../../../components/docs/shared';
@@ -6,6 +7,7 @@ import { DesktopContainer, LaptopContainer, ServerContainer } from './device-fra
 import { BackEndPill, FrontEndPill } from './pills';
 
 export const LocalSelfHostedDetail: React.FC = () => {
+  const t = useT();
   const ID = 'be-local-sh';
   // Layout: two CLIENT device frames stacked on the left (laptop with
   // 2 browsers; desktop with 1 desktop app + 1 browser). The SERVER
@@ -22,7 +24,12 @@ export const LocalSelfHostedDetail: React.FC = () => {
   // Clients fan into the server through a LAN cloud at the grid's
   // center.
   return (
-    <svg viewBox="0 0 600 410" width="100%" role="img" aria-label="Local LAN daemon back-end">
+    <svg
+      viewBox="0 0 600 410"
+      width="100%"
+      role="img"
+      aria-label={t('workbench.settings.backendPane.detail.aria.local-self-hosted')}
+    >
       <ArrowDefs id={ID} />
 
       {/* ── Row 1 ─────────────────────────────────────────────── */}

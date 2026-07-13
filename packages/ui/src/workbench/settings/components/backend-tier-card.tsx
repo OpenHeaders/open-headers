@@ -1,5 +1,6 @@
 import { Tooltip } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   FILL_BLUE,
   FILL_GREEN,
@@ -10,6 +11,7 @@ import {
 } from '../../components/docs/diagrams/_shared';
 import { OH_GREEN, OH_GREEN_TINT } from '../../components/docs/diagrams/open-headers/_shared';
 import type { BackendMode } from '../schema/backend';
+import { resolveLabel } from '../localize';
 import { TIERS } from './backend-tier-data';
 import { CloudGlyph, FooterDetails, IconArt } from './backend-tier-glyphs';
 
@@ -51,8 +53,11 @@ const MUTED = 'var(--ant-color-text-tertiary)';
 const MUTED_DOT = 'var(--ant-color-text-quaternary)';
 
 export const BackendTierCard: React.FC<Props> = ({ mode }) => {
+  const t = useT();
   const tier = TIERS[mode];
   if (!tier) return null;
+  const title = t(tier.titleKey);
+  const inheritsFromTitle = tier.inheritsFrom ? t(TIERS[tier.inheritsFrom]?.titleKey ?? tier.titleKey) : null;
 
   // All tiers share the taller card geometry so the left rectangle is
   // a consistent height across modes. The right-side topology still
@@ -80,14 +85,19 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
 
   const dense = tier.bullets.length > 10;
   const lineH = dense ? BULLET_H_DENSE : BULLET_H_TIGHT;
-  const hasGroupLabels = tier.platforms.some((g) => g.label);
+  const hasGroupLabels = tier.platforms.some((g) => g.labelKey);
   const chipH = dense || hasGroupLabels ? PLATFORM_CHIP_H_DENSE : PLATFORM_CHIP_H;
   const chipGap = dense || hasGroupLabels ? PLATFORM_CHIP_GAP_DENSE : PLATFORM_CHIP_GAP;
 
   const platformsStartY = RECT_Y + 14;
 
   return (
-    <svg viewBox={`0 0 ${VB_W} ${VB_H}`} width="100%" role="img" aria-label={`${tier.title} tier card`}>
+    <svg
+      viewBox={`0 0 ${VB_W} ${VB_H}`}
+      width="100%"
+      role="img"
+      aria-label={t('workbench.settings.backendPane.tier.cardAria', { title })}
+    >
       <rect
         x={RECT_X}
         y={RECT_Y}
@@ -118,10 +128,10 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
 
       <IconArt kind={tier.icon} cx={headerCX} cy={iconCY} />
       <text x={headerCX} y={titleY} textAnchor="middle" fontSize={12} fontWeight={700} fill={TEXT}>
-        {tier.title}
+        {title}
       </text>
       <text x={headerCX} y={subY} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        {tier.sub}
+        {t(tier.subKey)}
       </text>
       <rect
         x={headerCX - 36}
@@ -142,7 +152,11 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
         fill={isToday ? TEXT : badgeStroke}
         letterSpacing={1}
       >
-        {tier.badge}
+        {t(
+          isToday
+            ? 'workbench.settings.backendPane.tier.badge.today'
+            : 'workbench.settings.backendPane.tier.badge.roadmap',
+        ).toUpperCase()}
       </text>
 
       {!tier.inheritsFrom ? (
@@ -154,7 +168,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
                 <g key={`b-${j}`}>
                   <circle cx={BULLET_X} cy={startY + j * BULLET_H} r={2} fill={STROKE_BLUE} />
                   <text x={BULLET_X + 8} y={startY + 3 + j * BULLET_H} fontSize={10} fill={TEXT}>
-                    {b.text}
+                    {t(b.textKey)}
                   </text>
                 </g>
               ))}
@@ -182,13 +196,15 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
                 fill={MUTED}
                 letterSpacing={0.5}
               >
-                INHERITS FROM {tier.inheritsFrom.toUpperCase()}
+                {t('workbench.settings.backendPane.tier.inheritsFrom', {
+                  tier: inheritsFromTitle ?? '',
+                }).toUpperCase()}
               </text>
               {carried.map((b, j) => (
                 <g key={`c-${j}`}>
                   <circle cx={BULLET_X} cy={carriedStartY + j * lineH} r={1.6} fill={MUTED_DOT} />
                   <text x={BULLET_X + 8} y={carriedStartY + 3 + j * lineH} fontSize={9} fill={MUTED}>
-                    {b.text}
+                    {t(b.textKey)}
                   </text>
                 </g>
               ))}
@@ -211,7 +227,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
                 fill={OH_GREEN}
                 letterSpacing={0.6}
               >
-                + NEW IN THIS TIER
+                {t('workbench.settings.backendPane.tier.newInTier').toUpperCase()}
               </text>
               {newOnes.map((b, j) => (
                 <g key={`n-${j}`}>
@@ -223,7 +239,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
                     fontWeight={600}
                     fill={TEXT}
                   >
-                    {b.text}
+                    {t(b.textKey)}
                   </text>
                 </g>
               ))}
@@ -238,7 +254,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
         const cy = RECT_Y + RECT_H - 32;
         const glyph =
           footer.kind === 'cloud' ? (
-            <CloudGlyph cx={cx} cy={cy} scale={1.3} label={footer.label} />
+            <CloudGlyph cx={cx} cy={cy} scale={1.3} label={t(footer.labelKey)} />
           ) : (
             <g>
               <rect
@@ -252,7 +268,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
                 strokeWidth={1}
               />
               <text x={cx} y={cy + 3} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-                {footer.label}
+                {t(footer.labelKey)}
               </text>
             </g>
           );
@@ -318,13 +334,13 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
       })()}
 
       <text x={PLATFORM_X} y={platformsStartY + 8} fontSize={9} fontWeight={800} fill={MUTED} letterSpacing={0.6}>
-        SUPPORTS
+        {t('workbench.settings.backendPane.tier.supports').toUpperCase()}
       </text>
       {(() => {
         const els: React.ReactNode[] = [];
         let cursorY = platformsStartY + 22;
         tier.platforms.forEach((group, gi) => {
-          if (group.label) {
+          if (group.labelKey) {
             els.push(
               <text
                 key={`gl-${gi}`}
@@ -335,13 +351,14 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
                 fill={MUTED}
                 letterSpacing={0.4}
               >
-                {group.label.toUpperCase()}
+                {t(group.labelKey).toUpperCase()}
               </text>,
             );
             cursorY += PLATFORM_GROUP_LABEL_H;
           }
           group.items.forEach((p, pi) => {
             const chipY = cursorY;
+            const itemLabel = resolveLabel(p, t);
             els.push(
               <g key={`p-${gi}-${pi}`}>
                 <rect
@@ -354,10 +371,16 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
                   stroke={STROKE_BLUE}
                   strokeWidth={0.8}
                 />
-                <text x={PLATFORM_X + 6} y={chipY + chipH - 4} fontSize={chipH <= 13 ? 8.5 : 9} fontWeight={700} fill={TEXT}>
-                  {p.label}
+                <text
+                  x={PLATFORM_X + 6}
+                  y={chipY + chipH - 4}
+                  fontSize={chipH <= 13 ? 8.5 : 9}
+                  fontWeight={700}
+                  fill={TEXT}
+                >
+                  {itemLabel}
                 </text>
-                {p.note && (
+                {p.noteKey && (
                   <text
                     x={PLATFORM_X + PLATFORM_COL_W - 6}
                     y={chipY + chipH - 4}
@@ -366,7 +389,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
                     fontStyle="italic"
                     fill={MUTED}
                   >
-                    {p.note}
+                    {t(p.noteKey)}
                   </text>
                 )}
               </g>,

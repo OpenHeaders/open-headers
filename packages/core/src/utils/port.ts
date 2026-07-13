@@ -28,10 +28,15 @@ export const EPHEMERAL_PORT_START = 49152;
 /** Highest valid TCP port. */
 export const MAX_PORT = 65535;
 
-export type PortValidation =
-  | { level: 'ok' }
-  | { level: 'warn'; message: string }
-  | { level: 'reject'; message: string };
+/**
+ * Why a port drew a non-ok verdict. Semantic, not copy: rendering
+ * surfaces map each reason to their own (localized) message, and
+ * operational consumers (daemon config, bind supervisor) branch on
+ * `level` alone.
+ */
+export type PortIssueReason = 'not-integer' | 'privileged' | 'above-max' | 'ephemeral';
+
+export type PortValidation = { level: 'ok' } | { level: 'warn' | 'reject'; reason: PortIssueReason };
 
 /**
  * Classify a port number into an {@link PortValidation} verdict. Accepts
@@ -41,22 +46,16 @@ export type PortValidation =
  */
 export function validatePort(port: number): PortValidation {
   if (!Number.isInteger(port)) {
-    return { level: 'reject', message: 'Port must be a whole number.' };
+    return { level: 'reject', reason: 'not-integer' };
   }
   if (port < MIN_UNPRIVILEGED_PORT) {
-    return {
-      level: 'reject',
-      message: `Ports below ${MIN_UNPRIVILEGED_PORT} are privileged and need elevated permissions — pick ${MIN_UNPRIVILEGED_PORT} or higher.`,
-    };
+    return { level: 'reject', reason: 'privileged' };
   }
   if (port > MAX_PORT) {
-    return { level: 'reject', message: `Port must be ${MAX_PORT} or below.` };
+    return { level: 'reject', reason: 'above-max' };
   }
   if (port >= EPHEMERAL_PORT_START) {
-    return {
-      level: 'warn',
-      message: `Ports ${EPHEMERAL_PORT_START}–${MAX_PORT} are the range the OS hands out for outgoing connections; a listener here can intermittently fail to bind. A port from ${MIN_UNPRIVILEGED_PORT}–${EPHEMERAL_PORT_START - 1} is more reliable.`,
-    };
+    return { level: 'warn', reason: 'ephemeral' };
   }
   return { level: 'ok' };
 }

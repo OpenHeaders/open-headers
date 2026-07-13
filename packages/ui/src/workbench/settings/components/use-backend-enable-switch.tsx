@@ -28,6 +28,7 @@ import { generateUid } from '@openheaders/core/utils';
 import { App as AntApp } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { describeProbeResult, probeBackendConnection } from '../../../shared/backend';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { useSurfaceWorkspaceAdopt } from '../../hooks/SurfaceWorkspaceAdoptContext';
@@ -87,6 +88,7 @@ export interface BackendEnableSwitchHandle {
 }
 
 export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
+  const t = useT();
   const { message, notification } = AntApp.useApp();
   const [overlay, setOverlay] = useState<{ toLabel: string } | null>(null);
   // Re-pin THIS workbench surface to the adopted active workspace once
@@ -116,7 +118,7 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
     });
     if (!result.ok) {
       // Same copy as Test connection — and HARD-ABORT, don't commit.
-      const notice = describeProbeResult(result, toLabel);
+      const notice = describeProbeResult(result, toLabel, t);
       notification[notice.level]({ message: notice.message, description: notice.description });
       return false;
     }
@@ -153,9 +155,9 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
     setOverlay(null);
     if (refusedEarly) {
       // The connection row's conflict strip carries the full reason.
-      message.warning(`${toLabel} connected, but its Org wasn't joined — see the connection row.`);
+      message.warning(t('workbench.settings.backendPane.enable.orgNotJoined', { label: toLabel }));
     } else {
-      message.success(`Connected to ${toLabel}.`);
+      message.success(t('workbench.settings.backendPane.enable.connected', { label: toLabel }));
     }
     return true;
   };

@@ -236,6 +236,358 @@ export const workbenchSettings = {
   'workbench.settings.backendPane.wizard.disconnectEdit': 'Disconnect and edit',
   'workbench.settings.backendPane.wizard.testConnection': 'Test connection',
 
+  // ── Backend pane: connections list ─────────────────────────────────
+  'workbench.settings.backendPane.connections.title': 'Connections',
+  'workbench.settings.backendPane.connections.blurbBrowser':
+    'Back-ends this browser has joined. Their workspaces sync down and stay usable offline.',
+  'workbench.settings.backendPane.connections.blurbApp':
+    'Back-ends this app has joined. Their workspaces sync down and stay usable offline.',
+  'workbench.settings.backendPane.connections.add': 'Add back-end',
+  'workbench.settings.backendPane.connections.emptyBrowser':
+    'No connections — everything runs in this browser. Add a back-end to sync workspaces from the desktop app or a self-hosted server.',
+  'workbench.settings.backendPane.connections.emptyApp':
+    'No connections — everything runs in this app. Add a back-end to sync workspaces from the desktop app or a self-hosted server.',
+  'workbench.settings.backendPane.connections.status.connected': 'Connected',
+  'workbench.settings.backendPane.connections.status.connecting': 'Connecting…',
+  'workbench.settings.backendPane.connections.status.authRequired': 'Re-pair needed',
+  'workbench.settings.backendPane.connections.status.error': 'Connection down',
+  'workbench.settings.backendPane.connections.status.off': 'Off',
+  'workbench.settings.backendPane.connections.repair': 'Re-pair',
+  'workbench.settings.backendPane.connections.autoConnect': 'Auto-connect',
+  'workbench.settings.backendPane.connections.editTooltipConnected': 'Edit (disconnects first)',
+  'workbench.settings.backendPane.connections.editTooltip': 'Edit',
+  'workbench.settings.backendPane.connections.editAria': 'Edit {label}',
+  'workbench.settings.backendPane.connections.disconnectTooltip': 'Disconnect (settings are kept)',
+  'workbench.settings.backendPane.connections.connectTooltip': 'Verify and connect',
+  'workbench.settings.backendPane.connections.enabledAria': '{label} enabled',
+  'workbench.settings.backendPane.connections.orgConflict':
+    'Org “{org}” is already provided by {provider} — not joined',
+  'workbench.settings.backendPane.connections.removedBackend': 'a removed back-end',
+
+  // ── Backend pane: probe-gated enable ───────────────────────────────
+  'workbench.settings.backendPane.enable.connectingTo': 'Connecting to {label}…',
+  'workbench.settings.backendPane.enable.connected': 'Connected to {label}.',
+  'workbench.settings.backendPane.enable.orgNotJoined':
+    "{label} connected, but its Org wasn't joined — see the connection row.",
+
+  // ── Backend pane: remove flow ──────────────────────────────────────
+  'workbench.settings.backendPane.remove.confirmTitle': 'Remove {label}?',
+  'workbench.settings.backendPane.remove.confirmBody':
+    'Its address and pairing are forgotten. Nothing was synced from it yet.',
+  'workbench.settings.backendPane.remove.aria': 'Remove {label}',
+  'workbench.settings.backendPane.remove.removed': 'Removed {label}.',
+  'workbench.settings.backendPane.remove.tooltip':
+    'Remove this back-end — you choose what happens to its synced workspaces',
+  'workbench.settings.backendPane.remove.workspaceCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} workspace', other: '{count} workspaces' }),
+  'workbench.settings.backendPane.remove.body.prefix': 'This back-end provides',
+  'workbench.settings.backendPane.remove.body.suffix':
+    'with {workspaces} synced to this device. Its own data is never touched — choose what happens to the local copies.',
+  'workbench.settings.backendPane.remove.outcomeAria': 'Removal outcome',
+  'workbench.settings.backendPane.remove.recommendedBadge': 'Recommended',
+  'workbench.settings.backendPane.remove.keep.title': 'Keep local copies',
+  'workbench.settings.backendPane.remove.keep.description':
+    '{orgs} stop syncing. The {workspaces} stay on this device as offline local data.',
+  'workbench.settings.backendPane.remove.discard.title': 'Discard local copies',
+  'workbench.settings.backendPane.remove.discard.description':
+    'Each workspace is first backed up to a downloaded file, then deleted from this device. Re-joining the back-end later syncs them down again.',
+  'workbench.settings.backendPane.remove.discard.includeSecrets':
+    'Include vault secrets in the backup files (plaintext — keep the files safe)',
+  'workbench.settings.backendPane.remove.removeBackend': 'Remove back-end',
+  'workbench.settings.backendPane.remove.backupThenRemove': 'Back up, then remove',
+  'workbench.settings.backendPane.remove.progress.removing': 'Removing back-end…',
+  'workbench.settings.backendPane.remove.progress.preparing': 'Preparing backups…',
+  'workbench.settings.backendPane.remove.progress.backingUp': 'Backing up "{name}"…',
+  'workbench.settings.backendPane.remove.progress.deleting': 'Deleting "{name}"…',
+  'workbench.settings.backendPane.remove.keepDone':
+    'Removed {label}. {orgs} stopped syncing; {workspaces} stay on this device.',
+  'workbench.settings.backendPane.remove.discardDone':
+    'Removed {label}. Backed up and deleted {workspaces}; {orgs} unbound.',
+  'workbench.settings.backendPane.remove.discardStayedTitle': ({ label, count }, locale) =>
+    plural(locale, Number(count), {
+      one: `Removed ${String(label)}, but {count} workspace stayed`,
+      other: `Removed ${String(label)}, but {count} workspaces stayed`,
+    }),
+  'workbench.settings.backendPane.remove.discardStayedBody': 'Could not delete: {names}. They remain as local data.',
+  'workbench.settings.backendPane.remove.backupFailedTitle': 'Backup of "{name}" failed',
+  'workbench.settings.backendPane.remove.backupFailedBody': 'Export did not complete. Nothing was removed.',
+
+  // ── Backend pane: pair with a code ─────────────────────────────────
+  'workbench.settings.backendPane.pair.pairWithCode': 'Pair with a code',
+  'workbench.settings.backendPane.pair.pasteTokenTitle': 'Paste a token',
+  'workbench.settings.backendPane.pair.codeBlurb':
+    "Enter the code the back-end displayed. We'll exchange it for an auth token and connect this browser.",
+  'workbench.settings.backendPane.pair.tokenBlurb':
+    "Paste the token the back-end displayed — a rotation shows the new secret once. It's saved as this browser's credential.",
+  'workbench.settings.backendPane.pair.codePlaceholder': '6-digit code',
+  'workbench.settings.backendPane.pair.deviceNamePlaceholder': 'Device name (optional)',
+  'workbench.settings.backendPane.pair.codeRequired': 'Enter the pairing code shown on the back-end.',
+  'workbench.settings.backendPane.pair.pasteTokenRequired': 'Paste the token the back-end displayed.',
+  'workbench.settings.backendPane.pair.pairAction': 'Pair',
+  'workbench.settings.backendPane.pair.saveToken': 'Save token',
+  'workbench.settings.backendPane.pair.tokenSaved': 'Auth token saved.',
+  'workbench.settings.backendPane.pair.pairedSaved': 'Paired — auth token saved.',
+  'workbench.settings.backendPane.pair.switchToToken': 'Have a token? Paste it instead',
+  'workbench.settings.backendPane.pair.switchToCode': 'Have a pairing code instead?',
+  'workbench.settings.backendPane.pair.fail.unknown':
+    'That code is unknown or has expired. Ask for a fresh code and try again.',
+  'workbench.settings.backendPane.pair.fail.expired':
+    'That pairing code has expired. Generate a new one on the back-end.',
+  'workbench.settings.backendPane.pair.fail.consumed':
+    'That code was already used. Generate a new one on the back-end.',
+  'workbench.settings.backendPane.pair.fail.unreachable':
+    "Couldn't reach the back-end at {url}. Is it running on that address?",
+  'workbench.settings.backendPane.pair.fail.generic': 'Pairing failed. Try again.',
+
+  // ── Backend pane: record field editors ─────────────────────────────
+  'workbench.settings.backendPane.field.label.label': 'Name',
+  'workbench.settings.backendPane.field.label.description':
+    'What this back-end is called across the app. Defaults to its address.',
+  'workbench.settings.backendPane.field.label.placeholder': 'Work VM',
+  'workbench.settings.backendPane.field.label.aria': 'Back-end name',
+  'workbench.settings.backendPane.field.url.label': 'Backend address',
+  'workbench.settings.backendPane.field.url.description':
+    'Where this client dials the back-end. `ws://` for local / LAN hosts, `wss://` for remote.',
+  'workbench.settings.backendPane.field.url.schemeAria': 'Scheme',
+  'workbench.settings.backendPane.field.url.addressAria': 'Address',
+  'workbench.settings.backendPane.field.url.portAria': 'Port',
+  'workbench.settings.backendPane.field.auth.label': 'Authentication',
+  'workbench.settings.backendPane.field.auth.description':
+    'How this device proves itself to the back-end. Pair with a code, or paste a token directly.',
+  'workbench.settings.backendPane.field.auth.codeAria': 'Pairing code',
+  'workbench.settings.backendPane.field.auth.tokenAria': 'Auth token',
+  'workbench.settings.backendPane.field.auth.tokenPlaceholder': 'Paste a token',
+  'workbench.settings.backendPane.field.auth.paired': 'Paired — access token saved',
+  'workbench.settings.backendPane.field.auth.useToken': 'Use an auth token instead',
+  'workbench.settings.backendPane.field.auth.useCode': 'Pair with a code instead',
+
+  // ── Backend pane: port validation hints ────────────────────────────
+  // The IANA boundary numbers (1024 / 49152 / 65535) are protocol
+  // constants, embedded literally rather than interpolated.
+  'workbench.settings.backendPane.port.missing': 'Enter a port.',
+  'workbench.settings.backendPane.port.notInteger': 'Port must be a whole number.',
+  'workbench.settings.backendPane.port.privileged':
+    'Ports below 1024 are privileged and need elevated permissions — pick 1024 or higher.',
+  'workbench.settings.backendPane.port.aboveMax': 'Port must be 65535 or below.',
+  'workbench.settings.backendPane.port.ephemeral':
+    'Ports 49152–65535 are the range the OS hands out for outgoing connections; a listener here can intermittently fail to bind. A port from 1024–49151 is more reliable.',
+
+  // ── Backend pane: LAN-peers confirm ────────────────────────────────
+  'workbench.settings.backendPane.lan.confirmTitle': 'Allow LAN peers?',
+  'workbench.settings.backendPane.lan.confirmOk': 'Allow LAN peers',
+  'workbench.settings.backendPane.lan.confirmCancel': 'Keep loopback only',
+  'workbench.settings.backendPane.lan.confirmBody':
+    'The desktop daemon will bind every local network interface so other devices on your network can connect. Every connection — LAN or loopback — must present a paired auth token; there is no token-free path. Devices pair with the code the daemon shows (or paste a token into Settings → Backend → Daemon auth token).',
+
+  // ── Backend pane: offline fallback order ───────────────────────────
+  'workbench.settings.backendPane.fallback.title': 'Offline fallback order',
+  'workbench.settings.backendPane.fallback.blurb':
+    "If the backend goes offline, the first reachable host on this list self-refreshes an exclusive workflow's credential. Hosts enlist automatically; drag to re-rank.",
+  'workbench.settings.backendPane.fallback.empty':
+    'No hosts have enlisted yet. A browser joins this list once it holds the seed for an exclusive Live Workflow in this workspace.',
+  'workbench.settings.backendPane.fallback.saveFailed': 'Failed to save the new order',
+  'workbench.settings.backendPane.fallback.removeFailed': 'Failed to remove the host',
+  'workbench.settings.backendPane.fallback.dragAria': 'Drag to reorder',
+  'workbench.settings.backendPane.fallback.selfTag': 'This browser',
+  'workbench.settings.backendPane.fallback.pruneTitle': 'Remove this host?',
+  'workbench.settings.backendPane.fallback.pruneBody':
+    "It rejoins automatically if it still holds an exclusive workflow's seed.",
+
+  // ── Backend pane: tier cards ────────────────────────────────────────
+  // The tier registry (`backend-tier-data.ts`) renders inside a
+  // fixed-geometry SVG card. Titles, capability bullets, and range-
+  // category labels are keyed; IP ranges, URL patterns, and platform
+  // proper nouns stay literal (technical plane). Networking vocabulary
+  // inside keyed labels (loopback, RFC1918, mDNS, …) is
+  // glossary-protected on translator handoff.
+  'workbench.settings.backendPane.tier.cardAria': '{title} tier card',
+  'workbench.settings.backendPane.tier.badge.today': 'Today',
+  'workbench.settings.backendPane.tier.badge.roadmap': 'Roadmap',
+  'workbench.settings.backendPane.tier.inheritsFrom': 'Inherits from {tier}',
+  'workbench.settings.backendPane.tier.newInTier': '+ New in this tier',
+  'workbench.settings.backendPane.tier.supports': 'Supports',
+  'workbench.settings.backendPane.tier.in-browser.title': 'In-browser',
+  'workbench.settings.backendPane.tier.in-browser.sub': 'extension service worker',
+  'workbench.settings.backendPane.tier.desktop-app.title': 'Desktop app',
+  'workbench.settings.backendPane.tier.desktop-app.sub': 'embedded server',
+  'workbench.settings.backendPane.tier.local-self-hosted.title': 'Local server',
+  'workbench.settings.backendPane.tier.local-self-hosted.sub': 'on your LAN',
+  'workbench.settings.backendPane.tier.remote-self-hosted.title': 'Remote server',
+  'workbench.settings.backendPane.tier.remote-self-hosted.sub': 'on the WAN',
+  'workbench.settings.backendPane.tier.bullet.zeroSetup': 'zero setup',
+  'workbench.settings.backendPane.tier.bullet.minimalSetup': 'minimal setup',
+  'workbench.settings.backendPane.tier.bullet.standardSetup': 'standard setup',
+  'workbench.settings.backendPane.tier.bullet.singleDevice': 'single device',
+  'workbench.settings.backendPane.tier.bullet.multipleDevices': 'multiple devices',
+  'workbench.settings.backendPane.tier.bullet.perBrowserInstance': 'per-browser instance',
+  'workbench.settings.backendPane.tier.bullet.perAppInstance': 'per-app instance',
+  'workbench.settings.backendPane.tier.bullet.multiBrowserInstances': 'multi-browser instances',
+  'workbench.settings.backendPane.tier.bullet.multiAppInstances': 'multi-app instances',
+  'workbench.settings.backendPane.tier.bullet.multiSurfaceEditing': 'multi-surface concurrent editing',
+  'workbench.settings.backendPane.tier.bullet.multiWindowEditing': 'multi-window concurrent editing',
+  'workbench.settings.backendPane.tier.bullet.localhostOnly': 'Localhost-only',
+  'workbench.settings.backendPane.tier.bullet.localhostSupported': 'Localhost-supported',
+  'workbench.settings.backendPane.tier.bullet.lanReachable': 'LAN-reachable',
+  'workbench.settings.backendPane.tier.bullet.wanReachable': 'WAN/Internet-reachable',
+  'workbench.settings.backendPane.tier.bullet.nativeFilesystem': 'native filesystem',
+  'workbench.settings.backendPane.tier.bullet.yamlOnDisk': 'YAML on disk',
+  'workbench.settings.backendPane.tier.bullet.gitIntegration': 'git integration (local/remote)',
+  'workbench.settings.backendPane.tier.bullet.clients': 'browser ext · desktop app · CLI',
+  'workbench.settings.backendPane.tier.bullet.headlessByDefault': 'headless by default · website opt-in',
+  'workbench.settings.backendPane.tier.bullet.teamReady': 'team-ready',
+  'workbench.settings.backendPane.tier.bullet.ssoAuth': 'SSO Auth',
+  'workbench.settings.backendPane.tier.bullet.rbac': 'RBAC user management',
+  'workbench.settings.backendPane.tier.bullet.auditLogs': 'audit logs & reports',
+  'workbench.settings.backendPane.tier.note.soon': 'soon',
+  'workbench.settings.backendPane.tier.group.allOs': 'All OS',
+  'workbench.settings.backendPane.tier.group.embedded': 'Embedded',
+  'workbench.settings.backendPane.tier.group.hyperscalers': 'Hyperscalers',
+  'workbench.settings.backendPane.tier.group.euNative': 'EU-native',
+  'workbench.settings.backendPane.tier.group.other': 'Other',
+  'workbench.settings.backendPane.tier.group.enterprise': 'Enterprise',
+  'workbench.settings.backendPane.tier.platform.yourCloud': 'Your cloud',
+  'workbench.settings.backendPane.tier.platform.onPrem': 'On-prem',
+  'workbench.settings.backendPane.tier.platform.homeServer': 'Home server',
+  'workbench.settings.backendPane.tier.platform.oldLaptop': 'Old laptop',
+  'workbench.settings.backendPane.tier.platform.miniPc': 'Mini PC',
+  'workbench.settings.backendPane.tier.reach.none': 'N/A',
+  'workbench.settings.backendPane.tier.reach.localhost': 'Localhost',
+  'workbench.settings.backendPane.tier.reach.lan': 'Localhost/LAN',
+  'workbench.settings.backendPane.tier.reach.wan': 'Internet/WAN',
+  'workbench.settings.backendPane.tier.cat.whyNoWire': 'Why no wire?',
+  'workbench.settings.backendPane.tier.cat.sameBrowserSurfaces': 'Same-browser surfaces',
+  'workbench.settings.backendPane.tier.cat.perBrowserInstance': 'Per-browser instance',
+  'workbench.settings.backendPane.tier.cat.ipv4Loopback': 'IPv4 loopback',
+  'workbench.settings.backendPane.tier.cat.ipv6Loopback': 'IPv6 loopback',
+  'workbench.settings.backendPane.tier.cat.defaultPort': 'Default port',
+  'workbench.settings.backendPane.tier.cat.localhostLoopback': 'Localhost / loopback',
+  'workbench.settings.backendPane.tier.cat.rfc1918': 'RFC1918 private IPv4',
+  'workbench.settings.backendPane.tier.cat.ipv6Ula': 'IPv6 ULA',
+  'workbench.settings.backendPane.tier.cat.cgnat': 'CGNAT / overlay',
+  'workbench.settings.backendPane.tier.cat.zeroConfig': 'Zero-config / no-DHCP fallback',
+  'workbench.settings.backendPane.tier.cat.mdns': 'mDNS hostnames',
+  'workbench.settings.backendPane.tier.cat.publicDns': 'Public DNS hostname',
+  'workbench.settings.backendPane.tier.cat.publicIpv4': 'Public IPv4',
+  'workbench.settings.backendPane.tier.cat.publicIpv6': 'Public IPv6',
+  'workbench.settings.backendPane.tier.cat.transport': 'Transport',
+  'workbench.settings.backendPane.tier.rangeNote.backendIsSw':
+    'no port to listen on, no IPC surface exposed to other devices',
+  'workbench.settings.backendPane.tier.rangeNote.runtimeMessaging':
+    'popup / workbench / DevTools / side-panel talk to the SW in-process',
+  'workbench.settings.backendPane.tier.rangeNote.storageLocal':
+    'Chrome ≠ Firefox ≠ Edge — separate data per browser, no cross-device, no cross-browser',
+  'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'typically 127.0.0.1',
+  'workbench.settings.backendPane.tier.rangeNote.portOverride': 'override in Backend → Connection',
+  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox': 'IPv4 — daemon on your own box (Docker, sidecar)',
+  'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
+  'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'practically fd00::/8 — IPv6 private allocation',
+  'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale, etc.',
+  'workbench.settings.backendPane.tier.rangeNote.ipv4LinkLocal': 'IPv4 link-local (APIPA)',
+  'workbench.settings.backendPane.tier.rangeNote.ipv6LinkLocal': 'IPv6 link-local — every interface auto-assigns one',
+  'workbench.settings.backendPane.tier.rangeNote.bonjour': 'Bonjour / Avahi',
+  'workbench.settings.backendPane.tier.rangeNote.tlsCert': 'recommended — TLS cert',
+  'workbench.settings.backendPane.tier.rangeNote.publicIpv4': 'anything outside RFC1918 / 100.64/10',
+  'workbench.settings.backendPane.tier.rangeNote.globallyRoutable': 'globally routable',
+  'workbench.settings.backendPane.tier.rangeNote.tlsRequired': 'required — clients refuse ws:// to a non-loopback host',
+
+  // ── Backend pane: scene-diagram aria labels ────────────────────────
+  // The topology scenes themselves stay literal English (illustration
+  // plane, S3 glyph precedent); only their accessible names localize.
+  'workbench.settings.backendPane.detail.aria.in-browser': 'In-browser back-end',
+  'workbench.settings.backendPane.detail.aria.desktop-app': 'Desktop app back-end',
+  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Local LAN daemon back-end',
+  'workbench.settings.backendPane.detail.aria.remote-self-hosted': 'Remote self-hosted back-end',
+
+  // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
+  'workbench.settings.daemonTokens.sectionTitle': 'Paired devices',
+  'workbench.settings.daemonTokens.sectionBlurb':
+    'Each device that connects to this daemon authenticates with an access token. Connected devices are highlighted; rotate a token to issue a fresh secret and retire the old one.',
+  'workbench.settings.daemonTokens.labelPlaceholder': "Label (optional) — e.g. 'alice's phone'",
+  'workbench.settings.daemonTokens.bindUserPlaceholder': 'Bind to user (optional)',
+  'workbench.settings.daemonTokens.generate': 'Generate token',
+  'workbench.settings.daemonTokens.pairDevice': 'Pair a device',
+  'workbench.settings.daemonTokens.explainer.intro': 'Both add a token below.',
+  'workbench.settings.daemonTokens.explainer.generateText':
+    'shows you the secret to copy and paste into the device yourself.',
+  'workbench.settings.daemonTokens.explainer.pairText':
+    'shows a short code the device enters under Settings → Backend → Pair with a code (or opens a link, as a fallback) — use it when someone else sets up the device.',
+  'workbench.settings.daemonTokens.empty':
+    "No devices yet. Generate a token and paste it into the device's Settings → Backend, or pair a device and have it enter the code there.",
+  'workbench.settings.daemonTokens.mintFailed': 'Failed to mint token: {message}',
+  'workbench.settings.daemonTokens.rotateFailed': 'Failed to rotate: {message}',
+  'workbench.settings.daemonTokens.revokeFailed': 'Failed to revoke: {message}',
+  'workbench.settings.daemonTokens.revokedDevice': 'Token revoked. Any device using it was disconnected.',
+  'workbench.settings.daemonTokens.revokedSession': 'Session revoked. The user was signed out.',
+  'workbench.settings.daemonTokens.rotate': 'Rotate',
+  'workbench.settings.daemonTokens.revoke': 'Revoke',
+  'workbench.settings.daemonTokens.rotateConfirmTitle': 'Rotate this token?',
+  'workbench.settings.daemonTokens.rotateConfirmBody':
+    'A fresh secret is minted and the current one is revoked. The device must be given the new token before it can reconnect.',
+  'workbench.settings.daemonTokens.revokeConfirmTitle': 'Revoke this token?',
+  'workbench.settings.daemonTokens.revokeConfirmBody':
+    "Any device currently using it is disconnected immediately and can't reconnect.",
+  'workbench.settings.daemonTokens.revokeSessionConfirmTitle': 'Revoke this session?',
+  'workbench.settings.daemonTokens.revokeSessionConfirmBody':
+    'The user is signed out and disconnected immediately. They must log in through the identity provider again.',
+  'workbench.settings.daemonTokens.revokedTag': 'Revoked {when}',
+  'workbench.settings.daemonTokens.connectedTag': 'Connected',
+  'workbench.settings.daemonTokens.expiredTag': 'Expired',
+  'workbench.settings.daemonTokens.unlabeled': '(unlabeled)',
+  'workbench.settings.daemonTokens.unbound': '(unbound)',
+  'workbench.settings.daemonTokens.meta.device': 'id {id} · created {created} · last used {lastUsed}',
+  'workbench.settings.daemonTokens.meta.boundUser': 'user {user}',
+  'workbench.settings.daemonTokens.meta.session':
+    'signed in {signedIn} · expires {expires} · last seen {lastSeen} · id {id}',
+  'workbench.settings.daemonTokens.ssoTitle': 'SSO sessions',
+  'workbench.settings.daemonTokens.ssoBlurb':
+    'Each SSO login mints a session that expires on its own. Revoke one to sign the user out immediately — they must log in through the identity provider again.',
+  'workbench.settings.daemonTokens.secretTitle': 'Copy this token now',
+  'workbench.settings.daemonTokens.secretTitleRotated': 'Copy the rotated token now',
+  'workbench.settings.daemonTokens.secretBody':
+    'The daemon stores only a hash of this value. Once this dialog closes the secret cannot be recovered — if you lose it, revoke the token and mint a new one.',
+  'workbench.settings.daemonTokens.secretBodyRotated':
+    'The previous token is now revoked — give this new secret to the device so it can reconnect. The daemon stores only a hash of this value. Once this dialog closes the secret cannot be recovered — if you lose it, revoke the token and mint a new one.',
+  'workbench.settings.daemonTokens.secretSaved': "I've saved it",
+
+  // ── Daemon pairing modal ────────────────────────────────────────────
+  'workbench.settings.daemonTokens.pairModal.done': 'Done',
+  'workbench.settings.daemonTokens.pairModal.allocating': 'Allocating code…',
+  'workbench.settings.daemonTokens.pairModal.startFailed': 'Could not start pairing',
+  'workbench.settings.daemonTokens.pairModal.expiredTitle': 'Pairing expired',
+  'workbench.settings.daemonTokens.pairModal.expiredBody':
+    'The 5-minute window elapsed without a confirmation. Close this dialog and click Pair a device again to start over.',
+  'workbench.settings.daemonTokens.pairModal.pairedTitle': 'Paired',
+  'workbench.settings.daemonTokens.pairModal.pairedBody':
+    "The device confirmed the code. A fresh access token was issued and saved on that device; it appears in the list below. If the device can't connect, revoke the entry and pair again.",
+  'workbench.settings.daemonTokens.pairModal.intro.part1': 'On the other device, open',
+  'workbench.settings.daemonTokens.pairModal.intro.settingsPath': 'Settings → Backend',
+  'workbench.settings.daemonTokens.pairModal.intro.part2': ', point its',
+  'workbench.settings.daemonTokens.pairModal.intro.address': 'Backend address',
+  'workbench.settings.daemonTokens.pairModal.intro.part3': 'at this app, then click',
+  'workbench.settings.daemonTokens.pairModal.intro.part4': 'and enter:',
+  'workbench.settings.daemonTokens.pairModal.codeLabel': 'Pairing code',
+  'workbench.settings.daemonTokens.pairModal.expiresIn': 'expires in {remaining}',
+  'workbench.settings.daemonTokens.pairModal.addressListLabel': 'Backend address for this app',
+  'workbench.settings.daemonTokens.pairModal.fallback.prefix': 'No',
+  'workbench.settings.daemonTokens.pairModal.fallback.suffix':
+    'option on that device? Open one of these links there instead — it serves a page that hands over a token to paste by hand.',
+
+  // ── App-update row (updates.state custom editor) ───────────────────
+  'workbench.settings.updatesRow.unsupported': 'Updates are handled by your install channel in this build.',
+  'workbench.settings.updatesRow.checking': 'Checking for updates…',
+  'workbench.settings.updatesRow.securityFix': 'Version {version} fixes a security issue affecting this version.',
+  'workbench.settings.updatesRow.available': 'Version {version} is available.',
+  'workbench.settings.updatesRow.download': 'Download',
+  'workbench.settings.updatesRow.downloading': 'Downloading {version}…',
+  'workbench.settings.updatesRow.readyToInstall': 'Version {version} is ready to install.',
+  'workbench.settings.updatesRow.restartToInstall': 'Restart to install',
+  'workbench.settings.updatesRow.checkFailed': 'Update check failed: {message}',
+  'workbench.settings.updatesRow.retry': 'Retry',
+  'workbench.settings.updatesRow.upToDate': "You're on the latest version ({version}).",
+  'workbench.settings.updatesRow.checkNow': 'Check now',
+  'workbench.settings.updatesRow.releaseNotes': 'Release notes',
+  'workbench.settings.updatesRow.lastChecked': 'Last checked {when}',
+
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': 'Enable MCP server',
   'workbench.settings.def.mcp.enabled.description':
@@ -255,9 +607,6 @@ export const workbenchSettings = {
   'workbench.settings.mcpPane.connect.title': 'Connect a client',
   'workbench.settings.mcpPane.connect.blurb':
     'Pick your client, replace {token} with a token generated above, and adjust the app path if you installed somewhere else. The app must be running for clients to connect.',
-  'workbench.settings.mcpPane.snippet.copy': 'Copy',
-  'workbench.settings.mcpPane.snippet.copied': 'Copied to clipboard',
-  'workbench.settings.mcpPane.snippet.copyFailed': 'Clipboard access denied — copy the value manually',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle': 'claude_desktop_config.json — merge into the existing file',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Run once in a terminal',
   'workbench.settings.mcpPane.snippet.cliTitle': 'Run once in a terminal — later oh runs need no flags',

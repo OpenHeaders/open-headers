@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, BrowserWindow } from '../../../components/docs/diagrams/_shared';
 import { OH_GREEN } from '../../../components/docs/diagrams/open-headers/_shared';
 import { SurfaceGlyphBody } from '../../../components/docs/shared';
@@ -6,6 +7,7 @@ import { DesktopContainer, LaptopContainer, ServerContainer } from './device-fra
 import { BackEndPill, ConnectorTls, FrontEndPill } from './pills';
 
 export const RemoteSelfHostedDetail: React.FC = () => {
+  const t = useT();
   const ID = 'be-remote-sh';
   // Same 2×2 device-container layout as Local/LAN — same client
   // shapes (laptop, desktop, workstation) on the left and top-right,
@@ -14,7 +16,12 @@ export const RemoteSelfHostedDetail: React.FC = () => {
   // of plain lines, `wss://` URL, and the back-end is a VM "on the
   // internet" instead of a daemon "on your LAN".
   return (
-    <svg viewBox="0 0 600 410" width="100%" role="img" aria-label="Remote self-hosted back-end">
+    <svg
+      viewBox="0 0 600 410"
+      width="100%"
+      role="img"
+      aria-label={t('workbench.settings.backendPane.detail.aria.remote-self-hosted')}
+    >
       <ArrowDefs id={ID} />
 
       {/* ── Row 1 ─────────────────────────────────────────────── */}

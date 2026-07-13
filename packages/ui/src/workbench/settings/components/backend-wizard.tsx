@@ -390,7 +390,7 @@ const TestConnectionButton: React.FC<{ record: BackendConnection; label: string 
       authToken: record.authToken,
     });
     setTesting(false);
-    const notice = describeProbeResult(result, label);
+    const notice = describeProbeResult(result, label, t);
     notification[notice.level]({ message: notice.message, description: notice.description });
   };
 
