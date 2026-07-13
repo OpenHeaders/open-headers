@@ -1,5 +1,6 @@
 import type { Page } from '@openheaders/core/page-stream';
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
@@ -36,7 +37,7 @@ import { sortIndicator } from './traffic/sort';
 import { TrafficRow } from './traffic/TrafficRow';
 import { useColumnResize } from './use-column-resize';
 import { useNetworkView } from './traffic/use-network-view';
-import { useRowWindow } from './traffic/use-row-window';
+import { ROW_HEIGHT_PX, useRowWindow } from './traffic/use-row-window';
 import type { WaterfallScale } from './traffic/WaterfallBar';
 import { WidthAnchorRow } from './traffic/WidthAnchorRow';
 
@@ -273,6 +274,58 @@ export function TrafficList({
       flashTimerRef.current = setTimeout(() => setFlashId(null), 1000);
     },
     [onSelect, scrollToRow],
+  );
+
+  // Keyboard navigation, on the scroller so a click anywhere in the table
+  // (rows are buttons; keydown bubbles) arms the arrows. Arrows walk the
+  // selection through the sorted display order, PageUp/PageDown step by a
+  // viewport of pinned-height rows (heights are pinned, so the page size
+  // is one division — no measuring), Home/End jump to the ends. Each move
+  // selects like a click (the detail tab follows) and reveals across
+  // unmounted windowed rows via scrollToRow — with no flash, which marks
+  // cross-surface jumps, not local nav.
+  const handleTableKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (sorted.length === 0) return;
+      const el = tableRef.current;
+      const pageRows = el && el.clientHeight > 0 ? Math.max(1, Math.floor(el.clientHeight / ROW_HEIGHT_PX) - 1) : 1;
+      const pos = selectedId === null ? -1 : sorted.findIndex((r) => r.lifecycle.requestId === selectedId);
+      const last = sorted.length - 1;
+      let next: number;
+      switch (e.key) {
+        // No selection: down-going keys start at the first row, up-going
+        // at the last (streams-grid semantics).
+        case 'ArrowDown':
+          next = pos < 0 ? 0 : Math.min(last, pos + 1);
+          break;
+        case 'ArrowUp':
+          next = pos < 0 ? last : Math.max(0, pos - 1);
+          break;
+        case 'PageDown':
+          next = pos < 0 ? 0 : Math.min(last, pos + pageRows);
+          break;
+        case 'PageUp':
+          next = pos < 0 ? last : Math.max(0, pos - pageRows);
+          break;
+        case 'Home':
+          next = 0;
+          break;
+        case 'End':
+          next = last;
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+      // Hold focus on the scroller itself: a focused row button unmounts
+      // once the window scrolls past it, dropping focus mid-navigation.
+      if (el && document.activeElement !== el) el.focus({ preventScroll: true });
+      const requestId = sorted[next].lifecycle.requestId;
+      if (requestId !== selectedId) onSelect(requestId);
+      scrollToRow(requestId);
+    },
+    [sorted, selectedId, onSelect, scrollToRow, tableRef],
   );
 
   const handleRowContextMenu = useCallback((e: ReactMouseEvent, requestId: string) => {
@@ -525,6 +578,10 @@ export function TrafficList({
         className={`dt-table${compact ? ' dt-table--compact' : ''}${hasRows ? '' : ' dt-table--empty'}`}
         ref={tableRef}
         onScroll={handleTableScroll}
+        role="listbox"
+        aria-label="Network requests"
+        tabIndex={0}
+        onKeyDown={handleTableKeyDown}
       >
         {markerLines.length > 0 && (
           // Sticky zero-height anchor at the scrollport top: pins the lines

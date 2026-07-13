@@ -63,6 +63,9 @@
   overflow: auto;
   overscroll-behavior: none;
   scrollbar-gutter: stable;
+  /* Focusable for keyboard row navigation; the selected-row highlight is
+   * the focus affordance (streams-grid precedent) — no ring on the box. */
+  outline: none;
   /* We own the scroll position (virtualization re-windows the mounted
    * slice and the tail-follow pins to the bottom). Browser scroll
    * anchoring would fight that: when a burst grows the top spacer, it

@@ -56,6 +56,8 @@ function TrafficRowImpl({
   return (
     <button
       type="button"
+      role="option"
+      aria-selected={selected}
       className={`dt-row dt-cols${stateClass ? ` ${stateClass}` : ''}${flash ? ' dt-row--flash' : ''}`}
       data-selected={selected}
       data-row-id={requestId}

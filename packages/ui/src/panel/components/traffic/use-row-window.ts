@@ -18,7 +18,7 @@ import { getNotifyScheduler } from '../../data/stores/notify-scheduler';
  * typical wheel/momentum velocities painted; the memoized rows make the
  * wider slice cheap (only edge rows mount per shift).
  */
-const ROW_HEIGHT_PX = 20;
+export const ROW_HEIGHT_PX = 20;
 const ROW_OVERSCAN = 30;
 /** Distance from the bottom (px, ~2 rows) within which the view counts as parked at the tail. */
 const STICK_THRESHOLD_PX = 40;
