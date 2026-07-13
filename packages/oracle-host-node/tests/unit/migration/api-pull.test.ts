@@ -127,6 +127,33 @@ describe('pullPostmanData', () => {
     expect(JSON.stringify(events)).not.toContain(API_KEY);
   });
 
+  it('redirects every call at a stand-in origin when apiOrigin is set', async () => {
+    const stubOrigin = 'http://127.0.0.1:19937';
+    const routes = happyRoutes().map((route) => ({
+      ...route,
+      url: route.url.replace('https://api.postman.com', stubOrigin),
+    }));
+    const { fetchFn, calls } = fetchStub(routes);
+    const result = await pullPostmanData({
+      apiKey: API_KEY,
+      apiOrigin: stubOrigin,
+      fetchFn,
+      sleep: () => Promise.resolve(),
+    });
+
+    expect(result.outcome).toBe('complete');
+    expect(result.collections).toHaveLength(1);
+    expect(result.environments).toHaveLength(1);
+    // Every outgoing URL rides the stand-in origin; the key still rides the header.
+    expect(calls.map((call) => call.url)).toEqual([
+      `${stubOrigin}/workspaces`,
+      `${stubOrigin}/workspaces/ws-1`,
+      `${stubOrigin}/collections/owner-c1`,
+      `${stubOrigin}/environments/owner-e1`,
+    ]);
+    expect(calls.every((call) => call.key === API_KEY)).toBe(true);
+  });
+
   it('honors RetryAfter on a transient 429 and resumes the same call', async () => {
     const routes = happyRoutes();
     routes.splice(2, 0, {

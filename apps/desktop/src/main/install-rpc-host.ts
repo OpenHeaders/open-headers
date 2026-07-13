@@ -233,11 +233,15 @@ export async function installRpcHost(): Promise<void> {
   // arrives in the start RPC, stays in the runner's closure for the
   // run, and is never persisted or logged. Late-joining peers hydrate
   // through the operator-gated `getState` peer plane.
+  // `OH_POSTMAN_API_ORIGIN` redirects the pull at a stand-in Data API —
+  // the e2e harness seam, same posture as `OH_DISABLE_UPDATE_CHECKS`.
+  const migrationApiOrigin = process.env.OH_POSTMAN_API_ORIGIN;
   const migrationPullRunner = createMigrationPullRunner({
     broadcast: (type, payload) => {
       broadcastToAllRenderers(type, payload);
       broadcastMigrationPullToPeers(type, payload);
     },
+    ...(migrationApiOrigin !== undefined && migrationApiOrigin !== '' ? { apiOrigin: migrationApiOrigin } : {}),
   });
   registerPeerRpcPlane(createMigrationPeerRpc({ getState: () => migrationPullRunner.getState() }));
 

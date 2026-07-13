@@ -34,6 +34,8 @@ export interface MigrationPullStartResult {
 export interface MigrationPullRunnerOptions {
   /** Fan-out to the host's surfaces — the spine's `broadcastLocal`. */
   broadcast: (type: string, payload: unknown) => void;
+  /** Stand-in Data API origin — a harness seam (e2e stub servers). */
+  apiOrigin?: string;
   /** Test seams — production runs the real puller + materializer. */
   pull?: (options: { apiKey: string; onEvent: (event: PostmanPullEvent) => void }) => Promise<PostmanPullResult>;
   materialize?: typeof materializePostmanPull;
@@ -48,7 +50,13 @@ export interface MigrationPullRunner {
 }
 
 export function createMigrationPullRunner(options: MigrationPullRunnerOptions): MigrationPullRunner {
-  const pull = options.pull ?? pullPostmanData;
+  const pull =
+    options.pull ??
+    ((pullOptions: { apiKey: string; onEvent: (event: PostmanPullEvent) => void }) =>
+      pullPostmanData({
+        ...pullOptions,
+        ...(options.apiOrigin !== undefined ? { apiOrigin: options.apiOrigin } : {}),
+      }));
   const materialize = options.materialize ?? materializePostmanPull;
 
   let state: MigrationPullRunState = initialPullRunState();

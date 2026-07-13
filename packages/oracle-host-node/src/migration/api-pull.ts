@@ -22,6 +22,7 @@ import {
   ITEM_CALL_SPACING_MS,
   MAX_RATE_LIMIT_RETRIES,
   POSTMAN_API_KEY_HEADER,
+  POSTMAN_DATA_API_ORIGIN,
   type PostmanPullEvent,
   type PostmanPullOutcome,
   type PostmanPullResult,
@@ -56,6 +57,12 @@ export type SleepFn = (ms: number) => Promise<void>;
 export interface PullPostmanDataOptions {
   /** Held in memory for the run only — never persisted, never logged. */
   apiKey: string;
+  /**
+   * Stand-in origin replacing the Data API's — a harness seam (e2e
+   * stub servers). Core still builds every URL against the real
+   * origin; only the outgoing call is redirected.
+   */
+  apiOrigin?: string;
   fetchFn?: PullFetchFn;
   sleep?: SleepFn;
   onEvent?: (event: PostmanPullEvent) => void;
@@ -88,10 +95,11 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
   const budget: { limitMonth?: number; remainingMonth?: number } = {};
 
   async function callApi(url: string): Promise<string> {
+    const target = options.apiOrigin !== undefined ? url.replace(POSTMAN_DATA_API_ORIGIN, options.apiOrigin) : url;
     for (let attempt = 0; ; attempt++) {
       let response: PullHttpResponse;
       try {
-        response = await fetchFn(url, { headers: { [POSTMAN_API_KEY_HEADER]: options.apiKey } });
+        response = await fetchFn(target, { headers: { [POSTMAN_API_KEY_HEADER]: options.apiKey } });
       } catch (err) {
         throw new CallFailedError(`The Data API request failed — ${failureReason(err)}.`);
       }
