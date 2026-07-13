@@ -8,9 +8,10 @@
  *      records every call it sees. `OH_POSTMAN_API_ORIGIN` points the
  *      desktop's puller at it.
  *   2. The desktop launches isolated on an empty workspace: the
- *      EmptyState first-run offer → the ladder modal → "Scan this
- *      computer" (consent click 1) → API key + "Start background
- *      import" (consent click 2) → fully unattended.
+ *      EmptyState first-run offer → the single-modal surface → "Detect
+ *      and import data" (consent click 1) → Postman's Import → API key
+ *      → workspace picker → "Import selected" (consent click 2) →
+ *      fully unattended.
  *   3. The pull drains the stub — every call carries the key as
  *      X-Api-Key, item pulls address the uid forms, the month budget
  *      folds off the response headers.
@@ -212,30 +213,48 @@ test('the first-run empty workspace offers the migration ladder', async () => {
   await pace(workbench);
   await workbench.getByRole('button', { name: /Migrate from another tool/ }).click();
   const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
-  await expect(modal.getByRole('button', { name: 'Scan this computer' })).toBeVisible();
+  await expect(modal.getByRole('button', { name: 'Detect and import data' })).toBeVisible();
   await pace(workbench);
 });
 
-test('consent click 1 — the scan reveals the account pull entry', async () => {
-  await workbench.getByRole('button', { name: 'Scan this computer' }).click();
+test('consent click 1 — detection fills in status-only vendor rows', async () => {
   const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
-  await expect(modal.getByText('Pull everything from your Postman account')).toBeVisible({ timeout: 15000 });
+  await modal.getByRole('button', { name: 'Detect and import data' }).click();
+  // Real per-OS probes run on this machine — assert statuses appear,
+  // not which tools this host happens to have installed.
+  await expect(modal.getByText(/Detected|Not found/).first()).toBeVisible({ timeout: 15000 });
+  await pace(workbench);
+});
+
+test("Postman's Import reveals the inline stepper and the key lists the workspaces", async () => {
+  const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
+  await modal.getByRole('button', { name: 'Import', exact: true }).click();
   await expect(modal.getByLabel('Postman API key')).toBeVisible();
-  await pace(workbench);
-});
-
-test('consent click 2 — the key starts the unattended background pull', async () => {
-  const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
   await modal.getByLabel('Postman API key').fill(API_KEY);
   await pace(workbench);
-  await modal.getByRole('button', { name: 'Start background import' }).click();
-  // Two clicks of consent, then unattended — the modal closes on start.
-  await expect(workbench.getByText('Pull everything from your Postman account')).toHaveCount(0);
+  await modal.getByRole('button', { name: 'Start import', exact: true }).click();
+  // The enumeration-only preflight answers the picker, pre-selected.
+  const picker = modal.getByRole('checkbox', { name: /OpenHeaders Team/ });
+  await expect(picker).toBeVisible({ timeout: 15000 });
+  await expect(picker).toBeChecked();
+  await expect(modal.getByText('1 collections · 1 environments')).toBeVisible();
+  expect(stubCalls.map((call) => call.path)).toEqual(['/workspaces', '/workspaces/ws-team']);
+  await pace(workbench);
+});
+
+test('consent click 2 — Import selected starts the unattended background pull', async () => {
+  const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
+  await modal.getByRole('button', { name: 'Import selected' }).click();
+  // Consent given, then unattended — the modal closes on start.
+  await expect(workbench.getByLabel('Postman API key')).toHaveCount(0);
 });
 
 test('the pull drains the stub — key on every call, uid item forms, nothing else', async () => {
-  await expect.poll(() => stubCalls.length, { timeout: 30000 }).toBe(4);
+  // Preflight (list + detail) + the narrowed pull's four calls.
+  await expect.poll(() => stubCalls.length, { timeout: 30000 }).toBe(6);
   expect(stubCalls.map((call) => call.path)).toEqual([
+    '/workspaces',
+    '/workspaces/ws-team',
     '/workspaces',
     '/workspaces/ws-team',
     '/collections/e2eowner-c1',

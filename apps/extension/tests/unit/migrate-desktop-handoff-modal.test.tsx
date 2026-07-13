@@ -22,7 +22,7 @@ describe('MigrateDesktopHandoffModal', () => {
     expect(screen.getByText('Your desktop app is connected')).toBeTruthy();
     expect(screen.getByText(/choose “Migrate from another tool”/)).toBeTruthy();
     expect(screen.getByText(/progress appears here in the corner/)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Scan this computer' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Detect and import data' })).toBeNull();
   });
 
   it('pitches the desktop install when not connected', () => {
