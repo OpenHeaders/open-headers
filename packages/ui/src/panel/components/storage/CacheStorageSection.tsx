@@ -14,8 +14,10 @@
  */
 
 import { DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import type React from 'react';
 import type { CacheBrowserState } from '../../data/storage/use-cache-browser';
 import { formatDateTime, formatSize } from '../traffic/formatters';
+import { walkListSelection } from '../walk-list-selection';
 import { ArmedIconButton } from './ArmedIconButton';
 import { CacheEntryColumnInfo } from './CacheEntryColumnInfo';
 import { StorageColumnHeaderCell } from './StorageColumnHeaderCell';
@@ -97,6 +99,30 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
       : pageData.entries
     : [];
 
+  // Keyboard row navigation — StorageGrid's selection model on a
+  // read-only, PAGINATED grid: no grid-local selection state; an arrow
+  // move opens the entry document like a click (`onOpenEntry`) and the
+  // highlight follows the active-editor-tab derivation
+  // (`isEntryActive`). The walk is page-local by design — an active
+  // document from another page reads as no selection here, so the
+  // arrows restart at this page's ends; the pager buttons stay the page
+  // gesture (`pageRows: null` keeps the Page keys unhandled too). Enter
+  // has no gesture: the rows are read-only (no inline edit to twin) and
+  // the document it could open is already open — the arrow move that
+  // made the row active opened it. Stands down for presses on
+  // interactive children (the armed delete lane).
+  const handleGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if ((e.target as HTMLElement).closest('button, input, select, textarea') !== null) return;
+    if (entries.length === 0) return;
+    const pos = isEntryActive ? entries.findIndex((en) => isEntryActive(en.url, en.method)) : -1;
+    const next = walkListSelection(entries.length, pos, e.key, null);
+    if (next === null) return;
+    e.preventDefault();
+    if (next !== pos) onOpenEntry?.(entries[next].url, entries[next].method);
+    e.currentTarget.querySelector(`.dt-storage-row[data-entry-index="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+  };
+
   return (
     <>
       <div className="dt-storage-crumb">
@@ -146,7 +172,17 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
       ) : entries.length === 0 ? (
         <div className="dt-empty">No entries match your filter.</div>
       ) : (
-        <div className="dt-storage-grid dt-storage-grid--caches" role="table" aria-label="Cache entries">
+        // role="grid" + focusable container, StorageGrid's anatomy: the
+        // rows are plain divs, so a row click focuses the grid as the
+        // nearest focusable ancestor; the active-row highlight is the
+        // focus affordance, no ring on the box.
+        <div
+          className="dt-storage-grid dt-storage-grid--caches"
+          role="grid"
+          aria-label="Cache entries"
+          tabIndex={0}
+          onKeyDown={handleGridKeyDown}
+        >
           <div className="dt-storage-grid-header" role="row">
             <StorageColumnHeaderCell label="Request" info={<CacheEntryColumnInfo infoKey="request" />} />
             <StorageColumnHeaderCell label="Method" info={<CacheEntryColumnInfo infoKey="method" />} />
@@ -158,23 +194,25 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
             <div
               className={`dt-storage-row${isEntryActive?.(e.url, e.method) ? ' dt-storage-row--active' : ''}`}
               role="row"
+              aria-selected={isEntryActive?.(e.url, e.method) ?? false}
+              data-entry-index={i}
               key={`${cache.page}:${i}:${e.url}`}
               onClick={() => onOpenEntry?.(e.url, e.method)}
             >
               <span
                 className="dt-storage-key"
-                role="cell"
+                role="gridcell"
                 title={e.headersPreview ? `${e.url}\n${e.headersPreview}` : e.url}
               >
                 {e.url}
               </span>
-              <span className="dt-storage-value" role="cell">
+              <span className="dt-storage-value" role="gridcell">
                 {e.method}
               </span>
-              <span className="dt-storage-value" role="cell">
+              <span className="dt-storage-value" role="gridcell">
                 {formatSize(e.contentLength) || '—'}
               </span>
-              <span className="dt-storage-value" role="cell">
+              <span className="dt-storage-value" role="gridcell">
                 {formatDateTime(e.responseTimeMs) || '—'}
               </span>
               {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: keeps the armed delete's clicks off the row's open gesture */}
