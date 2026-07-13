@@ -16,6 +16,7 @@
 import { App as AntApp, Button, Tabs, theme } from 'antd';
 import type React from 'react';
 import { MCP_HTTP_PATH, WS_PORT } from '@openheaders/core/protocol';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSettingValue } from '../hooks';
 
 const TOKEN_PLACEHOLDER = 'YOUR_ACCESS_TOKEN';
@@ -48,6 +49,7 @@ function mcpServersJson(port: number, rootKey: string, extra?: Record<string, st
 const SnippetBlock: React.FC<{ title: string; body: string }> = ({ title, body }) => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
+  const t = useT();
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -58,12 +60,12 @@ const SnippetBlock: React.FC<{ title: string; body: string }> = ({ title, body }
           style={{ fontSize: 11, color: token.colorTextSecondary }}
           onClick={() => {
             navigator.clipboard.writeText(body).then(
-              () => message.success('Copied to clipboard'),
-              () => message.error('Clipboard access denied — copy the value manually'),
+              () => message.success(t('workbench.settings.mcpPane.snippet.copied')),
+              () => message.error(t('workbench.settings.mcpPane.snippet.copyFailed')),
             );
           }}
         >
-          Copy
+          {t('workbench.settings.mcpPane.snippet.copy')}
         </Button>
       </div>
       <pre
@@ -86,6 +88,7 @@ const SnippetBlock: React.FC<{ title: string; body: string }> = ({ title, body }
 
 const McpConfigSnippets: React.FC = () => {
   const { token } = theme.useToken();
+  const t = useT();
   const port = useSettingValue('backend.bindPort');
   const httpUrl = `http://127.0.0.1:${port}${MCP_HTTP_PATH}`;
   const binary = binaryPathForThisPlatform();
@@ -96,13 +99,21 @@ const McpConfigSnippets: React.FC = () => {
       key: 'claude-desktop',
       label: 'Claude Desktop',
       children: (
-        <SnippetBlock title="claude_desktop_config.json — merge into the existing file" body={mcpServersJson(port, 'mcpServers')} />
+        <SnippetBlock
+          title={t('workbench.settings.mcpPane.snippet.claudeDesktopTitle')}
+          body={mcpServersJson(port, 'mcpServers')}
+        />
       ),
     },
     {
       key: 'claude-code',
       label: 'Claude Code',
-      children: <SnippetBlock title="Run once in a terminal" body={`claude mcp add open-headers -- "${binary}" ${argsShell}`} />,
+      children: (
+        <SnippetBlock
+          title={t('workbench.settings.mcpPane.snippet.runOnceTitle')}
+          body={`claude mcp add open-headers -- "${binary}" ${argsShell}`}
+        />
+      ),
     },
     {
       key: 'cursor',
@@ -119,7 +130,7 @@ const McpConfigSnippets: React.FC = () => {
       label: 'CLI',
       children: (
         <SnippetBlock
-          title="Run once in a terminal — later oh runs need no flags"
+          title={t('workbench.settings.mcpPane.snippet.cliTitle')}
           body={`npm install -g @openheaders/cli\noh connect --daemon http://127.0.0.1:${port} --token ${TOKEN_PLACEHOLDER}`}
         />
       ),
@@ -129,7 +140,7 @@ const McpConfigSnippets: React.FC = () => {
       label: 'HTTP',
       children: (
         <SnippetBlock
-          title="For clients that speak streamable HTTP directly"
+          title={t('workbench.settings.mcpPane.snippet.httpTitle')}
           body={`URL:    ${httpUrl}\nHeader: Authorization: Bearer ${TOKEN_PLACEHOLDER}`}
         />
       ),
@@ -149,11 +160,10 @@ const McpConfigSnippets: React.FC = () => {
             color: token.colorTextSecondary,
           }}
         >
-          Connect a client
+          {t('workbench.settings.mcpPane.connect.title')}
         </h3>
         <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-          Pick your client, replace {TOKEN_PLACEHOLDER} with a token generated above, and adjust the app path if you
-          installed somewhere else. The app must be running for clients to connect.
+          {t('workbench.settings.mcpPane.connect.blurb', { token: TOKEN_PLACEHOLDER })}
         </div>
       </header>
       <div

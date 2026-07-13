@@ -13,6 +13,9 @@
  *   workbench.settings.def.<settingKey>.description  — setting description
  *   workbench.settings.def.<settingKey>.option.<value>.label / .description
  *                                                    — enum option text
+ *   workbench.settings.def.<settingKey>.action.label — action button label
+ *   workbench.settings.def.<settingKey>.confirm      — confirm prompt of a
+ *                                                      destructive action
  */
 
 import { plural } from '../../runtime';
@@ -138,6 +141,168 @@ export const workbenchSettings = {
     'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 10 active users per daemon.',
   'workbench.settings.category.about.label': 'About',
   'workbench.settings.category.about.description': 'Version, licenses and build information.',
+
+  // ── Backend category defs ──────────────────────────────────────────
+  'workbench.settings.def.backend.bindAddress.label': 'Sync with devices on your network',
+  'workbench.settings.def.backend.bindAddress.description':
+    'Lets other computers and browsers on the same network connect to this app and share its workspaces. Off by default — only this computer can reach it.',
+  'workbench.settings.def.backend.bindAddress.option.loopback.label': 'Loopback only (127.0.0.1)',
+  'workbench.settings.def.backend.bindAddress.option.loopback.description': 'Only this machine can connect. Default.',
+  'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': 'All interfaces (LAN)',
+  'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
+    'Other devices on the local network can connect. Requires the auth token from U3.2.',
+  'workbench.settings.def.backend.bindPort.label': 'Daemon port',
+  'workbench.settings.def.backend.bindPort.description':
+    'The port this app binds for browsers and other devices to connect to. Change it only if something else already uses the default. Clients must point at the same port.',
+  'workbench.settings.def.backend.serveWebApp.label': 'Serve the web app',
+  'workbench.settings.def.backend.serveWebApp.description':
+    'Serve the Workbench as a web page on the daemon port, so a browser tab can open it straight from this app — no extension needed. Anyone who can reach the port sees the login gate; a paired token is still required to access data.',
+  'workbench.settings.def.backend.allowPeerExecute.label': 'Allow connected devices to send requests',
+  'workbench.settings.def.backend.allowPeerExecute.description':
+    'Let paired browsers and devices send API requests through this app — their workbench Send runs on this machine, with its network access. Off by default; each send still requires the sender to have write access to the workspace.',
+  'workbench.settings.def.backend.reconnectDelayMs.label': 'Initial reconnect delay',
+  'workbench.settings.def.backend.reconnectDelayMs.description':
+    'How long to wait (ms) before the first reconnect attempt after a disconnect.',
+  'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Max reconnect delay',
+  'workbench.settings.def.backend.maxReconnectDelayMs.description':
+    'Upper bound (ms) on the exponential backoff between reconnect attempts.',
+  'workbench.settings.def.backend.pingIntervalMs.label': 'Keep-alive interval',
+  'workbench.settings.def.backend.pingIntervalMs.description':
+    'How often (ms) to send a ping so the WebSocket stays open behind strict proxies.',
+  'workbench.settings.def.backend.showBadgeWhenDisconnected.label': 'Badge when disconnected',
+  'workbench.settings.def.backend.showBadgeWhenDisconnected.description':
+    'Show a red badge on the toolbar icon when the back-end link is down.',
+  'workbench.settings.def.backend.showDiagrams.label': 'Show back-end diagrams',
+  'workbench.settings.def.backend.showDiagrams.description':
+    'Show the illustrated tier and data-flow panels in Backend settings.',
+
+  // ── Backend pane body ──────────────────────────────────────────────
+  'workbench.settings.backendPane.intro.whoLabel': 'Who:',
+  'workbench.settings.backendPane.intro.whoText': 'processes and stores your data.',
+  'workbench.settings.backendPane.intro.whereLabel': 'Where:',
+  'workbench.settings.backendPane.intro.whereText': 'local or remote.',
+  'workbench.settings.backendPane.showDiagrams': 'Show diagrams',
+  'workbench.settings.backendPane.learnMore': 'Learn more',
+  'workbench.settings.backendPane.subsection.reliability.blurb':
+    'Auto-reconnection behavior over an unstable wire. Applies to every connection.',
+  'workbench.settings.backendPane.subsection.notifications.blurb': 'Visual cues when a link is down.',
+  'workbench.settings.backendPane.tierZero.title.extension': 'This browser',
+  'workbench.settings.backendPane.tierZero.title.desktop': 'This app',
+  'workbench.settings.backendPane.tierZero.title.web': 'This app',
+  'workbench.settings.backendPane.tierZero.copy.extension':
+    'The extension itself processes and stores your data — workspaces, rules, and vault live in this browser. Always on; no setup.',
+  'workbench.settings.backendPane.tierZero.copy.desktop':
+    'The desktop app process is the back-end. Other local clients connect into it; your data lives on this machine. Always on; no setup.',
+  'workbench.settings.backendPane.tierZero.copy.web':
+    'The app that served this page is the back-end. Your data lives on that host. Always on; no setup.',
+  'workbench.settings.backendPane.tierZero.alwaysOn': 'Always on',
+  'workbench.settings.backendPane.tierZero.adminTitle': 'Daemon administration',
+  'workbench.settings.backendPane.tierZero.adminDescription':
+    'Manage the user directory and per-workspace access grants.',
+  'workbench.settings.backendPane.tierZero.adminOpen': 'Open admin console',
+  'workbench.settings.backendPane.scenario.desktop-app.title': 'Desktop Application',
+  'workbench.settings.backendPane.scenario.desktop-app.hint': 'The Open Headers app on this machine',
+  'workbench.settings.backendPane.scenario.local-self-hosted.title': 'Local / LAN',
+  'workbench.settings.backendPane.scenario.local-self-hosted.hint': 'A server on this machine or your network',
+  'workbench.settings.backendPane.scenario.remote-self-hosted.title': 'Remote / WAN',
+  'workbench.settings.backendPane.scenario.remote-self-hosted.hint': 'A server you self-host on your own VM',
+  'workbench.settings.backendPane.wizard.step.scenario': 'Scenario',
+  'workbench.settings.backendPane.wizard.step.connect': 'Connect',
+  'workbench.settings.backendPane.wizard.step.pair': 'Pair',
+  'workbench.settings.backendPane.wizard.step.turnOn': 'Turn on',
+  'workbench.settings.backendPane.wizard.addTitle': 'Add back-end',
+  'workbench.settings.backendPane.wizard.editTitle': 'Edit {label}',
+  'workbench.settings.backendPane.wizard.back': 'Back',
+  'workbench.settings.backendPane.wizard.next': 'Next',
+  'workbench.settings.backendPane.wizard.comingSoon': 'Coming soon',
+  'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Finish without connecting',
+  'workbench.settings.backendPane.wizard.verifyConnect': 'Verify & connect',
+  'workbench.settings.backendPane.wizard.scenarioIntro':
+    'What kind of back-end is this? Pick a tile to see what the tier gives you.',
+  'workbench.settings.backendPane.wizard.scenarioAria': 'Back-end scenario',
+  'workbench.settings.backendPane.wizard.soonBadge': 'Soon',
+  'workbench.settings.backendPane.wizard.connectIntro':
+    'Where does this client dial the back-end? The connection stays off until the final step verifies it.',
+  'workbench.settings.backendPane.wizard.pairIntro':
+    'Prove this device to the back-end — pair with the code it displays, or paste a token. You can test the connection before turning it on.',
+  'workbench.settings.backendPane.wizard.readyIntroPaired':
+    'Ready: {label} at {url}, paired. Turning it on verifies reachability and authentication first; on success its workspaces sync down and stay usable offline.',
+  'workbench.settings.backendPane.wizard.readyIntroNotPaired':
+    'Ready: {label} at {url} — NOT paired yet. Turning it on verifies reachability and authentication first; on success its workspaces sync down and stay usable offline.',
+  'workbench.settings.backendPane.wizard.additionalBackend':
+    "This is an additional back-end. Its Orgs appear as new groups in the workspace switcher, the status popover gains a row per back-end, and each Org syncs from exactly one back-end — an Org already provided by another connection won't join twice.",
+  'workbench.settings.backendPane.wizard.disableFirst':
+    '{label} is connected. Editing the connection means moving a live wire, so it disconnects first — your settings and pairing are kept, and turning it back on verifies the new configuration before anything connects.',
+  'workbench.settings.backendPane.wizard.disconnectEdit': 'Disconnect and edit',
+  'workbench.settings.backendPane.wizard.testConnection': 'Test connection',
+
+  // ── MCP category defs ──────────────────────────────────────────────
+  'workbench.settings.def.mcp.enabled.label': 'Enable MCP server',
+  'workbench.settings.def.mcp.enabled.description':
+    'Answer MCP clients on this app’s daemon port. While off, the endpoint does not exist. On, agents with an access token can read your workspaces.',
+  'workbench.settings.def.mcp.allowWrite.label': 'Allow write tools',
+  'workbench.settings.def.mcp.allowWrite.description':
+    'Agents can create, edit, and delete rules, requests, environments, variables, and workflows. Every change lands in the Activity Feed and can be reverted.',
+  'workbench.settings.def.mcp.allowExecute.label': 'Allow execute tools',
+  'workbench.settings.def.mcp.allowExecute.description':
+    'Agents can send saved requests and run workflows — real network traffic leaves this machine on their behalf.',
+  'workbench.settings.def.mcp.allowSecrets.label': 'Allow secret reveal',
+  'workbench.settings.def.mcp.allowSecrets.description':
+    'Agents can read vault secret values in plain text. While off, every secret stays masked.',
+
+  // ── MCP pane body ──────────────────────────────────────────────────
+  'workbench.settings.mcpPane.serverOff': 'The MCP server is off — clients can’t connect until you enable it.',
+  'workbench.settings.mcpPane.connect.title': 'Connect a client',
+  'workbench.settings.mcpPane.connect.blurb':
+    'Pick your client, replace {token} with a token generated above, and adjust the app path if you installed somewhere else. The app must be running for clients to connect.',
+  'workbench.settings.mcpPane.snippet.copy': 'Copy',
+  'workbench.settings.mcpPane.snippet.copied': 'Copied to clipboard',
+  'workbench.settings.mcpPane.snippet.copyFailed': 'Clipboard access denied — copy the value manually',
+  'workbench.settings.mcpPane.snippet.claudeDesktopTitle': 'claude_desktop_config.json — merge into the existing file',
+  'workbench.settings.mcpPane.snippet.runOnceTitle': 'Run once in a terminal',
+  'workbench.settings.mcpPane.snippet.cliTitle': 'Run once in a terminal — later oh runs need no flags',
+  'workbench.settings.mcpPane.snippet.httpTitle': 'For clients that speak streamable HTTP directly',
+
+  // ── License pane body ──────────────────────────────────────────────
+  'workbench.settings.licensePane.invalid.malformed': 'The installed file is not a license key.',
+  'workbench.settings.licensePane.invalid.schema-mismatch':
+    'The installed license does not match any schema this version supports.',
+  'workbench.settings.licensePane.invalid.unknown-kid':
+    'The installed license is signed with a key this build does not trust.',
+  'workbench.settings.licensePane.invalid.bad-signature':
+    'The installed license failed signature verification — the text was altered after signing.',
+  'workbench.settings.licensePane.installed': 'License installed',
+  'workbench.settings.licensePane.removed': 'License removed — back on the free tier',
+  'workbench.settings.licensePane.removeFailed': 'Failed to remove license: {message}',
+  'workbench.settings.licensePane.freeTier.title': 'Free tier',
+  'workbench.settings.licensePane.freeTier.body':
+    'Everything in Open Headers today is included — the free tier admits up to {limit} active users per daemon. Install a license key to raise the seat limit.',
+  'workbench.settings.licensePane.invalidAlert.title': 'Installed license is not usable',
+  'workbench.settings.licensePane.invalidAlert.body':
+    'The app keeps running on the free tier (up to {limit} active users). Paste a fresh key below or contact support.',
+  'workbench.settings.licensePane.grace.title': 'License expired — grace period active',
+  'workbench.settings.licensePane.grace.body':
+    'This license expired on {expiredOn}. Renew before {graceEndsOn} — after that, creating or reactivating users falls back to the free limit of {limit}. Existing users keep logging in and no data is ever affected.',
+  'workbench.settings.licensePane.expired.title': 'License and grace period have ended',
+  'workbench.settings.licensePane.expired.body':
+    'New user creation and reactivation now follow the free limit of {limit} active users. Existing users keep logging in, existing workspaces keep working, and no data is ever affected. Install a renewed key to restore the licensed seat count.',
+  'workbench.settings.licensePane.detail.licensedTo': 'Licensed to',
+  'workbench.settings.licensePane.detail.contact': 'Contact',
+  'workbench.settings.licensePane.detail.seats': 'Seats',
+  'workbench.settings.licensePane.detail.validUntil': 'Valid until',
+  'workbench.settings.licensePane.detail.licenseId': 'License id',
+  'workbench.settings.licensePane.tag.active': 'Active',
+  'workbench.settings.licensePane.tag.offline': 'Offline license',
+  'workbench.settings.licensePane.removeConfirm.title': 'Remove this license?',
+  'workbench.settings.licensePane.removeConfirm.body':
+    'The app reverts to the free tier (up to {limit} active users). No data is affected.',
+  'workbench.settings.licensePane.removeConfirm.ok': 'Remove',
+  'workbench.settings.licensePane.removeButton': 'Remove license',
+  'workbench.settings.licensePane.replaceTitle': 'Replace license',
+  'workbench.settings.licensePane.installTitle': 'Install a license',
+  'workbench.settings.licensePane.pastePlaceholder': 'Paste your license key (oh-license.…)',
+  'workbench.settings.licensePane.installButton': 'Install',
+  'workbench.settings.licensePane.loadFromFile': 'Load from file…',
 
   // ── General category defs ──────────────────────────────────────────
   'workbench.settings.def.general.language.label': 'Language',
@@ -716,6 +881,57 @@ export const workbenchSettings = {
   'workbench.settings.def.inspection.cdpScope.option.both.label': 'Both',
   'workbench.settings.def.inspection.cdpScope.option.both.description': 'DevTools tabs and the focused tab.',
 
+  // ── Code Editor category defs ──────────────────────────────────────
+  'workbench.settings.def.editor.fontSize.label': 'Font Size',
+  'workbench.settings.def.editor.fontSize.description': 'Font size in pixels for editor surfaces.',
+  'workbench.settings.def.editor.fontFamilyPreset.label': 'Font Family',
+  'workbench.settings.def.editor.fontFamilyPreset.description':
+    "Curated monospace stacks for the editor. Every option is bundled with the extension — no system install required. Default is JetBrains Mono on Windows / Linux for cross-platform consistency, and System Mono on macOS to keep SF Mono's native rendering.",
+  'workbench.settings.def.editor.fontFamilyPreset.option.system.description':
+    'Operating-system default monospace — SF Mono on macOS, Consolas on Windows, Liberation Mono on Linux.',
+  'workbench.settings.def.editor.fontFamilyPreset.option.fira-code.description':
+    'Monospace with programming ligatures. Bundled — always available.',
+  'workbench.settings.def.editor.fontFamilyPreset.option.jetbrains-mono.description':
+    'Monospace tuned for editors, with ligatures. Bundled — always available.',
+  'workbench.settings.def.editor.fontFamilyPreset.option.cascadia-code.description':
+    'Monospace with programming ligatures. Bundled — always available.',
+  'workbench.settings.def.editor.fontFamilyPreset.option.source-code-pro.description':
+    'Adobe monospace tuned for code. Bundled — always available.',
+  'workbench.settings.def.editor.fontFamilyPreset.option.press-start-2p.description':
+    'The pixel-style display font we ship with the app. Bundled — always available. A novelty pick: legible but tall and wide.',
+  'workbench.settings.def.editor.fontLigatures.label': 'Font Ligatures',
+  'workbench.settings.def.editor.fontLigatures.description':
+    'Enable programming ligatures — combine character sequences like `=>` or `!=` into single glyphs. Requires a font with ligature support (e.g. Fira Code, JetBrains Mono).',
+  'workbench.settings.def.editor.lineHeight.label': 'Line Height',
+  'workbench.settings.def.editor.lineHeight.description':
+    'Editor line height in pixels. 0 lets the editor pick a line height proportional to the font size; values 8 and above are interpreted as explicit pixels.',
+  'workbench.settings.def.editor.tabSize.label': 'Tab Size',
+  'workbench.settings.def.editor.tabSize.description': 'Number of columns a tab character occupies.',
+  'workbench.settings.def.editor.insertSpaces.label': 'Insert Spaces',
+  'workbench.settings.def.editor.insertSpaces.description':
+    'Insert spaces instead of tab characters when pressing Tab.',
+  'workbench.settings.def.editor.wordWrap.label': 'Word Wrap',
+  'workbench.settings.def.editor.wordWrap.description': 'Whether long lines wrap to the next line in the editor.',
+  'workbench.settings.def.editor.wordWrap.option.off.label': 'Off',
+  'workbench.settings.def.editor.wordWrap.option.on.label': 'Viewport width',
+  'workbench.settings.def.editor.wordWrap.option.bounded.label': 'Bounded column',
+  'workbench.settings.def.editor.wordWrapColumn.label': 'Word Wrap Column',
+  'workbench.settings.def.editor.wordWrapColumn.description':
+    'Column at which lines wrap when Word Wrap is set to Bounded.',
+  'workbench.settings.def.editor.lineNumbers.label': 'Line Numbers',
+  'workbench.settings.def.editor.lineNumbers.description': 'Show line numbers in the left gutter.',
+  'workbench.settings.def.editor.renderWhitespace.label': 'Render Whitespace',
+  'workbench.settings.def.editor.renderWhitespace.description': 'Visually render whitespace characters.',
+  'workbench.settings.def.editor.renderWhitespace.option.none.label': 'None',
+  'workbench.settings.def.editor.renderWhitespace.option.boundary.label': 'Boundary only',
+  'workbench.settings.def.editor.renderWhitespace.option.all.label': 'All',
+  'workbench.settings.def.editor.formatOnSave.label': 'Format on Save',
+  'workbench.settings.def.editor.formatOnSave.description':
+    'Automatically format editor contents when you save a rule or template.',
+  'workbench.settings.def.editor.bracketPairColorization.label': 'Bracket Pair Colorization',
+  'workbench.settings.def.editor.bracketPairColorization.description':
+    'Highlight matching brackets in different colors.',
+
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Response Body Limit (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
@@ -932,6 +1148,67 @@ export const workbenchSettings = {
     'Soft-wrap long lines in import-preview diff',
   'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.description':
     'Wrap long lines onto the next visual line instead of horizontal scrolling.',
+
+  // ── Data category defs ─────────────────────────────────────────────
+  'workbench.settings.def.data.logLevel.label': 'Log Level',
+  'workbench.settings.def.data.logLevel.description':
+    'Verbosity of the extension logger. Higher levels include every level above them.',
+  'workbench.settings.def.data.logLevel.option.error.label': 'Error',
+  'workbench.settings.def.data.logLevel.option.error.description': 'Failures only',
+  'workbench.settings.def.data.logLevel.option.warn.label': 'Warn',
+  'workbench.settings.def.data.logLevel.option.warn.description': 'Anomalies and retries',
+  'workbench.settings.def.data.logLevel.option.info.label': 'Info',
+  'workbench.settings.def.data.logLevel.option.info.description': 'Operational events',
+  'workbench.settings.def.data.logLevel.option.debug.label': 'Debug',
+  'workbench.settings.def.data.logLevel.option.debug.description': 'Verbose internals',
+  'workbench.settings.def.data.exportSettings.label': 'Export Settings',
+  'workbench.settings.def.data.exportSettings.description': 'Download all settings as a JSON file.',
+  'workbench.settings.def.data.exportSettings.action.label': 'Export',
+  'workbench.settings.def.data.importSettings.label': 'Import Settings',
+  'workbench.settings.def.data.importSettings.description': 'Load settings from a previously exported JSON file.',
+  'workbench.settings.def.data.importSettings.action.label': 'Import…',
+  'workbench.settings.def.data.exportObservabilityLog.label': 'Export Diagnostic Log',
+  'workbench.settings.def.data.exportObservabilityLog.description':
+    'Download the last 500 structured events (rule rebuilds, request errors, workspace switches) as JSON. Local-only; nothing leaves the device unless you attach the file to a bug report yourself.',
+  'workbench.settings.def.data.exportObservabilityLog.action.label': 'Export log',
+  'workbench.settings.def.data.clearObservabilityLog.label': 'Clear Diagnostic Log',
+  'workbench.settings.def.data.clearObservabilityLog.description':
+    'Drop every buffered event. Does not affect rules, requests, or any workspace data.',
+  'workbench.settings.def.data.clearObservabilityLog.action.label': 'Clear',
+  'workbench.settings.def.data.clearObservabilityLog.confirm':
+    'Clear the diagnostic log? This drops every buffered event.',
+  'workbench.settings.def.data.exportImportReports.label': 'Export Import Reports',
+  'workbench.settings.def.data.exportImportReports.description':
+    'Download the structured drop/transform reports for every import run (curl today; HAR / Postman / Insomnia next) as JSON. Lives per-workspace — 50 most recent imports per workspace. Never leaves the device unless you attach the file.',
+  'workbench.settings.def.data.exportImportReports.action.label': 'Export reports',
+  'workbench.settings.def.data.clearImportReports.label': 'Clear Import Reports',
+  'workbench.settings.def.data.clearImportReports.description':
+    'Drop every import report for the active workspace. Does not affect the requests themselves — only the audit log of what was dropped/transformed during import.',
+  'workbench.settings.def.data.clearImportReports.action.label': 'Clear',
+  'workbench.settings.def.data.clearImportReports.confirm':
+    'Clear import reports for this workspace? This cannot be undone.',
+  'workbench.settings.def.data.uploadFile.label': 'Upload File',
+  'workbench.settings.def.data.uploadFile.description':
+    'Add a file to the active workspace for use in multipart bodies and `{{file.X}}` references. Files are content-addressed (sha256) so re-uploading the same bytes stays as one blob. Storage is local IndexedDB; nothing leaves the device.',
+  'workbench.settings.def.data.uploadFile.action.label': 'Upload…',
+  'workbench.settings.def.data.exportFilesManifest.label': 'Export Files Manifest',
+  'workbench.settings.def.data.exportFilesManifest.description':
+    'Download the list of files in the active workspace (filename, hash, size, MIME type) as JSON. Bytes are NOT included — this is a manifest for audit and re-upload by teammates, not a backup of the content.',
+  'workbench.settings.def.data.exportFilesManifest.action.label': 'Export manifest',
+  'workbench.settings.def.data.filesBrowser.label': 'Files',
+  'workbench.settings.def.data.filesBrowser.description':
+    'Every uploaded blob in the active workspace. Download bytes, copy the short hash, or delete. File metadata (filename, size, MIME type, hash) is searchable across the settings index.',
+  'workbench.settings.def.data.clearAllFiles.label': 'Clear All Files',
+  'workbench.settings.def.data.clearAllFiles.description':
+    'Delete every file blob in the active workspace. Requests that reference these files via multipart parts will error when executed; you will need to re-upload the files or edit those requests.',
+  'workbench.settings.def.data.clearAllFiles.action.label': 'Clear all',
+  'workbench.settings.def.data.clearAllFiles.confirm':
+    'Delete every file in this workspace? Multipart parts referencing them will error on send.',
+  'workbench.settings.def.data.resetAllSettings.label': 'Reset All Settings',
+  'workbench.settings.def.data.resetAllSettings.description':
+    'Return every setting in every category to its default value.',
+  'workbench.settings.def.data.resetAllSettings.action.label': 'Reset to defaults',
+  'workbench.settings.def.data.resetAllSettings.confirm': 'Reset every setting to its default? This cannot be undone.',
 
   // ── Updates defs (About category) ──────────────────────────────────
   'workbench.settings.def.updates.state.label': 'Software update',

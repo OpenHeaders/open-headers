@@ -10,8 +10,10 @@
  */
 
 import { TeamOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import { Button, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useDaemonAdminStatus } from '../../components/daemon-admin/use-daemon-admin-status';
 import { useOpenDaemonAdmin } from '../../hooks/OpenDaemonAdminContext';
 import type { Host } from '../../../shared/host-vocabulary';
@@ -21,22 +23,21 @@ import type { SettingDef } from '../types';
 import { BackendIcon, backendModeIcon } from './backend-icons';
 import DaemonTokensSection from './daemon-tokens-section';
 
-const HOST_TITLE: Record<Host, string> = {
-  extension: 'This browser',
-  desktop: 'This app',
-  web: 'This app',
+const HOST_TITLE: Record<Host, MessageKey> = {
+  extension: 'workbench.settings.backendPane.tierZero.title.extension',
+  desktop: 'workbench.settings.backendPane.tierZero.title.desktop',
+  web: 'workbench.settings.backendPane.tierZero.title.web',
 };
 
-const HOST_COPY: Record<Host, string> = {
-  extension:
-    'The extension itself processes and stores your data — workspaces, rules, and vault live in this browser. Always on; no setup.',
-  desktop:
-    'The desktop app process is the back-end. Other local clients connect into it; your data lives on this machine. Always on; no setup.',
-  web: 'The app that served this page is the back-end. Your data lives on that host. Always on; no setup.',
+const HOST_COPY: Record<Host, MessageKey> = {
+  extension: 'workbench.settings.backendPane.tierZero.copy.extension',
+  desktop: 'workbench.settings.backendPane.tierZero.copy.desktop',
+  web: 'workbench.settings.backendPane.tierZero.copy.web',
 };
 
 export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingDef[] }> = ({ host, defs }) => {
   const { token } = theme.useToken();
+  const t = useT();
   // Admin-console CTA — rendered only when the probe says this subject
   // administers the back-end (desktop = its own spine, web = the
   // serving daemon over the wire) AND the shell provides the opener.
@@ -69,7 +70,7 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: token.colorText }}>{HOST_TITLE[host]}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: token.colorText }}>{t(HOST_TITLE[host])}</span>
               <span
                 style={{
                   padding: '0 5px',
@@ -83,10 +84,10 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
                   lineHeight: '14px',
                 }}
               >
-                Always on
+                {t('workbench.settings.backendPane.tierZero.alwaysOn')}
               </span>
             </div>
-            <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: 2 }}>{HOST_COPY[host]}</div>
+            <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: 2 }}>{t(HOST_COPY[host])}</div>
           </div>
         </div>
         {daemonDefs.map((def) => (
@@ -103,9 +104,11 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText }}>Daemon administration</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText }}>
+                {t('workbench.settings.backendPane.tierZero.adminTitle')}
+              </div>
               <div style={{ fontSize: 11, color: token.colorTextTertiary }}>
-                Manage the user directory and per-workspace access grants.
+                {t('workbench.settings.backendPane.tierZero.adminDescription')}
               </div>
             </div>
             <Button
@@ -114,7 +117,7 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
               onClick={() => openDaemonAdmin()}
               data-testid="open-daemon-admin"
             >
-              Open admin console
+              {t('workbench.settings.backendPane.tierZero.adminOpen')}
             </Button>
           </div>
         )}

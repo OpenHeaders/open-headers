@@ -7,6 +7,7 @@
  * the Local / LAN and Remote / WAN tiers.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import type { Host } from '../../../shared/host-vocabulary';
 import type { BackendMode } from '../schema/backend';
 import type { BackendIconKey } from './backend-icons';
@@ -15,9 +16,9 @@ export interface ScenarioDescriptor {
   mode: BackendMode;
   /** Matches the back-end-tier glyph key. */
   icon: BackendIconKey;
-  title: string;
+  titleKey: MessageKey;
   /** One-line hint under the tile title. */
-  hint: string;
+  hintKey: MessageKey;
   /** Preview-only — the tier isn't joinable yet. */
   soon: boolean;
   /** Hosts where this scenario is selectable. */
@@ -28,24 +29,24 @@ export const ADD_SCENARIOS: readonly ScenarioDescriptor[] = [
   {
     mode: 'desktop-app',
     icon: 'desktop',
-    title: 'Desktop Application',
-    hint: 'The Open Headers app on this machine',
+    titleKey: 'workbench.settings.backendPane.scenario.desktop-app.title',
+    hintKey: 'workbench.settings.backendPane.scenario.desktop-app.hint',
     soon: false,
     validHosts: ['extension', 'web'],
   },
   {
     mode: 'local-self-hosted',
     icon: 'daemon',
-    title: 'Local / LAN',
-    hint: 'A server on this machine or your network',
+    titleKey: 'workbench.settings.backendPane.scenario.local-self-hosted.title',
+    hintKey: 'workbench.settings.backendPane.scenario.local-self-hosted.hint',
     soon: false,
     validHosts: ['extension', 'desktop', 'web'],
   },
   {
     mode: 'remote-self-hosted',
     icon: 'vm',
-    title: 'Remote / WAN',
-    hint: 'A server you self-host on your own VM',
+    titleKey: 'workbench.settings.backendPane.scenario.remote-self-hosted.title',
+    hintKey: 'workbench.settings.backendPane.scenario.remote-self-hosted.hint',
     soon: false,
     validHosts: ['extension', 'desktop', 'web'],
   },

@@ -24,6 +24,7 @@ import { generateUid } from '@openheaders/core/utils';
 import { App as AntApp, Button, Modal, Steps, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { describeProbeResult, probeBackendConnection, useBackends } from '../../../shared/backend';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { type BackendMode, deriveBackendMode } from '../schema/backend';
@@ -43,10 +44,10 @@ export interface BackendWizardTarget {
 }
 
 const STEPS = [
-  { title: 'Scenario' },
-  { title: 'Connect' },
-  { title: 'Pair' },
-  { title: 'Turn on' },
+  { titleKey: 'workbench.settings.backendPane.wizard.step.scenario' },
+  { titleKey: 'workbench.settings.backendPane.wizard.step.connect' },
+  { titleKey: 'workbench.settings.backendPane.wizard.step.pair' },
+  { titleKey: 'workbench.settings.backendPane.wizard.step.turnOn' },
 ] as const;
 
 export const BackendWizard: React.FC<{
@@ -72,6 +73,7 @@ const WizardDialog: React.FC<{
   enableSwitch: BackendEnableSwitchHandle;
   onClose: () => void;
 }> = ({ record, mode, enableSwitch, onClose }) => {
+  const t = useT();
   const host = getCurrentHost();
   const scenarios = scenariosForHost(host);
   const backends = useBackends();
@@ -110,7 +112,13 @@ const WizardDialog: React.FC<{
 
   if (record.enabled) {
     return (
-      <Modal title={`Edit ${label}`} open onCancel={onClose} width={520} footer={null}>
+      <Modal
+        title={t('workbench.settings.backendPane.wizard.editTitle', { label })}
+        open
+        onCancel={onClose}
+        width={520}
+        footer={null}
+      >
         <DisableFirstGate record={record} label={label} enableSwitch={enableSwitch} />
       </Modal>
     );
@@ -120,27 +128,35 @@ const WizardDialog: React.FC<{
 
   return (
     <Modal
-      title={mode === 'add' ? 'Add back-end' : `Edit ${label}`}
+      title={
+        mode === 'add'
+          ? t('workbench.settings.backendPane.wizard.addTitle')
+          : t('workbench.settings.backendPane.wizard.editTitle', { label })
+      }
       open
       onCancel={() => void cancel()}
       maskClosable={false}
       width={720}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-          <Button onClick={() => void cancel()}>Cancel</Button>
+          <Button onClick={() => void cancel()}>{t('shared.action.cancel')}</Button>
           <div style={{ display: 'flex', gap: 8 }}>
-            {step > 0 && <Button onClick={() => setStep(step - 1)}>Back</Button>}
+            {step > 0 && (
+              <Button onClick={() => setStep(step - 1)}>{t('workbench.settings.backendPane.wizard.back')}</Button>
+            )}
             {step < STEPS.length - 1 ? (
               <Button type="primary" disabled={nextDisabled} onClick={() => setStep(step + 1)}>
-                {step === 0 && selected?.soon ? 'Coming soon' : 'Next'}
+                {step === 0 && selected?.soon
+                  ? t('workbench.settings.backendPane.wizard.comingSoon')
+                  : t('workbench.settings.backendPane.wizard.next')}
               </Button>
             ) : (
               <>
                 <Button onClick={() => void finish(false)} disabled={finishing}>
-                  Finish without connecting
+                  {t('workbench.settings.backendPane.wizard.finishWithoutConnecting')}
                 </Button>
                 <Button type="primary" loading={finishing} onClick={() => void finish(true)}>
-                  Verify &amp; connect
+                  {t('workbench.settings.backendPane.wizard.verifyConnect')}
                 </Button>
               </>
             )}
@@ -148,20 +164,25 @@ const WizardDialog: React.FC<{
         </div>
       }
     >
-      <Steps size="small" current={step} items={[...STEPS]} style={{ margin: '4px 0 16px' }} />
+      <Steps
+        size="small"
+        current={step}
+        items={STEPS.map((s) => ({ title: t(s.titleKey) }))}
+        style={{ margin: '4px 0 16px' }}
+      />
       {step === 0 && (
         <ScenarioStep scenarios={scenarios} selected={scenario} onSelect={setScenario} />
       )}
       {step === 1 && (
         <BackendRecordProvider record={record}>
-          <StepIntro text="Where does this client dial the back-end? The connection stays off until the final step verifies it." />
+          <StepIntro text={t('workbench.settings.backendPane.wizard.connectIntro')} />
           <BackendLabelField />
           <BackendUrlField />
         </BackendRecordProvider>
       )}
       {step === 2 && (
         <BackendRecordProvider record={record}>
-          <StepIntro text="Prove this device to the back-end — pair with the code it displays, or paste a token. You can test the connection before turning it on." />
+          <StepIntro text={t('workbench.settings.backendPane.wizard.pairIntro')} />
           <BackendAuthTokenField />
           <div style={{ padding: '8px 12px' }}>
             <TestConnectionButton record={record} label={label} />
@@ -171,11 +192,14 @@ const WizardDialog: React.FC<{
       {step === 3 && (
         <div style={{ padding: '4px 2px' }}>
           <StepIntro
-            text={`Ready: ${label} at ${record.url}${hasToken ? ', paired' : ' — NOT paired yet'}. Turning it on verifies reachability and authentication first; on success its workspaces sync down and stay usable offline.`}
+            text={t(
+              hasToken
+                ? 'workbench.settings.backendPane.wizard.readyIntroPaired'
+                : 'workbench.settings.backendPane.wizard.readyIntroNotPaired',
+              { label, url: record.url },
+            )}
           />
-          {isAdditionalBackend && (
-            <StepIntro text="This is an additional back-end. Its Orgs appear as new groups in the workspace switcher, the status popover gains a row per back-end, and each Org syncs from exactly one back-end — an Org already provided by another connection won't join twice." />
-          )}
+          {isAdditionalBackend && <StepIntro text={t('workbench.settings.backendPane.wizard.additionalBackend')} />}
         </div>
       )}
     </Modal>
@@ -200,33 +224,36 @@ const ScenarioStep: React.FC<{
   scenarios: readonly ScenarioDescriptor[];
   selected: BackendMode;
   onSelect: (mode: BackendMode) => void;
-}> = ({ scenarios, selected, onSelect }) => (
-  <div>
-    <StepIntro text="What kind of back-end is this? Pick a tile to see what the tier gives you." />
-    <div
-      role="radiogroup"
-      aria-label="Back-end scenario"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${Math.min(scenarios.length, 3)}, minmax(0, 1fr))`,
-        gap: 8,
-        marginBottom: 12,
-      }}
-    >
-      {scenarios.map((s) => (
-        <ScenarioTile key={s.mode} descriptor={s} selected={selected === s.mode} onSelect={() => onSelect(s.mode)} />
-      ))}
-    </div>
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-      <div style={{ flex: '1 1 320px', minWidth: 300 }}>
-        <BackendTierCard mode={selected} />
+}> = ({ scenarios, selected, onSelect }) => {
+  const t = useT();
+  return (
+    <div>
+      <StepIntro text={t('workbench.settings.backendPane.wizard.scenarioIntro')} />
+      <div
+        role="radiogroup"
+        aria-label={t('workbench.settings.backendPane.wizard.scenarioAria')}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${Math.min(scenarios.length, 3)}, minmax(0, 1fr))`,
+          gap: 8,
+          marginBottom: 12,
+        }}
+      >
+        {scenarios.map((s) => (
+          <ScenarioTile key={s.mode} descriptor={s} selected={selected === s.mode} onSelect={() => onSelect(s.mode)} />
+        ))}
       </div>
-      <div style={{ flex: '1 1 320px', minWidth: 300 }}>
-        <BackendDetailDiagram mode={selected} />
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 320px', minWidth: 300 }}>
+          <BackendTierCard mode={selected} />
+        </div>
+        <div style={{ flex: '1 1 320px', minWidth: 300 }}>
+          <BackendDetailDiagram mode={selected} />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const ScenarioTile: React.FC<{
   descriptor: ScenarioDescriptor;
@@ -234,6 +261,7 @@ const ScenarioTile: React.FC<{
   onSelect: () => void;
 }> = ({ descriptor, selected, onSelect }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <button
       type="button"
@@ -279,7 +307,7 @@ const ScenarioTile: React.FC<{
             textOverflow: 'ellipsis',
           }}
         >
-          {descriptor.title}
+          {t(descriptor.titleKey)}
         </span>
         <span
           style={{
@@ -291,7 +319,7 @@ const ScenarioTile: React.FC<{
             textOverflow: 'ellipsis',
           }}
         >
-          {descriptor.hint}
+          {t(descriptor.hintKey)}
         </span>
       </span>
       {descriptor.soon && (
@@ -313,7 +341,7 @@ const ScenarioTile: React.FC<{
             pointerEvents: 'none',
           }}
         >
-          Soon
+          {t('workbench.settings.backendPane.wizard.soonBadge')}
         </span>
       )}
     </button>
@@ -331,14 +359,14 @@ const DisableFirstGate: React.FC<{
   enableSwitch: BackendEnableSwitchHandle;
 }> = ({ record, label, enableSwitch }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <div style={{ padding: '4px 2px' }}>
       <p style={{ fontSize: 12.5, color: token.colorTextSecondary, margin: '0 0 12px' }}>
-        {label} is connected. Editing the connection means moving a live wire, so it disconnects first — your settings
-        and pairing are kept, and turning it back on verifies the new configuration before anything connects.
+        {t('workbench.settings.backendPane.wizard.disableFirst', { label })}
       </p>
       <Button danger onClick={() => void enableSwitch.setEnabled(record, false)} disabled={enableSwitch.busy}>
-        Disconnect and edit
+        {t('workbench.settings.backendPane.wizard.disconnectEdit')}
       </Button>
     </div>
   );
@@ -347,6 +375,7 @@ const DisableFirstGate: React.FC<{
 /** Reachability + auth probe with the record's own URL and token. */
 const TestConnectionButton: React.FC<{ record: BackendConnection; label: string }> = ({ record, label }) => {
   const { notification } = AntApp.useApp();
+  const t = useT();
   const [testing, setTesting] = useState(false);
   const host = getCurrentHost();
   const role = host === 'desktop' ? 'desktop' : host === 'web' ? 'web' : 'extension';
@@ -367,7 +396,7 @@ const TestConnectionButton: React.FC<{ record: BackendConnection; label: string 
 
   return (
     <Button loading={testing} onClick={() => void test()}>
-      Test connection
+      {t('workbench.settings.backendPane.wizard.testConnection')}
     </Button>
   );
 };

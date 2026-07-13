@@ -70,7 +70,7 @@ export function capabilityUnavailableHint(
 
 function resolveAction(action: ActionSpec, t: Translate): ResolvedActionSpec {
   return {
-    run: action.run,
+    run: () => action.run(t),
     danger: action.danger,
     label: resolveLabel(action, t),
   };

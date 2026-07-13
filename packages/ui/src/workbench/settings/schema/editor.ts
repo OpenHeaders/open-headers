@@ -6,6 +6,7 @@
 
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
+import type { FontPreset } from '../types';
 
 const wordWrapSchema = v.picklist(['off', 'on', 'bounded']);
 const renderWhitespaceSchema = v.picklist(['none', 'boundary', 'all']);
@@ -17,47 +18,41 @@ const renderWhitespaceSchema = v.picklist(['none', 'boundary', 'all']);
  * stacks always end with `monospace` so an OS-level fallback kicks in
  * if the bundled woff2 fails to load for any reason.
  */
-export const EDITOR_FONT_PRESETS: ReadonlyArray<{
-  id: string;
-  label: string;
-  description: string;
-  /** Ready-to-use CSS font-family stack. */
-  stack: string;
-}> = [
+export const EDITOR_FONT_PRESETS: ReadonlyArray<FontPreset> = [
   {
     id: 'system',
     label: 'System Mono',
-    description: 'Operating-system default monospace — SF Mono on macOS, Consolas on Windows, Liberation Mono on Linux.',
+    descriptionKey: 'workbench.settings.def.editor.fontFamilyPreset.option.system.description',
     stack: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace",
   },
   {
     id: 'fira-code',
     label: 'Fira Code',
-    description: 'Monospace with programming ligatures. Bundled — always available.',
+    descriptionKey: 'workbench.settings.def.editor.fontFamilyPreset.option.fira-code.description',
     stack: "'Fira Code', 'Fira Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
   },
   {
     id: 'jetbrains-mono',
     label: 'JetBrains Mono',
-    description: 'Monospace tuned for editors, with ligatures. Bundled — always available.',
+    descriptionKey: 'workbench.settings.def.editor.fontFamilyPreset.option.jetbrains-mono.description',
     stack: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
   },
   {
     id: 'cascadia-code',
     label: 'Cascadia Code',
-    description: 'Monospace with programming ligatures. Bundled — always available.',
+    descriptionKey: 'workbench.settings.def.editor.fontFamilyPreset.option.cascadia-code.description',
     stack: "'Cascadia Code', 'Cascadia Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
   },
   {
     id: 'source-code-pro',
     label: 'Source Code Pro',
-    description: 'Adobe monospace tuned for code. Bundled — always available.',
+    descriptionKey: 'workbench.settings.def.editor.fontFamilyPreset.option.source-code-pro.description',
     stack: "'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
   },
   {
     id: 'press-start-2p',
     label: 'Press Start 2P',
-    description: 'The pixel-style display font we ship with the app. Bundled — always available. A novelty pick: legible but tall and wide.',
+    descriptionKey: 'workbench.settings.def.editor.fontFamilyPreset.option.press-start-2p.description',
     stack: "'Press Start 2P', ui-monospace, SFMono-Regular, monospace",
   },
 ] as const;
@@ -112,8 +107,8 @@ registerSetting({
   type: 'number',
   default: 13,
   schema: v.pipe(v.number(), v.integer(), v.minValue(8), v.maxValue(32)),
-  label: 'Font Size',
-  description: 'Font size in pixels for editor surfaces.',
+  labelKey: 'workbench.settings.def.editor.fontSize.label',
+  descriptionKey: 'workbench.settings.def.editor.fontSize.description',
   category: 'editor',
   tags: ['font', 'size', 'zoom'],
   scope: 'user',
@@ -125,13 +120,17 @@ registerSetting({
   type: 'enum',
   default: defaultEditorFontPreset(),
   schema: fontFamilyPresetSchema,
-  label: 'Font Family',
-  description:
-    'Curated monospace stacks for the editor. Every option is bundled with the extension — no system install required. Default is JetBrains Mono on Windows / Linux for cross-platform consistency, and System Mono on macOS to keep SF Mono\'s native rendering.',
+  labelKey: 'workbench.settings.def.editor.fontFamilyPreset.label',
+  descriptionKey: 'workbench.settings.def.editor.fontFamilyPreset.description',
   category: 'editor',
   tags: ['font', 'typography', 'monospace', 'fira', 'jetbrains', 'cascadia', 'menlo', 'consolas', 'source code pro'],
   scope: 'user',
-  enumOptions: EDITOR_FONT_PRESETS.map((p) => ({ value: p.id, label: p.label, description: p.description })),
+  enumOptions: EDITOR_FONT_PRESETS.map((p) => ({
+    value: p.id,
+    label: p.label,
+    description: p.description,
+    descriptionKey: p.descriptionKey,
+  })),
 });
 
 registerSetting({
@@ -139,9 +138,8 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Font Ligatures',
-  description:
-    'Enable programming ligatures — combine character sequences like `=>` or `!=` into single glyphs. Requires a font with ligature support (e.g. Fira Code, JetBrains Mono).',
+  labelKey: 'workbench.settings.def.editor.fontLigatures.label',
+  descriptionKey: 'workbench.settings.def.editor.fontLigatures.description',
   category: 'editor',
   tags: ['font', 'ligatures', 'typography', 'fira', 'jetbrains'],
   scope: 'user',
@@ -152,9 +150,8 @@ registerSetting({
   type: 'number',
   default: 0,
   schema: v.pipe(v.number(), v.minValue(0), v.maxValue(40)),
-  label: 'Line Height',
-  description:
-    'Editor line height in pixels. 0 lets the editor pick a line height proportional to the font size; values 8 and above are interpreted as explicit pixels.',
+  labelKey: 'workbench.settings.def.editor.lineHeight.label',
+  descriptionKey: 'workbench.settings.def.editor.lineHeight.description',
   category: 'editor',
   tags: ['line height', 'leading', 'spacing'],
   scope: 'user',
@@ -166,8 +163,8 @@ registerSetting({
   type: 'number',
   default: 2,
   schema: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(8)),
-  label: 'Tab Size',
-  description: 'Number of columns a tab character occupies.',
+  labelKey: 'workbench.settings.def.editor.tabSize.label',
+  descriptionKey: 'workbench.settings.def.editor.tabSize.description',
   category: 'editor',
   tags: ['indent', 'tab', 'spacing'],
   scope: 'user',
@@ -179,8 +176,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Insert Spaces',
-  description: 'Insert spaces instead of tab characters when pressing Tab.',
+  labelKey: 'workbench.settings.def.editor.insertSpaces.label',
+  descriptionKey: 'workbench.settings.def.editor.insertSpaces.description',
   category: 'editor',
   tags: ['indent', 'tab', 'spaces'],
   scope: 'user',
@@ -191,15 +188,15 @@ registerSetting({
   type: 'enum',
   default: 'off',
   schema: wordWrapSchema,
-  label: 'Word Wrap',
-  description: 'Whether long lines wrap to the next line in the editor.',
+  labelKey: 'workbench.settings.def.editor.wordWrap.label',
+  descriptionKey: 'workbench.settings.def.editor.wordWrap.description',
   category: 'editor',
   tags: ['wrap', 'long lines'],
   scope: 'user',
   enumOptions: [
-    { value: 'off', label: 'Off' },
-    { value: 'on', label: 'Viewport width' },
-    { value: 'bounded', label: 'Bounded column' },
+    { value: 'off', labelKey: 'workbench.settings.def.editor.wordWrap.option.off.label' },
+    { value: 'on', labelKey: 'workbench.settings.def.editor.wordWrap.option.on.label' },
+    { value: 'bounded', labelKey: 'workbench.settings.def.editor.wordWrap.option.bounded.label' },
   ],
 });
 
@@ -208,8 +205,8 @@ registerSetting({
   type: 'number',
   default: 120,
   schema: v.pipe(v.number(), v.integer(), v.minValue(40), v.maxValue(240)),
-  label: 'Word Wrap Column',
-  description: 'Column at which lines wrap when Word Wrap is set to Bounded.',
+  labelKey: 'workbench.settings.def.editor.wordWrapColumn.label',
+  descriptionKey: 'workbench.settings.def.editor.wordWrapColumn.description',
   category: 'editor',
   tags: ['wrap', 'column', 'width'],
   scope: 'user',
@@ -222,8 +219,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Line Numbers',
-  description: 'Show line numbers in the left gutter.',
+  labelKey: 'workbench.settings.def.editor.lineNumbers.label',
+  descriptionKey: 'workbench.settings.def.editor.lineNumbers.description',
   category: 'editor',
   tags: ['gutter', 'numbers'],
   scope: 'user',
@@ -234,15 +231,15 @@ registerSetting({
   type: 'enum',
   default: 'none',
   schema: renderWhitespaceSchema,
-  label: 'Render Whitespace',
-  description: 'Visually render whitespace characters.',
+  labelKey: 'workbench.settings.def.editor.renderWhitespace.label',
+  descriptionKey: 'workbench.settings.def.editor.renderWhitespace.description',
   category: 'editor',
   tags: ['whitespace', 'invisible', 'tabs', 'spaces'],
   scope: 'user',
   enumOptions: [
-    { value: 'none', label: 'None' },
-    { value: 'boundary', label: 'Boundary only' },
-    { value: 'all', label: 'All' },
+    { value: 'none', labelKey: 'workbench.settings.def.editor.renderWhitespace.option.none.label' },
+    { value: 'boundary', labelKey: 'workbench.settings.def.editor.renderWhitespace.option.boundary.label' },
+    { value: 'all', labelKey: 'workbench.settings.def.editor.renderWhitespace.option.all.label' },
   ],
 });
 
@@ -251,8 +248,8 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Format on Save',
-  description: 'Automatically format editor contents when you save a rule or template.',
+  labelKey: 'workbench.settings.def.editor.formatOnSave.label',
+  descriptionKey: 'workbench.settings.def.editor.formatOnSave.description',
   category: 'editor',
   tags: ['format', 'prettier', 'save'],
   scope: 'user',
@@ -263,8 +260,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Bracket Pair Colorization',
-  description: 'Highlight matching brackets in different colors.',
+  labelKey: 'workbench.settings.def.editor.bracketPairColorization.label',
+  descriptionKey: 'workbench.settings.def.editor.bracketPairColorization.description',
   category: 'editor',
   tags: ['brackets', 'colors', 'highlight'],
   scope: 'user',

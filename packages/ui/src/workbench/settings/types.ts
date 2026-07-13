@@ -21,6 +21,7 @@
 
 import type { Capabilities } from '@openheaders/core/capabilities';
 import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { ComponentType, ReactNode } from 'react';
 import type * as v from 'valibot';
 import type { SettingScope } from './storage/adapter';
@@ -100,7 +101,13 @@ export type FontPreset = {
 } & OptionalDescribedText;
 
 export type ActionSpec = LabeledText & {
-  run: () => void | Promise<void>;
+  /**
+   * The button handler. Receives the active-locale translator so
+   * confirm prompts and other copy produced inside the handler localize
+   * — `resolveSettingDef` binds it, so the resolved action's `run`
+   * takes no arguments.
+   */
+  run: (t: Translate) => void | Promise<void>;
   /** Render the button in danger style (destructive). */
   danger?: boolean;
 };

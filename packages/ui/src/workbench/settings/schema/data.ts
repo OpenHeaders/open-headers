@@ -40,16 +40,32 @@ registerSetting({
   type: 'enum',
   default: 'info',
   schema: logLevelSchema,
-  label: 'Log Level',
-  description: 'Verbosity of the extension logger. Higher levels include every level above them.',
+  labelKey: 'workbench.settings.def.data.logLevel.label',
+  descriptionKey: 'workbench.settings.def.data.logLevel.description',
   category: 'data',
   tags: ['log', 'debug', 'verbose', 'diagnostics'],
   scope: 'user',
   enumOptions: [
-    { value: 'error', label: 'Error', description: 'Failures only' },
-    { value: 'warn', label: 'Warn', description: 'Anomalies and retries' },
-    { value: 'info', label: 'Info', description: 'Operational events' },
-    { value: 'debug', label: 'Debug', description: 'Verbose internals' },
+    {
+      value: 'error',
+      labelKey: 'workbench.settings.def.data.logLevel.option.error.label',
+      descriptionKey: 'workbench.settings.def.data.logLevel.option.error.description',
+    },
+    {
+      value: 'warn',
+      labelKey: 'workbench.settings.def.data.logLevel.option.warn.label',
+      descriptionKey: 'workbench.settings.def.data.logLevel.option.warn.description',
+    },
+    {
+      value: 'info',
+      labelKey: 'workbench.settings.def.data.logLevel.option.info.label',
+      descriptionKey: 'workbench.settings.def.data.logLevel.option.info.description',
+    },
+    {
+      value: 'debug',
+      labelKey: 'workbench.settings.def.data.logLevel.option.debug.label',
+      descriptionKey: 'workbench.settings.def.data.logLevel.option.debug.description',
+    },
   ],
 });
 
@@ -112,13 +128,13 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Export Settings',
-  description: 'Download all settings as a JSON file.',
+  labelKey: 'workbench.settings.def.data.exportSettings.label',
+  descriptionKey: 'workbench.settings.def.data.exportSettings.description',
   category: 'data',
   tags: ['export', 'backup', 'download', 'json'],
   scope: 'user',
   action: {
-    label: 'Export',
+    labelKey: 'workbench.settings.def.data.exportSettings.action.label',
     run: () => {
       downloadJson(`openheaders-settings-${new Date().toISOString().slice(0, 10)}.json`, snapshotSettings());
     },
@@ -130,13 +146,13 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Import Settings',
-  description: 'Load settings from a previously exported JSON file.',
+  labelKey: 'workbench.settings.def.data.importSettings.label',
+  descriptionKey: 'workbench.settings.def.data.importSettings.description',
   category: 'data',
   tags: ['import', 'restore', 'upload', 'json'],
   scope: 'user',
   action: {
-    label: 'Import…',
+    labelKey: 'workbench.settings.def.data.importSettings.action.label',
     run: async () => {
       const parsed = await pickJsonFile();
       if (!parsed || typeof parsed !== 'object') return;
@@ -158,14 +174,13 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Export Diagnostic Log',
-  description:
-    'Download the last 500 structured events (rule rebuilds, request errors, workspace switches) as JSON. Local-only; nothing leaves the device unless you attach the file to a bug report yourself.',
+  labelKey: 'workbench.settings.def.data.exportObservabilityLog.label',
+  descriptionKey: 'workbench.settings.def.data.exportObservabilityLog.description',
   category: 'data',
   tags: ['export', 'log', 'diagnostic', 'observability', 'bug-report', 'triage'],
   scope: 'user',
   action: {
-    label: 'Export log',
+    labelKey: 'workbench.settings.def.data.exportObservabilityLog.action.label',
     run: async () => {
       const resp = await hostBridge.call('getObservabilityLog').catch(() => null);
       const entries = resp?.entries ?? [];
@@ -182,16 +197,16 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Clear Diagnostic Log',
-  description: 'Drop every buffered event. Does not affect rules, requests, or any workspace data.',
+  labelKey: 'workbench.settings.def.data.clearObservabilityLog.label',
+  descriptionKey: 'workbench.settings.def.data.clearObservabilityLog.description',
   category: 'data',
   tags: ['clear', 'log', 'diagnostic', 'observability', 'reset'],
   scope: 'user',
   action: {
-    label: 'Clear',
+    labelKey: 'workbench.settings.def.data.clearObservabilityLog.action.label',
     danger: true,
-    run: async () => {
-      if (!window.confirm('Clear the diagnostic log? This drops every buffered event.')) return;
+    run: async (t) => {
+      if (!window.confirm(t('workbench.settings.def.data.clearObservabilityLog.confirm'))) return;
       await hostBridge.call('clearObservabilityLog').catch(() => null);
     },
   },
@@ -202,14 +217,13 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Export Import Reports',
-  description:
-    'Download the structured drop/transform reports for every import run (curl today; HAR / Postman / Insomnia next) as JSON. Lives per-workspace — 50 most recent imports per workspace. Never leaves the device unless you attach the file.',
+  labelKey: 'workbench.settings.def.data.exportImportReports.label',
+  descriptionKey: 'workbench.settings.def.data.exportImportReports.description',
   category: 'data',
   tags: ['export', 'import', 'curl', 'har', 'report', 'audit'],
   scope: 'user',
   action: {
-    label: 'Export reports',
+    labelKey: 'workbench.settings.def.data.exportImportReports.action.label',
     run: async () => {
       const resp = await hostBridge.call('listImportReports').catch(() => null);
       const reports = resp?.reports ?? [];
@@ -226,17 +240,16 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Clear Import Reports',
-  description:
-    'Drop every import report for the active workspace. Does not affect the requests themselves — only the audit log of what was dropped/transformed during import.',
+  labelKey: 'workbench.settings.def.data.clearImportReports.label',
+  descriptionKey: 'workbench.settings.def.data.clearImportReports.description',
   category: 'data',
   tags: ['clear', 'import', 'curl', 'har', 'report', 'reset'],
   scope: 'user',
   action: {
-    label: 'Clear',
+    labelKey: 'workbench.settings.def.data.clearImportReports.action.label',
     danger: true,
-    run: async () => {
-      if (!window.confirm('Clear import reports for this workspace? This cannot be undone.')) return;
+    run: async (t) => {
+      if (!window.confirm(t('workbench.settings.def.data.clearImportReports.confirm'))) return;
       await hostBridge.call('clearImportReports').catch(() => null);
     },
   },
@@ -247,14 +260,13 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Upload File',
-  description:
-    'Add a file to the active workspace for use in multipart bodies and `{{file.X}}` references. Files are content-addressed (sha256) so re-uploading the same bytes stays as one blob. Storage is local IndexedDB; nothing leaves the device.',
+  labelKey: 'workbench.settings.def.data.uploadFile.label',
+  descriptionKey: 'workbench.settings.def.data.uploadFile.description',
   category: 'data',
   tags: ['file', 'blob', 'upload', 'multipart', 'attachment'],
   scope: 'user',
   action: {
-    label: 'Upload…',
+    labelKey: 'workbench.settings.def.data.uploadFile.action.label',
     run: async () => {
       const input = document.createElement('input');
       input.type = 'file';
@@ -273,11 +285,13 @@ registerSetting({
             binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
           }
           const bytesBase64 = btoa(binary);
-          await hostBridge.call('putFile', {
-            filename: file.name,
-            mimeType: file.type || undefined,
-            bytesBase64,
-          }).catch(() => null);
+          await hostBridge
+            .call('putFile', {
+              filename: file.name,
+              mimeType: file.type || undefined,
+              bytesBase64,
+            })
+            .catch(() => null);
           resolve();
         };
         input.click();
@@ -291,14 +305,13 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Export Files Manifest',
-  description:
-    'Download the list of files in the active workspace (filename, hash, size, MIME type) as JSON. Bytes are NOT included — this is a manifest for audit and re-upload by teammates, not a backup of the content.',
+  labelKey: 'workbench.settings.def.data.exportFilesManifest.label',
+  descriptionKey: 'workbench.settings.def.data.exportFilesManifest.description',
   category: 'data',
   tags: ['file', 'blob', 'export', 'manifest', 'audit'],
   scope: 'user',
   action: {
-    label: 'Export manifest',
+    labelKey: 'workbench.settings.def.data.exportFilesManifest.action.label',
     run: async () => {
       const resp = await hostBridge.call('listFiles', {}).catch(() => null);
       const files = resp?.files ?? [];
@@ -315,9 +328,8 @@ registerSetting({
   type: 'files-browser',
   default: '',
   schema: actionSchema,
-  label: 'Files',
-  description:
-    'Every uploaded blob in the active workspace. Download bytes, copy the short hash, or delete. File metadata (filename, size, MIME type, hash) is searchable across the settings index.',
+  labelKey: 'workbench.settings.def.data.filesBrowser.label',
+  descriptionKey: 'workbench.settings.def.data.filesBrowser.description',
   category: 'data',
   tags: ['file', 'blob', 'browser', 'download', 'preview', 'attachment'],
   scope: 'user',
@@ -328,18 +340,16 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Clear All Files',
-  description:
-    'Delete every file blob in the active workspace. Requests that reference these files via multipart parts will error when executed; you will need to re-upload the files or edit those requests.',
+  labelKey: 'workbench.settings.def.data.clearAllFiles.label',
+  descriptionKey: 'workbench.settings.def.data.clearAllFiles.description',
   category: 'data',
   tags: ['file', 'blob', 'clear', 'delete', 'reset'],
   scope: 'user',
   action: {
-    label: 'Clear all',
+    labelKey: 'workbench.settings.def.data.clearAllFiles.action.label',
     danger: true,
-    run: async () => {
-      if (!window.confirm('Delete every file in this workspace? Multipart parts referencing them will error on send.'))
-        return;
+    run: async (t) => {
+      if (!window.confirm(t('workbench.settings.def.data.clearAllFiles.confirm'))) return;
       const resp = await hostBridge.call('listFiles', {}).catch(() => null);
       const files = resp?.files ?? [];
       for (const f of files) {
@@ -354,16 +364,16 @@ registerSetting({
   type: 'action',
   default: '',
   schema: actionSchema,
-  label: 'Reset All Settings',
-  description: 'Return every setting in every category to its default value.',
+  labelKey: 'workbench.settings.def.data.resetAllSettings.label',
+  descriptionKey: 'workbench.settings.def.data.resetAllSettings.description',
   category: 'data',
   tags: ['reset', 'defaults', 'restore'],
   scope: 'user',
   action: {
-    label: 'Reset to defaults',
+    labelKey: 'workbench.settings.def.data.resetAllSettings.action.label',
     danger: true,
-    run: () => {
-      if (!window.confirm('Reset every setting to its default? This cannot be undone.')) return;
+    run: (t) => {
+      if (!window.confirm(t('workbench.settings.def.data.resetAllSettings.confirm'))) return;
       for (const def of allDefs()) {
         if (!isPersistedSetting(def.type)) continue;
         resetSetting(def.key as SettingKey);

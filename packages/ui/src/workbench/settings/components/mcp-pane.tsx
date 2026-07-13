@@ -43,7 +43,7 @@ const McpPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         <Alert
           type="info"
           showIcon
-          message={<span style={{ fontSize: 12 }}>The MCP server is off — clients can’t connect until you enable it.</span>}
+          message={<span style={{ fontSize: 12 }}>{t('workbench.settings.mcpPane.serverOff')}</span>}
           style={{ marginBottom: 12 }}
         />
       )}

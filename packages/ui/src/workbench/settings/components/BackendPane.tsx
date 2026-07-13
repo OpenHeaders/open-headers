@@ -22,7 +22,7 @@ import { Checkbox, theme, Typography } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useBackends } from '../../../shared/backend';
-import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
+import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useOptionalSettingsHost } from './settings-host-context';
 import { tierZeroMode } from '../schema/backend';
@@ -35,15 +35,16 @@ import { BackendDetailDiagram } from './backend-details';
 import { BackendTierCard } from './backend-tier-card';
 import { BackendTierZeroCard } from './backend-tier-zero-card';
 
-const INTRO_TEXT: React.ReactNode = (
-  <>
-    <strong>Who:</strong> processes and stores your data. <strong>Where:</strong> local or remote.
-  </>
-);
-const HOST_INTRO: Record<Host, React.ReactNode> = {
-  extension: INTRO_TEXT,
-  desktop: INTRO_TEXT,
-  web: INTRO_TEXT,
+const Intro: React.FC = () => {
+  const t = useT();
+  return (
+    <>
+      <strong>{t('workbench.settings.backendPane.intro.whoLabel')}</strong>{' '}
+      {t('workbench.settings.backendPane.intro.whoText')}{' '}
+      <strong>{t('workbench.settings.backendPane.intro.whereLabel')}</strong>{' '}
+      {t('workbench.settings.backendPane.intro.whereText')}
+    </>
+  );
 };
 
 const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
@@ -75,13 +76,15 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           {resolveLabel(category, t)}
         </h2>
         <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
-          {HOST_INTRO[host]} <DocsLink />
+          <Intro /> <DocsLink />
         </div>
       </header>
 
       <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 6 }}>
         <Checkbox checked={showDiagrams} onChange={(e) => setShowDiagrams(e.target.checked)}>
-          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>Show diagrams</span>
+          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+            {t('workbench.settings.backendPane.showDiagrams')}
+          </span>
         </Checkbox>
       </div>
 
@@ -126,6 +129,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
  * A modal host is dismissed on click — the docs open behind it.
  */
 const DocsLink: React.FC = () => {
+  const t = useT();
   const nav = useOptionalInspectorNav();
   const host = useOptionalSettingsHost();
   if (!nav) return null;
@@ -138,7 +142,7 @@ const DocsLink: React.FC = () => {
       }}
       style={{ fontSize: 12, whiteSpace: 'nowrap' }}
     >
-      Learn more <ArrowRightOutlined style={{ fontSize: 10 }} />
+      {t('workbench.settings.backendPane.learnMore')} <ArrowRightOutlined style={{ fontSize: 10 }} />
     </Typography.Link>
   );
 };

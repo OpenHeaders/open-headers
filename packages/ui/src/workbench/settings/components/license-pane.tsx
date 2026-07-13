@@ -9,6 +9,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { FREE_SEAT_LIMIT, type LicenseInvalidReason, type LicenseSnapshot } from '@openheaders/core/licensing';
+import type { MessageKey } from '@openheaders/i18n';
 import { Alert, App as AntApp, Button, Input, Popconfirm, Tag, theme, Upload } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -16,11 +17,11 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
 
-const INVALID_REASON_TEXT: Record<LicenseInvalidReason, string> = {
-  malformed: 'The installed file is not a license key.',
-  'schema-mismatch': 'The installed license does not match any schema this version supports.',
-  'unknown-kid': 'The installed license is signed with a key this build does not trust.',
-  'bad-signature': 'The installed license failed signature verification — the text was altered after signing.',
+const INVALID_REASON_TEXT: Record<LicenseInvalidReason, MessageKey> = {
+  malformed: 'workbench.settings.licensePane.invalid.malformed',
+  'schema-mismatch': 'workbench.settings.licensePane.invalid.schema-mismatch',
+  'unknown-kid': 'workbench.settings.licensePane.invalid.unknown-kid',
+  'bad-signature': 'workbench.settings.licensePane.invalid.bad-signature',
 };
 
 function formatDay(ms: number): string {
@@ -71,7 +72,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
       if (result.ok) {
         setSnapshot(result.snapshot);
         setDraft('');
-        message.success('License installed');
+        message.success(t('workbench.settings.licensePane.installed'));
       } else {
         setInstallError(result.error);
       }
@@ -86,9 +87,9 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
     try {
       const result = await hostBridge.call('oh.daemon.license.remove');
       setSnapshot(result.snapshot);
-      message.success('License removed — back on the free tier');
+      message.success(t('workbench.settings.licensePane.removed'));
     } catch (err) {
-      message.error(`Failed to remove license: ${(err as Error).message}`);
+      message.error(t('workbench.settings.licensePane.removeFailed', { message: (err as Error).message }));
     }
   };
 
@@ -113,11 +114,10 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
             <Alert
               type="info"
               showIcon
-              message={<span style={{ fontSize: 12 }}>Free tier</span>}
+              message={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.freeTier.title')}</span>}
               description={
                 <span style={{ fontSize: 12 }}>
-                  Everything in Open Headers today is included — the free tier admits up to {FREE_SEAT_LIMIT} active
-                  users per daemon. Install a license key to raise the seat limit.
+                  {t('workbench.settings.licensePane.freeTier.body', { limit: FREE_SEAT_LIMIT })}
                 </span>
               }
               style={{ marginBottom: 12 }}
@@ -128,11 +128,11 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
             <Alert
               type="error"
               showIcon
-              message={<span style={{ fontSize: 12 }}>Installed license is not usable</span>}
+              message={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.invalidAlert.title')}</span>}
               description={
                 <span style={{ fontSize: 12 }}>
-                  {INVALID_REASON_TEXT[snapshot.reason]} The app keeps running on the free tier (up to{' '}
-                  {FREE_SEAT_LIMIT} active users). Paste a fresh key below or contact support.
+                  {t(INVALID_REASON_TEXT[snapshot.reason])}{' '}
+                  {t('workbench.settings.licensePane.invalidAlert.body', { limit: FREE_SEAT_LIMIT })}
                 </span>
               }
               style={{ marginBottom: 12 }}
@@ -143,12 +143,14 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
             <Alert
               type="warning"
               showIcon
-              message={<span style={{ fontSize: 12 }}>License expired — grace period active</span>}
+              message={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.grace.title')}</span>}
               description={
                 <span style={{ fontSize: 12 }}>
-                  This license expired on {formatDay(snapshot.validUntil)}. Renew before{' '}
-                  {formatDay(snapshot.graceEndsAt)} — after that, creating or reactivating users falls back to the
-                  free limit of {FREE_SEAT_LIMIT}. Existing users keep logging in and no data is ever affected.
+                  {t('workbench.settings.licensePane.grace.body', {
+                    expiredOn: formatDay(snapshot.validUntil),
+                    graceEndsOn: formatDay(snapshot.graceEndsAt),
+                    limit: FREE_SEAT_LIMIT,
+                  })}
                 </span>
               }
               style={{ marginBottom: 12 }}
@@ -159,12 +161,10 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
             <Alert
               type="error"
               showIcon
-              message={<span style={{ fontSize: 12 }}>License and grace period have ended</span>}
+              message={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.expired.title')}</span>}
               description={
                 <span style={{ fontSize: 12 }}>
-                  New user creation and reactivation now follow the free limit of {FREE_SEAT_LIMIT} active users.
-                  Existing users keep logging in, existing workspaces keep working, and no data is ever affected.
-                  Install a renewed key to restore the licensed seat count.
+                  {t('workbench.settings.licensePane.expired.body', { limit: FREE_SEAT_LIMIT })}
                 </span>
               }
               style={{ marginBottom: 12 }}
@@ -174,36 +174,40 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
           {licensed && (
             <section style={{ marginBottom: 14 }}>
               <div className="settings-card" style={{ padding: '8px 14px' }}>
-                <DetailRow label="Licensed to">
+                <DetailRow label={t('workbench.settings.licensePane.detail.licensedTo')}>
                   {snapshot.licensee.name}
                   {snapshot.licensee.org ? ` — ${snapshot.licensee.org}` : ''}
                 </DetailRow>
-                {snapshot.licensee.email && <DetailRow label="Contact">{snapshot.licensee.email}</DetailRow>}
-                <DetailRow label="Seats">{snapshot.seats}</DetailRow>
-                <DetailRow label="Valid until">
+                {snapshot.licensee.email && (
+                  <DetailRow label={t('workbench.settings.licensePane.detail.contact')}>
+                    {snapshot.licensee.email}
+                  </DetailRow>
+                )}
+                <DetailRow label={t('workbench.settings.licensePane.detail.seats')}>{snapshot.seats}</DetailRow>
+                <DetailRow label={t('workbench.settings.licensePane.detail.validUntil')}>
                   {formatDay(snapshot.validUntil)}
                   {snapshot.status === 'licensed' && (
                     <Tag color="green" style={{ marginLeft: 8, fontSize: 11 }}>
-                      Active
+                      {t('workbench.settings.licensePane.tag.active')}
                     </Tag>
                   )}
                   {snapshot.offline && (
-                    <Tag style={{ marginLeft: 8, fontSize: 11 }}>Offline license</Tag>
+                    <Tag style={{ marginLeft: 8, fontSize: 11 }}>{t('workbench.settings.licensePane.tag.offline')}</Tag>
                   )}
                 </DetailRow>
-                <DetailRow label="License id">
+                <DetailRow label={t('workbench.settings.licensePane.detail.licenseId')}>
                   <span style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5 }}>{snapshot.licenseId}</span>
                 </DetailRow>
                 <div style={{ padding: '8px 0 4px' }}>
                   <Popconfirm
-                    title="Remove this license?"
-                    description={`The app reverts to the free tier (up to ${FREE_SEAT_LIMIT} active users). No data is affected.`}
-                    okText="Remove"
+                    title={t('workbench.settings.licensePane.removeConfirm.title')}
+                    description={t('workbench.settings.licensePane.removeConfirm.body', { limit: FREE_SEAT_LIMIT })}
+                    okText={t('workbench.settings.licensePane.removeConfirm.ok')}
                     okButtonProps={{ danger: true }}
                     onConfirm={() => void remove()}
                   >
                     <Button danger size="small">
-                      Remove license
+                      {t('workbench.settings.licensePane.removeButton')}
                     </Button>
                   </Popconfirm>
                 </div>
@@ -214,7 +218,9 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
           <section>
             <div className="settings-card" style={{ padding: '10px 14px 12px' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, marginBottom: 6 }}>
-                {licensed ? 'Replace license' : 'Install a license'}
+                {licensed
+                  ? t('workbench.settings.licensePane.replaceTitle')
+                  : t('workbench.settings.licensePane.installTitle')}
               </div>
               <Input.TextArea
                 value={draft}
@@ -222,7 +228,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   setDraft(e.target.value);
                   setInstallError(null);
                 }}
-                placeholder="Paste your license key (oh-license.…)"
+                placeholder={t('workbench.settings.licensePane.pastePlaceholder')}
                 autoSize={{ minRows: 3, maxRows: 6 }}
                 style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5 }}
               />
@@ -237,7 +243,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   disabled={draft.trim() === ''}
                   onClick={() => void install(draft)}
                 >
-                  Install
+                  {t('workbench.settings.licensePane.installButton')}
                 </Button>
                 <Upload
                   accept=".key,.txt,text/plain"
@@ -250,7 +256,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
                     return false;
                   }}
                 >
-                  <Button size="small">Load from file…</Button>
+                  <Button size="small">{t('workbench.settings.licensePane.loadFromFile')}</Button>
                 </Upload>
               </div>
             </div>

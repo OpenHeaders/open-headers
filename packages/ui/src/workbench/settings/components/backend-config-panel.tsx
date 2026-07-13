@@ -10,6 +10,7 @@
  * ("nothing outbound to configure") branch did.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import { theme } from 'antd';
 import type React from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
@@ -20,9 +21,9 @@ import { get as storeGet } from '../store';
 import type { CategoryDef, SettingDef, SettingKey, SettingsMap, SubcategoryDef } from '../types';
 import OfflineFallbackOrderSection from './offline-fallback-order-section';
 
-const SUBSECTION_BLURB: Record<string, string> = {
-  reliability: 'Auto-reconnection behavior over an unstable wire. Applies to every connection.',
-  notifications: 'Visual cues when a link is down.',
+const SUBSECTION_BLURB: Record<string, MessageKey> = {
+  reliability: 'workbench.settings.backendPane.subsection.reliability.blurb',
+  notifications: 'workbench.settings.backendPane.subsection.notifications.blurb',
 };
 
 export const GlobalConfigSections: React.FC<{
@@ -70,7 +71,7 @@ export const GlobalConfigSections: React.FC<{
               </h3>
               {SUBSECTION_BLURB[id] && (
                 <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-                  {SUBSECTION_BLURB[id]}
+                  {t(SUBSECTION_BLURB[id])}
                 </div>
               )}
             </header>
