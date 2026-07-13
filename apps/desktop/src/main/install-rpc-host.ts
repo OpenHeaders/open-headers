@@ -42,9 +42,16 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { ImportReport } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import { logger as consoleLogger } from '@openheaders/core/utils';
+import {
+  clearImportReports,
+  findImportReportBySourceHash,
+  listImportReports,
+  recordImportReport,
+} from '@openheaders/oracle/entity/import-reports-store';
 import { forwardAwarenessToBackend } from '@openheaders/oracle/sync/client/awareness-forwarder';
 import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { reportBaselineSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
@@ -272,6 +279,43 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'oh.migration.readBackup') {
       const path = typeof message.path === 'string' ? message.path : '';
       return readPostmanBackupFile(path);
+    }
+    // Import-report ring (ARCHITECTURE §23) — the shared workbench UI
+    // (report modal, re-import diff, settings Data page) drives these
+    // through the host bridge; the extension SW answers the same
+    // channels. Shell-side while boot-spine carries concurrent work —
+    // lift into the spine's universal host-bridge section later so the
+    // headless daemon's served workbench gets them too.
+    if (type === 'recordImportReport') {
+      try {
+        await recordImportReport(message.report as ImportReport);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'listImportReports') {
+      try {
+        return { reports: await listImportReports() };
+      } catch {
+        return { reports: [] };
+      }
+    }
+    if (type === 'clearImportReports') {
+      try {
+        await clearImportReports();
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'findImportReportBySourceHash') {
+      try {
+        const sourceHash = typeof message.sourceHash === 'string' ? message.sourceHash : '';
+        return { report: await findImportReportBySourceHash(sourceHash) };
+      } catch {
+        return { report: null };
+      }
     }
     const updateState = await updateService.dispatchRpc(type);
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);

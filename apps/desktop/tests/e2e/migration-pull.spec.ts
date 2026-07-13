@@ -254,7 +254,7 @@ test('the click-through lands in the landing workspace with the aggregated repor
   await expect(report).toBeVisible({ timeout: 15000 });
   await expect(report).toContainText('Imported from Postman');
   await expect(report).toContainText('Everything imported cleanly');
-  await report.getByRole('button', { name: 'Close' }).click();
+  await report.getByRole('button', { name: 'Close' }).last().click();
   await expect(report).toHaveCount(0);
 
   // The switch landed — this window now edits the landing workspace.
@@ -285,26 +285,41 @@ test('a connected extension mirrors the finished run in its own corner', async (
   const extensionId = bootWorker.url().split('/')[2];
 
   // Keep a client page attached so the MV3 service worker never idles
-  // out mid-test.
+  // out mid-test. Every storage evaluation below runs in THIS page —
+  // the extension origin's chrome.storage and IndexedDB are shared with
+  // the SW, and a page context survives the SW restarts that destroy
+  // worker execution contexts mid-call.
   const popup = await extensionContext.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-  const serviceWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
 
   // Join the desktop's daemon socket — the `oh.backends` record is a
-  // sensitive slot, seeded with the SW's own at-rest key (same rig as
-  // mcp.spec).
-  await serviceWorker.evaluate(
+  // sensitive slot, seeded with the extension's own at-rest key (same
+  // blob format as mcp.spec). The key is minted by the SW on first
+  // boot, so the read polls until it exists.
+  await popup.evaluate(
     async ({ backendUrl, authToken }) => {
-      const key = await new Promise<CryptoKey>((resolve, reject) => {
-        const open = indexedDB.open('oh-secret-cipher', 1);
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const db = open.result;
-          const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-          request.onerror = () => reject(request.error);
-          request.onsuccess = () => resolve(request.result as CryptoKey);
-        };
-      });
+      const readKey = (): Promise<CryptoKey | null> =>
+        new Promise((resolve, reject) => {
+          const open = indexedDB.open('oh-secret-cipher', 1);
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const db = open.result;
+            if (!db.objectStoreNames.contains('keys')) {
+              db.close();
+              resolve(null);
+              return;
+            }
+            const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve((request.result as CryptoKey | undefined) ?? null);
+          };
+        });
+      let key: CryptoKey | null = null;
+      for (let attempt = 0; attempt < 40 && key === null; attempt++) {
+        key = await readKey().catch(() => null);
+        if (key === null) await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      if (key === null) throw new Error('at-rest cipher key never appeared');
       const record = {
         id: 'e2e-desktop-backend',
         label: 'e2e desktop',
@@ -338,7 +353,7 @@ test('a connected extension mirrors the finished run in its own corner', async (
   await expect
     .poll(
       async () =>
-        serviceWorker.evaluate(
+        popup.evaluate(
           async () =>
             new Promise<boolean>((resolve) => {
               chrome.storage.local.get(null, (items) => {
@@ -368,7 +383,7 @@ test('the extension click-through lands on the synced landing workspace', async 
   // The summary rides the mirrored run state; the report ring itself is
   // host-local to the desktop.
   await expect(report).toContainText('Imported from Postman');
-  await report.getByRole('button', { name: 'Close' }).click();
+  await report.getByRole('button', { name: 'Close' }).last().click();
 
   // The switch landed — this surface now edits the synced landing workspace.
   await expect(page.getByLabel(/editing workspace: Imported from Postman/)).toBeVisible({ timeout: 15000 });
