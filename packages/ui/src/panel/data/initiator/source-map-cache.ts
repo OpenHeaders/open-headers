@@ -52,6 +52,13 @@ type CacheEntry =
 
 const cache = new Map<string, CacheEntry>();
 const listeners = new Set<() => void>();
+/** Bumped on every resolution — lets hooks memoize lookups against the
+ *  cache's state instead of rebuilding results every render. */
+let version = 0;
+
+export function getSourceMapCacheVersion(): number {
+  return version;
+}
 
 function notify(): void {
   for (const l of listeners) {
@@ -89,6 +96,7 @@ export function getSourceMap(jsUrl: string): ParsedSourceMap | null {
   cache.set(jsUrl, { kind: 'pending', promise });
   promise.then((map) => {
     cache.set(jsUrl, { kind: 'resolved', map });
+    version += 1;
     notify();
   });
   return null;
@@ -108,9 +116,11 @@ export function subscribeSourceMaps(listener: () => void): () => void {
 export function __resetSourceMapCacheForTests(): void {
   cache.clear();
   listeners.clear();
+  version = 0;
 }
 
 /** Tests preload a resolved map without hitting the network. */
 export function __seedSourceMapForTests(jsUrl: string, map: ParsedSourceMap | null): void {
   cache.set(jsUrl, { kind: 'resolved', map });
+  version += 1;
 }

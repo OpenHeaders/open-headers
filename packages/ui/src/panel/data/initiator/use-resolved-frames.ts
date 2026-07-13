@@ -14,10 +14,10 @@
  * re-render and the map fills out.
  */
 
-import { useEffect, useReducer } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import type { CallFrameLike } from './call-frame-meta';
 import { lookupOriginalPosition } from './source-map';
-import { getSourceMap, subscribeSourceMaps } from './source-map-cache';
+import { getSourceMap, getSourceMapCacheVersion, subscribeSourceMaps } from './source-map-cache';
 
 /** Stable join key for a frame. */
 export function frameKey(frame: CallFrameLike): string {
@@ -45,28 +45,37 @@ export interface ResolvedFramePosition {
 }
 
 export function useResolvedFrames(frames: readonly CallFrameLike[]): ReadonlyMap<string, ResolvedFramePosition> {
-  // Subscribe to cache updates — when a pending fetch resolves we
-  // force a re-render so the lookup below picks up the new map.
-  const [, force] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => subscribeSourceMaps(force), [force]);
+  // Subscribe to the cache's version — a resolving fetch bumps it, which
+  // re-renders us so the memo below picks up the new map. Memoizing on
+  // (frames, version) keeps the returned map referentially stable across
+  // every unrelated re-render: consumers hold it in render contexts
+  // (TrafficList's cellContext) whose identity gates row-level memo, so a
+  // fresh map per render would re-render every mounted row on every
+  // scroll tick.
+  const version = useSyncExternalStore(subscribeSourceMaps, getSourceMapCacheVersion);
 
-  const out = new Map<string, ResolvedFramePosition>();
-  for (const f of frames) {
-    if (!f.url || f.lineNumber == null) continue;
-    const map = getSourceMap(f.url);
-    if (!map) continue;
-    const pos = lookupOriginalPosition(map, f.lineNumber, f.columnNumber ?? 0);
-    if (!pos) continue;
-    // Only record positions that gave us SOMETHING useful — at least a
-    // name or a source. A bare segment (genCol only) is no improvement
-    // over the V8 frame.
-    if (!pos.name && !pos.source) continue;
-    out.set(frameKey(f), {
-      name: pos.name,
-      source: pos.source,
-      line: pos.line,
-      column: pos.column,
-    });
-  }
-  return out;
+  return useMemo(() => {
+    // The version is the recompute gate itself — a bump means a pending
+    // map resolved, so the lookups below can now return more.
+    void version;
+    const out = new Map<string, ResolvedFramePosition>();
+    for (const f of frames) {
+      if (!f.url || f.lineNumber == null) continue;
+      const map = getSourceMap(f.url);
+      if (!map) continue;
+      const pos = lookupOriginalPosition(map, f.lineNumber, f.columnNumber ?? 0);
+      if (!pos) continue;
+      // Only record positions that gave us SOMETHING useful — at least a
+      // name or a source. A bare segment (genCol only) is no improvement
+      // over the V8 frame.
+      if (!pos.name && !pos.source) continue;
+      out.set(frameKey(f), {
+        name: pos.name,
+        source: pos.source,
+        line: pos.line,
+        column: pos.column,
+      });
+    }
+    return out;
+  }, [frames, version]);
 }
