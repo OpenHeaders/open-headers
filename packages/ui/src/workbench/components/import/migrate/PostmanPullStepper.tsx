@@ -16,7 +16,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import type { PostmanWorkspacePreview } from '@openheaders/core/import';
-import { Alert, Button, Checkbox, Input, Typography } from 'antd';
+import { Alert, Button, Checkbox, Input, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -45,6 +45,7 @@ const STAR_FRAMES = ['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳
 const STAR_FRAME_MS = 140;
 
 const WorkingTicker: React.FC = () => {
+  const { token } = theme.useToken();
   const [tick, setTick] = useState(0);
   const [frame, setFrame] = useState(0);
 
@@ -60,12 +61,24 @@ const WorkingTicker: React.FC = () => {
   const quip = LISTING_QUIPS[Math.floor(tick / QUIP_SECONDS) % LISTING_QUIPS.length];
   const elapsed = tick >= 60 ? `${Math.floor(tick / 60)}m ${tick % 60}s` : `${tick}s`;
   return (
-    <Text type="secondary" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'baseline' }}>
-      <span style={{ display: 'inline-block', width: '1.2em', color: '#ff4d4f' }}>
-        {STAR_FRAMES[frame % STAR_FRAMES.length]}
+    <Text type="secondary" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center' }}>
+      {/* Mini logo wink: the pulsing star is the O, the H and the smile
+          below complete the "OH" mark. */}
+      <span
+        style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', color: token.colorPrimary }}
+      >
+        <span style={{ lineHeight: 1 }}>
+          <span style={{ display: 'inline-block', width: '1.1em', textAlign: 'center' }}>
+            {STAR_FRAMES[frame % STAR_FRAMES.length]}
+          </span>
+          <span style={{ fontWeight: 700 }}>H</span>
+        </span>
+        <svg width="18" height="5" viewBox="0 0 18 5" aria-hidden="true" focusable="false">
+          <path d="M 1.5 1 C 6 4.5, 12 4.5, 16.5 1" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        </svg>
       </span>
       {/* Fixed-width quip slot so the timer never shifts as quips rotate. */}
-      <span style={{ display: 'inline-block', width: 240, textAlign: 'left' }}>{quip}…</span>
+      <span style={{ display: 'inline-block', width: 240, textAlign: 'left', marginLeft: '0.6em' }}>{quip}…</span>
       <span>({elapsed})</span>
     </Text>
   );
