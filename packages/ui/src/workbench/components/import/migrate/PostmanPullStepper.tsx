@@ -42,7 +42,7 @@ const QUIP_SECONDS = 3;
 
 /** A star that swells and shrinks — the terminal-spinner idiom, no CSS keyframes needed. */
 const STAR_FRAMES = ['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳', '✢'];
-const STAR_FRAME_MS = 140;
+const STAR_FRAME_MS = 400;
 
 const WorkingTicker: React.FC = () => {
   const { token } = theme.useToken();
@@ -68,12 +68,19 @@ const WorkingTicker: React.FC = () => {
         style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', color: token.colorPrimary }}
       >
         <span style={{ lineHeight: 1 }}>
-          <span style={{ display: 'inline-block', width: '1.1em', textAlign: 'center' }}>
+          <span style={{ display: 'inline-block', width: '1.1em', textAlign: 'center', color: '#ff4d4f' }}>
             {STAR_FRAMES[frame % STAR_FRAMES.length]}
           </span>
           <span style={{ fontWeight: 700 }}>H</span>
         </span>
-        <svg width="18" height="5" viewBox="0 0 18 5" aria-hidden="true" focusable="false">
+        <svg
+          width="18"
+          height="5"
+          viewBox="0 0 18 5"
+          aria-hidden="true"
+          focusable="false"
+          style={{ marginLeft: '0.5em' }}
+        >
           <path d="M 1.5 1 C 6 4.5, 12 4.5, 16.5 1" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
         </svg>
       </span>
@@ -149,6 +156,7 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted }) =>
         </Paragraph>
         <div style={{ display: 'flex', gap: 8, maxWidth: 520, margin: '0 auto' }}>
           <Input.Password
+            autoFocus
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             onPressEnter={listAccountWorkspaces}
