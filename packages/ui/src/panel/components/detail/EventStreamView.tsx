@@ -33,6 +33,7 @@ import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/
 import { Allotment } from 'allotment';
 import {
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   useCallback,
   useMemo,
@@ -51,6 +52,7 @@ import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
 import type { InspectorFire } from '../../data/types';
 import { CONNECTION_FRAME, useRulePopover } from '../RulePopoverHost';
 import { useColumnResize } from '../use-column-resize';
+import { walkListSelection } from '../walk-list-selection';
 import { MessagesViewMenu } from './streams/MessagesViewMenu';
 import { SSE_FIRE_RAIL_INFO, SseColumnInfo } from './streams/SseColumnInfo';
 import SseEventPreview from './streams/SseEventPreview';
@@ -61,7 +63,7 @@ import { compileStreamFilter } from './streams/stream-filter';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
 import { useMessagesSplitLayout } from './streams/use-messages-split-layout';
 import { useStickToBottom } from './streams/use-stick-to-bottom';
-import { useStreamRowWindow } from './streams/use-stream-row-window';
+import { STREAM_ROW_PX, useStreamRowWindow } from './streams/use-stream-row-window';
 import { WS_SYNTHETIC_INDEX_BASE } from './streams/ws-frames';
 
 export function isEventStream(mimeType: string | undefined | null): boolean {
@@ -270,11 +272,17 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
     setSelectedIndex(null);
   };
 
-  const selectRelative = (delta: -1 | 1) => {
-    if (visible.length === 0) return;
+  // Keyboard row navigation — the shared walk over the visible display
+  // order (rows are pinned-height, so the Page keys' viewport is one
+  // division; the zero-viewport jsdom case degrades to an arrow step).
+  const handleListKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const el = listRef.current;
+    const pageRows = el && el.clientHeight > 0 ? Math.max(1, Math.floor(el.clientHeight / STREAM_ROW_PX) - 1) : 1;
     const pos = selectedIndex == null ? -1 : visible.findIndex((ev) => ev.index === selectedIndex);
-    const next =
-      pos < 0 ? (delta === 1 ? 0 : visible.length - 1) : Math.min(visible.length - 1, Math.max(0, pos + delta));
+    const next = walkListSelection(visible.length, pos, e.key, pageRows);
+    if (next === null) return;
+    e.preventDefault();
     setSelectedIndex(visible[next].index);
     scrollToPos(next);
   };
@@ -333,15 +341,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
               role="listbox"
               aria-label="Server-sent events"
               tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  selectRelative(1);
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  selectRelative(-1);
-                }
-              }}
+              onKeyDown={handleListKeyDown}
             >
               <div className="dt-sse-row dt-sse-row-header">
                 <InfoPopover content={SSE_FIRE_RAIL_INFO} trigger="hover" placement="bottomLeft">

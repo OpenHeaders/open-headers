@@ -180,6 +180,24 @@ describe('MessagesView — keyboard navigation', () => {
     expect(selectionStates(container)).toEqual(['false', 'true']);
     expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('last');
   });
+
+  it('Home and End jump to the first and last row (shared-walker parity)', () => {
+    const { container } = renderView(
+      makeWsLifecycle([ws({ atMs: 1, data: 'a' }), ws({ atMs: 2, data: 'b' }), ws({ atMs: 3, data: 'c' })]),
+    );
+    const list = screen.getByRole('listbox', { name: 'WebSocket messages' });
+    fireEvent.keyDown(list, { key: 'End' });
+    expect(selectionStates(container)).toEqual(['false', 'false', 'true']);
+    fireEvent.keyDown(list, { key: 'Home' });
+    expect(selectionStates(container)).toEqual(['true', 'false', 'false']);
+  });
+
+  it('ignores modified presses', () => {
+    const { container } = renderView(makeWsLifecycle([ws({ atMs: 1, data: 'a' }), ws({ atMs: 2, data: 'b' })]));
+    const list = screen.getByRole('listbox', { name: 'WebSocket messages' });
+    fireEvent.keyDown(list, { key: 'ArrowDown', ctrlKey: true });
+    expect(selectionStates(container)).toEqual(['false', 'false']);
+  });
 });
 
 describe('MessagesView — preview pane', () => {

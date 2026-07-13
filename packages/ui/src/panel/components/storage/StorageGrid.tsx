@@ -18,6 +18,7 @@ import { CloseOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { useEffect, useRef, useState } from 'react';
 import type { DomStorageArea, DomStorageEntry, DomStorageFullValue } from '../../data/storage/storage-inspector-host';
+import { walkListSelection } from '../walk-list-selection';
 import { DomStorageColumnInfo } from './DomStorageColumnInfo';
 import { StorageColumnHeaderCell } from './StorageColumnHeaderCell';
 import { StorageDocSaveButton } from './StorageDocSaveButton';
@@ -126,10 +127,10 @@ export function StorageGrid({
   // click rides (`isEntryActive`). An already-open key re-activates its
   // tab idempotently; a new key mints a persistent editor tab —
   // identical to click semantics by design. Enter opens the inline edit
-  // (double-click parity). PageUp/PageDown are deliberately absent: the
-  // section scroller belongs to the panel shell and these rows aren't
-  // pinned-height, so a page size would need live measurement — these
-  // grids stay short; revisit if one outgrows arrows.
+  // (double-click parity). PageUp/PageDown are deliberately absent
+  // (`pageRows: null`): the section scroller belongs to the panel shell
+  // and these rows aren't pinned-height, so a page size would need live
+  // measurement — these grids stay short; revisit if one outgrows arrows.
   // The handler stands down while an edit/add row is mounted and for
   // presses on interactive children (edit-row inputs, row action lanes,
   // header buttons) — Enter/Escape/⌘S/arrows there belong to those
@@ -148,26 +149,8 @@ export function StorageGrid({
       }
       return;
     }
-    const last = entries.length - 1;
-    let next: number;
-    switch (e.key) {
-      // No selection: down-going keys start at the first row, up-going
-      // at the last (streams-grid semantics).
-      case 'ArrowDown':
-        next = pos < 0 ? 0 : Math.min(last, pos + 1);
-        break;
-      case 'ArrowUp':
-        next = pos < 0 ? last : Math.max(0, pos - 1);
-        break;
-      case 'Home':
-        next = 0;
-        break;
-      case 'End':
-        next = last;
-        break;
-      default:
-        return;
-    }
+    const next = walkListSelection(entries.length, pos, e.key, null);
+    if (next === null) return;
     e.preventDefault();
     if (next !== pos) onOpenEntry?.(entries[next].key);
     // Rows aren't windowed here — a plain nearest reveal suffices; the

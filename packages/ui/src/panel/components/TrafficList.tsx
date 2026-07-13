@@ -36,6 +36,7 @@ import { NetworkColumnInfo } from './traffic/NetworkColumnInfo';
 import { sortIndicator } from './traffic/sort';
 import { TrafficRow } from './traffic/TrafficRow';
 import { useColumnResize } from './use-column-resize';
+import { walkListSelection } from './walk-list-selection';
 import { useNetworkView } from './traffic/use-network-view';
 import { ROW_HEIGHT_PX, useRowWindow } from './traffic/use-row-window';
 import type { WaterfallScale } from './traffic/WaterfallBar';
@@ -287,36 +288,11 @@ export function TrafficList({
   const handleTableKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (sorted.length === 0) return;
       const el = tableRef.current;
       const pageRows = el && el.clientHeight > 0 ? Math.max(1, Math.floor(el.clientHeight / ROW_HEIGHT_PX) - 1) : 1;
       const pos = selectedId === null ? -1 : sorted.findIndex((r) => r.lifecycle.requestId === selectedId);
-      const last = sorted.length - 1;
-      let next: number;
-      switch (e.key) {
-        // No selection: down-going keys start at the first row, up-going
-        // at the last (streams-grid semantics).
-        case 'ArrowDown':
-          next = pos < 0 ? 0 : Math.min(last, pos + 1);
-          break;
-        case 'ArrowUp':
-          next = pos < 0 ? last : Math.max(0, pos - 1);
-          break;
-        case 'PageDown':
-          next = pos < 0 ? 0 : Math.min(last, pos + pageRows);
-          break;
-        case 'PageUp':
-          next = pos < 0 ? last : Math.max(0, pos - pageRows);
-          break;
-        case 'Home':
-          next = 0;
-          break;
-        case 'End':
-          next = last;
-          break;
-        default:
-          return;
-      }
+      const next = walkListSelection(sorted.length, pos, e.key, pageRows);
+      if (next === null) return;
       e.preventDefault();
       // Hold focus on the scroller itself: a focused row button unmounts
       // once the window scrolls past it, dropping focus mid-navigation.

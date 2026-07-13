@@ -442,6 +442,24 @@ describe('EventStreamView — keyboard navigation', () => {
     expect(selectionStates(container)).toEqual(['false', 'true']);
     expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('last');
   });
+
+  it('Home and End jump to the first and last row (shared-walker parity)', () => {
+    const { container } = renderView(
+      makeSseLifecycle([sse({ atMs: 1, data: 'a' }), sse({ atMs: 2, data: 'b' }), sse({ atMs: 3, data: 'c' })]),
+    );
+    const list = screen.getByRole('listbox', { name: 'Server-sent events' });
+    fireEvent.keyDown(list, { key: 'End' });
+    expect(selectionStates(container)).toEqual(['false', 'false', 'true']);
+    fireEvent.keyDown(list, { key: 'Home' });
+    expect(selectionStates(container)).toEqual(['true', 'false', 'false']);
+  });
+
+  it('ignores modified presses', () => {
+    const { container } = renderView(makeSseLifecycle([sse({ atMs: 1, data: 'a' }), sse({ atMs: 2, data: 'b' })]));
+    const list = screen.getByRole('listbox', { name: 'Server-sent events' });
+    fireEvent.keyDown(list, { key: 'ArrowDown', ctrlKey: true });
+    expect(selectionStates(container)).toEqual(['false', 'false']);
+  });
 });
 
 describe('EventStreamView — preview pane', () => {
