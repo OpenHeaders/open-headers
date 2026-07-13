@@ -17,6 +17,9 @@ import { SecurityGlyphs } from '../detail/cookies/SecurityGlyphs';
 
 interface CookieJarRowProps {
   cookie: JarCookie;
+  /** Position in the section's display order — the grid's keyboard
+   *  reveal finds the row through it (`data-entry-index`). */
+  entryIndex: number;
   /** The inspected scope's URL — the edit popover's live jar sync
    *  reads through it. */
   scopeUrl: string;
@@ -36,6 +39,7 @@ interface CookieJarRowProps {
 
 export function CookieJarRow({
   cookie,
+  entryIndex,
   scopeUrl,
   writable,
   now,
@@ -52,9 +56,11 @@ export function CookieJarRow({
     <div
       className={`dt-storage-row${active ? ' dt-storage-row--active' : ''}`}
       role="row"
+      aria-selected={active ?? false}
+      data-entry-index={entryIndex}
       onClick={() => onOpen?.(cookie)}
     >
-      <span className="dt-storage-key" role="cell" title={cookie.name}>
+      <span className="dt-storage-key" role="gridcell" title={cookie.name}>
         {notSentReason !== undefined && (
           <WarningOutlined
             className="dt-storage-cookie-warn"
@@ -64,20 +70,20 @@ export function CookieJarRow({
         )}
         {cookie.name}
       </span>
-      <span className="dt-storage-value" role="cell" title={cookie.value}>
+      <span className="dt-storage-value" role="gridcell" title={cookie.value}>
         {cookie.value}
       </span>
-      <span className="dt-storage-cookie-scope" role="cell" title={scopeTitle}>
+      <span className="dt-storage-cookie-scope" role="gridcell" title={scopeTitle}>
         {scope}
       </span>
       <span
         className="dt-storage-cookie-exp"
-        role="cell"
+        role="gridcell"
         title={formatAbsoluteExpiry(cookie.expirationDate, cookie.session)}
       >
         {formatRelativeExpiry(cookie.expirationDate, cookie.session, now)}
       </span>
-      <span className="dt-storage-cookie-sec" role="cell">
+      <span className="dt-storage-cookie-sec" role="gridcell">
         <SecurityGlyphs row={cookie} />
       </span>
       {writable && (
