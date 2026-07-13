@@ -139,8 +139,6 @@ function ShellLayoutInner<T extends string>({
   const shellRef = useRef<HTMLDivElement>(null);
   useNativeDragGuard(shellRef);
   const [shellSize, setShellSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
-  const [horizontalSizes, setHorizontalSizes] = useState<number[] | null>(null);
-  const [verticalSizes, setVerticalSizes] = useState<number[] | null>(null);
   // Measured live from the DOM — left and right rails can be sized
   // independently (per-rail user setting in labeled mode), so we
   // track each width separately. The drop-zone overlay math below
@@ -178,21 +176,13 @@ function ShellLayoutInner<T extends string>({
     return () => ro.disconnect();
   }, [showToolWindowLabels, sidebarLayout]);
 
-  const handleHorizontalChange = useCallback(
-    (next: number[]) => {
-      setHorizontalSizes(next);
-      onHorizontalResize(next);
-    },
-    [onHorizontalResize],
-  );
-
-  const handleVerticalChange = useCallback(
-    (next: number[]) => {
-      setVerticalSizes(next);
-      onVerticalResize(next);
-    },
-    [onVerticalResize],
-  );
+  // Sash-drag onChange handlers forward straight to the host — no React
+  // state per drag tick. Allotment owns the live pane sizes in the DOM;
+  // mirroring them into state here re-rendered the entire shell (and
+  // with it every keep-alive editor tab body) on every pointer move,
+  // which made a divider drag lag proportionally to open-tab count.
+  const handleHorizontalChange = onHorizontalResize;
+  const handleVerticalChange = onVerticalResize;
 
   const topBottomHalves = useMemo(() => {
     const vh = window.innerHeight;

@@ -225,24 +225,31 @@ export function useResponsiveLayout(workspaceId: string | null): ResponsiveLayou
   const schedulePersist = useCallback(
     (record: PersistedLayout) => {
       latestPersistedRef.current = record;
-      // Mirror the ratio record into React state so `sizes` useMemo
-      // recomputes. Without this, Allotment subtrees force-remounted via
-      // key (classic ↔ wide-bottom toggle) read stale preferredSize
-      // values from the initial persisted load and snap back to the
-      // original height, losing the user's drag.
-      setPersisted((prev) => {
-        if (
-          prev &&
-          prev.sidebarRatio === record.sidebarRatio &&
-          prev.inspectorRatio === record.inspectorRatio &&
-          prev.bottomRatio === record.bottomRatio
-        ) {
-          return prev;
-        }
-        return record;
-      });
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-      persistTimerRef.current = setTimeout(() => flushPersist(record), 500);
+      persistTimerRef.current = setTimeout(() => {
+        // Mirror the ratio record into React state so `sizes` useMemo
+        // recomputes. Without this, Allotment subtrees force-remounted via
+        // key (classic ↔ wide-bottom toggle) read stale preferredSize
+        // values from the initial persisted load and snap back to the
+        // original height, losing the user's drag. The mirror rides the
+        // same debounce as the storage write: onChange fires per drag
+        // tick, and a per-tick state update re-renders the whole shell —
+        // every keep-alive editor tab body included — on every pointer
+        // move. A remount that would read `sizes` can't happen mid-drag,
+        // so post-drag is early enough.
+        setPersisted((prev) => {
+          if (
+            prev &&
+            prev.sidebarRatio === record.sidebarRatio &&
+            prev.inspectorRatio === record.inspectorRatio &&
+            prev.bottomRatio === record.bottomRatio
+          ) {
+            return prev;
+          }
+          return record;
+        });
+        flushPersist(record);
+      }, 500);
     },
     [flushPersist],
   );
