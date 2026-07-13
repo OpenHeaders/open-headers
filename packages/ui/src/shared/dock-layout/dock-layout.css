@@ -913,58 +913,46 @@
    is hovered / focus-within / focused — same reveal pattern as
    `.rules-panel-header-actions` above.
 
-   - The 10 px gutter is reserved whenever the inner content overflows
-     so hover-in / hover-out never causes a layout shift; we just
-     animate the thumb's background colour.
-   - We do NOT set `scrollbar-width`. Chromium 121+ honours that
-     property natively and, when set, ignores the `::-webkit-scrollbar`
-     pseudo entirely — landing us back on the browser's built-in
-     `thin` (~12 px) scrollbar with no hook for our reveal styling.
-     The webkit pseudo is the only way to get a sub-`thin` scrollbar
-     in Chromium right now.
-   - Scope is `.rules-dock-body *::-webkit-scrollbar`, so editor panes
-     (Monaco, tab strips outside the dock cards) and the activity bar
-     keep their own scrollbar treatments. */
-.rules-dock-body *::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-  background: transparent;
+   Standard `scrollbar-width` / `scrollbar-color`, NOT the webkit
+   pseudos: Chromium paints webkit-styled scrollbars on the renderer
+   main thread, so the thumb only moves when that thread commits a
+   frame — with the busy devtools window sharing the extension's one
+   renderer process, thumbs visibly lagged behind composited content
+   scroll. Standards-styled scrollbars keep the compositor-driven
+   thumb (solid-color scrollbar layers), so they can't fall behind,
+   at the cost of the sub-`thin` 6 px width, the rounded thumb and
+   the colour transition.
+
+   Cascade contract:
+   - `scrollbar-color` inherits, so it's set once on the dock-body
+     root and hover-overridden there; every inner scroller picks it
+     up without a wildcard.
+   - `scrollbar-width` does NOT inherit — hence the descendant
+     wildcard, wrapped in `:where()` (specificity 0) so any scroller
+     that styles its own bar wins with a plain class rule.
+   - Any non-`auto` value of either property disables that element's
+     `::-webkit-scrollbar` styling, so nested webkit opt-ins (e.g.
+     `.dt-scrollbar`) must guard themselves with explicit `auto`s.
+   - The gutter is reserved whenever content overflows (custom-
+     coloured scrollbars are never overlay), so the hover reveal only
+     changes colour — no layout shift. */
+.rules-dock-body {
+  scrollbar-color: transparent transparent;
 }
-.rules-dock-body *::-webkit-scrollbar-track {
-  background: transparent;
-}
-.rules-dock-body *::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 3px;
-  transition: background-color 0.28s ease-out;
-}
-.rules-dock-body *::-webkit-scrollbar-corner {
-  background: transparent;
-}
-.rules-dock-body *::-webkit-scrollbar-button {
-  display: none;
+:where(.rules-dock-body) * {
+  scrollbar-width: thin;
 }
 
-.rules-dock-body:hover *::-webkit-scrollbar-thumb,
-.rules-dock-body:focus-within *::-webkit-scrollbar-thumb,
-.rules-dock-body--focused *::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.22);
-}
-.rules-dock-body:hover *::-webkit-scrollbar-thumb:hover,
-.rules-dock-body:focus-within *::-webkit-scrollbar-thumb:hover,
-.rules-dock-body--focused *::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.38);
+.rules-dock-body:hover,
+.rules-dock-body:focus-within,
+.rules-dock-body--focused {
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
 }
 
-[data-theme='dark'] .rules-dock-body:hover *::-webkit-scrollbar-thumb,
-[data-theme='dark'] .rules-dock-body:focus-within *::-webkit-scrollbar-thumb,
-[data-theme='dark'] .rules-dock-body--focused *::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-}
-[data-theme='dark'] .rules-dock-body:hover *::-webkit-scrollbar-thumb:hover,
-[data-theme='dark'] .rules-dock-body:focus-within *::-webkit-scrollbar-thumb:hover,
-[data-theme='dark'] .rules-dock-body--focused *::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.38);
+[data-theme='dark'] .rules-dock-body:hover,
+[data-theme='dark'] .rules-dock-body:focus-within,
+[data-theme='dark'] .rules-dock-body--focused {
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
 }
 
 /* ── Always-visible thin scrollbars (opt-in host) ────────────────────
@@ -974,49 +962,29 @@
    request + response tab panes — add `.rules-thin-scrollbar` to the
    scroll host. Unlike the dock-body reveal, the thumb is FAINTLY VISIBLE
    AT REST (so overflow is discoverable + the thumb is grabbable without
-   hovering first) and darkens while the host is hovered / focus-within,
-   strongest when the pointer is on the thumb itself. The 6px gutter is
-   reserved on overflow so the state change animates colour only (no
-   layout shift). Webkit pseudo only — Chromium ignores it once
-   `scrollbar-width` is set, which is why we hand-roll it. Monaco draws
-   its own non-native scrollbars, so nested code editors are unaffected. */
-.rules-thin-scrollbar *::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-  background: transparent;
+   hovering first) and darkens while the host is hovered / focus-within.
+   Standards properties, not webkit pseudos — same compositor-driven
+   thumb rationale and cascade contract as the dock-body reveal above.
+   Monaco draws its own non-native scrollbars, so nested code editors
+   are unaffected. */
+.rules-thin-scrollbar {
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
-.rules-thin-scrollbar *::-webkit-scrollbar-track {
-  background: transparent;
-}
-.rules-thin-scrollbar *::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 3px;
-  transition: background-color 0.2s ease-out;
-}
-.rules-thin-scrollbar *::-webkit-scrollbar-corner {
-  background: transparent;
-}
-.rules-thin-scrollbar *::-webkit-scrollbar-button {
-  display: none;
+:where(.rules-thin-scrollbar) * {
+  scrollbar-width: thin;
 }
 
-.rules-thin-scrollbar:hover *::-webkit-scrollbar-thumb,
-.rules-thin-scrollbar:focus-within *::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.3);
-}
-.rules-thin-scrollbar *::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.45);
+.rules-thin-scrollbar:hover,
+.rules-thin-scrollbar:focus-within {
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
 }
 
-[data-theme='dark'] .rules-thin-scrollbar *::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
+[data-theme='dark'] .rules-thin-scrollbar {
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
-[data-theme='dark'] .rules-thin-scrollbar:hover *::-webkit-scrollbar-thumb,
-[data-theme='dark'] .rules-thin-scrollbar:focus-within *::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.34);
-}
-[data-theme='dark'] .rules-thin-scrollbar *::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.48);
+[data-theme='dark'] .rules-thin-scrollbar:hover,
+[data-theme='dark'] .rules-thin-scrollbar:focus-within {
+  scrollbar-color: rgba(255, 255, 255, 0.34) transparent;
 }
 
 .rules-panel-header-action {

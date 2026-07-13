@@ -119,9 +119,12 @@
 }
 
 /* Every storage scroll container: no macOS rubber-band at the edges, no
- * scroll chaining into the surface behind it, and a plain painted
- * scrollbar instead of the fading overlay one — the thumb tracks the
- * scroll offset exactly and a filled pane visibly holds more. */
+ * scroll chaining into the surface behind it, and a plain persistent
+ * scrollbar instead of the fading overlay one — a filled pane visibly
+ * holds more. Standard `scrollbar-width`/`scrollbar-color` (not the
+ * webkit pseudos) so the thumb stays compositor-driven and can't lag
+ * behind the scroll when the panel's main thread is busy — same
+ * rationale as the dock-body reveal in dock-layout.css. */
 .dt-storage-nav,
 .dt-storage-body,
 .dt-storagedoc-preview,
@@ -130,48 +133,8 @@
 .dt-cachedoc-headers-list,
 .dt-cachedoc-image {
   overscroll-behavior: none;
-}
-
-.dt-storage-nav::-webkit-scrollbar,
-.dt-storage-body::-webkit-scrollbar,
-.dt-storagedoc-preview::-webkit-scrollbar,
-.dt-valuedoc-preview-body::-webkit-scrollbar,
-.dt-storagedoc-cookieform::-webkit-scrollbar,
-.dt-cachedoc-headers-list::-webkit-scrollbar,
-.dt-cachedoc-image::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.dt-storage-nav::-webkit-scrollbar-track,
-.dt-storage-body::-webkit-scrollbar-track,
-.dt-storagedoc-preview::-webkit-scrollbar-track,
-.dt-valuedoc-preview-body::-webkit-scrollbar-track,
-.dt-storagedoc-cookieform::-webkit-scrollbar-track,
-.dt-cachedoc-headers-list::-webkit-scrollbar-track,
-.dt-cachedoc-image::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.dt-storage-nav::-webkit-scrollbar-thumb,
-.dt-storage-body::-webkit-scrollbar-thumb,
-.dt-storagedoc-preview::-webkit-scrollbar-thumb,
-.dt-valuedoc-preview-body::-webkit-scrollbar-thumb,
-.dt-storagedoc-cookieform::-webkit-scrollbar-thumb,
-.dt-cachedoc-headers-list::-webkit-scrollbar-thumb,
-.dt-cachedoc-image::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.45);
-  border-radius: 4px;
-}
-
-.dt-storage-nav::-webkit-scrollbar-thumb:hover,
-.dt-storage-body::-webkit-scrollbar-thumb:hover,
-.dt-storagedoc-preview::-webkit-scrollbar-thumb:hover,
-.dt-valuedoc-preview-body::-webkit-scrollbar-thumb:hover,
-.dt-storagedoc-cookieform::-webkit-scrollbar-thumb:hover,
-.dt-cachedoc-headers-list::-webkit-scrollbar-thumb:hover,
-.dt-cachedoc-image::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.7);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.45) transparent;
 }
 
 .dt-storage-grid {

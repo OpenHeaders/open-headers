@@ -41,16 +41,33 @@ export interface RafNotifySchedulerOptions {
    * be stranded until the panel is shown again.
    */
   readonly hiddenFallbackMs?: number;
+  /**
+   * Probed at arm time: `true` keeps the per-frame rAF cadence, `false`
+   * skips the frame request so the burst flushes on the fallback timer
+   * instead. Default probes `document.hasFocus()` — a visible but
+   * UNFOCUSED window still receives frames at full rate, and every page
+   * of the extension shares one renderer main thread, so a busy capture
+   * flushing 60×/s in an unfocused devtools window starves the focused
+   * window's main-thread work (input handling, scrollbar paints). Backing
+   * off to the timer cadence caps that cost while the user works
+   * elsewhere; refocusing restores per-frame updates on the next burst.
+   */
+  readonly preferFrameCadence?: () => boolean;
 }
 
 const DEFAULT_HIDDEN_FALLBACK_MS = 250;
 
+const defaultPreferFrameCadence = (): boolean => typeof document === 'undefined' || document.hasFocus();
+
 /**
- * Production scheduler. Coalesces per animation frame, with a timeout
- * fallback so a burst still flushes while the frame loop is paused.
+ * Production scheduler. Coalesces per animation frame while the window
+ * has focus, with a timeout fallback so a burst still flushes while the
+ * frame loop is paused — and as the deliberate slower cadence while the
+ * window is unfocused (see `preferFrameCadence`).
  */
 export function createRafNotifyScheduler(options: RafNotifySchedulerOptions = {}): NotifyScheduler {
   const fallbackMs = options.hiddenFallbackMs ?? DEFAULT_HIDDEN_FALLBACK_MS;
+  const preferFrameCadence = options.preferFrameCadence ?? defaultPreferFrameCadence;
   const hasRaf = typeof requestAnimationFrame === 'function' && typeof cancelAnimationFrame === 'function';
   const pending = new Set<() => void>();
   let frameHandle: number | null = null;
@@ -77,7 +94,7 @@ export function createRafNotifyScheduler(options: RafNotifySchedulerOptions = {}
 
   const arm = (): void => {
     if (frameHandle !== null || timerHandle !== null) return;
-    if (hasRaf) frameHandle = requestAnimationFrame(flushNow);
+    if (hasRaf && preferFrameCadence()) frameHandle = requestAnimationFrame(flushNow);
     timerHandle = setTimeout(flushNow, fallbackMs);
   };
 

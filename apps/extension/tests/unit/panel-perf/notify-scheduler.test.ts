@@ -58,7 +58,7 @@ describe('createRafNotifyScheduler', () => {
   });
 
   it('coalesces a burst of one publisher into a single flush per frame', () => {
-    const scheduler = createRafNotifyScheduler();
+    const scheduler = createRafNotifyScheduler({ preferFrameCadence: () => true });
     const notify = vi.fn();
 
     for (let i = 0; i < 50; i++) scheduler.schedule(notify);
@@ -71,7 +71,7 @@ describe('createRafNotifyScheduler', () => {
   });
 
   it('flushes each distinct publisher exactly once', () => {
-    const scheduler = createRafNotifyScheduler();
+    const scheduler = createRafNotifyScheduler({ preferFrameCadence: () => true });
     const a = vi.fn();
     const b = vi.fn();
 
@@ -85,7 +85,7 @@ describe('createRafNotifyScheduler', () => {
   });
 
   it('re-arms for the next frame after a flush', () => {
-    const scheduler = createRafNotifyScheduler();
+    const scheduler = createRafNotifyScheduler({ preferFrameCadence: () => true });
     const notify = vi.fn();
 
     scheduler.schedule(notify);
@@ -97,7 +97,7 @@ describe('createRafNotifyScheduler', () => {
   });
 
   it('falls back to a timeout when no frame arrives (hidden tab)', () => {
-    const scheduler = createRafNotifyScheduler({ hiddenFallbackMs: 250 });
+    const scheduler = createRafNotifyScheduler({ hiddenFallbackMs: 250, preferFrameCadence: () => true });
     const notify = vi.fn();
 
     scheduler.schedule(notify);
@@ -111,7 +111,7 @@ describe('createRafNotifyScheduler', () => {
   });
 
   it('frame and fallback race: whichever fires first wins, the other is a noop', () => {
-    const scheduler = createRafNotifyScheduler({ hiddenFallbackMs: 250 });
+    const scheduler = createRafNotifyScheduler({ hiddenFallbackMs: 250, preferFrameCadence: () => true });
     const notify = vi.fn();
 
     scheduler.schedule(notify);
@@ -121,6 +121,53 @@ describe('createRafNotifyScheduler', () => {
     // The fallback timer was canceled when the frame flushed.
     vi.advanceTimersByTime(250);
     expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('default cadence probes document.hasFocus(): focused → frame, unfocused → timer only', () => {
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    const scheduler = createRafNotifyScheduler({ hiddenFallbackMs: 250 });
+    const notify = vi.fn();
+
+    scheduler.schedule(notify);
+    expect(raf.pending()).toBe(1);
+    raf.flushFrame();
+    expect(notify).toHaveBeenCalledTimes(1);
+
+    hasFocus.mockReturnValue(false);
+    scheduler.schedule(notify);
+    expect(raf.pending()).toBe(0);
+    vi.advanceTimersByTime(250);
+    expect(notify).toHaveBeenCalledTimes(2);
+
+    hasFocus.mockRestore();
+  });
+
+  it('skips the frame request while preferFrameCadence is false — timer cadence only', () => {
+    const scheduler = createRafNotifyScheduler({ hiddenFallbackMs: 250, preferFrameCadence: () => false });
+    const notify = vi.fn();
+
+    scheduler.schedule(notify);
+    expect(raf.pending()).toBe(0);
+
+    vi.advanceTimersByTime(250);
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-probes preferFrameCadence at each arm — refocus restores per-frame cadence', () => {
+    let focused = false;
+    const scheduler = createRafNotifyScheduler({ hiddenFallbackMs: 250, preferFrameCadence: () => focused });
+    const notify = vi.fn();
+
+    scheduler.schedule(notify);
+    expect(raf.pending()).toBe(0);
+    vi.advanceTimersByTime(250);
+    expect(notify).toHaveBeenCalledTimes(1);
+
+    focused = true;
+    scheduler.schedule(notify);
+    expect(raf.pending()).toBe(1);
+    raf.flushFrame();
+    expect(notify).toHaveBeenCalledTimes(2);
   });
 
   it('flushNow drains the queue synchronously and cancels pending frame/timer', () => {

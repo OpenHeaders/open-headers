@@ -13,6 +13,14 @@
  * hiding). The context-menu's hover-reveal bar (`.dt-ctx-menu-scroll`)
  * is intentionally different and stays separate.
  */
+/* Some hosts sit inside a `.rules-dock-body`, whose reveal treatment
+ * (dock-layout.css) sets `scrollbar-width: thin` via wildcard and an
+ * inherited `scrollbar-color` — either of which makes Chromium ignore
+ * the webkit pseudos below. Explicit `auto`s opt back out. */
+.dt-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+}
 .dt-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
