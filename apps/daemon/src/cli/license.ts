@@ -15,7 +15,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { LicenseKeyRing, LicenseSnapshot } from '@openheaders/core/licensing';
-import { setLicenseSnapshotProvider } from '@openheaders/core/licensing';
+import { FREE_SEAT_LIMIT, setLicenseSnapshotProvider } from '@openheaders/core/licensing';
 import { installLicenseSlot, type LicenseSlotHandle } from '@openheaders/oracle-host-node/daemon/license-slot';
 import type { DaemonConfig } from '../config';
 
@@ -94,7 +94,10 @@ export async function withLicenseSeatProvider(
 export function formatLicenseSnapshot(snapshot: LicenseSnapshot, filePath: string): string[] {
   switch (snapshot.status) {
     case 'unlicensed':
-      return ['No license installed — free tier (up to 10 active users per daemon).', `  file: ${filePath} (absent)`];
+      return [
+        `No license installed — free tier (up to ${FREE_SEAT_LIMIT} active users per daemon).`,
+        `  file: ${filePath} (absent)`,
+      ];
     case 'invalid':
       return [
         `License file is not usable (${snapshot.reason}) — the free tier applies.`,

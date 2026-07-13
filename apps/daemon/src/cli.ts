@@ -18,6 +18,7 @@ import * as path from 'node:path';
 import { isSea } from 'node:sea';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { FREE_SEAT_LIMIT } from '@openheaders/core/licensing';
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
 import { CONFIG_OPTIONS, parseConfigCommand, resolveConfigFlags } from './cli/config-flags';
 import {
@@ -410,7 +411,9 @@ async function commandLicense(argv: readonly string[]): Promise<void> {
   if (sub === 'remove') {
     const hadLicense = await licenseRemove(config);
     console.log(
-      hadLicense ? 'License removed — back on the free tier (up to 10 active users).' : 'No license was installed.',
+      hadLicense
+        ? `License removed — back on the free tier (up to ${FREE_SEAT_LIMIT} active users).`
+        : 'No license was installed.',
     );
     return;
   }
