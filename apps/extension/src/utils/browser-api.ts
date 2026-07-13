@@ -321,6 +321,11 @@ export const declarativeNetRequest = browserAPI.declarativeNetRequest
 // each branch routes the rejection back through the callback with the
 // null/empty sentinel so the callback always fires exactly once — Chrome's
 // callback form already does — and a caller awaiting it can't hang.
+//
+// `set` additionally threads the browser's failure reason as a second
+// callback argument (Chrome: `runtime.lastError.message`, read here so the
+// warning about it going unchecked can't fire; Firefox: the rejection's
+// message) — the panel surfaces it so a failed cookie save is actionable.
 export const cookies = browserAPI.cookies
   ? {
       getAll: (
@@ -338,15 +343,16 @@ export const cookies = browserAPI.cookies
       },
       set: (
         details: chrome.cookies.SetDetails,
-        callback?: (cookie: chrome.cookies.Cookie | null) => void,
+        callback?: (cookie: chrome.cookies.Cookie | null, error?: string) => void,
       ): void | Promise<void> => {
+        const cb = callback || (() => {});
         if (isFirefox) {
-          const cb = callback || (() => {});
-          return (browserAPI.cookies.set(details) as unknown as Promise<chrome.cookies.Cookie | null>).then(cb, () =>
-            cb(null),
+          return (browserAPI.cookies.set(details) as unknown as Promise<chrome.cookies.Cookie | null>).then(
+            (c) => cb(c),
+            (e) => cb(null, e instanceof Error ? e.message : String(e)),
           );
         } else {
-          return browserAPI.cookies.set(details, callback!);
+          return browserAPI.cookies.set(details, (c) => cb(c ?? null, browserAPI.runtime.lastError?.message));
         }
       },
       remove: (

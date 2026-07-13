@@ -10,7 +10,13 @@
  * Imported once from `apps/extension/src/panel/index.tsx` at panel boot.
  */
 
-import type { JarCookie, JarCookieEdit, JarCookieKey, SiteJarCookie } from '@openheaders/ui/panel/host-cookie-jar';
+import type {
+  CookieWriteResult,
+  JarCookie,
+  JarCookieEdit,
+  JarCookieKey,
+  SiteJarCookie,
+} from '@openheaders/ui/panel/host-cookie-jar';
 import {
   setCookieJarFetcher,
   setCookieJarWriter,
@@ -42,13 +48,14 @@ setSiteCookieJarFetcher(async (url: string): Promise<readonly SiteJarCookie[] | 
 });
 
 setCookieJarWriter({
-  async set(edit: JarCookieEdit): Promise<JarCookie | null> {
+  async set(edit: JarCookieEdit): Promise<CookieWriteResult> {
     try {
       const res = await call('setCookieForUrl', { cookie: edit });
-      return res?.cookie ?? null;
+      if (res?.cookie) return { cookie: res.cookie };
+      return { cookie: null, ...(res?.error ? { error: res.error } : {}) };
     } catch (err) {
       logger.info('CookieJarHost', `set ✗ ${edit.name}: ${(err as Error).message}`);
-      return null;
+      return { cookie: null, error: (err as Error).message };
     }
   },
   async remove(key: JarCookieKey): Promise<boolean> {

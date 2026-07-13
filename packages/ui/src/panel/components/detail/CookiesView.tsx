@@ -162,10 +162,10 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
 
   const onApplyEdit = useCallback(
     async (edit: JarCookieEdit): Promise<boolean> => {
-      const result = await writeJarCookie(edit);
-      if (result) message.success(`Cookie “${edit.name}” saved`);
-      else message.error(`Couldn’t save cookie “${edit.name}”`);
-      return result != null;
+      const { cookie, error } = await writeJarCookie(edit);
+      if (cookie) message.success(`Cookie “${edit.name}” saved`);
+      else message.error(`Couldn’t save cookie “${edit.name}”${error ? ` — ${error}` : ''}`);
+      return cookie != null;
     },
     [message],
   );

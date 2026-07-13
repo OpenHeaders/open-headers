@@ -14,6 +14,7 @@
 export type {
   CookieJarFetcher,
   CookieJarWriter,
+  CookieWriteResult,
   JarCookie,
   JarCookieEdit,
   JarCookieKey,

@@ -21,7 +21,8 @@
  * Every read failure returns `{ cookies: null }`; every write failure
  * returns a null cookie / `ok: false` — the renderer treats those as
  * "no jar write available" and surfaces the error without a half-applied
- * edit.
+ * edit. A failed `set` also carries the browser's rejection reason
+ * (`error`) so the panel's toast can say WHY, not just that it failed.
  */
 
 import type { JarCookieEditWire, JarCookieKeyWire, JarCookieWire, SiteJarCookieWire } from '@openheaders/core/bridge';
@@ -38,6 +39,8 @@ export interface FetchSiteCookieJarResult {
 
 export interface SetCookieResult {
   cookie: JarCookieWire | null;
+  /** The browser's rejection reason — set only when the write failed. */
+  error?: string;
 }
 
 export interface RemoveCookieResult {
@@ -228,12 +231,13 @@ export async function setCookieForUrl(cookie: JarCookieEditWire): Promise<SetCoo
 
   return await new Promise<SetCookieResult>((resolve) => {
     try {
-      api.set(details, (c) => {
-        resolve({ cookie: c ? normalizeCookie(c) : null });
+      api.set(details, (c, error) => {
+        if (c) resolve({ cookie: normalizeCookie(c) });
+        else resolve({ cookie: null, ...(error ? { error } : {}) });
       });
     } catch (e) {
       logger.info('CookieJarWrite', `set threw: ${(e as Error).message}`);
-      resolve({ cookie: null });
+      resolve({ cookie: null, error: (e as Error).message });
     }
   });
 }

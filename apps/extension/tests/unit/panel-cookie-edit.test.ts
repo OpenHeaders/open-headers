@@ -4,6 +4,7 @@ import {
   deleteKeyForRow,
   editCanonicalForRow,
   editFormConflictProjection,
+  editFormConstraintError,
   editFormFromConflictText,
   editFormsEqual,
   emptyEditForm,
@@ -307,6 +308,33 @@ describe('isEditFormValid', () => {
     const form = { ...emptyEditForm({ domain: 'openheaders.io' }), name: 'x', session: false };
     expect(isEditFormValid(form)).toBe(false);
     expect(isEditFormValid({ ...form, expirationDate: 4102444800 })).toBe(true);
+  });
+});
+
+describe('editFormConstraintError (PB2 pre-validation)', () => {
+  const base = { ...emptyEditForm({ domain: 'openheaders.io', secure: true }), name: 'sid' };
+
+  it('passes an unconstrained cookie', () => {
+    expect(editFormConstraintError(base)).toBeNull();
+  });
+
+  it('__Host- requires Secure, no Domain attribute and path /', () => {
+    const host = { ...base, name: '__Host-sid', hostOnly: true, path: '/', secure: true };
+    expect(editFormConstraintError(host)).toBeNull();
+    expect(editFormConstraintError({ ...host, secure: false })).toMatch(/Secure/);
+    expect(editFormConstraintError({ ...host, hostOnly: false })).toMatch(/Domain/);
+    expect(editFormConstraintError({ ...host, path: '/api' })).toMatch(/path/);
+  });
+
+  it('__Secure- requires Secure', () => {
+    expect(editFormConstraintError({ ...base, name: '__Secure-sid', secure: true })).toBeNull();
+    expect(editFormConstraintError({ ...base, name: '__Secure-sid', secure: false })).toMatch(/Secure/);
+  });
+
+  it('SameSite=None requires Secure', () => {
+    const none = { ...base, sameSite: 'no_restriction' as const };
+    expect(editFormConstraintError({ ...none, secure: true })).toBeNull();
+    expect(editFormConstraintError({ ...none, secure: false })).toMatch(/Secure/);
   });
 });
 

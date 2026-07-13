@@ -21,6 +21,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type CookieEditFormValues,
+  editFormConstraintError,
   editFormsEqual,
   emptyEditForm,
   formToEdit,
@@ -184,8 +185,10 @@ export function CookieEditorTab({
     subscribe: subscribeCookieJar,
   });
   // Validity runs on the RESOLVED form — a `{{var}}` resolving to '' in
-  // Name / Domain must block like a literal empty would.
-  const savable = dirty && writable && !anyUnresolved && isEditFormValid(resolvedForm);
+  // Name / Domain must block like a literal empty would. The prefix/
+  // Secure constraints block the same way, with the reason shown inline.
+  const constraintError = editFormConstraintError(resolvedForm);
+  const savable = dirty && writable && !anyUnresolved && isEditFormValid(resolvedForm) && constraintError === null;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -206,7 +209,7 @@ export function CookieEditorTab({
       // Same identity — the jar overwrites the cookie in place.
       const written = await writeJarCookie(edit);
       setSaving(false);
-      if (written === null) {
+      if (written.cookie === null) {
         setSaveError('write');
         return false;
       }
@@ -231,12 +234,12 @@ export function CookieEditorTab({
     // Set new first, then remove old — a failed set leaves the original
     // untouched.
     const written = await writeJarCookie(edit);
-    if (written === null) {
+    if (written.cookie === null) {
       setSaving(false);
       setSaveError('write');
       return false;
     }
-    const newKey = jarCookieToKey(written);
+    const newKey = jarCookieToKey(written.cookie);
     if (jarKeysSameCookie(newKey, oldKey)) {
       // The jar landed the write on the original identity after all —
       // a plain overwrite, no move to commit.
@@ -330,6 +333,9 @@ export function CookieEditorTab({
         <div className="dt-storagedoc-note dt-storagedoc-note--error" role="alert">
           {errorNote}
         </div>
+      )}
+      {doc !== null && writable && constraintError !== null && (
+        <div className="dt-storagedoc-note dt-storagedoc-note--error">{constraintError}</div>
       )}
       {slot === 'loading' ? (
         <div className="dt-empty">Loading…</div>

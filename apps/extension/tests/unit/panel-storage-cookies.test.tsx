@@ -279,7 +279,7 @@ describe('site jar cache', () => {
   it('clearSiteJarCookies rides the writer clearSite leg and invalidates the caches', async () => {
     const clearSite = vi.fn().mockResolvedValue(true);
     setCookieJarWriter({
-      set: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue({ cookie: null }),
       remove: vi.fn().mockResolvedValue(false),
       clearSite,
     });
@@ -294,7 +294,7 @@ describe('site jar cache', () => {
 
   it('is not clearable (and clear reports failure) without the writer leg', async () => {
     setCookieJarWriter({
-      set: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue({ cookie: null }),
       remove: vi.fn().mockResolvedValue(false),
     });
     expect(isCookieJarSiteClearable()).toBe(false);

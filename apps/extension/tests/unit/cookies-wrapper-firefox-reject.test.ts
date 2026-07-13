@@ -48,12 +48,12 @@ beforeEach(() => {
 });
 
 describe('cookies wrapper — Firefox rejection invokes the callback (PB1)', () => {
-  it('invokes the set callback with null when the Firefox promise rejects', async () => {
+  it('invokes the set callback with null + the rejection reason when the Firefox promise rejects', async () => {
     setSpy().mockImplementationOnce(() => Promise.reject(new Error('__Host- prefix requires Secure')));
     const cb = vi.fn();
     await Promise.resolve(cookiesApi.set(setDetails, cb)).catch(() => {});
     expect(cb).toHaveBeenCalledTimes(1);
-    expect(cb).toHaveBeenCalledWith(null);
+    expect(cb).toHaveBeenCalledWith(null, '__Host- prefix requires Secure');
   });
 
   it('invokes the remove callback with null when the Firefox promise rejects', async () => {
@@ -82,7 +82,7 @@ describe('cookies wrapper — Firefox rejection invokes the callback (PB1)', () 
 });
 
 describe('cookie-jar write path no longer hangs on a Firefox rejection (PB1)', () => {
-  it('setCookieForUrl resolves { cookie: null } instead of hanging', async () => {
+  it('setCookieForUrl resolves { cookie: null } with the rejection reason instead of hanging', async () => {
     setSpy().mockImplementationOnce(() => Promise.reject(new Error('__Host- prefix requires Secure')));
     const res = await setCookieForUrl({
       name: '__Host-sid',
@@ -93,7 +93,7 @@ describe('cookie-jar write path no longer hangs on a Firefox rejection (PB1)', (
       httpOnly: false,
       secure: false,
     });
-    expect(res).toEqual({ cookie: null });
+    expect(res).toEqual({ cookie: null, error: '__Host- prefix requires Secure' });
   });
 
   it('removeCookieForUrl resolves { ok: false } instead of hanging', async () => {

@@ -329,9 +329,9 @@ export function StoragePanel({
   const [cookieWriteFailed, setCookieWriteFailed] = useState(false);
 
   const applyCookieEdit = useCallback(async (edit: JarCookieEdit): Promise<boolean> => {
-    const result = await writeJarCookie(edit);
-    setCookieWriteFailed(result === null);
-    return result !== null;
+    const { cookie } = await writeJarCookie(edit);
+    setCookieWriteFailed(cookie === null);
+    return cookie !== null;
   }, []);
 
   const deleteCookie = useCallback((cookie: JarCookie) => {

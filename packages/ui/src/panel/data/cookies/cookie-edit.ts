@@ -421,3 +421,26 @@ export function isEditFormValid(v: CookieEditFormValues): boolean {
   if (!v.session && v.expirationDate == null) return false;
   return true;
 }
+
+/**
+ * Spec-mandated attribute constraints the browser jar rejects a write
+ * over — checked up front so the edit surfaces can say WHY before the
+ * write instead of relaying the browser's generic failure. Returns a
+ * human message for the first violated constraint, `null` when the
+ * combination is writable: `__Host-` needs Secure + no Domain attribute
+ * + path `/`; `__Secure-` needs Secure; `SameSite=None` needs Secure.
+ */
+export function editFormConstraintError(v: CookieEditFormValues): string | null {
+  const name = v.name.trim();
+  if (name.startsWith('__Host-')) {
+    if (!v.secure) return '__Host- cookies must have the Secure flag on.';
+    if (!v.hostOnly) return '__Host- cookies can’t carry a Domain attribute — turn “Host only” on.';
+    if ((v.path.trim() || '/') !== '/') return '__Host- cookies must use path “/”.';
+  } else if (name.startsWith('__Secure-') && !v.secure) {
+    return '__Secure- cookies must have the Secure flag on.';
+  }
+  if (v.sameSite === 'no_restriction' && !v.secure) {
+    return 'SameSite “None (cross-site)” requires the Secure flag.';
+  }
+  return null;
+}

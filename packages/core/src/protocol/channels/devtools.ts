@@ -379,11 +379,12 @@ export interface DevToolsRpc {
    * request URL from the cookie's own domain/path/secure (a host-only
    * domain drops the leading dot), calls `chrome.cookies.set`, and
    * returns the resulting jar cookie (`null` on failure — bad domain,
-   * permission denied).
+   * permission denied). A failed write carries the browser's rejection
+   * reason in `error` so the panel can surface an actionable message.
    */
   setCookieForUrl: {
     req: { cookie: JarCookieEditWire };
-    res: { cookie: JarCookieWire | null };
+    res: { cookie: JarCookieWire | null; error?: string };
   };
 
   /**

@@ -86,7 +86,7 @@ export const miscHandlers: HandlerMap = {
       .then((res) => respond(res))
       .catch((err: Error) => {
         logger.info('CookieJarWrite', `set handler threw: ${err.message}`);
-        respond({ cookie: null });
+        respond({ cookie: null, error: err.message });
       });
     return true;
   },

@@ -115,6 +115,26 @@ describe('setCookieForUrl', () => {
       secure: true,
     });
     expect(res.cookie).toBeNull();
+    expect(res.error).toBeUndefined();
+  });
+
+  it('threads chrome.runtime.lastError into the failed write result (PB2)', async () => {
+    const runtime = chrome.runtime as { lastError?: { message?: string } };
+    setSpy().mockImplementationOnce((_d: chrome.cookies.SetDetails, cb?: (c: chrome.cookies.Cookie | null) => void) => {
+      runtime.lastError = { message: 'Failed to parse or set cookie named "sid".' };
+      cb?.(null);
+      runtime.lastError = undefined;
+    });
+    const res = await setCookieForUrl({
+      name: 'sid',
+      value: 'v',
+      domain: 'openheaders.io',
+      path: '/',
+      hostOnly: true,
+      httpOnly: false,
+      secure: true,
+    });
+    expect(res).toEqual({ cookie: null, error: 'Failed to parse or set cookie named "sid".' });
   });
 });
 

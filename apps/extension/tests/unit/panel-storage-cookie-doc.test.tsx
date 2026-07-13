@@ -13,8 +13,8 @@ import { CookieEditorTab } from '@openheaders/ui/panel/components/storage/Cookie
 import { jarCookieToKey } from '@openheaders/ui/panel/data/cookies/cookie-edit';
 import {
   __resetCookieJarCacheForTests,
+  type CookieWriteResult,
   invalidateJarCache,
-  type JarCookie,
   type JarCookieEdit,
   type JarCookieKey,
   type SiteJarCookie,
@@ -130,14 +130,14 @@ const TAB = buildCookieTab({
 function installJar(
   cookies: readonly SiteJarCookie[] | null,
   writer?: {
-    set?: (edit: JarCookieEdit) => Promise<JarCookie | null>;
+    set?: (edit: JarCookieEdit) => Promise<CookieWriteResult>;
     remove?: (key: JarCookieKey) => Promise<boolean>;
   },
 ) {
   setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(cookies)));
   if (writer) {
     setCookieJarWriter({
-      set: writer.set ?? vi.fn(() => Promise.resolve(null)),
+      set: writer.set ?? vi.fn(() => Promise.resolve({ cookie: null })),
       remove: writer.remove ?? vi.fn(() => Promise.resolve(false)),
     });
   }
@@ -196,7 +196,9 @@ describe('CookieEditorTab', () => {
   });
 
   it('saves a same-identity edit as an in-place overwrite and re-fetches', async () => {
-    const set = vi.fn((edit: JarCookieEdit) => Promise.resolve<JarCookie | null>({ ...COOKIE, value: edit.value }));
+    const set = vi.fn((edit: JarCookieEdit) =>
+      Promise.resolve<CookieWriteResult>({ cookie: { ...COOKIE, value: edit.value } }),
+    );
     installJar([COOKIE], { set });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
@@ -211,7 +213,7 @@ describe('CookieEditorTab', () => {
 
   it('commits an identity change as set-new-then-remove-old and re-keys via onRekeyed', async () => {
     const renamed = makeJarCookie({ name: 'sid2' });
-    const set = vi.fn(() => Promise.resolve<JarCookie | null>(renamed));
+    const set = vi.fn(() => Promise.resolve<CookieWriteResult>({ cookie: renamed }));
     const remove = vi.fn(() => Promise.resolve(true));
     const onRekeyed = vi.fn();
     installJar([COOKIE], { set, remove });
@@ -227,7 +229,7 @@ describe('CookieEditorTab', () => {
   });
 
   it('rejects an identity change onto a DIFFERENT existing cookie with the collision note', async () => {
-    const set = vi.fn(() => Promise.resolve<JarCookie | null>(null));
+    const set = vi.fn(() => Promise.resolve<CookieWriteResult>({ cookie: null }));
     installJar([COOKIE, makeJarCookie({ name: 'taken' })], { set });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
@@ -245,7 +247,7 @@ describe('CookieEditorTab', () => {
 
   it('notes a remove failure after a committed set (both cookies exist) without re-keying', async () => {
     const renamed = makeJarCookie({ name: 'sid2' });
-    const set = vi.fn(() => Promise.resolve<JarCookie | null>(renamed));
+    const set = vi.fn(() => Promise.resolve<CookieWriteResult>({ cookie: renamed }));
     const remove = vi.fn(() => Promise.resolve(false));
     const onRekeyed = vi.fn();
     installJar([COOKIE], { set, remove });
@@ -260,7 +262,7 @@ describe('CookieEditorTab', () => {
   });
 
   it('notes an unreasoned write failure and keeps the drafts', async () => {
-    const set = vi.fn(() => Promise.resolve<JarCookie | null>(null));
+    const set = vi.fn(() => Promise.resolve<CookieWriteResult>({ cookie: null }));
     installJar([COOKIE], { set });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
@@ -278,7 +280,10 @@ describe('CookieEditorTab', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValue([COOKIE] as readonly SiteJarCookie[] | null);
     setSiteCookieJarFetcher(fetcher);
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     expect(await screen.findByText('Cookie no longer in the jar')).toBeTruthy();
@@ -302,7 +307,10 @@ describe('CookieEditorTab', () => {
   it('arms Refresh while dirty — only the confirm discards the drafts', async () => {
     const fetcher = vi.fn(() => Promise.resolve([COOKIE] as readonly SiteJarCookie[] | null));
     setSiteCookieJarFetcher(fetcher);
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(nameInput().value).toBe('sid'));
@@ -318,7 +326,9 @@ describe('CookieEditorTab', () => {
   });
 
   it('mirrors dirty up through onDirtyChange and registers its save action', async () => {
-    const set = vi.fn((edit: JarCookieEdit) => Promise.resolve<JarCookie | null>({ ...COOKIE, value: edit.value }));
+    const set = vi.fn((edit: JarCookieEdit) =>
+      Promise.resolve<CookieWriteResult>({ cookie: { ...COOKIE, value: edit.value } }),
+    );
     installJar([COOKIE], { set });
     const onDirtyChange = vi.fn();
     const saves = new Map<string, () => Promise<boolean>>();
@@ -350,7 +360,10 @@ describe('CookieEditorTab', () => {
   it('silently re-seeds a clean form when the jar changes underneath (live canonical)', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(valueInput().value).toBe('abc'));
@@ -364,7 +377,10 @@ describe('CookieEditorTab', () => {
   it('catches up untouched fields under a dirty form while preserving the touched draft', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(nameInput().value).toBe('sid'));
@@ -380,7 +396,10 @@ describe('CookieEditorTab', () => {
   it('never overwrites a touched leaf even when the same field changed in the jar', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(valueInput().value).toBe('abc'));
@@ -399,7 +418,10 @@ describe('CookieEditorTab', () => {
   it('keeps a dirty form with an honest note when the cookie is deleted underneath', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(valueInput().value).toBe('abc'));
@@ -415,7 +437,10 @@ describe('CookieEditorTab', () => {
   it('re-seeds a clean form to the honest empty state when the cookie is deleted underneath', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(valueInput().value).toBe('abc'));
@@ -426,7 +451,9 @@ describe('CookieEditorTab', () => {
   });
 
   it('saves via the keyboard chord — and the chord is inert while clean', async () => {
-    const set = vi.fn((edit: JarCookieEdit) => Promise.resolve<JarCookie | null>({ ...COOKIE, value: edit.value }));
+    const set = vi.fn((edit: JarCookieEdit) =>
+      Promise.resolve<CookieWriteResult>({ cookie: { ...COOKIE, value: edit.value } }),
+    );
     installJar([COOKIE], { set });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
@@ -443,7 +470,10 @@ describe('CookieEditorTab', () => {
   it('chips a field only when BOTH sides diverged, and Use saved adopts the live value', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(valueInput().value).toBe('abc'));
@@ -466,7 +496,10 @@ describe('CookieEditorTab', () => {
   it('Keep mine hides the chip across syncs until the NEXT divergence', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(valueInput().value).toBe('abc'));
@@ -496,7 +529,10 @@ describe('CookieEditorTab', () => {
   it('a convergent edit (draft equals the new live value) never chips', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(valueInput().value).toBe('abc'));
@@ -515,7 +551,10 @@ describe('CookieEditorTab', () => {
   it('a silently adopted field edited AFTERWARDS never mints a false conflict', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(valueInput().value).toBe('abc'));
@@ -551,7 +590,10 @@ describe('CookieEditorTab', () => {
   it('banners at 2+ conflicts; Use all saved adopts the whole live form', async () => {
     const rows = { current: [COOKIE] as readonly SiteJarCookie[] };
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows.current)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     const { container } = render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await divergeValueAndExpires(container, rows);
@@ -568,7 +610,10 @@ describe('CookieEditorTab', () => {
   it('Keep all mine dismisses every conflict and keeps the drafts', async () => {
     const rows = { current: [COOKIE] as readonly SiteJarCookie[] };
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows.current)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     const { container } = render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await divergeValueAndExpires(container, rows);
@@ -581,7 +626,10 @@ describe('CookieEditorTab', () => {
   it('Review opens the merge dialog over the 9-field JSON projections; completing writes the merged form and settles the conflicts', async () => {
     const rows = { current: [COOKIE] as readonly SiteJarCookie[] };
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows.current)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     // The merge commit toasts via App.useApp() — the provider must exist.
     const { container } = render(
       <AntApp>
@@ -621,7 +669,10 @@ describe('CookieEditorTab', () => {
   it('cancelling the merge dialog is inert — drafts and conflicts stay', async () => {
     const rows = { current: [COOKIE] as readonly SiteJarCookie[] };
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows.current)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     const { container } = render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await divergeValueAndExpires(container, rows);
@@ -638,7 +689,10 @@ describe('CookieEditorTab', () => {
   it('deleted-under-you: Discard my edits drops the drafts to the honest empty state', async () => {
     let rows: readonly SiteJarCookie[] = [COOKIE];
     setSiteCookieJarFetcher(vi.fn(() => Promise.resolve(rows)));
-    setCookieJarWriter({ set: vi.fn(() => Promise.resolve(null)), remove: vi.fn(() => Promise.resolve(false)) });
+    setCookieJarWriter({
+      set: vi.fn(() => Promise.resolve({ cookie: null })),
+      remove: vi.fn(() => Promise.resolve(false)),
+    });
     render(<CookieEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     await waitFor(() => expect(valueInput().value).toBe('abc'));

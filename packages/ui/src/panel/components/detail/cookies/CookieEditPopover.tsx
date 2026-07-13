@@ -36,6 +36,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 import {
   type CookieEditFormValues,
+  editFormConstraintError,
   editFormsEqual,
   formToEdit,
   isEditFormValid,
@@ -167,8 +168,11 @@ function CookieEditFormBody({
 
   const dirty = !editFormsEqual(values, canonical);
   // Validity runs on the RESOLVED form — a `{{var}}` resolving to '' in
-  // Name / Domain must block like a literal empty would.
-  const valid = isEditFormValid(resolvedForm);
+  // Name / Domain must block like a literal empty would. Same for the
+  // prefix/Secure constraints: the jar would reject the write, so the
+  // form blocks with the reason inline instead.
+  const constraintError = editFormConstraintError(resolvedForm);
+  const valid = isEditFormValid(resolvedForm) && constraintError === null;
   // A gone cookie is savable even when clean — Save re-creates it.
   const canSave = valid && !anyUnresolved && (mode === 'add' || dirty || gone);
 
@@ -201,6 +205,7 @@ function CookieEditFormBody({
         </div>
       )}
       <CookieEditFields values={values} fields={fields} set={set} busy={busy} affixes={conflictTier.affixes} />
+      {constraintError !== null && <div className="dt-cookie-edit-note">{constraintError}</div>}
 
       <div className="dt-cookie-edit-actions">
         {openDocument !== undefined && (
