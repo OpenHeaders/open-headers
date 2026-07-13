@@ -1,25 +1,26 @@
 /**
- * Landing-workspace materialization — the write half of migration
- * ladder rung 3 (MIGRATION_PLAN.md §3.3, S5-addendum UX). The pull
- * returns raw payloads; everything here rides the standard import
- * path: `parsePostman` / `parsePostmanEnvironment`, entities minted
- * with the same core batch builders + `applySyncRequest` route the
- * Workbench and MCP write paths use, and ONE aggregated import report
- * (per-collection path prefixes, every drop/skip with a reason)
- * recorded in the landing workspace's ring — its `sourceHash` is the
- * re-import diff anchor.
+ * Parity materialization — the write half of migration ladder rung 3
+ * (MIGRATION_PLAN.md §3.3). The pull returns raw payloads attributed
+ * to their vendor workspaces; everything here rides the standard
+ * import path: `parsePostman` / `parsePostmanEnvironment`, entities
+ * minted with the same core batch builders + `applySyncRequest` route
+ * the Workbench and MCP write paths use, and one aggregated import
+ * report PER WORKSPACE (per-collection path prefixes, every drop/skip
+ * with a reason) recorded in that workspace's ring — its `sourceHash`
+ * is the re-import diff anchor.
  *
- * The pull lands in a dedicated "Imported from Postman" workspace:
- * isolation from whatever the user is actively doing, whole-migration
- * undo = delete the workspace. Found by exact name so a re-pull diffs
- * against the prior run's report; auto-created when absent — the
- * import never blocks on structure.
+ * Workspace parity: 1 vendor workspace = 1 Open Headers workspace,
+ * carrying the vendor workspace's EXACT name — no prefixes, no
+ * suffixes. A re-pull finds the counterpart by the `importedFrom`
+ * provenance stamped at creation (vendor + vendor workspace id), so
+ * renames are safe and a user-created workspace sharing the name is
+ * never touched. An item listed by several vendor workspaces (shared
+ * collections) materializes into each counterpart.
  *
- * Re-pull semantics: a COMPLETE pull refreshes the workspace — the
- * previous import's entities are tombstoned first (through the same
- * sync path, so the Activity Feed carries revertible deletes and the
- * report records the replacement); renaming the workspace beforehand
- * preserves the old snapshot, since the exact-name find then misses. A
+ * Re-pull semantics (per workspace): a COMPLETE pull refreshes each
+ * pulled workspace — the previous import's entities are tombstoned
+ * first (through the same sync path, so the Activity Feed carries
+ * revertible deletes and the report records the replacement). A
  * labeled PARTIAL pull appends without wiping — a half-pull never
  * destroys a complete previous import.
  */
@@ -28,8 +29,12 @@ import {
   createReport,
   hashImportSource,
   type ImportReport,
+  type PostmanImportedWorkspace,
   type PostmanImportSummary,
   type PostmanPullResult,
+  type PulledCollection,
+  type PulledEnvironment,
+  type PullWorkspaceSummary,
   parsePostman,
   parsePostmanEnvironment,
   recordDrop,
@@ -63,7 +68,7 @@ import {
 import { buildDeleteResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { Collection, Environment, Request, Variable } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { recordImportReport } from '@openheaders/oracle/entity/import-reports-store';
 import { makeOracleInverseAccess, rememberPriorForMutation } from '@openheaders/oracle/sync';
 import {
@@ -76,10 +81,13 @@ import {
 import { createWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import * as v from 'valibot';
 
+const SCOPE = 'migration-materialize';
+
 /** Envelope attribution for every entity the migration mints. */
 export const MIGRATION_SURFACE_ID = 'migration';
 
-export const POSTMAN_LANDING_WORKSPACE_NAME = 'Imported from Postman';
+/** `importedFrom.vendor` value stamped on Postman-pull counterparts. */
+export const POSTMAN_VENDOR_ID = 'postman';
 
 export interface LandingWorkspaceRef {
   id: string;
@@ -88,22 +96,27 @@ export interface LandingWorkspaceRef {
 
 export interface MaterializePostmanPullOptions {
   /**
-   * Landing-workspace seam — production find-or-creates the dedicated
-   * workspace via the workspace store; tests point it at a prepared
-   * workspace id.
+   * Counterpart-workspace seam — production finds by `importedFrom`
+   * provenance or creates the exact-name counterpart via the workspace
+   * store; tests point it at prepared workspace ids.
    */
-  ensureLandingWorkspace?: () => Promise<LandingWorkspaceRef>;
+  ensureWorkspaceFor?: (workspace: PullWorkspaceSummary) => Promise<LandingWorkspaceRef>;
 }
 
 /**
- * Reuse the workspace an earlier pull landed in (exact-name match) so
- * the re-import diff anchors to the same report ring; mint it fresh on
- * the first run.
+ * Reuse the counterpart an earlier pull minted for this vendor
+ * workspace (matched by provenance, so renames are safe); mint it
+ * fresh — exact vendor name, provenance stamped — on the first pull.
  */
-async function findOrCreateLandingWorkspace(): Promise<LandingWorkspaceRef> {
-  const existing = listWorkspaces().find((ws) => ws.name === POSTMAN_LANDING_WORKSPACE_NAME);
+async function findOrCreateVendorWorkspace(workspace: PullWorkspaceSummary): Promise<LandingWorkspaceRef> {
+  const existing = listWorkspaces().find(
+    (ws) => ws.importedFrom?.vendor === POSTMAN_VENDOR_ID && ws.importedFrom.workspaceId === workspace.id,
+  );
   if (existing) return { id: existing.id, name: existing.name };
-  const created = await createWorkspace({ name: POSTMAN_LANDING_WORKSPACE_NAME }, { surfaceId: MIGRATION_SURFACE_ID });
+  const created = await createWorkspace(
+    { name: workspace.name, importedFrom: { vendor: POSTMAN_VENDOR_ID, workspaceId: workspace.id } },
+    { surfaceId: MIGRATION_SURFACE_ID },
+  );
   return { id: created.id, name: created.name };
 }
 
@@ -144,12 +157,12 @@ function mergeSubReport(target: ImportReport, sub: ImportReport, prefix: string)
 }
 
 /**
- * One stable string per run for the re-import diff: the same account
- * re-pulled must hash identically regardless of pull order, so items
- * sort by kind+id before concatenation.
+ * One stable string per workspace for the re-import diff: the same
+ * vendor workspace re-pulled must hash identically regardless of pull
+ * order, so items sort by kind+id before concatenation.
  */
-function pullSourceText(result: PostmanPullResult): string {
-  return [...result.collections, ...result.environments]
+function pullSourceText(collections: readonly PulledCollection[], environments: readonly PulledEnvironment[]): string {
+  return [...collections, ...environments]
     .map((item) => ({ key: `${item.item}:${item.id}`, json: item.json }))
     .sort((a, b) => a.key.localeCompare(b.key))
     .map((item) => `${item.key}\n${item.json}`)
@@ -386,27 +399,40 @@ async function materializeEnvironment(
 }
 
 /**
- * Land a pull result in the dedicated workspace through the standard
- * import path. Per-item parse/write failures drop with reasons and the
- * run continues; only a missing landing workspace aborts. The
- * aggregated report is recorded in the landing workspace's ring even
- * when every item dropped — a run is never silent.
+ * Land one vendor workspace's pulled items in its counterpart through
+ * the standard import path. Per-item parse/write failures drop with
+ * reasons and the run continues; only a missing counterpart workspace
+ * aborts this workspace's leg. The aggregated report is recorded in
+ * the counterpart's ring even when every item dropped — a run is
+ * never silent.
  */
-export async function materializePostmanPull(
+async function materializeWorkspacePull(
+  workspace: PullWorkspaceSummary,
   result: PostmanPullResult,
-  options: MaterializePostmanPullOptions = {},
-): Promise<PostmanImportSummary> {
-  const ensure = options.ensureLandingWorkspace ?? findOrCreateLandingWorkspace;
-  const landing = await ensure();
+  target: LandingWorkspaceRef,
+): Promise<PostmanImportedWorkspace> {
+  const wsCollections = result.collections
+    .map((pulled, index) => ({ pulled, index }))
+    .filter(({ pulled }) => pulled.workspaceIds.includes(workspace.id));
+  const wsEnvironments = result.environments
+    .map((pulled, index) => ({ pulled, index }))
+    .filter(({ pulled }) => pulled.workspaceIds.includes(workspace.id));
 
   const report: ImportReport = createReport('postman-pull', 0);
-  report.sourceHash = await hashImportSource(pullSourceText(result));
+  report.sourceHash = await hashImportSource(
+    pullSourceText(
+      wsCollections.map(({ pulled }) => pulled),
+      wsEnvironments.map(({ pulled }) => pulled),
+    ),
+  );
 
-  // The pull's own skips carry into the aggregated report so the one
-  // end-of-run document tells the whole story.
+  // The pull's own skips carry into the report of every workspace they
+  // concern (unattributed skips concern the whole run) so each
+  // workspace's end-of-run document tells its whole story.
   for (let i = 0; i < result.skipped.length; i++) {
     const skip = result.skipped[i];
     if (!skip) continue;
+    if (skip.workspaceIds !== undefined && !skip.workspaceIds.includes(workspace.id)) continue;
     recordDrop(report, {
       path: `pull.skipped[${i}].${skip.item}["${skip.name ?? skip.id}"]`,
       reason: skip.reason,
@@ -414,12 +440,12 @@ export async function materializePostmanPull(
     });
   }
 
-  const service = getOrCreateWorkspaceService(landing.id);
+  const service = getOrCreateWorkspaceService(target.id);
   let collections = 0;
   let environments = 0;
   let requests = 0;
   try {
-    const mintCtx = contextMinter(landing.id);
+    const mintCtx = contextMinter(target.id);
     await service.hydrated;
     const prior = service.oracle
       .materializeAll()
@@ -438,47 +464,78 @@ export async function materializePostmanPull(
         });
       }
     }
-    for (let i = 0; i < result.collections.length; i++) {
-      const pulled = result.collections[i];
-      if (!pulled) continue;
+    for (const { pulled, index } of wsCollections) {
       try {
-        const outcome = await materializeCollection(pulled.json, i, report, mintCtx);
+        const outcome = await materializeCollection(pulled.json, index, report, mintCtx);
         collections += outcome.collections;
         requests += outcome.requests;
       } catch (err) {
         recordDrop(report, {
-          path: `pull.collections[${i}]["${pulled.name ?? pulled.id}"]`,
+          path: `pull.collections[${index}]["${pulled.name ?? pulled.id}"]`,
           reason: `Collection was not imported: ${failureReason(err)}`,
           tracking: 'PERMANENT: write-path failure',
         });
       }
     }
-    for (let i = 0; i < result.environments.length; i++) {
-      const pulled = result.environments[i];
-      if (!pulled) continue;
+    for (const { pulled, index } of wsEnvironments) {
       try {
-        environments += await materializeEnvironment(pulled.json, i, report, mintCtx);
+        environments += await materializeEnvironment(pulled.json, index, report, mintCtx);
       } catch (err) {
         recordDrop(report, {
-          path: `pull.environments[${i}]["${pulled.name ?? pulled.id}"]`,
+          path: `pull.environments[${index}]["${pulled.name ?? pulled.id}"]`,
           reason: `Environment was not imported: ${failureReason(err)}`,
           tracking: 'PERMANENT: write-path failure',
         });
       }
     }
   } finally {
-    releaseWorkspaceService(landing.id);
+    releaseWorkspaceService(target.id);
   }
 
   report.summary = { ...report.summary, imported: requests + environments };
-  await recordImportReport(report, landing.id);
+  await recordImportReport(report, target.id);
 
   return {
-    workspaceId: landing.id,
-    workspaceName: landing.name,
+    workspaceId: target.id,
+    workspaceName: target.name,
     collections,
     environments,
     requests,
     drops: report.summary.dropped,
+  };
+}
+
+/**
+ * Land a pull result with workspace parity: every pulled vendor
+ * workspace materializes into its own counterpart (exact name, found
+ * or minted by provenance), each with its own report and per-workspace
+ * refresh semantics. One workspace's failure drops its leg and the
+ * run continues to the rest.
+ */
+export async function materializePostmanPull(
+  result: PostmanPullResult,
+  options: MaterializePostmanPullOptions = {},
+): Promise<PostmanImportSummary> {
+  const ensure = options.ensureWorkspaceFor ?? findOrCreateVendorWorkspace;
+  const workspaces: PostmanImportedWorkspace[] = [];
+  let failures = 0;
+  for (const workspace of result.workspaces) {
+    try {
+      const target = await ensure(workspace);
+      workspaces.push(await materializeWorkspacePull(workspace, result, target));
+    } catch (err) {
+      failures++;
+      logger.warn(SCOPE, `workspace "${workspace.name}" was not imported: ${failureReason(err)}`);
+    }
+  }
+  if (workspaces.length === 0 && failures > 0) {
+    throw new Error('No workspace could be imported — every leg of the run failed.');
+  }
+  return {
+    workspaces,
+    collections: workspaces.reduce((sum, ws) => sum + ws.collections, 0),
+    environments: workspaces.reduce((sum, ws) => sum + ws.environments, 0),
+    requests: workspaces.reduce((sum, ws) => sum + ws.requests, 0),
+    drops: workspaces.reduce((sum, ws) => sum + ws.drops, 0),
   };
 }

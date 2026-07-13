@@ -23,6 +23,7 @@
 
 import type * as v from 'valibot';
 import type {
+  ExtensionWorkspaceImportedFromSchema,
   ExtensionWorkspaceKindSchema,
   ExtensionWorkspaceSchema,
   ExtensionWorkspaceSourceSchema,
@@ -31,3 +32,4 @@ import type {
 export type ExtensionWorkspaceKind = v.InferOutput<typeof ExtensionWorkspaceKindSchema>;
 export type ExtensionWorkspace = v.InferOutput<typeof ExtensionWorkspaceSchema>;
 export type ExtensionWorkspaceSource = v.InferOutput<typeof ExtensionWorkspaceSourceSchema>;
+export type ExtensionWorkspaceImportedFrom = v.InferOutput<typeof ExtensionWorkspaceImportedFromSchema>;

@@ -57,6 +57,7 @@ export type {
 // ── Extension workspace (browser-side multi-workspace record) ─────
 export type {
   ExtensionWorkspace,
+  ExtensionWorkspaceImportedFrom,
   ExtensionWorkspaceKind,
   ExtensionWorkspaceSource,
 } from './extension-workspace';

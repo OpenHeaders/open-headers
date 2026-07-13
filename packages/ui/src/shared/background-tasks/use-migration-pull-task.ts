@@ -80,12 +80,14 @@ export function deriveMigrationPullTask(
       if (state.imported) {
         const s = state.imported;
         const counts = `${s.collections} collections, ${s.environments} environments, ${s.requests} requests`;
+        const only = s.workspaces.length === 1 ? s.workspaces[0] : undefined;
+        const target = only ? `into “${only.workspaceName}”` : `into ${s.workspaces.length} workspaces`;
         const notes = s.drops > 0 ? ` · ${s.drops} import notes` : '';
         const partial = state.outcome === 'partial' ? 'Partial import: ' : '';
         return {
           id: TASK_ID,
           title: 'Import finished — view report',
-          detail: `${partial}${counts} into “${s.workspaceName}”${notes}`,
+          detail: `${partial}${counts} ${target}${notes}`,
           percent: 100,
           ...(onViewReport ? { onActivate: onViewReport } : {}),
         };

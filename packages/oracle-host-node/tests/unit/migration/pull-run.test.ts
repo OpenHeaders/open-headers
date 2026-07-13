@@ -19,8 +19,9 @@ import { createMigrationPullRunner } from '../../../src/migration/pull-run';
 const API_KEY = 'PMAK-super-secret-key';
 
 const SUMMARY: PostmanImportSummary = {
-  workspaceId: 'ws-landing',
-  workspaceName: 'Imported from Postman',
+  workspaces: [
+    { workspaceId: 'ws-team', workspaceName: 'Team', collections: 1, environments: 1, requests: 3, drops: 0 },
+  ],
   collections: 1,
   environments: 1,
   requests: 3,
@@ -31,8 +32,8 @@ function pullResult(overrides: Partial<PostmanPullResult> = {}): PostmanPullResu
   return {
     outcome: 'complete',
     workspaces: [{ id: 'ws-1', name: 'Team' }],
-    collections: [{ item: 'collection', id: 'c-1', name: 'APIs', json: '{}' }],
-    environments: [{ item: 'environment', id: 'e-1', name: 'Staging', json: '{}' }],
+    collections: [{ item: 'collection', id: 'c-1', name: 'APIs', json: '{}', workspaceIds: ['ws-1'] }],
+    environments: [{ item: 'environment', id: 'e-1', name: 'Staging', json: '{}', workspaceIds: ['ws-1'] }],
     skipped: [],
     budget: {},
     callsMade: 4,

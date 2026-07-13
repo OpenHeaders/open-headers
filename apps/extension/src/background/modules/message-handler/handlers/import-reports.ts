@@ -18,8 +18,9 @@ export const importReportHandlers: HandlerMap = {
     return true;
   },
 
-  listImportReports: ({ respond }) => {
-    listImportReports()
+  listImportReports: ({ message, respond }) => {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
+    listImportReports(workspaceId)
       .then((reports) => respond({ reports }))
       .catch((err: Error) => respond({ reports: [], error: err.message }));
     return true;

@@ -47,12 +47,15 @@ export {
   type WorkspaceListRead,
 } from './responses';
 export type {
+  PostmanImportedWorkspace,
   PostmanImportSummary,
   PostmanPullEvent,
   PostmanPullOutcome,
   PostmanPullPlan,
   PostmanPullResult,
   PostmanPullSkip,
+  PostmanWorkspaceListResult,
+  PostmanWorkspacePreview,
   PulledCollection,
   PulledEnvironment,
   PullFailure,

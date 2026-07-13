@@ -64,6 +64,7 @@ export function seedExtensionWorkspaces(
       createdAt: ws.createdAt,
       updatedAt: ws.updatedAt,
       source: ws.source,
+      importedFrom: ws.importedFrom,
       orgId: ws.orgId,
     };
     bodies.push({

@@ -40,6 +40,18 @@ export const ExtensionWorkspaceSourceSchema = v.object({
   displayPath: v.optional(v.string()),
 });
 
+/**
+ * Import provenance — stamped when a migration pull mints the
+ * workspace as the 1:1 counterpart of a vendor workspace. A re-pull
+ * matches by `workspaceId` (rename-safe), never by name; a
+ * user-created workspace that happens to share the name is never
+ * touched.
+ */
+export const ExtensionWorkspaceImportedFromSchema = v.object({
+  vendor: v.string(),
+  workspaceId: v.string(),
+});
+
 export const ExtensionWorkspaceSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   id: v.string(),
@@ -52,6 +64,7 @@ export const ExtensionWorkspaceSchema = v.object({
   createdAt: v.string(),
   updatedAt: v.string(),
   source: v.optional(ExtensionWorkspaceSourceSchema),
+  importedFrom: v.optional(ExtensionWorkspaceImportedFromSchema),
   /** Org binding (see {@link WorkspaceSchema.orgId}). */
   orgId: UuidV7Schema,
 });

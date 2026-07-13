@@ -72,6 +72,8 @@ export interface ExtensionWorkspaceSlot {
   createdAt: string;
   updatedAt: string;
   source?: { desktopWorkspaceId: string; displayPath?: string };
+  /** Migration provenance — the vendor workspace this one mirrors 1:1. */
+  importedFrom?: { vendor: string; workspaceId: string };
   /** Org binding stamped at workspace creation (UNIFIED_ORACLE_MODEL.md §6.1). */
   orgId: string;
 }

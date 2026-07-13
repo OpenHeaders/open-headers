@@ -225,7 +225,7 @@ registerSetting({
   action: {
     labelKey: 'workbench.settings.def.data.exportImportReports.action.label',
     run: async () => {
-      const resp = await hostBridge.call('listImportReports').catch(() => null);
+      const resp = await hostBridge.call('listImportReports', {}).catch(() => null);
       const reports = resp?.reports ?? [];
       downloadJson(`openheaders-import-reports-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`, {
         exportedAt: new Date().toISOString(),

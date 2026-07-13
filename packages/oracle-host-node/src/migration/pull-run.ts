@@ -37,13 +37,21 @@ export interface MigrationPullRunnerOptions {
   /** Stand-in Data API origin — a harness seam (e2e stub servers). */
   apiOrigin?: string;
   /** Test seams — production runs the real puller + materializer. */
-  pull?: (options: { apiKey: string; onEvent: (event: PostmanPullEvent) => void }) => Promise<PostmanPullResult>;
+  pull?: (options: {
+    apiKey: string;
+    workspaceIds?: string[];
+    onEvent: (event: PostmanPullEvent) => void;
+  }) => Promise<PostmanPullResult>;
   materialize?: typeof materializePostmanPull;
 }
 
 export interface MigrationPullRunner {
-  /** Accept and launch a run unless one is already in flight. */
-  start(apiKey: string): MigrationPullStartResult;
+  /**
+   * Accept and launch a run unless one is already in flight.
+   * `workspaceIds` narrows the pull to the selection step's choice;
+   * omitted, every workspace on the account pulls.
+   */
+  start(apiKey: string, workspaceIds?: string[]): MigrationPullStartResult;
   getState(): MigrationPullRunState;
   /** Resolves once the in-flight run (if any) settles — test hook. */
   settled(): Promise<void>;
@@ -52,7 +60,7 @@ export interface MigrationPullRunner {
 export function createMigrationPullRunner(options: MigrationPullRunnerOptions): MigrationPullRunner {
   const pull =
     options.pull ??
-    ((pullOptions: { apiKey: string; onEvent: (event: PostmanPullEvent) => void }) =>
+    ((pullOptions: { apiKey: string; workspaceIds?: string[]; onEvent: (event: PostmanPullEvent) => void }) =>
       pullPostmanData({
         ...pullOptions,
         ...(options.apiOrigin !== undefined ? { apiOrigin: options.apiOrigin } : {}),
@@ -68,14 +76,18 @@ export function createMigrationPullRunner(options: MigrationPullRunnerOptions): 
     options.broadcast('migrationPullEvent', { runId, seq: seq(), event });
   }
 
-  async function run(runId: string, apiKey: string): Promise<void> {
+  async function run(runId: string, apiKey: string, workspaceIds?: string[]): Promise<void> {
     let counter = 0;
     const seq = () => ++counter;
     try {
       // The puller resolves (never rejects) on every classified
       // failure; a rejection here is a programming error, surfaced
       // through the same terminal event so the run never looks stuck.
-      const result = await pull({ apiKey, onEvent: (event) => emit(runId, seq, event) });
+      const result = await pull({
+        apiKey,
+        ...(workspaceIds !== undefined ? { workspaceIds } : {}),
+        onEvent: (event) => emit(runId, seq, event),
+      });
       // A failed run never enumerated anything; an empty one has
       // nothing to land. Everything else materializes — a labeled
       // partial included, so what DID arrive isn't discarded.
@@ -94,14 +106,14 @@ export function createMigrationPullRunner(options: MigrationPullRunnerOptions): 
   }
 
   return {
-    start(apiKey: string): MigrationPullStartResult {
+    start(apiKey: string, workspaceIds?: string[]): MigrationPullStartResult {
       if (running) {
         return { started: false, reason: 'A migration pull is already running on this host.' };
       }
       const runId = generateUid();
       running = true;
       state = startPullRunState(runId);
-      inFlight = run(runId, apiKey);
+      inFlight = run(runId, apiKey, workspaceIds);
       return { started: true, runId };
     },
     getState: () => state,

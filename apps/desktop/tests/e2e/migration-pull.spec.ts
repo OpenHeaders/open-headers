@@ -15,15 +15,17 @@
  *      X-Api-Key, item pulls address the uid forms, the month budget
  *      folds off the response headers.
  *   4. The corner task settles into "Import finished — view report";
- *      its click-through lands in the "Imported from Postman" landing
- *      workspace with the ONE aggregated report.
+ *      its click-through opens the per-workspace report IN PLACE
+ *      (workspace parity: the counterpart carries the vendor
+ *      workspace's exact name) and "Open workspace" jumps into it.
  *   5. A browser extension joins the desktop's daemon socket as the
  *      operator (unbound minted token) and mirrors the finished run in
  *      its own corner via the operator-gated getState peer plane; its
- *      click-through lands on the synced landing workspace.
- *   6. A second pull refreshes the landing workspace: exactly ONE
- *      collection remains in the requests nav and the report carries
- *      the replacement transform.
+ *      click-through lands on the synced counterpart workspace.
+ *   6. The selection preflight lists the account's workspaces with
+ *      counts; a second pull narrowed to the selection refreshes the
+ *      counterpart: exactly ONE collection remains in the requests nav
+ *      and the report carries the replacement transform.
  *
  * Requires both builds: `pnpm --filter @openheaders/desktop build` and
  * the extension `dist/chrome` (built separately).
@@ -252,7 +254,12 @@ test('the corner task settles into the report flip with the folded month budget'
     return (await bridge.invoke({ type: 'oh.migration.postmanPull.getState' })) as {
       phase: string;
       budget: { limitMonth?: number; remainingMonth?: number };
-      imported: { collections: number; environments: number; requests: number; workspaceName: string } | null;
+      imported: {
+        collections: number;
+        environments: number;
+        requests: number;
+        workspaces: Array<{ workspaceName: string }>;
+      } | null;
     };
   });
   expect(state.phase).toBe('done');
@@ -261,22 +268,24 @@ test('the corner task settles into the report flip with the folded month budget'
     collections: 1,
     environments: 1,
     requests: 2,
-    workspaceName: 'Imported from Postman',
+    workspaces: [{ workspaceName: 'OpenHeaders Team' }],
   });
 });
 
-test('the click-through lands in the landing workspace with the aggregated report', async () => {
+test('the click-through opens the report in place, then Open workspace jumps into the counterpart', async () => {
   await workbench.getByText('Import finished — view report').first().click();
   const report = workbench.getByRole('dialog').filter({ hasText: 'Postman import report' });
   await expect(report).toBeVisible({ timeout: 15000 });
-  await expect(report).toContainText('Imported from Postman');
+  // Workspace parity — the counterpart carries the vendor workspace's
+  // exact name; viewing the report never switches the workspace.
+  await expect(report).toContainText('OpenHeaders Team');
   await expect(report).toContainText('Everything imported cleanly');
   await pace(workbench);
-  await report.getByRole('button', { name: 'Close' }).last().click();
-  await expect(report).toHaveCount(0);
 
-  // The switch landed — this window now edits the landing workspace.
-  await expect(workbench.getByLabel(/editing workspace: Imported from Postman/)).toBeVisible();
+  // Switching is the user's explicit choice.
+  await report.getByRole('button', { name: 'Open workspace' }).first().click();
+  await expect(report).toHaveCount(0);
+  await expect(workbench.getByLabel(/editing workspace: OpenHeaders Team/)).toBeVisible({ timeout: 15000 });
   await pace(workbench);
 });
 
@@ -368,8 +377,8 @@ test('a connected extension mirrors the finished run in its own corner', async (
     { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token },
   );
 
-  // The landing workspace syncs down before the mirror is asserted so
-  // the click-through test below has somewhere to land.
+  // The counterpart workspace syncs down before the mirror is asserted
+  // so the click-through test below has somewhere to land.
   await expect
     .poll(
       async () =>
@@ -377,7 +386,7 @@ test('a connected extension mirrors the finished run in its own corner', async (
           async () =>
             new Promise<boolean>((resolve) => {
               chrome.storage.local.get(null, (items) => {
-                resolve(JSON.stringify(items).includes('Imported from Postman'));
+                resolve(JSON.stringify(items).includes('OpenHeaders Team'));
               });
             }),
         ),
@@ -393,7 +402,7 @@ test('a connected extension mirrors the finished run in its own corner', async (
   await pace(extensionWorkbench);
 });
 
-test('the extension click-through lands on the synced landing workspace', async () => {
+test('the extension click-through opens the mirrored report and jumps to the synced counterpart', async () => {
   const page = extensionWorkbench;
   expect(page).toBeTruthy();
   if (!page) return;
@@ -402,23 +411,42 @@ test('the extension click-through lands on the synced landing workspace', async 
   const report = page.getByRole('dialog').filter({ hasText: 'Postman import report' });
   await expect(report).toBeVisible({ timeout: 15000 });
   // The summary rides the mirrored run state; the report ring itself is
-  // host-local to the desktop.
-  await expect(report).toContainText('Imported from Postman');
+  // host-local to the desktop, so the section shows the counterpart's
+  // name with no local report entry.
+  await expect(report).toContainText('OpenHeaders Team');
   await pace(page);
-  await report.getByRole('button', { name: 'Close' }).last().click();
 
-  // The switch landed — this surface now edits the synced landing workspace.
-  await expect(page.getByLabel(/editing workspace: Imported from Postman/)).toBeVisible({ timeout: 15000 });
+  await report.getByRole('button', { name: 'Open workspace' }).first().click();
+  await expect(report).toHaveCount(0);
+  await expect(page.getByLabel(/editing workspace: OpenHeaders Team/)).toBeVisible({ timeout: 15000 });
   await pace(page);
 });
 
-// ── Re-pull refresh leg ─────────────────────────────────────────────
+// ── Selection preflight + re-pull refresh leg ───────────────────────
 
-test('a complete re-pull refreshes the landing workspace instead of duplicating it', async () => {
+test('the selection preflight lists the account workspaces with item counts', async () => {
+  const callsBefore = stubCalls.length;
+  const result = await workbench.evaluate(async (key) => {
+    const bridge = (window as unknown as { oh: { invoke(msg: Record<string, unknown>): Promise<unknown> } }).oh;
+    return await bridge.invoke({ type: 'oh.migration.postmanPull.listWorkspaces', apiKey: key });
+  }, API_KEY);
+  expect(result).toMatchObject({
+    ok: true,
+    workspaces: [{ id: 'ws-team', name: 'OpenHeaders Team', collections: 1, environments: 1 }],
+  });
+  // Enumeration-only: list + one detail, nothing pulled.
+  expect(stubCalls.slice(callsBefore).map((call) => call.path)).toEqual(['/workspaces', '/workspaces/ws-team']);
+});
+
+test('a complete re-pull refreshes the counterpart workspace instead of duplicating it', async () => {
   const callsBefore = stubCalls.length;
   const started = await workbench.evaluate(async (key) => {
     const bridge = (window as unknown as { oh: { invoke(msg: Record<string, unknown>): Promise<unknown> } }).oh;
-    return (await bridge.invoke({ type: 'oh.migration.postmanPull.start', apiKey: key })) as {
+    return (await bridge.invoke({
+      type: 'oh.migration.postmanPull.start',
+      apiKey: key,
+      workspaceIds: ['ws-team'],
+    })) as {
       started: boolean;
       runId?: string;
     };

@@ -1,10 +1,11 @@
 /**
- * Landing-workspace materialization coverage: pulled payloads ride the
- * standard parsers into real entities through the sync service
- * (in-memory persistence) — request collection with variables, folder
- * tree, requests under their folder paths, environments with the
- * secret split — plus the ONE aggregated report in the landing
- * workspace's ring (pull skips + parse failures as drops with
+ * Parity materialization coverage: pulled payloads ride the standard
+ * parsers into real entities through the sync service (in-memory
+ * persistence) — request collection with variables, folder tree,
+ * requests under their folder paths, environments with the secret
+ * split — with 1 vendor workspace = 1 counterpart workspace (shared
+ * items landing in each) and one aggregated report PER WORKSPACE in
+ * that workspace's ring (pull skips + parse failures as drops with
  * reasons, `sourceHash` stamped for the re-import diff).
  */
 
@@ -19,7 +20,9 @@ import {
   __initSyncServiceForTests,
   applySyncRequest,
   dispose as disposeSyncService,
+  getOrCreateWorkspaceService,
   nextSwMutatorContextForWorkspace,
+  releaseWorkspaceService,
   snapshotEnvironmentPostStates,
   snapshotRequestCollectionPostStates,
   snapshotRequestFolderPostStates,
@@ -69,8 +72,12 @@ function pullResult(overrides: Partial<PostmanPullResult> = {}): PostmanPullResu
   return {
     outcome: 'complete',
     workspaces: [{ id: 'pm-ws-1', name: 'Team' }],
-    collections: [{ item: 'collection', id: 'c-1', name: 'Payments API', json: COLLECTION_JSON }],
-    environments: [{ item: 'environment', id: 'e-1', name: 'Staging', json: ENVIRONMENT_JSON }],
+    collections: [
+      { item: 'collection', id: 'c-1', name: 'Payments API', json: COLLECTION_JSON, workspaceIds: ['pm-ws-1'] },
+    ],
+    environments: [
+      { item: 'environment', id: 'e-1', name: 'Staging', json: ENVIRONMENT_JSON, workspaceIds: ['pm-ws-1'] },
+    ],
     skipped: [],
     budget: {},
     callsMade: 5,
@@ -78,7 +85,8 @@ function pullResult(overrides: Partial<PostmanPullResult> = {}): PostmanPullResu
   };
 }
 
-const ensureLandingWorkspace = async () => ({ id: wsId, name: 'Imported from Postman' });
+/** Counterpart seam — the single-workspace tests land in `wsId`. */
+const ensureWorkspaceFor = async () => ({ id: wsId, name: 'Team' });
 
 /** Save a response example under an imported request — a user gesture
  *  between pulls that the refresh must sweep along with its parent. */
@@ -137,11 +145,10 @@ afterEach(() => {
 
 describe('materializePostmanPull', () => {
   it('lands collections, folders, requests, and environments through the standard path', async () => {
-    const summary = await materializePostmanPull(pullResult(), { ensureLandingWorkspace });
+    const summary = await materializePostmanPull(pullResult(), { ensureWorkspaceFor });
 
     expect(summary).toMatchObject({
-      workspaceId: wsId,
-      workspaceName: 'Imported from Postman',
+      workspaces: [{ workspaceId: wsId, workspaceName: 'Team', collections: 1, environments: 1, requests: 2 }],
       collections: 1,
       environments: 1,
       requests: 2,
@@ -179,7 +186,7 @@ describe('materializePostmanPull', () => {
       pullResult({
         skipped: [{ item: 'collection', id: 'c-9', name: 'Ops', reason: 'Not pulled — the run stopped early.' }],
       }),
-      { ensureLandingWorkspace },
+      { ensureWorkspaceFor },
     );
 
     const reports = await readRecordedReports();
@@ -194,7 +201,7 @@ describe('materializePostmanPull', () => {
 
   it('hashes the same pulled payloads identically regardless of item order', async () => {
     const forward = pullResult();
-    await materializePostmanPull(forward, { ensureLandingWorkspace });
+    await materializePostmanPull(forward, { ensureWorkspaceFor });
     const first = (await readRecordedReports())[0];
 
     __initSyncServiceForTests(wsId);
@@ -203,10 +210,10 @@ describe('materializePostmanPull', () => {
     // reordering across the two arrays is the observable permutation.
     const rerun = await materializePostmanPull(
       { ...reversed, collections: [...reversed.collections], environments: [...reversed.environments] },
-      { ensureLandingWorkspace },
+      { ensureWorkspaceFor },
     );
     const second = (await readRecordedReports())[0];
-    expect(rerun.workspaceId).toBe(wsId);
+    expect(rerun.workspaces[0]?.workspaceId).toBe(wsId);
     expect(second.sourceHash).toBe(first.sourceHash);
   });
 
@@ -214,11 +221,11 @@ describe('materializePostmanPull', () => {
     const summary = await materializePostmanPull(
       pullResult({
         collections: [
-          { item: 'collection', id: 'c-bad', name: 'Broken', json: 'not json' },
-          { item: 'collection', id: 'c-1', name: 'Payments API', json: COLLECTION_JSON },
+          { item: 'collection', id: 'c-bad', name: 'Broken', json: 'not json', workspaceIds: ['pm-ws-1'] },
+          { item: 'collection', id: 'c-1', name: 'Payments API', json: COLLECTION_JSON, workspaceIds: ['pm-ws-1'] },
         ],
       }),
-      { ensureLandingWorkspace },
+      { ensureWorkspaceFor },
     );
 
     expect(summary.collections).toBe(1);
@@ -233,11 +240,11 @@ describe('materializePostmanPull', () => {
     const summary = await materializePostmanPull(
       pullResult({
         environments: [
-          { item: 'environment', id: 'e-bad', name: 'Broken', json: 'not json' },
-          { item: 'environment', id: 'e-1', name: 'Staging', json: ENVIRONMENT_JSON },
+          { item: 'environment', id: 'e-bad', name: 'Broken', json: 'not json', workspaceIds: ['pm-ws-1'] },
+          { item: 'environment', id: 'e-1', name: 'Staging', json: ENVIRONMENT_JSON, workspaceIds: ['pm-ws-1'] },
         ],
       }),
-      { ensureLandingWorkspace },
+      { ensureWorkspaceFor },
     );
 
     expect(summary.environments).toBe(1);
@@ -246,7 +253,7 @@ describe('materializePostmanPull', () => {
   });
 
   it('a complete re-pull replaces the previous import, saved examples included', async () => {
-    await materializePostmanPull(pullResult(), { ensureLandingWorkspace });
+    await materializePostmanPull(pullResult(), { ensureWorkspaceFor });
     const [firstReport] = await readRecordedReports();
     expect(firstReport.transforms).toHaveLength(0);
     const firstCollections = snapshotRequestCollectionPostStates(wsId).map((ps) => ps.collection);
@@ -256,7 +263,7 @@ describe('materializePostmanPull', () => {
     await saveExampleUnder(parent);
     expect(snapshotResponseExamplePostStates(wsId)).toHaveLength(1);
 
-    const summary = await materializePostmanPull(pullResult(), { ensureLandingWorkspace });
+    const summary = await materializePostmanPull(pullResult(), { ensureWorkspaceFor });
 
     expect(summary).toMatchObject({ collections: 1, environments: 1, requests: 2 });
     const collections = snapshotRequestCollectionPostStates(wsId).map((ps) => ps.collection);
@@ -279,10 +286,10 @@ describe('materializePostmanPull', () => {
   });
 
   it('a partial re-pull keeps the previous import and appends alongside it', async () => {
-    await materializePostmanPull(pullResult(), { ensureLandingWorkspace });
+    await materializePostmanPull(pullResult(), { ensureWorkspaceFor });
 
     await materializePostmanPull(pullResult({ outcome: 'partial', stopReason: 'Service limit exhausted.' }), {
-      ensureLandingWorkspace,
+      ensureWorkspaceFor,
     });
 
     expect(snapshotRequestCollectionPostStates(wsId)).toHaveLength(2);
@@ -296,9 +303,84 @@ describe('materializePostmanPull', () => {
   });
 
   it('the first pull into an empty landing workspace records no replacement transform', async () => {
-    await materializePostmanPull(pullResult(), { ensureLandingWorkspace });
+    await materializePostmanPull(pullResult(), { ensureWorkspaceFor });
     const [report] = await readRecordedReports();
     expect(report.transforms).toHaveLength(0);
     expect(report.summary.transformed).toBe(0);
+  });
+
+  it('workspace parity: a shared collection lands in every counterpart, reports stay per-workspace', async () => {
+    const wsId2 = 'ws-postman-second';
+    // Hold a refcount so the second service survives the materializer's
+    // release for the assertions below (test grace window is 0).
+    getOrCreateWorkspaceService(wsId2);
+    const result = pullResult({
+      workspaces: [
+        { id: 'pm-ws-1', name: 'Team' },
+        { id: 'pm-ws-2', name: 'Billing' },
+      ],
+      collections: [
+        {
+          item: 'collection',
+          id: 'c-1',
+          name: 'Payments API',
+          json: COLLECTION_JSON,
+          workspaceIds: ['pm-ws-1', 'pm-ws-2'],
+        },
+      ],
+      environments: [
+        { item: 'environment', id: 'e-1', name: 'Staging', json: ENVIRONMENT_JSON, workspaceIds: ['pm-ws-1'] },
+      ],
+      skipped: [
+        { item: 'collection', id: 'c-9', name: 'Ops', reason: 'HTTP 500.', workspaceIds: ['pm-ws-2'] },
+        { item: 'workspace', id: '(unknown)', reason: '1 workspace entry in the list had no usable id — skipped.' },
+      ],
+    });
+    const targets = new Map([
+      ['pm-ws-1', { id: wsId, name: 'Team' }],
+      ['pm-ws-2', { id: wsId2, name: 'Billing' }],
+    ]);
+    const summary = await materializePostmanPull(result, {
+      ensureWorkspaceFor: async (workspace) => {
+        const target = targets.get(workspace.id);
+        if (!target) throw new Error(`unexpected workspace ${workspace.id}`);
+        return target;
+      },
+    });
+
+    expect(summary.workspaces).toHaveLength(2);
+    expect(summary.workspaces[0]).toMatchObject({
+      workspaceId: wsId,
+      workspaceName: 'Team',
+      collections: 1,
+      environments: 1,
+      requests: 2,
+    });
+    expect(summary.workspaces[1]).toMatchObject({
+      workspaceId: wsId2,
+      workspaceName: 'Billing',
+      collections: 1,
+      environments: 0,
+      requests: 2,
+    });
+    expect(summary.requests).toBe(4);
+
+    expect(snapshotRequestPostStates(wsId)).toHaveLength(2);
+    expect(snapshotRequestPostStates(wsId2)).toHaveLength(2);
+    expect(snapshotEnvironmentPostStates(wsId)).toHaveLength(1);
+    expect(snapshotEnvironmentPostStates(wsId2)).toHaveLength(0);
+
+    const firstReports = await readRecordedReports();
+    const secondReports = ((await storage.get(wsKeys(wsId2).importReports)) ?? []) as ImportReport[];
+    expect(firstReports).toHaveLength(1);
+    expect(secondReports).toHaveLength(1);
+    // The attributed skip lands only in its workspace's report; the
+    // unattributed one concerns the whole run and lands in both.
+    expect(firstReports[0].drops.some((d) => d.reason === 'HTTP 500.')).toBe(false);
+    expect(secondReports[0].drops.some((d) => d.reason === 'HTTP 500.')).toBe(true);
+    expect(firstReports[0].drops.some((d) => d.reason.includes('no usable id'))).toBe(true);
+    expect(secondReports[0].drops.some((d) => d.reason.includes('no usable id'))).toBe(true);
+
+    releaseWorkspaceService(wsId2);
   });
 });

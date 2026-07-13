@@ -642,17 +642,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // ── Migration pull — background-task tenant ────────────────────
   //
   // The corner entry mirrors the host's pull run; its completion
-  // click-through lands the user in the landing workspace with the
-  // run's aggregated report (MIGRATION_STATUS.md S5 addendum).
+  // click-through opens the run's per-workspace report IN PLACE — the
+  // user's active workspace (and any unsaved drafts) stays untouched.
   const [migrationReportSummary, setMigrationReportSummary] = useState<PostmanImportSummary | null>(null);
-  const handleViewMigrationReport = useCallback(
-    (summary: PostmanImportSummary) => {
-      void handleSwitchWorkspace(summary.workspaceId, { makeActive: true }).then((ok) => {
-        if (ok) setMigrationReportSummary(summary);
-      });
-    },
-    [handleSwitchWorkspace],
-  );
+  const handleViewMigrationReport = useCallback((summary: PostmanImportSummary) => {
+    setMigrationReportSummary(summary);
+  }, []);
   useMigrationPullTask({ onViewReport: handleViewMigrationReport });
 
   const openSettings = useCallback(
@@ -1497,6 +1492,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             open={migrationReportSummary !== null}
             summary={migrationReportSummary}
             onClose={() => setMigrationReportSummary(null)}
+            onOpenWorkspace={(workspaceId) => {
+              setMigrationReportSummary(null);
+              void handleSwitchWorkspace(workspaceId, { makeActive: true });
+            }}
           />
 
           <ConnectionProvider value={{ isConnected }}>

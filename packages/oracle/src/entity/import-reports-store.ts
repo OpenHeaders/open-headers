@@ -94,9 +94,13 @@ export async function recordImportReport(report: ImportReport, targetWorkspaceId
  * Read the current ring. Ordering is insertion order — oldest first,
  * newest last. Callers rendering a list typically reverse() for a
  * "most-recent-first" UX.
+ *
+ * `targetWorkspaceId` reads an explicit workspace's ring (the
+ * migration report view renders per-workspace reports without
+ * switching); omitted, the active workspace applies.
  */
-export async function listImportReports(): Promise<ImportReport[]> {
-  const workspaceId = requireActiveWorkspaceId();
+export async function listImportReports(targetWorkspaceId?: string): Promise<ImportReport[]> {
+  const workspaceId = targetWorkspaceId ?? requireActiveWorkspaceId();
   return readRing(workspaceId);
 }
 

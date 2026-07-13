@@ -1,4 +1,6 @@
 export {
+  type ListPostmanWorkspacesOptions,
+  listPostmanWorkspaces,
   type PullFetchFn,
   type PullHttpResponse,
   type PullPostmanDataOptions,
@@ -22,7 +24,7 @@ export {
   type MaterializePostmanPullOptions,
   MIGRATION_SURFACE_ID,
   materializePostmanPull,
-  POSTMAN_LANDING_WORKSPACE_NAME,
+  POSTMAN_VENDOR_ID,
 } from './materialize';
 export {
   broadcastMigrationPullToPeers,

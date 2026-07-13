@@ -107,8 +107,16 @@ describe('pull-run progress fold', () => {
 
   it('walks the materialization tail: importing → imported', () => {
     const summary = {
-      workspaceId: 'ws-landing',
-      workspaceName: 'Imported from Postman',
+      workspaces: [
+        {
+          workspaceId: 'ws-team',
+          workspaceName: 'OpenHeaders Team',
+          collections: 2,
+          environments: 1,
+          requests: 14,
+          drops: 3,
+        },
+      ],
       collections: 2,
       environments: 1,
       requests: 14,

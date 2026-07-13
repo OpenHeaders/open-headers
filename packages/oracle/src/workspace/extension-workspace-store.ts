@@ -55,7 +55,11 @@ import {
   buildSetActiveExtensionWorkspaceBatch,
   buildSetExtensionWorkspaceBatch,
 } from '@openheaders/core/sync-builders/mutations/extension-workspace-mutations';
-import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
+import type {
+  ExtensionWorkspace,
+  ExtensionWorkspaceImportedFrom,
+  ExtensionWorkspaceKind,
+} from '@openheaders/core/types';
 import { generateWorkspaceId, logger } from '@openheaders/core/utils';
 import { hostStorage, OH } from '../storage';
 import {
@@ -173,6 +177,11 @@ export interface CreateWorkspaceInput {
   icon?: string;
   kind?: ExtensionWorkspaceKind;
   /**
+   * Migration provenance — set when the workspace is minted as the 1:1
+   * counterpart of a vendor workspace; a re-pull finds it by this id.
+   */
+  importedFrom?: ExtensionWorkspaceImportedFrom;
+  /**
    * Target Org for the new workspace. Defaults to the user's home Org.
    * Set by Duplicate-into to land the copy under a different Org than
    * the source. Workspace.orgId is immutable post-create.
@@ -215,6 +224,7 @@ export async function createWorkspace(
     icon: input.icon,
     createdAt: now,
     updatedAt: now,
+    importedFrom: input.importedFrom,
     orgId,
   };
   const orderKey = nextOrderKey();

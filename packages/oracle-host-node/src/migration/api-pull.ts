@@ -27,6 +27,8 @@ import {
   type PostmanPullOutcome,
   type PostmanPullResult,
   type PostmanPullSkip,
+  type PostmanWorkspaceListResult,
+  type PostmanWorkspacePreview,
   type PulledCollection,
   type PulledEnvironment,
   type PullFailure,
@@ -63,6 +65,11 @@ export interface PullPostmanDataOptions {
    * origin; only the outgoing call is redirected.
    */
   apiOrigin?: string;
+  /**
+   * Pull only these vendor workspaces (the selection step's choice).
+   * Omitted, every workspace on the account pulls.
+   */
+  workspaceIds?: string[];
   fetchFn?: PullFetchFn;
   sleep?: SleepFn;
   onEvent?: (event: PostmanPullEvent) => void;
@@ -86,11 +93,28 @@ function failureReason(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export async function pullPostmanData(options: PullPostmanDataOptions): Promise<PostmanPullResult> {
-  const fetchFn = options.fetchFn ?? defaultFetch;
-  const sleep = options.sleep ?? defaultSleep;
-  const emit = options.onEvent ?? (() => {});
+interface ApiCallerOptions {
+  apiKey: string;
+  apiOrigin?: string;
+  fetchFn: PullFetchFn;
+  sleep: SleepFn;
+  /** Budget changes + 429 pauses surface here (the pull's event stream). */
+  onEvent: (event: PostmanPullEvent) => void;
+}
 
+interface ApiCaller {
+  callApi(url: string): Promise<string>;
+  budget: { limitMonth?: number; remainingMonth?: number };
+  calls(): number;
+}
+
+/**
+ * The paced Data API caller both entry points share: key on every call,
+ * budget folded off response headers, 429 pauses honoring RetryAfter,
+ * terminal failures (rejected key, monthly cap) thrown as
+ * `TerminalPullError`.
+ */
+function createApiCaller(options: ApiCallerOptions): ApiCaller {
   let callsMade = 0;
   const budget: { limitMonth?: number; remainingMonth?: number } = {};
 
@@ -99,7 +123,7 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
     for (let attempt = 0; ; attempt++) {
       let response: PullHttpResponse;
       try {
-        response = await fetchFn(target, { headers: { [POSTMAN_API_KEY_HEADER]: options.apiKey } });
+        response = await options.fetchFn(target, { headers: { [POSTMAN_API_KEY_HEADER]: options.apiKey } });
       } catch (err) {
         throw new CallFailedError(`The Data API request failed — ${failureReason(err)}.`);
       }
@@ -111,7 +135,7 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
       ) {
         if (seen.limitMonth !== undefined) budget.limitMonth = seen.limitMonth;
         if (seen.remainingMonth !== undefined) budget.remainingMonth = seen.remainingMonth;
-        emit({ kind: 'budget', ...budget });
+        options.onEvent({ kind: 'budget', ...budget });
       }
       const text = await response.text();
       if (response.ok) return text;
@@ -121,8 +145,8 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
       }
       if (failure.kind === 'rate-limited' && attempt < MAX_RATE_LIMIT_RETRIES) {
         const retryAfterSeconds = failure.retryAfterSeconds ?? 0;
-        emit({ kind: 'rate-limit-pause', retryAfterSeconds });
-        await sleep(retryAfterSeconds * 1000);
+        options.onEvent({ kind: 'rate-limit-pause', retryAfterSeconds });
+        await options.sleep(retryAfterSeconds * 1000);
         continue;
       }
       if (failure.kind === 'rate-limited') {
@@ -133,6 +157,79 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
       throw new CallFailedError(failure.reason);
     }
   }
+
+  return { callApi, budget, calls: () => callsMade };
+}
+
+export interface ListPostmanWorkspacesOptions {
+  /** Held in memory for the call only — never persisted, never logged. */
+  apiKey: string;
+  apiOrigin?: string;
+  fetchFn?: PullFetchFn;
+  sleep?: SleepFn;
+}
+
+/**
+ * Enumeration-only preflight for the selection step: the workspace list
+ * plus per-workspace item counts (1 + W calls). A failed detail read
+ * degrades that workspace's counts to zero rather than failing the
+ * list; a terminal failure (rejected key, monthly cap) fails the call
+ * with its reason.
+ */
+export async function listPostmanWorkspaces(
+  options: ListPostmanWorkspacesOptions,
+): Promise<PostmanWorkspaceListResult> {
+  const sleep = options.sleep ?? defaultSleep;
+  const caller = createApiCaller({
+    apiKey: options.apiKey,
+    ...(options.apiOrigin !== undefined ? { apiOrigin: options.apiOrigin } : {}),
+    fetchFn: options.fetchFn ?? defaultFetch,
+    sleep,
+    onEvent: () => {},
+  });
+  try {
+    const list = readWorkspaceList(await caller.callApi(workspaceListUrl()));
+    if (!list.ok) return { ok: false, reason: list.reason };
+    const workspaces: PostmanWorkspacePreview[] = [];
+    for (const workspace of list.value.workspaces) {
+      await sleep(ENUMERATION_CALL_SPACING_MS);
+      let collections = 0;
+      let environments = 0;
+      try {
+        const detail = readWorkspaceDetail(workspace.id, await caller.callApi(workspaceDetailUrl(workspace.id)));
+        if (detail.ok) {
+          collections = detail.value.collections.length;
+          environments = detail.value.environments.length;
+        }
+      } catch (err) {
+        if (err instanceof TerminalPullError) throw err;
+        // A single unreadable workspace stays listed with zero counts.
+      }
+      workspaces.push({
+        id: workspace.id,
+        name: workspace.name,
+        ...(workspace.type !== undefined ? { type: workspace.type } : {}),
+        collections,
+        environments,
+      });
+    }
+    return { ok: true, workspaces, budget: caller.budget };
+  } catch (err) {
+    return { ok: false, reason: failureReason(err) };
+  }
+}
+
+export async function pullPostmanData(options: PullPostmanDataOptions): Promise<PostmanPullResult> {
+  const sleep = options.sleep ?? defaultSleep;
+  const emit = options.onEvent ?? (() => {});
+  const caller = createApiCaller({
+    apiKey: options.apiKey,
+    ...(options.apiOrigin !== undefined ? { apiOrigin: options.apiOrigin } : {}),
+    fetchFn: options.fetchFn ?? defaultFetch,
+    sleep,
+    onEvent: emit,
+  });
+  const { callApi, budget } = caller;
 
   const skipped: PostmanPullSkip[] = [];
   const collections: PulledCollection[] = [];
@@ -156,7 +253,7 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
       environments,
       skipped,
       budget,
-      callsMade,
+      callsMade: caller.calls(),
     };
   }
 
@@ -171,6 +268,10 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
   const list = readWorkspaceList(listText);
   if (!list.ok) return finish('failed', list.reason);
   workspaces = list.value.workspaces;
+  if (options.workspaceIds !== undefined) {
+    const selected = new Set(options.workspaceIds);
+    workspaces = workspaces.filter((workspace) => selected.has(workspace.id));
+  }
   if (list.value.malformedEntries > 0) {
     skipped.push({
       item: 'workspace',
@@ -178,7 +279,7 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
       reason: `${list.value.malformedEntries} workspace entr${list.value.malformedEntries === 1 ? 'y' : 'ies'} in the list had no usable id — skipped.`,
     });
   }
-  emit({ kind: 'enumerating', step: 'workspace-list', completedCalls: callsMade });
+  emit({ kind: 'enumerating', step: 'workspace-list', completedCalls: caller.calls() });
 
   const details: WorkspaceDetail[] = [];
   for (const workspace of workspaces) {
@@ -193,10 +294,17 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
             id: workspace.id,
             name: workspace.name,
             reason: `${detail.value.malformedRefs} item reference(s) in the workspace had no usable id — skipped.`,
+            workspaceIds: [workspace.id],
           });
         }
       } else {
-        skipped.push({ item: 'workspace', id: workspace.id, name: workspace.name, reason: detail.reason });
+        skipped.push({
+          item: 'workspace',
+          id: workspace.id,
+          name: workspace.name,
+          reason: detail.reason,
+          workspaceIds: [workspace.id],
+        });
       }
     } catch (err) {
       if (err instanceof TerminalPullError) {
@@ -205,12 +313,19 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
           id: workspace.id,
           name: workspace.name,
           reason: `Not enumerated — the run stopped early: ${err.failure.reason}`,
+          workspaceIds: [workspace.id],
         });
         return finish('partial', err.failure.reason);
       }
-      skipped.push({ item: 'workspace', id: workspace.id, name: workspace.name, reason: failureReason(err) });
+      skipped.push({
+        item: 'workspace',
+        id: workspace.id,
+        name: workspace.name,
+        reason: failureReason(err),
+        workspaceIds: [workspace.id],
+      });
     }
-    emit({ kind: 'enumerating', step: 'workspace-detail', completedCalls: callsMade });
+    emit({ kind: 'enumerating', step: 'workspace-detail', completedCalls: caller.calls() });
   }
 
   const plan = buildPullPlan(workspaces, details);
@@ -232,7 +347,12 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
       completedItems++;
       const name = payload.ok ? (payload.value.name ?? item.name) : item.name;
       if (payload.ok) {
-        const pulled = { id: item.id, ...(name !== undefined ? { name } : {}), json: payload.value.json };
+        const pulled = {
+          id: item.id,
+          ...(name !== undefined ? { name } : {}),
+          json: payload.value.json,
+          workspaceIds: [...item.workspaceIds],
+        };
         if (item.item === 'collection') collections.push({ item: 'collection', ...pulled });
         else environments.push({ item: 'environment', ...pulled });
         emit({
@@ -245,7 +365,13 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
           totalItems: plan.items.length,
         });
       } else {
-        skipped.push({ item: item.item, id: item.id, ...(name !== undefined ? { name } : {}), reason: payload.reason });
+        skipped.push({
+          item: item.item,
+          id: item.id,
+          ...(name !== undefined ? { name } : {}),
+          reason: payload.reason,
+          workspaceIds: [...item.workspaceIds],
+        });
         emit({
           kind: 'item-progress',
           item: item.item,
@@ -265,13 +391,20 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
             id: rest.id,
             ...(rest.name !== undefined ? { name: rest.name } : {}),
             reason: `Not pulled — the run stopped early: ${err.failure.reason}`,
+            workspaceIds: [...rest.workspaceIds],
           });
         }
         return finish('partial', err.failure.reason);
       }
       completedItems++;
       const reason = failureReason(err);
-      skipped.push({ item: item.item, id: item.id, ...(item.name !== undefined ? { name: item.name } : {}), reason });
+      skipped.push({
+        item: item.item,
+        id: item.id,
+        ...(item.name !== undefined ? { name: item.name } : {}),
+        reason,
+        workspaceIds: [...item.workspaceIds],
+      });
       emit({
         kind: 'item-progress',
         item: item.item,

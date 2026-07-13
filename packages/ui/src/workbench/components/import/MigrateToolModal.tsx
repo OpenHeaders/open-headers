@@ -258,8 +258,8 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
             </div>
             {startReason && <Alert type="error" showIcon message={startReason} style={{ marginTop: 8 }} />}
             <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
-              Progress appears in the corner — everything lands in an “Imported from Postman” workspace with one
-              end-of-run report.
+              Progress appears in the corner — each Postman workspace lands in its own workspace, keeping its exact
+              name, with an end-of-run report.
             </Paragraph>
           </div>
         </>

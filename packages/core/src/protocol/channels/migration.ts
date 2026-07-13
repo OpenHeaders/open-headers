@@ -10,6 +10,7 @@
  */
 
 import type { MigrationPullRunState } from '../../import/api-pull/progress';
+import type { PostmanWorkspaceListResult } from '../../import/api-pull/types';
 import type { DataScanSkip, ToolDataFinding } from '../../import/data-scan';
 import type { ToolInstallFinding } from '../../import/install-detect';
 
@@ -55,12 +56,23 @@ export interface MigrationRpc {
    */
   'oh.migration.readBackup': { req: { path: string }; res: MigrationReadBackupResult };
   /**
+   * The selection step's preflight: enumerate the account's workspaces
+   * with item counts so the user picks which ones to import. The key
+   * rides this call's memory only — same law as `start`.
+   */
+  'oh.migration.postmanPull.listWorkspaces': { req: { apiKey: string }; res: PostmanWorkspaceListResult };
+  /**
    * Start the background pull. One run at a time per host — a second
    * `start` while one is in flight answers `started: false` with the
    * reason. Resolves as soon as the run is accepted; progress and the
    * materialization tail arrive via `migrationPullEvent`.
+   * `workspaceIds` narrows the pull to the selection step's choice;
+   * omitted, every workspace on the account pulls.
    */
-  'oh.migration.postmanPull.start': { req: { apiKey: string }; res: MigrationPullStartResult };
+  'oh.migration.postmanPull.start': {
+    req: { apiKey: string; workspaceIds?: string[] };
+    res: MigrationPullStartResult;
+  };
   /**
    * Folded state of the current (or last) run — late-joining surfaces
    * hydrate from this, then keep folding `migrationPullEvent` events

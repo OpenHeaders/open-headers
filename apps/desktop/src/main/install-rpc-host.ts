@@ -61,6 +61,7 @@ import {
   createMigrationPeerRpc,
   createMigrationPullRunner,
   detectInstalledTools,
+  listPostmanWorkspaces,
   readPostmanBackupFile,
   scanToolData,
 } from '@openheaders/oracle-host-node/migration';
@@ -261,7 +262,21 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'oh.migration.postmanPull.start') {
       const apiKey = typeof message.apiKey === 'string' ? message.apiKey.trim() : '';
       if (!apiKey) return { started: false, reason: 'An API key is required to start the pull.' };
-      return migrationPullRunner.start(apiKey);
+      const workspaceIds = Array.isArray(message.workspaceIds)
+        ? message.workspaceIds.filter((id): id is string => typeof id === 'string')
+        : undefined;
+      return migrationPullRunner.start(apiKey, workspaceIds);
+    }
+    // The selection step's preflight: names + item counts, so the user
+    // picks which vendor workspaces to import before anything pulls.
+    // The key rides this call's memory only — same law as the start RPC.
+    if (type === 'oh.migration.postmanPull.listWorkspaces') {
+      const apiKey = typeof message.apiKey === 'string' ? message.apiKey.trim() : '';
+      if (!apiKey) return { ok: false, reason: 'An API key is required to list workspaces.' };
+      return listPostmanWorkspaces({
+        apiKey,
+        ...(migrationApiOrigin !== undefined && migrationApiOrigin !== '' ? { apiOrigin: migrationApiOrigin } : {}),
+      });
     }
     if (type === 'oh.migration.postmanPull.getState') {
       return migrationPullRunner.getState();
@@ -296,7 +311,8 @@ export async function installRpcHost(): Promise<void> {
     }
     if (type === 'listImportReports') {
       try {
-        return { reports: await listImportReports() };
+        const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
+        return { reports: await listImportReports(workspaceId) };
       } catch {
         return { reports: [] };
       }

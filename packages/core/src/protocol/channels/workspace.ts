@@ -240,9 +240,11 @@ export interface WorkspaceRpc {
     res: { success: boolean; error?: string };
   };
   /** Read the full ring — oldest first. Callers typically reverse()
-   *  for most-recent-first display. */
+   *  for most-recent-first display. `workspaceId` targets an explicit
+   *  workspace's ring (the migration report view reads per-workspace
+   *  rings without switching); omitted, the active workspace applies. */
   listImportReports: {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { reports: ImportReport[] };
   };
   /** Drop every report for the active workspace. */

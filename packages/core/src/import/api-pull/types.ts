@@ -54,6 +54,8 @@ export interface PulledCollection {
   name?: string;
   /** Collection v2.1 JSON. */
   json: string;
+  /** Workspaces that listed the item — parity materialization lands it in each. */
+  workspaceIds: string[];
 }
 
 /** A pulled environment, unwrapped and ready for `parsePostmanEnvironment`. */
@@ -62,6 +64,8 @@ export interface PulledEnvironment {
   id: string;
   name?: string;
   json: string;
+  /** Workspaces that listed the item — parity materialization lands it in each. */
+  workspaceIds: string[];
 }
 
 /** An item that yielded no payload — always with the reason. */
@@ -70,6 +74,12 @@ export interface PostmanPullSkip {
   id: string;
   name?: string;
   reason: string;
+  /**
+   * Workspaces the skip concerns — routes it into those workspaces'
+   * reports. Absent when unattributable (a malformed list entry);
+   * such skips surface in every report of the run.
+   */
+  workspaceIds?: string[];
 }
 
 export type PostmanPullOutcome = 'complete' | 'partial' | 'failed';
@@ -87,16 +97,43 @@ export interface PostmanPullResult {
 }
 
 /**
- * What the landing-workspace materialization produced — the pulled
- * payloads after the standard parser path minted real entities.
+ * A workspace preview for the pre-pull selection step: names + item
+ * counts, so the user picks which vendor workspaces to import before
+ * any payload is pulled.
  */
-export interface PostmanImportSummary {
+export interface PostmanWorkspacePreview {
+  id: string;
+  name: string;
+  type?: string;
+  collections: number;
+  environments: number;
+}
+
+export type PostmanWorkspaceListResult =
+  | { ok: true; workspaces: PostmanWorkspacePreview[]; budget: { limitMonth?: number; remainingMonth?: number } }
+  | { ok: false; reason: string };
+
+/** One materialized workspace of a run — 1:1 with a vendor workspace. */
+export interface PostmanImportedWorkspace {
   workspaceId: string;
   workspaceName: string;
   collections: number;
   environments: number;
   requests: number;
-  /** Aggregated-report drop count — the "view report" teaser number. */
+  /** That workspace's report drop count. */
+  drops: number;
+}
+
+/**
+ * What the parity materialization produced — one entry per vendor
+ * workspace (exact-name counterparts), plus run totals.
+ */
+export interface PostmanImportSummary {
+  workspaces: PostmanImportedWorkspace[];
+  collections: number;
+  environments: number;
+  requests: number;
+  /** Total drop count across the run — the "view report" teaser number. */
   drops: number;
 }
 

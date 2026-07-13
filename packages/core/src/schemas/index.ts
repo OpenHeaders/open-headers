@@ -157,6 +157,7 @@ export {
   WorkspaceVariablesSchema,
 } from './variable';
 export {
+  ExtensionWorkspaceImportedFromSchema,
   ExtensionWorkspaceKindSchema,
   ExtensionWorkspaceSchema,
   ExtensionWorkspaceSourceSchema,

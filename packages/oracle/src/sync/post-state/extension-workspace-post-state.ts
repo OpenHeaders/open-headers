@@ -82,6 +82,7 @@ function toExtensionWorkspace(slot: ExtensionWorkspaceSlot, sortIndex: number): 
     createdAt: slot.createdAt,
     updatedAt: slot.updatedAt,
     source: slot.source,
+    importedFrom: slot.importedFrom,
     orgId: slot.orgId,
   };
 }

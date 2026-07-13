@@ -8,7 +8,12 @@
 
 import type { PostmanPullEvent } from '@openheaders/core/import';
 import { describe, expect, it } from 'vitest';
-import { type PullFetchFn, type PullHttpResponse, pullPostmanData } from '../../../src/migration/api-pull';
+import {
+  listPostmanWorkspaces,
+  type PullFetchFn,
+  type PullHttpResponse,
+  pullPostmanData,
+} from '../../../src/migration/api-pull';
 
 const API_KEY = 'PMAK-secret-key-openheaders-test';
 
@@ -278,6 +283,72 @@ describe('pullPostmanData', () => {
     const result = await pullPostmanData({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
     expect(result.outcome).toBe('complete');
     expect(result.skipped).toHaveLength(1);
-    expect(result.skipped[0]).toMatchObject({ item: 'workspace', id: 'ws-1' });
+    expect(result.skipped[0]).toMatchObject({ item: 'workspace', id: 'ws-1', workspaceIds: ['ws-1'] });
+  });
+
+  it('attributes pulled items to the workspaces that listed them', async () => {
+    const { fetchFn } = fetchStub(happyRoutes());
+    const result = await pullPostmanData({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
+    expect(result.collections[0]?.workspaceIds).toEqual(['ws-1']);
+    expect(result.environments[0]?.workspaceIds).toEqual(['ws-1']);
+  });
+
+  it('narrows the pull to the selected workspaces', async () => {
+    const twoWorkspaces = { workspaces: [...workspaceList.workspaces, { id: 'ws-2', name: 'Side', type: 'personal' }] };
+    const routes: Route[] = [
+      { url: LIST_URL, respond: () => response(twoWorkspaces) },
+      { url: DETAIL_URL, respond: () => response(workspaceDetail) },
+      { url: COLLECTION_URL, respond: () => response(collectionBody) },
+      { url: ENVIRONMENT_URL, respond: () => response(environmentBody) },
+    ];
+    const { fetchFn, calls } = fetchStub(routes);
+    const result = await pullPostmanData({
+      apiKey: API_KEY,
+      workspaceIds: ['ws-1'],
+      fetchFn,
+      sleep: () => Promise.resolve(),
+    });
+
+    expect(result.outcome).toBe('complete');
+    expect(result.workspaces).toEqual([{ id: 'ws-1', name: 'Team', type: 'team' }]);
+    // ws-2 was never enumerated — no detail call went out for it.
+    expect(calls.map((call) => call.url)).toEqual([LIST_URL, DETAIL_URL, COLLECTION_URL, ENVIRONMENT_URL]);
+  });
+});
+
+describe('listPostmanWorkspaces', () => {
+  it('answers names + item counts from the enumeration calls only', async () => {
+    const { fetchFn, calls } = fetchStub(happyRoutes().slice(0, 2));
+    const result = await listPostmanWorkspaces({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
+
+    expect(result).toEqual({
+      ok: true,
+      workspaces: [{ id: 'ws-1', name: 'Team', type: 'team', collections: 1, environments: 1 }],
+      budget: {},
+    });
+    // No item pull ever went out — the preflight is enumeration-only.
+    expect(calls.map((call) => call.url)).toEqual([LIST_URL, DETAIL_URL]);
+    expect(calls.every((call) => call.key === API_KEY)).toBe(true);
+  });
+
+  it('keeps an unreadable workspace listed with zero counts', async () => {
+    const routes = happyRoutes().slice(0, 2);
+    routes[1] = { url: DETAIL_URL, respond: () => response({ nope: true }) };
+    const { fetchFn } = fetchStub(routes);
+    const result = await listPostmanWorkspaces({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
+    expect(result).toMatchObject({
+      ok: true,
+      workspaces: [{ id: 'ws-1', name: 'Team', collections: 0, environments: 0 }],
+    });
+  });
+
+  it('fails with a reason when the key is rejected, without echoing it', async () => {
+    const { fetchFn } = fetchStub([
+      { url: LIST_URL, respond: () => response({ error: { name: 'AuthenticationError' } }, { status: 401 }) },
+    ]);
+    const result = await listPostmanWorkspaces({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('rejected the key');
+    expect(JSON.stringify(result)).not.toContain(API_KEY);
   });
 });
