@@ -104,7 +104,9 @@ describe('EventStreamView — grid', () => {
   });
 
   it('the Time sort toggle reverses the order', () => {
-    const { container } = renderView(makeSseLifecycle([sse({ atMs: 1, data: 'first' }), sse({ atMs: 2, data: 'second' })]));
+    const { container } = renderView(
+      makeSseLifecycle([sse({ atMs: 1, data: 'first' }), sse({ atMs: 2, data: 'second' })]),
+    );
     fireEvent.click(screen.getByTitle('Sort by time'));
     expect(rowTexts(container)).toEqual(['second', 'first']);
     fireEvent.click(screen.getByTitle('Sort by time'));
@@ -383,7 +385,14 @@ describe('EventStreamView — Original | Modified split', () => {
         resourceType: 'eventsource',
         messages: [sse({ data: 'first', atMs: 1_000 })],
         messageCaptures: [
-          { ruleUid: 'sse1', direction: 'receive', op: 'injected', eventName: 'message', delivered: 'SYNTH', atMs: 1_500 },
+          {
+            ruleUid: 'sse1',
+            direction: 'receive',
+            op: 'injected',
+            eventName: 'message',
+            delivered: 'SYNTH',
+            atMs: 1_500,
+          },
         ],
       });
       const { container, rerender } = renderView(lc);
@@ -400,6 +409,38 @@ describe('EventStreamView — Original | Modified split', () => {
       );
       expect(rowTexts(container)).toEqual(['later']);
     });
+  });
+});
+
+describe('EventStreamView — keyboard navigation', () => {
+  function selectionStates(container: HTMLElement): string[] {
+    return [...container.querySelectorAll('[role="option"]')].map((row) => row.getAttribute('aria-selected') ?? '');
+  }
+
+  it('ArrowDown / ArrowUp walk the selection through the rows and clamp at the ends', () => {
+    const { container } = renderView(
+      makeSseLifecycle([sse({ atMs: 1, data: 'a' }), sse({ atMs: 2, data: 'b' }), sse({ atMs: 3, data: 'c' })]),
+    );
+    const list = screen.getByRole('listbox', { name: 'Server-sent events' });
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selectionStates(container)).toEqual(['true', 'false', 'false']);
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selectionStates(container)).toEqual(['false', 'true', 'false']);
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selectionStates(container)).toEqual(['false', 'false', 'true']);
+    fireEvent.keyDown(list, { key: 'ArrowUp' });
+    expect(selectionStates(container)).toEqual(['false', 'true', 'false']);
+  });
+
+  it('ArrowUp with no selection starts from the last row; the selection feeds the preview', () => {
+    const { container } = renderView(
+      makeSseLifecycle([sse({ atMs: 1, data: 'first' }), sse({ atMs: 2, data: 'last' })]),
+    );
+    const list = screen.getByRole('listbox', { name: 'Server-sent events' });
+    fireEvent.keyDown(list, { key: 'ArrowUp' });
+    expect(selectionStates(container)).toEqual(['false', 'true']);
+    expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('last');
   });
 });
 
@@ -455,7 +496,10 @@ describe('EventStreamView — row actions', () => {
   it('the edit action is per event — an unmatched event keeps Override', () => {
     const rule = makeSseRule({ operation: 'modify', eventName: 'tick', payload: 'X' });
     const { container } = renderView(
-      makeSseLifecycle([sse({ eventName: 'tick', data: 'a', atMs: 1 }), sse({ eventName: 'message', data: 'b', atMs: 2 })]),
+      makeSseLifecycle([
+        sse({ eventName: 'tick', data: 'a', atMs: 1 }),
+        sse({ eventName: 'message', data: 'b', atMs: 2 }),
+      ]),
       { fires: [makeFire()], rules: [rule] },
     );
     const rows = [...container.querySelectorAll('[role="option"]')];

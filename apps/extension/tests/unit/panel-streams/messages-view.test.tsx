@@ -152,6 +152,36 @@ describe('MessagesView — toolbar filters', () => {
   });
 });
 
+describe('MessagesView — keyboard navigation', () => {
+  function selectionStates(container: HTMLElement): string[] {
+    return [...container.querySelectorAll('[role="option"]')].map((row) => row.getAttribute('aria-selected') ?? '');
+  }
+
+  it('ArrowDown / ArrowUp walk the selection through the rows and clamp at the ends', () => {
+    const { container } = renderView(
+      makeWsLifecycle([ws({ atMs: 1, data: 'a' }), ws({ atMs: 2, data: 'b' }), ws({ atMs: 3, data: 'c' })]),
+    );
+    const list = screen.getByRole('listbox', { name: 'WebSocket messages' });
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selectionStates(container)).toEqual(['true', 'false', 'false']);
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selectionStates(container)).toEqual(['false', 'true', 'false']);
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selectionStates(container)).toEqual(['false', 'false', 'true']);
+    fireEvent.keyDown(list, { key: 'ArrowUp' });
+    expect(selectionStates(container)).toEqual(['false', 'true', 'false']);
+  });
+
+  it('ArrowUp with no selection starts from the last row; the selection feeds the preview', () => {
+    const { container } = renderView(makeWsLifecycle([ws({ atMs: 1, data: 'first' }), ws({ atMs: 2, data: 'last' })]));
+    const list = screen.getByRole('listbox', { name: 'WebSocket messages' });
+    fireEvent.keyDown(list, { key: 'ArrowUp' });
+    expect(selectionStates(container)).toEqual(['false', 'true']);
+    expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('last');
+  });
+});
+
 describe('MessagesView — preview pane', () => {
   it('starts on the no-selection empty state', () => {
     renderView(makeWsLifecycle([ws()]));
@@ -441,9 +471,7 @@ describe('MessagesView — Original | Modified split', () => {
         resourceType: 'websocket',
         statusCode: 101,
         messages: [ws({ data: 'first', atMs: 1_000 })],
-        messageCaptures: [
-          { ruleUid: 'ws1', direction: 'receive', op: 'injected', delivered: 'SYNTH', atMs: 1_500 },
-        ],
+        messageCaptures: [{ ruleUid: 'ws1', direction: 'receive', op: 'injected', delivered: 'SYNTH', atMs: 1_500 }],
       });
       const { container, rerender } = renderView(lc);
       expect(container.querySelectorAll('[role="option"]')).toHaveLength(2);
@@ -582,7 +610,9 @@ describe('MessagesView — empty states and truncation', () => {
   });
 
   it('heuristic leg explains the missing plane', () => {
-    render(<MessagesView lifecycle={makeWsLifecycle([])} har={null} source="heuristic" fires={[]} rulesByUid={new Map()} />);
+    render(
+      <MessagesView lifecycle={makeWsLifecycle([])} har={null} source="heuristic" fires={[]} rulesByUid={new Map()} />,
+    );
     expect(screen.getByText('WebSocket frames are only visible with debug mode enabled for this tab.')).toBeTruthy();
   });
 

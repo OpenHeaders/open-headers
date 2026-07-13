@@ -83,6 +83,11 @@
   grid-template-columns: var(--dt-ws-cols, 14px 20px minmax(140px, 1fr) 84px 92px);
   gap: 8px;
   padding: 2px 8px;
+  /* Pinned border-box height (incl. the 1px bottom border) — mirrored
+     by STREAM_ROW_PX in use-stream-row-window.ts; the row window divides
+     by it, never measures. Row content that could grow the box (hover
+     actions) is absolutely positioned, so the pin holds. */
+  height: 20px;
   border-bottom: 1px solid var(--dt-border);
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
@@ -92,6 +97,9 @@
 .dt-ws-row-header {
   font-family: inherit;
   font-weight: 600;
+  /* Pinned header band — mirrored by STREAM_HEADER_PX in
+     use-stream-row-window.ts (scrollToPos offsets the sticky band). */
+  height: 22px;
   position: sticky;
   top: 0;
   /* Above the frame rows' hover-action scrims (z-index 1), which paint
@@ -405,6 +413,9 @@
   grid-template-columns: var(--dt-sse-cols, 14px 64px 96px minmax(140px, 1fr) 92px);
   gap: 8px;
   padding: 2px 8px;
+  /* Pinned border-box height — mirrored by STREAM_ROW_PX in
+     use-stream-row-window.ts (same contract as `.dt-ws-row`). */
+  height: 20px;
   border-bottom: 1px solid var(--dt-border);
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
@@ -414,6 +425,9 @@
 .dt-sse-row-header {
   font-family: inherit;
   font-weight: 600;
+  /* Pinned header band — mirrored by STREAM_HEADER_PX in
+     use-stream-row-window.ts (scrollToPos offsets the sticky band). */
+  height: 22px;
   position: sticky;
   top: 0;
   /* Above the event rows' hover-action scrims (z-index 1), which paint

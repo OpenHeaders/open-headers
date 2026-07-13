@@ -45,7 +45,14 @@ import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
 import { InfoPopover } from '@openheaders/ui/shared/info-popover';
 import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { Allotment } from 'allotment';
-import { type CSSProperties, type MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   firedWsRules,
   type MessageFireTier,
@@ -65,6 +72,7 @@ import { compileStreamFilter } from './streams/stream-filter';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
 import { useMessagesSplitLayout } from './streams/use-messages-split-layout';
 import { useStickToBottom } from './streams/use-stick-to-bottom';
+import { useStreamRowWindow } from './streams/use-stream-row-window';
 import { WS_COLUMNS, wsColumnMinWidth, wsGridTemplate } from './streams/ws-grid';
 import {
   frameDataLabel,
@@ -249,7 +257,17 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
     return filtered;
   }, [all, attributionByIndex, clearedFloors, direction, filterText, sortDir]);
 
-  const { onScroll } = useStickToBottom(listRef, visible.length);
+  const { onScroll: onStickScroll } = useStickToBottom(listRef, visible.length);
+  // Virtualized grid — only the visible slice mounts (uniform pinned-height
+  // rows; see use-stream-row-window for the sticky-header decision).
+  const { onScroll: onWindowScroll, start, end, topPadPx, bottomPadPx, scrollToPos } = useStreamRowWindow(
+    listRef,
+    visible.length,
+  );
+  const onScroll = useCallback(() => {
+    onStickScroll();
+    onWindowScroll();
+  }, [onStickScroll, onWindowScroll]);
 
   if (all.length === 0) {
     // A receive-inject writes synthetic frames straight into the page —
@@ -288,6 +306,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
     const pos = selectedIndex == null ? -1 : visible.findIndex((f) => f.index === selectedIndex);
     const next = pos < 0 ? (delta === 1 ? 0 : visible.length - 1) : Math.min(visible.length - 1, Math.max(0, pos + delta));
     setSelectedIndex(visible[next].index);
+    scrollToPos(next);
   };
 
   return (
@@ -382,7 +401,8 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                   </div>
                 ))}
               </div>
-              {visible.map((m) => {
+              {topPadPx > 0 && <div aria-hidden="true" style={{ height: topPadPx }} />}
+              {visible.slice(start, end).map((m) => {
                 const isSelected = m.index === selectedIndex;
                 const attribution = attributionByIndex.get(m.index) ?? null;
                 const fireTier = attribution?.tier ?? null;
@@ -466,6 +486,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                   </div>
                 );
               })}
+              {bottomPadPx > 0 && <div aria-hidden="true" style={{ height: bottomPadPx }} />}
             </div>
           </Allotment.Pane>
           <Allotment.Pane minSize={layout === 'vertical' ? 60 : 160} visible={showPreview}>
