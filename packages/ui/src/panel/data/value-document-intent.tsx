@@ -10,7 +10,7 @@
  * mounts the provider — no affordance there by construction).
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { BuildRuleValueTabInput } from './inspector-tab';
 
 export type RuleValueDocumentTarget = Omit<BuildRuleValueTabInput, 'timestamp'>;
@@ -34,14 +34,26 @@ export function ValueDocumentIntentProvider({ children }: { children: React.Reac
   return <ValueDocumentIntentContext.Provider value={value}>{children}</ValueDocumentIntentContext.Provider>;
 }
 
-/** Register the real opener (the tab-group owner). Cleared on unmount. */
+/**
+ * Register the real opener (the tab-group owner). Cleared on unmount.
+ *
+ * Registers a stable trampoline that reads the latest `open` from a ref, so
+ * the provider's state is written once per mount — never per `open`
+ * identity. Keying the effect on the caller's function would make every
+ * re-registration a context-state write, and a caller whose function
+ * changes per render then loops render → cleanup `setOpener(null)` →
+ * `setOpener(next)` → context change → render, straight into React's
+ * nested-update limit (#185).
+ */
 export function useRegisterValueDocumentOpener(open: OpenValueDocument): void {
   const setOpener = useContext(ValueDocumentIntentContext)?.setOpener;
+  const openRef = useRef(open);
+  openRef.current = open;
   useEffect(() => {
     if (setOpener === undefined) return;
-    setOpener(open);
+    setOpener((target) => openRef.current(target));
     return () => setOpener(null);
-  }, [setOpener, open]);
+  }, [setOpener]);
 }
 
 /** The dispatch, or null when no opener is registered (or the provider
