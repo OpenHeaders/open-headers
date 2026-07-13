@@ -50,10 +50,12 @@ import {
   useResolvedFrames,
 } from '../data/initiator/use-resolved-frames';
 import { useStickToBottom } from './detail/streams/use-stick-to-bottom';
+import { CONSOLE_ROW_PX, consoleStackPx, useConsoleRowWindow } from './use-console-row-window';
 import { formatClock } from '../data/timing/format-time';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
 import { ConsoleContextSelector } from './ConsoleContextSelector';
 import { ConsolePrompt } from './ConsolePrompt';
+import { ConsoleSettingInfo } from './ConsoleSettingInfo';
 import { IconClear, IconCollapseAll, IconExpandAll } from './toolbar-icons';
 import { ToolbarMenuPopover } from './ToolbarMenuPopover';
 
@@ -403,7 +405,29 @@ export function ConsoleView({
     setExpanded(allExpanded ? new Set() : new Set(expandableKeys));
   };
 
-  const { onScroll } = useStickToBottom(bodyRef, rows.length);
+  const { onScroll: onStickScroll } = useStickToBottom(bodyRef, rows.length);
+
+  // Virtualized log: only the visible slice mounts. Heights are a closed
+  // formula per row (pinned row line + expanded ladder by frame count), so
+  // the window needs no measurement — see use-console-row-window.
+  const rowHeights = useMemo(
+    () =>
+      rows.map(
+        (row) =>
+          CONSOLE_ROW_PX +
+          (row.stack !== null && expanded.has(row.rowKey) ? consoleStackPx(row.stack.length) : 0),
+      ),
+    [rows, expanded],
+  );
+  const { onScroll: onWindowScroll, start, end, topPadPx, bottomPadPx } = useConsoleRowWindow(
+    bodyRef,
+    rowHeights,
+    rows.length > 0,
+  );
+  const onScroll = useCallback(() => {
+    onStickScroll();
+    onWindowScroll();
+  }, [onStickScroll, onWindowScroll]);
 
   // Capture is live only on a CDP-attached, in-scope tab. "Debug mode off" is
   // the one out-of-scope case we can resolve in place (flip the master switch);
@@ -542,83 +566,109 @@ export function ConsoleView({
       />
 
       {prefs.settingsOpen && (
-        // Rows in the browser's settings-pane order.
+        // Rows in the browser's settings-pane order. The (i) trigger sits
+        // beside — not inside — each label so its glyph never leaks into the
+        // checkbox's accessible name and its click can't toggle the checkbox.
         <div className="dt-console-settings-pane" role="group" aria-label="Console settings">
-          <label className="dt-console-setting" title="Hide the browser's network log entries (failed and blocked requests)">
-            <input
-              type="checkbox"
-              checked={prefs.hideNetwork}
-              onChange={(e) => setConsolePrefs({ hideNetwork: e.target.checked })}
-            />
-            Hide network
-          </label>
-          <label className="dt-console-setting" title="Log a message when an XHR, fetch, or EventSource request finishes or fails">
-            <input
-              type="checkbox"
-              checked={prefs.logXhr}
-              onChange={(e) => setConsolePrefs({ logXhr: e.target.checked })}
-            />
-            Log XMLHttpRequests
-          </label>
-          <label className="dt-console-setting" title="Do not clear the log on navigation">
-            <input
-              type="checkbox"
-              checked={prefs.preserveLog}
-              onChange={(e) => setConsolePrefs({ preserveLog: e.target.checked })}
-            />
-            Preserve log
-          </label>
-          <label className="dt-console-setting" title="Eagerly evaluate text in the prompt (side-effect-free preview)">
-            <input
-              type="checkbox"
-              checked={prefs.eagerEval}
-              onChange={(e) => setConsolePrefs({ eagerEval: e.target.checked })}
-            />
-            Eager evaluation
-          </label>
-          <label className="dt-console-setting" title="Only show messages from the selected context">
-            <input
-              type="checkbox"
-              checked={prefs.selectedContextOnly}
-              onChange={(e) => setConsolePrefs({ selectedContextOnly: e.target.checked })}
-            />
-            Selected context only
-          </label>
-          <label className="dt-console-setting" title="Suggest commands you ran before as you type in the prompt">
-            <input
-              type="checkbox"
-              checked={prefs.autocompleteHistory}
-              onChange={(e) => setConsolePrefs({ autocompleteHistory: e.target.checked })}
-            />
-            Autocomplete from history
-          </label>
-          <label className="dt-console-setting" title="Collapse repeated identical messages into one row with a count">
-            <input
-              type="checkbox"
-              checked={prefs.groupSimilar}
-              onChange={(e) => setConsolePrefs({ groupSimilar: e.target.checked })}
-            />
-            Group similar messages in console
-          </label>
-          <label
-            className="dt-console-setting"
-            title="Evaluate with a user gesture, so APIs gated on user activation work from the prompt"
-          >
-            <input
-              type="checkbox"
-              checked={prefs.evalUserGesture}
-              onChange={(e) => setConsolePrefs({ evalUserGesture: e.target.checked })}
-            />
-            Treat code evaluation as user action
-          </label>
-          <label className="dt-console-setting" title="Show CORS policy errors alongside the page's own output">
-            <input
-              type="checkbox"
-              checked={prefs.showCorsErrors}
-              onChange={(e) => setConsolePrefs({ showCorsErrors: e.target.checked })}
-            />
-            Show CORS errors in console
-          </label>
+          <div className="dt-console-setting">
+            <label title="Hide the browser's network log entries (failed and blocked requests)">
+              <input
+                type="checkbox"
+                checked={prefs.hideNetwork}
+                onChange={(e) => setConsolePrefs({ hideNetwork: e.target.checked })}
+              />
+              Hide network
+            </label>
+            <ConsoleSettingInfo infoKey="hideNetwork" />
+          </div>
+          <div className="dt-console-setting">
+            <label title="Log a message when an XHR, fetch, or EventSource request finishes or fails">
+              <input
+                type="checkbox"
+                checked={prefs.logXhr}
+                onChange={(e) => setConsolePrefs({ logXhr: e.target.checked })}
+              />
+              Log XMLHttpRequests
+            </label>
+            <ConsoleSettingInfo infoKey="logXhr" />
+          </div>
+          <div className="dt-console-setting">
+            <label title="Do not clear the log on navigation">
+              <input
+                type="checkbox"
+                checked={prefs.preserveLog}
+                onChange={(e) => setConsolePrefs({ preserveLog: e.target.checked })}
+              />
+              Preserve log
+            </label>
+            <ConsoleSettingInfo infoKey="preserveLog" />
+          </div>
+          <div className="dt-console-setting">
+            <label title="Eagerly evaluate text in the prompt (side-effect-free preview)">
+              <input
+                type="checkbox"
+                checked={prefs.eagerEval}
+                onChange={(e) => setConsolePrefs({ eagerEval: e.target.checked })}
+              />
+              Eager evaluation
+            </label>
+            <ConsoleSettingInfo infoKey="eagerEval" />
+          </div>
+          <div className="dt-console-setting">
+            <label title="Only show messages from the selected context">
+              <input
+                type="checkbox"
+                checked={prefs.selectedContextOnly}
+                onChange={(e) => setConsolePrefs({ selectedContextOnly: e.target.checked })}
+              />
+              Selected context only
+            </label>
+            <ConsoleSettingInfo infoKey="selectedContextOnly" />
+          </div>
+          <div className="dt-console-setting">
+            <label title="Suggest commands you ran before as you type in the prompt">
+              <input
+                type="checkbox"
+                checked={prefs.autocompleteHistory}
+                onChange={(e) => setConsolePrefs({ autocompleteHistory: e.target.checked })}
+              />
+              Autocomplete from history
+            </label>
+            <ConsoleSettingInfo infoKey="autocompleteHistory" />
+          </div>
+          <div className="dt-console-setting">
+            <label title="Collapse repeated identical messages into one row with a count">
+              <input
+                type="checkbox"
+                checked={prefs.groupSimilar}
+                onChange={(e) => setConsolePrefs({ groupSimilar: e.target.checked })}
+              />
+              Group similar messages in console
+            </label>
+            <ConsoleSettingInfo infoKey="groupSimilar" />
+          </div>
+          <div className="dt-console-setting">
+            <label title="Evaluate with a user gesture, so APIs gated on user activation work from the prompt">
+              <input
+                type="checkbox"
+                checked={prefs.evalUserGesture}
+                onChange={(e) => setConsolePrefs({ evalUserGesture: e.target.checked })}
+              />
+              Treat code evaluation as user action
+            </label>
+            <ConsoleSettingInfo infoKey="evalUserGesture" />
+          </div>
+          <div className="dt-console-setting">
+            <label title="Show CORS policy errors alongside the page's own output">
+              <input
+                type="checkbox"
+                checked={prefs.showCorsErrors}
+                onChange={(e) => setConsolePrefs({ showCorsErrors: e.target.checked })}
+              />
+              Show CORS errors in console
+            </label>
+            <ConsoleSettingInfo infoKey="showCorsErrors" />
+          </div>
         </div>
       )}
 
@@ -650,16 +700,20 @@ export function ConsoleView({
             {rows.length === 0 ? (
               <div className="dt-empty">No console entries match your filter.</div>
             ) : (
-              rows.map((row) => (
-                <ConsoleRowView
-                  key={row.rowKey}
-                  row={row}
-                  resolvedFrames={resolvedFrames}
-                  expanded={expanded.has(row.rowKey)}
-                  onToggleExpanded={toggleExpanded}
-                  onRequestClick={onRequestClick}
-                />
-              ))
+              <>
+                {topPadPx > 0 && <div aria-hidden="true" style={{ height: topPadPx, flex: '0 0 auto' }} />}
+                {rows.slice(start, end).map((row) => (
+                  <ConsoleRowView
+                    key={row.rowKey}
+                    row={row}
+                    resolvedFrames={resolvedFrames}
+                    expanded={expanded.has(row.rowKey)}
+                    onToggleExpanded={toggleExpanded}
+                    onRequestClick={onRequestClick}
+                  />
+                ))}
+                {bottomPadPx > 0 && <div aria-hidden="true" style={{ height: bottomPadPx, flex: '0 0 auto' }} />}
+              </>
             )}
           </>
         )}

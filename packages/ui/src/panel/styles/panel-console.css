@@ -38,10 +38,15 @@
   border-bottom: 1px solid var(--dt-border);
 }
 
+/* Height is PINNED (border-box, incl. the bottom border) — the log is
+   virtualized and the window math derives every offset from this value
+   (CONSOLE_ROW_PX in use-console-row-window.ts). Keep the two in sync. */
 .dt-console-row {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 8px;
+  height: 17px;
   padding: 1px 8px;
   border-bottom: 1px solid var(--dt-row-zebra);
 }
@@ -192,8 +197,12 @@ button.dt-console-caret:hover {
 
 /* Expanded stack ladder under a row — `function @ file:line` per frame,
    indented past the caret column, tinted with the owning row's severity. */
+/* The ladder's height is a closed formula of its frame count — 1px top +
+   3px bottom padding, 1px border, 13px frames with 1px gaps
+   (consoleStackPx in use-console-row-window.ts). Keep pinned in sync. */
 .dt-console-stack {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 1px;
   padding: 1px 8px 3px 40px;
@@ -204,6 +213,8 @@ button.dt-console-caret:hover {
   display: flex;
   gap: 6px;
   min-width: 0;
+  height: 13px;
+  line-height: 13px;
 }
 
 .dt-console-frame-fn {
@@ -353,7 +364,18 @@ button.dt-console-caret:hover {
   font-size: 11px;
 }
 
+/* Each setting = label (checkbox + text) + hover-revealed (i) trigger.
+   The trigger lives BESIDE the label, never inside it — its glyph must
+   not leak into the checkbox's accessible name, and its click must not
+   toggle the checkbox. */
 .dt-console-setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.dt-console-setting label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -365,6 +387,124 @@ button.dt-console-caret:hover {
 .dt-console-setting input[type='checkbox'] {
   margin: 0;
   accent-color: var(--dt-link);
+}
+
+/* The `.dt-header-info-trigger` base holds the glyph at opacity 0 (layout
+   kept, so revealing never reflows the row); revealed on row hover, focus,
+   or while its popover is open. */
+.dt-console-setting:hover .dt-console-setting-info,
+.dt-console-setting-info:focus-visible,
+.dt-console-setting-info[aria-expanded='true'] {
+  opacity: 1;
+}
+
+/* ── Console-setting info example card ─────────────────────────
+   The shared miniature transcript shown inside every setting's (i)
+   popover — same vocabulary as the network table's `.dt-col-eg*` card,
+   one fixed example with the setting's own slice highlighted. */
+.dt-console-eg {
+  margin: 0 0 2px;
+}
+.dt-console-eg-cap {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--dt-text-muted);
+  margin-bottom: 4px;
+}
+.dt-console-eg-card {
+  border: 1px solid var(--dt-border);
+  border-radius: 5px;
+  background: var(--dt-bg-alt);
+  padding: 6px 8px;
+  font-family: var(--ant-font-family-code, monospace);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.dt-console-eg-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--dt-text-muted);
+}
+.dt-console-eg-dot {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--dt-text-muted);
+}
+.dt-console-eg-dot[data-tone='info'] {
+  background: var(--dt-link);
+}
+.dt-console-eg-dot[data-tone='error'] {
+  background: var(--dt-status-red);
+}
+/* Navigation seam — the browser's "Navigated to …" divider row. */
+.dt-console-eg-nav {
+  font-style: italic;
+}
+/* REPL chevrons (`›` command, `‹` result/preview). */
+.dt-console-eg-glyph {
+  flex: 0 0 auto;
+  color: var(--dt-link);
+  font-weight: 700;
+}
+.dt-console-eg-glyph--result {
+  color: var(--dt-text-muted);
+}
+.dt-console-eg-prompt {
+  display: inline-flex;
+  min-width: 0;
+}
+.dt-console-eg-ghost {
+  opacity: 0.55;
+}
+/* Miniature repeat-count pill ("Group similar"). */
+.dt-console-eg-pill {
+  flex: 0 0 auto;
+  min-width: 11px;
+  padding: 0 3px;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 8px;
+  line-height: 11px;
+  color: #fff;
+  background: var(--dt-link);
+}
+/* Default token: readable but quiet, so the highlighted one pops. */
+.dt-console-eg-tok {
+  border-radius: 3px;
+  padding: 0 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The slice this setting affects — accent pill, full-strength text. */
+.dt-console-eg-hl {
+  background: color-mix(in srgb, var(--dt-link) 16%, transparent);
+  color: var(--dt-link);
+  font-weight: 700;
+  padding: 0 3px;
+  opacity: 1;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dt-link) 30%, transparent);
+}
+/* Error rows keep their semantic red even as the highlighted slice. */
+.dt-console-eg-row[data-tone='error'] .dt-console-eg-tok {
+  color: var(--dt-status-red);
+}
+.dt-console-eg-row[data-tone='error'] .dt-console-eg-hl {
+  background: color-mix(in srgb, var(--dt-status-red) 16%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dt-status-red) 30%, transparent);
+}
+/* The pill keeps its badge look; highlight adds the accent ring. */
+.dt-console-eg-pill.dt-console-eg-hl {
+  color: #fff;
+  background: var(--dt-link);
+  padding: 0 3px;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--dt-link) 45%, transparent);
 }
 
 /* ── REPL prompt + echo rows (JS contexts Phase D) ───────────────────

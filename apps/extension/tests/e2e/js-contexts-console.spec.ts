@@ -298,9 +298,10 @@ async function openSettingsPane(): Promise<void> {
 
 test('settings pane lists all nine settings in the browser order', async () => {
   await openSettingsPane();
+  // The (i) trigger sits beside each label, so the label text stays clean.
   const labels = await panelPage
     .getByRole('group', { name: 'Console settings' })
-    .locator('.dt-console-setting')
+    .locator('.dt-console-setting label')
     .allTextContents();
   expect(labels.map((t) => t.trim())).toEqual([
     'Hide network',
@@ -313,6 +314,31 @@ test('settings pane lists all nine settings in the browser order', async () => {
     'Treat code evaluation as user action',
     'Show CORS errors in console',
   ]);
+});
+
+test('hovering a setting reveals its (i), which opens the info popover without toggling the checkbox', async () => {
+  await openSettingsPane();
+  const setting = panelPage
+    .getByRole('group', { name: 'Console settings' })
+    .locator('.dt-console-setting')
+    .filter({ hasText: 'Preserve log' });
+  const trigger = setting.locator('.dt-console-setting-info');
+  // Scoped to the pane — the Network toolbar carries its own "Preserve log".
+  const checkbox = setting.getByRole('checkbox', { name: 'Preserve log' });
+  const wasChecked = await checkbox.isChecked();
+
+  // Hidden at rest (opacity 0, layout kept), revealed on row hover.
+  await expect(trigger).toHaveCSS('opacity', '0');
+  await setting.hover();
+  await expect(trigger).toHaveCSS('opacity', '1');
+
+  await trigger.click();
+  const popover = panelPage.locator('.oh-info-popover');
+  await expect(popover.locator('.oh-info-popover-title')).toHaveText('Preserve log');
+  await expect(popover.locator('.dt-console-eg-card')).toBeVisible();
+  expect(await checkbox.isChecked()).toBe(wasChecked);
+  await panelPage.keyboard.press('Escape');
+  await expect(popover).toBeHidden();
 });
 
 test('"Log XMLHttpRequests" synthesizes finished-loading rows for page fetches, gated live', async () => {

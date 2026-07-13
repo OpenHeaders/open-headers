@@ -888,7 +888,8 @@ describe('ConsoleView settings pane order (browser parity)', () => {
     renderView([]);
     fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
     const pane = screen.getByRole('group', { name: 'Console settings' });
-    const labels = [...pane.querySelectorAll('.dt-console-setting')].map((el) => el.textContent?.trim());
+    // The (i) trigger sits beside each label, so the label text stays clean.
+    const labels = [...pane.querySelectorAll('.dt-console-setting label')].map((el) => el.textContent?.trim());
     expect(labels).toEqual([
       'Hide network',
       'Log XMLHttpRequests',
@@ -900,5 +901,32 @@ describe('ConsoleView settings pane order (browser parity)', () => {
       'Treat code evaluation as user action',
       'Show CORS errors in console',
     ]);
+  });
+});
+
+describe('ConsoleView settings pane (i) info popovers', () => {
+  it('every setting carries an (i) trigger, and clicking one opens its popover with the shared example card', async () => {
+    renderView([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    const pane = screen.getByRole('group', { name: 'Console settings' });
+    expect(pane.querySelectorAll('.dt-console-setting-info')).toHaveLength(9);
+
+    fireEvent.click(screen.getByRole('button', { name: 'About Log XMLHttpRequests' }));
+    expect(
+      await screen.findByText('Logs a row whenever an XHR, fetch, or EventSource request finishes or fails.'),
+    ).toBeTruthy();
+    expect(document.querySelector('.oh-info-popover-title')?.textContent).toBe('Log XMLHttpRequests');
+    // The shared transcript card, with this setting's slice highlighted.
+    const highlighted = [...document.querySelectorAll('.dt-console-eg-hl')].map((el) => el.textContent);
+    expect(highlighted).toEqual(['Fetch finished loading: GET "/v1/cart".']);
+  });
+
+  it('clicking the (i) never toggles its checkbox', () => {
+    renderView([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    const checkbox = screen.getByLabelText('Hide network') as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'About Hide network' }));
+    expect(checkbox.checked).toBe(false);
   });
 });
