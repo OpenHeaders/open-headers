@@ -13,8 +13,10 @@
  */
 
 import { ClearOutlined, DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import type React from 'react';
 import type { IdbDatabase, IdbRecord } from '../../data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '../../data/storage/use-idb-browser';
+import { walkListSelection } from '../walk-list-selection';
 import { ArmedIconButton } from './ArmedIconButton';
 import { IdbRecordColumnInfo } from './IdbRecordColumnInfo';
 import { StorageColumnHeaderCell } from './StorageColumnHeaderCell';
@@ -154,6 +156,37 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
       : pageData.records
     : [];
 
+  const recordActive = (r: IdbRecord): boolean =>
+    r.primaryKeyWire !== undefined && isRecordActive !== undefined
+      ? isRecordActive(selection.database, selection.store, r.primaryKeyWire)
+      : false;
+
+  // Keyboard row navigation — StorageGrid's selection model on a
+  // read-only, PAGINATED grid: no grid-local selection state; an arrow
+  // move opens the record document like a click (`openRecord`) and the
+  // highlight follows the active-editor-tab derivation
+  // (`isRecordActive`). The walk is page-local by design — an active
+  // document from another page reads as no selection here, so the
+  // arrows restart at this page's ends; the pager buttons stay the page
+  // gesture (`pageRows: null` keeps the Page keys unhandled too). Enter
+  // has no gesture: the rows are read-only (no inline edit to twin) and
+  // the document it could open is already open — the arrow move that
+  // made the row active opened it. A rare row without a wire key can't
+  // open a document, so an arrow move onto it is the same visual no-op
+  // a click on it is. Stands down for presses on interactive children
+  // (the row delete lane).
+  const handleGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if ((e.target as HTMLElement).closest('button, input, select, textarea') !== null) return;
+    if (records.length === 0) return;
+    const pos = records.findIndex(recordActive);
+    const next = walkListSelection(records.length, pos, e.key, null);
+    if (next === null) return;
+    e.preventDefault();
+    if (next !== pos) openRecord(records[next]);
+    e.currentTarget.querySelector(`.dt-storage-row[data-entry-index="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+  };
+
   return (
     <>
       <div className="dt-storage-crumb">
@@ -213,35 +246,40 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
       ) : records.length === 0 ? (
         <div className="dt-empty">No records match your filter.</div>
       ) : (
-        <div className="dt-storage-grid dt-storage-grid--idb" role="table" aria-label="IndexedDB records">
+        // role="grid" + focusable container, StorageGrid's anatomy: the
+        // rows are plain divs (the per-row tabIndex/Enter this grid
+        // predated the model with is gone), so a row click focuses the
+        // grid as the nearest focusable ancestor; the active-row
+        // highlight is the focus affordance, no ring on the box.
+        <div
+          className="dt-storage-grid dt-storage-grid--idb"
+          role="grid"
+          aria-label="IndexedDB records"
+          tabIndex={0}
+          onKeyDown={handleGridKeyDown}
+        >
           <div className="dt-storage-grid-header" role="row">
             <StorageColumnHeaderCell label="Key" info={<IdbRecordColumnInfo infoKey="key" />} />
             <StorageColumnHeaderCell label="Value" info={<IdbRecordColumnInfo infoKey="value" />} />
           </div>
           {records.map((r, i) => {
             const wireKey = r.primaryKeyWire;
-            const active =
-              wireKey !== undefined && isRecordActive !== undefined
-                ? isRecordActive(selection.database, selection.store, wireKey)
-                : false;
+            const active = recordActive(r);
             return (
-              // biome-ignore lint/a11y/useKeyWithClickEvents: row carries its own key handler
               // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance
               <div
                 className={`dt-storage-row${active ? ' dt-storage-row--active' : ''}`}
                 role="row"
+                aria-selected={active}
+                data-entry-index={i}
                 key={`${idb.page}:${i}:${r.primaryKeyPreview}`}
-                tabIndex={wireKey !== undefined ? 0 : undefined}
                 title={wireKey !== undefined ? 'Open this record in the editor' : undefined}
                 onClick={() => openRecord(r)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') openRecord(r);
-                }}
               >
-                <span className="dt-storage-key" role="cell" title={`Key: ${r.keyPreview}\nPrimary key: ${r.primaryKeyPreview}`}>
+                <span className="dt-storage-key" role="gridcell" title={`Key: ${r.keyPreview}\nPrimary key: ${r.primaryKeyPreview}`}>
                   {r.keyPreview}
                 </span>
-                <span className="dt-storage-value" role="cell" title={r.valuePreview}>
+                <span className="dt-storage-value" role="gridcell" title={r.valuePreview}>
                   {r.valuePreview}
                 </span>
                 {wireKey !== undefined && (
