@@ -198,7 +198,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
    * root tab and target kind. The kind rides along so the control-replay fan
    * can project a worker's standing state onto its Network/Fetch-only subset.
    */
-  private readonly childSessions = new Map<string, { readonly owner: number; readonly kind: ChildTargetKind }>();
+  private readonly childSessions = new Map<
+    string,
+    { readonly owner: number; readonly kind: ChildTargetKind; readonly targetId: string }
+  >();
   private readonly removeListeners: Array<() => void> = [];
 
   constructor() {
@@ -421,6 +424,15 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     return sessions;
   }
 
+  /** Whether a kept child session of this tab fronts the given target. */
+  private hasLiveChildTarget(tabId: number, targetId: string | undefined): boolean {
+    if (targetId === undefined) return false;
+    for (const child of this.childSessions.values()) {
+      if (child.owner === tabId && child.targetId === targetId) return true;
+    }
+    return false;
+  }
+
   /**
    * Attach CDP to a tab's page target and turn on flattened auto-attach
    * for its child targets. Idempotent — a second attach for a live tab is
@@ -622,7 +634,16 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       if (params === undefined) return;
       const logChildSessionId = source.sessionId;
       if (logChildSessionId !== undefined && !this.childSessions.has(logChildSessionId)) return;
-      this.fanConsole(tabId, normalizeLogEntryAdded(logChildSessionId ?? ROOT_SESSION_ID, params as RawLogEntryAdded));
+      const logEntryAdded = params as RawLogEntryAdded;
+      // The browser mirrors a worker's console output onto the page's Log
+      // domain so messages from an already-destroyed worker stay readable.
+      // While the worker's own session is kept, its Runtime plane delivers
+      // the same message — drop the copy or every worker log lands twice.
+      // A dead worker has no session, so its copy survives.
+      if (logEntryAdded.entry.source === 'worker' && this.hasLiveChildTarget(tabId, logEntryAdded.entry.workerId)) {
+        return;
+      }
+      this.fanConsole(tabId, normalizeLogEntryAdded(logChildSessionId ?? ROOT_SESSION_ID, logEntryAdded));
       return;
     }
     if (method.startsWith('Storage.')) {
@@ -760,7 +781,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     const childSessionId = params.sessionId;
     const kind = childTargetKind(params.targetInfo.type);
     if (kind === undefined) return;
-    this.childSessions.set(childSessionId, { owner: tabId, kind });
+    this.childSessions.set(childSessionId, { owner: tabId, kind, targetId: params.targetInfo.targetId });
     // Enable Network on the child and recurse auto-attach so nested
     // OOPIFs/workers under this child attach too (flatten only reaches
     // direct children per session).

@@ -1316,6 +1316,34 @@ describe('ChromeDebuggerEventSource — Runtime console capture (Phase G)', () =
     expect(out[0].entry.requestId).toBe(`${CHILD_SESSION}::9.1`);
   });
 
+  it('drops the worker-source Log copy while the worker session is live, keeps it once the worker died', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: Array<{ tabId: number; entry: ConsoleEntry }> = [];
+    source.subscribeConsole((tabId, entry) => out.push({ tabId, entry }));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget('child-worker-1', 'worker'));
+    const entry = {
+      source: 'worker',
+      level: 'log',
+      text: 'from the worker',
+      timestamp: 1920,
+      workerId: 'worker-target',
+    };
+
+    // Live worker: its own Runtime plane carries the message — the
+    // page-side Log copy would double every worker log, so it drops.
+    emitRoot('Log.entryAdded', { entry });
+    expect(out).toHaveLength(0);
+
+    // Dead worker: the copy is the only surviving record — it fans.
+    emitRoot('Target.detachedFromTarget', { sessionId: 'child-worker-1' });
+    emitRoot('Log.entryAdded', { entry });
+    expect(out).toHaveLength(1);
+    expect(out[0].entry.source).toBe('browser');
+    expect(out[0].entry.category).toBe('worker');
+  });
+
   it('console capture does not perturb the fire bridge — bindingCalled still routes (E4 regression guard)', async () => {
     source = new ChromeDebuggerEventSource();
     const fires: CdpBindingFire[] = [];

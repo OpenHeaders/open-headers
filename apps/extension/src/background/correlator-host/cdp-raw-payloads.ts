@@ -330,6 +330,9 @@ export interface RawLogEntry {
   readonly stackTrace?: RawStackTrace;
   /** Session-scoped CDP request id, present on `network`-source entries. */
   readonly networkRequestId?: string;
+  /** Worker target id, present on `worker`-source entries — the page-side
+   *  copy of a worker's console output. */
+  readonly workerId?: string;
   readonly args?: readonly RawRemoteObject[];
 }
 
