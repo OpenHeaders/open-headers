@@ -20,10 +20,12 @@
  */
 
 import { ArrowRightOutlined, CloseOutlined, FolderOpenOutlined, InboxOutlined, UploadOutlined } from '@ant-design/icons';
+import { hostAssets } from '@openheaders/core/assets';
 import { detectImportSource } from '@openheaders/core/import';
 import { Button, Input, Modal, Skeleton, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { BrunoGlyph, InsomniaGlyph, PostmanGlyph } from '../import/migrate/vendor-icons';
 import { type PickedFile, pickedFromEntries, pickedFromInput } from './picked-files';
 
 const { Text } = Typography;
@@ -100,6 +102,7 @@ const ImportSourceModal: React.FC<Props> = ({
       onCancel={onCancel}
       width={520}
       centered
+      maskClosable={false}
       destroyOnHidden
       styles={{
         container: { padding: 0, overflow: 'hidden' },
@@ -251,9 +254,27 @@ const ImportSourceModal: React.FC<Props> = ({
               <Text strong style={{ fontSize: 14 }}>
                 Drop a file or folder to import
               </Text>
-              <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', maxWidth: 360 }}>
-                HAR, Postman collection or backup, Insomnia export, Bruno <code>.bru</code> file or collection folder,
-                or <code>.openheaders.yaml</code> workspace export — the format is recognized automatically.
+              <ul
+                style={{
+                  fontSize: 12,
+                  color: token.colorTextSecondary,
+                  margin: 0,
+                  paddingLeft: 18,
+                  textAlign: 'left',
+                }}
+              >
+                <li>HAR capture</li>
+                <li>Postman collection or backup</li>
+                <li>Insomnia export</li>
+                <li>
+                  Bruno <code>.bru</code> file or collection folder
+                </li>
+                <li>
+                  <code>.openheaders.yaml</code> workspace export
+                </li>
+              </ul>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                The format is recognized automatically.
               </Text>
               <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                 <Button
@@ -309,13 +330,26 @@ const ImportSourceModal: React.FC<Props> = ({
             </div>
 
             {onMigrate && (
-              <div style={{ textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Switching from Postman, Insomnia, or Bruno?{' '}
-                  <Button type="link" size="small" style={{ padding: 0, fontSize: 12, height: 'auto' }} onClick={onMigrate}>
-                    Migrate from another tool
-                  </Button>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <Text type="secondary" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  Switching from <PostmanGlyph style={{ fontSize: 13 }} /> Postman,{' '}
+                  <InsomniaGlyph style={{ fontSize: 13 }} /> Insomnia, or <BrunoGlyph style={{ fontSize: 13 }} />{' '}
+                  Bruno?
                 </Text>
+                <Button
+                  size="small"
+                  style={{ fontSize: 12 }}
+                  onClick={onMigrate}
+                  icon={
+                    <img
+                      src={hostAssets.resolveUrl('images/logo-pixel.svg')}
+                      alt=""
+                      style={{ width: 14, height: 14, display: 'block' }}
+                    />
+                  }
+                >
+                  Migrate from another tool
+                </Button>
               </div>
             )}
           </>

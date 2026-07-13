@@ -213,13 +213,13 @@ test('the first-run empty workspace offers the migration ladder', async () => {
   await pace(workbench);
   await workbench.getByRole('button', { name: /Migrate from another tool/ }).click();
   const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
-  await expect(modal.getByRole('button', { name: 'Detect and import data' })).toBeVisible();
+  await expect(modal.getByRole('button', { name: 'Scan this computer' })).toBeVisible();
   await pace(workbench);
 });
 
 test('consent click 1 — detection fills in status-only vendor rows', async () => {
   const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
-  await modal.getByRole('button', { name: 'Detect and import data' }).click();
+  await modal.getByRole('button', { name: 'Scan this computer' }).click();
   // Real per-OS probes run on this machine — assert statuses appear,
   // not which tools this host happens to have installed.
   await expect(modal.getByText(/Detected|Not found/).first()).toBeVisible({ timeout: 15000 });
@@ -228,11 +228,11 @@ test('consent click 1 — detection fills in status-only vendor rows', async () 
 
 test("Postman's Import reveals the inline stepper and the key lists the workspaces", async () => {
   const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
-  await modal.getByRole('button', { name: 'Import', exact: true }).click();
+  await modal.getByRole('button', { name: 'Import from Postman account' }).click();
   await expect(modal.getByLabel('Postman API key')).toBeVisible();
   await modal.getByLabel('Postman API key').fill(API_KEY);
   await pace(workbench);
-  await modal.getByRole('button', { name: 'Start import', exact: true }).click();
+  await modal.getByRole('button', { name: 'List workspaces' }).click();
   // The enumeration-only preflight answers the picker, pre-selected.
   const picker = modal.getByRole('checkbox', { name: /OpenHeaders Team/ });
   await expect(picker).toBeVisible({ timeout: 15000 });

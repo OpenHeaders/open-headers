@@ -53,8 +53,16 @@ const PROGRESS: PostmanPullEvent = {
 const IMPORTED: PostmanPullEvent = {
   kind: 'imported',
   summary: {
-    workspaceId: 'ws-landing',
-    workspaceName: 'Imported from Postman',
+    workspaces: [
+      {
+        workspaceId: 'ws-landing',
+        workspaceName: 'Imported from Postman',
+        collections: 8,
+        environments: 4,
+        requests: 42,
+        drops: 3,
+      },
+    ],
     collections: 8,
     environments: 4,
     requests: 42,
@@ -296,7 +304,9 @@ describe('useMigrationPullTask', () => {
     });
     tasks.result.current[0].onActivate?.();
     expect(onViewReport).toHaveBeenCalledWith(
-      expect.objectContaining({ workspaceId: 'ws-landing', workspaceName: 'Imported from Postman' }),
+      expect.objectContaining({
+        workspaces: [expect.objectContaining({ workspaceId: 'ws-landing', workspaceName: 'Imported from Postman' })],
+      }),
     );
   });
 

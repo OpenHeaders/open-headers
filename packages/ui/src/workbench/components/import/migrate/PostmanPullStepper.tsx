@@ -18,9 +18,58 @@ import { hostBridge } from '@openheaders/core/bridge';
 import type { PostmanWorkspacePreview } from '@openheaders/core/import';
 import { Alert, Button, Checkbox, Input, Typography } from 'antd';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 const { Text, Paragraph } = Typography;
+
+/**
+ * The account enumeration is one long RPC (per-workspace collection and
+ * environment counts), so there is no real progress to stream — a quip
+ * ticker with an elapsed timer keeps the wait honest instead.
+ */
+const LISTING_QUIPS = [
+  'Contacting your Postman account',
+  'Counting collections',
+  'Weighing environments',
+  'Wrangling workspaces',
+  'Alphabetizing folders',
+  'Sniffing out requests',
+  'Untangling variables',
+  'Stacking headers',
+];
+
+const QUIP_SECONDS = 3;
+
+/** A star that swells and shrinks — the terminal-spinner idiom, no CSS keyframes needed. */
+const STAR_FRAMES = ['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳', '✢'];
+const STAR_FRAME_MS = 140;
+
+const WorkingTicker: React.FC = () => {
+  const [tick, setTick] = useState(0);
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((current) => current + 1), 1000);
+    const star = setInterval(() => setFrame((current) => current + 1), STAR_FRAME_MS);
+    return () => {
+      clearInterval(timer);
+      clearInterval(star);
+    };
+  }, []);
+
+  const quip = LISTING_QUIPS[Math.floor(tick / QUIP_SECONDS) % LISTING_QUIPS.length];
+  const elapsed = tick >= 60 ? `${Math.floor(tick / 60)}m ${tick % 60}s` : `${tick}s`;
+  return (
+    <Text type="secondary" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'baseline' }}>
+      <span style={{ display: 'inline-block', width: '1.2em', color: '#ff4d4f' }}>
+        {STAR_FRAMES[frame % STAR_FRAMES.length]}
+      </span>
+      {/* Fixed-width quip slot so the timer never shifts as quips rotate. */}
+      <span style={{ display: 'inline-block', width: 240, textAlign: 'left' }}>{quip}…</span>
+      <span>({elapsed})</span>
+    </Text>
+  );
+};
 
 interface PostmanPullStepperProps {
   /** The pull was accepted — close the surface; progress rides the corner task. */
@@ -80,12 +129,12 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted }) =>
 
   if (workspaces === null) {
     return (
-      <div>
+      <div style={{ textAlign: 'center' }}>
         <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
           Paste a Postman API key (Settings → API keys) to list your workspaces and pick which ones to import. The key
           is used for this run only — it is never stored or logged.
         </Paragraph>
-        <div style={{ display: 'flex', gap: 8, maxWidth: 520 }}>
+        <div style={{ display: 'flex', gap: 8, maxWidth: 520, margin: '0 auto' }}>
           <Input.Password
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
@@ -101,10 +150,15 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted }) =>
             disabled={apiKey.trim().length === 0}
             onClick={listAccountWorkspaces}
           >
-            Start import
+            List workspaces
           </Button>
         </div>
-        {listReason && <Alert type="error" showIcon message={listReason} style={{ marginTop: 8 }} />}
+        {listing && (
+          <div style={{ marginTop: 8 }}>
+            <WorkingTicker />
+          </div>
+        )}
+        {listReason && <Alert type="error" showIcon message={listReason} style={{ margin: '8px auto 0', maxWidth: 520 }} />}
       </div>
     );
   }

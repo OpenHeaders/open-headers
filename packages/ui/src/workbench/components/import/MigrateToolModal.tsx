@@ -3,16 +3,16 @@
  * modal (S14 UI law: never modal-over-modal; sections collapse/expand
  * and every step renders inline).
  *
- * "Migrate from other vendors" is always visible with a big centered
- * "Detect and import data" button (consent click 1: the fixed-allowlist
- * detect+scan — tool data files only, never credentials). Vendor rows
- * carry a brand mark and, after detection, status only; backup dates,
- * counts, guided walkthroughs, and skipped stores live in the compact
- * details table below.
+ * Two equal entry paths sit side by side as centered hero buttons:
+ * "Scan this computer" (consent click 1: the fixed-allowlist detect+scan
+ * — tool data files only, never credentials) and "Import from Postman
+ * account" (the remote pull, which needs no local detection). Vendor
+ * rows render as a centered column with a brand mark and, after
+ * detection, status only; backup dates, counts, guided walkthroughs,
+ * and skipped stores live in the compact details table below.
  *
- * Postman's Import needs no detection — it collapses everything else
- * and reveals the inline account-pull stepper (key → workspace picker →
- * unattended background pull).
+ * The account import collapses everything else and reveals the inline
+ * pull stepper (key → workspace picker → unattended background pull).
  */
 
 import { hostBridge, type MigrationScanResult } from '@openheaders/core/bridge';
@@ -29,7 +29,7 @@ import DetectionDetailsTable from './migrate/DetectionDetailsTable';
 import PostmanPullStepper from './migrate/PostmanPullStepper';
 import { VENDOR_GLYPHS } from './migrate/vendor-icons';
 
-const { Text, Paragraph, Title } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface MigrateToolModalProps {
   open: boolean;
@@ -102,45 +102,52 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
           {displayName}
         </Text>
         {scan !== null && (
-          <Text type={detected ? undefined : 'secondary'} style={{ fontSize: 12 }}>
+          <Text type={detected ? undefined : 'secondary'} style={{ fontSize: 12, width: 72 }}>
             {detected ? 'Detected' : 'Not found'}
           </Text>
         )}
-        <div style={{ flex: 1 }} />
-        {tool === 'postman' && (
-          <Button size="small" onClick={() => setPullOpen(!pullOpen)}>
-            {pullOpen ? 'Cancel' : 'Import'}
-          </Button>
-        )}
+        {tool === 'postman' && pullOpen && <Button onClick={() => setPullOpen(false)}>Cancel</Button>}
       </div>
     );
   };
 
   return (
-    <Modal title="Migrate from another tool" open={open} onCancel={onClose} footer={null} width={1120} destroyOnHidden>
-      <Title level={5} style={{ marginTop: 0 }}>
-        Migrate from other vendors
-      </Title>
-      <div style={{ textAlign: 'center', margin: '16px 0 20px' }}>
-        <Button type="primary" size="large" loading={scanning} onClick={runScan}>
-          Detect and import data
-        </Button>
-        <Paragraph type="secondary" style={{ fontSize: 12, maxWidth: 560, margin: '10px auto 0' }}>
-          Detection checks a fixed list of application folders and reads only tool data files (backups and local
-          stores). It never opens credential, cookie, or session files, and nothing leaves this computer. Importing
-          anything is a separate, explicit step.
-        </Paragraph>
-        {scanError && (
-          <Alert type="error" showIcon message={scanError} style={{ maxWidth: 560, margin: '10px auto 0' }} />
-        )}
-      </div>
+    <Modal
+      title="Migrate from another tool"
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      width={1120}
+      maskClosable={false}
+      destroyOnHidden
+    >
+      {!pullOpen && (
+        <div style={{ textAlign: 'center', margin: '16px 0 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+            <Button type="primary" size="large" loading={scanning} onClick={runScan}>
+              Scan this computer
+            </Button>
+            <Button type="primary" size="large" onClick={() => setPullOpen(true)}>
+              Import from Postman account
+            </Button>
+          </div>
+          <Paragraph type="secondary" style={{ fontSize: 12, maxWidth: 560, margin: '10px auto 0' }}>
+            Scanning checks a fixed list of application folders and reads only tool data files (backups and local
+            stores). It never opens credential, cookie, or session files, and nothing leaves this computer. Importing
+            anything is a separate, explicit step.
+          </Paragraph>
+          {scanError && (
+            <Alert type="error" showIcon message={scanError} style={{ maxWidth: 560, margin: '10px auto 0' }} />
+          )}
+        </div>
+      )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 'fit-content', margin: '0 auto' }}>
         {(pullOpen ? (['postman'] as const) : MIGRATION_TOOLS).map(renderVendorRow)}
       </div>
 
       {pullOpen && (
-        <div style={{ marginTop: 8, paddingLeft: 28 }}>
+        <div style={{ maxWidth: 560, margin: '8px auto 0' }}>
           <PostmanPullStepper onStarted={onClose} />
         </div>
       )}

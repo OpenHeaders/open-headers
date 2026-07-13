@@ -3,13 +3,13 @@
  * (MIGRATION_STATUS.md S14 UI law: one wide modal, sections collapse
  * and steps render inline):
  *   - the vendor section is always visible; detection runs only on the
- *     explicit "Detect and import data" click and fills in status-only
+ *     explicit "Scan this computer" click and fills in status-only
  *     vendor rows plus the compact details table below;
  *   - a backup row's Import… routes through the host-validated
  *     readBackup RPC into the sectioned flow; Insomnia guidance hands
  *     off to the import hub; scan skips render with their reason;
- *   - Postman's Import needs no detection: it collapses the other
- *     vendors and reveals the inline stepper — key → listWorkspaces →
+ *   - "Import from Postman account" needs no detection: it collapses the
+ *     other vendors and reveals the inline stepper — key → listWorkspaces →
  *     checkbox picker → start narrowed to the selected workspaceIds —
  *     closing on `started` and surfacing refusal reasons inline.
  */
@@ -118,15 +118,15 @@ function renderModal(props: Partial<Parameters<typeof MigrateToolModal>[0]> = {}
 }
 
 async function detected(calls: CallLog): Promise<void> {
-  fireEvent.click(screen.getByRole('button', { name: 'Detect and import data' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Scan this computer' }));
   await waitFor(() => expect(calls.map((c) => c.type)).toContain('oh.migration.scanToolData'));
   await screen.findAllByText('Detected');
 }
 
 async function openedPicker(): Promise<void> {
-  fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Import from Postman account' }));
   fireEvent.change(screen.getByLabelText('Postman API key'), { target: { value: '  PMAK-abc  ' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Start import' }));
+  fireEvent.click(screen.getByRole('button', { name: 'List workspaces' }));
   await screen.findByRole('checkbox', { name: /OpenHeaders Team/ });
 }
 
@@ -200,7 +200,7 @@ describe('MigrateToolModal', () => {
     const calls = installBridge();
     renderModal();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import from Postman account' }));
     expect(screen.getByLabelText('Postman API key')).toBeTruthy();
     expect(screen.queryByText('Bruno')).toBeNull();
     expect(screen.queryByText('Insomnia')).toBeNull();
@@ -214,8 +214,8 @@ describe('MigrateToolModal', () => {
   it('keeps the stepper button disabled without a key', () => {
     installBridge();
     renderModal();
-    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
-    const button = screen.getByRole('button', { name: 'Start import' });
+    fireEvent.click(screen.getByRole('button', { name: 'Import from Postman account' }));
+    const button = screen.getByRole('button', { name: 'List workspaces' });
     expect((button as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -241,11 +241,21 @@ describe('MigrateToolModal', () => {
       'oh.migration.postmanPull.listWorkspaces': { ok: false, reason: 'The API key was rejected.' },
     });
     renderModal();
-    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import from Postman account' }));
     fireEvent.change(screen.getByLabelText('Postman API key'), { target: { value: 'PMAK-abc' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Start import' }));
+    fireEvent.click(screen.getByRole('button', { name: 'List workspaces' }));
     await screen.findByText('The API key was rejected.');
     expect(screen.getByLabelText('Postman API key')).toBeTruthy();
+  });
+
+  it('shows the star ticker with a timer while the account enumeration runs', async () => {
+    installBridge({ 'oh.migration.postmanPull.listWorkspaces': new Promise(() => {}) });
+    renderModal();
+    fireEvent.click(screen.getByRole('button', { name: 'Import from Postman account' }));
+    fireEvent.change(screen.getByLabelText('Postman API key'), { target: { value: 'PMAK-abc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'List workspaces' }));
+    expect(await screen.findByText(/Contacting your Postman account…/)).toBeTruthy();
+    expect(screen.getByText('(0s)')).toBeTruthy();
   });
 
   it('starts the pull narrowed to the selected workspaces and closes on started', async () => {
@@ -292,11 +302,11 @@ describe('MigrateToolModal', () => {
   it('shows a detection error inline and keeps the section usable', async () => {
     const calls = installBridge({ 'oh.migration.detectTools': new Error('no ladder') });
     renderModal();
-    fireEvent.click(screen.getByRole('button', { name: 'Detect and import data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Scan this computer' }));
     await screen.findByText(/The scan could not run/);
     // The spinner's exit animation never completes under jsdom, so the
     // accessible name may keep its "loading" prefix — match loosely.
-    expect(await screen.findByRole('button', { name: /Detect and import data/ })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /Scan this computer/ })).toBeTruthy();
     expect(calls.length).toBeGreaterThan(0);
   });
 });
