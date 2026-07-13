@@ -9,9 +9,9 @@
  *   5. Guard against degenerate viewport values (browser restore, 0-width)
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { hostStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/core/storage';
 import { applyLayoutSet } from '@openheaders/ui/shared/sync/layout-state-write-client';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // ── Breakpoints (CSS pixels, accounts for browser zoom) ───────────
 

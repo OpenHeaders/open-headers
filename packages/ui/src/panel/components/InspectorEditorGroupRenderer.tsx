@@ -91,6 +91,14 @@ const TabPanel: React.FC<TabPanelProps> = ({ isActive, children }) => {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const scrollTopRef = useRef(0);
 
+  // Lazy keep-alive: the body first mounts when the tab first becomes
+  // active, and stays mounted from then on (scroll memory, editor
+  // drafts). A tab that has never been active has no in-memory state to
+  // keep alive, so eagerly mounting every body — with many tabs open —
+  // only front-loads their full render cost onto panel open.
+  const [everActive, setEverActive] = useState(isActive);
+  if (isActive && !everActive) setEverActive(true);
+
   useLayoutEffect(() => {
     if (!isActive) return;
     const el = panelRef.current;
@@ -111,7 +119,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ isActive, children }) => {
         aria-hidden={isActive ? undefined : true}
         inert={!isActive}
       >
-        {children}
+        {everActive ? children : null}
       </div>
     </TabActiveProvider>
   );
