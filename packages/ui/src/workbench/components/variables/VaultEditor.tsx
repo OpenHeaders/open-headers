@@ -287,11 +287,10 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
         <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: 24 }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Alert
-              type="warning"
+              type="info"
               showIcon
               style={{ marginBottom: 16 }}
-              message="Local-per-device"
-              description="Vault secrets are stored only in this browser profile. They take priority over every other scope. They are never synced — not via Git, not via the desktop WebSocket. Add a TOTP entry to reference its current 6-digit code as {{vault.NAME}} from any request."
+              message="Local to this browser profile — vault secrets are never synced and take priority over every other scope."
             />
 
             {isLocked ? (
