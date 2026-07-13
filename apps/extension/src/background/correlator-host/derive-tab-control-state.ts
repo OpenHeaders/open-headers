@@ -32,6 +32,7 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
+import { doesUrlMatchRule } from '@openheaders/core/utils';
 import {
   type CdpNetworkConditions,
   type CdpSystemOverrides,
@@ -54,6 +55,7 @@ export function deriveTabControlState(
     readonly cacheDisabled?: boolean;
     readonly networkConditions?: CdpNetworkConditions | null;
     readonly overrides?: CdpSystemOverrides | null;
+    readonly tabUrl?: string | null;
   } = {},
 ): CdpTabControlState {
   const fetchPatterns = compileFetchPatterns(rules);
@@ -62,8 +64,19 @@ export function deriveTabControlState(
   // page-DOM (never Fetch-realizable, never bootstrap-eligible), so a tab whose
   // only debug rule is one would have both other planes empty yet still need
   // `Page.setBypassCSP`. Derived from the same flag the DNR CSP-strip gates on,
-  // so CSP drops at the engine level only when a rule explicitly asks.
-  const bypassCsp = rules.some((rule) => rule.type === 'inject' && rule.action.bypassCSP === true);
+  // so CSP drops at the engine level only when a rule explicitly asks. Unlike
+  // the network/delivery planes, `Page.setBypassCSP` is tab-wide with NO
+  // downstream URL gate (Fetch patterns URL-match at the CDP layer, bootstrap
+  // wrappers self-gate in-page), so the URL match happens HERE: the bypass
+  // engages only when a bypassCSP rule matches the tab's current main-frame
+  // URL — the same `doesUrlMatchRule` gate the inject delivery applies — and
+  // the caller re-derives on every navigation. An unknown URL (`null` — the
+  // frame registry not yet seeded) keeps CSP intact until the next navigation
+  // re-derives; the DNR fallback's per-request strip is unaffected either way.
+  const tabUrl = options.tabUrl ?? null;
+  const bypassCsp =
+    tabUrl !== null &&
+    rules.some((rule) => rule.type === 'inject' && rule.action.bypassCSP === true && doesUrlMatchRule(tabUrl, rule));
   // Cache disable is a FOURTH independent plane — not rule-derived: the per-tab
   // "disable cache" toggle, threaded in so it joins the all-empty guard (a
   // cache-only tab has the three rule planes empty).

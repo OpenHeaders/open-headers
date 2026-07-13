@@ -40,6 +40,17 @@ export function frameUrlOf(tabId: number, frameId: string | undefined): string |
   return frameUrlsByTab.get(tabId)?.get(frameId);
 }
 
+/**
+ * The tab's current main-frame document URL; `undefined` until the attach
+ * seed (or the first `Page.frameNavigated`) lands. Consumers treating the
+ * URL as a match input must handle `undefined` as "unknown", not "any".
+ */
+export function mainFrameUrlOf(tabId: number): string | undefined {
+  const frameId = mainFrameIdByTab.get(tabId);
+  if (frameId === undefined) return undefined;
+  return frameUrlsByTab.get(tabId)?.get(frameId);
+}
+
 export function clearFrameRegistry(tabId: number): void {
   mainFrameIdByTab.delete(tabId);
   frameUrlsByTab.delete(tabId);

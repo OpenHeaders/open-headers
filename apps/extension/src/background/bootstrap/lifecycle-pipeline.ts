@@ -31,6 +31,7 @@ import {
   startDevtoolsPortPresence,
   startLifecycleHost,
 } from '../correlator-host';
+import { mainFrameUrlOf } from '../correlator-host/main-frame-registry';
 import { messageCaptureSource } from '../correlator-host/message-capture-source';
 import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
 import { getRulesPaused, registerCdpRulesReplay } from '../dnr-manager';
@@ -140,12 +141,19 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // into the derive so each joins the all-empty guard. The DNR cache rule stays
   // installed as the un-armed/detached fallback; throttle and overrides have NO
   // such fallback, so they only live while the tab is in scope.
+  // The tab's current main-frame URL rides along too: the `bypassCsp` facet
+  // URL-matches against it (PE2 — `Page.setBypassCSP` is tab-wide, so the
+  // gate lives in the derive), read fresh from the frame registry on every
+  // derive — never cached across navigations. The registry is seeded before
+  // the attach resolves, so the first replay already sees it; the
+  // `Page.frameNavigated` hook below re-derives on every navigation.
   const deriveState = (tabId: number): CdpTabControlState =>
     isTabInScope(tabId)
       ? deriveTabControlState(liveRules(), {
           cacheDisabled: isCacheBypassActive(tabId),
           networkConditions: getNetworkConditionsForTab(tabId),
           overrides: getTabOverridesForTab(tabId),
+          tabUrl: mainFrameUrlOf(tabId) ?? null,
         })
       : EMPTY_TAB_CONTROL_STATE;
   // Authoritative fire sink for D2 fulfill/rewrite. Resolved to the fires
@@ -399,6 +407,11 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   lifecycleHost.debuggerSource.subscribePage((event) => {
     if (event.method === 'Page.frameNavigated' && event.frame.parentId === undefined) {
       browserTargetController.requestDiscovery();
+      // A main-frame navigation moves the tab to a new URL, so its URL-gated
+      // standing state (the `bypassCsp` facet) must re-derive NOW — the frame
+      // registry recorded the new URL before this event fanned. Raw replay:
+      // the fresh document's injection rides `onCommitted`/bootstrap, not this.
+      cdpControlReplay.replay(event.tabId);
     }
   });
 

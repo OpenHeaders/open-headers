@@ -117,8 +117,10 @@ describe('deriveTabControlState', () => {
     expect(state.bootstrapScripts.map((s) => s.key)).toEqual(['oh-setup', 'ws:ws000001']);
   });
 
+  const matchedTabUrl = 'https://api.openheaders.io/v1/users';
+
   it('carries bypassCsp for an inject-bypassCSP-only tab (the third-plane early-return trap)', () => {
-    const state = deriveTabControlState([injectBypassCspRule()]);
+    const state = deriveTabControlState([injectBypassCspRule()], { tabUrl: matchedTabUrl });
     // Neither other plane contributes — inject is page-DOM.
     expect(state.fetchPatterns).toEqual([]);
     expect(state.bootstrapScripts).toEqual([]);
@@ -130,11 +132,42 @@ describe('deriveTabControlState', () => {
   it('does not bypass CSP when the inject rule omits bypassCSP (all three planes empty → EMPTY)', () => {
     const rule = injectBypassCspRule();
     const without: InjectRule = { ...rule, action: { ...rule.action, bypassCSP: false } };
-    expect(deriveTabControlState([without])).toBe(EMPTY_TAB_CONTROL_STATE);
+    expect(deriveTabControlState([without], { tabUrl: matchedTabUrl })).toBe(EMPTY_TAB_CONTROL_STATE);
   });
 
   it('leaves bypassCsp false on a non-empty state with no inject-bypassCSP rule', () => {
-    expect(deriveTabControlState([responseRule()]).bypassCsp).toBe(false);
+    expect(deriveTabControlState([responseRule()], { tabUrl: matchedTabUrl }).bypassCsp).toBe(false);
+  });
+
+  it('keeps CSP intact on an in-scope tab whose URL the bypassCSP rule does not match (PE2)', () => {
+    // The rule exists globally, but this tab sits on an unrelated origin —
+    // `Page.setBypassCSP` is tab-wide with no downstream URL gate, so the
+    // derive itself must decline (the DNR fallback only strips on matches).
+    const state = deriveTabControlState([injectBypassCspRule()], { tabUrl: 'https://docs.openheaders.io/guide' });
+    expect(state.bypassCsp).toBe(false);
+    expect(state).toBe(EMPTY_TAB_CONTROL_STATE);
+  });
+
+  it('keeps CSP intact while the tab URL is unknown (registry not yet seeded)', () => {
+    expect(deriveTabControlState([injectBypassCspRule()]).bypassCsp).toBe(false);
+    expect(deriveTabControlState([injectBypassCspRule()], { tabUrl: null }).bypassCsp).toBe(false);
+  });
+
+  it('bypasses on a match-all bypassCSP rule regardless of tab origin', () => {
+    const rule = injectBypassCspRule();
+    const matchAll: InjectRule = {
+      ...rule,
+      conditions: [{ uid: 'cnd-all', type: 'url-filter', values: ['*'] }],
+    };
+    expect(deriveTabControlState([matchAll], { tabUrl: 'https://docs.openheaders.io/guide' }).bypassCsp).toBe(true);
+  });
+
+  it('never bypasses for a bypassCSP rule with no URL conditions (injection-targeting semantics)', () => {
+    // No URL conditions = "match nothing" for injection delivery — the rule
+    // never injects anywhere, so it must not disable any tab's CSP either.
+    const rule = injectBypassCspRule();
+    const noConditions: InjectRule = { ...rule, conditions: [] };
+    expect(deriveTabControlState([noConditions], { tabUrl: matchedTabUrl })).toBe(EMPTY_TAB_CONTROL_STATE);
   });
 
   it('carries cacheDisabled for a cache-only tab (the fourth-plane early-return trap)', () => {
