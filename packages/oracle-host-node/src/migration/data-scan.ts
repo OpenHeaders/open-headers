@@ -77,15 +77,56 @@ export interface ScanToolDataOptions {
  * inventory ("N collections · M environments · K header presets").
  */
 export async function scanToolData(options: ScanToolDataOptions = {}): Promise<DataScanResult> {
-  const roots: InstallProbeRoots = options.roots ?? {
-    home: os.homedir(),
-    appData: process.env.APPDATA,
-    localAppData: process.env.LOCALAPPDATA,
-  };
-  const targets = listDataScanTargets(options.platform ?? process.platform, roots);
+  const targets = listDataScanTargets(options.platform ?? process.platform, defaultRoots(options));
   const results = await Promise.all(targets.map(readTarget));
   return {
     findings: results.flatMap((result) => result.findings),
     skipped: results.flatMap((result) => result.skipped),
   };
+}
+
+function defaultRoots(options: ScanToolDataOptions): InstallProbeRoots {
+  return (
+    options.roots ?? {
+      home: os.homedir(),
+      appData: process.env.APPDATA,
+      localAppData: process.env.LOCALAPPDATA,
+    }
+  );
+}
+
+export interface ReadPostmanBackupResult {
+  /** The backup file's text, or null when the read was refused/failed. */
+  text: string | null;
+  /** Present when `text` is null. */
+  reason?: string;
+}
+
+/**
+ * Read one Postman backup file for import routing. The path is
+ * re-validated against the scan allowlist — it must sit directly in a
+ * `postman-backup` target directory and its name must match the store
+ * pattern — so a surface-supplied path can never open anything the
+ * scan itself would not have read (plan §7).
+ */
+export async function readPostmanBackupFile(
+  path: string,
+  options: ScanToolDataOptions = {},
+): Promise<ReadPostmanBackupResult> {
+  const separator = path.includes('\\') ? '\\' : '/';
+  const splitAt = path.lastIndexOf(separator);
+  const dir = splitAt > 0 ? path.slice(0, splitAt) : '';
+  const name = path.slice(splitAt + 1);
+  const targets = listDataScanTargets(options.platform ?? process.platform, defaultRoots(options));
+  const allowed = targets.some(
+    (target) => target.store === 'postman-backup' && target.dir === dir && matchesDataScanFile(target.store, name),
+  );
+  if (!allowed) {
+    return { text: null, reason: 'Not an allowlisted backup file.' };
+  }
+  try {
+    return { text: await fs.readFile(path, 'utf8') };
+  } catch (err) {
+    return { text: null, reason: `Unreadable store file — ${err instanceof Error ? err.message : String(err)}` };
+  }
 }

@@ -5,7 +5,13 @@ export {
   pullPostmanData,
   type SleepFn,
 } from './api-pull';
-export { type DataScanResult, type ScanToolDataOptions, scanToolData } from './data-scan';
+export {
+  type DataScanResult,
+  type ReadPostmanBackupResult,
+  readPostmanBackupFile,
+  type ScanToolDataOptions,
+  scanToolData,
+} from './data-scan';
 export {
   type DetectInstalledToolsOptions,
   detectInstalledTools,

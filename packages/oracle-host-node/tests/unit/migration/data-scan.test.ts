@@ -9,7 +9,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { scanToolData } from '../../../src/migration/data-scan';
+import { readPostmanBackupFile, scanToolData } from '../../../src/migration/data-scan';
 
 let tmpHome: string;
 
@@ -71,5 +71,46 @@ describe('scanToolData', () => {
     expect(skipped).toHaveLength(1);
     expect(skipped[0]?.path).toBe(path.join(postmanDir, 'backup-imadir.json'));
     expect(skipped[0]?.reason).toMatch(/Unreadable store file/);
+  });
+});
+
+describe('readPostmanBackupFile', () => {
+  it('reads a backup file that sits in the allowlisted store directory', async () => {
+    const postmanDir = path.join(tmpHome, '.config', 'Postman');
+    await fs.mkdir(postmanDir, { recursive: true });
+    const backupPath = path.join(postmanDir, 'backup-2026-03-18.json');
+    await fs.writeFile(backupPath, backupText());
+
+    const result = await readPostmanBackupFile(backupPath, { platform: 'linux', roots: { home: tmpHome } });
+    expect(result).toEqual({ text: backupText() });
+  });
+
+  it('refuses a non-store file even inside the allowlisted directory', async () => {
+    const postmanDir = path.join(tmpHome, '.config', 'Postman');
+    await fs.mkdir(postmanDir, { recursive: true });
+    const forbiddenPath = path.join(postmanDir, 'userPartitionData.json');
+    await fs.writeFile(forbiddenPath, '{"forbidden":true}');
+
+    const result = await readPostmanBackupFile(forbiddenPath, { platform: 'linux', roots: { home: tmpHome } });
+    expect(result.text).toBeNull();
+    expect(result.reason).toBe('Not an allowlisted backup file.');
+  });
+
+  it('refuses a matching file name outside the allowlisted directory', async () => {
+    const elsewhere = path.join(tmpHome, 'elsewhere');
+    await fs.mkdir(elsewhere, { recursive: true });
+    const strayPath = path.join(elsewhere, 'backup-2026-03-18.json');
+    await fs.writeFile(strayPath, backupText());
+
+    const result = await readPostmanBackupFile(strayPath, { platform: 'linux', roots: { home: tmpHome } });
+    expect(result.text).toBeNull();
+    expect(result.reason).toBe('Not an allowlisted backup file.');
+  });
+
+  it('reports a missing allowlisted file as unreadable with a reason', async () => {
+    const missing = path.join(tmpHome, '.config', 'Postman', 'backup-gone.json');
+    const result = await readPostmanBackupFile(missing, { platform: 'linux', roots: { home: tmpHome } });
+    expect(result.text).toBeNull();
+    expect(result.reason).toMatch(/Unreadable store file/);
   });
 });

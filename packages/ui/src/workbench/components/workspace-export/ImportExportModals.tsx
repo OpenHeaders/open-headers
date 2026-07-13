@@ -7,6 +7,7 @@ import {
   stripBrunoRootPrefix,
 } from '@openheaders/core/import';
 import type { RuleSeed } from '@openheaders/core/utils';
+import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -20,6 +21,7 @@ import ImportCurlModal from '../import/ImportCurlModal';
 import ImportHarModal from '../import/ImportHarModal';
 import ImportPostmanModal from '../import/ImportPostmanModal';
 import ImportSectionedModal, { type SectionedPreset, type SectionedSourceKind } from '../import/ImportSectionedModal';
+import MigrateToolModal from '../import/MigrateToolModal';
 import ExportModal, { type ExportModalScope } from './ExportModal';
 import ImportPreviewModal, { type ImportPreviewSource } from './ImportPreviewModal';
 import ImportSourceModal from './ImportSourceModal';
@@ -43,6 +45,8 @@ export interface ImportExportModalsHandle {
    *  hand-off without the hub modal. Unrecognized text is a no-op;
    *  callers gate on `detectImportSource` before consuming the paste. */
   openImportText: (text: string, ctx?: { collectionId?: string }) => void;
+  /** Opens the migration surface (desktop only — the ladder needs fs). */
+  openMigrateTool: () => void;
 }
 
 interface ImportExportModalsProps {
@@ -225,6 +229,16 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     setImportSourceModalOpen(true);
   }, []);
 
+  // Migration surface (MIGRATION_STATUS.md S5 addendum) — desktop only:
+  // the detect/scan/pull RPCs answer in the desktop shell dispatcher.
+  const [migrateToolOpen, setMigrateToolOpen] = useState(false);
+  const migrationAvailable = getCurrentHost() === 'desktop';
+  const openMigrateTool = useCallback(() => {
+    if (!migrationAvailable) return;
+    setImportSourceModalOpen(false);
+    setMigrateToolOpen(true);
+  }, [migrationAvailable]);
+
   /**
    * Hub routing (IMPORT_PLAN.md §2.1): a recognized paste or file lands
    * in the matching stage-2 flow pre-filled, carrying the hub's
@@ -372,8 +386,8 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
 
   useImperativeHandle(
     ref,
-    () => ({ openExportModal, openImportSource, openImportText }),
-    [openExportModal, openImportSource, openImportText],
+    () => ({ openExportModal, openImportSource, openImportText, openMigrateTool }),
+    [openExportModal, openImportSource, openImportText, openMigrateTool],
   );
 
   return (
@@ -544,6 +558,20 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         }}
         onFolderChosen={(picked) => {
           void onImportFolderChosen(picked);
+        }}
+        onMigrate={migrationAvailable ? openMigrateTool : undefined}
+      />
+
+      <MigrateToolModal
+        open={migrateToolOpen}
+        onClose={() => setMigrateToolOpen(false)}
+        onImportBackupText={(text) => {
+          setMigrateToolOpen(false);
+          setImportSectionedState({ open: true, kind: 'postman-backup', text });
+        }}
+        onOpenImportHub={() => {
+          setMigrateToolOpen(false);
+          openImportSource();
         }}
       />
 

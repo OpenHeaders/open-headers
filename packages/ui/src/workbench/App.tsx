@@ -58,7 +58,7 @@ import {
 import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
-import { instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
+import { getCurrentHost, instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
 import { NEW_REQUESTS_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
 import { computeBreadcrumbs } from './breadcrumbs';
 import CommandPalette from './components/shell/CommandPalette';
@@ -1090,6 +1090,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     });
   }, [tl, sidebarState]);
 
+  // First-run migration offer (MIGRATION_STATUS.md S5 addendum): shown
+  // only where the ladder can run (desktop) and only while the
+  // workspace is still empty — once anything exists, the permanent hub
+  // entry inside the import modal takes over.
+  const showMigrationOffer =
+    getCurrentHost() === 'desktop' && rules.length === 0 && requestsApi.requests.length === 0;
+
   const renderEmpty = useCallback(
     () => (
       <EmptyState
@@ -1100,9 +1107,17 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         onCreateWorkflow={() => openCreateLiveWorkflow()}
         onCreateVariable={handleCreateVariable}
         onImport={() => importExportRef.current?.openImportSource()}
+        onMigrate={showMigrationOffer ? () => importExportRef.current?.openMigrateTool() : undefined}
       />
     ),
-    [openCreateTab, handleBrowseTemplates, openCreateRequestTab, openCreateLiveWorkflow, handleCreateVariable],
+    [
+      openCreateTab,
+      handleBrowseTemplates,
+      openCreateRequestTab,
+      openCreateLiveWorkflow,
+      handleCreateVariable,
+      showMigrationOffer,
+    ],
   );
 
   // Bound `View` handler for ActivityFeedPanel — routes per

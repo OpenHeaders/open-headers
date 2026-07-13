@@ -49,7 +49,12 @@ import { forwardAwarenessToBackend } from '@openheaders/oracle/sync/client/aware
 import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { reportBaselineSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
-import { createMigrationPullRunner } from '@openheaders/oracle-host-node/migration';
+import {
+  createMigrationPullRunner,
+  detectInstalledTools,
+  readPostmanBackupFile,
+  scanToolData,
+} from '@openheaders/oracle-host-node/migration';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app } from 'electron';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
@@ -239,6 +244,20 @@ export async function installRpcHost(): Promise<void> {
     }
     if (type === 'oh.migration.postmanPull.getState') {
       return migrationPullRunner.getState();
+    }
+    // Ladder rungs 1–2 behind consent click 1 (MIGRATION_PLAN.md §5.1):
+    // both run only when the renderer's migration surface asks, never on
+    // a timer. `readBackup` re-validates against the scan allowlist
+    // host-side, so a renderer-supplied path can't open anything else.
+    if (type === 'oh.migration.detectTools') {
+      return detectInstalledTools();
+    }
+    if (type === 'oh.migration.scanToolData') {
+      return scanToolData();
+    }
+    if (type === 'oh.migration.readBackup') {
+      const path = typeof message.path === 'string' ? message.path : '';
+      return readPostmanBackupFile(path);
     }
     const updateState = await updateService.dispatchRpc(type);
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);

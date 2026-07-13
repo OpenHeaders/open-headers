@@ -47,6 +47,9 @@ interface Props {
    *  is ready, so the user sees one continuous loading affordance
    *  instead of a 1 s frozen-button gap. */
   loading?: boolean;
+  /** Opens the migration surface — the permanent "Migrate from another
+   *  tool" hub entry. Absent on hosts without the migration ladder. */
+  onMigrate?: () => void;
 }
 
 const ImportSourceModal: React.FC<Props> = ({
@@ -56,6 +59,7 @@ const ImportSourceModal: React.FC<Props> = ({
   onFileChosen,
   onFolderChosen,
   loading = false,
+  onMigrate,
 }) => {
   const { token } = theme.useToken();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -303,6 +307,17 @@ const ImportSourceModal: React.FC<Props> = ({
                 }}
               />
             </div>
+
+            {onMigrate && (
+              <div style={{ textAlign: 'center' }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Switching from Postman, Insomnia, or Bruno?{' '}
+                  <Button type="link" size="small" style={{ padding: 0, fontSize: 12, height: 'auto' }} onClick={onMigrate}>
+                    Migrate from another tool
+                  </Button>
+                </Text>
+              </div>
+            )}
           </>
         )}
       </div>

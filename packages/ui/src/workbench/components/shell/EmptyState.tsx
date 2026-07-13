@@ -7,7 +7,7 @@
  * shortcuts into those surfaces.
  */
 
-import { ImportOutlined, RightOutlined, SisternodeOutlined } from '@ant-design/icons';
+import { ImportOutlined, RightOutlined, SisternodeOutlined, SwapOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
 import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
@@ -35,6 +35,10 @@ interface EmptyStateProps {
   onCreateVariable: (scope: VariableCreateScope) => void;
   /** Opens the import hub — formats are auto-detected there. */
   onImport: () => void;
+  /** First-run migration offer (MIGRATION_STATUS.md S5 addendum) —
+   *  present only on hosts with the migration ladder while the
+   *  workspace has no data yet. */
+  onMigrate?: () => void;
 }
 
 /** Variable-scope dropdown, mirroring the rule-type menu. Scope badges
@@ -144,6 +148,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   onCreateWorkflow,
   onCreateVariable,
   onImport,
+  onMigrate,
 }) => {
   const showHints = useSettingValue('general.showEmptyStateHints');
   // Viewport fit for the two dropdown menus — caps each menu to the room
@@ -236,6 +241,15 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           showDescription={showHints}
           onClick={onImport}
         />
+        {onMigrate && (
+          <ActionRow
+            icon={<SwapOutlined />}
+            label="Migrate from another tool"
+            description="Bring your Postman, Insomnia, or Bruno data"
+            showDescription={showHints}
+            onClick={onMigrate}
+          />
+        )}
       </div>
     </div>
   );
