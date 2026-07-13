@@ -98,9 +98,14 @@ function ohSetupFunc(bindingName: string): void {
   };
 }
 
-/** Restore the pristine references, dropping every chained OH patch.
- *  Re-injecting the current interceptor set afterwards rebuilds a clean
- *  chain — this is how a rule edit goes live without a reload. */
+/** Restore the pristine references, dropping every chained OH patch, and
+ *  clear `__ohOrig` so the follow-up `oh-setup` re-captures — pristine refs
+ *  AND a fresh dispatcher. The dispatcher's binding-vs-postMessage choice is
+ *  closure-captured at setup time, so a tab armed after its page loaded keeps
+ *  a stale page-visible postMessage dispatcher until re-captured; the reset
+ *  path (which always re-runs `oh-setup` before the wrappers) is that
+ *  re-capture. Re-injecting the current interceptor set afterwards rebuilds a
+ *  clean chain — this is how a rule edit goes live without a reload. */
 export function buildResetInjection(): FuncInjection {
   return { kind: 'func', func: ohResetFunc as unknown as (cfg: never) => void, args: [null] };
 }
@@ -115,4 +120,5 @@ function ohResetFunc(): void {
   XMLHttpRequest.prototype.setRequestHeader = o.xhrSetHeader;
   window.WebSocket = o.WebSocket;
   window.EventSource = o.EventSource;
+  delete w.__ohOrig;
 }

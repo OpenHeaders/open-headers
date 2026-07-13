@@ -268,6 +268,30 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     expect(buildDelayInjection).toHaveBeenCalledWith(rule, []);
   });
 
+  // PE3: `bootstrapCoversDocument` must track what the bootstrap actually
+  // DELIVERS, not bare eligibility. A wrapper with no URL conditions compiles
+  // to no regex sources ("match nothing" for injection targeting), so
+  // `compileBootstrapScripts` skips it and the bootstrap set — `oh-setup`
+  // included — is empty. If it is the sole "eligible" wrapper, the
+  // `onCommitted` path must still install `oh-setup`, or a fresh document of
+  // a CDP-owned tab gets NO dispatcher from either path.
+
+  it('still installs oh-setup on the fresh document when the sole eligible wrapper produces no bootstrap (PE3)', async () => {
+    updateScriptableRules([delayRule({ conditions: [] })]);
+
+    await __testInjectForUrl(CDP_TAB, PAGE);
+    expect(spies.applyInjection).toHaveBeenCalledWith(CDP_TAB, undefined, 'oh-setup');
+    // The no-condition wrapper itself installs nowhere (match-nothing gate).
+    expect(buildDelayInjection).not.toHaveBeenCalled();
+  });
+
+  it('skips oh-setup on the fresh document when a producing eligible wrapper exists (bootstrap covers it)', async () => {
+    updateScriptableRules([delayRule()]);
+
+    await __testInjectForUrl(CDP_TAB, PAGE);
+    expect(spies.applyInjection).not.toHaveBeenCalledWith(CDP_TAB, undefined, 'oh-setup');
+  });
+
   it('re-installs the delay wrapper on the CURRENT document refresh under CDP control (no mid-page loss)', async () => {
     const rule = delayRule();
     updateScriptableRules([rule]);

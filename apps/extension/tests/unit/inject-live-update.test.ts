@@ -3,9 +3,10 @@
  *
  * Interceptors chain over the current fetch/XHR reference, so a rule edit
  * is applied by: setup (capture pristine refs at load) → reset (restore
- * them, dropping every chained patch) → re-inject the current rule set.
- * No stacking, deletes take effect, and the new config goes live without
- * navigating.
+ * them, dropping every chained patch, and clear the capture) → setup again
+ * (re-capture pristine refs + re-pick the fire dispatcher, PE1) → re-inject
+ * the current rule set. No stacking, deletes take effect, and the new
+ * config goes live without navigating.
  */
 
 import type { ResponseRule } from '@openheaders/core/types';
@@ -71,14 +72,29 @@ describe('interceptor live-update (setup / reset / re-inject)', () => {
     let res = await window.fetch('/echo/mocked');
     expect(await res.text()).toBe('{"v":1}');
 
-    // Edit lands: reset drops the patch, re-inject installs the new body.
+    // Edit lands: reset drops the patch (and the capture), setup re-captures,
+    // re-inject installs the new body — the production reset-path sequence.
     install(buildResetInjection());
     res = await window.fetch('/echo/mocked');
     expect(await res.text()).toBe('PASSTHROUGH'); // reset restored the real fetch
 
+    install(buildSetupInjection());
     install(buildResponseInjection(mockRuleFor('{"v":2}')) as FuncInjection);
     res = await window.fetch('/echo/mocked');
     expect(await res.text()).toBe('{"v":2}'); // new value live, no reload
+  });
+
+  it('reset clears the capture so the follow-up setup re-captures pristine refs (PE1)', async () => {
+    install(buildSetupInjection());
+    install(buildResponseInjection(mockRuleFor('{"v":1}')) as FuncInjection);
+
+    install(buildResetInjection());
+    expect((window as unknown as { __ohOrig?: unknown }).__ohOrig).toBeUndefined();
+
+    // The fresh setup captures the RESTORED references — not a patched chain.
+    install(buildSetupInjection());
+    const res = await window.fetch('/echo/mocked');
+    expect(await res.text()).toBe('PASSTHROUGH');
   });
 
   it('reset fully removes interception (a deleted rule stops firing)', async () => {

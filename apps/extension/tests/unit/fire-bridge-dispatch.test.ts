@@ -20,6 +20,7 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import {
+  buildResetInjection,
   buildResponseInjection,
   buildSetupInjection,
   type FuncInjection,
@@ -113,12 +114,13 @@ describe('oh-setup fire dispatcher (E4)', () => {
     expect(impostor).not.toHaveBeenCalled();
   });
 
-  it('is idempotent — a binding appearing after the first oh-setup does not re-arm the document', () => {
+  it('is idempotent — re-running oh-setup alone does not re-arm the document', () => {
     installFunc(buildSetupInjection()); // un-armed: no binding captured
 
-    // A binding appears later, but oh-setup already ran — re-running is a no-op,
-    // so the dispatcher keeps its postMessage decision (the current-document
-    // carve-out: an arming tab keeps postMessage until the next navigation).
+    // A binding appears later, but oh-setup already ran — re-running it alone
+    // is a no-op, so the dispatcher keeps its postMessage decision. Re-arming
+    // the current document goes through the reset path (next probe), which
+    // clears the capture first.
     const lateBinding = vi.fn();
     ohWin[OH_BINDING] = lateBinding;
     installFunc(buildSetupInjection());
@@ -127,6 +129,24 @@ describe('oh-setup fire dispatcher (E4)', () => {
 
     expect(postMessageSpy).toHaveBeenCalledTimes(1);
     expect(lateBinding).not.toHaveBeenCalled();
+  });
+
+  it('re-arms the current document through the reset path — the fresh capture picks the binding (PE1)', () => {
+    installFunc(buildSetupInjection()); // page loaded un-armed: postMessage dispatcher
+
+    // The tab arms mid-page: the SW's Runtime.addBinding exposes the global,
+    // then the scope-refresh resets and re-runs oh-setup. The reset cleared
+    // `__ohOrig`, so the fresh capture picks the binding — the current
+    // document's fires go page-invisible without waiting for a navigation.
+    const binding = vi.fn();
+    ohWin[OH_BINDING] = binding;
+    installFunc(buildResetInjection());
+    installFunc(buildSetupInjection());
+
+    fire('dly00001', 'https://api.openheaders.io/x', 'delay');
+
+    expect(binding).toHaveBeenCalledTimes(1);
+    expect(postMessageSpy).not.toHaveBeenCalled();
   });
 });
 

@@ -152,17 +152,28 @@ export function setCdpControlQuery(query: (tabId: number) => boolean): void {
 
 /**
  * Whether the active rule set contains at least one bootstrap-eligible wrapper
- * ({@link isBootstrapEligible}) — i.e. a residual, page-independent wrapper that
- * a CDP-owned tab delivers via a document-bootstrap script (`oh-setup` + the
- * wrapper) instead of the `onCommitted` path. When true for an in-scope tab,
- * the bootstrap supplies `oh-setup` and those wrappers on a fresh document, so
- * the `onCommitted` path must NOT install them again (the "never both" law).
+ * ({@link isBootstrapEligible}) that actually PRODUCES a bootstrap injection —
+ * i.e. a residual, page-independent wrapper that a CDP-owned tab delivers via a
+ * document-bootstrap script (`oh-setup` + the wrapper) instead of the
+ * `onCommitted` path. When true for an in-scope tab, the bootstrap supplies
+ * `oh-setup` and those wrappers on a fresh document, so the `onCommitted` path
+ * must NOT install them again (the "never both" law).
+ *
+ * The producing requirement mirrors `compileBootstrapScripts`' skip: a wrapper
+ * with no compiled URL pattern matches nothing in-page and contributes no
+ * bootstrap script, so eligibility alone must not claim the document is
+ * covered — a sole no-URL-condition wrapper would otherwise suppress
+ * `oh-setup` on the `onCommitted` path while the bootstrap set stayed empty,
+ * leaving the fresh document with no dispatcher at all. The entries' precompiled
+ * `regexSources` IS `compileRuleForInjection(rule)`, and a header-merge entry
+ * exists only when the rule carries merges — the same two gates the compile
+ * applies.
  */
 function hasBootstrapEligibleWrapper(): boolean {
+  const producing = (e: PageInstallGate & { rule: Rule }): boolean =>
+    isBootstrapEligible(e.rule) && e.regexSources.length > 0;
   return (
-    activeInterceptorRules.some((e) => isBootstrapEligible(e.rule)) ||
-    activeMessageRules.some((e) => isBootstrapEligible(e.rule)) ||
-    activeHeaderMerges.some((e) => isBootstrapEligible(e.rule))
+    activeInterceptorRules.some(producing) || activeMessageRules.some(producing) || activeHeaderMerges.some(producing)
   );
 }
 
@@ -551,9 +562,23 @@ async function pushInterceptorUpdate(): Promise<void> {
  *  (suppression-filtered) interceptor set. The shared body of the live-update
  *  push and the per-tab CDP-scope refresh — both act on the CURRENT document,
  *  which a bootstrap script never reached, so the residual wrappers install
- *  here (suppress=false); only network realization (D4a) is still suppressed. */
+ *  here (suppress=false); only network realization (D4a) is still suppressed.
+ *
+ *  `oh-setup` re-runs between the reset and the wrappers (PE1): the reset
+ *  cleared `__ohOrig`, so the fresh setup re-captures the (just-restored)
+ *  pristine references AND re-picks the fire dispatcher. On a tab armed
+ *  mid-page this swaps the stale page-visible postMessage dispatcher for the
+ *  Runtime-binding one the SW installed at attach — the current document goes
+ *  page-invisible without waiting for a navigation. No double-fire: the
+ *  wrappers read `window.__ohOrig.fire` at fire time, and there is exactly
+ *  one dispatcher per capture. */
 async function resetAndReinjectTab(tabId: number, url: string): Promise<void> {
   await applyInjection(tabId, buildResetInjection(), 'oh-reset');
+  try {
+    await applyInjection(tabId, buildSetupInjection(), 'oh-setup');
+  } catch (error) {
+    logInjectFailure('oh-setup', tabId, error);
+  }
   await injectInterceptorsForTab(tabId, url, false);
 }
 
