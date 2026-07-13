@@ -12,6 +12,8 @@ import { FREE_SEAT_LIMIT, type LicenseInvalidReason, type LicenseSnapshot } from
 import { Alert, App as AntApp, Button, Input, Popconfirm, Tag, theme, Upload } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
 
 const INVALID_REASON_TEXT: Record<LicenseInvalidReason, string> = {
@@ -37,6 +39,7 @@ const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ lab
 
 const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { message } = AntApp.useApp();
   const [snapshot, setSnapshot] = useState<LicenseSnapshot | null>(null);
   const [draft, setDraft] = useState('');
@@ -95,10 +98,12 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
     <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
       <header style={{ marginBottom: 10 }}>
         <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {category.label}
+          {resolveLabel(category, t)}
         </h2>
-        {category.description && (
-          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{category.description}</p>
+        {resolveOptionalDescription(category, t) && (
+          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>
+            {resolveOptionalDescription(category, t)}
+          </p>
         )}
       </header>
 

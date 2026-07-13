@@ -8,11 +8,11 @@
 import { Select } from 'antd';
 import type React from 'react';
 import { useUntypedSetting } from '../hooks';
-import type { SettingDef } from '../types';
+import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
 interface MultiSelectFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 const MultiSelectField: React.FC<MultiSelectFieldProps> = ({ def }) => {

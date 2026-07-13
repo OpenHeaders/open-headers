@@ -12,8 +12,10 @@
 
 import { theme } from 'antd';
 import type React from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import type { Host } from '../../../shared/host-vocabulary';
 import SettingRow from '../fields/SettingRow';
+import { resolveLabel } from '../localize';
 import { get as storeGet } from '../store';
 import type { CategoryDef, SettingDef, SettingKey, SettingsMap, SubcategoryDef } from '../types';
 import OfflineFallbackOrderSection from './offline-fallback-order-section';
@@ -29,6 +31,7 @@ export const GlobalConfigSections: React.FC<{
   category: CategoryDef;
 }> = ({ host, defs, category }) => {
   const { token } = theme.useToken();
+  const t = useT();
 
   // `backend.showBadgeWhenDisconnected` toggles a `chrome.action`
   // toolbar badge — meaningless outside the browser extension. The
@@ -45,7 +48,7 @@ export const GlobalConfigSections: React.FC<{
     return evaluateWhen(d);
   });
 
-  const grouped = groupBySubcategory(visibleDefs, category.subcategories);
+  const grouped = groupBySubcategory(visibleDefs, category.subcategories, t);
 
   return (
     <>
@@ -113,10 +116,11 @@ interface GroupedSection {
 function groupBySubcategory(
   defs: readonly SettingDef[],
   subcategories: readonly SubcategoryDef[] | undefined,
+  t: Translate,
 ): GroupedSection[] {
   const byId = new Map<string, SettingDef[]>();
   const orderedIds = (subcategories ?? []).slice().sort((a, b) => a.order - b.order).map((s) => s.id);
-  const labels = new Map((subcategories ?? []).map((s) => [s.id, s.label]));
+  const labels = new Map((subcategories ?? []).map((s) => [s.id, resolveLabel(s, t)]));
 
   for (const id of orderedIds) byId.set(id, []);
   for (const def of defs) {
@@ -128,7 +132,7 @@ function groupBySubcategory(
 
   return Array.from(byId.entries()).map(([id, list]) => ({
     id,
-    label: labels.get(id) ?? 'Other',
+    label: labels.get(id) ?? t('workbench.settings.shell.otherGroup'),
     defs: list,
   }));
 }

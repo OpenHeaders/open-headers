@@ -22,13 +22,13 @@ import { App, Button, Empty, Popconfirm, Space, Table, Tooltip, Typography, them
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
-import type { SettingDef } from '../types';
+import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
 const { Text } = Typography;
 
 interface FilesBrowserFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 interface Row {

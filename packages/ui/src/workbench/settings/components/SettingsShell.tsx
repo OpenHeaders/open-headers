@@ -11,6 +11,7 @@ import { UndoOutlined } from '@ant-design/icons';
 import { Button, ConfigProvider, type InputRef, Popconfirm, Skeleton, theme } from 'antd';
 import type React from 'react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useDaemonAdminStatus } from '../../components/daemon-admin/use-daemon-admin-status';
 import { useModifiedCount, useResetAllSettings } from '../hooks';
 import { allCategories, getDef } from '../registry';
@@ -28,6 +29,7 @@ interface SettingsShellProps {
 
 const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initialCategoryId }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [query, setQuery] = useState('');
   const paneRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -42,7 +44,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   }, []);
 
   const isSearching = query.trim().length > 0;
-  const results = useMemo(() => searchSettings(query), [query]);
+  const results = useMemo(() => searchSettings(query, t), [query, t]);
 
   // ── Per-category def lists + match counts ───────────────────────────
   const { byCategory, matchCount } = useMemo(() => {
@@ -224,7 +226,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
               })()
             ) : (
               <div style={{ padding: 64, textAlign: 'center', color: token.colorTextSecondary, fontSize: 13 }}>
-                No settings registered.
+                {t('workbench.settings.shell.noneRegistered')}
               </div>
             )}
           </div>
@@ -242,10 +244,10 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
             flex: 'none',
           }}
         >
-          <Hint keys={['/']} label="Search" />
-          <Hint keys={['↑', '↓']} label="Navigate" />
-          <Hint keys={['↵']} label="Select" />
-          <Hint keys={['Esc']} label="Clear / Close" />
+          <Hint keys={['/']} label={t('workbench.settings.shell.hint.search')} />
+          <Hint keys={['↑', '↓']} label={t('workbench.settings.shell.hint.navigate')} />
+          <Hint keys={['↵']} label={t('workbench.settings.shell.hint.select')} />
+          <Hint keys={['Esc']} label={t('workbench.settings.shell.hint.clearClose')} />
           <div style={{ flex: 1 }} />
           <ResetAllButton />
         </footer>
@@ -309,20 +311,21 @@ const CategoryPaneSkeleton: React.FC = () => {
 
 const ResetAllButton: React.FC = () => {
   const { token } = theme.useToken();
+  const t = useT();
   const modified = useModifiedCount();
   const resetAll = useResetAllSettings();
   const disabled = modified === 0;
   return (
     <Popconfirm
-      title="Reset all settings?"
+      title={t('workbench.settings.shell.resetAllTitle')}
       description={
         modified === 0
-          ? 'Nothing to reset — all settings are at their defaults.'
-          : `Restore ${modified} setting${modified === 1 ? '' : 's'} to its default value.`
+          ? t('workbench.settings.shell.resetAllNone')
+          : t('workbench.settings.shell.resetAllDescription', { count: modified })
       }
-      okText="Reset"
+      okText={t('workbench.settings.shell.resetConfirm')}
       okButtonProps={{ danger: true, disabled }}
-      cancelText="Cancel"
+      cancelText={t('shared.action.cancel')}
       onConfirm={() => {
         if (!disabled) resetAll();
       }}
@@ -336,7 +339,9 @@ const ResetAllButton: React.FC = () => {
         disabled={disabled}
         style={{ fontSize: 11, color: disabled ? token.colorTextTertiary : token.colorTextSecondary }}
       >
-        {modified === 0 ? 'Reset all' : `Reset all (${modified})`}
+        {modified === 0
+          ? t('workbench.settings.shell.resetAll')
+          : t('workbench.settings.shell.resetAllCount', { count: modified })}
       </Button>
     </Popconfirm>
   );

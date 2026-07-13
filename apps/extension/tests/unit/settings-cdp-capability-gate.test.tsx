@@ -11,6 +11,7 @@
 import '@openheaders/ui/workbench/settings/schema/inspection';
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import BooleanField from '@openheaders/ui/workbench/settings/fields/BooleanField';
+import { resolveSettingDef, translateEnglish } from '@openheaders/ui/workbench/settings/localize';
 import { getDef } from '@openheaders/ui/workbench/settings/registry';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
 import {
@@ -36,7 +37,7 @@ const DISABLED_LABEL = 'Disabled — unavailable on this browser';
 function inspectionDef() {
   const def = getDef('inspection.cdpEnabled');
   if (!def) throw new Error('inspection.cdpEnabled not registered');
-  return def;
+  return resolveSettingDef(def, translateEnglish);
 }
 
 beforeEach(async () => {

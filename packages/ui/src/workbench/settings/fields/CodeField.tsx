@@ -12,11 +12,11 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import CodeEditor from '../../components/shared/CodeEditor';
 import { useUntypedSetting } from '../hooks';
-import type { SettingDef } from '../types';
+import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
 interface CodeFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 type SupportedLanguage = 'javascript' | 'css' | 'json';

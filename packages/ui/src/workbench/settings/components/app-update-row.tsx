@@ -14,7 +14,9 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { Button, Progress, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../fields/FieldRow';
+import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
 
 const { Text } = Typography;
@@ -25,6 +27,7 @@ function formatLastChecked(lastCheckedAt: number | null): string | null {
 }
 
 const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
+  const t = useT();
   const [state, setState] = useState<AppUpdateState | null>(null);
 
   useEffect(() => {
@@ -144,7 +147,7 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
   const lastChecked = state?.supported ? formatLastChecked(state.lastCheckedAt) : null;
 
   return (
-    <FieldRow settingKey={def.key} label={def.label} description={def.description} block>
+    <FieldRow settingKey={def.key} label={resolveLabel(def, t)} description={resolveDescription(def, t)} block>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>{body}</div>
       {lastChecked && (
         <Text type="secondary" style={{ fontSize: 12 }}>

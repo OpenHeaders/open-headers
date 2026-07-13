@@ -16,6 +16,7 @@ import { CloseOutlined, ExportOutlined, FullscreenExitOutlined, FullscreenOutlin
 import { Button, Modal, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import SettingsShell from './SettingsShell';
 import { SettingsHostContext } from './settings-host-context';
 
@@ -43,6 +44,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onPromoteToTab,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const host = useMemo(() => ({ close: onClose }), [onClose]);
   const [maximized, setMaximized] = useState(initialMaximized);
   useEffect(() => {
@@ -90,9 +92,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           background: token.colorBgElevated,
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600, color: token.colorText }}>Settings</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: token.colorText }}>
+          {t('workbench.settings.shell.title')}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Tooltip title={onPromoteToTab ? 'Open in Editor' : 'Open in Editor (coming soon)'}>
+          <Tooltip
+            title={
+              onPromoteToTab ? t('workbench.settings.shell.openInEditor') : t('workbench.settings.shell.openInEditorSoon')
+            }
+          >
             <Button
               size="small"
               type="text"
@@ -106,7 +114,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               }}
             />
           </Tooltip>
-          <Tooltip title={maximized ? 'Restore' : 'Maximize'}>
+          <Tooltip
+            title={maximized ? t('workbench.settings.shell.restoreWindow') : t('workbench.settings.shell.maximize')}
+          >
             <Button
               size="small"
               type="text"
@@ -114,7 +124,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={() => setMaximized((m) => !m)}
             />
           </Tooltip>
-          <Tooltip title="Close">
+          <Tooltip title={t('shared.action.close')}>
             <Button size="small" type="text" icon={<CloseOutlined />} onClick={onClose} />
           </Tooltip>
         </div>

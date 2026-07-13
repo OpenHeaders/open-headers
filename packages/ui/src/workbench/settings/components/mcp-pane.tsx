@@ -14,24 +14,28 @@
 
 import { Alert, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import SettingRow from '../fields/SettingRow';
 import { useSettingValue } from '../hooks';
+import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
 import DaemonTokensSection from './daemon-tokens-section';
 import McpConfigSnippets from './mcp-config-snippets';
 
 const McpPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const enabled = useSettingValue('mcp.enabled');
+  const description = resolveOptionalDescription(category, t);
 
   return (
     <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
       <header style={{ marginBottom: 10 }}>
         <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {category.label}
+          {resolveLabel(category, t)}
         </h2>
-        {category.description && (
-          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{category.description}</p>
+        {description && (
+          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{description}</p>
         )}
       </header>
 

@@ -1,12 +1,14 @@
 /**
  * General category — app-wide behavior that doesn't belong to a more
  * specific area. Covers startup landing, confirmation prompts, and
- * locale.
+ * locale. Definition text lives in the `workbench.settings.def.*`
+ * catalog namespace (keys derived from the setting key).
  */
 
 import { LOCALES } from '@openheaders/i18n';
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
+import type { EnumOption } from '../types';
 
 // The picker derives from the i18n locale registry — adding a language
 // there grows this setting automatically.
@@ -35,21 +37,30 @@ registerSetting({
   type: 'enum',
   default: 'auto',
   schema: languageSchema,
-  label: 'Language',
-  description:
-    'Display language for the interface. Applies immediately to every open surface — no reload. Technical vocabulary (header names, HTTP methods, protocol terms) stays in English in every language.',
+  labelKey: 'workbench.settings.def.general.language.label',
+  descriptionKey: 'workbench.settings.def.general.language.description',
   category: 'general',
   tags: ['locale', 'i18n', 'translation', 'language', 'display'],
   scope: 'user',
   enumOptions: [
-    { value: 'auto', label: 'Follow system', description: 'Match your browser or operating system language' },
-    ...LOCALES.map((l) => ({
-      value: l.code,
-      label: l.nativeName,
-      description: l.synthetic
-        ? 'Accented, expanded English for spotting untranslated or truncated text'
-        : l.englishName,
-    })),
+    {
+      value: 'auto',
+      labelKey: 'workbench.settings.def.general.language.option.auto.label',
+      descriptionKey: 'workbench.settings.def.general.language.option.auto.description',
+    },
+    // Locale rows keep their raw registry text: `nativeName` is each
+    // language's self-designation and `englishName` a proper noun —
+    // neither translates. Only pseudo's QA blurb is a catalog key.
+    ...LOCALES.map(
+      (l): EnumOption<Language> =>
+        l.synthetic
+          ? {
+              value: l.code,
+              label: l.nativeName,
+              descriptionKey: 'workbench.settings.def.general.language.option.pseudo.description',
+            }
+          : { value: l.code, label: l.nativeName, description: l.englishName },
+    ),
   ],
 });
 
@@ -58,8 +69,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Confirm Before Deleting',
-  description: 'Show a confirmation dialog before deleting rules, folders, or collections.',
+  labelKey: 'workbench.settings.def.general.confirmOnDelete.label',
+  descriptionKey: 'workbench.settings.def.general.confirmOnDelete.description',
   category: 'general',
   tags: ['safety', 'prompt', 'dialog'],
   scope: 'user',
@@ -70,8 +81,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Show Empty-State Hints',
-  description: 'Render guidance and tips in empty panels and onboarding areas.',
+  labelKey: 'workbench.settings.def.general.showEmptyStateHints.label',
+  descriptionKey: 'workbench.settings.def.general.showEmptyStateHints.description',
   category: 'general',
   tags: ['tips', 'onboarding', 'hints', 'help'],
   scope: 'user',
@@ -82,8 +93,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Restore Tabs on Startup',
-  description: 'Re-open the editor tabs that were open at the end of the previous session.',
+  labelKey: 'workbench.settings.def.general.restoreTabsOnStartup.label',
+  descriptionKey: 'workbench.settings.def.general.restoreTabsOnStartup.description',
   category: 'general',
   tags: ['session', 'tabs', 'restore', 'persistence'],
   scope: 'user',
@@ -94,30 +105,26 @@ registerSetting({
   type: 'enum',
   default: 'apply-defaults',
   schema: collectionEnvAutoSwitchSchema,
-  label: 'Collection Environment Switching',
-  description:
-    'How the active environment changes as you move between collections and the entities inside them (rules, requests, folders). Applies to both rule collections and API request collections. Collections can carry a default environment and pin a short list of recommended environments; this setting controls whether those defaults take over automatically.',
+  labelKey: 'workbench.settings.def.general.collectionEnvAutoSwitch.label',
+  descriptionKey: 'workbench.settings.def.general.collectionEnvAutoSwitch.description',
   category: 'general',
   tags: ['environment', 'collection', 'auto-switch', 'workflow'],
   scope: 'user',
   enumOptions: [
     {
       value: 'keep-selection',
-      label: 'Keep selected environment',
-      description:
-        "Whatever you have selected (including no environment) stays selected as you navigate between collections and their subfolders, rules, or requests. A collection's default only applies when no environment is selected.",
+      labelKey: 'workbench.settings.def.general.collectionEnvAutoSwitch.option.keep-selection.label',
+      descriptionKey: 'workbench.settings.def.general.collectionEnvAutoSwitch.option.keep-selection.description',
     },
     {
       value: 'apply-defaults',
-      label: 'Apply collection defaults',
-      description:
-        "A collection's default takes over while you're inside it (or any subfolder, rule, or request within). Your last manual pick is the base environment — restored whenever you leave a collection or enter one without a default. No per-collection memory.",
+      labelKey: 'workbench.settings.def.general.collectionEnvAutoSwitch.option.apply-defaults.label',
+      descriptionKey: 'workbench.settings.def.general.collectionEnvAutoSwitch.option.apply-defaults.description',
     },
     {
       value: 'follow-collection',
-      label: 'Follow each collection',
-      description:
-        "Opening a collection (or any subfolder, rule, or request inside it) with a default environment switches to that default. Picks you make inside a collection are remembered for that collection. Collections without a default don't auto-switch.",
+      labelKey: 'workbench.settings.def.general.collectionEnvAutoSwitch.option.follow-collection.label',
+      descriptionKey: 'workbench.settings.def.general.collectionEnvAutoSwitch.option.follow-collection.description',
     },
   ],
 });
@@ -127,15 +134,27 @@ registerSetting({
   type: 'enum',
   default: 'modal-maximized',
   schema: settingsOpenModeSchema,
-  label: 'Settings Open Mode',
-  description: 'How the Settings page opens when launched from the toolbar, popup, or command palette.',
+  labelKey: 'workbench.settings.def.general.settingsOpenMode.label',
+  descriptionKey: 'workbench.settings.def.general.settingsOpenMode.description',
   category: 'general',
   tags: ['settings', 'modal', 'tab', 'layout'],
   scope: 'user',
   enumOptions: [
-    { value: 'modal', label: 'Modal', description: 'Overlay centered on the current page' },
-    { value: 'modal-maximized', label: 'Modal (maximized)', description: 'Overlay that fills most of the viewport' },
-    { value: 'tab', label: 'Editor tab', description: 'Open as a full editor tab in the workspace' },
+    {
+      value: 'modal',
+      labelKey: 'workbench.settings.def.general.settingsOpenMode.option.modal.label',
+      descriptionKey: 'workbench.settings.def.general.settingsOpenMode.option.modal.description',
+    },
+    {
+      value: 'modal-maximized',
+      labelKey: 'workbench.settings.def.general.settingsOpenMode.option.modal-maximized.label',
+      descriptionKey: 'workbench.settings.def.general.settingsOpenMode.option.modal-maximized.description',
+    },
+    {
+      value: 'tab',
+      labelKey: 'workbench.settings.def.general.settingsOpenMode.option.tab.label',
+      descriptionKey: 'workbench.settings.def.general.settingsOpenMode.option.tab.description',
+    },
   ],
 });
 
@@ -144,9 +163,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Show Category Names in Settings Sidebar',
-  description:
-    'Render text labels next to category icons in the Settings sidebar. Right-click the sidebar to toggle. Disable for an icon-only compact rail.',
+  labelKey: 'workbench.settings.def.general.settingsShowCategoryLabels.label',
+  descriptionKey: 'workbench.settings.def.general.settingsShowCategoryLabels.description',
   category: 'general',
   tags: ['settings', 'sidebar', 'labels', 'compact'],
   scope: 'user',

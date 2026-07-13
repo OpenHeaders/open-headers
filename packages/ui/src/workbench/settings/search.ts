@@ -11,11 +11,20 @@
  *   description   1
  *   key           1
  *
+ * Labels and descriptions are matched in BOTH the active locale (the
+ * caller's `translate`) and English (the source catalog), so queries
+ * keep working after a language switch — English because it is the
+ * product's lingua franca (docs, tags, keys), the rendered text because
+ * it is what the user sees on screen. Duplicate tokens between the two
+ * are collapsed before scoring so English defaults aren't counted twice.
+ *
  * Filter tokens `@modified` / `@experimental` / `@deprecated` filter
  * the result set before scoring. Empty query returns all defs sorted
  * by category order + label.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { resolveDescription, resolveLabel, translateEnglish } from './localize';
 import { allCategories, allDefs } from './registry';
 import { isModified } from './store';
 import type { SettingDef } from './types';
@@ -34,13 +43,19 @@ function tokens(input: string): string[] {
     .filter((t) => t.length > 0);
 }
 
-function scoreDef(def: SettingDef, queryTokens: string[], categoryLabel: string): number {
+/** Tokens of the rendered and English forms of a text pair, deduplicated. */
+function bilingualTokens(rendered: string, english: string): string[] {
+  if (rendered === english) return tokens(rendered);
+  return Array.from(new Set([...tokens(rendered), ...tokens(english)]));
+}
+
+function scoreDef(def: SettingDef, queryTokens: string[], categoryTokens: string[], translate: Translate): number {
   if (queryTokens.length === 0) return 0;
-  const labelTokens = tokens(def.label);
+  const labelTokens = bilingualTokens(resolveLabel(def, translate), resolveLabel(def, translateEnglish));
   const tagTokens = (def.tags ?? []).flatMap(tokens);
-  const descTokens = tokens(def.description);
+  const descTokens = bilingualTokens(resolveDescription(def, translate), resolveDescription(def, translateEnglish));
   const keyTokens = tokens(def.key);
-  const catTokens = [...tokens(categoryLabel), ...tokens(def.subcategory ?? '')];
+  const catTokens = categoryTokens;
 
   let score = 0;
   for (const qt of queryTokens) {
@@ -58,7 +73,7 @@ export interface SettingsSearchResult {
   score: number;
 }
 
-export function searchSettings(query: string): SettingsSearchResult[] {
+export function searchSettings(query: string, translate: Translate = translateEnglish): SettingsSearchResult[] {
   const trimmed = query.trim();
   const filters = {
     modified: false,
@@ -87,7 +102,20 @@ export function searchSettings(query: string): SettingsSearchResult[] {
     .join(' ');
 
   const qTokens = tokens(queryWithoutFilters);
-  const catMap = new Map(allCategories().map((c) => [c.id, c.label] as const));
+  const categories = allCategories();
+  const catLabelTokens = new Map(
+    categories.map(
+      (c) => [c.id, bilingualTokens(resolveLabel(c, translate), resolveLabel(c, translateEnglish))] as const,
+    ),
+  );
+  const subLabelTokens = new Map(
+    categories.flatMap((c) =>
+      (c.subcategories ?? []).map(
+        (s) =>
+          [`${c.id}/${s.id}`, bilingualTokens(resolveLabel(s, translate), resolveLabel(s, translateEnglish))] as const,
+      ),
+    ),
+  );
 
   const filtered = allDefs().filter((def) => {
     if (filters.modified && !isModified(def.key)) return false;
@@ -104,10 +132,16 @@ export function searchSettings(query: string): SettingsSearchResult[] {
 
   const scored: SettingsSearchResult[] = [];
   for (const def of filtered) {
-    const catLabel = catMap.get(def.category) ?? '';
-    const score = scoreDef(def, qTokens, catLabel);
+    const categoryTokens = [
+      ...(catLabelTokens.get(def.category) ?? []),
+      ...tokens(def.subcategory ?? ''),
+      ...(def.subcategory ? (subLabelTokens.get(`${def.category}/${def.subcategory}`) ?? []) : []),
+    ];
+    const score = scoreDef(def, qTokens, categoryTokens, translate);
     if (score > 0) scored.push({ def, score });
   }
-  scored.sort((a, b) => b.score - a.score || a.def.label.localeCompare(b.def.label));
+  scored.sort(
+    (a, b) => b.score - a.score || resolveLabel(a.def, translate).localeCompare(resolveLabel(b.def, translate)),
+  );
   return scored;
 }

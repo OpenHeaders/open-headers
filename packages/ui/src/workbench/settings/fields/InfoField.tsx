@@ -1,11 +1,11 @@
 import { theme } from 'antd';
 import type React from 'react';
 import { useSettingValue } from '../hooks';
-import type { SettingDef, SettingKey } from '../types';
+import type { ResolvedSettingDef, SettingKey } from '../types';
 import FieldRow from './FieldRow';
 
 interface InfoFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 const InfoField: React.FC<InfoFieldProps> = ({ def }) => {

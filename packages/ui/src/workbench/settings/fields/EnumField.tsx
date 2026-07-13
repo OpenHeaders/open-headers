@@ -8,11 +8,11 @@
 import { Radio, Select, Tooltip } from 'antd';
 import type React from 'react';
 import { useUntypedSetting } from '../hooks';
-import type { SettingDef } from '../types';
+import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
 interface EnumFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 const EnumField: React.FC<EnumFieldProps> = ({ def }) => {

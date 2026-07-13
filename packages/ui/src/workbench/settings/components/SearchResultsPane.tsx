@@ -9,7 +9,9 @@
 import { theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import SettingRow from '../fields/SettingRow';
+import { resolveLabel } from '../localize';
 import { allCategories } from '../registry';
 import type { SettingsSearchResult } from '../search';
 import type { CategoryDef, SettingDef } from '../types';
@@ -22,6 +24,7 @@ interface SearchResultsPaneProps {
 
 const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, onJumpToCategory }) => {
   const { token } = theme.useToken();
+  const t = useT();
 
   const grouped = useMemo(() => {
     const catOrder = new Map(allCategories().map((c, i) => [c.id, { def: c, index: i }] as const));
@@ -43,7 +46,7 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
   if (results.length === 0) {
     return (
       <div style={{ padding: '64px 32px', textAlign: 'center', color: token.colorTextSecondary, fontSize: 13 }}>
-        No settings match <strong style={{ color: token.colorText }}>{query.trim()}</strong>
+        {t('workbench.settings.shell.noMatchesFor')} <strong style={{ color: token.colorText }}>{query.trim()}</strong>
       </div>
     );
   }
@@ -52,10 +55,10 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
     <div style={{ padding: '14px 18px 20px' }}>
       <header style={{ marginBottom: 10 }}>
         <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          Search results
+          {t('workbench.settings.shell.searchResults')}
         </h2>
         <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>
-          {results.length} {results.length === 1 ? 'match' : 'matches'} for <em>{query.trim()}</em>
+          {t('workbench.settings.shell.matchesFor', { count: results.length })} <em>{query.trim()}</em>
         </p>
       </header>
       {grouped.map(({ cat, defs }) => (
@@ -78,10 +81,10 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
               color: token.colorTextTertiary,
               cursor: 'pointer',
             }}
-            title="Jump to category"
+            title={t('workbench.settings.shell.jumpToCategory')}
           >
             <span style={{ fontSize: 12, opacity: 0.85 }}>{cat.icon}</span>
-            <span>{cat.label}</span>
+            <span>{resolveLabel(cat, t)}</span>
           </button>
           <div>
             {defs.map((def) => (

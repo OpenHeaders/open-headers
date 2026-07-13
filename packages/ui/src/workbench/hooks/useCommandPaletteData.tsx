@@ -14,9 +14,10 @@ import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } f
 import { buildRuleIcon } from '../components/shared/rule-icon';
 import { scopeBadge } from '../components/shared/scope-colors';
 import { renderTwoToneIcon } from '../components/shared/TwoToneIconPicker';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
-import { allCategories, allDefs } from '../settings';
+import { allCategories, allDefs, resolveDescription, resolveLabel } from '../settings';
 import { getRuleTypeLabel } from './useTabOpeners';
 
 interface UseCommandPaletteDataOptions {
@@ -72,6 +73,8 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     onShowShortcuts,
     onOpenSettings,
   } = opts;
+
+  const t = useT();
 
   const groups = useMemo((): CommandPaletteGroup[] => {
     const result: CommandPaletteGroup[] = [];
@@ -198,19 +201,20 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     // them by either field.
     const settingsSections: CommandPaletteSection[] = [];
     for (const cat of allCategories()) {
+      const catLabel = resolveLabel(cat, t);
       const items: CommandPaletteItem[] = [];
       for (const def of allDefs()) {
         if (def.category !== cat.id) continue;
         items.push({
           id: `setting-${def.key}`,
           icon: <SettingOutlined style={{ fontSize: 12 }} />,
-          label: `${cat.label}: ${def.label}`,
-          scope: def.description,
+          label: `${catLabel}: ${resolveLabel(def, t)}`,
+          scope: resolveDescription(def, t),
           onSelect: () => onOpenSettings({ settingKey: def.key }),
         });
       }
       if (items.length === 0) continue;
-      settingsSections.push({ id: `settings-cat-${cat.id}`, title: cat.label, items });
+      settingsSections.push({ id: `settings-cat-${cat.id}`, title: catLabel, items });
     }
     if (settingsSections.length > 0) {
       result.push({
@@ -233,6 +237,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openRequestEditTab,
     openTemplateEditTab,
     onOpenSettings,
+    t,
   ]);
 
   const newRuleLabel = useShortcutLabel('new-rule');

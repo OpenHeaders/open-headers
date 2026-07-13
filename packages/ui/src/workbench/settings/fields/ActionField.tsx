@@ -1,13 +1,15 @@
 import { Button } from 'antd';
 import type React from 'react';
-import type { SettingDef } from '../types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
 interface ActionFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 const ActionField: React.FC<ActionFieldProps> = ({ def }) => {
+  const t = useT();
   const action = def.action;
   return (
     <FieldRow
@@ -24,7 +26,7 @@ const ActionField: React.FC<ActionFieldProps> = ({ def }) => {
           void action?.run();
         }}
       >
-        {action?.label ?? 'Run'}
+        {action?.label ?? t('workbench.settings.row.run')}
       </Button>
     </FieldRow>
   );

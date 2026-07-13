@@ -1,11 +1,11 @@
 import { Checkbox } from 'antd';
 import type React from 'react';
 import { useUntypedSetting } from '../hooks';
-import type { SettingDef } from '../types';
+import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
 interface BooleanFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 const BooleanField: React.FC<BooleanFieldProps> = ({ def }) => {

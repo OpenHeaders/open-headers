@@ -10,9 +10,16 @@
  */
 
 export { useIsModified, useResetSetting, useSetting, useSettingsReady, useSettingValue } from './hooks';
+export {
+  categoryNavLabel,
+  resolveDescription,
+  resolveLabel,
+  resolveOptionalDescription,
+  resolveSettingDef,
+} from './localize';
 export { allCategories, allDefs, byCategory, getDef } from './registry';
 export { SettingsProvider } from './SettingsProvider';
 export { searchSettings } from './search';
 export { get as getSettingValue, reset as resetSetting, set as setSettingValue } from './store';
 
-export type { CategoryDef, SettingDef, SettingKey, SettingsMap, SettingType } from './types';
+export type { CategoryDef, ResolvedSettingDef, SettingDef, SettingKey, SettingsMap, SettingType } from './types';

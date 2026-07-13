@@ -11,8 +11,11 @@
  * just isn't rendered.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
+import { useMemo } from 'react';
 import { useSettingsReady } from '../hooks';
+import { resolveSettingDef } from '../localize';
 import { get as storeGet } from '../store';
 import type { SettingDef, SettingKey, SettingsMap } from '../types';
 import ActionField from './ActionField';
@@ -33,11 +36,15 @@ interface SettingRowProps {
   def: SettingDef;
 }
 
-const SettingRow: React.FC<SettingRowProps> = ({ def }) => {
+const SettingRow: React.FC<SettingRowProps> = ({ def: rawDef }) => {
   // Re-evaluate `when` on every render — cheap, and guarantees we
   // react to any upstream setting change because that triggers a
   // re-render on the parent when subscribed.
   useSettingsReady();
+  // Localization boundary for the field layer: resolve every text pair
+  // once, so the field components below only see definite strings.
+  const t = useT();
+  const def = useMemo(() => resolveSettingDef(rawDef, t), [rawDef, t]);
   if (def.when && !def.when(<K extends SettingKey>(k: K): SettingsMap[K] => storeGet(k))) {
     return null;
   }

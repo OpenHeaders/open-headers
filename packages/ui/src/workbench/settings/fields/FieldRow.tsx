@@ -14,6 +14,7 @@ import type { Capabilities } from '@openheaders/core/capabilities';
 import { DisconnectOutlined, UndoOutlined } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useSettingsConnection } from '../ConnectionContext';
 import { useIsModified, useResetSetting } from '../hooks';
@@ -77,9 +78,10 @@ const FieldRow: React.FC<FieldRowProps> = ({
   labelInControl = false,
   modified: modifiedOverride,
   onReset,
-  resetTooltip = 'Reset to default',
+  resetTooltip,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   // Unregistered ids are tolerated by the store hooks (never modified,
   // no-op reset) — the same key-narrowing cast `useUntypedSetting` makes.
   const storeModified = useIsModified(settingKey as SettingKey);
@@ -91,14 +93,14 @@ const FieldRow: React.FC<FieldRowProps> = ({
   const capabilityGated = requiresCapability !== undefined && !hasCapability(requiresCapability);
   const gated = connectionGated || capabilityGated;
   const disabledHint = capabilityGated
-    ? (capabilityUnavailableHint ?? 'This browser doesn’t support this setting.')
-    : 'Connect the desktop app to change this setting.';
+    ? (capabilityUnavailableHint ?? t('workbench.settings.row.capabilityUnavailable'))
+    : t('workbench.settings.row.connectionRequired');
 
   const modifiedDot = modified && (
-    <Tooltip title="Modified from default">
+    <Tooltip title={t('workbench.settings.row.modified')}>
       <span
         role="img"
-        aria-label="modified"
+        aria-label={t('workbench.settings.row.modifiedAria')}
         style={{
           width: 5,
           height: 5,
@@ -110,12 +112,17 @@ const FieldRow: React.FC<FieldRowProps> = ({
     </Tooltip>
   );
 
-  const info = description ? <InfoTrigger content={{ title: label, summary: description }} ariaLabel={`About ${label}`} /> : null;
+  const info = description ? (
+    <InfoTrigger
+      content={{ title: label, summary: description }}
+      ariaLabel={t('workbench.settings.row.aboutAria', { label })}
+    />
+  ) : null;
 
   const badges = (
     <>
       {experimental && (
-        <Tooltip title="Experimental">
+        <Tooltip title={t('workbench.settings.row.experimental')}>
           <span
             style={{
               fontSize: 9,
@@ -124,15 +131,16 @@ const FieldRow: React.FC<FieldRowProps> = ({
               background: token.colorWarningBg,
               color: token.colorWarningText,
               fontWeight: 500,
+              textTransform: 'uppercase',
               flex: 'none',
             }}
           >
-            EXPERIMENTAL
+            {t('workbench.settings.row.experimental')}
           </span>
         </Tooltip>
       )}
       {requiresConnection && (
-        <Tooltip title="Requires a live connection to the Open Headers desktop app. The desktop app stores the authoritative value.">
+        <Tooltip title={t('workbench.settings.row.desktopTip')}>
           <span
             style={{
               display: 'inline-flex',
@@ -144,11 +152,12 @@ const FieldRow: React.FC<FieldRowProps> = ({
               background: gated ? token.colorErrorBg : token.colorInfoBg,
               color: gated ? token.colorError : token.colorInfo,
               fontWeight: 500,
+              textTransform: 'uppercase',
               flex: 'none',
             }}
           >
             <DisconnectOutlined style={{ fontSize: 9 }} />
-            DESKTOP
+            {t('workbench.settings.row.desktopBadge')}
           </span>
         </Tooltip>
       )}
@@ -156,7 +165,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
   );
 
   const resetButton = resettable && modified && (
-    <Tooltip title={resetTooltip}>
+    <Tooltip title={resetTooltip ?? t('workbench.settings.row.resetToDefault')}>
       <Button
         size="small"
         type="text"
@@ -194,7 +203,11 @@ const FieldRow: React.FC<FieldRowProps> = ({
         <Tooltip title={disabledHint}>
           <div
             role="img"
-            aria-label={capabilityGated ? 'Disabled — unavailable on this browser' : 'Disabled — requires desktop connection'}
+            aria-label={
+              capabilityGated
+                ? t('workbench.settings.row.disabledCapabilityAria')
+                : t('workbench.settings.row.disabledConnectionAria')
+            }
             style={{
               position: 'absolute',
               inset: 0,

@@ -20,12 +20,14 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Checkbox, theme, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useBackends } from '../../../shared/backend';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useOptionalSettingsHost } from './settings-host-context';
 import { tierZeroMode } from '../schema/backend';
 import { useSetting } from '../hooks';
+import { resolveLabel } from '../localize';
 import type { CategoryPaneProps } from '../types';
 import { GlobalConfigSections } from './backend-config-panel';
 import { BackendConnectionsList } from './backend-connections-list';
@@ -46,6 +48,7 @@ const HOST_INTRO: Record<Host, React.ReactNode> = {
 
 const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const host = getCurrentHost();
   // Subscribes this pane to the registry so the `when`-gated global
   // sections re-evaluate the moment a record enables or disables.
@@ -69,7 +72,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         }}
       >
         <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {category.label}
+          {resolveLabel(category, t)}
         </h2>
         <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
           {HOST_INTRO[host]} <DocsLink />

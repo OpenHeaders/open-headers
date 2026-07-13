@@ -22,15 +22,18 @@
 import { App as AntApp, Modal, Switch, Typography } from 'antd';
 import { useState } from 'react';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { BackendBindAddress } from '../schema/backend';
 import { useSetting } from '../hooks';
 import FieldRow from '../fields/FieldRow';
+import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
 
 const LOOPBACK: BackendBindAddress = '127.0.0.1';
 const ALL_INTERFACES: BackendBindAddress = '0.0.0.0';
 
 const LanPeersToggleEditor: React.FC<{ def: SettingDef }> = ({ def }) => {
+  const t = useT();
   const { modal } = AntApp.useApp();
   const [value, setValue] = useSetting('backend.bindAddress');
   const [pending, setPending] = useState(false);
@@ -76,8 +79,8 @@ const LanPeersToggleEditor: React.FC<{ def: SettingDef }> = ({ def }) => {
   return (
     <FieldRow
       settingKey={def.key}
-      label={def.label}
-      description={def.description}
+      label={resolveLabel(def, t)}
+      description={resolveDescription(def, t)}
     >
       <Switch checked={enabled} loading={pending} onChange={handleChange} />
     </FieldRow>

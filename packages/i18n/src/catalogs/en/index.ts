@@ -9,11 +9,13 @@ import type { Catalog } from '../../types';
 import { popup } from './popup';
 import { shared } from './shared';
 import { workbench } from './workbench';
+import { workbenchSettings } from './workbench-settings';
 
 export const en = {
   ...shared,
   ...popup,
   ...workbench,
+  ...workbenchSettings,
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof en;

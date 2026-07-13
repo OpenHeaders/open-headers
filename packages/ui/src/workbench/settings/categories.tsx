@@ -2,7 +2,8 @@
  * Category registry for the settings shell.
  *
  * Each entry becomes one section in the left nav, in `order`. New
- * categories declare their icon and label here; schemas reference them
+ * categories declare their icon here and their label/description as
+ * `workbench.settings.category.*` catalog keys; schemas reference them
  * by id. Subcategories are optional one-level-deep groupings rendered
  * as sub-headings inside a section.
  */
@@ -39,29 +40,27 @@ const LicensePane = lazy(() => import('./components/license-pane'));
 
 registerCategory({
   id: 'backend',
-  label: 'Backend',
+  labelKey: 'workbench.settings.category.backend.label',
   icon: <CloudServerOutlined />,
   order: 3,
-  description:
-    'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
+  descriptionKey: 'workbench.settings.category.backend.description',
   renderPane: BackendPane,
   // Subsections are rendered by BackendPane as section cards beneath
   // the mode picker. The order here is what drives card sequencing.
   subcategories: [
-    { id: 'connection', label: 'Connection', order: 10 },
-    { id: 'reliability', label: 'Reliability', order: 20 },
-    { id: 'notifications', label: 'Notifications', order: 30 },
-    { id: 'lan-peers', label: 'LAN peers', order: 40 },
+    { id: 'connection', labelKey: 'workbench.settings.category.backend.sub.connection', order: 10 },
+    { id: 'reliability', labelKey: 'workbench.settings.category.backend.sub.reliability', order: 20 },
+    { id: 'notifications', labelKey: 'workbench.settings.category.backend.sub.notifications', order: 30 },
+    { id: 'lan-peers', labelKey: 'workbench.settings.category.backend.sub.lan-peers', order: 40 },
   ],
 });
 
 registerCategory({
   id: 'mcp',
-  label: 'MCP',
+  labelKey: 'workbench.settings.category.mcp.label',
   icon: <RobotOutlined />,
   order: 4,
-  description:
-    'Let AI agents and other MCP clients read and control this app. Access is tiered — reading, writing, executing, and secret reveal are separate switches, all off by default.',
+  descriptionKey: 'workbench.settings.category.mcp.description',
   renderPane: McpPane,
   // The desktop app is the only host that runs the MCP server; the
   // `when` is read at render time, after the host seam is installed.
@@ -70,173 +69,170 @@ registerCategory({
 
 registerCategory({
   id: 'general',
-  label: 'General',
+  labelKey: 'workbench.settings.category.general.label',
   icon: <SettingOutlined />,
   order: 5,
-  description: 'App-wide behavior, startup, and locale.',
+  descriptionKey: 'workbench.settings.category.general.description',
 });
 
 registerCategory({
   id: 'appearance',
-  label: 'Appearance',
+  labelKey: 'workbench.settings.category.appearance.label',
   icon: <BgColorsOutlined />,
   order: 10,
-  description: 'Theme, density and visual presentation.',
+  descriptionKey: 'workbench.settings.category.appearance.description',
 });
 
 registerCategory({
   id: 'workspaceLayout',
-  label: 'Workspace Layout',
+  labelKey: 'workbench.settings.category.workspaceLayout.label',
   icon: <LayoutOutlined />,
   order: 15,
-  description: 'Footer affordances and tool-window shell behavior.',
+  descriptionKey: 'workbench.settings.category.workspaceLayout.description',
 });
 
 registerCategory({
   id: 'devpanel',
-  label: 'DevTools Panel',
+  labelKey: 'workbench.settings.category.devpanel.label',
   icon: <DevPanelGlyph />,
   order: 16,
-  description:
-    'Defaults for the browser DevTools panel — the tool-window shell and each tab of the requests surface.',
+  descriptionKey: 'workbench.settings.category.devpanel.description',
   renderPane: GroupLandingPane,
 });
 
 registerCategory({
   id: 'devpanelLayout',
-  label: 'DevTools Panel · Layout',
-  navLabel: 'Layout',
+  labelKey: 'workbench.settings.category.devpanelLayout.label',
+  navLabelKey: 'workbench.settings.category.devpanelLayout.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="L" />,
   order: 15,
-  description: 'Tool-window shell behavior for the browser DevTools panel.',
+  descriptionKey: 'workbench.settings.category.devpanelLayout.description',
 });
 
 registerCategory({
   id: 'devpanelNetwork',
-  label: 'DevTools Panel · Network',
-  navLabel: 'Network',
+  labelKey: 'workbench.settings.category.devpanelNetwork.label',
+  navLabelKey: 'workbench.settings.category.devpanelNetwork.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="N" />,
   order: 16,
-  description: 'Defaults for the Network requests table in the DevTools panel — layout, sort, dot column.',
+  descriptionKey: 'workbench.settings.category.devpanelNetwork.description',
 });
 
 registerCategory({
   id: 'devpanelHeaders',
-  label: 'DevTools Panel · Headers',
-  navLabel: 'Headers',
+  labelKey: 'workbench.settings.category.devpanelHeaders.label',
+  navLabelKey: 'workbench.settings.category.devpanelHeaders.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="H" />,
   order: 17,
-  description: 'Defaults for the Headers tab in the DevTools panel — layout, sort, filters, suggestions.',
+  descriptionKey: 'workbench.settings.category.devpanelHeaders.description',
 });
 
 registerCategory({
   id: 'devpanelInitiator',
-  label: 'DevTools Panel · Initiator',
-  navLabel: 'Initiator',
+  labelKey: 'workbench.settings.category.devpanelInitiator.label',
+  navLabelKey: 'workbench.settings.category.devpanelInitiator.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="I" />,
   order: 18,
-  description: 'Defaults for the Initiator tab in the DevTools panel — sort, filters, suggestions.',
+  descriptionKey: 'workbench.settings.category.devpanelInitiator.description',
 });
 
 registerCategory({
   id: 'devpanelCookies',
-  label: 'DevTools Panel · Cookies',
-  navLabel: 'Cookies',
+  labelKey: 'workbench.settings.category.devpanelCookies.label',
+  navLabelKey: 'workbench.settings.category.devpanelCookies.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="C" />,
   order: 19,
-  description: 'Defaults for the Cookies tab in the DevTools panel — columns, sort, filters, suggestions.',
+  descriptionKey: 'workbench.settings.category.devpanelCookies.description',
 });
 
 registerCategory({
   id: 'devpanelTiming',
-  label: 'DevTools Panel · Timing',
-  navLabel: 'Timing',
+  labelKey: 'workbench.settings.category.devpanelTiming.label',
+  navLabelKey: 'workbench.settings.category.devpanelTiming.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="T" />,
   order: 20,
-  description: 'Defaults for the Timing tab in the DevTools panel — which bands are visible.',
+  descriptionKey: 'workbench.settings.category.devpanelTiming.description',
 });
 
 registerCategory({
   id: 'inspection',
-  label: 'Debug mode',
+  labelKey: 'workbench.settings.category.inspection.label',
   icon: <BugOutlined />,
   order: 21,
-  description:
-    'The opt-in path that attaches your browser’s debugging protocol — inspect and modify requests with the same depth as the built-in developer tools.',
+  descriptionKey: 'workbench.settings.category.inspection.description',
 });
 
 registerCategory({
   id: 'editor',
-  label: 'Code Editor',
+  labelKey: 'workbench.settings.category.editor.label',
   icon: <EditOutlined />,
   order: 20,
-  description: 'Font, indentation, and view options for code editing surfaces.',
+  descriptionKey: 'workbench.settings.category.editor.description',
 });
 
 registerCategory({
   id: 'requests',
-  label: 'API Requests',
+  labelKey: 'workbench.settings.category.requests.label',
   icon: <ApiRequestsIcon />,
   order: 21,
-  description: 'HTTP request sending and response handling.',
+  descriptionKey: 'workbench.settings.category.requests.description',
 });
 
 registerCategory({
   id: 'rulesEngine',
-  label: 'Rules Engine',
+  labelKey: 'workbench.settings.category.rulesEngine.label',
   icon: <FunctionOutlined />,
   order: 30,
-  description: 'How rules are evaluated, compiled, and arbitrated.',
+  descriptionKey: 'workbench.settings.category.rulesEngine.description',
 });
 
 registerCategory({
   id: 'keyboard',
-  label: 'Keyboard',
+  labelKey: 'workbench.settings.category.keyboard.label',
   icon: <KeyboardIcon />,
   order: 80,
-  description: 'Customize keyboard shortcuts.',
+  descriptionKey: 'workbench.settings.category.keyboard.description',
   subcategories: [
-    { id: 'global', label: 'All Surfaces', order: 5 },
-    { id: 'workbench-general', label: 'Workbench', order: 10 },
-    { id: 'workbench-layout', label: 'Workbench · Layout', order: 20 },
-    { id: 'workbench-tabs', label: 'Workbench · Tabs', order: 30 },
-    { id: 'workbench-focus', label: 'Workbench · Focus', order: 40 },
-    { id: 'popup-general', label: 'Popup & Side Panel', order: 110 },
-    { id: 'popup-navigation', label: 'Popup & Side Panel · Navigation', order: 120 },
-    { id: 'popup-rows', label: 'Popup & Side Panel · Row Actions', order: 130 },
-    { id: 'popup-tabs', label: 'Popup & Side Panel · Tabs', order: 140 },
+    { id: 'global', labelKey: 'workbench.settings.category.keyboard.sub.global', order: 5 },
+    { id: 'workbench-general', labelKey: 'workbench.settings.category.keyboard.sub.workbench-general', order: 10 },
+    { id: 'workbench-layout', labelKey: 'workbench.settings.category.keyboard.sub.workbench-layout', order: 20 },
+    { id: 'workbench-tabs', labelKey: 'workbench.settings.category.keyboard.sub.workbench-tabs', order: 30 },
+    { id: 'workbench-focus', labelKey: 'workbench.settings.category.keyboard.sub.workbench-focus', order: 40 },
+    { id: 'popup-general', labelKey: 'workbench.settings.category.keyboard.sub.popup-general', order: 110 },
+    { id: 'popup-navigation', labelKey: 'workbench.settings.category.keyboard.sub.popup-navigation', order: 120 },
+    { id: 'popup-rows', labelKey: 'workbench.settings.category.keyboard.sub.popup-rows', order: 130 },
+    { id: 'popup-tabs', labelKey: 'workbench.settings.category.keyboard.sub.popup-tabs', order: 140 },
   ],
 });
 
 registerCategory({
   id: 'workspaceSharing',
-  label: 'Workspace Sharing',
+  labelKey: 'workbench.settings.category.workspaceSharing.label',
   icon: <CloudDownloadOutlined />,
   order: 85,
-  description: 'Display preferences for the workspace-export import preview.',
+  descriptionKey: 'workbench.settings.category.workspaceSharing.description',
 });
 
 registerCategory({
   id: 'data',
-  label: 'Data',
+  labelKey: 'workbench.settings.category.data.label',
   icon: <DatabaseOutlined />,
   order: 90,
-  description: 'Diagnostics, import/export, and destructive maintenance.',
+  descriptionKey: 'workbench.settings.category.data.description',
 });
 
 registerCategory({
   id: 'license',
-  label: 'License',
+  labelKey: 'workbench.settings.category.license.label',
   icon: <SafetyCertificateOutlined />,
   order: 895,
-  description:
-    'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 10 active users per daemon.',
+  descriptionKey: 'workbench.settings.category.license.description',
   renderPane: LicensePane,
   // License state is an admin surface: the desktop operator always
   // administers their own spine, while a served web tab shows it only
@@ -248,8 +244,8 @@ registerCategory({
 
 registerCategory({
   id: 'about',
-  label: 'About',
+  labelKey: 'workbench.settings.category.about.label',
   icon: <InfoCircleOutlined />,
   order: 900,
-  description: 'Version, licenses and build information.',
+  descriptionKey: 'workbench.settings.category.about.description',
 });

@@ -23,7 +23,7 @@ import type React from 'react';
 import { useUntypedSetting } from '../hooks';
 import { APPEARANCE_FONT_PRESETS } from '../schema/appearance';
 import { EDITOR_FONT_PRESETS } from '../schema/editor';
-import type { SettingDef, SettingKey } from '../types';
+import type { ResolvedSettingDef, SettingKey } from '../types';
 import FieldRow from './FieldRow';
 
 interface FontPreset {
@@ -50,7 +50,7 @@ export function isFontFamilyPresetKey(key: SettingKey): boolean {
 }
 
 interface FontFamilyPresetFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 const FontFamilyPresetField: React.FC<FontFamilyPresetFieldProps> = ({ def }) => {

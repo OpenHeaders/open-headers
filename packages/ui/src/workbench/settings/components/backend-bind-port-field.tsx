@@ -18,12 +18,15 @@ import { InputNumber } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type PortValidation, validatePort } from '@openheaders/core/utils';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../fields/FieldRow';
+import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
 import { useSetting } from '../hooks';
 import PortHint from './port-hint';
 
 const BackendBindPortField: React.FC<{ def: SettingDef }> = ({ def }) => {
+  const t = useT();
   const [port, setPort] = useSetting('backend.bindPort');
   // Local input buffer; commits on blur / Enter.
   const [input, setInput] = useState<number | null>(port);
@@ -41,7 +44,7 @@ const BackendBindPortField: React.FC<{ def: SettingDef }> = ({ def }) => {
   }
 
   return (
-    <FieldRow settingKey={def.key} label={def.label} description={def.description} block>
+    <FieldRow settingKey={def.key} label={resolveLabel(def, t)} description={resolveDescription(def, t)} block>
       <div style={{ width: '100%' }}>
         <InputNumber
           style={{ width: '100%' }}

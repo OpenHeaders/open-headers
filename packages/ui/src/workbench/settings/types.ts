@@ -20,6 +20,7 @@
  */
 
 import type { Capabilities } from '@openheaders/core/capabilities';
+import type { MessageKey } from '@openheaders/i18n';
 import type { ComponentType, ReactNode } from 'react';
 import type * as v from 'valibot';
 import type { SettingScope } from './storage/adapter';
@@ -51,13 +52,32 @@ export type SettingType =
   | 'info'
   | 'files-browser';
 
+// ── Localizable registry text ────────────────────────────────────────
+//
+// Every user-facing text field on a registry entry is either a raw
+// English string (unconverted schema files) or a `MessageKey` into the
+// `workbench.settings.*` catalog namespace — exactly one of the pair.
+// Rendering goes through the resolvers in `localize.ts`; nothing reads
+// `label`/`description` directly once a surface is extracted.
+
+export type LabeledText = { label: string; labelKey?: never } | { label?: never; labelKey: MessageKey };
+
+export type DescribedText =
+  | { description: string; descriptionKey?: never }
+  | { description?: never; descriptionKey: MessageKey };
+
+/** Optional description — both absent is allowed; the key wins when both exist. */
+export interface OptionalDescribedText {
+  description?: string;
+  descriptionKey?: MessageKey;
+}
+
 // ── Per-type option shapes ───────────────────────────────────────────
 
-export interface EnumOption<T> {
-  value: T;
-  label: string;
-  description?: string;
-}
+export type EnumOption<T> = { value: T } & LabeledText & OptionalDescribedText;
+
+/** The element type an enum/multi-select option picks for setting key `K`. */
+export type EnumValue<K extends SettingKey> = SettingsMap[K] extends readonly (infer U)[] ? U : SettingsMap[K];
 
 export interface NumberRange {
   min?: number;
@@ -67,24 +87,24 @@ export interface NumberRange {
   control?: 'input' | 'slider';
 }
 
-export interface ActionSpec {
-  label: string;
+export type ActionSpec = LabeledText & {
   run: () => void | Promise<void>;
   /** Render the button in danger style (destructive). */
   danger?: boolean;
-}
+};
 
 // ── Setting definition ───────────────────────────────────────────────
 
 /**
- * Runtime metadata for one setting. One of these is produced per entry
- * in a schema file and registered via `registerSetting`.
+ * Runtime metadata for one setting, minus the localizable text pair —
+ * `SettingDef` composes this with `LabeledText`/`DescribedText`, and
+ * `ResolvedSettingDef` with plain resolved strings.
  *
  * Generic parameter `K` is the setting key (typed). `SettingsMap[K]` is
  * the value type, so every field on the def that traffics in values
  * (default, schema, enumOptions, etc.) is type-checked against it.
  */
-export interface SettingDef<K extends SettingKey = SettingKey> {
+export interface SettingDefBase<K extends SettingKey = SettingKey> {
   key: K;
   type: SettingType;
   default: SettingsMap[K];
@@ -99,8 +119,6 @@ export interface SettingDef<K extends SettingKey = SettingKey> {
   /** valibot schema used to validate values at read and write time. */
   schema: v.BaseSchema<SettingsMap[K], SettingsMap[K], v.BaseIssue<unknown>>;
 
-  label: string;
-  description: string;
   category: string;
   subcategory?: string;
   /** Extra keywords the search indexer considers alongside label/description/key. */
@@ -139,8 +157,11 @@ export interface SettingDef<K extends SettingKey = SettingKey> {
    * Copy shown on the disabled control when the host lacks
    * `requiresCapability`. Owned by the schema so the explanation reads in
    * the app's own terms; falls back to a generic message when omitted.
+   * `capabilityUnavailableHintKey` is the localized form — the key wins
+   * when both exist.
    */
   capabilityUnavailableHint?: string;
+  capabilityUnavailableHintKey?: MessageKey;
 
   /**
    * Mark as deprecated. The `replacement` key, if provided, is auto-read
@@ -157,7 +178,7 @@ export interface SettingDef<K extends SettingKey = SettingKey> {
    * enum / multi-select only. For multi-select, the option value is
    * the element type of the array, not the array itself.
    */
-  enumOptions?: readonly EnumOption<SettingsMap[K] extends readonly (infer U)[] ? U : SettingsMap[K]>[];
+  enumOptions?: readonly EnumOption<EnumValue<K>>[];
   /** number only. */
   numberRange?: NumberRange;
   /** code only — syntax highlighting hint. */
@@ -179,14 +200,48 @@ export interface SettingDef<K extends SettingKey = SettingKey> {
   customEditor?: ComponentType<{ def: SettingDef }>;
 }
 
+/**
+ * Runtime metadata for one setting. One of these is produced per entry
+ * in a schema file and registered via `registerSetting`. The label and
+ * description are each either raw English or a catalog `MessageKey`.
+ */
+export type SettingDef<K extends SettingKey = SettingKey> = SettingDefBase<K> & LabeledText & DescribedText;
+
+// ── Resolved (render-ready) shapes ───────────────────────────────────
+//
+// Produced by `resolveSettingDef` in `localize.ts`. The field layer
+// (SettingRow's children) only ever sees these — every localizable
+// text field is a definite string in the active locale.
+
+export interface ResolvedEnumOption<T> {
+  value: T;
+  label: string;
+  description?: string;
+}
+
+export interface ResolvedActionSpec {
+  label: string;
+  run: () => void | Promise<void>;
+  danger?: boolean;
+}
+
+export type ResolvedSettingDef<K extends SettingKey = SettingKey> = Omit<
+  SettingDefBase<K>,
+  'enumOptions' | 'action'
+> & {
+  label: string;
+  description: string;
+  enumOptions?: readonly ResolvedEnumOption<EnumValue<K>>[];
+  action?: ResolvedActionSpec;
+};
+
 // ── Category definition ──────────────────────────────────────────────
 
-export interface SubcategoryDef {
+export type SubcategoryDef = {
   id: string;
-  label: string;
   /** Lower = earlier in the nav. */
   order: number;
-}
+} & LabeledText;
 
 export interface CategoryPaneProps {
   category: CategoryDef;
@@ -209,41 +264,42 @@ export interface CategoryVisibilityContext {
   daemonAdmin: 'unknown' | 'admin' | 'denied';
 }
 
-export interface CategoryDef {
-  id: string;
-  label: string;
-  icon: ReactNode;
-  /** Lower = earlier in the left nav. */
-  order: number;
-  /**
-   * Id of the parent category. Children render indented under the
-   * parent's expand caret in the nav tree; everywhere else (search,
-   * panes, deep links) they behave as ordinary categories.
-   */
-  parent?: string;
-  /**
-   * Short label for the nav tree. Children drop the parent prefix here
-   * ("Network" under "DevTools Panel") while `label` keeps the full
-   * qualified name for pane headers and search breadcrumbs.
-   */
-  navLabel?: string;
-  description?: string;
-  subcategories?: readonly SubcategoryDef[];
-  /**
-   * Conditional visibility for the whole category. Returning false
-   * removes it from the nav and the pane rotation on this host —
-   * setting-level `when` still governs individual rows reached through
-   * search. Evaluated at render time, so boot-injected host signals
-   * (e.g. `getCurrentHost()`) are safe to read here; async signals
-   * (admin-ness) arrive through the context and re-evaluate on change.
-   */
-  when?: (ctx: CategoryVisibilityContext) => boolean;
-  /**
-   * Optional custom renderer for the right-hand pane. When omitted the
-   * default `CategoryPane` (rows-in-cards) is used. Categories with
-   * UX requirements beyond a flat field list register their own —
-   * e.g. the Backend category uses {@link BackendPane} so users pick
-   * a hosting scenario before the relevant config surfaces.
-   */
-  renderPane?: ComponentType<CategoryPaneProps>;
-}
+export type CategoryDef = LabeledText &
+  OptionalDescribedText & {
+    id: string;
+    icon: ReactNode;
+    /** Lower = earlier in the left nav. */
+    order: number;
+    /**
+     * Id of the parent category. Children render indented under the
+     * parent's expand caret in the nav tree; everywhere else (search,
+     * panes, deep links) they behave as ordinary categories.
+     */
+    parent?: string;
+    /**
+     * Short label for the nav tree. Children drop the parent prefix here
+     * ("Network" under "DevTools Panel") while `label` keeps the full
+     * qualified name for pane headers and search breadcrumbs. Raw or
+     * keyed, like every other registry text field.
+     */
+    navLabel?: string;
+    navLabelKey?: MessageKey;
+    subcategories?: readonly SubcategoryDef[];
+    /**
+     * Conditional visibility for the whole category. Returning false
+     * removes it from the nav and the pane rotation on this host —
+     * setting-level `when` still governs individual rows reached through
+     * search. Evaluated at render time, so boot-injected host signals
+     * (e.g. `getCurrentHost()`) are safe to read here; async signals
+     * (admin-ness) arrive through the context and re-evaluate on change.
+     */
+    when?: (ctx: CategoryVisibilityContext) => boolean;
+    /**
+     * Optional custom renderer for the right-hand pane. When omitted the
+     * default `CategoryPane` (rows-in-cards) is used. Categories with
+     * UX requirements beyond a flat field list register their own —
+     * e.g. the Backend category uses {@link BackendPane} so users pick
+     * a hosting scenario before the relevant config surfaces.
+     */
+    renderPane?: ComponentType<CategoryPaneProps>;
+  };

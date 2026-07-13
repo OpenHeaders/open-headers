@@ -1,11 +1,11 @@
 import { InputNumber, Slider } from 'antd';
 import type React from 'react';
 import { useUntypedSetting } from '../hooks';
-import type { SettingDef } from '../types';
+import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
 interface NumberFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 const NumberField: React.FC<NumberFieldProps> = ({ def }) => {

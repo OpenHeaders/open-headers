@@ -9,7 +9,9 @@
 import { theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import SettingRow from '../fields/SettingRow';
+import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryDef, SettingDef, SubcategoryDef } from '../types';
 
 interface CategoryPaneProps {
@@ -50,16 +52,18 @@ function groupBySubcategory(category: CategoryDef, defs: readonly SettingDef[]):
 
 const CategoryPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const groups = useMemo(() => groupBySubcategory(category, defs), [category, defs]);
+  const description = resolveOptionalDescription(category, t);
 
   return (
     <div style={{ padding: '14px 18px 20px' }}>
       <header style={{ marginBottom: 10 }}>
         <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {category.label}
+          {resolveLabel(category, t)}
         </h2>
-        {category.description && (
-          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{category.description}</p>
+        {description && (
+          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{description}</p>
         )}
       </header>
       {groups.map((group, i) => (
@@ -67,7 +71,7 @@ const CategoryPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           {group.sub && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
               <h3 style={{ margin: 0, fontSize: 12, fontWeight: 600, color: token.colorText, flex: 'none' }}>
-                {group.sub.label}
+                {resolveLabel(group.sub, t)}
               </h3>
               <div style={{ flex: 1, height: 1, background: token.colorBorderSecondary }} />
             </div>

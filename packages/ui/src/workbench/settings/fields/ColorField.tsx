@@ -8,11 +8,11 @@
 import { ColorPicker } from 'antd';
 import type React from 'react';
 import { useUntypedSetting } from '../hooks';
-import type { SettingDef } from '../types';
+import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
 interface ColorFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 const ColorField: React.FC<ColorFieldProps> = ({ def }) => {

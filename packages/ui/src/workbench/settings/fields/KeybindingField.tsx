@@ -12,11 +12,11 @@ import { Button, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useUntypedSetting } from '../hooks';
-import type { SettingDef } from '../types';
+import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
 interface KeybindingFieldProps {
-  def: SettingDef;
+  def: ResolvedSettingDef;
 }
 
 const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
