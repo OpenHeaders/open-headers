@@ -11,7 +11,7 @@
 
 import { App as AntApp, Button } from 'antd';
 import type React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { findLeaf } from './editor-groups';
 import type { InspectorTab } from './inspector-tab';
 import { tabIsDirty, tabPillLabel } from './inspector-tab';
@@ -171,5 +171,10 @@ export function useTabCloseGuard(
     [closeMany, leafTabsOf],
   );
 
-  return { closeTab, closeOtherTabs, closeAllTabs, closeTabsToLeft, closeTabsToRight };
+  // Identity-stable API object — consumers key render callbacks and effects
+  // on it, so a fresh literal per render would cascade re-renders.
+  return useMemo(
+    () => ({ closeTab, closeOtherTabs, closeAllTabs, closeTabsToLeft, closeTabsToRight }),
+    [closeTab, closeOtherTabs, closeAllTabs, closeTabsToLeft, closeTabsToRight],
+  );
 }

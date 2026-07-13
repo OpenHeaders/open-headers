@@ -18,7 +18,7 @@
  * a superseded run never leak into the new state.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_FILTER_CONFIG, type FilterConfig } from '../filter-engine';
 import type { InspectorRow } from '../inspector-facet';
 import { getDefaultSearchClient, type SearchHandle } from './search-client';
@@ -175,5 +175,7 @@ export function useSearch(rows: readonly InspectorRow[]): UseSearchResult {
     [rows, endCurrentRun],
   );
 
-  return { state, run, cancel };
+  // Identity-stable API object — the search session bundles this whole
+  // object into consumer deps, so a fresh literal per render would cascade.
+  return useMemo(() => ({ state, run, cancel }), [state, run, cancel]);
 }

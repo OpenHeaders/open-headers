@@ -13,7 +13,7 @@
  */
 
 import { type JsContextsWireMessage, jsContextsPortName } from '@openheaders/core/js-contexts';
-import { useRef, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useSyncExternalStore } from 'react';
 import { useLifelineClient } from '../use-lifeline-client';
 import { type JsContextsClientSnapshot, JsContextsClientStore } from './js-contexts-client-store';
 
@@ -62,5 +62,7 @@ export function useJsContexts(): UseJsContextsResult {
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId, store };
+  // Identity-stable API object — consumers key render callbacks and effects
+  // on it, so a fresh literal per render would cascade re-renders.
+  return useMemo(() => ({ snapshot, tabId, store }), [snapshot, tabId, store]);
 }

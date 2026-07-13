@@ -233,29 +233,56 @@ export function useEditorGroups({ perTab }: UseEditorGroupsArgs): UseEditorGroup
 
   const dndActions = useEditorDndActions({ transform });
 
-  return {
-    root: state.root,
-    focusedLeafId: state.focusedLeafId,
-    focusedLeaf,
-    allTabs,
-    tabs: focusedLeaf.tabs,
-    activeTabId: focusedLeaf.activeTabId,
-    recentlyClosed,
-    dirtyMap,
-    saveRefMap,
-    findTabLeafId,
-    addTab,
-    closeTab,
-    switchTab,
-    updateTab,
-    replaceTab,
-    reorderTab,
-    reopenTab,
-    focusLeaf,
-    ...batchCloseActions,
-    ...splitActions,
-    ...dndActions,
-  };
+  // Identity-stable API object: the callbacks are useCallback-stable, the
+  // derived values memoized, and the action bundles memoized in their own
+  // hooks, so this changes identity only when editor state actually
+  // changes. Consumers key memos and effects on the whole object; a fresh
+  // literal per render cascades — the panel twin of this hook looped the
+  // whole devpanel into React #185 exactly that way.
+  return useMemo(
+    () => ({
+      root: state.root,
+      focusedLeafId: state.focusedLeafId,
+      focusedLeaf,
+      allTabs,
+      tabs: focusedLeaf.tabs,
+      activeTabId: focusedLeaf.activeTabId,
+      recentlyClosed,
+      dirtyMap,
+      saveRefMap,
+      findTabLeafId,
+      addTab,
+      closeTab,
+      switchTab,
+      updateTab,
+      replaceTab,
+      reorderTab,
+      reopenTab,
+      focusLeaf,
+      ...batchCloseActions,
+      ...splitActions,
+      ...dndActions,
+    }),
+    [
+      state.root,
+      state.focusedLeafId,
+      focusedLeaf,
+      allTabs,
+      recentlyClosed,
+      findTabLeafId,
+      addTab,
+      closeTab,
+      switchTab,
+      updateTab,
+      replaceTab,
+      reorderTab,
+      reopenTab,
+      focusLeaf,
+      batchCloseActions,
+      splitActions,
+      dndActions,
+    ],
+  );
 }
 
 // Re-export pure helpers for callers that only need read access.

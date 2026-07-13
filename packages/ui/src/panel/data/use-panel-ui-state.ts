@@ -22,7 +22,7 @@
  * boundaries don't churn.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 export interface Resettable {
   clear(): void;
@@ -91,5 +91,10 @@ export function usePanelUiState(options: UsePanelUiStateOptions): UsePanelUiStat
     setClearFloorMs(nowRef.current());
   }, []);
 
-  return { preserveLog, setPreserveLog, recording, setRecording, clear, clearFloorMs };
+  // Identity-stable API object — consumers key render callbacks and effects
+  // on it, so a fresh literal per render would cascade re-renders.
+  return useMemo(
+    () => ({ preserveLog, setPreserveLog, recording, setRecording, clear, clearFloorMs }),
+    [preserveLog, recording, clear, clearFloorMs],
+  );
 }

@@ -11,7 +11,7 @@
  * single prop and becomes presentational.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DEFAULT_FILTER_CONFIG, type FilterConfig } from '../filter-engine';
 import type { InspectorRow } from '../inspector-facet';
 import { type UseSearchResult, useSearch } from './use-search';
@@ -31,5 +31,10 @@ export function useSearchSession(rows: readonly InspectorRow[]): SearchSession {
   const search = useSearch(rows);
   const [draftQuery, setDraftQuery] = useState('');
   const [draftConfig, setDraftConfig] = useState<FilterConfig>(DEFAULT_FILTER_CONFIG);
-  return { search, draftQuery, setDraftQuery, draftConfig, setDraftConfig };
+  // Identity-stable API object — consumers key render callbacks and effects
+  // on it, so a fresh literal per render would cascade re-renders.
+  return useMemo(
+    () => ({ search, draftQuery, setDraftQuery, draftConfig, setDraftConfig }),
+    [search, draftQuery, draftConfig],
+  );
 }

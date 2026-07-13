@@ -18,7 +18,7 @@
  */
 
 import { type RuleFireWireMessage, ruleFirePortName } from '@openheaders/core/rule-fire-stream';
-import { useRef, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useSyncExternalStore } from 'react';
 import type { InspectorFire } from '../types';
 import { useLifelineClient } from '../use-lifeline-client';
 import { type FireClientSnapshot, FireClientStore } from './fire-client-store';
@@ -61,5 +61,7 @@ export function useFireClient(): UseFireClientResult {
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId, store };
+  // Identity-stable API object — consumers key render callbacks and effects
+  // on it, so a fresh literal per render would cascade re-renders.
+  return useMemo(() => ({ snapshot, tabId, store }), [snapshot, tabId, store]);
 }

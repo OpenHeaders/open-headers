@@ -14,7 +14,7 @@
  */
 
 import { type ConsoleStreamWireMessage, consoleStreamPortName } from '@openheaders/core/console-stream';
-import { useRef, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useSyncExternalStore } from 'react';
 import { useLifelineClient } from '../use-lifeline-client';
 import { type ConsoleClientSnapshot, ConsoleClientStore } from './console-client-store';
 
@@ -50,5 +50,7 @@ export function useConsoleClient(): UseConsoleClientResult {
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId, store };
+  // Identity-stable API object — consumers key render callbacks and effects
+  // on it, so a fresh literal per render would cascade re-renders.
+  return useMemo(() => ({ snapshot, tabId, store }), [snapshot, tabId, store]);
 }

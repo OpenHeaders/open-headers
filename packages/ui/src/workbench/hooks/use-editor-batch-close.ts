@@ -5,7 +5,7 @@
  * the shell's transform spine.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { activateTabInLeaf, type EditorNode, findLeaf, insertTabIntoLeaf, removeAllFromLeaf } from '../editor-groups';
 import {
   type EditorGroupsTransform,
@@ -136,5 +136,10 @@ export function useEditorBatchClose({
     [transform, dirtyMap, saveRefMap],
   );
 
-  return { closeOtherTabs, closeAllTabs, closeUnmodifiedTabs, closeTabsToLeft, closeTabsToRight };
+  // Identity-stable action bundle — spread into the editor-groups API,
+  // whose identity gates consumer memos and effects.
+  return useMemo(
+    () => ({ closeOtherTabs, closeAllTabs, closeUnmodifiedTabs, closeTabsToLeft, closeTabsToRight }),
+    [closeOtherTabs, closeAllTabs, closeUnmodifiedTabs, closeTabsToLeft, closeTabsToRight],
+  );
 }

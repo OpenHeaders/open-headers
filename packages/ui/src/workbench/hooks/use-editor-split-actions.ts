@@ -5,7 +5,7 @@
  * split action moves (not clones) the tab.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   findLeaf,
   findOppositeLeaf,
@@ -119,14 +119,28 @@ export function useEditorSplitActions({ transform }: UseEditorSplitActionsArgs):
     });
   }, [transform]);
 
-  return {
-    splitAndMoveRight,
-    splitAndMoveLeft,
-    splitAndMoveDown,
-    splitAndMoveUp,
-    moveToOppositeGroup,
-    changeSplitterOrientation,
-    unsplit,
-    unsplitAll: unsplitAllAction,
-  };
+  // Identity-stable action bundle — spread into the editor-groups API,
+  // whose identity gates consumer memos and effects.
+  return useMemo(
+    () => ({
+      splitAndMoveRight,
+      splitAndMoveLeft,
+      splitAndMoveDown,
+      splitAndMoveUp,
+      moveToOppositeGroup,
+      changeSplitterOrientation,
+      unsplit,
+      unsplitAll: unsplitAllAction,
+    }),
+    [
+      splitAndMoveRight,
+      splitAndMoveLeft,
+      splitAndMoveDown,
+      splitAndMoveUp,
+      moveToOppositeGroup,
+      changeSplitterOrientation,
+      unsplit,
+      unsplitAllAction,
+    ],
+  );
 }

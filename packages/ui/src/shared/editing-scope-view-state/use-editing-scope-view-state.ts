@@ -17,8 +17,13 @@
  *   - Donor record onChanged → flip `isDonor` reactively.
  */
 
+import {
+  clearDonorRecord,
+  readDonorRecord,
+  subscribeDonorRecord,
+  writeDonorRecord,
+} from '@openheaders/core/editing-scope';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { clearDonorRecord, readDonorRecord, subscribeDonorRecord, writeDonorRecord } from '@openheaders/core/editing-scope';
 import { isFocusedAndVisible, subscribeFocus } from './focus-tracker';
 import { clearPerTabState, mintTabUid, readPerTabState, writePerTabState } from './tab-uid';
 import type { DonorRecord, EditingScopeViewStateApi, UseEditingScopeViewStateOptions } from './types';
@@ -217,12 +222,17 @@ export function useEditingScopeViewState<T>(opts: UseEditingScopeViewStateOption
     if (typeof window !== 'undefined') window.location.reload();
   }, [surface]);
 
-  return {
-    initial: snapshot,
-    onPersist,
-    ready,
-    isDonor,
-    claimDonor,
-    resetToDefaults,
-  };
+  // Identity-stable API object — consumers key render callbacks and effects
+  // on it, so a fresh literal per render would cascade re-renders.
+  return useMemo(
+    () => ({
+      initial: snapshot,
+      onPersist,
+      ready,
+      isDonor,
+      claimDonor,
+      resetToDefaults,
+    }),
+    [snapshot, onPersist, ready, isDonor, claimDonor, resetToDefaults],
+  );
 }

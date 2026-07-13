@@ -38,7 +38,7 @@ import {
   type LifecycleWireMessage,
   lifecyclePortName,
 } from '@openheaders/core/request-lifecycle';
-import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLifelineClient } from '../use-lifeline-client';
 import { type LifecycleClientSnapshot, LifecycleClientStore } from './lifecycle-client-store';
 
@@ -149,5 +149,10 @@ export function useLifecycleClient(): UseLifecycleClientResult {
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId, store, sessionToken, source, clearSession, requestResponseBody };
+  // Identity-stable API object — consumers key render callbacks and effects
+  // on it, so a fresh literal per render would cascade re-renders.
+  return useMemo(
+    () => ({ snapshot, tabId, store, sessionToken, source, clearSession, requestResponseBody }),
+    [snapshot, tabId, store, sessionToken, source, clearSession, requestResponseBody],
+  );
 }

@@ -5,7 +5,7 @@
  * transform spine.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { findLeaf, moveTabBetweenLeaves, removeTabFromLeaf, splitLeafWithTab } from '../editor-groups';
 import { type EditorGroupsTransform, maybeCollapseEmpty, type UseEditorGroupsApi } from './editor-groups-shared';
 
@@ -59,5 +59,7 @@ export function useEditorDndActions({ transform }: UseEditorDndActionsArgs): Edi
     [transform],
   );
 
-  return { moveTabToLeaf, splitLeafWithDrop };
+  // Identity-stable action bundle — spread into the editor-groups API,
+  // whose identity gates consumer memos and effects.
+  return useMemo(() => ({ moveTabToLeaf, splitLeafWithDrop }), [moveTabToLeaf, splitLeafWithDrop]);
 }
