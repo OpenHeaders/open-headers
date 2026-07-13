@@ -76,22 +76,33 @@ describe('isTopContext / topContextKey', () => {
 });
 
 describe('consoleContextRows', () => {
-  it('labels: top literal, world name, origin fallback; subtitle only when it adds information', () => {
+  it('labels: top literal, world name, host[:port] for bare origins, full script URL for workers', () => {
     const rows = consoleContextRows([TOP, TOP_ISOLATED, SAME_PROCESS_IFRAME, SW]);
     expect(rows.map((r) => r.label)).toEqual([
       'top',
+      'ads.openheaders.io',
       'Open Headers',
-      'https://ads.openheaders.io',
       'https://app.openheaders.io/sw.js?v=2',
     ]);
-    expect(rows[0].subtitle).toBe('https://app.openheaders.io');
-    expect(rows[1].subtitle).toBe('https://app.openheaders.io');
-    // Origin-labeled rows would repeat themselves — no subtitle.
-    expect(rows[2].subtitle).toBeNull();
-    expect(rows[3].subtitle).toBeNull();
+    // Subtitle is the origin's host form, only when it adds information.
+    expect(rows[0].subtitle).toBe('app.openheaders.io');
+    expect(rows[1].subtitle).toBeNull();
+    expect(rows[2].subtitle).toBe('app.openheaders.io');
+    expect(rows[3].subtitle).toBe('app.openheaders.io');
   });
 
-  it('never renders an empty wire origin as a blank subtitle', () => {
+  it('extension worlds subtitle as the literal "Extension", never the extension URL', () => {
+    const extensionWorld = makeContext({
+      contextKey: 'page::5',
+      isDefault: false,
+      name: 'Open Headers',
+      worldType: 'isolated',
+      origin: 'chrome-extension://ablaikadpbfblkmhpmbbnbbfjoibeejb',
+    });
+    expect(consoleContextRows([extensionWorld])[0].subtitle).toBe('Extension');
+  });
+
+  it('never renders an empty or unparsable wire origin as a subtitle', () => {
     const opaqueWorld = makeContext({
       contextKey: 'page::9',
       isDefault: false,
@@ -100,25 +111,56 @@ describe('consoleContextRows', () => {
       origin: '',
     });
     expect(consoleContextRows([opaqueWorld])[0].subtitle).toBeNull();
+    const junkOrigin = makeContext({
+      contextKey: 'page::10',
+      isDefault: false,
+      name: 'utility-world',
+      worldType: 'isolated',
+      origin: '://',
+    });
+    expect(consoleContextRows([junkOrigin])[0].subtitle).toBeNull();
   });
 
   it('depth: frame hop + world hop, service workers top-level', () => {
     const rows = consoleContextRows([TOP, TOP_ISOLATED, SAME_PROCESS_IFRAME, OOPIF, OOPIF_ISOLATED, WORKER, SW]);
     expect(rows.map((r) => [r.context.contextKey, r.depth])).toEqual([
       ['page::1', 0],
-      ['page::2', 1],
       ['page::3', 1],
+      ['page::2', 1],
       ['child-iframe-1::1', 1],
       ['child-iframe-1::2', 2],
-      ['child-worker-1::1', 1],
       ['target:SW1::1', 0],
+      ['child-worker-1::1', 1],
     ]);
   });
 
-  it('pins top first regardless of arrival order', () => {
-    const rows = consoleContextRows([SW, OOPIF, TOP]);
+  it('orders by the browser target weights regardless of arrival order', () => {
+    // Arrival: worker, SW, OOPIF, top — display: page group, iframe, SW, worker.
+    const rows = consoleContextRows([WORKER, SW, OOPIF, TOP]);
     expect(rows[0].isTop).toBe(true);
-    expect(rows.map((r) => r.context.contextKey)).toEqual(['page::1', 'target:SW1::1', 'child-iframe-1::1']);
+    expect(rows.map((r) => r.context.contextKey)).toEqual([
+      'page::1',
+      'child-iframe-1::1',
+      'target:SW1::1',
+      'child-worker-1::1',
+    ]);
+  });
+
+  it('within a session the main world precedes the isolated worlds, sorted by name', () => {
+    const worldB = makeContext({
+      contextKey: 'page::20',
+      isDefault: false,
+      name: 'Bravo',
+      worldType: 'isolated',
+    });
+    const worldA = makeContext({
+      contextKey: 'page::21',
+      isDefault: false,
+      name: 'Alpha',
+      worldType: 'isolated',
+    });
+    const rows = consoleContextRows([worldB, worldA, TOP]);
+    expect(rows.map((r) => r.context.contextKey)).toEqual(['page::1', 'page::21', 'page::20']);
   });
 });
 

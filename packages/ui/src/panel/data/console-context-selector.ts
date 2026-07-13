@@ -8,8 +8,15 @@
  *     whenever it exists; an explicit pick of a live context wins until
  *     that context dies, then selection falls back to `top`.
  *   - Title: the context's own label/name when present, else `top` for the
- *     top context, else the origin. Subtitle: the origin, when it adds
- *     information over the title.
+ *     top context, else the origin — collapsed to its `host[:port]` when it
+ *     is a bare origin (script-URL origins keep the full URL). Subtitle:
+ *     the literal `Extension` for extension worlds, else the origin's
+ *     `host[:port]`, and only when it adds information over the title.
+ *   - Order: target groups the way the browser weighs them — the page
+ *     session first, then OOPIF sessions, then service workers, then
+ *     dedicated/shared workers; sessions tie-break by key, and within a
+ *     session the main world precedes the isolated worlds (sorted by
+ *     name). `top` is pinned first.
  *   - Depth indentation: +1 for a non-default (isolated) world, +1 for
  *     leaving the top frame (iframe contexts, dedicated workers) — except
  *     service workers, which are special-cased to top level.
@@ -42,28 +49,80 @@ function depthOf(context: JsContext): number {
   return frameHop + worldHop;
 }
 
+/** `host[:port]` of an origin URL — the browser's short display form;
+ *  `null` when the origin does not parse (opaque worlds). */
+function originDomain(origin: string): string | null {
+  try {
+    return new URL(origin).host || null;
+  } catch {
+    return null;
+  }
+}
+
+/** A bare origin (no path or query) belongs to a frame; a worker / service
+ *  worker context carries its script URL, which must stay whole. */
+function isBareOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return (url.pathname === '/' || url.pathname === '') && url.search === '';
+  } catch {
+    return false;
+  }
+}
+
 function labelOf(context: JsContext): string {
   if (isTopContext(context)) return 'top';
   if (context.name !== '') return context.name;
+  if (isBareOrigin(context.origin)) return originDomain(context.origin) ?? context.origin;
   return context.origin;
 }
 
-/** Dropdown rows in display order: `top` pinned first, the rest in the
- *  registry's first-add order (stable across re-renders). */
+function subtitleFor(context: JsContext, label: string): string | null {
+  if (context.origin.startsWith('chrome-extension://')) return 'Extension';
+  const domain = originDomain(context.origin);
+  return domain !== null && domain !== label ? domain : null;
+}
+
+/** The browser's target-group weight — higher sorts earlier. */
+const SESSION_WEIGHT: Record<JsContext['targetKind'], number> = {
+  page: 5,
+  iframe: 4,
+  'service-worker': 3,
+  worker: 2,
+  'shared-worker': 2,
+};
+
+/** The session prefix of a contextKey (everything before the last `::`). */
+function sessionOf(contextKey: string): string {
+  const separator = contextKey.lastIndexOf('::');
+  return separator === -1 ? contextKey : contextKey.slice(0, separator);
+}
+
+function compareRows(a: ConsoleContextRow, b: ConsoleContextRow): number {
+  if (a.isTop !== b.isTop) return a.isTop ? -1 : 1;
+  const weight = SESSION_WEIGHT[b.context.targetKind] - SESSION_WEIGHT[a.context.targetKind];
+  if (weight !== 0) return weight;
+  const session = sessionOf(a.context.contextKey).localeCompare(sessionOf(b.context.contextKey));
+  if (session !== 0) return session;
+  if (a.context.isDefault !== b.context.isDefault) return a.context.isDefault ? -1 : 1;
+  if (!a.context.isDefault) return a.context.name.localeCompare(b.context.name);
+  // Same-session main worlds (top + same-process frames) keep arrival order.
+  return 0;
+}
+
+/** Dropdown rows in the browser's display order (see the module doc). */
 export function consoleContextRows(contexts: readonly JsContext[]): ConsoleContextRow[] {
   const rows = contexts.map((context) => {
     const label = labelOf(context);
     return {
       context,
       label,
-      // An empty wire origin (unnamed opaque worlds) adds nothing — never
-      // render it as a blank dimmed line.
-      subtitle: context.origin !== label && context.origin !== '' ? context.origin : null,
+      subtitle: subtitleFor(context, label),
       depth: depthOf(context),
       isTop: isTopContext(context),
     };
   });
-  return [...rows.filter((row) => row.isTop), ...rows.filter((row) => !row.isTop)];
+  return rows.sort(compareRows);
 }
 
 /** The `top` context's key, when one exists. */

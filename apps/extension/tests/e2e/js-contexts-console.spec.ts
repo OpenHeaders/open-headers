@@ -43,13 +43,34 @@ function selectorRows(): Locator {
   return panelPage.locator('.dt-console-context-item').filter({ visible: true });
 }
 
-/** One open → one row click → Escape (the menu stays open on inside clicks). */
+/** Open the selector menu, toggle-safe: a click while a stale menu is open
+ *  CLOSES it (the trigger toggles), so retry until rows are visible. */
+async function openSelectorMenu(): Promise<void> {
+  await expect(async () => {
+    await selectorTrigger().click();
+    await expect(selectorRows().first()).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
+}
+
+/** Close via Escape, falling back to the trigger toggle. */
+async function closeSelectorMenu(): Promise<void> {
+  const first = selectorRows().first();
+  await panelPage.keyboard.press('Escape');
+  try {
+    await expect(first).toBeHidden({ timeout: 1_000 });
+  } catch {
+    await selectorTrigger().click();
+    await expect(first).toBeHidden({ timeout: 5_000 });
+  }
+}
+
+/** One open → one row click → close (the menu stays open on inside clicks). */
 async function pickContext(rowText: string | RegExp): Promise<void> {
-  await selectorTrigger().click();
+  await openSelectorMenu();
   const row = selectorRows().filter({ hasText: rowText }).first();
   await expect(row).toBeVisible({ timeout: 5_000 });
   await row.click();
-  await panelPage.keyboard.press('Escape');
+  await closeSelectorMenu();
 }
 
 /** Console rows whose message carries the given text. */
@@ -126,14 +147,12 @@ test('selector lists every context shape: top first at depth 0, cross-origin fra
   await expect(selectorTrigger()).toContainText('top');
   await expect(panelPage.locator('.dt-console-context--warn')).toHaveCount(0);
 
-  // The SW context arrives via the discovery poll — re-open until listed.
+  // The SW context arrives via the discovery poll — re-open until listed,
+  // then keep THIS menu open for the shape assertions (no close/reopen seam).
   await expect(async () => {
-    await selectorTrigger().click();
+    await openSelectorMenu();
     await expect(selectorRows().filter({ hasText: 'oh-sw.js' }).first()).toBeVisible({ timeout: 2_000 });
-    await panelPage.keyboard.press('Escape');
   }).toPass({ timeout: 30_000 });
-
-  await selectorTrigger().click();
   const rows = selectorRows();
 
   // Top frame + two iframes + worker + SW at minimum (the rig may add
@@ -162,7 +181,20 @@ test('selector lists every context shape: top first at depth 0, cross-origin fra
   const workerRow = rows.filter({ hasText: 'oh-context-worker' }).first();
   await expect(workerRow).toHaveAttribute('data-depth', '1');
 
-  await panelPage.keyboard.press('Escape');
+  // Browser display order: page group, then iframe sessions, then service
+  // workers, then dedicated workers.
+  const titles = await rows.locator('.dt-sortmode-item-title').allTextContents();
+  const frameAt = titles.findIndex((t) => t.includes('localhost:3000'));
+  const swAt = titles.findIndex((t) => t.includes('oh-sw.js'));
+  const workerAt = titles.findIndex((t) => t.includes('oh-context-worker'));
+  expect(frameAt).toBeLessThan(swAt);
+  expect(swAt).toBeLessThan(workerAt);
+
+  // Extension worlds subtitle as the literal "Extension", not the URL.
+  const extensionWorld = rows.filter({ hasText: 'Open Headers' }).first();
+  await expect(extensionWorld.locator('.dt-sortmode-item-subtitle')).toHaveText('Extension');
+
+  await closeSelectorMenu();
 });
 
 test('console attribution: one identifiable row per context after logAll', async () => {

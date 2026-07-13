@@ -397,7 +397,7 @@ describe('ConsoleView context selector + "Selected context only" (JS contexts Ph
   it('an explicit non-top pick warns, and the pick dying falls back to top', () => {
     const view = renderView([], { contexts: [TOP, IFRAME] });
     fireEvent.click(screen.getByText('top'));
-    fireEvent.click(screen.getByText('https://ads.openheaders.io'));
+    fireEvent.click(screen.getByText('ads.openheaders.io'));
     expect(document.querySelector('.dt-console-context--warn')).not.toBeNull();
 
     // The picked context dies (navigation) — selection falls back to top.
