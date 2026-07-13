@@ -27,7 +27,6 @@ import type {
   InjectSource,
   InjectTrigger,
   InjectType,
-  MessageFilter,
   MessageOperation,
   QueryParamOperation,
   QueryParamRule,
@@ -43,7 +42,7 @@ import type {
   WsDirection,
   WsRule,
 } from '@openheaders/core/types';
-import { generateUid } from '@openheaders/core/utils';
+import { buildMessageFilter, generateUid } from '@openheaders/core/utils';
 
 export function buildRule(
   formValues: Record<string, unknown>,
@@ -206,15 +205,4 @@ export function buildRule(
     default:
       return null;
   }
-}
-
-/**
- * Form's filter-type select carries 'none' for "every frame/event" — that
- * maps to no filter at all. A configured type with an empty value is KEPT:
- * dropping it would silently broaden the rule to every frame, whereas the
- * empty filter fails action validation and holds the rule as a draft.
- */
-function buildMessageFilter(filterType: unknown, filterValue: unknown): MessageFilter | undefined {
-  if (filterType !== 'contains' && filterType !== 'regex') return undefined;
-  return { matchType: filterType, value: (filterValue as string) ?? '' };
 }
