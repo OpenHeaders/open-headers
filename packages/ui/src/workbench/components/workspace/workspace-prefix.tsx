@@ -23,9 +23,9 @@ export interface WorkspacePrefixInput {
 export interface WorkspacePrefixOptions {
   /**
    * Outer box size in pixels. Icon font-size is derived as
-   * `round(size * 0.55)` so padding stays visually balanced. Pass
-   * whatever fits the surface (22-28px for menu rows, 14-16px inline
-   * in dense labels).
+   * `round(size * 0.8)` so the glyph carries the same visual weight
+   * as the color square. Pass whatever fits the surface (22-28px for
+   * menu rows, 14-16px inline in dense labels).
    */
   size: number;
   /** Extra styles merged into the wrapper. Use for margin/flex tuning. */
@@ -53,7 +53,7 @@ export function renderWorkspacePrefix(
       <span aria-hidden style={wrapperBase}>
         {renderTwoToneIcon(
           workspace.icon,
-          { fontSize: Math.round(size * 0.55) },
+          { fontSize: Math.round(size * 0.8) },
           resolveWorkspaceIconColor(workspace.color, token),
         )}
       </span>

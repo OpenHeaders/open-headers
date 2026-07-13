@@ -19,9 +19,10 @@
  * share one code path. Hosts wire `setHostStorage` *before* calling this.
  */
 
-import type { HostKind, SyntheticIdentityRecord } from '../types';
 import { hostStorage } from '../storage/host-storage';
 import { OH } from '../storage/keys';
+import type { HostKind, SyntheticIdentityRecord } from '../types';
+import type { PlatformKind } from '../utils/host-detect';
 import { bootstrapSyntheticIdentity } from './bootstrap';
 import { ensureDaemonConfig } from './ensure-daemon-config';
 
@@ -47,6 +48,13 @@ export interface EnsureSyntheticIdentityInput {
    * First-boot only; defaults to `'Local'` when unavailable.
    */
   orgName?: string;
+  /**
+   * The host's own operating system, when it can determine it (daemon /
+   * desktop; browser hosts omit it). Unlike the first-boot-only fields
+   * this one is machine-derived, so it is re-stamped on EVERY boot — a
+   * daemon migrated to a different distro reports the new one.
+   */
+  hostOs?: PlatformKind;
   /** Best-effort OS-derived email or `null`. First-boot only. */
   email?: string | null;
   /**
@@ -64,12 +72,20 @@ export interface EnsureSyntheticIdentityInput {
  *
  * Requires `setHostStorage` to have been called by the host first.
  */
-export async function ensureSyntheticIdentity(
-  input: EnsureSyntheticIdentityInput,
-): Promise<SyntheticIdentityRecord> {
+export async function ensureSyntheticIdentity(input: EnsureSyntheticIdentityInput): Promise<SyntheticIdentityRecord> {
   const config = await ensureDaemonConfig();
   const existing = await hostStorage.get(OH.syntheticIdentity);
   if (existing !== undefined) {
+    // `hostOs` is machine-derived, not user-authored — keep it fresh on
+    // every boot rather than freezing the first boot's reading.
+    if (input.hostOs && existing.org.hostOs !== input.hostOs) {
+      const patched: SyntheticIdentityRecord = {
+        ...existing,
+        org: { ...existing.org, hostOs: input.hostOs },
+      };
+      await hostStorage.set(OH.syntheticIdentity, patched);
+      return patched;
+    }
     return existing;
   }
   const fresh = await bootstrapSyntheticIdentity({
@@ -77,6 +93,7 @@ export async function ensureSyntheticIdentity(
     hostKind: input.hostKind,
     displayName: input.displayName,
     orgName: input.orgName,
+    hostOs: input.hostOs,
     email: input.email,
     now: input.now ?? new Date().toISOString(),
   });

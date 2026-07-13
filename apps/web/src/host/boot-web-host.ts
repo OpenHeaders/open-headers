@@ -31,6 +31,7 @@ import {
   invalidateAllWorkspaceOrgCache,
   setWorkspaceOrgResolver,
 } from '@openheaders/core/sync';
+import { BROWSER_DISPLAY_NAME, detectBrowser, readHostProbe } from '@openheaders/core/utils';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import {
@@ -88,7 +89,10 @@ export async function bootWebHost(): Promise<void> {
   // any privileged-path code runs. Idempotent across boots; failures
   // are logged, not fatal — the resolver denies privileged actions
   // while the snapshot is absent and the next boot re-runs this.
-  await ensureSyntheticIdentity({ hostKind: 'browser', orgName: 'Web' }).catch((err: unknown) => {
+  await ensureSyntheticIdentity({
+    hostKind: 'browser',
+    orgName: BROWSER_DISPLAY_NAME[detectBrowser(readHostProbe(navigator))],
+  }).catch((err: unknown) => {
     logger.warn(SCOPE, 'ensureSyntheticIdentity failed', err);
   });
 

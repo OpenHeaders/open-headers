@@ -63,6 +63,10 @@ export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor
           // off-screen on the sidepanel.
           display: 'inline-flex',
           alignItems: 'center',
+          // OrgIcon isn't an `.anticon`, so antd's built-in icon→label
+          // margin never applies — the flex gap provides the breathing
+          // room between the glyph and the Org name.
+          columnGap: compact ? 3 : 4,
           maxWidth: '100%',
           minWidth: 0,
           overflow: 'hidden',

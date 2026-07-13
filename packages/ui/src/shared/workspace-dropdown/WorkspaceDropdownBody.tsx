@@ -411,20 +411,89 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     );
   };
 
+  // The popover an Org header shows on hover: the full consequence of
+  // the click — which Org and which workspace the switch moves FROM and
+  // TO, plus why that workspace is the landing target (it mirrors the
+  // remembered → default → first chain of `resolveOrgActiveWorkspace`).
+  const renderOrgSwitchPopover = (
+    orgId: string,
+    label: string,
+    targetWs: ExtensionWorkspace | null,
+  ): React.ReactNode => {
+    const currentId = mode === 'workbench' ? selectedId : activeId;
+    const currentWs = currentId ? (workspaces.find((w) => w.id === currentId) ?? null) : null;
+    const currentOrg = currentWs && orgGrouping ? orgGrouping.describe(currentWs.orgId) : null;
+    const currentOrgLabel = currentOrg ? orgFullLabel(currentOrg, selfReach) : null;
+    const reason = targetWs
+      ? orgPrefs.remembered[orgId] === targetWs.id
+        ? 'it’s the workspace you last used in this Org'
+        : orgPrefs.defaults[orgId] === targetWs.id
+          ? 'it’s this Org’s default workspace'
+          : 'it’s this Org’s first workspace'
+      : null;
+    return (
+      <div style={{ maxWidth: 280 }}>
+        <Text strong style={{ fontSize: 12 }}>
+          {`Switch to ${label}`}
+        </Text>
+        {!targetWs ? (
+          <div>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              This Org has no workspaces yet, so there is nothing to switch to.
+            </Text>
+          </div>
+        ) : targetWs.id === currentWs?.id ? (
+          <div>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {`You’re already on “${targetWs.name}” in this Org.`}
+            </Text>
+          </div>
+        ) : (
+          <>
+            {currentOrgLabel && currentWs && currentWs.orgId !== orgId && (
+              <div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {`Org: ${currentOrgLabel} → ${label}`}
+                </Text>
+              </div>
+            )}
+            {currentWs && (
+              <div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {`Workspace: ${currentWs.name} → ${targetWs.name}`}
+                </Text>
+              </div>
+            )}
+            <div style={{ marginTop: 4 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {`Lands on “${targetWs.name}” because ${reason}.`}
+              </Text>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
     // A null descriptor in grouped mode means the Org left the identity
     // snapshot — its backend record was removed with local copies kept.
     const label = descriptor ? orgFullLabel(descriptor, selfReach) : 'No longer syncing';
     const annotation: OrgSyncAnnotation | null = descriptor ? annotateOrg(orgId) : orphanedOrgAnnotation();
     // Name the workspace the switch lands on — the header shows the Org's
-    // intent; the tooltip makes the concrete consequence visible.
+    // intent; the popover makes the concrete consequence visible.
     const targetWs = resolveOrgTarget(orgId);
-    const tooltip = targetWs ? `Switch to ${label} → ${targetWs.name}` : `Switch to ${label}`;
+    const ariaLabel = targetWs ? `Switch to ${label} → ${targetWs.name}` : `Switch to ${label}`;
     return (
-      <Tooltip title={tooltip} placement="left" mouseEnterDelay={0.4}>
+      <Popover
+        placement={popoverPlacement}
+        mouseEnterDelay={0.4}
+        zIndex={token.zIndexPopupBase + 100}
+        content={renderOrgSwitchPopover(orgId, label, targetWs)}
+      >
         <div
           role="button"
-          aria-label={tooltip}
+          aria-label={ariaLabel}
           className="oh-env-row"
           style={{
             display: 'flex',
@@ -471,7 +540,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
             </Text>
           )}
         </div>
-      </Tooltip>
+      </Popover>
     );
   };
 

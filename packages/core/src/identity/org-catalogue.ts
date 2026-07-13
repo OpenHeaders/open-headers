@@ -19,6 +19,7 @@
 
 import type { BackendReach } from '../protocol';
 import type { HostKind, Org } from '../types';
+import type { PlatformKind } from '../utils/host-detect';
 import type { IdentitySnapshot } from './resolver';
 
 /**
@@ -44,6 +45,10 @@ export interface OrgDescriptor {
   isPrivate: boolean;
   /** True for the user's home-org — the default binding for new workspaces. */
   isHome: boolean;
+  /** The minting host's OS, when it stamped one — drives the OS identity mark. */
+  hostOs?: PlatformKind;
+  /** Custom brand mark (validated `data:` URI) — wins over every derived glyph. */
+  logo?: string;
 }
 
 /**
@@ -82,6 +87,8 @@ function toDescriptor(org: Org, homeOrgId: string): OrgDescriptor {
     hostKind: org.hostKind,
     isPrivate: org.isPrivate,
     isHome: org.id === homeOrgId,
+    ...(org.hostOs ? { hostOs: org.hostOs } : {}),
+    ...(org.logo ? { logo: org.logo } : {}),
   };
 }
 

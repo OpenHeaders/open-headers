@@ -49,6 +49,7 @@ import HomeOrgIdentityCard from './HomeOrgIdentityCard';
 import PublishWorkspaceModal from './PublishWorkspaceModal';
 import WorkspaceIdentityPicker, { type WorkspaceIdentity } from './WorkspaceIdentityPicker';
 import { DEFAULT_WORKSPACE_ICON } from './workspace-colors';
+import { renderWorkspacePrefix } from './workspace-prefix';
 
 const { Title, Text } = Typography;
 
@@ -227,7 +228,13 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
             message.error('Failed to create workspace');
             return false;
           }
-          message.success(`Created "${ws.name}"`);
+          message.success(
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, verticalAlign: 'middle' }}>
+              Created workspace
+              {renderWorkspacePrefix({ icon: ws.icon, color: ws.color }, token, { size: 16 })}
+              {ws.name}
+            </span>,
+          );
           return true;
         }}
       />

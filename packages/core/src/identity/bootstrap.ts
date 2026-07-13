@@ -30,6 +30,7 @@ import type {
   User,
   UserIdentity,
 } from '../types';
+import type { PlatformKind } from '../utils/host-detect';
 import { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
 
 /** Inputs to the bootstrap helper. */
@@ -54,6 +55,13 @@ export interface BootstrapSyntheticIdentityInput {
    * `'Local'` only when the host can't read one (§5.2 row 'Org').
    */
   orgName?: string;
+  /**
+   * The host's operating system when it can determine its own (a
+   * daemon/desktop reads its platform; a browser host omits it and
+   * detection happens at render time instead). Stamped onto the `Org`
+   * row so joiners can render the OS mark for a remote server.
+   */
+  hostOs?: PlatformKind;
   /**
    * Best-effort OS-derived email or `null` if unavailable
    * (§5.2 row 'UserIdentity').
@@ -111,6 +119,7 @@ export async function bootstrapSyntheticIdentity(
     name: orgName,
     hostKind: input.hostKind,
     isPrivate: true,
+    ...(input.hostOs ? { hostOs: input.hostOs } : {}),
   };
 
   const userIdentity: UserIdentity = {

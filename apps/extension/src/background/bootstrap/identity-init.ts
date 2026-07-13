@@ -7,17 +7,13 @@ import {
 } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE, setWorkspaceOrgResolver } from '@openheaders/core/sync';
+import { BROWSER_DISPLAY_NAME, detectBrowser, readHostProbe } from '@openheaders/core/utils';
 import { IdbAuditLog } from '@openheaders/oracle-host-browser/sync/idb-audit-log';
-import { isChrome, isEdge, isFirefox, isSafari } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { getWorkspace, listWorkspaces } from '../modules/workspace/workspace-store';
 
 function browserDisplayName(): string {
-  if (isFirefox) return 'Firefox';
-  if (isChrome) return 'Chrome';
-  if (isEdge) return 'Edge';
-  if (isSafari) return 'Safari';
-  return 'Browser';
+  return BROWSER_DISPLAY_NAME[detectBrowser(readHostProbe(navigator))];
 }
 
 export async function bootstrapIdentity(): Promise<void> {

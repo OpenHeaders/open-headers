@@ -14,6 +14,8 @@
  */
 
 import * as v from 'valibot';
+import { PLATFORM_KINDS } from '../utils/host-detect';
+import { isValidOrgLogoDataUri, ORG_LOGO_MAX_DATA_URI_LENGTH } from '../utils/org-logo';
 import { UuidV7Schema } from './common';
 import { DaemonAdminSchema, OrgMembershipSchema, PrincipalSchema } from './identity-acl';
 
@@ -99,6 +101,18 @@ export const UserSchema = v.object({
  * by definition — anything that crossed a wire is no longer "stays on
  * this device" — so `recordJoinedOrg` stamps `isPrivate: false` at the
  * receiver boundary regardless of what the sender sent.
+ *
+ * `hostOs` records the minting host's operating system when the host
+ * can determine it (a daemon reads its own platform; browsers cannot
+ * see a remote peer's OS). Machine-derived, so the host re-stamps it
+ * on every boot; travels with the row so joiners can render the OS
+ * mark for a server they never touch.
+ *
+ * `logo` is an optional custom brand mark set by the Org's owner — a
+ * validated base64 `data:` URI ({@link isValidOrgLogoDataUri}: format
+ * allow-list, byte cap, inert-SVG rules). Validated HERE so a peer's
+ * WELCOME can never fold an oversized or active-content payload into
+ * local storage. When present it wins over every derived glyph.
  */
 export const OrgSchema = v.object({
   id: UuidV7Schema,
@@ -106,6 +120,10 @@ export const OrgSchema = v.object({
   hostKind: HostKindSchema,
   /** True iff no backend hosts this Org — i.e. it stays on this device. */
   isPrivate: v.boolean(),
+  hostOs: v.optional(v.picklist(PLATFORM_KINDS)),
+  logo: v.optional(
+    v.pipe(v.string(), v.maxLength(ORG_LOGO_MAX_DATA_URI_LENGTH), v.check(isValidOrgLogoDataUri, 'invalid Org logo')),
+  ),
 });
 
 /**

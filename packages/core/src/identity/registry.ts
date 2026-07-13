@@ -13,6 +13,7 @@ import { hostStorage } from '../storage/host-storage';
 import { type JoinedOrgRecord, OH } from '../storage/keys';
 import type { Org, SyntheticIdentityRecord, WorkspaceRoleAssignment } from '../types';
 import { createMutex } from '../utils/mutex';
+import { type OrgLogoRejectReason, validateOrgLogoDataUri } from '../utils/org-logo';
 import type { IdentitySnapshot } from './resolver';
 
 let current: IdentitySnapshot | null = null;
@@ -245,12 +246,15 @@ async function upsertJoinedOrgRowLocked(nextRow: JoinedOrgRecord): Promise<boole
   if (
     known.org.name !== nextRow.org.name ||
     known.org.isPrivate !== nextRow.org.isPrivate ||
+    known.org.hostOs !== nextRow.org.hostOs ||
+    known.org.logo !== nextRow.org.logo ||
     known.backendId !== nextRow.backendId
   ) {
-    // The backend renamed its Org, the persisted row predates
-    // boundary-normalization (legacy `isPrivate: true`), or the
-    // connection record was re-minted. Either way, re-store the
-    // freshest normalized copy under the delivering backend.
+    // The backend renamed / re-branded its Org (name, logo, hostOs),
+    // the persisted row predates boundary-normalization (legacy
+    // `isPrivate: true`), or the connection record was re-minted.
+    // Either way, re-store the freshest normalized copy under the
+    // delivering backend.
     await hostStorage.set(
       OH.joinedOrgs,
       existing.map((row) => (row?.org?.id === nextRow.org.id ? nextRow : row)),
@@ -368,6 +372,47 @@ export function renameHomeOrg(name: string): Promise<RenameHomeOrgResult> {
     await hostStorage.set(OH.syntheticIdentity, {
       ...record,
       org: { ...record.org, name: trimmed },
+    });
+    await refreshIdentitySnapshotFromHostStorage();
+    return { ok: true };
+  });
+}
+
+/** Outcome of {@link setHomeOrgLogo}. */
+export type SetHomeOrgLogoResult = { ok: true } | { ok: false; reason: OrgLogoRejectReason | 'no-identity' };
+
+/**
+ * Set (or clear, with `null`) this host's own (home) Org logo — the
+ * custom brand mark shown in place of the derived host glyph. Same
+ * write path as {@link renameHomeOrg}: edits the `Org` row inside
+ * `OH.syntheticIdentity`, then refreshes the snapshot.
+ *
+ * The candidate is validated here ({@link validateOrgLogoDataUri}:
+ * format allow-list, byte cap, inert-SVG rules) so no surface can
+ * persist an unvalidated payload. Only the home Org is editable — a
+ * joined Org's branding is owned by its backend and re-propagates via
+ * the WELCOME drift-update on the next reconnect; that is also how an
+ * edit here reaches this Org's members.
+ */
+export function setHomeOrgLogo(logo: string | null): Promise<SetHomeOrgLogoResult> {
+  return withHomeOrgLock(async () => {
+    if (logo !== null) {
+      const validation = validateOrgLogoDataUri(logo);
+      if (!validation.ok) {
+        return { ok: false, reason: validation.reason };
+      }
+    }
+    const record = await hostStorage.get(OH.syntheticIdentity);
+    if (!record) {
+      return { ok: false, reason: 'no-identity' };
+    }
+    if ((record.org.logo ?? null) === logo) {
+      return { ok: true };
+    }
+    const { logo: _cleared, ...orgWithoutLogo } = record.org;
+    await hostStorage.set(OH.syntheticIdentity, {
+      ...record,
+      org: logo === null ? orgWithoutLogo : { ...record.org, logo },
     });
     await refreshIdentitySnapshotFromHostStorage();
     return { ok: true };

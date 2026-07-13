@@ -112,6 +112,7 @@ import { composePeerRpc } from './compose-peer-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { createHealthzHandler } from './healthz';
+import { detectNodeHostOs } from './host-os';
 import { installLicenseRefreshAgent } from './license-refresh-agent';
 import { installLicenseSlot } from './license-slot';
 import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
@@ -315,7 +316,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // throw here would abort the whole host install (no oracle, no WS
   // server). The resolver denies privileged sync actions while the
   // snapshot is absent; the next boot re-runs this idempotently.
-  await ensureSyntheticIdentity(config.identity).catch((err: unknown) => {
+  // `hostOs` re-stamps on every boot (machine-derived); it rides the
+  // home Org row into WELCOME so joiners render this server's OS mark.
+  await ensureSyntheticIdentity({ ...config.identity, hostOs: detectNodeHostOs() }).catch((err: unknown) => {
     consoleLogger.warn(SCOPE, 'ensureSyntheticIdentity failed', err);
   });
   setLockRuntime(singleProcessLockRuntime);

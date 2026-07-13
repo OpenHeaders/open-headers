@@ -102,6 +102,8 @@ export {
   recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
   renameHomeOrg,
+  type SetHomeOrgLogoResult,
+  setHomeOrgLogo,
   setPinnedBackendIds,
 } from './registry';
 export {

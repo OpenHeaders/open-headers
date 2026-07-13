@@ -58,12 +58,29 @@ export {
   validateHeaderName,
   validateHeaderValue,
 } from './headers';
+export type { BrowserKind, HostProbe, PlatformKind } from './host-detect';
+export {
+  BROWSER_DISPLAY_NAME,
+  detectBrowser,
+  detectPlatform,
+  PLATFORM_DISPLAY_NAME,
+  PLATFORM_KINDS,
+  readHostProbe,
+} from './host-detect';
 export type { BuildEmptyLiveVariableArgs, LiveVariableSeed, LiveWorkflowSeed } from './live-defaults';
 export { buildEmptyLiveVariable, buildEmptyLiveWorkflow } from './live-defaults';
 export type { LogLevel } from './logger';
 export { isValidLogLevel, logger } from './logger';
 export type { Mutex } from './mutex';
 export { createMutex } from './mutex';
+export type { OrgLogoMimeType, OrgLogoRejectReason, OrgLogoValidation } from './org-logo';
+export {
+  isValidOrgLogoDataUri,
+  ORG_LOGO_MAX_BYTES,
+  ORG_LOGO_MAX_DATA_URI_LENGTH,
+  ORG_LOGO_MIME_TYPES,
+  validateOrgLogoDataUri,
+} from './org-logo';
 export type { PauseMarker, PauseMarkers } from './pause';
 export { computePausedUids, hasNestedPauseMarkers, resolvePauseState } from './pause';
 export type { PortValidation } from './port';
