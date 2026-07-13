@@ -29,7 +29,7 @@ import {
   type CdpJsContextEvent,
   ChromeDebuggerEventSource,
 } from '@/background/correlator-host/chrome-debugger-source';
-import { clearMainFrameId, isMainFrame } from '@/background/correlator-host/main-frame-registry';
+import { clearFrameRegistry, frameUrlOf, isMainFrame } from '@/background/correlator-host/main-frame-registry';
 import { chrome as chromeMock } from '../../../__mocks__/chrome';
 
 const TAB = 5;
@@ -468,24 +468,34 @@ describe('ChromeDebuggerEventSource — Page-domain events (page timings)', () =
     expect(out[1] && 'frameId' in out[1] && out[1].frameId !== undefined).toBe(false);
   });
 
-  it('seeds the main-frame registry from Page.getFrameTree at attach', async () => {
-    clearMainFrameId(TAB);
+  it('seeds the frame registry from Page.getFrameTree at attach — main-frame id + every node URL', async () => {
+    clearFrameRegistry(TAB);
     chromeMock.debugger.sendCommand.mockImplementation((_t, method: string) =>
       Promise.resolve<object | undefined>(
-        method === 'Page.getFrameTree' ? { frameTree: { frame: { id: 'F-main' } } } : undefined,
+        method === 'Page.getFrameTree'
+          ? {
+              frameTree: {
+                frame: { id: 'F-main', url: 'https://app.openheaders.io/' },
+                childFrames: [{ frame: { id: 'F-child', url: 'https://app.openheaders.io/widgets/frame.html' } }],
+              },
+            }
+          : undefined,
       ),
     );
     source = new ChromeDebuggerEventSource();
     await source.attach(TAB);
     expect(isMainFrame(TAB, 'F-main')).toBe(true);
     expect(isMainFrame(TAB, 'F-iframe')).toBe(false);
+    expect(frameUrlOf(TAB, 'F-main')).toBe('https://app.openheaders.io/');
+    expect(frameUrlOf(TAB, 'F-child')).toBe('https://app.openheaders.io/widgets/frame.html');
     chromeMock.debugger.sendCommand.mockImplementation(() => Promise.resolve<object | undefined>(undefined));
     await source.detach(TAB);
     expect(isMainFrame(TAB, 'F-main')).toBe(false);
+    expect(frameUrlOf(TAB, 'F-main')).toBeUndefined();
   });
 
   it('refreshes the registry on a parentless frameNavigated and ignores sub-frame navs', async () => {
-    clearMainFrameId(TAB);
+    clearFrameRegistry(TAB);
     source = new ChromeDebuggerEventSource();
     await source.attach(TAB);
 
@@ -1494,6 +1504,48 @@ describe('ChromeDebuggerEventSource — Runtime executionContext lifecycle (JS c
       context: { contextKey: 'child-worker-1::1', targetKind: 'worker', worldType: 'worker' },
     });
     expect(out[1].kind === 'context-created' && 'frameId' in out[1].context).toBe(false);
+  });
+
+  it('stamps frameUrl from the frame registry — frameNavigated refreshes, incl. kept OOPIF sessions', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Page.frameNavigated', { frame: { id: 'F1', loaderId: 'L1', url: 'https://app.openheaders.io/' } });
+    emitRoot('Runtime.executionContextCreated', rawContextCreated(1));
+    expect(out[0]).toMatchObject({
+      kind: 'context-created',
+      context: { contextKey: 'page::1', frameUrl: 'https://app.openheaders.io/' },
+    });
+
+    // A kept OOPIF's frameNavigated feeds the registry too (its Page events
+    // stay out of page-timing), so its context replay labels by frame URL.
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitChild(CHILD_SESSION, 'Page.frameNavigated', {
+      frame: { id: 'F9', loaderId: 'L9', url: 'https://embed.openheaders.io/frame.html', parentId: 'F1' },
+    });
+    emitChild(
+      CHILD_SESSION,
+      'Runtime.executionContextCreated',
+      rawContextCreated(1, { auxData: { frameId: 'F9', isDefault: true, type: 'default' } }),
+    );
+    expect(out[out.length - 1]).toMatchObject({
+      kind: 'context-created',
+      context: { contextKey: `${CHILD_SESSION}::1`, frameUrl: 'https://embed.openheaders.io/frame.html' },
+    });
+  });
+
+  it('seeds a kept OOPIF frame tree at child attach (getFrameTree on the child session)', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitRoot('Target.attachedToTarget', attachedToTarget('child-worker-1', 'worker'));
+    const frameTreeCalls = chromeMock.debugger.sendCommand.mock.calls.filter((c) => c[1] === 'Page.getFrameTree');
+    const sessions = frameTreeCalls.map((c) => (c[0] as chrome.debugger.DebuggerSession).sessionId);
+    expect(sessions).toContain(undefined); // the root attach seed
+    expect(sessions).toContain(CHILD_SESSION);
+    expect(sessions).not.toContain('child-worker-1'); // workers have no frames
   });
 
   it('reads a worker context with no auxData as its main world (live wire shape)', async () => {

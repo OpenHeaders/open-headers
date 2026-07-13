@@ -8,15 +8,19 @@
  *     whenever it exists; an explicit pick of a live context wins until
  *     that context dies, then selection falls back to `top`.
  *   - Title: the context's own label/name when present, else `top` for the
- *     top context, else the origin — collapsed to its `host[:port]` when it
- *     is a bare origin (script-URL origins keep the full URL). Subtitle:
- *     the literal `Extension` for extension worlds, else the origin's
- *     `host[:port]`, and only when it adds information over the title.
+ *     top context, else the frame's display name (its URL's last path
+ *     segment — the browser's frame label), else the origin — collapsed to
+ *     its `host[:port]` when it is a bare origin (script-URL origins keep
+ *     the full URL). Subtitle: the literal `Extension` for extension
+ *     worlds, else the origin's `host[:port]` (falling back to the frame
+ *     URL's host for opaque-origin worlds), and only when it adds
+ *     information over the title.
  *   - Order: target groups the way the browser weighs them — the page
  *     session first, then OOPIF sessions, then service workers, then
- *     dedicated/shared workers; sessions tie-break by key, and within a
- *     session the main world precedes the isolated worlds (sorted by
- *     name). `top` is pinned first.
+ *     dedicated/shared workers; sessions tie-break by key. Within the page
+ *     session, contexts group by frame (the top frame first, the way the
+ *     browser walks frame ancestry); within a frame the main world precedes
+ *     the isolated worlds (sorted by name). `top` is pinned first.
  *   - Depth indentation: +1 for a non-default (isolated) world, +1 for
  *     leaving the top frame (iframe contexts, dedicated workers) — except
  *     service workers, which are special-cased to top level.
@@ -70,16 +74,34 @@ function isBareOrigin(origin: string): boolean {
   }
 }
 
+/** The browser's frame label — the URL's last path segment, else `host/`. */
+function frameDisplayName(frameUrl: string): string | null {
+  try {
+    const url = new URL(frameUrl);
+    const last = url.pathname.split('/').filter(Boolean).pop();
+    return last ?? (url.host !== '' ? `${url.host}/` : null);
+  } catch {
+    return null;
+  }
+}
+
 function labelOf(context: JsContext): string {
   if (isTopContext(context)) return 'top';
   if (context.name !== '') return context.name;
+  if (context.frameUrl !== undefined) {
+    const displayName = frameDisplayName(context.frameUrl);
+    if (displayName !== null) return displayName;
+  }
   if (isBareOrigin(context.origin)) return originDomain(context.origin) ?? context.origin;
   return context.origin;
 }
 
 function subtitleFor(context: JsContext, label: string): string | null {
   if (context.origin.startsWith('chrome-extension://')) return 'Extension';
-  const domain = originDomain(context.origin);
+  // Opaque-origin worlds (utility worlds report `://`) fall back to their
+  // frame's host — the browser's `securityOrigin` fallback.
+  const domain =
+    originDomain(context.origin) ?? (context.frameUrl !== undefined ? originDomain(context.frameUrl) : null);
   return domain !== null && domain !== label ? domain : null;
 }
 
@@ -98,15 +120,26 @@ function sessionOf(contextKey: string): string {
   return separator === -1 ? contextKey : contextKey.slice(0, separator);
 }
 
-function compareRows(a: ConsoleContextRow, b: ConsoleContextRow): number {
+function compareRows(mainFrameId: string | undefined, a: ConsoleContextRow, b: ConsoleContextRow): number {
   if (a.isTop !== b.isTop) return a.isTop ? -1 : 1;
   const weight = SESSION_WEIGHT[b.context.targetKind] - SESSION_WEIGHT[a.context.targetKind];
   if (weight !== 0) return weight;
   const session = sessionOf(a.context.contextKey).localeCompare(sessionOf(b.context.contextKey));
   if (session !== 0) return session;
+  // Within one session, group by frame — the top frame's contexts first
+  // (the browser walks frame ancestry; we know the root), the rest by id.
+  const frameA = a.context.frameId ?? '';
+  const frameB = b.context.frameId ?? '';
+  if (frameA !== frameB) {
+    if (mainFrameId !== undefined) {
+      if (frameA === mainFrameId) return -1;
+      if (frameB === mainFrameId) return 1;
+    }
+    return frameA.localeCompare(frameB);
+  }
   if (a.context.isDefault !== b.context.isDefault) return a.context.isDefault ? -1 : 1;
   if (!a.context.isDefault) return a.context.name.localeCompare(b.context.name);
-  // Same-session main worlds (top + same-process frames) keep arrival order.
+  // Same-frame main worlds keep arrival order.
   return 0;
 }
 
@@ -122,7 +155,8 @@ export function consoleContextRows(contexts: readonly JsContext[]): ConsoleConte
       isTop: isTopContext(context),
     };
   });
-  return rows.sort(compareRows);
+  const mainFrameId = contexts.find(isTopContext)?.frameId;
+  return rows.sort((a, b) => compareRows(mainFrameId, a, b));
 }
 
 /** The `top` context's key, when one exists. */

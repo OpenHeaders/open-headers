@@ -86,6 +86,7 @@ import type {
   RawExecutionContextDestroyed,
   RawFrameNavigated,
   RawFrameStoppedLoading,
+  RawFrameTreeNode,
   RawGetFrameTree,
   RawGetResponseBody,
   RawLoadingFailed,
@@ -107,7 +108,7 @@ import type {
   RawWebSocketWillSendHandshakeRequest,
 } from './cdp-raw-payloads';
 import { type CdpBindingFire, type ChildTargetKind, type KeptChildSession, ROOT_SESSION_ID } from './cdp-session';
-import { clearMainFrameId, isMainFrame, setMainFrameId } from './main-frame-registry';
+import { clearFrameRegistry, frameUrlOf, isMainFrame, setFrameUrl, setMainFrameId } from './main-frame-registry';
 
 export type { CdpBindingFire, ChildTargetKind, KeptChildSession } from './cdp-session';
 // Re-exported for importers that consumed these from this module before the
@@ -469,7 +470,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // race it and miss `top`. It equally precedes any navigation (the first
     // navigation's requestWillBeSent precedes its frameNavigated, so
     // without the seed the main/sub document split misses the first nav).
-    await this.seedMainFrame(tabId);
+    await this.seedFrames(tabId, { tabId }, true);
     await this.enableAutoAttach({ tabId });
     // Private fire-bridge (E4): a Runtime binding the in-page wrappers report
     // through instead of window.postMessage — page-invisible. Fanned to kept
@@ -493,7 +494,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     if (!api) return;
     this.attachedTabs.delete(tabId);
     this.forgetChildrenOf(tabId);
-    clearMainFrameId(tabId);
+    clearFrameRegistry(tabId);
     this.fanContexts({ kind: 'tab-detached', tabId });
     await this.send({ tabId }, 'Network.disable');
     try {
@@ -563,11 +564,22 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       return;
     }
     if (method.startsWith('Page.')) {
+      if (params === undefined) return;
+      // Frame-URL registry: every navigation on the root or a kept OOPIF
+      // child records its frame's URL — the JS-contexts selector labels
+      // frame contexts by it.
+      if (
+        method === 'Page.frameNavigated' &&
+        (source.sessionId === undefined || this.childSessions.has(source.sessionId))
+      ) {
+        const navigated = params as RawFrameNavigated;
+        setFrameUrl(tabId, navigated.frame.id, navigated.frame.url);
+      }
       // Page timings are a main-frame concern, sourced from the root session
       // alone. An iframe child also has Page enabled (for control delivery),
       // so it can emit Page.* — drop those here so page-timing stays
       // root-sourced.
-      if (source.sessionId === undefined && params !== undefined) this.handlePageEvent(method, tabId, params);
+      if (source.sessionId === undefined) this.handlePageEvent(method, tabId, params);
       return;
     }
     if (method.startsWith('Fetch.')) {
@@ -614,7 +626,13 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
         this.fanContexts({
           kind: 'context-created',
           tabId,
-          context: normalizeExecutionContextCreated(sessionKey, kind, isTopFrame, raw),
+          context: normalizeExecutionContextCreated(
+            sessionKey,
+            kind,
+            isTopFrame,
+            frameUrlOf(tabId, raw.context.auxData?.frameId),
+            raw,
+          ),
         });
       } else if (method === 'Runtime.executionContextDestroyed') {
         const destroyed = params as RawExecutionContextDestroyed;
@@ -793,7 +811,13 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // not just the main frame — queued before `applyChild` runs so the enable
     // precedes those Page commands. Workers have no Page domain (Network-only);
     // child Page.* stays out of page-timing (the router fans the root alone).
-    if (kind === 'iframe') void this.enablePage(session);
+    // The frame-URL seed queues before the Runtime enable below, so the
+    // enable's context replay resolves the OOPIF's frame URL (the same
+    // seed-before-enable ordering the root attach uses for `isTopFrame`).
+    if (kind === 'iframe') {
+      void this.enablePage(session);
+      void this.seedFrames(tabId, session, false);
+    }
     // The private fire-bridge reaches every kept child (E4): a worker/OOPIF
     // wrapper's fire belongs to the tab, so addBinding + Runtime.enable on the
     // child's own session and route any bindingCalled there by tabId. Workers
@@ -824,7 +848,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     if (tabId === undefined) return;
     this.attachedTabs.delete(tabId);
     this.forgetChildrenOf(tabId);
-    clearMainFrameId(tabId);
+    clearFrameRegistry(tabId);
     // The context set is live state, not history — it dies with the
     // attachment (unlike the console log, which persists as backlog).
     this.fanContexts({ kind: 'tab-detached', tabId });
@@ -884,23 +908,36 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   }
 
   /**
-   * Seed the per-tab main-frame id from `Page.getFrameTree`. Frame ids
-   * are stable per frame (including cross-process navigations), so this
-   * one fact plus parentless `Page.frameNavigated` refreshes keeps the
-   * registry correct for the attachment's lifetime.
+   * Seed the frame registry from `Page.getFrameTree` on a session: the
+   * root call also pins the tab's main-frame id; every node's id+url feeds
+   * the frame-URL registry (the JS-contexts selector labels frame contexts
+   * by URL). Frame ids are stable per frame (including cross-process
+   * navigations); `Page.frameNavigated` refreshes keep both facts current
+   * for the attachment's lifetime.
    */
-  private async seedMainFrame(tabId: number): Promise<void> {
+  private async seedFrames(tabId: number, session: chrome.debugger.DebuggerSession, isRoot: boolean): Promise<void> {
     const api = this.api();
     if (!api) return;
     try {
-      const result = (await api.sendCommand({ tabId }, 'Page.getFrameTree')) as RawGetFrameTree | undefined;
-      const mainFrameId = result?.frameTree?.frame?.id;
-      if (typeof mainFrameId === 'string' && mainFrameId.length > 0) setMainFrameId(tabId, mainFrameId);
+      const result = (await api.sendCommand(session, 'Page.getFrameTree')) as RawGetFrameTree | undefined;
+      const tree = result?.frameTree;
+      if (tree === undefined) return;
+      if (isRoot) {
+        const mainFrameId = tree.frame?.id;
+        if (typeof mainFrameId === 'string' && mainFrameId.length > 0) setMainFrameId(tabId, mainFrameId);
+      }
+      this.recordFrameTree(tabId, tree);
     } catch (err) {
-      // Tolerated: the registry self-heals on the next parentless
-      // frameNavigated; until then documents read as sub-frame.
+      // Tolerated: the registry self-heals on the next frameNavigated;
+      // until then documents read as sub-frame / frames label by origin.
       logger.debug('CdpSource', 'Page.getFrameTree failed', { tabId, error: errorMessage(err) });
     }
+  }
+
+  private recordFrameTree(tabId: number, node: RawFrameTreeNode): void {
+    const { frame, childFrames } = node;
+    if (typeof frame?.id === 'string' && typeof frame.url === 'string') setFrameUrl(tabId, frame.id, frame.url);
+    for (const child of childFrames ?? []) this.recordFrameTree(tabId, child);
   }
 
   private async send(

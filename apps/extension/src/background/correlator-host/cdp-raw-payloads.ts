@@ -352,11 +352,16 @@ export interface RawStreamResourceContent {
   readonly bufferedData: string;
 }
 
-/** `Page.getFrameTree` result — only the root frame's id is consumed. */
+/** One `Page.getFrameTree` node — the frame plus its same-process children. */
+export interface RawFrameTreeNode {
+  readonly frame?: { readonly id?: string; readonly url?: string };
+  readonly childFrames?: readonly RawFrameTreeNode[];
+}
+
+/** `Page.getFrameTree` result — the root frame's id seeds the main-frame
+ *  registry; every node's id+url seeds the frame-URL registry. */
 export interface RawGetFrameTree {
-  readonly frameTree?: {
-    readonly frame?: { readonly id?: string };
-  };
+  readonly frameTree?: RawFrameTreeNode;
 }
 
 export interface RawTargetInfo {

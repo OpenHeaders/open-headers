@@ -32,6 +32,7 @@ const TOP_ISOLATED = makeContext({
   isDefault: false,
   name: 'Open Headers',
   worldType: 'isolated',
+  frameId: 'F1',
 });
 const SAME_PROCESS_IFRAME = makeContext({
   contextKey: 'page::3',
@@ -80,15 +81,48 @@ describe('consoleContextRows', () => {
     const rows = consoleContextRows([TOP, TOP_ISOLATED, SAME_PROCESS_IFRAME, SW]);
     expect(rows.map((r) => r.label)).toEqual([
       'top',
-      'ads.openheaders.io',
       'Open Headers',
+      'ads.openheaders.io',
       'https://app.openheaders.io/sw.js?v=2',
     ]);
     // Subtitle is the origin's host form, only when it adds information.
     expect(rows[0].subtitle).toBe('app.openheaders.io');
-    expect(rows[1].subtitle).toBeNull();
-    expect(rows[2].subtitle).toBe('app.openheaders.io');
+    expect(rows[1].subtitle).toBe('app.openheaders.io');
+    expect(rows[2].subtitle).toBeNull();
     expect(rows[3].subtitle).toBe('app.openheaders.io');
+  });
+
+  it("titles a frame context by its frame URL's last path segment, the browser's frame label", () => {
+    const framed = makeContext({
+      contextKey: 'page::30',
+      frameId: 'F7',
+      origin: 'https://ads.openheaders.io',
+      frameUrl: 'https://ads.openheaders.io/embed/frame.html',
+    });
+    const rows = consoleContextRows([framed]);
+    expect(rows[0].label).toBe('frame.html');
+    expect(rows[0].subtitle).toBe('ads.openheaders.io');
+    // A path-less frame URL labels as `host/`.
+    const rootFramed = makeContext({
+      contextKey: 'page::31',
+      frameId: 'F8',
+      origin: 'https://ads.openheaders.io',
+      frameUrl: 'https://ads.openheaders.io/',
+    });
+    expect(consoleContextRows([rootFramed])[0].label).toBe('ads.openheaders.io/');
+  });
+
+  it("opaque-origin worlds subtitle by their frame URL host (the browser's securityOrigin fallback)", () => {
+    const utility = makeContext({
+      contextKey: 'page::32',
+      isDefault: false,
+      name: 'utility-world',
+      worldType: 'isolated',
+      origin: '://',
+      frameId: 'F1',
+      frameUrl: 'https://app.openheaders.io/',
+    });
+    expect(consoleContextRows([utility])[0].subtitle).toBe('app.openheaders.io');
   });
 
   it('extension worlds subtitle as the literal "Extension", never the extension URL', () => {
@@ -121,17 +155,31 @@ describe('consoleContextRows', () => {
     expect(consoleContextRows([junkOrigin])[0].subtitle).toBeNull();
   });
 
-  it('depth: frame hop + world hop, service workers top-level', () => {
+  it('depth: frame hop + world hop, service workers top-level; page rows group by frame', () => {
     const rows = consoleContextRows([TOP, TOP_ISOLATED, SAME_PROCESS_IFRAME, OOPIF, OOPIF_ISOLATED, WORKER, SW]);
     expect(rows.map((r) => [r.context.contextKey, r.depth])).toEqual([
       ['page::1', 0],
-      ['page::3', 1],
       ['page::2', 1],
+      ['page::3', 1],
       ['child-iframe-1::1', 1],
       ['child-iframe-1::2', 2],
       ['target:SW1::1', 0],
       ['child-worker-1::1', 1],
     ]);
+  });
+
+  it("groups a frame's worlds under its main world — the top frame's group first", () => {
+    const frameWorld = makeContext({
+      contextKey: 'page::40',
+      isDefault: false,
+      name: 'Open Headers',
+      worldType: 'isolated',
+      frameId: 'F2',
+      origin: 'https://ads.openheaders.io',
+    });
+    // Arrival interleaves the two frames' contexts.
+    const rows = consoleContextRows([frameWorld, TOP_ISOLATED, SAME_PROCESS_IFRAME, TOP]);
+    expect(rows.map((r) => r.context.contextKey)).toEqual(['page::1', 'page::2', 'page::3', 'page::40']);
   });
 
   it('orders by the browser target weights regardless of arrival order', () => {

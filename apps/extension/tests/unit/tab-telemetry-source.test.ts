@@ -14,7 +14,7 @@ import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-sto
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { clearMainFrameId, setMainFrameId } from '@/background/correlator-host/main-frame-registry';
+import { clearFrameRegistry, setMainFrameId } from '@/background/correlator-host/main-frame-registry';
 import {
   __internals,
   __resetForTests,
@@ -72,7 +72,7 @@ beforeEach(() => {
 
 afterEach(() => {
   dispose();
-  clearMainFrameId(1);
+  clearFrameRegistry(1);
 });
 
 describe('tab-telemetry-source — started projection', () => {

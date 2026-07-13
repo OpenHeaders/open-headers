@@ -38,6 +38,14 @@ export interface JsContext {
   readonly isDefault: boolean;
   readonly frameId?: string;
   /**
+   * The owning frame's document URL — minted by the engine from its frame
+   * registry (the wire carries only `frameId`), present when known. The
+   * selector titles frame contexts by its last path segment, the way the
+   * browser labels frames (`frame.html`), and falls back to it for the
+   * subtitle of opaque-origin worlds.
+   */
+  readonly frameUrl?: string;
+  /**
    * The context lives in the tab's outermost frame — minted by the engine
    * (only it knows the main-frame id), present only when true. The selector's
    * `top` is the context with `isTopFrame && isDefault`, and an isolated

@@ -181,12 +181,18 @@ test('selector lists every context shape: top first at depth 0, cross-origin fra
   const workerRow = rows.filter({ hasText: 'oh-context-worker' }).first();
   await expect(workerRow).toHaveAttribute('data-depth', '1');
 
+  // Frame contexts title by the frame URL's last path segment — the
+  // browser's frame label — with the host as subtitle (both playground
+  // frames load `frame.html`, on the two sibling origins).
+  const titles = await rows.locator('.dt-sortmode-item-title').allTextContents();
+  expect(titles.filter((t) => t === 'frame.html')).toHaveLength(2);
+
   // Browser display order: page group, then iframe sessions, then service
   // workers, then dedicated workers.
-  const titles = await rows.locator('.dt-sortmode-item-title').allTextContents();
-  const frameAt = titles.findIndex((t) => t.includes('localhost:3000'));
-  const swAt = titles.findIndex((t) => t.includes('oh-sw.js'));
-  const workerAt = titles.findIndex((t) => t.includes('oh-context-worker'));
+  const rowTexts = await rows.allTextContents();
+  const frameAt = rowTexts.findIndex((t) => t.includes('localhost:3000'));
+  const swAt = rowTexts.findIndex((t) => t.includes('oh-sw.js'));
+  const workerAt = rowTexts.findIndex((t) => t.includes('oh-context-worker'));
   expect(frameAt).toBeLessThan(swAt);
   expect(swAt).toBeLessThan(workerAt);
 

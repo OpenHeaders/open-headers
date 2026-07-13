@@ -541,11 +541,14 @@ export function evalFailureEntry(contextKey: string, message: string, timestamp:
  * worker-kind session that absence means its main world. `isTopFrame` is
  * the caller's main-frame-registry verdict on the context's frame (Phase C:
  * the selector's `top` and depth derive from it); stamped only when true.
+ * `frameUrl` is the caller's frame-registry resolution of the context's
+ * frame — the selector titles frame contexts by it; stamped when known.
  */
 export function normalizeExecutionContextCreated(
   sessionKey: string,
   targetKind: JsContextTargetKind,
   isTopFrame: boolean,
+  frameUrl: string | undefined,
   p: RawExecutionContextCreated,
 ): JsContext {
   const context = p.context;
@@ -556,6 +559,7 @@ export function normalizeExecutionContextCreated(
     name: context.name,
     isDefault: aux === undefined ? targetKind === 'worker' : aux.isDefault === true,
     ...(aux?.frameId !== undefined ? { frameId: aux.frameId } : {}),
+    ...(frameUrl !== undefined ? { frameUrl } : {}),
     ...(isTopFrame ? { isTopFrame: true } : {}),
     targetKind,
     worldType: aux?.type ?? 'default',

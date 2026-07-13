@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { clearMainFrameId, isMainFrame, setMainFrameId } from '@/background/correlator-host/main-frame-registry';
+import { clearFrameRegistry, isMainFrame, setMainFrameId } from '@/background/correlator-host/main-frame-registry';
 import { toTrackedResourceType } from '@/background/rule-engine-driver/resource-type-map';
 
 describe('toTrackedResourceType', () => {
@@ -56,19 +56,19 @@ describe('toTrackedResourceType', () => {
 
 describe('main-frame registry', () => {
   it('answers false until seeded, true for the seeded frame, false after clear', () => {
-    clearMainFrameId(7);
+    clearFrameRegistry(7);
     expect(isMainFrame(7, 'F1')).toBe(false);
     setMainFrameId(7, 'F1');
     expect(isMainFrame(7, 'F1')).toBe(true);
     expect(isMainFrame(7, 'F2')).toBe(false);
     expect(isMainFrame(8, 'F1')).toBe(false);
-    clearMainFrameId(7);
+    clearFrameRegistry(7);
     expect(isMainFrame(7, 'F1')).toBe(false);
   });
 
   it('treats an absent frameId as not-main (worker requests, heuristic lifecycles)', () => {
     setMainFrameId(7, 'F1');
     expect(isMainFrame(7, undefined)).toBe(false);
-    clearMainFrameId(7);
+    clearFrameRegistry(7);
   });
 });
