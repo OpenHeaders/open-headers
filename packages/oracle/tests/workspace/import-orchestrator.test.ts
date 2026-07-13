@@ -109,6 +109,7 @@ vi.mock('@openheaders/oracle/storage', async () => {
     ...actual,
     hostStorage: {
       get: vi.fn(async (key: { key: string }) => blobs.get(key.key)),
+      getValidatedArray: vi.fn(async (key: { key: string }) => (blobs.get(key.key) as unknown[] | undefined) ?? []),
       getMany: vi.fn(async (specs: Record<string, { key: string }>) => {
         const out: Record<string, unknown> = {};
         for (const [name, spec] of Object.entries(specs)) out[name] = blobs.get(spec.key);
@@ -587,6 +588,125 @@ describe('previewWorkspaceImport', () => {
     });
     expect(blobs.get('oh.ws.ws-active.rules')).toBeUndefined();
     expect(blobs.get('oh.ws.ws-active.importReports')).toBeUndefined();
+  });
+});
+
+describe('importWorkspace — local-mutation emission (resident sync service)', () => {
+  async function initService(): Promise<{
+    events: Array<{ applyOrigin?: string; envelope: { body: { kind: string; type: string } } }>;
+  }> {
+    const events: Array<{ applyOrigin?: string; envelope: { body: { kind: string; type: string } } }> = [];
+    const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+    setOracleHostHooks({
+      getActiveWorkspaceId: () => 'ws-active',
+      scheduleRuleEngineUpdate: vi.fn(),
+      recordLog: vi.fn(),
+      broadcastSyncEvent: (event) =>
+        events.push(event as unknown as (typeof events)[number]),
+    });
+    const service = await import('@openheaders/oracle/sync/service');
+    service.__initSyncServiceForTests('ws-active');
+    const svc = service.getOrCreateWorkspaceService('ws-active');
+    await svc.hydrated;
+    service.releaseWorkspaceService('ws-active');
+    return { events };
+  }
+
+  it('applies the plan as LOCAL batches through the oracle instead of setMany', async () => {
+    const { events } = await initService();
+    await orchestrator.importWorkspace({
+      incoming: makeExport(),
+      strategies: {},
+      target: { mode: 'current' },
+      sourceHash: 'sha256:emit',
+    });
+
+    const { hostStorage } = await import('@openheaders/oracle/storage');
+    expect((hostStorage.setMany as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+
+    // The imported rule materialized through the oracle, force-disabled.
+    const service = await import('@openheaders/oracle/sync/service');
+    const oracle = service.getOracleForCurrentWorkspace();
+    const rules = oracle!.materializeAll().filter((m) => m.type === 'rule');
+    expect(rules).toHaveLength(1);
+    expect((rules[0].data as { enabled: boolean }).enabled).toBe(false);
+
+    // Every emission envelope crossed the broadcast as a LOCAL apply —
+    // the property the outbound mutation plane forwards on.
+    const localEvents = events.filter((e) => e.applyOrigin === 'local');
+    expect(localEvents.length).toBeGreaterThan(0);
+    expect(events.some((e) => e.envelope.body.kind === 'create' && e.applyOrigin === 'local')).toBe(true);
+
+    // The rule cache's broadcast-driven projection persisted the array.
+    const stored = blobs.get('oh.ws.ws-active.rules') as Array<{ enabled: boolean }>;
+    expect(stored).toHaveLength(1);
+    expect(stored[0].enabled).toBe(false);
+  });
+
+  it('update collisions converge set members without duplicates', async () => {
+    const targetRule = {
+      schemaVersion: 5,
+      uid: 'rul00001',
+      path: 'rules/auth-col/auth-rul00001',
+      name: 'Auth',
+      type: 'header' as const,
+      enabled: true,
+      conditions: [
+        { uid: 'cond0001', type: 'url', operator: 'contains', value: 'openheaders.io' },
+        { uid: 'cond0002', type: 'url', operator: 'contains', value: 'app.openheaders.io' },
+      ],
+      action: { requestHeaders: [], responseHeaders: [] },
+    };
+    blobs.set('oh.ws.ws-active.rules', [targetRule]);
+    await initService();
+
+    const incomingRule = {
+      ...targetRule,
+      name: 'Auth (imported)',
+      conditions: [
+        { uid: 'cond0001', type: 'url', operator: 'contains', value: 'api.openheaders.io' },
+        { uid: 'cond0003', type: 'url', operator: 'equals', value: 'https://openheaders.io/x' },
+      ],
+    };
+    await orchestrator.importWorkspace({
+      incoming: makeExport({
+        entities: { ...makeExport().entities, rules: [incomingRule] },
+      } as Partial<WorkspaceExport>),
+      strategies: { rules: { rul00001: 'update' } },
+      target: { mode: 'current' },
+      sourceHash: 'sha256:emit-update',
+    });
+
+    const service = await import('@openheaders/oracle/sync/service');
+    const oracle = service.getOracleForCurrentWorkspace();
+    const rule = oracle!.materializeAll().find((m) => m.type === 'rule' && m.id === 'rul00001');
+    const data = rule!.data as { name: string; enabled: boolean; conditions: Array<{ uid: string; value: string }> };
+    expect(data.name).toBe('Auth (imported)');
+    expect(data.enabled).toBe(false);
+    expect(data.conditions.map((c) => c.uid).sort()).toEqual(['cond0001', 'cond0003']);
+    expect(data.conditions.find((c) => c.uid === 'cond0001')?.value).toBe('api.openheaders.io');
+
+    // Cache persistence carries the converged view back to storage.
+    const stored = blobs.get('oh.ws.ws-active.rules') as Array<{
+      uid: string;
+      conditions: Array<{ uid: string }>;
+    }>;
+    expect(stored).toHaveLength(1);
+    expect(stored[0].conditions.map((c) => c.uid).sort()).toEqual(['cond0001', 'cond0003']);
+  });
+
+  it('mode=new still lands via the storage write (no resident service for a fresh workspace)', async () => {
+    await initService();
+    const result = await orchestrator.importWorkspace({
+      incoming: makeExport(),
+      strategies: {},
+      target: { mode: 'new' },
+      sourceHash: 'sha256:emit-new',
+    });
+    expect(result.targetWorkspaceId).toMatch(/^ws-new-/);
+    const { hostStorage } = await import('@openheaders/oracle/storage');
+    expect((hostStorage.setMany as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(0);
+    expect(blobs.has(`oh.ws.${result.targetWorkspaceId}.rules`)).toBe(true);
   });
 });
 

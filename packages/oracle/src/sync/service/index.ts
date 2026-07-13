@@ -57,7 +57,12 @@ export {
   removeAwarenessByInstanceId,
   snapshotAwarenessPresence,
 } from './awareness-api';
-export { disposeWorkspace, getOrCreateWorkspaceService, releaseWorkspaceService } from './lifecycle';
+export {
+  acquireResidentWorkspaceService,
+  disposeWorkspace,
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
+} from './lifecycle';
 export {
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,

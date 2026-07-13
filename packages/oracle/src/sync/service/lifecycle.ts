@@ -44,6 +44,20 @@ export function getOrCreateWorkspaceService(workspaceId: string): WorkspaceServi
 }
 
 /**
+ * Refcount-incrementing acquire for an ALREADY-resident workspace
+ * service — returns `null` instead of building one when the workspace
+ * has no live service. For callers that want to ride an existing sync
+ * runtime when present but must not force-materialize one (the
+ * workspace-import orchestrator's local-mutation emission). A non-null
+ * return must be paired with exactly one {@link releaseWorkspaceService}.
+ */
+export function acquireResidentWorkspaceService(workspaceId: string): WorkspaceServiceState | null {
+  const svc = services.get(workspaceId);
+  if (!svc || svc.disposing) return null;
+  return getOrCreateWorkspaceService(workspaceId);
+}
+
+/**
  * Decrement a workspace service's refcount. When refcount reaches 0 the
  * service is scheduled for disposal after `graceMs`; the timer is
  * cancellable by a subsequent {@link getOrCreateWorkspaceService}

@@ -1,7 +1,14 @@
 /**
- * Import entry point — the locked read → diff → plan → merge → write
- * sequence, active-workspace rehydration + sync-engine reseed, report
- * persistence, and observability (design §5.3).
+ * Import entry point — the locked read → diff → plan → apply sequence,
+ * report persistence, and observability (design §5.3).
+ *
+ * Plan application has two paths. When the target workspace has a
+ * resident sync service, the plan emits as ordinary LOCAL mutation
+ * batches ({@link emitPlanAsLocalMutations}) — persistence, cache
+ * projection, and upstream propagation all follow from the normal
+ * apply pipeline. Otherwise the plan lands as a wholesale storage
+ * write, followed (for the active workspace) by rehydration + a full
+ * sync-engine reseed.
  *
  * Host side-effects (DNR rebuild, observability ring) reach the host
  * through the null-safe {@link getOracleHostHooks} port — hosts without
@@ -71,6 +78,7 @@ import { getOracleHostHooks } from '@openheaders/oracle/sync';
 import { reinitForWorkspace } from '@openheaders/oracle/sync/service';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { bridgeLayoutStateSyncEngine } from '@openheaders/oracle/workspace/layout-store';
+import { emitPlanAsLocalMutations } from './emit';
 import { applyPlanArray, estimatePlanBytes, isInTree, QUOTA_HEADROOM_BYTES } from './plan-helpers';
 import { buildLastImportedSnapshots } from './snapshots';
 import { readTargetWorkspaceState, resolveTargetWorkspace } from './target';
@@ -131,75 +139,87 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         // report. Pre-check is a UX improvement, not a guarantee.
       }
 
-      // Demux flattened collection / folder arrays back into the three
-      // per-tree storage keys via the path prefix.
-      const collectionsRulesPlan = plan.collections.filter((e) => isInTree(e.entity.path, 'rules'));
-      const collectionsRequestsPlan = plan.collections.filter((e) => isInTree(e.entity.path, 'requests'));
-      const collectionsTemplatesPlan = plan.collections.filter((e) => isInTree(e.entity.path, 'templates'));
-      const foldersRulesPlan = plan.folders.filter((e) => isInTree(e.entity.path, 'rules'));
-      const foldersRequestsPlan = plan.folders.filter((e) => isInTree(e.entity.path, 'requests'));
-      const foldersTemplatesPlan = plan.folders.filter((e) => isInTree(e.entity.path, 'templates'));
+      // Local-mutation emission through the target's resident sync
+      // service: plan entries apply as ordinary LOCAL batches, so they
+      // broadcast, persist via the per-family caches, and cross the
+      // outbound plane as the user's own edits — a client-host import
+      // (web tab, extension joined to a backend) propagates upstream.
+      // Without a resident service (mode `new`, non-resident picked
+      // target, hosts without the sync runtime) fall back to the
+      // wholesale storage write below.
+      const emitted = await emitPlanAsLocalMutations({ targetWorkspaceId, plan, target });
 
-      // Reconcile arrays: merge target + plan create/update/skip.
-      const nextRules = applyPlanArray(target.rules ?? [], plan.rules);
-      const nextRequests = applyPlanArray(target.requests ?? [], plan.requests);
-      const nextTemplates = applyPlanArray(target.templates ?? [], plan.templates);
-      const nextEnvironments = applyPlanArray(target.environments ?? [], plan.environments);
-      const nextLiveWorkflows = applyPlanArray(target.liveWorkflows ?? [], plan.liveWorkflows);
-      const nextLiveVariables = applyPlanArray(target.liveVariables ?? [], plan.liveVariables);
+      if (!emitted) {
+        // Demux flattened collection / folder arrays back into the three
+        // per-tree storage keys via the path prefix.
+        const collectionsRulesPlan = plan.collections.filter((e) => isInTree(e.entity.path, 'rules'));
+        const collectionsRequestsPlan = plan.collections.filter((e) => isInTree(e.entity.path, 'requests'));
+        const collectionsTemplatesPlan = plan.collections.filter((e) => isInTree(e.entity.path, 'templates'));
+        const foldersRulesPlan = plan.folders.filter((e) => isInTree(e.entity.path, 'rules'));
+        const foldersRequestsPlan = plan.folders.filter((e) => isInTree(e.entity.path, 'requests'));
+        const foldersTemplatesPlan = plan.folders.filter((e) => isInTree(e.entity.path, 'templates'));
 
-      const nextRuleCollections = applyPlanArray(target.collections ?? [], collectionsRulesPlan);
-      const nextRequestCollections = applyPlanArray(target.requestCollections ?? [], collectionsRequestsPlan);
-      const nextTemplateCollections = applyPlanArray(target.templateCollections ?? [], collectionsTemplatesPlan);
-      const nextRuleFolders = applyPlanArray<PersistedLocalFolder>(
-        target.folders ?? [],
-        foldersRulesPlan as PlanEntry<PersistedLocalFolder>[],
-      );
-      const nextRequestFolders = applyPlanArray<PersistedLocalFolder>(
-        target.requestFolders ?? [],
-        foldersRequestsPlan as PlanEntry<PersistedLocalFolder>[],
-      );
-      const nextTemplateFolders = applyPlanArray<PersistedLocalFolder>(
-        target.templateFolders ?? [],
-        foldersTemplatesPlan as PlanEntry<PersistedLocalFolder>[],
-      );
+        // Reconcile arrays: merge target + plan create/update/skip.
+        const nextRules = applyPlanArray(target.rules ?? [], plan.rules);
+        const nextRequests = applyPlanArray(target.requests ?? [], plan.requests);
+        const nextTemplates = applyPlanArray(target.templates ?? [], plan.templates);
+        const nextEnvironments = applyPlanArray(target.environments ?? [], plan.environments);
+        const nextLiveWorkflows = applyPlanArray(target.liveWorkflows ?? [], plan.liveWorkflows);
+        const nextLiveVariables = applyPlanArray(target.liveVariables ?? [], plan.liveVariables);
 
-      // Singletons.
-      const nextWorkspaceVars: WorkspaceVariables = {
-        schemaVersion: 5,
-        variables: plan.workspaceVars.variables,
-      };
-      const nextVault: Vault | undefined =
-        plan.vault.action === 'skip' && (target.vault?.secrets ?? []).length === 0
-          ? undefined
-          : {
-              schemaVersion: 5,
-              secrets: plan.vault.secrets,
-            };
+        const nextRuleCollections = applyPlanArray(target.collections ?? [], collectionsRulesPlan);
+        const nextRequestCollections = applyPlanArray(target.requestCollections ?? [], collectionsRequestsPlan);
+        const nextTemplateCollections = applyPlanArray(target.templateCollections ?? [], collectionsTemplatesPlan);
+        const nextRuleFolders = applyPlanArray<PersistedLocalFolder>(
+          target.folders ?? [],
+          foldersRulesPlan as PlanEntry<PersistedLocalFolder>[],
+        );
+        const nextRequestFolders = applyPlanArray<PersistedLocalFolder>(
+          target.requestFolders ?? [],
+          foldersRequestsPlan as PlanEntry<PersistedLocalFolder>[],
+        );
+        const nextTemplateFolders = applyPlanArray<PersistedLocalFolder>(
+          target.templateFolders ?? [],
+          foldersTemplatesPlan as PlanEntry<PersistedLocalFolder>[],
+        );
 
-      // Atomic-per-area write.
-      const writes: ReadonlyArray<readonly [StorageKey<unknown>, unknown]> = [
-        [k.rules, nextRules],
-        [k.collections, nextRuleCollections],
-        [k.folders, nextRuleFolders],
-        [k.requests, nextRequests],
-        [k.requestCollections, nextRequestCollections],
-        [k.requestFolders, nextRequestFolders],
-        [k.templates, nextTemplates],
-        [k.templateCollections, nextTemplateCollections],
-        [k.templateFolders, nextTemplateFolders],
-        [k.environments, nextEnvironments],
-        [k.workspaceVars, nextWorkspaceVars],
-        [k.liveWorkflows, nextLiveWorkflows],
-        [k.liveVariables, nextLiveVariables],
-        ...(nextVault ? [[k.vault, nextVault] as const] : []),
-      ];
+        // Singletons.
+        const nextWorkspaceVars: WorkspaceVariables = {
+          schemaVersion: 5,
+          variables: plan.workspaceVars.variables,
+        };
+        const nextVault: Vault | undefined =
+          plan.vault.action === 'skip' && (target.vault?.secrets ?? []).length === 0
+            ? undefined
+            : {
+                schemaVersion: 5,
+                secrets: plan.vault.secrets,
+              };
 
-      try {
-        await hostStorage.setMany(writes);
-      } catch (err) {
-        logger.error('WorkspaceImportOrchestrator', 'storage write failed', err);
-        throw err;
+        // Atomic-per-area write.
+        const writes: ReadonlyArray<readonly [StorageKey<unknown>, unknown]> = [
+          [k.rules, nextRules],
+          [k.collections, nextRuleCollections],
+          [k.folders, nextRuleFolders],
+          [k.requests, nextRequests],
+          [k.requestCollections, nextRequestCollections],
+          [k.requestFolders, nextRequestFolders],
+          [k.templates, nextTemplates],
+          [k.templateCollections, nextTemplateCollections],
+          [k.templateFolders, nextTemplateFolders],
+          [k.environments, nextEnvironments],
+          [k.workspaceVars, nextWorkspaceVars],
+          [k.liveWorkflows, nextLiveWorkflows],
+          [k.liveVariables, nextLiveVariables],
+          ...(nextVault ? [[k.vault, nextVault] as const] : []),
+        ];
+
+        try {
+          await hostStorage.setMany(writes);
+        } catch (err) {
+          logger.error('WorkspaceImportOrchestrator', 'storage write failed', err);
+          throw err;
+        }
       }
 
       // Persist last-imported snapshots for the merge editor's 3-pane
@@ -243,11 +263,14 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         }
       }
 
-      // If the target is the active workspace, reload in-memory state so
-      // the UI sees the newly-imported entities and the host's rule
-      // rebuild reads the fresh rule list.
+      // If the target is the active workspace and the plan landed via
+      // the wholesale storage write, reload in-memory state so the UI
+      // sees the newly-imported entities and the host's rule rebuild
+      // reads the fresh rule list. The emission path needs none of this
+      // — every batch broadcast already drove the caches (and their
+      // store mirrors) through the normal projection pipeline.
       const isActive = getActiveWorkspaceId() === targetWorkspaceId;
-      if (isActive) {
+      if (isActive && !emitted) {
         await Promise.all([
           hydrateRulesFromStorage(),
           hydrateRequestsFromStorage(),
@@ -282,6 +305,8 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgePauseMarkersSyncEngine();
         await bridgeLayoutStateSyncEngine();
         await bridgeFilesSyncEngine();
+      }
+      if (isActive) {
         getOracleHostHooks().scheduleRuleEngineUpdate?.('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);
@@ -289,9 +314,9 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       } else if (scriptsPendingUids.length > 0) {
         await markPendingScriptsReviewForWorkspace(targetWorkspaceId, scriptsPendingUids);
       }
-      // Non-active target: in-memory snapshots stay untouched. The
-      // user's eventual `switchToWorkspace` call hydrates from storage
-      // at that point.
+      // Non-active, non-resident target: in-memory snapshots stay
+      // untouched. The user's eventual `switchToWorkspace` call hydrates
+      // from storage at that point.
 
       // Persist the report into the target's ring. The store keys off
       // the active workspace by design — when target != active, write
