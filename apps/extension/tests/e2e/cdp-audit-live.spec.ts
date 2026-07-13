@@ -610,8 +610,20 @@ test('PE2 — bypassCSP is URL-gated: matched origin bypasses, unmatched keeps i
   await pe2Page.waitForTimeout(1_000);
   expect(await inlineProbe()).toBe(0);
 
-  // Back to the matched origin: the bypass re-engages.
+  // Back to the matched origin: the bypass re-engages. Same init-time
+  // semantics in reverse — the returning document races its CSP init against
+  // the post-navigation re-derive, so give the settled flag a fresh document.
   await pe2Page.goto(`${ORIGIN}${CSP_PATH}`);
+  await pe2Page.waitForTimeout(1_000);
+  const firstMatchedDocBack = await inlineProbe();
+  test.info().annotations.push({
+    type: 'pe2-first-matched-doc-back',
+    description:
+      firstMatchedDocBack === 1
+        ? 'the re-derive beat the returning document — bypass re-gained immediately'
+        : 'the first returning document kept its CSP (re-derive landed after its CSP init); bypass re-gained on the next document',
+  });
+  await pe2Page.reload();
   await expect.poll(inlineProbe, { timeout: 15_000 }).toBe(1);
 
   await pin(pe2TabId, false);
@@ -643,7 +655,9 @@ test('PF1 — worker interception survives page-only Emulation overrides', async
   const workerBody = await inScopePage.evaluate(
     () =>
       new Promise<string>((resolve, reject) => {
-        const src = `fetch('/echo?oh=pf1').then((r) => r.text()).then((t) => postMessage(t)).catch((e) => postMessage('ERR:' + e));`;
+        // Absolute URL — a blob worker has no hierarchical base, so a
+        // relative fetch would throw a URL-parse TypeError before the wire.
+        const src = `fetch('${location.origin}/echo?oh=pf1').then((r) => r.text()).then((t) => postMessage(t)).catch((e) => postMessage('ERR:' + e));`;
         const worker = new window.Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
         const timer = setTimeout(() => reject(new Error('worker fetch timed out')), 15_000);
         worker.onmessage = (ev) => {
