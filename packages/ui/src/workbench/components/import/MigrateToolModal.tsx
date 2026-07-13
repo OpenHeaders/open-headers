@@ -101,11 +101,9 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
         <Text strong={detected} style={{ width: 140 }}>
           {displayName}
         </Text>
-        {scan !== null && (
-          <Text type={detected ? undefined : 'secondary'} style={{ fontSize: 12, width: 72 }}>
-            {detected ? 'Detected' : 'Not found'}
-          </Text>
-        )}
+        <Text type={detected ? undefined : 'secondary'} style={{ fontSize: 12, width: 72 }}>
+          {scan === null ? '–' : detected ? 'Detected' : 'Not found'}
+        </Text>
         {tool === 'postman' && pullOpen && <Button onClick={() => setPullOpen(false)}>Cancel</Button>}
       </div>
     );
@@ -158,17 +156,16 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
           {scanning ? (
             <Skeleton active title={false} paragraph={{ rows: 2 }} style={{ marginTop: 16 }} />
           ) : (
-            scan !== null && (
-              <div style={{ marginTop: 16 }}>
-                <DetectionDetailsTable
-                  findings={scan.data.findings}
-                  skipped={scan.data.skipped}
-                  readingPath={readingPath}
-                  onImportBackup={importBackup}
-                  onOpenImportHub={onOpenImportHub}
-                />
-              </div>
-            )
+            <div style={{ marginTop: 16 }}>
+              <DetectionDetailsTable
+                scanned={scan !== null}
+                findings={scan?.data.findings ?? []}
+                skipped={scan?.data.skipped ?? []}
+                readingPath={readingPath}
+                onImportBackup={importBackup}
+                onOpenImportHub={onOpenImportHub}
+              />
+            </div>
           )}
         </>
       )}

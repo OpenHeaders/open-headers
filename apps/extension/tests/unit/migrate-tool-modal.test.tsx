@@ -143,6 +143,8 @@ describe('MigrateToolModal', () => {
     expect(screen.getByText('Postman')).toBeTruthy();
     expect(screen.getByText('Bruno')).toBeTruthy();
     expect(screen.queryByText('Detected')).toBeNull();
+    expect(screen.getAllByText('–')).toHaveLength(4);
+    expect(screen.getByText(/Nothing scanned yet/)).toBeTruthy();
     expect(calls).toEqual([]);
   });
 

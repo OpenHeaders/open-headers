@@ -16,6 +16,9 @@ import { VENDOR_GLYPHS } from './vendor-icons';
 const { Text } = Typography;
 
 interface DetectionDetailsTableProps {
+  /** False until a scan has run — the table renders with an invitation
+   *  empty state so the surface keeps its post-scan shape from the start. */
+  scanned: boolean;
   findings: ToolDataFinding[];
   skipped: DataScanSkip[];
   /** The backup path currently being read, for the row's loading state. */
@@ -30,19 +33,16 @@ interface DetailRow {
 }
 
 const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
+  scanned,
   findings,
   skipped,
   readingPath,
   onImportBackup,
   onOpenImportHub,
 }) => {
-  if (findings.length === 0 && skipped.length === 0) {
-    return (
-      <Text type="secondary" style={{ fontSize: 12 }}>
-        No importable data stores were found on this computer.
-      </Text>
-    );
-  }
+  const emptyText = scanned
+    ? 'No importable data stores were found on this computer.'
+    : 'Nothing scanned yet — “Scan this computer” lists importable data here.';
 
   const rows: DetailRow[] = findings.map((finding) => ({
     key: finding.store === 'postman-backup' ? finding.path : finding.dir,
@@ -125,9 +125,20 @@ const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
 
   return (
     <>
-      {rows.length > 0 && (
-        <Table<DetailRow> columns={columns} dataSource={rows} size="small" pagination={false} rowKey="key" />
-      )}
+      <Table<DetailRow>
+        columns={columns}
+        dataSource={rows}
+        size="small"
+        pagination={false}
+        rowKey="key"
+        locale={{
+          emptyText: (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {emptyText}
+            </Text>
+          ),
+        }}
+      />
       {skipped.length > 0 && (
         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
           {skipped.length} store file{skipped.length === 1 ? ' was' : 's were'} skipped — {skipped[0].reason}
