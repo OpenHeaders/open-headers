@@ -56,7 +56,7 @@ writeFileSync(
       name: manifest.name,
       version: manifest.version,
       description: manifest.description,
-      license: 'MIT',
+      license: 'SEE LICENSE IN LICENSE.md',
       homepage: 'https://openheaders.io',
       type: 'module',
       bin: { ohd: './dist/cli.js' },
