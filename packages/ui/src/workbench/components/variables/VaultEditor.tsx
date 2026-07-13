@@ -1,9 +1,10 @@
 /**
  * VaultEditor — tab body for the per-workspace secrets vault.
  *
- * Highest priority in the resolution chain and local-per-device:
- * secrets never leave this browser profile (§12.3 — vault is
- * non-syncing in v1). The banner makes this contract visible.
+ * Highest priority in the resolution chain and same-device-only:
+ * secrets are encrypted at rest and never leave this device — vault
+ * mutations cross loopback sockets only (`core/sync/reach-scope.ts`).
+ * The banner makes this contract visible.
  *
  * Each entry carries a `kind` discriminator:
  *   - `string` rows hold a literal value returned verbatim by `{{vault.X}}`.
@@ -290,7 +291,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
-              message="Local to this browser profile — vault secrets are never synced and take priority over every other scope."
+              message="Vault secrets are encrypted at rest, never leave this device, and take priority over every other scope."
             />
 
             {isLocked ? (
