@@ -44,6 +44,7 @@ interface DirectoryUser {
   createdAt: number;
   deactivatedAt: number | null;
   hasPassword: boolean;
+  admission?: { licenseId: string; status: 'licensed' | 'grace' | 'expired' | 'invalid' };
   grants: ReadonlyArray<{ workspaceId: string; role: DirectoryRole; origin?: 'idp' }>;
 }
 
@@ -52,6 +53,24 @@ const ROLE_OPTIONS: ReadonlyArray<{ value: DirectoryRole; label: string }> = [
   { value: 'editor', label: 'Editor' },
   { value: 'owner', label: 'Owner' },
 ];
+
+/** Provenance tag for a personal-seat admission — status derived server-side at projection time. */
+const PersonalSeatTag: React.FC<{ admission: NonNullable<DirectoryUser['admission']> }> = ({ admission }) => {
+  const healthy = admission.status === 'licensed' || admission.status === 'grace';
+  return (
+    <Tooltip
+      title={
+        healthy
+          ? `Admitted by their own personal seat (${admission.licenseId}) — not counted against this daemon's pool.`
+          : `Their personal seat (${admission.licenseId}) is ${admission.status}. They stay signed in — a lapse never evicts — but the seat no longer renews.`
+      }
+    >
+      <Tag color={healthy ? 'purple' : 'orange'} style={{ marginInlineEnd: 0 }}>
+        Personal seat{healthy ? '' : ` · ${admission.status}`}
+      </Tag>
+    </Tooltip>
+  );
+};
 
 function formatTimestamp(ms: number | null | undefined): string {
   if (!ms) return '—';
@@ -251,8 +270,9 @@ const DaemonAdminConsole: React.FC = () => {
   const adminStatus: DaemonAdminStatus = useDaemonAdminStatus();
   const { workspaces } = useWorkspaces();
   const [users, setUsers] = useState<readonly DirectoryUser[] | null>(null);
-  const [addForm] = Form.useForm<{ displayName: string; email: string }>();
+  const [addForm] = Form.useForm<{ displayName: string; email: string; personalLicense: string }>();
   const [adding, setAdding] = useState(false);
+  const [seatBlocked, setSeatBlocked] = useState(false);
   const [passwordUser, setPasswordUser] = useState<DirectoryUser | null>(null);
 
   const workspaceName = useCallback(
@@ -275,20 +295,36 @@ const DaemonAdminConsole: React.FC = () => {
     if (adminStatus === 'admin') void refresh();
   }, [adminStatus, refresh]);
 
-  async function handleAddUser(values: { displayName: string; email: string }): Promise<void> {
+  async function handleAddUser(values: { displayName: string; email: string; personalLicense?: string }): Promise<void> {
     setAdding(true);
     try {
       const resp = await hostBridge.call('oh.daemon.users.create', {
         displayName: values.displayName.trim(),
         email: values.email?.trim() || undefined,
+        personalLicense: values.personalLicense?.trim() || undefined,
       });
       if (!resp.ok) throw new Error(resp.error);
       addForm.resetFields();
+      setSeatBlocked(false);
       await refresh();
     } catch (err) {
+      // The seat wall is the conversion moment: reveal the redeem field
+      // so the blocked admission can complete with the user's own seat.
+      if ((err as Error).message.includes('seat limit reached')) setSeatBlocked(true);
       message.error(`Failed to add user: ${(err as Error).message}`);
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function handleAbsorbSeat(userId: string): Promise<void> {
+    try {
+      const resp = await hostBridge.call('oh.daemon.users.absorbSeat', { userId });
+      if (!resp.ok) throw new Error(resp.error);
+      message.success('Seat absorbed into the pool.');
+      await refresh();
+    } catch (err) {
+      message.error(`Failed to absorb the seat: ${(err as Error).message}`);
     }
   }
 
@@ -386,7 +422,7 @@ const DaemonAdminConsole: React.FC = () => {
             form={addForm}
             layout="inline"
             onFinish={handleAddUser}
-            initialValues={{ displayName: '', email: '' }}
+            initialValues={{ displayName: '', email: '', personalLicense: '' }}
             style={{ marginBottom: users && users.length > 0 ? 12 : 0 }}
           >
             <Form.Item name="displayName" rules={[{ required: true, message: 'Name is required' }]} style={{ flex: 1 }}>
@@ -395,12 +431,30 @@ const DaemonAdminConsole: React.FC = () => {
             <Form.Item name="email" style={{ flex: 1 }}>
               <Input placeholder="Email (optional — required for SSO)" maxLength={128} />
             </Form.Item>
+            {seatBlocked && (
+              <Form.Item name="personalLicense" style={{ flex: 1, minWidth: 220 }}>
+                <Input
+                  placeholder="Personal seat key (oh-license.…)"
+                  data-testid="daemon-admin-personal-license"
+                />
+              </Form.Item>
+            )}
             <Form.Item style={{ marginBottom: 0 }}>
               <Button type="primary" htmlType="submit" loading={adding} data-testid="daemon-admin-add-user">
                 Add user
               </Button>
             </Form.Item>
           </Form>
+          {seatBlocked && (
+            <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
+              This daemon is at its seat limit. Add seats to your team license, or paste the joining user's own
+              personal seat key above — it admits them without using a pool seat. Personal seats are sold at{' '}
+              <Typography.Link href="https://openheaders.io/pricing" target="_blank">
+                openheaders.io/pricing
+              </Typography.Link>
+              .
+            </div>
+          )}
           {users === null ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
               <Spin size="small" />
@@ -426,6 +480,22 @@ const DaemonAdminConsole: React.FC = () => {
                             </Tag>,
                           ]
                         : [
+                            ...(u.admission
+                              ? [
+                                  <Popconfirm
+                                    key="absorb"
+                                    title="Absorb this seat into the pool?"
+                                    description="The user becomes a regular pool seat and their personal license stops renewing here. This cannot be undone."
+                                    okText="Absorb"
+                                    cancelText="Cancel"
+                                    onConfirm={() => void handleAbsorbSeat(u.userId)}
+                                  >
+                                    <Button type="link" size="small">
+                                      Absorb into pool
+                                    </Button>
+                                  </Popconfirm>,
+                                ]
+                              : []),
                             <Button
                               key="password"
                               type="link"
@@ -460,6 +530,7 @@ const DaemonAdminConsole: React.FC = () => {
                               {u.email}
                             </Typography.Text>
                           )}
+                          {u.admission && <PersonalSeatTag admission={u.admission} />}
                         </span>
                       }
                       description={

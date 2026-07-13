@@ -160,9 +160,13 @@ export interface DaemonRpc {
   // `DaemonAuthToken.userId`. Mutations route through the daemon's
   // main realm for the same mutex reasons as the token RPCs above.
 
-  /** Admit a user to the directory. `email` optional (local identity). */
+  /**
+   * Admit a user to the directory. `email` optional (local identity).
+   * `personalLicense` = a personal-seat key redeemed at the seat limit
+   * (admits past the pool when it identity-matches `email`).
+   */
   'oh.daemon.users.create': {
-    req: { displayName: string; email?: string };
+    req: { displayName: string; email?: string; personalLicense?: string };
     res: { ok: true; userId: string } | { ok: false; error: string };
   };
 
@@ -178,9 +182,26 @@ export interface DaemonRpc {
         deactivatedAt: number | null;
         /** The user holds a password credential (never the verifier itself). */
         hasPassword: boolean;
+        /**
+         * Personal-seat provenance — present only for users admitted
+         * past the pool by their own license. `status` is derived by
+         * verifying the stored artifact at projection time; an expired
+         * personal seat stays visible and never evicts its user.
+         */
+        admission?: { licenseId: string; status: 'licensed' | 'grace' | 'expired' | 'invalid' };
         grants: ReadonlyArray<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer'; origin?: 'idp' }>;
       }>;
     };
+  };
+
+  /**
+   * Org buy-out: absorb a personally-admitted user into the daemon's
+   * seat pool — clears the admission provenance (and the stored
+   * artifact, so the refresh agent stops renewing it here). One-way.
+   */
+  'oh.daemon.users.absorbSeat': {
+    req: { userId: string };
+    res: { ok: true } | { ok: false; error: string };
   };
 
   /**
