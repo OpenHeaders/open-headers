@@ -12,6 +12,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { ensureSyntheticIdentity } from '@openheaders/core/identity';
 import {
+  FREE_SEAT_LIMIT,
   generateLicenseSigningKeys,
   type License,
   type LicensedSnapshot,
@@ -55,6 +56,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     auditForwarding: null,
     licenseFile: null,
     licenseRefresh: true,
+    personalSeats: true,
     configPath: path.join(dataDir, 'daemon.json'),
     ...overrides,
   };
@@ -181,9 +183,11 @@ describe('offline seat gate (user add reads the same license file)', () => {
       }),
     );
     await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-09T00:00:00.000Z' });
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < FREE_SEAT_LIMIT; i++) {
       await addUser(config, { displayName: `User ${i}`, email: `user${i}@openheaders.io` });
     }
-    await expect(addUser(config, { displayName: 'One Too Many' })).rejects.toThrow(/seat limit reached \(10 active/);
+    await expect(addUser(config, { displayName: 'One Too Many' })).rejects.toThrow(
+      new RegExp(`seat limit reached \\(${FREE_SEAT_LIMIT} active`),
+    );
   });
 });

@@ -37,6 +37,7 @@ function makeConfig(): DaemonConfig {
     auditForwarding: null,
     licenseFile: null,
     licenseRefresh: true,
+    personalSeats: true,
     configPath: path.join(dataDir, 'daemon.json'),
   };
 }

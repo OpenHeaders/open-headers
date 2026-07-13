@@ -111,6 +111,13 @@ describe('installLicenseSlot — install / remove', () => {
     expect(slot.getSnapshot().status).toBe('licensed');
   });
 
+  it('refuses a personal-seat artifact as the daemon license', async () => {
+    const slot = await makeSlot();
+    const result = await slot.install(await signer.sign(makeLicense({ kind: 'personal-seat', seats: 1 })));
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('personal-seat') });
+    expect(fs.existsSync(filePath)).toBe(false);
+  });
+
   it('refuses a past-grace license', async () => {
     const slot = await makeSlot();
     const result = await slot.install(await signer.sign(makeLicense({ validUntil: Date.now() - 60 * DAY })));

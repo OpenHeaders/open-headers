@@ -23,12 +23,27 @@
  * The latch self-clears when a tick sees a different license installed
  * (renewed subscription, new key pasted in).
  *
+ * Personal-seat artifacts attached to directory users (admission
+ * provenance) renew on the same ticks, beside the daemon's own file:
+ * same gates, same wire payload, same 4xx latch — keyed per licenseId,
+ * self-clearing when the stored artifact changes. A renewed artifact
+ * is re-verified against the compiled ring and swapped onto the user
+ * record; a post-admission lapse only stops renewing (the provenance
+ * surfaces in the admin console) — it never evicts the user.
+ *
  * The endpoint is a compiled-in constant, overridable only through the
  * options seam for tests — never operator config, which could redirect
  * the delivery channel (harmless for trust, since verification is
  * offline, but pointless to expose).
  */
 
+import {
+  emitAuditEntry,
+  getIdentitySnapshot,
+  listDaemonUsers,
+  replacePersonalSeatArtifact,
+} from '@openheaders/core/identity';
+import { LICENSE_PUBLIC_KEYS, type LicenseKeyRing, verifyLicense } from '@openheaders/core/licensing';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import type { LicenseSlotHandle } from './license-slot';
 
@@ -50,6 +65,11 @@ export interface LicenseRefreshAgentOptions {
   appVersion: string;
   /** Payload `platform`; defaults to `process.platform`. */
   platform?: string;
+  /** Personal-seat renewal seams — default to the live directory. */
+  listUsers?: typeof listDaemonUsers;
+  replaceArtifact?: typeof replacePersonalSeatArtifact;
+  /** Test seam — trust ring for user-attached artifacts; production verifies against the compiled ring. */
+  ring?: LicenseKeyRing;
   /** Test seams — production uses the real network and clock. */
   fetchFn?: typeof fetch;
   now?: () => number;
@@ -65,9 +85,14 @@ export interface LicenseRefreshAgentHandle {
   dispose(): void;
 }
 
+type RefreshOutcome = { kind: 'fresh'; text: string } | { kind: 'lapsed'; status: number } | { kind: 'transient' };
+
 export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions): LicenseRefreshAgentHandle {
   const { slot, appVersion } = options;
   const platform = options.platform ?? process.platform;
+  const listUsers = options.listUsers ?? listDaemonUsers;
+  const replaceArtifact = options.replaceArtifact ?? replacePersonalSeatArtifact;
+  const ring = options.ring ?? LICENSE_PUBLIC_KEYS;
   const fetchFn = options.fetchFn ?? fetch;
   const now = options.now ?? Date.now;
   const setTimer = options.setTimer ?? setTimeout;
@@ -80,6 +105,8 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
   let ticking = false;
   /** `licenseId:validUntil` of an artifact the endpoint refused with 4xx. */
   let lapsedKey: string | null = null;
+  /** Personal-seat latches — licenseId → the `licenseId:validUntil` refused with 4xx. */
+  const personalLapsed = new Map<string, string>();
   // Log the outage once when it starts and the recovery once when it
   // ends — an unreachable endpoint under a 6h cadence stays quiet.
   let deliveryDown = false;
@@ -101,7 +128,8 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
     timer.unref?.();
   };
 
-  const attempt = async (licenseKey: string, installedKey: string): Promise<void> => {
+  /** One wire round-trip; owns the once-per-outage delivery logging. */
+  const postRefresh = async (licenseKey: string): Promise<RefreshOutcome> => {
     let response: Response;
     try {
       response = await fetchFn(endpoint, {
@@ -114,32 +142,40 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
         deliveryDown = true;
         consoleLogger.warn(SCOPE, 'license endpoint unreachable — will retry on the next tick', err);
       }
-      return;
+      return { kind: 'transient' };
     }
     if (response.status >= 400 && response.status < 500) {
-      // Definitive: the subscription behind this key lapsed. Stand down
-      // for this artifact; a different installed license re-arms.
-      lapsedKey = installedKey;
       deliveryDown = false;
-      consoleLogger.warn(
-        SCOPE,
-        `license endpoint refused the refresh (${response.status}) — renewal paused until a different license is installed`,
-      );
-      return;
+      return { kind: 'lapsed', status: response.status };
     }
     if (!response.ok) {
       if (!deliveryDown) {
         deliveryDown = true;
         consoleLogger.warn(SCOPE, `license endpoint answered ${response.status} — will retry on the next tick`);
       }
-      return;
+      return { kind: 'transient' };
     }
     if (deliveryDown) {
       deliveryDown = false;
       consoleLogger.info(SCOPE, 'license endpoint reachable again');
     }
-    const fresh = (await response.text()).trim();
-    const result = await slot.install(fresh, { auditAs: 'daemon.license-refresh' });
+    return { kind: 'fresh', text: (await response.text()).trim() };
+  };
+
+  const attempt = async (licenseKey: string, installedKey: string): Promise<void> => {
+    const outcome = await postRefresh(licenseKey);
+    if (outcome.kind === 'lapsed') {
+      // Definitive: the subscription behind this key lapsed. Stand down
+      // for this artifact; a different installed license re-arms.
+      lapsedKey = installedKey;
+      consoleLogger.warn(
+        SCOPE,
+        `license endpoint refused the refresh (${outcome.status}) — renewal paused until a different license is installed`,
+      );
+      return;
+    }
+    if (outcome.kind === 'transient') return;
+    const result = await slot.install(outcome.text, { auditAs: 'daemon.license-refresh' });
     if (result.ok) {
       consoleLogger.info(SCOPE, 'license refreshed');
     } else {
@@ -150,20 +186,87 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
     }
   };
 
+  const renewSlot = async (): Promise<void> => {
+    const snapshot = slot.getSnapshot();
+    if (snapshot.status !== 'licensed' && snapshot.status !== 'grace') return;
+    if (snapshot.offline === true) return;
+    const installedKey = `${snapshot.licenseId}:${snapshot.validUntil}`;
+    if (lapsedKey !== null && lapsedKey !== installedKey) lapsedKey = null;
+    if (lapsedKey === installedKey) return;
+    if (snapshot.validUntil - now() >= RENEWAL_WINDOW_MS) return;
+    const licenseKey = await slot.getInstalledText();
+    if (licenseKey === null) return;
+    await attempt(licenseKey, installedKey);
+  };
+
+  /**
+   * Renew the personal-seat artifacts riding active directory records
+   * — the daemon's own gates applied per licenseId: licensed inside
+   * the window or in grace renews; expired/invalid stands down until
+   * the stored artifact changes (a fresh key redeemed or absorbed).
+   */
+  const renewPersonal = async (): Promise<void> => {
+    let users: Awaited<ReturnType<typeof listUsers>>;
+    try {
+      users = await listUsers();
+    } catch {
+      // No readable directory on this host (storage not wired) — the
+      // next tick retries; nothing to renew meanwhile.
+      return;
+    }
+    const byLicense = new Map<string, string>();
+    for (const record of users) {
+      if (record.deactivatedAt !== null || record.admission === undefined) continue;
+      if (!byLicense.has(record.admission.licenseId)) {
+        byLicense.set(record.admission.licenseId, record.admission.licenseKey);
+      }
+    }
+    for (const [licenseId, licenseKey] of byLicense) {
+      const verified = await verifyLicense(licenseKey, new Date(now()), ring);
+      if (verified.status !== 'licensed' && verified.status !== 'grace') continue;
+      if (verified.license.offline === true) continue;
+      const artifactKey = `${licenseId}:${verified.license.validUntil}`;
+      const latched = personalLapsed.get(licenseId);
+      if (latched !== undefined && latched !== artifactKey) personalLapsed.delete(licenseId);
+      if (personalLapsed.get(licenseId) === artifactKey) continue;
+      if (verified.status === 'licensed' && verified.license.validUntil - now() >= RENEWAL_WINDOW_MS) continue;
+      const outcome = await postRefresh(licenseKey);
+      if (outcome.kind === 'lapsed') {
+        personalLapsed.set(licenseId, artifactKey);
+        consoleLogger.warn(
+          SCOPE,
+          `license endpoint refused personal-seat refresh for ${licenseId} (${outcome.status}) — renewal paused until its artifact changes`,
+        );
+        continue;
+      }
+      if (outcome.kind === 'transient') continue;
+      const fresh = await verifyLicense(outcome.text, new Date(now()), ring);
+      if (fresh.status !== 'licensed' && fresh.status !== 'grace') {
+        consoleLogger.warn(SCOPE, `license endpoint returned a personal-seat artifact the host refuses (${licenseId})`);
+        continue;
+      }
+      if (fresh.license.licenseId !== licenseId) {
+        consoleLogger.warn(SCOPE, `license endpoint answered a different lineage for ${licenseId} — ignored`);
+        continue;
+      }
+      const changed = await replaceArtifact(licenseId, outcome.text);
+      if (changed > 0) {
+        emitAuditEntry({
+          actorUserId: getIdentitySnapshot()?.user.id ?? 'operator',
+          capability: 'daemon.license-refresh',
+          decision: { allow: true },
+        });
+        consoleLogger.info(SCOPE, `personal seat ${licenseId} refreshed (${changed} record)`);
+      }
+    }
+  };
+
   const tick = async (): Promise<void> => {
     if (disposed || ticking) return;
     ticking = true;
     try {
-      const snapshot = slot.getSnapshot();
-      if (snapshot.status !== 'licensed' && snapshot.status !== 'grace') return;
-      if (snapshot.offline === true) return;
-      const installedKey = `${snapshot.licenseId}:${snapshot.validUntil}`;
-      if (lapsedKey !== null && lapsedKey !== installedKey) lapsedKey = null;
-      if (lapsedKey === installedKey) return;
-      if (snapshot.validUntil - now() >= RENEWAL_WINDOW_MS) return;
-      const licenseKey = await slot.getInstalledText();
-      if (licenseKey === null) return;
-      await attempt(licenseKey, installedKey);
+      await renewSlot();
+      await renewPersonal();
     } catch (err) {
       consoleLogger.warn(SCOPE, 'refresh tick failed', err);
     } finally {

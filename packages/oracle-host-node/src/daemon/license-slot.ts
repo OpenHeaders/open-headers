@@ -204,6 +204,14 @@ export async function installLicenseSlot(options: LicenseSlotOptions): Promise<L
       if (candidate.status !== 'licensed' && candidate.status !== 'grace') {
         return { ok: false, error: describeRefusal(candidate) };
       }
+      // A personal seat admits its one holder at sign-in; installed as
+      // the daemon license its seats claim would shrink the pool.
+      if (candidate.kind === 'personal-seat') {
+        return {
+          ok: false,
+          error: 'this is a personal-seat license — redeem it when joining a full daemon, not as the daemon license',
+        };
+      }
       const compact = text.replace(/\s+/g, '');
       const tmpPath = `${filePath}.tmp`;
       await fs.mkdir(path.dirname(filePath), { recursive: true });

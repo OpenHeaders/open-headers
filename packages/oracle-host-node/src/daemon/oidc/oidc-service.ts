@@ -97,7 +97,11 @@ export type OidcLoginFailureReason =
   | 'unknown-user'
   | 'user-deactivated'
   | 'provision-failed'
-  | 'seat-limit-reached';
+  | 'seat-limit-reached'
+  | 'personal-seats-disabled'
+  | 'personal-license-invalid'
+  | 'personal-license-identity-mismatch'
+  | 'personal-license-no-identity';
 
 export type OidcCompleteResult =
   | { readonly ok: true; readonly claimCode: string; readonly userId: string; readonly email: string }
@@ -138,9 +142,11 @@ export interface DaemonOidcService {
   /**
    * Mint state/nonce/PKCE plus a login-binding nonce and build the
    * authorization redirect. The binding nonce goes back to the browser
-   * as an HttpOnly cookie; only its hash is stored.
+   * as an HttpOnly cookie; only its hash is stored. A personal-seat
+   * key pasted at the seat-limit refusal rides along in the pending
+   * login and reaches the gate at auto-provision.
    */
-  beginLogin(externalOrigin: string): Promise<OidcBeginResult>;
+  beginLogin(externalOrigin: string, options?: { personalLicense?: string }): Promise<OidcBeginResult>;
   /**
    * One-shot callback completion: binding check, exchange, verify,
    * join, mint. `bindingNonce` is the cookie the completing browser
@@ -159,6 +165,8 @@ interface PendingLogin {
   readonly redirectUri: string;
   /** SHA-256 of the login-binding cookie nonce — never the nonce itself. */
   readonly bindingHash: Buffer;
+  /** Personal-seat key pasted at the refusal; handed to the seat gate at auto-provision. */
+  readonly personalLicense?: string;
   readonly createdAt: number;
 }
 
@@ -282,6 +290,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
 
   async function resolveDirectoryUser(
     claims: OidcIdTokenClaims,
+    personalLicense: string | undefined,
   ): Promise<{ ok: true; record: DaemonUserRecord } | { ok: false; reason: OidcLoginFailureReason }> {
     const email = claims.email?.trim();
     if (!email) return { ok: false, reason: 'no-email' };
@@ -299,13 +308,24 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
     const created: CreateDaemonUserResult = await createUser({
       displayName: claims.name?.trim() || email,
       email,
+      ...(personalLicense ? { personalLicense } : {}),
     });
     if (!created.ok) {
       logger.warn(SCOPE, `auto-provision refused for ${email}: ${created.reason}`);
-      // The seat gate's refusal keeps its own reason — the login page
-      // can say "ask your admin about seats" instead of a generic
+      // The seat gate's refusals keep their own reasons — the login
+      // page renders the purchase/redeem path for the seat wall and a
+      // specific message per personal-seat refusal instead of a generic
       // provisioning failure. The gate already emitted the audit row.
-      return { ok: false, reason: created.reason === 'seat-limit-reached' ? 'seat-limit-reached' : 'provision-failed' };
+      switch (created.reason) {
+        case 'seat-limit-reached':
+        case 'personal-seats-disabled':
+        case 'personal-license-invalid':
+        case 'personal-license-identity-mismatch':
+        case 'personal-license-no-identity':
+          return { ok: false, reason: created.reason };
+        default:
+          return { ok: false, reason: 'provision-failed' };
+      }
     }
     logger.info(SCOPE, `auto-provisioned directory user for ${email} (zero grants)`);
     return { ok: true, record: created.record };
@@ -382,7 +402,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       }
     },
 
-    async beginLogin(externalOrigin: string): Promise<OidcBeginResult> {
+    async beginLogin(externalOrigin: string, options?: { personalLicense?: string }): Promise<OidcBeginResult> {
       prune();
       if (pendingLogins.size >= PENDING_LOGIN_CAP) return { ok: false, reason: 'too-many-pending' };
       let metadata: OidcProviderMetadata;
@@ -397,11 +417,13 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       const codeVerifier = randomToken();
       const bindingNonce = randomToken();
       const redirectUri = redirectUriFor(externalOrigin);
+      const personalLicense = options?.personalLicense?.trim();
       pendingLogins.set(state, {
         nonce,
         codeVerifier,
         redirectUri,
         bindingHash: bindingHashOf(bindingNonce),
+        ...(personalLicense ? { personalLicense } : {}),
         createdAt: now(),
       });
       const url = new URL(metadata.authorizationEndpoint);
@@ -478,7 +500,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       }
       if (claims.nonce !== pending.nonce) return { ok: false, reason: 'nonce-mismatch' };
 
-      const resolved = await resolveDirectoryUser(claims);
+      const resolved = await resolveDirectoryUser(claims, pending.personalLicense);
       if (!resolved.ok) {
         logger.warn(SCOPE, `SSO login refused: ${resolved.reason} (email=${claims.email ?? 'none'})`);
         return { ok: false, reason: resolved.reason };

@@ -76,9 +76,10 @@ Commands:
                 Set a daemon setting offline (requires the daemon to be stopped)
   config get <key>
   config list   Read daemon settings
-  user add <name> [--email <address>]
+  user add <name> [--email <address>] [--personal-license <key>]
                 Admit a user to the daemon's directory (requires the daemon
-                to be stopped; the daemon must have booted once)
+                to be stopped; the daemon must have booted once); at the
+                seat limit a personal-seat key matching --email admits past it
   user list     Read the user directory (grants included)
   user deactivate <id-or-email>
                 Deactivate a user + revoke their tokens (daemon stopped)
@@ -141,6 +142,8 @@ Options (install / status / show-token / config):
   --user <id-or-email>     show-token only: bind the token to a directory user
                            (omit for a token that acts as the daemon operator)
   --email <address>        user add only: contact identity for the new user
+  --personal-license <key> user add only: personal-seat key redeemed when the
+                           daemon is at its seat limit (must match --email)
   --clear                  user set-password only: remove the password
   --force                  restore only: replace existing state files in the
                            data dir
@@ -291,25 +294,38 @@ function formatUserLine(record: {
   user: { id: string; displayName: string };
   userIdentity: { kind: string; value: string | null };
   deactivatedAt: number | null;
+  admission?: { kind: 'personal'; licenseId: string };
 }): string {
   const email = record.userIdentity.kind === 'email' ? record.userIdentity.value : null;
+  const seat = record.admission !== undefined ? `  [personal seat ${record.admission.licenseId}]` : '';
   const state = record.deactivatedAt !== null ? '  [deactivated]' : '';
-  return `${record.user.id}  ${record.user.displayName}${email ? `  <${email}>` : ''}${state}`;
+  return `${record.user.id}  ${record.user.displayName}${email ? `  <${email}>` : ''}${seat}${state}`;
 }
 
 async function commandUser(argv: readonly string[]): Promise<void> {
   const [sub, ...rest] = argv;
   const { values, positionals } = parseArgs({
     args: [...rest],
-    options: { ...CONFIG_OPTIONS, email: { type: 'string' }, clear: { type: 'boolean' } },
+    options: {
+      ...CONFIG_OPTIONS,
+      email: { type: 'string' },
+      clear: { type: 'boolean' },
+      'personal-license': { type: 'string' },
+    },
     allowPositionals: true,
   });
   const { config } = resolveConfigFlags(values);
   if (sub === 'add') {
     const [displayName] = positionals;
-    if (displayName === undefined) throw new Error('usage: ohd user add <name> [--email <address>]');
+    if (displayName === undefined) {
+      throw new Error('usage: ohd user add <name> [--email <address>] [--personal-license <key>]');
+    }
     await assertOfflineWrite(config, 'a user admitted', 'manage users');
-    const record = await addUser(config, { displayName, ...(values.email ? { email: values.email } : {}) });
+    const record = await addUser(config, {
+      displayName,
+      ...(values.email ? { email: values.email } : {}),
+      ...(values['personal-license'] ? { personalLicense: values['personal-license'] } : {}),
+    });
     console.log('User added:');
     console.log(`  ${formatUserLine(record)}`);
     console.log('');

@@ -261,6 +261,33 @@ describe('daemon OIDC service', () => {
     }
   });
 
+  it('threads a personal-seat key from beginLogin into auto-provision and surfaces its refusals', async () => {
+    const createInputs: Array<Parameters<typeof createDaemonUser>[0]> = [];
+    const rig = buildRig({
+      config: { autoProvision: true },
+      deps: {
+        createUser: async (input) => {
+          createInputs.push(input);
+          return { ok: false, reason: 'personal-license-identity-mismatch' };
+        },
+      },
+    });
+    const begun = await rig.service.beginLogin('https://oh.openheaders.io', {
+      personalLicense: ' oh-license.payload.sig ',
+    });
+    if (!begun.ok) throw new Error('beginLogin refused');
+    const url = new URL(begun.authorizationUrl);
+    rig.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
+    const completed = await rig.service.completeLogin({
+      code: 'c',
+      state: url.searchParams.get('state') ?? '',
+      bindingNonce: begun.bindingNonce,
+    });
+    expect(completed).toMatchObject({ ok: false, reason: 'personal-license-identity-mismatch' });
+    expect(createInputs).toHaveLength(1);
+    expect(createInputs[0].personalLicense).toBe('oh-license.payload.sig');
+  });
+
   it('refuses a provider-attested unverified email and a claims set with no email', async () => {
     const noEmail = buildRig({ claims: { email: undefined } });
     const first = await begin(noEmail);

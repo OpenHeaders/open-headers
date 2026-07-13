@@ -53,7 +53,7 @@ import {
   resetAuditSink,
   setAuditSink,
 } from '@openheaders/core/identity';
-import { setLicenseSnapshotProvider } from '@openheaders/core/licensing';
+import { setLicenseSnapshotProvider, setPersonalSeatRedemptionProvider } from '@openheaders/core/licensing';
 import { setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
 import { WS_PORT } from '@openheaders/core/protocol';
@@ -262,6 +262,13 @@ export interface DaemonSpineConfig {
    * installed or the artifact carries `offline: true`.
    */
   licenseRefresh?: boolean;
+  /**
+   * Personal-seat redemption knob (procurement control): `false`
+   * refuses personal licenses at the seat gate with a typed reason;
+   * absent = allowed. Desktop passes nothing — the operator is the
+   * admin, so redemption stays open there.
+   */
+  personalSeats?: boolean;
   staticWeb?: {
     rootDir: string;
     /**
@@ -569,6 +576,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // The seat gate in `createDaemonUser` derives its limit from this
   // provider at every admission — never a cached number.
   setLicenseSnapshotProvider(() => licenseSlot.getSnapshot());
+  // Personal-seat procurement knob — consulted by the gate's personal
+  // branch on every at-capacity admission.
+  setPersonalSeatRedemptionProvider(() => config.personalSeats !== false);
   // Self-serve renewal loop (§3.2) — periodically swaps a fresh signed
   // file in through the slot. Config-off covers air-gapped posture;
   // the agent's own gates cover no-license and `offline: true` files.
@@ -942,6 +952,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     setActivityLog(null);
     setActivityMuteStore(null);
     setLicenseSnapshotProvider(null);
+    setPersonalSeatRedemptionProvider(null);
     licenseRefreshAgent?.dispose();
     licenseSlot.dispose();
     pairingService.dispose();

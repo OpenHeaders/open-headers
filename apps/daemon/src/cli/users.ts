@@ -46,13 +46,17 @@ function installStorage(config: DaemonConfig): void {
 export interface AddUserInput {
   displayName: string;
   email?: string;
+  /** Personal-seat key redeemed at the seat wall (`--personal-license`). */
+  personalLicense?: string;
 }
 
 export async function addUser(config: DaemonConfig, input: AddUserInput): Promise<DaemonUserRecord> {
   installStorage(config);
   // The seat gate reads the license snapshot through the same provider
   // seam the spine installs — here fed one-shot from the same
-  // `license.key` the daemon would read.
+  // `license.key` the daemon would read. The personal-seat knob stays
+  // at its default here: the operator running the offline CLI IS the
+  // procurement authority the knob exists to protect.
   const uninstallSeatProvider = await withLicenseSeatProvider(config);
   try {
     const result = await createDaemonUser(input);
@@ -68,8 +72,21 @@ export async function addUser(config: DaemonConfig, input: AddUserInput): Promis
     if (result.reason === 'seat-limit-reached') {
       throw new Error(
         `seat limit reached (${result.seatLimit} active users) — deactivate a user to free a seat, ` +
-          'or install a license with more seats (ohd license install <file>).',
+          'install a license with more seats (ohd license install <file>), or redeem the joining ' +
+          "user's personal seat (--personal-license <key>; keys at https://openheaders.io/pricing).",
       );
+    }
+    if (result.reason === 'personal-license-identity-mismatch') {
+      throw new Error("the personal seat belongs to a different email — it only admits the licensee's own address.");
+    }
+    if (result.reason === 'personal-license-invalid') {
+      throw new Error('the personal-seat key is not usable (invalid, expired, or not a personal seat).');
+    }
+    if (result.reason === 'personal-license-no-identity') {
+      throw new Error('a personal seat needs the user email to match — add the user with --email.');
+    }
+    if (result.reason === 'personal-seats-disabled') {
+      throw new Error('personal-seat redemption is disabled on this daemon (personalSeats: false).');
     }
     throw new Error('display name must not be empty.');
   } finally {

@@ -115,6 +115,13 @@ export interface DaemonConfig {
    */
   licenseRefresh: boolean;
   /**
+   * Personal-seat redemption (procurement control): `false` refuses
+   * user-held personal licenses at the seat gate, so org admins keep
+   * seat growth on the procurement path. Default true. `personalSeats`
+   * in `daemon.json` or `OH_PERSONAL_SEATS=0`.
+   */
+  personalSeats: boolean;
+  /**
    * Audit→SIEM streaming destination (enterprise Phase 4d). `null` =
    * the daemon's zero-outbound posture holds; configured = audit rows
    * stream to this collector as JSON POST batches behind a durable
@@ -142,6 +149,7 @@ interface ConfigFile {
   auditForwarding?: DaemonAuditForwardingConfig;
   licenseFile?: string;
   licenseRefresh?: boolean;
+  personalSeats?: boolean;
 }
 
 export interface ResolveConfigInput {
@@ -414,6 +422,10 @@ function readConfigFile(configPath: string): ConfigFile {
     if (typeof record.licenseRefresh !== 'boolean') throw new Error(`${configPath}: licenseRefresh must be a boolean`);
     out.licenseRefresh = record.licenseRefresh;
   }
+  if (record.personalSeats !== undefined) {
+    if (typeof record.personalSeats !== 'boolean') throw new Error(`${configPath}: personalSeats must be a boolean`);
+    out.personalSeats = record.personalSeats;
+  }
   return out;
 }
 
@@ -578,6 +590,12 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     file.licenseRefresh ??
     true;
 
+  const envPersonalSeats = input.env.OH_PERSONAL_SEATS;
+  const personalSeats =
+    (envPersonalSeats !== undefined ? parseBooleanEnv(envPersonalSeats, 'personal seats') : undefined) ??
+    file.personalSeats ??
+    true;
+
   return {
     dataDir,
     bindAddress,
@@ -593,6 +611,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     auditForwarding: file.auditForwarding ?? null,
     licenseFile,
     licenseRefresh,
+    personalSeats,
     configPath,
   };
 }

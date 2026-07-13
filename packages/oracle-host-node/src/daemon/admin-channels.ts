@@ -14,6 +14,7 @@
  */
 
 import {
+  absorbPersonalSeat,
   createDaemonUser,
   type DaemonPairingService,
   deactivateDaemonUser,
@@ -26,6 +27,7 @@ import {
   revokeWorkspaceRole,
   setDaemonUserPassword,
 } from '@openheaders/core/identity';
+import { verifyLicense } from '@openheaders/core/licensing';
 import type { AuditLogEntry } from '@openheaders/core/types';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { OracleWsServer } from '../host-runtime/ws-server';
@@ -190,13 +192,33 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';
     const email = typeof message.email === 'string' ? message.email.trim() || undefined : undefined;
     try {
-      const created = await createDaemonUser({ displayName, ...(email ? { email } : {}) });
+      const personalLicense =
+        typeof message.personalLicense === 'string' ? message.personalLicense.trim() || undefined : undefined;
+      const created = await createDaemonUser({
+        displayName,
+        ...(email ? { email } : {}),
+        ...(personalLicense ? { personalLicense } : {}),
+      });
       if (created.ok) return { ok: true, userId: created.record.user.id };
       if (created.reason === 'seat-limit-reached') {
         return {
           ok: false,
-          error: `seat limit reached (${created.seatLimit} active users) — deactivate a user to free a seat, or add seats via a license`,
+          error:
+            `seat limit reached (${created.seatLimit} active users) — deactivate a user to free a seat, ` +
+            "add seats via a license, or redeem the joining user's personal seat",
         };
+      }
+      if (created.reason === 'personal-license-identity-mismatch') {
+        return { ok: false, error: "the personal seat belongs to a different email — it only admits its holder" };
+      }
+      if (created.reason === 'personal-license-invalid') {
+        return { ok: false, error: 'the personal-seat key is not usable (invalid, expired, or not a personal seat)' };
+      }
+      if (created.reason === 'personal-license-no-identity') {
+        return { ok: false, error: 'a personal seat needs the user email to match — set an email for the new user' };
+      }
+      if (created.reason === 'personal-seats-disabled') {
+        return { ok: false, error: 'personal-seat redemption is disabled on this daemon' };
       }
       return { ok: false, error: created.reason };
     } catch (err) {
@@ -215,6 +237,17 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
           createdAt: r.createdAt,
           deactivatedAt: r.deactivatedAt,
           hasPassword: r.passwordVerifier !== undefined,
+          // Seat provenance — status derived at consume by verifying
+          // the stored artifact (never cached); an expired personal
+          // seat stays visible here but never evicts its user.
+          ...(r.admission === undefined
+            ? {}
+            : {
+                admission: {
+                  licenseId: r.admission.licenseId,
+                  status: (await verifyLicense(r.admission.licenseKey, new Date())).status,
+                },
+              }),
           grants: (await listWorkspaceRolesForPrincipal(r.principal.id)).map((wra) => ({
             workspaceId: wra.workspaceId,
             role: wra.role,
@@ -223,6 +256,24 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
         })),
       ),
     };
+  });
+
+  handlers.set('oh.daemon.users.absorbSeat', async (message) => {
+    // Org buy-out: fold a personally-admitted user into the seat pool.
+    // Only meaningful when pool capacity exists — the gate never
+    // re-checks existing users, so absorbing past capacity just moves
+    // the provenance; refusing that here would add a check the model
+    // deliberately doesn't have.
+    const userId = typeof message.userId === 'string' ? message.userId : '';
+    if (!userId) return { ok: false, error: 'missing userId' };
+    const result = await absorbPersonalSeat(userId);
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: result.reason === 'not-personal' ? 'user holds a pool seat already' : 'unknown user',
+      };
+    }
+    return { ok: true };
   });
 
   handlers.set('oh.daemon.users.grant', async (message) => {

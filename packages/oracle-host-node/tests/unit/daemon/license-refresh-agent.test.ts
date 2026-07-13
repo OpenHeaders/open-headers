@@ -13,6 +13,7 @@ import * as path from 'node:path';
 import { resetAuditSink, setAuditSink } from '@openheaders/core/identity';
 import type { License, LicenseKeyRing } from '@openheaders/core/licensing';
 import { generateLicenseSigningKeys, signLicense } from '@openheaders/core/licensing';
+import type { DaemonUserRecord } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   installLicenseRefreshAgent,
@@ -84,6 +85,8 @@ function makeAgent(
   options: {
     timers?: Array<{ ms: number }>;
     now?: () => number;
+    listUsers?: () => Promise<readonly DaemonUserRecord[]>;
+    replaceArtifact?: (licenseId: string, licenseKey: string) => Promise<number>;
   } = {},
 ): LicenseRefreshAgentHandle {
   const agent = installLicenseRefreshAgent({
@@ -91,6 +94,9 @@ function makeAgent(
     appVersion: APP_VERSION,
     platform: 'testos',
     fetchFn,
+    ring: signer.ring,
+    ...(options.listUsers ? { listUsers: options.listUsers } : {}),
+    ...(options.replaceArtifact ? { replaceArtifact: options.replaceArtifact } : {}),
     now: options.now ?? (() => NOW),
     setTimer: (_fn, ms) => {
       options.timers?.push({ ms });
@@ -102,6 +108,36 @@ function makeAgent(
   });
   disposables.push(agent);
   return agent;
+}
+
+function makeUserRecord(input: {
+  userId: string;
+  email: string;
+  admission?: { kind: 'personal'; licenseId: string; licenseKey: string };
+  deactivatedAt?: number;
+}): DaemonUserRecord {
+  return {
+    user: { id: input.userId, displayName: input.email, homeOrgId: 'org-1', isStandalone: false },
+    userIdentity: {
+      id: `${input.userId}-identity`,
+      userId: input.userId,
+      kind: 'email',
+      value: input.email,
+      isPrimary: true,
+      verifiedAt: new Date(NOW).toISOString(),
+    },
+    membership: {
+      id: `${input.userId}-membership`,
+      userId: input.userId,
+      orgId: 'org-1',
+      primaryRole: 'member',
+      functionalRoles: [],
+    },
+    principal: { id: `${input.userId}-principal`, userId: input.userId, orgId: 'org-1' },
+    createdAt: NOW - DAY,
+    deactivatedAt: input.deactivatedAt ?? null,
+    ...(input.admission ? { admission: input.admission } : {}),
+  };
 }
 
 beforeEach(async () => {
@@ -267,6 +303,136 @@ describe('license refresh agent — refusal vs transport', () => {
     await agent.tick();
     await agent.tick();
     expect(calls).toHaveLength(2);
+  });
+});
+
+describe('license refresh agent — personal seats', () => {
+  function makePersonal(overrides: Partial<License> = {}): License {
+    return makeLicense({
+      kind: 'personal-seat',
+      seats: 1,
+      licenseId: 'lic-personal-1',
+      licensee: { name: 'Ada Example', email: 'ada@openheaders.io' },
+      ...overrides,
+    });
+  }
+
+  it('renews a user-attached artifact in the window and stamps the refresh audit row', async () => {
+    const slot = await makeSlot();
+    const installed = await signer.sign(makePersonal());
+    const fresh = await signer.sign(makePersonal({ validUntil: NOW + 45 * DAY }));
+    const replaced: Array<{ licenseId: string; licenseKey: string }> = [];
+    const capabilities: string[] = [];
+    setAuditSink((entry) => capabilities.push(entry.capability));
+    const { calls, fetchFn } = makeFetch(() => new Response(`${fresh}\n`, { status: 200 }));
+    const agent = makeAgent(slot, fetchFn, {
+      listUsers: async () => [
+        makeUserRecord({
+          userId: 'u1',
+          email: 'ada@openheaders.io',
+          admission: { kind: 'personal', licenseId: 'lic-personal-1', licenseKey: installed },
+        }),
+      ],
+      replaceArtifact: async (licenseId, licenseKey) => {
+        replaced.push({ licenseId, licenseKey });
+        return 1;
+      },
+    });
+    await agent.tick();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.body).toEqual({ licenseKey: installed, appVersion: APP_VERSION, platform: 'testos' });
+    expect(replaced).toEqual([{ licenseId: 'lic-personal-1', licenseKey: fresh }]);
+    expect(capabilities).toEqual(['daemon.license-refresh']);
+  });
+
+  it('dedupes by licenseId and skips deactivated, out-of-window, and invalid artifacts', async () => {
+    const slot = await makeSlot();
+    const inWindow = await signer.sign(makePersonal());
+    const outside = await signer.sign(makePersonal({ licenseId: 'lic-personal-2', validUntil: NOW + 40 * DAY }));
+    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 500 }));
+    const agent = makeAgent(slot, fetchFn, {
+      listUsers: async () => [
+        makeUserRecord({
+          userId: 'u1',
+          email: 'ada@openheaders.io',
+          admission: { kind: 'personal', licenseId: 'lic-personal-1', licenseKey: inWindow },
+        }),
+        makeUserRecord({
+          userId: 'u2',
+          email: 'ada2@openheaders.io',
+          admission: { kind: 'personal', licenseId: 'lic-personal-1', licenseKey: inWindow },
+        }),
+        makeUserRecord({
+          userId: 'u3',
+          email: 'bob@openheaders.io',
+          admission: { kind: 'personal', licenseId: 'lic-personal-2', licenseKey: outside },
+        }),
+        makeUserRecord({
+          userId: 'u4',
+          email: 'eve@openheaders.io',
+          admission: { kind: 'personal', licenseId: 'lic-personal-3', licenseKey: 'not a license' },
+          deactivatedAt: undefined,
+        }),
+        makeUserRecord({
+          userId: 'u5',
+          email: 'gone@openheaders.io',
+          admission: { kind: 'personal', licenseId: 'lic-personal-4', licenseKey: inWindow },
+          deactivatedAt: NOW - DAY,
+        }),
+      ],
+      replaceArtifact: async () => 0,
+    });
+    await agent.tick();
+    expect(calls).toHaveLength(1);
+  });
+
+  it('latches per licenseId on 4xx and re-arms when the stored artifact changes', async () => {
+    const slot = await makeSlot();
+    let installed = await signer.sign(makePersonal());
+    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 410 }));
+    const agent = makeAgent(slot, fetchFn, {
+      listUsers: async () => [
+        makeUserRecord({
+          userId: 'u1',
+          email: 'ada@openheaders.io',
+          admission: { kind: 'personal', licenseId: 'lic-personal-1', licenseKey: installed },
+        }),
+      ],
+      replaceArtifact: async () => 0,
+    });
+    await agent.tick();
+    await agent.tick();
+    expect(calls).toHaveLength(1);
+    installed = await signer.sign(makePersonal({ validUntil: NOW + 20 * DAY }));
+    await agent.tick();
+    expect(calls).toHaveLength(2);
+  });
+
+  it('never swaps in a 200 body that fails the ring or changes lineage; retries next tick', async () => {
+    const slot = await makeSlot();
+    const installed = await signer.sign(makePersonal());
+    const foreignLineage = await signer.sign(makePersonal({ licenseId: 'lic-other', validUntil: NOW + 45 * DAY }));
+    const replaced: string[] = [];
+    let body = 'not a license';
+    const { calls, fetchFn } = makeFetch(() => new Response(body, { status: 200 }));
+    const agent = makeAgent(slot, fetchFn, {
+      listUsers: async () => [
+        makeUserRecord({
+          userId: 'u1',
+          email: 'ada@openheaders.io',
+          admission: { kind: 'personal', licenseId: 'lic-personal-1', licenseKey: installed },
+        }),
+      ],
+      replaceArtifact: async (licenseId) => {
+        replaced.push(licenseId);
+        return 1;
+      },
+    });
+    await agent.tick();
+    body = foreignLineage;
+    await agent.tick();
+    expect(calls).toHaveLength(2);
+    expect(replaced).toEqual([]);
   });
 });
 
