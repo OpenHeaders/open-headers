@@ -23,6 +23,7 @@
 import { CopyOutlined } from '@ant-design/icons';
 import { generateTotp, totpSecondsRemaining } from '@openheaders/core/totp';
 import type { TotpAlgorithm } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -52,6 +53,7 @@ const TotpPreview: React.FC<TotpPreviewProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState(() => totpSecondsRemaining(period));
@@ -150,24 +152,24 @@ const TotpPreview: React.FC<TotpPreviewProps> = ({
         {code ?? '—'}
       </Text>
       {!compact && showCopy && code && (
-        <Tooltip title="Copy code">
+        <Tooltip title={t('workbench.totpPreview.copyCode')}>
           <CopyOutlined
             style={{ fontSize: 11, cursor: 'pointer', color: token.colorTextTertiary }}
             onClick={() => {
               void navigator.clipboard.writeText(code);
-              void message.success('Copied');
+              void message.success(t('workbench.totpPreview.copied'));
             }}
           />
         </Tooltip>
       )}
-      <Tooltip title={`Refreshes in ${remaining}s`}>
+      <Tooltip title={t('workbench.totpPreview.refreshesTooltip', { seconds: remaining })}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <svg
             width={ringSize}
             height={ringSize}
             style={{ display: 'block' }}
             role="img"
-            aria-label={`TOTP code refreshes in ${remaining} seconds`}
+            aria-label={t('workbench.totpPreview.refreshesAria', { seconds: remaining })}
           >
             <circle
               cx={ringSize / 2}

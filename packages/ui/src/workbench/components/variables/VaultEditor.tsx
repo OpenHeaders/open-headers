@@ -32,6 +32,7 @@ import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVar
 import { useVault } from '@openheaders/ui/shared/hooks/readers/useVault';
 import { canonicalJsonPretty, VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { Vault, VaultSecret } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -72,6 +73,7 @@ function secretsSignature(secrets: readonly VaultSecret[]): string {
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const { vault, isLocked } = useVault();
   const { replaceVault } = useVariableMutator();
 
@@ -227,10 +229,14 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
       // broadcast brings them into alignment automatically.
       conflicts.clearDismissed();
     } else {
-      const detail = 'message' in result && result.message ? `: ${result.message}` : '';
-      message.error(`Failed to save vault${detail}`);
+      const detail = 'message' in result && result.message ? result.message : null;
+      message.error(
+        detail
+          ? t('workbench.variables.vault.saveFailedDetail', { message: detail })
+          : t('workbench.variables.vault.saveFailed'),
+      );
     }
-  }, [isDirty, draft, replaceVault, message, conflicts]);
+  }, [isDirty, draft, replaceVault, message, conflicts, t]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();
@@ -264,7 +270,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     <>
       {scopeBadge('vault', 14)}
       <Typography.Text strong style={{ fontSize: 13 }}>
-        Vault
+        {t('workbench.variables.vault.title')}
       </Typography.Text>
       <PresenceBadge
         entityType={VAULT_ENTITY_TYPE}
@@ -291,20 +297,24 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
-              message="Vault secrets are encrypted at rest, never leave this device, and take priority over every other scope."
+              message={t('workbench.variables.vault.infoBanner')}
             />
 
             {isLocked ? (
               <Alert
                 type="error"
                 showIcon
-                message="Vault locked — at-rest key lost"
-                description="This vault's secrets are still stored on this device but can no longer be decrypted: the at-rest key that sealed them is gone (cleared browser data, a new profile, or a reset extension key). Editing is disabled so a new entry can't overwrite the sealed data. Re-enter the secrets to unlock the vault — the existing entries will be replaced."
+                message={t('workbench.variables.vault.lockedTitle')}
+                description={t('workbench.variables.vault.lockedDescription')}
               />
             ) : (
               <>
                 <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-                  SECRETS ({counts.strings} string · {counts.totps} TOTP · {counts.certs} certificate)
+                  {t('workbench.variables.vault.secretsCount', {
+                    strings: counts.strings,
+                    totps: counts.totps,
+                    certs: counts.certs,
+                  })}
                 </Text>
 
                 <VariableTable mode="vault" secrets={draft} onChange={setDraft} conflictBridge={conflictBridge} />

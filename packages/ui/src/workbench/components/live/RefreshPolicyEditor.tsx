@@ -7,6 +7,8 @@
  */
 
 import type { RefreshPolicy } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InputNumber, Select, Space, Typography } from 'antd';
 import type React from 'react';
 
@@ -20,11 +22,11 @@ const { Text } = Typography;
  * Labels make the distinction explicit so users pick correctly; the
  * trailing helper text under the row reiterates with an example.
  */
-const KIND_OPTIONS: { value: RefreshPolicy['kind']; label: string }[] = [
-  { value: 'manual', label: 'Manual only' },
-  { value: 'interval', label: 'Fixed interval' },
-  { value: 'expires-in', label: 'Expires in N seconds (relative)' },
-  { value: 'expires-at', label: 'Expires at epoch ms (absolute)' },
+const KIND_OPTIONS: { value: RefreshPolicy['kind']; labelKey: MessageKey }[] = [
+  { value: 'manual', labelKey: 'workbench.editors.live.refreshPolicy.manual' },
+  { value: 'interval', labelKey: 'workbench.editors.live.refreshPolicy.interval' },
+  { value: 'expires-in', labelKey: 'workbench.editors.live.refreshPolicy.expiresIn' },
+  { value: 'expires-at', labelKey: 'workbench.editors.live.refreshPolicy.expiresAt' },
 ];
 
 interface CaptureTarget {
@@ -64,6 +66,7 @@ export function defaultPolicyFor(kind: RefreshPolicy['kind'], captures: CaptureT
 }
 
 const RefreshPolicyEditor: React.FC<Props> = ({ value, onChange, availableCaptures, disabled }) => {
+  const t = useT();
   return (
     <Space direction="vertical" size={6} style={{ width: '100%' }}>
       <Space wrap size={6}>
@@ -72,7 +75,7 @@ const RefreshPolicyEditor: React.FC<Props> = ({ value, onChange, availableCaptur
           disabled={disabled}
           style={{ width: 220 }}
           value={value.kind}
-          options={KIND_OPTIONS}
+          options={KIND_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
           onChange={(kind) => onChange(defaultPolicyFor(kind as RefreshPolicy['kind'], availableCaptures))}
         />
         {value.kind === 'interval' && (
@@ -82,7 +85,7 @@ const RefreshPolicyEditor: React.FC<Props> = ({ value, onChange, availableCaptur
             min={30}
             max={86400}
             step={30}
-            addonAfter="seconds"
+            addonAfter={t('workbench.editors.live.refreshPolicy.secondsUnit')}
             value={value.seconds}
             onChange={(seconds) =>
               onChange({
@@ -98,7 +101,7 @@ const RefreshPolicyEditor: React.FC<Props> = ({ value, onChange, availableCaptur
             <Select
               size="small"
               disabled={disabled}
-              placeholder="Select capture"
+              placeholder={t('workbench.editors.live.refreshPolicy.selectCapture')}
               style={{ width: 260 }}
               value={value.stepId && value.captureName ? `${value.stepId}::${value.captureName}` : undefined}
               options={availableCaptures.map((c) => ({
@@ -113,13 +116,13 @@ const RefreshPolicyEditor: React.FC<Props> = ({ value, onChange, availableCaptur
                   onChange({ kind: 'expires-at', stepId, captureName, leadSeconds: value.leadSeconds });
                 }
               }}
-              notFoundContent={<Text type="secondary">No captures defined yet.</Text>}
+              notFoundContent={<Text type="secondary">{t('workbench.editors.live.refreshPolicy.noCaptures')}</Text>}
             />
             <InputNumber
               size="small"
               disabled={disabled}
               min={0}
-              addonAfter="lead s"
+              addonAfter={t('workbench.editors.live.refreshPolicy.leadUnit')}
               value={value.leadSeconds}
               onChange={(lead) => {
                 const leadSeconds = typeof lead === 'number' ? Math.max(0, lead) : 0;
@@ -136,25 +139,30 @@ const RefreshPolicyEditor: React.FC<Props> = ({ value, onChange, availableCaptur
       </Space>
       {value.kind === 'interval' && value.seconds < 60 && (
         <Text type="warning" style={{ fontSize: 11 }}>
-          Sub-minute intervals hit the MV3 alarm floor and burn quota fast. Use only when necessary.
+          {t('workbench.editors.live.refreshPolicy.subMinuteWarning')}
         </Text>
       )}
       {value.kind === 'expires-in' && (
         <Text type="secondary" style={{ fontSize: 11 }}>
-          Capture value = seconds until expiry (e.g. OAuth{' '}
-          <code style={{ fontSize: 10 }}>{'{"expires_in": 3600}'}</code>). Refresh fires `lead` seconds before{' '}
-          <code style={{ fontSize: 10 }}>run_time + captured_seconds</code>.
+          {t('workbench.editors.live.refreshPolicy.expiresInHelpPrefix')}{' '}
+          <code style={{ fontSize: 10 }}>{'{"expires_in": 3600}'}</code>
+          {t('workbench.editors.live.refreshPolicy.expiresInHelpMid')}{' '}
+          <code style={{ fontSize: 10 }}>run_time + captured_seconds</code>
+          {t('workbench.editors.live.refreshPolicy.expiresInHelpSuffix')}
         </Text>
       )}
       {value.kind === 'expires-at' && (
         <Text type="secondary" style={{ fontSize: 11 }}>
-          Capture value = absolute unix epoch in <strong>milliseconds</strong> (e.g.{' '}
-          <code style={{ fontSize: 10 }}>1745312000000</code>). Refresh fires `lead` seconds before that moment.
+          {t('workbench.editors.live.refreshPolicy.expiresAtHelpPrefix')}{' '}
+          <strong>{t('workbench.editors.live.refreshPolicy.expiresAtHelpMilliseconds')}</strong>{' '}
+          {t('workbench.editors.live.refreshPolicy.expiresAtHelpMid')}{' '}
+          <code style={{ fontSize: 10 }}>1745312000000</code>
+          {t('workbench.editors.live.refreshPolicy.expiresAtHelpSuffix')}
         </Text>
       )}
       {(value.kind === 'expires-in' || value.kind === 'expires-at') && availableCaptures.length === 0 && (
         <Text type="warning" style={{ fontSize: 11 }}>
-          Add a capture to the workflow first so expiry math has a source.
+          {t('workbench.editors.live.refreshPolicy.noCapturesWarning')}
         </Text>
       )}
     </Space>

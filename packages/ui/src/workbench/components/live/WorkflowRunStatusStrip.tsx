@@ -11,6 +11,7 @@
 
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { RefreshPolicy } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -42,6 +43,7 @@ const STRIP_NATURAL_MAX_H = 140;
 
 const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, refresh, boundCount }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { environments, activeEnvironmentId } = useEnvironments();
 
   // Divider drag — ephemeral UI state. `null` = natural height (capped);
@@ -111,7 +113,7 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
       {/* Top row: refresh policy + binding count — workflow-level facts that don't vary by env */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Text type="secondary" style={{ fontSize: 11 }}>
-          {describeRefreshPolicy(refresh)}
+          {describeRefreshPolicy(refresh, t)}
         </Text>
         <div style={{ flex: 1 }} />
         <Text type="secondary" style={{ fontSize: 11 }}>
@@ -166,7 +168,7 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
               </Text>
               {entry.run ? (
                 <>
-                  {describeRunSchedule(entry.run, refresh).map((chunk) => (
+                  {describeRunSchedule(entry.run, refresh, t).map((chunk) => (
                     <Text key={chunk.text} type={chunk.tone} style={{ fontSize: 11 }}>
                       · {chunk.text}
                     </Text>
@@ -220,8 +222,9 @@ export default WorkflowRunStatusStrip;
 // (no React timer, no wasted re-renders on healthy rows).
 
 const CircuitInlineStatus: React.FC<{ run: LiveWorkflowRunSnapshot }> = ({ run }) => {
+  const t = useT();
   const [, setNow] = useState(Date.now());
-  const descriptor = describeCircuit(run);
+  const descriptor = describeCircuit(run, t);
   const needsTick = descriptor.nextAttemptAt !== null && descriptor.nextAttemptAt > Date.now();
 
   useEffect(() => {

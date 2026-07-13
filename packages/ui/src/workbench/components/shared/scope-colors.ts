@@ -1,3 +1,4 @@
+import type { MessageKey } from '@openheaders/i18n';
 import { createElement } from 'react';
 
 export interface ScopeColorDef {
@@ -6,22 +7,23 @@ export interface ScopeColorDef {
   /** Light tinted background — used inside the badge. */
   bg: string;
   letter: string;
-  /** Human-readable scope label (used in tooltips, suggestion rows). */
-  label: string;
+  /** Human-readable scope label (tooltips, suggestion rows) — resolved
+   *  via `t()` at the consumer. */
+  labelKey: MessageKey;
 }
 
 /** Canonical scope palette — every variable scope the resolver knows
  *  about lives here. Adding a scope is a single edit + matching CSS
  *  variables in `dock-layout.css` and `rules.less`. */
 export const SCOPE_COLORS = {
-  vault: { color: '#cf1322', bg: '#ffd8d5', letter: 'V', label: 'Vault secret' },
-  environment: { color: '#007F31', bg: '#E5FFF1', letter: 'E', label: 'Environment variable' },
-  collection: { color: '#AD7A03', bg: '#FFF4BE', letter: 'C', label: 'Collection variable' },
-  workspace: { color: '#0053B8', bg: '#E7F0FF', letter: 'W', label: 'Workspace variable' },
-  live: { color: '#531dab', bg: '#f5f0ff', letter: '↻', label: 'Live variable (workflow-backed)' },
-  step: { color: '#0F766E', bg: '#CCFBF1', letter: 'S', label: 'Workflow step capture' },
-  file: { color: '#475569', bg: '#E2E8F0', letter: 'F', label: 'File reference' },
-  dynamic: { color: '#737373', bg: '#F5F5F4', letter: '$', label: 'Dynamic generator' },
+  vault: { color: '#cf1322', bg: '#ffd8d5', letter: 'V', labelKey: 'shared.scopeColors.vault' },
+  environment: { color: '#007F31', bg: '#E5FFF1', letter: 'E', labelKey: 'shared.scopeColors.environment' },
+  collection: { color: '#AD7A03', bg: '#FFF4BE', letter: 'C', labelKey: 'shared.scopeColors.collection' },
+  workspace: { color: '#0053B8', bg: '#E7F0FF', letter: 'W', labelKey: 'shared.scopeColors.workspace' },
+  live: { color: '#531dab', bg: '#f5f0ff', letter: '↻', labelKey: 'shared.scopeColors.live' },
+  step: { color: '#0F766E', bg: '#CCFBF1', letter: 'S', labelKey: 'shared.scopeColors.step' },
+  file: { color: '#475569', bg: '#E2E8F0', letter: 'F', labelKey: 'shared.scopeColors.file' },
+  dynamic: { color: '#737373', bg: '#F5F5F4', letter: '$', labelKey: 'shared.scopeColors.dynamic' },
 } as const satisfies Record<string, ScopeColorDef>;
 
 export type ScopeKey = keyof typeof SCOPE_COLORS;

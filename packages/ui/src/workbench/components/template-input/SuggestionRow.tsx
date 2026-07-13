@@ -127,7 +127,7 @@ function renderPreview(suggestion: VariableSuggestion, reveal: boolean, t: Trans
 const SuggestionRow: React.FC<SuggestionRowProps> = ({ suggestion, reveal }) => {
   const t = useT();
   const scopeKey = namespaceToScopeKey(suggestion.scope);
-  const label = scopeKey ? SCOPE_COLORS[scopeKey].label : suggestion.scope;
+  const label = scopeKey ? t(SCOPE_COLORS[scopeKey].labelKey) : suggestion.scope;
   const { preview } = suggestion;
   const isStale = preview.kind === 'stale';
   const needsRerun =

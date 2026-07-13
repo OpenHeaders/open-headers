@@ -30,6 +30,7 @@ import {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type { Collection, Variable } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -91,6 +92,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
 }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
+  const t = useT();
   const { localCollections, templateCollections } = useRules();
   const { collections: requestCollections } = useRequests();
   const {
@@ -259,13 +261,17 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
         return;
       }
       if (result.reason === 'not-found') {
-        message.error('Collection was deleted from another tab');
+        message.error(t('workbench.variables.collection.deletedElsewhere'));
         return;
       }
       const detail = 'message' in result ? result.message : undefined;
-      message.error(`Failed to save collection variables${detail ? `: ${detail}` : ''}`);
+      message.error(
+        detail
+          ? t('workbench.variables.collection.saveFailedDetail', { message: detail })
+          : t('workbench.variables.collection.saveFailed'),
+      );
     });
-  }, [collection, isDirty, draft, replaceVariables, message, conflicts]);
+  }, [collection, isDirty, draft, replaceVariables, message, conflicts, t]);
 
   const shell = useEditorShell({
     entityType,
@@ -279,7 +285,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   if (!collection) {
     return (
       <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">Collection not found.</Text>
+        <Text type="secondary">{t('workbench.variables.collection.notFound')}</Text>
       </div>
     );
   }
@@ -287,13 +293,18 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
   const localInstanceId = useLocalInstanceId();
 
-  const scopeNoun = kind === 'request' ? 'request' : kind === 'template' ? 'template' : 'rule';
+  const description =
+    kind === 'request'
+      ? t('workbench.variables.collection.descriptionRequest')
+      : kind === 'template'
+        ? t('workbench.variables.collection.descriptionTemplate')
+        : t('workbench.variables.collection.descriptionRule');
 
   const headerTitle = (
     <>
       {scopeBadge('collection', 14)}
       <Typography.Text strong style={{ fontSize: 13 }}>
-        {collection.name} · Variables
+        {t('workbench.variables.collection.title', { name: collection.name })}
       </Typography.Text>
       <PresenceBadge
         entityType={entityType}
@@ -317,12 +328,11 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
         <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: 24 }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-              Variables available to every {scopeNoun} inside this collection. Overridden by environment and vault scopes;
-              overrides the workspace scope. Stored in plain text — use the Vault for secrets.
+              {description}
             </Text>
 
             <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-              VARIABLES ({nonEmptyCount})
+              {t('workbench.variables.variablesCount', { count: nonEmptyCount })}
             </Text>
 
             <VariableTable

@@ -8,6 +8,7 @@
 
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { RefreshPolicy } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 
 export type LiveStatusLevel = 'green' | 'yellow' | 'red' | 'idle';
 
@@ -164,11 +165,11 @@ export interface CircuitDescriptor {
   nextAttemptAt: number | null;
 }
 
-export function describeCircuit(run: LiveWorkflowRunSnapshot | null): CircuitDescriptor {
+export function describeCircuit(run: LiveWorkflowRunSnapshot | null, t: Translate): CircuitDescriptor {
   if (!run?.circuit) {
     return {
-      label: 'idle',
-      hint: 'No cache yet — run a refresh to populate.',
+      label: t('workbench.editors.live.circuit.idleLabel'),
+      hint: t('workbench.editors.live.circuit.idleHint'),
       level: 'idle',
       actionable: true,
       nextAttemptAt: null,
@@ -177,8 +178,8 @@ export function describeCircuit(run: LiveWorkflowRunSnapshot | null): CircuitDes
   const c = run.circuit;
   if (c.state === 'open') {
     return {
-      label: 'paused',
-      hint: `Circuit is open after ${c.consecutiveFailures} consecutive failure${c.consecutiveFailures === 1 ? '' : 's'}. Automatic retry is deferred. Click Retry now to bypass the backoff.`,
+      label: t('workbench.editors.live.circuit.pausedLabel'),
+      hint: t('workbench.editors.live.circuit.pausedHint', { count: c.consecutiveFailures }),
       level: 'red',
       actionable: true,
       nextAttemptAt: c.nextAttemptAt,
@@ -186,8 +187,8 @@ export function describeCircuit(run: LiveWorkflowRunSnapshot | null): CircuitDes
   }
   if (c.state === 'half-open') {
     return {
-      label: 'probing…',
-      hint: 'Probe attempt in flight — a single success closes the circuit.',
+      label: t('workbench.editors.live.circuit.probingLabel'),
+      hint: t('workbench.editors.live.circuit.probingHint'),
       level: 'yellow',
       actionable: false,
       nextAttemptAt: null,
@@ -197,16 +198,16 @@ export function describeCircuit(run: LiveWorkflowRunSnapshot | null): CircuitDes
   if (c.consecutiveFailures > 0) {
     const attempt = c.consecutiveFailures + 1;
     return {
-      label: `retry ${attempt} of 3`,
-      hint: `Pre-breaker retry tier — quick retries with 5–10s backoff between attempts. Circuit opens after 3 consecutive failures.`,
+      label: t('workbench.editors.live.circuit.retryLabel', { attempt }),
+      hint: t('workbench.editors.live.circuit.retryHint'),
       level: 'yellow',
       actionable: true,
       nextAttemptAt: null,
     };
   }
   return {
-    label: 'healthy',
-    hint: 'Circuit closed, no recent failures.',
+    label: t('workbench.editors.live.circuit.healthyLabel'),
+    hint: t('workbench.editors.live.circuit.healthyHint'),
     level: 'green',
     actionable: false,
     nextAttemptAt: null,
@@ -273,22 +274,26 @@ export interface ScheduleChunk {
 export function describeRunSchedule(
   run: LiveWorkflowRunSnapshot,
   policy: RefreshPolicy,
+  t: Translate,
   nowMs: number = Date.now(),
 ): ScheduleChunk[] {
   const chunks: ScheduleChunk[] = [];
   if (run.extractedAt > 0) {
-    chunks.push({ text: `last ${formatRelativeMs(run.extractedAt, nowMs)}`, tone: 'secondary' });
+    chunks.push({
+      text: t('workbench.editors.live.schedule.last', { when: formatRelativeMs(run.extractedAt, nowMs) }),
+      tone: 'secondary',
+    });
   }
   switch (policy.kind) {
     case 'manual':
-      chunks.push({ text: 'manual refresh only', tone: 'secondary' });
+      chunks.push({ text: t('workbench.editors.live.schedule.manualOnly'), tone: 'secondary' });
       break;
     case 'interval':
       // `expiresAt` here is the scheduler's next-tick target, not an
       // actual token expiry. Word it accordingly.
       if (run.expiresAt != null) {
         chunks.push({
-          text: `auto-refresh ${formatRelativeMs(run.expiresAt, nowMs)}`,
+          text: t('workbench.editors.live.schedule.autoRefresh', { when: formatRelativeMs(run.expiresAt, nowMs) }),
           tone: 'secondary',
         });
       }
@@ -301,7 +306,7 @@ export function describeRunSchedule(
       if (run.expiresAt == null) break;
       const expiryTone: 'secondary' | 'warning' = run.expiresAt - nowMs < 0 ? 'warning' : 'secondary';
       chunks.push({
-        text: `expires ${formatRelativeMs(run.expiresAt, nowMs)}`,
+        text: t('workbench.editors.live.schedule.expires', { when: formatRelativeMs(run.expiresAt, nowMs) }),
         tone: expiryTone,
       });
       const leadMs = policy.leadSeconds * 1000;
@@ -311,7 +316,7 @@ export function describeRunSchedule(
         // AND distinct enough from the expiry to matter (> 30s gap).
         if (refreshAt > nowMs && run.expiresAt - refreshAt > 30_000) {
           chunks.push({
-            text: `auto-refresh ${formatRelativeMs(refreshAt, nowMs)}`,
+            text: t('workbench.editors.live.schedule.autoRefresh', { when: formatRelativeMs(refreshAt, nowMs) }),
             tone: 'secondary',
           });
         }
@@ -340,16 +345,22 @@ export function statusColor(level: LiveStatusLevel): string {
  * and the sidebar's per-LV subtitle so the user immediately sees whether
  * a workflow re-runs on its own or only when they click Refresh.
  */
-export function describeRefreshPolicy(policy: RefreshPolicy): string {
+export function describeRefreshPolicy(policy: RefreshPolicy, t: Translate): string {
   switch (policy.kind) {
     case 'interval':
-      return `every ${policy.seconds}s`;
+      return t('workbench.editors.live.policy.interval', { seconds: policy.seconds });
     case 'expires-in':
-      return `expires-in from step.${policy.stepId}.${policy.captureName} (lead ${policy.leadSeconds}s)`;
+      return t('workbench.editors.live.policy.expiresIn', {
+        source: `step.${policy.stepId}.${policy.captureName}`,
+        lead: policy.leadSeconds,
+      });
     case 'expires-at':
-      return `expires-at from step.${policy.stepId}.${policy.captureName} (lead ${policy.leadSeconds}s)`;
+      return t('workbench.editors.live.policy.expiresAt', {
+        source: `step.${policy.stepId}.${policy.captureName}`,
+        lead: policy.leadSeconds,
+      });
     case 'manual':
-      return 'manual refresh';
+      return t('workbench.editors.live.policy.manual');
   }
 }
 
@@ -403,24 +414,24 @@ export function stepRunLevel(state: StepRunState): LiveStatusLevel {
 }
 
 /** Short human label per step state — tooltip vocabulary, one phrase each. */
-export function describeStepRun(state: StepRunState): string {
+export function describeStepRun(state: StepRunState, t: Translate): string {
   switch (state) {
     case 'completed':
-      return 'Completed on last run';
+      return t('workbench.editors.live.stepRun.completed');
     case 'failed':
-      return 'Last run failed at this step';
+      return t('workbench.editors.live.stepRun.failed');
     case 'extract-failed':
-      return 'Fetched, but a capture extractor did not match';
+      return t('workbench.editors.live.stepRun.extractFailed');
     case 'skipped':
-      return 'Skipped by its run condition on last run';
+      return t('workbench.editors.live.stepRun.skipped');
     case 'not-run':
-      return 'Not part of a successful run yet';
+      return t('workbench.editors.live.stepRun.notRun');
   }
 }
 
 /** Mask a string for the default reveal-off display. */
-export function maskValue(value: string): string {
-  if (!value) return '(empty)';
+export function maskValue(value: string, t: Translate): string {
+  if (!value) return t('workbench.editors.live.maskEmpty');
   if (value.length <= 2) return '••';
   return '••••••••';
 }

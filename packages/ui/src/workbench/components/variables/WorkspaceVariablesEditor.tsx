@@ -26,6 +26,7 @@ import {
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
 import type { Variable, WorkspaceVariables } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -66,6 +67,7 @@ function variablesSignature(vars: readonly Variable[]): string {
 const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const { workspaceVariables } = useWorkspaceVariables();
   const { replaceWorkspaceVariables } = useVariableMutator();
 
@@ -208,10 +210,14 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
       // broadcast brings them into alignment automatically.
       conflicts.clearDismissed();
     } else {
-      const detail = 'message' in result && result.message ? `: ${result.message}` : '';
-      message.error(`Failed to save workspace variables${detail}`);
+      const detail = 'message' in result && result.message ? result.message : null;
+      message.error(
+        detail
+          ? t('workbench.variables.workspace.saveFailedDetail', { message: detail })
+          : t('workbench.variables.workspace.saveFailed'),
+      );
     }
-  }, [isDirty, draft, replaceWorkspaceVariables, message, conflicts]);
+  }, [isDirty, draft, replaceWorkspaceVariables, message, conflicts, t]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();
@@ -233,7 +239,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     <>
       {scopeBadge('workspace', 14)}
       <Typography.Text strong style={{ fontSize: 13 }}>
-        Workspace Variables
+        {t('workbench.variables.workspace.title')}
       </Typography.Text>
       <PresenceBadge
         entityType={WORKSPACE_VARIABLES_ENTITY_TYPE}
@@ -257,12 +263,11 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
         <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: 24 }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-              Shared across every environment in this workspace. Lowest priority — overridden by collection,
-              environment, and vault scopes.
+              {t('workbench.variables.workspace.description')}
             </Text>
 
             <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-              VARIABLES ({nonEmptyCount})
+              {t('workbench.variables.variablesCount', { count: nonEmptyCount })}
             </Text>
 
             <VariableTable

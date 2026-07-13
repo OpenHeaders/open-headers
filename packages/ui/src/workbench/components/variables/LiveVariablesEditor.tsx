@@ -31,6 +31,7 @@ import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCa
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { isLiveVariableDraft } from '@openheaders/core/live';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App, Button, Empty, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
@@ -57,6 +58,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const { variables: liveVariables, deleteVariable } = useLiveVariables();
   const { workflows: liveWorkflows, refreshNow } = useLiveWorkflows();
   const { activeEnvironmentId } = useEnvironments();
@@ -77,9 +79,9 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
   const handleDelete = useCallback(
     async (uid: string, name: string) => {
       const ok = await deleteVariable(uid);
-      if (!ok) message.error(`Failed to delete "${name}"`);
+      if (!ok) message.error(t('workbench.variables.live.deleteFailed', { name }));
     },
-    [deleteVariable, message],
+    [deleteVariable, message, t],
   );
 
   const handleRefresh = useCallback(
@@ -93,14 +95,14 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
     <>
       {scopeBadge('live', 20)}
       <Title level={5} style={{ margin: 0 }}>
-        Live Variables
+        {t('workbench.variables.live.title')}
       </Title>
     </>
   );
 
   const headerActions = onCreateLiveVariable ? (
     <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => onCreateLiveVariable()}>
-      New live variable
+      {t('workbench.variables.live.newVariable')}
     </Button>
   ) : null;
 
@@ -110,13 +112,13 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
       <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: 24 }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
           <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-            Each binding maps a name to a capture from a Workflow (a scheduled request chain). Referenced in rules and
-            requests as <code>{'{{live.NAME}}'}</code>.
+            {t('workbench.variables.live.descriptionPrefix')} <code>{'{{live.NAME}}'}</code>
+            {t('workbench.variables.live.descriptionSuffix')}
           </Text>
 
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
             <Text type="secondary" style={{ fontSize: 11, fontWeight: 600 }}>
-              VARIABLES ({liveVariables.length})
+              {t('workbench.variables.variablesCount', { count: liveVariables.length })}
             </Text>
           </div>
 
@@ -138,7 +140,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
               }}
             >
               <div style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, color: token.colorTextSecondary }}>
-                Name
+                {t('workbench.variables.live.headerName')}
               </div>
               <div
                 style={{
@@ -149,7 +151,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                   borderLeft: `1px solid ${token.colorBorderSecondary}`,
                 }}
               >
-                Value
+                {t('workbench.variables.live.headerValue')}
               </div>
               <div
                 style={{
@@ -160,7 +162,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                   borderLeft: `1px solid ${token.colorBorderSecondary}`,
                 }}
               >
-                Workflow
+                {t('workbench.variables.live.headerWorkflow')}
               </div>
               <div style={{ padding: '6px 8px' }} />
             </div>
@@ -169,11 +171,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
               <div style={{ padding: 24 }}>
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description={
-                    <span style={{ fontSize: 12 }}>
-                      No live variables yet. Create one to bind a name to a workflow's captured value.
-                    </span>
-                  }
+                  description={<span style={{ fontSize: 12 }}>{t('workbench.variables.live.empty')}</span>}
                 />
               </div>
             ) : (
@@ -228,10 +226,20 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                         {lv.name}
                       </span>
                       {isLiveVariableDraft(lv) && (
-                        <span style={{ fontSize: 9, color: token.colorTextTertiary }}>draft</span>
+                        <span style={{ fontSize: 9, color: token.colorTextTertiary }}>
+                          {t('workbench.variables.live.draftMarker')}
+                        </span>
                       )}
-                      {!lv.enabled && <span style={{ fontSize: 9, color: token.colorTextTertiary }}>off</span>}
-                      {overrideActive && <span style={{ fontSize: 9, color: token.colorWarning }}>override</span>}
+                      {!lv.enabled && (
+                        <span style={{ fontSize: 9, color: token.colorTextTertiary }}>
+                          {t('workbench.variables.live.offMarker')}
+                        </span>
+                      )}
+                      {overrideActive && (
+                        <span style={{ fontSize: 9, color: token.colorWarning }}>
+                          {t('workbench.variables.live.overrideMarker')}
+                        </span>
+                      )}
                     </div>
 
                     {/* Value cell */}
@@ -258,11 +266,17 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                               flex: 1,
                               minWidth: 0,
                             }}
-                            title={isRevealed ? rawValue : 'Click eye to reveal'}
+                            title={isRevealed ? rawValue : t('workbench.variables.live.clickEyeToReveal')}
                           >
                             {displayValue}
                           </span>
-                          <Tooltip title={isRevealed ? 'Hide value' : 'Show value'}>
+                          <Tooltip
+                            title={
+                              isRevealed
+                                ? t('workbench.variables.live.hideValue')
+                                : t('workbench.variables.live.showValue')
+                            }
+                          >
                             <span
                               role="button"
                               tabIndex={0}
@@ -278,7 +292,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                         </>
                       ) : (
                         <span style={{ fontSize: 11, color: token.colorTextQuaternary, fontStyle: 'italic' }}>
-                          not captured yet
+                          {t('workbench.variables.live.notCapturedYet')}
                         </span>
                       )}
                     </div>
@@ -315,41 +329,41 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                         </Button>
                       ) : (
                         <span style={{ fontSize: 11, color: token.colorTextQuaternary, fontStyle: 'italic' }}>
-                          missing workflow
+                          {t('workbench.variables.live.missingWorkflow')}
                         </span>
                       )}
                     </div>
 
                     {/* Actions cell */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                      <Tooltip title="Refresh workflow now">
+                      <Tooltip title={t('workbench.variables.live.refreshNow')}>
                         <Button
                           type="text"
                           size="small"
                           icon={<ReloadOutlined />}
                           onClick={() => void handleRefresh(lv.workflowUid)}
-                          aria-label={`Refresh ${lv.name}`}
+                          aria-label={t('workbench.variables.live.refreshAria', { name: lv.name })}
                         />
                       </Tooltip>
                       {onEditBinding && (
-                        <Tooltip title="Edit binding (name / enabled / override)">
+                        <Tooltip title={t('workbench.variables.live.editBinding')}>
                           <Button
                             type="text"
                             size="small"
                             icon={<EditOutlined />}
                             onClick={() => onEditBinding(lv.uid, lv.name)}
-                            aria-label={`Edit ${lv.name}`}
+                            aria-label={t('workbench.variables.live.editAria', { name: lv.name })}
                           />
                         </Tooltip>
                       )}
-                      <Tooltip title="Delete">
+                      <Tooltip title={t('workbench.variables.live.delete')}>
                         <Button
                           type="text"
                           size="small"
                           danger
                           icon={<DeleteOutlined />}
                           onClick={() => void handleDelete(lv.uid, lv.name)}
-                          aria-label={`Delete ${lv.name}`}
+                          aria-label={t('workbench.variables.live.deleteAria', { name: lv.name })}
                         />
                       </Tooltip>
                     </div>

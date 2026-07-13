@@ -218,6 +218,16 @@ export const sharedComponents = {
   'shared.valueEditors.valueTitle.authParams': 'Authorization parameters',
   'shared.valueEditors.valueTitle.acceptList': 'Accept list',
 
+  // ── Scope-colors registry (canonical scope labels — badges, rows) ──
+  'shared.scopeColors.vault': 'Vault secret',
+  'shared.scopeColors.environment': 'Environment variable',
+  'shared.scopeColors.collection': 'Collection variable',
+  'shared.scopeColors.workspace': 'Workspace variable',
+  'shared.scopeColors.live': 'Live variable (workflow-backed)',
+  'shared.scopeColors.step': 'Workflow step capture',
+  'shared.scopeColors.file': 'File reference',
+  'shared.scopeColors.dynamic': 'Dynamic generator',
+
   // ── Value editors: in-field edit tooltips ──────────────────────────
   'shared.valueEditors.editTooltip.jwt': 'Edit as JWT',
   'shared.valueEditors.editTooltip.urlEncoded': 'Edit URL-encoded value',

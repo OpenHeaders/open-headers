@@ -22,6 +22,7 @@ import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnviron
 import { useEnvironmentMutator } from '@openheaders/ui/shared/hooks/mutators/useEnvironmentMutator';
 import { canonicalJsonPretty, ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Environment, Variable } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -67,6 +68,7 @@ function variablesSignature(vars: readonly Variable[]): string {
 const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const { environments, activeEnvironmentId, defaultEnvironmentId, setDefaultEnvironment } = useEnvironments();
   const { pickActiveEnvironment } = useEnvSwitcher();
   const workspaceId = useWorkbenchEditingScopeWorkspaceId();
@@ -243,11 +245,15 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
       // previously-dismissed field surfaces a fresh chip.
       conflicts.clearDismissed();
     } else if (result.reason === 'not-found') {
-      message.error('Environment was deleted from another tab');
+      message.error(t('workbench.variables.environment.deletedElsewhere'));
     } else {
-      message.error(`Failed to update environment${result.message ? `: ${result.message}` : ''}`);
+      message.error(
+        result.message
+          ? t('workbench.variables.environment.updateFailedDetail', { message: result.message })
+          : t('workbench.variables.environment.updateFailed'),
+      );
     }
-  }, [env, isDirty, draft, mutator, message, conflicts]);
+  }, [env, isDirty, draft, mutator, message, conflicts, t]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();
@@ -265,7 +271,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   if (!env) {
     return (
       <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">Environment not found.</Text>
+        <Text type="secondary">{t('workbench.variables.environment.notFound')}</Text>
       </div>
     );
   }
@@ -286,11 +292,11 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
         excludeInstanceId={localInstanceId}
         style={{ marginLeft: 6 }}
       />
-      {isActive && <Tag color="blue">Active</Tag>}
+      {isActive && <Tag color="blue">{t('workbench.variables.environment.activeTag')}</Tag>}
       {isDefault && (
-        <Tooltip title="Resolver falls back here when the active env is missing a variable.">
+        <Tooltip title={t('workbench.variables.environment.defaultTooltip')}>
           <Tag color="gold" icon={<StarFilled />}>
-            Default
+            {t('workbench.variables.environment.defaultTag')}
           </Tag>
         </Tooltip>
       )}
@@ -301,14 +307,14 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     <>
       {!isActive && (
         <Button size="small" icon={<CheckCircleTwoTone />} onClick={() => pickActiveEnvironment(env.uid)}>
-          Set active
+          {t('workbench.variables.environment.setActive')}
         </Button>
       )}
       <Tooltip
         title={
           isDefault
-            ? 'Unset as default — resolver will stop falling back to this env.'
-            : 'Set as default — resolver falls back here when the active env is missing a variable.'
+            ? t('workbench.variables.environment.unsetDefaultTooltip')
+            : t('workbench.variables.environment.setDefaultTooltip')
         }
       >
         <Button
@@ -316,7 +322,9 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
           icon={isDefault ? <StarFilled style={{ color: token.colorWarning }} /> : <StarOutlined />}
           onClick={() => void setDefaultEnvironment(isDefault ? null : env.uid)}
         >
-          {isDefault ? 'Unset default' : 'Set as default'}
+          {isDefault
+            ? t('workbench.variables.environment.unsetDefault')
+            : t('workbench.variables.environment.setDefault')}
         </Button>
       </Tooltip>
     </>
@@ -335,7 +343,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
         <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: 24 }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-              VARIABLES ({nonEmptyCount})
+              {t('workbench.variables.variablesCount', { count: nonEmptyCount })}
             </Text>
 
             <VariableTable

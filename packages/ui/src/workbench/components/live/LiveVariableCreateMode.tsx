@@ -8,6 +8,7 @@
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell } from '@openheaders/ui/shared/editor-shell';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
@@ -41,6 +42,7 @@ const LiveVariableCreateMode: React.FC<CreateProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const { workflows } = useLiveWorkflows();
   const { createVariable } = useLiveVariables();
 
@@ -58,11 +60,11 @@ const LiveVariableCreateMode: React.FC<CreateProps> = ({
   const handleSave = useCallback(async () => {
     const name = draft.name.trim();
     if (!name) {
-      message.error('Name is required');
+      message.error(t('workbench.editors.live.create.nameRequired'));
       return;
     }
     if (!draft.workflowUid || !draft.stepId || !draft.captureName) {
-      message.error('Select a workflow, step, and capture');
+      message.error(t('workbench.editors.live.create.bindingRequired'));
       return;
     }
     const lv = await createVariable({
@@ -75,11 +77,11 @@ const LiveVariableCreateMode: React.FC<CreateProps> = ({
       enabled: draft.enabled,
     });
     if (!lv) {
-      message.error('Failed to create live variable');
+      message.error(t('workbench.editors.live.create.createFailed'));
       return;
     }
     onCreated(lv);
-  }, [draft, createVariable, message, onCreated]);
+  }, [draft, createVariable, message, onCreated, t]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
 
@@ -101,7 +103,7 @@ const LiveVariableCreateMode: React.FC<CreateProps> = ({
     <>
       <ThunderboltOutlined style={{ fontSize: 14, color: token.colorPrimary }} />
       <Title level={5} style={{ margin: 0 }}>
-        New Live Variable
+        {t('workbench.editors.live.create.title')}
       </Title>
     </>
   );
@@ -118,15 +120,14 @@ const LiveVariableCreateMode: React.FC<CreateProps> = ({
               description={draft.description}
               onChangeName={(name) => setDraft({ ...draft, name })}
               onChangeDescription={(description) => setDraft({ ...draft, description })}
-              namePlaceholder="Name (e.g. accessToken)"
+              namePlaceholder={t('workbench.editors.live.create.namePlaceholder')}
             />
             <Text type="secondary" style={{ fontSize: 10, marginTop: -4 }}>
-              Reference as {'{{'}live.{draft.name.trim() || 'NAME'}
-              {'}}'}
+              {t('workbench.editors.live.create.referenceAs', { name: draft.name.trim() || 'NAME' })}
             </Text>
 
-            <Section title="Binding">
-              <FieldRow label="Workflow">
+            <Section title={t('workbench.editors.live.variable.bindingSection')}>
+              <FieldRow label={t('workbench.editors.live.variable.workflowLabel')}>
                 {workflows.length === 0 && onCreateWorkflow ? (
                   // No workflow to bind to yet — make the empty state
                   // actionable instead of pointing at the sidebar. A live
@@ -139,7 +140,7 @@ const LiveVariableCreateMode: React.FC<CreateProps> = ({
                     style={{ width: '100%' }}
                     onClick={onCreateWorkflow}
                   >
-                    Create a workflow
+                    {t('workbench.editors.live.create.createWorkflow')}
                   </Button>
                 ) : (
                   <Select
@@ -147,33 +148,33 @@ const LiveVariableCreateMode: React.FC<CreateProps> = ({
                     style={{ width: '100%' }}
                     showSearch
                     optionFilterProp="label"
-                    placeholder="Select a workflow"
+                    placeholder={t('workbench.editors.live.variable.selectWorkflow')}
                     value={draft.workflowUid || undefined}
                     onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
                     options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
-                    notFoundContent={<Text type="secondary">No workflows yet.</Text>}
+                    notFoundContent={<Text type="secondary">{t('workbench.editors.live.create.noWorkflows')}</Text>}
                   />
                 )}
               </FieldRow>
-              <FieldRow label="Step">
+              <FieldRow label={t('workbench.editors.live.variable.stepLabel')}>
                 <Select
                   size="small"
                   style={{ width: '100%' }}
-                  placeholder="Select a step"
+                  placeholder={t('workbench.editors.live.variable.selectStep')}
                   disabled={!selectedWorkflow}
                   value={draft.stepId || undefined}
                   onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
                   options={selectedSteps.map((s) => ({
                     value: s.id,
-                    label: `${s.id} (${s.captures.length} captures)`,
+                    label: t('workbench.editors.live.variable.stepOption', { id: s.id, count: s.captures.length }),
                   }))}
                 />
               </FieldRow>
-              <FieldRow label="Capture">
+              <FieldRow label={t('workbench.editors.live.variable.captureLabel')}>
                 <Select
                   size="small"
                   style={{ width: '100%' }}
-                  placeholder="Select a capture"
+                  placeholder={t('workbench.editors.live.variable.selectCapture')}
                   disabled={!selectedStep}
                   value={draft.captureName || undefined}
                   onChange={(captureName) => setDraft({ ...draft, captureName })}

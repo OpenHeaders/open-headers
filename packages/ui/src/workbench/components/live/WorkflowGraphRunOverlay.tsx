@@ -14,6 +14,7 @@
  */
 
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -36,6 +37,7 @@ interface StepRunDotProps {
 
 export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMessage, captures, responseBytes }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const level = stepRunLevel(state);
   const hollow = state === 'skipped' || state === 'not-run';
   const hollowBorder = state === 'skipped' ? token.colorWarning : token.colorTextQuaternary;
@@ -62,7 +64,7 @@ export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMess
   );
 
   if (!hasValues) {
-    const hint = errorMessage ? `${describeStepRun(state)}: ${errorMessage}` : describeStepRun(state);
+    const hint = errorMessage ? `${describeStepRun(state, t)}: ${errorMessage}` : describeStepRun(state, t);
     return <Tooltip title={hint}>{dot}</Tooltip>;
   }
   return (
@@ -78,7 +80,7 @@ export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMess
         />
       }
     >
-      <Tooltip title={describeStepRun(state)}>{dot}</Tooltip>
+      <Tooltip title={describeStepRun(state, t)}>{dot}</Tooltip>
     </Popover>
   );
 };
@@ -99,6 +101,7 @@ const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({
   responseBytes,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   // Masked by default — capture sets can hold access tokens. One
   // explicit toggle per popover, matching the LV editor's reveal idiom.
   const [reveal, setReveal] = useState(false);
@@ -106,7 +109,7 @@ const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({
     <div data-testid={`wf-graph-run-pop-${stepId}`} style={{ maxWidth: 360, fontSize: 11 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         <Text type="secondary" style={{ fontSize: 11, flex: 1 }}>
-          {describeStepRun(state)}
+          {describeStepRun(state, t)}
         </Text>
         <Button
           size="small"
@@ -137,7 +140,7 @@ const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({
               color: token.colorTextSecondary,
             }}
           >
-            {reveal ? value : maskValue(value)}
+            {reveal ? value : maskValue(value, t)}
           </Text>
         </div>
       ))}

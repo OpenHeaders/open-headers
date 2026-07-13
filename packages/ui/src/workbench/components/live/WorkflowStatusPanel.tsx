@@ -26,6 +26,7 @@ import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCa
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { hostBridge, type LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { RefreshPolicy } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App, Badge, Button, Empty, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -296,8 +297,9 @@ interface RowProps {
 
 const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, onResetCircuit, onOpenWorkflow }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const level = classifyRun(row.run);
-  const descriptor = describeCircuit(row.run);
+  const descriptor = describeCircuit(row.run, t);
   const c = row.run.circuit;
 
   const statePillColor = (): 'success' | 'warning' | 'error' | 'default' => {
@@ -390,7 +392,7 @@ const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, on
             </Text>
           </Tooltip>
         )}
-        {describeRunSchedule(row.run, row.refreshPolicy).map((chunk) => (
+        {describeRunSchedule(row.run, row.refreshPolicy, t).map((chunk) => (
           <Text key={chunk.text} type={chunk.tone} style={{ fontSize: 11 }}>
             {chunk.text}
           </Text>

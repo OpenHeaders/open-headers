@@ -14,6 +14,7 @@
  * Environment / Collection-vars editors keep their own tabular layout.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Input, Typography, theme } from 'antd';
 import type React from 'react';
 
@@ -125,14 +126,15 @@ interface InlineDescriptionProps {
 export const InlineDescription: React.FC<InlineDescriptionProps> = ({
   description,
   onChangeDescription,
-  descriptionPlaceholder = 'Description (optional)',
+  descriptionPlaceholder,
 }) => {
+  const t = useT();
   return (
     <Input.TextArea
       size="small"
       style={{ flex: 1, width: '100%' }}
       autoSize={{ minRows: 1, maxRows: 3 }}
-      placeholder={descriptionPlaceholder}
+      placeholder={descriptionPlaceholder ?? t('workbench.editors.live.form.descriptionPlaceholder')}
       value={description}
       onChange={(e) => onChangeDescription(e.target.value)}
     />
@@ -164,16 +166,17 @@ export const InlineNameDescription: React.FC<InlineNameDescriptionProps> = ({
   description,
   onChangeName,
   onChangeDescription,
-  namePlaceholder = 'Name',
-  descriptionPlaceholder = 'Description (optional)',
+  namePlaceholder,
+  descriptionPlaceholder,
   nameWidth = 200,
 }) => {
+  const t = useT();
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
       <Input
         size="small"
         style={{ width: nameWidth, flexShrink: 0 }}
-        placeholder={namePlaceholder}
+        placeholder={namePlaceholder ?? t('workbench.editors.live.form.namePlaceholder')}
         value={name}
         onChange={(e) => onChangeName(e.target.value)}
       />

@@ -31,6 +31,7 @@ import type { DragEndEvent, Modifier } from '@dnd-kit/core';
 import { DndContext } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Variable, VaultSecret } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -88,6 +89,7 @@ const restrictVertical: Modifier = ({ transform }) => ({ ...transform, x: 0 });
 
 const VariableTable: React.FC<VariableTableProps> = (props) => {
   const { token } = theme.useToken();
+  const t = useT();
 
   // Hoist the mode + raw source out so every downstream useEffect /
   // useCallback closes over a single shape, sidestepping the
@@ -240,7 +242,9 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
   );
 
   const allowSecrets = !isVaultMode && (props.allowSecrets ?? true);
-  const nameHeader = isVaultMode ? 'Secret' : 'Variable';
+  const nameHeader = isVaultMode
+    ? t('workbench.variables.table.headerSecret')
+    : t('workbench.variables.table.headerVariable');
   const mode: 'variable' | 'vault' = isVaultMode ? 'vault' : 'variable';
   const rowPath = isVaultMode ? undefined : props.rowPath;
   const conflictBridge = props.conflictBridge;
@@ -282,7 +286,7 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
             borderLeft: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
-          Value
+          {t('workbench.variables.table.headerValue')}
         </div>
         <div style={{ padding: '6px 8px' }} />
       </div>

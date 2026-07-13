@@ -9,6 +9,7 @@
 
 import { initialCircuitSnapshot } from '@openheaders/core/live';
 import type { RefreshPolicy } from '@openheaders/core/types';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   classifyStepRun,
   describeRunSchedule,
@@ -20,6 +21,8 @@ import {
 } from '@openheaders/ui/workbench/components/live/live-display';
 import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 function makeRun(overrides: Partial<LiveWorkflowRunSnapshot> = {}): LiveWorkflowRunSnapshot {
   return {
@@ -127,7 +130,7 @@ describe('describeRunSchedule', () => {
   it('interval policy — says "auto-refresh" instead of "expires"', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 240_000 });
     const policy: RefreshPolicy = { kind: 'interval', seconds: 300 };
-    const chunks = describeRunSchedule(run, policy, NOW);
+    const chunks = describeRunSchedule(run, policy, t, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels).toContain('last 1m ago');
     expect(labels.some((l) => l.startsWith('auto-refresh'))).toBe(true);
@@ -144,7 +147,7 @@ describe('describeRunSchedule', () => {
       captureName: 'expires_in',
       leadSeconds: 60,
     };
-    const chunks = describeRunSchedule(run, policy, NOW);
+    const chunks = describeRunSchedule(run, policy, t, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels.some((l) => l.startsWith('expires'))).toBe(true);
     // leadSeconds is 60s and the gap (600s) is large enough to
@@ -160,7 +163,7 @@ describe('describeRunSchedule', () => {
       captureName: 'expires_in',
       leadSeconds: 10, // gap between expiry and refresh is only 10s
     };
-    const chunks = describeRunSchedule(run, policy, NOW);
+    const chunks = describeRunSchedule(run, policy, t, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels.some((l) => l.startsWith('expires'))).toBe(true);
     // Two nearly-identical timestamps would be noise; only expiry shown.
@@ -175,7 +178,7 @@ describe('describeRunSchedule', () => {
       captureName: 'exp',
       leadSeconds: 30,
     };
-    const chunks = describeRunSchedule(run, policy, NOW);
+    const chunks = describeRunSchedule(run, policy, t, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels.some((l) => l.startsWith('expires'))).toBe(true);
   });
@@ -183,7 +186,7 @@ describe('describeRunSchedule', () => {
   it('manual policy — says "manual refresh only"', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: null });
     const policy: RefreshPolicy = { kind: 'manual' };
-    const chunks = describeRunSchedule(run, policy, NOW);
+    const chunks = describeRunSchedule(run, policy, t, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels).toEqual(['last 1m ago', 'manual refresh only']);
   });
@@ -196,7 +199,7 @@ describe('describeRunSchedule', () => {
       captureName: 'expires_in',
       leadSeconds: 60,
     };
-    const chunks = describeRunSchedule(run, policy, NOW);
+    const chunks = describeRunSchedule(run, policy, t, NOW);
     const expiresChunk = chunks.find((c) => c.text.startsWith('expires'));
     expect(expiresChunk).toBeDefined();
     expect(expiresChunk?.tone).toBe('warning');
@@ -205,7 +208,7 @@ describe('describeRunSchedule', () => {
   it('omits the "last ..." chunk when the cache has never been populated', () => {
     const run = makeRun({ extractedAt: 0, expiresAt: null });
     const policy: RefreshPolicy = { kind: 'interval', seconds: 300 };
-    const chunks = describeRunSchedule(run, policy, NOW);
+    const chunks = describeRunSchedule(run, policy, t, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels.some((l) => l.startsWith('last'))).toBe(false);
   });

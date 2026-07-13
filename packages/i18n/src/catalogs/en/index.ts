@@ -11,7 +11,9 @@ import { shared } from './shared';
 import { sharedComponents } from './shared-components';
 import { workbench } from './workbench';
 import { workbenchEditors } from './workbench-editors';
+import { workbenchLive } from './workbench-live';
 import { workbenchSettings } from './workbench-settings';
+import { workbenchVariables } from './workbench-variables';
 
 export const en = {
   ...shared,
@@ -19,7 +21,9 @@ export const en = {
   ...popup,
   ...workbench,
   ...workbenchEditors,
+  ...workbenchLive,
   ...workbenchSettings,
+  ...workbenchVariables,
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof en;

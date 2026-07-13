@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
@@ -61,6 +62,7 @@ type CSSWithTextSecurity = React.CSSProperties & {
 };
 
 function ValueCell({ value, masked, onChange, onReveal, placeholder }: ValueCellProps) {
+  const t = useT();
   const handleFocus = useCallback(() => {
     if (masked) onReveal?.();
   }, [masked, onReveal]);
@@ -82,7 +84,7 @@ function ValueCell({ value, masked, onChange, onReveal, placeholder }: ValueCell
   return (
     <Input.TextArea
       value={value}
-      placeholder={placeholder ?? 'Value'}
+      placeholder={placeholder ?? t('workbench.variables.table.valuePlaceholder')}
       variant="borderless"
       autoSize={{ minRows: 1, maxRows: 4 }}
       onChange={(e) => onChange(e.target.value)}
@@ -126,6 +128,7 @@ export function SortableRow({
   toggleSeedReveal,
 }: SortableRowProps) {
   const { token } = theme.useToken();
+  const t = useT();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: row.uid,
     disabled: row.isPlaceholder,
@@ -188,7 +191,13 @@ export function SortableRow({
           const nameInput = (
             <input
               value={row.name}
-              placeholder={row.isPlaceholder ? (isVault ? 'Add secret…' : 'Add variable…') : 'Name'}
+              placeholder={
+                row.isPlaceholder
+                  ? isVault
+                    ? t('workbench.variables.table.addSecret')
+                    : t('workbench.variables.table.addVariable')
+                  : t('workbench.variables.table.namePlaceholder')
+              }
               onChange={(e) => update(index, { name: e.target.value, isPlaceholder: false })}
               style={{
                 fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -237,7 +246,13 @@ export function SortableRow({
           />
         )}
         {!isVault && allowSecrets && !row.isPlaceholder && (
-          <Tooltip title={row.isSensitive ? 'Unmark as sensitive' : 'Mark as sensitive'}>
+          <Tooltip
+            title={
+              row.isSensitive
+                ? t('workbench.variables.table.unmarkSensitive')
+                : t('workbench.variables.table.markSensitive')
+            }
+          >
             {row.isSensitive ? (
               <SecurityScanTwoTone
                 twoToneColor={token.colorPrimary}
@@ -274,9 +289,9 @@ export function SortableRow({
               value={row.kind}
               onChange={(v) => update(index, { kind: v as RowKind })}
               options={[
-                { value: 'string', label: 'Text' },
-                { value: 'totp', label: 'TOTP' },
-                { value: 'client-certificate', label: 'Certificate' },
+                { value: 'string', label: t('workbench.variables.table.kindText') },
+                { value: 'totp', label: t('workbench.variables.table.kindTotp') },
+                { value: 'client-certificate', label: t('workbench.variables.table.kindCertificate') },
               ]}
               style={{ width: 96, flexShrink: 0 }}
               disabled={row.isPlaceholder}
@@ -289,7 +304,7 @@ export function SortableRow({
                 <ValueCell
                   value={row.cert}
                   masked={!isRevealed}
-                  placeholder="Certificate (PEM)"
+                  placeholder={t('workbench.variables.table.certPlaceholder')}
                   onChange={(v) => update(index, { cert: v })}
                   onReveal={() => {
                     if (!isRevealed) toggleReveal(row.uid);
@@ -298,7 +313,7 @@ export function SortableRow({
                 <ValueCell
                   value={row.certKey}
                   masked={!isRevealed}
-                  placeholder="Private key (PEM)"
+                  placeholder={t('workbench.variables.table.certKeyPlaceholder')}
                   onChange={(v) => update(index, { certKey: v })}
                   onReveal={() => {
                     if (!isRevealed) toggleReveal(row.uid);
@@ -309,12 +324,18 @@ export function SortableRow({
                   type={isRevealed ? 'text' : 'password'}
                   variant="borderless"
                   value={row.passphrase ?? ''}
-                  placeholder="Key passphrase (optional)"
+                  placeholder={t('workbench.variables.table.passphrasePlaceholder')}
                   onChange={(e) => update(index, { passphrase: e.target.value === '' ? undefined : e.target.value })}
                   style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12, padding: '4px 6px' }}
                 />
               </div>
-              <Tooltip title={isRevealed ? 'Hide certificate' : 'Show certificate'}>
+              <Tooltip
+                title={
+                  isRevealed
+                    ? t('workbench.variables.table.hideCertificate')
+                    : t('workbench.variables.table.showCertificate')
+                }
+              >
                 <span
                   role="button"
                   tabIndex={0}
@@ -333,7 +354,7 @@ export function SortableRow({
               <input
                 value={row.seed}
                 type={isSeedRevealed ? 'text' : 'password'}
-                placeholder="Base32 seed"
+                placeholder={t('workbench.variables.table.seedPlaceholder')}
                 onChange={(e) => update(index, { seed: e.target.value.toUpperCase().replace(/\s/g, '') })}
                 style={{
                   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -348,7 +369,11 @@ export function SortableRow({
                   letterSpacing: 1,
                 }}
               />
-              <Tooltip title={isSeedRevealed ? 'Hide seed' : 'Show seed'}>
+              <Tooltip
+                title={
+                  isSeedRevealed ? t('workbench.variables.table.hideSeed') : t('workbench.variables.table.showSeed')
+                }
+              >
                 <span
                   role="button"
                   tabIndex={0}
@@ -399,7 +424,11 @@ export function SortableRow({
                   : valueWrapper;
               })()}
               {row.isSensitive && !row.isPlaceholder && (
-                <Tooltip title={isRevealed ? 'Hide value' : 'Show value'}>
+                <Tooltip
+                  title={
+                    isRevealed ? t('workbench.variables.table.hideValue') : t('workbench.variables.table.showValue')
+                  }
+                >
                   <span
                     role="button"
                     tabIndex={0}
@@ -435,7 +464,18 @@ export function SortableRow({
                 key: 'advanced',
                 label: (
                   <span style={{ fontSize: 10, color: token.colorTextSecondary }}>
-                    {row.algorithm} · {row.digits} digits · {row.period}s{row.issuer ? ` · ${row.issuer}` : ''}
+                    {row.issuer
+                      ? t('workbench.variables.table.totpSummaryIssuer', {
+                          algorithm: row.algorithm,
+                          digits: row.digits,
+                          period: row.period,
+                          issuer: row.issuer,
+                        })
+                      : t('workbench.variables.table.totpSummary', {
+                          algorithm: row.algorithm,
+                          digits: row.digits,
+                          period: row.period,
+                        })}
                   </span>
                 ),
                 children: (
@@ -470,7 +510,7 @@ export function SortableRow({
                     <Input
                       size="small"
                       value={row.issuer ?? ''}
-                      placeholder="Issuer"
+                      placeholder={t('workbench.variables.table.issuerPlaceholder')}
                       onChange={(e) =>
                         update(index, { issuer: e.target.value.trim() === '' ? undefined : e.target.value })
                       }

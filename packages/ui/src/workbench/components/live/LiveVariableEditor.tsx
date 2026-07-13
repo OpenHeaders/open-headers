@@ -32,6 +32,7 @@ import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { EntityConflictBanner, EntityConflictDialog } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import type { LiveVariable } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { App, Button, Input, InputNumber, Select, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -77,6 +78,7 @@ export default LiveVariableEditor;
 const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSaveRef, openWorkflowTab }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const { variables, updateVariable, setOverride } = useLiveVariables();
   const { workflows, refreshNow } = useLiveWorkflows();
   const { activeEnvironmentId } = useEnvironments();
@@ -181,11 +183,11 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
       return;
     }
     if (result.reason === 'not-found') {
-      message.error('Source was deleted from another tab');
+      message.error(t('workbench.editors.live.variable.deletedElsewhere'));
       return;
     }
-    message.error('Failed to save live variable');
-  }, [lv, draft, updateVariable, message, clearDismissed]);
+    message.error(t('workbench.editors.live.variable.saveFailed'));
+  }, [lv, draft, updateVariable, message, clearDismissed, t]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
 
@@ -203,9 +205,12 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     setRefreshing(true);
     const resp = await refreshNow(lv.workflowUid, activeEnvironmentId);
     setRefreshing(false);
-    if (!resp.success) message.error(`Refresh failed: ${resp.error ?? 'unknown error'}`);
-    else message.success('Refreshed');
-  }, [lv, refreshNow, activeEnvironmentId, message]);
+    if (!resp.success) {
+      message.error(t('workbench.editors.live.variable.refreshFailed', { error: resp.error ?? 'unknown error' }));
+    } else {
+      message.success(t('workbench.editors.live.variable.refreshed'));
+    }
+  }, [lv, refreshNow, activeEnvironmentId, message, t]);
 
   const handleSetOverride = useCallback(
     async (override: { value: string; until: number | null } | null) => {
@@ -213,18 +218,22 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
       const payload = override ? { value: override.value, until: override.until ?? undefined } : null;
       const resp = await setOverride(lv.uid, payload);
       if (!resp.success) {
-        message.error('Override save failed.');
+        message.error(t('workbench.editors.live.variable.overrideSaveFailed'));
         return;
       }
-      message.success(override ? 'Override applied' : 'Override cleared');
+      message.success(
+        override
+          ? t('workbench.editors.live.variable.overrideApplied')
+          : t('workbench.editors.live.variable.overrideCleared'),
+      );
     },
-    [lv, setOverride, message],
+    [lv, setOverride, message, t],
   );
 
   if (!lv) {
     return (
       <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">Source not found.</Text>
+        <Text type="secondary">{t('workbench.editors.live.variable.sourceNotFound')}</Text>
       </div>
     );
   }
@@ -253,12 +262,12 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
         {`{{live.${lv.name}}}`}
       </Title>
       <Tag color="purple" style={{ marginInlineEnd: 0 }}>
-        Live
+        {t('workbench.editors.live.variable.liveTag')}
       </Tag>
-      {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>Disabled</Tag>}
+      {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>{t('workbench.editors.live.variable.disabledTag')}</Tag>}
       {lv.manualOverride && (
         <Tag color="orange" style={{ marginInlineEnd: 0 }}>
-          override
+          {t('workbench.editors.live.variable.overrideTag')}
         </Tag>
       )}
     </>
@@ -266,7 +275,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
 
   const editHeaderActions = (
     <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
-      Refresh
+      {t('workbench.editors.live.variable.refresh')}
     </Button>
   );
 
@@ -301,7 +310,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
             }}
           >
             <Text type="secondary" style={{ fontSize: 11 }}>
-              Value
+              {t('workbench.editors.live.variable.valueLabel')}
             </Text>
             <Text
               style={{
@@ -312,7 +321,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
               }}
             >
               {liveValue === null ? (
-                <Text type="secondary">(never refreshed)</Text>
+                <Text type="secondary">{t('workbench.editors.live.variable.neverRefreshed')}</Text>
               ) : revealValue ? (
                 liveValue
               ) : (
@@ -329,10 +338,13 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
             )}
             <div style={{ flex: 1 }} />
             <Text type="secondary" style={{ fontSize: 11 }}>
-              last {run ? formatRelativeMs(run.extractedAt) : 'never'}
+              {t('workbench.editors.live.schedule.last', { when: run ? formatRelativeMs(run.extractedAt) : 'never' })}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              · expires {run?.expiresAt ? formatRelativeMs(run.expiresAt) : '—'}
+              ·{' '}
+              {t('workbench.editors.live.schedule.expires', {
+                when: run?.expiresAt ? formatRelativeMs(run.expiresAt) : '—',
+              })}
             </Text>
             {run?.lastErrorMessage && (
               <Text type="danger" style={{ fontSize: 11 }}>
@@ -344,18 +356,18 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <FieldRow
-              label="Name"
+              label={t('workbench.editors.live.variable.nameLabel')}
               fieldPath={LIVE_VARIABLE_FIELD.name}
-              hint={
-                <>
-                  Reference as {'{{'}live.NAME{'}}'}
-                </>
-              }
+              hint={t('workbench.editors.live.variable.nameHint')}
             >
               <Input size="small" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
             </FieldRow>
 
-            <FieldRow label="Description" center={false} fieldPath={LIVE_VARIABLE_FIELD.description}>
+            <FieldRow
+              label={t('workbench.editors.live.variable.descriptionLabel')}
+              center={false}
+              fieldPath={LIVE_VARIABLE_FIELD.description}
+            >
               <Input.TextArea
                 size="small"
                 autoSize={{ minRows: 1, maxRows: 3 }}
@@ -367,11 +379,11 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
             <Section
               title={
                 <>
-                  <span style={{ flex: 1 }}>Binding</span>
+                  <span style={{ flex: 1 }}>{t('workbench.editors.live.variable.bindingSection')}</span>
                   {workflow && (
                     <>
                       <Text type="secondary" style={{ fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>
-                        {describeRefreshPolicy(workflow.refresh)}
+                        {describeRefreshPolicy(workflow.refresh, t)}
                       </Text>
                       {openWorkflowTab && (
                         <Button
@@ -380,7 +392,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                           style={{ padding: 0, fontSize: 11, height: 'auto' }}
                           onClick={() => openWorkflowTab(workflow.uid, workflow.name)}
                         >
-                          Open flow
+                          {t('workbench.editors.live.variable.openFlow')}
                         </Button>
                       )}
                     </>
@@ -388,17 +400,20 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                 </>
               }
             >
-              <FieldRow label="Workflow" fieldPath={LIVE_VARIABLE_FIELD.workflowUid}>
+              <FieldRow
+                label={t('workbench.editors.live.variable.workflowLabel')}
+                fieldPath={LIVE_VARIABLE_FIELD.workflowUid}
+              >
                 <Select
                   size="small"
                   style={{ width: '100%' }}
                   value={draft.workflowUid || undefined}
                   onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
                   options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
-                  placeholder="Select a workflow"
+                  placeholder={t('workbench.editors.live.variable.selectWorkflow')}
                 />
               </FieldRow>
-              <FieldRow label="Step" fieldPath={LIVE_VARIABLE_FIELD.stepId}>
+              <FieldRow label={t('workbench.editors.live.variable.stepLabel')} fieldPath={LIVE_VARIABLE_FIELD.stepId}>
                 <Select
                   size="small"
                   style={{ width: '100%' }}
@@ -406,13 +421,16 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                   onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
                   options={(selectedWorkflow?.steps ?? []).map((s) => ({
                     value: s.id,
-                    label: `${s.id} (${s.captures.length} captures)`,
+                    label: t('workbench.editors.live.variable.stepOption', { id: s.id, count: s.captures.length }),
                   }))}
-                  placeholder="Select a step"
+                  placeholder={t('workbench.editors.live.variable.selectStep')}
                   disabled={!selectedWorkflow}
                 />
               </FieldRow>
-              <FieldRow label="Capture" fieldPath={LIVE_VARIABLE_FIELD.captureName}>
+              <FieldRow
+                label={t('workbench.editors.live.variable.captureLabel')}
+                fieldPath={LIVE_VARIABLE_FIELD.captureName}
+              >
                 <Select
                   size="small"
                   style={{ width: '100%' }}
@@ -422,16 +440,19 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                     value: c.name,
                     label: `${c.name} — ${c.extractor.kind}`,
                   }))}
-                  placeholder="Select a capture"
+                  placeholder={t('workbench.editors.live.variable.selectCapture')}
                   disabled={!selectedStep}
                 />
               </FieldRow>
             </Section>
 
-            <Section title="Manual override">
+            <Section title={t('workbench.editors.live.variable.overrideSection')}>
               {draft.manualOverride ? (
                 <>
-                  <FieldRow label="Value" fieldPath={LIVE_VARIABLE_FIELD.manualOverrideValue}>
+                  <FieldRow
+                    label={t('workbench.editors.live.variable.valueLabel')}
+                    fieldPath={LIVE_VARIABLE_FIELD.manualOverrideValue}
+                  >
                     <Input
                       size="small"
                       value={draft.manualOverride.value}
@@ -441,13 +462,13 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                           manualOverride: { ...draft.manualOverride!, value: e.target.value },
                         })
                       }
-                      placeholder="Fixed override value"
+                      placeholder={t('workbench.editors.live.variable.overrideValuePlaceholder')}
                     />
                   </FieldRow>
                   <FieldRow
-                    label="Expires (ms)"
+                    label={t('workbench.editors.live.variable.overrideExpiresLabel')}
                     fieldPath={LIVE_VARIABLE_FIELD.manualOverrideUntil}
-                    hint="Wall-clock epoch ms — leave blank for permanent override"
+                    hint={t('workbench.editors.live.variable.overrideExpiresHint')}
                   >
                     <InputNumber
                       size="small"
@@ -466,7 +487,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                   </FieldRow>
                   <div style={{ paddingLeft: LIVE_ROW_LABEL_WIDTH + LIVE_ROW_GAP, display: 'flex', gap: 8 }}>
                     <Button size="small" onClick={() => void handleSetOverride(draft.manualOverride)}>
-                      Apply override
+                      {t('workbench.editors.live.variable.applyOverride')}
                     </Button>
                     <Button
                       size="small"
@@ -476,10 +497,10 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                         void handleSetOverride(null);
                       }}
                     >
-                      Clear
+                      {t('workbench.editors.live.variable.clearOverride')}
                     </Button>
                     <Text type="secondary" style={{ fontSize: 11, alignSelf: 'center' }}>
-                      Resolver serves the pinned value; scheduler still refreshes the underlying workflow.
+                      {t('workbench.editors.live.variable.overrideNote')}
                     </Text>
                   </div>
                 </>
@@ -489,7 +510,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                     size="small"
                     onClick={() => setDraft({ ...draft, manualOverride: { value: '', until: null } })}
                   >
-                    Set manual override
+                    {t('workbench.editors.live.variable.setOverride')}
                   </Button>
                 </div>
               )}

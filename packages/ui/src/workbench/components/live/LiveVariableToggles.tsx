@@ -14,15 +14,12 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_VARIABLE_FIELD } from '@openheaders/ui/shared/awareness';
 import { Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 
 const { Text } = Typography;
-
-const ENABLED_TOOLTIP = 'When off, {{live.NAME}} references stop resolving in rules and requests.';
-const FRESH_TOOLTIP =
-  'Before applying rules, wait for the backing workflow to finish a refresh (up to ~5s). Off: rules use the last cached value and refresh in the background — faster but can be briefly stale after the extension wakes.';
 
 interface LiveVariableTogglesProps {
   enabled: boolean;
@@ -40,6 +37,7 @@ const LiveVariableToggles: React.FC<LiveVariableTogglesProps> = ({
   marginTop = 4,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <div
       style={{
@@ -54,8 +52,8 @@ const LiveVariableToggles: React.FC<LiveVariableTogglesProps> = ({
     >
       <div data-field-path={LIVE_VARIABLE_FIELD.enabled} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <Switch size="small" checked={enabled} onChange={onChangeEnabled} />
-        <Text style={{ fontSize: 12 }}>Enabled</Text>
-        <Tooltip title={ENABLED_TOOLTIP}>
+        <Text style={{ fontSize: 12 }}>{t('workbench.editors.live.toggles.enabled')}</Text>
+        <Tooltip title={t('workbench.editors.live.toggles.enabledTooltip')}>
           <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
         </Tooltip>
       </div>
@@ -65,9 +63,9 @@ const LiveVariableToggles: React.FC<LiveVariableTogglesProps> = ({
       >
         <Switch size="small" checked={requireFreshOnRuleBuild} onChange={onChangeRequireFresh} />
         <Text type="secondary" style={{ fontSize: 12 }}>
-          Wait for fresh value
+          {t('workbench.editors.live.toggles.waitForFresh')}
         </Text>
-        <Tooltip title={FRESH_TOOLTIP}>
+        <Tooltip title={t('workbench.editors.live.toggles.waitForFreshTooltip')}>
           <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
         </Tooltip>
       </div>
