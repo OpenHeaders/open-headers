@@ -493,6 +493,97 @@ test('an in-tab import syncs up the wire — the daemon sees the imported reques
     .toBe(true);
 });
 
+test('a desktop-side import lands in the daemon stores and down-syncs into the joined tab', async () => {
+  // The reverse direction of the round-trip leg above: the workbench
+  // bridge drives the daemon spine's own `importWorkspace` with an
+  // entity-carrying envelope. The entity must materialize in the
+  // daemon's stores (its MCP view) AND reach the joined tab's oracle.
+  // The foreign-workspace envelope re-mints uids (`new-uid` strategy),
+  // so both polls adopt the landed uid by NAME — never the envelope's.
+  const imported = await workbench.evaluate(async () => {
+    const bridge = (window as unknown as { oh: { invoke(msg: Record<string, unknown>): Promise<unknown> } }).oh;
+    return (await bridge.invoke({
+      type: 'importWorkspace',
+      incoming: {
+        schemaVersion: 5,
+        kind: 'workspace-export',
+        exportFormatVersion: 1,
+        exportId: 'e2e0dsk1',
+        exportedAt: '2026-07-13T00:00:00.000Z',
+        source: { app: 'desktop', appVersion: '0.0.0', platform: 'electron', workspaceLabel: 'Settings Web Rig' },
+        scope: 'workspace',
+        workspace: { uid: '01905000-0000-7000-8000-00000000e2e2', name: 'Settings Web Rig' },
+        entities: {
+          collections: [],
+          folders: [],
+          rules: [],
+          requests: [],
+          templates: [],
+          environments: [
+            {
+              schemaVersion: 5,
+              uid: 'e2edske1',
+              name: 'desktop: imported env',
+              variables: [{ uid: 'e2edskv1', name: 'DESKTOP_IMPORTED', value: 'yes', type: 'default' }],
+            },
+          ],
+          workspaceVars: { schemaVersion: 5, variables: [] },
+          liveWorkflows: [],
+          liveVariables: [],
+        },
+        meta: {
+          redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
+          counts: {
+            rules: 0,
+            requests: 0,
+            environments: 1,
+            liveWorkflows: 0,
+            liveVariables: 0,
+            templates: 0,
+            secrets: 0,
+          },
+        },
+      },
+      strategies: {},
+      target: { mode: 'current' },
+      sourceHash: 'sha256:settings-web-desktop-import',
+    })) as { success: boolean; error?: string };
+  });
+  expect(imported.success, imported.error).toBe(true);
+
+  // The daemon's own MCP view is the materialization authority.
+  await expect
+    .poll(
+      async () => {
+        const payload = await callTool('environments_list', {});
+        const environments = payload.environments as Array<{ uid: string; name: string }>;
+        return environments.some((e) => e.name === 'desktop: imported env');
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+
+  // Down-sync: the joined tab's oracle receives the same entity.
+  await expect
+    .poll(
+      async () => {
+        const snapshot = await page.evaluate(async () => {
+          const bridge = (window as unknown as { oh: { invoke(m: Record<string, unknown>): Promise<unknown> } }).oh;
+          const active = (await bridge.invoke({ type: 'getActiveWorkspaceId' })) as {
+            activeWorkspaceId: string | null;
+          };
+          return (await bridge.invoke({
+            type: 'oh.sync.snapshotEnvironments',
+            workspaceId: active.activeWorkspaceId,
+          })) as { entries: Array<{ environment: { name: string } }> };
+        });
+        return (snapshot.entries ?? []).some((e) => e.environment?.name === 'desktop: imported env');
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+});
+
 test('the cipher-less tab refuses a vault-inclusive export honestly', async () => {
   const exported = await invokeTab<{ success: boolean; error?: string }>({
     type: 'exportWorkspace',
