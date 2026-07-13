@@ -114,9 +114,12 @@ export const DaemonAdminSchema = v.object({
  * (or re-roles) / removes at login, stamped with the logging-in user as
  * the actor and the affected workspace.
  *
- * `daemon.seat-admit` is the seat gate's deny stamp (LICENSING_PLAN.md
- * §4) — one row per directory-user admission refused at the seat
- * limit. `daemon.license-install` / `daemon.license-remove` are the
+ * `daemon.seat-admit` is the seat gate's stamp (LICENSING_PLAN.md §4)
+ * — a deny row per directory-user admission refused at the seat limit
+ * (including the personal-seat refusal reasons), and an allow row when
+ * a personal-seat license admits past it (the exceptional admission is
+ * the forensic event; pool admissions under the limit stay unstamped).
+ * `daemon.license-install` / `daemon.license-remove` are the
  * license slot's lifecycle stamps; `daemon.license-refresh` is the
  * refresh agent's automatic-renewal stamp, distinct so operator
  * installs and self-serve renewals stay tellable apart. All four are
@@ -145,6 +148,10 @@ export const CapabilityDenyReasonSchema = v.picklist([
   'unknown-capability',
   'auth-required',
   'seat-limit-reached',
+  'personal-seats-disabled',
+  'personal-license-invalid',
+  'personal-license-identity-mismatch',
+  'personal-license-no-identity',
 ]);
 
 export const AuditDecisionSchema = v.object({

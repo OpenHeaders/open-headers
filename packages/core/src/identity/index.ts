@@ -52,6 +52,8 @@ export {
 } from './daemon-pairing';
 export { resolveDaemonPeerIdentitySnapshot } from './daemon-peer-snapshot';
 export {
+  type AbsorbPersonalSeatResult,
+  absorbPersonalSeat,
   type CreateDaemonUserInput,
   type CreateDaemonUserResult,
   createDaemonUser,
@@ -59,6 +61,8 @@ export {
   deactivateDaemonUser,
   findDaemonUserByEmail,
   listDaemonUsers,
+  type PersonalSeatRefusalReason,
+  replacePersonalSeatArtifact,
   type ResolveDaemonPeerUserResult,
   resolveDaemonPeerUser,
   type SetDaemonUserPasswordResult,

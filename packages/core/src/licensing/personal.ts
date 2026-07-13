@@ -30,6 +30,22 @@ export function foldLicenseEmail(email: string): string {
 }
 
 /**
+ * Procurement-control seam — same pattern as the seat-limit provider:
+ * the daemon spine installs its config knob at boot; unset (desktop,
+ * tests) redemption is allowed. Consulted at every admission, never
+ * cached.
+ */
+let redemptionProvider: (() => boolean) | null = null;
+
+export function setPersonalSeatRedemptionProvider(next: (() => boolean) | null): void {
+  redemptionProvider = next;
+}
+
+export function isPersonalSeatRedemptionEnabled(): boolean {
+  return redemptionProvider?.() ?? true;
+}
+
+/**
  * Decide whether `presentedEmail` (the joining user's verified email)
  * is the holder of `license`. On match, returns the folded email — the
  * canonical form callers stamp into admission provenance.

@@ -16,7 +16,10 @@
  * exact semantics with zero directory entries.
  */
 
+import type { LicenseKeyRing } from '../licensing/keys';
+import { isPersonalSeatRedemptionEnabled, matchPersonalSeatIdentity } from '../licensing/personal';
 import { getLicenseSeatLimit } from '../licensing/seats';
+import { verifyLicense } from '../licensing/verify';
 import { hostStorage, OH } from '../storage';
 import type { DaemonUserRecord } from '../types';
 import { createMutex } from '../utils/mutex';
@@ -27,13 +30,32 @@ export interface CreateDaemonUserInput {
   displayName: string;
   /** Verified contact identity; omitted → a `local`-kind identity row. */
   email?: string;
+  /**
+   * Personal-seat artifact presented at admission (paste-at-refusal).
+   * Consulted only when the pool is exhausted — under capacity the
+   * admission is pool-first and the license goes unread.
+   */
+  personalLicense?: string;
+  /** Test seam — trust ring for the personal artifact; production uses the compiled ring. */
+  ring?: LicenseKeyRing;
   /** Test seam — defaults to `Date.now()`. */
   now?: () => number;
 }
 
+export type PersonalSeatRefusalReason =
+  /** The daemon's `personalSeats` knob is off — procurement control. */
+  | 'personal-seats-disabled'
+  /** The artifact failed verification, expired past grace, is an org license, or carries no licensee email. */
+  | 'personal-license-invalid'
+  /** The license belongs to a different identity — the anti-sharing refusal. */
+  | 'personal-license-identity-mismatch'
+  /** The user being admitted has no email identity to match — bare local users can't redeem. */
+  | 'personal-license-no-identity';
+
 export type CreateDaemonUserResult =
   | { readonly ok: true; readonly record: DaemonUserRecord }
   | { readonly ok: false; readonly reason: 'empty-display-name' | 'duplicate-email' | 'no-daemon-identity' }
+  | { readonly ok: false; readonly reason: PersonalSeatRefusalReason }
   | {
       readonly ok: false;
       readonly reason: 'seat-limit-reached';
@@ -106,14 +128,51 @@ export async function createDaemonUser(input: CreateDaemonUserInput): Promise<Cr
     // to the free tier). Existing users are never re-checked.
     const seatLimit = getLicenseSeatLimit();
     const activeUsers = current.filter((r) => r.deactivatedAt === null).length;
+    let admission: DaemonUserRecord['admission'];
     if (activeUsers >= seatLimit) {
+      const refuse = (
+        reason: 'seat-limit-reached' | PersonalSeatRefusalReason,
+      ): Extract<CreateDaemonUserResult, { ok: false }> => {
+        emitAuditEntry({
+          actorUserId: identity.user.id,
+          capability: 'daemon.seat-admit',
+          decision: { allow: false, reason },
+          orgId,
+        });
+        return reason === 'seat-limit-reached' ? { ok: false, reason, seatLimit } : { ok: false, reason };
+      };
+      // The personal-seat branch: a user-held license is an admission
+      // ticket past the exhausted pool — identity-match + validity,
+      // daemon-local and offline. Grace admits (renewal courtesy);
+      // expired past grace and anything the ring refuses do not. The
+      // duplicate-email check above already guarantees one active
+      // admission per license: the license admits only its own email,
+      // and that email can hold only one active record.
+      const personalText = input.personalLicense?.trim();
+      if (!personalText) return refuse('seat-limit-reached');
+      if (!isPersonalSeatRedemptionEnabled()) return refuse('personal-seats-disabled');
+      if (!email) return refuse('personal-license-no-identity');
+      const verified = await verifyLicense(personalText, new Date(now), input.ring);
+      if (verified.status === 'invalid' || verified.status === 'expired') return refuse('personal-license-invalid');
+      const match = matchPersonalSeatIdentity(verified.license, email);
+      if (!match.ok) {
+        return refuse(
+          match.reason === 'identity-mismatch' ? 'personal-license-identity-mismatch' : 'personal-license-invalid',
+        );
+      }
+      admission = {
+        kind: 'personal',
+        licenseId: verified.license.licenseId,
+        licenseKey: personalText.replace(/\s+/g, ''),
+      };
+      // The exceptional admission is the forensic event — pool
+      // admissions under the limit stay unstamped.
       emitAuditEntry({
         actorUserId: identity.user.id,
         capability: 'daemon.seat-admit',
-        decision: { allow: false, reason: 'seat-limit-reached' },
+        decision: { allow: true },
         orgId,
       });
-      return { ok: false, reason: 'seat-limit-reached', seatLimit };
     }
     const userId = uuidv7();
     const record: DaemonUserRecord = {
@@ -145,9 +204,56 @@ export async function createDaemonUser(input: CreateDaemonUserInput): Promise<Cr
       },
       createdAt: now,
       deactivatedAt: null,
+      ...(admission ? { admission } : {}),
     };
     await hostStorage.set(OH.daemonUsers, [...current, record]);
     return { ok: true, record };
+  });
+}
+
+export type AbsorbPersonalSeatResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: 'unknown-user' | 'not-personal' };
+
+/**
+ * Org buy-out: fold a personally-admitted user into the daemon's seat
+ * pool by clearing the admission provenance (and the stored artifact
+ * with it — the refresh agent stops renewing it here). The record is
+ * a plain pool seat from then on; there is no reverse operation.
+ */
+export async function absorbPersonalSeat(userId: string): Promise<AbsorbPersonalSeatResult> {
+  return withUserStoreLock(async () => {
+    const current = await readUsers();
+    const idx = current.findIndex((r) => r.user.id === userId);
+    if (idx === -1) return { ok: false, reason: 'unknown-user' };
+    if (current[idx].admission === undefined) return { ok: false, reason: 'not-personal' };
+    const next = current.slice();
+    const { admission: _cleared, ...rest } = current[idx];
+    next[idx] = rest;
+    await hostStorage.set(OH.daemonUsers, next);
+    return { ok: true };
+  });
+}
+
+/**
+ * Swap a renewed personal-seat artifact into every record admitted
+ * under `licenseId` (active or not — a deactivated record keeps its
+ * provenance for audit continuity but is never renewed by the agent;
+ * matching on the stable lineage id keeps the write idempotent).
+ * Returns how many records changed.
+ */
+export async function replacePersonalSeatArtifact(licenseId: string, licenseKey: string): Promise<number> {
+  const compact = licenseKey.replace(/\s+/g, '');
+  return withUserStoreLock(async () => {
+    const current = await readUsers();
+    let changed = 0;
+    const next = current.map((r) => {
+      if (r.admission?.licenseId !== licenseId || r.admission.licenseKey === compact) return r;
+      changed += 1;
+      return { ...r, admission: { ...r.admission, licenseKey: compact } };
+    });
+    if (changed > 0) await hostStorage.set(OH.daemonUsers, next);
+    return changed;
   });
 }
 

@@ -35,4 +35,20 @@ export const DaemonUserRecordSchema = v.object({
    * credential; admin projections never carry it over the wire.
    */
   passwordVerifier: v.optional(v.pipe(v.string(), v.minLength(1))),
+  /**
+   * Seat provenance, set at admission and never reshuffled: absent =
+   * pool seat (every pre-personal record); `personal` = the user was
+   * admitted past the pool limit by their own personal-seat license.
+   * The signed artifact is stored so the refresh agent can renew it
+   * beside the daemon's own; live validity is always derived by
+   * verifying it at consume time, never cached here. An admin
+   * absorbing the seat into the pool clears the field.
+   */
+  admission: v.optional(
+    v.object({
+      kind: v.literal('personal'),
+      licenseId: v.pipe(v.string(), v.minLength(1)),
+      licenseKey: v.pipe(v.string(), v.minLength(1)),
+    }),
+  ),
 });

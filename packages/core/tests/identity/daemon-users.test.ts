@@ -8,12 +8,14 @@
 import * as v from 'valibot';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  absorbPersonalSeat,
   createDaemonUser,
   deactivateDaemonUser,
   ensureSyntheticIdentity,
   findDaemonUserByEmail,
   listDaemonUsers,
   mintDaemonAuthToken,
+  replacePersonalSeatArtifact,
   type ResolvedAuditEntry,
   resetAuditSink,
   resolveDaemonPeerUser,
@@ -26,7 +28,9 @@ import {
   type LicensedSnapshot,
   type LicenseSnapshot,
   setLicenseSnapshotProvider,
+  setPersonalSeatRedemptionProvider,
 } from '../../src/licensing';
+import { createDevSigner, makeLicense } from '../licensing/helpers/dev-license';
 import { DaemonUserRecordSchema } from '../../src/schemas';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { OH } from '../../src/storage/keys';
@@ -299,6 +303,215 @@ describe('daemon users', () => {
       expect(refused).toEqual({ ok: false, reason: 'seat-limit-reached', seatLimit: FREE_SEAT_LIMIT });
       // The wall only faces new growth: every existing record is intact.
       expect((await listDaemonUsers()).filter((r) => r.deactivatedAt === null).length).toBe(12);
+    });
+  });
+
+  describe('personal-seat admission', () => {
+    /** In-term against makeLicense's validUntil (July 2026). */
+    const NOW = () => Date.UTC(2026, 3, 1);
+    const HOLDER_EMAIL = 'ada@openheaders.io';
+
+    afterEach(() => {
+      setLicenseSnapshotProvider(null);
+      setPersonalSeatRedemptionProvider(null);
+      resetAuditSink();
+    });
+
+    async function fillPool(): Promise<void> {
+      for (let i = 0; i < FREE_SEAT_LIMIT; i++) {
+        const created = await createDaemonUser({ displayName: `User ${i}`, email: `user${i}@openheaders.io` });
+        if (!created.ok) throw new Error(`seat setup failed at ${i}: ${created.reason}`);
+      }
+    }
+
+    async function signPersonal(overrides: Parameters<typeof makeLicense>[0] = {}) {
+      const signer = await createDevSigner();
+      const license = makeLicense({
+        kind: 'personal-seat',
+        seats: 1,
+        licenseId: 'lic-personal-1',
+        licensee: { name: 'Ada Example', email: HOLDER_EMAIL },
+        ...overrides,
+      });
+      return { signer, license, text: await signer.sign(license) };
+    }
+
+    it('admits the identity-matching holder past the exhausted pool with provenance + allow audit row', async () => {
+      await fillPool();
+      const { signer, text } = await signPersonal();
+      const auditRows: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => auditRows.push(entry));
+      const created = await createDaemonUser({
+        displayName: 'Ada',
+        email: HOLDER_EMAIL,
+        personalLicense: text,
+        ring: signer.ring,
+        now: NOW,
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+      expect(created.record.admission).toEqual({
+        kind: 'personal',
+        licenseId: 'lic-personal-1',
+        licenseKey: text.replace(/\s+/g, ''),
+      });
+      expect(v.safeParse(DaemonUserRecordSchema, created.record).success).toBe(true);
+      expect(auditRows).toEqual([
+        expect.objectContaining({ capability: 'daemon.seat-admit', decision: { allow: true } }),
+      ]);
+    });
+
+    it('pool-first under capacity: the presented license goes unread and provenance stays pool', async () => {
+      const { signer, text } = await signPersonal();
+      const created = await createDaemonUser({
+        displayName: 'Ada',
+        email: HOLDER_EMAIL,
+        personalLicense: text,
+        ring: signer.ring,
+        now: NOW,
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+      expect(created.record.admission).toBeUndefined();
+    });
+
+    it("refuses someone else's license — the anti-sharing refusal", async () => {
+      await fillPool();
+      const { signer, text } = await signPersonal();
+      const created = await createDaemonUser({
+        displayName: 'Grace',
+        email: 'grace@openheaders.io',
+        personalLicense: text,
+        ring: signer.ring,
+        now: NOW,
+      });
+      expect(created).toEqual({ ok: false, reason: 'personal-license-identity-mismatch' });
+    });
+
+    it('refuses an org license, a foreign signature, and an expired artifact on the personal path', async () => {
+      await fillPool();
+      const { signer, text: orgText } = await signPersonal({ kind: undefined });
+      const org = await createDaemonUser({
+        displayName: 'Ada',
+        email: HOLDER_EMAIL,
+        personalLicense: orgText,
+        ring: signer.ring,
+        now: NOW,
+      });
+      expect(org).toEqual({ ok: false, reason: 'personal-license-invalid' });
+
+      const foreign = await createDaemonUser({
+        displayName: 'Ada',
+        email: HOLDER_EMAIL,
+        personalLicense: orgText,
+        ring: (await createDevSigner()).ring,
+        now: NOW,
+      });
+      expect(foreign).toEqual({ ok: false, reason: 'personal-license-invalid' });
+
+      const { signer: s2, text: expired } = await signPersonal({ validUntil: Date.UTC(2026, 0, 1), graceDays: 0 });
+      const late = await createDaemonUser({
+        displayName: 'Ada',
+        email: HOLDER_EMAIL,
+        personalLicense: expired,
+        ring: s2.ring,
+        now: NOW,
+      });
+      expect(late).toEqual({ ok: false, reason: 'personal-license-invalid' });
+    });
+
+    it('grace admits — a renewal courtesy, not a degradation', async () => {
+      await fillPool();
+      const { signer, text } = await signPersonal({ validUntil: Date.UTC(2026, 2, 20), graceDays: 21 });
+      const created = await createDaemonUser({
+        displayName: 'Ada',
+        email: HOLDER_EMAIL,
+        personalLicense: text,
+        ring: signer.ring,
+        now: NOW,
+      });
+      expect(created.ok).toBe(true);
+    });
+
+    it('a bare local user without an email cannot redeem', async () => {
+      await fillPool();
+      const { signer, text } = await signPersonal();
+      const created = await createDaemonUser({
+        displayName: 'Anon',
+        personalLicense: text,
+        ring: signer.ring,
+        now: NOW,
+      });
+      expect(created).toEqual({ ok: false, reason: 'personal-license-no-identity' });
+    });
+
+    it('the procurement knob refuses redemption when off', async () => {
+      setPersonalSeatRedemptionProvider(() => false);
+      await fillPool();
+      const { signer, text } = await signPersonal();
+      const created = await createDaemonUser({
+        displayName: 'Ada',
+        email: HOLDER_EMAIL,
+        personalLicense: text,
+        ring: signer.ring,
+        now: NOW,
+      });
+      expect(created).toEqual({ ok: false, reason: 'personal-seats-disabled' });
+    });
+
+    it('one active admission per license: the holder email cannot hold two records', async () => {
+      await fillPool();
+      const { signer, text } = await signPersonal();
+      const input = { displayName: 'Ada', email: HOLDER_EMAIL, personalLicense: text, ring: signer.ring, now: NOW };
+      expect((await createDaemonUser(input)).ok).toBe(true);
+      expect(await createDaemonUser(input)).toEqual({ ok: false, reason: 'duplicate-email' });
+    });
+
+    it('absorb-into-pool clears the provenance once and refuses pool records', async () => {
+      await fillPool();
+      const { signer, text } = await signPersonal();
+      const created = await createDaemonUser({
+        displayName: 'Ada',
+        email: HOLDER_EMAIL,
+        personalLicense: text,
+        ring: signer.ring,
+        now: NOW,
+      });
+      if (!created.ok) throw new Error('setup failed');
+      expect(await absorbPersonalSeat(created.record.user.id)).toEqual({ ok: true });
+      const absorbed = (await listDaemonUsers()).find((r) => r.user.id === created.record.user.id);
+      expect(absorbed?.admission).toBeUndefined();
+      expect(v.safeParse(DaemonUserRecordSchema, absorbed).success).toBe(true);
+      expect(await absorbPersonalSeat(created.record.user.id)).toEqual({ ok: false, reason: 'not-personal' });
+      expect(await absorbPersonalSeat('nope')).toEqual({ ok: false, reason: 'unknown-user' });
+    });
+
+    it('replacePersonalSeatArtifact swaps the stored key by lineage id, idempotently', async () => {
+      await fillPool();
+      const { signer, text } = await signPersonal();
+      const created = await createDaemonUser({
+        displayName: 'Ada',
+        email: HOLDER_EMAIL,
+        personalLicense: text,
+        ring: signer.ring,
+        now: NOW,
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const renewed = await signer.sign(
+        makeLicense({
+          kind: 'personal-seat',
+          seats: 1,
+          licenseId: 'lic-personal-1',
+          licensee: { name: 'Ada Example', email: HOLDER_EMAIL },
+          validUntil: Date.UTC(2026, 8, 1),
+        }),
+      );
+      expect(await replacePersonalSeatArtifact('lic-personal-1', renewed)).toBe(1);
+      const after = (await listDaemonUsers()).find((r) => r.user.id === created.record.user.id);
+      expect(after?.admission?.licenseKey).toBe(renewed.replace(/\s+/g, ''));
+      // Same artifact again — nothing to change.
+      expect(await replacePersonalSeatArtifact('lic-personal-1', renewed)).toBe(0);
+      expect(await replacePersonalSeatArtifact('lic-unknown', renewed)).toBe(0);
     });
   });
 });

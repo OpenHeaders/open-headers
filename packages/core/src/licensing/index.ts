@@ -10,9 +10,11 @@ export { FREE_SEAT_LIMIT, RESERVED_ENTITLEMENTS, type ReservedEntitlement } from
 export { LICENSE_PUBLIC_KEYS, type LicenseKeyRing } from './keys';
 export {
   foldLicenseEmail,
+  isPersonalSeatRedemptionEnabled,
   matchPersonalSeatIdentity,
   type PersonalSeatIdentityMismatchReason,
   type PersonalSeatIdentityResult,
+  setPersonalSeatRedemptionProvider,
 } from './personal';
 export { type License, type Licensee, LicenseeSchema, LicenseSchema } from './schema';
 export { getLicenseSeatLimit, getLicenseSnapshot, setLicenseSnapshotProvider } from './seats';

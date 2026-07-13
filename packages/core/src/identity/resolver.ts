@@ -38,7 +38,11 @@ export type CapabilityDenyReason =
   | 'not-daemon-admin'
   | 'unknown-capability'
   | 'auth-required'
-  | 'seat-limit-reached';
+  | 'seat-limit-reached'
+  | 'personal-seats-disabled'
+  | 'personal-license-invalid'
+  | 'personal-license-identity-mismatch'
+  | 'personal-license-no-identity';
 
 /**
  * The view of identity state the resolver consults. The registry produces
