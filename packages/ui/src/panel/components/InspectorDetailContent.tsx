@@ -389,21 +389,6 @@ export function InspectorDetailContent({
     );
   };
 
-  const section = activeSection;
-
-  // Lazy response-body fetch for CDP rows. The heuristic path attaches
-  // bodies eagerly, but CDP fetches on demand to spare the attached
-  // session per-request round-trips — so when the user opens
-  // Response/Preview and the body slot is still empty, ask for it. The
-  // request is de-duped per hop in the client; the body lands as a
-  // `body-attached` update and the classifier's `loading` covers the gap.
-  useEffect(() => {
-    if (source !== 'cdp') return;
-    if (section !== 'response' && section !== 'preview') return;
-    if (currentResponseBody(lc) !== null) return;
-    requestResponseBody(lc.requestId, lc.redirectHopCount);
-  }, [source, section, lc, requestResponseBody]);
-
   // A WebSocket row always carries its Messages tab (the host does the
   // same), even when no frame data is reachable on this capture path —
   // the view explains the empty state honestly. The HAR-extension gate
@@ -427,6 +412,26 @@ export function InspectorDetailContent({
     ...(hasCookies(har) ? [COOKIES_SECTION] : []),
     RAWDATA_SECTION,
   ];
+
+  // The remembered section is sticky across row switches, but the tab set
+  // is per-row (Messages on WS, EventStream on SSE, …). When this row
+  // doesn't carry the remembered tab, render Headers instead of an empty
+  // pane — without clobbering the stored choice, so switching back to a
+  // row that has the tab restores it.
+  const section: DetailSection = sections.some((s) => s.key === activeSection) ? activeSection : 'headers';
+
+  // Lazy response-body fetch for CDP rows. The heuristic path attaches
+  // bodies eagerly, but CDP fetches on demand to spare the attached
+  // session per-request round-trips — so when the user opens
+  // Response/Preview and the body slot is still empty, ask for it. The
+  // request is de-duped per hop in the client; the body lands as a
+  // `body-attached` update and the classifier's `loading` covers the gap.
+  useEffect(() => {
+    if (source !== 'cdp') return;
+    if (section !== 'response' && section !== 'preview') return;
+    if (currentResponseBody(lc) !== null) return;
+    requestResponseBody(lc.requestId, lc.redirectHopCount);
+  }, [source, section, lc, requestResponseBody]);
 
   return (
     <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
