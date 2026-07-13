@@ -112,8 +112,9 @@ export default defineConfig({
     build: {
       outDir: resolve('dist-webpack/renderer'),
       // Electron loads renderer assets from local disk, not over a network —
-      // the default 500KB web-app limit is not meaningful here
-      chunkSizeWarningLimit: 1500,
+      // the default 500KB web-app limit is not meaningful here. The Monaco
+      // ts.worker and the main index chunk both sit near 7MB.
+      chunkSizeWarningLimit: 8000,
       rollupOptions: {
         input: resolve(__dirname, 'src/renderer/index.html'),
         onwarn(warning, warn) {
