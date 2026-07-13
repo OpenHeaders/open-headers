@@ -91,6 +91,17 @@ describe('consoleContextRows', () => {
     expect(rows[3].subtitle).toBeNull();
   });
 
+  it('never renders an empty wire origin as a blank subtitle', () => {
+    const opaqueWorld = makeContext({
+      contextKey: 'page::9',
+      isDefault: false,
+      name: 'utility-world',
+      worldType: 'isolated',
+      origin: '',
+    });
+    expect(consoleContextRows([opaqueWorld])[0].subtitle).toBeNull();
+  });
+
   it('depth: frame hop + world hop, service workers top-level', () => {
     const rows = consoleContextRows([TOP, TOP_ISOLATED, SAME_PROCESS_IFRAME, OOPIF, OOPIF_ISOLATED, WORKER, SW]);
     expect(rows.map((r) => [r.context.contextKey, r.depth])).toEqual([

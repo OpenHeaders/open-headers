@@ -157,6 +157,11 @@ test('selector lists every context shape: top first at depth 0, cross-origin fra
   const frameRow = rows.filter({ hasText: 'localhost:3000' }).first();
   await expect(frameRow).toHaveAttribute('data-depth', '1');
 
+  // The dedicated worker is one target hop from top — its auxData-less
+  // context is its MAIN world, not an isolated-world hop.
+  const workerRow = rows.filter({ hasText: 'oh-context-worker' }).first();
+  await expect(workerRow).toHaveAttribute('data-depth', '1');
+
   await panelPage.keyboard.press('Escape');
 });
 

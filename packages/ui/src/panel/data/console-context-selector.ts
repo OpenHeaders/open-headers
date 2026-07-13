@@ -56,7 +56,9 @@ export function consoleContextRows(contexts: readonly JsContext[]): ConsoleConte
     return {
       context,
       label,
-      subtitle: context.origin !== label ? context.origin : null,
+      // An empty wire origin (unnamed opaque worlds) adds nothing — never
+      // render it as a blank dimmed line.
+      subtitle: context.origin !== label && context.origin !== '' ? context.origin : null,
       depth: depthOf(context),
       isTop: isTopContext(context),
     };
