@@ -51,6 +51,11 @@ validation path exists.
   window (`validUntil − now < 30 days`) or grace period. A healthy
   deployment POSTs here roughly four times a day for the last two weeks
   of each 45-day file; outside the window, nothing leaves.
+- **Personal seats**: a daemon whose directory holds users admitted by
+  their own personal-seat licenses renews those artifacts through this
+  same call — one request per distinct license, same body shape (the
+  personal artifact as `licenseKey`), same window/latch rules. No other
+  data is added.
 - **Off switches**: no license installed → never called. `offline: true`
   (enterprise/air-gapped) licenses → never called. Daemon config
   `licenseRefresh: false` / `OH_LICENSE_REFRESH=0` → never called.

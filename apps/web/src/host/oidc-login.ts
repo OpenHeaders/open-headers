@@ -105,13 +105,39 @@ export function describeOidcError(reason: string): string {
     case 'provider-unavailable':
       return 'The identity provider could not be reached. Try again in a moment.';
     case 'seat-limit-reached':
-      return 'Signed in, but this daemon has no free seats for a new user. Ask the daemon admin.';
+      return 'Signed in, but this daemon has no free seats for a new user. Ask the daemon admin — or get in now with your own personal seat.';
+    case 'personal-seats-disabled':
+      return 'Personal seats are disabled on this daemon. Ask the daemon admin about a seat.';
+    case 'personal-license-invalid':
+      return 'That personal seat key is not usable — it is invalid, expired, or not a personal seat. Check the key and try again.';
+    case 'personal-license-identity-mismatch':
+      return 'That personal seat belongs to a different email. It only admits the address it was purchased with.';
+    case 'personal-license-no-identity':
+      return 'Your sign-in carried no email to match the personal seat against. Ask the daemon admin.';
     default:
       return 'Single sign-on failed. Try again, or connect with a pairing token instead.';
   }
 }
 
-/** Kick off the SSO round-trip — a full-page navigation, by design. */
-export function startOidcLogin(navigate: (url: string) => void = (url) => window.location.assign(url)): void {
-  navigate('/auth/oidc/start');
+/** The refusal reasons where offering the personal-seat redeem path makes sense. */
+export function isSeatRefusalReason(reason: string | null | undefined): boolean {
+  return (
+    reason === 'seat-limit-reached' ||
+    reason === 'personal-license-invalid' ||
+    reason === 'personal-license-identity-mismatch'
+  );
+}
+
+/**
+ * Kick off the SSO round-trip — a full-page navigation, by design. A
+ * personal-seat key pasted at the seat-limit refusal rides along and
+ * is redeemed at auto-provision (it is not a bearer secret — it only
+ * admits the identity it names).
+ */
+export function startOidcLogin(
+  navigate: (url: string) => void = (url) => window.location.assign(url),
+  options?: { personalLicense?: string },
+): void {
+  const key = options?.personalLicense?.trim();
+  navigate(key ? `/auth/oidc/start?personal_license=${encodeURIComponent(key)}` : '/auth/oidc/start');
 }

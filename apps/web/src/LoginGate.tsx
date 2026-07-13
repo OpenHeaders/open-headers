@@ -19,7 +19,7 @@ import { Alert, Button, Divider, Input, Typography } from 'antd';
 import { useState } from 'react';
 import type { DaemonWire } from '@/host/daemon-wire';
 import { submitDaemonToken } from '@/host/join-gate';
-import { startOidcLogin } from '@/host/oidc-login';
+import { isSeatRefusalReason, startOidcLogin } from '@/host/oidc-login';
 import { submitPasswordLogin } from '@/host/password-login';
 import { showTransitionOverlay } from '@/transition-overlay';
 
@@ -44,6 +44,8 @@ export interface LoginGateProps {
   passwordEnabled?: boolean;
   /** Error carried into the gate (e.g. a failed SSO round-trip). */
   initialError?: string | null;
+  /** Raw refusal reason behind `initialError` — drives the personal-seat redeem affordance. */
+  initialErrorReason?: string | null;
 }
 
 export function LoginGate({
@@ -53,12 +55,16 @@ export function LoginGate({
   ssoProvider,
   passwordEnabled,
   initialError,
+  initialErrorReason,
 }: LoginGateProps): React.JSX.Element {
   const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [personalKey, setPersonalKey] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
+  // The seat wall is the conversion moment: offer the self-serve way in.
+  const seatBlocked = Boolean(ssoProvider) && isSeatRefusalReason(initialErrorReason);
 
   const submit = async (): Promise<void> => {
     if (pending || token.trim().length === 0) return;
@@ -184,6 +190,36 @@ export function LoginGate({
         disabled={pending}
       />
       {error && <Alert type="error" showIcon message={error} data-testid="login-gate-error" />}
+      {seatBlocked && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="login-gate-personal-seat">
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Have a personal seat? Paste its key to sign in without waiting on a free team seat — it admits the email it
+            was purchased with. Get one at{' '}
+            <Typography.Link href="https://openheaders.io/pricing" target="_blank">
+              openheaders.io/pricing
+            </Typography.Link>
+            .
+          </Typography.Text>
+          <Input.Password
+            placeholder="Personal seat key (oh-license.…)"
+            value={personalKey}
+            onChange={(e) => setPersonalKey(e.target.value)}
+            disabled={pending}
+            data-testid="login-gate-personal-key"
+          />
+          <Button
+            block
+            disabled={pending || personalKey.trim().length === 0}
+            onClick={() => {
+              showTransitionOverlay(`Taking you to ${ssoProvider}…`);
+              startOidcLogin(undefined, { personalLicense: personalKey });
+            }}
+            data-testid="login-gate-personal-submit"
+          >
+            Sign in with personal seat
+          </Button>
+        </div>
+      )}
       <Button
         type={managedLogin ? 'default' : 'primary'}
         block

@@ -92,6 +92,7 @@ if (!window.isSecureContext) {
   const oidcResult = consumeOidcHash();
   let ssoJoined = false;
   let ssoError: string | null = null;
+  let ssoErrorReason: string | null = null;
   if (oidcResult?.kind === 'claim') {
     showTransitionOverlay('Signing you in…');
     const secret = await claimOidcToken(oidcResult.code);
@@ -102,6 +103,7 @@ if (!window.isSecureContext) {
     }
   } else if (oidcResult?.kind === 'error') {
     ssoError = describeOidcError(oidcResult.reason);
+    ssoErrorReason = oidcResult.reason;
   }
 
   // Login gate: a reachable daemon with no stored pairing token gates the
@@ -125,6 +127,7 @@ if (!window.isSecureContext) {
         ssoProvider={oidcMeta.enabled ? (oidcMeta.provider ?? 'SSO') : null}
         passwordEnabled={passwordMeta.enabled}
         initialError={ssoError}
+        initialErrorReason={ssoErrorReason}
         onJoined={() => {
           // Mask the gate→workbench gap (join → adopt → workspace
           // promote) so the accepted login doesn't sit on a frozen gate.
