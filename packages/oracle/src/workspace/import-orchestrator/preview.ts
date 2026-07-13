@@ -11,7 +11,7 @@ import {
   type WorkspaceExport,
   walkMissingDeps,
 } from '@openheaders/core/workspace-export';
-import { getActiveWorkspaceId, getWorkspace } from '../workspace-store';
+import { getActiveWorkspaceId, getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { readTargetWorkspaceState } from './target';
 import type { ImportTargetSelector } from './types';
 

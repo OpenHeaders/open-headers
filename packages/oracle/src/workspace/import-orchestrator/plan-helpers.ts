@@ -7,9 +7,10 @@
 import type { ImportPlan, PlanEntry } from '@openheaders/core/workspace-export';
 
 /**
- * Conservative chrome.storage quota signal (5 MB on `local`; we apply a
- * 10% headroom). Real chrome.storage.local.QUOTA_BYTES is per-area
- * 5_242_880 absent `unlimitedStorage`. Pre-check is best-effort — see
+ * Conservative storage quota signal, derived from the tightest host
+ * (browser `storage.local`: 5 MB per area absent `unlimitedStorage`;
+ * we apply a 10% headroom). Node hosts have no hard quota, but the
+ * shared pre-check keeps import behavior uniform. Best-effort — see
  * design §5.3 step 2 (UX improvement, not a guarantee).
  */
 export const QUOTA_HEADROOM_BYTES = 5 * 1024 * 1024 - 512 * 1024;

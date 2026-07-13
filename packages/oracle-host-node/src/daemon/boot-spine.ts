@@ -70,6 +70,7 @@ import { setLockRuntime } from '@openheaders/oracle/coordination';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   type OracleAwarenessBroadcast,
   type OracleSyncBroadcastEvent,
@@ -86,6 +87,11 @@ import {
   onWorkspaceStoreChange,
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
+import {
+  type ImportWorkspaceArgs,
+  importWorkspace,
+  previewWorkspaceImport,
+} from '@openheaders/oracle/workspace/import-orchestrator';
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
 import { evictConsumedWorkspace } from '@openheaders/oracle/workspace/workspace-eviction';
 import { FileSystemBlobBackend } from '../files/fs-blob-backend';
@@ -694,6 +700,58 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // lives. Same channel contract the extension SW handles.
     if (type === 'executeRequest') {
       return await handleExecuteRequestRpc(message);
+    }
+    // Workspace-export import — the host-neutral orchestrator (the
+    // extension SW answers the same channels). Local surface = the
+    // operator by construction, like executeRequest above; the shared
+    // import UI drives these through the host bridge.
+    if (type === 'previewWorkspaceImport') {
+      try {
+        const res = await previewWorkspaceImport({
+          incoming: message.incoming as ImportWorkspaceArgs['incoming'],
+          target: message.target as ImportWorkspaceArgs['target'],
+          backupRestore: message.backupRestore as boolean | undefined,
+        });
+        return {
+          success: true,
+          diff: res.diff,
+          missingDeps: res.missingDeps,
+          snapshotHash: res.snapshotHash,
+          targetWorkspaceId: res.targetWorkspaceId,
+        };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'importWorkspace') {
+      try {
+        const res = await importWorkspace({
+          incoming: message.incoming as ImportWorkspaceArgs['incoming'],
+          strategies: message.strategies as ImportWorkspaceArgs['strategies'],
+          backupRestore: message.backupRestore as boolean | undefined,
+          trustExport: message.trustExport as boolean | undefined,
+          stripScripts: message.stripScripts as boolean | undefined,
+          omitOAuthConfigs: message.omitOAuthConfigs as boolean | undefined,
+          keepTargetCollectionOrder: message.keepTargetCollectionOrder as boolean | undefined,
+          refuseUidCollision: message.refuseUidCollision as boolean | undefined,
+          target: message.target as ImportWorkspaceArgs['target'],
+          sourceHash: message.sourceHash as string,
+        });
+        return { success: true, report: res.report, targetWorkspaceId: res.targetWorkspaceId };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'getLastImportedSnapshots') {
+      try {
+        const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+        const snapshots =
+          ((await hostStorage.get(wsKeys(workspaceId).lastImportedSnapshots)) as Record<string, string> | undefined) ??
+          {};
+        return { snapshots };
+      } catch {
+        return { snapshots: {} };
+      }
     }
     // Daemon-admin channels (pairing/tokens/users/grants + the admin
     // probe) — the shared table built above. The local caller is the

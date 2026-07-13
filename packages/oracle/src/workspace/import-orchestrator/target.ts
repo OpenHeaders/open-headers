@@ -23,7 +23,7 @@ import {
   getActiveWorkspaceId,
   getWorkspace,
   listWorkspaces,
-} from '../workspace-store';
+} from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { ImportWorkspaceArgs } from './types';
 
 export async function resolveTargetWorkspace(args: ImportWorkspaceArgs): Promise<string> {

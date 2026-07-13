@@ -2,6 +2,10 @@
  * Import entry point — the locked read → diff → plan → merge → write
  * sequence, active-workspace rehydration + sync-engine reseed, report
  * persistence, and observability (design §5.3).
+ *
+ * Host side-effects (DNR rebuild, observability ring) reach the host
+ * through the null-safe {@link getOracleHostHooks} port — hosts without
+ * a request-modifying runtime simply leave those hooks unset.
  */
 
 import {
@@ -11,6 +15,7 @@ import {
   type PerEntityStrategies,
 } from '@openheaders/core/import';
 import type { Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
+import { logger } from '@openheaders/core/utils';
 import {
   applyBackupRestoreToggle,
   buildImportPlan,
@@ -62,12 +67,10 @@ import {
   hydrateFromStorage as hydrateLiveWorkflowsFromStorage,
 } from '@openheaders/oracle/live/live-workflow-store';
 import { hostStorage, type PersistedLocalFolder, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
+import { getOracleHostHooks } from '@openheaders/oracle/sync';
 import { reinitForWorkspace } from '@openheaders/oracle/sync/service';
+import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { bridgeLayoutStateSyncEngine } from '@openheaders/oracle/workspace/layout-store';
-import { logger } from '@utils/logger';
-import { recordLog } from '../../observability-log';
-import { scheduleUpdate } from '../../rules/rule-engine';
-import { getActiveWorkspaceId } from '../workspace-store';
 import { applyPlanArray, estimatePlanBytes, isInTree, QUOTA_HEADROOM_BYTES } from './plan-helpers';
 import { buildLastImportedSnapshots } from './snapshots';
 import { readTargetWorkspaceState, resolveTargetWorkspace } from './target';
@@ -241,8 +244,8 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       }
 
       // If the target is the active workspace, reload in-memory state so
-      // the UI sees the newly-imported entities and DNR rebuild reads
-      // the fresh rule list.
+      // the UI sees the newly-imported entities and the host's rule
+      // rebuild reads the fresh rule list.
       const isActive = getActiveWorkspaceId() === targetWorkspaceId;
       if (isActive) {
         await Promise.all([
@@ -279,7 +282,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgePauseMarkersSyncEngine();
         await bridgeLayoutStateSyncEngine();
         await bridgeFilesSyncEngine();
-        scheduleUpdate('import', { immediate: true });
+        getOracleHostHooks().scheduleRuleEngineUpdate?.('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);
         }
@@ -287,8 +290,8 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await markPendingScriptsReviewForWorkspace(targetWorkspaceId, scriptsPendingUids);
       }
       // Non-active target: in-memory snapshots stay untouched. The
-      // user's eventual `switchToWorkspace` call hydrates from
-      // chrome.storage at that point.
+      // user's eventual `switchToWorkspace` call hydrates from storage
+      // at that point.
 
       // Persist the report into the target's ring. The store keys off
       // the active workspace by design — when target != active, write
@@ -309,7 +312,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await hostStorage.set(ringKey, capped);
       }
 
-      recordLog({
+      getOracleHostHooks().recordLog?.({
         subsystem: 'workspace',
         op: 'import',
         level: 'info',

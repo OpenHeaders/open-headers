@@ -68,6 +68,10 @@
       "import": "./src/scheduling/index.ts",
       "default": "./dist/scheduling/index.js"
     },
+    "./workspace/import-orchestrator": {
+      "import": "./src/workspace/import-orchestrator/index.ts",
+      "default": "./dist/workspace/import-orchestrator/index.js"
+    },
     "./workspace/*": {
       "import": "./src/workspace/*.ts",
       "default": "./dist/workspace/*.js"

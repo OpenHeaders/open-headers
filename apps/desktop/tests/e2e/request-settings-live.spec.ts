@@ -10,9 +10,9 @@
  * markers (`sslVerificationDisabled`, `tlsFloorLowered`,
  * `authorizationForwarded`, `cookieHeaderAttached`/`cookiesCaptured`).
  *
- * Deliberately NOT here (need vault seeding the bridge doesn't expose):
- * the mTLS client-certificate leg (S8) and the proxy-credentials leg
- * (S9 auth) — those stay manual recipes in the session logs.
+ * The S8 mTLS and S9 proxy-credentials legs seed their vault entries
+ * through the real `importWorkspace` channel (plaintext-vault export —
+ * the request-vars e2e idiom), now that the daemon spine answers it.
  *
  * Requires `pnpm turbo build --filter=@openheaders/desktop` first.
  */
@@ -23,6 +23,7 @@ import path from 'node:path';
 import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
 import {
   freePort,
+  mintClientCert,
   mintLocalhostCert,
   type ProxyRig,
   type Rig,
@@ -31,6 +32,7 @@ import {
   startH2Echo,
   startHttpRig,
   startHttpsEcho,
+  startMtlsEcho,
   startTls11Echo,
   startUnixEcho,
 } from './request-settings-rigs';
@@ -47,8 +49,12 @@ let httpRig: Rig;
 let httpsEcho: Rig;
 let tls11Echo: Rig;
 let h2Echo: Rig;
+let mtlsEcho: Rig;
 let proxy: ProxyRig;
+let authProxy: ProxyRig;
 let unixEcho: SocketRig;
+
+const PROXY_AUTH_PAIR = 'rig-user:rig-pass';
 
 interface ExecSnapshot {
   status: number;
@@ -111,12 +117,15 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(async () => {
   scratchDir = await mkdtemp(path.join(tmpdir(), 'oh-settings-e2e-'));
   const material = await mintLocalhostCert(scratchDir);
-  [httpRig, httpsEcho, tls11Echo, h2Echo, proxy] = await Promise.all([
+  const clientMaterial = await mintClientCert(scratchDir);
+  [httpRig, httpsEcho, tls11Echo, h2Echo, mtlsEcho, proxy, authProxy] = await Promise.all([
     startHttpRig(),
     startHttpsEcho(material),
     startTls11Echo(material),
     startH2Echo(material),
+    startMtlsEcho(material, clientMaterial.cert),
     startConnectProxy(),
+    startConnectProxy(PROXY_AUTH_PAIR),
   ]);
   // Kept short deliberately — sun_path caps socket paths around 104 chars.
   unixEcho = await startUnixEcho(path.join(tmpdir(), `oh-live-${process.pid}.sock`));
@@ -150,11 +159,76 @@ test.beforeAll(async () => {
       { timeout: 45000 },
     )
     .toBe(true);
+
+  // Vault seeding through the real `importWorkspace` channel (the same
+  // host-neutral orchestrator the extension SW answers with; wired on
+  // the daemon spine for the shared import UI). The entries feed the S8
+  // `clientCertificateRef` and S9 `proxyCredentialRef` legs — vault
+  // writes have no direct bridge RPC by design, and a plaintext-vault
+  // export is the sanctioned seeding path (the request-vars e2e idiom).
+  const seeded = await invoke<{ success: boolean; error?: string }>({
+    type: 'importWorkspace',
+    incoming: {
+      schemaVersion: 5,
+      kind: 'workspace-export',
+      exportFormatVersion: 1,
+      exportId: 'e2e0va01',
+      exportedAt: '2026-07-13T00:00:00.000Z',
+      source: { app: 'desktop', appVersion: '0.0.0', platform: 'macos', workspaceLabel: 'Settings Live Rig' },
+      scope: 'workspace',
+      workspace: { uid: 'wsvlt001', name: 'Settings Live Rig' },
+      entities: {
+        collections: [],
+        folders: [],
+        rules: [],
+        requests: [],
+        templates: [],
+        environments: [],
+        workspaceVars: { schemaVersion: 5, variables: [] },
+        liveWorkflows: [],
+        liveVariables: [],
+        vault: {
+          schemaVersion: 5,
+          secrets: [
+            {
+              uid: 'vlt00001',
+              kind: 'client-certificate',
+              name: 'gateway-mtls',
+              cert: clientMaterial.cert.toString(),
+              key: clientMaterial.key.toString(),
+            },
+            { uid: 'vlt00002', kind: 'string', name: 'proxy-auth', value: PROXY_AUTH_PAIR },
+            { uid: 'vlt00003', kind: 'string', name: 'proxy-auth-wrong', value: 'rig-user:wrong-pass' },
+          ],
+        },
+      },
+      meta: {
+        redactions: { vault: 'plaintext', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
+        counts: {
+          rules: 0,
+          requests: 0,
+          environments: 0,
+          liveWorkflows: 0,
+          liveVariables: 0,
+          templates: 0,
+          secrets: 3,
+        },
+      },
+    },
+    strategies: {},
+    target: { mode: 'current' },
+    sourceHash: 'sha256:settings-live-vault',
+  });
+  expect(seeded.success, seeded.error).toBe(true);
 });
 
 test.afterAll(async () => {
   await electronApp?.close();
-  await Promise.all([httpRig, httpsEcho, tls11Echo, h2Echo, proxy, unixEcho].filter(Boolean).map((rig) => rig.close()));
+  await Promise.all(
+    [httpRig, httpsEcho, tls11Echo, h2Echo, mtlsEcho, proxy, authProxy, unixEcho]
+      .filter(Boolean)
+      .map((rig) => rig.close()),
+  );
   await rm(scratchDir, { recursive: true, force: true });
 });
 
@@ -330,6 +404,72 @@ test('socket + proxy fails loudly before the wire', async () => {
     }),
   );
   expect(snapshot.error ?? '').toMatch(/both a proxy and a Unix socket target/);
+});
+
+// ── S8: mTLS client certificates (vault-seeded) ──────────────────────
+
+test('a certless send to a cert-demanding server fails the severed handshake', async () => {
+  const snapshot = await exec(draft({ url: `https://localhost:${mtlsEcho.port}/`, sslVerification: false }));
+  // No certificate configured ⇒ the classifier keeps the generic close
+  // message (an unrelated close must not speculate about mTLS — S8).
+  expect(snapshot.error ?? '').toMatch(/other side closed/);
+});
+
+test('clientCertificateRef presents the vault pair and completes mutual TLS', async () => {
+  const snapshot = await exec(
+    draft({ url: `https://localhost:${mtlsEcho.port}/`, sslVerification: false, clientCertificateRef: 'gateway-mtls' }),
+  );
+  expect(snapshot.error ?? null).toBeNull();
+  expect(snapshot.status).toBe(200);
+  expect(snapshot.body).toBe('mtls-ok');
+});
+
+test('an unresolved certificate ref fails before the wire naming the entry', async () => {
+  const snapshot = await exec(
+    draft({ url: `https://localhost:${mtlsEcho.port}/`, sslVerification: false, clientCertificateRef: 'missing-cert' }),
+  );
+  expect(snapshot.error ?? '').toContain('references the vault entry "missing-cert"');
+});
+
+// ── S9: per-request proxy (credentials leg, vault-seeded) ────────────
+
+test('an authenticating proxy without credentials classifies the 407', async () => {
+  const snapshot = await exec(
+    draft({
+      url: `https://localhost:${httpsEcho.port}/`,
+      sslVerification: false,
+      proxyUrl: `http://127.0.0.1:${authProxy.port}`,
+    }),
+  );
+  expect(snapshot.error ?? '').toMatch(/requires authentication \(407\)/);
+});
+
+test('proxyCredentialRef authenticates the tunnel, end-to-end TLS intact', async () => {
+  const before = authProxy.tunnels.length;
+  const snapshot = await exec(
+    draft({
+      url: `https://localhost:${httpsEcho.port}/`,
+      sslVerification: false,
+      proxyUrl: `http://127.0.0.1:${authProxy.port}`,
+      proxyCredentialRef: 'proxy-auth',
+    }),
+  );
+  expect(snapshot.error ?? null).toBeNull();
+  expect(snapshot.status).toBe(200);
+  expect(authProxy.tunnels.slice(before)).toContain(`localhost:${httpsEcho.port}`);
+});
+
+test('wrong credentials name the vault entry on the 407', async () => {
+  const snapshot = await exec(
+    draft({
+      url: `https://localhost:${httpsEcho.port}/`,
+      sslVerification: false,
+      proxyUrl: `http://127.0.0.1:${authProxy.port}`,
+      proxyCredentialRef: 'proxy-auth-wrong',
+    }),
+  );
+  expect(snapshot.error ?? '').toMatch(/rejected the credentials \(407\)/);
+  expect(snapshot.error ?? '').toContain('"proxy-auth-wrong"');
 });
 
 // ── S11 + S12: cookie jar + inspection channels ──────────────────────

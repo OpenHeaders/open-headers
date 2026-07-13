@@ -139,6 +139,43 @@ export async function startHttpRig(): Promise<Rig> {
   return { port, close: closer(server) };
 }
 
+/** Mint a throwaway CLIENT pair (CN=client) into `dir` — distinct file
+ *  names so it can share the dir with {@link mintLocalhostCert}. */
+export async function mintClientCert(dir: string): Promise<TlsMaterial> {
+  const keyPath = path.join(dir, 'client-key.pem');
+  const certPath = path.join(dir, 'client-cert.pem');
+  await execFileAsync('openssl', [
+    'req',
+    '-x509',
+    '-newkey',
+    'rsa:2048',
+    '-nodes',
+    '-days',
+    '2',
+    '-subj',
+    '/CN=client',
+    '-keyout',
+    keyPath,
+    '-out',
+    certPath,
+  ]);
+  return { key: readFileSync(keyPath), cert: readFileSync(certPath) };
+}
+
+/** A mutual-TLS echo — demands a client certificate chaining to
+ *  `clientCa` (the self-signed client cert doubles as its own CA) and
+ *  answers `mtls-ok`. A certless client is severed mid-handshake. */
+export async function startMtlsEcho(material: TlsMaterial, clientCa: Buffer): Promise<Rig> {
+  const server = https.createServer(
+    { ...material, requestCert: true, rejectUnauthorized: true, ca: clientCa },
+    (_req, res) => {
+      res.end('mtls-ok');
+    },
+  );
+  const port = await listen(server);
+  return { port, close: closer(server) };
+}
+
 /** Self-signed HTTPS echo — `{"ok":true}`. */
 export async function startHttpsEcho(material: TlsMaterial): Promise<Rig> {
   const server = https.createServer(material, (_req, res) => {
@@ -176,8 +213,11 @@ export interface ProxyRig extends Rig {
   tunnels: string[];
 }
 
-/** A minimal HTTP CONNECT proxy recording every tunnel it opens. */
-export async function startConnectProxy(): Promise<ProxyRig> {
+/** A minimal HTTP CONNECT proxy recording every tunnel it opens. Pass
+ *  `requireAuth` (`user:password`) to demand a matching Basic
+ *  `Proxy-Authorization` — a missing or wrong pair is refused with 407,
+ *  and refused CONNECTs are never recorded as tunnels. */
+export async function startConnectProxy(requireAuth?: string): Promise<ProxyRig> {
   const tunnels: string[] = [];
   const sockets = new Set<{ destroy(): void }>();
   const server = http.createServer((_req, res) => {
@@ -185,6 +225,16 @@ export async function startConnectProxy(): Promise<ProxyRig> {
     res.end();
   });
   server.on('connect', (req, clientSocket, head) => {
+    if (requireAuth) {
+      const expected = `Basic ${Buffer.from(requireAuth).toString('base64')}`;
+      if (req.headers['proxy-authorization'] !== expected) {
+        clientSocket.write(
+          'HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="rig"\r\n\r\n',
+        );
+        clientSocket.destroy();
+        return;
+      }
+    }
     const target = req.url ?? '';
     tunnels.push(target);
     const [host, portStr] = target.split(':');

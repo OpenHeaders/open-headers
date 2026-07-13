@@ -1,10 +1,12 @@
 /**
- * Workspace-export import orchestrator.
+ * Workspace-export import orchestrator — host-neutral.
  *
- * Drives `chrome.storage` writes for an `ImportPlan` produced by
- * `@openheaders/core/workspace-export`. Sibling to
- * `workspace-orchestrator.ts` (kept separate for SoC — duplicate / switch
- * / delete are workspace-lifecycle concerns; import is data-merge).
+ * Drives `hostStorage` writes for an `ImportPlan` produced by
+ * `@openheaders/core/workspace-export`. Lifted from the extension SW
+ * (Desktop host #2 posture): every host that owns an oracle answers
+ * the `importWorkspace` / `previewWorkspaceImport` bridge channels
+ * through this module — the extension SW message handler, the desktop
+ * daemon spine's `dispatchRpc`.
  *
  * Contract (design §5.3):
  *   • Top-level `withLock(workspace-import singleton)` per target id —
@@ -20,15 +22,10 @@
  *     metadata + " (imported)" suffix on collision; target=existing
  *     ignores export's metadata, doesn't copy `defaultEnvironmentId`
  *     (the post-import toast offers it).
- *   • After all writes, fire `scheduleUpdate('import', { immediate:
- *     true })` so the DNR ruleset rebuilds.
+ *   • After all writes, the `scheduleRuleEngineUpdate` host hook fires
+ *     so hosts with a request-modifying runtime rebuild their ruleset.
  *   • Persist a `WorkspaceExportImportReport` into the per-workspace
  *     `importReports` ring.
- *
- * Out of scope (lands in PR 5):
- *   • OAuth `configs` import (sidecar omit-toggle)
- *   • Strip-scripts toggle
- *   • Capability-gate prompts
  */
 
 export { importWorkspace } from './import';

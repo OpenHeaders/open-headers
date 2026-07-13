@@ -1,6 +1,6 @@
 /**
- * Coverage for the SW-side workspace-export import orchestrator
- * (`workspace-import-orchestrator.ts`).
+ * Coverage for the host-neutral workspace-export import orchestrator
+ * (`src/workspace/import-orchestrator/`).
  *
  * Drives an end-to-end import (target = current / new) against a
  * Map-backed `hostStorage` mock + a deterministic FIFO lock
@@ -17,11 +17,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { blobs } = vi.hoisted(() => ({ blobs: new Map<string, unknown>() }));
 
-vi.mock('@utils/logger', () => ({
-  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}));
+vi.mock('@openheaders/core/utils', async () => {
+  const actual = await vi.importActual<typeof import('@openheaders/core/utils')>('@openheaders/core/utils');
+  return {
+    ...actual,
+    logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  };
+});
 
-vi.mock('@/background/modules/workspace/workspace-store', () => ({
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   getActiveWorkspaceId: vi.fn(() => 'ws-active'),
   listWorkspaces: vi.fn(() => [{ id: 'ws-active', name: 'Active' }]),
   getWorkspace: vi.fn((id: string) =>
@@ -68,12 +72,6 @@ vi.mock('@openheaders/oracle/live/live-workflow-store', () => ({
 vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
   bridgeLiveVariableSyncEngine: vi.fn(async () => {}),
-}));
-vi.mock('@/background/modules/rules/rule-engine', () => ({
-  scheduleUpdate: vi.fn(),
-}));
-vi.mock('@/background/modules/observability-log', () => ({
-  recordLog: vi.fn(),
 }));
 vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
   bridgeOAuthSyncEngine: vi.fn(async () => {}),
@@ -153,15 +151,19 @@ class FifoLockRuntime {
   }
 }
 
-let orchestrator: typeof import('@/background/modules/workspace/workspace-import-orchestrator');
+let orchestrator: typeof import('../../src/workspace/import-orchestrator/index');
 
 beforeEach(async () => {
   blobs.clear();
   setLockRuntime(new FifoLockRuntime());
   vi.resetModules();
   const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
-  setOracleHostHooks({ getActiveWorkspaceId: () => 'ws-active' });
-  orchestrator = await import('@/background/modules/workspace/workspace-import-orchestrator');
+  setOracleHostHooks({
+    getActiveWorkspaceId: () => 'ws-active',
+    scheduleRuleEngineUpdate: vi.fn(),
+    recordLog: vi.fn(),
+  });
+  orchestrator = await import('../../src/workspace/import-orchestrator/index');
 });
 
 afterEach(() => {
@@ -451,7 +453,7 @@ describe('importWorkspace — scripts review pending set', () => {
 
 describe('importWorkspace — quota pre-check (best-effort, warn-only)', () => {
   it('logs a warning and continues when the estimated plan exceeds the quota headroom', async () => {
-    const { logger } = await import('@utils/logger');
+    const { logger } = await import('@openheaders/core/utils');
     // A 4 MB inline script in one request blows past the 4.5 MB headroom
     // when combined with any envelope overhead. The orchestrator should
     // warn but still write — pre-check is a UX hint, not a guard
@@ -515,7 +517,7 @@ describe('importWorkspace — quota pre-check (best-effort, warn-only)', () => {
   });
 
   it('does not warn when the plan fits comfortably under the headroom', async () => {
-    const { logger } = await import('@utils/logger');
+    const { logger } = await import('@openheaders/core/utils');
     await orchestrator.importWorkspace({
       incoming: makeExport(),
       strategies: {},
@@ -616,9 +618,7 @@ describe('importWorkspace — lastImportedSnapshots', () => {
           ...makeExport().entities,
           workspaceVars: {
             schemaVersion: 5,
-            variables: [
-              { uid: 'var00001', name: 'API_BASE', value: 'https://api.openheaders.io', type: 'default' },
-            ],
+            variables: [{ uid: 'var00001', name: 'API_BASE', value: 'https://api.openheaders.io', type: 'default' }],
           },
         },
       }),
