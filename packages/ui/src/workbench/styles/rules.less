@@ -42,6 +42,17 @@ html, body, #root {
   overscroll-behavior: none;
 }
 
+// Kill the macOS elastic rubber-band on EVERY scroller, not just the
+// root above: `overscroll-behavior` is not inherited, and each overflow
+// container bounces independently at its own edges. `none` (not
+// `contain` — that still allows the local bounce) also stops scroll
+// chaining, which is right for a paneled shell whose root never
+// scrolls: a wheel past an inner scroller's edge should stop, not
+// start dragging some ancestor pane.
+* {
+  overscroll-behavior: none;
+}
+
 // ThemeContext writes `--oh-ui-font-family` on :root from the active
 // `appearance.fontFamilyPreset`. Routing the body through the variable
 // keeps plain HTML in step with the AntD token — without it, every

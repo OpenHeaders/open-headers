@@ -188,6 +188,15 @@
   box-sizing: border-box;
 }
 
+/* Kill the macOS elastic rubber-band on every scroller: the property is
+ * not inherited, and each overflow container bounces independently at
+ * its own edges. `none` (not `contain` — that still allows the local
+ * bounce) also stops scroll chaining, which is right for a dock shell
+ * whose body never scrolls. */
+* {
+  overscroll-behavior: none;
+}
+
 html,
 body {
   margin: 0;

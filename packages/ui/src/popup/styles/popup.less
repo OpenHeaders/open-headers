@@ -31,6 +31,16 @@ html {
   background-color: transparent;
 }
 
+// Kill the macOS elastic rubber-band on every scroller (popup AND the
+// sidepanel, which imports this sheet): the property is not inherited,
+// and each overflow container bounces independently at its own edges.
+// `none` (not `contain` — that still allows the local bounce) also
+// stops scroll chaining, which is right for fixed-size surfaces whose
+// body never scrolls.
+* {
+  overscroll-behavior: none;
+}
+
 /* Rule-type code badge tokens — neutral gradient shared by `ruleTypeBadge()`.
  * Mirrors the workbench definition in rules.less so the codes render
  * identically in the popup's Add-Rule palette. Defined at root so the
