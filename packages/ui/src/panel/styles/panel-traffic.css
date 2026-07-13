@@ -36,25 +36,47 @@
 }
 
 /* ── Table ──────────────────────────────────────────────── */
+/* Header strip — OUTSIDE the body scroller (its previous life as a sticky
+ * child put the vertical scrollbar track alongside it; browser parity
+ * starts the track below the column headers). Same shared single-column
+ * grid as `.dt-table`, and TrafficList renders a zero-height twin of the
+ * body's width-anchor row in here, so both grids resolve the identical
+ * `max(content, viewport)` column and the columns can never drift.
+ * Horizontal panning is mirrored from the body scroller (scrollLeft sync
+ * in TrafficList); `scrollbar-gutter: stable` on both containers keeps
+ * their content boxes equal whether or not the body currently shows a
+ * vertical scrollbar. */
+.dt-table-headwrap {
+  flex: 0 0 auto;
+  overflow: hidden;
+  scrollbar-gutter: stable;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr);
+}
+
+.dt-table-headwrap--compact {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .dt-table {
   flex: 1;
   overflow: auto;
   overscroll-behavior: none;
+  scrollbar-gutter: stable;
   /* We own the scroll position (virtualization re-windows the mounted
    * slice and the tail-follow pins to the bottom). Browser scroll
    * anchoring would fight that: when a burst grows the top spacer, it
    * nudges scrollTop to keep an anchor stable, which drifts the view off
    * the tail and fires a spurious upward scroll event. Opt out. */
   overflow-anchor: none;
-  /* Single-column grid wrapper: every child (header + rows) lives in
-   * one shared column whose width is `max(max-content of any row,
-   * viewport)`. This is what keeps columns aligned across rows when
-   * the body has a long-name row — without the shared column, each
-   * row would resolve its own `1fr` tracks against its own intrinsic
-   * width and the grid template would drift row-by-row. As a side
-   * benefit, every row's box now spans the full scroll width, so
-   * hover + selection backgrounds cover columns scrolled into view
-   * and the sticky header paints opaque across the same range. */
+  /* Single-column grid wrapper: every row lives in one shared column
+   * whose width is `max(max-content of any row, viewport)`. This is
+   * what keeps columns aligned across rows when the body has a
+   * long-name row — without the shared column, each row would resolve
+   * its own `1fr` tracks against its own intrinsic width and the grid
+   * template would drift row-by-row. As a side benefit, every row's box
+   * spans the full scroll width, so hover + selection backgrounds cover
+   * columns scrolled into view. */
   display: grid;
   grid-template-columns: minmax(max-content, 1fr);
   grid-auto-rows: auto;
@@ -66,25 +88,25 @@
  * emitted as `minmax(min, 1fr)` by `columnTrack(compact: true)`, so
  * they absorb any slack and the table fits without horizontal scroll.
  * The dt-row + dt-table-header `width: 100%` rule still aligns them
- * to the column, so hover + sticky-bg fixes are preserved. */
+ * to the column, so hover-bg coverage is preserved. */
 .dt-table--compact {
   grid-template-columns: minmax(0, 1fr);
   overflow-x: hidden;
 }
 
-/* Empty log: the header row still renders, so collapse the table to just
- * that header and let the empty hero/message sibling (flex: 1) fill the
- * rest of the panel below it. */
+/* Empty log: the header strip above still renders its columns, the body
+ * collapses to nothing, and the empty hero/message sibling (flex: 1)
+ * fills the rest of the panel below it. */
 .dt-table--empty {
   flex: 0 0 auto;
 }
 
 /* Column header row — smooth white inside the dock-body card. The only
    visual separation is a 1px bottom border (matches the workspace card
-   aesthetic: white fills, fine lines between sections). Sticky so it
-   stays pinned when the table body scrolls — we need an explicit
-   background color for that (transparent sticky would show scrolling
-   rows bleeding through), so we paint the container white. */
+   aesthetic: white fills, fine lines between sections). Pinning comes
+   from living in `.dt-table-headwrap` above the body scroller — no
+   sticky needed; the explicit background keeps horizontal panning from
+   showing content through the strip. */
 .dt-table-header {
   display: grid;
   padding: 0 4px;
@@ -93,9 +115,6 @@
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
   font-weight: 600;
-  position: sticky;
-  top: 0;
-  z-index: 2;
   user-select: none;
 }
 
@@ -506,7 +525,8 @@
  * width are set inline from the column's measured content-space geometry, so
  * it stays glued to the column (and clips with it when compact mode pushes the
  * column past the viewport edge). overflow:hidden keeps a marker from painting
- * past the column bounds. z-index sits above the bars, below the sticky header. */
+ * past the column bounds; the column header lives outside this scroller, so
+ * the lines start at the scrollport's own top edge. */
 .dt-wf-markers-anchor {
   position: sticky;
   top: 0;
@@ -517,7 +537,7 @@
 
 .dt-wf-markers {
   position: absolute;
-  top: 22px;
+  top: 0;
   overflow: hidden;
 }
 

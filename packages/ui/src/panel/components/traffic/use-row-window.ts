@@ -3,14 +3,22 @@ import type { InspectorRowWithFires } from '../../data/inspector-row-projection'
 
 /**
  * Row virtualization geometry. Rows are a fixed height (mirrors the
- * `.dt-row` rule), so only the visible slice plus a small overscan is
+ * `.dt-row` rule), so only the visible slice plus an overscan is
  * mounted — the rest is represented by two zero-content spacers that
- * preserve the scroll height. This keeps the DOM at a few dozen rows
- * regardless of how many thousand requests have been recorded.
+ * preserve the scroll height. This keeps the DOM at ~a hundred rows
+ * regardless of how many thousand requests have been recorded. The
+ * column header lives OUTSIDE this scroller (`.dt-table-headwrap`), so
+ * scrollTop 0 is the first row — no header offset in the math.
+ *
+ * The overscan buys headroom against compositor-thread scrolling: the
+ * scroll glides on the compositor while the window recompute + React
+ * commit run on the main thread, so a fast fling outruns the mounted
+ * slice and exposes the blank spacer. 30 rows (600px) each side keeps
+ * typical wheel/momentum velocities painted; the memoized rows make the
+ * wider slice cheap (only edge rows mount per shift).
  */
 const ROW_HEIGHT_PX = 20;
-const TABLE_HEADER_HEIGHT_PX = 22;
-const ROW_OVERSCAN = 12;
+const ROW_OVERSCAN = 30;
 /** Distance from the bottom (px, ~2 rows) within which the view counts as parked at the tail. */
 const STICK_THRESHOLD_PX = 40;
 
@@ -69,8 +77,8 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
     // measurement, and the restored scroll already matches it.
     if (viewport === 0) return;
     const top = el.scrollTop;
-    const first = Math.max(0, Math.floor((top - TABLE_HEADER_HEIGHT_PX) / ROW_HEIGHT_PX) - ROW_OVERSCAN);
-    const last = Math.min(count, Math.ceil((top - TABLE_HEADER_HEIGHT_PX + viewport) / ROW_HEIGHT_PX) + ROW_OVERSCAN);
+    const first = Math.max(0, Math.floor(top / ROW_HEIGHT_PX) - ROW_OVERSCAN);
+    const last = Math.min(count, Math.ceil((top + viewport) / ROW_HEIGHT_PX) + ROW_OVERSCAN);
     setRowWindow((prev) => (prev.start === first && prev.end === last ? prev : { start: first, end: last }));
   }, []);
 
@@ -93,9 +101,9 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
       const el = tableRef.current;
       const idx = rowsRef.current.findIndex((r) => r.lifecycle.requestId === requestId);
       if (!el || idx < 0) return;
-      const rowTop = TABLE_HEADER_HEIGHT_PX + idx * ROW_HEIGHT_PX;
+      const rowTop = idx * ROW_HEIGHT_PX;
       const viewport = el.clientHeight;
-      const aboveFold = rowTop < el.scrollTop + TABLE_HEADER_HEIGHT_PX;
+      const aboveFold = rowTop < el.scrollTop;
       const belowFold = rowTop + ROW_HEIGHT_PX > el.scrollTop + viewport;
       // The target may be outside the mounted slice — scroll by computed
       // offset (centered) rather than `scrollIntoView`, which only works

@@ -40,10 +40,6 @@ import { useRowWindow } from './traffic/use-row-window';
 import type { WaterfallScale } from './traffic/WaterfallBar';
 import { WidthAnchorRow } from './traffic/WidthAnchorRow';
 
-/** Column-header height — mirrors `.dt-table-header { height }` in
- * panel-traffic.css; the page-marker lines start below it. */
-const HEADER_ROW_PX = 22;
-
 interface TrafficListProps {
   /** Full in-view row set — drives preflight pairing, the waterfall window, and
    * the empty-vs-no-match hero (browser-parity: those read the unfiltered log). */
@@ -197,6 +193,17 @@ export function TrafficList({
   const hasTable = filteredRows.length > 0;
 
   const { tableRef, onScroll, scrollToRow, visibleRows, topPadPx, bottomPadPx } = useRowWindow(sorted, hasTable);
+
+  // The header strip sits outside the vertical scroller (so the body's
+  // scrollbar track starts below it) but must pan with the body's
+  // horizontal scroll — mirror scrollLeft on every body scroll event.
+  const headwrapRef = useRef<HTMLDivElement | null>(null);
+  const handleTableScroll = useCallback(() => {
+    onScroll();
+    const body = tableRef.current;
+    const head = headwrapRef.current;
+    if (body && head && head.scrollLeft !== body.scrollLeft) head.scrollLeft = body.scrollLeft;
+  }, [onScroll, tableRef]);
 
   // Visible height of the scroll body — sets how far the page-marker lines
   // (DOMContentLoaded / Load) extend down the waterfall column.
@@ -451,34 +458,13 @@ export function TrafficList({
   return (
     <div className="dt-panel" ref={panelElRef}>
       <NetworkPanelHeader {...headerProps} />
-      {/* The column header always renders — even with no rows — so the empty
-          state still shows the table's columns (browser-parity). When empty
-          the table shrinks to the header and the hero below fills the rest. */}
-      <div
-        className={`dt-table${compact ? ' dt-table--compact' : ''}${hasRows ? '' : ' dt-table--empty'}`}
-        ref={tableRef}
-        onScroll={onScroll}
-      >
-        {markerLines.length > 0 && (
-          // Sticky zero-height anchor at the scrollport top: pins the lines
-          // vertically while they flow horizontally with the (last) Waterfall
-          // column. The inner box is right-aligned to the column and drops from
-          // below the sticky header to the bottom of the visible body.
-          <div className="dt-wf-markers-anchor" aria-hidden="true">
-            <div
-              className="dt-wf-markers"
-              style={{
-                left: `${waterfallColLeftPx}px`,
-                width: `${waterfallColPx}px`,
-                height: `${Math.max(tableViewportPx - HEADER_ROW_PX, 0)}px`,
-              }}
-            >
-              {markerLines.map((m) => (
-                <span key={m.key} className={`dt-wf-marker dt-wf-marker--${m.kind}`} style={{ left: `${m.pct}%` }} />
-              ))}
-            </div>
-          </div>
-        )}
+      {/* Header strip — its own hidden-overflow container ABOVE the body
+          scroller, so the body's vertical scrollbar track starts below the
+          column headers (browser parity) instead of running through them.
+          It always renders — even with no rows — so the empty state still
+          shows the table's columns. Horizontal panning is mirrored from the
+          body via handleTableScroll's scrollLeft sync. */}
+      <div className={`dt-table-headwrap${compact ? ' dt-table-headwrap--compact' : ''}`} ref={headwrapRef}>
         {/* biome-ignore lint/a11y/noStaticElementInteractions: header row has a right-click menu but no primary action */}
         <div
           className="dt-table-header dt-cols"
@@ -521,6 +507,45 @@ export function TrafficList({
             </div>
           ))}
         </div>
+        {/* Width twin of the body's anchor row: both containers resolve the
+            shared `minmax(max-content, 1fr)` column against the same widest
+            content, so header and body columns can never drift apart under
+            horizontal scroll. */}
+        {hasRows && widestNameRow && (
+          <WidthAnchorRow
+            row={widestNameRow}
+            columns={columns}
+            gridTemplate={gridTemplate}
+            showFireDots={showFireDots}
+            ctx={cellContext}
+          />
+        )}
+      </div>
+      <div
+        className={`dt-table${compact ? ' dt-table--compact' : ''}${hasRows ? '' : ' dt-table--empty'}`}
+        ref={tableRef}
+        onScroll={handleTableScroll}
+      >
+        {markerLines.length > 0 && (
+          // Sticky zero-height anchor at the scrollport top: pins the lines
+          // vertically while they flow horizontally with the (last) Waterfall
+          // column. The inner box is right-aligned to the column and spans the
+          // full visible body (the header lives outside this scroller).
+          <div className="dt-wf-markers-anchor" aria-hidden="true">
+            <div
+              className="dt-wf-markers"
+              style={{
+                left: `${waterfallColLeftPx}px`,
+                width: `${waterfallColPx}px`,
+                height: `${Math.max(tableViewportPx, 0)}px`,
+              }}
+            >
+              {markerLines.map((m) => (
+                <span key={m.key} className={`dt-wf-marker dt-wf-marker--${m.kind}`} style={{ left: `${m.pct}%` }} />
+              ))}
+            </div>
+          </div>
+        )}
         {hasRows && (
           <>
             {widestNameRow && (

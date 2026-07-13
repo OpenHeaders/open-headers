@@ -22,7 +22,6 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 const ROW_HEIGHT_PX = 20;
-const HEADER_PX = 22;
 const VIEWPORT_PX = 400;
 
 beforeAll(() => {
@@ -92,10 +91,12 @@ function makeScrollEl(): { el: HTMLDivElement; setRowCount: (n: number) => void;
   });
   return {
     el,
+    // The column header lives outside the scroller (.dt-table-headwrap),
+    // so the content height is rows only.
     setRowCount: (n) => {
-      contentHeight = n * ROW_HEIGHT_PX + HEADER_PX;
+      contentHeight = n * ROW_HEIGHT_PX;
     },
-    bottomFor: (n) => Math.max(0, n * ROW_HEIGHT_PX + HEADER_PX - VIEWPORT_PX),
+    bottomFor: (n) => Math.max(0, n * ROW_HEIGHT_PX - VIEWPORT_PX),
   };
 }
 
