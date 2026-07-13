@@ -534,10 +534,13 @@ export function evalFailureEntry(contextKey: string, message: string, timestamp:
  * session decides `targetKind` (root = `page`; a kept child carries its
  * target kind); `worldType` passes the aux `type` through open-ended,
  * defaulting to `default` when absent (older wire shapes omit it for the
- * main world). A missing `isDefault` reads as `false` — only an explicit
- * main-world flag counts. `isTopFrame` is the caller's main-frame-registry
- * verdict on the context's frame (Phase C: the selector's `top` and depth
- * derive from it); stamped only when true.
+ * main world). On page-like sessions a missing `isDefault` reads as `false`
+ * — only an explicit main-world flag counts; a dedicated worker's one
+ * context arrives with no `auxData` at all (verified live, Phase E parity
+ * pass — same wire shape as browser-scoped worker targets), so on a
+ * worker-kind session that absence means its main world. `isTopFrame` is
+ * the caller's main-frame-registry verdict on the context's frame (Phase C:
+ * the selector's `top` and depth derive from it); stamped only when true.
  */
 export function normalizeExecutionContextCreated(
   sessionKey: string,
@@ -551,7 +554,7 @@ export function normalizeExecutionContextCreated(
     contextKey: jsContextKey(sessionKey, context.id),
     origin: context.origin,
     name: context.name,
-    isDefault: aux?.isDefault === true,
+    isDefault: aux === undefined ? targetKind === 'worker' : aux.isDefault === true,
     ...(aux?.frameId !== undefined ? { frameId: aux.frameId } : {}),
     ...(isTopFrame ? { isTopFrame: true } : {}),
     targetKind,

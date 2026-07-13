@@ -1496,6 +1496,29 @@ describe('ChromeDebuggerEventSource — Runtime executionContext lifecycle (JS c
     expect(out[1].kind === 'context-created' && 'frameId' in out[1].context).toBe(false);
   });
 
+  it('reads a worker context with no auxData as its main world (live wire shape)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpJsContextEvent[] = [];
+    source.subscribeContexts((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget('child-worker-1', 'worker'));
+    // A dedicated worker's one context arrives with no auxData at all —
+    // on a worker session that absence means the main world; on a
+    // page-like session it stays explicit-flag-only.
+    emitChild('child-worker-1', 'Runtime.executionContextCreated', rawContextCreated(1, { auxData: undefined }));
+    emitRoot('Runtime.executionContextCreated', rawContextCreated(2, { auxData: undefined }));
+
+    expect(out[0]).toMatchObject({
+      kind: 'context-created',
+      context: { contextKey: 'child-worker-1::1', targetKind: 'worker', isDefault: true },
+    });
+    expect(out[1]).toMatchObject({
+      kind: 'context-created',
+      context: { contextKey: 'page::2', targetKind: 'page', isDefault: false },
+    });
+  });
+
   it('fans context-destroyed with the session-scoped key', async () => {
     source = new ChromeDebuggerEventSource();
     const out: CdpJsContextEvent[] = [];
