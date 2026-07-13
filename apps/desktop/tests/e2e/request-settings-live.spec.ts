@@ -20,6 +20,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { parseWorkspaceExport } from '@openheaders/core/workspace-export';
 import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
 import {
   freePort,
@@ -174,9 +175,9 @@ test.beforeAll(async () => {
       exportFormatVersion: 1,
       exportId: 'e2e0va01',
       exportedAt: '2026-07-13T00:00:00.000Z',
-      source: { app: 'desktop', appVersion: '0.0.0', platform: 'macos', workspaceLabel: 'Settings Live Rig' },
+      source: { app: 'desktop', appVersion: '0.0.0', platform: 'electron', workspaceLabel: 'Settings Live Rig' },
       scope: 'workspace',
-      workspace: { uid: 'wsvlt001', name: 'Settings Live Rig' },
+      workspace: { uid: '01905000-0000-7000-8000-00000000e2e0', name: 'Settings Live Rig' },
       entities: {
         collections: [],
         folders: [],
@@ -508,4 +509,58 @@ test('getCookieJarSummary lists the entry value-free; clearCookieJar empties it'
   // And the wire agrees: the emptied jar attaches nothing.
   const snapshot = await exec(draft({ url: `http://127.0.0.1:${httpRig.port}/me`, cookieJar: true }));
   expect(snapshot.body).toBe('cookie=[]');
+});
+
+// ── S17: workspace export round-trip ─────────────────────────────────
+// The export side of the host-neutral port: an export minted on this
+// desktop (gatherer → core builder → YAML) parses back and re-imports
+// through the already-wired `importWorkspace`, and the dedup walker
+// names the freshly created target.
+
+test('exportWorkspace round-trips through importWorkspace with the vault intact', async () => {
+  const exported = await invoke<{ success: boolean; yaml?: string; exportId?: string; error?: string }>({
+    type: 'exportWorkspace',
+    scope: { kind: 'workspace' },
+    vaultMode: 'plaintext',
+  });
+  expect(exported.success, exported.error).toBe(true);
+
+  const parsed = parseWorkspaceExport(exported.yaml as string);
+  expect(parsed.ok, parsed.ok ? undefined : parsed.details).toBe(true);
+  if (!parsed.ok) return;
+  const envelope = parsed.export;
+  expect(envelope.source.app).toBe('desktop');
+  expect(envelope.source.platform).toBe('electron');
+  expect(envelope.entities.vault?.secrets.map((s) => s.name).sort()).toEqual([
+    'gateway-mtls',
+    'proxy-auth',
+    'proxy-auth-wrong',
+  ]);
+
+  const imported = await invoke<{
+    success: boolean;
+    report?: { summary: { imported: number } };
+    targetWorkspaceId?: string;
+    error?: string;
+  }>({
+    type: 'importWorkspace',
+    incoming: envelope,
+    strategies: {},
+    target: { mode: 'new', name: 'Round Trip' },
+    sourceHash: 'sha256:settings-live-roundtrip',
+  });
+  expect(imported.success, imported.error).toBe(true);
+  expect(imported.targetWorkspaceId).toBeTruthy();
+
+  const matches = await invoke<{
+    exportIdSameTarget: Array<{ workspaceId: string }>;
+    exportIdOtherTargets: Array<{ workspaceId: string }>;
+    workspaceUidMatches: Array<{ workspaceId: string }>;
+  }>({
+    type: 'findWorkspaceExportImportMatches',
+    exportId: envelope.exportId,
+    workspaceUid: envelope.workspace.uid,
+    currentTargetWorkspaceId: null,
+  });
+  expect(matches.exportIdOtherTargets.map((m) => m.workspaceId)).toContain(imported.targetWorkspaceId);
 });

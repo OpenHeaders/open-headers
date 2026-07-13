@@ -23,6 +23,7 @@ import {
   RuleSchema,
   TemplateSchema,
   UidSchema,
+  UuidV7Schema,
   VaultSchema,
   WorkspaceVariablesSchema,
 } from '../schemas/index';
@@ -53,8 +54,8 @@ export const ExportFormatVersionSchema = v.pipe(v.number(), v.integer(), v.minVa
 
 // ── Source / scope / meta ───────────────────────────────────────────
 
-export const ExportSourceAppSchema = v.picklist(['extension', 'desktop']);
-export const ExportSourcePlatformSchema = v.picklist(['chrome', 'firefox', 'edge', 'safari', 'electron']);
+export const ExportSourceAppSchema = v.picklist(['extension', 'desktop', 'daemon']);
+export const ExportSourcePlatformSchema = v.picklist(['chrome', 'firefox', 'edge', 'safari', 'electron', 'node']);
 export const ExportScopeSchema = v.picklist(['workspace', 'collection', 'selection']);
 
 export const ExportSourceSchema = v.object({
@@ -93,7 +94,10 @@ export const ExportMetaSchema = v.object({
 // ── Workspace metadata block (always present, even on selection) ────
 
 export const ExportWorkspaceSchema = v.object({
-  uid: UidSchema,
+  // Workspace ids are canonically UUIDv7 on every host (see
+  // `core/utils/workspace-id.ts`); only entity uids inside a workspace
+  // use the 8-char form.
+  uid: UuidV7Schema,
   name: ShortStringSchema,
   description: v.optional(v.pipe(v.string(), v.maxLength(2048))),
   color: v.optional(ShortStringSchema),

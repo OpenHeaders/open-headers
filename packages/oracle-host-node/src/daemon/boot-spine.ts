@@ -66,7 +66,17 @@ import {
 } from '@openheaders/core/sync';
 import type { HostKind } from '@openheaders/core/types';
 import { logger as consoleLogger } from '@openheaders/core/utils';
+import {
+  buildWorkspaceExport,
+  type EncryptVaultBlockResult,
+  encryptVaultBlock,
+  serializeWorkspaceExport,
+} from '@openheaders/core/workspace-export';
 import { setLockRuntime } from '@openheaders/oracle/coordination';
+import {
+  clearPendingScriptsReview,
+  getPendingScriptsReview,
+} from '@openheaders/oracle/entity/request-scripts-review-store';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
@@ -79,6 +89,7 @@ import {
   subscribeActivityMuteChanges,
 } from '@openheaders/oracle/sync';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
+import { type ExportGatherScope, gatherWorkspaceExport } from '@openheaders/oracle/workspace/export-gatherer';
 import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
@@ -87,6 +98,7 @@ import {
   onWorkspaceStoreChange,
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
+import { findExportImportMatches } from '@openheaders/oracle/workspace/import-dedup';
 import {
   type ImportWorkspaceArgs,
   importWorkspace,
@@ -754,6 +766,82 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         return { snapshots };
       } catch {
         return { snapshots: {} };
+      }
+    }
+    // Workspace export — the host-neutral gatherer + core's pure
+    // builder, same channel the extension SW answers. Source stamps
+    // honestly per distribution: the desktop main process is
+    // desktop/electron; the headless daemon is daemon/node.
+    if (type === 'exportWorkspace') {
+      const wsId = typeof message.workspaceId === 'string' ? message.workspaceId : getActiveWorkspaceId();
+      const scope = message.scope as ExportGatherScope;
+      const vaultMode = (message.vaultMode as 'omitted' | 'encrypted' | 'plaintext' | undefined) ?? 'omitted';
+      const passphrase = message.passphrase as string | undefined;
+      const passphraseHint = message.passphraseHint as string | undefined;
+      try {
+        const res = await gatherWorkspaceExport(wsId, scope, {
+          app: config.identity.hostKind === 'desktop' ? 'desktop' : 'daemon',
+          appVersion: config.appVersion,
+          platform: config.identity.hostKind === 'desktop' ? 'electron' : 'node',
+        });
+        if (!res) return { success: false, error: 'Workspace or rule not found' };
+        let secretsBlock: EncryptVaultBlockResult | undefined;
+        if (vaultMode === 'encrypted') {
+          if (!passphrase) return { success: false, error: 'Encrypted vault export requires a passphrase' };
+          const vaultSecrets = res.input.entities.vault?.secrets ?? [];
+          secretsBlock = await encryptVaultBlock(vaultSecrets, passphrase, {
+            ...(passphraseHint ? { hint: passphraseHint } : {}),
+          });
+        }
+        const envelope = buildWorkspaceExport(res.input, {
+          vaultMode,
+          ...(secretsBlock ? { secretsBlock: secretsBlock.block } : {}),
+        });
+        const yaml = serializeWorkspaceExport(envelope);
+        return {
+          success: true,
+          yaml,
+          exportId: envelope.exportId,
+          scope: envelope.scope,
+          ...(secretsBlock
+            ? {
+                ciphertextFingerprint: secretsBlock.ciphertextFingerprint,
+                keyFingerprint: secretsBlock.keyFingerprint,
+              }
+            : {}),
+        };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    }
+    // Soft-dedup banner for the import preview — pure cross-workspace
+    // read over the per-workspace import-report rings.
+    if (type === 'findWorkspaceExportImportMatches') {
+      try {
+        return await findExportImportMatches({
+          exportId: message.exportId as string,
+          workspaceUid: message.workspaceUid as string,
+          currentTargetWorkspaceId: message.currentTargetWorkspaceId as string | null,
+        });
+      } catch {
+        return { exportIdSameTarget: [], exportIdOtherTargets: [], workspaceUidMatches: [] };
+      }
+    }
+    // Imported-scripts review badge — reads/acks the active workspace's
+    // pending set (hydrated by `hydrateActiveWorkspaceStores`).
+    if (type === 'getRequestScriptsReviewPending') {
+      try {
+        return { uids: Array.from(getPendingScriptsReview()) };
+      } catch {
+        return { uids: [] };
+      }
+    }
+    if (type === 'clearRequestScriptsReviewPending') {
+      try {
+        await clearPendingScriptsReview(message.uid as string);
+        return { success: true };
+      } catch {
+        return { success: false };
       }
     }
     // Daemon-admin channels (pairing/tokens/users/grants + the admin

@@ -1,6 +1,6 @@
 /**
  * Coverage for the cross-workspace dedup walker
- * (`workspace-import-dedup.ts`) — drives the soft-dedup banner in the
+ * (`workspace/import-dedup.ts`) — drives the soft-dedup banner in the
  * import preview modal.
  *
  * Asserts the §5.2 precedence: exportId match in the same target beats
@@ -20,7 +20,7 @@ const { blobs, workspaces } = vi.hoisted(() => ({
   ],
 }));
 
-vi.mock('@/background/modules/workspace/workspace-store', () => ({
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   listWorkspaces: vi.fn(() => workspaces),
 }));
 
@@ -34,12 +34,12 @@ vi.mock('@openheaders/oracle/storage', async () => {
   };
 });
 
-let dedup: typeof import('@/background/modules/workspace/workspace-import-dedup');
+let dedup: typeof import('../../src/workspace/import-dedup');
 
 beforeEach(async () => {
   blobs.clear();
   vi.resetModules();
-  dedup = await import('@/background/modules/workspace/workspace-import-dedup');
+  dedup = await import('../../src/workspace/import-dedup');
 });
 
 afterEach(() => {

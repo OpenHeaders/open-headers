@@ -21,7 +21,7 @@ function baseInput(): Parameters<typeof buildWorkspaceExport>[0] {
     exportId: 'e8a1b2c3',
     source: { app: 'extension', appVersion: '5.0.4', platform: 'chrome' },
     scope: 'workspace',
-    workspace: { uid: 'a1b2c3d4', name: 'Project' },
+    workspace: { uid: '01905000-0000-7000-8000-0000000000aa', name: 'Project' },
     entities: {
       collections: [],
       folders: [],

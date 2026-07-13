@@ -28,7 +28,7 @@ import {
 } from '../../src/workspace-export/index';
 
 const FIXED_TIMESTAMP = '2026-04-27T18:30:00.000Z';
-const WORKSPACE_UID = 'a1b2c3d4';
+const WORKSPACE_UID = '01905000-0000-7000-8000-0000000000aa';
 const EXPORT_ID = 'e8a1b2c3';
 
 // ── Factories (schema-valid by construction) ───────────────────────

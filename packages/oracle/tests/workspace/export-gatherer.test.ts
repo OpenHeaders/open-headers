@@ -1,5 +1,5 @@
 /**
- * Coverage for `workspace-export-gatherer.ts`'s selection-scope
+ * Coverage for `workspace/export-gatherer.ts`'s selection-scope
  * dependency expansion (design §2.3 + §12 q1).
  *
  * Asserts:
@@ -12,16 +12,20 @@
  *     workspace-vars filter is empty.
  */
 
-import type { Collection, Environment, LiveVariable, LiveWorkflow, Request, Rule, WorkspaceVariables } from '@openheaders/core/types';
+import type {
+  Collection,
+  Environment,
+  LiveVariable,
+  LiveWorkflow,
+  Request,
+  Rule,
+  WorkspaceVariables,
+} from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { blobs } = vi.hoisted(() => ({ blobs: new Map<string, unknown>() }));
 
-vi.mock('@utils/logger', () => ({
-  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}));
-
-vi.mock('@/background/modules/workspace/workspace-store', () => ({
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   getWorkspace: vi.fn((id: string) => (id === 'ws-test' ? { id: 'ws-test', name: 'Test WS' } : null)),
 }));
 
@@ -40,12 +44,12 @@ vi.mock('@openheaders/oracle/storage', async () => {
   };
 });
 
-let gatherer: typeof import('@/background/modules/workspace/workspace-export-gatherer');
+let gatherer: typeof import('../../src/workspace/export-gatherer');
 
 beforeEach(async () => {
   blobs.clear();
   vi.resetModules();
-  gatherer = await import('@/background/modules/workspace/workspace-export-gatherer');
+  gatherer = await import('../../src/workspace/export-gatherer');
 });
 
 afterEach(() => {
@@ -226,6 +230,18 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
 
     expect(res!.input.entities.environments).toEqual([]);
     expect(res!.input.entities.workspaceVars.variables).toEqual([]);
+  });
+
+  it('gathers the vault into the input regardless of scope (builder gates inclusion)', async () => {
+    seedWorkspace({ rules: [makeHeaderRule()] });
+    blobs.set('oh.ws.ws-test.vault', {
+      schemaVersion: 5,
+      secrets: [{ uid: 'vlt00001', kind: 'string', name: 'api-token', value: 's3cret' }],
+    });
+
+    const res = await gatherer.gatherWorkspaceExport('ws-test', { kind: 'workspace' }, OPTS);
+
+    expect(res!.input.entities.vault?.secrets.map((s) => s.name)).toEqual(['api-token']);
   });
 
   it('workspace scope ships full workspaceVars unfiltered', async () => {
