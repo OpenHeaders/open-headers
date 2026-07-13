@@ -25,6 +25,12 @@ export {
   POSTMAN_LANDING_WORKSPACE_NAME,
 } from './materialize';
 export {
+  broadcastMigrationPullToPeers,
+  createMigrationPeerRpc,
+  MIGRATION_STATE_OPERATOR_ONLY_MESSAGE,
+  type MigrationPeerRpcOptions,
+} from './pull-peer-plane';
+export {
   createMigrationPullRunner,
   type MigrationPullRunner,
   type MigrationPullRunnerOptions,

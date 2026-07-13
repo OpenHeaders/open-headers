@@ -12,6 +12,7 @@ import { exportImportHandlers } from './handlers/export-import';
 import { fileHandlers } from './handlers/files';
 import { importReportHandlers } from './handlers/import-reports';
 import { liveHandlers } from './handlers/live';
+import { migrationHandlers } from './handlers/migration';
 import { miscHandlers } from './handlers/misc';
 import { navigationHandlers } from './handlers/navigation';
 import { oauthHandlers } from './handlers/oauth';
@@ -36,6 +37,7 @@ export const registry: HandlerMap = {
   ...templateHandlers,
   ...observabilityHandlers,
   ...importReportHandlers,
+  ...migrationHandlers,
   ...fileHandlers,
   ...oauthHandlers,
   ...liveHandlers,

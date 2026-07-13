@@ -21,6 +21,7 @@ import ImportCurlModal from '../import/ImportCurlModal';
 import ImportHarModal from '../import/ImportHarModal';
 import ImportPostmanModal from '../import/ImportPostmanModal';
 import ImportSectionedModal, { type SectionedPreset, type SectionedSourceKind } from '../import/ImportSectionedModal';
+import MigrateDesktopHandoffModal from '../import/MigrateDesktopHandoffModal';
 import MigrateToolModal from '../import/MigrateToolModal';
 import ExportModal, { type ExportModalScope } from './ExportModal';
 import ImportPreviewModal, { type ImportPreviewSource } from './ImportPreviewModal';
@@ -45,7 +46,8 @@ export interface ImportExportModalsHandle {
    *  hand-off without the hub modal. Unrecognized text is a no-op;
    *  callers gate on `detectImportSource` before consuming the paste. */
   openImportText: (text: string, ctx?: { collectionId?: string }) => void;
-  /** Opens the migration surface (desktop only — the ladder needs fs). */
+  /** Opens the migration surface: the ladder modal on desktop (the
+   *  scan/pull RPCs need fs), the desktop hand-off on the extension. */
   openMigrateTool: () => void;
 }
 
@@ -229,15 +231,22 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     setImportSourceModalOpen(true);
   }, []);
 
-  // Migration surface (MIGRATION_STATUS.md S5 addendum) — desktop only:
-  // the detect/scan/pull RPCs answer in the desktop shell dispatcher.
+  // Migration surface (MIGRATION_STATUS.md S5 addendum). The ladder
+  // itself runs desktop-only (the detect/scan/pull RPCs answer in the
+  // desktop shell dispatcher); the extension gets the funnel instead —
+  // a hand-off modal routed by live desktop connection state (connected
+  // → "run it in the desktop app, progress mirrors here"; otherwise the
+  // desktop install pitch). The web host has no migration entry.
   const [migrateToolOpen, setMigrateToolOpen] = useState(false);
-  const migrationAvailable = getCurrentHost() === 'desktop';
+  const [migrateHandoffOpen, setMigrateHandoffOpen] = useState(false);
+  const currentHost = getCurrentHost();
+  const migrationAvailable = currentHost === 'desktop' || currentHost === 'extension';
   const openMigrateTool = useCallback(() => {
     if (!migrationAvailable) return;
     setImportSourceModalOpen(false);
-    setMigrateToolOpen(true);
-  }, [migrationAvailable]);
+    if (currentHost === 'desktop') setMigrateToolOpen(true);
+    else setMigrateHandoffOpen(true);
+  }, [migrationAvailable, currentHost]);
 
   /**
    * Hub routing (IMPORT_PLAN.md §2.1): a recognized paste or file lands
@@ -560,6 +569,12 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           void onImportFolderChosen(picked);
         }}
         onMigrate={migrationAvailable ? openMigrateTool : undefined}
+      />
+
+      <MigrateDesktopHandoffModal
+        open={migrateHandoffOpen}
+        onClose={() => setMigrateHandoffOpen(false)}
+        connected={rulesApi.isConnected}
       />
 
       <MigrateToolModal

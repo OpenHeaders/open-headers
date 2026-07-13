@@ -9,6 +9,7 @@
 
 export type { DaemonAuditForwardingConfig } from './audit-forwarder';
 export { bootDaemonSpine, type DaemonSpineConfig, type DaemonSpineHandle } from './boot-spine';
+export { registerPeerRpcPlane } from './compose-peer-rpc';
 export type { DaemonMetrics } from './metrics';
 export type { DaemonOidcConfig, OidcClaimMappingRule, OidcClaimMappings } from './oidc/oidc-config';
 export type { SpineStatusReport, SpineStatusReporter, SpineStatusStore } from './status-seam';

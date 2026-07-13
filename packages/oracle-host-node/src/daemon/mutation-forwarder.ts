@@ -32,12 +32,15 @@ import { isHostLocalMutation, isSameDeviceOnlyMutation } from '@openheaders/core
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 import { createFilteredPeerBroadcast } from './peer-read-filter';
+import { getWsPeerServer, setWsPeerServer } from './ws-peer-slot';
 
-let wsServer: OracleWsServer | null = null;
-
-/** Called once during boot wiring after `startOracleWsServer` resolves. */
+/**
+ * Called once during boot wiring after `startOracleWsServer` resolves.
+ * Feeds the shared `ws-peer-slot` so other host planes (e.g. the
+ * migration pull forwarder) reach the same live server.
+ */
 export function setMutationForwarderWsServer(server: OracleWsServer | null): void {
-  wsServer = server;
+  setWsPeerServer(server);
 }
 
 /**
@@ -47,10 +50,10 @@ export function setMutationForwarderWsServer(server: OracleWsServer | null): voi
  * resolution. The server is re-read at send time so bind-supervisor
  * swaps flow through.
  */
-const filteredBroadcast = createFilteredPeerBroadcast(() => wsServer);
+const filteredBroadcast = createFilteredPeerBroadcast(getWsPeerServer);
 
 export function forwardMutationToWsPeers(event: OracleSyncBroadcastEvent): void {
-  if (!wsServer) return;
+  if (!getWsPeerServer()) return;
   // Host-local UI state (layout) never rides the wire — same floor as
   // the client outbound gate and the catch-up responder.
   if (isHostLocalMutation(event.envelope)) return;

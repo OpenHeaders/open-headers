@@ -1090,12 +1090,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     });
   }, [tl, sidebarState]);
 
-  // First-run migration offer (MIGRATION_STATUS.md S5 addendum): shown
-  // only where the ladder can run (desktop) and only while the
-  // workspace is still empty — once anything exists, the permanent hub
-  // entry inside the import modal takes over.
+  // First-run migration offer (MIGRATION_STATUS.md S5 addendum): the
+  // desktop opens the ladder modal, the extension the desktop hand-off
+  // (the funnel) — both only while the workspace is still empty; once
+  // anything exists, the permanent hub entry inside the import modal
+  // takes over. The web host has no migration entry.
   const showMigrationOffer =
-    getCurrentHost() === 'desktop' && rules.length === 0 && requestsApi.requests.length === 0;
+    getCurrentHost() !== 'web' && rules.length === 0 && requestsApi.requests.length === 0;
 
   const renderEmpty = useCallback(
     () => (

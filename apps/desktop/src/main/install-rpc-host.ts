@@ -48,8 +48,10 @@ import { logger as consoleLogger } from '@openheaders/core/utils';
 import { forwardAwarenessToBackend } from '@openheaders/oracle/sync/client/awareness-forwarder';
 import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { reportBaselineSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
-import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
+import { bootDaemonSpine, registerPeerRpcPlane } from '@openheaders/oracle-host-node/daemon';
 import {
+  broadcastMigrationPullToPeers,
+  createMigrationPeerRpc,
   createMigrationPullRunner,
   detectInstalledTools,
   readPostmanBackupFile,
@@ -225,11 +227,19 @@ export async function installRpcHost(): Promise<void> {
 
   // Migration pull (MIGRATION_PLAN.md §3.3) — the desktop runs the
   // ladder, so the run orchestrator lives here beside the engine it
-  // writes through. Progress fans to every open renderer as the ONE
-  // `migrationPullEvent` broadcast; the key arrives in the start RPC,
-  // stays in the runner's closure for the run, and is never persisted
-  // or logged.
-  const migrationPullRunner = createMigrationPullRunner({ broadcast: broadcastToAllRenderers });
+  // writes through. Progress fans as the ONE `migrationPullEvent`
+  // broadcast to every open renderer AND to the operator's connected
+  // WS peers (the extension mirrors the corner task live); the key
+  // arrives in the start RPC, stays in the runner's closure for the
+  // run, and is never persisted or logged. Late-joining peers hydrate
+  // through the operator-gated `getState` peer plane.
+  const migrationPullRunner = createMigrationPullRunner({
+    broadcast: (type, payload) => {
+      broadcastToAllRenderers(type, payload);
+      broadcastMigrationPullToPeers(type, payload);
+    },
+  });
+  registerPeerRpcPlane(createMigrationPeerRpc({ getState: () => migrationPullRunner.getState() }));
 
   // Desktop-shell RPCs (`oh.updates.*`, `oh.migration.*`) answer ahead
   // of the engine dispatcher — they are host-shell concerns the spine
