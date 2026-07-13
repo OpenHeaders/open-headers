@@ -79,6 +79,8 @@ function ContextRowView({
       data-depth={row.depth}
       // The browser's indent ladder: 8px base + 15px per frame/world hop.
       style={{ paddingLeft: 8 + row.depth * 15 }}
+      // The menu width is capped — surface the untruncated text on hover.
+      title={row.subtitle !== null ? `${row.label}\n${row.subtitle}` : row.label}
       onClick={() => onSelect(row.context.contextKey)}
     >
       <div className="dt-sortmode-item-body">

@@ -238,7 +238,13 @@ button.dt-console-caret:hover {
 /* Menu rows mirror the browser's picker: uniform two-line rows (title over
    a dimmed subtitle), depth indent inline (8px + 15px per hop), a hover
    highlight with the browser's rounded accent outline, and the check on
-   the selected row. */
+   the selected row. The menu width is capped like the browser's — long
+   world names and script URLs ellipsize instead of stretching the menu. */
+.dt-console-context-menu {
+  min-width: 200px;
+  max-width: 340px;
+}
+
 .dt-console-context-menu .dt-console-context-item {
   align-items: center;
   min-height: 30px;
