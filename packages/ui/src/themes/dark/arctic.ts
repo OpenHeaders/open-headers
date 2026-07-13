@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const darkArctic: ThemeVariant = {
   id: 'arctic',
   mode: 'dark',
-  label: 'Arctic',
-  description: 'Cool blue-gray dark theme with a frosty cyan accent — flatter and less saturated than Dim or Midnight.',
+  labelKey: 'workbench.settings.def.appearance.darkVariant.option.arctic.label',
+  descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.arctic.description',
   honorsAccentColor: false,
   antdTokens: {
     borderRadius: 6,

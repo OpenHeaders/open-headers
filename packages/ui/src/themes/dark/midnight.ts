@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const darkMidnight: ThemeVariant = {
   id: 'midnight',
   mode: 'dark',
-  label: 'Midnight',
-  description: 'Deep navy surfaces with a vivid blue accent — richer and more saturated than Dim.',
+  labelKey: 'workbench.settings.def.appearance.darkVariant.option.midnight.label',
+  descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.midnight.description',
   honorsAccentColor: false,
   antdTokens: {
     borderRadius: 6,

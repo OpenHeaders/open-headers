@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const lightWarm: ThemeVariant = {
   id: 'warm',
   mode: 'light',
-  label: 'Warm',
-  description: 'Paper-like surfaces with warm neutrals and an amber accent — easier on the eyes for long sessions.',
+  labelKey: 'workbench.settings.def.appearance.lightVariant.option.warm.label',
+  descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.warm.description',
   honorsAccentColor: false,
   antdTokens: {
     borderRadius: 6,

@@ -4,8 +4,8 @@
  */
 
 import { MIN_COMPATIBLE_PROTOCOL, PROTOCOL_VERSION } from '@openheaders/core/protocol';
-import * as v from 'valibot';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
+import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
 // valibot schema for info fields is a no-op string — the value is
@@ -28,8 +28,8 @@ registerSetting({
   type: 'info',
   default: '',
   schema: infoSchema,
-  label: 'Version',
-  description: 'The currently installed extension version.',
+  labelKey: 'workbench.settings.def.about.version.label',
+  descriptionKey: 'workbench.settings.def.about.version.description',
   category: 'about',
   tags: ['build'],
   scope: 'user',
@@ -44,8 +44,8 @@ registerSetting({
   type: 'info',
   default: '',
   schema: infoSchema,
-  label: 'Build',
-  description: 'Build number and date.',
+  labelKey: 'workbench.settings.def.about.build.label',
+  descriptionKey: 'workbench.settings.def.about.build.description',
   category: 'about',
   tags: ['build'],
   scope: 'user',
@@ -61,8 +61,8 @@ registerSetting({
   type: 'info',
   default: '',
   schema: infoSchema,
-  label: 'Commit',
-  description: 'Git commit this build was produced from.',
+  labelKey: 'workbench.settings.def.about.commit.label',
+  descriptionKey: 'workbench.settings.def.about.commit.description',
   category: 'about',
   tags: ['build'],
   scope: 'user',
@@ -74,10 +74,8 @@ registerSetting({
   type: 'info',
   default: '',
   schema: infoSchema,
-  label: 'Protocol',
-  description:
-    'Wire-protocol version this extension speaks with the desktop app. ' +
-    'Mismatched peers are rejected with a clear update prompt.',
+  labelKey: 'workbench.settings.def.about.protocol.label',
+  descriptionKey: 'workbench.settings.def.about.protocol.description',
   category: 'about',
   tags: ['protocol'],
   scope: 'user',
@@ -95,8 +93,8 @@ registerSetting({
   type: 'info',
   default: '',
   schema: infoSchema,
-  label: 'Browser',
-  description: 'Detected browser and platform.',
+  labelKey: 'workbench.settings.def.about.browser.label',
+  descriptionKey: 'workbench.settings.def.about.browser.description',
   category: 'about',
   scope: 'user',
   infoValue: () => {

@@ -20,18 +20,13 @@
 
 import { Radio, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useUntypedSetting } from '../hooks';
+import { resolveOptionalDescription } from '../localize';
 import { APPEARANCE_FONT_PRESETS } from '../schema/appearance';
 import { EDITOR_FONT_PRESETS } from '../schema/editor';
-import type { ResolvedSettingDef, SettingKey } from '../types';
+import type { FontPreset, ResolvedSettingDef, SettingKey } from '../types';
 import FieldRow from './FieldRow';
-
-interface FontPreset {
-  id: string;
-  label: string;
-  description: string;
-  stack: string;
-}
 
 /** The setting keys this field handles, plus their preset tables. New
  *  font-family preset settings register their table here. */
@@ -55,6 +50,7 @@ interface FontFamilyPresetFieldProps {
 
 const FontFamilyPresetField: React.FC<FontFamilyPresetFieldProps> = ({ def }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [value, setValue] = useUntypedSetting(def.key);
   const presets = PRESET_TABLES.get(def.key) ?? [];
 
@@ -72,16 +68,19 @@ const FontFamilyPresetField: React.FC<FontFamilyPresetFieldProps> = ({ def }) =>
         onChange={(e) => setValue(e.target.value)}
         style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
       >
-        {presets.map((preset) => (
-          <Radio key={preset.id} value={preset.id} style={{ alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, lineHeight: 1.4 }}>
-              <span style={{ fontFamily: preset.stack, fontWeight: 500 }}>{preset.label}</span>
-              {preset.description ? (
-                <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>{preset.description}</span>
-              ) : null}
-            </div>
-          </Radio>
-        ))}
+        {presets.map((preset) => {
+          const description = resolveOptionalDescription(preset, t);
+          return (
+            <Radio key={preset.id} value={preset.id} style={{ alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, lineHeight: 1.4 }}>
+                <span style={{ fontFamily: preset.stack, fontWeight: 500 }}>{preset.label}</span>
+                {description ? (
+                  <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>{description}</span>
+                ) : null}
+              </div>
+            </Radio>
+          );
+        })}
       </Radio.Group>
     </FieldRow>
   );

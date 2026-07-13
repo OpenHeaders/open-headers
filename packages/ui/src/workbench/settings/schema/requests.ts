@@ -23,9 +23,8 @@ registerSetting({
   // and tab state, so its ceiling stays low, while the desktop app
   // keeps the body in local process memory.
   schema: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)),
-  label: 'Response Body Limit (MB)',
-  description:
-    'How much of a response body the executor keeps for display. Larger bodies are truncated at this limit — the full size is still measured and reported. Raising the limit increases memory use per open request tab.',
+  labelKey: 'workbench.settings.def.requests.responseBodyCapMB.label',
+  descriptionKey: 'workbench.settings.def.requests.responseBodyCapMB.description',
   category: 'requests',
   tags: ['response', 'body', 'truncate', 'limit', 'size', 'cap'],
   scope: 'user',

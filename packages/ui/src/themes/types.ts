@@ -1,3 +1,4 @@
+import type { MessageKey } from '@openheaders/i18n';
 import type { ThemeConfig } from 'antd';
 
 export type ThemeMode = 'light' | 'dark';
@@ -18,9 +19,9 @@ export interface ThemeVariant {
   /** Stable id stored in `appearance.lightVariant` / `appearance.darkVariant`. */
   id: string;
   mode: ThemeMode;
-  label: string;
+  labelKey: MessageKey;
   /** Shown as a tooltip on the settings row. */
-  description: string;
+  descriptionKey: MessageKey;
   /** When false, the variant pins its own primary and ignores
    *  `appearance.accentColor` (high-contrast and tinted variants). */
   honorsAccentColor: boolean;

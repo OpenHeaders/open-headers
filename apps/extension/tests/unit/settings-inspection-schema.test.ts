@@ -26,7 +26,7 @@ describe('inspection.cdpEnabled schema', () => {
     expect(def?.scope).toBe('user');
     expect(def?.category).toBe('inspection');
     expect(def?.requiresCapability).toBe('cdpInspection');
-    expect(def?.capabilityUnavailableHint).toBeTruthy();
+    expect(def?.capabilityUnavailableHintKey).toBeTruthy();
   });
 
   it('defaults ON only where the debugging protocol exists', () => {

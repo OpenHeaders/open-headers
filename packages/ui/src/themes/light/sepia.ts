@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const lightSepia: ThemeVariant = {
   id: 'sepia',
   mode: 'light',
-  label: 'Sepia',
-  description: 'Saturated parchment palette with deep brown text — heaviest tinted light variant, ideal for prolonged reading.',
+  labelKey: 'workbench.settings.def.appearance.lightVariant.option.sepia.label',
+  descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.sepia.description',
   honorsAccentColor: false,
   antdTokens: {
     borderRadius: 6,

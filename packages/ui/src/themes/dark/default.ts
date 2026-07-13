@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const darkDefault: ThemeVariant = {
   id: 'default',
   mode: 'dark',
-  label: 'Default',
-  description: 'Balanced neutral dark theme for everyday use.',
+  labelKey: 'workbench.settings.def.appearance.darkVariant.option.default.label',
+  descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.default.description',
   honorsAccentColor: true,
   antdTokens: {
     borderRadius: 6,

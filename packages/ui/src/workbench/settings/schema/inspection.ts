@@ -26,14 +26,13 @@ registerSetting({
   // the runtime can't speak.
   getDefault: () => hasCapability('cdpInspection'),
   schema: v.boolean(),
-  label: 'Debug mode',
-  description:
-    'Inspect and modify requests with the same depth as your browser’s built-in developer tools — page loads, workers, and iframes, not just page-level fetches. The browser shows a debugging banner on each attached tab while this is on; it’s on by default in Chrome and Edge, and you can turn it off any time.',
+  labelKey: 'workbench.settings.def.inspection.cdpEnabled.label',
+  descriptionKey: 'workbench.settings.def.inspection.cdpEnabled.description',
   category: 'inspection',
   tags: ['network', 'inspection', 'requests', 'debugging', 'devtools'],
   scope: 'user',
   requiresCapability: 'cdpInspection',
-  capabilityUnavailableHint: 'Debug mode is available in Chrome and Edge.',
+  capabilityUnavailableHintKey: 'workbench.settings.def.inspection.cdpEnabled.capabilityUnavailableHint',
 });
 
 registerSetting({
@@ -41,26 +40,29 @@ registerSetting({
   type: 'enum',
   default: 'devtools',
   schema: cdpScopeModeSchema,
-  label: 'Attach to which tabs',
-  description:
-    'Which tabs debug mode attaches to while it’s on. “Where DevTools is open” attaches to browser tabs with their developer tools open. “The focused tab” follows the active browser tab without needing developer tools open — switching to a new-tab or internal page leaves the prior tab attached rather than thrashing. “Both” combines the two. Individual browser tabs can also be pinned in from the footer regardless of this choice.',
+  labelKey: 'workbench.settings.def.inspection.cdpScope.label',
+  descriptionKey: 'workbench.settings.def.inspection.cdpScope.description',
   category: 'inspection',
   tags: ['network', 'inspection', 'requests', 'debugging', 'devtools', 'scope'],
   scope: 'user',
   requiresCapability: 'cdpInspection',
-  capabilityUnavailableHint: 'Debug mode is available in Chrome and Edge.',
+  capabilityUnavailableHintKey: 'workbench.settings.def.inspection.cdpScope.capabilityUnavailableHint',
   enumOptions: [
     {
       value: 'devtools',
-      label: 'Where DevTools is open',
-      description: 'Browser tabs with their developer tools open.',
+      labelKey: 'workbench.settings.def.inspection.cdpScope.option.devtools.label',
+      descriptionKey: 'workbench.settings.def.inspection.cdpScope.option.devtools.description',
     },
     {
       value: 'active',
-      label: 'The focused tab',
-      description: 'The active browser tab, following focus — no developer tools needed.',
+      labelKey: 'workbench.settings.def.inspection.cdpScope.option.active.label',
+      descriptionKey: 'workbench.settings.def.inspection.cdpScope.option.active.description',
     },
-    { value: 'both', label: 'Both', description: 'DevTools tabs and the focused tab.' },
+    {
+      value: 'both',
+      labelKey: 'workbench.settings.def.inspection.cdpScope.option.both.label',
+      descriptionKey: 'workbench.settings.def.inspection.cdpScope.option.both.description',
+    },
   ],
 });
 

@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const darkForest: ThemeVariant = {
   id: 'forest',
   mode: 'dark',
-  label: 'Forest',
-  description: 'Green-tinted dark surfaces with an emerald accent — calm, vegetal palette.',
+  labelKey: 'workbench.settings.def.appearance.darkVariant.option.forest.label',
+  descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.forest.description',
   honorsAccentColor: false,
   antdTokens: {
     borderRadius: 6,

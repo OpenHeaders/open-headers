@@ -16,9 +16,10 @@
  * palette stays internally consistent.
  */
 
+import { DARK_VARIANT_IDS, getDarkVariant, getLightVariant, LIGHT_VARIANT_IDS } from '@openheaders/ui/themes';
 import * as v from 'valibot';
-import { DARK_VARIANT_IDS, LIGHT_VARIANT_IDS, getDarkVariant, getLightVariant } from '@openheaders/ui/themes';
 import { registerSetting } from '../registry';
+import type { FontPreset } from '../types';
 
 // ── valibot schemas ──────────────────────────────────────────────────
 
@@ -34,17 +35,11 @@ import { registerSetting } from '../registry';
  * cross-OS default, Atkinson Hyperlegible for accessibility, Press
  * Start 2P as a novelty pick that doubles as our wordmark font.
  */
-export const APPEARANCE_FONT_PRESETS: ReadonlyArray<{
-  id: string;
-  label: string;
-  description: string;
-  stack: string;
-}> = [
+export const APPEARANCE_FONT_PRESETS: ReadonlyArray<FontPreset> = [
   {
     id: 'inter',
     label: 'Inter',
-    description:
-      'Bundled UI sans designed for screens — renders identically on every operating system, so the app looks the same on macOS, Windows, and Linux.',
+    descriptionKey: 'workbench.settings.def.appearance.fontFamilyPreset.option.inter.description',
     stack: "'Inter', system-ui, -apple-system, sans-serif",
     // Bundled in `popup.less` / `rules.less` / `panel.css` via the
     // `@fontsource/inter` package — availability is guaranteed.
@@ -52,15 +47,13 @@ export const APPEARANCE_FONT_PRESETS: ReadonlyArray<{
   {
     id: 'system',
     label: 'System Sans',
-    description:
-      'Operating-system default UI sans — San Francisco on macOS, Segoe UI on Windows, Roboto on Linux. Use this if you prefer the native look at the cost of cross-platform consistency.',
+    descriptionKey: 'workbench.settings.def.appearance.fontFamilyPreset.option.system.description',
     stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   {
     id: 'atkinson-hyperlegible',
     label: 'Atkinson Hyperlegible',
-    description:
-      'Sans designed for low-vision readability — distinctive letterforms reduce character confusion. Bundled — always available.',
+    descriptionKey: 'workbench.settings.def.appearance.fontFamilyPreset.option.atkinson-hyperlegible.description',
     stack: "'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif",
     // Bundled in `popup.less` / `rules.less` / `panel.css` via the
     // `@fontsource/atkinson-hyperlegible` package — availability is guaranteed.
@@ -68,7 +61,7 @@ export const APPEARANCE_FONT_PRESETS: ReadonlyArray<{
   {
     id: 'press-start-2p',
     label: 'Press Start 2P',
-    description: 'The pixel-style display font we ship with the app. Bundled — always available. A novelty pick: legible but tall and wide; chrome paddings will look generous.',
+    descriptionKey: 'workbench.settings.def.appearance.fontFamilyPreset.option.press-start-2p.description',
     stack: "'Press Start 2P', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     // Bundled, registered programmatically — availability guaranteed.
   },
@@ -146,15 +139,19 @@ registerSetting({
   type: 'enum',
   default: 'auto',
   schema: themeSchema,
-  label: 'Color Theme',
-  description: 'Controls the overall color theme of the app.',
+  labelKey: 'workbench.settings.def.appearance.theme.label',
+  descriptionKey: 'workbench.settings.def.appearance.theme.description',
   category: 'appearance',
   tags: ['dark mode', 'light mode', 'color scheme'],
   scope: 'user',
   enumOptions: [
-    { value: 'light', label: 'Light' },
-    { value: 'dark', label: 'Dark' },
-    { value: 'auto', label: 'Follow system', description: 'Match your operating system' },
+    { value: 'light', labelKey: 'workbench.settings.def.appearance.theme.option.light.label' },
+    { value: 'dark', labelKey: 'workbench.settings.def.appearance.theme.option.dark.label' },
+    {
+      value: 'auto',
+      labelKey: 'workbench.settings.def.appearance.theme.option.auto.label',
+      descriptionKey: 'workbench.settings.def.appearance.theme.option.auto.description',
+    },
   ],
 });
 
@@ -163,14 +160,14 @@ registerSetting({
   type: 'enum',
   default: 'default',
   schema: lightVariantSchema,
-  label: 'Light Theme Variant',
-  description: 'Palette used when the resolved color theme is light.',
+  labelKey: 'workbench.settings.def.appearance.lightVariant.label',
+  descriptionKey: 'workbench.settings.def.appearance.lightVariant.description',
   category: 'appearance',
   tags: ['palette', 'variant', 'light', 'high contrast', 'accessibility'],
   scope: 'user',
   enumOptions: LIGHT_VARIANT_IDS.map((id) => {
     const v = getLightVariant(id);
-    return { value: id, label: v.label, description: v.description };
+    return { value: id, labelKey: v.labelKey, descriptionKey: v.descriptionKey };
   }),
 });
 
@@ -179,14 +176,14 @@ registerSetting({
   type: 'enum',
   default: 'default',
   schema: darkVariantSchema,
-  label: 'Dark Theme Variant',
-  description: 'Palette used when the resolved color theme is dark.',
+  labelKey: 'workbench.settings.def.appearance.darkVariant.label',
+  descriptionKey: 'workbench.settings.def.appearance.darkVariant.description',
   category: 'appearance',
   tags: ['palette', 'variant', 'dark', 'high contrast', 'accessibility'],
   scope: 'user',
   enumOptions: DARK_VARIANT_IDS.map((id) => {
     const v = getDarkVariant(id);
-    return { value: id, label: v.label, description: v.description };
+    return { value: id, labelKey: v.labelKey, descriptionKey: v.descriptionKey };
   }),
 });
 
@@ -195,22 +192,42 @@ registerSetting({
   type: 'enum',
   default: 1,
   schema: uiScaleSchema,
-  label: 'UI Scale',
-  description: 'Scales the entire chrome — buttons, text, paddings, controls — without changing the editor font size.',
+  labelKey: 'workbench.settings.def.appearance.uiScale.label',
+  descriptionKey: 'workbench.settings.def.appearance.uiScale.description',
   category: 'appearance',
   tags: ['zoom', 'scale', 'font size', 'accessibility', 'large text'],
   scope: 'user',
   enumOptions: [
     {
       value: 0.7,
-      label: 'Tiny (70%)',
-      description: 'Densest layout — useful when paired with the Press Start 2P UI font, which renders unusually tall and wide.',
+      labelKey: 'workbench.settings.def.appearance.uiScale.option.0.7.label',
+      descriptionKey: 'workbench.settings.def.appearance.uiScale.option.0.7.description',
     },
-    { value: 0.8, label: 'Compact (80%)', description: 'Tighter chrome that still keeps comfortable click targets.' },
-    { value: 0.9, label: 'Small (90%)', description: 'Slightly tighter than default — fits more on screen.' },
-    { value: 1, label: 'Normal (100%)', description: 'Default chrome size.' },
-    { value: 1.1, label: 'Large (110%)', description: 'Slightly enlarged for easier reading.' },
-    { value: 1.25, label: 'Extra Large (125%)', description: 'Maximum chrome scale — best for accessibility.' },
+    {
+      value: 0.8,
+      labelKey: 'workbench.settings.def.appearance.uiScale.option.0.8.label',
+      descriptionKey: 'workbench.settings.def.appearance.uiScale.option.0.8.description',
+    },
+    {
+      value: 0.9,
+      labelKey: 'workbench.settings.def.appearance.uiScale.option.0.9.label',
+      descriptionKey: 'workbench.settings.def.appearance.uiScale.option.0.9.description',
+    },
+    {
+      value: 1,
+      labelKey: 'workbench.settings.def.appearance.uiScale.option.1.label',
+      descriptionKey: 'workbench.settings.def.appearance.uiScale.option.1.description',
+    },
+    {
+      value: 1.1,
+      labelKey: 'workbench.settings.def.appearance.uiScale.option.1.1.label',
+      descriptionKey: 'workbench.settings.def.appearance.uiScale.option.1.1.description',
+    },
+    {
+      value: 1.25,
+      labelKey: 'workbench.settings.def.appearance.uiScale.option.1.25.label',
+      descriptionKey: 'workbench.settings.def.appearance.uiScale.option.1.25.description',
+    },
   ],
 });
 
@@ -219,13 +236,17 @@ registerSetting({
   type: 'enum',
   default: defaultFontFamilyPreset(),
   schema: fontFamilyPresetSchema,
-  label: 'UI Font Family',
-  description:
-    'Curated sans-serif stacks for the app chrome. Default is Inter on Windows / Linux for cross-platform consistency, and System Sans on macOS to keep SF Pro\'s native optical sizing. Every option is bundled with the extension. Editor surfaces have their own font setting.',
+  labelKey: 'workbench.settings.def.appearance.fontFamilyPreset.label',
+  descriptionKey: 'workbench.settings.def.appearance.fontFamilyPreset.description',
   category: 'appearance',
   tags: ['font', 'typography', 'sans', 'inter', 'atkinson', 'accessibility'],
   scope: 'user',
-  enumOptions: APPEARANCE_FONT_PRESETS.map((p) => ({ value: p.id, label: p.label, description: p.description })),
+  enumOptions: APPEARANCE_FONT_PRESETS.map((p) => ({
+    value: p.id,
+    label: p.label,
+    description: p.description,
+    descriptionKey: p.descriptionKey,
+  })),
 });
 
 registerSetting({
@@ -233,14 +254,14 @@ registerSetting({
   type: 'enum',
   default: 'comfortable',
   schema: densitySchema,
-  label: 'UI Density',
-  description: 'Compact mode reduces padding in lists, tables and forms.',
+  labelKey: 'workbench.settings.def.appearance.density.label',
+  descriptionKey: 'workbench.settings.def.appearance.density.description',
   category: 'appearance',
   tags: ['compact', 'spacing', 'padding'],
   scope: 'user',
   enumOptions: [
-    { value: 'comfortable', label: 'Comfortable' },
-    { value: 'compact', label: 'Compact' },
+    { value: 'comfortable', labelKey: 'workbench.settings.def.appearance.density.option.comfortable.label' },
+    { value: 'compact', labelKey: 'workbench.settings.def.appearance.density.option.compact.label' },
   ],
 });
 
@@ -249,15 +270,22 @@ registerSetting({
   type: 'enum',
   default: 'top',
   schema: editorHeaderPositionSchema,
-  label: 'Editor Header Position',
-  description:
-    'Where each editor docks its title-and-actions row (name, enable toggle, Save). Bottom keeps the top of the editor lighter and the primary actions near the content you are editing.',
+  labelKey: 'workbench.settings.def.appearance.editorHeaderPosition.label',
+  descriptionKey: 'workbench.settings.def.appearance.editorHeaderPosition.description',
   category: 'appearance',
   tags: ['header', 'toolbar', 'layout', 'save', 'actions', 'bottom'],
   scope: 'user',
   enumOptions: [
-    { value: 'top', label: 'Top', description: 'Classic placement above the editor content.' },
-    { value: 'bottom', label: 'Bottom', description: 'Docked below the editor content, above the status bar.' },
+    {
+      value: 'top',
+      labelKey: 'workbench.settings.def.appearance.editorHeaderPosition.option.top.label',
+      descriptionKey: 'workbench.settings.def.appearance.editorHeaderPosition.option.top.description',
+    },
+    {
+      value: 'bottom',
+      labelKey: 'workbench.settings.def.appearance.editorHeaderPosition.option.bottom.label',
+      descriptionKey: 'workbench.settings.def.appearance.editorHeaderPosition.option.bottom.description',
+    },
   ],
 });
 
@@ -266,15 +294,20 @@ registerSetting({
   type: 'enum',
   default: '24h',
   schema: clockFormatSchema,
-  label: 'Clock Format',
-  description:
-    'How timestamps render across the app (notifications, logs). Explicit because the browser locale follows the browser language, not your system region format.',
+  labelKey: 'workbench.settings.def.appearance.clockFormat.label',
+  descriptionKey: 'workbench.settings.def.appearance.clockFormat.description',
   category: 'appearance',
   tags: ['time', 'clock', '24-hour', '12-hour', 'am', 'pm', 'timestamp'],
   scope: 'user',
+  // Option descriptions are literal format examples (13:41 / 01:41 PM)
+  // — never keyed (plan §3).
   enumOptions: [
-    { value: '24h', label: '24-hour', description: '13:41' },
-    { value: '12h', label: '12-hour', description: '01:41 PM' },
+    { value: '24h', labelKey: 'workbench.settings.def.appearance.clockFormat.option.24h.label', description: '13:41' },
+    {
+      value: '12h',
+      labelKey: 'workbench.settings.def.appearance.clockFormat.option.12h.label',
+      description: '01:41 PM',
+    },
   ],
 });
 
@@ -283,9 +316,8 @@ registerSetting({
   type: 'color',
   default: '#1677ff',
   schema: accentSchema,
-  label: 'Accent Color',
-  description:
-    'The primary color used for buttons, links, and active highlights. Applies only to the Default theme variants — high-contrast and tinted variants pin their own accent.',
+  labelKey: 'workbench.settings.def.appearance.accentColor.label',
+  descriptionKey: 'workbench.settings.def.appearance.accentColor.description',
   category: 'appearance',
   tags: ['color', 'primary', 'brand', 'theme'],
   scope: 'user',

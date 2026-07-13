@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const lightCool: ThemeVariant = {
   id: 'cool',
   mode: 'light',
-  label: 'Cool',
-  description: 'Slate-blue tinted light theme — crisp surfaces with a steel-blue accent.',
+  labelKey: 'workbench.settings.def.appearance.lightVariant.option.cool.label',
+  descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.cool.description',
   honorsAccentColor: false,
   antdTokens: {
     borderRadius: 6,

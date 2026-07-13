@@ -87,6 +87,18 @@ export interface NumberRange {
   control?: 'input' | 'slider';
 }
 
+/**
+ * One entry of a font-family preset table (`APPEARANCE_FONT_PRESETS` /
+ * `EDITOR_FONT_PRESETS`). Font names stay literal labels (proper
+ * nouns); the description rides the raw-or-key pair like every other
+ * registry text.
+ */
+export type FontPreset = {
+  id: string;
+  label: string;
+  stack: string;
+} & OptionalDescribedText;
+
 export type ActionSpec = LabeledText & {
   run: () => void | Promise<void>;
   /** Render the button in danger style (destructive). */

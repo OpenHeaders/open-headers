@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const lightDefault: ThemeVariant = {
   id: 'default',
   mode: 'light',
-  label: 'Default',
-  description: 'Balanced neutral light theme for everyday use.',
+  labelKey: 'workbench.settings.def.appearance.lightVariant.option.default.label',
+  descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.default.description',
   honorsAccentColor: true,
   antdTokens: {
     borderRadius: 6,

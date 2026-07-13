@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const lightRose: ThemeVariant = {
   id: 'rose',
   mode: 'light',
-  label: 'Rose',
-  description: 'Soft blush surfaces with a magenta accent — gentle warmth without the amber tone of Warm.',
+  labelKey: 'workbench.settings.def.appearance.lightVariant.option.rose.label',
+  descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.rose.description',
   honorsAccentColor: false,
   antdTokens: {
     borderRadius: 6,

@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const lightHighContrast: ThemeVariant = {
   id: 'highContrast',
   mode: 'light',
-  label: 'High Contrast',
-  description: 'Maximum legibility — pure white surfaces, near-black text, AAA contrast.',
+  labelKey: 'workbench.settings.def.appearance.lightVariant.option.highContrast.label',
+  descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.highContrast.description',
   honorsAccentColor: false,
   antdTokens: {
     borderRadius: 4,

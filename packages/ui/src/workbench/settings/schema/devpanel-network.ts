@@ -133,16 +133,23 @@ registerSetting({
   type: 'enum',
   default: 'compact',
   schema: layoutSchema,
-  label: 'Network Layout',
-  description:
-    'How the Network table absorbs horizontal space. Compact lets stretchy columns (Name, Waterfall) flex to fit the panel width so the table never scrolls horizontally; Wide caps those columns and scrolls horizontally for the rest.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.layout.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.layout.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'layout', 'compact', 'fit', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'compact', label: 'Compact', description: 'Stretchy columns absorb panel width.' },
-    { value: 'wide', label: 'Wide', description: 'Capped widths, scrolls horizontally when needed.' },
+    {
+      value: 'compact',
+      labelKey: 'workbench.settings.def.devpanelNetwork.layout.option.compact.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.layout.option.compact.description',
+    },
+    {
+      value: 'wide',
+      labelKey: 'workbench.settings.def.devpanelNetwork.layout.option.wide.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.layout.option.wide.description',
+    },
   ],
 });
 
@@ -151,16 +158,23 @@ registerSetting({
   type: 'enum',
   default: 'compact',
   schema: layoutSchema,
-  label: 'Messages Layout',
-  description:
-    'How the Messages frame grid absorbs horizontal space. Compact lets the Data column flex to fit the pane width so the grid never scrolls horizontally; Wide caps it and scrolls horizontally when needed.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.messagesLayout.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.messagesLayout.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['messages', 'websocket', 'layout', 'compact', 'fit', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'compact', label: 'Compact', description: 'The Data column absorbs the pane width.' },
-    { value: 'wide', label: 'Wide', description: 'Capped widths, scrolls horizontally when needed.' },
+    {
+      value: 'compact',
+      labelKey: 'workbench.settings.def.devpanelNetwork.messagesLayout.option.compact.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.messagesLayout.option.compact.description',
+    },
+    {
+      value: 'wide',
+      labelKey: 'workbench.settings.def.devpanelNetwork.messagesLayout.option.wide.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.messagesLayout.option.wide.description',
+    },
   ],
 });
 
@@ -169,9 +183,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Show Payload Preview',
-  description:
-    'Show the payload preview pane under the Messages / EventStream grids — the resizable split where the selected frame or event renders as a JSON tree, raw text, or binary viewer. Turn off to give the grid the whole pane.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.messagesShowPreview.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.messagesShowPreview.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['messages', 'websocket', 'sse', 'preview', 'payload', 'split', 'devtools'],
@@ -183,17 +196,28 @@ registerSetting({
   type: 'enum',
   default: 'column',
   schema: sortKindSchema,
-  label: 'Network Sort Source',
-  description:
-    'Which side of the sort state is active. `mode` runs one of the named compound sort modes (Failures first / Slowest first / …). `column` runs the single-column sort the user picked by clicking a column header. The panel switches automatically — clicking a column header sets this to `column`; picking a mode in the View menu sets it to `mode`.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.sortKind.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.sortKind.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'sort', 'mode', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'mode', label: 'Mode', description: 'Use a named compound sort mode.' },
-    { value: 'column', label: 'Column', description: 'Use the single-column sort the user clicked.' },
-    { value: 'customNested', label: 'Custom (nested)', description: 'Use the user-built multi-key sort chain.' },
+    {
+      value: 'mode',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortKind.option.mode.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortKind.option.mode.description',
+    },
+    {
+      value: 'column',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortKind.option.column.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortKind.option.column.description',
+    },
+    {
+      value: 'customNested',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.description',
+    },
   ],
 });
 
@@ -202,20 +226,48 @@ registerSetting({
   type: 'enum',
   default: 'failures',
   schema: sortModeSchema,
-  label: 'Network Sort Mode',
-  description: 'Named compound sort order — primary axis then arrival as tiebreak. Active when sort source = `mode`.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.sortMode.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.sortMode.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'sort', 'mode', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'failures', label: 'Failures first', description: 'Failed → pending → redirected → success.' },
-    { value: 'slowest', label: 'Slowest first', description: 'Longest duration first.' },
-    { value: 'largest', label: 'Largest first', description: 'Biggest wire bytes first.' },
-    { value: 'browserPriority', label: 'Browser priority', description: 'Highest → Lowest reported priority.' },
-    { value: 'byType', label: 'By resource type', description: 'Grouped by resource type, arrival within.' },
-    { value: 'byDomain', label: 'By domain', description: 'Grouped by hostname, arrival within.' },
-    { value: 'ruleModified', label: 'Rule-modified first', description: 'Applied rules first, arrival within.' },
+    {
+      value: 'failures',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.failures.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.failures.description',
+    },
+    {
+      value: 'slowest',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.slowest.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.slowest.description',
+    },
+    {
+      value: 'largest',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.largest.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.largest.description',
+    },
+    {
+      value: 'browserPriority',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.browserPriority.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.browserPriority.description',
+    },
+    {
+      value: 'byType',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.byType.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.byType.description',
+    },
+    {
+      value: 'byDomain',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.byDomain.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.byDomain.description',
+    },
+    {
+      value: 'ruleModified',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.description',
+    },
   ],
 });
 
@@ -224,9 +276,8 @@ registerSetting({
   type: 'enum',
   default: 'waterfall',
   schema: sortBySchema,
-  label: 'Network Sort By',
-  description:
-    'Which column drives the column-click sort. Active when sort source = `column`. Clicking a column header updates this value.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'sort', 'order', 'devtools'],
@@ -234,26 +285,94 @@ registerSetting({
   enumOptions: [
     {
       value: 'waterfall',
-      label: 'Waterfall',
-      description: 'Timeline by the active Waterfall metric (start time by default).',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.waterfall.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.waterfall.description',
     },
-    { value: 'requestNumber', label: 'Request #', description: 'Request number — the order requests were discovered.' },
-    { value: 'method', label: 'Method', description: 'HTTP method.' },
-    { value: 'name', label: 'Name', description: 'Final segment of the URL.' },
-    { value: 'path', label: 'Path', description: 'Pathname + query.' },
-    { value: 'url', label: 'URL', description: 'Full URL.' },
-    { value: 'status', label: 'Status', description: 'Response status code.' },
-    { value: 'protocol', label: 'Protocol', description: 'HTTP version.' },
-    { value: 'scheme', label: 'Scheme', description: 'http / https.' },
-    { value: 'domain', label: 'Domain', description: 'Host portion of the URL.' },
-    { value: 'remoteAddress', label: 'Remote address', description: 'Server IP.' },
-    { value: 'type', label: 'Type', description: 'Resource type.' },
-    { value: 'initiator', label: 'Initiator', description: 'What triggered the request.' },
-    { value: 'cookies', label: 'Cookies', description: 'Request-cookie count.' },
-    { value: 'setCookies', label: 'Set Cookies', description: 'Response Set-Cookie count.' },
-    { value: 'size', label: 'Size', description: 'Wire bytes.' },
-    { value: 'time', label: 'Time', description: 'Total request duration.' },
-    { value: 'priority', label: 'Priority', description: 'Browser-assigned priority.' },
+    {
+      value: 'requestNumber',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.requestNumber.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.requestNumber.description',
+    },
+    {
+      value: 'method',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.method.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.method.description',
+    },
+    {
+      value: 'name',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.name.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.name.description',
+    },
+    {
+      value: 'path',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.path.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.path.description',
+    },
+    {
+      value: 'url',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.url.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.url.description',
+    },
+    {
+      value: 'status',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.status.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.status.description',
+    },
+    {
+      value: 'protocol',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.protocol.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.protocol.description',
+    },
+    {
+      value: 'scheme',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.scheme.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.scheme.description',
+    },
+    {
+      value: 'domain',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.domain.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.domain.description',
+    },
+    {
+      value: 'remoteAddress',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.remoteAddress.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.remoteAddress.description',
+    },
+    {
+      value: 'type',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.type.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.type.description',
+    },
+    {
+      value: 'initiator',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.initiator.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.initiator.description',
+    },
+    {
+      value: 'cookies',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.cookies.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.cookies.description',
+    },
+    {
+      value: 'setCookies',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.setCookies.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.setCookies.description',
+    },
+    {
+      value: 'size',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.size.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.size.description',
+    },
+    {
+      value: 'time',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.time.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.time.description',
+    },
+    {
+      value: 'priority',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.priority.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.option.priority.description',
+    },
   ],
 });
 
@@ -262,15 +381,23 @@ registerSetting({
   type: 'enum',
   default: 'asc',
   schema: sortDirSchema,
-  label: 'Network Sort Direction',
-  description: 'Ascending or descending order for the current Network sort column.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.sortDir.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.sortDir.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'sort', 'direction', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'asc', label: 'Ascending', description: 'Lowest first.' },
-    { value: 'desc', label: 'Descending', description: 'Highest first.' },
+    {
+      value: 'asc',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortDir.option.asc.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortDir.option.asc.description',
+    },
+    {
+      value: 'desc',
+      labelKey: 'workbench.settings.def.devpanelNetwork.sortDir.option.desc.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.sortDir.option.desc.description',
+    },
   ],
 });
 
@@ -279,19 +406,38 @@ registerSetting({
   type: 'enum',
   default: 'startTime',
   schema: waterfallMetricSchema,
-  label: 'Waterfall Metric',
-  description:
-    'Which time the Waterfall column sorts and draws by. Start / Response / End time place bars on an absolute timeline; Total duration and Latency zero-align the bars so lengths compare directly.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'waterfall', 'timing', 'sort', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'startTime', label: 'Start time', description: 'When the request started.' },
-    { value: 'responseTime', label: 'Response time', description: 'When the first response byte arrived.' },
-    { value: 'endTime', label: 'End time', description: 'When the request finished.' },
-    { value: 'duration', label: 'Total duration', description: 'How long the request took end to end.' },
-    { value: 'latency', label: 'Latency', description: 'Time to the first response byte.' },
+    {
+      value: 'startTime',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.startTime.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.startTime.description',
+    },
+    {
+      value: 'responseTime',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.responseTime.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.responseTime.description',
+    },
+    {
+      value: 'endTime',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.endTime.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.endTime.description',
+    },
+    {
+      value: 'duration',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.duration.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.duration.description',
+    },
+    {
+      value: 'latency',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.latency.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.option.latency.description',
+    },
   ],
 });
 
@@ -300,9 +446,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Show Rule-fire Dots',
-  description:
-    'Show the leading 14px column carrying the colored dot that marks rule matches (filled = a rule actually applied, hollow = inferred). Turn off to reclaim the horizontal pixels on dense panes.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.showFireDots.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.showFireDots.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'rules', 'dot', 'indicator', 'devtools'],
@@ -314,17 +459,28 @@ registerSetting({
   type: 'enum',
   default: 'always',
   schema: waterfallValuesSchema,
-  label: 'Waterfall Values',
-  description:
-    'When to print the active Waterfall metric’s value(s) on the bar — the Start / Response / End time chip for the timeline metrics, or the waiting / download labels for Total duration and Latency.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'waterfall', 'timing', 'label', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'always', label: 'Always', description: 'Keep the value chip visible.' },
-    { value: 'hover', label: 'On hover', description: 'Reveal the value chip on row hover.' },
-    { value: 'off', label: 'Off', description: 'Hide the value chip.' },
+    {
+      value: 'always',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.option.always.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.option.always.description',
+    },
+    {
+      value: 'hover',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.option.hover.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.option.hover.description',
+    },
+    {
+      value: 'off',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.description',
+    },
   ],
 });
 
@@ -333,16 +489,23 @@ registerSetting({
   type: 'enum',
   default: 'relative',
   schema: waterfallValueFormatSchema,
-  label: 'Waterfall Value Format',
-  description:
-    'How a timeline metric’s value reads: Relative is the offset from the first request in view; Timestamp is the absolute wall-clock instant. Total duration and Latency are always durations regardless.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallValueFormat.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'waterfall', 'timing', 'timestamp', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'relative', label: 'Relative', description: 'Offset from the first request in view.' },
-    { value: 'timestamp', label: 'Timestamp', description: 'Absolute wall-clock instant.' },
+    {
+      value: 'relative',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.relative.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.relative.description',
+    },
+    {
+      value: 'timestamp',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.description',
+    },
   ],
 });
 
@@ -351,15 +514,23 @@ registerSetting({
   type: 'enum',
   default: 'local',
   schema: waterfallTimestampTzSchema,
-  label: 'Waterfall Timestamp Timezone',
-  description: 'Timezone for the Timestamp value format — local time or UTC.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'waterfall', 'timestamp', 'timezone', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'local', label: 'Local', description: 'Your local timezone.' },
-    { value: 'utc', label: 'UTC', description: 'Coordinated Universal Time.' },
+    {
+      value: 'local',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.description',
+    },
+    {
+      value: 'utc',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.description',
+    },
   ],
 });
 
@@ -368,9 +539,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Explain Waterfall Value',
-  description:
-    'In the Waterfall hover popover, badge and highlight the phase rows that make up the total and show their sum as a formula. Purely a visual aid — it changes no values.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallExplainValue.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'waterfall', 'timing', 'breakdown', 'devtools'],
@@ -382,16 +552,27 @@ registerSetting({
   type: 'enum',
   default: 'auto',
   schema: waterfallPopoverLayoutSchema,
-  label: 'Waterfall Popover Layout',
-  description:
-    'Orientation of the Waterfall hover timing breakdown. Compact stacks the steps down the popover; Wide lays the same ladder on a time axis; Auto picks by panel width — wide on a bottom-docked panel, compact on a narrow (side-docked) one.',
+  labelKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label',
+  descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.description',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'waterfall', 'timing', 'popover', 'layout', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'vertical', label: 'Compact', description: 'Steps stacked down the popover.' },
-    { value: 'horizontal', label: 'Wide', description: 'Steps laid on a horizontal time axis.' },
-    { value: 'auto', label: 'Auto', description: 'Wide when the panel is wide, else compact.' },
+    {
+      value: 'vertical',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.option.vertical.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.option.vertical.description',
+    },
+    {
+      value: 'horizontal',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.option.horizontal.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.option.horizontal.description',
+    },
+    {
+      value: 'auto',
+      labelKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.option.auto.label',
+      descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.option.auto.description',
+    },
   ],
 });

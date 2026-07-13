@@ -39,8 +39,8 @@ registerSetting({
   type: 'info',
   default: '',
   schema: v.string(),
-  label: 'Software update',
-  description: 'Current update status. Downloading and installing always take your explicit click.',
+  labelKey: 'workbench.settings.def.updates.state.label',
+  descriptionKey: 'workbench.settings.def.updates.state.description',
   category: 'about',
   tags: ['update', 'version', 'download', 'install', 'restart'],
   scope: 'user',
@@ -53,20 +53,16 @@ registerSetting({
   type: 'enum',
   default: 'all',
   schema: checkTierSchema,
-  label: 'Check for updates',
-  description:
-    'Look for new versions once a day and show a notification dot when one is available. ' +
-    'The check downloads nothing and sends nothing about you or this install — it reads a public version listing and compares locally. ' +
-    '"Security fixes only" stays silent unless a release fixes a security issue affecting the version you are running. ' +
-    'Updates are never installed without your explicit action.',
+  labelKey: 'workbench.settings.def.updates.check.label',
+  descriptionKey: 'workbench.settings.def.updates.check.description',
   category: 'about',
   tags: ['update', 'version', 'release', 'notify', 'check'],
   scope: 'user',
   when: () => getCurrentHost() === 'desktop',
   enumOptions: [
-    { value: 'all', label: 'All releases' },
-    { value: 'security-only', label: 'Security fixes only' },
-    { value: 'off', label: 'Off' },
+    { value: 'all', labelKey: 'workbench.settings.def.updates.check.option.all.label' },
+    { value: 'security-only', labelKey: 'workbench.settings.def.updates.check.option.security-only.label' },
+    { value: 'off', labelKey: 'workbench.settings.def.updates.check.option.off.label' },
   ],
 });
 
@@ -75,11 +71,8 @@ registerSetting({
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: "Show What's New after updating",
-  description:
-    'Open a tab with the release highlights the first time you open the workbench after a feature release. ' +
-    'Patch releases never open it — they stay in the notifications timeline. ' +
-    'The notes ship inside the app; nothing is fetched.',
+  labelKey: 'workbench.settings.def.updates.showWhatsNew.label',
+  descriptionKey: 'workbench.settings.def.updates.showWhatsNew.description',
   category: 'about',
   tags: ['update', 'release', 'notes', 'whats new', 'changelog'],
   scope: 'user',
@@ -91,11 +84,8 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Download updates automatically',
-  description:
-    'When an update is found, fetch it in the background right away so installing is a single restart — ' +
-    'useful if you want fixes staged as fast as possible. ' +
-    'Off means you click Download yourself. Either way, nothing installs until you restart the app or choose to.',
+  labelKey: 'workbench.settings.def.updates.autoDownload.label',
+  descriptionKey: 'workbench.settings.def.updates.autoDownload.description',
   category: 'about',
   tags: ['update', 'download', 'background', 'staged'],
   scope: 'user',

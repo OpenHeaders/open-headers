@@ -41,16 +41,23 @@ registerSetting({
   type: 'enum',
   default: 'flat',
   schema: layoutSchema,
-  label: 'Headers Layout',
-  description:
-    'How header rows are organised inside Request/Response sections. Grouped buckets rows by category (Auth, CORS, Caching, …); Flat renders one list in the chosen sort order.',
+  labelKey: 'workbench.settings.def.devpanelHeaders.layout.label',
+  descriptionKey: 'workbench.settings.def.devpanelHeaders.layout.description',
   category: 'devpanelHeaders',
   subcategory: 'View',
   tags: ['headers', 'layout', 'grouped', 'flat', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'grouped', label: 'Grouped', description: 'Rows bucketed by category.' },
-    { value: 'flat', label: 'Flat', description: 'Single list, no category headings (Chrome-style).' },
+    {
+      value: 'grouped',
+      labelKey: 'workbench.settings.def.devpanelHeaders.layout.option.grouped.label',
+      descriptionKey: 'workbench.settings.def.devpanelHeaders.layout.option.grouped.description',
+    },
+    {
+      value: 'flat',
+      labelKey: 'workbench.settings.def.devpanelHeaders.layout.option.flat.label',
+      descriptionKey: 'workbench.settings.def.devpanelHeaders.layout.option.flat.description',
+    },
   ],
 });
 
@@ -59,17 +66,29 @@ registerSetting({
   type: 'enum',
   default: 'original',
   schema: sortSchema,
-  label: 'Headers Sort',
-  description:
-    'Row ordering within each list (and within each group, when grouped). Original preserves the order the server sent the headers (HAR order); A → Z sorts by name; Rule-modified first floats rule-modified rows to the top.',
+  labelKey: 'workbench.settings.def.devpanelHeaders.sortMode.label',
+  descriptionKey: 'workbench.settings.def.devpanelHeaders.sortMode.description',
   category: 'devpanelHeaders',
   subcategory: 'View',
   tags: ['headers', 'sort', 'order', 'devtools'],
   scope: 'user',
+  // The `A → Z` label is a literal glyph pair, not translatable text.
   enumOptions: [
-    { value: 'original', label: 'Original', description: 'HAR order.' },
-    { value: 'az', label: 'A → Z', description: 'Alphabetical.' },
-    { value: 'rule-first', label: 'Rule-modified first', description: 'Rule-modified rows on top.' },
+    {
+      value: 'original',
+      labelKey: 'workbench.settings.def.devpanelHeaders.sortMode.option.original.label',
+      descriptionKey: 'workbench.settings.def.devpanelHeaders.sortMode.option.original.description',
+    },
+    {
+      value: 'az',
+      label: 'A → Z',
+      descriptionKey: 'workbench.settings.def.devpanelHeaders.sortMode.option.az.description',
+    },
+    {
+      value: 'rule-first',
+      labelKey: 'workbench.settings.def.devpanelHeaders.sortMode.option.rule-first.label',
+      descriptionKey: 'workbench.settings.def.devpanelHeaders.sortMode.option.rule-first.description',
+    },
   ],
 });
 
@@ -78,16 +97,21 @@ registerSetting({
   type: 'enum',
   default: 'train',
   schema: nameCaseSchema,
-  label: 'Header Name Case',
-  description:
-    'How header names are displayed. Train-Case canonicalises every name (`Content-Type`, `Set-Cookie`, `ETag`) to match Chrome/Firefox DevTools — easier to scan. Original keeps the raw casing the server sent (HTTP/2+ lowercases everything on the wire).',
+  labelKey: 'workbench.settings.def.devpanelHeaders.nameCase.label',
+  descriptionKey: 'workbench.settings.def.devpanelHeaders.nameCase.description',
   category: 'devpanelHeaders',
   subcategory: 'View',
   tags: ['headers', 'case', 'train-case', 'display', 'devtools'],
   scope: 'user',
+  // Train-Case option stays literal: its label names the casing style
+  // and its description is a header-name format example (plan §3).
   enumOptions: [
     { value: 'train', label: 'Train-Case', description: 'Content-Type, Set-Cookie, ETag (Chrome-style).' },
-    { value: 'original', label: 'Original', description: 'Exactly what the server sent (often lowercase on HTTP/2+).' },
+    {
+      value: 'original',
+      labelKey: 'workbench.settings.def.devpanelHeaders.nameCase.option.original.label',
+      descriptionKey: 'workbench.settings.def.devpanelHeaders.nameCase.option.original.description',
+    },
   ],
 });
 
@@ -96,9 +120,8 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Show Value Tags',
-  description:
-    'Show the per-value tags on header rows (Cache-Control / Set-Cookie / HSTS / JWT decode, …). Turn off for a tight, value-only view.',
+  labelKey: 'workbench.settings.def.devpanelHeaders.showChips.label',
+  descriptionKey: 'workbench.settings.def.devpanelHeaders.showChips.description',
   category: 'devpanelHeaders',
   subcategory: 'View',
   tags: ['headers', 'tags', 'chips', 'view', 'devtools'],
@@ -110,9 +133,8 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Show Suggestions',
-  description:
-    'Display the actionable warning cards at the top of the Headers tab (CORS misconfigs, missing CSP/HSTS, insecure cookies, expired JWT, …).',
+  labelKey: 'workbench.settings.def.devpanelHeaders.showInsights.label',
+  descriptionKey: 'workbench.settings.def.devpanelHeaders.showInsights.description',
   category: 'devpanelHeaders',
   subcategory: 'View',
   tags: ['headers', 'insights', 'suggestions', 'warnings', 'devtools'],
@@ -126,9 +148,8 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Hide Noise Headers',
-  description:
-    'Fold low-signal headers (Accept-*, Sec-Fetch-*, Sec-CH-UA-*, User-Agent, Connection, …). The hint below each section lists the hidden names on hover.',
+  labelKey: 'workbench.settings.def.devpanelHeaders.hideNoise.label',
+  descriptionKey: 'workbench.settings.def.devpanelHeaders.hideNoise.description',
   category: 'devpanelHeaders',
   subcategory: 'Filters',
   tags: ['headers', 'noise', 'filter', 'devtools'],
@@ -140,8 +161,8 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Rule-modified Only',
-  description: 'Show only headers added, modified, or removed by an Open Headers rule.',
+  labelKey: 'workbench.settings.def.devpanelHeaders.ruleOnly.label',
+  descriptionKey: 'workbench.settings.def.devpanelHeaders.ruleOnly.description',
   category: 'devpanelHeaders',
   subcategory: 'Filters',
   tags: ['headers', 'rule', 'filter', 'devtools'],
@@ -153,8 +174,8 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Security Headers Only',
-  description: 'Show only security-related headers (CSP, HSTS, X-Frame-Options, Permissions-Policy, …).',
+  labelKey: 'workbench.settings.def.devpanelHeaders.securityOnly.label',
+  descriptionKey: 'workbench.settings.def.devpanelHeaders.securityOnly.description',
   category: 'devpanelHeaders',
   subcategory: 'Filters',
   tags: ['headers', 'security', 'filter', 'devtools'],
@@ -166,8 +187,8 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Overridable Headers Only',
-  description: 'Hide protected headers the browser will not let rules override (host, content-length, sec-ch-ua, …).',
+  labelKey: 'workbench.settings.def.devpanelHeaders.overridableOnly.label',
+  descriptionKey: 'workbench.settings.def.devpanelHeaders.overridableOnly.description',
   category: 'devpanelHeaders',
   subcategory: 'Filters',
   tags: ['headers', 'overridable', 'protected', 'filter', 'devtools'],

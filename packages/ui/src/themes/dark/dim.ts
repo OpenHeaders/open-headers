@@ -3,8 +3,8 @@ import type { ThemeVariant } from '../types';
 export const darkDim: ThemeVariant = {
   id: 'dim',
   mode: 'dark',
-  label: 'Dim',
-  description: 'Soft slate-blue surfaces with lower glare — easier on the eyes in low-light environments.',
+  labelKey: 'workbench.settings.def.appearance.darkVariant.option.dim.label',
+  descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.dim.description',
   honorsAccentColor: false,
   antdTokens: {
     borderRadius: 6,
