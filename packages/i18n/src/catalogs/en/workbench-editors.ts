@@ -2,12 +2,17 @@
  * Workbench editors station (Phase C) — the rule editor family
  * (RuleEditor shell, ConditionEditor + condition-type registry, the
  * condition/action issue banners, the resolution banner, the twelve
- * rule-fields modules) and the request editor family, request side
+ * rule-fields modules) and the request editor family: request side
  * (RequestEditor shell + URL bar + tab registry, the seven tab bodies,
- * the shared editable-grid chrome). Grows per editors-station slice.
+ * the shared editable-grid chrome), response side (ResponsePanel +
+ * meta strip + the six views + empty/error states), and the
+ * response-example editor that mirrors it. Grows per editors-station
+ * slice.
  *
  * Namespaces: rule copy under `workbench.editors.rule.*`, request copy
- * under `workbench.editors.request.*`. The editable-grid chrome is a
+ * under `workbench.editors.request.*` (response-panel copy under
+ * `workbench.editors.request.response.*`), response-example copy under
+ * `workbench.editors.responseExample.*`. The editable-grid chrome is a
  * shared component (request editor + response-example editor), so it
  * carries its own `workbench.editors.grid.*` namespace — a component
  * namespace per the pane-shared rule, NOT a cross-editor vocabulary
@@ -849,4 +854,175 @@ export const workbenchEditors = {
   'workbench.editors.request.settings.jar.expires': 'expires {date}',
   'workbench.editors.request.settings.jar.session': 'session',
   'workbench.editors.request.settings.jar.httpsOnly': 'https only',
+
+  // ── Response panel shell (status/duration/size VALUES stay raw —
+  //    parity vocabulary and diagnostic measurement, plan §3) ─────────
+  'workbench.editors.request.response.title': 'Response',
+  'workbench.editors.request.response.clear': 'Clear',
+  'workbench.editors.request.response.saveResponse': 'Save Response',
+  'workbench.editors.request.response.createWorkflow': 'Create workflow',
+  'workbench.editors.request.response.createWorkflowNew': 'Create new workflow',
+  'workbench.editors.request.response.createWorkflowAttach': 'Attach to existing workflow',
+  'workbench.editors.request.response.createWorkflowNeedsSave': 'Save the request and use it in a workflow',
+  'workbench.editors.request.response.copyBody': 'Copy body',
+  'workbench.editors.request.response.saveBodyToFile': 'Save body to file',
+  'workbench.editors.request.response.saveBodyToFileTruncated': 'Save body to file (truncated — saves what was kept)',
+  'workbench.editors.request.response.clearResponse': 'Clear response',
+  'workbench.editors.request.response.moreActionsAria': 'More response actions',
+  'workbench.editors.request.response.copied': 'Copied',
+  // View-tab nouns are DevTools parity vocabulary — keyed for uniform
+  // lookup, glossary-protected on translator handoff (S4 precedent).
+  'workbench.editors.request.response.tab.body': 'Body',
+  'workbench.editors.request.response.tab.headers': 'Headers ({count})',
+  'workbench.editors.request.response.tab.cookies': 'Cookies ({count})',
+  'workbench.editors.request.response.tab.assertions': 'Assertions',
+  'workbench.editors.request.response.tab.assertionsFailed': 'Assertions ({count} failed)',
+  'workbench.editors.request.response.tab.assertionsPassed': 'Assertions ({count} passed)',
+  'workbench.editors.request.response.tab.console': 'Console ({count})',
+
+  // ── Response meta strip (values raw; chip labels + popovers keyed) ──
+  'workbench.editors.request.response.meta.kicker': 'Response meta',
+  'workbench.editors.request.response.meta.timingTitle': 'Timing',
+  'workbench.editors.request.response.meta.timingSummary': 'Measured around the fetch call: {duration}.',
+  'workbench.editors.request.response.meta.timingNoEntry':
+    'The platform recorded no resource-timing entry for this request, so no phase breakdown is available.',
+  'workbench.editors.request.response.meta.timingTotalOnly':
+    'Network total {duration}. The server did not expose timing detail to this cross-origin request (no Timing-Allow-Origin header), so the DNS / connect / TTFB / download phases are hidden.',
+  // Phase-ladder labels — devtools waterfall parity vocabulary,
+  // glossary-protected on translator handoff.
+  'workbench.editors.request.response.meta.phase.redirect': 'Redirects',
+  'workbench.editors.request.response.meta.phase.stalled': 'Stalled',
+  'workbench.editors.request.response.meta.phase.dns': 'DNS lookup',
+  'workbench.editors.request.response.meta.phase.connect': 'TCP connect',
+  'workbench.editors.request.response.meta.phase.tls': 'TLS handshake',
+  'workbench.editors.request.response.meta.phase.waiting': 'Waiting (TTFB)',
+  'workbench.editors.request.response.meta.phase.download': 'Content download',
+  'workbench.editors.request.response.meta.totalNetwork': 'Total (network)',
+  'workbench.editors.request.response.meta.sizeTitle': 'Size',
+  'workbench.editors.request.response.meta.sizeSummary': 'Bytes in each direction of this exchange.',
+  'workbench.editors.request.response.meta.responseSize': 'Response Size',
+  'workbench.editors.request.response.meta.requestSize': 'Request Size',
+  'workbench.editors.request.response.meta.rowHeaders': 'Headers',
+  'workbench.editors.request.response.meta.rowBody': 'Body',
+  'workbench.editors.request.response.meta.rowCompressed': 'Compressed',
+  'workbench.editors.request.response.meta.rowTransferred': 'Transferred',
+  'workbench.editors.request.response.meta.noteHeaderBytes':
+    'Header bytes as visible — HTTP/2+ compresses them on the wire.',
+  'workbench.editors.request.response.meta.noteRequestHeaders':
+    'Request headers count only what this send set; the browser adds its own (Host, User-Agent, …).',
+  'workbench.editors.request.response.meta.noteTruncatedAtCap':
+    'Body truncated at the {cap} response size limit; the full size is counted.',
+  'workbench.editors.request.response.meta.noteTruncated': 'Body view truncated; the full size is counted.',
+  'workbench.editors.request.response.meta.noteBodyApproximate':
+    'Request body size is approximate — the multipart boundary is browser-generated.',
+  'workbench.editors.request.response.meta.noteWireHidden':
+    'Wire sizes (compressed, transferred) hidden: the server sent no Timing-Allow-Origin.',
+  'workbench.editors.request.response.meta.networkTitle': 'Network',
+  'workbench.editors.request.response.meta.networkSummary': 'Connection-level facts for this exchange.',
+  'workbench.editors.request.response.meta.httpVersion': 'HTTP Version',
+  'workbench.editors.request.response.meta.remoteAddress': 'Remote Address',
+  'workbench.editors.request.response.meta.noteVersionHiddenNode':
+    'HTTP version hidden: the app’s network runtime does not report the negotiated protocol.',
+  'workbench.editors.request.response.meta.noteVersionHiddenBrowser':
+    'HTTP version hidden: the platform recorded no timing entry for this request.',
+  'workbench.editors.request.response.meta.noteNoIp':
+    'Remote address unavailable: the wire capture saw nothing for this fetch.',
+  'workbench.editors.request.response.meta.noteNoTls':
+    'Local address, TLS and certificate details are not exposed to extension code on Chromium.',
+  'workbench.editors.request.response.meta.tagUnverifiedTls': 'Unverified TLS',
+  'workbench.editors.request.response.meta.unverifiedTlsTitle': 'SSL verification disabled',
+  'workbench.editors.request.response.meta.unverifiedTlsSummary':
+    'This request was sent with certificate verification switched off in its Settings. The connection was encrypted, but the server’s identity was not checked — any certificate was accepted, including self-signed and expired ones.',
+  'workbench.editors.request.response.meta.tlsFloorLowered': 'TLS floor lowered',
+  'workbench.editors.request.response.meta.tlsFloorLoweredSummary':
+    'This request was sent with its minimum TLS version set below 1.2 in its Settings, so the connection was allowed to negotiate TLS 1.0 or 1.1 — protocol versions with known weaknesses that runtimes disable by default.',
+  'workbench.editors.request.response.meta.authForwarded': 'Authorization forwarded',
+  'workbench.editors.request.response.meta.authForwardedSummary':
+    'A redirect took this request to a different origin, and its Settings keep the Authorization header across origins — so the credentials were re-sent to the new host. Normally the header is dropped when a redirect leaves the original origin.',
+  'workbench.editors.request.response.meta.cookieJar': 'Cookie jar',
+  'workbench.editors.request.response.meta.cookieJarSummary':
+    'This request used the workspace’s in-memory cookie jar: matching stored cookies were attached automatically, and Set-Cookie responses were kept for later jar-enabled sends.',
+  'workbench.editors.request.response.meta.jarAttachedLabel': 'Attached to the first request',
+  'workbench.editors.request.response.meta.jarAttachedNone':
+    'Nothing — no stored cookie matched, or a Cookie header set on the request won.',
+  'workbench.editors.request.response.meta.jarStoredLabel': 'Stored from Set-Cookie responses',
+  'workbench.editors.request.response.meta.jarStoredNone': 'Nothing — no response set a cookie.',
+
+  // ── Response body view (filter syntax + format examples stay raw) ──
+  'workbench.editors.request.response.body.truncatedNotice': 'Response truncated at {cap} (original {size}).',
+  'workbench.editors.request.response.body.increaseLimit': 'Increase limit',
+  'workbench.editors.request.response.body.limitHint': 'The limit is adjustable in Settings → API Requests.',
+  'workbench.editors.request.response.body.viewPickerAria': 'Body view',
+  'workbench.editors.request.response.body.preview': 'Preview',
+  'workbench.editors.request.response.body.wrapLines': 'Wrap lines',
+  'workbench.editors.request.response.body.unwrapLines': 'Unwrap lines',
+  'workbench.editors.request.response.body.filterJsonPathTooltip': 'Filter body (JSONPath)',
+  'workbench.editors.request.response.body.filterXPathTooltip': 'Filter body (XPath)',
+  'workbench.editors.request.response.body.filterAria': 'Filter body',
+  'workbench.editors.request.response.body.invalidJsonPath': 'Invalid JSONPath expression.',
+  'workbench.editors.request.response.body.invalidXPath': 'Invalid XPath expression, or the document does not parse.',
+  'workbench.editors.request.response.body.noMatches': 'No matches for this path.',
+  'workbench.editors.request.response.body.showingLastMatch': 'Showing the last match.',
+  'workbench.editors.request.response.body.hexCapNotice': 'Hex view shows the first {shown} of {total}.',
+  'workbench.editors.request.response.body.previewIframeTitle': 'Response preview',
+
+  // ── Response headers view ──────────────────────────────────────────
+  'workbench.editors.request.response.headers.name': 'Name',
+  'workbench.editors.request.response.headers.value': 'Value',
+  'workbench.editors.request.response.headers.filterPlaceholder': 'Filter headers',
+  'workbench.editors.request.response.headers.copyAll': 'Copy all headers',
+  'workbench.editors.request.response.headers.copyAria': 'Copy {name}',
+  'workbench.editors.request.response.headers.copyTitle': 'Copy header',
+  'workbench.editors.request.response.headers.empty': 'No headers',
+  'workbench.editors.request.response.headers.noMatch': 'No headers match “{query}”',
+
+  // ── Response cookies view (Set-Cookie attribute column names stay
+  //    raw wire vocabulary: Domain / Path / Expires / HttpOnly /
+  //    Secure / SameSite) ─────────────────────────────────────────────
+  'workbench.editors.request.response.cookies.name': 'Name',
+  'workbench.editors.request.response.cookies.value': 'Value',
+  'workbench.editors.request.response.cookies.copyAria': 'Copy Set-Cookie for {name}',
+  'workbench.editors.request.response.cookies.copyTitle': 'Copy Set-Cookie line',
+  'workbench.editors.request.response.cookies.noteCredentialsInclude':
+    'This request ran with credentials included, so the browser may have stored these cookies (subject to each cookie’s own attributes) and will send them on future credentialed requests.',
+  'workbench.editors.request.response.cookies.noteCredentialsOmit':
+    'The server sent these cookies, but this request ran with credentials omitted (the default), so the browser discarded them — nothing was stored.',
+  'workbench.editors.request.response.cookies.noteJarOff':
+    'These cookies were not stored — this request ran without the cookie jar (the default), or the jar accepted none of them.',
+  'workbench.editors.request.response.cookies.noteJarStored':
+    'This request ran with the cookie jar on, which stored {names} in the workspace’s in-memory jar for future jar-enabled requests.',
+  'workbench.editors.request.response.cookies.noteJarStoredMidChain':
+    'This request ran with the cookie jar on, which stored {names} in the workspace’s in-memory jar for future jar-enabled requests. Some were set on intermediate redirect hops, so their Set-Cookie lines are not listed here — only the final response’s headers are.',
+
+  // ── Response assertions / console views (log levels + script output
+  //    stay raw; assertion durations are diagnostic timing — exempt) ──
+  'workbench.editors.request.response.assertions.pass': 'PASS',
+  'workbench.editors.request.response.assertions.fail': 'FAIL',
+  'workbench.editors.request.response.console.preRequest': 'Pre-request',
+  'workbench.editors.request.response.console.postResponse': 'Post-response',
+
+  // ── Response empty / error states (executor error text stays raw) ──
+  'workbench.editors.request.response.empty.sending': 'Sending request…',
+  'workbench.editors.request.response.empty.prompt': 'Send the request to see the response here.',
+  'workbench.editors.request.response.error.title': 'Could not send request',
+  'workbench.editors.request.response.error.openInTab': 'Open in new tab',
+
+  // ── Response-example editor ────────────────────────────────────────
+  'workbench.editors.responseExample.loading': 'Loading example…',
+  'workbench.editors.responseExample.notFound': 'Example not found.',
+  'workbench.editors.responseExample.toast.deletedOtherTab': 'Example was deleted from another tab',
+  'workbench.editors.responseExample.toast.saveFailed': 'Failed to save example',
+  'workbench.editors.responseExample.toast.saveFailedDetail': 'Failed to save example: {message}',
+  'workbench.editors.responseExample.openAsRequest': 'Open as Request',
+  'workbench.editors.responseExample.openAsRequestTooltip':
+    "Creates a new request draft seeded from this example's request",
+  'workbench.editors.responseExample.editStatus': 'Edit status code',
+  'workbench.editors.responseExample.statusPlaceholder': 'Enter response code',
+  'workbench.editors.responseExample.capturedTooltip': 'Captured {date}',
+  'workbench.editors.responseExample.tab.body': 'Body',
+  'workbench.editors.responseExample.tab.headers': 'Headers ({count})',
+  'workbench.editors.responseExample.bodyLanguageAria': 'Body language',
+  'workbench.editors.responseExample.format': 'Format',
+  'workbench.editors.responseExample.formatBody': 'Format body',
+  'workbench.editors.responseExample.noFormatter': 'No formatter for {language}',
 } as const satisfies Catalog;

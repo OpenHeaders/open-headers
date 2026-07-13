@@ -26,6 +26,7 @@ import { Button, Dropdown, Tabs, Tooltip, Typography, theme } from 'antd';
 import { ExampleChip } from '../../shared/ExampleChip';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import ResponseAssertionsView from './ResponseAssertionsView';
 import ResponseBodyView from './ResponseBodyView';
@@ -55,50 +56,56 @@ type ResponseTabKey = 'body' | 'headers' | 'cookies' | 'assertions' | 'script-lo
 const CreateWorkflowDropdown: React.FC<{
   onExtractToWorkflow: (target: 'new' | { workflowUid: string }) => void;
   liveWorkflows: LiveWorkflow[];
-}> = ({ onExtractToWorkflow, liveWorkflows }) => (
-  <Dropdown
-    trigger={['click']}
-    menu={{
-      items: [
-        {
-          key: 'new',
-          label: 'Create new workflow',
-          onClick: () => onExtractToWorkflow('new'),
-        },
-        {
-          key: 'attach',
-          label: 'Attach to existing workflow',
-          disabled: liveWorkflows.length === 0,
-          children:
-            liveWorkflows.length === 0
-              ? undefined
-              : liveWorkflows.map((w) => ({
-                  key: `attach-${w.uid}`,
-                  label: w.name,
-                  onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
-                })),
-        },
-      ],
-    }}
-  >
-    <Button size="small" icon={<SisternodeOutlined />}>
-      Create workflow <DownOutlined style={{ fontSize: 10 }} />
-    </Button>
-  </Dropdown>
-);
+}> = ({ onExtractToWorkflow, liveWorkflows }) => {
+  const t = useT();
+  return (
+    <Dropdown
+      trigger={['click']}
+      menu={{
+        items: [
+          {
+            key: 'new',
+            label: t('workbench.editors.request.response.createWorkflowNew'),
+            onClick: () => onExtractToWorkflow('new'),
+          },
+          {
+            key: 'attach',
+            label: t('workbench.editors.request.response.createWorkflowAttach'),
+            disabled: liveWorkflows.length === 0,
+            children:
+              liveWorkflows.length === 0
+                ? undefined
+                : liveWorkflows.map((w) => ({
+                    key: `attach-${w.uid}`,
+                    label: w.name,
+                    onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
+                  })),
+          },
+        ],
+      }}
+    >
+      <Button size="small" icon={<SisternodeOutlined />}>
+        {t('workbench.editors.request.response.createWorkflow')} <DownOutlined style={{ fontSize: 10 }} />
+      </Button>
+    </Dropdown>
+  );
+};
 
 /** Draft-tab placeholder for the action above — a workflow step needs
  *  a persisted request uid to reference. Wrapper span keeps the
  *  tooltip alive over the disabled button. */
-const CreateWorkflowNeedsSave: React.FC = () => (
-  <Tooltip title="Save the request and use it in a workflow" placement="bottom">
-    <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
-      <Button size="small" icon={<SisternodeOutlined />} disabled>
-        Create workflow <DownOutlined style={{ fontSize: 10 }} />
-      </Button>
-    </span>
-  </Tooltip>
-);
+const CreateWorkflowNeedsSave: React.FC = () => {
+  const t = useT();
+  return (
+    <Tooltip title={t('workbench.editors.request.response.createWorkflowNeedsSave')} placement="bottom">
+      <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
+        <Button size="small" icon={<SisternodeOutlined />} disabled>
+          {t('workbench.editors.request.response.createWorkflow')} <DownOutlined style={{ fontSize: 10 }} />
+        </Button>
+      </span>
+    </Tooltip>
+  );
+};
 
 interface ResponsePanelProps {
   response: ExecutedRequestSnapshot | null;
@@ -143,6 +150,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   extractRequiresSave,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   // Pull the list of existing workflows so the Extract dropdown can
   // offer "Attach to …" with a submenu of current workflows. Lightweight
   // — the hook already reads the same listener the sidebar uses.
@@ -213,7 +221,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             }}
           >
             <Text strong style={{ fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
-              Response
+              {t('workbench.editors.request.response.title')}
             </Text>
             <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               {onExtractToWorkflow ? (
@@ -223,7 +231,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               ) : null}
               {response && (
                 <Button size="small" type="text" icon={<ClearOutlined />} onClick={onClear}>
-                  Clear
+                  {t('workbench.editors.request.response.clear')}
                 </Button>
               )}
               <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
@@ -251,7 +259,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                 <ResponseMetaStrip response={response} statusColor={statusColor} />
                 {onSaveResponse && (
                   <Button size="small" icon={<ExampleChip />} onClick={onSaveResponse} disabled={sending}>
-                    Save Response
+                    {t('workbench.editors.request.response.saveResponse')}
                   </Button>
                 )}
                 {onExtractToWorkflow ? (
@@ -267,7 +275,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                       {
                         key: 'copy',
                         icon: <CopyOutlined />,
-                        label: 'Copy body',
+                        label: t('workbench.editors.request.response.copyBody'),
                         disabled: !response.body,
                         onClick: copyBody,
                       },
@@ -275,8 +283,8 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                         key: 'save',
                         icon: <DownloadOutlined />,
                         label: response.bodyTruncated
-                          ? 'Save body to file (truncated — saves what was kept)'
-                          : 'Save body to file',
+                          ? t('workbench.editors.request.response.saveBodyToFileTruncated')
+                          : t('workbench.editors.request.response.saveBodyToFile'),
                         disabled: !response.body,
                         onClick: saveBody,
                       },
@@ -284,7 +292,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                       {
                         key: 'clear',
                         icon: <ClearOutlined />,
-                        label: 'Clear response',
+                        label: t('workbench.editors.request.response.clearResponse'),
                         onClick: onClear,
                       },
                     ],
@@ -294,7 +302,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                     size="small"
                     type="text"
                     icon={bodyCopied ? <CheckOutlined /> : <EllipsisOutlined />}
-                    aria-label="More response actions"
+                    aria-label={t('workbench.editors.request.response.moreActionsAria')}
                   />
                 </Dropdown>
               </div>
@@ -303,19 +311,19 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           items={[
             {
               key: 'body',
-              label: 'Body',
+              label: t('workbench.editors.request.response.tab.body'),
               children: <ResponseBodyView response={response} />,
             },
             {
               key: 'headers',
-              label: `Headers (${headerRows.length})`,
+              label: t('workbench.editors.request.response.tab.headers', { count: headerRows.length }),
               children: <ResponseHeadersView headers={headerRows} />,
             },
             ...(setCookieCount > 0
               ? [
                   {
                     key: 'cookies' as ResponseTabKey,
-                    label: `Cookies (${setCookieCount})`,
+                    label: t('workbench.editors.request.response.tab.cookies', { count: setCookieCount }),
                     children: <ResponseCookiesView response={response} />,
                   },
                 ]
@@ -324,7 +332,12 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               ? [
                   {
                     key: 'assertions' as ResponseTabKey,
-                    label: `Assertions${assertionsFailed > 0 ? ` (${assertionsFailed} failed)` : assertionsPassed > 0 ? ` (${assertionsPassed} passed)` : ''}`,
+                    label:
+                      assertionsFailed > 0
+                        ? t('workbench.editors.request.response.tab.assertionsFailed', { count: assertionsFailed })
+                        : assertionsPassed > 0
+                          ? t('workbench.editors.request.response.tab.assertionsPassed', { count: assertionsPassed })
+                          : t('workbench.editors.request.response.tab.assertions'),
                     children: <ResponseAssertionsView assertions={assertions} />,
                   },
                 ]
@@ -333,7 +346,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               ? [
                   {
                     key: 'script-log' as ResponseTabKey,
-                    label: `Console (${preLog.length + postLog.length})`,
+                    label: t('workbench.editors.request.response.tab.console', { count: preLog.length + postLog.length }),
                     children: <ResponseConsoleView preLog={preLog} postLog={postLog} />,
                   },
                 ]

@@ -15,6 +15,7 @@ import { AutoComplete, Button, ConfigProvider, Dropdown, type MenuProps, Tabs, T
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { listStatusCodes } from '@openheaders/ui/shared/info-popover/data/http-status';
 import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../languages/registry';
@@ -40,6 +41,7 @@ const StatusCodePicker: React.FC<{
   onCommit: (next: { status: number; statusText: string }) => void;
 }> = ({ status, statusText, onCommit }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
 
@@ -62,7 +64,7 @@ const StatusCodePicker: React.FC<{
 
   if (!editing) {
     return (
-      <Tooltip title="Edit status code" placement="bottom">
+      <Tooltip title={t('workbench.editors.responseExample.editStatus')} placement="bottom">
         <Tag
           color="default"
           role="button"
@@ -91,7 +93,7 @@ const StatusCodePicker: React.FC<{
       defaultOpen
       size="small"
       style={{ width: 210 }}
-      placeholder="Enter response code"
+      placeholder={t('workbench.editors.responseExample.statusPlaceholder')}
       value={text}
       onChange={setText}
       options={options}
@@ -125,6 +127,7 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
   onLayoutChange,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [activeTab, setActiveTab] = useState<'body' | 'headers'>('body');
   const patch = (p: Partial<ExampleResponseDraft>) => onChange({ ...value, ...p });
 
@@ -187,7 +190,9 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
                 onCommit={(next) => patch(next)}
               />
               <Tooltip
-                title={`Captured ${Number.isNaN(capturedAtDate.getTime()) ? capturedAt : capturedAtDate.toLocaleString()}`}
+                title={t('workbench.editors.responseExample.capturedTooltip', {
+                  date: Number.isNaN(capturedAtDate.getTime()) ? capturedAt : capturedAtDate.toLocaleString(),
+                })}
                 placement="bottom"
               >
                 <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' }}>
@@ -201,13 +206,13 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
         items={[
           {
             key: 'body',
-            label: 'Body',
+            label: t('workbench.editors.responseExample.tab.body'),
             children: (
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
                   <ConfigProvider theme={{ token: { fontSize: 12 }, components: { Dropdown: { paddingBlock: 3 } } }}>
                     <Dropdown menu={languageMenu} trigger={['click']}>
-                      <Button size="small" type="text" aria-label="Body language">
+                      <Button size="small" type="text" aria-label={t('workbench.editors.responseExample.bodyLanguageAria')}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <ViewPickerIcon id={language} size={14} />
                           {getLanguage(language).label}
@@ -217,7 +222,13 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
                     </Dropdown>
                   </ConfigProvider>
                   <Tooltip
-                    title={formattable ? 'Format body' : `No formatter for ${getLanguage(language).label}`}
+                    title={
+                      formattable
+                        ? t('workbench.editors.responseExample.formatBody')
+                        : t('workbench.editors.responseExample.noFormatter', {
+                            language: getLanguage(language).label,
+                          })
+                    }
                     placement="bottom"
                   >
                     <Button
@@ -228,7 +239,7 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
                       onClick={runFormat}
                       style={{ marginLeft: 'auto' }}
                     >
-                      Format
+                      {t('workbench.editors.responseExample.format')}
                     </Button>
                   </Tooltip>
                 </div>
@@ -257,7 +268,7 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
           },
           {
             key: 'headers',
-            label: `Headers (${headerRows.length})`,
+            label: t('workbench.editors.responseExample.tab.headers', { count: headerRows.length }),
             children: (
               <div
                 className="rules-thin-scrollbar"
@@ -267,8 +278,7 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
                   rows={value.headers}
                   onChange={(headers) => patch({ headers })}
                   hideEnabled
-                  keyPlaceholder="Header"
-                  valuePlaceholder="Value"
+                  keyPlaceholder={t('workbench.editors.request.headers.keyPlaceholder')}
                 />
               </div>
             ),

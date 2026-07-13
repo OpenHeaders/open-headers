@@ -21,6 +21,7 @@ import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Badge, Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
@@ -73,6 +74,7 @@ function PickerLabel({ icon, text }: { icon: string; text: string }) {
 
 const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ response }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const openSettings = useOpenSettings();
   const [mode, setMode] = useState<ViewMode>('pretty');
   const [langOverride, setLangOverride] = useState<LanguageId | null>(null);
@@ -248,8 +250,10 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
       {response.bodyTruncated && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
           <Text type="warning" style={{ fontSize: 11 }}>
-            Response truncated at {formatBytes(response.bodyCapBytes ?? BODY_CAP_BYTES)} (original{' '}
-            {formatBytes(response.bodyBytes)}).
+            {t('workbench.editors.request.response.body.truncatedNotice', {
+              cap: formatBytes(response.bodyCapBytes ?? BODY_CAP_BYTES),
+              size: formatBytes(response.bodyBytes),
+            })}
           </Text>
           {openSettings ? (
             <Button
@@ -258,11 +262,11 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
               style={{ fontSize: 11, padding: 0, height: 'auto' }}
               onClick={() => openSettings({ settingKey: 'requests.responseBodyCapMB' })}
             >
-              Increase limit
+              {t('workbench.editors.request.response.body.increaseLimit')}
             </Button>
           ) : (
             <Text type="secondary" style={{ fontSize: 11 }}>
-              The limit is adjustable in Settings → API Requests.
+              {t('workbench.editors.request.response.body.limitHint')}
             </Text>
           )}
         </div>
@@ -279,7 +283,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
               size="small"
               type="text"
               data-testid="oh-response-view-picker"
-              aria-label="Body view"
+              aria-label={t('workbench.editors.request.response.body.viewPickerAria')}
               style={pickerSelected ? { background: token.colorBgTextActive } : undefined}
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -298,21 +302,35 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             style={mode === 'preview' ? { background: token.colorBgTextActive } : undefined}
             onClick={() => setMode(mode === 'preview' ? 'pretty' : 'preview')}
           >
-            Preview
+            {t('workbench.editors.request.response.body.preview')}
           </Button>
         )}
-        <Tooltip title={wrapLines ? 'Unwrap lines' : 'Wrap lines'} placement="bottom">
+        <Tooltip
+          title={
+            wrapLines
+              ? t('workbench.editors.request.response.body.unwrapLines')
+              : t('workbench.editors.request.response.body.wrapLines')
+          }
+          placement="bottom"
+        >
           <Button
             size="small"
             type="text"
             icon={<WrapLinesIcon />}
             onClick={() => setWrapLines((prev) => !prev)}
-            aria-label="Wrap lines"
+            aria-label={t('workbench.editors.request.response.body.wrapLines')}
             style={{ marginLeft: 'auto', ...(wrapLines ? { background: token.colorBgTextActive } : {}) }}
           />
         </Tooltip>
         {filterKind && (
-          <Tooltip title={filterKind === 'jsonpath' ? 'Filter body (JSONPath)' : 'Filter body (XPath)'} placement="bottom">
+          <Tooltip
+            title={
+              filterKind === 'jsonpath'
+                ? t('workbench.editors.request.response.body.filterJsonPathTooltip')
+                : t('workbench.editors.request.response.body.filterXPathTooltip')
+            }
+            placement="bottom"
+          >
             {/* Dot marks an active query — the bar itself can scroll out
                 of mind while its filter still narrows the pane. The
                 transparent colorBorderBg drops the badge's contrast ring
@@ -323,7 +341,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
                   size="small"
                   type="text"
                   icon={<FilterOutlined />}
-                  aria-label="Filter body"
+                  aria-label={t('workbench.editors.request.response.body.filterAria')}
                   style={filterOpen ? { background: token.colorBgTextActive } : undefined}
                   onClick={() => {
                     if (!filterOpen && mode !== 'pretty') setMode('pretty');
@@ -338,13 +356,20 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           aria-hidden="true"
           style={{ width: 1, height: 16, background: token.colorBorderSecondary, margin: '0 2px' }}
         />
-        <Tooltip title={copied ? 'Copied' : 'Copy body'} placement="bottom">
+        <Tooltip
+          title={
+            copied
+              ? t('workbench.editors.request.response.copied')
+              : t('workbench.editors.request.response.copyBody')
+          }
+          placement="bottom"
+        >
           <Button
             size="small"
             type="text"
             icon={copied ? <CheckOutlined /> : <CopyOutlined />}
             onClick={copyBody}
-            aria-label="Copy body"
+            aria-label={t('workbench.editors.request.response.copyBody')}
           />
         </Tooltip>
       </div>
@@ -368,14 +393,15 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           {filterResult && !filterResult.ok && (
             <Text type="danger" style={{ fontSize: 11 }}>
               {filterKind === 'jsonpath'
-                ? 'Invalid JSONPath expression.'
-                : 'Invalid XPath expression, or the document does not parse.'}
-              {lastMatch !== null && ' Showing the last match.'}
+                ? t('workbench.editors.request.response.body.invalidJsonPath')
+                : t('workbench.editors.request.response.body.invalidXPath')}
+              {lastMatch !== null && ` ${t('workbench.editors.request.response.body.showingLastMatch')}`}
             </Text>
           )}
           {filterResult?.ok && filterResult.matches.length === 0 && (
             <Text type="secondary" style={{ fontSize: 11 }}>
-              No matches for this path.{lastMatch !== null && ' Showing the last match.'}
+              {t('workbench.editors.request.response.body.noMatches')}
+              {lastMatch !== null && ` ${t('workbench.editors.request.response.body.showingLastMatch')}`}
             </Text>
           )}
         </div>
@@ -416,7 +442,10 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
           {hexDump.capped && (
             <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-              Hex view shows the first {formatBytes(hexDump.shownBytes)} of {formatBytes(hexDump.totalBytes)}.
+              {t('workbench.editors.request.response.body.hexCapNotice', {
+                shown: formatBytes(hexDump.shownBytes),
+                total: formatBytes(hexDump.totalBytes),
+              })}
             </Text>
           )}
           <pre
@@ -453,7 +482,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
       {mode === 'preview' && previewKind === 'json' && <ResponseJsonPreview value={parsedJson} />}
       {mode === 'preview' && previewKind === 'html' && (
         <iframe
-          title="Response preview"
+          title={t('workbench.editors.request.response.body.previewIframeTitle')}
           sandbox=""
           srcDoc={response.body}
           style={{

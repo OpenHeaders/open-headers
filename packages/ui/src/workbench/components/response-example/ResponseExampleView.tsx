@@ -136,10 +136,12 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
       { workspaceId, surfaceId: 'workbench' },
     );
     if (!result.ok) {
-      if (result.reason === 'not-found') message.error('Example was deleted from another tab');
-      else message.error(`Failed to save example${'message' in result && result.message ? `: ${result.message}` : ''}`);
+      if (result.reason === 'not-found') message.error(t('workbench.editors.responseExample.toast.deletedOtherTab'));
+      else if ('message' in result && result.message)
+        message.error(t('workbench.editors.responseExample.toast.saveFailedDetail', { message: result.message }));
+      else message.error(t('workbench.editors.responseExample.toast.saveFailed'));
     }
-  }, [draft, example, workspaceId, isDirty, exampleUid, message]);
+  }, [draft, example, workspaceId, isDirty, exampleUid, message, t]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();
@@ -159,7 +161,7 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
       <div style={{ padding: 24, textAlign: 'center' }}>
         <Text type="secondary">
           <LoadingOutlined style={{ marginRight: 6 }} />
-          Loading example…
+          {t('workbench.editors.responseExample.loading')}
         </Text>
       </div>
     );
@@ -168,7 +170,7 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
   if (!example || !draft) {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>
-        <Text type="secondary">Example not found.</Text>
+        <Text type="secondary">{t('workbench.editors.responseExample.notFound')}</Text>
       </div>
     );
   }
@@ -185,14 +187,14 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
             <RequestUrlBar draft={draft.request} setDraft={setRequestDraft} urlUnresolved={false} onSend={() => {}} />
           }
           actions={
-            <Tooltip title="Creates a new request draft seeded from this example's request" placement="bottom">
+            <Tooltip title={t('workbench.editors.responseExample.openAsRequestTooltip')} placement="bottom">
               <Button
                 size="small"
                 type="primary"
                 icon={<ExportOutlined />}
                 onClick={() => onTry(buildTrySeed(draft, parentRequest?.name ?? example.name), example.name)}
               >
-                Open as Request
+                {t('workbench.editors.responseExample.openAsRequest')}
               </Button>
             </Tooltip>
           }

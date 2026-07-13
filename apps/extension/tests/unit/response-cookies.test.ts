@@ -5,6 +5,7 @@
  */
 
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import { getCookieAttributeInfoContent } from '@openheaders/ui/shared/info-popover/data/cookie-attributes';
 import {
   cookiePersistenceNote,
@@ -17,6 +18,8 @@ import {
   toCookieGridRow,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-cookies';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 function makeSnapshot(overrides: Partial<ExecutedRequestSnapshot> = {}): ExecutedRequestSnapshot {
   return {
@@ -94,25 +97,25 @@ describe('setCookieLinesOf', () => {
 
 describe('cookiePersistenceNote', () => {
   it('says discarded under omit and possibly stored under include', () => {
-    expect(cookiePersistenceNote('omit')).toContain('discarded');
-    expect(cookiePersistenceNote('include')).toContain('stored');
+    expect(cookiePersistenceNote('omit', t)).toContain('discarded');
+    expect(cookiePersistenceNote('include', t)).toContain('stored');
   });
 });
 
 describe('jarPersistenceNote', () => {
   it('says not stored when the snapshot carries no capture attribution', () => {
-    expect(jarPersistenceNote(undefined, ['session'])).toContain('not stored');
-    expect(jarPersistenceNote([], ['session'])).toContain('not stored');
+    expect(jarPersistenceNote(undefined, ['session'], t)).toContain('not stored');
+    expect(jarPersistenceNote([], ['session'], t)).toContain('not stored');
   });
 
   it('names the stored cookies when the jar captured them', () => {
-    const note = jarPersistenceNote(['session', 'theme'], ['session', 'theme']);
+    const note = jarPersistenceNote(['session', 'theme'], ['session', 'theme'], t);
     expect(note).toContain('session, theme');
     expect(note).not.toContain('redirect hops');
   });
 
   it('flags mid-chain captures whose lines the final-hop headers cannot show', () => {
-    const note = jarPersistenceNote(['session', 'csrf'], ['session']);
+    const note = jarPersistenceNote(['session', 'csrf'], ['session'], t);
     expect(note).toContain('csrf');
     expect(note).toContain('redirect hops');
   });
@@ -121,7 +124,7 @@ describe('jarPersistenceNote', () => {
 describe('persistenceNoteFor', () => {
   it('uses the credentials-mode note when a wire capture exists', () => {
     const snapshot = makeSnapshot({ wire: { credentialsMode: 'omit', setCookieHeaders: ['a=1'] } });
-    expect(persistenceNoteFor(snapshot, ['a'])).toBe(cookiePersistenceNote('omit'));
+    expect(persistenceNoteFor(snapshot, ['a'], t)).toBe(cookiePersistenceNote('omit', t));
   });
 
   it('uses the jar note on node snapshots, from the snapshot attribution only', () => {
@@ -129,7 +132,7 @@ describe('persistenceNoteFor', () => {
       headers: [{ key: 'set-cookie', value: 'session=abc' }],
       cookiesCaptured: ['session'],
     });
-    expect(persistenceNoteFor(snapshot, ['session'])).toBe(jarPersistenceNote(['session'], ['session']));
+    expect(persistenceNoteFor(snapshot, ['session'], t)).toBe(jarPersistenceNote(['session'], ['session'], t));
   });
 });
 

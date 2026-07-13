@@ -19,6 +19,7 @@ import {
 import { Button, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { filterHeaderRows, type ResponseHeaderRow, serializeHeaderLines } from './response-headers';
 import './response-headers.css';
 
@@ -45,6 +46,7 @@ function useCopied(): [boolean, (text: string) => void] {
 
 function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
   const { token } = theme.useToken();
+  const t = useT();
   const [copied, copy] = useCopied();
   const content = getHeaderInfoContentForRow(row.key, 'response', HEADER_CATEGORY_LABEL[categorizeHeader(row.key)]);
   return (
@@ -83,8 +85,16 @@ function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
           type="text"
           style={{ height: 22 }}
           icon={copied ? <CheckOutlined /> : <CopyOutlined />}
-          aria-label={copied ? 'Copied' : `Copy ${row.key}`}
-          title={copied ? 'Copied' : 'Copy header'}
+          aria-label={
+            copied
+              ? t('workbench.editors.request.response.copied')
+              : t('workbench.editors.request.response.headers.copyAria', { name: row.key })
+          }
+          title={
+            copied
+              ? t('workbench.editors.request.response.copied')
+              : t('workbench.editors.request.response.headers.copyTitle')
+          }
           onClick={() => copy(`${row.key}: ${row.value}`)}
         />
       </span>
@@ -94,6 +104,7 @@ function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
 
 const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'] }> = ({ headers }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [query, setQuery] = useState('');
   const [allCopied, copyAll] = useCopied();
 
@@ -109,7 +120,7 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          No headers
+          {t('workbench.editors.request.response.headers.empty')}
         </Text>
       </div>
     );
@@ -122,19 +133,26 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
           size="small"
           allowClear
           prefix={<FilterOutlined style={{ color: token.colorTextTertiary }} />}
-          placeholder="Filter headers"
-          aria-label="Filter headers"
+          placeholder={t('workbench.editors.request.response.headers.filterPlaceholder')}
+          aria-label={t('workbench.editors.request.response.headers.filterPlaceholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{ width: 220 }}
         />
 
-        <Tooltip title={allCopied ? 'Copied' : 'Copy all headers'} placement="bottom">
+        <Tooltip
+          title={
+            allCopied
+              ? t('workbench.editors.request.response.copied')
+              : t('workbench.editors.request.response.headers.copyAll')
+          }
+          placement="bottom"
+        >
           <Button
             size="small"
             type="text"
             icon={allCopied ? <CheckOutlined /> : <CopyOutlined />}
-            aria-label="Copy all headers"
+            aria-label={t('workbench.editors.request.response.headers.copyAll')}
             onClick={() => copyAll(serializeHeaderLines(headers))}
             style={{ marginLeft: 'auto' }}
           />
@@ -166,8 +184,10 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
             zIndex: 2,
           }}
         >
-          <span style={{ padding: '4px 8px' }}>Name</span>
-          <span style={{ padding: '4px 8px', borderLeft: `1px solid ${token.colorBorderSecondary}` }}>Value</span>
+          <span style={{ padding: '4px 8px' }}>{t('workbench.editors.request.response.headers.name')}</span>
+          <span style={{ padding: '4px 8px', borderLeft: `1px solid ${token.colorBorderSecondary}` }}>
+            {t('workbench.editors.request.response.headers.value')}
+          </span>
           <span />
         </div>
         {visible.map((h, i) => (
@@ -176,7 +196,7 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
         {visible.length === 0 && (
           <div style={{ padding: '10px 12px' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              No headers match “{query.trim()}”
+              {t('workbench.editors.request.response.headers.noMatch', { query: query.trim() })}
             </Text>
           </div>
         )}

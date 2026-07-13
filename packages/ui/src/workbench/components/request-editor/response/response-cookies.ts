@@ -19,6 +19,7 @@
  */
 
 import type { CredentialsMode, ExecutedRequestSnapshot } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 
 export interface SetCookieAttribute {
   key: string;
@@ -129,11 +130,11 @@ export function hostOfUrl(url: string): string {
  * these cookies, which depends on the send's cookie policy, not on the
  * response.
  */
-export function cookiePersistenceNote(credentialsMode: CredentialsMode): string {
+export function cookiePersistenceNote(credentialsMode: CredentialsMode, t: Translate): string {
   if (credentialsMode === 'include') {
-    return 'This request ran with credentials included, so the browser may have stored these cookies (subject to each cookie’s own attributes) and will send them on future credentialed requests.';
+    return t('workbench.editors.request.response.cookies.noteCredentialsInclude');
   }
-  return 'The server sent these cookies, but this request ran with credentials omitted (the default), so the browser discarded them — nothing was stored.';
+  return t('workbench.editors.request.response.cookies.noteCredentialsOmit');
 }
 
 /**
@@ -148,15 +149,16 @@ export function cookiePersistenceNote(credentialsMode: CredentialsMode): string 
 export function jarPersistenceNote(
   cookiesCaptured: readonly string[] | undefined,
   rowNames: readonly string[],
+  t: Translate,
 ): string {
   if (cookiesCaptured === undefined || cookiesCaptured.length === 0) {
-    return 'These cookies were not stored — this request ran without the cookie jar (the default), or the jar accepted none of them.';
+    return t('workbench.editors.request.response.cookies.noteJarOff');
   }
-  const base = `This request ran with the cookie jar on, which stored ${cookiesCaptured.join(', ')} in the workspace’s in-memory jar for future jar-enabled requests.`;
+  const names = cookiesCaptured.join(', ');
   const midChain = cookiesCaptured.some((name) => !rowNames.includes(name));
   return midChain
-    ? `${base} Some were set on intermediate redirect hops, so their Set-Cookie lines are not listed here — only the final response’s headers are.`
-    : base;
+    ? t('workbench.editors.request.response.cookies.noteJarStoredMidChain', { names })
+    : t('workbench.editors.request.response.cookies.noteJarStored', { names });
 }
 
 /**
@@ -165,7 +167,11 @@ export function jarPersistenceNote(
  * the send ran on a node runtime, where storage is the opt-in cookie
  * jar attributed on the snapshot itself.
  */
-export function persistenceNoteFor(response: ExecutedRequestSnapshot, rowNames: readonly string[]): string {
-  if (response.wire) return cookiePersistenceNote(response.wire.credentialsMode);
-  return jarPersistenceNote(response.cookiesCaptured, rowNames);
+export function persistenceNoteFor(
+  response: ExecutedRequestSnapshot,
+  rowNames: readonly string[],
+  t: Translate,
+): string {
+  if (response.wire) return cookiePersistenceNote(response.wire.credentialsMode, t);
+  return jarPersistenceNote(response.cookiesCaptured, rowNames, t);
 }

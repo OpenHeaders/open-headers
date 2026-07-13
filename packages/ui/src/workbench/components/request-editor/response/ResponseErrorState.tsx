@@ -10,11 +10,13 @@ import { DisconnectOutlined, ExportOutlined } from '@ant-design/icons';
 import type { ExecutedRequestErrorHint } from '@openheaders/core/types';
 import { Button, Typography, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 const { Text } = Typography;
 
 const ResponseErrorState: React.FC<{ error: string; hint?: ExecutedRequestErrorHint }> = ({ error, hint }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <div
       style={{
@@ -31,7 +33,7 @@ const ResponseErrorState: React.FC<{ error: string; hint?: ExecutedRequestErrorH
     >
       <DisconnectOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
       <Text strong style={{ fontSize: 12 }}>
-        Could not send request
+        {t('workbench.editors.request.response.error.title')}
       </Text>
       <Text type="secondary" style={{ fontSize: 12, maxWidth: 460 }} data-testid="oh-response-error">
         {error}
@@ -43,7 +45,7 @@ const ResponseErrorState: React.FC<{ error: string; hint?: ExecutedRequestErrorH
           data-testid="oh-response-error-open-tab"
           onClick={() => window.open(hint.url, '_blank', 'noopener')}
         >
-          Open in new tab
+          {t('workbench.editors.request.response.error.openInTab')}
         </Button>
       )}
     </div>

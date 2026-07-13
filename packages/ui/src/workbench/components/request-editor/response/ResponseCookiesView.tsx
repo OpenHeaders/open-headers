@@ -19,6 +19,7 @@ import { getCookieAttributeInfoContent } from '@openheaders/ui/shared/info-popov
 import { Button, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   type CookieGridRow,
   hostOfUrl,
@@ -72,6 +73,7 @@ function Cell({ children, first = false }: { children: React.ReactNode; first?: 
 
 function CookieRow({ row }: { row: CookieGridRow }) {
   const { token } = theme.useToken();
+  const t = useT();
   const [copied, copy] = useCopied();
   return (
     <div
@@ -97,8 +99,16 @@ function CookieRow({ row }: { row: CookieGridRow }) {
           size="small"
           type="text"
           icon={copied ? <CheckOutlined /> : <CopyOutlined />}
-          aria-label={copied ? 'Copied' : `Copy Set-Cookie for ${row.name}`}
-          title={copied ? 'Copied' : 'Copy Set-Cookie line'}
+          aria-label={
+            copied
+              ? t('workbench.editors.request.response.copied')
+              : t('workbench.editors.request.response.cookies.copyAria', { name: row.name })
+          }
+          title={
+            copied
+              ? t('workbench.editors.request.response.copied')
+              : t('workbench.editors.request.response.cookies.copyTitle')
+          }
           onClick={() => copy(row.raw)}
         />
       </span>
@@ -130,6 +140,7 @@ function HeaderCell({ label, attrKey, first = false }: { label: string; attrKey?
 
 const ResponseCookiesView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ response }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const requestHost = hostOfUrl(response.url);
   const rows = parseSetCookieLines(setCookieLinesOf(response)).map((c) => toCookieGridRow(c, requestHost));
 
@@ -140,6 +151,7 @@ const ResponseCookiesView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ 
           {persistenceNoteFor(
             response,
             rows.map((r) => r.name),
+            t,
           )}
         </Text>
       </div>
@@ -168,8 +180,11 @@ const ResponseCookiesView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ 
             zIndex: 2,
           }}
         >
-          <HeaderCell label="Name" first />
-          <HeaderCell label="Value" />
+          {/* Attribute column names below stay raw — literal Set-Cookie
+              wire vocabulary (Domain / Path / Expires / HttpOnly /
+              Secure / SameSite). */}
+          <HeaderCell label={t('workbench.editors.request.response.cookies.name')} first />
+          <HeaderCell label={t('workbench.editors.request.response.cookies.value')} />
           <HeaderCell label="Domain" attrKey="Domain" />
           <HeaderCell label="Path" attrKey="Path" />
           <HeaderCell label="Expires" attrKey="Expires" />

@@ -17,6 +17,7 @@ import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/inf
 import { getStatusCodeInfoContent } from '@openheaders/ui/shared/info-popover/data/http-status';
 import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { formatBytes } from './response-format';
 import {
   formatPhaseMs,
@@ -44,6 +45,7 @@ const PHASE_COLOR: Record<ResponsePhaseKey, string> = {
 
 function TimingLadder({ phases, totalMs }: { phases: ResponsePhase[]; totalMs: number }) {
   const { token } = theme.useToken();
+  const t = useT();
   const span = totalMs > 0 ? totalMs : 1;
   const pct = (ms: number) => `${Math.min(100, (ms / span) * 100)}%`;
   return (
@@ -54,7 +56,7 @@ function TimingLadder({ phases, totalMs }: { phases: ResponsePhase[]; totalMs: n
             aria-hidden="true"
             style={{ width: 8, height: 8, borderRadius: 2, flexShrink: 0, background: PHASE_COLOR[phase.key] }}
           />
-          <span style={{ width: 110, flexShrink: 0, fontSize: 11 }}>{phase.label}</span>
+          <span style={{ width: 110, flexShrink: 0, fontSize: 11 }}>{t(phase.labelKey)}</span>
           <span
             aria-hidden="true"
             style={{
@@ -94,31 +96,34 @@ function TimingLadder({ phases, totalMs }: { phases: ResponsePhase[]; totalMs: n
           fontSize: 11,
         }}
       >
-        <span>Total (network)</span>
+        <span>{t('workbench.editors.request.response.meta.totalNetwork')}</span>
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatPhaseMs(totalMs)}</span>
       </div>
     </div>
   );
 }
 
-function timingContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
+function timingContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopoverContent {
   const base = {
-    title: 'Timing',
-    kicker: 'Response meta',
-    summary: `Measured around the fetch call: ${formatPhaseMs(response.durationMs)}.`,
+    title: t('workbench.editors.request.response.meta.timingTitle'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.timingSummary', {
+      duration: formatPhaseMs(response.durationMs),
+    }),
   };
   if (!response.timing) {
     return {
       ...base,
-      description:
-        'The platform recorded no resource-timing entry for this request, so no phase breakdown is available.',
+      description: t('workbench.editors.request.response.meta.timingNoEntry'),
     };
   }
   const view = mapEntryToTimingView(response.timing);
   if (view.kind === 'total-only') {
     return {
       ...base,
-      description: `Network total ${formatPhaseMs(view.totalMs)}. The server did not expose timing detail to this cross-origin request (no Timing-Allow-Origin header), so the DNS / connect / TTFB / download phases are hidden.`,
+      description: t('workbench.editors.request.response.meta.timingTotalOnly', {
+        duration: formatPhaseMs(view.totalMs),
+      }),
     };
   }
   return {
@@ -197,46 +202,55 @@ function SizeStatSection({
  *  compact footnotes so the numbers stay scannable. */
 function SizeStats({ response }: { response: ExecutedRequestSnapshot }) {
   const { token } = theme.useToken();
+  const t = useT();
   const timing = response.timing;
   const wireSizesExposed = timing !== undefined && (timing.transferSize > 0 || timing.encodedBodySize > 0);
   const headersBytes = serializedHeaderListBytes(response.headers);
 
   const responseRows: SizeStatRow[] = [
-    { label: 'Headers', text: formatBytes(headersBytes) },
-    { label: 'Body', text: formatBytes(response.bodyBytes) },
+    { label: t('workbench.editors.request.response.meta.rowHeaders'), text: formatBytes(headersBytes) },
+    { label: t('workbench.editors.request.response.meta.rowBody'), text: formatBytes(response.bodyBytes) },
   ];
   if (wireSizesExposed && timing.encodedBodySize > 0 && timing.encodedBodySize !== timing.decodedBodySize) {
-    responseRows.push({ label: 'Compressed', text: formatBytes(timing.encodedBodySize) });
+    responseRows.push({
+      label: t('workbench.editors.request.response.meta.rowCompressed'),
+      text: formatBytes(timing.encodedBodySize),
+    });
   }
   if (wireSizesExposed && timing.transferSize > 0) {
-    responseRows.push({ label: 'Transferred', text: formatBytes(timing.transferSize) });
+    responseRows.push({
+      label: t('workbench.editors.request.response.meta.rowTransferred'),
+      text: formatBytes(timing.transferSize),
+    });
   }
 
-  const notes: string[] = ['Header bytes as visible — HTTP/2+ compresses them on the wire.'];
+  const notes: string[] = [t('workbench.editors.request.response.meta.noteHeaderBytes')];
   if (response.requestSize) {
-    notes.push('Request headers count only what this send set; the browser adds its own (Host, User-Agent, …).');
+    notes.push(t('workbench.editors.request.response.meta.noteRequestHeaders'));
   }
   if (response.bodyTruncated) {
     // `bodyCapBytes` records the cap this send actually ran under (a
     // user setting or per-request limit) — label it when present.
     notes.push(
       response.bodyCapBytes !== undefined
-        ? `Body truncated at the ${formatBytes(response.bodyCapBytes)} response size limit; the full size is counted.`
-        : 'Body view truncated; the full size is counted.',
+        ? t('workbench.editors.request.response.meta.noteTruncatedAtCap', {
+            cap: formatBytes(response.bodyCapBytes),
+          })
+        : t('workbench.editors.request.response.meta.noteTruncated'),
     );
   }
   if (response.requestSize?.bodyApproximate) {
-    notes.push('Request body size is approximate — the multipart boundary is browser-generated.');
+    notes.push(t('workbench.editors.request.response.meta.noteBodyApproximate'));
   }
   if (!wireSizesExposed) {
-    notes.push('Wire sizes (compressed, transferred) hidden: the server sent no Timing-Allow-Origin.');
+    notes.push(t('workbench.editors.request.response.meta.noteWireHidden'));
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 220 }}>
       <SizeStatSection
         direction="down"
-        title="Response Size"
+        title={t('workbench.editors.request.response.meta.responseSize')}
         totalText={formatBytes(headersBytes + response.bodyBytes)}
         rows={responseRows}
       />
@@ -244,12 +258,15 @@ function SizeStats({ response }: { response: ExecutedRequestSnapshot }) {
         <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 10 }}>
           <SizeStatSection
             direction="up"
-            title="Request Size"
+            title={t('workbench.editors.request.response.meta.requestSize')}
             totalText={formatBytes(response.requestSize.headersBytes + response.requestSize.bodyBytes)}
             rows={[
-              { label: 'Headers', text: formatBytes(response.requestSize.headersBytes) },
               {
-                label: 'Body',
+                label: t('workbench.editors.request.response.meta.rowHeaders'),
+                text: formatBytes(response.requestSize.headersBytes),
+              },
+              {
+                label: t('workbench.editors.request.response.meta.rowBody'),
                 text: `${response.requestSize.bodyApproximate ? '≈ ' : ''}${formatBytes(response.requestSize.bodyBytes)}`,
               },
             ]}
@@ -275,11 +292,11 @@ function SizeStats({ response }: { response: ExecutedRequestSnapshot }) {
   );
 }
 
-function sizeContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
+function sizeContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopoverContent {
   return {
-    title: 'Size',
-    kicker: 'Response meta',
-    summary: 'Bytes in each direction of this exchange.',
+    title: t('workbench.editors.request.response.meta.sizeTitle'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.sizeSummary'),
     description: <SizeStats response={response} />,
   };
 }
@@ -288,12 +305,13 @@ function sizeContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
  *  hold, with per-fact absence explained in footnotes. */
 function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
   const { token } = theme.useToken();
+  const t = useT();
   const versionLabel = response.timing ? httpVersionLabel(response.timing.nextHopProtocol) : null;
   const ip = response.wire?.ip;
 
   const rows: Array<{ label: string; value: string }> = [
-    { label: 'HTTP Version', value: versionLabel ?? '—' },
-    { label: 'Remote Address', value: ip ?? '—' },
+    { label: t('workbench.editors.request.response.meta.httpVersion'), value: versionLabel ?? '—' },
+    { label: t('workbench.editors.request.response.meta.remoteAddress'), value: ip ?? '—' },
   ];
   const notes: string[] = [];
   if (!versionLabel) {
@@ -302,12 +320,12 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
     // protocol at all (its fetch exposes no such fact).
     notes.push(
       (getCapability('requestRuntime')?.() ?? 'browser') === 'node'
-        ? 'HTTP version hidden: the app’s network runtime does not report the negotiated protocol.'
-        : 'HTTP version hidden: the platform recorded no timing entry for this request.',
+        ? t('workbench.editors.request.response.meta.noteVersionHiddenNode')
+        : t('workbench.editors.request.response.meta.noteVersionHiddenBrowser'),
     );
   }
-  if (ip === undefined) notes.push('Remote address unavailable: the wire capture saw nothing for this fetch.');
-  notes.push('Local address, TLS and certificate details are not exposed to extension code on Chromium.');
+  if (ip === undefined) notes.push(t('workbench.editors.request.response.meta.noteNoIp'));
+  notes.push(t('workbench.editors.request.response.meta.noteNoTls'));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 220 }}>
@@ -341,36 +359,33 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
 /** Popover for the warning tag on a run whose per-request SSL
  *  verification knob was off — the snapshot records the policy the
  *  send actually ran under. */
-function unverifiedTlsContent(): InfoPopoverContent {
+function unverifiedTlsContent(t: Translate): InfoPopoverContent {
   return {
-    title: 'SSL verification disabled',
-    kicker: 'Response meta',
-    summary:
-      'This request was sent with certificate verification switched off in its Settings. The connection was encrypted, but the server’s identity was not checked — any certificate was accepted, including self-signed and expired ones.',
+    title: t('workbench.editors.request.response.meta.unverifiedTlsTitle'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.unverifiedTlsSummary'),
   };
 }
 
 /** Popover for the warning tag on a run whose per-request TLS floor
  *  sat below the runtime's 1.2 default — the snapshot records the
  *  policy the send actually ran under. */
-function tlsFloorLoweredContent(): InfoPopoverContent {
+function tlsFloorLoweredContent(t: Translate): InfoPopoverContent {
   return {
-    title: 'TLS floor lowered',
-    kicker: 'Response meta',
-    summary:
-      'This request was sent with its minimum TLS version set below 1.2 in its Settings, so the connection was allowed to negotiate TLS 1.0 or 1.1 — protocol versions with known weaknesses that runtimes disable by default.',
+    title: t('workbench.editors.request.response.meta.tlsFloorLowered'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.tlsFloorLoweredSummary'),
   };
 }
 
 /** Popover for the warning tag on a run whose redirect chain actually
  *  re-sent the Authorization header across origins — stamped only when
  *  the `followAuthorizationHeader` opt-in fired, not merely configured. */
-function authForwardedContent(): InfoPopoverContent {
+function authForwardedContent(t: Translate): InfoPopoverContent {
   return {
-    title: 'Authorization forwarded',
-    kicker: 'Response meta',
-    summary:
-      'A redirect took this request to a different origin, and its Settings keep the Authorization header across origins — so the credentials were re-sent to the new host. Normally the header is dropped when a redirect leaves the original origin.',
+    title: t('workbench.editors.request.response.meta.authForwarded'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.authForwardedSummary'),
   };
 }
 
@@ -379,27 +394,34 @@ function authForwardedContent(): InfoPopoverContent {
  *  what the send actually did, never a live jar read. */
 function CookieJarFacts({ response }: { response: ExecutedRequestSnapshot }) {
   const { token } = theme.useToken();
+  const t = useT();
   const captured = response.cookiesCaptured ?? [];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 220, maxWidth: 360 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontSize: 12, color: token.colorTextSecondary }}>Attached to the first request</span>
+        <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+          {t('workbench.editors.request.response.meta.jarAttachedLabel')}
+        </span>
         {response.cookieHeaderAttached !== undefined ? (
           <span style={{ fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all' }}>
             Cookie: {response.cookieHeaderAttached}
           </span>
         ) : (
           <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
-            Nothing — no stored cookie matched, or a Cookie header set on the request won.
+            {t('workbench.editors.request.response.meta.jarAttachedNone')}
           </span>
         )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontSize: 12, color: token.colorTextSecondary }}>Stored from Set-Cookie responses</span>
+        <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+          {t('workbench.editors.request.response.meta.jarStoredLabel')}
+        </span>
         {captured.length > 0 ? (
           <span style={{ fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all' }}>{captured.join(', ')}</span>
         ) : (
-          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>Nothing — no response set a cookie.</span>
+          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
+            {t('workbench.editors.request.response.meta.jarStoredNone')}
+          </span>
         )}
       </div>
     </div>
@@ -409,21 +431,20 @@ function CookieJarFacts({ response }: { response: ExecutedRequestSnapshot }) {
 /** Popover for the neutral tag on a run sent with its cookie-jar knob
  *  on — attribution of what the jar did (informational), unlike the
  *  warning tags above: using the jar relaxes no trust decision. */
-function cookieJarContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
+function cookieJarContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopoverContent {
   return {
-    title: 'Cookie jar',
-    kicker: 'Response meta',
-    summary:
-      'This request used the workspace’s in-memory cookie jar: matching stored cookies were attached automatically, and Set-Cookie responses were kept for later jar-enabled sends.',
+    title: t('workbench.editors.request.response.meta.cookieJar'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.cookieJarSummary'),
     description: <CookieJarFacts response={response} />,
   };
 }
 
-function networkContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
+function networkContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopoverContent {
   return {
-    title: 'Network',
-    kicker: 'Response meta',
-    summary: 'Connection-level facts for this exchange.',
+    title: t('workbench.editors.request.response.meta.networkTitle'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.networkSummary'),
     description: <NetworkFacts response={response} />,
   };
 }
@@ -447,6 +468,7 @@ const MetaDot: React.FC = () => {
 
 const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusColor }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' };
   // The strip leads with the on-wire size when the server exposes it
   // (matches devtools' Size column); decoded bytes otherwise. The
@@ -467,13 +489,13 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
         </Tag>
       </InfoPopover>
       <MetaDot />
-      <InfoPopover content={timingContent(response)} trigger="hover">
+      <InfoPopover content={timingContent(response, t)} trigger="hover">
         <Text type="secondary" style={factStyle}>
           {response.durationMs} ms
         </Text>
       </InfoPopover>
       <MetaDot />
-      <InfoPopover content={sizeContent(response)} trigger="hover">
+      <InfoPopover content={sizeContent(response, t)} trigger="hover">
         <Text type="secondary" style={factStyle}>
           {formatBytes(stripBytes)}
         </Text>
@@ -481,13 +503,13 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
       {response.sslVerificationDisabled && (
         <>
           <MetaDot />
-          <InfoPopover content={unverifiedTlsContent()} trigger="hover">
+          <InfoPopover content={unverifiedTlsContent(t)} trigger="hover">
             <Tag
               color="warning"
               data-testid="oh-response-tls-unverified"
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >
-              Unverified TLS
+              {t('workbench.editors.request.response.meta.tagUnverifiedTls')}
             </Tag>
           </InfoPopover>
         </>
@@ -495,13 +517,13 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
       {response.tlsFloorLowered && (
         <>
           <MetaDot />
-          <InfoPopover content={tlsFloorLoweredContent()} trigger="hover">
+          <InfoPopover content={tlsFloorLoweredContent(t)} trigger="hover">
             <Tag
               color="warning"
               data-testid="oh-response-tls-floor-lowered"
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >
-              TLS floor lowered
+              {t('workbench.editors.request.response.meta.tlsFloorLowered')}
             </Tag>
           </InfoPopover>
         </>
@@ -509,13 +531,13 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
       {response.authorizationForwarded && (
         <>
           <MetaDot />
-          <InfoPopover content={authForwardedContent()} trigger="hover">
+          <InfoPopover content={authForwardedContent(t)} trigger="hover">
             <Tag
               color="warning"
               data-testid="oh-response-auth-forwarded"
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >
-              Authorization forwarded
+              {t('workbench.editors.request.response.meta.authForwarded')}
             </Tag>
           </InfoPopover>
         </>
@@ -523,15 +545,15 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
       {(response.cookieHeaderAttached !== undefined || response.cookiesCaptured !== undefined) && (
         <>
           <MetaDot />
-          <InfoPopover content={cookieJarContent(response)} trigger="hover">
+          <InfoPopover content={cookieJarContent(response, t)} trigger="hover">
             <Tag color="default" data-testid="oh-response-cookie-jar" style={{ marginInlineEnd: 0, cursor: 'help' }}>
-              Cookie jar
+              {t('workbench.editors.request.response.meta.cookieJar')}
             </Tag>
           </InfoPopover>
         </>
       )}
       <MetaDot />
-      <InfoPopover content={networkContent(response)} trigger="hover">
+      <InfoPopover content={networkContent(response, t)} trigger="hover">
         <span
           style={{
             display: 'inline-flex',

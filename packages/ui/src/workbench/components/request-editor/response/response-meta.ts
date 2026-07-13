@@ -11,12 +11,13 @@
  */
 
 import type { ResourceTimingEntry } from '@openheaders/core/resource-timing';
+import type { MessageKey } from '@openheaders/i18n';
 
 export type ResponsePhaseKey = 'redirect' | 'stalled' | 'dns' | 'connect' | 'tls' | 'waiting' | 'download';
 
 export interface ResponsePhase {
   key: ResponsePhaseKey;
-  label: string;
+  labelKey: MessageKey;
   /** Offset from the entry's start, ms — positions the ladder bar. */
   startMs: number;
   durationMs: number;
@@ -45,7 +46,7 @@ export function mapEntryToTimingView(entry: ResourceTimingEntry): ResponseTiming
   if (entry.redirectStart > 0) {
     phases.push({
       key: 'redirect',
-      label: 'Redirects',
+      labelKey: 'workbench.editors.request.response.meta.phase.redirect',
       startMs: rel(entry.redirectStart),
       durationMs: clamp(entry.redirectEnd - entry.redirectStart),
     });
@@ -53,14 +54,14 @@ export function mapEntryToTimingView(entry: ResourceTimingEntry): ResponseTiming
   const stalledEnd = entry.domainLookupStart > 0 ? entry.domainLookupStart : entry.requestStart;
   phases.push({
     key: 'stalled',
-    label: 'Stalled',
+    labelKey: 'workbench.editors.request.response.meta.phase.stalled',
     startMs: rel(entry.fetchStart),
     durationMs: clamp(stalledEnd - entry.fetchStart),
   });
   if (entry.domainLookupStart > 0) {
     phases.push({
       key: 'dns',
-      label: 'DNS lookup',
+      labelKey: 'workbench.editors.request.response.meta.phase.dns',
       startMs: rel(entry.domainLookupStart),
       durationMs: clamp(entry.domainLookupEnd - entry.domainLookupStart),
     });
@@ -69,14 +70,14 @@ export function mapEntryToTimingView(entry: ResourceTimingEntry): ResponseTiming
     const tcpEnd = entry.secureConnectionStart > 0 ? entry.secureConnectionStart : entry.connectEnd;
     phases.push({
       key: 'connect',
-      label: 'TCP connect',
+      labelKey: 'workbench.editors.request.response.meta.phase.connect',
       startMs: rel(entry.connectStart),
       durationMs: clamp(tcpEnd - entry.connectStart),
     });
     if (entry.secureConnectionStart > 0) {
       phases.push({
         key: 'tls',
-        label: 'TLS handshake',
+        labelKey: 'workbench.editors.request.response.meta.phase.tls',
         startMs: rel(entry.secureConnectionStart),
         durationMs: clamp(entry.connectEnd - entry.secureConnectionStart),
       });
@@ -84,14 +85,14 @@ export function mapEntryToTimingView(entry: ResourceTimingEntry): ResponseTiming
   }
   phases.push({
     key: 'waiting',
-    label: 'Waiting (TTFB)',
+    labelKey: 'workbench.editors.request.response.meta.phase.waiting',
     startMs: rel(entry.requestStart),
     durationMs: clamp(entry.responseStart - entry.requestStart),
   });
   if (entry.responseEnd > 0) {
     phases.push({
       key: 'download',
-      label: 'Content download',
+      labelKey: 'workbench.editors.request.response.meta.phase.download',
       startMs: rel(entry.responseStart),
       durationMs: clamp(entry.responseEnd - entry.responseStart),
     });
