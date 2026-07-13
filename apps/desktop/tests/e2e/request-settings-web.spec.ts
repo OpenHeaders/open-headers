@@ -34,6 +34,7 @@
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { parseWorkspaceExport, type WorkspaceExport } from '@openheaders/core/workspace-export';
 import {
   _electron,
   type Browser,
@@ -132,6 +133,15 @@ async function seedRequest(request: Record<string, unknown>): Promise<string> {
   const uid = (payload.request as { uid: string }).uid;
   expect(uid).toBeTruthy();
   return uid;
+}
+
+/** Drive the tab's own RPC dispatch through its `window.oh.invoke`
+ *  handle — the web mirror of the desktop preload's handle. */
+async function invokeTab<T>(message: Record<string, unknown>): Promise<T> {
+  return (await page.evaluate(async (msg) => {
+    const bridge = (window as unknown as { oh: { invoke(m: Record<string, unknown>): Promise<unknown> } }).oh;
+    return await bridge.invoke(msg);
+  }, message)) as T;
 }
 
 function watchConsole(target: Page, label: string): void {
@@ -382,6 +392,84 @@ test('Clear empties the jar over the wire — the next send carries nothing', as
   await expect(jarRow()).toContainText('0 cookies in this workspace');
   await send();
   expect(await responseRawBody()).toBe('cookie=[]');
+});
+
+// ── S18: in-tab workspace export/import over the tab oracle ─────────
+// The tab answers the read-shaped export/import channels itself (same
+// lifted oracle modules as the extension SW and daemon spine); the
+// import write leg REFUSES for now — the post-import reseed applies
+// inbound-origin, so an in-tab import would never reach the daemon.
+
+let webEnvelope: WorkspaceExport;
+
+test('in-tab exportWorkspace mints a web-stamped envelope carrying the synced requests', async () => {
+  const exported = await invokeTab<{ success: boolean; yaml?: string; error?: string }>({
+    type: 'exportWorkspace',
+    scope: { kind: 'workspace' },
+  });
+  expect(exported.success, exported.error).toBe(true);
+
+  const parsed = parseWorkspaceExport(exported.yaml as string);
+  expect(parsed.ok, parsed.ok ? undefined : parsed.details).toBe(true);
+  if (!parsed.ok) return;
+  webEnvelope = parsed.export;
+  expect(webEnvelope.source.app).toBe('web');
+  expect(webEnvelope.source.platform).toBe('chrome');
+  const names = webEnvelope.entities.requests.map((r) => r.name);
+  expect(names).toEqual(expect.arrayContaining(['web: echo', 'web: jar login', 'web: jar me']));
+  expect(webEnvelope.entities.vault).toBeUndefined();
+});
+
+test('the read-shaped import channels answer in-tab; the write leg refuses honestly', async () => {
+  const preview = await invokeTab<{ success: boolean; diff?: unknown; targetWorkspaceId?: string; error?: string }>({
+    type: 'previewWorkspaceImport',
+    incoming: webEnvelope,
+    target: { mode: 'current' },
+  });
+  expect(preview.success, preview.error).toBe(true);
+  expect(preview.diff).toBeTruthy();
+
+  const snapshots = await invokeTab<{ snapshots: Record<string, string> }>({
+    type: 'getLastImportedSnapshots',
+    workspaceId: preview.targetWorkspaceId as string,
+  });
+  expect(snapshots.snapshots).toEqual({});
+
+  const matches = await invokeTab<{
+    exportIdSameTarget: unknown[];
+    exportIdOtherTargets: unknown[];
+    workspaceUidMatches: unknown[];
+  }>({
+    type: 'findWorkspaceExportImportMatches',
+    exportId: webEnvelope.exportId,
+    workspaceUid: webEnvelope.workspace.uid,
+    currentTargetWorkspaceId: null,
+  });
+  expect(matches.exportIdSameTarget).toEqual([]);
+  expect(matches.exportIdOtherTargets).toEqual([]);
+
+  const review = await invokeTab<{ uids: string[] }>({ type: 'getRequestScriptsReviewPending' });
+  expect(review.uids).toEqual([]);
+
+  const imported = await invokeTab<{ success: boolean; error?: string }>({
+    type: 'importWorkspace',
+    incoming: webEnvelope,
+    strategies: {},
+    target: { mode: 'current' },
+    sourceHash: 'sha256:settings-web-refusal',
+  });
+  expect(imported.success).toBe(false);
+  expect(imported.error).toContain('not yet supported on this surface');
+});
+
+test('the cipher-less tab refuses a vault-inclusive export honestly', async () => {
+  const exported = await invokeTab<{ success: boolean; error?: string }>({
+    type: 'exportWorkspace',
+    scope: { kind: 'workspace' },
+    vaultMode: 'plaintext',
+  });
+  expect(exported.success).toBe(false);
+  expect(exported.error).toContain('no vault storage');
 });
 
 // ── Hygiene ─────────────────────────────────────────────────────────

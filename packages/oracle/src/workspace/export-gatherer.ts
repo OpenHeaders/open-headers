@@ -61,7 +61,7 @@ interface GatherOptions {
   appVersion: string;
   /** Caller's resolved current platform — Chrome/Firefox/Edge/Safari/Electron/Node. */
   platform: BuildWorkspaceExportInput['source']['platform'];
-  /** Caller's resolved app — `'extension' | 'desktop' | 'daemon'`. */
+  /** Caller's resolved app — `'extension' | 'desktop' | 'daemon' | 'web'`. */
   app: BuildWorkspaceExportInput['source']['app'];
 }
 

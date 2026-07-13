@@ -54,7 +54,7 @@ export const ExportFormatVersionSchema = v.pipe(v.number(), v.integer(), v.minVa
 
 // ── Source / scope / meta ───────────────────────────────────────────
 
-export const ExportSourceAppSchema = v.picklist(['extension', 'desktop', 'daemon']);
+export const ExportSourceAppSchema = v.picklist(['extension', 'desktop', 'daemon', 'web']);
 export const ExportSourcePlatformSchema = v.picklist(['chrome', 'firefox', 'edge', 'safari', 'electron', 'node']);
 export const ExportScopeSchema = v.picklist(['workspace', 'collection', 'selection']);
 

@@ -53,3 +53,10 @@ const webBridge: HostBridge = {
 };
 
 setHostBridge(webBridge);
+
+// The desktop preload exposes `window.oh.invoke` on its workbench;
+// mirror the same handle here so external tooling drives this tab's
+// dispatch the way it drives the desktop workbench.
+(window as unknown as { oh: { invoke(message: Record<string, unknown>): Promise<unknown> } }).oh = {
+  invoke: (message) => dispatchWebRpc(message),
+};

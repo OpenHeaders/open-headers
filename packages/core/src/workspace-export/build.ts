@@ -66,7 +66,7 @@ export interface BuildWorkspaceExportInput {
   /** Caller-resolved `exportId`; defaults to a fresh uid if omitted. */
   exportId?: string;
   source: {
-    app: 'extension' | 'desktop' | 'daemon';
+    app: 'extension' | 'desktop' | 'daemon' | 'web';
     appVersion: string;
     platform: 'chrome' | 'firefox' | 'edge' | 'safari' | 'electron' | 'node';
     workspaceLabel?: string;

@@ -13,6 +13,7 @@
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
+import { dispatchExportImportRpc, isExportImportChannel } from './web-export-import-rpc';
 import { forwardRequestsRpc, isForwardedRequestsChannel } from './wire-requests-rpc';
 import { callWireRpc } from './wire-rpc';
 
@@ -40,6 +41,12 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   // the gated peer requests plane, stamped with this tab's scope.
   if (isForwardedRequestsChannel(type)) {
     return forwardRequestsRpc(message);
+  }
+  // Workspace export/import — the read-shaped channels answer from the
+  // tab's own oracle over the same lifted modules the extension SW and
+  // daemon spine share; `importWorkspace` refuses for now (see module).
+  if (isExportImportChannel(type)) {
+    return dispatchExportImportRpc(type, message);
   }
 
   const result = dispatchSyncRpc(message);
