@@ -273,6 +273,12 @@ button.dt-console-caret:hover {
   border-radius: 3px;
 }
 
+/* The selected row carries the browser's quiet highlight bar alongside
+   its check. */
+.dt-console-context-menu .dt-console-context-item[data-selected='true'] {
+  background: var(--dt-row-hover);
+}
+
 /* ── Level filter menu — the browser's "Default levels ▾" ────────────
    One dropdown replaces the severity pills: a "Default" reset row, a
    separator, then four independent level checks. The trigger warns when

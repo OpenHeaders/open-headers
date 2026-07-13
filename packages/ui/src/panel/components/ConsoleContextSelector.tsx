@@ -4,7 +4,7 @@
  * chooses the evaluation context (Phase D) and cues "you're not where you
  * think you are": the trigger picks up a warning tint whenever the current
  * selection is not `top` while a `top` exists. It does NOT filter the log —
- * that is the separate "Selected context only" toggle in the `⋯` menu.
+ * that is the separate "Selected context only" toggle in the settings pane.
  *
  * Rendering rides the panel's own dropdown vocabulary
  * (`ToolbarMenuPopover` + `dt-sortmode-item` rows); rows indent by the
@@ -77,6 +77,7 @@ function ContextRowView({
       type="button"
       className="dt-sortmode-item dt-console-context-item"
       data-depth={row.depth}
+      data-selected={active}
       // The browser's indent ladder: 8px base + 15px per frame/world hop.
       style={{ paddingLeft: 8 + row.depth * 15 }}
       // The menu width is capped — surface the untruncated text on hover.
