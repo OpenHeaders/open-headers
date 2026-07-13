@@ -29,6 +29,19 @@ describe('snapshotFromVerifyResult', () => {
     expect(snapshot.offline).toBe(true);
   });
 
+  it('carries the personal-seat kind only when present', async () => {
+    const signer = await createDevSigner();
+    const result = await verifyLicense(
+      await signer.sign(makeLicense({ kind: 'personal-seat', seats: 1 })),
+      IN_TERM,
+      signer.ring,
+    );
+    const snapshot = snapshotFromVerifyResult(result);
+    expect(snapshot.status).toBe('licensed');
+    if (snapshot.status !== 'licensed') return;
+    expect(snapshot.kind).toBe('personal-seat');
+  });
+
   it('projects invalid results as reason-only', () => {
     expect(snapshotFromVerifyResult({ status: 'invalid', reason: 'unknown-kid' })).toEqual({
       status: 'invalid',

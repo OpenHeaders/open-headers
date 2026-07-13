@@ -46,6 +46,13 @@ describe('license seat seam', () => {
     }
   });
 
+  it('never lets a personal-seat artifact feed the pool limit', () => {
+    for (const status of ['licensed', 'grace'] as const) {
+      setLicenseSnapshotProvider(() => ({ status, ...LICENSED_BASE, kind: 'personal-seat', seats: 1 }));
+      expect(getLicenseSeatLimit()).toBe(FREE_SEAT_LIMIT);
+    }
+  });
+
   it('derives at consume time — a provider swap changes the next read', () => {
     let snapshot: LicenseSnapshot = { status: 'licensed', ...LICENSED_BASE };
     setLicenseSnapshotProvider(() => snapshot);

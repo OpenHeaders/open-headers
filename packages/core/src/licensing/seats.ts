@@ -26,9 +26,16 @@ export function getLicenseSnapshot(): LicenseSnapshot {
   return provider?.() ?? { status: 'unlicensed' };
 }
 
-/** Active directory users the seat gate admits right now. */
+/**
+ * Active directory users the seat gate admits right now. A
+ * `personal-seat` artifact never feeds the pool — it is an admission
+ * ticket held by one user, so were it installed into the daemon's own
+ * slot, its `seats` claim must not shrink (or grow) the pool limit.
+ */
 export function getLicenseSeatLimit(): number {
   const snapshot = getLicenseSnapshot();
-  if (snapshot.status === 'licensed' || snapshot.status === 'grace') return snapshot.seats;
+  if ((snapshot.status === 'licensed' || snapshot.status === 'grace') && snapshot.kind !== 'personal-seat') {
+    return snapshot.seats;
+  }
   return FREE_SEAT_LIMIT;
 }

@@ -26,6 +26,14 @@ export const LicenseSchema = v.object({
   seats: v.pipe(v.number(), v.integer(), v.minValue(1)),
   /** Capability strings; empty in v1. See `RESERVED_ENTITLEMENTS`. */
   entitlements: v.array(v.pipe(v.string(), v.minLength(1))),
+  /**
+   * License kind. Absent = org license (funds a daemon's seat pool).
+   * `personal-seat` = a user-held admission ticket: the same artifact,
+   * ring, and refresh flow, but it admits its identity-matching holder
+   * to an at-capacity daemon instead of raising the daemon's own limit
+   * — it is never a pool resource.
+   */
+  kind: v.optional(v.literal('personal-seat')),
   /** Delivery-modality marker: long-lived air-gapped file; hosts disable the refresh agent. */
   offline: v.optional(v.literal(true)),
   /**

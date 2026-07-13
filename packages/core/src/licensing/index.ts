@@ -8,6 +8,12 @@
 export { decodeBase64Url, encodeBase64Url } from './encoding';
 export { FREE_SEAT_LIMIT, RESERVED_ENTITLEMENTS, type ReservedEntitlement } from './entitlements';
 export { LICENSE_PUBLIC_KEYS, type LicenseKeyRing } from './keys';
+export {
+  foldLicenseEmail,
+  matchPersonalSeatIdentity,
+  type PersonalSeatIdentityMismatchReason,
+  type PersonalSeatIdentityResult,
+} from './personal';
 export { type License, type Licensee, LicenseeSchema, LicenseSchema } from './schema';
 export { getLicenseSeatLimit, getLicenseSnapshot, setLicenseSnapshotProvider } from './seats';
 export {

@@ -16,6 +16,7 @@ export function snapshotFromVerifyResult(result: VerifyResult): LicenseSnapshot 
     licensee: license.licensee,
     seats: license.seats,
     entitlements: license.entitlements,
+    ...(license.kind === 'personal-seat' ? { kind: 'personal-seat' as const } : {}),
     ...(license.offline === true ? { offline: true } : {}),
     validUntil: license.validUntil,
     graceEndsAt: result.graceEndsAt,

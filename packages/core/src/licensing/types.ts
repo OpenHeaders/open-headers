@@ -44,6 +44,7 @@ export interface LicensedSnapshot {
   licensee: Licensee;
   seats: number;
   entitlements: string[];
+  kind?: 'personal-seat';
   offline?: true;
   /** ms-since-epoch after which the license enters grace. */
   validUntil: number;
