@@ -78,6 +78,13 @@ export function StorageGrid({
 }: StorageGridProps) {
   const [editing, setEditing] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  /** Closing an edit/add row unmounts the focused input — park focus
+   *  back on the grid so the arrows keep working without a re-click. */
+  const focusGrid = (): void => {
+    gridRef.current?.focus({ preventScroll: true });
+  };
 
   const startEdit = (entry: DomStorageEntry): void => {
     if (!entry.clipped) {
@@ -99,28 +106,115 @@ export function StorageGrid({
     setSaving(true);
     void onCommit(editing.originalKey, editing.key, editing.value)
       .then((ok) => {
-        if (ok) setEditing(null);
+        if (ok) {
+          setEditing(null);
+          focusGrid();
+        }
       })
       .finally(() => setSaving(false));
   };
 
+  const cancelEdit = (): void => {
+    setEditing(null);
+    focusGrid();
+  };
+
+  // Keyboard row navigation — the traffic table's template. Selection
+  // model: there is no grid-local selection state; an arrow move opens
+  // the entry document like a click (`onOpenEntry`) and the row
+  // highlight follows through the same active-editor-tab derivation the
+  // click rides (`isEntryActive`). An already-open key re-activates its
+  // tab idempotently; a new key mints a persistent editor tab —
+  // identical to click semantics by design. Enter opens the inline edit
+  // (double-click parity). PageUp/PageDown are deliberately absent: the
+  // section scroller belongs to the panel shell and these rows aren't
+  // pinned-height, so a page size would need live measurement — these
+  // grids stay short; revisit if one outgrows arrows.
+  // The handler stands down while an edit/add row is mounted and for
+  // presses on interactive children (edit-row inputs, row action lanes,
+  // header buttons) — Enter/Escape/⌘S/arrows there belong to those
+  // controls, and moving the selection under a typing user would tear
+  // the edit out from under them.
+  const handleGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (editing !== null || adding) return;
+    if ((e.target as HTMLElement).closest('button, input, select, textarea') !== null) return;
+    if (entries.length === 0) return;
+    const pos = isEntryActive ? entries.findIndex((en) => isEntryActive(en.key)) : -1;
+    if (e.key === 'Enter') {
+      if (pos >= 0) {
+        e.preventDefault();
+        startEdit(entries[pos]);
+      }
+      return;
+    }
+    const last = entries.length - 1;
+    let next: number;
+    switch (e.key) {
+      // No selection: down-going keys start at the first row, up-going
+      // at the last (streams-grid semantics).
+      case 'ArrowDown':
+        next = pos < 0 ? 0 : Math.min(last, pos + 1);
+        break;
+      case 'ArrowUp':
+        next = pos < 0 ? last : Math.max(0, pos - 1);
+        break;
+      case 'Home':
+        next = 0;
+        break;
+      case 'End':
+        next = last;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    if (next !== pos) onOpenEntry?.(entries[next].key);
+    // Rows aren't windowed here — a plain nearest reveal suffices; the
+    // rows' scroll-margin-top keeps the target clear of the sticky
+    // column header.
+    gridRef.current
+      ?.querySelector(`.dt-storage-row[data-entry-index="${next}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  };
+
   return (
-    <div className="dt-storage-grid" role="table" aria-label="Storage entries">
+    // role="grid" (not table): the rows are interactive — selectable via
+    // the arrows with `aria-selected` reporting the active document, and
+    // editable in place — which is exactly the grid/table split. The
+    // grid itself is the focusable element (rows are plain divs, so a
+    // row click focuses it as the nearest focusable ancestor); the
+    // active-row highlight is the focus affordance (traffic precedent),
+    // no ring on the box.
+    <div
+      className="dt-storage-grid"
+      role="grid"
+      aria-label="Storage entries"
+      ref={gridRef}
+      tabIndex={0}
+      onKeyDown={handleGridKeyDown}
+    >
       <div className="dt-storage-grid-header" role="row">
         <StorageColumnHeaderCell label="Key" info={<DomStorageColumnInfo infoKey="key" area={area} />} />
         <StorageColumnHeaderCell label="Value" info={<DomStorageColumnInfo infoKey="value" area={area} />} />
       </div>
       {adding && (
         <AddRow
-          onCancel={onCloseAdd}
+          onCancel={() => {
+            onCloseAdd();
+            focusGrid();
+          }}
           onCommit={(key, value) =>
             void onCommit(null, key, value).then((ok) => {
-              if (ok) onCloseAdd();
+              if (ok) {
+                onCloseAdd();
+                focusGrid();
+              }
             })
           }
         />
       )}
-      {entries.map((e) =>
+      {entries.map((e, i) =>
         editing && editing.originalKey === e.key ? (
           <EditRow
             key={e.key}
@@ -128,21 +222,23 @@ export function StorageGrid({
             saving={saving}
             onChange={setEditing}
             onCommit={commitEdit}
-            onCancel={() => setEditing(null)}
+            onCancel={cancelEdit}
           />
         ) : (
           // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance
           <div
             className={`dt-storage-row${isEntryActive?.(e.key) ? ' dt-storage-row--active' : ''}`}
             role="row"
+            aria-selected={isEntryActive?.(e.key) ?? false}
+            data-entry-index={i}
             key={e.key}
             onClick={() => onOpenEntry?.(e.key)}
             onDoubleClick={() => startEdit(e)}
           >
-            <span className="dt-storage-key" role="cell" title={e.key}>
+            <span className="dt-storage-key" role="gridcell" title={e.key}>
               {e.key}
             </span>
-            <span className="dt-storage-value" role="cell" title={e.clipped ? undefined : e.value}>
+            <span className="dt-storage-value" role="gridcell" title={e.clipped ? undefined : e.value}>
               {e.value}
               {e.clipped && <span className="dt-storage-clip-note"> … clipped ({formatLength(e.valueLength)})</span>}
             </span>
@@ -252,6 +348,14 @@ interface EditRowProps {
 }
 
 function EditRow({ editing, saving, onChange, onCommit, onCancel }: EditRowProps) {
+  // Focus the key input on mount (AddRow parity) — an edit opened from
+  // the keyboard (Enter on the active row) must be typable immediately,
+  // and Escape must land in the input to cancel.
+  const keyRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    keyRef.current?.focus();
+  }, []);
+
   const busy = editing.phase === 'loading';
   const blocked = editing.phase === 'too-large' || editing.phase === 'fetch-failed';
   const dirty =
@@ -275,6 +379,7 @@ function EditRow({ editing, saving, onChange, onCommit, onCancel }: EditRowProps
   return (
     <div className="dt-storage-row dt-storage-row--editing" role="row">
       <UndoableCellInput
+        inputRef={keyRef}
         aria-label="Entry key"
         value={editing.key}
         disabled={busy || blocked}

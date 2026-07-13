@@ -143,6 +143,15 @@
   font-family: var(--oh-ui-font-family, system-ui, sans-serif);
   font-size: 11px;
   min-width: 0;
+  /* Focusable for keyboard row navigation; the active-row highlight is
+   * the focus affordance (traffic-table precedent) — no ring on the box. */
+  outline: none;
+}
+
+/* A keyboard reveal (scrollIntoView nearest) must land the row below the
+ * sticky 22px column-header band, not beneath it. */
+.dt-storage-grid .dt-storage-row {
+  scroll-margin-top: 22px;
 }
 
 /* Column header row — the network table's header look (`.dt-table-header`):
