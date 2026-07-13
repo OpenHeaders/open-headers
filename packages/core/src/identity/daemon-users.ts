@@ -25,6 +25,7 @@ import type { DaemonUserRecord } from '../types';
 import { createMutex } from '../utils/mutex';
 import { uuidv7 } from '../utils/uuidv7';
 import { emitAuditEntry } from './audit';
+import { WORKSPACE_CREATE_FUNCTIONAL_ROLE } from './resolver';
 
 export interface CreateDaemonUserInput {
   displayName: string;
@@ -69,6 +70,10 @@ export type DeactivateDaemonUserResult =
 
 export type SetDaemonUserPasswordResult =
   | { readonly ok: true }
+  | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' };
+
+export type SetDaemonUserWorkspaceCreateResult =
+  | { readonly ok: true; readonly updated: boolean }
   | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' };
 
 export type ResolveDaemonPeerUserResult =
@@ -330,6 +335,35 @@ export async function setDaemonUserPassword(
     }
     await hostStorage.set(OH.daemonUsers, next);
     return { ok: true };
+  });
+}
+
+/**
+ * Grant or revoke a directory user's `workspace.create` capability by
+ * toggling the {@link WORKSPACE_CREATE_FUNCTIONAL_ROLE} entry on their
+ * org membership — the axis the resolver consults for the verb.
+ * Idempotent (`updated: false` when the flag already matches). Refused
+ * on deactivated records, same posture as the password setter.
+ */
+export async function setDaemonUserWorkspaceCreate(
+  userId: string,
+  allowed: boolean,
+): Promise<SetDaemonUserWorkspaceCreateResult> {
+  return withUserStoreLock(async () => {
+    const current = await readUsers();
+    const idx = current.findIndex((r) => r.user.id === userId);
+    if (idx === -1) return { ok: false, reason: 'unknown-user' };
+    if (current[idx].deactivatedAt !== null) return { ok: false, reason: 'user-deactivated' };
+    const roles = current[idx].membership.functionalRoles;
+    const has = roles.includes(WORKSPACE_CREATE_FUNCTIONAL_ROLE);
+    if (has === allowed) return { ok: true, updated: false };
+    const nextRoles = allowed
+      ? [...roles, WORKSPACE_CREATE_FUNCTIONAL_ROLE]
+      : roles.filter((r) => r !== WORKSPACE_CREATE_FUNCTIONAL_ROLE);
+    const next = current.slice();
+    next[idx] = { ...current[idx], membership: { ...current[idx].membership, functionalRoles: nextRoles } };
+    await hostStorage.set(OH.daemonUsers, next);
+    return { ok: true, updated: true };
   });
 }
 

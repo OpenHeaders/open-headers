@@ -21,7 +21,9 @@ import {
   resolveDaemonPeerUser,
   setAuditSink,
   setDaemonUserPassword,
+  setDaemonUserWorkspaceCreate,
   validateDaemonAuthToken,
+  WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from '../../src/identity';
 import {
   FREE_SEAT_LIMIT,
@@ -198,6 +200,40 @@ describe('daemon users', () => {
       if (!created.ok) throw new Error('setup failed');
       await deactivateDaemonUser(created.record.user.id);
       expect(await setDaemonUserPassword(created.record.user.id, 'v')).toEqual({
+        ok: false,
+        reason: 'user-deactivated',
+      });
+    });
+  });
+
+  describe('setDaemonUserWorkspaceCreate', () => {
+    it('grants and revokes the functional role, idempotently, and the record keeps validating', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+
+      expect(await setDaemonUserWorkspaceCreate(userId, true)).toEqual({ ok: true, updated: true });
+      let found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.membership.functionalRoles).toContain(WORKSPACE_CREATE_FUNCTIONAL_ROLE);
+      expect(v.safeParse(DaemonUserRecordSchema, found).success).toBe(true);
+
+      // Idempotent: re-granting reports no update and adds no duplicate.
+      expect(await setDaemonUserWorkspaceCreate(userId, true)).toEqual({ ok: true, updated: false });
+      found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.membership.functionalRoles.filter((r) => r === WORKSPACE_CREATE_FUNCTIONAL_ROLE)).toHaveLength(1);
+
+      expect(await setDaemonUserWorkspaceCreate(userId, false)).toEqual({ ok: true, updated: true });
+      found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.membership.functionalRoles).not.toContain(WORKSPACE_CREATE_FUNCTIONAL_ROLE);
+      expect(await setDaemonUserWorkspaceCreate(userId, false)).toEqual({ ok: true, updated: false });
+    });
+
+    it('refuses unknown and deactivated users', async () => {
+      expect(await setDaemonUserWorkspaceCreate('nope', true)).toEqual({ ok: false, reason: 'unknown-user' });
+      const created = await createDaemonUser({ displayName: 'Alice' });
+      if (!created.ok) throw new Error('setup failed');
+      await deactivateDaemonUser(created.record.user.id);
+      expect(await setDaemonUserWorkspaceCreate(created.record.user.id, true)).toEqual({
         ok: false,
         reason: 'user-deactivated',
       });

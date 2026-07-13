@@ -12,7 +12,9 @@ import {
   type ResolvedAuditEntry,
   resetAuditSink,
   setAuditSink,
+  WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from '@openheaders/core/identity';
+import { hostStorage, OH } from '@openheaders/core/storage';
 import {
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
@@ -35,12 +37,21 @@ import {
   hasRecentlyApplied,
   setOracleHostHooks,
 } from '@openheaders/oracle/sync';
+import { __initGlobalSyncServiceForTests, disposeGlobal } from '@openheaders/oracle/sync/global-service';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import {
   __initSyncServiceForTests,
   dispose as disposeSyncService,
   getOracleForCurrentWorkspace,
 } from '@openheaders/oracle/sync/service';
+import {
+  bootstrap as bootstrapWorkspaces,
+  bridgeExtensionWorkspaceSyncEngine,
+  getWorkspace,
+  __resetForTests as resetWorkspaceStore,
+} from '@openheaders/oracle/workspace/extension-workspace-store';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { installBackingStorage, installHostStorage, seedStorageMany } from '../../helpers/chrome-storage-backing';
 import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-bridge';
@@ -66,7 +77,10 @@ const PEER_PRINCIPAL_ID = '01900000-0000-7000-8000-0000000000fd';
  * the bridge: the peer principal's grants only, no localAdmin, the
  * daemon's own Org as the sole org.
  */
-function makePeerSnapshot(role: 'owner' | 'editor' | 'viewer' | null): IdentitySnapshot {
+function makePeerSnapshot(
+  role: 'owner' | 'editor' | 'viewer' | null,
+  opts: { functionalRoles?: string[]; localAdmin?: boolean } = {},
+): IdentitySnapshot {
   const wraByWorkspaceId = new Map(
     role === null
       ? []
@@ -85,8 +99,11 @@ function makePeerSnapshot(role: 'owner' | 'editor' | 'viewer' | null): IdentityS
       userId: PEER_USER_ID,
       orgId: TEST_ORG_ID,
       primaryRole: 'member',
-      functionalRoles: [],
+      functionalRoles: opts.functionalRoles ?? [],
     },
+    ...(opts.localAdmin
+      ? { localAdmin: { id: '01900000-0000-7000-8000-0000000000fa', userId: PEER_USER_ID, isLocal: true } }
+      : {}),
     wraByWorkspaceId,
     orgs: new Map([[TEST_ORG_ID, { id: TEST_ORG_ID, name: 'Test Org', hostKind: 'daemon', isPrivate: false }]]),
   };
@@ -283,6 +300,40 @@ describe('applyInboundMutationBatch', () => {
   });
 
   describe('global-scope subject gate (peer actor)', () => {
+    // A workspace row for wsId must exist in the store: a slot write on
+    // a KNOWN workspace is a `workspace.write` on that id, while an
+    // unknown itemId is a CREATE gated on `workspace.create`. The global
+    // sync service backs the create tests' real applies.
+    beforeEach(async () => {
+      installBackingStorage();
+      await installHostStorage();
+      seedStorageMany({
+        'oh.workspaces': [
+          {
+            schemaVersion: 5,
+            id: wsId,
+            kind: 'personal',
+            name: wsId,
+            sortIndex: 0,
+            createdAt: '2026-07-14T00:00:00.000Z',
+            updatedAt: '2026-07-14T00:00:00.000Z',
+            // Stored rows validate orgId as UUIDv7; the envelopes' short
+            // TEST_ORG_ID never reaches this schema.
+            orgId: '01900000-0000-7000-8000-0000000000aa',
+          },
+        ],
+        'oh.runtimeActive.active': wsId,
+      });
+      await bootstrapWorkspaces();
+      __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
+      await bridgeExtensionWorkspaceSyncEngine();
+    });
+
+    afterEach(() => {
+      disposeGlobal();
+      resetWorkspaceStore();
+    });
+
     const globalEnvelope = (ms: number, body: MutationEnvelope['body']): MutationEnvelope => ({
       mutationId: `m-global-${ms}`,
       hlc: { physicalMs: ms, logical: 0, nodeId: 'peer' },
@@ -367,6 +418,78 @@ describe('applyInboundMutationBatch', () => {
       } finally {
         resetAuditSink();
       }
+    });
+
+    const workspaceCreate = (ms: number, id: string): MutationEnvelope =>
+      globalEnvelope(ms, {
+        kind: 'addToSet',
+        type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+        id: EXTENSION_WORKSPACE_ID,
+        path: EXTENSION_WORKSPACES_SET_PATH,
+        itemId: id,
+        item: {
+          id,
+          kind: 'personal',
+          name: id,
+          createdAt: '2026-07-14T00:00:00.000Z',
+          updatedAt: '2026-07-14T00:00:00.000Z',
+          orgId: TEST_ORG_ID,
+        },
+        orderKey: 'a2',
+      });
+
+    it('minting an unknown workspace gates on workspace.create — an ungranted member is refused', async () => {
+      const audits: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => audits.push(entry));
+      try {
+        // The editor WRA on wsId is irrelevant: the created id has no
+        // WRA to judge, so the create verb is the only admission path.
+        const batch = { batchId: 'b-global-5', mutations: [workspaceCreate(17_000, 'ws-created-a')] };
+        await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('editor'), userId: PEER_USER_ID });
+        const gate = audits.find((a) => a.capability === 'workspace.create');
+        expect(gate?.decision).toEqual({ allow: false, reason: 'workspace-create-not-granted' });
+        expect(gate?.workspaceId).toBe('ws-created-a');
+        expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
+        expect(getWorkspace('ws-created-a')).toBeNull();
+      } finally {
+        resetAuditSink();
+      }
+    });
+
+    it('the workspace.create grant admits the mint and the creator lands an owner WRA', async () => {
+      const audits: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => audits.push(entry));
+      try {
+        const batch = { batchId: 'b-global-6', mutations: [workspaceCreate(18_000, 'ws-created-b')] };
+        await applyInboundMutationBatch(batch, {
+          snapshot: makePeerSnapshot(null, { functionalRoles: [WORKSPACE_CREATE_FUNCTIONAL_ROLE] }),
+          userId: PEER_USER_ID,
+        });
+        const gate = audits.find((a) => a.capability === 'workspace.create');
+        expect(gate?.decision).toEqual({ allow: true });
+        expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(true);
+        expect(getWorkspace('ws-created-b')).not.toBeNull();
+        // The correctness half: without the owner WRA the creating user
+        // could not read their own workspace back past the read filter.
+        const wras = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
+        expect(wras).toContainEqual(
+          expect.objectContaining({ principalId: PEER_PRINCIPAL_ID, workspaceId: 'ws-created-b', role: 'owner' }),
+        );
+      } finally {
+        resetAuditSink();
+      }
+    });
+
+    it('a LocalAdmin actor mints without a directory WRA (the operator needs none)', async () => {
+      const batch = { batchId: 'b-global-7', mutations: [workspaceCreate(19_000, 'ws-created-c')] };
+      await applyInboundMutationBatch(batch, {
+        snapshot: makePeerSnapshot(null, { localAdmin: true }),
+        userId: PEER_USER_ID,
+      });
+      expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(true);
+      expect(getWorkspace('ws-created-c')).not.toBeNull();
+      const wras = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
+      expect(wras.some((w) => w.principalId === PEER_PRINCIPAL_ID && w.workspaceId === 'ws-created-c')).toBe(false);
     });
   });
 

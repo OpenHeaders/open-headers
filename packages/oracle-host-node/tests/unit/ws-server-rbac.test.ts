@@ -666,13 +666,27 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     const created = await callOverWire(operator, { type: 'oh.daemon.users.create', displayName: 'Carol' });
     expect(created.payload?.ok).toBe(true);
     const listed = await callOverWire(operator, { type: 'oh.daemon.users.list' });
-    const users = listed.payload?.users as Array<{ displayName: string }>;
+    const users = listed.payload?.users as Array<{ displayName: string; userId: string; mayCreateWorkspaces: boolean }>;
     expect(users.map((u) => u.displayName)).toContain('Carol');
+
+    // The workspace.create grant toggles over the wire and round-trips
+    // through the list projection (fresh directory users start without).
+    const carol = users.find((u) => u.displayName === 'Carol');
+    expect(carol?.mayCreateWorkspaces).toBe(false);
+    const granted = await callOverWire(operator, {
+      type: 'oh.daemon.users.setCreateWorkspaces',
+      userId: carol?.userId,
+      allowed: true,
+    });
+    expect(granted.payload).toEqual({ ok: true, updated: true });
+    const relisted = await callOverWire(operator, { type: 'oh.daemon.users.list' });
+    const relistedUsers = relisted.payload?.users as Array<{ displayName: string; mayCreateWorkspaces: boolean }>;
+    expect(relistedUsers.find((u) => u.displayName === 'Carol')?.mayCreateWorkspaces).toBe(true);
 
     // Every enforcement decision is audited as the operator.
     const record = await ensureSyntheticIdentity({ hostKind: 'daemon' });
     const allows = audits.filter((a) => a.capability === 'daemon.admin' && a.decision.allow);
-    expect(allows.length).toBe(baseline + 2);
+    expect(allows.length).toBe(baseline + 4);
     expect(new Set(allows.map((a) => a.actorUserId))).toEqual(new Set([record.user.id]));
   });
 

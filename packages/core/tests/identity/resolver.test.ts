@@ -28,6 +28,7 @@ import {
   hasCapability,
   installIdentitySnapshot,
   refreshIdentitySnapshotFromHostStorage,
+  WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from '../../src/identity';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { OH } from '../../src/storage/keys';
@@ -43,6 +44,7 @@ function makeSnapshot(
     localAdmin?: DaemonAdmin | null;
     wras?: ReadonlyArray<WorkspaceRoleAssignment>;
     user?: Partial<User>;
+    membership?: Partial<OrgMembership>;
     /** Extra Org ids folded into `snapshot.orgs` — the multi-org / joined-backend case (Phase U5). */
     extraOrgIds?: ReadonlyArray<string>;
   } = {},
@@ -65,6 +67,7 @@ function makeSnapshot(
     orgId: user.homeOrgId,
     primaryRole: 'owner',
     functionalRoles: [],
+    ...overrides.membership,
   };
   const localAdmin =
     overrides.localAdmin === undefined
@@ -171,6 +174,45 @@ describe('hasCapability', () => {
     expect(hasCapability(null, 'workspace.list', {})).toEqual({
       allow: false,
       reason: 'no-current-user',
+    });
+  });
+
+  describe('workspace.create (org-scoped provisioning verb)', () => {
+    it('allows for LocalAdmin', () => {
+      expect(hasCapability(makeSnapshot(), 'workspace.create', {})).toEqual({ allow: true });
+    });
+
+    it('allows for org owner and admin primary roles without LocalAdmin', () => {
+      const owner = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'owner' } });
+      const admin = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'admin' } });
+      expect(hasCapability(owner, 'workspace.create', {})).toEqual({ allow: true });
+      expect(hasCapability(admin, 'workspace.create', {})).toEqual({ allow: true });
+    });
+
+    it('denies a plain member without the functional-role grant', () => {
+      const member = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'member' } });
+      expect(hasCapability(member, 'workspace.create', {})).toEqual({
+        allow: false,
+        reason: 'workspace-create-not-granted',
+      });
+    });
+
+    it('allows a member carrying the workspace.create functional role', () => {
+      const granted = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'member', functionalRoles: [WORKSPACE_CREATE_FUNCTIONAL_ROLE] },
+      });
+      expect(hasCapability(granted, 'workspace.create', {})).toEqual({ allow: true });
+    });
+
+    it('needs no workspaceId — the subject does not exist yet', () => {
+      const snap = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'member' } });
+      expect(hasCapability(snap, 'workspace.create', { workspaceId: W1 }).allow).toBe(false);
+      expect(hasCapability(snap, 'workspace.create', {}).allow).toBe(false);
+    });
+
+    it('denies when no snapshot is installed', () => {
+      expect(hasCapability(null, 'workspace.create', {})).toEqual({ allow: false, reason: 'no-current-user' });
     });
   });
 

@@ -50,6 +50,7 @@ import {
   authorizedOrgIds,
   emitAuditEntry,
   getIdentitySnapshot,
+  grantWorkspaceRole,
   hasCapability,
   type IdentitySnapshot,
 } from '@openheaders/core/identity';
@@ -68,6 +69,7 @@ import {
 } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 
+import { getWorkspace } from '../workspace/extension-workspace-store';
 import { makeOracleInverseAccess } from './activity/activity-inverse-builder';
 import { rememberPriorForMutation } from './activity/activity-priors';
 import {
@@ -181,24 +183,43 @@ function globalScopeWriteSubject(body: MutationBody): string | null {
 }
 
 /**
+ * True when a workspace-list slot write mints a workspace this host does
+ * not yet hold — a CREATE, gated on `workspace.create` (org-scoped, no
+ * WRA can exist yet) instead of `workspace.write` on the slotted id.
+ */
+function isGlobalScopeCreate(body: MutationBody, subject: string): boolean {
+  return body.kind === 'addToSet' && getWorkspace(subject) === null;
+}
+
+interface GlobalScopeGateResult {
+  readonly allowed: boolean;
+  /** Workspace ids this batch mints — the post-apply owner-WRA subjects. */
+  readonly createdWorkspaceIds: readonly string[];
+}
+
+/**
  * Peer write gate for the `__global__` scope (Phase 5 slice 2). The
  * scope itself carries no WRA, so a batch-level `workspace.write` check
  * against `'__global__'` would deny every directory user — including an
  * editor renaming a workspace they hold a grant on. Instead each body
- * resolves to its real subject: workspace-list slot writes gate on the
- * slotted workspace's id; subject-less bodies (the `activeId` pointer,
- * unknown global entities) stay operator-only via `daemon.admin`. The
- * batch applies all-or-nothing, so one denied body refuses the batch.
+ * resolves to its real subject: a slot write minting an unknown
+ * workspace gates on `workspace.create` (there is no WRA to judge yet);
+ * a slot write on a known workspace gates on `workspace.write` for that
+ * id; subject-less bodies (the `activeId` pointer, unknown global
+ * entities) stay operator-only via `daemon.admin`. The batch applies
+ * all-or-nothing, so one denied body refuses the batch.
  */
-function isGlobalScopeBatchAllowed(batch: MutationBatch, actor: InboundMutationActor): boolean {
+function gateGlobalScopeBatch(batch: MutationBatch, actor: InboundMutationActor): GlobalScopeGateResult {
+  const createdWorkspaceIds: string[] = [];
   for (const env of batch.mutations) {
     const subject = globalScopeWriteSubject(env.body);
+    const isCreate = subject !== null && isGlobalScopeCreate(env.body, subject);
     const decision = subject
-      ? hasCapability(actor.snapshot, 'workspace.write', { workspaceId: subject })
+      ? hasCapability(actor.snapshot, isCreate ? 'workspace.create' : 'workspace.write', { workspaceId: subject })
       : hasCapability(actor.snapshot, 'daemon.admin');
     emitAuditEntry({
       actorUserId: actor.userId,
-      capability: subject ? 'workspace.write' : 'daemon.admin',
+      capability: subject ? (isCreate ? 'workspace.create' : 'workspace.write') : 'daemon.admin',
       ...(subject ? { workspaceId: subject } : {}),
       decision,
     });
@@ -207,10 +228,34 @@ function isGlobalScopeBatchAllowed(batch: MutationBatch, actor: InboundMutationA
         'MutationStreamBridge',
         `inbound global-scope batch dropped: ${decision.reason ?? 'denied'} (subject=${subject ?? 'operator-only'})`,
       );
-      return false;
+      return { allowed: false, createdWorkspaceIds: [] };
+    }
+    if (isCreate && subject && !createdWorkspaceIds.includes(subject)) createdWorkspaceIds.push(subject);
+  }
+  return { allowed: true, createdWorkspaceIds };
+}
+
+/**
+ * Owner grant for a peer-created workspace. Without it the creating
+ * directory user could not even read the workspace back — the read
+ * filter hides ungranted rows — so the mint is a correctness step of an
+ * accepted create, not a policy nicety. LocalAdmin actors skip it (the
+ * operator needs no WRA); the boot reconcile separately mints the
+ * operator's own owner row for every live workspace. Best-effort: a
+ * failed grant logs and the apply stands — the operator can re-grant.
+ */
+async function grantOwnerOnCreatedWorkspaces(
+  actor: InboundMutationActor,
+  createdWorkspaceIds: readonly string[],
+): Promise<void> {
+  if (!actor.snapshot || actor.snapshot.localAdmin || createdWorkspaceIds.length === 0) return;
+  for (const workspaceId of createdWorkspaceIds) {
+    try {
+      await grantWorkspaceRole({ principalId: actor.snapshot.principal.id, workspaceId, role: 'owner' });
+    } catch (err) {
+      logger.warn('MutationStreamBridge', `owner grant for created workspace ${workspaceId} failed`, err);
     }
   }
-  return true;
 }
 
 /** Test-only — clear state between cases. */
@@ -300,11 +345,14 @@ export async function applyInboundMutationBatch(input: MutationBatch, actor?: In
   // All envelopes in a batch share one workspaceId per the mutation-log
   // invariant; gate the batch on the first. The global scope resolves
   // per-body subjects when a peer actor is being gated — see
-  // `isGlobalScopeBatchAllowed`; without an actor (client hosts) the
+  // `gateGlobalScopeBatch`; without an actor (client hosts) the
   // local user's LocalAdmin covers the scope as before.
   const ws = batch.mutations[0]?.workspaceId;
+  let createdWorkspaceIds: readonly string[] = [];
   if (ws && actor && ws === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
-    if (!isGlobalScopeBatchAllowed(batch, actor)) return;
+    const gate = gateGlobalScopeBatch(batch, actor);
+    if (!gate.allowed) return;
+    createdWorkspaceIds = gate.createdWorkspaceIds;
   } else if (ws && !isReceiveAllowed(ws, actor)) {
     return;
   }
@@ -330,6 +378,9 @@ export async function applyInboundMutationBatch(input: MutationBatch, actor?: In
     if (!response.ok) return;
     for (const env of batch.mutations) rememberApplied(env);
     observeHighestPerWorkspace(batch);
+    if (actor && createdWorkspaceIds.length > 0) {
+      await grantOwnerOnCreatedWorkspaces(actor, createdWorkspaceIds);
+    }
   } finally {
     for (const env of batch.mutations) INBOUND_IN_FLIGHT.delete(env.mutationId);
   }

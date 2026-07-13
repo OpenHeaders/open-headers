@@ -66,7 +66,9 @@ export {
   type ResolveDaemonPeerUserResult,
   resolveDaemonPeerUser,
   type SetDaemonUserPasswordResult,
+  type SetDaemonUserWorkspaceCreateResult,
   setDaemonUserPassword,
+  setDaemonUserWorkspaceCreate,
 } from './daemon-users';
 export { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
 export { ensureDaemonConfig } from './ensure-daemon-config';
@@ -119,6 +121,7 @@ export {
   consumedOrgIds,
   hasCapability,
   type IdentitySnapshot,
+  WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from './resolver';
 export {
   type DesiredIdpGrant,

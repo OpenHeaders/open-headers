@@ -17,7 +17,15 @@ import type { DaemonAdmin, Org, OrgMembership, Principal, User, WorkspaceRoleAss
  * `rule.publish`) layer on top in later slices without changing the
  * resolver contract.
  */
-export type Capability = 'workspace.read' | 'workspace.write' | 'workspace.list' | 'daemon.admin';
+export type Capability = 'workspace.read' | 'workspace.write' | 'workspace.list' | 'workspace.create' | 'daemon.admin';
+
+/**
+ * The `OrgMembership.functionalRoles` entry that grants a directory user
+ * `workspace.create`. Toggled per user via the daemon admin surface;
+ * `owner`/`admin` primary roles and LocalAdmin hold the capability
+ * implicitly.
+ */
+export const WORKSPACE_CREATE_FUNCTIONAL_ROLE = 'workspace.create';
 
 export interface CapabilityContext {
   /** Required for `workspace.*` capabilities; ignored for `daemon.*`. */
@@ -35,6 +43,7 @@ export type CapabilityDenyReason =
   | 'workspace-id-required'
   | 'no-workspace-role-assignment'
   | 'insufficient-workspace-role'
+  | 'workspace-create-not-granted'
   | 'not-daemon-admin'
   | 'unknown-capability'
   | 'auth-required'
@@ -90,6 +99,22 @@ export function hasCapability(
     // scoped to "which workspaces exist on this host"; per-workspace
     // visibility is enforced by `workspace.read` downstream.
     return { allow: true };
+  }
+
+  if (capability === 'workspace.create') {
+    // Org-scoped, not workspace-scoped — no WRA exists yet for the
+    // workspace being minted. LocalAdmin and org owners/admins hold it
+    // implicitly; a plain member needs the functional-role grant.
+    if (snapshot.localAdmin) {
+      return { allow: true };
+    }
+    const { primaryRole, functionalRoles } = snapshot.membership;
+    if (primaryRole === 'owner' || primaryRole === 'admin') {
+      return { allow: true };
+    }
+    return functionalRoles.includes(WORKSPACE_CREATE_FUNCTIONAL_ROLE)
+      ? { allow: true }
+      : { allow: false, reason: 'workspace-create-not-granted' };
   }
 
   if (capability === 'workspace.read' || capability === 'workspace.write') {
