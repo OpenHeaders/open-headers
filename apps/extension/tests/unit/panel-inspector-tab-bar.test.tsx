@@ -125,6 +125,22 @@ describe('InspectorTabBar tab kinds', () => {
     expect(screen.getByText('IDB')).toBeTruthy();
   });
 
+  it('reveals the active tab instantly — no smooth rubber-band across the strip (workbench parity)', () => {
+    const scrollIntoView = Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>;
+    const scrollTo = Element.prototype.scrollTo as unknown as ReturnType<typeof vi.fn>;
+
+    // Active tab not last → the querySelector + scrollIntoView branch.
+    scrollIntoView.mockClear();
+    renderBar([REQUEST_TAB, IDB_TAB], REQUEST_TAB.id);
+    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'instant' }));
+
+    // Active tab last → the scroll-to-end branch.
+    cleanup();
+    scrollTo.mockClear();
+    renderBar([IDB_TAB, REQUEST_TAB], REQUEST_TAB.id);
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'instant' }));
+  });
+
   it('shows the unsaved dot only on a dirty record tab', () => {
     renderBar([{ ...IDB_TAB, dirty: true }, REQUEST_TAB], REQUEST_TAB.id);
     expect(screen.getByLabelText('Unsaved changes')).toBeTruthy();

@@ -386,19 +386,23 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tabSearchOpen, setTabSearchOpen] = useState(false);
 
-  // Auto-scroll active tab into view
+  // Auto-scroll active tab into view.
+  // Instant, not smooth (workbench TabBar parity): selecting a request in
+  // the traffic table should snap the strip to its tab. A smooth scroll
+  // across many tabs reads as a sluggish "rubber band" between click and
+  // arrival.
   useEffect(() => {
     if (!activeTabId || !scrollRef.current) return;
     const container = scrollRef.current;
     const isLastTab = tabs.length > 0 && tabs[tabs.length - 1].id === activeTabId;
     if (isLastTab) {
-      container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+      container.scrollTo({ left: container.scrollWidth, behavior: 'instant' });
     } else {
       // CSS.escape (window-qualified — `CSS` here is dnd-kit's utility):
       // storage-record tab ids embed the JSON key wire (quotes,
       // backslashes) — raw interpolation is an invalid selector.
       const el = container.querySelector(`[data-tab-id="${window.CSS.escape(activeTabId)}"]`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      el?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' });
     }
   }, [activeTabId, tabs]);
 
