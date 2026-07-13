@@ -145,4 +145,11 @@ export interface RequestRpc {
     req: { workspaceId?: string };
     res: { success: boolean };
   };
+  /** Drop one jar entry by its replacement identity (name, domain,
+   *  path). Same scoping as `getCookieJarSummary`; a missing entry or
+   *  an absent jar is a quiet no-op. */
+  deleteCookieJarEntry: {
+    req: { workspaceId?: string; name: string; domain: string; path: string };
+    res: { success: boolean };
+  };
 }

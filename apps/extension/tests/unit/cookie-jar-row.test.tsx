@@ -2,9 +2,10 @@
 /**
  * CookieJarRow — the jar inspection line under the "Use cookie jar"
  * knob. The row reads the workspace jar through the
- * `getCookieJarSummary` bridge RPC (value-free metadata only) and
- * clears it through `clearCookieJar`; a host that rejects the summary
- * (no jar on this runtime) gets no row at all.
+ * `getCookieJarSummary` bridge RPC (value-free metadata only), clears
+ * it through `clearCookieJar`, and drops one entry through
+ * `deleteCookieJarEntry` from the popover row's ✕; a host that rejects
+ * the summary (no jar on this runtime) gets no row at all.
  */
 
 import { type CookieJarEntryWire, type HostBridge, setHostBridge } from '@openheaders/core/bridge';
@@ -33,15 +34,27 @@ afterEach(() => {
   cleanup();
 });
 
-/** Install a fake bridge whose jar channels answer from `cookies`;
- *  every other channel rejects like an unimplemented host RPC. */
+/** Install a fake bridge whose jar channels answer from a live copy of
+ *  `cookies` (clear empties it, delete drops by identity, the summary
+ *  re-reads it); every other channel rejects like an unimplemented host
+ *  RPC. */
 function installBridge(cookies: CookieJarEntryWire[], options: { rejectSummary?: boolean } = {}) {
-  const call = vi.fn(async (type: string) => {
+  let current = [...cookies];
+  const call = vi.fn(async (type: string, payload?: Record<string, unknown>) => {
     if (type === 'getCookieJarSummary') {
       if (options.rejectSummary) throw new Error("host: RPC 'getCookieJarSummary' is not implemented");
-      return { cookies };
+      return { cookies: current };
     }
-    if (type === 'clearCookieJar') return { success: true };
+    if (type === 'clearCookieJar') {
+      current = [];
+      return { success: true };
+    }
+    if (type === 'deleteCookieJarEntry') {
+      current = current.filter(
+        (c) => !(c.name === payload?.name && c.domain === payload?.domain && c.path === payload?.path),
+      );
+      return { success: true };
+    }
     throw new Error(`unexpected RPC '${type}'`);
   });
   setHostBridge({
@@ -97,6 +110,23 @@ describe('CookieJarRow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     await waitFor(() => expect(screen.getByText('0 cookies in this workspace’s jar')).toBeTruthy());
     expect(call).toHaveBeenCalledWith('clearCookieJar', {});
+  });
+
+  it('deletes one entry from its popover row over the bridge and refreshes the count', async () => {
+    const call = installBridge([SESSION_COOKIE, TENANT_COOKIE]);
+    render(<CookieJarRow />);
+    await waitFor(() => expect(screen.getByText('2 cookies in this workspace’s jar')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'About Cookie jar contents' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete session' }));
+    expect(call).toHaveBeenCalledWith('deleteCookieJarEntry', {
+      name: 'session',
+      domain: 'api.openheaders.io',
+      path: '/',
+    });
+    await waitFor(() => expect(screen.getByText('1 cookie in this workspace’s jar')).toBeTruthy());
+    // The open popover's list refreshed too — only the surviving row keeps its ✕.
+    expect(screen.queryByRole('button', { name: 'Delete session' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Delete tenant' })).toBeTruthy();
   });
 
   it('renders nothing when the host rejects the summary channel', async () => {

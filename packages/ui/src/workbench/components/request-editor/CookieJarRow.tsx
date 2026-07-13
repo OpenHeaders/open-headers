@@ -1,11 +1,13 @@
 /**
  * CookieJarRow — the quiet inspection line under the "Use cookie jar"
  * knob: how many cookies the workspace's in-memory jar holds right now,
- * a popover listing them, and a Clear action so starting clean doesn't
- * take an app restart.
+ * a popover listing them (each row with a hover-revealed ✕ to drop just
+ * that entry), and a Clear action so starting clean doesn't take an app
+ * restart.
  *
- * The jar lives host-side with the node transport, so both the read and
- * the clear ride bridge RPCs (`getCookieJarSummary` / `clearCookieJar`).
+ * The jar lives host-side with the node transport, so the read and both
+ * management actions ride bridge RPCs (`getCookieJarSummary` /
+ * `clearCookieJar` / `deleteCookieJarEntry`).
  * A host that doesn't answer them — no bridge installed, or a surface
  * whose node runtime hasn't wired the channel — rejects, and the row
  * hides itself instead of showing a control that can only fail.
@@ -66,6 +68,18 @@ const CookieJarRow: React.FC = () => {
       .catch(() => refresh());
   }, [refresh]);
 
+  const deleteEntry = useCallback(
+    (entry: CookieJarEntryWire) => {
+      const bridge = getHostBridge();
+      if (!bridge) return;
+      bridge
+        .call('deleteCookieJarEntry', { name: entry.name, domain: entry.domain, path: entry.path })
+        .then(() => refresh())
+        .catch(() => refresh());
+    },
+    [refresh],
+  );
+
   if (cookies === null) return null;
 
   const count = cookies.length;
@@ -89,8 +103,13 @@ const CookieJarRow: React.FC = () => {
                     heading: t('workbench.editors.request.settings.jar.storedHeading'),
                     layout: 'stacked' as const,
                     items: cookies.map((entry) => ({
+                      key: `${entry.name}|${entry.domain}|${entry.path}`,
                       label: entry.name,
                       desc: describeEntry(entry, t),
+                      action: {
+                        label: t('workbench.editors.request.settings.jar.delete', { name: entry.name }),
+                        onClick: () => deleteEntry(entry),
+                      },
                     })),
                   },
                 ],

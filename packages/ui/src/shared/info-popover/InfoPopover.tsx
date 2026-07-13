@@ -105,22 +105,36 @@ function InfoPopoverBody({ content }: { content: InfoPopoverContent }) {
                 </code>
               );
               const icon = item.icon && <span className="oh-info-popover-section-item-icon">{item.icon}</span>;
+              const action = item.action && (
+                <button
+                  type="button"
+                  className="oh-info-popover-section-item-action"
+                  aria-label={item.action.label}
+                  title={item.action.label}
+                  onClick={item.action.onClick}
+                >
+                  ✕
+                </button>
+              );
+              const key = item.key ?? item.label;
               if (section.layout === 'stacked') {
                 return (
-                  <div className="oh-info-popover-section-item oh-info-popover-section-item--stacked" key={item.label}>
+                  <div className="oh-info-popover-section-item oh-info-popover-section-item--stacked" key={key}>
                     <div className="oh-info-popover-section-item-head">
                       {icon}
                       {label}
+                      {action}
                     </div>
                     <span className="oh-info-popover-section-item-desc">{item.desc}</span>
                   </div>
                 );
               }
               return (
-                <div className="oh-info-popover-section-item" key={item.label}>
+                <div className="oh-info-popover-section-item" key={key}>
                   {icon}
                   {label}
                   <span className="oh-info-popover-section-item-desc">{item.desc}</span>
+                  {action}
                 </div>
               );
             })}

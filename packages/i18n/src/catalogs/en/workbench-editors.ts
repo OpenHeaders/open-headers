@@ -845,6 +845,7 @@ export const workbenchEditors = {
     'Cookies currently held by this workspace’s in-memory jar — stored by jar-enabled sends, attached to jar-enabled sends that match, and gone when the app quits. Values are session credentials and stay inside the app’s network runtime; only name, scope, and expiry are shown.',
   'workbench.editors.request.settings.jar.storedHeading': 'Stored cookies',
   'workbench.editors.request.settings.jar.clear': 'Clear',
+  'workbench.editors.request.settings.jar.delete': 'Delete {name}',
   'workbench.editors.request.settings.jar.expires': 'expires {date}',
   'workbench.editors.request.settings.jar.session': 'session',
   'workbench.editors.request.settings.jar.httpsOnly': 'https only',

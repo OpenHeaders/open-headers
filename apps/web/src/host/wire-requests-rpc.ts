@@ -1,6 +1,6 @@
 /**
  * Workbench request channels over the web tab's single wire —
- * `executeRequest` and the cookie-jar pair travel to the serving
+ * `executeRequest` and the cookie-jar channels travel to the serving
  * daemon and answer from its spine (the tab oracle has no network
  * transport and no jar).
  *
@@ -31,7 +31,7 @@ const EXECUTE_DEFAULT_TIMEOUT_MS = 120_000;
 /** Slack past the request's own timeout for daemon-side resolve + transit. */
 const EXECUTE_TIMEOUT_MARGIN_MS = 15_000;
 
-const FORWARDED_CHANNELS = ['executeRequest', 'getCookieJarSummary', 'clearCookieJar'] as const;
+const FORWARDED_CHANNELS = ['executeRequest', 'getCookieJarSummary', 'clearCookieJar', 'deleteCookieJarEntry'] as const;
 
 registerWireRpcChannels(FORWARDED_CHANNELS);
 

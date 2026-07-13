@@ -155,6 +155,42 @@ describe('CookieJar', () => {
     });
   });
 
+  describe('delete', () => {
+    it('drops exactly the (name, domain, path) identity, leaving same-name siblings', () => {
+      const jar = new CookieJar();
+      jar.store('https://api.openheaders.io/', [
+        { name: 'session', value: 'a', path: '/' },
+        { name: 'session', value: 'b', path: '/app' },
+        { name: 'tenant', value: 't', domain: '.openheaders.io', path: '/' },
+      ]);
+      jar.delete('session', 'api.openheaders.io', '/');
+      expect(jar.list().map((c) => `${c.name}|${c.domain}|${c.path}`)).toEqual([
+        'session|api.openheaders.io|/app',
+        'tenant|openheaders.io|/',
+      ]);
+    });
+
+    it('misses quietly — an unknown identity leaves the jar untouched', () => {
+      const jar = new CookieJar();
+      jar.store('https://openheaders.io/', [{ name: 'session', value: 's' }]);
+      jar.delete('session', 'openheaders.io', '/app');
+      jar.delete('other', 'openheaders.io', '/');
+      expect(jar.list().map((c) => c.name)).toEqual(['session']);
+      expect(jar.cookieHeaderFor('https://openheaders.io/')).toBe('session=s');
+    });
+
+    it('sweeps lapsed entries like an attach does', async () => {
+      const jar = new CookieJar();
+      jar.store('https://openheaders.io/', [
+        { name: 'brief', value: '1', expires: new Date(Date.now() + 20) },
+        { name: 'lasting', value: '1', maxAge: 3600 },
+      ]);
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      jar.delete('lasting', 'openheaders.io', '/');
+      expect(jar.list()).toEqual([]);
+    });
+  });
+
   describe('registry', () => {
     beforeEach(() => {
       resetCookieJars();

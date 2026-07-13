@@ -1,6 +1,6 @@
 /**
  * Peer-facing request-execution plane — answers the workbench request
- * channels (`executeRequest` + the cookie-jar pair) for WS peers, with
+ * channels (`executeRequest` + the cookie-jar trio) for WS peers, with
  * the per-frame gating law the peer admin plane established: the PEER's
  * identity snapshot resolves fresh on every call (a revocation bites
  * the next frame), the decision gates on a workspace CAPABILITY as the
@@ -16,8 +16,8 @@
  *      deny: this channel's existence is public contract.
  *   2. Capability as the peer's user on the TARGET workspace —
  *      `workspace.write` for a send (the MCP execute mapping) and for
- *      the destructive jar clear; `workspace.read` for the value-free
- *      jar summary. The jar channels carry no opt-in: they ride
+ *      the destructive jar clear and per-entry delete;
+ *      `workspace.read` for the value-free jar summary. The jar channels carry no opt-in: they ride
  *      authenticated admission + this per-workspace RBAC.
  *
  * The gates live HERE, beside the channel table — the in-process
@@ -45,6 +45,7 @@ const CAPABILITY_BY_CHANNEL: Record<string, Capability> = {
   executeRequest: 'workspace.write',
   getCookieJarSummary: 'workspace.read',
   clearCookieJar: 'workspace.write',
+  deleteCookieJarEntry: 'workspace.write',
 };
 
 export interface PeerRequestsRpcOptions {
@@ -94,6 +95,15 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
           return { cookies: peekCookieJar(workspaceId)?.list() ?? [] };
         case 'clearCookieJar':
           peekCookieJar(workspaceId)?.clear();
+          return { success: true };
+        case 'deleteCookieJarEntry':
+          if (
+            typeof message.name === 'string' &&
+            typeof message.domain === 'string' &&
+            typeof message.path === 'string'
+          ) {
+            peekCookieJar(workspaceId)?.delete(message.name, message.domain, message.path);
+          }
           return { success: true };
         default:
           // Unreachable by construction — `owns` gated entry.

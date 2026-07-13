@@ -107,9 +107,9 @@
  *     sheet's former 'Cookies · Not sent' fact row graduated into this
  *     knob. A quiet row under the knob (`CookieJarRow`) shows the
  *     jar's current contents (count + value-free metadata) with a
- *     Clear action; it rides the `getCookieJarSummary` /
- *     `clearCookieJar` bridge RPCs and hides on hosts that don't
- *     answer them.
+ *     Clear action and a per-entry ✕; it rides the
+ *     `getCookieJarSummary` / `clearCookieJar` / `deleteCookieJarEntry`
+ *     bridge RPCs and hides on hosts that don't answer them.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is

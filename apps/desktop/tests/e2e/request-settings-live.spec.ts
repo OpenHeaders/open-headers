@@ -511,6 +511,26 @@ test('getCookieJarSummary lists the entry value-free; clearCookieJar empties it'
   expect(snapshot.body).toBe('cookie=[]');
 });
 
+test('deleteCookieJarEntry drops one entry by its summary identity', async () => {
+  // Re-mint the session cookie the clear test just removed.
+  await exec(draft({ url: `http://127.0.0.1:${httpRig.port}/login`, cookieJar: true }));
+  const summary = await invoke<{ cookies: Array<Record<string, unknown>> }>({ type: 'getCookieJarSummary' });
+  const entry = summary.cookies.find((c) => c.name === 'session');
+  expect(entry).toBeDefined();
+  const deleted = await invoke<{ success: boolean }>({
+    type: 'deleteCookieJarEntry',
+    name: entry?.name,
+    domain: entry?.domain,
+    path: entry?.path,
+  });
+  expect(deleted.success).toBe(true);
+  const after = await invoke<{ cookies: Array<Record<string, unknown>> }>({ type: 'getCookieJarSummary' });
+  expect(after.cookies.map((c) => c.name)).not.toContain('session');
+  // And the wire agrees: the deleted cookie no longer attaches.
+  const snapshot = await exec(draft({ url: `http://127.0.0.1:${httpRig.port}/me`, cookieJar: true }));
+  expect(snapshot.body).toBe('cookie=[]');
+});
+
 // ── S17: workspace export round-trip ─────────────────────────────────
 // The export side of the host-neutral port: an export minted on this
 // desktop (gatherer → core builder → YAML) parses back and re-imports

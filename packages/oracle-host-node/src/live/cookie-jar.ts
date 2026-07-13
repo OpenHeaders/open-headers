@@ -175,6 +175,19 @@ export class CookieJar {
   }
 
   /**
+   * Drop one entry by its replacement identity (name, domain, path) —
+   * per-entry management beside `clear`. Runs the same lazy expiry
+   * sweep an attach does; a miss is a quiet no-op.
+   */
+  delete(name: string, domain: string, path: string): void {
+    const now = Date.now();
+    for (const [key, cookie] of this.cookies) {
+      if (cookie.expiresAt !== undefined && cookie.expiresAt <= now) this.cookies.delete(key);
+    }
+    this.cookies.delete(`${name}|${domain}|${path}`);
+  }
+
+  /**
    * The jar's live entries for the inspection surface, in storage
    * order, with the same lazy expiry sweep an attach runs. Cookie
    * VALUES stay behind by construction — they are session credentials

@@ -1,11 +1,12 @@
 /**
- * Peer-facing request-execution plane — the gating laws over the three
+ * Peer-facing request-execution plane — the gating laws over the four
  * workbench channels: `executeRequest` refuses (honestly, naming the
  * setting) while `backend.allowPeerExecute` is off, with no identity
  * resolution and no audit row; past the opt-in, every channel resolves
  * the peer's snapshot fresh, gates on the workspace capability
- * (`workspace.write` for send + clear, `workspace.read` for the
- * summary), audits the decision, and only then reaches the handler.
+ * (`workspace.write` for send + clear + per-entry delete,
+ * `workspace.read` for the summary), audits the decision, and only
+ * then reaches the handler.
  * The target workspace is the frame's, falling back to the host's
  * active one.
  */
@@ -18,7 +19,10 @@ const h = vi.hoisted(() => ({
   resolveSnapshot: vi.fn(async (_userId: string) => ({ kind: 'fake-snapshot' })),
   hasCapability: vi.fn((_snapshot: unknown, _capability: string, _ctx?: unknown) => h.decision),
   audits: [] as Record<string, unknown>[],
-  jars: new Map<string, { list: () => unknown[]; clear: () => void }>(),
+  jars: new Map<
+    string,
+    { list: () => unknown[]; clear: () => void; delete?: (name: string, domain: string, path: string) => void }
+  >(),
 }));
 
 vi.mock('@openheaders/core/identity', () => ({
@@ -53,11 +57,12 @@ beforeEach(() => {
 });
 
 describe('createPeerRequestsRpc — ownership', () => {
-  it('owns exactly the three request channels', () => {
+  it('owns exactly the four request channels', () => {
     const rpc = createPeerRequestsRpc();
     expect(rpc.owns('executeRequest')).toBe(true);
     expect(rpc.owns('getCookieJarSummary')).toBe(true);
     expect(rpc.owns('clearCookieJar')).toBe(true);
+    expect(rpc.owns('deleteCookieJarEntry')).toBe(true);
     expect(rpc.owns('getStatusSnapshot')).toBe(false);
     expect(rpc.owns('oh.daemon.users.list')).toBe(false);
   });
@@ -143,6 +148,22 @@ describe('createPeerRequestsRpc — cookie-jar channels', () => {
     await expect(rpc.dispatch({ type: 'clearCookieJar' }, PEER)).resolves.toEqual({ success: true });
     expect(h.hasCapability).toHaveBeenCalledWith(expect.anything(), 'workspace.write', { workspaceId: 'ws-active' });
     expect(clear).toHaveBeenCalledOnce();
+  });
+
+  it('deletes one entry by its (name, domain, path) identity under workspace.write', async () => {
+    const del = vi.fn();
+    h.jars.set('ws-tab', { list: () => [], clear: () => {}, delete: del });
+    const rpc = createPeerRequestsRpc();
+    const message = {
+      type: 'deleteCookieJarEntry',
+      workspaceId: 'ws-tab',
+      name: 'sid',
+      domain: 'openheaders.io',
+      path: '/',
+    };
+    await expect(rpc.dispatch(message, PEER)).resolves.toEqual({ success: true });
+    expect(h.hasCapability).toHaveBeenCalledWith(expect.anything(), 'workspace.write', { workspaceId: 'ws-tab' });
+    expect(del).toHaveBeenCalledWith('sid', 'openheaders.io', '/');
   });
 
   it('a capability deny leaves the jar untouched', async () => {

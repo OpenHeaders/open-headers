@@ -705,7 +705,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     }
     // Cookie-jar inspection — the jar registry lives in this process
     // (the transport stores per-workspace session cookies in memory),
-    // so this host answers the summary/clear channels directly. The
+    // so this host answers the summary/clear/delete channels directly. The
     // summary is value-free by construction (`CookieJar.list`); an
     // unspecified workspace resolves to the active one, matching the
     // jar key an unpinned send runs under.
@@ -718,6 +718,14 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       const workspaceId =
         typeof message.workspaceId === 'string' ? message.workspaceId : (getActiveWorkspaceId() ?? 'default');
       peekCookieJar(workspaceId)?.clear();
+      return { success: true };
+    }
+    if (type === 'deleteCookieJarEntry') {
+      const workspaceId =
+        typeof message.workspaceId === 'string' ? message.workspaceId : (getActiveWorkspaceId() ?? 'default');
+      if (typeof message.name === 'string' && typeof message.domain === 'string' && typeof message.path === 'string') {
+        peekCookieJar(workspaceId)?.delete(message.name, message.domain, message.path);
+      }
       return { success: true };
     }
     // Workbench Send — the node host's user-facing request execution,

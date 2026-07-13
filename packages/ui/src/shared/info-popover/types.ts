@@ -40,6 +40,13 @@ export interface InfoPopoverSection {
      *  map (e.g. METHOD_COLORS) rather than a CSS class. */
     labelStyle?: React.CSSProperties;
     icon?: React.ReactNode;
+    /** Explicit React key for lists whose labels can collide across
+     *  rows (the default key is the label). */
+    key?: string;
+    /** Per-row action, rendered as a small hover-revealed ✕ button at
+     *  the row's end (e.g. removing the row's entry). `label` is the
+     *  accessible name. */
+    action?: { label: string; onClick: () => void };
   }>;
 }
 
