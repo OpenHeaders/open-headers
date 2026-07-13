@@ -2,7 +2,7 @@
  * `ChromeCdpEvalPort` — the chrome adapter that runs a dynamic rule's user JS
  * in a per-frame isolated world (D2b-2a). Verifies the
  * `Page.createIsolatedWorld` + `Runtime.callFunctionOn` mapping, the per-frame
- * context cache, the stale-context recreate-and-retry, and the
+ * context cache, the recreate-once-on-any-failure retry, and the
  * fault-→-`{ok:false}` discipline (a fault never throws into the interceptor).
  */
 
@@ -141,6 +141,50 @@ describe('ChromeCdpEvalPort', () => {
 
     expect(outcome).toEqual({ ok: true, value: 'recovered' });
     expect(worlds).toBe(2); // initial world + the recreate after the stale retry
+  });
+
+  it('recreates and retries once on an unrecognized callFunctionOn error wording', async () => {
+    let worlds = 0;
+    let firstCallOn = true;
+    const { sender } = fakeSender((call) => {
+      if (call.method === 'Page.createIsolatedWorld') {
+        worlds += 1;
+        return { executionContextId: worlds };
+      }
+      // A navigated-away context surfaced with wording no substring heuristic knows.
+      if (firstCallOn) {
+        firstCallOn = false;
+        throw new Error('Target closed');
+      }
+      return { result: { value: 'recovered' } };
+    });
+    const port = new ChromeCdpEvalPort(sender);
+
+    const outcome = await port.callInIsolatedWorld(TARGET, 'frame-1', 'fn', {});
+
+    expect(outcome).toEqual({ ok: true, value: 'recovered' });
+    expect(worlds).toBe(2);
+  });
+
+  it('returns ok:false after exactly one retry on a persistent callFunctionOn fault', async () => {
+    let worlds = 0;
+    let callsOn = 0;
+    const { sender } = fakeSender((call) => {
+      if (call.method === 'Page.createIsolatedWorld') {
+        worlds += 1;
+        return { executionContextId: worlds };
+      }
+      callsOn += 1;
+      throw new Error('Internal error');
+    });
+    const port = new ChromeCdpEvalPort(sender);
+
+    const outcome = await port.callInIsolatedWorld(TARGET, 'frame-1', 'fn', {});
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error).toContain('Internal error');
+    expect(worlds).toBe(2); // initial world + exactly one recreate — no loop
+    expect(callsOn).toBe(2);
   });
 
   it('times out a hung eval to ok:false', async () => {

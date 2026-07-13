@@ -23,13 +23,6 @@ const MAX_ISOLATED_WORLDS = 256;
 
 const ISOLATED_WORLD_NAME = 'OpenHeadersDebug';
 
-/** `Runtime.callFunctionOn` failed because its execution context is gone — the
- *  frame navigated and tore the cached isolated world down. */
-function isStaleContext(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  return msg.includes('Cannot find context') || msg.includes('Execution context') || msg.includes('navigated');
-}
-
 export class ChromeCdpEvalPort implements CdpEvalPort {
   private readonly sender: CdpSessionSender;
   /** `(tabId:sessionId:frameId)` → isolated-world executionContextId. */
@@ -65,10 +58,12 @@ export class ChromeCdpEvalPort implements CdpEvalPort {
     const contextId = await this.contextFor(target, frameId);
     try {
       return await this.callOn(target, contextId, functionDeclaration, arg);
-    } catch (err) {
-      if (!isStaleContext(err)) throw err;
-      // The cached isolated world was torn down by a navigation — drop it,
-      // recreate once, and retry. A second failure is a genuine fault.
+    } catch {
+      // Any first callFunctionOn failure is treated as a torn-down isolated
+      // world (a navigation invalidates the cached context, and Chrome's
+      // wording for that is not contractual) — drop it, recreate once, and
+      // retry. A still-valid world is cheap to recreate, so an over-eager
+      // recreate is safe; a second failure is a genuine fault.
       this.contexts.delete(key(target, frameId));
       const fresh = await this.createWorld(target, frameId);
       return await this.callOn(target, fresh, functionDeclaration, arg);
