@@ -292,9 +292,13 @@ export interface DevToolsRpc {
    * The response only acks dispatch: the command echo AND its result/error
    * are recorded as console-stream entries (`source: 'command'` /
    * `'result'`), so the transcript stays one ordered, replayable feed.
+   *
+   * `userGesture` mirrors the browser's "Treat code evaluation as user
+   * action" console setting (`Runtime.evaluate`'s flag); omitted reads as
+   * `true`, the browser's default.
    */
   consoleEval: {
-    req: { tabId: number; contextKey: string; expression: string };
+    req: { tabId: number; contextKey: string; expression: string; userGesture?: boolean };
     res: { success: boolean; error?: string };
   };
 

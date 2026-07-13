@@ -117,6 +117,28 @@ button.dt-console-caret:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* Repeat-count badge ("Group similar messages") — the browser's pill that
+   stands for N identical consecutive messages, tinted by severity. */
+.dt-console-repeat {
+  flex: 0 0 auto;
+  min-width: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  text-align: center;
+  font-size: 10px;
+  line-height: 14px;
+  color: #fff;
+  background: var(--dt-link);
+}
+
+.dt-console-row[data-level='warning'] .dt-console-repeat {
+  background: var(--dt-status-orange);
+}
+
+.dt-console-row[data-level='error'] .dt-console-repeat {
+  background: var(--dt-status-red);
+}
+
 .dt-console-msg {
   flex: 1 1 auto;
   min-width: 0;

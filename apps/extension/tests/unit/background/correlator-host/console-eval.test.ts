@@ -47,7 +47,7 @@ afterEach(() => {
 describe('createConsoleEval', () => {
   it('records the command echo, evaluates on the root session, and records the value', async () => {
     const rig = makeRig({ sessionResult: { result: { type: 'number', value: 42, description: '42' } } });
-    await rig.executor.evaluate(TAB, 'page::3', '41 + 1');
+    await rig.executor.evaluate(TAB, 'page::3', '41 + 1', true);
 
     expect(rig.sendOnSession).toHaveBeenCalledWith(TAB, 'page', 'Runtime.evaluate', {
       expression: '41 + 1',
@@ -56,6 +56,7 @@ describe('createConsoleEval', () => {
       includeCommandLineAPI: true,
       generatePreview: true,
       awaitPromise: true,
+      userGesture: true,
       objectGroup: 'oh-console',
     });
     expect(rig.entries).toEqual([
@@ -82,9 +83,20 @@ describe('createConsoleEval', () => {
     ]);
   });
 
+  it('carries the "treat evaluation as user action" flag through to Runtime.evaluate', async () => {
+    const rig = makeRig();
+    await rig.executor.evaluate(TAB, 'page::3', '1', false);
+    expect(rig.sendOnSession).toHaveBeenCalledWith(
+      TAB,
+      'page',
+      'Runtime.evaluate',
+      expect.objectContaining({ userGesture: false }),
+    );
+  });
+
   it('routes a kept-child context to its session and a target context to the target sender', async () => {
     const rig = makeRig();
-    await rig.executor.evaluate(TAB, 'child-iframe-1::2', 'x');
+    await rig.executor.evaluate(TAB, 'child-iframe-1::2', 'x', true);
     expect(rig.sendOnSession).toHaveBeenCalledWith(
       TAB,
       'child-iframe-1',
@@ -92,7 +104,7 @@ describe('createConsoleEval', () => {
       expect.objectContaining({ contextId: 2 }),
     );
 
-    await rig.executor.evaluate(TAB, 'target:SW1::1', 'y');
+    await rig.executor.evaluate(TAB, 'target:SW1::1', 'y', true);
     expect(rig.sendOnTarget).toHaveBeenCalledWith('SW1', 'Runtime.evaluate', expect.objectContaining({ contextId: 1 }));
     expect(rig.sendOnSession).toHaveBeenCalledTimes(1);
   });
@@ -109,7 +121,7 @@ describe('createConsoleEval', () => {
         },
       },
     });
-    await rig.executor.evaluate(TAB, 'page::1', 'nope');
+    await rig.executor.evaluate(TAB, 'page::1', 'nope', true);
     const result = rig.entries[1].entry;
     expect(result.source).toBe('result');
     expect(result.level).toBe('error');
@@ -118,7 +130,7 @@ describe('createConsoleEval', () => {
 
   it('turns a transport rejection into an error result entry, never throwing', async () => {
     const rig = makeRig({ sessionError: new Error('Detached while handling command') });
-    await rig.executor.evaluate(TAB, 'page::1', '1');
+    await rig.executor.evaluate(TAB, 'page::1', '1', true);
     const result = rig.entries[1].entry;
     expect(result.level).toBe('error');
     expect(result.args[0].text).toBe('Evaluation failed: Detached while handling command');
@@ -127,7 +139,7 @@ describe('createConsoleEval', () => {
   it('enforces the 5s ceiling on a hung evaluation', async () => {
     vi.useFakeTimers();
     const rig = makeRig({ hang: true });
-    const done = rig.executor.evaluate(TAB, 'page::1', 'while(true){}');
+    const done = rig.executor.evaluate(TAB, 'page::1', 'while(true){}', true);
     await vi.advanceTimersByTimeAsync(5_100);
     await done;
     expect(rig.entries[1].entry.args[0].text).toBe('Evaluation failed: evaluation timed out');
@@ -135,8 +147,8 @@ describe('createConsoleEval', () => {
 
   it('rejects a malformed context key without dispatching', async () => {
     const rig = makeRig();
-    await rig.executor.evaluate(TAB, 'garbage', '1');
-    await rig.executor.evaluate(TAB, 'page::NaN', '1');
+    await rig.executor.evaluate(TAB, 'garbage', '1', true);
+    await rig.executor.evaluate(TAB, 'page::NaN', '1', true);
     expect(rig.sendOnSession).not.toHaveBeenCalled();
     expect(rig.entries.filter((e) => e.entry.source === 'result').map((e) => e.entry.args[0].text)).toEqual([
       'Evaluation failed: unknown context',

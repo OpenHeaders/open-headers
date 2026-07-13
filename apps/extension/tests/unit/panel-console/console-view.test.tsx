@@ -507,6 +507,59 @@ describe('ConsoleView settings pane (gear)', () => {
     expect(screen.getByText('after nav')).toBeTruthy();
   });
 
+  it('"Group similar" collapses identical consecutive messages behind a count badge', () => {
+    const spam = [entry('poll tick'), entry('poll tick'), entry('poll tick'), entry('something else')];
+    const { container } = renderView(spam);
+    // Default ON — one row for the three ticks, with the browser's badge.
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(2);
+    expect(container.querySelector('.dt-console-repeat')?.textContent).toBe('3');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    fireEvent.click(screen.getByLabelText('Group similar messages in console'));
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(4);
+    expect(container.querySelector('.dt-console-repeat')).toBeNull();
+  });
+
+  it('command/result echo rows never group', () => {
+    const transcript = [
+      entry('1 + 1', { source: 'command' }),
+      entry('1 + 1', { source: 'command' }),
+      entry('2', { source: 'result' }),
+      entry('2', { source: 'result' }),
+    ];
+    const { container } = renderView(transcript);
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(4);
+  });
+
+  it('"Show CORS errors in console" off hides the CORS-policy explanations only', () => {
+    const { container } = renderView([
+      entry('page log'),
+      entry(
+        "Access to fetch at 'https://api.openheaders.io/x' from origin 'https://app.openheaders.io' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present.",
+        { level: 'error' },
+      ),
+    ]);
+    expect(container.querySelectorAll('.dt-console-row')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    fireEvent.click(screen.getByLabelText('Show CORS errors in console'));
+    const rows = container.querySelectorAll('.dt-console-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('page log');
+  });
+
+  it('"Treat code evaluation as user action" off drops the userGesture flag', () => {
+    installNavigation(vi.fn(), () => 5);
+    bridgeCallSpy.mockClear();
+    const TOP = makeContext({ contextKey: 'page::1', isTopFrame: true });
+    renderView([], { contexts: [TOP] });
+    fireEvent.click(screen.getByRole('button', { name: 'Console settings' }));
+    fireEvent.click(screen.getByLabelText('Treat code evaluation as user action'));
+    const input = screen.getByLabelText('Console prompt') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '1' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(bridgeCallSpy).toHaveBeenCalledWith('consoleEval', expect.objectContaining({ userGesture: false }));
+  });
+
   it('"Preserve log" keeps the pre-navigation entries', () => {
     const TOP1 = makeContext({ contextKey: 'page::1', isTopFrame: true });
     const TOP2 = makeContext({ contextKey: 'page::7', isTopFrame: true });
@@ -572,6 +625,7 @@ describe('ConsoleView REPL prompt + echo rows (JS contexts Phase D)', () => {
       tabId: 5,
       contextKey: 'page::1',
       expression: '41 + 1',
+      userGesture: true,
     });
     expect(input.value).toBe('');
   });

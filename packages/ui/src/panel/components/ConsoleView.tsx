@@ -24,7 +24,7 @@
  * entries stay readable under a "capture stopped" banner rather than vanishing.
  */
 
-import { CheckOutlined } from '@ant-design/icons';
+import { CheckOutlined, SettingOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import type { ConsoleEntry, ConsoleStackFrame } from '@openheaders/core/console-stream';
 import type { JsContext } from '@openheaders/core/js-contexts';
@@ -53,7 +53,7 @@ import { formatClock } from '../data/timing/format-time';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
 import { ConsoleContextSelector } from './ConsoleContextSelector';
 import { ConsolePrompt } from './ConsolePrompt';
-import { IconClear, IconCollapseAll, IconExpandAll, IconGear } from './toolbar-icons';
+import { IconClear, IconCollapseAll, IconExpandAll } from './toolbar-icons';
 import { ToolbarMenuPopover } from './ToolbarMenuPopover';
 
 interface ConsoleViewProps {
@@ -180,6 +180,9 @@ interface ConsoleRow {
   /** Expandable ladder — the entry's own stack, else the request initiator's. */
   stack: readonly ConsoleStackFrame[] | null;
   location: ConsoleSourceLocation | null;
+  /** How many identical consecutive entries this row stands for ("Group
+   *  similar messages" — the browser's repeat-count badge). */
+  repeat: number;
 }
 
 function buildRow(entry: ConsoleEntry, entryIndex: number, resolveRequest: ConsoleViewProps['resolveRequest']): ConsoleRow {
@@ -189,7 +192,29 @@ function buildRow(entry: ConsoleEntry, entryIndex: number, resolveRequest: Conso
   const stack = entry.stackTrace ?? request?.stack ?? null;
   const location = stack !== null && stack.length > 0 ? frameLocation(stack[0]) : sourceLocation(entry);
   const displayText = request !== null ? `${request.method} ${request.url} ${requestTail}`.trimEnd() : text;
-  return { entry, entryIndex, displayText, request, requestTail, stack, location };
+  return { entry, entryIndex, displayText, request, requestTail, stack, location, repeat: 1 };
+}
+
+/** The browser's CORS explanation messages ("Access to fetch at … has been
+ *  blocked by CORS policy: …") — what "Show CORS errors in console" hides. */
+function isCorsMessage(entry: ConsoleEntry): boolean {
+  return entry.args.some((a) => a.text.includes('blocked by CORS policy'));
+}
+
+/** Whether two entries render identically — the "Group similar" collapse
+ *  key. Command/result echo rows never group (a transcript stays literal). */
+function isSameMessage(a: ConsoleEntry, b: ConsoleEntry): boolean {
+  return (
+    a.source === b.source &&
+    a.level === b.level &&
+    a.contextKey === b.contextKey &&
+    a.url === b.url &&
+    a.args.map((arg) => arg.text).join(' ') === b.args.map((arg) => arg.text).join(' ')
+  );
+}
+
+function isGroupable(entry: ConsoleEntry): boolean {
+  return entry.source !== 'command' && entry.source !== 'result';
 }
 
 export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick, onClear, onHide }: ConsoleViewProps) {
@@ -240,6 +265,8 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
       // "Hide network" hides the browser's own network log entries (failed /
       // blocked requests) — the page's console.* output always stays.
       if (prefs.hideNetwork && entry.source === 'browser' && entry.category === 'network') continue;
+      // "Show CORS errors in console" off hides the CORS explanations.
+      if (!prefs.showCorsErrors && isCorsMessage(entry)) continue;
       // "Selected context only" hides rows from other contexts by their
       // `contextKey` join; entries with no key (browser-plane log entries,
       // pre-upgrade backlog) are never hidden.
@@ -259,6 +286,19 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
       ) {
         continue;
       }
+      // "Group similar" collapses a repeat of the previous visible row into
+      // its count badge (the browser's repeat counter).
+      const previous = result[result.length - 1];
+      if (
+        prefs.groupSimilar &&
+        previous !== undefined &&
+        isGroupable(entry) &&
+        isGroupable(previous.entry) &&
+        isSameMessage(previous.entry, entry)
+      ) {
+        previous.repeat += 1;
+        continue;
+      }
       result.push(row);
     }
     return result;
@@ -268,6 +308,8 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
     prefs.levels,
     prefs.hideNetwork,
     prefs.selectedContextOnly,
+    prefs.groupSimilar,
+    prefs.showCorsErrors,
     textFilter,
     resolveRequest,
     effectiveContextKey,
@@ -326,7 +368,14 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
   const evaluate = (expression: string): void => {
     const tabId = hostNavigation.inspectedTabId();
     if (tabId == null || effectiveContextKey === null) return;
-    void hostBridge.call('consoleEval', { tabId, contextKey: effectiveContextKey, expression }).catch(() => {});
+    void hostBridge
+      .call('consoleEval', {
+        tabId,
+        contextKey: effectiveContextKey,
+        expression,
+        userGesture: prefs.evalUserGesture,
+      })
+      .catch(() => {});
   };
 
   return (
@@ -415,7 +464,7 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
               title="Console settings"
               aria-label="Console settings"
             >
-              <IconGear />
+              <SettingOutlined />
             </button>
           </div>
         }
@@ -446,6 +495,33 @@ export function ConsoleView({ entries, contexts, resolveRequest, onRequestClick,
               onChange={(e) => setConsolePrefs({ selectedContextOnly: e.target.checked })}
             />
             Selected context only
+          </label>
+          <label className="dt-console-setting" title="Collapse repeated identical messages into one row with a count">
+            <input
+              type="checkbox"
+              checked={prefs.groupSimilar}
+              onChange={(e) => setConsolePrefs({ groupSimilar: e.target.checked })}
+            />
+            Group similar messages in console
+          </label>
+          <label className="dt-console-setting" title="Show CORS policy errors alongside the page's own output">
+            <input
+              type="checkbox"
+              checked={prefs.showCorsErrors}
+              onChange={(e) => setConsolePrefs({ showCorsErrors: e.target.checked })}
+            />
+            Show CORS errors in console
+          </label>
+          <label
+            className="dt-console-setting"
+            title="Evaluate with a user gesture, so APIs gated on user activation work from the prompt"
+          >
+            <input
+              type="checkbox"
+              checked={prefs.evalUserGesture}
+              onChange={(e) => setConsolePrefs({ evalUserGesture: e.target.checked })}
+            />
+            Treat code evaluation as user action
           </label>
         </div>
       )}
@@ -544,6 +620,13 @@ function ConsoleRowView({ row, resolvedFrames, expanded, onToggleExpanded, onReq
           </button>
         ) : (
           <span className="dt-console-caret" />
+        )}
+        {row.repeat > 1 && (
+          // The browser's repeat-count badge — this row stands for N
+          // identical consecutive messages ("Group similar").
+          <span className="dt-console-repeat" data-level={entry.level} title={`${row.repeat} identical messages`}>
+            {row.repeat}
+          </span>
         )}
         <span className="dt-console-time">{formatClock(entry.timestamp, 'local')}</span>
         <span className="dt-console-msg" title={row.displayText}>

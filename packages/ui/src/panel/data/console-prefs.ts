@@ -22,16 +22,27 @@ export interface ConsolePrefs {
   readonly hideNetwork: boolean;
   readonly preserveLog: boolean;
   readonly selectedContextOnly: boolean;
+  /** Collapse repeated identical messages into one row with a count. */
+  readonly groupSimilar: boolean;
+  /** Off hides the browser's CORS-policy error messages. */
+  readonly showCorsErrors: boolean;
+  /** `Runtime.evaluate` with `userGesture` — the browser's "Treat code
+   *  evaluation as user action". */
+  readonly evalUserGesture: boolean;
   readonly settingsOpen: boolean;
   /** Entries before this index are hidden (cleared by a navigation). */
   readonly cutoff: number;
 }
 
+/** Defaults mirror the browser's console settings defaults. */
 const defaults: ConsolePrefs = {
   levels: DEFAULT_LEVELS,
   hideNetwork: false,
   preserveLog: false,
   selectedContextOnly: false,
+  groupSimilar: true,
+  showCorsErrors: true,
+  evalUserGesture: true,
   settingsOpen: false,
   cutoff: 0,
 };

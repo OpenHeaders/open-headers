@@ -41,8 +41,10 @@ export interface ConsoleEvalOptions {
 }
 
 export interface ConsoleEvalExecutor {
-  /** Evaluate one expression; resolves once both echo entries are recorded. */
-  evaluate(tabId: number, contextKey: string, expression: string): Promise<void>;
+  /** Evaluate one expression; resolves once both echo entries are recorded.
+   *  `userGesture` mirrors the browser's "Treat code evaluation as user
+   *  action" console setting. */
+  evaluate(tabId: number, contextKey: string, expression: string, userGesture: boolean): Promise<void>;
 }
 
 const EVAL_TIMEOUT_MS = 5_000;
@@ -52,7 +54,7 @@ export function createConsoleEval(options: ConsoleEvalOptions): ConsoleEvalExecu
   const now = options.now ?? (() => Date.now());
 
   return {
-    async evaluate(tabId: number, contextKey: string, expression: string): Promise<void> {
+    async evaluate(tabId: number, contextKey: string, expression: string, userGesture: boolean): Promise<void> {
       options.recordEntry(tabId, normalizeEvalCommand(contextKey, expression, now()));
 
       const address = parseContextKey(contextKey);
@@ -68,6 +70,7 @@ export function createConsoleEval(options: ConsoleEvalOptions): ConsoleEvalExecu
         includeCommandLineAPI: true,
         generatePreview: true,
         awaitPromise: true,
+        userGesture,
         objectGroup: 'oh-console',
       };
 

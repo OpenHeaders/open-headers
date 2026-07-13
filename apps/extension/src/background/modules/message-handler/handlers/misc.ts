@@ -20,9 +20,12 @@ export const miscHandlers: HandlerMap = {
     const tabId = message.tabId as number;
     const contextKey = message.contextKey as string;
     const expression = message.expression as string;
+    // "Treat code evaluation as user action" — absent reads as true, the
+    // browser's default.
+    const userGesture = message.userGesture !== false;
     // The outcome rides the console stream as command/result entries; the
     // response only acks dispatch (false = no evaluator on this host).
-    evalConsoleExpression(tabId, contextKey, expression)
+    evalConsoleExpression(tabId, contextKey, expression, userGesture)
       .then((dispatched) =>
         respond(dispatched ? { success: true } : { success: false, error: 'console evaluation unavailable' }),
       )

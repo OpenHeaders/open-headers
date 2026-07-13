@@ -24,9 +24,14 @@ export function registerConsoleEval(next: ConsoleEvalExecutor): void {
  * host without CDP never does) — the echo entries carry the outcome, so
  * the response is only a dispatch ack.
  */
-export async function evalConsoleExpression(tabId: number, contextKey: string, expression: string): Promise<boolean> {
+export async function evalConsoleExpression(
+  tabId: number,
+  contextKey: string,
+  expression: string,
+  userGesture: boolean,
+): Promise<boolean> {
   if (!executor) return false;
-  await executor.evaluate(tabId, contextKey, expression);
+  await executor.evaluate(tabId, contextKey, expression, userGesture);
   return true;
 }
 
