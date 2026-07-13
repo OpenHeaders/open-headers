@@ -53,6 +53,15 @@ const MCP_URL = `http://127.0.0.1:${DAEMON_PORT}/mcp`;
 
 const API_KEY = 'PMAK-e2e-openheaders-0123456789abcdef';
 
+// OH_E2E_SLOWMO=<ms> paces the run so a human can watch each UI step.
+// The chromium extension context takes it natively; Electron launches
+// have no slowMo, so desktop interactions call pace() explicitly.
+const SLOWMO_MS = Number(process.env.OH_E2E_SLOWMO ?? '0');
+
+async function pace(page: Page): Promise<void> {
+  if (SLOWMO_MS > 0) await page.waitForTimeout(SLOWMO_MS);
+}
+
 // ── Stand-in Data API ───────────────────────────────────────────────
 //
 // One workspace holding one collection (two requests) + one
@@ -198,9 +207,11 @@ test.afterAll(async () => {
 // ── Desktop leg ─────────────────────────────────────────────────────
 
 test('the first-run empty workspace offers the migration ladder', async () => {
+  await pace(workbench);
   await workbench.getByRole('button', { name: /Migrate from another tool/ }).click();
   const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
   await expect(modal.getByRole('button', { name: 'Scan this computer' })).toBeVisible();
+  await pace(workbench);
 });
 
 test('consent click 1 — the scan reveals the account pull entry', async () => {
@@ -208,11 +219,13 @@ test('consent click 1 — the scan reveals the account pull entry', async () => 
   const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
   await expect(modal.getByText('Pull everything from your Postman account')).toBeVisible({ timeout: 15000 });
   await expect(modal.getByLabel('Postman API key')).toBeVisible();
+  await pace(workbench);
 });
 
 test('consent click 2 — the key starts the unattended background pull', async () => {
   const modal = workbench.getByRole('dialog').filter({ hasText: 'Migrate from another tool' });
   await modal.getByLabel('Postman API key').fill(API_KEY);
+  await pace(workbench);
   await modal.getByRole('button', { name: 'Start background import' }).click();
   // Two clicks of consent, then unattended — the modal closes on start.
   await expect(workbench.getByText('Pull everything from your Postman account')).toHaveCount(0);
@@ -231,6 +244,7 @@ test('the pull drains the stub — key on every call, uid item forms, nothing el
 
 test('the corner task settles into the report flip with the folded month budget', async () => {
   await expect(workbench.getByText('Import finished — view report')).toBeVisible({ timeout: 30000 });
+  await pace(workbench);
 
   // The month budget folded off the stub's headers into the run state.
   const state = await workbench.evaluate(async () => {
@@ -257,11 +271,13 @@ test('the click-through lands in the landing workspace with the aggregated repor
   await expect(report).toBeVisible({ timeout: 15000 });
   await expect(report).toContainText('Imported from Postman');
   await expect(report).toContainText('Everything imported cleanly');
+  await pace(workbench);
   await report.getByRole('button', { name: 'Close' }).last().click();
   await expect(report).toHaveCount(0);
 
   // The switch landed — this window now edits the landing workspace.
   await expect(workbench.getByLabel(/editing workspace: Imported from Postman/)).toBeVisible();
+  await pace(workbench);
 });
 
 // ── Extension mirror leg ────────────────────────────────────────────
@@ -282,6 +298,7 @@ test('a connected extension mirrors the finished run in its own corner', async (
 
   extensionContext = await chromium.launchPersistentContext('', {
     headless: false,
+    slowMo: SLOWMO_MS,
     args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
   });
   const bootWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
@@ -373,6 +390,7 @@ test('a connected extension mirrors the finished run in its own corner', async (
   extensionWorkbench = await extensionContext.newPage();
   await extensionWorkbench.goto(`chrome-extension://${extensionId}/workbench.html`);
   await expect(extensionWorkbench.getByText('Import finished — view report')).toBeVisible({ timeout: 30000 });
+  await pace(extensionWorkbench);
 });
 
 test('the extension click-through lands on the synced landing workspace', async () => {
@@ -386,10 +404,12 @@ test('the extension click-through lands on the synced landing workspace', async 
   // The summary rides the mirrored run state; the report ring itself is
   // host-local to the desktop.
   await expect(report).toContainText('Imported from Postman');
+  await pace(page);
   await report.getByRole('button', { name: 'Close' }).last().click();
 
   // The switch landed — this surface now edits the synced landing workspace.
   await expect(page.getByLabel(/editing workspace: Imported from Postman/)).toBeVisible({ timeout: 15000 });
+  await pace(page);
 });
 
 // ── Re-pull refresh leg ─────────────────────────────────────────────
@@ -423,14 +443,19 @@ test('a complete re-pull refreshes the landing workspace instead of duplicating 
     .toBe(`${started.runId}:done`);
 
   // ONE copy of the collection in the requests nav — the refresh
-  // tombstoned the previous import before landing this pull.
+  // tombstoned the previous import before landing this pull. The nav
+  // lives in the API Requests tool window, which starts unselected.
+  const navTab = workbench.getByRole('tab', { name: 'API Requests' }).first();
+  if ((await navTab.getAttribute('aria-selected')) !== 'true') await navTab.click();
   const section = workbench
     .getByRole('button', { name: /REQUESTS/ })
     .filter({ visible: true })
     .first();
   await section.waitFor({ state: 'visible', timeout: 10000 });
+  await pace(workbench);
   if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
   await expect(workbench.locator('[data-item-id^="req-col-"]').filter({ visible: true })).toHaveCount(1);
+  await pace(workbench);
 });
 
 test('the re-pull report records the replacement transform', async () => {
@@ -438,6 +463,7 @@ test('the re-pull report records the replacement transform', async () => {
   const report = workbench.getByRole('dialog').filter({ hasText: 'Postman import report' });
   await expect(report).toBeVisible({ timeout: 15000 });
   await expect(report).toContainText('replaced by this pull');
+  await pace(workbench);
   await report.getByRole('button', { name: 'Close' }).last().click();
   await expect(report).toHaveCount(0);
 });
