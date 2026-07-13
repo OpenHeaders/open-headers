@@ -8,13 +8,17 @@
  *     whenever it exists; an explicit pick of a live context wins until
  *     that context dies, then selection falls back to `top`.
  *   - Title: the context's own label/name when present, else `top` for the
- *     top context, else the frame's display name (its URL's last path
- *     segment — the browser's frame label), else the origin — collapsed to
- *     its `host[:port]` when it is a bare origin (script-URL origins keep
- *     the full URL). Subtitle: the literal `Extension` for extension
- *     worlds, else the origin's `host[:port]` (falling back to the frame
- *     URL's host for opaque-origin worlds), and only when it adds
- *     information over the title.
+ *     top context, else — for service workers — the script's file name,
+ *     else the frame's display name (its URL's last path segment — the
+ *     browser's frame label), else the origin — collapsed to its
+ *     `host[:port]` when it is a bare origin (unnamed dedicated workers
+ *     keep the full script URL, like the browser). Worker-family rows get
+ *     the browser's `⚙ ` label prefix. (The browser also suffixes SW rows
+ *     `#<version> (<status>)` — that rides its ServiceWorker domain, which
+ *     a tab-scoped attach cannot reach.) Subtitle: the literal `Extension`
+ *     for extension worlds, else the origin's `host[:port]` (falling back
+ *     to the frame URL's host for opaque-origin worlds), and only when it
+ *     adds information over the title.
  *   - Order: target groups the way the browser weighs them — the page
  *     session first, then OOPIF sessions, then service workers, then
  *     dedicated/shared workers; sessions tie-break by key. Within the page
@@ -75,7 +79,7 @@ function isBareOrigin(origin: string): boolean {
 }
 
 /** The browser's frame label — the URL's last path segment, else `host/`. */
-function frameDisplayName(frameUrl: string): string | null {
+function urlDisplayName(frameUrl: string): string | null {
   try {
     const url = new URL(frameUrl);
     const last = url.pathname.split('/').filter(Boolean).pop();
@@ -85,15 +89,30 @@ function frameDisplayName(frameUrl: string): string | null {
   }
 }
 
-function labelOf(context: JsContext): string {
-  if (isTopContext(context)) return 'top';
+function isWorkerFamily(kind: JsContext['targetKind']): boolean {
+  return kind === 'worker' || kind === 'service-worker' || kind === 'shared-worker';
+}
+
+function baseLabelOf(context: JsContext): string {
   if (context.name !== '') return context.name;
+  // A service worker labels by its script's file name, the browser's form.
+  if (context.targetKind === 'service-worker' || context.targetKind === 'shared-worker') {
+    const file = urlDisplayName(context.origin);
+    if (file !== null) return file;
+  }
   if (context.frameUrl !== undefined) {
-    const displayName = frameDisplayName(context.frameUrl);
+    const displayName = urlDisplayName(context.frameUrl);
     if (displayName !== null) return displayName;
   }
   if (isBareOrigin(context.origin)) return originDomain(context.origin) ?? context.origin;
   return context.origin;
+}
+
+function labelOf(context: JsContext): string {
+  if (isTopContext(context)) return 'top';
+  const label = baseLabelOf(context);
+  // The browser's worker-target decoration — a literal gear prefix.
+  return isWorkerFamily(context.targetKind) ? `⚙ ${label}` : label;
 }
 
 function subtitleFor(context: JsContext, label: string): string | null {

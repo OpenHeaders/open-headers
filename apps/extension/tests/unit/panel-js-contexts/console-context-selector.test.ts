@@ -77,19 +77,26 @@ describe('isTopContext / topContextKey', () => {
 });
 
 describe('consoleContextRows', () => {
-  it('labels: top literal, world name, host[:port] for bare origins, full script URL for workers', () => {
+  it('labels: top literal, world name, host[:port] for bare origins, gear + file name for SWs', () => {
     const rows = consoleContextRows([TOP, TOP_ISOLATED, SAME_PROCESS_IFRAME, SW]);
-    expect(rows.map((r) => r.label)).toEqual([
-      'top',
-      'Open Headers',
-      'ads.openheaders.io',
-      'https://app.openheaders.io/sw.js?v=2',
-    ]);
+    expect(rows.map((r) => r.label)).toEqual(['top', 'Open Headers', 'ads.openheaders.io', '⚙ sw.js']);
     // Subtitle is the origin's host form, only when it adds information.
     expect(rows[0].subtitle).toBe('app.openheaders.io');
     expect(rows[1].subtitle).toBe('app.openheaders.io');
     expect(rows[2].subtitle).toBeNull();
     expect(rows[3].subtitle).toBe('app.openheaders.io');
+  });
+
+  it("worker-family rows carry the browser's gear prefix; unnamed workers keep the script URL", () => {
+    const named = makeContext({
+      contextKey: 'child-worker-2::1',
+      targetKind: 'worker',
+      worldType: 'worker',
+      name: 'data-cruncher',
+      origin: 'https://app.openheaders.io/cruncher.js',
+    });
+    expect(consoleContextRows([named])[0].label).toBe('⚙ data-cruncher');
+    expect(consoleContextRows([WORKER])[0].label).toBe('⚙ https://app.openheaders.io/worker.js');
   });
 
   it("titles a frame context by its frame URL's last path segment, the browser's frame label", () => {
