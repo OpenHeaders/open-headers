@@ -14,6 +14,14 @@
  * undo = delete the workspace. Found by exact name so a re-pull diffs
  * against the prior run's report; auto-created when absent — the
  * import never blocks on structure.
+ *
+ * Re-pull semantics: a COMPLETE pull refreshes the workspace — the
+ * previous import's entities are tombstoned first (through the same
+ * sync path, so the Activity Feed carries revertible deletes and the
+ * report records the replacement); renaming the workspace beforehand
+ * preserves the old snapshot, since the exact-name find then misses. A
+ * labeled PARTIAL pull appends without wiping — a half-pull never
+ * destroys a complete previous import.
  */
 
 import {
@@ -28,10 +36,31 @@ import {
   recordTransform,
 } from '@openheaders/core/import';
 import { EnvironmentSchema, RequestSchema } from '@openheaders/core/schemas';
-import { computeInverseSpec, type MutationBatch, type SideEffectIntent } from '@openheaders/core/sync';
-import { buildAddEnvironmentBatch } from '@openheaders/core/sync-builders/mutations/env-mutations';
-import { buildCreateRequestFolderBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildAddBatch as buildAddRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import {
+  computeInverseSpec,
+  ENVIRONMENT_ENTITY_TYPE,
+  type MutationBatch,
+  type MutatorContext,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
+  type SideEffectIntent,
+} from '@openheaders/core/sync';
+import {
+  buildAddEnvironmentBatch,
+  buildDeleteEnvironmentBatch,
+} from '@openheaders/core/sync-builders/mutations/env-mutations';
+import { buildDeleteRequestCollectionBatch } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
+import {
+  buildCreateRequestFolderBatch,
+  buildDeleteRequestFolderEntityBatch,
+} from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
+import {
+  buildAddBatch as buildAddRequestBatch,
+  buildDeleteBatch as buildDeleteRequestBatch,
+} from '@openheaders/core/sync-builders/mutations/request-mutations';
+import { buildDeleteResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { Collection, Environment, Request, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
@@ -129,6 +158,86 @@ function pullSourceText(result: PostmanPullResult): string {
 
 function failureReason(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * The entity types a pull mints — plus response examples, which users
+ * may have saved under imported requests. Listed child-first so the
+ * refresh tombstones descendants before their parents, mirroring the
+ * workbench's own collection-delete cascade.
+ */
+const REPLACED_ENTITY_TYPES = [
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  ENVIRONMENT_ENTITY_TYPE,
+] as const;
+
+const REPLACED_ENTITY_TYPE_SET: ReadonlySet<string> = new Set(REPLACED_ENTITY_TYPES);
+
+interface PriorImportEntity {
+  type: string;
+  id: string;
+}
+
+function buildDeleteForReplacedEntity(
+  entity: PriorImportEntity,
+  ctx: MutatorContext,
+): { batch: MutationBatch; sideEffects: SideEffectIntent[] } {
+  switch (entity.type) {
+    case RESPONSE_EXAMPLE_ENTITY_TYPE:
+      return buildDeleteResponseExampleBatch(entity.id, ctx);
+    case REQUEST_ENTITY_TYPE:
+      return buildDeleteRequestBatch(entity.id, ctx);
+    case REQUEST_FOLDER_ENTITY_TYPE:
+      return { batch: buildDeleteRequestFolderEntityBatch(entity.id, ctx), sideEffects: [] };
+    case REQUEST_COLLECTION_ENTITY_TYPE:
+      return buildDeleteRequestCollectionBatch(entity.id, ctx);
+    case ENVIRONMENT_ENTITY_TYPE:
+      return buildDeleteEnvironmentBatch({ envId: entity.id }, ctx);
+    default:
+      throw new Error(`no delete builder for entity type "${entity.type}"`);
+  }
+}
+
+/**
+ * Refresh half of the re-pull semantics: tombstone the previous
+ * import's entities child-first through the standard sync path (priors
+ * captured, so the Activity Feed classifies the deletes with working
+ * Revert) and record ONE transform naming what was replaced. Per-entity
+ * failures drop with reasons and leave that entity alongside the fresh
+ * pull — the refresh never aborts the import.
+ */
+async function replacePriorImport(
+  prior: readonly PriorImportEntity[],
+  report: ImportReport,
+  mintCtx: MutatorContextMinter,
+): Promise<void> {
+  const countOf = (type: string): number => prior.filter((entity) => entity.type === type).length;
+  for (const type of REPLACED_ENTITY_TYPES) {
+    for (const entity of prior.filter((candidate) => candidate.type === type)) {
+      const ctx = mintCtx();
+      if (!ctx) throw new Error('landing workspace is not loaded on this host');
+      try {
+        const { batch, sideEffects } = buildDeleteForReplacedEntity(entity, ctx);
+        await applyMigrationMutation(batch, sideEffects);
+      } catch (err) {
+        recordDrop(report, {
+          path: `pull.replaced.${entity.type}["${entity.id}"]`,
+          reason: `Failed to remove a previously imported ${entity.type} — it remains alongside this pull: ${failureReason(err)}`,
+          tracking: 'PERMANENT: write-path failure',
+        });
+      }
+    }
+  }
+  recordTransform(report, {
+    path: 'pull',
+    from: `previous import (${countOf(REQUEST_COLLECTION_ENTITY_TYPE)} collections, ${countOf(ENVIRONMENT_ENTITY_TYPE)} environments, ${countOf(REQUEST_ENTITY_TYPE)} requests)`,
+    to: 'replaced by this pull',
+    reason:
+      'A complete re-pull refreshes the landing workspace: the previous import was removed first. The deletions are revertible from the Activity Feed.',
+  });
 }
 
 type MutatorContextMinter = () => ReturnType<typeof nextSwMutatorContextForWorkspace>;
@@ -305,12 +414,30 @@ export async function materializePostmanPull(
     });
   }
 
-  getOrCreateWorkspaceService(landing.id);
+  const service = getOrCreateWorkspaceService(landing.id);
   let collections = 0;
   let environments = 0;
   let requests = 0;
   try {
     const mintCtx = contextMinter(landing.id);
+    await service.hydrated;
+    const prior = service.oracle
+      .materializeAll()
+      .filter((entity) => REPLACED_ENTITY_TYPE_SET.has(entity.type))
+      .map((entity) => ({ type: entity.type, id: entity.id }));
+    if (prior.length > 0) {
+      if (result.outcome === 'complete') {
+        await replacePriorImport(prior, report, mintCtx);
+      } else {
+        recordTransform(report, {
+          path: 'pull',
+          from: 'previous import',
+          to: 'kept alongside this pull',
+          reason:
+            'The run stopped early, so the previous import was kept — a partial pull never replaces it. Duplicates may appear until a complete re-pull.',
+        });
+      }
+    }
     for (let i = 0; i < result.collections.length; i++) {
       const pulled = result.collections[i];
       if (!pulled) continue;

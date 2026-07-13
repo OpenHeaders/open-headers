@@ -11,15 +11,20 @@
 import type { ImportReport, PostmanPullResult } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
-import { logger as consoleLogger } from '@openheaders/core/utils';
+import { buildAddResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
+import type { Request } from '@openheaders/core/types';
+import { logger as consoleLogger, generateUid } from '@openheaders/core/utils';
 import { wsKeys } from '@openheaders/oracle/storage';
 import {
   __initSyncServiceForTests,
+  applySyncRequest,
   dispose as disposeSyncService,
+  nextSwMutatorContextForWorkspace,
   snapshotEnvironmentPostStates,
   snapshotRequestCollectionPostStates,
   snapshotRequestFolderPostStates,
   snapshotRequestPostStates,
+  snapshotResponseExamplePostStates,
 } from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { materializePostmanPull } from '../../../src/migration/materialize';
@@ -74,6 +79,44 @@ function pullResult(overrides: Partial<PostmanPullResult> = {}): PostmanPullResu
 }
 
 const ensureLandingWorkspace = async () => ({ id: wsId, name: 'Imported from Postman' });
+
+/** Save a response example under an imported request — a user gesture
+ *  between pulls that the refresh must sweep along with its parent. */
+async function saveExampleUnder(request: Request): Promise<void> {
+  const ctx = nextSwMutatorContextForWorkspace(wsId, { surfaceId: 'test' });
+  if (!ctx) throw new Error('landing workspace is not loaded');
+  const uid = generateUid();
+  const { batch, sideEffects } = buildAddResponseExampleBatch(
+    {
+      schemaVersion: 5,
+      uid,
+      path: `${request.path}/examples/saved-${uid}`,
+      requestUid: request.uid,
+      name: 'Saved 200',
+      capturedAt: new Date().toISOString(),
+      request: {
+        method: 'GET',
+        url: 'https://api.openheaders.io/charges',
+        headers: [],
+        params: [],
+        body: { type: 'none' },
+      },
+      response: {
+        status: 200,
+        statusText: 'OK',
+        url: 'https://api.openheaders.io/charges',
+        headers: [],
+        body: '{}',
+        bodyTruncated: false,
+        bodyBytes: 2,
+        durationMs: 12,
+      },
+    },
+    ctx,
+  );
+  const response = await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects });
+  if (!response.ok) throw new Error('example seed failed');
+}
 
 let storage: HostStorageFake;
 
@@ -200,5 +243,62 @@ describe('materializePostmanPull', () => {
     expect(summary.environments).toBe(1);
     const [report] = await readRecordedReports();
     expect(report.drops.some((d) => d.path.startsWith('pull.environments[0]'))).toBe(true);
+  });
+
+  it('a complete re-pull replaces the previous import, saved examples included', async () => {
+    await materializePostmanPull(pullResult(), { ensureLandingWorkspace });
+    const [firstReport] = await readRecordedReports();
+    expect(firstReport.transforms).toHaveLength(0);
+    const firstCollections = snapshotRequestCollectionPostStates(wsId).map((ps) => ps.collection);
+    const imported = snapshotRequestPostStates(wsId).map((ps) => ps.request);
+    const parent = imported.find((r) => r.name === 'List charges');
+    if (!parent) throw new Error('expected imported request');
+    await saveExampleUnder(parent);
+    expect(snapshotResponseExamplePostStates(wsId)).toHaveLength(1);
+
+    const summary = await materializePostmanPull(pullResult(), { ensureLandingWorkspace });
+
+    expect(summary).toMatchObject({ collections: 1, environments: 1, requests: 2 });
+    const collections = snapshotRequestCollectionPostStates(wsId).map((ps) => ps.collection);
+    expect(collections).toHaveLength(1);
+    expect(collections[0].uid).not.toBe(firstCollections[0].uid);
+    expect(snapshotRequestPostStates(wsId)).toHaveLength(2);
+    expect(snapshotRequestFolderPostStates(wsId)).toHaveLength(1);
+    expect(snapshotEnvironmentPostStates(wsId)).toHaveLength(1);
+    expect(snapshotResponseExamplePostStates(wsId)).toHaveLength(0);
+
+    // Same sourceHash — the ring entry is replaced, now carrying the
+    // ONE replacement transform.
+    const reports = await readRecordedReports();
+    expect(reports).toHaveLength(1);
+    const transform = reports[0].transforms.find((t) => t.path === 'pull');
+    expect(transform?.to).toBe('replaced by this pull');
+    expect(transform?.from).toContain('1 collections');
+    expect(transform?.from).toContain('2 requests');
+    expect(reports[0].drops).toHaveLength(0);
+  });
+
+  it('a partial re-pull keeps the previous import and appends alongside it', async () => {
+    await materializePostmanPull(pullResult(), { ensureLandingWorkspace });
+
+    await materializePostmanPull(pullResult({ outcome: 'partial', stopReason: 'Service limit exhausted.' }), {
+      ensureLandingWorkspace,
+    });
+
+    expect(snapshotRequestCollectionPostStates(wsId)).toHaveLength(2);
+    expect(snapshotEnvironmentPostStates(wsId)).toHaveLength(2);
+    expect(snapshotRequestPostStates(wsId)).toHaveLength(4);
+    const reports = await readRecordedReports();
+    expect(reports).toHaveLength(1);
+    const transform = reports[0].transforms.find((t) => t.path === 'pull');
+    expect(transform?.to).toBe('kept alongside this pull');
+    expect(transform?.reason).toContain('partial');
+  });
+
+  it('the first pull into an empty landing workspace records no replacement transform', async () => {
+    await materializePostmanPull(pullResult(), { ensureLandingWorkspace });
+    const [report] = await readRecordedReports();
+    expect(report.transforms).toHaveLength(0);
+    expect(report.summary.transformed).toBe(0);
   });
 });

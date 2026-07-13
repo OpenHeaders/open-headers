@@ -21,6 +21,9 @@
  *      operator (unbound minted token) and mirrors the finished run in
  *      its own corner via the operator-gated getState peer plane; its
  *      click-through lands on the synced landing workspace.
+ *   6. A second pull refreshes the landing workspace: exactly ONE
+ *      collection remains in the requests nav and the report carries
+ *      the replacement transform.
  *
  * Requires both builds: `pnpm --filter @openheaders/desktop build` and
  * the extension `dist/chrome` (built separately).
@@ -387,4 +390,54 @@ test('the extension click-through lands on the synced landing workspace', async 
 
   // The switch landed — this surface now edits the synced landing workspace.
   await expect(page.getByLabel(/editing workspace: Imported from Postman/)).toBeVisible({ timeout: 15000 });
+});
+
+// ── Re-pull refresh leg ─────────────────────────────────────────────
+
+test('a complete re-pull refreshes the landing workspace instead of duplicating it', async () => {
+  const callsBefore = stubCalls.length;
+  const started = await workbench.evaluate(async (key) => {
+    const bridge = (window as unknown as { oh: { invoke(msg: Record<string, unknown>): Promise<unknown> } }).oh;
+    return (await bridge.invoke({ type: 'oh.migration.postmanPull.start', apiKey: key })) as {
+      started: boolean;
+      runId?: string;
+    };
+  }, API_KEY);
+  expect(started.started).toBe(true);
+
+  // The second run drains the stub exactly like the first.
+  await expect.poll(() => stubCalls.length, { timeout: 30000 }).toBe(callsBefore + 4);
+  await expect
+    .poll(
+      async () =>
+        workbench.evaluate(async () => {
+          const bridge = (window as unknown as { oh: { invoke(msg: Record<string, unknown>): Promise<unknown> } }).oh;
+          const state = (await bridge.invoke({ type: 'oh.migration.postmanPull.getState' })) as {
+            runId: string | null;
+            phase: string;
+          };
+          return `${state.runId}:${state.phase}`;
+        }),
+      { timeout: 30000 },
+    )
+    .toBe(`${started.runId}:done`);
+
+  // ONE copy of the collection in the requests nav — the refresh
+  // tombstoned the previous import before landing this pull.
+  const section = workbench
+    .getByRole('button', { name: /REQUESTS/ })
+    .filter({ visible: true })
+    .first();
+  await section.waitFor({ state: 'visible', timeout: 10000 });
+  if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+  await expect(workbench.locator('[data-item-id^="req-col-"]').filter({ visible: true })).toHaveCount(1);
+});
+
+test('the re-pull report records the replacement transform', async () => {
+  await workbench.getByText('Import finished — view report').first().click();
+  const report = workbench.getByRole('dialog').filter({ hasText: 'Postman import report' });
+  await expect(report).toBeVisible({ timeout: 15000 });
+  await expect(report).toContainText('replaced by this pull');
+  await report.getByRole('button', { name: 'Close' }).last().click();
+  await expect(report).toHaveCount(0);
 });
