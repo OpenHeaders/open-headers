@@ -1,7 +1,9 @@
 import {
   buildHexDump,
   encodeBodyBytes,
+  fromBase64,
   HEX_VIEW_CAP_BYTES,
+  snapshotBodyBytes,
   toBase64,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-encoding';
 import { describe, expect, it } from 'vitest';
@@ -26,6 +28,25 @@ describe('toBase64', () => {
   it('handles bodies larger than one encoding chunk', () => {
     const big = 'x'.repeat(0x8000 + 17);
     expect(atob(toBase64(encodeBodyBytes(big)))).toBe(big);
+  });
+});
+
+describe('fromBase64', () => {
+  it('round-trips toBase64, including bytes invalid in UTF-8', () => {
+    const wire = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xe2, 0xe3, 0xcf, 0xd3, 0x00, 0xff]);
+    expect(Array.from(fromBase64(toBase64(wire)))).toEqual(Array.from(wire));
+  });
+});
+
+describe('snapshotBodyBytes', () => {
+  it('re-encodes a text body as UTF-8', () => {
+    expect(Array.from(snapshotBodyBytes({ body: 'é' }))).toEqual([0xc3, 0xa9]);
+  });
+
+  it('decodes a binary body back to the exact wire bytes', () => {
+    const wire = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xe2, 0xe3]);
+    const snapshot = { body: toBase64(wire), bodyEncoding: 'base64' as const };
+    expect(Array.from(snapshotBodyBytes(snapshot))).toEqual(Array.from(wire));
   });
 });
 

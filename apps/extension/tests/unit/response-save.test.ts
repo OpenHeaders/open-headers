@@ -44,4 +44,10 @@ describe('deriveSaveFilename', () => {
     expect(deriveSaveFilename('https://openheaders.io/x', 'markdown')).toBe('x.md');
     expect(deriveSaveFilename('https://openheaders.io/x', 'graphql')).toBe('x.graphql');
   });
+
+  it('prefers the explicit extension override for binary media types', () => {
+    expect(deriveSaveFilename('https://api.openheaders.io/api/pdf', 'text', 'pdf')).toBe('pdf.pdf');
+    expect(deriveSaveFilename('https://api.openheaders.io/v1/blob', 'text', 'bin')).toBe('blob.bin');
+    expect(deriveSaveFilename('https://api.openheaders.io/report.pdf', 'text', 'pdf')).toBe('report.pdf');
+  });
 });

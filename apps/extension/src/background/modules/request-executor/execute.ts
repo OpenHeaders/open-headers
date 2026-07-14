@@ -14,6 +14,7 @@ import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { recordLog } from '../observability-log';
+import { materializeBody } from './body-decode';
 import { classifyFetchFailure } from './failure-classify';
 import type { ResolvedRequest } from './resolve';
 import {
@@ -128,18 +129,24 @@ export async function executeResolved(
   for (const { key, value } of req.headers) fetchHeaders.append(key, value);
   init.headers = fetchHeaders;
 
-  // Body handling — attach the body for any method the user chose.
-  // GET-with-body is spec-questionable but some servers (Elasticsearch,
-  // search APIs) accept it. If the browser's fetch() rejects the
-  // combination we let the TypeError flow through to the catch below —
-  // the user sees the actual error in the response panel rather than
-  // wondering why their body was silently dropped.
+  // Body handling — attach the body for any method the user chose,
+  // EXCEPT where the platform makes it impossible: browser `fetch()`
+  // refuses to construct a GET/HEAD request carrying a body (a
+  // TypeError before any wire activity), so attaching it would fail
+  // the whole send. Be permissive instead — the request goes out
+  // without the body and the snapshot carries `requestBodyOmitted` so
+  // the response panel says what the server actually saw. Node
+  // runtimes have no such restriction and put the same draft's body on
+  // the wire.
   //
   // Exhaustive over the resolved-body union — every variant attaches
   // its wire payload here. `none` attaches nothing; `form` produces a
   // URLSearchParams (browser-set Content-Type); `multipart` produces
   // FormData (browser-set Content-Type with boundary); JSON / XML /
   // text / graphql produce raw strings using the resolved content.
+  const method = req.method.toUpperCase();
+  const requestBodyOmitted = (method === 'GET' || method === 'HEAD') && req.body.type !== 'none';
+  if (requestBodyOmitted) req = { ...req, body: { type: 'none' } };
   let bodyBytes = 0;
   let bodyApproximate = false;
   switch (req.body.type) {
@@ -263,16 +270,19 @@ export async function executeResolved(
       headers.push({ key, value });
     });
 
-    // Read body with size cap. For large responses we slice + flag so
-    // the UI doesn't try to render megabytes of text.
-    const bodyText = await response.text();
-    const responseBodyBytes = new TextEncoder().encode(bodyText).byteLength;
+    // Read the body as BYTES with the size cap applied byte-wise, then
+    // materialize: valid UTF-8 stays text, anything else goes base64
+    // (`bodyEncoding`) — lossless either way. `bodyBytes` counts the
+    // wire bytes, so binary sizes match the server's Content-Length
+    // instead of inflating through a lossy decode.
+    const rawBytes = new Uint8Array(await response.arrayBuffer());
+    const responseBodyBytes = rawBytes.byteLength;
     const capBytes = maxBodyBytes();
     const truncated = responseBodyBytes > capBytes;
-    const body = truncated ? bodyText.slice(0, capBytes) : bodyText;
+    const { body, bodyEncoding } = materializeBody(truncated ? rawBytes.subarray(0, capBytes) : rawBytes, truncated);
 
     // The entry queues once the body finishes downloading — which the
-    // completed text() read implies — so settle after the read.
+    // completed arrayBuffer() read implies — so settle after the read.
     const timing = await capture.settle({ submittedUrl: req.url, finalUrl: response.url || req.url });
     const wire = await wireCapture.settle();
 
@@ -282,6 +292,7 @@ export async function executeResolved(
       url: response.url || req.url,
       headers,
       body,
+      ...(bodyEncoding ? { bodyEncoding } : {}),
       bodyTruncated: truncated,
       ...(truncated ? { bodyCapBytes: capBytes } : {}),
       bodyBytes: responseBodyBytes,
@@ -289,6 +300,7 @@ export async function executeResolved(
       ...(timing ? { timing } : {}),
       ...(wire ? { wire } : {}),
       requestSize,
+      ...(requestBodyOmitted ? { requestBodyOmitted: true } : {}),
       error: null,
       scripts: null,
     };
@@ -355,6 +367,7 @@ export async function executeResolved(
       bodyTruncated: false,
       bodyBytes: 0,
       durationMs,
+      ...(requestBodyOmitted ? { requestBodyOmitted: true } : {}),
       error: message,
       ...(hint ? { errorHint: hint } : {}),
       scripts: null,

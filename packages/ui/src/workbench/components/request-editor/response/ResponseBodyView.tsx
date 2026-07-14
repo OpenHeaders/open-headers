@@ -12,8 +12,14 @@
  *     full dump of the body cap would be a ~10 MB string);
  *     Base64 — the same bytes base64-encoded.
  *   • Preview — separate toggle, offered when the body is HTML (fully
- *     sandboxed iframe: no scripts, no same-origin access) or
- *     parseable JSON (collapsible key/value tree).
+ *     sandboxed iframe: no scripts, no same-origin access), parseable
+ *     JSON (collapsible key/value tree), or a PDF (the browser's own
+ *     viewer over the captured bytes — the default view for PDFs).
+ *
+ * Binary bodies (`bodyEncoding: 'base64'`) have no wire text, so the
+ * language half of the picker and the Raw view stand down: the picker
+ * offers Hex (default) and Base64, both decoding the snapshot back to
+ * the exact wire bytes.
  */
 
 import { CheckOutlined, CopyOutlined, DownOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons';
@@ -27,8 +33,10 @@ import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/
 import CodeEditor from '../../shared/CodeEditor';
 import ResponseFilterInput from './ResponseFilterInput';
 import ResponseJsonPreview from './ResponseJsonPreview';
+import ResponsePdfPreview from './ResponsePdfPreview';
 import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
-import { buildHexDump, encodeBodyBytes, toBase64 } from './response-encoding';
+import { detectMagicSignatures } from './magic-signatures';
+import { buildHexDump, encodeBodyBytes, snapshotBodyBytes, toBase64 } from './response-encoding';
 import {
   evaluateJsonPath,
   evaluateXPath,
@@ -36,7 +44,7 @@ import {
   suggestJsonPathCompletions,
   suggestXPathCompletions,
 } from './response-filter';
-import { detectBodyLanguage, formatBytes, prettyBody } from './response-format';
+import { detectBodyLanguage, formatBytes, isPdfResponse, prettyBody } from './response-format';
 import { useFormattedBody } from './use-formatted-body';
 
 const { Text } = Typography;
@@ -72,11 +80,19 @@ function PickerLabel({ icon, text }: { icon: string; text: string }) {
   );
 }
 
+/** The view a fresh response opens on: PDFs go straight to Preview
+ *  (the rendered document is the answer), other binary bodies to Hex
+ *  (the only faithful text-free view), text to Pretty. */
+function initialMode(response: ExecutedRequestSnapshot): ViewMode {
+  if (isPdfResponse(response.headers)) return 'preview';
+  return response.bodyEncoding === 'base64' ? 'hex' : 'pretty';
+}
+
 const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ response }) => {
   const { token } = theme.useToken();
   const t = useT();
   const openSettings = useOpenSettings();
-  const [mode, setMode] = useState<ViewMode>('pretty');
+  const [mode, setMode] = useState<ViewMode>(() => initialMode(response));
   const [langOverride, setLangOverride] = useState<LanguageId | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -91,13 +107,14 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // Each new response re-detects: a JSON override on the previous send
   // must not stick to the HTML page the next send returned.
   useEffect(() => {
-    setMode('pretty');
+    setMode(initialMode(response));
     setLangOverride(null);
     setFilterOpen(false);
     setFilterQuery('');
     setLastMatch(null);
   }, [response]);
 
+  const isBinary = response.bodyEncoding === 'base64';
   const language = langOverride ?? detectBodyLanguage(response.headers);
   // JSON re-indents synchronously; markup/code languages swap in the
   // Prettier result when it resolves (wire text paints first).
@@ -107,28 +124,41 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   );
 
   // Parsed body for the JSON tree preview — `undefined` when the viewer
-  // language isn't JSON or the body doesn't parse.
+  // language isn't JSON or the body doesn't parse. Binary never parses:
+  // the body string is base64, whose digit-only edge cases would
+  // otherwise "parse" as a JSON number.
   const parsedJson = useMemo<unknown>(() => {
-    if (language !== 'json') return undefined;
+    if (isBinary || language !== 'json') return undefined;
     try {
       return JSON.parse(response.body);
     } catch {
       return undefined;
     }
-  }, [response.body, language]);
+  }, [response.body, language, isBinary]);
 
-  const previewKind: 'html' | 'json' | null = language === 'html' ? 'html' : parsedJson !== undefined ? 'json' : null;
+  const previewKind: 'pdf' | 'html' | 'json' | null = isPdfResponse(response.headers)
+    ? 'pdf'
+    : isBinary
+      ? null
+      : language === 'html'
+        ? 'html'
+        : parsedJson !== undefined
+          ? 'json'
+          : null;
 
   // A language override can take Preview away while it's the active
-  // mode (e.g. HTML body overridden to Text) — fall back to Pretty.
+  // mode (e.g. HTML body overridden to Text) — fall back to the body's
+  // base view (Hex for binary, Pretty otherwise).
   useEffect(() => {
-    if (mode === 'preview' && !previewKind) setMode('pretty');
-  }, [mode, previewKind]);
+    if (mode === 'preview' && !previewKind) setMode(isBinary ? 'hex' : 'pretty');
+  }, [mode, previewKind, isBinary]);
 
   // Structural filter: JSONPath for parseable JSON, XPath for markup,
-  // nothing for languages without a query form (Find covers those).
-  const filterKind: 'jsonpath' | 'xpath' | null =
-    language === 'json' && parsedJson !== undefined
+  // nothing for languages without a query form (Find covers those) —
+  // and nothing for binary, which has no text to query.
+  const filterKind: 'jsonpath' | 'xpath' | null = isBinary
+    ? null
+    : language === 'json' && parsedJson !== undefined
       ? 'jsonpath'
       : language === 'xml' || language === 'html'
         ? 'xpath'
@@ -176,23 +206,37 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const shownFiltered = filterApplied ? (filteredDisplay ?? lastMatch) : null;
 
   // Byte views are computed only while active — encoding is linear in
-  // body size and wasted on every other mode.
-  const hexDump = useMemo(
-    () => (mode === 'hex' ? buildHexDump(encodeBodyBytes(response.body)) : null),
-    [mode, response.body],
-  );
+  // body size and wasted on every other mode. All derive from the true
+  // wire bytes (`snapshotBodyBytes`); a binary body's Base64 view IS
+  // the stored string, no round-trip needed.
+  const hexDump = useMemo(() => {
+    if (mode !== 'hex') return null;
+    const bytes = snapshotBodyBytes(response);
+    return buildHexDump(bytes, undefined, detectMagicSignatures(bytes));
+  }, [mode, response]);
   const base64Body = useMemo(
-    () => (mode === 'base64' ? toBase64(encodeBodyBytes(response.body)) : null),
-    [mode, response.body],
+    () => (mode === 'base64' ? (isBinary ? response.body : toBase64(encodeBodyBytes(response.body))) : null),
+    [mode, response.body, isBinary],
+  );
+  const pdfBytes = useMemo(
+    () => (mode === 'preview' && previewKind === 'pdf' ? snapshotBodyBytes(response) : null),
+    [mode, previewKind, response],
   );
 
+  // Binary has no wire text: the language half of the picker and the
+  // Raw view stand down, leaving the byte-faithful views.
+  const encodingViews = isBinary ? ENCODING_VIEWS.filter((v) => v.mode !== 'raw') : ENCODING_VIEWS;
   const pickerItems: MenuProps['items'] = [
-    ...LANGUAGE_OPTIONS.map((opt) => ({
-      key: `lang:${opt.value}`,
-      label: <PickerLabel icon={opt.value} text={opt.label} />,
-    })),
-    { type: 'divider' as const },
-    ...ENCODING_VIEWS.map((view) => ({
+    ...(isBinary
+      ? []
+      : [
+          ...LANGUAGE_OPTIONS.map((opt) => ({
+            key: `lang:${opt.value}`,
+            label: <PickerLabel icon={opt.value} text={opt.label} />,
+          })),
+          { type: 'divider' as const },
+        ]),
+    ...encodingViews.map((view) => ({
       key: `view:${view.mode}`,
       label: <PickerLabel icon={view.mode} text={view.label} />,
     })),
@@ -211,11 +255,12 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
 
   // The picker reads as "how the body is rendered": the language while
   // in Pretty (or Preview, which sits on top of it), the encoding view
-  // otherwise.
+  // otherwise. Binary in Preview shows its base view (Hex) — the one a
+  // picker click falls back to.
   const activeEncoding = ENCODING_VIEWS.find((v) => v.mode === mode);
-  const pickerKey = activeEncoding ? `view:${activeEncoding.mode}` : `lang:${language}`;
-  const pickerIcon = activeEncoding ? activeEncoding.mode : language;
-  const pickerLabel = activeEncoding ? activeEncoding.label : getLanguage(language).label;
+  const pickerKey = activeEncoding ? `view:${activeEncoding.mode}` : isBinary ? 'view:hex' : `lang:${language}`;
+  const pickerIcon = activeEncoding ? activeEncoding.mode : isBinary ? 'hex' : language;
+  const pickerLabel = activeEncoding ? activeEncoding.label : isBinary ? 'Hex' : getLanguage(language).label;
 
   // Picker and Preview act as a two-way toggle: the active side carries
   // a quiet selected fill, the other renders as plain text. While
@@ -224,7 +269,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const pickerSelected = mode !== 'preview';
   const onPickerOpenChange = (next: boolean) => {
     if (next && !pickerSelected) {
-      setMode('pretty');
+      setMode(isBinary ? 'hex' : 'pretty');
       return;
     }
     setPickerOpen(next);
@@ -247,6 +292,11 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // parses).
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 8 }}>
+      {response.requestBodyOmitted && (
+        <Text type="warning" style={{ fontSize: 11, marginTop: 6 }}>
+          {t('workbench.editors.request.response.body.requestBodyOmittedNotice')}
+        </Text>
+      )}
       {response.bodyTruncated && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
           <Text type="warning" style={{ fontSize: 11 }}>
@@ -458,7 +508,23 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
               color: token.colorText,
             }}
           >
-            {hexDump.text}
+            {/* Rows whose bytes carry a detected file signature render
+                their ASCII column highlighted (hover names the format);
+                everything else stays one cheap text node per run. */}
+            {hexDump.pieces.map((piece, i) => {
+              const nl = i < hexDump.pieces.length - 1 ? '\n' : '';
+              if (piece.kind === 'plain') return `${piece.text}${nl}`;
+              return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: pieces are positional derivations of one immutable dump
+                <span key={i}>
+                  {piece.head}
+                  <span title={piece.label} style={{ color: token.colorInfoText, fontWeight: 600 }}>
+                    {piece.ascii}
+                  </span>
+                  {nl}
+                </span>
+              );
+            })}
           </pre>
         </div>
       )}
@@ -479,6 +545,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           </pre>
         </div>
       )}
+      {mode === 'preview' && previewKind === 'pdf' && pdfBytes && <ResponsePdfPreview bytes={pdfBytes} />}
       {mode === 'preview' && previewKind === 'json' && <ResponseJsonPreview value={parsedJson} />}
       {mode === 'preview' && previewKind === 'html' && (
         <iframe

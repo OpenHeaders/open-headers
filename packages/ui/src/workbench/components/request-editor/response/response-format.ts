@@ -12,8 +12,18 @@ import type { LanguageId } from '../../../languages/registry';
  * vendor prefixes (`application/vnd.api+json`) and suffixes (`+xml`),
  * and all of those should light up the base grammar.
  */
+function contentTypeOf(headers: ReadonlyArray<{ key: string; value: string }>): string {
+  return headers.find((h) => h.key.toLowerCase() === 'content-type')?.value.toLowerCase() ?? '';
+}
+
+/** True for PDF media types (`application/pdf`, legacy `x-pdf`) — the
+ *  response body pane offers its dedicated Preview for these. */
+export function isPdfResponse(headers: ReadonlyArray<{ key: string; value: string }>): boolean {
+  return contentTypeOf(headers).includes('pdf');
+}
+
 export function detectBodyLanguage(headers: ReadonlyArray<{ key: string; value: string }>): LanguageId {
-  const ct = headers.find((h) => h.key.toLowerCase() === 'content-type')?.value.toLowerCase() ?? '';
+  const ct = contentTypeOf(headers);
   if (ct.includes('json')) return 'json';
   if (ct.includes('html')) return 'html';
   if (ct.includes('xml')) return 'xml';

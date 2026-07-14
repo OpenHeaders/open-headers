@@ -183,7 +183,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   };
   const saveBody = () => {
     if (!response) return;
-    downloadBodyAsFile(response.body, response.url, detectBodyLanguage(response.headers));
+    downloadBodyAsFile(response, detectBodyLanguage(response.headers));
   };
 
   const statusColor =

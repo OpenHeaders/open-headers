@@ -29,6 +29,7 @@ import {
   type ApiClientCombo,
   OAUTH2_SEED_AUTH,
 } from '../../../../playground/scripts/api-client-matrix';
+import { API_PDF_BYTE_LENGTH } from '../../../../playground/server/api-pdf';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
@@ -108,8 +109,10 @@ interface ExecSnapshot {
   status: number;
   headers: Array<{ key: string; value: string }>;
   body: string;
+  bodyEncoding?: 'base64';
   bodyBytes: number;
   bodyTruncated: boolean;
+  requestBodyOmitted?: boolean;
   error?: string | null;
 }
 
@@ -217,15 +220,52 @@ test.describe('Request executor — binary response (/api/pdf)', () => {
     const contentType = snapshot.headers.find((h) => h.key.toLowerCase() === 'content-type')?.value ?? '';
     expect(contentType).toContain('application/pdf');
 
-    // The executor reads every body as text (the documented v1 gap —
-    // `ExecutedRequestSnapshot.body`), so the PDF's binary-marker bytes
-    // arrive as U+FFFD. The ASCII document structure must still survive
-    // the decode end-to-end: header magic, page text, xref, EOF marker.
+    // Byte-faithful capture: the PDF is not valid UTF-8 (binary-marker
+    // comment bytes), so the executor stores it base64 with the
+    // encoding stamped, `bodyBytes` matches the wire exactly, and the
+    // decoded bytes reproduce the document verbatim.
     expect(snapshot.bodyTruncated).toBe(false);
-    expect(snapshot.body.startsWith('%PDF-1.4')).toBe(true);
-    expect(snapshot.body).toContain('(Open Headers PDF probe) Tj');
-    expect(snapshot.body).toContain('startxref');
-    expect(snapshot.body.trimEnd().endsWith('%%EOF')).toBe(true);
+    expect(snapshot.bodyEncoding).toBe('base64');
+    expect(snapshot.bodyBytes).toBe(API_PDF_BYTE_LENGTH);
+    const decoded = Buffer.from(snapshot.body, 'base64');
+    expect(decoded.byteLength).toBe(API_PDF_BYTE_LENGTH);
+    const text = decoded.toString('latin1');
+    expect(text.startsWith('%PDF-1.4')).toBe(true);
+    expect(text).toContain('(Open Headers PDF probe) Tj');
+    expect(text).toContain('startxref');
+    expect(text.trimEnd().endsWith('%%EOF')).toBe(true);
+  });
+});
+
+test.describe('Request executor — GET with a body is permissive', () => {
+  test('send succeeds; the body is omitted from the wire and stamped on the snapshot', async () => {
+    const exec = await rpc<{ success: boolean; snapshot?: ExecSnapshot; error?: string }>('executeRequest', {
+      draft: {
+        schemaVersion: 5,
+        uid: 'req-get-body-e2e',
+        path: 'requests/api-echo-e2e/req-get-body-e2e',
+        name: 'GET with a JSON body',
+        method: 'GET',
+        url: API_ECHO_URL,
+        headers: [],
+        params: [],
+        auth: { type: 'none' },
+        body: { type: 'json', content: '{"q":"openheaders"}' },
+      },
+    });
+
+    expect(exec.success, exec.error).toBe(true);
+    const snapshot = exec.snapshot!;
+    // The old behavior was a hard failure before any wire activity
+    // ("Request with GET/HEAD method cannot have body"). Now the send
+    // goes out bodiless, with honest attribution.
+    expect(snapshot.error ?? null).toBeNull();
+    expect(snapshot.status).toBe(200);
+    expect(snapshot.requestBodyOmitted).toBe(true);
+
+    const echo = JSON.parse(snapshot.body) as EchoResponse;
+    expect(echo.method).toBe('GET');
+    expect(echo.body.kind).toBe('none');
   });
 });
 

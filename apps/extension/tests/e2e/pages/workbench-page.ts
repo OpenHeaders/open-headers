@@ -576,32 +576,48 @@ export class WorkbenchPage {
     return JSON.parse(await this.responseRawBody()) as T;
   }
 
-  /** Read the rendered response body verbatim via the Raw view — the
-   *  plain `<pre>` under `data-testid="oh-response-body"` (Pretty is
-   *  Monaco, whose DOM virtualizes long buffers). */
-  async responseRawBody(): Promise<string> {
-    // The view switch is a dropdown: open the picker button, then pick
-    // the Raw entry from the portal-rendered menu (its label carries a
-    // glyph prefix, so match on the trailing text).
+  /** Switch the response Body pane to a picker view by its trailing
+   *  label text (menu labels carry a glyph prefix). */
+  async pickResponseView(label: RegExp): Promise<void> {
     const picker = this.page.getByTestId('oh-response-view-picker').filter({ visible: true }).first();
     await picker.waitFor({ state: 'visible', timeout: 15000 });
     await picker.click();
     await this.page
       .locator('.ant-dropdown-menu-item')
-      .filter({ hasText: /Raw$/ })
+      .filter({ hasText: label })
       .filter({ visible: true })
       .first()
       .click();
+  }
+
+  /** Read the rendered response body verbatim via the Raw view — the
+   *  plain `<pre>` under `data-testid="oh-response-body"` (Pretty is
+   *  Monaco, whose DOM virtualizes long buffers). */
+  async responseRawBody(): Promise<string> {
+    await this.pickResponseView(/Raw$/);
     const body = this.page.getByTestId('oh-response-body').filter({ visible: true });
     await body.waitFor({ state: 'visible', timeout: 15000 });
     return (await body.textContent())?.trim() ?? '';
   }
 
+  /** Read the Hex view's dump text (switches the pane to Hex first). */
+  async responseHexText(): Promise<string> {
+    await this.pickResponseView(/Hex$/);
+    const hex = this.page.getByTestId('oh-response-hex').filter({ visible: true });
+    await hex.waitFor({ state: 'visible', timeout: 15000 });
+    return (await hex.textContent()) ?? '';
+  }
+
   /** The response Body pane's Preview toggle — rendered only when the
-   *  body previews (HTML or parseable JSON), so its absence is itself
-   *  an assertable state. */
+   *  body previews (PDF, HTML, or parseable JSON), so its absence is
+   *  itself an assertable state. */
   responsePreviewToggle(): Locator {
     return this.page.getByRole('button', { name: /Preview$/ }).filter({ visible: true });
+  }
+
+  /** The PDF preview iframe — the browser's viewer over a blob URL. */
+  responsePdfPreview(): Locator {
+    return this.page.getByTestId('oh-response-pdf-preview').filter({ visible: true });
   }
 
   /** Text of the response Body view picker — the language the viewer

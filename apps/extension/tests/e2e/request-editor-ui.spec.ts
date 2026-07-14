@@ -103,7 +103,7 @@ test.describe('Request editor — open → Send → response renders (UI)', () =
 });
 
 test.describe('Request editor — PDF response rendering (UI)', () => {
-  test('binary body renders through the panel: Text fallback, no Preview, structure in Raw', async () => {
+  test('PDF opens on Preview with Hex one click away, showing true wire bytes', async () => {
     const uid = seededUids.get(PDF_REQUEST_NAME);
     expect(uid, `no seeded uid for ${PDF_REQUEST_NAME}`).toBeTruthy();
 
@@ -112,20 +112,21 @@ test.describe('Request editor — PDF response rendering (UI)', () => {
     const status = await workbench.responseStatusText();
     expect(status).toContain('200');
 
-    // Current contract for `application/pdf`: no dedicated viewer, so
-    // the language picker falls back to Text and the Preview toggle
-    // (HTML/JSON only) must not appear. When a PDF preview lands, these
-    // two assertions are the ones to flip.
-    // The picker label carries a glyph prefix (same as its menu items),
-    // so anchor on the trailing text.
-    expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
-    expect(await workbench.responsePreviewToggle().count()).toBe(0);
+    // `application/pdf` defaults to the rendered Preview (the browser's
+    // own viewer over the captured bytes) with the picker offering the
+    // byte views. Labels carry a glyph prefix — anchor on the trailing
+    // text.
+    const preview = workbench.responsePdfPreview();
+    await preview.waitFor({ state: 'visible', timeout: 15000 });
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Hex$/);
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
 
-    // The body is a lossy text decode (binary-marker bytes become
-    // U+FFFD), but the PDF's ASCII structure must render end-to-end.
-    const raw = await workbench.responseRawBody();
-    expect(raw.startsWith('%PDF-1.4')).toBe(true);
-    expect(raw).toContain('(Open Headers PDF probe) Tj');
-    expect(raw.endsWith('%%EOF')).toBe(true);
+    // Hex shows the TRUE wire bytes — the binary-marker comment
+    // (E2 E3 CF D3) that a lossy text decode would have destroyed —
+    // with the PDF header magic highlighted in the ASCII column.
+    const hex = await workbench.responseHexText();
+    expect(hex.startsWith('00000000: 25 50 44 46 2D 31 2E 34 0A 25 E2 E3 CF D3')).toBe(true);
+    expect(hex).toContain('%PDF-1.4');
+    expect(hex.trimEnd().endsWith('%%EOF.')).toBe(true);
   });
 });

@@ -67,10 +67,13 @@ export interface ExecutedRequestSnapshot {
   /** Final URL after redirects — might differ from the submitted one. */
   url: string;
   headers: Array<{ key: string; value: string }>;
-  /** Response body as text. Binary payloads get a base64 fallback via
-   *  `bodyEncoding = 'base64'` once we add that — for v1 everything is
-   *  read as text. */
+  /** Response body. UTF-8 text verbatim by default; when the wire bytes
+   *  don't decode as UTF-8 the executor stores them base64-encoded and
+   *  marks `bodyEncoding` — lossless either way. */
   body: string;
+  /** Present (`'base64'`) when `body` carries base64-encoded wire bytes
+   *  because the payload is not valid UTF-8 text. Absent = text. */
+  bodyEncoding?: 'base64';
   /** True when the body exceeded the wire byte cap and was truncated. */
   bodyTruncated: boolean;
   /** The cap the executor applied when it truncated — present only
@@ -93,6 +96,14 @@ export interface ExecutedRequestSnapshot {
   /** Bytes the executor serialized onto the wire for the request —
    *  absent on error snapshots. */
   requestSize?: ExecutedRequestSize;
+  /**
+   * True when the draft carried a body the runtime could not put on the
+   * wire for this method — browser `fetch()` refuses to construct a
+   * GET/HEAD request with a body — so the send proceeded WITHOUT it.
+   * Attribution for the response surface: the exchange succeeded, but
+   * the server never saw the body.
+   */
+  requestBodyOmitted?: boolean;
   /** Wire-layer capture for this fetch (remote IP, raw Set-Cookie).
    *  Absent when nothing was captured or the join was ambiguous. */
   wire?: ExecutedWireCapture;

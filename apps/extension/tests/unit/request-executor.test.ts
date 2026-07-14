@@ -1,4 +1,8 @@
 import type { Collection, Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
+// Registers the `requests.*` setting definitions (import side effect) —
+// the executor's success path reads the response-body cap, which throws
+// on an unregistered key.
+import '@openheaders/ui/workbench/settings/schema/requests';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Capture the URL fetch is called with so we can assert resolved output.
@@ -206,19 +210,52 @@ describe('RequestExecutor', () => {
     expect((init.headers as Headers).get('content-type')).toBe('application/vnd.custom+json');
   });
 
-  it('passes body to fetch for any method — browser decides spec compliance', async () => {
-    // GET-with-body is spec-questionable but some APIs accept it; we
-    // no longer drop silently. If the browser's fetch() rejects it,
-    // the error surfaces in the response panel instead of being
-    // swallowed here.
-    await executeRequestDraft(
+  it('omits a GET body from the wire and stamps the omission on the snapshot', async () => {
+    // Browser fetch() refuses to CONSTRUCT a GET/HEAD request with a
+    // body — attaching it would fail the whole send before any wire
+    // activity. Permissive: the request goes out bodiless and the
+    // snapshot says so, instead of hard-failing.
+    const snapshot = await executeRequestDraft(
       makeRequest({
         method: 'GET',
         body: { type: 'json', content: '{"a":1}' },
       }),
     );
     const [, init] = fetchMock.mock.calls[0];
+    expect(init.body).toBeUndefined();
+    expect(snapshot.requestBodyOmitted).toBe(true);
+    expect(snapshot.error).toBeNull();
+  });
+
+  it('keeps a POST body on the wire with no omission stamp', async () => {
+    const snapshot = await executeRequestDraft(
+      makeRequest({
+        method: 'POST',
+        body: { type: 'json', content: '{"a":1}' },
+      }),
+    );
+    const [, init] = fetchMock.mock.calls[0];
     expect(init.body).toBe('{"a":1}');
+    expect(snapshot.requestBodyOmitted).toBeUndefined();
+  });
+
+  it('captures a non-UTF-8 response body as base64 with wire-exact bodyBytes', async () => {
+    const wire = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x0a, 0xe2, 0xe3, 0xcf, 0xd3]);
+    const textFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+      fetchMock(input, init);
+      return Promise.resolve(
+        new Response(wire, { status: 200, statusText: 'OK', headers: { 'content-type': 'application/pdf' } }),
+      );
+    });
+    try {
+      const snapshot = await executeRequestDraft(makeRequest({ method: 'GET' }));
+      expect(snapshot.bodyEncoding).toBe('base64');
+      expect(snapshot.bodyBytes).toBe(wire.byteLength);
+      expect(Array.from(Uint8Array.from(atob(snapshot.body), (c) => c.charCodeAt(0)))).toEqual(Array.from(wire));
+    } finally {
+      vi.stubGlobal('fetch', textFetch);
+    }
   });
 
   it('returns error snapshot for empty URL', async () => {
