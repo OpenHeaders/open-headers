@@ -580,9 +580,9 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
       <MigrateToolModal
         open={migrateToolOpen}
         onClose={() => setMigrateToolOpen(false)}
-        onImportBackupText={(text) => {
+        onImportText={(text) => {
           setMigrateToolOpen(false);
-          setImportSectionedState({ open: true, kind: 'postman-backup', text });
+          openImportText(text);
         }}
         onOpenImportHub={() => {
           setMigrateToolOpen(false);

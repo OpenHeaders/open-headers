@@ -26,6 +26,13 @@ export interface MigrationReadBackupResult {
   reason?: string;
 }
 
+export interface MigrationReadInsomniaDataResult {
+  /** The synthesized v4 export envelope's JSON text, or null when the read was refused/failed. */
+  text: string | null;
+  /** Present when `text` is null. */
+  reason?: string;
+}
+
 export interface MigrationPullStartResult {
   started: boolean;
   /** Present when the run was accepted. */
@@ -55,6 +62,15 @@ export interface MigrationRpc {
    * is refused with a reason, never opened.
    */
   'oh.migration.readBackup': { req: { path: string }; res: MigrationReadBackupResult };
+  /**
+   * Read a scanned Insomnia data directory's NeDB stores and answer
+   * them as a synthesized v4 export envelope, so the surface can route
+   * the finding into the standard text import flow. The host
+   * re-validates the directory against the scan allowlist and
+   * re-enumerates the store files itself — an arbitrary path is refused
+   * with a reason, never opened.
+   */
+  'oh.migration.readInsomniaData': { req: { dir: string }; res: MigrationReadInsomniaDataResult };
   /**
    * The selection step's preflight: enumerate the account's workspaces
    * with item counts so the user picks which ones to import. The key

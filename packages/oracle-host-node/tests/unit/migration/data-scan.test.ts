@@ -8,8 +8,9 @@
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { detectImportSource, parseInsomnia } from '@openheaders/core/import';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readPostmanBackupFile, scanToolData } from '../../../src/migration/data-scan';
+import { readInsomniaData, readPostmanBackupFile, scanToolData } from '../../../src/migration/data-scan';
 
 let tmpHome: string;
 
@@ -112,5 +113,78 @@ describe('readPostmanBackupFile', () => {
     const result = await readPostmanBackupFile(missing, { platform: 'linux', roots: { home: tmpHome } });
     expect(result.text).toBeNull();
     expect(result.reason).toMatch(/Unreadable store file/);
+  });
+});
+
+describe('readInsomniaData', () => {
+  const nedbLine = (doc: Record<string, unknown>): string => `${JSON.stringify(doc)}\n`;
+
+  it('folds the allowlisted store files into an envelope that round-trips through the import path', async () => {
+    const insomniaDir = path.join(tmpHome, '.config', 'Insomnia');
+    await fs.mkdir(insomniaDir, { recursive: true });
+    await fs.writeFile(
+      path.join(insomniaDir, 'insomnia.Workspace.db'),
+      nedbLine({ _id: 'wrk_1', type: 'Workspace', name: 'API' }),
+    );
+    await fs.writeFile(
+      path.join(insomniaDir, 'insomnia.Request.db'),
+      `${nedbLine({
+        _id: 'req_1',
+        type: 'Request',
+        parentId: 'wrk_1',
+        name: 'List sources',
+        method: 'GET',
+        url: 'https://api.openheaders.io/sources',
+      })}{"truncated`, // an interrupted journal append drops, not fails
+    );
+
+    const result = await readInsomniaData(insomniaDir, { platform: 'linux', roots: { home: tmpHome } });
+    expect(result.reason).toBeUndefined();
+    expect(result.text).not.toBeNull();
+    const text = result.text as string;
+
+    expect(detectImportSource(text)).toEqual({ kind: 'insomnia' });
+    const parsed = parseInsomnia(text);
+    expect(parsed.collections).toHaveLength(1);
+    expect(parsed.collections[0]?.name).toBe('API');
+    expect(parsed.collections[0]?.requests).toHaveLength(1);
+    expect(parsed.collections[0]?.requests[0]?.request.url).toBe('https://api.openheaders.io/sources');
+  });
+
+  it('refuses a directory outside the scan allowlist', async () => {
+    const elsewhere = path.join(tmpHome, 'elsewhere');
+    await fs.mkdir(elsewhere, { recursive: true });
+    await fs.writeFile(path.join(elsewhere, 'insomnia.Workspace.db'), nedbLine({ _id: 'wrk_1', type: 'Workspace' }));
+
+    const result = await readInsomniaData(elsewhere, { platform: 'linux', roots: { home: tmpHome } });
+    expect(result.text).toBeNull();
+    expect(result.reason).toBe('Not an allowlisted data directory.');
+  });
+
+  it('reports a missing allowlisted directory as unreadable with a reason', async () => {
+    const missing = path.join(tmpHome, '.config', 'Insomnia');
+    const result = await readInsomniaData(missing, { platform: 'linux', roots: { home: tmpHome } });
+    expect(result.text).toBeNull();
+    expect(result.reason).toMatch(/Unreadable data directory/);
+  });
+
+  it('reports an allowlisted directory holding no store files', async () => {
+    const insomniaDir = path.join(tmpHome, '.config', 'Insomnia');
+    await fs.mkdir(insomniaDir, { recursive: true });
+    await fs.writeFile(path.join(insomniaDir, 'insomnia.Workspace.db.lock'), '');
+
+    const result = await readInsomniaData(insomniaDir, { platform: 'linux', roots: { home: tmpHome } });
+    expect(result.text).toBeNull();
+    expect(result.reason).toMatch(/No data store files found/);
+  });
+
+  it('reports stores whose lines are all unparseable', async () => {
+    const insomniaDir = path.join(tmpHome, '.config', 'Insomnia');
+    await fs.mkdir(insomniaDir, { recursive: true });
+    await fs.writeFile(path.join(insomniaDir, 'insomnia.Workspace.db'), '{"broken\n{"also broken\n');
+
+    const result = await readInsomniaData(insomniaDir, { platform: 'linux', roots: { home: tmpHome } });
+    expect(result.text).toBeNull();
+    expect(result.reason).toMatch(/No readable records/);
   });
 });

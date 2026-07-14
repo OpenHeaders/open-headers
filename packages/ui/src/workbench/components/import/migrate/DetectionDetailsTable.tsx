@@ -5,7 +5,8 @@
  *
  * Actions stay per-row consent clicks: a Postman backup imports through
  * the host-validated `readBackup` → sectioned flow; Insomnia's local
- * data gets the guided export→drop hand-off into the import hub.
+ * data imports through the host-validated `readInsomniaData` envelope,
+ * with the guided export→drop hand-off staying as the fallback line.
  */
 
 import { type DataScanSkip, MIGRATION_TOOL_NAMES, type ToolDataFinding } from '@openheaders/core/import';
@@ -21,9 +22,10 @@ interface DetectionDetailsTableProps {
   scanned: boolean;
   findings: ToolDataFinding[];
   skipped: DataScanSkip[];
-  /** The backup path currently being read, for the row's loading state. */
+  /** The backup path or data dir currently being read, for the row's loading state. */
   readingPath: string | null;
   onImportBackup: (path: string) => void;
+  onImportInsomniaData: (dir: string) => void;
   onOpenImportHub: () => void;
 }
 
@@ -38,6 +40,7 @@ const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
   skipped,
   readingPath,
   onImportBackup,
+  onImportInsomniaData,
   onOpenImportHub,
 }) => {
   const emptyText = scanned
@@ -106,18 +109,24 @@ const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
             </Button>
           );
         }
+        const { dir } = finding;
         return (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            Export it (Preferences → Data → Export), then drop the file in the{' '}
-            <Button
-              type="link"
-              size="small"
-              style={{ padding: 0, fontSize: 12, height: 'auto' }}
-              onClick={onOpenImportHub}
-            >
-              import hub
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            <Button size="small" loading={readingPath === dir} onClick={() => onImportInsomniaData(dir)}>
+              Import…
             </Button>
-          </Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Or export it (Preferences → Data → Export), then drop the file in the{' '}
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, fontSize: 12, height: 'auto' }}
+                onClick={onOpenImportHub}
+              >
+                import hub
+              </Button>
+            </Text>
+          </div>
         );
       },
     },

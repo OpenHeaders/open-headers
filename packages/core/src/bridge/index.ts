@@ -37,6 +37,7 @@ export type {
   LiveWorkflowRunSnapshot,
   MigrationPullStartResult,
   MigrationReadBackupResult,
+  MigrationReadInsomniaDataResult,
   MigrationScanResult,
   SecretsStorageState,
   SiteDataTypeWire,

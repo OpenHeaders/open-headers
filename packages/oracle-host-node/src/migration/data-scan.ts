@@ -20,6 +20,7 @@ import {
   interpretDataScanFiles,
   listDataScanTargets,
   matchesDataScanFile,
+  parseNedbLines,
   type ScannedFile,
   type ToolDataFinding,
 } from '@openheaders/core/import';
@@ -129,4 +130,56 @@ export async function readPostmanBackupFile(
   } catch (err) {
     return { text: null, reason: `Unreadable store file — ${err instanceof Error ? err.message : String(err)}` };
   }
+}
+
+export interface ReadInsomniaDataResult {
+  /** The synthesized v4 export envelope's JSON text, or null when the read was refused/failed. */
+  text: string | null;
+  /** Present when `text` is null. */
+  reason?: string;
+}
+
+/**
+ * Read a scanned Insomnia data directory for import routing. The
+ * directory is re-validated against the scan allowlist and the store
+ * files re-enumerated host-side — a surface-supplied dir (or file list)
+ * can never reach anything the scan itself would not have read (plan
+ * §7). The NeDB docs from every matched store fold into one synthesized
+ * v4 export envelope, so the answer routes through the same detection +
+ * parser path an exported file takes. Unparseable lines drop exactly as
+ * the scan drops them (interrupted journal appends).
+ */
+export async function readInsomniaData(
+  dir: string,
+  options: ScanToolDataOptions = {},
+): Promise<ReadInsomniaDataResult> {
+  const targets = listDataScanTargets(options.platform ?? process.platform, defaultRoots(options));
+  const allowed = targets.some((target) => target.store === 'insomnia-nedb' && target.dir === dir);
+  if (!allowed) {
+    return { text: null, reason: 'Not an allowlisted data directory.' };
+  }
+  let names: string[];
+  try {
+    names = await fs.readdir(dir);
+  } catch (err) {
+    return { text: null, reason: `Unreadable data directory — ${err instanceof Error ? err.message : String(err)}` };
+  }
+  const matched = names.filter((name) => matchesDataScanFile('insomnia-nedb', name)).sort();
+  if (matched.length === 0) {
+    return { text: null, reason: 'No data store files found — the tool may have moved or cleared its data.' };
+  }
+  const docs: unknown[] = [];
+  for (const name of matched) {
+    let text: string;
+    try {
+      text = await fs.readFile(joinDir(dir, name), 'utf8');
+    } catch {
+      continue;
+    }
+    docs.push(...parseNedbLines(text).docs);
+  }
+  if (docs.length === 0) {
+    return { text: null, reason: 'No readable records found in the data stores.' };
+  }
+  return { text: JSON.stringify({ _type: 'export', __export_format: 4, resources: docs }) };
 }

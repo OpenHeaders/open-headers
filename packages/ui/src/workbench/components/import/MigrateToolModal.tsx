@@ -34,8 +34,9 @@ const { Text, Paragraph } = Typography;
 interface MigrateToolModalProps {
   open: boolean;
   onClose: () => void;
-  /** Route a scanned Postman backup's text into the sectioned import flow. */
-  onImportBackupText: (text: string) => void;
+  /** Route a scanned store's text (backup JSON or a synthesized export
+   *  envelope) into the standard detection → import flow. */
+  onImportText: (text: string) => void;
   /** Guided export→drop hand-off for stores we never read directly. */
   onOpenImportHub: () => void;
 }
@@ -45,7 +46,7 @@ interface ScanState {
   data: MigrationScanResult;
 }
 
-const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onImportBackupText, onOpenImportHub }) => {
+const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onImportText, onOpenImportHub }) => {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scan, setScan] = useState<ScanState | null>(null);
@@ -81,13 +82,29 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
       void hostBridge
         .call('oh.migration.readBackup', { path })
         .then((result) => {
-          if (result.text !== null) onImportBackupText(result.text);
+          if (result.text !== null) onImportText(result.text);
           else setReadReason(result.reason ?? 'The backup file could not be read.');
         })
         .catch(() => setReadReason('The backup file could not be read.'))
         .finally(() => setReadingPath(null));
     },
-    [onImportBackupText],
+    [onImportText],
+  );
+
+  const importInsomniaData = useCallback(
+    (dir: string) => {
+      setReadingPath(dir);
+      setReadReason(null);
+      void hostBridge
+        .call('oh.migration.readInsomniaData', { dir })
+        .then((result) => {
+          if (result.text !== null) onImportText(result.text);
+          else setReadReason(result.reason ?? 'The local data could not be read.');
+        })
+        .catch(() => setReadReason('The local data could not be read.'))
+        .finally(() => setReadingPath(null));
+    },
+    [onImportText],
   );
 
   const renderVendorRow = (tool: MigrationTool): React.ReactNode => {
@@ -163,6 +180,7 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
                 skipped={scan?.data.skipped ?? []}
                 readingPath={readingPath}
                 onImportBackup={importBackup}
+                onImportInsomniaData={importInsomniaData}
                 onOpenImportHub={onOpenImportHub}
               />
             </div>

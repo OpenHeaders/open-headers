@@ -62,6 +62,7 @@ import {
   createMigrationPullRunner,
   detectInstalledTools,
   listPostmanWorkspaces,
+  readInsomniaData,
   readPostmanBackupFile,
   scanToolData,
 } from '@openheaders/oracle-host-node/migration';
@@ -338,6 +339,10 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'oh.migration.readBackup') {
       const path = typeof message.path === 'string' ? message.path : '';
       return readPostmanBackupFile(path);
+    }
+    if (type === 'oh.migration.readInsomniaData') {
+      const dir = typeof message.dir === 'string' ? message.dir : '';
+      return readInsomniaData(dir);
     }
     // Import-report ring (ARCHITECTURE §23) — the shared workbench UI
     // (report modal, re-import diff, settings Data page) drives these

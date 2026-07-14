@@ -9,7 +9,9 @@ export {
 } from './api-pull';
 export {
   type DataScanResult,
+  type ReadInsomniaDataResult,
   type ReadPostmanBackupResult,
+  readInsomniaData,
   readPostmanBackupFile,
   type ScanToolDataOptions,
   scanToolData,

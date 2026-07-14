@@ -74,7 +74,12 @@ export type {
 } from './devtools';
 export type { EnvironmentsSnapshot } from './environments';
 export type { LiveWorkflowRunSnapshot } from './live';
-export type { MigrationPullStartResult, MigrationReadBackupResult, MigrationScanResult } from './migration';
+export type {
+  MigrationPullStartResult,
+  MigrationReadBackupResult,
+  MigrationReadInsomniaDataResult,
+  MigrationScanResult,
+} from './migration';
 export type { CookieJarEntryWire } from './requests';
 export type { SecretsStorageState } from './secrets';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';

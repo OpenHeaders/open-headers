@@ -6,8 +6,10 @@
  *     explicit "Scan this computer" click and fills in status-only
  *     vendor rows plus the compact details table below;
  *   - a backup row's Import… routes through the host-validated
- *     readBackup RPC into the sectioned flow; Insomnia guidance hands
- *     off to the import hub; scan skips render with their reason;
+ *     readBackup RPC into the sectioned flow; the Insomnia row's
+ *     Import… routes through readInsomniaData the same way, with the
+ *     guided import-hub hand-off staying as the fallback line; scan
+ *     skips render with their reason;
  *   - "Import from Postman account" needs no detection: it collapses the
  *     other vendors and reveals the inline stepper — key → listWorkspaces →
  *     checkbox picker → start narrowed to the selected workspaceIds —
@@ -111,7 +113,7 @@ function renderModal(props: Partial<Parameters<typeof MigrateToolModal>[0]> = {}
     <MigrateToolModal
       open
       onClose={props.onClose ?? (() => {})}
-      onImportBackupText={props.onImportBackupText ?? (() => {})}
+      onImportText={props.onImportText ?? (() => {})}
       onOpenImportHub={props.onOpenImportHub ?? (() => {})}
     />,
   );
@@ -163,12 +165,13 @@ describe('MigrateToolModal', () => {
 
   it('routes a backup Import click through readBackup into the sectioned flow', async () => {
     const calls = installBridge({ 'oh.migration.readBackup': { text: '{"version":1}' } });
-    const onImportBackupText = vi.fn();
-    renderModal({ onImportBackupText });
+    const onImportText = vi.fn();
+    renderModal({ onImportText });
     await detected(calls);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import…' }));
-    await waitFor(() => expect(onImportBackupText).toHaveBeenCalledWith('{"version":1}'));
+    // Findings order: the Postman backup row first, the Insomnia row second.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Import…' })[0]);
+    await waitFor(() => expect(onImportText).toHaveBeenCalledWith('{"version":1}'));
     expect(calls.at(-1)).toEqual({
       type: 'oh.migration.readBackup',
       payload: { path: '/home/u/.config/Postman/backup-2026-03-18.json' },
@@ -179,21 +182,50 @@ describe('MigrateToolModal', () => {
     const calls = installBridge({
       'oh.migration.readBackup': { text: null, reason: 'Not an allowlisted backup file.' },
     });
-    const onImportBackupText = vi.fn();
-    renderModal({ onImportBackupText });
+    const onImportText = vi.fn();
+    renderModal({ onImportText });
     await detected(calls);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import…' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Import…' })[0]);
     await screen.findByText('Not an allowlisted backup file.');
-    expect(onImportBackupText).not.toHaveBeenCalled();
+    expect(onImportText).not.toHaveBeenCalled();
   });
 
-  it('hands the Insomnia guidance off to the import hub', async () => {
+  it('routes the Insomnia Import click through readInsomniaData into the text flow', async () => {
+    const envelope = '{"_type":"export","__export_format":4,"resources":[]}';
+    const calls = installBridge({ 'oh.migration.readInsomniaData': { text: envelope } });
+    const onImportText = vi.fn();
+    renderModal({ onImportText });
+    await detected(calls);
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Import…' })[1]);
+    await waitFor(() => expect(onImportText).toHaveBeenCalledWith(envelope));
+    expect(calls.at(-1)).toEqual({
+      type: 'oh.migration.readInsomniaData',
+      payload: { dir: '/home/u/.config/Insomnia' },
+    });
+  });
+
+  it('shows the refusal reason when the host declines the Insomnia data read', async () => {
+    const calls = installBridge({
+      'oh.migration.readInsomniaData': { text: null, reason: 'Not an allowlisted data directory.' },
+    });
+    const onImportText = vi.fn();
+    renderModal({ onImportText });
+    await detected(calls);
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Import…' })[1]);
+    await screen.findByText('Not an allowlisted data directory.');
+    expect(onImportText).not.toHaveBeenCalled();
+  });
+
+  it('keeps the Insomnia guided fallback that hands off to the import hub', async () => {
     const calls = installBridge();
     const onOpenImportHub = vi.fn();
     renderModal({ onOpenImportHub });
     await detected(calls);
 
+    expect(screen.getByText(/Or export it/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'import hub' }));
     expect(onOpenImportHub).toHaveBeenCalledTimes(1);
   });
