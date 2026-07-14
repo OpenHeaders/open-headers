@@ -1,6 +1,7 @@
 /**
- * `oh.*` host-RPC servicing for sandboxed scripts — the desktop twin of
- * the extension offscreen host's bottom half. Every op resolves against
+ * `oh.*` host-RPC servicing for sandboxed scripts — the node-host twin
+ * of the extension offscreen host's bottom half, shared by the desktop
+ * main process and the standalone daemon. Every op resolves against
  * the ACTIVE workspace's stores at the moment the RPC arrives, exactly
  * the extension's posture:
  *
@@ -20,7 +21,7 @@
  *     carries no scripts, so this cannot recurse.
  *
  * Always resolves with a `ScriptHostResponse` — never throws — so the
- * broker forwards it back to the sandbox without extra handling.
+ * broker forwards it back to the runtime without extra handling.
  */
 
 import type {
@@ -46,7 +47,7 @@ import { getRequestCollections } from '@openheaders/oracle/entity/request-store'
 import { getCollections as getRuleCollections } from '@openheaders/oracle/entity/rule-store';
 import { makeOracleInverseAccess, rememberPriorForMutation } from '@openheaders/oracle/sync';
 import { applySyncRequest, getOracleForWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
-import { handleExecuteRequestRpc } from '@openheaders/oracle-host-node/daemon';
+import { handleExecuteRequestRpc } from './execute-request-rpc';
 
 /** Activity-feed attribution for script-initiated writes. */
 const SCRIPT_HOST_SURFACE_ID = 'script-host';
@@ -149,7 +150,7 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
 }
 
 async function resolveVaultRef(ref: string): Promise<string | null> {
-  // The sandbox can request either a named vault secret or an OAuth
+  // The runtime can request either a named vault secret or an OAuth
   // credentialRef. Named secrets are the common case; OAuth bundles
   // surface their access token as the value (the common need — signing
   // an outbound ad-hoc request).

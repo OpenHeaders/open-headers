@@ -6,9 +6,9 @@
  * `sandbox: true`, context isolation, no Node integration, and only
  * the minimal `preload/sandbox.js` postMessage bridge.
  *
- * The broker (`script-broker.ts`) drives this through the
- * {@link SandboxTransport} seam so its lifecycle/timeout/tiering logic
- * unit-tests against a fake transport:
+ * The host-neutral broker (`@openheaders/oracle-host-node/daemon`)
+ * drives this through the {@link SandboxTransport} seam so its
+ * lifecycle/timeout/tiering logic unit-tests against a fake transport:
  *   • created lazily on the first `ensureReady()`, reused after;
  *   • a crashed/killed renderer (`render-process-gone`) drops the
  *     handle, so the next run respawns a fresh window;
@@ -21,6 +21,7 @@
  */
 
 import { join } from 'node:path';
+import type { SandboxTransport } from '@openheaders/oracle-host-node/daemon';
 import { BrowserWindow, ipcMain } from 'electron';
 import { createLogger } from '../bootstrap/logger';
 import { attachWindowSecurity } from '../bootstrap/security';
@@ -29,17 +30,6 @@ const logger = createLogger('script-sandbox');
 
 const UP_CHANNEL = 'oh:script-sandbox:up';
 const DOWN_CHANNEL = 'oh:script-sandbox:down';
-
-/** Broker ⇄ sandbox transport. Implementations must deliver `onUp`
- *  messages only from the sandbox page itself. */
-export interface SandboxTransport {
-  /** Spawn (or reuse) the sandbox and resolve once it signaled ready. */
-  ensureReady(): Promise<void>;
-  /** Deliver one message into the sandbox page. */
-  post(message: unknown): void;
-  /** Tear the sandbox down; the next `ensureReady` respawns. */
-  close(reason: 'idle' | 'shutdown'): void;
-}
 
 export function createSandboxWindowTransport(onUp: (message: unknown) => void): SandboxTransport {
   let win: BrowserWindow | null = null;

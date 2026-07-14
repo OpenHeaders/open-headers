@@ -9,10 +9,10 @@
     "ohd": "./dist/cli.js"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.config.runner.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "pack": "vite build && node scripts/pack.mjs",
+    "pack": "vite build && vite build --config vite.config.runner.ts && node scripts/pack.mjs",
     "pack:sea": "vite build --config vite.config.sea.ts && node scripts/pack-sea.mjs",
     "clean": "rm -rf dist dist-package dist-sea"
   },

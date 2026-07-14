@@ -15,6 +15,7 @@ import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { bootWebHost } from '@/host/boot-web-host';
 import { installDaemonWire } from '@/host/daemon-wire';
+import { watchDaemonScriptPosture } from '@/host/install-script-posture';
 import { awaitPostJoinAdoption, decideGate, submitDaemonToken } from '@/host/join-gate';
 import { claimOidcToken, consumeOidcHash, describeOidcError, fetchOidcMeta } from '@/host/oidc-login';
 import { fetchPasswordMeta } from '@/host/password-login';
@@ -76,6 +77,7 @@ if (!window.isSecureContext) {
   eagerInitRendererMirrors();
 
   const wire = installDaemonWire();
+  watchDaemonScriptPosture(wire);
 
   const mountWorkbench = (): void => {
     // Latch the wire on (idempotent — the gate's accepted handshake is

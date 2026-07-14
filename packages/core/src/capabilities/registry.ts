@@ -241,10 +241,10 @@ export interface Capabilities {
    * Declares that the surface's answering host RUNS pre-request /
    * post-response scripts, and names its default posture (`'safe'` —
    * every host defaults secure). Registered only by node-runtime
-   * surfaces with a script runtime (the desktop renderer). Left absent
-   * where scripts genuinely don't run (the web app — its sends execute
-   * on the connected daemon, which has no script runtime yet), and
-   * shared UI keeps the honest "don't run here" fact row. The LIVE
+   * surfaces whose OWN host runs scripts (the desktop renderer) — it
+   * gates the Settings tab's chooser. The web app never registers it:
+   * its sends execute on the connected daemon, whose posture arrives
+   * as {@link Capabilities.remoteScriptRuntime} instead. The LIVE
    * per-workspace mode is not this capability's answer — it rides the
    * host-local `OH.scriptExecutionModes` slot, read and written by
    * `useScriptExecutionMode` behind the Settings tab's chooser.
@@ -252,6 +252,20 @@ export interface Capabilities {
    * sandbox story is not a node-sheet fact.
    */
   scriptRuntime?: () => ScriptExecutionMode;
+
+  /**
+   * Declares that FORWARDED sends run scripts on the answering
+   * back-end, and names the mode they run under — always `'safe'`: a
+   * peer-forwarded send never rides anything else, so this is a fact,
+   * not a choice. Registered by the web app once the serving daemon
+   * reports a script runtime over the wire
+   * (`getScriptRuntimeInfo`); left absent against a runtime-less
+   * daemon (the SEA/Docker single binary), where shared UI keeps the
+   * honest "don't run here" fact row. Never renders a chooser — the
+   * mode slot is the EXECUTING host's, out of a remote surface's
+   * reach by design.
+   */
+  remoteScriptRuntime?: () => ScriptExecutionMode;
 
   /**
    * The release notes bundled into this build, as markdown, or `null`

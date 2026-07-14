@@ -1,6 +1,7 @@
 /**
  * Peer-facing request-execution plane — answers the workbench request
- * channels (`executeRequest` + the cookie-jar trio) for WS peers, with
+ * channels (`executeRequest`, the cookie-jar trio, and the
+ * script-posture fact) for WS peers, with
  * the per-frame gating law the peer admin plane established: the PEER's
  * identity snapshot resolves fresh on every call (a revocation bites
  * the next frame), the decision gates on a workspace CAPABILITY as the
@@ -36,6 +37,7 @@ import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-wo
 import type { WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
 import { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
+import { getHostScriptCapability } from './script-capability';
 
 /** Honest opt-in refusal — the web seam renders it on the Send surface. */
 export const PEER_EXECUTE_DISABLED_MESSAGE =
@@ -46,6 +48,10 @@ const CAPABILITY_BY_CHANNEL: Record<string, Capability> = {
   getCookieJarSummary: 'workspace.read',
   clearCookieJar: 'workspace.write',
   deleteCookieJarEntry: 'workspace.write',
+  // Value-free host fact (does a forwarded send run scripts, and in
+  // which mode) — read-tier like the jar summary: authenticated
+  // admission + per-workspace RBAC, no opt-in.
+  getScriptRuntimeInfo: 'workspace.read',
 };
 
 export interface PeerRequestsRpcOptions {
@@ -93,6 +99,10 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
           return await executeRequest(message);
         case 'getCookieJarSummary':
           return { cookies: peekCookieJar(workspaceId)?.list() ?? [] };
+        case 'getScriptRuntimeInfo':
+          // Forwarded sends only ever ride Safe — the answer is the
+          // Safe capability's presence, never the mode slot.
+          return { scriptRuntime: getHostScriptCapability('safe') !== null ? 'safe' : null };
         case 'clearCookieJar':
           peekCookieJar(workspaceId)?.clear();
           return { success: true };

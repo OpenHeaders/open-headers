@@ -35,6 +35,7 @@ import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storag
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
 import { AUDIT_RETENTION_DEFAULT_DAYS, resolveDaemonConfig } from './config';
 import { createDaemonLogger } from './logger';
+import { installScriptRuntime } from './script-sandbox/install';
 import { ensureSeaPayload } from './sea/payload';
 import { createDaemonStatusStore } from './status-store';
 import { resolveDaemonCipher } from './vault-cipher';
@@ -184,11 +185,17 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       },
     });
 
+    // Scripted sends need the spine's stores and executor — install
+    // after boot. Registers nothing on the SEA binary (honest
+    // scriptless posture) or when the runner bundle is absent.
+    const scriptRuntime = installScriptRuntime();
+
     let shuttingDown = false;
     const shutdown = (signal: NodeJS.Signals): void => {
       if (shuttingDown) return;
       shuttingDown = true;
       log.info(SCOPE, `${signal} — shutting down`);
+      scriptRuntime?.dispose();
       void spine
         .dispose()
         .catch((err: unknown) => {

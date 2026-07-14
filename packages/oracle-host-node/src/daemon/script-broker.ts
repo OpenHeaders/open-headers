@@ -1,11 +1,13 @@
 /**
- * Script broker — the desktop main-process twin of the extension's
- * `offscreen-host.ts`: owner of the single hidden sandbox window that
- * runs user pre-request / post-response scripts, and the host side of
- * every `oh.*` RPC those scripts make.
+ * Script broker — the host-neutral twin of the extension's
+ * `offscreen-host.ts`: owner of one script runtime behind a
+ * {@link SandboxTransport}, and the host side of every `oh.*` RPC the
+ * scripts it runs make. The desktop wires two of these (the hidden
+ * sandboxed renderer and the full-Node `utilityProcess` worker); the
+ * standalone daemon wires one over its permission-restricted fork.
  *
  * Lifecycle:
- *   • Sandbox spawns on first `runScript(...)` via the injected
+ *   • Runtime spawns on first `runScript(...)` via the injected
  *     {@link SandboxTransport} (concurrent callers share the spawn).
  *   • An idle timer closes it {@link IDLE_CLOSE_MS} after the last
  *     in-flight script settles; the next call respawns.
@@ -25,6 +27,7 @@
  *     path is captures → live variables.
  */
 
+import { hostLogger as logger } from '@openheaders/core/logger';
 import type {
   RequestSnapshot,
   ResponseSnapshot,
@@ -38,13 +41,22 @@ import type {
 import type { ScriptPackageCache } from '@openheaders/oracle/sync/caches/script-package-cache';
 import { SCRIPT_PACKAGE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
-import { createLogger } from '../bootstrap/logger';
-import type { SandboxTransport } from './sandbox-window';
 
-const logger = createLogger('script-broker');
+const SCOPE = 'script-broker';
 
 const IDLE_CLOSE_MS = 30_000;
 const SCRIPT_EXECUTE_TRANSPORT_TIMEOUT_MS = 60_000;
+
+/** Broker ⇄ script runtime transport. Implementations must deliver
+ *  `onUp` messages only from the runtime they own. */
+export interface SandboxTransport {
+  /** Spawn (or reuse) the runtime and resolve once it signaled ready. */
+  ensureReady(): Promise<void>;
+  /** Deliver one message into the runtime. */
+  post(message: unknown): void;
+  /** Tear the runtime down; the next `ensureReady` respawns. */
+  close(reason: 'idle' | 'shutdown'): void;
+}
 
 export interface RunScriptOptions {
   kind: ScriptKind;
@@ -57,7 +69,7 @@ export interface RunScriptOptions {
 }
 
 /** Answers one `oh.*` host request. Must resolve (never throw) — the
- *  broker forwards whatever comes back straight into the sandbox. */
+ *  broker forwards whatever comes back straight into the runtime. */
 export type ScriptHostRequestHandler = (request: ScriptHostRequest) => Promise<ScriptHostResponse>;
 
 /** Host ops rejected for chain-context executions. */
@@ -65,7 +77,7 @@ const CHAIN_BLOCKED_OPS = new Set<ScriptHostRequest['op']>(['sendRequest', 'vari
 
 export interface ScriptBroker {
   runScript(opts: RunScriptOptions): Promise<ScriptExecutionResult>;
-  /** Tear down the sandbox window and every timer. */
+  /** Tear down the runtime and every timer. */
   dispose(): void;
 }
 
@@ -172,7 +184,7 @@ export function createScriptBroker(deps: ScriptBrokerDeps): ScriptBroker {
   return {
     async runScript(opts: RunScriptOptions): Promise<ScriptExecutionResult> {
       if (!opts.source?.trim()) {
-        // No-op source → no-op result. Saves a sandbox spawn for the
+        // No-op source → no-op result. Saves a runtime spawn for the
         // common "no script configured" path.
         return {
           executionId: nextExecutionId(),
@@ -208,7 +220,7 @@ export function createScriptBroker(deps: ScriptBrokerDeps): ScriptBroker {
         return await sendExecute(request);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        logger.warn('script.execute transport failed', { scriptKind: request.kind, executionId, message });
+        logger.warn(SCOPE, `script.execute transport failed (${request.kind} ${executionId}): ${message}`);
         return {
           executionId,
           succeeded: false,

@@ -1,12 +1,12 @@
 /**
- * Peer-facing request-execution plane — the gating laws over the four
+ * Peer-facing request-execution plane — the gating laws over the five
  * workbench channels: `executeRequest` refuses (honestly, naming the
  * setting) while `backend.allowPeerExecute` is off, with no identity
  * resolution and no audit row; past the opt-in, every channel resolves
  * the peer's snapshot fresh, gates on the workspace capability
  * (`workspace.write` for send + clear + per-entry delete,
- * `workspace.read` for the summary), audits the decision, and only
- * then reaches the handler.
+ * `workspace.read` for the summary and the script-posture fact),
+ * audits the decision, and only then reaches the handler.
  * The target workspace is the frame's, falling back to the host's
  * active one.
  */
@@ -45,6 +45,7 @@ vi.mock('../../../src/live/cookie-jar', () => ({
 
 import type { ExecuteRequestRpcResult } from '../../../src/daemon/execute-request-rpc';
 import { createPeerRequestsRpc, PEER_EXECUTE_DISABLED_MESSAGE } from '../../../src/daemon/peer-requests-rpc';
+import { setHostScriptCapabilities } from '../../../src/daemon/script-capability';
 
 const PEER = { userId: 'user-1' };
 
@@ -54,17 +55,41 @@ beforeEach(() => {
   h.decision = { allow: true };
   h.audits = [];
   h.jars = new Map();
+  setHostScriptCapabilities(null);
 });
 
 describe('createPeerRequestsRpc — ownership', () => {
-  it('owns exactly the four request channels', () => {
+  it('owns exactly the five request channels', () => {
     const rpc = createPeerRequestsRpc();
     expect(rpc.owns('executeRequest')).toBe(true);
     expect(rpc.owns('getCookieJarSummary')).toBe(true);
     expect(rpc.owns('clearCookieJar')).toBe(true);
     expect(rpc.owns('deleteCookieJarEntry')).toBe(true);
+    expect(rpc.owns('getScriptRuntimeInfo')).toBe(true);
     expect(rpc.owns('getStatusSnapshot')).toBe(false);
     expect(rpc.owns('oh.daemon.users.list')).toBe(false);
+  });
+});
+
+describe('createPeerRequestsRpc — script posture', () => {
+  it('answers the Safe capability presence under workspace.read — no opt-in required', async () => {
+    h.settings = {};
+    setHostScriptCapabilities({
+      safe: {
+        mode: 'safe',
+        runScript: async () => ({ executionId: 'e', succeeded: true, assertions: [], consoleLog: [], durationMs: 0 }),
+      },
+    });
+    const rpc = createPeerRequestsRpc();
+    await expect(rpc.dispatch({ type: 'getScriptRuntimeInfo' }, PEER)).resolves.toEqual({ scriptRuntime: 'safe' });
+    expect(h.hasCapability).toHaveBeenCalledWith(expect.anything(), 'workspace.read', { workspaceId: 'ws-active' });
+    expect(h.audits).toHaveLength(1);
+  });
+
+  it('answers null on a scriptless host — the honest "don\'t run here" fact', async () => {
+    setHostScriptCapabilities(null);
+    const rpc = createPeerRequestsRpc();
+    await expect(rpc.dispatch({ type: 'getScriptRuntimeInfo' }, PEER)).resolves.toEqual({ scriptRuntime: null });
   });
 });
 

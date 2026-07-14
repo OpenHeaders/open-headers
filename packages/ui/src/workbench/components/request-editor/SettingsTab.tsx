@@ -240,6 +240,8 @@ interface RuntimeManagedDef {
   /** Effective behavior shown in the muted value column. */
   valueKey: MessageKey;
   descriptionKey: MessageKey;
+  /** Row anchor for e2e assertions on posture facts. */
+  testId?: string;
 }
 
 const BROWSER_MANAGED: RuntimeManagedDef[] = [
@@ -314,17 +316,28 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
 ];
 
 /**
- * The node sheet's Scripts row survives only where scripts genuinely
- * don't run: on a surface whose answering host has a script runtime
- * (the `scriptRuntime` capability — the desktop), the row graduates
- * into the Script execution chooser knob (the cookie-jar precedent);
- * the web surface's sends execute on the connected daemon, which has
- * no script runtime, so it keeps the honest "don't run here" fact.
+ * The node sheet's Scripts row, on surfaces without a chooser: where
+ * the OWN host has a script runtime (the `scriptRuntime` capability —
+ * the desktop), the row graduates into the Script execution chooser
+ * knob (the cookie-jar precedent) and neither fact renders. A surface
+ * whose sends execute on a connected back-end states that back-end's
+ * posture instead: "Safe mode" when it reported a script runtime
+ * (`remoteScriptRuntime` — forwarded sends only ever ride Safe, so
+ * this is a fact row, never a chooser), and the honest "don't run
+ * here" against a runtime-less one.
  */
 const SCRIPTS_NOT_RUN_ROW: RuntimeManagedDef = {
   labelKey: 'workbench.editors.request.settings.managed.scripts',
   valueKey: 'workbench.editors.request.settings.managed.scriptsNotRun',
   descriptionKey: 'workbench.editors.request.settings.managed.scriptsNotRunDesc',
+  testId: 'oh-managed-scripts-row',
+};
+
+const SCRIPTS_SAFE_FORWARDED_ROW: RuntimeManagedDef = {
+  labelKey: 'workbench.editors.request.settings.managed.scripts',
+  valueKey: 'workbench.editors.request.settings.managed.scriptsSafeForwarded',
+  descriptionKey: 'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc',
+  testId: 'oh-managed-scripts-row',
 };
 
 interface RuntimeManagedSheet {
@@ -522,11 +535,16 @@ const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
   valueKey,
   descriptionKey,
   kicker,
+  testId,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
   return (
-    <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 26 }}>
+    <div
+      className="rules-settings-row"
+      data-testid={testId}
+      style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 26 }}
+    >
       <Text style={{ fontSize: 12, color: token.colorTextSecondary }}>{t(labelKey)}</Text>
       <InfoTrigger content={{ title: t(labelKey), kicker, summary: t(descriptionKey) }} />
       <span style={{ flex: 1 }} />
@@ -547,7 +565,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
   const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const scriptMode = useScriptExecutionMode(workspaceId);
   const sheet = MANAGED_SHEETS[runtime];
-  const sheetRows = runtime === 'node' && !scriptMode.available ? [...sheet.rows, SCRIPTS_NOT_RUN_ROW] : sheet.rows;
+  const remoteScriptsSafe = getCapability('remoteScriptRuntime')?.() === 'safe';
+  const sheetRows =
+    runtime === 'node' && !scriptMode.available
+      ? [...sheet.rows, remoteScriptsSafe ? SCRIPTS_SAFE_FORWARDED_ROW : SCRIPTS_NOT_RUN_ROW]
+      : sheet.rows;
   // Vault client-certificate entries feed the picker's options. The
   // context defaults to an empty vault when no provider is mounted, so
   // the tab stays renderable everywhere.

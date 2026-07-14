@@ -2,7 +2,8 @@
  * Developer-mode worker transport — the `utilityProcess` lifecycle half
  * of the desktop's full-runtime script host, behind the same
  * {@link SandboxTransport} seam the Safe-mode hidden window implements,
- * so one broker (`script-broker.ts`) drives both runtimes:
+ * so one broker (the host-neutral one in
+ * `@openheaders/oracle-host-node/daemon`) drives both runtimes:
  *   • forked lazily on the first `ensureReady()`, reused after;
  *   • an exited/crashed worker drops the handle, so the next run forks
  *     a fresh one (a fork that dies before its ready signal rejects
@@ -18,9 +19,9 @@
  */
 
 import { join } from 'node:path';
+import type { SandboxTransport } from '@openheaders/oracle-host-node/daemon';
 import { utilityProcess } from 'electron';
 import { createLogger } from '../bootstrap/logger';
-import type { SandboxTransport } from './sandbox-window';
 
 const logger = createLogger('script-worker');
 

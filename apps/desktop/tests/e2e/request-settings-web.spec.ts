@@ -394,6 +394,86 @@ test('Clear empties the jar over the wire — the next send carries nothing', as
   expect(await responseRawBody()).toBe('cookie=[]');
 });
 
+// ── Scripts on the forwarded Send: Safe mode, never anything else ────
+// A scripted draft dispatched from the tab rides the same forwarded
+// channel as the Send button and executes on the serving host's Safe
+// runtime — `resolveScriptRunner` never reads the mode slot for a
+// peer-forwarded send. The pre-request mutation must reach the real
+// wire (the rig echoes the script-set header), the post-response
+// assertions must see the real response, and the snapshot must stamp
+// the Safe mode it ran under.
+
+test('a scripted forwarded Send runs Safe on the serving host and stamps the mode', async () => {
+  const result = await invokeTab<{
+    success: boolean;
+    error?: string;
+    snapshot?: {
+      error: string | null;
+      status: number;
+      body: string;
+      scripts?: {
+        mode?: string;
+        preRequest?: { succeeded: boolean };
+        postResponse?: { succeeded: boolean; assertions?: Array<{ name: string; passed: boolean }> };
+      };
+    };
+  }>({
+    type: 'executeRequest',
+    draft: {
+      schemaVersion: 5,
+      uid: 'req-web-script-1',
+      path: 'requests/settings-web/scripted',
+      name: 'web: scripted echo',
+      method: 'GET',
+      url: `http://127.0.0.1:${httpRig.port}/echo`,
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+      preRequestScript: "oh.setHeader('Authorization', 'Bearer forwarded-safe');",
+      postResponseScript: [
+        'const echoed = JSON.parse(oh.response.body);',
+        "await oh.test('script header reached the wire', () => {",
+        "  oh.expect(echoed.authorization).toBe('Bearer forwarded-safe');",
+        '});',
+      ].join('\n'),
+    },
+  });
+  expect(result.success, result.error).toBe(true);
+  const snapshot = result.snapshot;
+  expect(snapshot?.error ?? null).toBeNull();
+  expect(snapshot?.status).toBe(200);
+  expect(JSON.parse(snapshot?.body ?? '{}').authorization).toBe('Bearer forwarded-safe');
+  expect(snapshot?.scripts?.mode).toBe('safe');
+  expect(snapshot?.scripts?.preRequest?.succeeded).toBe(true);
+  expect(snapshot?.scripts?.postResponse?.assertions).toEqual([
+    expect.objectContaining({ name: 'script header reached the wire', passed: true }),
+  ]);
+});
+
+test('the Settings tab states the forwarded script posture as a fact row', async () => {
+  // The posture arrived over `getScriptRuntimeInfo` at handshake time;
+  // the node sheet's Scripts row reads "Safe mode" instead of "Don't
+  // run here", and no chooser renders (the mode slot belongs to the
+  // serving host).
+  await openRequest(echoUid);
+  await page
+    .getByRole('tab', { name: /Settings/ })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const reveal = page
+    .getByRole('button', { name: /runtime-managed/ })
+    .filter({ visible: true })
+    .first();
+  await reveal.waitFor({ state: 'visible', timeout: 15_000 });
+  await reveal.click();
+  const scriptsRow = page.getByTestId('oh-managed-scripts-row').filter({ visible: true }).first();
+  await scriptsRow.waitFor({ state: 'visible', timeout: 15_000 });
+  await expect(scriptsRow).toContainText('Safe mode');
+  await expect(page.getByTestId('oh-script-mode-select')).toHaveCount(0);
+});
+
 // ── In-tab workspace export/import over the tab oracle ──────────────
 // The tab answers the whole export/import channel family itself (same
 // lifted oracle modules as the extension SW and daemon spine). The

@@ -8,17 +8,12 @@
  * executions get the read-only `oh.*` tier.
  */
 
+import { setHostLogger } from '@openheaders/core/logger';
 import type { ScriptExecutionRequest, ScriptExecutionResult, ScriptHostRequest } from '@openheaders/core/scripts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createScriptBroker, type SandboxTransport, type ScriptBroker } from '../../../src/daemon/script-broker';
 
-// `electron-log/main` has no test-runtime resolution — the mock registry
-// only maps the bare specifiers. The broker only logs; stub the module.
-vi.mock('@/main/bootstrap/logger', () => ({
-  createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
-}));
-
-import type { SandboxTransport } from '@/main/script-sandbox/sandbox-window';
-import { createScriptBroker, type ScriptBroker } from '@/main/script-sandbox/script-broker';
+setHostLogger({ debug: () => {}, info: () => {}, warn: () => {}, error: () => {} });
 
 const snapshot = {
   method: 'GET' as const,
