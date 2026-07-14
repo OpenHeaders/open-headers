@@ -12,7 +12,10 @@
 
 .dt-storage-nav {
   flex: 0 0 auto;
-  width: 118px;
+  /* Wide enough for the longest label ("Session storage") PLUS the
+     filter match-count badge — 118px clipped the badge under the
+     rail's divider while a filter was typed. */
+  width: 150px;
   display: flex;
   flex-direction: column;
   gap: 1px;
