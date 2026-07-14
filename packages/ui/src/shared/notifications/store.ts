@@ -8,6 +8,17 @@
  * icon watches {@link useUnseenNotificationCount}. Opening the panel
  * marks everything seen (the dot clears); entries stay in the timeline
  * until dismissed or cleared.
+ *
+ * Suggestions are a separate list behind the panel's top section:
+ * standing advice about the user's setup rather than events, so they
+ * carry no timestamp, don't feed the bell dot, and stay until their
+ * producer removes them or the user dismisses one via an action.
+ *
+ * Keyed, non-sticky entries can be muted ("Don't show again") for good.
+ * Mutes persist in localStorage and gate pushes, so a muted key never
+ * re-enters any list until unmuted (the panel pushes a timeline notice
+ * with a Re-enable action on mute). Sticky entries ignore mutes — only
+ * their producer's actions retire them.
  */
 
 import type { ReactNode } from 'react';
@@ -50,6 +61,31 @@ export interface NotificationEntry {
   seen: boolean;
 }
 
+export interface SuggestionEntry {
+  id: string;
+  severity: NotificationSeverity;
+  title: string;
+  description?: ReactNode;
+  /**
+   * The first action renders as a bordered button (the suggestion's
+   * primary follow-through), the rest as links.
+   */
+  actions?: readonly NotificationAction[];
+  /** Producer-supplied identity — a second push with the same key is dropped. */
+  dedupeKey?: string;
+  /** Custom card glyph; falls back to the severity icon. */
+  icon?: ReactNode;
+}
+
+export interface PushSuggestionInput {
+  severity?: NotificationSeverity;
+  title: string;
+  description?: ReactNode;
+  actions?: readonly NotificationAction[];
+  dedupeKey?: string;
+  icon?: ReactNode;
+}
+
 export interface PushNotificationInput {
   severity?: NotificationSeverity;
   title: string;
@@ -61,6 +97,7 @@ export interface PushNotificationInput {
 }
 
 let entries: readonly NotificationEntry[] = [];
+let suggestions: readonly SuggestionEntry[] = [];
 // Derived from `entries` on every mutation — never counted separately,
 // so removing an unseen entry (action auto-dismiss, clear) retires the
 // bell dot with it.
@@ -110,6 +147,49 @@ if (typeof window !== 'undefined') {
   });
 }
 
+// ── "Don't show again" mutes (keyed entries only) ────────────────────
+const MUTE_STORAGE_KEY = 'oh.notificationsMutedKeys';
+const MUTE_CAP = 200;
+
+function readMutedKeys(): ReadonlySet<string> {
+  try {
+    const raw = window.localStorage.getItem(MUTE_STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistMutedKeys(keys: ReadonlySet<string>): void {
+  try {
+    window.localStorage.setItem(MUTE_STORAGE_KEY, JSON.stringify(Array.from(keys).slice(-MUTE_CAP)));
+  } catch {
+    // Storage unavailable — the mute still applies to this session's lists.
+  }
+}
+
+function isMuted(dedupeKey: string): boolean {
+  return readMutedKeys().has(dedupeKey);
+}
+
+/** Mute a keyed entry for good and drop it from both lists. */
+export function muteNotificationKey(dedupeKey: string): void {
+  const merged = new Set(readMutedKeys());
+  merged.add(dedupeKey);
+  persistMutedKeys(merged);
+  dismissByKey(dedupeKey);
+  dismissSuggestionByKey(dedupeKey);
+}
+
+/** Allow a muted key to show again (existing entries are gone — this
+ *  only lifts the push-time gate). */
+export function unmuteNotificationKey(dedupeKey: string): void {
+  const muted = new Set(readMutedKeys());
+  if (!muted.delete(dedupeKey)) return;
+  persistMutedKeys(muted);
+}
+
 function commit(next: readonly NotificationEntry[]): void {
   entries = next;
   unseen = next.reduce((sum, e) => sum + (e.seen ? 0 : 1), 0);
@@ -118,6 +198,10 @@ function commit(next: readonly NotificationEntry[]): void {
 
 export function pushNotification(input: PushNotificationInput): void {
   if (input.dedupeKey && entries.some((e) => e.dedupeKey === input.dedupeKey)) return;
+  // Sticky entries are producer-controlled only — they never expose the
+  // mute menu and ignore any mute, so an action click stays the one way
+  // they retire.
+  if (input.dedupeKey && !input.sticky && isMuted(input.dedupeKey)) return;
   seq += 1;
   const entry: NotificationEntry = {
     id: `n${seq}`,
@@ -133,6 +217,46 @@ export function pushNotification(input: PushNotificationInput): void {
     timestamp: Date.now(),
   };
   commit([entry, ...entries]);
+}
+
+function commitSuggestions(next: readonly SuggestionEntry[]): void {
+  suggestions = next;
+  for (const fn of listeners) fn();
+}
+
+export function pushSuggestion(input: PushSuggestionInput): void {
+  if (input.dedupeKey && (suggestions.some((s) => s.dedupeKey === input.dedupeKey) || isMuted(input.dedupeKey))) return;
+  seq += 1;
+  commitSuggestions([
+    {
+      id: `s${seq}`,
+      severity: input.severity ?? 'info',
+      title: input.title,
+      description: input.description,
+      actions: input.actions,
+      dedupeKey: input.dedupeKey,
+      icon: input.icon,
+    },
+    ...suggestions,
+  ]);
+}
+
+export function dismissSuggestion(id: string): void {
+  const next = suggestions.filter((s) => s.id !== id);
+  if (next.length === suggestions.length) return;
+  commitSuggestions(next);
+}
+
+export function clearAllSuggestions(): void {
+  if (suggestions.length === 0) return;
+  commitSuggestions([]);
+}
+
+/** Producer-side removal by dedupe key. */
+export function dismissSuggestionByKey(dedupeKey: string): void {
+  const next = suggestions.filter((s) => s.dedupeKey !== dedupeKey);
+  if (next.length === suggestions.length) return;
+  commitSuggestions(next);
 }
 
 export function dismissNotification(id: string): void {
@@ -167,11 +291,17 @@ function subscribe(fn: () => void): () => void {
 }
 
 const getEntries = () => entries;
+const getSuggestions = () => suggestions;
 const getUnseen = () => unseen;
 
 /** Timeline, newest first. */
 export function useNotifications(): readonly NotificationEntry[] {
   return useSyncExternalStore(subscribe, getEntries);
+}
+
+/** Standing suggestions, newest first. */
+export function useSuggestions(): readonly SuggestionEntry[] {
+  return useSyncExternalStore(subscribe, getSuggestions);
 }
 
 /** Entries pushed since the panel was last viewed — drives the bell dot. */
@@ -182,6 +312,7 @@ export function useUnseenNotificationCount(): number {
 /** Test hook — reset module state between cases. */
 export function __resetNotificationsForTests(): void {
   entries = [];
+  suggestions = [];
   unseen = 0;
   seq = 0;
   listeners.clear();

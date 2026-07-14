@@ -5,8 +5,8 @@
  * ONE derivation of run state — never a parallel reducer here) and
  * mirrors the folded state into the store: per-item progress while
  * pulling, a live 429 pause countdown, the remaining monthly API
- * budget, and the "Import finished — view report" flip whose
- * click-through the host supplies via `onViewReport`.
+ * budget, and the "Import finished" flip whose "View report" action
+ * button the host supplies via `onViewReport`.
  *
  * No-op on hosts without the migration ladder (the hydration RPC
  * rejects and no `migrationPullEvent` ever arrives).
@@ -82,15 +82,15 @@ export function deriveMigrationPullTask(
         const counts = `${s.collections} collections, ${s.environments} environments, ${s.requests} requests`;
         const only = s.workspaces.length === 1 ? s.workspaces[0] : undefined;
         const target = only ? `into “${only.workspaceName}”` : `into ${s.workspaces.length} workspaces`;
-        const notes = s.drops > 0 ? ` · ${s.drops} import notes` : '';
+        const notes = s.drops > 0 ? `${s.drops} import notes` : undefined;
         const partial = state.outcome === 'partial' ? 'Partial import: ' : '';
         return {
           id: TASK_ID,
-          title: 'Import finished — view report',
-          detail: `${partial}${counts} ${target}${notes}`,
+          title: 'Import finished',
+          detail: `${partial}${counts} ${target}${!onViewReport && notes ? ` · ${notes}` : ''}`,
           percent: 100,
           done: true,
-          ...(onViewReport ? { onActivate: onViewReport } : {}),
+          ...(onViewReport ? { action: { label: 'View report', ...(notes ? { note: notes } : {}), run: onViewReport } } : {}),
         };
       }
       if (state.importError) {
@@ -124,7 +124,7 @@ export function deriveMigrationPullTask(
 }
 
 export interface MigrationPullTaskOptions {
-  /** Click-through for the completion flip — landing workspace + report. */
+  /** "View report" action for the completion flip — landing workspace + report. */
   onViewReport?: (summary: PostmanImportSummary) => void;
 }
 
@@ -142,7 +142,7 @@ export function useMigrationPullTask(options?: MigrationPullTaskOptions): void {
     let ticker: ReturnType<typeof setInterval> | null = null;
 
     // One stable closure per effect run — the store compares
-    // `onActivate` by identity on upsert.
+    // `action.run` by identity on upsert.
     const activate = (): void => {
       const summary = state?.imported;
       if (summary) onViewReportRef.current?.(summary);

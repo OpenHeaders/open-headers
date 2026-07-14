@@ -4,15 +4,16 @@
  * Pins the surface contract over the S8 plumbing:
  *   - `deriveMigrationPullTask` maps every folded run phase to its
  *     corner entry (per-item progress, 429 pause countdown, monthly
- *     budget note, the "Import finished — view report" flip, failure
- *     states) and to nothing when idle;
+ *     budget note, the "Import finished" flip with its "View report"
+ *     action, failure states) and to nothing when idle;
  *   - `useMigrationPullTask` hydrates from `getState`, folds live
  *     `migrationPullEvent` broadcasts with the core reducer, prefers
  *     the live stream over a stale snapshot, ticks the pause countdown
- *     locally, and routes the click-through to `onViewReport`;
+ *     locally, and routes the action to `onViewReport`;
  *   - hosts without the migration ladder (the RPC rejects) never mint
  *     a task;
- *   - the indicator renders a task's `onActivate` as its click-through.
+ *   - the indicator opens the Processes panel from the footer slot and
+ *     renders a task's `action` as a button under its panel row.
  */
 
 import { type HostBridge, setHostBridge } from '@openheaders/core/bridge';
@@ -148,7 +149,7 @@ describe('deriveMigrationPullTask', () => {
     expect(task?.detail).toContain('Importing into Open Headers');
   });
 
-  it('flips to "view report" with the summary counts and click-through', () => {
+  it('flips to "Import finished" with the summary counts and a View report action', () => {
     const state = fold(
       PLANNED,
       PROGRESS,
@@ -158,13 +159,29 @@ describe('deriveMigrationPullTask', () => {
     );
     const onViewReport = vi.fn();
     const task = deriveMigrationPullTask(state, null, onViewReport);
-    expect(task?.title).toBe('Import finished — view report');
+    expect(task?.title).toBe('Import finished');
     expect(task?.percent).toBe(100);
     expect(task?.detail).toContain('8 collections, 4 environments, 42 requests');
     expect(task?.detail).toContain('“Imported from Postman”');
-    expect(task?.detail).toContain('3 import notes');
-    task?.onActivate?.();
+    // The notes count moves next to the action button, out of the detail line.
+    expect(task?.detail).not.toContain('import notes');
+    expect(task?.action?.label).toBe('View report');
+    expect(task?.action?.note).toBe('3 import notes');
+    task?.action?.run();
     expect(onViewReport).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the notes count in the detail line when no report click-through exists', () => {
+    const state = fold(
+      PLANNED,
+      PROGRESS,
+      { kind: 'finished', outcome: 'complete', collections: 8, environments: 4, skipped: 0 },
+      { kind: 'importing' },
+      IMPORTED,
+    );
+    const task = deriveMigrationPullTask(state, null);
+    expect(task?.action).toBeUndefined();
+    expect(task?.detail).toContain('3 import notes');
   });
 
   it('labels a partial run on the completion flip', () => {
@@ -247,14 +264,14 @@ describe('useMigrationPullTask', () => {
       fake.emit(RUN_ID, 3, { kind: 'importing' });
       fake.emit(RUN_ID, 4, IMPORTED);
     });
-    expect(tasks.result.current[0].title).toBe('Import finished — view report');
+    expect(tasks.result.current[0].title).toBe('Import finished');
 
     // …so the older mid-run snapshot must not regress the entry.
     await act(async () => {
       resolveSnapshot(fold(PLANNED, PROGRESS));
       await snapshot;
     });
-    expect(tasks.result.current[0].title).toBe('Import finished — view report');
+    expect(tasks.result.current[0].title).toBe('Import finished');
   });
 
   it('ticks the pause countdown locally and clears it on the next progress', async () => {
@@ -289,7 +306,7 @@ describe('useMigrationPullTask', () => {
     expect(tasks.result.current[0].detail).toContain('4/12 items');
   });
 
-  it('routes the completion click-through to onViewReport with the summary', async () => {
+  it('routes the completion action to onViewReport with the summary', async () => {
     const fake = createBridgeFake(async () => fold(PLANNED));
     setHostBridge(fake.bridge);
     const onViewReport = vi.fn();
@@ -302,7 +319,7 @@ describe('useMigrationPullTask', () => {
       fake.emit(RUN_ID, 3, { kind: 'importing' });
       fake.emit(RUN_ID, 4, IMPORTED);
     });
-    tasks.result.current[0].onActivate?.();
+    tasks.result.current[0].action?.run();
     expect(onViewReport).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaces: [expect.objectContaining({ workspaceId: 'ws-landing', workspaceName: 'Imported from Postman' })],
@@ -336,19 +353,30 @@ describe('useMigrationPullTask', () => {
   });
 });
 
-describe('BackgroundTasksIndicator click-through', () => {
-  it('invokes onActivate from the inline title of a settled task', () => {
-    const onActivate = vi.fn();
-    const { getByText } = render(<BackgroundTasksIndicator />);
+describe('BackgroundTasksIndicator', () => {
+  it('opens the Processes panel from the footer title and runs the action button', () => {
+    const run = vi.fn();
+    const { getByText, getByRole, queryByRole } = render(<BackgroundTasksIndicator />);
     act(() => {
       upsertBackgroundTask({
         id: 'migration-pull',
-        title: 'Import finished — view report',
+        title: 'Import finished',
         percent: 100,
-        onActivate,
+        done: true,
+        action: { label: 'View report', note: '3 import notes', run },
       });
     });
-    fireEvent.click(getByText('Import finished — view report'));
-    expect(onActivate).toHaveBeenCalledTimes(1);
+    expect(queryByRole('dialog', { name: 'Processes' })).toBeNull();
+
+    // The whole footer slot — title included — toggles the panel; the
+    // title is no longer its own click-through.
+    fireEvent.click(getByText('Import finished'));
+    expect(getByRole('dialog', { name: 'Processes' })).toBeTruthy();
+    expect(run).not.toHaveBeenCalled();
+
+    // The follow-up renders as a button under the row, with its note.
+    expect(getByText('3 import notes')).toBeTruthy();
+    fireEvent.click(getByText('View report'));
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

@@ -134,6 +134,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
 
       <div className="rules-statusbar-right">
         <BackgroundTasksIndicator />
+        <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
         <DebugModePill tabSource="none" onOpenDocs={openDocs} />
         <StatusPill
           density="full"

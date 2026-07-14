@@ -51,6 +51,15 @@
   box-sizing: border-box;
 }
 
+/* Second exception: the Notifications panel splits Suggestions from the
+   Timeline inside one dock body, so the seam needs its own hairline —
+   re-enable Allotment's 1px separator, tinted to the border color so it
+   reads as a section divider (and doubles as the resize handle). */
+.rules-main .rules-notifications-split .split-view-view::before {
+  display: block !important;
+  background-color: var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)) !important;
+}
+
 /* Allotment's default sash hover/drag indicator paints a 3–4 px blue bar
    on top of the pane boundary (`--focus-border`, #007fd4). In our card
    layout that bar overlaps the cards during drag and reads as a new panel

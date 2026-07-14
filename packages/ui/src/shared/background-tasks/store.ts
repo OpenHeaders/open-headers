@@ -11,6 +11,15 @@
 
 import { useSyncExternalStore } from 'react';
 
+export interface BackgroundTaskAction {
+  /** Button caption (e.g. "View report"). */
+  label: string;
+  /** Muted note rendered after the button (e.g. "215 import notes"). */
+  note?: string;
+  /** Producers must pass a stable reference — upserts compare it by identity. */
+  run: () => void;
+}
+
 export interface BackgroundTask {
   /** Stable producer-chosen identity — upserts replace by id. */
   id: string;
@@ -24,11 +33,9 @@ export interface BackgroundTask {
   /** The work settled successfully — renders green with a check mark
    *  instead of the in-flight pulse. */
   done?: boolean;
-  /**
-   * Click-through for a settled task (e.g. "view report"). Producers
-   * must pass a stable reference — upserts compare it by identity.
-   */
-  onActivate?: () => void;
+  /** Follow-up rendered as a button under the task in the Processes
+   *  panel (e.g. "View report"). */
+  action?: BackgroundTaskAction;
 }
 
 let tasks: readonly BackgroundTask[] = [];
@@ -53,7 +60,9 @@ export function upsertBackgroundTask(task: BackgroundTask): void {
     existing.percent === task.percent &&
     existing.error === task.error &&
     existing.done === task.done &&
-    existing.onActivate === task.onActivate
+    existing.action?.label === task.action?.label &&
+    existing.action?.note === task.action?.note &&
+    existing.action?.run === task.action?.run
   )
     return;
   const next = tasks.slice();

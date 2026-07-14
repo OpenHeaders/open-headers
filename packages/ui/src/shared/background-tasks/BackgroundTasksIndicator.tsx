@@ -3,17 +3,18 @@
  *
  * Renders the newest task inline (title + slim progress + a circled ✕
  * that clears the item from the footer AND the panel without touching
- * the underlying work). Clicking
- * the slot toggles the standalone "Processes" panel — a card pinned to
- * the window's bottom-right corner above the status bar. The panel is
+ * the underlying work). Clicking anywhere on the slot — title included —
+ * toggles the standalone "Processes" panel — a card pinned to the
+ * window's bottom-right corner above the status bar. The panel is
  * deliberately NOT a click-away popover: it stays up while the user
  * works and only the − button (or clicking the slot again) hides it.
  * When the last task settles while the panel is up, it shows its
- * completed state instead of vanishing mid-glance.
+ * completed state instead of vanishing mid-glance; a task's follow-up
+ * (e.g. "View report") renders there as a button under its row.
  */
 
 import { CheckCircleFilled, CloseOutlined, MinusOutlined } from '@ant-design/icons';
-import { Progress, theme } from 'antd';
+import { Button, Progress, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -23,48 +24,6 @@ import {
   useBackgroundTasks,
   useBackgroundTasksPanelOpen,
 } from './store';
-
-/**
- * A settled task's click-through title. Hover underlines it so it reads
- * as actionable — state-driven because this shared component renders
- * under several host stylesheets.
- */
-const ActivateTitle: React.FC<{
-  title: string;
-  fontSize: number;
-  color: string;
-  bold?: boolean;
-  onActivate: () => void;
-  onClick?: (e: React.MouseEvent) => void;
-}> = ({ title, fontSize, color, bold = false, onActivate, onClick }) => {
-  const [hover, setHover] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={onClick ?? onActivate}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        display: 'block',
-        padding: 0,
-        border: 'none',
-        background: 'transparent',
-        fontSize,
-        color,
-        fontWeight: bold ? 600 : undefined,
-        cursor: 'pointer',
-        textAlign: 'left',
-        textDecoration: hover ? 'underline' : 'none',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        maxWidth: 220,
-      }}
-    >
-      {title}
-    </button>
-  );
-};
 
 function taskProgress(task: BackgroundTask, width?: number): React.ReactNode {
   return (
@@ -140,7 +99,7 @@ const BackgroundTasksIndicator: React.FC = () => {
             right: 10,
             // Clears the 24 px status bar.
             bottom: 30,
-            width: 380,
+            width: 480,
             // Roomy fixed-feel body — the panel keeps its size as tasks
             // come and go instead of collapsing around one row.
             minHeight: 200,
@@ -189,17 +148,7 @@ const BackgroundTasksIndicator: React.FC = () => {
                   {task.done && !task.error && (
                     <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13 }} />
                   )}
-                  {task.onActivate ? (
-                    <ActivateTitle
-                      title={task.title}
-                      fontSize={13}
-                      color={token.colorText}
-                      bold
-                      onActivate={task.onActivate}
-                    />
-                  ) : (
-                    <div style={{ fontSize: 13, color: token.colorText }}>{task.title}</div>
-                  )}
+                  <div style={{ fontSize: 13, fontWeight: 600, color: token.colorText }}>{task.title}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {taskProgress(task)}
@@ -211,6 +160,16 @@ const BackgroundTasksIndicator: React.FC = () => {
                 {task.detail && (
                   <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 2, whiteSpace: 'pre-line' }}>
                     {task.detail}
+                  </div>
+                )}
+                {task.action && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                    <Button size="small" onClick={task.action.run} style={{ fontSize: 12 }}>
+                      {task.action.label}
+                    </Button>
+                    {task.action.note && (
+                      <span style={{ fontSize: 12, color: token.colorTextTertiary }}>{task.action.note}</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -241,33 +200,18 @@ const BackgroundTasksIndicator: React.FC = () => {
             {anchor.done && !anchor.error && (
               <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 10 }} />
             )}
-            {anchor.onActivate ? (
-              // A settled task's title is its click-through ("view
-              // report"); the rest of the slot still toggles the panel.
-              <ActivateTitle
-                title={anchor.title}
-                fontSize={11}
-                color={token.colorTextSecondary}
-                onActivate={anchor.onActivate}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  anchor.onActivate?.();
-                }}
-              />
-            ) : (
-              <span
-                style={{
-                  fontSize: 10,
-                  color: token.colorTextSecondary,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: 220,
-                }}
-              >
-                {anchor.title}
-              </span>
-            )}
+            <span
+              style={{
+                fontSize: 10,
+                color: token.colorTextSecondary,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: 220,
+              }}
+            >
+              {anchor.title}
+            </span>
             {taskProgress(anchor, 80)}
             {circleClose((e) => {
               e.stopPropagation();
