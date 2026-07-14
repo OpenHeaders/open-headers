@@ -8,6 +8,8 @@
  * window's bottom-right corner above the status bar. The panel is
  * deliberately NOT a click-away popover: it stays up while the user
  * works and only the − button (or clicking the slot again) hides it.
+ * While the panel is up the slot reads "Hide processes (n)" instead of
+ * echoing the task the panel already shows.
  * When the last task settles while the panel is up, it shows its
  * completed state instead of vanishing mid-glance; a task's follow-up
  * (e.g. "View report") renders there as a button under its row.
@@ -195,7 +197,13 @@ const BackgroundTasksIndicator: React.FC = () => {
         }}
         style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', minWidth: 0 }}
       >
-        {anchor ? (
+        {panelOpen ? (
+          // While the panel is up, the slot becomes its dismiss affordance
+          // instead of echoing the task the panel already shows.
+          <span style={{ fontSize: 10, color: token.colorTextSecondary }}>
+            {visible.length > 0 ? `Hide processes (${visible.length})` : 'Hide processes'}
+          </span>
+        ) : anchor ? (
           <>
             {anchor.done && !anchor.error && (
               <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 10 }} />

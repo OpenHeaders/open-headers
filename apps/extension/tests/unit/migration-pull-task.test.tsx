@@ -378,5 +378,10 @@ describe('BackgroundTasksIndicator', () => {
     expect(getByText('3 import notes')).toBeTruthy();
     fireEvent.click(getByText('View report'));
     expect(run).toHaveBeenCalledTimes(1);
+
+    // While the panel is up, the footer slot reads as the dismiss
+    // affordance with the visible-task count; clicking it closes.
+    fireEvent.click(getByText('Hide processes (1)'));
+    expect(queryByRole('dialog', { name: 'Processes' })).toBeNull();
   });
 });
