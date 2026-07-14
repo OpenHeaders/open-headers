@@ -1,5 +1,5 @@
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildResultView, type DisplayRow } from '../data/search/search-display';
 import type { SearchSourceKind, SearchTarget } from '../data/search/search-doc';
 import { type SearchGroup, sectionHasLineColumn } from '../data/search/search-engine';
@@ -142,7 +142,21 @@ interface ResultRowProps {
   activeGlobalIndex: number;
 }
 
-function ResultGroup({ group, rows, query, config, onResultClick, firstFlatIndex, activeGlobalIndex }: ResultRowProps) {
+// Memoized: results stream in append-only, so every batch flush
+// re-renders the panel with mostly-unchanged groups. `group` and `rows`
+// are identity-stable across flushes (see `search-display.ts`), which
+// lets already-rendered groups skip reconciliation entirely — without
+// this, each streamed batch re-reconciles the whole accumulated result
+// DOM (thousands of rows on a capped search).
+const ResultGroup = memo(function ResultGroup({
+  group,
+  rows,
+  query,
+  config,
+  onResultClick,
+  firstFlatIndex,
+  activeGlobalIndex,
+}: ResultRowProps) {
   const sourceBadge = SOURCE_BADGES[group.source];
   return (
     <details className="dt-search-group" open>
@@ -195,7 +209,7 @@ function ResultGroup({ group, rows, query, config, onResultClick, firstFlatIndex
       })}
     </details>
   );
-}
+});
 
 export function SearchPanel({ session, onClose, onResultClick, docsActive, onToggleDocs }: SearchPanelProps) {
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);

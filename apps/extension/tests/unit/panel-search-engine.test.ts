@@ -258,14 +258,21 @@ describe('runSearch — perf / correctness invariants', () => {
     );
     const ctrl = new AbortController();
     let lastReportedDone = 0;
-    await runSearch(docs, 'missing', DEFAULT_TEXT_MATCH_CONFIG, ctrl.signal, {
-      onGroup: () => {},
-      onProgress: (p) => {
-        lastReportedDone = p.done;
-        if (p.done >= 3) ctrl.abort();
+    await runSearch(
+      docs,
+      'missing',
+      DEFAULT_TEXT_MATCH_CONFIG,
+      ctrl.signal,
+      {
+        onGroup: () => {},
+        onProgress: (p) => {
+          lastReportedDone = p.done;
+          if (p.done >= 3) ctrl.abort();
+        },
+        onDone: () => {},
       },
-      onDone: () => {},
-    });
+      { progressIntervalMs: 0 },
+    );
     expect(lastReportedDone).toBeLessThan(docs.length);
   });
 
@@ -294,20 +301,49 @@ describe('runSearch — perf / correctness invariants', () => {
     expect(last.current).toBe(null);
   });
 
+  it('throttles progress reports — a fast scan does not post per doc', async () => {
+    const docs = docsOf(
+      Array.from({ length: 200 }, (_, i) =>
+        makeRow({ id: `e-${i}`, displayId: i + 1, responseBody: 'nothing to see here' }),
+      ),
+    );
+    const reports: SearchProgress[] = [];
+    const ctrl = new AbortController();
+    await runSearch(docs, 'missing', DEFAULT_TEXT_MATCH_CONFIG, ctrl.signal, {
+      onGroup: () => {},
+      onProgress: (p) => {
+        reports.push(p);
+      },
+      onDone: () => {},
+    });
+    // Unthrottled, 200 docs post 400+ reports (start + end per doc). The
+    // throttle admits the first report, one per interval, and the final.
+    expect(reports.length).toBeLessThan(50);
+    expect(reports[0].done).toBe(0);
+    expect(reports[reports.length - 1]).toMatchObject({ done: 200, current: null });
+  });
+
   it('yields mid-doc so one huge body cannot monopolise the main thread', async () => {
     const body = `${'x'.repeat(10_000)}crypto${'y'.repeat(10_000)}`.repeat(500);
     const docs = docsOf([makeRow({ id: 'big', displayId: 1, responseBody: body })]);
     const ticksWithSectionProgress: number[] = [];
     const ctrl = new AbortController();
-    await runSearch(docs, 'crypto', DEFAULT_TEXT_MATCH_CONFIG, ctrl.signal, {
-      onGroup: () => {},
-      onProgress: (p) => {
-        if (p.sectionTotal != null && p.sectionScanned != null && p.sectionTotal > 0) {
-          ticksWithSectionProgress.push(p.sectionScanned);
-        }
+    await runSearch(
+      docs,
+      'crypto',
+      DEFAULT_TEXT_MATCH_CONFIG,
+      ctrl.signal,
+      {
+        onGroup: () => {},
+        onProgress: (p) => {
+          if (p.sectionTotal != null && p.sectionScanned != null && p.sectionTotal > 0) {
+            ticksWithSectionProgress.push(p.sectionScanned);
+          }
+        },
+        onDone: () => {},
       },
-      onDone: () => {},
-    });
+      { progressIntervalMs: 0 },
+    );
     const midscan = ticksWithSectionProgress.filter((s, i, arr) => i > 0 && s > 0 && s < arr[arr.length - 1]);
     expect(midscan.length).toBeGreaterThan(0);
   });

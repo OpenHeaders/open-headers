@@ -140,6 +140,7 @@ export function useSearch(rows: readonly InspectorRow[], providers?: SearchDocPr
         progress: { done: 0, total: rows.length, elapsedMs: 0 },
       });
 
+      const runStartMs = performance.now();
       const batch: SearchGroup[] = [];
       let latestProgress: SearchProgress = { done: 0, total: rows.length, elapsedMs: 0 };
       let flushScheduled = false;
@@ -164,6 +165,14 @@ export function useSearch(rows: readonly InspectorRow[], providers?: SearchDocPr
         });
       };
 
+      // Streaming flushes coalesce per animation frame, not per worker
+      // message: each message arrives as its own task, so a microtask
+      // flush would still render once per message — a burst of group +
+      // progress posts from a fast scan then drains at one render each
+      // (tens of seconds on Firefox for a large capture). One frame =
+      // one render, regardless of how many messages landed in between.
+      const scheduleFrame =
+        typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb: () => void) => setTimeout(cb, 16);
       const scheduleFlush = (finalStatus?: SearchStatus) => {
         if (finalStatus) {
           flush(finalStatus);
@@ -171,7 +180,7 @@ export function useSearch(rows: readonly InspectorRow[], providers?: SearchDocPr
         }
         if (flushScheduled) return;
         flushScheduled = true;
-        queueMicrotask(() => flush());
+        scheduleFrame(() => flush());
       };
 
       // Gather docs, then submit. Network + Console are synchronous;
@@ -211,7 +220,11 @@ export function useSearch(rows: readonly InspectorRow[], providers?: SearchDocPr
             },
             onDone: (p) => {
               if (disposed) return;
-              latestProgress = p;
+              // The engine's elapsedMs times only its own scan loop. The
+              // user-facing number must cover the whole run — doc
+              // enumeration, the sync clone to the worker, and message
+              // drain — or a slow run reports a misleadingly tiny time.
+              latestProgress = { ...p, elapsedMs: performance.now() - runStartMs };
               scheduleFlush('done');
               disposed = true;
               if (handleRef.current === handle) {

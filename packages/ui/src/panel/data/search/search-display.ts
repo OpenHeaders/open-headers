@@ -108,6 +108,25 @@ function coalesceMatches(matches: readonly SearchMatch[], ordinalStart: number):
   return rows;
 }
 
+/**
+ * Row arrays memoized by group identity. Groups stream in append-only
+ * during a run and their objects never mutate, so a group's coalesced
+ * rows are stable across the re-builds each streamed batch triggers —
+ * reusing the array lets `React.memo` skip re-rendering every group
+ * that was already on screen. `ordinalStart` participates in the key
+ * because ordinals are global: the same group at a different position
+ * (a different run) coalesces to different ordinals.
+ */
+const rowsCache = new WeakMap<SearchGroup, { ordinalStart: number; rows: DisplayRow[] }>();
+
+function coalescedRowsFor(group: SearchGroup, ordinalStart: number): DisplayRow[] {
+  const hit = rowsCache.get(group);
+  if (hit && hit.ordinalStart === ordinalStart) return hit.rows;
+  const rows = coalesceMatches(group.matches, ordinalStart);
+  rowsCache.set(group, { ordinalStart, rows });
+  return rows;
+}
+
 /** Single-pass transformation from engine output to UI-render data. */
 export function buildResultView(groups: readonly SearchGroup[]): ResultView {
   const out: DisplayGroup[] = [];
@@ -118,7 +137,7 @@ export function buildResultView(groups: readonly SearchGroup[]): ResultView {
 
   for (let g = 0; g < groups.length; g++) {
     const group = groups[g];
-    const rows = coalesceMatches(group.matches, ordinalCursor);
+    const rows = coalescedRowsFor(group, ordinalCursor);
     out.push({ group, rows, firstFlatIndex: flatCursor });
     for (let r = 0; r < rows.length; r++) flatRows.push({ groupIndex: g, rowIndex: r });
     ordinalCursor += group.matches.length;

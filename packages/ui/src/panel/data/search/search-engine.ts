@@ -91,6 +91,12 @@ export interface SearchProgress {
 
 /** Max synchronous work between yields. */
 const BUDGET_MS = 8;
+/** Min interval between progress reports. Without this, per-doc and
+ *  per-section boundary reports flood the main thread — a 2000-doc
+ *  capture posts tens of thousands of messages in a scan that itself
+ *  takes milliseconds, and the receiving side pays a render per
+ *  message (30 s of backlog drain observed on Firefox). */
+const PROGRESS_INTERVAL_MS = 25;
 /** Hard cap on matches per doc — prevents 1 doc from owning the whole scan. */
 const MAX_MATCHES_PER_ENTRY = 500;
 /** Global cap across the whole run — a pathological query ("e" over a
@@ -310,17 +316,26 @@ function docLabel(doc: SearchDoc): string {
 
 /**
  * Run a search across `docs`. Results stream via `onGroup`; progress
- * reports at every yield boundary (up to ~125 Hz); `onDone` fires once
+ * reports are throttled to one per `PROGRESS_INTERVAL_MS` (the very
+ * first and the final report always fire); `onDone` fires once
  * the scan completes. If `signal.aborted`, the scan stops promptly and
  * no terminal callback fires. The run stops early — `truncated` set on
  * the final progress — once `MAX_TOTAL_MATCHES` have streamed.
  */
+export interface RunSearchOptions {
+  /** Progress-report throttle interval. Overridable so tests can
+   *  observe every report on machines that scan faster than the
+   *  production interval. */
+  progressIntervalMs?: number;
+}
+
 export async function runSearch(
   docs: readonly SearchDoc[],
   query: string,
   config: TextMatchConfig,
   signal: AbortSignal,
   callbacks: SearchCallbacks,
+  options?: RunSearchOptions,
 ): Promise<void> {
   const start = performance.now();
   const total = docs.length;
@@ -339,11 +354,16 @@ export async function runSearch(
   let sectionScanned: number | null = null;
   let sectionTotal: number | null = null;
 
-  const reportProgress = () => {
+  const progressIntervalMs = options?.progressIntervalMs ?? PROGRESS_INTERVAL_MS;
+  let lastReportAt = Number.NEGATIVE_INFINITY;
+  const reportProgress = (force = false) => {
+    const now = performance.now();
+    if (!force && now - lastReportAt < progressIntervalMs) return;
+    lastReportAt = now;
     callbacks.onProgress({
       done,
       total,
-      elapsedMs: performance.now() - start,
+      elapsedMs: now - start,
       current,
       currentSection,
       sectionScanned,
@@ -385,5 +405,6 @@ export async function runSearch(
     reportProgress();
   }
 
+  reportProgress(true);
   callbacks.onDone({ done, total, elapsedMs: performance.now() - start, ...(truncated ? { truncated } : {}) });
 }
