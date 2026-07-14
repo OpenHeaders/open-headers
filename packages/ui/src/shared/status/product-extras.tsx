@@ -46,11 +46,12 @@ export function productStatusExtras(subsystem: StatusSubsystem, _entry: StatusEn
  * — remedies that live INSIDE a subsystem's own row, right-aligned
  * after its message and sized to its 11px text.
  *
- * Secrets: a "Relaunch app" link while the host reports the at-rest
- * cipher unavailable (the desktop main stamps `context.cipher`; hosts
- * without a cipher seam never do). Relaunching is the one honest
- * remedy — a canceled keychain prompt is cached for the process
- * lifetime, so no in-process retry can succeed.
+ * Secrets: a neutral bordered "Relaunch app" button (the suggestions-
+ * card idiom — the row's red tag already carries the severity) while
+ * the host reports the at-rest cipher unavailable (the desktop main
+ * stamps `context.cipher`; hosts without a cipher seam never do).
+ * Relaunching is the one honest remedy — a canceled keychain prompt is
+ * cached for the process lifetime, so no in-process retry can succeed.
  */
 export function productStatusInlineActions(
   subsystem: StatusSubsystem,
@@ -59,12 +60,10 @@ export function productStatusInlineActions(
   if (subsystem === 'secrets' && entry?.state === 'red' && entry.context?.cipher === 'unavailable') {
     return (
       <Button
-        type="link"
-        danger
         size="small"
         onClick={requestSecretsRelaunch}
         data-testid="secrets-status-relaunch"
-        style={{ fontSize: 11, height: 'auto', padding: 0, lineHeight: 1.2 }}
+        style={{ fontSize: 11, height: 20, padding: '0 6px' }}
       >
         Relaunch app
       </Button>

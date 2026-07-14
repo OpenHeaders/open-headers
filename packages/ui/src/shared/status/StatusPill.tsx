@@ -342,6 +342,37 @@ interface StatusPopoverBodyProps {
   ) => React.ReactNode;
 }
 
+/**
+ * One popover row with a grey hover wash. State-driven hover (not CSS)
+ * — the shared pill renders under several host stylesheets, so a class
+ * would need per-host wiring; the token keeps the wash theme-correct.
+ * Negative horizontal margin lets the wash bleed to the popover edge
+ * while the content keeps its column alignment.
+ */
+const SubsystemRow: React.FC<{
+  token: ReturnType<typeof theme.useToken>['token'];
+  children: React.ReactNode;
+}> = ({ token, children }) => {
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '2px 6px',
+        margin: '0 -6px',
+        borderRadius: token.borderRadiusSM,
+        background: hovered ? token.colorFillTertiary : 'transparent',
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
 const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
   snapshot,
   token,
@@ -383,7 +414,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
           // (Settings → Export Diagnostic Log). Keeping the popover a
           // pure state surface keeps each row single-line + the five-
           // row block visually tight.
-          <div key={sub} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <SubsystemRow key={sub} token={token}>
             <Tag color={color} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0 }}>
               {SUBSYSTEM_LABELS[sub]}
             </Tag>
@@ -391,7 +422,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
               {entry?.message ?? 'No events yet'}
             </Typography.Text>
             {inlineAction}
-          </div>
+          </SubsystemRow>
         );
       })}
       {extrasRows.length > 0 ? extrasRows : null}
