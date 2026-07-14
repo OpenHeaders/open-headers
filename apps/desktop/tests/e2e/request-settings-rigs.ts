@@ -264,6 +264,46 @@ export async function startConnectProxy(requireAuth?: string): Promise<ProxyRig>
   };
 }
 
+export interface OAuthTokenRig extends Rig {
+  /** Parsed form bodies of every `/token` POST, arrival order. */
+  calls: Array<Record<string, string>>;
+}
+
+/**
+ * A minimal OAuth token endpoint. `POST /token` answers a fresh bundle
+ * (`access_token: at-<n>`, counting up per grant) and records the
+ * parsed form body; `POST /token-broken` refuses every grant with the
+ * RFC 6749 `invalid_grant` error shape — the failed-refresh leg.
+ */
+export async function startOAuthTokenRig(): Promise<OAuthTokenRig> {
+  const calls: Array<Record<string, string>> = [];
+  let minted = 0;
+  const server = http.createServer((req, res) => {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+    });
+    req.on('end', () => {
+      res.setHeader('content-type', 'application/json');
+      if (req.method === 'POST' && req.url === '/token') {
+        calls.push(Object.fromEntries(new URLSearchParams(raw)));
+        minted += 1;
+        res.end(JSON.stringify({ access_token: `at-${minted}`, token_type: 'Bearer', expires_in: 3600 }));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/token-broken') {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ error: 'invalid_grant' }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end('{"error":"not_found"}');
+    });
+  });
+  const port = await listen(server);
+  return { port, calls, close: closer(server) };
+}
+
 export interface SocketRig {
   socketPath: string;
   close(): Promise<void>;

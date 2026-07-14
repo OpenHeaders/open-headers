@@ -24,6 +24,8 @@ const h = vi.hoisted(() => ({
   environments: vi.fn((): Environment[] => []),
   activeEnvironmentId: vi.fn((): string | null => null),
   environmentsForWorkspace: vi.fn((_workspaceId: string): Environment[] => []),
+  getTokenBundle: vi.fn(async (_ref: string, _wsId?: string): Promise<unknown> => null),
+  putTokenBundle: vi.fn(async (): Promise<void> => {}),
 }));
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
@@ -60,7 +62,8 @@ vi.mock('@openheaders/oracle/rule-engine/variables-resolver', () => ({
   getLiveRegistrySnapshotForWorkspace: () => new Map(),
 }));
 vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
-  getTokenBundle: async () => null,
+  getTokenBundle: (ref: string, wsId?: string) => h.getTokenBundle(ref, wsId),
+  putTokenBundle: (...args: unknown[]) => h.putTokenBundle(...(args as [])),
 }));
 vi.mock('@openheaders/oracle/entity/totp-cooldown-store', () => ({
   checkCooldown: (...args: unknown[]) => h.checkCooldown(...(args as [])),
@@ -70,6 +73,7 @@ vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   getActiveWorkspaceId: () => 'ws-active',
 }));
 
+import { __resetRateLimiterForTests } from '@openheaders/oracle/live/request-exec/rate-limiter';
 import { handleExecuteRequestRpc } from '../../../src/daemon/execute-request-rpc';
 import { setHostScriptCapabilities } from '../../../src/daemon/script-capability';
 
@@ -119,12 +123,15 @@ function captureTransport(): { transport: RequestTransport; sent: () => Transpor
 
 beforeEach(() => {
   vi.clearAllMocks();
+  __resetRateLimiterForTests();
   h.vault.mockReturnValue({ schemaVersion: 5, secrets: [] });
   h.getRequest.mockReturnValue(null);
   h.checkCooldown.mockReturnValue({ inCooldown: false });
   h.environments.mockReturnValue([]);
   h.activeEnvironmentId.mockReturnValue(null);
   h.environmentsForWorkspace.mockReturnValue([]);
+  h.getTokenBundle.mockResolvedValue(null);
+  h.putTokenBundle.mockResolvedValue(undefined);
 });
 
 describe('handleExecuteRequestRpc — draft path', () => {
@@ -396,6 +403,122 @@ describe('handleExecuteRequestRpc — scripts', () => {
     expect(sent().headers).toEqual([]);
     expect(result.snapshot?.error).toBeNull();
     expect(result.snapshot?.scripts?.preRequest?.succeeded).toBe(false);
+  });
+});
+
+describe('handleExecuteRequestRpc — OAuth refresh-on-expired', () => {
+  const oauthAuth: Extract<Request['auth'], { type: 'oauth2' }> = {
+    type: 'oauth2',
+    credentialRef: 'cred-e2e',
+    flow: 'authorization-code-pkce',
+    tokenEndpoint: 'https://auth.openheaders.io/token',
+    clientId: 'client-1',
+    scopes: [],
+  };
+
+  function bundle(overrides: Record<string, unknown> = {}) {
+    return {
+      accessToken: 'at-stale',
+      refreshToken: 'rt-1',
+      tokenType: 'Bearer',
+      expiresAt: Date.now() - 1000,
+      issuedAt: Date.now() - 3_600_000,
+      scope: '',
+      ...overrides,
+    };
+  }
+
+  function stubTokenEndpoint(response: () => Response): () => void {
+    const original = globalThis.fetch;
+    const stub = vi.fn(async () => response());
+    globalThis.fetch = stub as unknown as typeof fetch;
+    return () => {
+      globalThis.fetch = original;
+    };
+  }
+
+  it('an expired bundle refreshes through the REAL runner and the fresh token rides the wire', async () => {
+    h.getTokenBundle.mockResolvedValue(bundle());
+    const restore = stubTokenEndpoint(
+      () => new Response(JSON.stringify({ access_token: 'at-fresh', expires_in: 3600 }), { status: 200 }),
+    );
+    try {
+      const { transport, sent } = captureTransport();
+      const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
+      expect(result.success).toBe(true);
+      expect(result.snapshot?.error).toBeNull();
+      expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-fresh' });
+      // The refreshed bundle persists through the store so the next
+      // send skips the refresh.
+      expect(h.putTokenBundle).toHaveBeenCalledOnce();
+    } finally {
+      restore();
+    }
+  });
+
+  it('a failed refresh attaches the stale bundle — the run is not failed, the 401 speaks', async () => {
+    h.getTokenBundle.mockResolvedValue(bundle());
+    const restore = stubTokenEndpoint(() => new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }));
+    try {
+      const { transport, sent } = captureTransport();
+      const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
+      expect(result.success).toBe(true);
+      expect(result.snapshot?.error).toBeNull();
+      expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-stale' });
+      expect(h.putTokenBundle).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it('an unexpired bundle attaches as-is — no token-endpoint round-trip', async () => {
+    h.getTokenBundle.mockResolvedValue(bundle({ accessToken: 'at-live', expiresAt: Date.now() + 3_600_000 }));
+    const restore = stubTokenEndpoint(() => {
+      throw new Error('token endpoint must not be called');
+    });
+    try {
+      const { transport, sent } = captureTransport();
+      const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
+      expect(result.success).toBe(true);
+      expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-live' });
+      expect(h.putTokenBundle).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it('an expired bundle WITHOUT a refresh token attaches stale — nothing to refresh with', async () => {
+    h.getTokenBundle.mockResolvedValue(bundle({ refreshToken: undefined }));
+    const restore = stubTokenEndpoint(() => {
+      throw new Error('token endpoint must not be called');
+    });
+    try {
+      const { transport, sent } = captureTransport();
+      const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
+      expect(result.success).toBe(true);
+      expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-stale' });
+    } finally {
+      restore();
+    }
+  });
+
+  it('a pinned dispatch refreshes against the pinned workspace store', async () => {
+    h.getTokenBundle.mockResolvedValue(bundle());
+    const restore = stubTokenEndpoint(
+      () => new Response(JSON.stringify({ access_token: 'at-fresh' }), { status: 200 }),
+    );
+    try {
+      const { transport } = captureTransport();
+      await handleExecuteRequestRpc(
+        { draft: makeRequest({ auth: { ...oauthAuth } }), workspaceId: 'ws-other' },
+        transport,
+      );
+      expect(h.getTokenBundle).toHaveBeenCalledWith('cred-e2e', 'ws-other');
+      const putArgs = h.putTokenBundle.mock.calls[0] as unknown[];
+      expect(putArgs[3]).toBe('ws-other');
+    } finally {
+      restore();
+    }
   });
 });
 

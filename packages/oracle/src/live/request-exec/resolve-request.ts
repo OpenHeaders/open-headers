@@ -5,11 +5,11 @@
  * collection > workspace), auth folded into headers/query, query params
  * appended, and a default Content-Type chosen for the body shape.
  *
- * Pure + host-neutral. The one platform-specific concern — refreshing an
+ * Pure + host-neutral. The one host-owned concern — refreshing an
  * expired OAuth token — is injected as the optional {@link OAuthRefreshFn}
- * hook: the browser SW passes its `chrome.identity` flow; the desktop
- * passes nothing for now and attaches the last-synced bundle as-is
- * (refresh-on-expired on Node is a later slice).
+ * hook: the browser SW passes its own flow runner's refresh leg; node
+ * hosts inject `buildRefreshOAuthHook` from `./oauth-refresh`. A caller
+ * that omits the hook attaches the last-synced bundle as-is.
  */
 
 import { isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';

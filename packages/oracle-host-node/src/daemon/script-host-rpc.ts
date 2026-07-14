@@ -24,6 +24,7 @@
  * broker forwards it back to the runtime without extra handling.
  */
 
+import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
 import type {
   RequestSnapshot,
   ResponseSnapshot,
@@ -42,9 +43,13 @@ import {
   getVault,
   getWorkspaceVariables,
 } from '@openheaders/oracle/entity/environment-store';
-import { getTokenBundle as getOAuthTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
+import {
+  getRefreshConfig as getOAuthRefreshConfig,
+  getTokenBundle as getOAuthTokenBundle,
+} from '@openheaders/oracle/entity/oauth-token-store';
 import { getRequestCollections } from '@openheaders/oracle/entity/request-store';
 import { getCollections as getRuleCollections } from '@openheaders/oracle/entity/rule-store';
+import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { makeOracleInverseAccess, rememberPriorForMutation } from '@openheaders/oracle/sync';
 import { applySyncRequest, getOracleForWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
@@ -160,7 +165,17 @@ async function resolveVaultRef(ref: string): Promise<string | null> {
   // TOTP-kind entries are request-time, not script-time; surface as
   // null so script authors fall back to OAuth bundle resolution.
   if (named && named.kind === 'string') return named.value;
-  const bundle = await getOAuthTokenBundle(ref);
+  let bundle = await getOAuthTokenBundle(ref);
+  // Same staleness discipline as the executor's attach: an expired
+  // bundle refreshes at the token endpoint first, rebuilt from the
+  // store's config sidecar (no request tree at hand). Lenient — a
+  // failed refresh answers the stale token and the target's 401 speaks.
+  if (bundle && isOAuthTokenExpired(bundle) && bundle.refreshToken) {
+    const config = await getOAuthRefreshConfig(ref);
+    if (config) {
+      bundle = (await buildRefreshOAuthHook(undefined)(config)) ?? bundle;
+    }
+  }
   return bundle?.accessToken ?? null;
 }
 

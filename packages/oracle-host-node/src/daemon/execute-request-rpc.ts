@@ -15,11 +15,14 @@
  * .scripts` stays null and the surface degrades cleanly. A
  * peer-forwarded send (frame stamped with a foreign workspace) still
  * runs scripts, but only ever Safe — it never consults this host's
- * mode slot. OAuth refresh-on-expired is omitted — like every node
- * path today, the last-synced bundle attaches as-is and the target's
- * 401 is the actionable signal. No rate limiter: a user-initiated Send
- * is deliberate, matching the extension's user-facing executor (the
- * refresh token bucket is for agent and scheduled traffic).
+ * mode slot. An expired OAuth bundle refreshes at the token endpoint
+ * before attaching (the host-neutral refresh runner, the extension's
+ * exact semantics): a recoverable refresh failure attaches the stale
+ * bundle and lets the target's 401 speak, never failing the run. No
+ * rate limiter on the SEND itself — a user-initiated Send is
+ * deliberate, matching the extension's user-facing executor — while
+ * the refresh POST inside pays the shared per-origin token bucket,
+ * exactly as it does everywhere.
  *
  * Runs unpinned (`workspaceId: null`) when the caller's workspace is
  * this host's runtime-Active one (or unstated) — the run resolves
@@ -42,6 +45,7 @@
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { getRequest } from '@openheaders/oracle/entity/request-store';
 import { errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
+import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { runInteractiveSend } from '@openheaders/oracle/live/request-exec/run-interactive-send';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
 import type { RequestTransport } from '@openheaders/oracle/live/request-exec/transport';
@@ -112,9 +116,19 @@ export async function handleExecuteRequestRpc(
     // never mapped onto the run's error. Scriptless sends (and hosts
     // without the capability, the headless daemon) keep the step
     // runner — behavior-identical when no script runs.
+    // Refresh-on-expired against the workspace the run resolves in —
+    // the unpinned (null) dispatch reads and persists through the
+    // runtime-Active workspace's store, same as the resolver.
+    const refreshOAuth = buildRefreshOAuthHook(workspaceId ?? undefined);
     const snapshot = resolved
-      ? await runInteractiveSend(request, { workspaceId, environmentId, transport, scriptRunner: resolved.runner })
-      : await runStepRequest(request, { workspaceId, environmentId, transport });
+      ? await runInteractiveSend(request, {
+          workspaceId,
+          environmentId,
+          transport,
+          scriptRunner: resolved.runner,
+          refreshOAuth,
+        })
+      : await runStepRequest(request, { workspaceId, environmentId, transport, refreshOAuth });
     // Stamp the mode the scripted portion actually ran under — snapshot
     // attribution, never a live-settings read (the SSL-off precedent).
     const stamped =

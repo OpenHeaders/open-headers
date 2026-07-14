@@ -135,6 +135,13 @@ describe('runWorkflowRefresh — script capability injection', () => {
     expect(options.scriptRunner).toBeUndefined();
   });
 
+  it('injects the OAuth refresh-on-expired hook into the adapter', async () => {
+    h.runChain.mockResolvedValue(successOutcome());
+    await runWorkflowRefresh({ workspaceId: 'ws-1', workflow: makeWorkflow(), environmentId: null });
+    const options = vi.mocked(buildChainFetchAdapter).mock.calls[0][0];
+    expect(typeof options.refreshOAuth).toBe('function');
+  });
+
   it('hands the adapter a chain-context runner when the host registered a capability', async () => {
     const runScript = vi.fn(async () => ({
       executionId: 'e1',

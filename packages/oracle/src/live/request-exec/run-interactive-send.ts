@@ -25,7 +25,7 @@ import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
 import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { errorSnapshot, executeOverTransport } from './execute';
-import { type ResolvedRequest, resolveRequest, UnresolvedRequestError } from './resolve-request';
+import { type OAuthRefreshFn, type ResolvedRequest, resolveRequest, UnresolvedRequestError } from './resolve-request';
 import {
   applyScriptMutation,
   resolvedToScriptSnapshot,
@@ -45,6 +45,8 @@ export interface RunInteractiveSendOptions {
   transport: RequestTransport;
   /** Host script capability — the sandbox-backed runner. */
   scriptRunner: StepScriptRunner;
+  /** Optional host hook to refresh an expired OAuth token before send. */
+  refreshOAuth?: OAuthRefreshFn;
 }
 
 export async function runInteractiveSend(
@@ -57,6 +59,7 @@ export async function runInteractiveSend(
     outcome = await resolveRequest(request, {
       workspaceId: options.workspaceId ?? undefined,
       environmentId: options.environmentId,
+      refreshOAuth: options.refreshOAuth,
     });
   } catch (err) {
     if (err instanceof UnresolvedRequestError) return errorSnapshot(err.message);

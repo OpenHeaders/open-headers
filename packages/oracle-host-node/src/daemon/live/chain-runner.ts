@@ -18,8 +18,6 @@
  * DNR engine and no `chrome.identity`:
  *   - `prepareRequest` is omitted — there is no `X-OH-Live-Bypass`
  *     header to stamp (no DNR rules to dodge).
- *   - `refreshOAuth` is omitted — the host attaches the last-synced
- *     OAuth bundle as-is; refresh-on-expired over Node is a later slice.
  *   - No manual-bypass path — the scheduler fires on cadence only; the
  *     user-triggered "Refresh now" bypass is an extension surface today.
  *   - Failure is returned, not thrown — the scheduler logs + re-arms
@@ -45,6 +43,7 @@ import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execu
 import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
 import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
+import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { createNodeRequestTransport } from '../../live/node-request-transport';
 import { resolveScriptRunner } from '../script-capability';
 
@@ -85,6 +84,10 @@ export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<Wor
     environmentId,
     transport: nodeTransport,
     scriptRunner: scripts?.runner,
+    // Refresh-on-expired for oauth2-authed steps — the host-neutral
+    // runner with the extension's exact semantics (recoverable failure
+    // → stale bundle attaches, the target's 401 speaks).
+    refreshOAuth: buildRefreshOAuthHook(workspaceId),
   });
   const outcome: ChainRunOutcome = await runChain({
     workflow,

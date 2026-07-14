@@ -26,6 +26,7 @@ import {
   freePort,
   mintClientCert,
   mintLocalhostCert,
+  type OAuthTokenRig,
   type ProxyRig,
   type Rig,
   type SocketRig,
@@ -34,6 +35,7 @@ import {
   startHttpRig,
   startHttpsEcho,
   startMtlsEcho,
+  startOAuthTokenRig,
   startTls11Echo,
   startUnixEcho,
 } from './request-settings-rigs';
@@ -54,6 +56,7 @@ let mtlsEcho: Rig;
 let proxy: ProxyRig;
 let authProxy: ProxyRig;
 let unixEcho: SocketRig;
+let tokenRig: OAuthTokenRig;
 
 const PROXY_AUTH_PAIR = 'rig-user:rig-pass';
 
@@ -117,10 +120,11 @@ function draft(over: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
-async function exec(d: Record<string, unknown>): Promise<ExecSnapshot> {
+async function exec(d: Record<string, unknown>, extra: Record<string, unknown> = {}): Promise<ExecSnapshot> {
   const res = await invoke<{ success: boolean; snapshot?: ExecSnapshot; error?: string }>({
     type: 'executeRequest',
     draft: d,
+    ...extra,
   });
   expect(res.success, res.error).toBe(true);
   expect(res.snapshot).toBeTruthy();
@@ -133,7 +137,7 @@ test.beforeAll(async () => {
   scratchDir = await mkdtemp(path.join(tmpdir(), 'oh-settings-e2e-'));
   const material = await mintLocalhostCert(scratchDir);
   const clientMaterial = await mintClientCert(scratchDir);
-  [httpRig, httpsEcho, tls11Echo, h2Echo, mtlsEcho, proxy, authProxy] = await Promise.all([
+  [httpRig, httpsEcho, tls11Echo, h2Echo, mtlsEcho, proxy, authProxy, tokenRig] = await Promise.all([
     startHttpRig(),
     startHttpsEcho(material),
     startTls11Echo(material),
@@ -141,6 +145,7 @@ test.beforeAll(async () => {
     startMtlsEcho(material, clientMaterial.cert),
     startConnectProxy(),
     startConnectProxy(PROXY_AUTH_PAIR),
+    startOAuthTokenRig(),
   ]);
   // Kept short deliberately — sun_path caps socket paths around 104 chars.
   unixEcho = await startUnixEcho(path.join(tmpdir(), `oh-live-${process.pid}.sock`));
@@ -240,7 +245,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await electronApp?.close();
   await Promise.all(
-    [httpRig, httpsEcho, tls11Echo, h2Echo, mtlsEcho, proxy, authProxy, unixEcho]
+    [httpRig, httpsEcho, tls11Echo, h2Echo, mtlsEcho, proxy, authProxy, unixEcho, tokenRig]
       .filter(Boolean)
       .map((rig) => rig.close()),
   );
@@ -713,4 +718,140 @@ test('clearing the slot returns the workspace to Safe — where require does not
   expect(snapshot.scripts?.preRequest?.succeeded).toBe(false);
   expect(snapshot.scripts?.preRequest?.error?.message).toContain('require');
   expect(JSON.parse(snapshot.body).authorization).toBe('');
+});
+
+// ── OAuth refresh-on-expired on the node send path ───────────────────
+// An oauth2-authed send whose stored bundle is expired refreshes it at
+// the token endpoint BEFORE attaching — the extension's exact
+// semantics on the node executor. Seeding rides the token store's own
+// cross-workspace representation: a fresh workspace is minted through
+// the real importWorkspace channel and its `oh.ws.<id>.oauth` blob is
+// written through the storage bridge; the PINNED dispatch (the
+// forwarded-send path) reads and persists that workspace's store
+// directly.
+
+const OAUTH_WS_EXPORT = {
+  schemaVersion: 5,
+  kind: 'workspace-export',
+  exportFormatVersion: 1,
+  exportId: 'e2e0oa01',
+  exportedAt: '2026-07-14T00:00:00.000Z',
+  source: { app: 'desktop', appVersion: '0.0.0', platform: 'electron', workspaceLabel: 'OAuth Rig' },
+  scope: 'workspace',
+  workspace: { uid: '01905000-0000-7000-8000-00000000e2e3', name: 'OAuth Rig' },
+  entities: {
+    collections: [],
+    folders: [],
+    rules: [],
+    requests: [],
+    templates: [],
+    environments: [],
+    workspaceVars: { schemaVersion: 5, variables: [] },
+    liveWorkflows: [],
+    liveVariables: [],
+  },
+  meta: {
+    redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
+    counts: { rules: 0, requests: 0, environments: 0, liveWorkflows: 0, liveVariables: 0, templates: 0, secrets: 0 },
+  },
+};
+
+let oauthWorkspaceId = '';
+
+function oauthDraft(credentialRef: string, tokenPath: string): Record<string, unknown> {
+  return draft({
+    url: `http://127.0.0.1:${httpRig.port}/echo`,
+    auth: {
+      type: 'oauth2',
+      credentialRef,
+      flow: 'authorization-code-pkce',
+      tokenEndpoint: `http://127.0.0.1:${tokenRig.port}${tokenPath}`,
+      clientId: 'client-live',
+      scopes: [],
+    },
+  });
+}
+
+async function readOAuthBlob(): Promise<{ tokens: Record<string, { accessToken: string }> }> {
+  return (await workbench.evaluate(async (key) => {
+    const storage = (
+      window as unknown as { oh: { storage: { get(req: { key: string }): Promise<{ value: unknown }> } } }
+    ).oh.storage;
+    return (await storage.get({ key })).value;
+  }, `oh.ws.${oauthWorkspaceId}.oauth`)) as { tokens: Record<string, { accessToken: string }> };
+}
+
+test('seed: a fresh workspace holds two expired bundles through the storage bridge', async () => {
+  const imported = await invoke<{ success: boolean; targetWorkspaceId?: string; error?: string }>({
+    type: 'importWorkspace',
+    incoming: OAUTH_WS_EXPORT,
+    strategies: {},
+    target: { mode: 'new', name: 'OAuth Rig' },
+    sourceHash: 'sha256:settings-live-oauth',
+  });
+  expect(imported.success, imported.error).toBe(true);
+  oauthWorkspaceId = imported.targetWorkspaceId ?? '';
+  expect(oauthWorkspaceId).toBeTruthy();
+
+  const expired = {
+    tokenType: 'Bearer',
+    expiresAt: Date.now() - 60_000,
+    issuedAt: Date.now() - 3_660_000,
+    scope: '',
+  };
+  await workbench.evaluate(
+    async ({ key, value }) => {
+      const storage = (
+        window as unknown as { oh: { storage: { set(req: { key: string; value: unknown }): Promise<unknown> } } }
+      ).oh.storage;
+      await storage.set({ key, value });
+    },
+    {
+      key: `oh.ws.${oauthWorkspaceId}.oauth`,
+      value: {
+        schemaVersion: 5,
+        tokens: {
+          'cred-live': { ...expired, accessToken: 'at-expired', refreshToken: 'rt-live' },
+          'cred-broken': { ...expired, accessToken: 'at-stale-broken', refreshToken: 'rt-broken' },
+        },
+        configs: {},
+        refreshErrors: {},
+      },
+    },
+  );
+});
+
+test('an expired bundle refreshes at the token endpoint and the fresh token rides the wire', async () => {
+  const before = tokenRig.calls.length;
+  const snapshot = await exec(oauthDraft('cred-live', '/token'), { workspaceId: oauthWorkspaceId });
+  expect(snapshot.error ?? null).toBeNull();
+  expect(snapshot.status).toBe(200);
+  const echo = JSON.parse(snapshot.body) as Echo;
+  expect(echo.authorization).toBe('Bearer at-1');
+  const grants = tokenRig.calls.slice(before);
+  expect(grants).toHaveLength(1);
+  expect(grants[0].grant_type).toBe('refresh_token');
+  expect(grants[0].refresh_token).toBe('rt-live');
+  expect(grants[0].client_id).toBe('client-live');
+});
+
+test('the refreshed bundle persisted — the next send attaches it without another refresh', async () => {
+  const blob = await readOAuthBlob();
+  expect(blob.tokens['cred-live'].accessToken).toBe('at-1');
+
+  const before = tokenRig.calls.length;
+  const snapshot = await exec(oauthDraft('cred-live', '/token'), { workspaceId: oauthWorkspaceId });
+  expect(snapshot.status).toBe(200);
+  expect((JSON.parse(snapshot.body) as Echo).authorization).toBe('Bearer at-1');
+  expect(tokenRig.calls.length).toBe(before);
+});
+
+test('a failed refresh attaches the stale bundle and lets the target speak — never a run failure', async () => {
+  const snapshot = await exec(oauthDraft('cred-broken', '/token-broken'), { workspaceId: oauthWorkspaceId });
+  expect(snapshot.error ?? null).toBeNull();
+  expect(snapshot.status).toBe(200);
+  expect((JSON.parse(snapshot.body) as Echo).authorization).toBe('Bearer at-stale-broken');
+  // The stale bundle stays put for the next attempt.
+  const blob = await readOAuthBlob();
+  expect(blob.tokens['cred-broken'].accessToken).toBe('at-stale-broken');
 });
