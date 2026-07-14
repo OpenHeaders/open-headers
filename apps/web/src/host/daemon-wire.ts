@@ -18,8 +18,9 @@
  *   mode. SYNCED prunes + flushes the pending-out queue; close resets
  *   the initiator so the next socket re-runs the handshake.
  *
- * Inbound frames route: handshake-flow → the initiator; mutation +
- * awareness → `wire-inbound.ts`; `pong` and anything else drop.
+ * Inbound frames route: handshake-flow → the initiator; migration pull
+ * broadcasts → `wire-migration-mirror.ts`; mutation + awareness →
+ * `wire-inbound.ts`; `pong` and anything else drop.
  */
 
 import { getOrgBackendBindings, recordJoinedOrg } from '@openheaders/core/identity';
@@ -42,6 +43,7 @@ import { report } from '@openheaders/ui/shared/status';
 import { peekDaemonToken } from './daemon-token';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 import { handleInboundWireFrame } from './wire-inbound';
+import { handleIncomingMigrationPullFrame } from './wire-migration-mirror';
 import { applyPeerVectorToPendingOut, flushPendingOut, forwardAwarenessOverWire, setWireSender } from './wire-outbound';
 import { handleWireRpcResponseFrame, setWireRpcSender } from './wire-rpc';
 
@@ -208,6 +210,9 @@ export function installDaemonWire(): DaemonWire {
       // by-channel correlation, so check before the async
       // mutation/awareness path.
       if (handleWireRpcResponseFrame(frame)) return;
+      // Migration pull broadcasts — synchronous claim into the in-tab
+      // fan-out, same posture as the RPC responses.
+      if (handleIncomingMigrationPullFrame(frame)) return;
       const claimed = await handleInboundWireFrame(frame);
       if (claimed) return;
       const type = (frame as { type?: unknown })?.type;

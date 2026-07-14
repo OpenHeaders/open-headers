@@ -3,8 +3,9 @@
  * calls into. The tab oracle lives in the same JS context as the
  * Workbench, so dispatch is a function call: universal host RPCs
  * first, the daemon-answered channels forwarded up the single wire
- * (admin plane + workbench request channels), then the host-neutral
- * sync + awareness channels via {@link dispatchSyncRpc}, and a
+ * (admin plane, workbench request channels, migration pull hydration),
+ * then the host-neutral sync + awareness channels via
+ * {@link dispatchSyncRpc}, and a
  * recognizable rejection for anything only other hosts implement
  * (chrome.tabs, DNR, CDP, …) so fire-and-forget callers degrade
  * quietly through the rpc-fallback filter.
@@ -14,6 +15,7 @@ import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import { dispatchExportImportRpc, isExportImportChannel } from './web-export-import-rpc';
+import { fetchMigrationPullState, MIGRATION_GET_STATE_CHANNEL } from './wire-migration-mirror';
 import { forwardRequestsRpc, isForwardedRequestsChannel } from './wire-requests-rpc';
 import { callWireRpc } from './wire-rpc';
 
@@ -41,6 +43,13 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   // the gated peer requests plane, stamped with this tab's scope.
   if (isForwardedRequestsChannel(type)) {
     return forwardRequestsRpc(message);
+  }
+  // Migration pull hydration — the run lives on the serving daemon, so
+  // the background-tasks tenant's mount-time getState forwards up the
+  // wire to its operator-gated peer plane; every failure leg answers
+  // the idle run state, never a rejection.
+  if (type === MIGRATION_GET_STATE_CHANNEL) {
+    return fetchMigrationPullState();
   }
   // Workspace export/import — the whole channel family answers from the
   // tab's own oracle over the same lifted modules the extension SW and
