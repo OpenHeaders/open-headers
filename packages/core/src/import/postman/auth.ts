@@ -2,6 +2,7 @@ import type { AuthConfig, RequestHeader } from '../../types/request';
 import { decodeBase64 } from '../../utils/base64';
 import { generateUid } from '../../utils/workspace';
 import { type ImportReport, recordDrop } from '../report';
+import { resolveOAuth2Auth } from './oauth2';
 import type { PostmanAuth, PostmanAuthParam, PostmanHeader } from './types';
 
 // ── Headers + auth ─────────────────────────────────────────────────
@@ -91,12 +92,8 @@ export function resolveAuth(
       return { auth: { type: 'api-key', key, value, in: at }, report };
     }
     case 'oauth2': {
-      recordDrop(report, {
-        path: `${jsonPath}.request.auth`,
-        reason: 'OAuth 2.0 auth not imported — first-class OAuth support lands with §18.',
-        tracking: '#todo-oauth',
-      });
-      return { auth: fallback, report };
+      const mapped = resolveOAuth2Auth(raw, jsonPath, report);
+      return { auth: mapped ?? fallback, report };
     }
     case 'awsv4': {
       recordDrop(report, {

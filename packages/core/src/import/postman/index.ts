@@ -15,9 +15,11 @@
  *     `raw` field (Postman's documented canonical form) and query +
  *     path-variable arrays folded back into the URL string.
  *   • Auth — `basic` / `bearer` / `apikey` (header + query) promoted
- *     to first-class auth types. `oauth2` / `awsv4` / `digest` /
- *     `hawk` / `ntlm` / `edgegrid` DROPPED with tracking pointers to
- *     §18 (first-class auth).
+ *     to first-class auth types; `oauth2` maps onto the first-class
+ *     oauth2 config for the shipped flows (PKCE / client-credentials /
+ *     device-code — other grants noted). `awsv4` / `digest` / `hawk` /
+ *     `ntlm` / `edgegrid` DROPPED with tracking pointers to §18
+ *     (first-class auth).
  *   • Body — `raw` (content-type from `options.raw.language`),
  *     `urlencoded`, `graphql`, `formdata` (text parts only — file
  *     parts tracked for §6 content-addressed storage). `file` /
