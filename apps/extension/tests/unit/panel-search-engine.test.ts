@@ -369,8 +369,9 @@ describe('runSearch — perf / correctness invariants', () => {
     expect(total).toBe(100);
   });
 
-  it('stops at the global match cap and reports truncated', async () => {
-    // 25 docs × 500-per-doc cap = 12,500 potential matches > 10,000 cap.
+  it('caps streamed rows at the global cap but keeps counting the whole corpus', async () => {
+    // 25 docs × 600 matches = 15,000 true matches; rows stream capped
+    // at 500/doc and 10,000 overall, counts stay corpus-honest.
     const body = Array.from({ length: 600 }, (_, i) => `row-${i} needle`).join('\n');
     const docs = docsOf(Array.from({ length: 25 }, (_, i) => makeRow({ id: `e-${i}`, responseBody: body })));
     const ctrl = new AbortController();
@@ -386,8 +387,29 @@ describe('runSearch — perf / correctness invariants', () => {
       },
     });
     expect(streamed).toBeLessThanOrEqual(10_000);
-    expect((final as unknown as SearchProgress).truncated).toBe(true);
-    expect((final as unknown as SearchProgress).done).toBeLessThan(docs.length);
+    const done = final as unknown as SearchProgress;
+    expect(done.truncated).toBe(true);
+    expect(done.done).toBe(docs.length);
+    expect(done.totalMatchCount).toBe(15_000);
+    expect(done.matchedFileCount).toBe(docs.length);
+    expect(done.streamedMatchCount).toBe(streamed);
+  });
+
+  it('reports the true per-doc total when the 500-row cap clips a doc', async () => {
+    const body = Array.from({ length: 1234 }, (_, i) => `row-${i} needle`).join('\n');
+    const docs = docsOf([makeRow({ id: 'big', responseBody: body })]);
+    const ctrl = new AbortController();
+    let group: SearchGroup | null = null;
+    await runSearch(docs, 'needle', DEFAULT_TEXT_MATCH_CONFIG, ctrl.signal, {
+      onGroup: (g) => {
+        group = g;
+      },
+      onProgress: () => {},
+      onDone: () => {},
+    });
+    const g = group as unknown as SearchGroup;
+    expect(g.matches.length).toBe(500);
+    expect(g.totalMatches).toBe(1234);
   });
 });
 

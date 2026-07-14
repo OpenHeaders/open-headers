@@ -21,6 +21,7 @@ function group(docId: string, matches: SearchMatch[], displayId = 1): SearchGrou
     origin: `origin/${docId}`,
     timestamp: 0,
     matches,
+    totalMatches: matches.length,
   };
 }
 

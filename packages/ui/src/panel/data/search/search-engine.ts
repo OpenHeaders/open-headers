@@ -70,6 +70,10 @@ export interface SearchGroup {
   /** Wall-clock ms at which the document's subject started. */
   timestamp: number;
   matches: SearchMatch[];
+  /** True hit count for the document. Greater than `matches.length`
+   *  when the per-doc or global streaming cap clipped the rows — the
+   *  scan keeps counting past the caps so totals stay honest. */
+  totalMatches: number;
 }
 
 export interface SearchProgress {
@@ -84,9 +88,16 @@ export interface SearchProgress {
   /** Byte-level progress within the current section. */
   sectionScanned?: number | null;
   sectionTotal?: number | null;
-  /** True when the scan stopped at the global match cap — more matches
-   *  exist than were streamed. */
+  /** True when a streaming cap clipped rows — more matches exist than
+   *  were streamed to the UI. */
   truncated?: boolean;
+  /** Final only: true hit count across the whole scanned corpus,
+   *  including matches beyond the streaming caps. */
+  totalMatchCount?: number;
+  /** Final only: number of documents with at least one hit. */
+  matchedFileCount?: number;
+  /** Final only: matches actually streamed as result rows. */
+  streamedMatchCount?: number;
 }
 
 /** Max synchronous work between yields. */
@@ -157,6 +168,12 @@ function yieldToEventLoop(): Promise<void> {
 
 type SectionTickCallback = (scanned: number, total: number) => void;
 
+interface SectionScan {
+  matches: SearchMatch[];
+  /** True hit count for the section — keeps counting past `cap`. */
+  totalCount: number;
+}
+
 async function scanSectionAsync(
   text: string,
   section: string,
@@ -164,10 +181,11 @@ async function scanSectionAsync(
   cap: number,
   signal: AbortSignal,
   onTick: SectionTickCallback,
-): Promise<SearchMatch[]> {
+): Promise<SectionScan> {
   const out: SearchMatch[] = [];
+  let totalCount = 0;
   const textLen = text.length;
-  if (textLen === 0 || cap === 0) return out;
+  if (textLen === 0) return { matches: out, totalCount };
 
   let line = 1;
   let lineStart = 0;
@@ -178,40 +196,54 @@ async function scanSectionAsync(
 
   onTick(0, textLen);
 
-  while (out.length < cap) {
+  while (true) {
     const m = matcher.exec(text);
     if (m === null) break;
-    const pos = m.index;
+    totalCount++;
 
-    while (nextNewline !== -1 && nextNewline < pos) {
-      line++;
-      lineStart = nextNewline + 1;
-      nextNewline = text.indexOf('\n', lineStart);
+    // Rows materialise only up to `cap`; past it the loop keeps
+    // running in count-only mode (no line walking, no allocation) so
+    // reported totals stay honest.
+    if (out.length < cap) {
+      const pos = m.index;
+      while (nextNewline !== -1 && nextNewline < pos) {
+        line++;
+        lineStart = nextNewline + 1;
+        nextNewline = text.indexOf('\n', lineStart);
+      }
+      const lineEnd = nextNewline === -1 ? textLen : nextNewline;
+
+      const displayStart = Math.max(lineStart, pos - LINE_CTX_BEFORE);
+      const displayEnd = Math.min(lineEnd, displayStart + LINE_TEXT_CAP);
+      out.push({
+        lineNumber: line,
+        column: pos - lineStart + 1,
+        lineText: text.slice(displayStart, displayEnd),
+        section,
+        sectionIndex: out.length,
+      });
     }
-    const lineEnd = nextNewline === -1 ? textLen : nextNewline;
-
-    const displayStart = Math.max(lineStart, pos - LINE_CTX_BEFORE);
-    const displayEnd = Math.min(lineEnd, displayStart + LINE_TEXT_CAP);
-    out.push({
-      lineNumber: line,
-      column: pos - lineStart + 1,
-      lineText: text.slice(displayStart, displayEnd),
-      section,
-      sectionIndex: out.length,
-    });
 
     if (m.index === matcher.lastIndex) matcher.lastIndex++;
 
     if (performance.now() - chunkStart > BUDGET_MS) {
       onTick(matcher.lastIndex, textLen);
       await yieldToEventLoop();
-      if (signal.aborted) return out;
+      if (signal.aborted) return { matches: out, totalCount };
       chunkStart = performance.now();
     }
   }
 
   onTick(textLen, textLen);
-  return out;
+  return { matches: out, totalCount };
+}
+
+interface DocScan {
+  /** Streamable group — `null` when no rows materialised (no hits, or
+   *  the global cap left this doc count-only). */
+  group: SearchGroup | null;
+  /** True hit count for the doc, caps notwithstanding. */
+  totalCount: number;
 }
 
 async function scanDocAsync(
@@ -220,31 +252,36 @@ async function scanDocAsync(
   cap: number,
   signal: AbortSignal,
   onSection: (section: string, scanned: number, total: number) => void,
-): Promise<SearchGroup | null> {
+): Promise<DocScan> {
   const allMatches: SearchMatch[] = [];
+  let totalCount = 0;
 
   for (const { text, name } of doc.sections) {
-    if (signal.aborted) return null;
-    if (allMatches.length >= cap) break;
+    if (signal.aborted) return { group: null, totalCount };
     if (!text) continue;
 
-    const remaining = cap - allMatches.length;
-    const matches = await scanSectionAsync(text, name, matcher, remaining, signal, (scanned, total) => {
+    const remaining = Math.max(0, cap - allMatches.length);
+    const scan = await scanSectionAsync(text, name, matcher, remaining, signal, (scanned, total) => {
       onSection(name, scanned, total);
     });
-    for (const m of matches) allMatches.push(m);
+    for (const m of scan.matches) allMatches.push(m);
+    totalCount += scan.totalCount;
   }
 
-  if (allMatches.length === 0) return null;
+  if (allMatches.length === 0) return { group: null, totalCount };
   return {
-    docId: doc.docId,
-    source: doc.source,
-    target: doc.target,
-    displayId: doc.displayId,
-    filename: doc.filename,
-    origin: doc.origin,
-    timestamp: doc.timestamp,
-    matches: allMatches,
+    group: {
+      docId: doc.docId,
+      source: doc.source,
+      target: doc.target,
+      displayId: doc.displayId,
+      filename: doc.filename,
+      origin: doc.origin,
+      timestamp: doc.timestamp,
+      matches: allMatches,
+      totalMatches: totalCount,
+    },
+    totalCount,
   };
 }
 
@@ -256,9 +293,9 @@ export function scanDoc(doc: SearchDoc, query: string, config: TextMatchConfig):
   const matcher = compileMatcher(query, config);
   if (!matcher) return null;
   const allMatches: SearchMatch[] = [];
+  let totalCount = 0;
 
   for (const { text, name } of doc.sections) {
-    if (allMatches.length >= MAX_MATCHES_PER_ENTRY) break;
     if (!text) continue;
 
     const textLen = text.length;
@@ -269,23 +306,26 @@ export function scanDoc(doc: SearchDoc, query: string, config: TextMatchConfig):
     matcher.lastIndex = 0;
 
     let m: RegExpExecArray | null = matcher.exec(text);
-    while (m !== null && allMatches.length < MAX_MATCHES_PER_ENTRY) {
-      const pos = m.index;
-      while (nextNewline !== -1 && nextNewline < pos) {
-        line++;
-        lineStart = nextNewline + 1;
-        nextNewline = text.indexOf('\n', lineStart);
+    while (m !== null) {
+      totalCount++;
+      if (allMatches.length < MAX_MATCHES_PER_ENTRY) {
+        const pos = m.index;
+        while (nextNewline !== -1 && nextNewline < pos) {
+          line++;
+          lineStart = nextNewline + 1;
+          nextNewline = text.indexOf('\n', lineStart);
+        }
+        const lineEnd = nextNewline === -1 ? textLen : nextNewline;
+        const displayStart = Math.max(lineStart, pos - LINE_CTX_BEFORE);
+        const displayEnd = Math.min(lineEnd, displayStart + LINE_TEXT_CAP);
+        allMatches.push({
+          lineNumber: line,
+          column: pos - lineStart + 1,
+          lineText: text.slice(displayStart, displayEnd),
+          section: name,
+          sectionIndex: sectionIndex++,
+        });
       }
-      const lineEnd = nextNewline === -1 ? textLen : nextNewline;
-      const displayStart = Math.max(lineStart, pos - LINE_CTX_BEFORE);
-      const displayEnd = Math.min(lineEnd, displayStart + LINE_TEXT_CAP);
-      allMatches.push({
-        lineNumber: line,
-        column: pos - lineStart + 1,
-        lineText: text.slice(displayStart, displayEnd),
-        section: name,
-        sectionIndex: sectionIndex++,
-      });
       if (m.index === matcher.lastIndex) matcher.lastIndex++;
       m = matcher.exec(text);
     }
@@ -301,6 +341,7 @@ export function scanDoc(doc: SearchDoc, query: string, config: TextMatchConfig):
     origin: doc.origin,
     timestamp: doc.timestamp,
     matches: allMatches,
+    totalMatches: totalCount,
   };
 }
 
@@ -347,8 +388,9 @@ export async function runSearch(
   }
 
   let done = 0;
-  let totalMatches = 0;
-  let truncated = false;
+  let streamedMatches = 0;
+  let totalMatchCount = 0;
+  let matchedFileCount = 0;
   let current: string | null = null;
   let currentSection: string | null = null;
   let sectionScanned: number | null = null;
@@ -373,10 +415,6 @@ export async function runSearch(
 
   for (const doc of docs) {
     if (signal.aborted) return;
-    if (totalMatches >= MAX_TOTAL_MATCHES) {
-      truncated = true;
-      break;
-    }
 
     current = docLabel(doc);
     currentSection = null;
@@ -384,17 +422,24 @@ export async function runSearch(
     sectionTotal = null;
     reportProgress();
 
-    const remaining = Math.min(MAX_MATCHES_PER_ENTRY, MAX_TOTAL_MATCHES - totalMatches);
-    const group = await scanDocAsync(doc, matcher, remaining, signal, (section, scanned, total) => {
+    // Once the global cap is reached the remaining docs still scan in
+    // count-only mode (cap 0) so `totalMatchCount`/`matchedFileCount`
+    // describe the whole corpus, the way the host's search does.
+    const remaining = Math.max(0, Math.min(MAX_MATCHES_PER_ENTRY, MAX_TOTAL_MATCHES - streamedMatches));
+    const scan = await scanDocAsync(doc, matcher, remaining, signal, (section, scanned, total) => {
       currentSection = section;
       sectionScanned = scanned;
       sectionTotal = total;
       reportProgress();
     });
     if (signal.aborted) return;
-    if (group) {
-      totalMatches += group.matches.length;
-      callbacks.onGroup(group);
+    if (scan.totalCount > 0) {
+      totalMatchCount += scan.totalCount;
+      matchedFileCount++;
+    }
+    if (scan.group) {
+      streamedMatches += scan.group.matches.length;
+      callbacks.onGroup(scan.group);
     }
     done++;
 
@@ -406,5 +451,13 @@ export async function runSearch(
   }
 
   reportProgress(true);
-  callbacks.onDone({ done, total, elapsedMs: performance.now() - start, ...(truncated ? { truncated } : {}) });
+  callbacks.onDone({
+    done,
+    total,
+    elapsedMs: performance.now() - start,
+    totalMatchCount,
+    matchedFileCount,
+    streamedMatchCount: streamedMatches,
+    ...(totalMatchCount > streamedMatches ? { truncated: true } : {}),
+  });
 }

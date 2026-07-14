@@ -753,14 +753,14 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // flush); Storage/Console publish theirs through the footer-status store.
   const searchFooterStatus = useMemo<SearchFooterStatus>(() => {
     const st = searchSession.search.state;
-    let matches = 0;
-    for (const g of st.results) matches += g.matches.length;
+    let streamed = 0;
+    for (const g of st.results) streamed += g.matches.length;
     return {
       status: st.status,
       done: st.progress.done,
       total: st.progress.total,
-      matches,
-      files: st.results.length,
+      matches: st.progress.totalMatchCount ?? streamed,
+      files: st.progress.matchedFileCount ?? st.results.length,
       elapsedMs: st.progress.elapsedMs,
     };
   }, [searchSession.search.state]);

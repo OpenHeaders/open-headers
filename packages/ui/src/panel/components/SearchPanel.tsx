@@ -168,8 +168,15 @@ const ResultGroup = memo(function ResultGroup({
           {group.filename}
         </span>
         <span className="dt-search-group-origin">{group.origin}</span>
-        <span className="dt-search-group-count" title={`${group.matches.length} matches in this file`}>
-          {group.matches.length}
+        <span
+          className="dt-search-group-count"
+          title={
+            group.totalMatches > group.matches.length
+              ? `${group.totalMatches} matches in this file — showing the first ${group.matches.length}`
+              : `${group.totalMatches} matches in this file`
+          }
+        >
+          {group.totalMatches}
         </span>
       </summary>
       {rows.map((r, i) => {
@@ -453,10 +460,18 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
 
       {state.status === 'done' && (
         <div className="dt-search-panel-status">
-          {totalMatches > 0
-            ? `Found ${totalMatches} match${totalMatches === 1 ? '' : 'es'} in ${totalFiles} file${totalFiles === 1 ? '' : 's'} · ${formatElapsed(state.progress.elapsedMs)}`
-            : `No results · ${formatElapsed(state.progress.elapsedMs)}`}
-          {state.progress.truncated ? ' · capped — refine the query to see the rest' : ''}
+          {(() => {
+            // Corpus-honest totals: the engine keeps counting past the
+            // streaming caps, so the reported numbers match the host's
+            // native search. Streamed rows can be fewer.
+            const foundMatches = state.progress.totalMatchCount ?? totalMatches;
+            const foundFiles = state.progress.matchedFileCount ?? totalFiles;
+            if (foundMatches === 0) return `No results · ${formatElapsed(state.progress.elapsedMs)}`;
+            const summary = `Found ${foundMatches} match${foundMatches === 1 ? '' : 'es'} in ${foundFiles} file${foundFiles === 1 ? '' : 's'} · ${formatElapsed(state.progress.elapsedMs)}`;
+            return foundMatches > totalMatches
+              ? `${summary} · showing the first ${totalMatches} — refine the query to see the rest`
+              : summary;
+          })()}
         </div>
       )}
     </div>
