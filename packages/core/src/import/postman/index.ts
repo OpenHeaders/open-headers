@@ -26,8 +26,10 @@
  *     `binary` body modes DROPPED with tracking.
  *   • Scripts — `event: prerequest | test` DROPPED with tracking
  *     for §19 (scripts via offscreen document).
- *   • Responses — saved `response[]` entries ignored (they're capture
- *     artifacts, not authoring data).
+ *   • Responses — saved `response[]` entries convert to Response
+ *     Example payloads under `PostmanParseOptions.responseExamples`
+ *     (`./responses`); consumers that can't mint examples yet keep a
+ *     per-request drop note.
  *   • Protocol-profile behavior — request-level keys with a shipped
  *     request-settings knob map onto it (strictSSL → sslVerification,
  *     redirect knobs name-identical); the rest are noted. Auth
@@ -58,8 +60,10 @@ export {
 export { parsePostman } from './parse';
 export {
   type PostmanCollectionVariable,
+  type PostmanParsedExample,
   type PostmanParsedFolder,
   type PostmanParsedRequest,
   PostmanParseError,
+  type PostmanParseOptions,
   type PostmanParseResult,
 } from './types';

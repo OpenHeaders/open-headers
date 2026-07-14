@@ -1,15 +1,19 @@
-import type { HttpMethod } from '../../types/request';
+import type { CapturedRequest } from '../../types/response-example';
 import type { CurlRequest } from '../curl';
 import { createReport, type ImportReport, recordDrop, recordTransform } from '../report';
 import { buildHeaders, promoteAuthHeader, resolveAuth } from './auth';
 import { buildBody } from './body';
+import { coerceMethod } from './method';
+import { buildExamples } from './responses';
 import { mapProtocolProfileBehavior } from './settings';
 import type {
   PostmanCollection,
   PostmanCollectionVariable,
   PostmanItem,
+  PostmanParsedExample,
   PostmanParsedFolder,
   PostmanParsedRequest,
+  PostmanParseOptions,
   PostmanParseResult,
 } from './types';
 import { PostmanParseError } from './types';
@@ -17,9 +21,7 @@ import { buildUrl, splitUrl } from './url';
 
 // ── Entry point ────────────────────────────────────────────────────
 
-const VALID_METHODS: ReadonlySet<HttpMethod> = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
-
-export function parsePostman(input: string): PostmanParseResult {
+export function parsePostman(input: string, options: PostmanParseOptions = {}): PostmanParseResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(input);
@@ -96,9 +98,10 @@ export function parsePostman(input: string): PostmanParseResult {
   // Walk the item tree.
   const folders: PostmanParsedFolder[] = [];
   const requests: PostmanParsedRequest[] = [];
-  walkItems(collection.item ?? [], [], 'collection.item', folders, requests, report);
+  walkItems(collection.item ?? [], [], 'collection.item', folders, requests, options, report);
 
-  report.summary = { ...report.summary, imported: requests.length };
+  const exampleCount = requests.reduce((sum, entry) => sum + (entry.examples?.length ?? 0), 0);
+  report.summary = { ...report.summary, imported: requests.length + exampleCount };
 
   return {
     collectionName,
@@ -118,6 +121,7 @@ function walkItems(
   pathPointer: string,
   folders: PostmanParsedFolder[],
   requests: PostmanParsedRequest[],
+  options: PostmanParseOptions,
   report: ImportReport,
 ): void {
   for (let i = 0; i < items.length; i++) {
@@ -159,19 +163,30 @@ function walkItems(
 
       recordAncestorProtocolBehavior(item.protocolProfileBehavior, 'folder', jsonPath, report);
 
-      walkItems(item.item ?? [], path, `${jsonPath}.item`, folders, requests, report);
+      walkItems(item.item ?? [], path, `${jsonPath}.item`, folders, requests, options, report);
       continue;
     }
 
     // Request item.
-    const request = tryConvertRequest(item, jsonPath, report);
-    if (request) {
-      requests.push({ folderPath: parentPath, request });
+    const converted = tryConvertRequest(item, jsonPath, options, report);
+    if (converted) {
+      requests.push({ folderPath: parentPath, ...converted });
     }
   }
 }
 
-function tryConvertRequest(item: PostmanItem, jsonPath: string, report: ImportReport): CurlRequest | null {
+/** A converted request item — the request plus any emitted examples. */
+interface ConvertedItem {
+  request: CurlRequest;
+  examples?: PostmanParsedExample[];
+}
+
+function tryConvertRequest(
+  item: PostmanItem,
+  jsonPath: string,
+  options: PostmanParseOptions,
+  report: ImportReport,
+): ConvertedItem | null {
   const name = (item.name ?? 'Untitled Request').trim() || 'Untitled Request';
 
   // `request` can be a string shorthand for GET <url>.
@@ -179,14 +194,16 @@ function tryConvertRequest(item: PostmanItem, jsonPath: string, report: ImportRe
     const { base, params } = splitUrl(item.request);
     const itemDescription = textOf(item.description);
     return {
-      name,
-      ...(itemDescription !== undefined && itemDescription !== '' ? { description: itemDescription } : {}),
-      method: 'GET',
-      url: base,
-      headers: [],
-      params,
-      auth: { type: 'none' },
-      body: { type: 'none' },
+      request: {
+        name,
+        ...(itemDescription !== undefined && itemDescription !== '' ? { description: itemDescription } : {}),
+        method: 'GET',
+        url: base,
+        headers: [],
+        params,
+        auth: { type: 'none' },
+        body: { type: 'none' },
+      },
     };
   }
 
@@ -226,27 +243,37 @@ function tryConvertRequest(item: PostmanItem, jsonPath: string, report: ImportRe
     }
   }
 
-  // Saved responses.
-  if (Array.isArray(item.response) && item.response.length > 0) {
-    recordDrop(report, {
-      path: `${jsonPath}.response`,
-      reason: `${item.response.length} saved response${item.response.length === 1 ? '' : 's'} ignored — responses aren't authoring data.`,
-      tracking: 'PERMANENT: response history lives in IDB (§8), not in imports',
-    });
-  }
-
   const { base, params } = splitUrl(url);
 
+  // Saved responses — Response Example payloads when the consumer can
+  // mint them; an honest note otherwise (never a silent discard).
+  let examples: PostmanParsedExample[] | undefined;
+  if (Array.isArray(item.response) && item.response.length > 0) {
+    if (options.responseExamples) {
+      const parentShape: CapturedRequest = { method, url: base, headers: headersWithoutAuth, params, body };
+      examples = buildExamples(item.response, parentShape, jsonPath, report);
+    } else {
+      recordDrop(report, {
+        path: `${jsonPath}.response`,
+        reason: `${item.response.length} saved response${item.response.length === 1 ? '' : 's'} not imported here — saved responses land as Response Examples on the migration pull path only for now.`,
+        tracking: '#todo-file-import-examples',
+      });
+    }
+  }
+
   return {
-    name,
-    ...(description !== undefined && description !== '' ? { description } : {}),
-    method,
-    url: base,
-    headers: headersWithoutAuth,
-    params,
-    auth: finalAuth,
-    body,
-    ...(settings !== undefined ? { settings } : {}),
+    request: {
+      name,
+      ...(description !== undefined && description !== '' ? { description } : {}),
+      method,
+      url: base,
+      headers: headersWithoutAuth,
+      params,
+      auth: finalAuth,
+      body,
+      ...(settings !== undefined ? { settings } : {}),
+    },
+    ...(examples !== undefined && examples.length > 0 ? { examples } : {}),
   };
 }
 
@@ -271,25 +298,6 @@ function recordAncestorProtocolBehavior(
     reason: `${level === 'collection' ? 'Collection' : 'Folder'}-level protocol settings (${keys.join(', ')}) aren't inherited by requests — set the request's own Settings tab instead.`,
     tracking: '#todo-settings-inheritance',
   });
-}
-
-function coerceMethod(raw: string | undefined, jsonPath: string, report: ImportReport): HttpMethod {
-  if (typeof raw !== 'string' || raw.length === 0) {
-    recordDrop(report, {
-      path: `${jsonPath}.request.method`,
-      reason: 'Method missing — defaulting to GET.',
-      tracking: 'PERMANENT: Postman shape validation',
-    });
-    return 'GET';
-  }
-  const upper = raw.toUpperCase();
-  if ((VALID_METHODS as Set<string>).has(upper)) return upper as HttpMethod;
-  recordDrop(report, {
-    path: `${jsonPath}.request.method`,
-    reason: `Unknown HTTP method "${raw}" — defaulting to GET.`,
-    tracking: 'PERMANENT: method picklist',
-  });
-  return 'GET';
 }
 
 function textOf(raw: string | { content?: string } | undefined): string | undefined {

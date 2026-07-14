@@ -1830,6 +1830,163 @@ describe('edge cases', () => {
   });
 });
 
+// ── Saved responses → Response Examples ────────────────────────────
+
+describe('saved responses', () => {
+  const SAVED_RESPONSE = {
+    id: 'fe314b57-4e7d-4f44-a110-04d8ada69eaf',
+    name: 'Created charge',
+    originalRequest: {
+      method: 'POST',
+      header: [
+        { key: 'Content-Type', value: 'application/json', type: 'text' },
+        { key: 'Authorization', value: 'Bearer wire-token' },
+      ],
+      body: { mode: 'raw', raw: '{"amount":100}', options: { raw: { language: 'json' } } },
+      url: {
+        raw: 'https://api.openheaders.io/charges?expand=balance',
+        host: ['api', 'openheaders', 'io'],
+        path: ['charges'],
+        query: [{ key: 'expand', value: 'balance' }],
+      },
+    },
+    status: 'Created',
+    code: 201,
+    _postman_previewlanguage: 'json',
+    header: [
+      { key: 'Content-Type', value: 'application/json' },
+      { key: '', value: 'empty keys are skipped' },
+    ],
+    cookie: [],
+    responseTime: null,
+    body: '{"id":"ch_1"}',
+    createdAt: '2024-09-09T14:21:12.000Z',
+    updatedAt: '2024-09-10T00:00:00.000Z',
+    uid: 'owner-123',
+  };
+
+  function collectionWithResponses(responses: unknown[]): string {
+    return postmanCollection({
+      item: [
+        {
+          name: 'Create charge',
+          request: { method: 'POST', url: 'https://api.openheaders.io/charges' },
+          response: responses,
+        },
+      ],
+    });
+  }
+
+  it('keeps an honest per-request drop note by default', () => {
+    const result = parsePostman(collectionWithResponses([SAVED_RESPONSE]));
+    expect(result.requests[0]?.examples).toBeUndefined();
+    const drop = result.report.drops.find((d) => d.path.endsWith('.response'));
+    expect(drop?.reason).toContain('Response Examples');
+    expect(drop?.tracking).toBe('#todo-file-import-examples');
+    expect(result.report.summary.imported).toBe(1);
+  });
+
+  it('emits examples under the responseExamples option with the full field mapping', () => {
+    const result = parsePostman(collectionWithResponses([SAVED_RESPONSE]), { responseExamples: true });
+    expect(result.report.drops).toHaveLength(0);
+    const examples = result.requests[0]?.examples;
+    expect(examples).toHaveLength(1);
+    const ex = examples?.[0];
+    expect(ex?.name).toBe('Created charge');
+    expect(ex?.capturedAt).toBe('2024-09-09T14:21:12.000Z');
+    expect(ex?.request.method).toBe('POST');
+    expect(ex?.request.url).toBe('https://api.openheaders.io/charges');
+    expect(stripUids(ex?.request.params ?? [])).toEqual([{ key: 'expand', value: 'balance' }]);
+    // Authorization rows stay verbatim — the captured shape has no
+    // auth slot to promote into.
+    expect(stripUids(ex?.request.headers ?? [])).toEqual([
+      { key: 'Content-Type', value: 'application/json' },
+      { key: 'Authorization', value: 'Bearer wire-token' },
+    ]);
+    expect(ex?.request.body).toEqual({ type: 'json', content: '{"amount":100}' });
+    expect(ex?.response.status).toBe(201);
+    expect(ex?.response.statusText).toBe('Created');
+    expect(ex?.response.url).toBe('https://api.openheaders.io/charges?expand=balance');
+    expect(ex?.response.headers).toEqual([{ key: 'Content-Type', value: 'application/json' }]);
+    expect(ex?.response.body).toBe('{"id":"ch_1"}');
+    expect(ex?.response.bodyTruncated).toBe(false);
+    expect(ex?.response.bodyBytes).toBe(13);
+    // `responseTime: null` is the vendor's "not recorded" marker.
+    expect(ex?.response.durationMs).toBe(0);
+    // Examples count as imported entities: 1 request + 1 example.
+    expect(result.report.summary.imported).toBe(2);
+  });
+
+  it('maps a numeric responseTime onto durationMs and omits capturedAt without createdAt', () => {
+    const { createdAt: _createdAt, updatedAt: _updatedAt, ...exported } = SAVED_RESPONSE;
+    const result = parsePostman(collectionWithResponses([{ ...exported, responseTime: 320 }]), {
+      responseExamples: true,
+    });
+    const ex = result.requests[0]?.examples?.[0];
+    expect(ex?.capturedAt).toBeUndefined();
+    expect(ex?.response.durationMs).toBe(320);
+  });
+
+  it('falls back to the parent request shape when originalRequest is absent', () => {
+    const { originalRequest: _orig, ...withoutRequest } = SAVED_RESPONSE;
+    const result = parsePostman(collectionWithResponses([withoutRequest]), { responseExamples: true });
+    const ex = result.requests[0]?.examples?.[0];
+    expect(ex?.request.method).toBe('POST');
+    expect(ex?.request.url).toBe('https://api.openheaders.io/charges');
+    expect(ex?.request.headers).toEqual([]);
+    expect(ex?.response.url).toBe('https://api.openheaders.io/charges');
+    expect(result.report.drops).toHaveLength(0);
+  });
+
+  it('defaults name, status, and statusText when the wire omits them', () => {
+    const result = parsePostman(
+      collectionWithResponses([{ originalRequest: { method: 'GET', url: 'https://api.openheaders.io/ping' } }]),
+      { responseExamples: true },
+    );
+    const ex = result.requests[0]?.examples?.[0];
+    expect(ex?.name).toBe('Saved Response');
+    expect(ex?.response.status).toBe(0);
+    expect(ex?.response.statusText).toBe('');
+    expect(ex?.response.body).toBe('');
+    expect(ex?.response.bodyBytes).toBe(0);
+  });
+
+  it('drops non-object entries with a note and keeps the rest', () => {
+    const result = parsePostman(collectionWithResponses(['bogus', SAVED_RESPONSE]), { responseExamples: true });
+    expect(result.requests[0]?.examples).toHaveLength(1);
+    const drop = result.report.drops.find((d) => d.path.endsWith('.response[0]'));
+    expect(drop?.reason).toContain('not an object');
+  });
+
+  it('notes non-empty cookie rows — the schema excludes wire capture', () => {
+    const result = parsePostman(
+      collectionWithResponses([{ ...SAVED_RESPONSE, cookie: [{ name: 'sid', value: 'abc' }] }]),
+      { responseExamples: true },
+    );
+    expect(result.requests[0]?.examples).toHaveLength(1);
+    const drop = result.report.drops.find((d) => d.path.endsWith('.cookie'));
+    expect(drop?.reason).toContain('1 cookie row');
+  });
+
+  it('records path-variable substitution in an example URL as the usual handled-for-you transform', () => {
+    const result = parsePostman(
+      collectionWithResponses([
+        {
+          ...SAVED_RESPONSE,
+          originalRequest: {
+            method: 'GET',
+            url: { raw: 'https://api.openheaders.io/charges/:id', variable: [{ key: 'id', value: 'ch_1' }] },
+          },
+        },
+      ]),
+      { responseExamples: true },
+    );
+    const ex = result.requests[0]?.examples?.[0];
+    expect(ex?.request.url).toBe('https://api.openheaders.io/charges/ch_1');
+    expect(result.report.transforms.some((t) => t.to === 'inline values')).toBe(true);
+  });
+});
+
 // ── Realistic round-trip ───────────────────────────────────────────
 
 describe('realistic round-trip (authentic Postman export)', () => {

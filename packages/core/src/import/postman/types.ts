@@ -1,3 +1,4 @@
+import type { CapturedRequest, CapturedResponse } from '../../types/response-example';
 import type { CurlRequest } from '../curl';
 import type { ImportReport } from '../report';
 
@@ -23,7 +24,7 @@ export interface PostmanItem {
   item?: PostmanItem[];
   request?: PostmanRequest | string;
   event?: PostmanEvent[];
-  response?: unknown[];
+  response?: PostmanSavedResponse[];
   auth?: PostmanAuth;
   protocolProfileBehavior?: unknown;
 }
@@ -115,6 +116,25 @@ export interface PostmanEvent {
   disabled?: boolean;
 }
 
+/**
+ * One saved exchange under `item.response[]`. The status phrase rides
+ * `status` ("OK") with the numeric code in `code`; `createdAt` is the
+ * capture moment on Data API payloads (absent in file exports);
+ * `responseTime` is `null` on UI-saved examples.
+ */
+export interface PostmanSavedResponse {
+  name?: string;
+  originalRequest?: PostmanRequest;
+  status?: string;
+  code?: number;
+  header?: Array<{ key?: string; value?: string }> | string | null;
+  cookie?: unknown[];
+  body?: string | null;
+  responseTime?: number | string | null;
+  createdAt?: string;
+  _postman_previewlanguage?: string;
+}
+
 // ── Output ─────────────────────────────────────────────────────────
 
 /**
@@ -127,6 +147,27 @@ export interface PostmanEvent {
 export interface PostmanParsedRequest {
   folderPath: string[];
   request: CurlRequest;
+  /**
+   * Saved responses converted to Response Example payloads — emitted
+   * only under `PostmanParseOptions.responseExamples`, and only when
+   * the item carries any. `capturedAt` on each entry is the wire
+   * capture moment; entries without one take the caller's import
+   * timestamp at mint time (core parsers are clock-free).
+   */
+  examples?: PostmanParsedExample[];
+}
+
+/**
+ * One saved response as an importable Response Example: the captured
+ * request shape (auth excluded per the ResponseExample schema) plus
+ * the complete captured response block.
+ */
+export interface PostmanParsedExample {
+  name: string;
+  /** Wire `createdAt` when the source carried one. */
+  capturedAt?: string;
+  request: CapturedRequest;
+  response: CapturedResponse;
 }
 
 /**
@@ -151,6 +192,16 @@ export interface PostmanCollectionVariable {
   value: string;
   type: 'default';
   description?: string;
+}
+
+export interface PostmanParseOptions {
+  /**
+   * Emit saved responses as `examples` on each parsed request. Off by
+   * default: consumers that cannot mint Response Examples yet keep the
+   * honest per-request drop note instead of silently discarding
+   * emitted examples.
+   */
+  responseExamples?: boolean;
 }
 
 export interface PostmanParseResult {
