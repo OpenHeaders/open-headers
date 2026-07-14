@@ -67,6 +67,7 @@ import {
 } from './draft';
 import { type TabKey, buildRequestTabItems } from './request-tab-items';
 import RequestTabContent from './RequestTabContent';
+import ScriptModeTag from './ScriptModeTag';
 import RequestUrlBar from './RequestUrlBar';
 import { takeHandoffResponse } from './response-handoff';
 import { detectBodyLanguage, prettyBody } from './response/response-format';
@@ -584,7 +585,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     );
   }
 
-  const tabItems = buildRequestTabItems(draft, sectionUnresolved, t);
+  const tabItems = buildRequestTabItems(draft, sectionUnresolved, t, <ScriptModeTag workspaceId={workspaceId} />);
 
   // Header consolidates the full URL row: method select + URL input in
   // the title (title has flex:1 so the URL input grows), Send in the

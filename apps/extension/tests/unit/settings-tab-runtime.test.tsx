@@ -236,13 +236,16 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getByText('Automatically follow redirects')).toBeTruthy();
     expect(screen.queryByText('Send browser cookies')).toBeNull();
 
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getByText(/Fixed by the app’s network runtime for every request/)).toBeTruthy();
     // The 'Cookies · Not sent' fact row graduated into the cookie-jar
-    // knob — only the Referer fact still reads 'Not sent'.
+    // knob — only the Referer fact still reads 'Not sent'. Without a
+    // script runtime on either side (this surface's browser host), the
+    // sheet's fourth row is the honest scripts posture.
     expect(screen.queryByText('Cookies')).toBeNull();
     expect(screen.getByText('Referer header')).toBeTruthy();
     expect(screen.getAllByText('Not sent')).toHaveLength(1);
+    expect(screen.getByText('Don’t run here')).toBeTruthy();
   });
 
   it('graduates the cookie fact into a live cookie-jar knob, defaulting to Disabled', () => {
@@ -251,7 +254,7 @@ describe('SettingsTab on a node runtime', () => {
     const knob = screen.getByRole('switch', { name: 'Use cookie jar' });
     expect(knob.getAttribute('aria-checked')).toBe('false');
     // Graduated out of the fact sheet — the label exists exactly once.
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('Use cookie jar')).toHaveLength(1);
   });
 
@@ -282,7 +285,7 @@ describe('SettingsTab on a node runtime', () => {
     const knob = screen.getByRole('switch', { name: 'SSL certificate verification' });
     expect(knob.getAttribute('aria-checked')).toBe('true');
     // Graduated out of the fact sheet — the row lives above the reveal.
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('SSL certificate verification')).toHaveLength(1);
   });
 
@@ -340,7 +343,7 @@ describe('SettingsTab on a node runtime', () => {
     expect(method.getAttribute('aria-checked')).toBe('false');
     expect(auth.getAttribute('aria-checked')).toBe('false');
     // Graduated out of the fact sheet — each label exists exactly once.
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('Maximum redirects')).toHaveLength(1);
     expect(screen.getAllByText('Follow original HTTP method')).toHaveLength(1);
     expect(screen.getAllByText('Follow Authorization header')).toHaveLength(1);
@@ -397,7 +400,7 @@ describe('SettingsTab on a node runtime', () => {
     expect(cipher.placeholder).toBe('Runtime default suites');
     // Graduated out of the fact sheet — the cipher label exists exactly
     // once, and the protocol-versions fact row is gone entirely.
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('TLS cipher suites')).toHaveLength(1);
     expect(screen.queryByText('TLS/SSL protocol versions')).toBeNull();
   });
@@ -457,7 +460,7 @@ describe('SettingsTab on a node runtime', () => {
     const knob = screen.getByRole('switch', { name: 'Allow HTTP/2' });
     expect(knob.getAttribute('aria-checked')).toBe('false');
     // Graduated out of the fact sheet — no HTTP version fact row remains.
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.queryByText('HTTP version')).toBeNull();
   });
 
@@ -489,8 +492,8 @@ describe('SettingsTab on a node runtime', () => {
     expect(pin.value).toBe('');
     expect(pin.placeholder).toBe('System DNS');
     // Nothing graduates — resolution was never a sheet-listed fact, so
-    // the node sheet stays at 3 rows and the label exists exactly once.
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    // the node sheet stays at 4 rows (incl. the scripts posture fact) and the label exists exactly once.
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('Resolve to address')).toHaveLength(1);
   });
 
@@ -525,8 +528,8 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getByRole('combobox', { name: 'Client certificate' })).toBeTruthy();
     expect(screen.getByText('No client certificate')).toBeTruthy();
     // Not trust-relaxing, not a sheet-listed fact — the node sheet
-    // stays at 3 rows and the label exists exactly once.
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    // stays at 4 rows (incl. the scripts posture fact) and the label exists exactly once.
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('Client certificate')).toHaveLength(1);
   });
 
@@ -580,8 +583,8 @@ describe('SettingsTab on a node runtime', () => {
     // No proxy URL set — nothing to authenticate against, no row.
     expect(screen.queryByRole('combobox', { name: 'Proxy credentials' })).toBeNull();
     // Not trust-relaxing, not a sheet-listed fact — the node sheet
-    // stays at 3 rows and the label exists exactly once.
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    // stays at 4 rows (incl. the scripts posture fact) and the label exists exactly once.
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('Proxy')).toHaveLength(1);
   });
 
@@ -674,8 +677,8 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getByRole('textbox', { name: 'Unix socket' })).toBeTruthy();
     expect(screen.getByPlaceholderText('No socket — TCP connection')).toBeTruthy();
     // Not trust-relaxing, not a sheet-listed fact — the node sheet
-    // stays at 3 rows and the label exists exactly once.
-    fireEvent.click(screen.getByText('3 runtime-managed'));
+    // stays at 4 rows (incl. the scripts posture fact) and the label exists exactly once.
+    fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getAllByText('Unix socket')).toHaveLength(1);
   });
 

@@ -862,6 +862,19 @@ export const workbenchEditors = {
   'workbench.editors.request.settings.scriptModeWarning':
     'Developer mode runs this workspace’s scripts with full system access — filesystem, processes, and network. Enable it only if you trust everyone who can edit this workspace’s scripts. Workflow steps and requests forwarded by other devices keep running in Safe mode.',
 
+  // ── Request editor — script-mode tag (tab-bar chip + chooser popover;
+  //    same per-workspace host-local slot as the Settings row) ─────────
+  'workbench.editors.request.settings.scriptModeTagAria': 'Script execution: {mode}',
+  'workbench.editors.request.settings.scriptModeRecommended': 'Recommended',
+  'workbench.editors.request.settings.scriptModeSafeCard':
+    'Scripts run in the app’s sandboxed script runtime — the oh.* script API only, with no filesystem or process access and no module loader.',
+  'workbench.editors.request.settings.scriptModeDeveloperCard':
+    'Scripts run in a full Node.js runtime — require, filesystem, processes, and network access.',
+  'workbench.editors.request.settings.scriptModeDeveloperTrust':
+    'Use only if you trust everyone who can edit this workspace’s scripts',
+  'workbench.editors.request.settings.scriptModeScopeNote':
+    'Applies to every request in this workspace, on this device only — the choice never syncs.',
+
   // ── Settings tab — cookie jar row ──────────────────────────────────
   'workbench.editors.request.settings.jar.count': ({ count }, locale) =>
     plural(locale, Number(count), {
@@ -962,12 +975,6 @@ export const workbenchEditors = {
   'workbench.editors.request.response.meta.authForwarded': 'Authorization forwarded',
   'workbench.editors.request.response.meta.authForwardedSummary':
     'A redirect took this request to a different origin, and its Settings keep the Authorization header across origins — so the credentials were re-sent to the new host. Normally the header is dropped when a redirect leaves the original origin.',
-  'workbench.editors.request.response.meta.scriptsSafeMode': 'Scripts: Safe mode',
-  'workbench.editors.request.response.meta.scriptsSafeModeSummary':
-    'This request’s pre-request / post-response scripts ran in the app’s sandboxed script runtime — the oh.* script API only, no filesystem or process access. The mode is recorded on this run, so the marker stays accurate even if the workspace’s setting changes later.',
-  'workbench.editors.request.response.meta.scriptsDeveloperMode': 'Scripts: Developer mode',
-  'workbench.editors.request.response.meta.scriptsDeveloperModeSummary':
-    'This request’s pre-request / post-response scripts ran in Developer mode — the full runtime this workspace explicitly opted into on this device. The mode is recorded on this run, so the marker stays accurate even if the setting changes later.',
   'workbench.editors.request.response.meta.executedOnTag': 'Sent from {name}',
   'workbench.editors.request.response.meta.executedOnTitle': 'Executed on the connected back-end',
   'workbench.editors.request.response.meta.executedOnSummary':

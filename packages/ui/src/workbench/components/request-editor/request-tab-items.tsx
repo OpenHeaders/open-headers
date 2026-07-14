@@ -61,11 +61,15 @@ const TabDot: React.FC<{ tone?: 'default' | 'error' }> = ({ tone = 'default' }) 
 
 /** Build the AntD Tabs items for the request editor's sub-tab bar.
  *  Counters are body-aware (auto-gen header count sheds Content-Type +
- *  Content-Length when the body is `none`, matching `HeadersTab`). */
+ *  Content-Length when the body is `none`, matching `HeadersTab`).
+ *  `scriptsExtra` renders inline in the Scripts label between the text
+ *  and the has-content dot — the script-mode tag's slot, threaded from
+ *  the editor so this catalog stays a pure builder. */
 export function buildRequestTabItems(
   draft: Draft,
   sectionUnresolved: SectionUnresolved,
   t: Translate,
+  scriptsExtra?: React.ReactNode,
 ): { key: TabKey; label: React.ReactNode }[] {
   // Header badge counts the rows the user actually owns — their enabled
   // header rows plus the auth-derived `Authorization` row (shown locked
@@ -149,7 +153,7 @@ export function buildRequestTabItems(
       key: 'scripts',
       label: (
         <span>
-          {t('workbench.editors.request.tab.scripts')} {scriptsMark > 0 && <TabDot />}
+          {t('workbench.editors.request.tab.scripts')} {scriptsExtra} {scriptsMark > 0 && <TabDot />}
         </span>
       ),
     },
