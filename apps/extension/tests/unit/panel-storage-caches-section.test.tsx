@@ -169,7 +169,11 @@ describe('CacheStorageSection entries view', () => {
       },
     });
     const { container } = render(
-      <CacheStorageSection cache={cache} filter={filterOf('')} isEntryActive={(url) => url === 'https://openheaders.io/a.js'} />,
+      <CacheStorageSection
+        cache={cache}
+        filter={filterOf('')}
+        isEntryActive={(url) => url === 'https://openheaders.io/a.js'}
+      />,
     );
 
     const active = container.querySelectorAll('.dt-storage-row--active');
@@ -186,18 +190,31 @@ describe('CacheStorageSection entries view', () => {
       truncated: false,
     };
 
-    render(<CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter={filterOf('api')} />);
-    expect(screen.queryByText('https://openheaders.io/asset-0.js')).toBeNull();
-    expect(screen.getByText('https://openheaders.io/api/data')).toBeDefined();
-    cleanup();
-
-    render(<CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter={filterOf('post')} />);
+    render(
+      <CacheStorageSection
+        cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })}
+        filter={filterOf('api')}
+      />,
+    );
     expect(screen.queryByText('https://openheaders.io/asset-0.js')).toBeNull();
     expect(screen.getByText('https://openheaders.io/api/data')).toBeDefined();
     cleanup();
 
     render(
-      <CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter={filterOf('javascript')} />,
+      <CacheStorageSection
+        cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })}
+        filter={filterOf('post')}
+      />,
+    );
+    expect(screen.queryByText('https://openheaders.io/asset-0.js')).toBeNull();
+    expect(screen.getByText('https://openheaders.io/api/data')).toBeDefined();
+    cleanup();
+
+    render(
+      <CacheStorageSection
+        cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })}
+        filter={filterOf('javascript')}
+      />,
     );
     expect(screen.getByText('https://openheaders.io/asset-0.js')).toBeDefined();
     expect(screen.queryByText('https://openheaders.io/api/data')).toBeNull();
