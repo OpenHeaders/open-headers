@@ -27,6 +27,7 @@ import { buildConnectionOpenerIndex } from '../data/connection-openers';
 import type { CallFrameLike } from '../data/initiator/call-frame-meta';
 import { frameKey, useResolvedFrames } from '../data/initiator/use-resolved-frames';
 import { extractName, getInitiatorFrame } from './traffic/formatters';
+import { type FilterHiddenHint, FilterHiddenNote } from './FilterHiddenNote';
 import { NetworkPanelHeader } from './traffic/NetworkPanelHeader';
 import { AnnotationRailHeader, FireRailHeader } from './traffic/RailHeaders';
 import { derivePreflightPairs } from './traffic/preflight-pairs';
@@ -82,6 +83,11 @@ interface TrafficListProps {
   /** Open the row's inspector tab at the detail section an annotation
    *  targets — the OH annotation rail's click-through. */
   onAnnotationJump: (requestId: string) => void;
+  /** "Revealed but filtered" note — set when a search jump opened a
+   *  request document whose grid row the active filter hides. */
+  filterHiddenHint: FilterHiddenHint | null;
+  onFilterHintClear: () => void;
+  onFilterHintDismiss: () => void;
 }
 
 export function TrafficList({
@@ -112,6 +118,9 @@ export function TrafficList({
   onCopyAllAsHar,
   onHide,
   onAnnotationJump,
+  filterHiddenHint,
+  onFilterHintClear,
+  onFilterHintDismiss,
 }: TrafficListProps) {
   const {
     compact,
@@ -487,6 +496,12 @@ export function TrafficList({
   return (
     <div className="dt-panel" ref={panelElRef}>
       <NetworkPanelHeader {...headerProps} />
+      <FilterHiddenNote
+        hint={filterHiddenHint}
+        message="Revealed request is hidden by the active filter"
+        onClearFilter={onFilterHintClear}
+        onDismiss={onFilterHintDismiss}
+      />
       {/* Header strip — its own hidden-overflow container ABOVE the body
           scroller, so the body's vertical scrollbar track starts below the
           column headers (browser parity) instead of running through them.

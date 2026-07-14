@@ -217,6 +217,60 @@ describe('ConsoleView list', () => {
     expect(onRevealConsumed).toHaveBeenCalledTimes(1);
   });
 
+  it('a reveal hidden solely by the text filter shows the note; clearing it lands the jump', () => {
+    const onRevealConsumed = vi.fn();
+    const view = renderView(entries, { onRevealConsumed });
+    fireEvent.change(view.container.querySelector('.dt-filter-input') as HTMLInputElement, {
+      target: { value: 'boom' },
+    });
+    view.rerender(
+      <ConsoleView
+        entries={entries}
+        xhrLogEntries={[]}
+        contexts={[]}
+        resolveRequest={() => null}
+        onRequestClick={vi.fn()}
+        onClear={vi.fn()}
+        onHide={vi.fn()}
+        reveal={{ entryIndex: 0, nonce: 1 }}
+        onRevealConsumed={onRevealConsumed}
+      />,
+    );
+    expect(onRevealConsumed).toHaveBeenCalledTimes(1);
+    expect(view.container.querySelector('.dt-console-row--flash')).toBeNull();
+    expect(view.container.textContent).toContain('Revealed message is hidden by the active filter');
+    fireEvent.click(screen.getByText('Clear filter'));
+    const rows = view.container.querySelectorAll('.dt-console-row');
+    expect(rows).toHaveLength(3);
+    expect(rows[0].className).toContain('dt-console-row--flash');
+    expect(view.container.textContent).not.toContain('Revealed message is hidden by the active filter');
+  });
+
+  it('a reveal hidden by the level mask shows no note even while a text filter is active', () => {
+    const all = [...entries, entry('verbose boom detail', { level: 'debug' })];
+    const onRevealConsumed = vi.fn();
+    const view = renderView(all, { onRevealConsumed });
+    fireEvent.change(view.container.querySelector('.dt-filter-input') as HTMLInputElement, {
+      target: { value: 'boom' },
+    });
+    view.rerender(
+      <ConsoleView
+        entries={all}
+        xhrLogEntries={[]}
+        contexts={[]}
+        resolveRequest={() => null}
+        onRequestClick={vi.fn()}
+        onClear={vi.fn()}
+        onHide={vi.fn()}
+        reveal={{ entryIndex: 3, nonce: 1 }}
+        onRevealConsumed={onRevealConsumed}
+      />,
+    );
+    expect(onRevealConsumed).toHaveBeenCalledTimes(1);
+    expect(view.container.querySelector('.dt-console-row--flash')).toBeNull();
+    expect(view.container.textContent).not.toContain('hidden by the active filter');
+  });
+
   it('text filter narrows by message content', () => {
     const { container } = renderView(entries);
     fireEvent.change(container.querySelector('.dt-filter-input') as HTMLInputElement, {

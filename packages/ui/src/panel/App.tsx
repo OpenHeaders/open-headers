@@ -69,6 +69,7 @@ import {
   StoragePanel,
   type StorageRevealRequest,
 } from './components/storage/StoragePanel';
+import type { FilterHiddenHint } from './components/FilterHiddenNote';
 import { TrafficList } from './components/TrafficList';
 import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
@@ -469,6 +470,17 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     [data.rows, filter, filterTokens, filterConfig],
   );
 
+  // "Revealed but filtered" note for the network grid: a search jump
+  // opened the request's document, but the active filter hides its
+  // grid row. Filters are never auto-cleared — the note offers it.
+  const [networkFilterHint, setNetworkFilterHint] = useState<FilterHiddenHint | null>(null);
+  const dismissNetworkFilterHint = useCallback(() => setNetworkFilterHint(null), []);
+  const clearNetworkFilter = useCallback(() => {
+    setUrlFilter('');
+    setFilter(new Set());
+    setNetworkFilterHint(null);
+  }, []);
+
   // ── Open request as tab ────────────────────────────────────
   const {
     lastSectionRef,
@@ -586,6 +598,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     (target: SearchTarget, highlight: string, section: string, lineNumber: number, matchIndex: number) => {
       if (target.kind === 'request') {
         handleSearchResult(target.requestId, highlight, section, lineNumber, matchIndex);
+        if (
+          data.lookupByRequestId.has(target.requestId) &&
+          !filteredRows.some((r) => r.lifecycle.requestId === target.requestId)
+        ) {
+          setNetworkFilterHint((prev) => ({ nonce: (prev?.nonce ?? 0) + 1 }));
+        }
         return;
       }
       if (target.kind === 'storage') {
@@ -598,7 +616,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       tl.activateWindow('console');
       setRevealConsole((prev) => ({ entryIndex: lineNumber - 1, nonce: (prev?.nonce ?? 0) + 1 }));
     },
-    [handleSearchResult, showStorageWindow, tl],
+    [handleSearchResult, showStorageWindow, tl, data.lookupByRequestId, filteredRows],
   );
 
   // ── Editor group tab body ──────────────────────────────────
@@ -819,6 +837,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onCopyAllAsHar={handleCopyAllAsHar}
               onHide={() => tl.toggleWindow('network')}
               onAnnotationJump={handleAnnotationJump}
+              filterHiddenHint={networkFilterHint}
+              onFilterHintClear={clearNetworkFilter}
+              onFilterHintDismiss={dismissNetworkFilterHint}
             />
           );
         case 'console':

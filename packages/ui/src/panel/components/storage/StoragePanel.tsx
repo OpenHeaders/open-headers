@@ -33,7 +33,14 @@ import { cacheEntryTabId, cookieTabId, domStorageEntryTabId, idbRecordTabId } fr
 import { buildStorageFooterStatus, type StorageFooterStatus } from '../../data/footer-status';
 import { setStorageFooterStatus } from '../../data/stores/footer-status-store';
 import type { DomStorageArea, DomStorageEntry, SiteDataType } from '../../data/storage/storage-inspector-host';
-import { cacheMatches, cookieMatches, countIdbStoreMatches, domEntryMatches } from '../../data/storage/storage-filter';
+import {
+  cacheEntryMatches,
+  cacheMatches,
+  cookieMatches,
+  countIdbStoreMatches,
+  domEntryMatches,
+  idbRecordMatches,
+} from '../../data/storage/storage-filter';
 import { parseStorageKey } from '../../data/storage/storage-key';
 import { useDomAreaSnapshot } from '../../data/storage/use-dom-area-snapshot';
 import { useCacheBrowser } from '../../data/storage/use-cache-browser';
@@ -46,6 +53,7 @@ import {
 } from '../../data/storage/use-storage-inspector';
 import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
 import { CookieEditPopover } from '../detail/cookies/CookieEditPopover';
+import { type FilterHiddenHint, FilterHiddenNote } from '../FilterHiddenNote';
 import { FilterInput } from '../FilterInput';
 import { CacheStorageSection } from './CacheStorageSection';
 import { CookiesSection } from './CookiesSection';
@@ -164,6 +172,21 @@ export function StoragePanel({
 
   const filterPredicate = useMemo(() => buildTextPredicate(textFilter, filterConfig), [textFilter, filterConfig]);
   const filterActive = !filterPredicate.empty;
+
+  // "Revealed but filtered" note: a search jump opened a row's document
+  // but the panel's filter hides that grid row. The filter is never
+  // auto-cleared — the note offers it; clearing re-runs the active-row
+  // scroll so the now-visible row centers.
+  const [filterHint, setFilterHint] = useState<FilterHiddenHint | null>(null);
+  const noteRowHiddenByFilter = useCallback(() => {
+    setFilterHint((prev) => ({ nonce: (prev?.nonce ?? 0) + 1 }));
+  }, []);
+  const dismissFilterHint = useCallback(() => setFilterHint(null), []);
+  const clearFilterForHint = useCallback(() => {
+    setTextFilter('');
+    setFilterHint(null);
+    revealActiveRow();
+  }, [revealActiveRow]);
 
   // Selection or section moved out from under an open add row — drop it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: selection identity is the reset trigger
@@ -364,8 +387,23 @@ export function StoragePanel({
     if (pendingRow?.kind !== 'dom' || selectedFrameId === null) return;
     onOpenDomEntry({ area: pendingRow.area, entryKey: pendingRow.row, frameId: selectedFrameId });
     revealActiveRow();
+    if (filterActive) {
+      // Best-effort: the dom open doesn't wait for the snapshot; when
+      // it's already in, note a row the filter hides.
+      const entry = inspector.snapshot?.entries.find((e) => e.key === pendingRow.row);
+      if (entry !== undefined && !domEntryMatches(entry, filterPredicate)) noteRowHiddenByFilter();
+    }
     setPendingRow(null);
-  }, [pendingRow, selectedFrameId, onOpenDomEntry, revealActiveRow]);
+  }, [
+    pendingRow,
+    selectedFrameId,
+    onOpenDomEntry,
+    revealActiveRow,
+    filterActive,
+    inspector.snapshot,
+    filterPredicate,
+    noteRowHiddenByFilter,
+  ]);
 
   useEffect(() => {
     if (pendingRow?.kind !== 'cookies' || sortedCookies === null) return;
@@ -373,9 +411,10 @@ export function StoragePanel({
     if (cookie !== undefined) {
       openCookie(cookie);
       revealActiveRow();
+      if (filterActive && !cookieMatches(cookie, filterPredicate)) noteRowHiddenByFilter();
     }
     setPendingRow(null);
-  }, [pendingRow, sortedCookies, openCookie, revealActiveRow]);
+  }, [pendingRow, sortedCookies, openCookie, revealActiveRow, filterActive, filterPredicate, noteRowHiddenByFilter]);
 
   useEffect(() => {
     if (pendingRow?.kind !== 'idb') return;
@@ -390,9 +429,19 @@ export function StoragePanel({
         keyPreview: record.primaryKeyPreview,
       });
       revealActiveRow();
+      if (filterActive && !idbRecordMatches(record, filterPredicate)) noteRowHiddenByFilter();
     }
     setPendingRow(null);
-  }, [pendingRow, idb.selection, idb.recordsPage, openIdbRecord, revealActiveRow]);
+  }, [
+    pendingRow,
+    idb.selection,
+    idb.recordsPage,
+    openIdbRecord,
+    revealActiveRow,
+    filterActive,
+    filterPredicate,
+    noteRowHiddenByFilter,
+  ]);
 
   useEffect(() => {
     if (pendingRow?.kind !== 'cache') return;
@@ -405,9 +454,19 @@ export function StoragePanel({
     if (entry !== undefined) {
       openCacheEntry(entry.url, entry.method);
       revealActiveRow();
+      if (filterActive && !cacheEntryMatches(entry, filterPredicate)) noteRowHiddenByFilter();
     }
     setPendingRow(null);
-  }, [pendingRow, cacheStorage.selectedCache, cacheStorage.entriesPage, openCacheEntry, revealActiveRow]);
+  }, [
+    pendingRow,
+    cacheStorage.selectedCache,
+    cacheStorage.entriesPage,
+    openCacheEntry,
+    revealActiveRow,
+    filterActive,
+    filterPredicate,
+    noteRowHiddenByFilter,
+  ]);
 
   // ── Nav-rail match badges (settings-sidebar idiom) ────────────────
   // While a filter is typed, every section tab shows how many of its
@@ -674,6 +733,12 @@ export function StoragePanel({
             </button>
           </div>
         }
+      />
+      <FilterHiddenNote
+        hint={filterHint}
+        message="Revealed row is hidden by the active filter"
+        onClearFilter={clearFilterForHint}
+        onDismiss={dismissFilterHint}
       />
 
       <div className="dt-storage-layout">

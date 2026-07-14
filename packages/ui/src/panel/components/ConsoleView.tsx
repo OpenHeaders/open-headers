@@ -55,6 +55,7 @@ import { useStickToBottom } from './detail/streams/use-stick-to-bottom';
 import { CONSOLE_ROW_PX, consoleStackPx, useConsoleRowWindow } from './use-console-row-window';
 import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../data/text-match';
 import { formatClock } from '../data/timing/format-time';
+import { type FilterHiddenHint, FilterHiddenNote } from './FilterHiddenNote';
 import { FilterInput } from './FilterInput';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
 import { ConsoleContextSelector } from './ConsoleContextSelector';
@@ -469,16 +470,28 @@ export function ConsoleView({
   }, [onStickScroll, onWindowScroll]);
 
   // ── Search-jump reveal ─────────────────────────────────────────────
-  // The matched entry's row key is its buffer index (`e${i}`). When the
-  // row is visible, center the virtualized scroller on it (heights are
-  // the closed per-row formula, so the offset is a prefix sum) and
-  // flash it; an entry hidden by the level mask / text filter / cutoff
-  // (or collapsed into a "group similar" head) degrades to the window
-  // focus the jump already performed. Consumed either way.
+  // The matched entry's row key is its buffer index (`e${i}`). External
+  // reveals are consumed immediately into a local parked jump so that a
+  // "Clear filter" from the hidden-by-filter note can still land it.
   const [flashKey, setFlashKey] = useState<string | null>(null);
+  const [pendingJump, setPendingJump] = useState<{ entryIndex: number; hinted: boolean } | null>(null);
+  const [filterHint, setFilterHint] = useState<FilterHiddenHint | null>(null);
   useEffect(() => {
     if (reveal === null) return;
-    const targetKey = `e${reveal.entryIndex}`;
+    setPendingJump({ entryIndex: reveal.entryIndex, hinted: false });
+    onRevealConsumed();
+  }, [reveal, onRevealConsumed]);
+
+  // When the row is visible, center the virtualized scroller on it
+  // (heights are the closed per-row formula, so the offset is a prefix
+  // sum) and flash it. A row hidden SOLELY by the text filter keeps the
+  // jump parked and shows the "revealed but filtered" note — clearing
+  // the filter re-runs this effect and lands the jump. Every other
+  // hiding cause (level mask, prefs, a "group similar" head, cutoff)
+  // degrades to the window focus the jump already performed.
+  useEffect(() => {
+    if (pendingJump === null) return;
+    const targetKey = `e${pendingJump.entryIndex}`;
     const rowIndex = rows.findIndex((r) => r.rowKey === targetKey);
     if (rowIndex >= 0) {
       const body = bodyRef.current;
@@ -488,9 +501,53 @@ export function ConsoleView({
         body.scrollTop = Math.max(0, offset - body.clientHeight / 2 + CONSOLE_ROW_PX / 2);
       }
       setFlashKey(targetKey);
+      setPendingJump(null);
+      setFilterHint(null);
+      return;
     }
-    onRevealConsumed();
-  }, [reveal, rows, rowHeights, onRevealConsumed]);
+    if (filterPredicate.empty) {
+      setPendingJump(null);
+      return;
+    }
+    const target = visibleEntries.find((v) => v.key === targetKey);
+    if (target === undefined) {
+      setPendingJump(null);
+      return;
+    }
+    const entry = target.entry;
+    const hiddenByPrefs =
+      !passesLevelMask(entry.level, prefs.levels) ||
+      (prefs.hideNetwork && entry.source === 'browser' && entry.category === 'network') ||
+      (!prefs.showCorsErrors && isCorsMessage(entry)) ||
+      (prefs.selectedContextOnly &&
+        effectiveContextKey !== null &&
+        entry.contextKey !== undefined &&
+        entry.contextKey !== effectiveContextKey);
+    if (hiddenByPrefs) {
+      setPendingJump(null);
+      return;
+    }
+    const row = buildRow(entry, target.key, resolveRequest);
+    const textBlocked =
+      !filterPredicate.test(row.displayText) && !(row.location ? filterPredicate.test(row.location.full) : false);
+    if (!textBlocked) {
+      setPendingJump(null);
+      return;
+    }
+    if (!pendingJump.hinted) {
+      setFilterHint((prev) => ({ nonce: (prev?.nonce ?? 0) + 1 }));
+      setPendingJump({ entryIndex: pendingJump.entryIndex, hinted: true });
+    }
+  }, [pendingJump, rows, rowHeights, visibleEntries, filterPredicate, prefs, effectiveContextKey, resolveRequest]);
+
+  const dismissFilterHint = useCallback(() => {
+    setFilterHint(null);
+    setPendingJump(null);
+  }, []);
+  const clearFilterForHint = useCallback(() => {
+    setTextFilter('');
+    setFilterHint(null);
+  }, []);
   useEffect(() => {
     if (flashKey === null) return;
     const timer = setTimeout(() => setFlashKey(null), 1800);
@@ -632,6 +689,12 @@ export function ConsoleView({
             </button>
           </div>
         }
+      />
+      <FilterHiddenNote
+        hint={filterHint}
+        message="Revealed message is hidden by the active filter"
+        onClearFilter={clearFilterForHint}
+        onDismiss={dismissFilterHint}
       />
 
       {prefs.settingsOpen && (

@@ -107,6 +107,9 @@ function Harness({ rows, onSelectSpy }: { rows: readonly InspectorRowWithFires[]
       onCopyAllAsHar={() => {}}
       onHide={() => {}}
       onAnnotationJump={() => {}}
+      filterHiddenHint={null}
+      onFilterHintClear={() => {}}
+      onFilterHintDismiss={() => {}}
     />
   );
 }

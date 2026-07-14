@@ -125,3 +125,55 @@
   font-weight: 400;
   font-size: 11px;
 }
+
+/* ── "Revealed but filtered" note ───────────────────────── */
+/* Transient strip a tool shows when a search jump opened its document
+   but the matching list row is hidden by the tool's local filter.
+   Clearing the filter stays an explicit user action. */
+.dt-filter-hidden-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--dt-text);
+  background: var(--dt-warning-bg, rgba(255, 200, 0, 0.12));
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-filter-hidden-note-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-filter-hidden-note-clear {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--dt-link);
+  cursor: pointer;
+}
+
+.dt-filter-hidden-note-clear:hover {
+  text-decoration: underline;
+}
+
+.dt-filter-hidden-note-close {
+  flex-shrink: 0;
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  padding: 0 2px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+}
+
+.dt-filter-hidden-note-close:hover {
+  color: var(--dt-text);
+}
