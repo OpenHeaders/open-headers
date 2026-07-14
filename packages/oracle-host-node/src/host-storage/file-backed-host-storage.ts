@@ -71,6 +71,8 @@ export class FileBackedHostStorage implements HostStorage {
   private loaded = false;
   private loadPromise: Promise<void> | null = null;
   private writeChain: Promise<void> = Promise.resolve();
+  /** Refusals suppressed since the episode-opening log line; `null` while the cipher is available. */
+  private cipherEpisodeSuppressed: number | null = null;
 
   constructor(options: FileBackedHostStorageOptions) {
     this.filePath = options.filePath;
@@ -217,6 +219,34 @@ export class FileBackedHostStorage implements HostStorage {
     this.loaded = true;
   }
 
+  /**
+   * Log-collapse for cipher-unavailability: sensitive reads and writes hit
+   * this per operation while the cipher is down, so only the episode-opening
+   * refusal logs; the rest count. The counter is what keeps the episode
+   * honest — recovery reports how many operations were refused silently.
+   */
+  private noteCipherRefusal(action: string, key: string): void {
+    if (this.cipherEpisodeSuppressed === null) {
+      this.cipherEpisodeSuppressed = 0;
+      this.log(
+        'warn',
+        `FileBackedHostStorage: cipher unavailable; refusing to ${action} slot "${key}" ` +
+          '(further refusals suppressed until the cipher returns)',
+      );
+      return;
+    }
+    this.cipherEpisodeSuppressed += 1;
+  }
+
+  private noteCipherAvailable(): void {
+    if (this.cipherEpisodeSuppressed === null) return;
+    this.log(
+      'warn',
+      `FileBackedHostStorage: cipher available again; ${this.cipherEpisodeSuppressed} further refusal(s) were suppressed`,
+    );
+    this.cipherEpisodeSuppressed = null;
+  }
+
   private readSlot<T>(spec: StorageKey<T>): T | undefined {
     const opened = this.readSlotGuarded(spec);
     return opened.status === 'ok' ? (opened.value as T) : undefined;
@@ -236,9 +266,10 @@ export class FileBackedHostStorage implements HostStorage {
       const blob = this.envelope.secrets[spec.key];
       if (blob === undefined) return { status: 'absent' };
       if (!this.cipher.isAvailable()) {
-        this.log('warn', `FileBackedHostStorage: cipher unavailable; refusing to decrypt slot "${spec.key}"`);
+        this.noteCipherRefusal('decrypt', spec.key);
         return { status: 'undecryptable' };
       }
+      this.noteCipherAvailable();
       try {
         return { status: 'ok', value: JSON.parse(this.cipher.decrypt(blob)) };
       } catch (err) {
@@ -253,8 +284,10 @@ export class FileBackedHostStorage implements HostStorage {
   private writeSlot<T>(spec: StorageKey<T>, value: T): void {
     if (spec.sensitive === true) {
       if (!this.cipher.isAvailable()) {
+        this.noteCipherRefusal('write', spec.key);
         throw new Error(`FileBackedHostStorage: cipher unavailable; cannot write sensitive slot "${spec.key}"`);
       }
+      this.noteCipherAvailable();
       const blob = this.cipher.encrypt(JSON.stringify(value));
       this.envelope.secrets[spec.key] = blob;
       // Defensive: if a value with this key existed in `values` (e.g. a

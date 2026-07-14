@@ -139,6 +139,32 @@ export function createSingletonEntityCache<T, I>(
   let snapshot: T = config.emptySnapshot;
   let locked = false;
   const listeners = new Set<() => void>();
+  // Persist-failure log collapse: re-projections fire per broadcast event, so
+  // a standing failure (e.g. the at-rest cipher unavailable) would otherwise
+  // log once per event per scope. Only the first failure of a message logs;
+  // identical repeats count until the message changes or a persist succeeds.
+  let lastPersistFailure: string | null = null;
+  let persistFailuresSuppressed = 0;
+
+  const notePersistOutcome = (failure: string | null): void => {
+    if (failure === null) {
+      if (lastPersistFailure === null) return;
+      logger.info(
+        config.loggerTag,
+        `persist recovered (scope=${scope}); ${persistFailuresSuppressed} repeat failure(s) were suppressed`,
+      );
+      lastPersistFailure = null;
+      persistFailuresSuppressed = 0;
+      return;
+    }
+    if (failure === lastPersistFailure) {
+      persistFailuresSuppressed += 1;
+      return;
+    }
+    lastPersistFailure = failure;
+    persistFailuresSuppressed = 0;
+    logger.info(config.loggerTag, `persist failed (scope=${scope}, repeats suppressed):`, failure);
+  };
 
   const notify = (): void => {
     for (const l of listeners) {
@@ -161,9 +187,10 @@ export function createSingletonEntityCache<T, I>(
       locked = false;
     }
     if (config.persist) {
-      void config.persist(scope, next).catch((err) => {
-        logger.info(config.loggerTag, `persist failed (scope=${scope}):`, (err as Error).message);
-      });
+      void config.persist(scope, next).then(
+        () => notePersistOutcome(null),
+        (err: unknown) => notePersistOutcome((err as Error).message),
+      );
     }
     notify();
   };
