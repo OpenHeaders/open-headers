@@ -28,9 +28,11 @@
  * Disconnect cascades:
  *
  *   - Renderer `disconnect()` → `oh:lifeline:close` → onDisconnect fires.
- *   - `webContents.destroyed` (window close, reload, navigation) → every
- *     port owned by that webContents fires onDisconnect with
- *     `errorMessage: 'webContents destroyed'`.
+ *   - `webContents.destroyed` (window close, app quit) → every port owned
+ *     by that webContents fires onDisconnect with an empty info object —
+ *     normal teardown, indistinguishable from a voluntary close.
+ *   - `render-process-gone` (renderer crash) → same sweep, but with
+ *     `errorMessage: 'render process gone'` so it surfaces in logs.
  *   - App quit — `before-quit` removes all IPC handlers; ports are
  *     dropped without further notice (the renderer is also tearing down).
  */
@@ -122,13 +124,17 @@ export function installLifelineServer(): void {
     trackedWebContents.add(wcId);
     const wc = webContentsApi.fromId(wcId);
     if (!wc) return;
-    const onDestroyed = (): void => {
+    // Window close / app quit is normal lifeline teardown — disconnect
+    // with no errorMessage so the awareness handler stays quiet.
+    wc.once('destroyed', () => {
       trackedWebContents.delete(wcId);
-      dropPortsForWebContents(wcId, { errorMessage: 'webContents destroyed' });
-    };
-    wc.once('destroyed', onDestroyed);
-    // 'render-process-gone' fires when the renderer crashes; same cleanup.
-    wc.once('render-process-gone', onDestroyed);
+      dropPortsForWebContents(wcId, {});
+    });
+    // A renderer crash is the abnormal case worth surfacing in logs.
+    wc.once('render-process-gone', () => {
+      trackedWebContents.delete(wcId);
+      dropPortsForWebContents(wcId, { errorMessage: 'render process gone' });
+    });
   }
 
   ipcMain.handle(CHANNEL.open, async (event, raw: unknown) => {
