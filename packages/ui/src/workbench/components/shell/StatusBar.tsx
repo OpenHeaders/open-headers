@@ -16,7 +16,7 @@ import { useActiveEditorLifecycle } from '@openheaders/ui/shared/awareness';
 import { BackgroundTasksIndicator } from '@openheaders/ui/shared/background-tasks';
 import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import { LifecyclePill } from '@openheaders/ui/shared/editor-shell';
-import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
+import { productStatusExtras, productStatusInlineActions, StatusPill } from '@openheaders/ui/shared/status';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { useSettingValue } from '../../settings/hooks';
 import { set as setSettingValue } from '../../settings/store';
@@ -143,6 +143,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
           density="full"
           label={t('workbench.shell.statusbar.systemStatus')}
           renderSubsystemExtras={productStatusExtras}
+          renderSubsystemInlineAction={productStatusInlineActions}
           onOpenDocs={openDocs}
         />
         {showThemeSwitcher && (

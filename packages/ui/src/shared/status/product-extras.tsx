@@ -29,7 +29,7 @@ import { useBootRegression } from './use-boot-regression';
  * the extras line up visually with the standard rows — no bespoke
  * styling that would make them look like foreign elements.
  */
-export function productStatusExtras(subsystem: StatusSubsystem, entry: StatusEntry | undefined): React.ReactNode {
+export function productStatusExtras(subsystem: StatusSubsystem, _entry: StatusEntry | undefined): React.ReactNode {
   if (subsystem === 'sync') {
     return (
       <>
@@ -38,30 +38,40 @@ export function productStatusExtras(subsystem: StatusSubsystem, entry: StatusEnt
       </>
     );
   }
-  if (subsystem === 'secrets') {
-    return <SecretsRelaunchCallout entry={entry} />;
-  }
   return null;
 }
 
 /**
- * Relaunch follow-through under the red `secrets` row — rendered only
- * while the host reports the at-rest cipher unavailable (the desktop
- * main stamps `context.cipher`; hosts without a cipher seam never do).
- * Relaunching is the one honest remedy: a canceled keychain prompt is
- * cached for the process lifetime, so no in-process retry can succeed.
+ * Render function matching `StatusPillProps.renderSubsystemInlineAction`
+ * — remedies that live INSIDE a subsystem's own row, right-aligned
+ * after its message and sized to its 11px text.
+ *
+ * Secrets: a "Relaunch app" link while the host reports the at-rest
+ * cipher unavailable (the desktop main stamps `context.cipher`; hosts
+ * without a cipher seam never do). Relaunching is the one honest
+ * remedy — a canceled keychain prompt is cached for the process
+ * lifetime, so no in-process retry can succeed.
  */
-const SecretsRelaunchCallout: React.FC<{ entry: StatusEntry | undefined }> = ({ entry }) => {
-  if (entry?.state !== 'red' || entry.context?.cipher !== 'unavailable') return null;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ width: STATUS_TAG_WIDTH, flexShrink: 0 }} />
-      <Button size="small" danger onClick={requestSecretsRelaunch} data-testid="secrets-status-relaunch">
+export function productStatusInlineActions(
+  subsystem: StatusSubsystem,
+  entry: StatusEntry | undefined,
+): React.ReactNode {
+  if (subsystem === 'secrets' && entry?.state === 'red' && entry.context?.cipher === 'unavailable') {
+    return (
+      <Button
+        type="link"
+        danger
+        size="small"
+        onClick={requestSecretsRelaunch}
+        data-testid="secrets-status-relaunch"
+        style={{ fontSize: 11, height: 'auto', padding: 0, lineHeight: 1.2 }}
+      >
         Relaunch app
       </Button>
-    </div>
-  );
-};
+    );
+  }
+  return null;
+}
 
 /**
  * Per-backend breakdown under the `sync` row — the worst-of pill names

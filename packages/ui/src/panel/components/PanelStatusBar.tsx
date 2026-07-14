@@ -14,7 +14,12 @@
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@openheaders/ui/context';
 import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
-import { productStatusExtras, StatusPill, type StatusPillProps } from '@openheaders/ui/shared/status';
+import {
+  productStatusExtras,
+  productStatusInlineActions,
+  StatusPill,
+  type StatusPillProps,
+} from '@openheaders/ui/shared/status';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
@@ -362,6 +367,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
           density="full"
           label="System status"
           renderSubsystemExtras={productStatusExtras}
+          renderSubsystemInlineAction={productStatusInlineActions}
           onOpenDocs={handleOpenDocs}
         />
         {showThemeSwitcher && (

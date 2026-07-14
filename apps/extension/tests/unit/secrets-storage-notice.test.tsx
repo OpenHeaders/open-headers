@@ -7,9 +7,9 @@
  *     Notifications panel while the cipher is unavailable (platform-
  *     appropriate remedy, "Relaunch app" follow-through) and retires it
  *     the moment the state recovers; hosts without the RPC never push.
- *   - `productStatusExtras` renders the Relaunch follow-through under
- *     the status popover's `secrets` row only while the host stamps
- *     `context.cipher === 'unavailable'` on a red entry.
+ *   - `productStatusInlineActions` renders the text-sized Relaunch
+ *     link INSIDE the status popover's `secrets` row only while the
+ *     host stamps `context.cipher === 'unavailable'` on a red entry.
  */
 
 import { type HostBridge, type SecretsStorageState, setHostBridge } from '@openheaders/core/bridge';
@@ -19,7 +19,7 @@ import {
   useSuggestions,
 } from '@openheaders/ui/shared/notifications';
 import type { StatusEntry } from '@openheaders/ui/shared/status';
-import { productStatusExtras } from '@openheaders/ui/shared/status';
+import { productStatusInlineActions } from '@openheaders/ui/shared/status';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -105,7 +105,7 @@ describe('useSecretsStorageNotice', () => {
   });
 });
 
-describe('productStatusExtras — secrets relaunch callout', () => {
+describe('productStatusInlineActions — secrets relaunch link', () => {
   afterEach(() => {
     cleanup();
   });
@@ -121,9 +121,9 @@ describe('productStatusExtras — secrets relaunch callout', () => {
     };
   }
 
-  it('renders the relaunch button for a red cipher-unavailable entry and drives the RPC', async () => {
+  it('renders the relaunch link for a red cipher-unavailable entry and drives the RPC', async () => {
     const fake = installBridge(() => Promise.resolve({ status: 'unavailable', platform: 'darwin' }));
-    render(<div>{productStatusExtras('secrets', secretsEntry())}</div>);
+    render(<div>{productStatusInlineActions('secrets', secretsEntry())}</div>);
 
     fireEvent.click(screen.getByTestId('secrets-status-relaunch'));
     await waitFor(() => expect(fake.relaunch).toHaveBeenCalledTimes(1));
@@ -132,9 +132,9 @@ describe('productStatusExtras — secrets relaunch callout', () => {
   it('renders nothing without the cipher context or off the secrets subsystem', () => {
     render(
       <>
-        {productStatusExtras('secrets', secretsEntry({ state: 'green', context: undefined }))}
-        {productStatusExtras('secrets', undefined)}
-        {productStatusExtras('requests', secretsEntry())}
+        {productStatusInlineActions('secrets', secretsEntry({ state: 'green', context: undefined }))}
+        {productStatusInlineActions('secrets', undefined)}
+        {productStatusInlineActions('requests', secretsEntry())}
       </>,
     );
     expect(screen.queryByTestId('secrets-status-relaunch')).toBeNull();

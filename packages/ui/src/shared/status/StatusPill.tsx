@@ -94,6 +94,17 @@ export interface StatusPillProps {
     entry: StatusSnapshot[StatusSubsystem] | undefined,
   ) => React.ReactNode;
   /**
+   * Render an optional action INSIDE a subsystem's own popover row,
+   * right-aligned after its message — for remedies that belong to the
+   * row itself (e.g. the secrets row's "Relaunch app"). Keep the node
+   * text-sized: the row is an 11px single-liner. Return `null` (or omit
+   * the prop) when the row needs no action.
+   */
+  renderSubsystemInlineAction?: (
+    subsystem: StatusSubsystem,
+    entry: StatusSnapshot[StatusSubsystem] | undefined,
+  ) => React.ReactNode;
+  /**
    * If provided, the popover title shows an (i) button that calls this
    * with `STATUS_DOCS_SECTION_ID`. Surfaces that have a docs panel
    * (workspace) wire it to `useInspectorNav().openDocs`; surfaces that
@@ -121,6 +132,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   className,
   placement,
   renderSubsystemExtras,
+  renderSubsystemInlineAction,
   onOpenDocs,
   label,
 }) => {
@@ -135,7 +147,14 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   const summary = buildSummary(snapshot, worst);
   const ariaLabel = `System status: ${summary}`;
 
-  const body = <StatusPopoverBody snapshot={snapshot} token={token} renderSubsystemExtras={renderSubsystemExtras} />;
+  const body = (
+    <StatusPopoverBody
+      snapshot={snapshot}
+      token={token}
+      renderSubsystemExtras={renderSubsystemExtras}
+      renderSubsystemInlineAction={renderSubsystemInlineAction}
+    />
+  );
   // Flex + align-items: center keeps the dot vertically centered on
   // the "System status" cap height (Space doesn't cross-align inline
   // children by default). The left group (dot + label) pins flush to
@@ -317,9 +336,18 @@ interface StatusPopoverBodyProps {
     subsystem: StatusSubsystem,
     entry: StatusSnapshot[StatusSubsystem] | undefined,
   ) => React.ReactNode;
+  renderSubsystemInlineAction?: (
+    subsystem: StatusSubsystem,
+    entry: StatusSnapshot[StatusSubsystem] | undefined,
+  ) => React.ReactNode;
 }
 
-const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({ snapshot, token, renderSubsystemExtras }) => {
+const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
+  snapshot,
+  token,
+  renderSubsystemExtras,
+  renderSubsystemInlineAction,
+}) => {
   // Collect extras first (same iteration order as the standard rows)
   // so the block of product callouts is stable across renders and
   // always sits BELOW every built-in subsystem row. Prevents a sync
@@ -347,6 +375,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({ snapshot, token, 
         const entry = snapshot[sub];
         const state: StatusLevel = entry?.state ?? 'green';
         const color = state === 'red' ? 'error' : state === 'yellow' ? 'warning' : entry ? 'success' : 'default';
+        const inlineAction = renderSubsystemInlineAction?.(sub, entry);
         return (
           // Status is a snapshot — "right now" by design. Timestamps
           // would answer "when did this state last change", which is
@@ -361,6 +390,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({ snapshot, token, 
             <Typography.Text style={{ fontSize: 11, flex: 1, color: token.colorText }}>
               {entry?.message ?? 'No events yet'}
             </Typography.Text>
+            {inlineAction}
           </div>
         );
       })}
