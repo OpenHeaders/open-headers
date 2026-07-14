@@ -21,6 +21,7 @@ import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ApiRequestsIcon } from '@openheaders/ui/shared/icons';
 import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 import { useDragIntent } from '../../drag-intent';
@@ -173,6 +174,7 @@ const TabBar: React.FC<TabBarProps> = ({
   registerTabSearchToggle,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tabSearchOpen, setTabSearchOpen] = useState(false);
 
@@ -240,30 +242,33 @@ const TabBar: React.FC<TabBarProps> = ({
   // ── Context menu builder ───────────────────────────────────────
   const buildContextMenu = useCallback(
     (tab: WorkbenchTab, tabIndex: number): { items: ItemType[] } =>
-      buildTabContextMenu({
-        tab,
-        tabIndex,
-        tabCount: tabs.length,
-        onDuplicate,
-        onClose,
-        onCloseOther,
-        onCloseAll,
-        onCloseUnmodified,
-        onCloseToLeft,
-        onCloseToRight,
-        onSplitAndMoveRight,
-        onSplitAndMoveLeft,
-        onSplitAndMoveDown,
-        onSplitAndMoveUp,
-        onMoveToOppositeGroup,
-        oppositeDirection,
-        parentOrientation,
-        onChangeSplitterOrientation,
-        onUnsplit,
-        onUnsplitAll,
-        canUnsplit,
-        canUnsplitAll,
-      }),
+      buildTabContextMenu(
+        {
+          tab,
+          tabIndex,
+          tabCount: tabs.length,
+          onDuplicate,
+          onClose,
+          onCloseOther,
+          onCloseAll,
+          onCloseUnmodified,
+          onCloseToLeft,
+          onCloseToRight,
+          onSplitAndMoveRight,
+          onSplitAndMoveLeft,
+          onSplitAndMoveDown,
+          onSplitAndMoveUp,
+          onMoveToOppositeGroup,
+          oppositeDirection,
+          parentOrientation,
+          onChangeSplitterOrientation,
+          onUnsplit,
+          onUnsplitAll,
+          canUnsplit,
+          canUnsplitAll,
+        },
+        t,
+      ),
     [
       tabs.length,
       onDuplicate,
@@ -285,6 +290,7 @@ const TabBar: React.FC<TabBarProps> = ({
       onUnsplitAll,
       canUnsplit,
       canUnsplitAll,
+      t,
     ],
   );
 
@@ -323,7 +329,7 @@ const TabBar: React.FC<TabBarProps> = ({
           <ApiRequestsIcon />
         </span>
       ),
-      label: 'Create API Request',
+      label: t('workbench.tabbar.createApiRequest'),
       onClick: onCreateRequest,
     },
     { type: 'divider' },
@@ -441,7 +447,7 @@ const TabBar: React.FC<TabBarProps> = ({
         onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
       >
         <Tooltip
-          title={<ShortcutHintTitle label={newRuleLabel}>Create item</ShortcutHintTitle>}
+          title={<ShortcutHintTitle label={newRuleLabel}>{t('workbench.tabbar.createItem')}</ShortcutHintTitle>}
           placement="bottom"
           open={createMenuOpen ? false : undefined}
         >
@@ -462,7 +468,7 @@ const TabBar: React.FC<TabBarProps> = ({
           (everything packed right). */}
       <div style={{ position: 'relative', flexShrink: 0, marginLeft: 'auto' }}>
         <Tooltip
-          title={<ShortcutHintTitle label={tabSearchLabel}>Search tabs</ShortcutHintTitle>}
+          title={<ShortcutHintTitle label={tabSearchLabel}>{t('workbench.tabbar.searchTabs')}</ShortcutHintTitle>}
           placement="bottom"
           open={tabSearchOpen ? false : undefined}
         >

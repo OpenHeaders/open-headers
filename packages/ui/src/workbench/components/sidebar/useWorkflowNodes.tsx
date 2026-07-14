@@ -2,6 +2,7 @@ import { isWorkflowComplete, isWorkflowDraft } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { createElement, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
 import { composeBadge } from './icons';
@@ -57,6 +58,7 @@ interface UseWorkflowNodesParams {
  * via the `workflowDrafts` + `buildWorkflowDraftNode` params.
  */
 export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
+  const t = useT();
   const lowerFilter = p.filterText.toLowerCase();
   return useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
@@ -105,15 +107,15 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
       const isUnresolved = complete && (p.unresolvableWorkflowUids?.has(wf.uid) ?? false);
       let textBadge: { label: string; color: string } | null = null;
       if (!complete) {
-        textBadge = { label: 'incomplete', color: 'var(--ant-color-text-tertiary, #999)' };
+        textBadge = { label: t('workbench.sidebar.badge.incomplete'), color: 'var(--ant-color-text-tertiary, #999)' };
       } else if (isUnresolved) {
-        textBadge = { label: 'unresolved', color: 'var(--ant-color-error, #ff4d4f)' };
+        textBadge = { label: t('workbench.sidebar.badge.unresolved'), color: 'var(--ant-color-error, #ff4d4f)' };
       } else if (draft) {
-        textBadge = { label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' };
+        textBadge = { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' };
       } else if (!wf.enabled) {
-        textBadge = { label: 'off', color: 'var(--ant-color-text-tertiary, #999)' };
+        textBadge = { label: t('workbench.sidebar.badge.off'), color: 'var(--ant-color-text-tertiary, #999)' };
       }
-      const stateBadge = composeBadge(textBadge, p.dirtyWorkflowUids?.has(wf.uid) ?? false);
+      const stateBadge = composeBadge(textBadge, p.dirtyWorkflowUids?.has(wf.uid) ?? false, undefined, t);
 
       // Bindings count — a secondary, quieter badge that sits after the
       // state badge when both render, so the state signal wins visually.
@@ -124,9 +126,9 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
               {
                 key: 'bindings',
                 style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)' },
-                title: `${boundCount} live variable${boundCount === 1 ? '' : 's'} bound to this workflow`,
+                title: t('workbench.sidebar.workflow.bindingsTooltip', { count: boundCount }),
               },
-              `${boundCount} var${boundCount === 1 ? '' : 's'}`,
+              t('workbench.sidebar.workflow.bindingsCount', { count: boundCount }),
             )
           : null;
 
@@ -196,5 +198,6 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
     p.dirtyWorkflowUids,
     p.unresolvableWorkflowUids,
     p.onExportEntity,
+    t,
   ]);
 }

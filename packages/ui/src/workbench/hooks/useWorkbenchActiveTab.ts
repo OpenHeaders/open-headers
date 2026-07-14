@@ -26,6 +26,7 @@ import type {
   Rule,
   Template,
 } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { findCollectionByPath } from '@openheaders/ui/shared/variables';
 import { useCallback, useEffect, useMemo } from 'react';
 import { computeBreadcrumbs, scratchLabelForMode } from '../breadcrumbs';
@@ -96,6 +97,7 @@ export function useWorkbenchActiveTab({
   editingScopeWorkspaceId,
   updateTab,
 }: UseWorkbenchActiveTabOptions): WorkbenchActiveTab {
+  const t = useT();
   // ── Tab-title composition (`#<n> Open Headers` when ≥2 tabs) ──
   // Must mount once at the shell; subsequent route-aware title
   // mutations flow through `setBase` on this single owner so every
@@ -216,7 +218,7 @@ export function useWorkbenchActiveTab({
       requests,
       templateCollectionTrees,
     );
-    const scratchLabel = scratchLabelForMode(activeTab.mode);
+    const scratchLabel = scratchLabelForMode(activeTab.mode, t);
     if (scratchLabel && base.length >= 2) {
       return [...base.slice(0, -1), scratchLabel, base[base.length - 1]];
     }
@@ -229,6 +231,7 @@ export function useWorkbenchActiveTab({
     requestCollectionTrees,
     requests,
     templateCollectionTrees,
+    t,
   ]);
   // Editing-scope: the StatusBar workspace pill describes what this
   // tab is editing, not what the global oracle thinks. The divergence

@@ -15,6 +15,7 @@ import { Dropdown, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { scratchLabelForMode } from '../../breadcrumbs';
 import { useDragIntent } from '../../drag-intent';
 import type { WorkbenchTab } from '../../types';
@@ -55,6 +56,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
   onDoubleClick,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const dragIntent = useDragIntent();
   const data: EditorTabDragData = { kind: 'editor-tab', leafId, tabId: tab.id };
   // Sortable ids must be unique across ALL SortableContexts that share a
@@ -163,7 +165,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
   // and entity. "Scratch" is chosen over "Draft" because persisted
   // entities can also carry a draft state and the two would collide.
   type TooltipSegmentKind = 'root' | 'folder' | 'scratch' | 'entity';
-  const scratchLabel = scratchLabelForMode(tab.mode);
+  const scratchLabel = scratchLabelForMode(tab.mode, t);
   const tooltipSegments: { label: string; kind: TooltipSegmentKind }[] = [];
   if (tabPath && tabPath.length > 0) {
     tooltipSegments.push({ label: tabPath[0], kind: 'root' });
@@ -177,7 +179,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
     // "Try"-forked drafts carry chrome-only provenance — a quiet
     // trailing segment naming the example the draft was forked from.
     if (tab.seedFromExampleName) {
-      tooltipSegments.push({ label: `from “${tab.seedFromExampleName}”`, kind: 'scratch' });
+      tooltipSegments.push({ label: t('workbench.tabbar.fromExample', { name: tab.seedFromExampleName }), kind: 'scratch' });
     }
   }
   const tooltipTitle =

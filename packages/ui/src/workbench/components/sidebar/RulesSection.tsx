@@ -13,6 +13,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { FolderDndConfig } from './FolderDndTree';
 import { SectionHeader } from './SectionHeader';
 import type { TreeNode } from './types';
@@ -50,10 +51,11 @@ const RulesSection: React.FC<RulesSectionProps> = ({
   renderFolderDndNodes,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <>
       <SectionHeader
-        title="RULES"
+        title={t('workbench.sidebar.section.rules')}
         expanded={sectionsExpanded.rules}
         onToggle={() => toggleSection('rules')}
         actions={
@@ -72,11 +74,11 @@ const RulesSection: React.FC<RulesSectionProps> = ({
       )}
 
       <SectionHeader
-        title="TEMPLATES"
+        title={t('workbench.sidebar.section.templates')}
         expanded={sectionsExpanded.templates}
         onToggle={() => toggleSection('templates')}
         actions={
-          <Tooltip title="New template collection" placement="bottom">
+          <Tooltip title={t('workbench.sidebar.header.newTemplateCollection')} placement="bottom">
             <PlusOutlined
               style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
               onClick={(e) => {

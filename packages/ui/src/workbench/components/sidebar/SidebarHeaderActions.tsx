@@ -24,6 +24,8 @@ import type { MenuProps } from 'antd';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import type { SidebarView } from './types';
 
@@ -31,11 +33,11 @@ import type { SidebarView } from './types';
 // entries so the sidebar's PanelHeader title matches the activity-bar
 // chip identity. No icon: the activity bar already surfaces the icon
 // and repeating it in the header is visual noise.
-const SIDEBAR_VIEW_LABEL: Record<SidebarView, string> = {
-  'http-rules': 'HTTP Rules',
-  'api-requests': 'API Requests',
-  workflows: 'Workflows',
-  variables: 'Variables',
+const SIDEBAR_VIEW_LABEL_KEY: Record<SidebarView, MessageKey> = {
+  'http-rules': 'workbench.sidebar.view.httpRules',
+  'api-requests': 'workbench.sidebar.view.apiRequests',
+  workflows: 'workbench.sidebar.view.workflows',
+  variables: 'workbench.sidebar.view.variables',
 };
 
 interface SidebarHeaderActionsProps {
@@ -92,6 +94,7 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   setAlwaysSelectOpened,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   // Suppress the trigger's tooltip while its create menu is open so the
   // two popups never overlap. One flag serves both dropdowns — only one
   // renders per view.
@@ -101,31 +104,31 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   // top, filter input row below. PanelHeader is mandatory per the dock-
   // layout convention; the filter row is panel-specific UX that doesn't
   // fit in the 32px header alongside the action cluster.
-  const viewLabel = SIDEBAR_VIEW_LABEL[view];
+  const viewLabel = t(SIDEBAR_VIEW_LABEL_KEY[view]);
   const headerWiring = createPanelHeaderWiring({ onHide });
   const behaviorMenuItems: MenuProps['items'] = [
     {
       key: 'behavior',
-      label: 'Behavior',
+      label: t('workbench.sidebar.behavior.title'),
       children: [
         {
           key: 'single-click',
-          label: `${openWithSingleClick ? '✓ ' : ''}Open Entries with Single Click`,
+          label: `${openWithSingleClick ? '✓ ' : ''}${t('workbench.sidebar.behavior.openEntriesSingleClick')}`,
           onClick: () => setOpenWithSingleClick((v) => !v),
         },
         {
           key: 'collections-single-click',
-          label: `${openCollectionsWithSingleClick ? '✓ ' : ''}Open Collections with Single Click`,
+          label: `${openCollectionsWithSingleClick ? '✓ ' : ''}${t('workbench.sidebar.behavior.openCollectionsSingleClick')}`,
           onClick: () => setOpenCollectionsWithSingleClick((v) => !v),
         },
         {
           key: 'folders-single-click',
-          label: `${openFoldersWithSingleClick ? '✓ ' : ''}Open Folders with Single Click`,
+          label: `${openFoldersWithSingleClick ? '✓ ' : ''}${t('workbench.sidebar.behavior.openFoldersSingleClick')}`,
           onClick: () => setOpenFoldersWithSingleClick((v) => !v),
         },
         {
           key: 'always-select',
-          label: `${alwaysSelectOpened ? '✓ ' : ''}Always Select Opened Tab`,
+          label: `${alwaysSelectOpened ? '✓ ' : ''}${t('workbench.sidebar.behavior.alwaysSelectOpened')}`,
           onClick: () => setAlwaysSelectOpened((v) => !v),
         },
       ],
@@ -140,8 +143,8 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
           placement="bottomRight"
           onOpenChange={setCreateMenuOpen}
         >
-          <Tooltip title="New rule" placement="bottom" open={createMenuOpen ? false : undefined}>
-            <span role="button" tabIndex={0} className="rules-panel-header-action" aria-label="New rule">
+          <Tooltip title={t('workbench.sidebar.header.newRule')} placement="bottom" open={createMenuOpen ? false : undefined}>
+            <span role="button" tabIndex={0} className="rules-panel-header-action" aria-label={t('workbench.sidebar.header.newRule')}>
               <PlusOutlined />
             </span>
           </Tooltip>
@@ -154,15 +157,15 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
           placement="bottomRight"
           onOpenChange={setCreateMenuOpen}
         >
-          <Tooltip title="Add request" placement="bottom" open={createMenuOpen ? false : undefined}>
-            <span role="button" tabIndex={0} className="rules-panel-header-action" aria-label="Add request">
+          <Tooltip title={t('workbench.sidebar.header.addRequest')} placement="bottom" open={createMenuOpen ? false : undefined}>
+            <span role="button" tabIndex={0} className="rules-panel-header-action" aria-label={t('workbench.sidebar.header.addRequest')}>
               <PlusOutlined />
             </span>
           </Tooltip>
         </Dropdown>
       )}
       {view === 'variables' && (
-        <Tooltip title="Create new environment" placement="bottom">
+        <Tooltip title={t('workbench.sidebar.header.createNewEnvironment')} placement="bottom">
           <span
             role="button"
             tabIndex={0}
@@ -171,14 +174,14 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') void createNewEnvironment();
             }}
-            aria-label="Create new environment"
+            aria-label={t('workbench.sidebar.header.createNewEnvironment')}
           >
             <PlusOutlined />
           </span>
         </Tooltip>
       )}
       {view === 'workflows' && (
-        <Tooltip title="New workflow" placement="bottom">
+        <Tooltip title={t('workbench.sidebar.header.newWorkflow')} placement="bottom">
           <span
             role="button"
             tabIndex={0}
@@ -187,7 +190,7 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') onCreateWorkflow?.();
             }}
-            aria-label="New workflow"
+            aria-label={t('workbench.sidebar.header.newWorkflow')}
           >
             <PlusOutlined />
           </span>
@@ -195,7 +198,7 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
       )}
       {exportSelectedIds.size > 0 && onExportSelection && (
         <>
-          <Tooltip title={`Export ${exportSelectedIds.size} selected…`} placement="bottom">
+          <Tooltip title={t('workbench.sidebar.header.exportSelected', { count: exportSelectedIds.size })} placement="bottom">
             <span
               role="button"
               tabIndex={0}
@@ -205,13 +208,13 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') handleExportSelectedClick();
               }}
-              aria-label={`Export ${exportSelectedIds.size} selected items`}
+              aria-label={t('workbench.sidebar.header.exportSelectedAria', { count: exportSelectedIds.size })}
             >
               <ExportOutlined />
               <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 600 }}>{exportSelectedIds.size}</span>
             </span>
           </Tooltip>
-          <Tooltip title="Clear selection" placement="bottom">
+          <Tooltip title={t('workbench.sidebar.header.clearSelection')} placement="bottom">
             <span
               role="button"
               tabIndex={0}
@@ -220,14 +223,14 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') clearExportSelection();
               }}
-              aria-label="Clear export selection"
+              aria-label={t('workbench.sidebar.header.clearSelectionAria')}
             >
               <CloseOutlined />
             </span>
           </Tooltip>
         </>
       )}
-      <Tooltip title="Select Opened Tab" placement="bottom">
+      <Tooltip title={t('workbench.sidebar.header.selectOpenedTab')} placement="bottom">
         <span
           role="button"
           tabIndex={0}
@@ -236,12 +239,12 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') selectOpenedFile();
           }}
-          aria-label="Select opened tab"
+          aria-label={t('workbench.sidebar.header.selectOpenedTabAria')}
         >
           <AimOutlined />
         </span>
       </Tooltip>
-      <Tooltip title="Expand All" placement="bottom">
+      <Tooltip title={t('workbench.sidebar.header.expandAll')} placement="bottom">
         <span
           role="button"
           tabIndex={0}
@@ -250,12 +253,12 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') expandAll();
           }}
-          aria-label="Expand all"
+          aria-label={t('workbench.sidebar.header.expandAllAria')}
         >
           <MenuUnfoldOutlined />
         </span>
       </Tooltip>
-      <Tooltip title="Collapse All" placement="bottom">
+      <Tooltip title={t('workbench.sidebar.header.collapseAll')} placement="bottom">
         <span
           role="button"
           tabIndex={0}
@@ -264,7 +267,7 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') collapseAll();
           }}
-          aria-label="Collapse all"
+          aria-label={t('workbench.sidebar.header.collapseAllAria')}
         >
           <BorderLeftOutlined />
         </span>

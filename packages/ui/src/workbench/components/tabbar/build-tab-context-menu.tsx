@@ -9,6 +9,7 @@
 import { CopyOutlined } from '@ant-design/icons';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from '../../types';
 import LayoutMenuIcon from '../shell/LayoutMenuIcon';
 import { menuItemLabel } from '../shared/MenuItemShortcutLabel';
@@ -52,30 +53,33 @@ interface BuildTabContextMenuOptions {
   canUnsplitAll?: boolean;
 }
 
-export function buildTabContextMenu({
-  tab,
-  tabIndex,
-  tabCount,
-  onDuplicate,
-  onClose,
-  onCloseOther,
-  onCloseAll,
-  onCloseUnmodified,
-  onCloseToLeft,
-  onCloseToRight,
-  onSplitAndMoveRight,
-  onSplitAndMoveLeft,
-  onSplitAndMoveDown,
-  onSplitAndMoveUp,
-  onMoveToOppositeGroup,
-  oppositeDirection,
-  parentOrientation,
-  onChangeSplitterOrientation,
-  onUnsplit,
-  onUnsplitAll,
-  canUnsplit,
-  canUnsplitAll,
-}: BuildTabContextMenuOptions): { items: ItemType[] } {
+export function buildTabContextMenu(
+  {
+    tab,
+    tabIndex,
+    tabCount,
+    onDuplicate,
+    onClose,
+    onCloseOther,
+    onCloseAll,
+    onCloseUnmodified,
+    onCloseToLeft,
+    onCloseToRight,
+    onSplitAndMoveRight,
+    onSplitAndMoveLeft,
+    onSplitAndMoveDown,
+    onSplitAndMoveUp,
+    onMoveToOppositeGroup,
+    oppositeDirection,
+    parentOrientation,
+    onChangeSplitterOrientation,
+    onUnsplit,
+    onUnsplitAll,
+    canUnsplit,
+    canUnsplitAll,
+  }: BuildTabContextMenuOptions,
+  t: Translate,
+): { items: ItemType[] } {
   const splitDisabled = tabCount < 2;
   // "Duplicate Tab" only applies to Rules and Requests — the copy
   // lands as a scratch (never live, never a stored draft) regardless
@@ -91,33 +95,33 @@ export function buildTabContextMenu({
         ? [
             {
               key: 'duplicate',
-              label: 'Duplicate Tab',
+              label: t('workbench.tabbar.menu.duplicateTab'),
               icon: menuIconWrap(<CopyOutlined />),
               onClick: () => onDuplicate(tab.id),
             } satisfies ItemType,
             { type: 'divider' as const },
           ]
         : []),
-      { key: 'close', label: menuItemLabel('Close', 'close-tab'), onClick: () => onClose(tab.id) },
+      { key: 'close', label: menuItemLabel(t('workbench.tabbar.menu.close'), 'close-tab'), onClick: () => onClose(tab.id) },
       {
         key: 'close-other',
-        label: 'Close Other Tabs',
+        label: t('workbench.tabbar.menu.closeOther'),
         disabled: tabCount <= 1,
         onClick: () => onCloseOther(tab.id),
       },
-      { key: 'close-all', label: 'Close All Tabs', onClick: () => onCloseAll() },
-      { key: 'close-unmodified', label: 'Close Unmodified Tabs', onClick: () => onCloseUnmodified() },
+      { key: 'close-all', label: t('workbench.tabbar.menu.closeAll'), onClick: () => onCloseAll() },
+      { key: 'close-unmodified', label: t('workbench.tabbar.menu.closeUnmodified'), onClick: () => onCloseUnmodified() },
       { type: 'divider' as const },
       {
         key: 'close-left',
-        label: 'Close Tabs to the Left',
+        label: t('workbench.tabbar.menu.closeLeft'),
         icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-left" />),
         disabled: tabIndex === 0,
         onClick: () => onCloseToLeft(tab.id),
       },
       {
         key: 'close-right',
-        label: 'Close Tabs to the Right',
+        label: t('workbench.tabbar.menu.closeRight'),
         icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-right" />),
         disabled: tabIndex === tabCount - 1,
         onClick: () => onCloseToRight(tab.id),
@@ -125,33 +129,33 @@ export function buildTabContextMenu({
       { type: 'divider' as const },
       {
         key: 'split-and-move',
-        label: 'Split and Move',
+        label: t('workbench.tabbar.menu.splitAndMove'),
         disabled: splitDisabled,
         children: [
           {
             key: 'split-move-right',
-            label: 'Right',
+            label: t('workbench.tabbar.menu.right'),
             icon: menuIconWrap(<LayoutMenuIcon kind="split-right" />),
             disabled: splitDisabled,
             onClick: () => onSplitAndMoveRight?.(tab.id),
           },
           {
             key: 'split-move-left',
-            label: 'Left',
+            label: t('workbench.tabbar.menu.left'),
             icon: menuIconWrap(<LayoutMenuIcon kind="split-left" />),
             disabled: splitDisabled,
             onClick: () => onSplitAndMoveLeft?.(tab.id),
           },
           {
             key: 'split-move-down',
-            label: 'Down',
+            label: t('workbench.tabbar.menu.down'),
             icon: menuIconWrap(<LayoutMenuIcon kind="split-down" />),
             disabled: splitDisabled,
             onClick: () => onSplitAndMoveDown?.(tab.id),
           },
           {
             key: 'split-move-up',
-            label: 'Up',
+            label: t('workbench.tabbar.menu.up'),
             icon: menuIconWrap(<LayoutMenuIcon kind="split-up" />),
             disabled: splitDisabled,
             onClick: () => onSplitAndMoveUp?.(tab.id),
@@ -162,7 +166,7 @@ export function buildTabContextMenu({
         ? [
             {
               key: 'move-opposite',
-              label: 'Move To Opposite Group',
+              label: t('workbench.tabbar.menu.moveOpposite'),
               icon: menuIconWrap(
                 <LayoutMenuIcon
                   kind={
@@ -182,7 +186,7 @@ export function buildTabContextMenu({
         : []),
       {
         key: 'flip-orientation',
-        label: 'Change Splitter Orientation',
+        label: t('workbench.tabbar.menu.changeSplitterOrientation'),
         icon: parentOrientation
           ? menuIconWrap(
               <LayoutMenuIcon kind={parentOrientation === 'horizontal' ? 'split-horizontal' : 'split-vertical'} />,
@@ -193,7 +197,7 @@ export function buildTabContextMenu({
       },
       {
         key: 'unsplit',
-        label: 'Unsplit',
+        label: t('workbench.tabbar.menu.unsplit'),
         icon: parentOrientation
           ? menuIconWrap(
               <LayoutMenuIcon
@@ -208,7 +212,7 @@ export function buildTabContextMenu({
         ? [
             {
               key: 'unsplit-all',
-              label: 'Unsplit All',
+              label: t('workbench.tabbar.menu.unsplitAll'),
               icon: menuIconWrap(<LayoutMenuIcon kind="unsplit-all" />),
               onClick: () => onUnsplitAll?.(),
             } satisfies ItemType,

@@ -11,6 +11,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { FolderDndConfig } from './FolderDndTree';
 import { SectionHeader } from './SectionHeader';
 import type { TreeNode } from './types';
@@ -36,10 +37,11 @@ const RequestsSection: React.FC<RequestsSectionProps> = ({
   renderFolderDndNodes,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <>
       <SectionHeader
-        title="REQUESTS"
+        title={t('workbench.sidebar.section.requests')}
         expanded={sectionsExpanded['api-requests']}
         onToggle={() => toggleSection('api-requests')}
         actions={

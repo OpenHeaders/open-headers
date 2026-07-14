@@ -13,6 +13,7 @@
  */
 
 import type { CollectionTree, Request, Rule, TreeNode } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from './types';
 
 /**
@@ -22,16 +23,16 @@ import type { WorkbenchTab } from './types';
  * of thing it will become once saved. Returns null for modes that
  * aren't create-modes.
  */
-export function scratchLabelForMode(mode: WorkbenchTab['mode']): string | null {
+export function scratchLabelForMode(mode: WorkbenchTab['mode'], t: Translate): string | null {
   switch (mode) {
     case 'request-create':
-      return 'Scratch Request';
+      return t('workbench.scratch.request');
     case 'rule-create':
-      return 'Scratch Rule';
+      return t('workbench.scratch.rule');
     case 'live-variable-create':
-      return 'Scratch Variable';
+      return t('workbench.scratch.variable');
     case 'live-workflow-create':
-      return 'Scratch Workflow';
+      return t('workbench.scratch.workflow');
     default:
       return null;
   }

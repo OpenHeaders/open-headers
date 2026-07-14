@@ -1,5 +1,6 @@
 import { CodeSandboxOutlined } from '@ant-design/icons';
 import { useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { scopeBadge } from '../shared/scope-colors';
 import type { TreeNode } from './types';
 
@@ -16,11 +17,12 @@ interface UseVariableSingletonNodesParams {
  * corresponding editor tab.
  */
 export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
+  const t = useT();
   const vaultNode = useMemo(
     (): TreeNode => ({
       id: 'vault-row',
       kind: 'leaf',
-      label: 'Vault',
+      label: t('workbench.sidebar.singleton.vault'),
       depth: 0,
       expandable: false,
       icon: scopeBadge('vault'),
@@ -29,14 +31,14 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
       canAddChild: false,
       onOpen: () => p.onOpenVault?.(),
     }),
-    [p.onOpenVault],
+    [p.onOpenVault, t],
   );
 
   const workspaceVarsNode = useMemo(
     (): TreeNode => ({
       id: 'workspace-vars-row',
       kind: 'leaf',
-      label: 'Workspace Variables',
+      label: t('workbench.sidebar.singleton.workspaceVariables'),
       depth: 0,
       expandable: false,
       icon: scopeBadge('workspace'),
@@ -45,14 +47,14 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
       canAddChild: false,
       onOpen: () => p.onOpenWorkspaceVariables?.(),
     }),
-    [p.onOpenWorkspaceVariables],
+    [p.onOpenWorkspaceVariables, t],
   );
 
   const liveVarsNode = useMemo(
     (): TreeNode => ({
       id: 'live-vars-row',
       kind: 'leaf',
-      label: 'Live Variables',
+      label: t('workbench.sidebar.singleton.liveVariables'),
       depth: 0,
       expandable: false,
       icon: scopeBadge('live'),
@@ -61,14 +63,14 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
       canAddChild: false,
       onOpen: () => p.onOpenLiveVariables?.(),
     }),
-    [p.onOpenLiveVariables],
+    [p.onOpenLiveVariables, t],
   );
 
   const scriptPackagesNode = useMemo(
     (): TreeNode => ({
       id: 'script-packages-row',
       kind: 'leaf',
-      label: 'Package Library',
+      label: t('workbench.sidebar.singleton.packageLibrary'),
       depth: 0,
       expandable: false,
       icon: <CodeSandboxOutlined />,
@@ -77,7 +79,7 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
       canAddChild: false,
       onOpen: () => p.onOpenScriptPackages?.(),
     }),
-    [p.onOpenScriptPackages],
+    [p.onOpenScriptPackages, t],
   );
 
   return { vaultNode, workspaceVarsNode, liveVarsNode, scriptPackagesNode };

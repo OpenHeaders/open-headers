@@ -3,6 +3,7 @@ import { COLLECTION_ENTITY_TYPE, FOLDER_ENTITY_TYPE, RULE_ENTITY_TYPE } from '@o
 import type { Rule, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { hasNestedPauseMarkers, isRuleComplete, type PauseMarkers } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from '../../types';
 import { buildRuleIcon } from '../shared/rule-icon';
 import { exportNodeFields } from './export-fields';
@@ -54,6 +55,7 @@ interface UseRulesTreeNodesParams {
 }
 
 export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
+  const t = useT();
   const lowerFilter = p.filterText.toLowerCase();
 
   const walkV5Tree = useCallback(
@@ -69,7 +71,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
           const folderHasNestedMarkers = hasNestedPauseMarkers(node.path, p.pauseMarkers);
           const onAddRule = (type: string) => p.onCreateRule(type, { collectionId, folderPath: node.path });
           const onAddFolder = () => {
-            void p.createLocalFolder('New Folder', node.path).then((f) => {
+            void p.createLocalFolder(t('workbench.sidebar.defaults.newFolder'), node.path).then((f) => {
               if (f) {
                 p.setExpandedKeys((prev) => {
                   const next = new Set(prev);
@@ -107,27 +109,33 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 void p.deleteLocalFolder(node.uid);
               }),
-            addMenuItems: containerAddMenuItems({
-              onAddRule,
-              onAddFolder,
-            }),
-            actionMenuItems: containerActionMenuItems({
-              onRename: () => p.setRenamingId(fid),
-              onDelete: () =>
-                p.confirmDelete(node.name, () => {
-                  void p.deleteLocalFolder(node.uid);
-                }),
-              effectivelyPaused: folderPaused,
-              hasOwnMarker: folderHasOwnMarker,
-              hasNestedMarkers: folderHasNestedMarkers,
-              onTogglePause: () => p.togglePause(node.path),
-              onClearOverride: () => p.clearPauseOverride(node.path),
-              onClearNested: () => p.clearNestedPauseOverrides(node.path),
-              kind: 'folder',
-              ...(p.onExportEntity
-                ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
-                : {}),
-            }),
+            addMenuItems: containerAddMenuItems(
+              {
+                onAddRule,
+                onAddFolder,
+              },
+              t,
+            ),
+            actionMenuItems: containerActionMenuItems(
+              {
+                onRename: () => p.setRenamingId(fid),
+                onDelete: () =>
+                  p.confirmDelete(node.name, () => {
+                    void p.deleteLocalFolder(node.uid);
+                  }),
+                effectivelyPaused: folderPaused,
+                hasOwnMarker: folderHasOwnMarker,
+                hasNestedMarkers: folderHasNestedMarkers,
+                onTogglePause: () => p.togglePause(node.path),
+                onClearOverride: () => p.clearPauseOverride(node.path),
+                onClearNested: () => p.clearNestedPauseOverrides(node.path),
+                kind: 'folder',
+                ...(p.onExportEntity
+                  ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
+                  : {}),
+              },
+              t,
+            ),
             awareness: { entityType: FOLDER_ENTITY_TYPE, entityId: node.uid },
           });
           if (isExpanded) {
@@ -147,16 +155,16 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
                 canRename: false,
                 canDelete: false,
                 canAddChild: false,
-                placeholderTitle: 'Folder is empty',
-                placeholderMessage: 'Add a rule or folder to get started.',
+                placeholderTitle: t('workbench.sidebar.placeholder.folderEmptyTitle'),
+                placeholderMessage: t('workbench.sidebar.placeholder.addRuleOrFolder'),
                 placeholderActions: [
                   {
-                    label: 'Add rule',
+                    label: t('workbench.sidebar.placeholder.addRule'),
                     icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
                     onClick: () => onAddRule('header'),
                   },
                   {
-                    label: 'Add folder',
+                    label: t('workbench.sidebar.placeholder.addFolder'),
                     icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
                     onClick: onAddFolder,
                   },
@@ -175,15 +183,15 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
 
           let textBadge: { label: string; color: string } | null = null;
           if (rulePaused) {
-            textBadge = { label: 'paused', color: 'var(--ant-color-warning, #faad14)' };
+            textBadge = { label: t('workbench.sidebar.badge.paused'), color: 'var(--ant-color-warning, #faad14)' };
           } else if (!complete) {
-            textBadge = { label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' };
+            textBadge = { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' };
           } else if (isUnresolved) {
-            textBadge = { label: 'unresolved', color: 'var(--ant-color-error, #ff4d4f)' };
+            textBadge = { label: t('workbench.sidebar.badge.unresolved'), color: 'var(--ant-color-error, #ff4d4f)' };
           } else if (!node.enabled) {
-            textBadge = { label: 'off', color: 'var(--ant-color-text-tertiary, #999)' };
+            textBadge = { label: t('workbench.sidebar.badge.off'), color: 'var(--ant-color-text-tertiary, #999)' };
           }
-          const badge = composeBadge(textBadge, p.dirtyRuleUids?.has(node.uid) ?? false);
+          const badge = composeBadge(textBadge, p.dirtyRuleUids?.has(node.uid) ?? false, undefined, t);
 
           items.push({
             id: rid,
@@ -201,12 +209,12 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
               node.enabled
                 ? {
                     icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
-                    tooltip: 'Disable rule',
+                    tooltip: t('workbench.sidebar.rule.disable'),
                     onClick: () => p.handleToggleRule(node.uid, false),
                   }
                 : {
                     icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
-                    tooltip: 'Enable rule',
+                    tooltip: t('workbench.sidebar.rule.enable'),
                     onClick: () => p.handleToggleRule(node.uid, true),
                   },
             ],
@@ -261,6 +269,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
       p.buildRuleDraftNode,
       p.setExpandedKeys,
       p.setRenamingId,
+      t,
     ],
   );
 
@@ -287,7 +296,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
       const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
       const onAddRule = (type: string) => p.onCreateRule(type, { collectionId: collection.uid });
       const onAddFolder = () => {
-        void p.createLocalFolder('New Folder', collection.path).then((f) => {
+        void p.createLocalFolder(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
           if (f) {
             p.setExpandedKeys((prev) => {
               const next = new Set(prev);
@@ -327,30 +336,39 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
           p.confirmDelete(collection.name, () => {
             void p.deleteLocalCollection(collection.uid);
           }),
-        addMenuItems: containerAddMenuItems({
-          onAddRule,
-          onAddFolder,
-        }),
-        actionMenuItems: containerActionMenuItems({
-          onRename: () => p.setRenamingId(colId),
-          onDelete: () =>
-            p.confirmDelete(collection.name, () => {
-              void p.deleteLocalCollection(collection.uid);
-            }),
-          effectivelyPaused: colPaused,
-          hasOwnMarker: colHasOwnMarker,
-          hasNestedMarkers: colHasNestedMarkers,
-          onTogglePause: () => p.togglePause(collection.path),
-          onClearOverride: () => p.clearPauseOverride(collection.path),
-          onClearNested: () => p.clearNestedPauseOverrides(collection.path),
-          kind: 'collection',
-          ...(p.onExportEntity
-            ? { onExport: () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }) }
-            : {}),
-          ...(p.onOpenCollectionVariables
-            ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
-            : {}),
-        }),
+        addMenuItems: containerAddMenuItems(
+          {
+            onAddRule,
+            onAddFolder,
+          },
+          t,
+        ),
+        actionMenuItems: containerActionMenuItems(
+          {
+            onRename: () => p.setRenamingId(colId),
+            onDelete: () =>
+              p.confirmDelete(collection.name, () => {
+                void p.deleteLocalCollection(collection.uid);
+              }),
+            effectivelyPaused: colPaused,
+            hasOwnMarker: colHasOwnMarker,
+            hasNestedMarkers: colHasNestedMarkers,
+            onTogglePause: () => p.togglePause(collection.path),
+            onClearOverride: () => p.clearPauseOverride(collection.path),
+            onClearNested: () => p.clearNestedPauseOverrides(collection.path),
+            kind: 'collection',
+            ...(p.onExportEntity
+              ? {
+                  onExport: () =>
+                    p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }),
+                }
+              : {}),
+            ...(p.onOpenCollectionVariables
+              ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
+              : {}),
+          },
+          t,
+        ),
         awareness: { entityType: COLLECTION_ENTITY_TYPE, entityId: collection.uid },
       });
 
@@ -371,16 +389,16 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
             canRename: false,
             canDelete: false,
             canAddChild: false,
-            placeholderTitle: 'Collection is empty',
-            placeholderMessage: 'Add a rule or folder to get started.',
+            placeholderTitle: t('workbench.sidebar.placeholder.collectionEmptyTitle'),
+            placeholderMessage: t('workbench.sidebar.placeholder.addRuleOrFolder'),
             placeholderActions: [
               {
-                label: 'Add rule',
+                label: t('workbench.sidebar.placeholder.addRule'),
                 icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
                 onClick: () => onAddRule('header'),
               },
               {
-                label: 'Add folder',
+                label: t('workbench.sidebar.placeholder.addFolder'),
                 icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
                 onClick: onAddFolder,
               },
@@ -415,5 +433,6 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
     p.setRenamingId,
     p.onExportEntity,
     p.onOpenCollectionVariables,
+    t,
   ]);
 }

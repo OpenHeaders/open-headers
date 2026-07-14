@@ -9,6 +9,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { SectionHeader } from './SectionHeader';
 import type { TreeNode } from './types';
 import type { SidebarNodeRenderers } from './useSidebarNodeRenderers';
@@ -31,14 +32,15 @@ const WorkflowsSection: React.FC<WorkflowsSectionProps> = ({
   renderNodes,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <>
       <SectionHeader
-        title="WORKFLOWS"
+        title={t('workbench.sidebar.section.workflows')}
         expanded={sectionsExpanded.workflows}
         onToggle={() => toggleSection('workflows')}
         actions={
-          <Tooltip title="New workflow" placement="bottom">
+          <Tooltip title={t('workbench.sidebar.header.newWorkflow')} placement="bottom">
             <PlusOutlined
               style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
               onClick={(e) => {

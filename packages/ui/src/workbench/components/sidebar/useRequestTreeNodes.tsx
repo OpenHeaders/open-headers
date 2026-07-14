@@ -9,6 +9,7 @@ import {
 import type { Request, ResponseExample, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
 import { composeBadge, exampleTag, iconEl, methodTag } from './icons';
@@ -69,6 +70,7 @@ interface UseRequestTreeNodesParams {
 }
 
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
+  const t = useT();
   const lowerFilter = p.filterText.toLowerCase();
 
   const walkRequestTree = useCallback(
@@ -79,7 +81,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           const fid = `req-folder-${node.uid}`;
           const isExpanded = p.expandedKeys.has(fid) || lowerFilter !== '';
           const onAddFolder = () => {
-            void p.createRequestFolderRpc('New Folder', node.path).then((f) => {
+            void p.createRequestFolderRpc(t('workbench.sidebar.defaults.newFolder'), node.path).then((f) => {
               if (f) {
                 p.setExpandedKeys((prev) => {
                   const next = new Set(prev);
@@ -120,27 +122,33 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 void p.deleteRequestFolderRpc(node.uid);
               }),
-            addMenuItems: containerAddMenuItems({
-              onAddRequest,
-              onAddFolder,
-            }),
-            actionMenuItems: containerActionMenuItems({
-              onRename: () => p.setRenamingId(fid),
-              onDelete: () =>
-                p.confirmDelete(node.name, () => {
-                  void p.deleteRequestFolderRpc(node.uid);
-                }),
-              kind: 'folder',
-              ...(p.onExportEntity
-                ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
-                : {}),
-              ...(p.onCreateWorkflowFromContainer
-                ? {
-                    onCreateWorkflow: () =>
-                      p.onCreateWorkflowFromContainer?.({ name: node.name, tree: node.children }),
-                  }
-                : {}),
-            }),
+            addMenuItems: containerAddMenuItems(
+              {
+                onAddRequest,
+                onAddFolder,
+              },
+              t,
+            ),
+            actionMenuItems: containerActionMenuItems(
+              {
+                onRename: () => p.setRenamingId(fid),
+                onDelete: () =>
+                  p.confirmDelete(node.name, () => {
+                    void p.deleteRequestFolderRpc(node.uid);
+                  }),
+                kind: 'folder',
+                ...(p.onExportEntity
+                  ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
+                  : {}),
+                ...(p.onCreateWorkflowFromContainer
+                  ? {
+                      onCreateWorkflow: () =>
+                        p.onCreateWorkflowFromContainer?.({ name: node.name, tree: node.children }),
+                    }
+                  : {}),
+              },
+              t,
+            ),
             ...exportNodeFields({ kind: 'folder', uid: node.uid, name: node.name }, p.onExportEntity),
             awareness: { entityType: REQUEST_FOLDER_ENTITY_TYPE, entityId: node.uid },
           });
@@ -166,9 +174,9 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             );
           }
           const textBadge: { label: string; color: string } | null = !complete
-            ? { label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' }
+            ? { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' }
             : !requestResolvable
-              ? { label: 'unresolved', color: 'var(--ant-color-error, #ff4d4f)' }
+              ? { label: t('workbench.sidebar.badge.unresolved'), color: 'var(--ant-color-error, #ff4d4f)' }
               : null;
           const hasScripts =
             !!fullRequest &&
@@ -178,13 +186,13 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           const extras = scriptsPending
             ? [
                 {
-                  label: 'scripts',
+                  label: t('workbench.sidebar.badge.scripts'),
                   color: 'var(--ant-color-warning, #faad14)',
-                  title: 'This imported request will execute JavaScript when run. Open it to review the scripts.',
+                  title: t('workbench.sidebar.badge.scriptsTooltip'),
                 },
               ]
             : undefined;
-          const badge = composeBadge(textBadge, p.dirtyRequestUids?.has(node.uid) ?? false, extras);
+          const badge = composeBadge(textBadge, p.dirtyRequestUids?.has(node.uid) ?? false, extras, t);
           const examples = p.responseExamplesByRequest.get(node.uid) ?? [];
           const hasExamples = examples.length > 0;
           items.push({
@@ -278,6 +286,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.onExportEntity,
       p.onOpenRequestFolderOverview,
       p.onCreateWorkflowFromContainer,
+      t,
     ],
   );
 
@@ -311,7 +320,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
         p.onCreateRequest?.({ collectionId: collection.uid });
       };
       const onAddFolder = () => {
-        void p.createRequestFolderRpc('New Folder', collection.path).then((f) => {
+        void p.createRequestFolderRpc(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
           if (f) {
             p.setExpandedKeys((prev) => {
               const next = new Set(prev);
@@ -345,30 +354,39 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           p.confirmDelete(collection.name, () => {
             void p.deleteRequestCollectionRpc(collection.uid);
           }),
-        addMenuItems: containerAddMenuItems({
-          onAddRequest,
-          onAddFolder,
-        }),
-        actionMenuItems: containerActionMenuItems({
-          onRename: () => p.setRenamingId(colId),
-          onDelete: () =>
-            p.confirmDelete(collection.name, () => {
-              void p.deleteRequestCollectionRpc(collection.uid);
-            }),
-          kind: 'collection',
-          ...(p.onExportEntity
-            ? { onExport: () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }) }
-            : {}),
-          ...(p.onOpenCollectionVariables
-            ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
-            : {}),
-          ...(p.onCreateWorkflowFromContainer
-            ? {
-                onCreateWorkflow: () =>
-                  p.onCreateWorkflowFromContainer?.({ name: collection.name, tree: collection.tree }),
-              }
-            : {}),
-        }),
+        addMenuItems: containerAddMenuItems(
+          {
+            onAddRequest,
+            onAddFolder,
+          },
+          t,
+        ),
+        actionMenuItems: containerActionMenuItems(
+          {
+            onRename: () => p.setRenamingId(colId),
+            onDelete: () =>
+              p.confirmDelete(collection.name, () => {
+                void p.deleteRequestCollectionRpc(collection.uid);
+              }),
+            kind: 'collection',
+            ...(p.onExportEntity
+              ? {
+                  onExport: () =>
+                    p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }),
+                }
+              : {}),
+            ...(p.onOpenCollectionVariables
+              ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
+              : {}),
+            ...(p.onCreateWorkflowFromContainer
+              ? {
+                  onCreateWorkflow: () =>
+                    p.onCreateWorkflowFromContainer?.({ name: collection.name, tree: collection.tree }),
+                }
+              : {}),
+          },
+          t,
+        ),
         awareness: { entityType: REQUEST_COLLECTION_ENTITY_TYPE, entityId: collection.uid },
       });
 
@@ -389,16 +407,16 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             canRename: false,
             canDelete: false,
             canAddChild: false,
-            placeholderTitle: 'No requests yet',
-            placeholderMessage: 'Add a request or folder to get started.',
+            placeholderTitle: t('workbench.sidebar.placeholder.requestsEmptyTitle'),
+            placeholderMessage: t('workbench.sidebar.placeholder.addRequestOrFolder'),
             placeholderActions: [
               {
-                label: 'Add request',
+                label: t('workbench.sidebar.placeholder.addRequest'),
                 icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
                 onClick: onAddRequest,
               },
               {
-                label: 'Add folder',
+                label: t('workbench.sidebar.placeholder.addFolder'),
                 icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
                 onClick: onAddFolder,
               },
@@ -429,5 +447,6 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.onOpenRequestCollectionOverview,
     p.onOpenRequestFolderOverview,
     p.onCreateWorkflowFromContainer,
+    t,
   ]);
 }

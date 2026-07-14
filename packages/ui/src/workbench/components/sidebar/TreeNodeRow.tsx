@@ -20,6 +20,7 @@ import {
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField } from '@openheaders/ui/shared/awareness';
 import type { TreeNode } from './types';
 
@@ -107,6 +108,7 @@ export function TreeNodeRow({
   onStartRename,
 }: TreeNodeRowProps) {
   const { token } = theme.useToken();
+  const t = useT();
 
   // Placeholder rendering for empty collections
   if (node.kind === 'placeholder') {
@@ -233,14 +235,21 @@ export function TreeNodeRow({
                   menu={{
                     items: [
                       ...(node.canRename
-                        ? [{ key: 'rename', icon: <EditOutlined />, label: 'Rename', onClick: () => onStartRename() }]
+                        ? [
+                            {
+                              key: 'rename',
+                              icon: <EditOutlined />,
+                              label: t('workbench.sidebar.menu.rename'),
+                              onClick: () => onStartRename(),
+                            },
+                          ]
                         : []),
                       ...(node.canDelete
                         ? [
                             {
                               key: 'delete',
                               icon: <DeleteOutlined />,
-                              label: 'Delete',
+                              label: t('workbench.sidebar.menu.delete'),
                               danger: true,
                               onClick: () => node.onDelete?.(),
                             },
@@ -282,17 +291,31 @@ export function TreeNodeRow({
               menu={{
                 items: [
                   ...(node.canRename
-                    ? [{ key: 'rename', icon: <EditOutlined />, label: 'Rename', onClick: () => onStartRename() }]
+                    ? [
+                        {
+                          key: 'rename',
+                          icon: <EditOutlined />,
+                          label: t('workbench.sidebar.menu.rename'),
+                          onClick: () => onStartRename(),
+                        },
+                      ]
                     : []),
                   {
                     key: 'duplicate',
                     icon: <CopyOutlined />,
-                    label: 'Duplicate',
+                    label: t('workbench.sidebar.menu.duplicate'),
                     disabled: !node.onDuplicate,
                     onClick: () => node.onDuplicate?.(),
                   },
                   ...(node.onExport
-                    ? [{ key: 'export', icon: <ExportOutlined />, label: 'Export…', onClick: () => node.onExport?.() }]
+                    ? [
+                        {
+                          key: 'export',
+                          icon: <ExportOutlined />,
+                          label: t('workbench.sidebar.menu.export'),
+                          onClick: () => node.onExport?.(),
+                        },
+                      ]
                     : []),
                   { type: 'divider' as const, key: 'div' },
                   ...(node.canDelete
@@ -300,7 +323,7 @@ export function TreeNodeRow({
                         {
                           key: 'delete',
                           icon: <DeleteOutlined />,
-                          label: 'Delete',
+                          label: t('workbench.sidebar.menu.delete'),
                           danger: true,
                           onClick: () => node.onDelete?.(),
                         },

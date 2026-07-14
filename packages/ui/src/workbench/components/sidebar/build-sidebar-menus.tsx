@@ -9,6 +9,7 @@
  */
 
 import { FolderOpenOutlined, ImportOutlined, PlusOutlined } from '@ant-design/icons';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 
 interface BuildCreateMenuItemsOptions {
@@ -16,12 +17,12 @@ interface BuildCreateMenuItemsOptions {
   createNewCollection: () => Promise<void>;
 }
 
-export function buildCreateMenuItems({ onCreateRule, createNewCollection }: BuildCreateMenuItemsOptions) {
+export function buildCreateMenuItems({ onCreateRule, createNewCollection }: BuildCreateMenuItemsOptions, t: Translate) {
   return [
     {
       key: 'collection',
       icon: <FolderOpenOutlined />,
-      label: 'New Collection',
+      label: t('workbench.sidebar.menu.newCollection'),
       onClick: () => void createNewCollection(),
     },
     { type: 'divider' as const, key: 'div-collection' },
@@ -37,16 +38,15 @@ interface BuildRequestImportMenuItemsOptions {
   onImport?: (context?: { collectionId?: string }) => void;
 }
 
-export function buildRequestImportMenuItems({
-  createNewRequestCollection,
-  onCreateRequest,
-  onImport,
-}: BuildRequestImportMenuItemsOptions) {
+export function buildRequestImportMenuItems(
+  { createNewRequestCollection, onCreateRequest, onImport }: BuildRequestImportMenuItemsOptions,
+  t: Translate,
+) {
   return [
     {
       key: 'collection',
       icon: <FolderOpenOutlined />,
-      label: 'New Collection',
+      label: t('workbench.sidebar.menu.newCollection'),
       onClick: () => void createNewRequestCollection(),
     },
     ...(onCreateRequest
@@ -55,7 +55,7 @@ export function buildRequestImportMenuItems({
           {
             key: 'new-request',
             icon: <PlusOutlined />,
-            label: 'New Request',
+            label: t('workbench.sidebar.menu.newRequest'),
             onClick: () => onCreateRequest(),
           },
         ]
@@ -66,7 +66,7 @@ export function buildRequestImportMenuItems({
           {
             key: 'import',
             icon: <ImportOutlined />,
-            label: 'Import…',
+            label: t('workbench.sidebar.menu.import'),
             onClick: () => onImport(),
           },
         ]

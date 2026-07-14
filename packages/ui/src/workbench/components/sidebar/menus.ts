@@ -11,6 +11,7 @@ import {
   RollbackOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { ItemType } from 'antd/es/menu/interface';
 import { createElement } from 'react';
 import { buildRuleTypeMenuItemsCE } from '../../rule-type-menu';
@@ -41,13 +42,16 @@ export interface ContainerAddMenuOptions {
   onAddFolder: () => void;
 }
 
-export function containerAddMenuItems({ onAddRule, onAddRequest, onAddFolder }: ContainerAddMenuOptions): ItemType[] {
+export function containerAddMenuItems(
+  { onAddRule, onAddRequest, onAddFolder }: ContainerAddMenuOptions,
+  t: Translate,
+): ItemType[] {
   const items: ItemType[] = [];
   if (onAddRule) {
     items.push({
       key: 'add-rule',
       icon: createElement(PlusOutlined),
-      label: 'Add Rule',
+      label: t('workbench.sidebar.menu.addRule'),
       children: ruleTypeSubmenu(onAddRule),
     });
   }
@@ -55,14 +59,14 @@ export function containerAddMenuItems({ onAddRule, onAddRequest, onAddFolder }: 
     items.push({
       key: 'add-request',
       icon: createElement(PlusOutlined),
-      label: 'Add Request',
+      label: t('workbench.sidebar.menu.addRequest'),
       onClick: onAddRequest,
     });
   }
   items.push({
     key: 'add-folder',
     icon: createElement(FolderOutlined),
-    label: 'Add Folder',
+    label: t('workbench.sidebar.menu.addFolder'),
     onClick: onAddFolder,
   });
   return items;
@@ -92,34 +96,43 @@ export interface ContainerActionMenuOptions {
   onCreateWorkflow?: () => void;
 }
 
-export function containerActionMenuItems({
-  onRename,
-  onDelete,
-  kind,
-  effectivelyPaused,
-  hasOwnMarker,
-  hasNestedMarkers,
-  onTogglePause,
-  onClearOverride,
-  onClearNested,
-  onExport,
-  onOpenVariables,
-  onCreateWorkflow,
-}: ContainerActionMenuOptions): ItemType[] {
-  const noun = kind === 'collection' ? 'Collection' : 'Folder';
+export function containerActionMenuItems(
+  {
+    onRename,
+    onDelete,
+    kind,
+    effectivelyPaused,
+    hasOwnMarker,
+    hasNestedMarkers,
+    onTogglePause,
+    onClearOverride,
+    onClearNested,
+    onExport,
+    onOpenVariables,
+    onCreateWorkflow,
+  }: ContainerActionMenuOptions,
+  t: Translate,
+): ItemType[] {
+  const isCollection = kind === 'collection';
   const items: ItemType[] = [];
   if (onTogglePause) {
     items.push({
       key: 'toggle-pause',
       icon: createElement(effectivelyPaused ? PlayCircleOutlined : PauseCircleOutlined),
-      label: `${effectivelyPaused ? 'Unpause' : 'Pause'} ${noun}`,
+      label: effectivelyPaused
+        ? t(isCollection ? 'workbench.sidebar.menu.unpauseCollection' : 'workbench.sidebar.menu.unpauseFolder')
+        : t(isCollection ? 'workbench.sidebar.menu.pauseCollection' : 'workbench.sidebar.menu.pauseFolder'),
       onClick: onTogglePause,
     });
     if (hasOwnMarker && onClearOverride) {
       items.push({
         key: 'clear-override',
         icon: createElement(RollbackOutlined),
-        label: `Reset ${noun} Pause Override`,
+        label: t(
+          isCollection
+            ? 'workbench.sidebar.menu.resetCollectionPauseOverride'
+            : 'workbench.sidebar.menu.resetFolderPauseOverride',
+        ),
         onClick: onClearOverride,
       });
     }
@@ -127,18 +140,23 @@ export function containerActionMenuItems({
       items.push({
         key: 'clear-nested',
         icon: createElement(ClearOutlined),
-        label: 'Clear Nested Pause Overrides',
+        label: t('workbench.sidebar.menu.clearNestedPauseOverrides'),
         onClick: onClearNested,
       });
     }
     items.push({ type: 'divider' as const, key: 'div-pause' });
   }
-  items.push({ key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename });
-  if (kind === 'collection' && onOpenVariables) {
+  items.push({
+    key: 'rename',
+    icon: createElement(EditOutlined),
+    label: t('workbench.sidebar.menu.rename'),
+    onClick: onRename,
+  });
+  if (isCollection && onOpenVariables) {
     items.push({
       key: 'edit-variables',
       icon: createElement(CodeOutlined),
-      label: 'Edit Variables',
+      label: t('workbench.sidebar.menu.editVariables'),
       onClick: onOpenVariables,
     });
   }
@@ -146,17 +164,22 @@ export function containerActionMenuItems({
     items.push({
       key: 'create-workflow',
       icon: createElement(SisternodeOutlined),
-      label: 'Create Workflow…',
+      label: t('workbench.sidebar.menu.createWorkflow'),
       onClick: onCreateWorkflow,
     });
   }
   if (onExport) {
-    items.push({ key: 'export', icon: createElement(ExportOutlined), label: 'Export…', onClick: onExport });
+    items.push({
+      key: 'export',
+      icon: createElement(ExportOutlined),
+      label: t('workbench.sidebar.menu.export'),
+      onClick: onExport,
+    });
   }
   items.push({
     key: 'delete',
     icon: createElement(DeleteOutlined),
-    label: 'Delete',
+    label: t('workbench.sidebar.menu.delete'),
     danger: true,
     onClick: onDelete,
   });
@@ -166,24 +189,48 @@ export function containerActionMenuItems({
 // `+` on a template collection only adds children. Modify-actions
 // (Rename / Edit Variables / Export / Delete) belong on the `⋯`
 // menu, wired via `containerActionMenuItems` by the tree builder.
-export function templateCollectionMenuItems(onAddFolder: () => void): ItemType[] {
-  return [{ key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder }];
+export function templateCollectionMenuItems(onAddFolder: () => void, t: Translate): ItemType[] {
+  return [
+    {
+      key: 'add-folder',
+      icon: createElement(FolderOutlined),
+      label: t('workbench.sidebar.menu.addFolder'),
+      onClick: onAddFolder,
+    },
+  ];
 }
 
 export function templateFolderMenuItems(
   onAddFolder: () => void,
   onRename: () => void,
   onDelete: () => void,
-  onExport?: () => void,
+  onExport: (() => void) | undefined,
+  t: Translate,
 ): ItemType[] {
   const items: ItemType[] = [
-    { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
+    {
+      key: 'add-folder',
+      icon: createElement(FolderOutlined),
+      label: t('workbench.sidebar.menu.addFolder'),
+      onClick: onAddFolder,
+    },
     { type: 'divider' as const, key: 'div' },
-    { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
+    { key: 'rename', icon: createElement(EditOutlined), label: t('workbench.sidebar.menu.rename'), onClick: onRename },
   ];
   if (onExport) {
-    items.push({ key: 'export', icon: createElement(ExportOutlined), label: 'Export…', onClick: onExport });
+    items.push({
+      key: 'export',
+      icon: createElement(ExportOutlined),
+      label: t('workbench.sidebar.menu.export'),
+      onClick: onExport,
+    });
   }
-  items.push({ key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete });
+  items.push({
+    key: 'delete',
+    icon: createElement(DeleteOutlined),
+    label: t('workbench.sidebar.menu.delete'),
+    danger: true,
+    onClick: onDelete,
+  });
   return items;
 }

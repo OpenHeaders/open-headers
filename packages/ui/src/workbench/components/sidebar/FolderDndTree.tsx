@@ -56,6 +56,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { computeDropPlacement } from './folder-dnd-placement';
 import type { FolderDndParent, FolderDndIdConfig } from './folder-dnd-ids';
 import type { DropZone } from './folder-dnd-zone';
@@ -252,6 +253,7 @@ function SortableFolderRow({
   children: React.ReactNode;
   indicator: DropZone | null;
 }): React.ReactElement {
+  const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const wrapperStyle: React.CSSProperties = {
@@ -274,7 +276,7 @@ function SortableFolderRow({
       <button
         type="button"
         className="folder-dnd-handle"
-        aria-label="Drag to reorder folder"
+        aria-label={t('workbench.sidebar.dnd.dragToReorderFolder')}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         {...listeners}

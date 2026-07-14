@@ -12,6 +12,7 @@ import type { InputRef } from 'antd';
 import { Input, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { ClosedTab, WorkbenchTab } from '../../types';
 import { type TabEntityLookups, isCreateDraftMode, tabIcon } from './tab-format';
 
@@ -52,6 +53,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   onReopen,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [search, setSearch] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [closedExpanded, setClosedExpanded] = useState(false);
@@ -123,7 +125,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
           <Input
             ref={inputRef}
             size="small"
-            placeholder="Search tabs..."
+            placeholder={t('workbench.tabbar.search.placeholder')}
             prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
             value={search}
             onChange={(e) => {
@@ -222,7 +224,9 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
           {/* Open-tabs empty state — the region must always answer the
               search, even when only closed tabs (or nothing) match. */}
           {filteredTabs.length === 0 && (
-            <div style={emptyStateStyle}>{search ? 'No open tabs match your search' : 'No open tabs'}</div>
+            <div style={emptyStateStyle}>
+              {search ? t('workbench.tabbar.search.noMatch') : t('workbench.tabbar.search.noOpenTabs')}
+            </div>
           )}
 
           {/* Recently closed section */}
@@ -238,7 +242,12 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 <span style={{ fontSize: 9, marginRight: 4 }}>{closedExpanded ? '\u25BC' : '\u25B6'}</span>
                 {/* While searching, surface the match count in the header so
                     the collapsed section still answers the query. */}
-                Recently Closed ({search ? `${filteredClosed.length} of ${recentlyClosed.length}` : recentlyClosed.length})
+                {search
+                  ? t('workbench.tabbar.search.recentlyClosedFiltered', {
+                      matched: filteredClosed.length,
+                      total: recentlyClosed.length,
+                    })
+                  : t('workbench.tabbar.search.recentlyClosed', { count: recentlyClosed.length })}
               </div>
               {closedExpanded &&
                 filteredClosed.map((closed, idx) => {
@@ -322,7 +331,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 })}
               {/* Closed-region empty state — mirrors the open region's. */}
               {closedExpanded && filteredClosed.length === 0 && (
-                <div style={emptyStateStyle}>No closed tabs match your search</div>
+                <div style={emptyStateStyle}>{t('workbench.tabbar.search.noClosedMatch')}</div>
               )}
             </>
           )}

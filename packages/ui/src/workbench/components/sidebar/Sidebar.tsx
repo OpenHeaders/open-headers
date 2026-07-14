@@ -35,6 +35,7 @@ import type { InputRef } from 'antd';
 import { App, Input, Modal, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
 import type { WorkbenchTab, WorkflowSeedStep } from '../../types';
@@ -190,6 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   setSectionsExpanded,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const {
     rules,
     activeWorkspaceId,
@@ -301,30 +303,32 @@ const Sidebar: React.FC<SidebarProps> = ({
         return;
       }
       Modal.confirm({
-        title: <span style={{ fontSize: 13, fontWeight: 600 }}>Delete item?</span>,
+        title: <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.sidebar.confirmDelete.title')}</span>,
         width: 380,
         content: (
           <p style={{ fontSize: 12, margin: '4px 0 0' }}>
-            Are you sure you want to delete <strong>{name}</strong>? This action cannot be undone.
+            {t('workbench.sidebar.confirmDelete.bodyPrefix')}
+            <strong>{name}</strong>
+            {t('workbench.sidebar.confirmDelete.bodySuffix')}
           </p>
         ),
-        okText: 'Delete',
+        okText: t('workbench.sidebar.confirmDelete.ok'),
         okButtonProps: { danger: true, size: 'small' },
         cancelButtonProps: { size: 'small' },
         onOk: onConfirm,
       });
     },
-    [confirmOnDelete],
+    [confirmOnDelete, t],
   );
 
   const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
   const handleToggleRule = useCallback(
     (ruleUid: string, enabled: boolean) => {
       void ruleMutator.toggleRule(ruleUid, enabled).then((resp) => {
-        if (!resp.ok) void message.error('Failed to toggle rule');
+        if (!resp.ok) void message.error(t('workbench.sidebar.toast.toggleRuleFailed'));
       });
     },
-    [message, ruleMutator],
+    [message, ruleMutator, t],
   );
 
   // ── Response examples (child nodes under request rows) ───────────
@@ -336,9 +340,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         workspaceId: activeWorkspaceId,
         surfaceId: 'workbench',
       });
-      if (!result.ok) void message.error('Failed to rename example');
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.renameExampleFailed'));
     },
-    [activeWorkspaceId, message],
+    [activeWorkspaceId, message, t],
   );
   const duplicateResponseExample = useCallback(
     async (uid: string) => {
@@ -347,9 +351,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         workspaceId: activeWorkspaceId,
         surfaceId: 'workbench',
       });
-      if (!result.ok) void message.error('Failed to duplicate example');
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.duplicateExampleFailed'));
     },
-    [activeWorkspaceId, message],
+    [activeWorkspaceId, message, t],
   );
   const deleteResponseExample = useCallback(
     async (uid: string) => {
@@ -358,9 +362,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         workspaceId: activeWorkspaceId,
         surfaceId: 'workbench',
       });
-      if (!result.ok) void message.error('Failed to delete example');
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.deleteExampleFailed'));
     },
-    [activeWorkspaceId, message],
+    [activeWorkspaceId, message, t],
   );
   // Parent lookup for the reveal-on-focus path (an example tab going
   // active expands its request row so the child node is visible).
@@ -607,13 +611,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     onExportSelection,
   });
 
-  const createMenuItems = buildCreateMenuItems({ onCreateRule, createNewCollection });
+  const createMenuItems = buildCreateMenuItems({ onCreateRule, createNewCollection }, t);
 
-  const requestImportMenuItems = buildRequestImportMenuItems({
-    createNewRequestCollection,
-    onCreateRequest,
-    onImport,
-  });
+  const requestImportMenuItems = buildRequestImportMenuItems(
+    {
+      createNewRequestCollection,
+      onCreateRequest,
+      onImport,
+    },
+    t,
+  );
 
   const { renderTreeNodeRow, renderEmptyState, renderNodes, renderFolderDndNodes } = useSidebarNodeRenderers({
     isSelected,
@@ -656,7 +663,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <Input
           ref={filterRef}
           size="small"
-          placeholder="Filter"
+          placeholder={t('workbench.sidebar.filterPlaceholder')}
           prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 12 }} />}
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
@@ -705,9 +712,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               createNewRequestCollection={createNewRequestCollection}
               renderFolderDndNodes={renderFolderDndNodes}
             />
-            {(!filterText || 'package library'.includes(filterText.toLowerCase())) && (
+            {(!filterText ||
+              t('workbench.sidebar.section.packageLibrary').toLowerCase().includes(filterText.toLowerCase())) && (
               <SectionOpenerRow
-                title="PACKAGE LIBRARY"
+                title={t('workbench.sidebar.section.packageLibrary')}
                 node={scriptPackagesNode}
                 selected={isSelected(scriptPackagesNode.id)}
               />

@@ -1,4 +1,5 @@
 import { createElement, useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from '../../types';
 import { buildRuleIcon } from '../shared/rule-icon';
 import { composeBadge, methodTag } from './icons';
@@ -24,6 +25,7 @@ interface UseDraftOverlayParams {
  * tree.
  */
 export function useDraftOverlay({ allTabs: _allTabs, onSwitchTab, onCloseDraftTab }: UseDraftOverlayParams) {
+  const t = useT();
   const draftsByLocation = useMemo(
     () => ({ rule: new Map<string, WorkbenchTab[]>(), request: new Map<string, WorkbenchTab[]>() }),
     [],
@@ -43,14 +45,14 @@ export function useDraftOverlay({ allTabs: _allTabs, onSwitchTab, onCloseDraftTa
       // Scratch (never persisted) — no dirty dot; the "scratch" badge
       // itself communicates "unsaved", same vocabulary as the editor's
       // lifecycle chip + tab strip's gray dot.
-      badge: composeBadge({ label: 'scratch', color: 'var(--ant-color-text-tertiary, #999)' }, false),
+      badge: composeBadge({ label: t('workbench.sidebar.badge.scratch'), color: 'var(--ant-color-text-tertiary, #999)' }, false, undefined, t),
       canRename: false,
       canDelete: true,
       canAddChild: false,
       onOpen: () => onSwitchTab?.(tab.id),
       onDelete: () => onCloseDraftTab?.(tab.id),
     }),
-    [onSwitchTab, onCloseDraftTab],
+    [onSwitchTab, onCloseDraftTab, t],
   );
 
   const buildRequestDraftNode = useCallback(
@@ -65,14 +67,14 @@ export function useDraftOverlay({ allTabs: _allTabs, onSwitchTab, onCloseDraftTa
       // Scratch (never persisted) — no dirty dot; the "scratch" badge
       // itself communicates "unsaved", same vocabulary as the editor's
       // lifecycle chip + tab strip's gray dot.
-      badge: composeBadge({ label: 'scratch', color: 'var(--ant-color-text-tertiary, #999)' }, false),
+      badge: composeBadge({ label: t('workbench.sidebar.badge.scratch'), color: 'var(--ant-color-text-tertiary, #999)' }, false, undefined, t),
       canRename: false,
       canDelete: true,
       canAddChild: false,
       onOpen: () => onSwitchTab?.(tab.id),
       onDelete: () => onCloseDraftTab?.(tab.id),
     }),
-    [onSwitchTab, onCloseDraftTab],
+    [onSwitchTab, onCloseDraftTab, t],
   );
 
   const buildWorkflowDraftNode = useCallback(
@@ -98,14 +100,14 @@ export function useDraftOverlay({ allTabs: _allTabs, onSwitchTab, onCloseDraftTa
       // Scratch (never persisted) — no dirty dot; the "scratch" badge
       // itself communicates "unsaved", same vocabulary as the editor's
       // lifecycle chip + tab strip's gray dot.
-      badge: composeBadge({ label: 'scratch', color: 'var(--ant-color-text-tertiary, #999)' }, false),
+      badge: composeBadge({ label: t('workbench.sidebar.badge.scratch'), color: 'var(--ant-color-text-tertiary, #999)' }, false, undefined, t),
       canRename: false,
       canDelete: true,
       canAddChild: false,
       onOpen: () => onSwitchTab?.(tab.id),
       onDelete: () => onCloseDraftTab?.(tab.id),
     }),
-    [onSwitchTab, onCloseDraftTab],
+    [onSwitchTab, onCloseDraftTab, t],
   );
 
   return { draftsByLocation, workflowDrafts, buildRuleDraftNode, buildRequestDraftNode, buildWorkflowDraftNode };

@@ -10,6 +10,7 @@ import { popup } from './popup';
 import { shared } from './shared';
 import { sharedComponents } from './shared-components';
 import { workbench } from './workbench';
+import { workbenchChrome } from './workbench-chrome';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchLive } from './workbench-live';
 import { workbenchSettings } from './workbench-settings';
@@ -20,6 +21,7 @@ export const en = {
   ...sharedComponents,
   ...popup,
   ...workbench,
+  ...workbenchChrome,
   ...workbenchEditors,
   ...workbenchLive,
   ...workbenchSettings,

@@ -1,6 +1,7 @@
 import type { StopOutlined } from '@ant-design/icons';
 import type React from 'react';
 import { createElement } from 'react';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { ExampleChip } from '../shared/ExampleChip';
 
 export function iconEl(Icon: typeof StopOutlined, color: string, size = 12): React.ReactNode {
@@ -71,11 +72,11 @@ export function exampleTag(): React.ReactNode {
 }
 
 /** Small orange dot — visual twin of the tab-bar dirty indicator. */
-export function dirtyDot(): React.ReactNode {
+export function dirtyDot(t: Translate): React.ReactNode {
   return createElement('span', {
     key: 'dirty-dot',
     style: { width: 6, height: 6, borderRadius: '50%', background: '#ff7875', flexShrink: 0 },
-    'aria-label': 'unsaved changes',
+    'aria-label': t('workbench.sidebar.badge.dirtyAria'),
   });
 }
 
@@ -86,7 +87,8 @@ export function dirtyDot(): React.ReactNode {
 export function composeBadge(
   text: { label: string; color: string } | null,
   isDirty: boolean,
-  extras?: ReadonlyArray<{ label: string; color: string; title?: string }>,
+  extras: ReadonlyArray<{ label: string; color: string; title?: string }> | undefined,
+  t: Translate,
 ): React.ReactNode {
   const hasExtras = !!extras && extras.length > 0;
   if (!text && !isDirty && !hasExtras) return undefined;
@@ -105,7 +107,7 @@ export function composeBadge(
       );
     }
   }
-  if (isDirty) children.push(dirtyDot());
+  if (isDirty) children.push(dirtyDot(t));
   return createElement(
     'span',
     { style: { marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center' } },

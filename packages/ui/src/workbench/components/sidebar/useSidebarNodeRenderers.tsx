@@ -18,6 +18,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FolderDndTree, type FolderDndConfig } from './FolderDndTree';
 import { TreeNodeRow } from './TreeNodeRow';
 import type { TreeNode } from './types';
@@ -51,6 +52,7 @@ export function useSidebarNodeRenderers({
   expandedKeys,
 }: UseSidebarNodeRenderersParams): SidebarNodeRenderers {
   const { token } = theme.useToken();
+  const t = useT();
 
   const renderTreeNodeRow = (node: TreeNode) => (
     <TreeNodeRow
@@ -72,7 +74,9 @@ export function useSidebarNodeRenderers({
 
   const renderEmptyState = (emptyCreate?: () => void) => (
     <div className="rules-sidebar-empty-state">
-      <span style={{ color: token.colorTextSecondary, fontSize: 12, fontWeight: 600 }}>No items in this section</span>
+      <span style={{ color: token.colorTextSecondary, fontSize: 12, fontWeight: 600 }}>
+        {t('workbench.sidebar.emptySection')}
+      </span>
       {emptyCreate && (
         <button
           type="button"
@@ -80,7 +84,7 @@ export function useSidebarNodeRenderers({
           style={{ color: token.colorText }}
           onClick={emptyCreate}
         >
-          <PlusOutlined style={{ fontSize: 10 }} /> Create
+          <PlusOutlined style={{ fontSize: 10 }} /> {t('workbench.sidebar.emptySectionCreate')}
         </button>
       )}
     </div>

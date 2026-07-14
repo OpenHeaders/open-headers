@@ -13,6 +13,7 @@
 
 import { CloseOutlined, PushpinFilled } from '@ant-design/icons';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from '../../types';
 import { type TabEntityLookups, isCreateDraftMode, isRuleDraftTab, renderTabLabel, tabIcon } from './tab-format';
 
@@ -42,6 +43,7 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
   closeIconColor,
   hidden,
 }) => {
+  const t = useT();
   const inner = (
     <>
       <span className="rules-type-badge">
@@ -63,7 +65,7 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
       {/* Env-pin marker — this tab drives the active environment while
           focused. Without it, env flapping between tabs reads as a bug. */}
       {tab.pinnedEnvId !== undefined && (
-        <PushpinFilled className="rules-tab-env-pin" style={{ fontSize: 9, opacity: 0.65 }} aria-label="Environment pinned" />
+        <PushpinFilled className="rules-tab-env-pin" style={{ fontSize: 9, opacity: 0.65 }} aria-label={t('workbench.tabbar.envPinnedAria')} />
       )}
       {/* Gray dot signals a not-yet-persisted scratch tab (always wins
           over orange so the "scratch vs real entity" distinction reads

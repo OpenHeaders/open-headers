@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons';
 import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import { createElement, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { scopeBadge } from '../shared/scope-colors';
 import { exportNodeFields } from './export-fields';
 import type { TreeNode } from './types';
@@ -34,6 +35,7 @@ interface UseEnvironmentNodesParams {
 }
 
 export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
+  const t = useT();
   const lowerFilter = p.filterText.toLowerCase();
   return useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
@@ -71,7 +73,7 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
                 color: isActive ? 'var(--ant-color-primary-hover, #4096ff)' : 'var(--ant-color-text-tertiary, #999)',
               },
             }),
-            tooltip: isActive ? 'Set inactive' : 'Set active',
+            tooltip: isActive ? t('workbench.sidebar.env.setInactive') : t('workbench.sidebar.env.setActive'),
             alwaysVisible: isActive,
             onClick: () => p.pickActiveEnvironment(isActive ? null : env.uid),
           },
@@ -82,17 +84,22 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
                 color: isDefault ? 'var(--ant-color-warning, #faad14)' : 'var(--ant-color-text-tertiary, #999)',
               },
             }),
-            tooltip: isDefault ? 'Unset default' : 'Set as default',
+            tooltip: isDefault ? t('workbench.sidebar.env.unsetDefault') : t('workbench.sidebar.env.setDefault'),
             alwaysVisible: isDefault,
             onClick: () => void p.setDefaultEnvironment(isDefault ? null : env.uid),
           },
         ],
         addMenuItems: [
-          { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: () => p.setRenamingId(id) },
+          {
+            key: 'rename',
+            icon: createElement(EditOutlined),
+            label: t('workbench.sidebar.menu.rename'),
+            onClick: () => p.setRenamingId(id),
+          },
           {
             key: 'delete',
             icon: createElement(DeleteOutlined),
-            label: 'Delete',
+            label: t('workbench.sidebar.menu.delete'),
             danger: true,
             onClick: () =>
               p.confirmDelete(env.name, () => {
@@ -117,5 +124,6 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
     p.onSelectEnvironment,
     p.setRenamingId,
     p.onExportEntity,
+    t,
   ]);
 }

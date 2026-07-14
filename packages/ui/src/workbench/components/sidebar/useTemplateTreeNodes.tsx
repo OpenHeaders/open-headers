@@ -6,6 +6,8 @@ import {
 } from '@openheaders/core/sync';
 import type { Template, TemplateNode, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { createElement, useCallback, useMemo } from 'react';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { TEMPLATES_BY_TYPE } from '../../rule-templates';
 import { renderTwoToneIcon } from '../shared/TwoToneIconPicker';
 import { exportNodeFields } from './export-fields';
@@ -19,15 +21,15 @@ import {
 import type { TreeNode } from './types';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 
-const RULE_TYPE_LABEL: Record<string, string> = {
-  header: 'Header',
-  block: 'Block',
-  redirect: 'Redirect',
-  'query-param': 'Query Param',
-  inject: 'Inject',
-  delay: 'Delay',
-  'request-body': 'API Request Body',
-  response: 'API Response',
+const RULE_TYPE_LABEL_KEY: Record<string, MessageKey> = {
+  header: 'workbench.sidebar.ruleType.header',
+  block: 'workbench.sidebar.ruleType.block',
+  redirect: 'workbench.sidebar.ruleType.redirect',
+  'query-param': 'workbench.sidebar.ruleType.queryParam',
+  inject: 'workbench.sidebar.ruleType.inject',
+  delay: 'workbench.sidebar.ruleType.delay',
+  'request-body': 'workbench.sidebar.ruleType.requestBody',
+  response: 'workbench.sidebar.ruleType.response',
 };
 
 interface UseTemplateTreeNodesParams {
@@ -61,6 +63,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
   systemTemplateNodes: TreeNode[];
   templateNodes: TreeNode[];
 } {
+  const t = useT();
   const lowerFilter = p.filterText.toLowerCase();
 
   const walkTemplateTree = useCallback(
@@ -72,7 +75,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
           const fid = `tpl-folder-${node.uid}`;
           const isExpanded = p.expandedKeys.has(fid) || lowerFilter !== '';
           const onAddFolder = () => {
-            void p.createTemplateFolder('New Folder', node.path).then((f) => {
+            void p.createTemplateFolder(t('workbench.sidebar.defaults.newFolder'), node.path).then((f) => {
               if (f) {
                 p.setExpandedKeys((prev) => {
                   const next = new Set(prev);
@@ -117,6 +120,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
               p.onExportEntity
                 ? () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name })
                 : undefined,
+              t,
             ),
             awareness: { entityType: TEMPLATE_FOLDER_ENTITY_TYPE, entityId: node.uid },
           });
@@ -135,8 +139,8 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
                 canRename: false,
                 canDelete: false,
                 canAddChild: false,
-                placeholderTitle: 'Folder is empty',
-                placeholderMessage: 'Save a rule as template to populate.',
+                placeholderTitle: t('workbench.sidebar.placeholder.folderEmptyTitle'),
+                placeholderMessage: t('workbench.sidebar.placeholder.templateFolderEmptyMessage'),
               });
             }
           }
@@ -189,6 +193,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
       p.setExpandedKeys,
       p.setRenamingId,
       p.onExportEntity,
+      t,
     ],
   );
 
@@ -204,7 +209,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     // Without this gate the group stays visible (with all children
     // hidden) while user-defined collections correctly drop out — an
     // inconsistency that reads as a bug.
-    if (lowerFilter && !'system templates'.includes(lowerFilter)) {
+    if (lowerFilter && !t('workbench.sidebar.templates.systemGroup').toLowerCase().includes(lowerFilter)) {
       const hasMatch = Object.values(TEMPLATES_BY_TYPE).some((tpls) =>
         tpls.some((t) => t.name.toLowerCase().includes(lowerFilter)),
       );
@@ -214,7 +219,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     items.push({
       id: colId,
       kind: 'group',
-      label: 'System Templates',
+      label: t('workbench.sidebar.templates.systemGroup'),
       depth: 0,
       expandable: true,
       icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
@@ -236,7 +241,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
         items.push({
           id: folderId,
           kind: 'folder',
-          label: RULE_TYPE_LABEL[ruleType] ?? ruleType,
+          label: RULE_TYPE_LABEL_KEY[ruleType] ? t(RULE_TYPE_LABEL_KEY[ruleType]) : ruleType,
           depth: 1,
           expandable: true,
           parentId: colId,
@@ -268,7 +273,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     }
 
     return items;
-  }, [p.expandedKeys, lowerFilter, p.toggleExpand, p.onCreateRule]);
+  }, [p.expandedKeys, lowerFilter, p.toggleExpand, p.onCreateRule, t]);
 
   const templateNodes = useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
@@ -293,7 +298,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
       const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
       const isDefault = collection.name === DEFAULT_TEMPLATE_COLLECTION;
       const onAddFolder = () => {
-        void p.createTemplateFolder('New Folder', collection.path).then((f) => {
+        void p.createTemplateFolder(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
           if (f) {
             p.setExpandedKeys((prev) => {
               const next = new Set(prev);
@@ -333,26 +338,29 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
                 void p.deleteTemplateCollection(collection.uid);
               })
           : undefined,
-        addMenuItems: templateCollectionMenuItems(onAddFolder),
+        addMenuItems: templateCollectionMenuItems(onAddFolder, t),
         actionMenuItems: isDefault
           ? undefined
-          : containerActionMenuItems({
-              onRename: () => p.setRenamingId(colId),
-              onDelete: () =>
-                p.confirmDelete(collection.name, () => {
-                  void p.deleteTemplateCollection(collection.uid);
-                }),
-              kind: 'collection',
-              ...(p.onExportEntity
-                ? {
-                    onExport: () =>
-                      p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }),
-                  }
-                : {}),
-              ...(p.onOpenCollectionVariables
-                ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
-                : {}),
-            }),
+          : containerActionMenuItems(
+              {
+                onRename: () => p.setRenamingId(colId),
+                onDelete: () =>
+                  p.confirmDelete(collection.name, () => {
+                    void p.deleteTemplateCollection(collection.uid);
+                  }),
+                kind: 'collection',
+                ...(p.onExportEntity
+                  ? {
+                      onExport: () =>
+                        p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }),
+                    }
+                  : {}),
+                ...(p.onOpenCollectionVariables
+                  ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
+                  : {}),
+              },
+              t,
+            ),
         ...(isDefault ? {} : { awareness: { entityType: TEMPLATE_COLLECTION_ENTITY_TYPE, entityId: collection.uid } }),
       });
 
@@ -371,8 +379,8 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
             canRename: false,
             canDelete: false,
             canAddChild: false,
-            placeholderTitle: 'No templates yet',
-            placeholderMessage: 'Save a rule as template from the editor.',
+            placeholderTitle: t('workbench.sidebar.placeholder.templatesEmptyTitle'),
+            placeholderMessage: t('workbench.sidebar.placeholder.templatesEmptyMessage'),
           });
         }
       }
@@ -395,6 +403,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     p.setRenamingId,
     p.onExportEntity,
     p.onOpenCollectionVariables,
+    t,
   ]);
 
   return { systemTemplateNodes, templateNodes };

@@ -11,13 +11,8 @@
  */
 
 import type { Collection, Environment } from '@openheaders/core/types';
-import {
-  NEW_ENVIRONMENT_NAME,
-  NEW_REQUESTS_COLLECTION_NAME,
-  NEW_RULES_COLLECTION_NAME,
-  NEW_TEMPLATE_COLLECTION_NAME,
-  uniqueName,
-} from '@openheaders/ui/shared/naming';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { NEW_TEMPLATE_COLLECTION_NAME, uniqueName } from '@openheaders/ui/shared/naming';
 import type { App } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
@@ -65,17 +60,24 @@ export function useSidebarCreateActions({
   onSelectEnvironment,
   message,
 }: UseSidebarCreateActionsParams): SidebarCreateActions {
+  const t = useT();
   const createNewCollection = useCallback(async () => {
-    const name = uniqueName(NEW_RULES_COLLECTION_NAME, new Set(localCollections.map((c) => c.name)));
+    const name = uniqueName(
+      t('workbench.sidebar.defaults.newRulesCollection'),
+      new Set(localCollections.map((c) => c.name)),
+    );
     const col = await createLocalCollection(name);
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, rules: true }));
       onOpenCollectionOverview?.(col.uid, col.name, true);
     }
-  }, [createLocalCollection, localCollections, onOpenCollectionOverview]);
+  }, [createLocalCollection, localCollections, onOpenCollectionOverview, t, setSectionsExpanded]);
 
   const createNewRequestCollection = useCallback(async () => {
-    const name = uniqueName(NEW_REQUESTS_COLLECTION_NAME, new Set(requestCollections.map((c) => c.name)));
+    const name = uniqueName(
+      t('workbench.sidebar.defaults.newRequestsCollection'),
+      new Set(requestCollections.map((c) => c.name)),
+    );
     const col = await createRequestCollectionRpc(name);
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, 'api-requests': true }));
@@ -85,9 +87,9 @@ export function useSidebarCreateActions({
         return next;
       });
     } else {
-      message.error('Failed to create request collection');
+      message.error(t('workbench.sidebar.toast.createRequestCollectionFailed'));
     }
-  }, [createRequestCollectionRpc, requestCollections, message]);
+  }, [createRequestCollectionRpc, requestCollections, message, t, setExpandedKeys, setSectionsExpanded]);
 
   const createNewTemplateCollection = useCallback(async () => {
     const name = uniqueName(NEW_TEMPLATE_COLLECTION_NAME, new Set(templateCollections.map((c) => c.name)));
@@ -96,18 +98,18 @@ export function useSidebarCreateActions({
       setSectionsExpanded((prev) => ({ ...prev, templates: true }));
       onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
     }
-  }, [createTemplateCollection, templateCollections, onOpenTemplateCollectionOverview]);
+  }, [createTemplateCollection, templateCollections, onOpenTemplateCollectionOverview, setSectionsExpanded]);
 
   const createNewEnvironment = useCallback(async () => {
-    const name = uniqueName(NEW_ENVIRONMENT_NAME, new Set(environments.map((e) => e.name)));
+    const name = uniqueName(t('workbench.sidebar.defaults.newEnvironment'), new Set(environments.map((e) => e.name)));
     const env = await createEnvironment(name);
     if (env) {
       setSectionsExpanded((prev) => ({ ...prev, environments: true }));
       onSelectEnvironment?.(env.uid, env.name, true);
     } else {
-      message.error('Failed to create environment');
+      message.error(t('workbench.sidebar.toast.createEnvironmentFailed'));
     }
-  }, [createEnvironment, environments, onSelectEnvironment, message]);
+  }, [createEnvironment, environments, onSelectEnvironment, message, t, setSectionsExpanded]);
 
   return { createNewCollection, createNewRequestCollection, createNewTemplateCollection, createNewEnvironment };
 }

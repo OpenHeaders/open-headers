@@ -9,6 +9,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { SectionOpenerRow } from './SectionHeader';
 import type { TreeNode } from './types';
 
@@ -27,20 +28,24 @@ const VariablesSection: React.FC<VariablesSectionProps> = ({
   liveVarsNode,
   isSelected,
 }) => {
+  const t = useT();
   const lower = filterText.toLowerCase();
   const matches = (label: string) => !lower || label.toLowerCase().includes(lower);
+  const vaultTitle = t('workbench.sidebar.section.vault');
+  const workspaceVarsTitle = t('workbench.sidebar.section.workspaceVariables');
+  const liveVarsTitle = t('workbench.sidebar.section.liveVariables');
   return (
     <>
-      {matches('vault') && <SectionOpenerRow title="VAULT" node={vaultNode} selected={isSelected(vaultNode.id)} />}
-      {matches('workspace variables') && (
+      {matches(vaultTitle) && <SectionOpenerRow title={vaultTitle} node={vaultNode} selected={isSelected(vaultNode.id)} />}
+      {matches(workspaceVarsTitle) && (
         <SectionOpenerRow
-          title="WORKSPACE VARIABLES"
+          title={workspaceVarsTitle}
           node={workspaceVarsNode}
           selected={isSelected(workspaceVarsNode.id)}
         />
       )}
-      {matches('live variables') && (
-        <SectionOpenerRow title="LIVE VARIABLES" node={liveVarsNode} selected={isSelected(liveVarsNode.id)} />
+      {matches(liveVarsTitle) && (
+        <SectionOpenerRow title={liveVarsTitle} node={liveVarsNode} selected={isSelected(liveVarsNode.id)} />
       )}
     </>
   );

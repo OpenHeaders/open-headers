@@ -9,6 +9,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { SectionHeader } from './SectionHeader';
 import type { TreeNode } from './types';
 import type { SidebarNodeRenderers } from './useSidebarNodeRenderers';
@@ -29,14 +30,15 @@ const EnvironmentsSection: React.FC<EnvironmentsSectionProps> = ({
   renderNodes,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <>
       <SectionHeader
-        title="ENVIRONMENTS"
+        title={t('workbench.sidebar.section.environments')}
         expanded={sectionsExpanded.environments}
         onToggle={() => toggleSection('environments')}
         actions={
-          <Tooltip title="Create new environment" placement="bottom">
+          <Tooltip title={t('workbench.sidebar.header.createNewEnvironment')} placement="bottom">
             <PlusOutlined
               style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
               onClick={(e) => {
