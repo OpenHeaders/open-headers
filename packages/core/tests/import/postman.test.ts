@@ -868,6 +868,118 @@ describe('request mapping — body', () => {
   });
 });
 
+describe('request mapping — protocolProfileBehavior', () => {
+  it('maps the shipped knobs (strictSSL renames to sslVerification)', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: { method: 'GET', url: 'https://api.openheaders.io/x' },
+            protocolProfileBehavior: {
+              strictSSL: false,
+              followRedirects: false,
+              maxRedirects: 5,
+              followOriginalHttpMethod: true,
+              followAuthorizationHeader: true,
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.settings).toEqual({
+      sslVerification: false,
+      followRedirects: false,
+      maxRedirects: 5,
+      followOriginalHttpMethod: true,
+      followAuthorizationHeader: true,
+    });
+    expect(result.report.drops).toHaveLength(0);
+  });
+
+  it('leaves settings absent when the item carries no behavior object', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [{ name: 'X', request: { method: 'GET', url: 'https://api.openheaders.io/x' } }],
+      }),
+    );
+    expect('settings' in result.requests[0]!.request).toBe(false);
+  });
+
+  it('notes keys without a counterpart knob', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: { method: 'GET', url: 'https://api.openheaders.io/x' },
+            protocolProfileBehavior: { disableBodyPruning: true, insecureHTTPParser: true, strictSSL: false },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.settings).toEqual({ sslVerification: false });
+    const noted = result.report.drops.filter((d) => d.tracking === '#todo-request-settings');
+    expect(noted.map((d) => d.path)).toEqual([
+      'collection.item[0].protocolProfileBehavior.disableBodyPruning',
+      'collection.item[0].protocolProfileBehavior.insecureHTTPParser',
+    ]);
+  });
+
+  it('clamps an out-of-bounds maxRedirects with a transform', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: { method: 'GET', url: 'https://api.openheaders.io/x' },
+            protocolProfileBehavior: { maxRedirects: 100 },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.settings).toEqual({ maxRedirects: 50 });
+    expect(result.report.transforms.some((t) => t.from === '100' && t.to === '50')).toBe(true);
+  });
+
+  it('drops mistyped values with a note', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: { method: 'GET', url: 'https://api.openheaders.io/x' },
+            protocolProfileBehavior: { strictSSL: 'yes', maxRedirects: 'ten' },
+          },
+        ],
+      }),
+    );
+    expect('settings' in result.requests[0]!.request).toBe(false);
+    expect(result.report.drops.filter((d) => /expects a boolean|expects an integer/.test(d.reason))).toHaveLength(2);
+  });
+
+  it('notes collection-level and folder-level behavior objects', () => {
+    const result = parsePostman(
+      postmanCollection({
+        protocolProfileBehavior: { followRedirects: false },
+        item: [
+          {
+            name: 'F',
+            protocolProfileBehavior: { strictSSL: false },
+            item: [{ name: 'X', request: { method: 'GET', url: 'https://api.openheaders.io/x' } }],
+          },
+        ],
+      }),
+    );
+    expect('settings' in result.requests[0]!.request).toBe(false);
+    const noted = result.report.drops.filter((d) => d.tracking === '#todo-settings-inheritance');
+    expect(noted.map((d) => d.path)).toEqual([
+      'collection.protocolProfileBehavior',
+      'collection.item[0].protocolProfileBehavior',
+    ]);
+  });
+});
+
 describe('events (scripts)', () => {
   it('drops per-request scripts with tracking', () => {
     const result = parsePostman(

@@ -34,4 +34,4 @@
 
 export { parseCurl } from './parse';
 export { tokenize } from './tokenizer';
-export { CurlParseError, type CurlParseResult, type CurlRequest } from './types';
+export { CurlParseError, type CurlParseResult, type CurlRequest, type ImportedRequestSettings } from './types';

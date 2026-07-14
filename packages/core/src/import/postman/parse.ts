@@ -3,6 +3,7 @@ import type { CurlRequest } from '../curl';
 import { createReport, type ImportReport, recordDrop, recordTransform } from '../report';
 import { buildHeaders, promoteAuthHeader, resolveAuth } from './auth';
 import { buildBody } from './body';
+import { mapProtocolProfileBehavior } from './settings';
 import type {
   PostmanCollection,
   PostmanCollectionVariable,
@@ -72,6 +73,10 @@ export function parsePostman(input: string): PostmanParseResult {
       tracking: '#todo-auth-inheritance',
     });
   }
+
+  // Collection-level protocol settings would need inheritance to apply
+  // to requests — note instead of silently ignoring.
+  recordAncestorProtocolBehavior(collection.protocolProfileBehavior, 'collection', 'collection', report);
 
   // Variables.
   const collectionVariables: PostmanCollectionVariable[] = [];
@@ -152,6 +157,8 @@ function walkItems(
         });
       }
 
+      recordAncestorProtocolBehavior(item.protocolProfileBehavior, 'folder', jsonPath, report);
+
       walkItems(item.item ?? [], path, `${jsonPath}.item`, folders, requests, report);
       continue;
     }
@@ -205,6 +212,7 @@ function tryConvertRequest(item: PostmanItem, jsonPath: string, report: ImportRe
   const { auth: authFromHeader, headers: headersWithoutAuth } = promoteAuthHeader(headerCollection);
   const { auth: finalAuth } = resolveAuth(req.auth, authFromHeader, jsonPath, report);
   const body = buildBody(req.body, headersWithoutAuth, jsonPath, report);
+  const settings = mapProtocolProfileBehavior(item.protocolProfileBehavior, jsonPath, report);
 
   // Item-level event scripts.
   if (Array.isArray(item.event) && item.event.length > 0) {
@@ -238,10 +246,32 @@ function tryConvertRequest(item: PostmanItem, jsonPath: string, report: ImportRe
     params,
     auth: finalAuth,
     body,
+    ...(settings !== undefined ? { settings } : {}),
   };
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
+
+/**
+ * Collection/folder-level `protocolProfileBehavior` would need
+ * settings inheritance to apply to descendant requests — until that
+ * exists, one note per level keeps the loss visible.
+ */
+function recordAncestorProtocolBehavior(
+  raw: unknown,
+  level: 'collection' | 'folder',
+  jsonPath: string,
+  report: ImportReport,
+): void {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+  const keys = Object.keys(raw as Record<string, unknown>);
+  if (keys.length === 0) return;
+  recordDrop(report, {
+    path: `${jsonPath}.protocolProfileBehavior`,
+    reason: `${level === 'collection' ? 'Collection' : 'Folder'}-level protocol settings (${keys.join(', ')}) aren't inherited by requests — set the request's own Settings tab instead.`,
+    tracking: '#todo-settings-inheritance',
+  });
+}
 
 function coerceMethod(raw: string | undefined, jsonPath: string, report: ImportReport): HttpMethod {
   if (typeof raw !== 'string' || raw.length === 0) {

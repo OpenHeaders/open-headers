@@ -57,6 +57,7 @@ const COLLECTION_JSON = JSON.stringify({
             url: 'https://api.openheaders.io/refunds',
             header: [{ key: 'X-Env', value: 'staging' }],
           },
+          protocolProfileBehavior: { strictSSL: false, maxRedirects: 3 },
         },
       ],
     },
@@ -176,6 +177,8 @@ describe('materializePostmanPull', () => {
     expect(flat?.path).not.toContain('/admin-');
     expect(nested?.headers).toMatchObject([{ key: 'X-Env', value: 'staging' }]);
     expect(flat?.description).toBe('Lists charges for the account.');
+    expect(nested?.sslVerification).toBe(false);
+    expect(nested?.maxRedirects).toBe(3);
 
     const environments = snapshotEnvironmentPostStates(wsId).map((ps) => ps.environment);
     expect(environments).toHaveLength(1);

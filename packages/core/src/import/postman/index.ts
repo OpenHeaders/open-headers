@@ -26,8 +26,10 @@
  *     for §19 (scripts via offscreen document).
  *   • Responses — saved `response[]` entries ignored (they're capture
  *     artifacts, not authoring data).
- *   • Protocol-profile behavior, auth inheritance, cert config —
- *     ignored (extension context can't honor any of them).
+ *   • Protocol-profile behavior — request-level keys with a shipped
+ *     request-settings knob map onto it (strictSSL → sslVerification,
+ *     redirect knobs name-identical); the rest are noted. Auth
+ *     inheritance + cert config still drop with notes.
  *
  * Format reference: schema v2.1.0 — https://schema.getpostman.com/json/collection/v2.1.0/collection.json
  *

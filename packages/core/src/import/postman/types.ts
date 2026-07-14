@@ -25,6 +25,7 @@ export interface PostmanItem {
   event?: PostmanEvent[];
   response?: unknown[];
   auth?: PostmanAuth;
+  protocolProfileBehavior?: unknown;
 }
 
 export interface PostmanRequest {

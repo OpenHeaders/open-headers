@@ -167,6 +167,7 @@ export function createImportToolDefinitions(): McpToolDefinition[] {
             RequestSchema,
             {
               ...(seed.description !== undefined ? { description: seed.description } : {}),
+              ...seed.settings,
               method: seed.method,
               url: seed.url,
               headers: seed.headers,

@@ -64,7 +64,14 @@ export {
   parseBrunoFiles,
   stripBrunoRootPrefix,
 } from './bruno';
-export { CurlParseError, type CurlParseResult, type CurlRequest, parseCurl, tokenize } from './curl';
+export {
+  CurlParseError,
+  type CurlParseResult,
+  type CurlRequest,
+  type ImportedRequestSettings,
+  parseCurl,
+  tokenize,
+} from './curl';
 export {
   type DataScanInterpretation,
   type DataScanSkip,

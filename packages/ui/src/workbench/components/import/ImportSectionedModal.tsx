@@ -303,6 +303,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           const parentPath = folderPathMap.get(folderPath.join('/')) ?? coll.path;
           const seed: Partial<Request> = {
             ...(request.description !== undefined ? { description: request.description } : {}),
+            ...request.settings,
             method: request.method,
             url: request.url,
             headers: request.headers,
