@@ -1,6 +1,6 @@
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildResultView, type DisplayRow } from '../data/search/search-display';
+import { buildResultView, type DisplayRow, trimLineForViewport } from '../data/search/search-display';
 import type { SearchSourceKind, SearchTarget } from '../data/search/search-doc';
 import { type SearchGroup, sectionHasLineColumn } from '../data/search/search-engine';
 import type { SearchSession } from '../data/search/use-search-session';
@@ -35,6 +35,13 @@ const SOURCE_BADGES: Record<SearchSourceKind, string | null> = {
   storage: 'Storage',
   console: 'Console',
 };
+
+/** Length of the hidden span used to measure the monospace char width. */
+const CAPACITY_PROBE_CHARS = 24;
+/** Estimated px per row taken by the non-text cells (ordinal, `L:C`,
+ *  section label, gaps, padding). Deliberately conservative — an
+ *  over-estimate only places the match a little further left. */
+const TEXT_COLUMN_OVERHEAD_PX = 200;
 
 function formatTimestamp(ms: number): string {
   const d = new Date(ms);
@@ -140,6 +147,10 @@ interface ResultRowProps {
   firstFlatIndex: number;
   /** The currently-selected global row index (for arrow-key nav). */
   activeGlobalIndex: number;
+  /** Current width of the match-text column, in monospace characters.
+   *  Rows left-trim their line so the first match stays visible at
+   *  this capacity. 0 = unknown (no trimming). */
+  textCapacityCh: number;
 }
 
 // Memoized: results stream in append-only, so every batch flush
@@ -156,6 +167,7 @@ const ResultGroup = memo(function ResultGroup({
   onResultClick,
   firstFlatIndex,
   activeGlobalIndex,
+  textCapacityCh,
 }: ResultRowProps) {
   const sourceBadge = SOURCE_BADGES[group.source];
   return (
@@ -208,7 +220,11 @@ const ResultGroup = memo(function ResultGroup({
               </span>
             )}
             <span className="dt-search-match-text">
-              <HighlightedText text={r.lineText.slice(0, 200)} query={query} config={config} />
+              <HighlightedText
+                text={trimLineForViewport(r.lineText, query, config, textCapacityCh).slice(0, 200)}
+                query={query}
+                config={config}
+              />
             </span>
             <span className="dt-search-match-section">{r.section}</span>
           </button>
@@ -268,6 +284,31 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
   }, [state.committedQuery]);
 
   const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Width-aware match visibility: the text column clips with a
+  // right-side ellipsis, so rows left-trim their line to keep the first
+  // match inside the visible window (see `trimLineForViewport`). The
+  // column's capacity in characters derives from the results container
+  // width and the monospace char width measured off a hidden probe.
+  const probeRef = useRef<HTMLSpanElement>(null);
+  const [textCapacityCh, setTextCapacityCh] = useState(0);
+  useEffect(() => {
+    const container = resultsRef.current;
+    const probe = probeRef.current;
+    if (!container || !probe || typeof ResizeObserver === 'undefined') return;
+    const update = () => {
+      const charWidth = probe.getBoundingClientRect().width / CAPACITY_PROBE_CHARS;
+      if (charWidth <= 0) return;
+      const raw = Math.floor((container.clientWidth - TEXT_COLUMN_OVERHEAD_PX) / charWidth);
+      // Quantise so a sash drag doesn't re-render every group per pixel.
+      setTextCapacityCh(Math.max(16, Math.floor(raw / 4) * 4));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
   const activateRow = useCallback(
     (nextIndex: number) => {
       if (flatRows.length === 0) return;
@@ -431,6 +472,9 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
         className="dt-search-panel-results"
         data-stale={(state.status !== 'idle' && isDirty) || undefined}
       >
+        <span ref={probeRef} aria-hidden="true" className="dt-search-match-text dt-search-width-probe">
+          {'0'.repeat(CAPACITY_PROBE_CHARS)}
+        </span>
         {state.status === 'idle' && !hasError && (
           <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
             {draftQuery.trim().length < 2
@@ -449,6 +493,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
             onResultClick={onResultClick}
             firstFlatIndex={firstFlatIndex}
             activeGlobalIndex={activeGlobalIndex}
+            textCapacityCh={textCapacityCh}
           />
         ))}
         {state.status === 'done' && state.results.length === 0 && (

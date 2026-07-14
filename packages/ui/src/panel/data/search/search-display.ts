@@ -19,7 +19,8 @@
  * testable without React.
  */
 
-import type { SearchGroup, SearchMatch } from './search-engine';
+import type { TextMatchConfig } from '../text-match';
+import { compileMatcher, type SearchGroup, type SearchMatch } from './search-engine';
 
 /**
  * A rendered row in the search results. When several adjacent matches
@@ -106,6 +107,37 @@ function coalesceMatches(matches: readonly SearchMatch[], ordinalStart: number):
     i = j;
   }
   return rows;
+}
+
+/**
+ * Left-trim `lineText` so its first match stays inside the panel's
+ * visible text window.
+ *
+ * The engine's `lineText` keeps up to ~100 chars of context before the
+ * match; the results column clips with a right-side CSS ellipsis, so on
+ * a narrow panel the highlight can sit entirely past the clip — the row
+ * then shows only unhighlighted prefix. When the first match would end
+ * beyond `capacityCh` (the column's current capacity in monospace
+ * characters), the prefix is cut so the match starts about a third of
+ * the way into the window, with a leading ellipsis marking the cut.
+ * `capacityCh <= 0` means "capacity unknown" and disables trimming.
+ */
+export function trimLineForViewport(
+  lineText: string,
+  query: string,
+  config: TextMatchConfig,
+  capacityCh: number,
+): string {
+  if (capacityCh <= 0) return lineText;
+  const matcher = compileMatcher(query, config);
+  if (!matcher) return lineText;
+  matcher.lastIndex = 0;
+  const m = matcher.exec(lineText);
+  if (m === null) return lineText;
+  const matchEnd = m.index + Math.max(m[0].length, 1);
+  if (matchEnd <= capacityCh) return lineText;
+  const start = Math.max(0, m.index - Math.floor(capacityCh / 3));
+  return `…${lineText.slice(start)}`;
 }
 
 /**

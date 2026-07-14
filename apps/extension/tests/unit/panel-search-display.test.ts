@@ -1,5 +1,6 @@
-import { buildResultView } from '@openheaders/ui/panel/data/search/search-display';
+import { buildResultView, trimLineForViewport } from '@openheaders/ui/panel/data/search/search-display';
 import type { SearchGroup, SearchMatch } from '@openheaders/ui/panel/data/search/search-engine';
+import { DEFAULT_TEXT_MATCH_CONFIG } from '@openheaders/ui/panel/data/text-match';
 import { describe, expect, it } from 'vitest';
 
 function match(
@@ -129,5 +130,51 @@ describe('buildResultView', () => {
     expect(view.flatRows[0]).toEqual({ groupIndex: 0, rowIndex: 0 });
     expect(view.flatRows[1]).toEqual({ groupIndex: 0, rowIndex: 1 });
     expect(view.flatRows[2]).toEqual({ groupIndex: 1, rowIndex: 0 });
+  });
+});
+
+describe('trimLineForViewport', () => {
+  const cfg = DEFAULT_TEXT_MATCH_CONFIG;
+
+  it('returns the line unchanged when the match fits the window', () => {
+    const line = 'short prefix needle and tail';
+    expect(trimLineForViewport(line, 'needle', cfg, 40)).toBe(line);
+  });
+
+  it('left-trims with a leading ellipsis when the match ends past capacity', () => {
+    const line = `${'x'.repeat(100)}needle${'y'.repeat(50)}`;
+    const trimmed = trimLineForViewport(line, 'needle', cfg, 40);
+    expect(trimmed.startsWith('…')).toBe(true);
+    const idx = trimmed.indexOf('needle');
+    expect(idx).toBeGreaterThan(0);
+    expect(idx + 'needle'.length).toBeLessThanOrEqual(40);
+    expect(trimmed).toContain(`needle${'y'.repeat(50)}`);
+  });
+
+  it('keeps roughly a third of the window as leading context', () => {
+    const line = `${'x'.repeat(100)}needle`;
+    const trimmed = trimLineForViewport(line, 'needle', cfg, 60);
+    expect(trimmed.indexOf('needle')).toBe(1 + 20);
+  });
+
+  it('is case-insensitive under the default config', () => {
+    const line = `${'x'.repeat(100)}NeEdLe tail`;
+    const trimmed = trimLineForViewport(line, 'needle', cfg, 30);
+    expect(trimmed.startsWith('…')).toBe(true);
+    expect(trimmed).toContain('NeEdLe');
+  });
+
+  it('supports regex mode', () => {
+    const line = `${'x'.repeat(120)}ab12cd tail`;
+    const trimmed = trimLineForViewport(line, 'ab\\d+cd', { ...cfg, regexMode: true }, 30);
+    expect(trimmed.startsWith('…')).toBe(true);
+    expect(trimmed).toContain('ab12cd');
+  });
+
+  it('no-ops when capacity is unknown, the query is empty, or nothing matches', () => {
+    const line = `${'x'.repeat(100)}needle`;
+    expect(trimLineForViewport(line, 'needle', cfg, 0)).toBe(line);
+    expect(trimLineForViewport(line, '', cfg, 40)).toBe(line);
+    expect(trimLineForViewport(line, 'absent', cfg, 40)).toBe(line);
   });
 });
