@@ -2,7 +2,8 @@
  * BackgroundTasksIndicator — footer slot for in-flight background work.
  *
  * Renders the newest task inline (title + slim progress + a circled ✕
- * that hides the inline display without touching the work). Clicking
+ * that clears the item from the footer AND the panel without touching
+ * the underlying work). Clicking
  * the slot toggles the standalone "Processes" panel — a card pinned to
  * the window's bottom-right corner above the status bar. The panel is
  * deliberately NOT a click-away popover: it stays up while the user
@@ -22,6 +23,47 @@ import {
   useBackgroundTasks,
   useBackgroundTasksPanelOpen,
 } from './store';
+
+/**
+ * A settled task's click-through title. Hover underlines it so it reads
+ * as actionable — state-driven because this shared component renders
+ * under several host stylesheets.
+ */
+const ActivateTitle: React.FC<{
+  title: string;
+  fontSize: number;
+  color: string;
+  onActivate: () => void;
+  onClick?: (e: React.MouseEvent) => void;
+}> = ({ title, fontSize, color, onActivate, onClick }) => {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick ?? onActivate}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'block',
+        padding: 0,
+        border: 'none',
+        background: 'transparent',
+        fontSize,
+        color,
+        fontWeight: 600,
+        cursor: 'pointer',
+        textAlign: 'left',
+        textDecoration: hover ? 'underline' : 'none',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        maxWidth: 220,
+      }}
+    >
+      {title}
+    </button>
+  );
+};
 
 function taskProgress(task: BackgroundTask, width?: number): React.ReactNode {
   return (
@@ -43,9 +85,9 @@ const BackgroundTasksIndicator: React.FC = () => {
   const tasks = useBackgroundTasks();
   const panelOpen = useBackgroundTasksPanelOpen();
   const setPanelOpen = setBackgroundTasksPanelOpen;
-  // Inline-dismissed task ids: hidden from the footer, still listed in
-  // the panel. Pruned when the task leaves the store so a later run
-  // with the same id shows again.
+  // Dismissed task ids: cleared from the footer and the panel alike
+  // (display only — the work continues). Pruned when the task leaves
+  // the store so a later run with the same id shows again.
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
 
   useEffect(() => {
@@ -134,36 +176,20 @@ const BackgroundTasksIndicator: React.FC = () => {
               <MinusOutlined style={{ fontSize: 10 }} />
             </button>
           </div>
-          {tasks.length === 0 ? (
+          {visible.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
               <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13 }} />
               <span style={{ color: token.colorTextSecondary }}>All background tasks completed</span>
             </div>
           ) : (
-            tasks.map((task) => (
+            visible.map((task) => (
               <div key={task.id} style={{ padding: '4px 0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   {task.done && !task.error && (
                     <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13 }} />
                   )}
                   {task.onActivate ? (
-                    <button
-                      type="button"
-                      onClick={task.onActivate}
-                      style={{
-                        display: 'block',
-                        padding: 0,
-                        border: 'none',
-                        background: 'transparent',
-                        fontSize: 13,
-                        color: token.colorText,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                    >
-                      {task.title}
-                    </button>
+                    <ActivateTitle title={task.title} fontSize={13} color={token.colorText} onActivate={task.onActivate} />
                   ) : (
                     <div style={{ fontSize: 13, color: token.colorText }}>{task.title}</div>
                   )}
@@ -208,29 +234,33 @@ const BackgroundTasksIndicator: React.FC = () => {
             {anchor.done && !anchor.error && (
               <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 10 }} />
             )}
-            <span
+            {anchor.onActivate ? (
               // A settled task's title is its click-through ("view
               // report"); the rest of the slot still toggles the panel.
-              onClick={
-                anchor.onActivate
-                  ? (e) => {
-                      e.stopPropagation();
-                      anchor.onActivate?.();
-                    }
-                  : undefined
-              }
-              style={{
-                fontSize: 10,
-                color: anchor.onActivate ? token.colorText : token.colorTextSecondary,
-                fontWeight: anchor.onActivate ? 600 : undefined,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: 220,
-              }}
-            >
-              {anchor.title}
-            </span>
+              <ActivateTitle
+                title={anchor.title}
+                fontSize={10}
+                color={token.colorText}
+                onActivate={anchor.onActivate}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  anchor.onActivate?.();
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  fontSize: 10,
+                  color: token.colorTextSecondary,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: 220,
+                }}
+              >
+                {anchor.title}
+              </span>
+            )}
             {taskProgress(anchor, 80)}
             {circleClose((e) => {
               e.stopPropagation();
