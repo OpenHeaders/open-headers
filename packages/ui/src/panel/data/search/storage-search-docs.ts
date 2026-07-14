@@ -6,8 +6,9 @@
  * (both areas), the site cookie jar, IndexedDB record previews (first
  * page per store), and Cache Storage entry lists. Each section becomes
  * one flat doc — one entry per line — so a match's line number is the
- * entry's position and the group's target reveals the right Storage
- * section.
+ * entry's position, and the target's parallel `rowKeys` array gives the
+ * matched entry's addressable identity so a click can open THAT row's
+ * document, not just reveal the section.
  *
  * Values ride the same preview caps the Storage grids use (clipped DOM
  * values, host-side record previews, request-metadata-only cache
@@ -19,7 +20,7 @@
  */
 
 import { hostNavigation } from '@openheaders/core/navigation';
-import { fetchSiteJarCookiesOnce } from '../cookies/cookie-jar-cache';
+import { fetchSiteJarCookiesOnce, jarCookieRowKey } from '../cookies/cookie-jar-cache';
 import type { DomStorageArea } from '../storage/storage-inspector-host';
 import { getStorageInspectorHost } from '../storage/storage-inspector-host';
 import type { SearchDoc, SearchDocInput, StorageSearchReveal } from './search-doc';
@@ -28,18 +29,26 @@ import type { SearchDoc, SearchDocInput, StorageSearchReveal } from './search-do
 const IDB_RECORDS_PAGE = 50;
 const CACHE_ENTRIES_PAGE = 100;
 
+/** One enumerated row: its searchable line + its addressable identity
+ *  (see `SearchTarget`'s `rowKeys` contract for the per-kind format). */
+interface StorageDocLine {
+  line: string;
+  rowKey: string;
+}
+
 function storageDoc(
   docId: string,
   filename: string,
   origin: string,
   reveal: StorageSearchReveal,
   sectionName: string,
-  text: string,
+  lines: ReadonlyArray<StorageDocLine>,
 ): SearchDocInput {
+  const text = lines.map((l) => l.line).join('\n');
   const doc: SearchDoc = {
     docId,
     source: 'storage',
-    target: { kind: 'storage', reveal },
+    target: { kind: 'storage', reveal, rowKeys: lines.map((l) => l.rowKey) },
     displayId: null,
     filename,
     origin,
@@ -89,7 +98,7 @@ export async function enumerateStorageDocs(): Promise<SearchDocInput[]> {
         origin,
         { kind: 'dom', area },
         'Entries',
-        snapshot.entries.map((e) => `${e.key}: ${e.value}`).join('\n'),
+        snapshot.entries.map((e) => ({ line: `${e.key}: ${e.value}`, rowKey: e.key })),
       ),
     );
   }
@@ -102,7 +111,7 @@ export async function enumerateStorageDocs(): Promise<SearchDocInput[]> {
         origin,
         { kind: 'cookies' },
         'Cookies',
-        cookies.map((c) => `${c.name}=${c.value} ${c.domain}${c.path}`).join('\n'),
+        cookies.map((c) => ({ line: `${c.name}=${c.value} ${c.domain}${c.path}`, rowKey: jarCookieRowKey(c) })),
       ),
     );
   }
@@ -121,7 +130,10 @@ export async function enumerateStorageDocs(): Promise<SearchDocInput[]> {
                 origin,
                 { kind: 'idb', database: db.name, store: store.name },
                 'Records',
-                page.records.map((r) => `${r.primaryKeyPreview}: ${r.valuePreview}`).join('\n'),
+                page.records.map((r) => ({
+                  line: `${r.primaryKeyPreview}: ${r.valuePreview}`,
+                  rowKey: r.primaryKeyWire ?? '',
+                })),
               ),
             );
           }),
@@ -143,9 +155,10 @@ export async function enumerateStorageDocs(): Promise<SearchDocInput[]> {
               origin,
               { kind: 'cache', cache: cache.name },
               'Entries',
-              page.entries
-                .map((e) => `${e.method} ${e.url}${e.headersPreview ? ` ${e.headersPreview}` : ''}`)
-                .join('\n'),
+              page.entries.map((e) => ({
+                line: `${e.method} ${e.url}${e.headersPreview ? ` ${e.headersPreview}` : ''}`,
+                rowKey: `${e.method} ${e.url}`,
+              })),
             ),
           );
         }),

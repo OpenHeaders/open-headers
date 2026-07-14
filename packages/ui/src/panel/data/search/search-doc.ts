@@ -29,7 +29,19 @@ export type StorageSearchReveal =
 
 export type SearchTarget =
   | { kind: 'request'; requestId: string }
-  | { kind: 'storage'; reveal: StorageSearchReveal }
+  | {
+      kind: 'storage';
+      reveal: StorageSearchReveal;
+      /**
+       * Row identity per doc line (`rowKeys[i]` addresses line `i + 1`),
+       * interpreted by the reveal kind: the entry key (`dom`), the
+       * site-jar cookie row key (`cookies`), the record's lossless wire
+       * key (`idb`), or `method + ' ' + url` (`cache`). An empty string
+       * marks a row that can't be addressed (e.g. a record without a
+       * wire key) — the click falls back to the section reveal.
+       */
+      rowKeys: ReadonlyArray<string>;
+    }
   | { kind: 'console' };
 
 /**

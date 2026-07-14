@@ -269,7 +269,7 @@ describe('SearchClient — version-diffed doc sync', () => {
       build: () => ({
         docId: 'st:cookies',
         source: 'storage',
-        target: { kind: 'storage', reveal: { kind: 'cookies' } },
+        target: { kind: 'storage', reveal: { kind: 'cookies' }, rowKeys: ['session openheaders.io /|'] },
         displayId: null,
         filename: 'Cookies',
         origin: 'openheaders.io',

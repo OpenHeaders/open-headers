@@ -47,7 +47,7 @@ import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/te
 import { EnvSwitcherProvider, useEnvSwitcher } from '@openheaders/ui/workbench/services/env-switcher';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ConsoleView } from './components/ConsoleView';
+import { type ConsoleRevealRequest, ConsoleView } from './components/ConsoleView';
 import { PANEL_DEFAULT_SECTION_ID, PANEL_DOC_GROUPS } from './components/docs/registry';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
 import { InspectorEditorGroupRenderer } from './components/InspectorEditorGroupRenderer';
@@ -488,6 +488,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const storageSaveRefs = useRef<TabSaveRefMap>(new Map());
   const closeGuard = useTabCloseGuard(groups, storageSaveRefs);
   const [revealStorage, setRevealStorage] = useState<StorageRevealRequest | null>(null);
+  const [revealConsole, setRevealConsole] = useState<ConsoleRevealRequest | null>(null);
+  const handleConsoleRevealConsumed = useCallback(() => setRevealConsole(null), []);
   const openIdbRecord = useCallback(
     (request: OpenIdbRecordRequest & { frameId: number }) => {
       groups.addTab(buildIdbRecordTab({ ...request, timestamp: Date.now() }));
@@ -575,8 +577,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   // Search-result activation routes by the group's target: a network
   // match opens the request tab (highlight plumbing included), a
-  // storage match rides the same reveal seam the editor tabs use, a
-  // console match focuses the Console tool window.
+  // storage match rides the same reveal seam the editor tabs use —
+  // with the matched line's row key attached, so the section opens the
+  // exact row's document — and a console match focuses the Console
+  // tool window and scrolls to the matched message (the doc's line
+  // number IS the buffer position).
   const handleSearchTarget = useCallback(
     (target: SearchTarget, highlight: string, section: string, lineNumber: number, matchIndex: number) => {
       if (target.kind === 'request') {
@@ -585,11 +590,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       }
       if (target.kind === 'storage') {
         showStorageWindow();
-        setRevealStorage(target.reveal);
+        const row = target.rowKeys[lineNumber - 1];
+        setRevealStorage(row !== undefined && row !== '' ? { ...target.reveal, row } : target.reveal);
         return;
       }
       if (tl.state.hidden.includes('console')) tl.restoreWindow('console');
       tl.activateWindow('console');
+      setRevealConsole((prev) => ({ entryIndex: lineNumber - 1, nonce: (prev?.nonce ?? 0) + 1 }));
     },
     [handleSearchResult, showStorageWindow, tl],
   );
@@ -824,6 +831,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onRequestClick={handleCrossNav}
               onClear={() => consoleClient.store.clear()}
               onHide={() => tl.toggleWindow('console')}
+              reveal={revealConsole}
+              onRevealConsumed={handleConsoleRevealConsumed}
             />
           );
         case 'storage':

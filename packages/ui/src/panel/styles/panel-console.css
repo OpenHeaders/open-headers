@@ -55,6 +55,23 @@
   background: var(--dt-row-hover);
 }
 
+/* Flash pulse for a search-result jump — the traffic list's cross-row
+ * jump tint (dt-row--flash), held longer so the eye finds the message
+ * in a dense log. The view clears the class on its own timer. */
+.dt-console-row--flash {
+  animation: dt-console-row-flash 1600ms ease-out;
+}
+
+@keyframes dt-console-row-flash {
+  0%,
+  40% {
+    background: rgba(255, 213, 79, 0.55);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
 .dt-console-dot {
   flex: 0 0 auto;
   width: 6px;

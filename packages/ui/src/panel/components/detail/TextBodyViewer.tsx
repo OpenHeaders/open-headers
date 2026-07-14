@@ -70,6 +70,17 @@ export default function TextBodyViewer({
     else setPrettyPrint(false);
   }, [showPrettyPrint]);
 
+  // A search-jump into a body the sniffer already recognises (generic
+  // mime carrying JSON/XML/…) auto-applies the suggested parse: the
+  // user searched for content INSIDE the body, and the plain-text
+  // branch it would otherwise land in can't highlight or scroll to the
+  // match. Manual opens keep the explicit "parse" affordance.
+  const { suggestion, applyOverride } = sniffed;
+  useEffect(() => {
+    if (!searchQuery || lang || suggestion === null) return;
+    applyOverride(suggestion);
+  }, [searchQuery, lang, suggestion, applyOverride]);
+
   const togglePrettyPrint = useCallback(() => setPrettyPrint((p) => !p), []);
   const handleCursorChange = useCallback(
     (line: number, col: number) => setCursorInfo(`Line ${line}, Column ${col}`),

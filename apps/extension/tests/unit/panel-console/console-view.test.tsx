@@ -63,7 +63,7 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
 
 import type { HostNavigation } from '@openheaders/core/navigation';
 import { setHostNavigation } from '@openheaders/core/navigation';
-import { ConsoleView } from '@openheaders/ui/panel/components/ConsoleView';
+import { type ConsoleRevealRequest, ConsoleView } from '@openheaders/ui/panel/components/ConsoleView';
 import { resetConsolePrefs, setConsolePrefs } from '@openheaders/ui/panel/data/console-prefs';
 import type { ConsoleRequestJoin } from '@openheaders/ui/panel/data/console-request-join';
 import type { XhrLogConsoleEntry } from '@openheaders/ui/panel/data/console-xhr-log';
@@ -102,6 +102,8 @@ interface RenderOptions {
   onRequestClick?: (requestId: string) => void;
   contexts?: readonly JsContext[];
   xhrLogEntries?: readonly XhrLogConsoleEntry[];
+  reveal?: ConsoleRevealRequest | null;
+  onRevealConsumed?: () => void;
 }
 
 function renderView(entries: readonly ConsoleEntry[], options: RenderOptions = {}) {
@@ -114,6 +116,8 @@ function renderView(entries: readonly ConsoleEntry[], options: RenderOptions = {
       onRequestClick={options.onRequestClick ?? vi.fn()}
       onClear={vi.fn()}
       onHide={vi.fn()}
+      reveal={options.reveal ?? null}
+      onRevealConsumed={options.onRevealConsumed ?? vi.fn()}
     />,
   );
 }
@@ -195,6 +199,22 @@ describe('ConsoleView list', () => {
     fireEvent.click(screen.getByText('Default'));
     expect(screen.getByText('Default levels')).toBeTruthy();
     expect(container.querySelectorAll('.dt-console-row')).toHaveLength(3);
+  });
+
+  it('search-jump reveal flashes the matched row and consumes the request', () => {
+    const onRevealConsumed = vi.fn();
+    const { container } = renderView(entries, { reveal: { entryIndex: 1, nonce: 1 }, onRevealConsumed });
+    const rows = container.querySelectorAll('.dt-console-row');
+    expect(rows[1].className).toContain('dt-console-row--flash');
+    expect(rows[0].className).not.toContain('dt-console-row--flash');
+    expect(onRevealConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it('a reveal whose entry is not visible consumes without flashing', () => {
+    const onRevealConsumed = vi.fn();
+    const { container } = renderView(entries, { reveal: { entryIndex: 99, nonce: 1 }, onRevealConsumed });
+    expect(container.querySelector('.dt-console-row--flash')).toBeNull();
+    expect(onRevealConsumed).toHaveBeenCalledTimes(1);
   });
 
   it('text filter narrows by message content', () => {
@@ -416,6 +436,8 @@ describe('ConsoleView context selector + "Selected context only" (JS contexts Ph
         onRequestClick={vi.fn()}
         onClear={vi.fn()}
         onHide={vi.fn()}
+        reveal={null}
+        onRevealConsumed={vi.fn()}
       />,
     );
     expect(document.querySelector('.dt-console-context--warn')).toBeNull();
@@ -504,6 +526,8 @@ describe('ConsoleView settings pane (gear)', () => {
           onRequestClick={vi.fn()}
           onClear={vi.fn()}
           onHide={vi.fn()}
+          reveal={null}
+          onRevealConsumed={vi.fn()}
         />,
       );
 
@@ -584,6 +608,8 @@ describe('ConsoleView settings pane (gear)', () => {
         onRequestClick={vi.fn()}
         onClear={vi.fn()}
         onHide={vi.fn()}
+        reveal={null}
+        onRevealConsumed={vi.fn()}
       />,
     );
     view.rerender(
@@ -595,6 +621,8 @@ describe('ConsoleView settings pane (gear)', () => {
         onRequestClick={vi.fn()}
         onClear={vi.fn()}
         onHide={vi.fn()}
+        reveal={null}
+        onRevealConsumed={vi.fn()}
       />,
     );
     expect(screen.getByText('before nav')).toBeTruthy();

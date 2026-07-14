@@ -25,7 +25,7 @@ function storageDoc(id: string, text: string): SearchDoc {
   return {
     docId: `st:${id}`,
     source: 'storage',
-    target: { kind: 'storage', reveal: { kind: 'cookies' } },
+    target: { kind: 'storage', reveal: { kind: 'cookies' }, rowKeys: text.split('\n').map((_, i) => `row-${i}`) },
     displayId: null,
     filename: id,
     origin: 'openheaders.io',

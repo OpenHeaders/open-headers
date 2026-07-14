@@ -23,6 +23,7 @@ import {
   isCookieJarWritable,
   type JarCookie,
   type JarCookieEdit,
+  jarCookieRowKey,
   removeJarCookie,
   type SiteJarCookie,
   writeJarCookie,
@@ -52,15 +53,20 @@ import { IndexedDbSection, type OpenIdbRecordRequest } from './IndexedDbSection'
 import { StorageGrid } from './StorageGrid';
 import { CookieIcon, DatabaseIcon, TableIcon, UsagePieIcon } from './StorageNavIcons';
 import { ClearSiteDataControl, StorageQuotaCard } from './StorageQuotaCard';
+import { useActiveRowScroll } from './use-active-row-scroll';
 
 /** An editor-tab "Reveal in Storage" jump target — back to the record's
  *  IndexedDB store, the entry's DOM storage area, the Cookies section,
- *  or a Cache Storage cache's entry grid. */
+ *  or a Cache Storage cache's entry grid. `row` (a search-result jump)
+ *  additionally opens that row's document once the section's data is
+ *  in, so the grid highlights the exact matched row: the entry key
+ *  (`dom`), the jar cookie row key (`cookies`), the record's wire key
+ *  (`idb`), or `method + ' ' + url` (`cache`). */
 export type StorageRevealRequest =
-  | { kind: 'idb'; database: string; store: string }
-  | { kind: 'dom'; area: DomStorageArea }
-  | { kind: 'cookies' }
-  | { kind: 'cache'; cache: string };
+  | { kind: 'idb'; database: string; store: string; row?: string }
+  | { kind: 'dom'; area: DomStorageArea; row?: string }
+  | { kind: 'cookies'; row?: string }
+  | { kind: 'cache'; cache: string; row?: string };
 
 /** What an editor-tab open needs from a DOM storage row (plus the
  *  scope's frame, which the panel shell adds). */
@@ -140,6 +146,21 @@ export function StoragePanel({
   const [textFilter, setTextFilter] = useState('');
   const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [adding, setAdding] = useState(false);
+
+  // A reveal's row target, parked until the section's data is in — the
+  // per-kind effects below resolve it to a document open (which makes
+  // the grid row active) and bring the row into view.
+  const [pendingRow, setPendingRow] = useState<(StorageRevealRequest & { row: string }) | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const revealActiveRow = useActiveRowScroll(rootRef);
+  // The user moving to another section abandons the parked row —
+  // resolving it later would tear them right back out of where they
+  // went. Declared before the consume effect so the same-commit run
+  // order stays "clear stale, then park fresh".
+  // biome-ignore lint/correctness/useExhaustiveDependencies: section identity is the reset trigger
+  useEffect(() => {
+    setPendingRow(null);
+  }, [section]);
 
   const filterPredicate = useMemo(() => buildTextPredicate(textFilter, filterConfig), [textFilter, filterConfig]);
   const filterActive = !filterPredicate.empty;
@@ -256,6 +277,8 @@ export function StoragePanel({
     if (!reveal || section !== revealSection) return;
     if (reveal.kind === 'idb') selectIdbStore(reveal.database, reveal.store);
     if (reveal.kind === 'cache') selectCache(reveal.cache);
+    const row = reveal.row;
+    setPendingRow(row !== undefined && row !== '' ? { ...reveal, row } : null);
     onRevealConsumed();
   }, [reveal, revealSection, section, selectIdbStore, selectCache, onRevealConsumed]);
 
@@ -330,6 +353,61 @@ export function StoragePanel({
     if (filterPredicate.empty) return sortedCookies;
     return sortedCookies.filter((c) => cookieMatches(c, filterPredicate));
   }, [sortedCookies, filterPredicate]);
+
+  // ── Search-jump row resolution ────────────────────────────────────
+  // Each effect resolves a parked row once ITS section's data is in:
+  // opening the row's document is what makes the grid row active (the
+  // grids' single-click semantics), and the reveal scroll brings it
+  // into view. A row that no longer exists resolves to the plain
+  // section reveal — live storage may have moved since the search ran.
+  useEffect(() => {
+    if (pendingRow?.kind !== 'dom' || selectedFrameId === null) return;
+    onOpenDomEntry({ area: pendingRow.area, entryKey: pendingRow.row, frameId: selectedFrameId });
+    revealActiveRow();
+    setPendingRow(null);
+  }, [pendingRow, selectedFrameId, onOpenDomEntry, revealActiveRow]);
+
+  useEffect(() => {
+    if (pendingRow?.kind !== 'cookies' || sortedCookies === null) return;
+    const cookie = sortedCookies.find((c) => jarCookieRowKey(c) === pendingRow.row);
+    if (cookie !== undefined) {
+      openCookie(cookie);
+      revealActiveRow();
+    }
+    setPendingRow(null);
+  }, [pendingRow, sortedCookies, openCookie, revealActiveRow]);
+
+  useEffect(() => {
+    if (pendingRow?.kind !== 'idb') return;
+    if (idb.selection?.database !== pendingRow.database || idb.selection.store !== pendingRow.store) return;
+    if (idb.recordsPage === null) return;
+    const record = idb.recordsPage.records.find((r) => r.primaryKeyWire === pendingRow.row);
+    if (record !== undefined) {
+      openIdbRecord({
+        database: pendingRow.database,
+        store: pendingRow.store,
+        primaryKeyWire: pendingRow.row,
+        keyPreview: record.primaryKeyPreview,
+      });
+      revealActiveRow();
+    }
+    setPendingRow(null);
+  }, [pendingRow, idb.selection, idb.recordsPage, openIdbRecord, revealActiveRow]);
+
+  useEffect(() => {
+    if (pendingRow?.kind !== 'cache') return;
+    if (cacheStorage.selectedCache !== pendingRow.cache || cacheStorage.entriesPage === null) return;
+    // The row key is `method + ' ' + url` — methods are space-free tokens.
+    const sep = pendingRow.row.indexOf(' ');
+    const method = pendingRow.row.slice(0, sep);
+    const url = pendingRow.row.slice(sep + 1);
+    const entry = cacheStorage.entriesPage.entries.find((e) => e.method === method && e.url === url);
+    if (entry !== undefined) {
+      openCacheEntry(entry.url, entry.method);
+      revealActiveRow();
+    }
+    setPendingRow(null);
+  }, [pendingRow, cacheStorage.selectedCache, cacheStorage.entriesPage, openCacheEntry, revealActiveRow]);
 
   // ── Nav-rail match badges (settings-sidebar idiom) ────────────────
   // While a filter is typed, every section tab shows how many of its
@@ -530,7 +608,7 @@ export function StoragePanel({
           ].join('');
 
   return (
-    <div className="dt-panel">
+    <div className="dt-panel" ref={rootRef}>
       <PanelHeader
         wiring={wiring}
         title={

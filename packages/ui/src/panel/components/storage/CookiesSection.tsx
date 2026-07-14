@@ -8,7 +8,7 @@
 
 import type React from 'react';
 import { explainFilteredOut } from '../../data/cookies/cookie-enrich';
-import { cookieEditKey, type JarCookie, type JarCookieEdit, type SiteJarCookie } from '../../data/cookies/cookie-jar-cache';
+import { type JarCookie, type JarCookieEdit, jarCookieRowKey, type SiteJarCookie } from '../../data/cookies/cookie-jar-cache';
 import { walkListSelection } from '../walk-list-selection';
 import { CookieJarRow } from './CookieJarRow';
 import { JarCookieColumnInfo } from './JarCookieColumnInfo';
@@ -27,10 +27,6 @@ interface CookiesSectionProps {
   /** Whether a cookie is the ACTIVE editor tab's document — exactly
    *  that row renders highlighted, tracking tab switches. */
   isActive?: (cookie: SiteJarCookie) => boolean;
-}
-
-function rowKey(c: JarCookie): string {
-  return `${cookieEditKey(c.name, c.domain, c.path)}|${c.partitionKey ?? ''}`;
 }
 
 function safeParseUrl(url: string): URL | null {
@@ -105,7 +101,7 @@ export function CookiesSection({
       </div>
       {cookies.map((c, i) => (
         <CookieJarRow
-          key={rowKey(c)}
+          key={jarCookieRowKey(c)}
           cookie={c}
           entryIndex={i}
           scopeUrl={scopeUrl}

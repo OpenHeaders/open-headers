@@ -63,6 +63,15 @@ import { ConsoleSettingInfo } from './ConsoleSettingInfo';
 import { IconClear, IconCollapseAll, IconExpandAll } from './toolbar-icons';
 import { ToolbarMenuPopover } from './ToolbarMenuPopover';
 
+/** A search-jump into the console — scroll to and flash the matched
+ *  message. Consumed exactly once via `onRevealConsumed`. */
+export interface ConsoleRevealRequest {
+  /** Buffer index of the matched entry (the search doc's line − 1). */
+  entryIndex: number;
+  /** Distinguishes repeat jumps to the same entry. */
+  nonce: number;
+}
+
 interface ConsoleViewProps {
   entries: readonly ConsoleEntry[];
   /** Synthesized "finished/failed loading" rows derived from the network
@@ -77,6 +86,9 @@ interface ConsoleViewProps {
   /** Client-local clear — empties the view, leaves the engine log intact. */
   onClear: () => void;
   onHide: () => void;
+  /** Pending search-jump — consumed exactly once via `onRevealConsumed`. */
+  reveal: ConsoleRevealRequest | null;
+  onRevealConsumed: () => void;
 }
 
 /**
@@ -270,6 +282,8 @@ export function ConsoleView({
   onRequestClick,
   onClear,
   onHide,
+  reveal,
+  onRevealConsumed,
 }: ConsoleViewProps) {
   const [textFilter, setTextFilter] = useState('');
   const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
@@ -453,6 +467,35 @@ export function ConsoleView({
     onStickScroll();
     onWindowScroll();
   }, [onStickScroll, onWindowScroll]);
+
+  // ── Search-jump reveal ─────────────────────────────────────────────
+  // The matched entry's row key is its buffer index (`e${i}`). When the
+  // row is visible, center the virtualized scroller on it (heights are
+  // the closed per-row formula, so the offset is a prefix sum) and
+  // flash it; an entry hidden by the level mask / text filter / cutoff
+  // (or collapsed into a "group similar" head) degrades to the window
+  // focus the jump already performed. Consumed either way.
+  const [flashKey, setFlashKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (reveal === null) return;
+    const targetKey = `e${reveal.entryIndex}`;
+    const rowIndex = rows.findIndex((r) => r.rowKey === targetKey);
+    if (rowIndex >= 0) {
+      const body = bodyRef.current;
+      if (body !== null) {
+        let offset = 0;
+        for (let i = 0; i < rowIndex; i++) offset += rowHeights[i];
+        body.scrollTop = Math.max(0, offset - body.clientHeight / 2 + CONSOLE_ROW_PX / 2);
+      }
+      setFlashKey(targetKey);
+    }
+    onRevealConsumed();
+  }, [reveal, rows, rowHeights, onRevealConsumed]);
+  useEffect(() => {
+    if (flashKey === null) return;
+    const timer = setTimeout(() => setFlashKey(null), 1800);
+    return () => clearTimeout(timer);
+  }, [flashKey]);
 
   // Capture is live only on a CDP-attached, in-scope tab. "Debug mode off" is
   // the one out-of-scope case we can resolve in place (flip the master switch);
@@ -736,6 +779,7 @@ export function ConsoleView({
                     expanded={expanded.has(row.rowKey)}
                     onToggleExpanded={toggleExpanded}
                     onRequestClick={onRequestClick}
+                    flash={row.rowKey === flashKey}
                   />
                 ))}
                 {bottomPadPx > 0 && <div aria-hidden="true" style={{ height: bottomPadPx, flex: '0 0 auto' }} />}
@@ -755,16 +799,29 @@ interface ConsoleRowViewProps {
   expanded: boolean;
   onToggleExpanded: (rowKey: string) => void;
   onRequestClick: (requestId: string) => void;
+  /** Transient search-jump emphasis on the matched row. */
+  flash: boolean;
 }
 
-function ConsoleRowView({ row, resolvedFrames, expanded, onToggleExpanded, onRequestClick }: ConsoleRowViewProps) {
+function ConsoleRowView({
+  row,
+  resolvedFrames,
+  expanded,
+  onToggleExpanded,
+  onRequestClick,
+  flash,
+}: ConsoleRowViewProps) {
   const { entry, stack, request } = row;
   const requestId = entry.requestId;
   const expandable = stack !== null && stack.length > 0;
   const location = expandable ? resolvedFrameLocation(stack[0], resolvedFrames) : row.location;
   return (
     <>
-      <div className="dt-console-row" data-level={entry.level} data-source={entry.source}>
+      <div
+        className={`dt-console-row${flash ? ' dt-console-row--flash' : ''}`}
+        data-level={entry.level}
+        data-source={entry.source}
+      >
         {entry.source === 'command' || (entry.source === 'result' && entry.level !== 'error') ? (
           // REPL echo pair (Phase D): `›` marks the typed command, `‹` its
           // value — the browser's chevron vocabulary. An error result keeps

@@ -13,6 +13,7 @@ import type { ConsoleEntry } from '@openheaders/core/console-stream';
 import { type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
 import {
   __resetCookieJarCacheForTests,
+  jarCookieRowKey,
   type SiteJarCookie,
   setSiteCookieJarFetcher,
 } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
@@ -91,7 +92,9 @@ function makeStorageHost(): StorageInspectorHost {
       },
     ],
     readIndexedDbRecords: async () => ({
-      records: [{ keyPreview: '"s1"', primaryKeyPreview: '"s1"', valuePreview: '{token: "abc"}' }],
+      records: [
+        { keyPreview: '"s1"', primaryKeyPreview: '"s1"', primaryKeyWire: 'w:"s1"', valuePreview: '{token: "abc"}' },
+      ],
       truncated: false,
     }),
     readIndexedDbRecordDocument: async () => null,
@@ -170,20 +173,31 @@ describe('enumerateStorageDocs', () => {
     ]);
 
     expect(byId.get('st:dom:local')?.sections[0].text).toBe('theme: dark');
-    expect(byId.get('st:dom:local')?.target).toEqual({ kind: 'storage', reveal: { kind: 'dom', area: 'local' } });
+    expect(byId.get('st:dom:local')?.target).toEqual({
+      kind: 'storage',
+      reveal: { kind: 'dom', area: 'local' },
+      rowKeys: ['theme'],
+    });
 
     expect(byId.get('st:cookies')?.sections[0].text).toBe('session=abc123 openheaders.io/');
+    expect(byId.get('st:cookies')?.target).toEqual({
+      kind: 'storage',
+      reveal: { kind: 'cookies' },
+      rowKeys: [jarCookieRowKey(cookie)],
+    });
 
     expect(byId.get('st:idb:app-db/sessions')?.sections[0].text).toBe('"s1": {token: "abc"}');
     expect(byId.get('st:idb:app-db/sessions')?.target).toEqual({
       kind: 'storage',
       reveal: { kind: 'idb', database: 'app-db', store: 'sessions' },
+      rowKeys: ['w:"s1"'],
     });
 
     expect(byId.get('st:cache:v1-assets')?.sections[0].text).toBe('GET https://openheaders.io/logo.svg');
     expect(byId.get('st:cache:v1-assets')?.target).toEqual({
       kind: 'storage',
       reveal: { kind: 'cache', cache: 'v1-assets' },
+      rowKeys: ['GET https://openheaders.io/logo.svg'],
     });
 
     // Empty session storage yielded no doc; every doc is a storage doc.

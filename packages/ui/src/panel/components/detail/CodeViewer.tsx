@@ -23,7 +23,7 @@ import { useTheme } from '@openheaders/ui/context';
 import { useMonacoJwtEdit } from '@openheaders/ui/workbench/components/value-editors/useMonacoJwtEdit';
 import { useWholeBufferDecode } from '@openheaders/ui/workbench/components/value-editors/useWholeBufferDecode';
 import type * as monaco from 'monaco-editor';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 // Side-effect import: kicks Monaco's bootstrap at module load.
 import '@openheaders/ui/workbench/components/monaco/bootstrap';
 
@@ -70,6 +70,11 @@ export default function CodeViewer({
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
   const decorationIdsRef = useRef<string[]>([]);
+  // Monaco mounts asynchronously (lazy chunk + loader) — flipped by
+  // onMount so the decoration effect below re-runs once the editor
+  // exists; on a fresh open its first run precedes the mount and
+  // would otherwise silently drop the search highlight.
+  const [editorReady, setEditorReady] = useState(false);
   const { attachJwtDetection, jwtModal } = useMonacoJwtEdit({ readOnly });
 
   // Whole-buffer write-back rides the editor's edit stack (undoable,
@@ -93,6 +98,7 @@ export default function CodeViewer({
   // match positions would be stale relative to the formatted doc.
   // biome-ignore lint/correctness/useExhaustiveDependencies: value drives re-decoration after pretty-print
   useEffect(() => {
+    if (!editorReady) return;
     const editor = editorRef.current;
     const m = monacoRef.current;
     if (!editor || !m) return;
@@ -129,7 +135,7 @@ export default function CodeViewer({
     const activeMatch = matches[activeIdx];
     editor.revealRangeInCenter(activeMatch.range);
     editor.setSelection(activeMatch.range);
-  }, [searchQuery, searchMatchIndex, value]);
+  }, [searchQuery, searchMatchIndex, value, editorReady]);
 
   return (
     <div className="dt-codemirror-wrap">
@@ -161,6 +167,7 @@ export default function CodeViewer({
         onMount={(ed, m) => {
           editorRef.current = ed;
           monacoRef.current = m as unknown as typeof monaco;
+          setEditorReady(true);
           if (jwtDetection) attachJwtDetection(ed, m as unknown as typeof monaco);
           if (onCursorChange) {
             ed.onDidChangeCursorPosition((e) => {
