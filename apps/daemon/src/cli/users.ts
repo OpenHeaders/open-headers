@@ -46,7 +46,7 @@ function installStorage(config: DaemonConfig): void {
 export interface AddUserInput {
   displayName: string;
   email?: string;
-  /** Personal-seat key redeemed at the seat wall (`--personal-license`). */
+  /** Individual-seat key redeemed at the seat wall (`--individual-license`). */
   personalLicense?: string;
 }
 
@@ -73,20 +73,20 @@ export async function addUser(config: DaemonConfig, input: AddUserInput): Promis
       throw new Error(
         `seat limit reached (${result.seatLimit} active users) — deactivate a user to free a seat, ` +
           'install a license with more seats (ohd license install <file>), or redeem the joining ' +
-          "user's personal seat (--personal-license <key>; keys at https://openheaders.io/pricing).",
+          "user's individual seat (--individual-license <key>; keys at https://openheaders.io/pricing).",
       );
     }
     if (result.reason === 'personal-license-identity-mismatch') {
-      throw new Error("the personal seat belongs to a different email — it only admits the licensee's own address.");
+      throw new Error("the individual seat belongs to a different email — it only admits the licensee's own address.");
     }
     if (result.reason === 'personal-license-invalid') {
-      throw new Error('the personal-seat key is not usable (invalid, expired, or not a personal seat).');
+      throw new Error('the individual-seat key is not usable (invalid, expired, or not an individual seat).');
     }
     if (result.reason === 'personal-license-no-identity') {
-      throw new Error('a personal seat needs the user email to match — add the user with --email.');
+      throw new Error('an individual seat needs the user email to match — add the user with --email.');
     }
     if (result.reason === 'personal-seats-disabled') {
-      throw new Error('personal-seat redemption is disabled on this daemon (personalSeats: false).');
+      throw new Error('individual-seat redemption is disabled on this daemon (personalSeats: false).');
     }
     throw new Error('display name must not be empty.');
   } finally {

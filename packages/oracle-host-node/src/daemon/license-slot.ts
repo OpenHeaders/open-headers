@@ -209,7 +209,7 @@ export async function installLicenseSlot(options: LicenseSlotOptions): Promise<L
       if (candidate.kind === 'personal-seat') {
         return {
           ok: false,
-          error: 'this is a personal-seat license — redeem it when joining a full daemon, not as the daemon license',
+          error: 'this is an individual-seat license — redeem it when joining a full daemon, not as the daemon license',
         };
       }
       const compact = text.replace(/\s+/g, '');

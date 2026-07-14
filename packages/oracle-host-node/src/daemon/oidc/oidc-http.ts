@@ -165,7 +165,7 @@ export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttp
       // start navigation as a query param. It is not a bearer secret —
       // possession admits nobody without also completing SSO as the
       // licensee — so URL exposure carries no privilege.
-      const personalLicense = new URL(req.url ?? '', 'http://placeholder').searchParams.get('personal_license') ?? '';
+      const personalLicense = new URL(req.url ?? '', 'http://placeholder').searchParams.get('individual_license') ?? '';
       void (async () => {
         try {
           const begun = await service.beginLogin(origin, personalLicense ? { personalLicense } : undefined);

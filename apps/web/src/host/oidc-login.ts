@@ -105,15 +105,15 @@ export function describeOidcError(reason: string): string {
     case 'provider-unavailable':
       return 'The identity provider could not be reached. Try again in a moment.';
     case 'seat-limit-reached':
-      return 'Signed in, but this daemon has no free seats for a new user. Ask the daemon admin — or get in now with your own personal seat.';
+      return 'Signed in, but this daemon has no free seats for a new user. Ask the daemon admin — or get in now with your own individual seat.';
     case 'personal-seats-disabled':
-      return 'Personal seats are disabled on this daemon. Ask the daemon admin about a seat.';
+      return 'Individual seats are disabled on this daemon. Ask the daemon admin about a seat.';
     case 'personal-license-invalid':
-      return 'That personal seat key is not usable — it is invalid, expired, or not a personal seat. Check the key and try again.';
+      return 'That individual seat key is not usable — it is invalid, expired, or not an individual seat. Check the key and try again.';
     case 'personal-license-identity-mismatch':
-      return 'That personal seat belongs to a different email. It only admits the address it was purchased with.';
+      return 'That individual seat belongs to a different email. It only admits the address it was purchased with.';
     case 'personal-license-no-identity':
-      return 'Your sign-in carried no email to match the personal seat against. Ask the daemon admin.';
+      return 'Your sign-in carried no email to match the individual seat against. Ask the daemon admin.';
     default:
       return 'Single sign-on failed. Try again, or connect with a pairing token instead.';
   }
@@ -139,5 +139,5 @@ export function startOidcLogin(
   options?: { personalLicense?: string },
 ): void {
   const key = options?.personalLicense?.trim();
-  navigate(key ? `/auth/oidc/start?personal_license=${encodeURIComponent(key)}` : '/auth/oidc/start');
+  navigate(key ? `/auth/oidc/start?individual_license=${encodeURIComponent(key)}` : '/auth/oidc/start');
 }

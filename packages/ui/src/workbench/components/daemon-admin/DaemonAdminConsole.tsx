@@ -61,12 +61,12 @@ const PersonalSeatTag: React.FC<{ admission: NonNullable<DirectoryUser['admissio
     <Tooltip
       title={
         healthy
-          ? `Admitted by their own personal seat (${admission.licenseId}) — not counted against this daemon's pool.`
-          : `Their personal seat (${admission.licenseId}) is ${admission.status}. They stay signed in — a lapse never evicts — but the seat no longer renews.`
+          ? `Admitted by their own individual seat (${admission.licenseId}) — not counted against this daemon's pool.`
+          : `Their individual seat (${admission.licenseId}) is ${admission.status}. They stay signed in — a lapse never evicts — but the seat no longer renews.`
       }
     >
       <Tag color={healthy ? 'purple' : 'orange'} style={{ marginInlineEnd: 0 }}>
-        Personal seat{healthy ? '' : ` · ${admission.status}`}
+        Individual seat{healthy ? '' : ` · ${admission.status}`}
       </Tag>
     </Tooltip>
   );
@@ -434,7 +434,7 @@ const DaemonAdminConsole: React.FC = () => {
             {seatBlocked && (
               <Form.Item name="personalLicense" style={{ flex: 1, minWidth: 220 }}>
                 <Input
-                  placeholder="Personal seat key (oh-license.…)"
+                  placeholder="Individual seat key (oh-license.…)"
                   data-testid="daemon-admin-personal-license"
                 />
               </Form.Item>
@@ -448,7 +448,7 @@ const DaemonAdminConsole: React.FC = () => {
           {seatBlocked && (
             <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
               This daemon is at its seat limit. Add seats to your team license, or paste the joining user's own
-              personal seat key above — it admits them without using a pool seat. Personal seats are sold at{' '}
+              individual seat key above — it admits them without using a pool seat. Individual seats are sold at{' '}
               <Typography.Link href="https://openheaders.io/pricing" target="_blank">
                 openheaders.io/pricing
               </Typography.Link>
@@ -485,7 +485,7 @@ const DaemonAdminConsole: React.FC = () => {
                                   <Popconfirm
                                     key="absorb"
                                     title="Absorb this seat into the pool?"
-                                    description="The user becomes a regular pool seat and their personal license stops renewing here. This cannot be undone."
+                                    description="The user becomes a regular pool seat and their individual license stops renewing here. This cannot be undone."
                                     okText="Absorb"
                                     cancelText="Cancel"
                                     onConfirm={() => void handleAbsorbSeat(u.userId)}

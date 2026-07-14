@@ -114,7 +114,7 @@ describe('installLicenseSlot — install / remove', () => {
   it('refuses a personal-seat artifact as the daemon license', async () => {
     const slot = await makeSlot();
     const result = await slot.install(await signer.sign(makeLicense({ kind: 'personal-seat', seats: 1 })));
-    expect(result).toEqual({ ok: false, error: expect.stringContaining('personal-seat') });
+    expect(result).toEqual({ ok: false, error: expect.stringContaining('individual-seat') });
     expect(fs.existsSync(filePath)).toBe(false);
   });
 

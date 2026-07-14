@@ -193,7 +193,7 @@ export function LoginGate({
       {seatBlocked && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="login-gate-personal-seat">
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Have a personal seat? Paste its key to sign in without waiting on a free team seat — it admits the email it
+            Have an individual seat? Paste its key to sign in without waiting on a free team seat — it admits the email it
             was purchased with. Get one at{' '}
             <Typography.Link href="https://openheaders.io/pricing" target="_blank">
               openheaders.io/pricing
@@ -201,7 +201,7 @@ export function LoginGate({
             .
           </Typography.Text>
           <Input.Password
-            placeholder="Personal seat key (oh-license.…)"
+            placeholder="Individual seat key (oh-license.…)"
             value={personalKey}
             onChange={(e) => setPersonalKey(e.target.value)}
             disabled={pending}
@@ -216,7 +216,7 @@ export function LoginGate({
             }}
             data-testid="login-gate-personal-submit"
           >
-            Sign in with personal seat
+            Sign in with individual seat
           </Button>
         </div>
       )}

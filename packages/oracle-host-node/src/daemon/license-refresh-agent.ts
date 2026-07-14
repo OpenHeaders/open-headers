@@ -242,7 +242,7 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
       if (outcome.kind === 'transient') continue;
       const fresh = await verifyLicense(outcome.text, new Date(now()), ring);
       if (fresh.status !== 'licensed' && fresh.status !== 'grace') {
-        consoleLogger.warn(SCOPE, `license endpoint returned a personal-seat artifact the host refuses (${licenseId})`);
+        consoleLogger.warn(SCOPE, `license endpoint returned an individual-seat artifact the host refuses (${licenseId})`);
         continue;
       }
       if (fresh.license.licenseId !== licenseId) {
@@ -256,7 +256,7 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
           capability: 'daemon.license-refresh',
           decision: { allow: true },
         });
-        consoleLogger.info(SCOPE, `personal seat ${licenseId} refreshed (${changed} record)`);
+        consoleLogger.info(SCOPE, `individual seat ${licenseId} refreshed (${changed} record)`);
       }
     }
   };
