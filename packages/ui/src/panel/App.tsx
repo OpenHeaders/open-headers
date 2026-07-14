@@ -120,6 +120,10 @@ import { useFooterSummary } from './data/use-footer-summary';
 import { useHarExport } from './data/har/use-har-export';
 import { useInspectorTabJumps } from './data/use-inspector-tab-jumps';
 import { useRulesLookup } from './data/rule-create/use-rules-lookup';
+import { consoleDocInputs } from './data/search/console-search-docs';
+import type { SearchTarget } from './data/search/search-doc';
+import { enumerateStorageDocs } from './data/search/storage-search-docs';
+import type { SearchDocProviders } from './data/search/use-search';
 import { useSearchSession } from './data/search/use-search-session';
 
 // ── Shell event bus (created once, stable across renders) ────────────
@@ -363,7 +367,19 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // Search session lives at the panel level — SearchPanel itself
   // mounts/unmounts as the user toggles the Search tool window, and
   // we don't want that to discard the user's query and results.
-  const searchSession = useSearchSession(data.rows);
+  // Providers for the non-network sources: Console reads the live
+  // buffer through a ref (identity-stable provider object, fresh data
+  // at run time); Storage enumerates over the host RPCs on demand.
+  const consoleEntriesRef = useRef(consoleClient.snapshot.entries);
+  consoleEntriesRef.current = consoleClient.snapshot.entries;
+  const searchProviders = useMemo<SearchDocProviders>(
+    () => ({
+      console: () => consoleDocInputs(consoleEntriesRef.current),
+      storage: enumerateStorageDocs,
+    }),
+    [],
+  );
+  const searchSession = useSearchSession(data.rows, searchProviders);
   // Rules registry — needed to attribute which request/response
   // headers were added / modified / removed by an Open Headers rule.
   const rulesByUid = useRulesLookup();
@@ -556,6 +572,27 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     [showStorageWindow],
   );
   const handleRevealConsumed = useCallback(() => setRevealStorage(null), []);
+
+  // Search-result activation routes by the group's target: a network
+  // match opens the request tab (highlight plumbing included), a
+  // storage match rides the same reveal seam the editor tabs use, a
+  // console match focuses the Console tool window.
+  const handleSearchTarget = useCallback(
+    (target: SearchTarget, highlight: string, section: string, lineNumber: number, matchIndex: number) => {
+      if (target.kind === 'request') {
+        handleSearchResult(target.requestId, highlight, section, lineNumber, matchIndex);
+        return;
+      }
+      if (target.kind === 'storage') {
+        showStorageWindow();
+        setRevealStorage(target.reveal);
+        return;
+      }
+      if (tl.state.hidden.includes('console')) tl.restoreWindow('console');
+      tl.activateWindow('console');
+    },
+    [handleSearchResult, showStorageWindow, tl],
+  );
 
   // ── Editor group tab body ──────────────────────────────────
   const renderTabBody = useCallback(
@@ -816,7 +853,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
             <SearchPanel
               session={searchSession}
               onClose={() => tl.toggleWindow('search')}
-              onResultClick={handleSearchResult}
+              onResultClick={handleSearchTarget}
               docsActive={iconState('docs') !== undefined}
               onToggleDocs={() => tl.toggleWindow('docs')}
             />
@@ -867,7 +904,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       urlFilter,
       ui,
       handleCrossNav,
-      handleSearchResult,
+      handleSearchTarget,
       handleAnnotationJump,
       openIdbRecord,
       openDomStorageEntry,

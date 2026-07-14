@@ -1,11 +1,11 @@
 /**
- * Time-sliced, cancellable full-text search across inspector rows.
+ * Time-sliced, cancellable full-text search across searchable docs.
  *
  * ## Algorithm (host-DevTools-equivalent)
  *
  * The query compiles to a single native `RegExp` (with the `g` flag so
  * `exec` walks the string; `i` when case-insensitive). For each section
- * of each row we call `regex.exec(text)` in a tight loop — V8's
+ * of each doc we call `regex.exec(text)` in a tight loop — V8's
  * compiled Boyer-Moore/SIMD string search. Line numbers and surrounding
  * line text are computed inline per match; we never materialise a
  * lines array (`text.split('\n')` would be the bottleneck it used to be)
@@ -20,14 +20,16 @@
  * ## Execution model (why it doesn't freeze the UI)
  *
  * In production this module runs inside a dedicated Web Worker
- * (`workers/search.worker.ts`). That alone is enough to guarantee the
- * panel's main thread is never blocked by search work.
+ * (`workers/search.worker.ts`) over the worker's synced doc cache —
+ * the docs are flat strings, projected main-thread-side (see
+ * `network-search-docs.ts`). That alone guarantees the panel's main
+ * thread is never blocked by search work.
  *
  * Even inside the worker we time-slice: the scan loop checks elapsed
  * time after each match and yields (`scheduler.yield()` if available,
  * `MessageChannel` fallback) when `BUDGET_MS` is exceeded.
  *
- * Progress reports `currentDisplayId` + `currentSection` +
+ * Progress reports `current` + `currentSection` +
  * `sectionScanned/sectionTotal` so the UI can render
  * `Searching #42 (Response) 45%` ticking up, not a frozen label.
  *
@@ -36,35 +38,10 @@
  * fallback in non-browser test environments — see `search-transport`).
  */
 
-import type { FilterConfig } from '../filter-engine';
-import type { InspectorRow } from '../inspector-facet';
-import { currentHarEntry, currentResponseBody } from '../inspector-row-projection';
+import type { TextMatchConfig } from '../text-match';
+import type { SearchDoc, SearchSourceKind, SearchTarget } from './search-doc';
 
-/**
- * Canonical section names emitted by {@link buildSearchableText}.
- */
-export const SECTION = {
-  General: 'General',
-  RequestHeaders: 'Request Headers',
-  ResponseHeaders: 'Response Headers',
-  QueryParams: 'Query Params',
-  RequestBody: 'Request Body',
-  Response: 'Response',
-} as const;
-
-export type SectionName = (typeof SECTION)[keyof typeof SECTION];
-
-/**
- * Sections whose matches reference document coordinates the user can
- * navigate to (line + column inside a multi-line body). Headers, URL,
- * query params render as tables where only line has meaning.
- */
-const LINE_COLUMN_SECTIONS: ReadonlySet<string> = new Set<string>([SECTION.RequestBody, SECTION.Response]);
-
-/** True when `L:C` coordinates make sense for the given section. */
-export function sectionHasLineColumn(section: string): boolean {
-  return LINE_COLUMN_SECTIONS.has(section);
-}
+export { SECTION, type SectionName, sectionHasLineColumn } from './search-doc';
 
 export interface SearchMatch {
   lineNumber: number;
@@ -81,12 +58,16 @@ export interface SearchMatch {
 }
 
 export interface SearchGroup {
-  /** `lifecycle.requestId` — stable identity of the row. */
-  entryId: string;
-  displayId: number;
+  /** Stable identity of the matched document. */
+  docId: string;
+  source: SearchSourceKind;
+  /** What to open when a match in this group is activated. */
+  target: SearchTarget;
+  /** Network row number; `null` for non-network documents. */
+  displayId: number | null;
   filename: string;
   origin: string;
-  /** Wall-clock ms at which the lifecycle started. */
+  /** Wall-clock ms at which the document's subject started. */
   timestamp: number;
   matches: SearchMatch[];
 }
@@ -95,79 +76,30 @@ export interface SearchProgress {
   done: number;
   total: number;
   elapsedMs: number;
-  /** Row the scanner is currently inside, or null between rows. */
-  currentDisplayId?: number | null;
-  /** Section of the current row being scanned (e.g. "Response"). */
+  /** Label of the doc the scanner is currently inside (`#42` for a
+   *  network row, the filename otherwise), or null between docs. */
+  current?: string | null;
+  /** Section of the current doc being scanned (e.g. "Response"). */
   currentSection?: string | null;
   /** Byte-level progress within the current section. */
   sectionScanned?: number | null;
   sectionTotal?: number | null;
+  /** True when the scan stopped at the global match cap — more matches
+   *  exist than were streamed. */
+  truncated?: boolean;
 }
 
 /** Max synchronous work between yields. */
 const BUDGET_MS = 8;
-/** Hard cap on matches per row — prevents 1 row from owning the whole scan. */
+/** Hard cap on matches per doc — prevents 1 doc from owning the whole scan. */
 const MAX_MATCHES_PER_ENTRY = 500;
+/** Global cap across the whole run — a pathological query ("e" over a
+ *  huge capture) stops streaming here and reports `truncated`. */
+const MAX_TOTAL_MATCHES = 10_000;
 /** Display-cap for match line text — avoids shipping a full megabyte line to the UI. */
 const LINE_TEXT_CAP = 400;
 /** Context window before the match inside `lineText`. */
 const LINE_CTX_BEFORE = Math.floor(LINE_TEXT_CAP / 4);
-
-function extractFilename(url: string): { filename: string; origin: string } {
-  try {
-    const parsed = new URL(url);
-    const segments = parsed.pathname.split('/').filter(Boolean);
-    const filename = segments.length > 0 ? segments[segments.length - 1] : parsed.hostname;
-    return { filename, origin: parsed.hostname + parsed.pathname };
-  } catch {
-    return { filename: url, origin: url };
-  }
-}
-
-export function buildSearchableText(row: InspectorRow): Array<{ text: string; section: SectionName }> {
-  const parts: Array<{ text: string; section: SectionName }> = [];
-  const lc = row.lifecycle;
-  const har = currentHarEntry(lc);
-
-  const general = [lc.url, `${lc.method} ${lc.statusCode ?? ''} ${lc.statusText ?? ''}`].join('\n');
-  parts.push({ text: general, section: SECTION.General });
-
-  const reqHeaders = har?.request?.headers;
-  if (reqHeaders && reqHeaders.length > 0) {
-    parts.push({
-      text: reqHeaders.map((h) => `${h.name}: ${h.value}`).join('\n'),
-      section: SECTION.RequestHeaders,
-    });
-  }
-
-  const resHeaders = har?.response?.headers;
-  if (resHeaders && resHeaders.length > 0) {
-    parts.push({
-      text: resHeaders.map((h) => `${h.name}: ${h.value}`).join('\n'),
-      section: SECTION.ResponseHeaders,
-    });
-  }
-
-  const qs = har?.request?.queryString;
-  if (qs && qs.length > 0) {
-    parts.push({
-      text: qs.map((q) => `${q.name}=${q.value}`).join('\n'),
-      section: SECTION.QueryParams,
-    });
-  }
-
-  const postData = har?.request?.postData;
-  if (postData?.text) {
-    parts.push({ text: postData.text, section: SECTION.RequestBody });
-  }
-
-  const body = currentResponseBody(lc);
-  if (body?.content) {
-    parts.push({ text: body.content, section: SECTION.Response });
-  }
-
-  return parts;
-}
 
 const REGEX_ESCAPE = /[.*+?^${}()|[\]\\]/g;
 
@@ -176,7 +108,7 @@ const REGEX_ESCAPE = /[.*+?^${}()|[\]\\]/g;
  * (mandatory — `exec` otherwise loops forever on the first match).
  * Returns `null` for invalid regex or empty query.
  */
-export function compileMatcher(query: string, config: FilterConfig): RegExp | null {
+export function compileMatcher(query: string, config: TextMatchConfig): RegExp | null {
   const trimmed = query.trim();
   if (!trimmed) return null;
   const flags = config.matchCase ? 'g' : 'gi';
@@ -195,7 +127,7 @@ export function compileMatcher(query: string, config: FilterConfig): RegExp | nu
 }
 
 /** Back-compat helper retained for tests. Runtime scanner does not use it. */
-export function lineMatches(line: string, query: string, config: FilterConfig): boolean {
+export function lineMatches(line: string, query: string, config: TextMatchConfig): boolean {
   const matcher = compileMatcher(query, config);
   if (!matcher) return false;
   matcher.lastIndex = 0;
@@ -276,52 +208,50 @@ async function scanSectionAsync(
   return out;
 }
 
-async function scanRowAsync(
-  row: InspectorRow,
+async function scanDocAsync(
+  doc: SearchDoc,
   matcher: RegExp,
   cap: number,
   signal: AbortSignal,
   onSection: (section: string, scanned: number, total: number) => void,
 ): Promise<SearchGroup | null> {
-  const sections = buildSearchableText(row);
   const allMatches: SearchMatch[] = [];
 
-  for (const { text, section } of sections) {
+  for (const { text, name } of doc.sections) {
     if (signal.aborted) return null;
     if (allMatches.length >= cap) break;
     if (!text) continue;
 
     const remaining = cap - allMatches.length;
-    const matches = await scanSectionAsync(text, section, matcher, remaining, signal, (scanned, total) => {
-      onSection(section, scanned, total);
+    const matches = await scanSectionAsync(text, name, matcher, remaining, signal, (scanned, total) => {
+      onSection(name, scanned, total);
     });
     for (const m of matches) allMatches.push(m);
   }
 
   if (allMatches.length === 0) return null;
-  const lc = row.lifecycle;
-  const { filename, origin } = extractFilename(lc.url);
   return {
-    entryId: lc.requestId,
-    displayId: row.displayId,
-    filename,
-    origin,
-    timestamp: lc.startedAtMs,
+    docId: doc.docId,
+    source: doc.source,
+    target: doc.target,
+    displayId: doc.displayId,
+    filename: doc.filename,
+    origin: doc.origin,
+    timestamp: doc.timestamp,
     matches: allMatches,
   };
 }
 
 /**
- * Sync single-row scan — kept as a public export for tests. The live
+ * Sync single-doc scan — kept as a public export for tests. The live
  * panel path goes through `runSearch` which uses the async scanner.
  */
-export function scanEntry(row: InspectorRow, query: string, config: FilterConfig): SearchGroup | null {
+export function scanDoc(doc: SearchDoc, query: string, config: TextMatchConfig): SearchGroup | null {
   const matcher = compileMatcher(query, config);
   if (!matcher) return null;
-  const sections = buildSearchableText(row);
   const allMatches: SearchMatch[] = [];
 
-  for (const { text, section } of sections) {
+  for (const { text, name } of doc.sections) {
     if (allMatches.length >= MAX_MATCHES_PER_ENTRY) break;
     if (!text) continue;
 
@@ -347,7 +277,7 @@ export function scanEntry(row: InspectorRow, query: string, config: FilterConfig
         lineNumber: line,
         column: pos - lineStart + 1,
         lineText: text.slice(displayStart, displayEnd),
-        section,
+        section: name,
         sectionIndex: sectionIndex++,
       });
       if (m.index === matcher.lastIndex) matcher.lastIndex++;
@@ -356,14 +286,14 @@ export function scanEntry(row: InspectorRow, query: string, config: FilterConfig
   }
 
   if (allMatches.length === 0) return null;
-  const lc = row.lifecycle;
-  const { filename, origin } = extractFilename(lc.url);
   return {
-    entryId: lc.requestId,
-    displayId: row.displayId,
-    filename,
-    origin,
-    timestamp: lc.startedAtMs,
+    docId: doc.docId,
+    source: doc.source,
+    target: doc.target,
+    displayId: doc.displayId,
+    filename: doc.filename,
+    origin: doc.origin,
+    timestamp: doc.timestamp,
     matches: allMatches,
   };
 }
@@ -374,21 +304,26 @@ export interface SearchCallbacks {
   onDone: (progress: SearchProgress) => void;
 }
 
+function docLabel(doc: SearchDoc): string {
+  return doc.displayId != null ? `#${doc.displayId}` : doc.filename;
+}
+
 /**
- * Run a search across `rows`. Results stream via `onGroup`; progress
+ * Run a search across `docs`. Results stream via `onGroup`; progress
  * reports at every yield boundary (up to ~125 Hz); `onDone` fires once
  * the scan completes. If `signal.aborted`, the scan stops promptly and
- * no terminal callback fires.
+ * no terminal callback fires. The run stops early — `truncated` set on
+ * the final progress — once `MAX_TOTAL_MATCHES` have streamed.
  */
 export async function runSearch(
-  rows: readonly InspectorRow[],
+  docs: readonly SearchDoc[],
   query: string,
-  config: FilterConfig,
+  config: TextMatchConfig,
   signal: AbortSignal,
   callbacks: SearchCallbacks,
 ): Promise<void> {
   const start = performance.now();
-  const total = rows.length;
+  const total = docs.length;
   const matcher = compileMatcher(query, config);
 
   if (!matcher) {
@@ -397,7 +332,9 @@ export async function runSearch(
   }
 
   let done = 0;
-  let currentDisplayId: number | null = null;
+  let totalMatches = 0;
+  let truncated = false;
+  let current: string | null = null;
   let currentSection: string | null = null;
   let sectionScanned: number | null = null;
   let sectionTotal: number | null = null;
@@ -407,38 +344,46 @@ export async function runSearch(
       done,
       total,
       elapsedMs: performance.now() - start,
-      currentDisplayId,
+      current,
       currentSection,
       sectionScanned,
       sectionTotal,
     });
   };
 
-  for (const row of rows) {
+  for (const doc of docs) {
     if (signal.aborted) return;
+    if (totalMatches >= MAX_TOTAL_MATCHES) {
+      truncated = true;
+      break;
+    }
 
-    currentDisplayId = row.displayId;
+    current = docLabel(doc);
     currentSection = null;
     sectionScanned = null;
     sectionTotal = null;
     reportProgress();
 
-    const group = await scanRowAsync(row, matcher, MAX_MATCHES_PER_ENTRY, signal, (section, scanned, total) => {
+    const remaining = Math.min(MAX_MATCHES_PER_ENTRY, MAX_TOTAL_MATCHES - totalMatches);
+    const group = await scanDocAsync(doc, matcher, remaining, signal, (section, scanned, total) => {
       currentSection = section;
       sectionScanned = scanned;
       sectionTotal = total;
       reportProgress();
     });
     if (signal.aborted) return;
-    if (group) callbacks.onGroup(group);
+    if (group) {
+      totalMatches += group.matches.length;
+      callbacks.onGroup(group);
+    }
     done++;
 
-    currentDisplayId = null;
+    current = null;
     currentSection = null;
     sectionScanned = null;
     sectionTotal = null;
     reportProgress();
   }
 
-  callbacks.onDone({ done, total, elapsedMs: performance.now() - start });
+  callbacks.onDone({ done, total, elapsedMs: performance.now() - start, ...(truncated ? { truncated } : {}) });
 }

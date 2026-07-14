@@ -11,12 +11,14 @@ function match(
   };
 }
 
-function group(entryId: string, matches: SearchMatch[], displayId = 1): SearchGroup {
+function group(docId: string, matches: SearchMatch[], displayId = 1): SearchGroup {
   return {
-    entryId,
+    docId,
+    source: 'network',
+    target: { kind: 'request', requestId: docId },
     displayId,
-    filename: `${entryId}.txt`,
-    origin: `origin/${entryId}`,
+    filename: `${docId}.txt`,
+    origin: `origin/${docId}`,
     timestamp: 0,
     matches,
   };

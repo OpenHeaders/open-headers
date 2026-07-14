@@ -1,18 +1,21 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
-import { DEFAULT_FILTER_CONFIG } from '@openheaders/ui/panel/data/filter-engine';
 import type { InspectorRow } from '@openheaders/ui/panel/data/inspector-facet';
-import { SearchClient } from '@openheaders/ui/panel/data/search/search-client';
+import { networkDocInputs } from '@openheaders/ui/panel/data/search/network-search-docs';
+import { SearchClient, type SearchSubmission } from '@openheaders/ui/panel/data/search/search-client';
+import type { SearchDocInput } from '@openheaders/ui/panel/data/search/search-doc';
 import type { SearchGroup, SearchProgress } from '@openheaders/ui/panel/data/search/search-engine';
 import { createInlineTransport, type SearchTransport } from '@openheaders/ui/panel/data/search/search-transport';
 import type { MainToWorker, WorkerToMain } from '@openheaders/ui/panel/data/search/search-worker-protocol';
+import { DEFAULT_TEXT_MATCH_CONFIG } from '@openheaders/ui/panel/data/text-match';
 import { describe, expect, it } from 'vitest';
 
-function fakeCrashableTransport(): SearchTransport & { fireError(): void } {
+function fakeRecordingTransport(): SearchTransport & { sent: MainToWorker[]; fireError(): void } {
   const messageListeners = new Set<(msg: WorkerToMain) => void>();
   const errorListeners = new Set<(err: Error) => void>();
   const sent: MainToWorker[] = [];
   return {
+    sent,
     send: (msg) => {
       sent.push(msg);
     },
@@ -66,6 +69,21 @@ function row(id: string, responseBody: string, displayId = 1): InspectorRow {
   return { lifecycle: lc, displayId, consolidatedRetryOf: [] };
 }
 
+function submission(
+  rows: readonly InspectorRow[],
+  query: string,
+  extra: Partial<SearchSubmission> = {},
+): SearchSubmission {
+  return {
+    docs: networkDocInputs(rows),
+    coveredSources: ['network'],
+    query,
+    config: DEFAULT_TEXT_MATCH_CONFIG,
+    sources: ['network'],
+    ...extra,
+  };
+}
+
 async function drain() {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 }
@@ -76,7 +94,7 @@ interface Collected {
   done: SearchProgress | null;
 }
 
-function collector(): { cbs: Parameters<SearchClient['submit']>[3]; out: Collected } {
+function collector(): { cbs: Parameters<SearchClient['submit']>[1]; out: Collected } {
   const out: Collected = { groups: [], progressLast: null, done: null };
   return {
     out,
@@ -97,10 +115,10 @@ describe('SearchClient (over inline transport)', () => {
     const client = new SearchClient(createInlineTransport());
     const rows = [row('a', 'hello world', 1), row('b', 'nothing here', 2), row('c', 'hello again', 3)];
     const { cbs, out } = collector();
-    client.submit(rows, 'hello', DEFAULT_FILTER_CONFIG, cbs);
+    client.submit(submission(rows, 'hello'), cbs);
     await drain();
 
-    expect(out.groups.map((g) => g.entryId).sort()).toEqual(['a', 'c']);
+    expect(out.groups.map((g) => g.docId).sort()).toEqual(['net:a', 'net:c']);
     expect(out.done).not.toBeNull();
     expect(out.done?.done).toBe(3);
   });
@@ -109,14 +127,15 @@ describe('SearchClient (over inline transport)', () => {
     const client = new SearchClient(createInlineTransport());
     const bigBody = `${'x'.repeat(20_000)}needle${'y'.repeat(20_000)}`.repeat(100);
     const many = Array.from({ length: 20 }, (_, i) => row(`big-${i}`, bigBody, i + 1));
-    const small = [row('small', 'needle', 1)];
 
     const first = collector();
-    const firstHandle = client.submit(many, 'needle', DEFAULT_FILTER_CONFIG, first.cbs);
+    const firstHandle = client.submit(submission(many, 'needle'), first.cbs);
     await Promise.resolve();
 
+    // The second submit's row set shrank to one small row — the sync
+    // removes the big docs, so the new session finishes fast.
     const second = collector();
-    const secondHandle = client.submit(small, 'needle', DEFAULT_FILTER_CONFIG, second.cbs);
+    const secondHandle = client.submit(submission([row('small', 'needle', 1)], 'needle'), second.cbs);
 
     expect(secondHandle.sessionId).not.toBe(firstHandle.sessionId);
     await drain();
@@ -133,7 +152,7 @@ describe('SearchClient (over inline transport)', () => {
     const many = Array.from({ length: 20 }, (_, i) => row(`e-${i}`, bigBody, i + 1));
 
     const c = collector();
-    const handle = client.submit(many, 'needle', DEFAULT_FILTER_CONFIG, c.cbs);
+    const handle = client.submit(submission(many, 'needle'), c.cbs);
     await Promise.resolve();
     handle.abort();
     await drain();
@@ -144,9 +163,9 @@ describe('SearchClient (over inline transport)', () => {
   it('uses monotonic session ids', () => {
     const client = new SearchClient(createInlineTransport());
     const rows = [row('a', 'x', 1)];
-    const h1 = client.submit(rows, 'xx', DEFAULT_FILTER_CONFIG, collector().cbs);
-    const h2 = client.submit(rows, 'xx', DEFAULT_FILTER_CONFIG, collector().cbs);
-    const h3 = client.submit(rows, 'xx', DEFAULT_FILTER_CONFIG, collector().cbs);
+    const h1 = client.submit(submission(rows, 'xx'), collector().cbs);
+    const h2 = client.submit(submission(rows, 'xx'), collector().cbs);
+    const h3 = client.submit(submission(rows, 'xx'), collector().cbs);
     expect(h2.sessionId).toBeGreaterThan(h1.sessionId);
     expect(h3.sessionId).toBeGreaterThan(h2.sessionId);
   });
@@ -156,7 +175,7 @@ describe('SearchClient (over inline transport)', () => {
     const bigBody = `${'x'.repeat(20_000)}needle${'y'.repeat(20_000)}`.repeat(100);
     const many = Array.from({ length: 20 }, (_, i) => row(`e-${i}`, bigBody, i + 1));
     const c = collector();
-    client.submit(many, 'needle', DEFAULT_FILTER_CONFIG, c.cbs);
+    client.submit(submission(many, 'needle'), c.cbs);
     await Promise.resolve();
     client.terminate();
     await drain();
@@ -164,10 +183,10 @@ describe('SearchClient (over inline transport)', () => {
   });
 
   it('on transport error — unblocks active session with synthetic onDone and marks client dead', async () => {
-    const transport = fakeCrashableTransport();
+    const transport = fakeRecordingTransport();
     const client = new SearchClient(transport);
     const c = collector();
-    client.submit([row('a', 'needle', 1)], 'needle', DEFAULT_FILTER_CONFIG, c.cbs);
+    client.submit(submission([row('a', 'needle', 1)], 'needle'), c.cbs);
     expect(client.isDead()).toBe(false);
 
     transport.fireError();
@@ -177,14 +196,101 @@ describe('SearchClient (over inline transport)', () => {
   });
 
   it('submit after a crash synthesises an immediate onDone instead of hanging', async () => {
-    const transport = fakeCrashableTransport();
+    const transport = fakeRecordingTransport();
     const client = new SearchClient(transport);
-    client.submit([row('a', 'needle', 1)], 'needle', DEFAULT_FILTER_CONFIG, collector().cbs);
+    client.submit(submission([row('a', 'needle', 1)], 'needle'), collector().cbs);
     transport.fireError();
 
     const c = collector();
-    client.submit([row('b', 'needle', 1)], 'needle', DEFAULT_FILTER_CONFIG, c.cbs);
+    client.submit(submission([row('b', 'needle', 1)], 'needle'), c.cbs);
     await drain();
     expect(c.out.done).toEqual({ done: 0, total: 0, elapsedMs: 0 });
+  });
+});
+
+describe('SearchClient — version-diffed doc sync', () => {
+  function syncMessages(sent: MainToWorker[]): Array<Extract<MainToWorker, { type: 'sync' }>> {
+    return sent.filter((m): m is Extract<MainToWorker, { type: 'sync' }> => m.type === 'sync');
+  }
+
+  it('ships every doc on the first submit, nothing on an identical repeat', () => {
+    const transport = fakeRecordingTransport();
+    const client = new SearchClient(transport);
+    const rows = [row('a', 'hello', 1), row('b', 'world', 2)];
+
+    client.submit(submission(rows, 'hello'), collector().cbs);
+    client.submit(submission(rows, 'world'), collector().cbs);
+
+    const syncs = syncMessages(transport.sent);
+    expect(syncs).toHaveLength(1);
+    expect(syncs[0].upserts.map((d) => d.docId).sort()).toEqual(['net:a', 'net:b']);
+    // Both searches still went out.
+    expect(transport.sent.filter((m) => m.type === 'search')).toHaveLength(2);
+  });
+
+  it('re-ships only the row whose lifecycle identity changed', () => {
+    const transport = fakeRecordingTransport();
+    const client = new SearchClient(transport);
+    const stable = row('a', 'hello', 1);
+
+    client.submit(submission([stable, row('b', 'world', 2)], 'hello'), collector().cbs);
+    // Same id `b`, fresh lifecycle object — the reducer's "data changed" signal.
+    client.submit(submission([stable, row('b', 'world v2', 2)], 'hello'), collector().cbs);
+
+    const syncs = syncMessages(transport.sent);
+    expect(syncs).toHaveLength(2);
+    expect(syncs[1].upserts.map((d) => d.docId)).toEqual(['net:b']);
+    expect(syncs[1].removedIds).toEqual([]);
+  });
+
+  it('removes docs of covered sources that vanished from the submit', () => {
+    const transport = fakeRecordingTransport();
+    const client = new SearchClient(transport);
+    const a = row('a', 'hello', 1);
+    const b = row('b', 'world', 2);
+
+    client.submit(submission([a, b], 'hello'), collector().cbs);
+    client.submit(submission([a], 'hello'), collector().cbs);
+
+    const syncs = syncMessages(transport.sent);
+    expect(syncs).toHaveLength(2);
+    expect(syncs[1].upserts).toEqual([]);
+    expect(syncs[1].removedIds).toEqual(['net:b']);
+  });
+
+  it('keeps docs of sources the submit did not cover', () => {
+    const transport = fakeRecordingTransport();
+    const client = new SearchClient(transport);
+    const rows = [row('a', 'hello', 1)];
+    const storageInput: SearchDocInput = {
+      docId: 'st:cookies',
+      source: 'storage',
+      version: 'session=1',
+      build: () => ({
+        docId: 'st:cookies',
+        source: 'storage',
+        target: { kind: 'storage', reveal: { kind: 'cookies' } },
+        displayId: null,
+        filename: 'Cookies',
+        origin: 'openheaders.io',
+        timestamp: 0,
+        sections: [{ name: 'Cookies', text: 'session=1' }],
+      }),
+    };
+
+    client.submit(
+      submission(rows, 'hello', {
+        docs: [...networkDocInputs(rows), storageInput],
+        coveredSources: ['network', 'storage'],
+        sources: ['network', 'storage'],
+      }),
+      collector().cbs,
+    );
+    // Next submit covers network only — the cached storage doc survives.
+    client.submit(submission(rows, 'hello'), collector().cbs);
+
+    const syncs = syncMessages(transport.sent);
+    expect(syncs).toHaveLength(1);
+    expect(syncs[0].upserts.map((d) => d.docId).sort()).toEqual(['net:a', 'st:cookies']);
   });
 });

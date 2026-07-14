@@ -335,6 +335,11 @@ export function FilterSyntaxSection() {
             <strong>Console, Storage, Messages, Call Stack</strong> — plain text with the three toggles; Storage also
             counts matches per section on its navigation rail while you type.
           </DocParagraph>
+          <DocParagraph>
+            <strong>Search</strong> — plain text (or a regex under <code>.*</code>) with the three toggles, submitted
+            with Enter. The <em>Network / Storage / Console</em> chips pick which data it scans — at least one stays
+            selected — and each result opens its source: the request tab, the storage section, or the Console.
+          </DocParagraph>
         </Card>
       </Anchor>
     </div>

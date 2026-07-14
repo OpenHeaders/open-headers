@@ -9,8 +9,15 @@
  *
  * The actual scan runs off-thread in a Web Worker (see `search-client`).
  * This hook owns only UI-visible state: the current status, the
- * committed query/config the results correspond to, the streaming
- * results, and progress. It does no searching itself.
+ * committed query/config/sources the results correspond to, the
+ * streaming results, and progress. It does no searching itself.
+ *
+ * A run gathers the searchable docs first: network rows project
+ * synchronously (versioned by lifecycle reference, so unchanged rows
+ * cost nothing), extra sources come from the injected providers —
+ * Console synchronously from its buffer, Storage asynchronously over
+ * the host RPCs. Storage enumeration only happens when the run's
+ * sources include it.
  *
  * Submitting a new query preempts the previous run. A per-run
  * `disposed` flag in closure (installed into a ref so the next
@@ -19,19 +26,34 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_FILTER_CONFIG, type FilterConfig } from '../filter-engine';
 import type { InspectorRow } from '../inspector-facet';
+import { DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../text-match';
+import { networkDocInputs } from './network-search-docs';
 import { getDefaultSearchClient, type SearchHandle } from './search-client';
+import type { SearchDocInput, SearchSourceKind } from './search-doc';
+import { ALL_SEARCH_SOURCES } from './search-doc';
 import type { SearchGroup, SearchProgress } from './search-engine';
 
 export type SearchStatus = 'idle' | 'running' | 'done';
+
+/** Doc providers for the non-network sources. Absent provider ⇒ the
+ *  source contributes nothing (and its chip has nothing to find). */
+export interface SearchDocProviders {
+  /** Console docs from the live buffer — synchronous. */
+  console?: () => SearchDocInput[];
+  /** Storage docs over the host RPCs — asynchronous, invoked only when
+   *  the run's sources include `storage`. */
+  storage?: () => Promise<SearchDocInput[]>;
+}
 
 export interface SearchState {
   status: SearchStatus;
   /** The query the current results correspond to. Empty while idle. */
   committedQuery: string;
   /** The config the current results were computed with. */
-  committedConfig: FilterConfig;
+  committedConfig: TextMatchConfig;
+  /** The source kinds the current results were scanned over. */
+  committedSources: ReadonlyArray<SearchSourceKind>;
   /** Partial (while running) or final (when done) groups. */
   results: readonly SearchGroup[];
   /** Progress of the current or most recent run. */
@@ -43,7 +65,7 @@ const ZERO_PROGRESS: SearchProgress = { done: 0, total: 0, elapsedMs: 0 };
 export interface UseSearchResult {
   state: SearchState;
   /** Commit a query — aborts any in-flight search and starts a new one. */
-  run: (query: string, config: FilterConfig) => void;
+  run: (query: string, config: TextMatchConfig, sources: ReadonlyArray<SearchSourceKind>) => void;
   /** Abort the in-flight search. No-op when idle/done. */
   cancel: () => void;
 }
@@ -51,15 +73,18 @@ export interface UseSearchResult {
 const INITIAL_STATE: SearchState = {
   status: 'idle',
   committedQuery: '',
-  committedConfig: DEFAULT_FILTER_CONFIG,
+  committedConfig: DEFAULT_TEXT_MATCH_CONFIG,
+  committedSources: ALL_SEARCH_SOURCES,
   results: [],
   progress: ZERO_PROGRESS,
 };
 
-export function useSearch(rows: readonly InspectorRow[]): UseSearchResult {
+export function useSearch(rows: readonly InspectorRow[], providers?: SearchDocProviders): UseSearchResult {
   const [state, setState] = useState<SearchState>(INITIAL_STATE);
   const handleRef = useRef<SearchHandle | null>(null);
   const disposeCurrentRef = useRef<(() => void) | null>(null);
+  const providersRef = useRef<SearchDocProviders | undefined>(providers);
+  providersRef.current = providers;
 
   const endCurrentRun = useCallback(() => {
     disposeCurrentRef.current?.();
@@ -83,10 +108,10 @@ export function useSearch(rows: readonly InspectorRow[]): UseSearchResult {
   }, [endCurrentRun]);
 
   // Auto-cancel if the inspector is cleared mid-search (navigation,
-  // Clear button). The worker has its own structured-cloned snapshot
-  // so it would happily keep scanning and return results for row
-  // ids the UI no longer knows about — click-to-navigate would then
-  // silently no-op. Cleaner to drop the search and let the user re-run.
+  // Clear button). The worker's doc cache would happily keep scanning
+  // and return results for row ids the UI no longer knows about —
+  // click-to-navigate would then silently no-op. Cleaner to drop the
+  // search and let the user re-run.
   const statusRef = useRef(state.status);
   statusRef.current = state.status;
   useEffect(() => {
@@ -96,11 +121,11 @@ export function useSearch(rows: readonly InspectorRow[]): UseSearchResult {
   }, [rows.length, cancel]);
 
   const run = useCallback(
-    (query: string, config: FilterConfig) => {
+    (query: string, config: TextMatchConfig, sources: ReadonlyArray<SearchSourceKind>) => {
       const trimmed = query.trim();
       if (trimmed.length < 2) {
         endCurrentRun();
-        setState({ ...INITIAL_STATE, committedQuery: trimmed, committedConfig: config });
+        setState({ ...INITIAL_STATE, committedQuery: trimmed, committedConfig: config, committedSources: sources });
         return;
       }
 
@@ -110,6 +135,7 @@ export function useSearch(rows: readonly InspectorRow[]): UseSearchResult {
         status: 'running',
         committedQuery: trimmed,
         committedConfig: config,
+        committedSources: sources,
         results: [],
         progress: { done: 0, total: rows.length, elapsedMs: 0 },
       });
@@ -148,29 +174,55 @@ export function useSearch(rows: readonly InspectorRow[]): UseSearchResult {
         queueMicrotask(() => flush());
       };
 
-      const handle = getDefaultSearchClient().submit(rows, trimmed, config, {
-        onGroup: (g) => {
-          if (disposed) return;
-          batch.push(g);
-          scheduleFlush();
-        },
-        onProgress: (p) => {
-          if (disposed) return;
-          latestProgress = p;
-          scheduleFlush();
-        },
-        onDone: (p) => {
-          if (disposed) return;
-          latestProgress = p;
-          scheduleFlush('done');
-          disposed = true;
-          if (handleRef.current === handle) {
-            handleRef.current = null;
-            disposeCurrentRef.current = null;
+      // Gather docs, then submit. Network + Console are synchronous;
+      // Storage enumerates over async host RPCs, so the submit itself
+      // may land a beat later — the disposed flag covers a preemption
+      // that arrives while enumeration is in flight.
+      void (async () => {
+        const active = providersRef.current;
+        const docs: SearchDocInput[] = networkDocInputs(rows);
+        const covered: SearchSourceKind[] = ['network'];
+        if (active?.console && sources.includes('console')) {
+          docs.push(...active.console());
+          covered.push('console');
+        }
+        if (active?.storage && sources.includes('storage')) {
+          try {
+            docs.push(...(await active.storage()));
+            covered.push('storage');
+          } catch {
+            // Unreachable host / detached frame — search the rest.
           }
-        },
-      });
-      handleRef.current = handle;
+        }
+        if (disposed) return;
+
+        const handle = getDefaultSearchClient().submit(
+          { docs, coveredSources: covered, query: trimmed, config, sources },
+          {
+            onGroup: (g) => {
+              if (disposed) return;
+              batch.push(g);
+              scheduleFlush();
+            },
+            onProgress: (p) => {
+              if (disposed) return;
+              latestProgress = p;
+              scheduleFlush();
+            },
+            onDone: (p) => {
+              if (disposed) return;
+              latestProgress = p;
+              scheduleFlush('done');
+              disposed = true;
+              if (handleRef.current === handle) {
+                handleRef.current = null;
+                disposeCurrentRef.current = null;
+              }
+            },
+          },
+        );
+        handleRef.current = handle;
+      })();
     },
     [rows, endCurrentRun],
   );

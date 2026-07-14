@@ -114,12 +114,6 @@
   word-break: break-all;
 }
 
-.dt-search-panel-input-row {
-  display: flex;
-  padding: 4px 6px;
-  border-bottom: 1px solid var(--dt-border);
-}
-
 .dt-search-panel-results {
   flex: 1;
   overflow-y: auto;
@@ -158,6 +152,20 @@
   text-overflow: ellipsis;
   flex-shrink: 0;
   max-width: 50%;
+}
+
+/* Source badge on non-network groups — tells Storage/Console results
+ * apart from network rows at a glance (network groups carry `#id`). */
+.dt-search-group-source {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--dt-text-muted);
+  border: 1px solid var(--dt-border);
+  border-radius: 8px;
+  padding: 0 5px;
+  line-height: 1.6;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .dt-search-group-origin {

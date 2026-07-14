@@ -1,21 +1,40 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
-import type { FilterConfig } from '../data/filter-engine';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildResultView, type DisplayRow } from '../data/search/search-display';
+import type { SearchSourceKind, SearchTarget } from '../data/search/search-doc';
 import { type SearchGroup, sectionHasLineColumn } from '../data/search/search-engine';
 import type { SearchSession } from '../data/search/use-search-session';
+import type { TextMatchConfig } from '../data/text-match';
 import { FilterInput } from './FilterInput';
 
 interface SearchPanelProps {
   /** Persistent search session — owned by a stable parent so the
-   *  user's query, draft config, and streamed results survive panel
-   *  toggling. */
+   *  user's query, draft config, source chips, and streamed results
+   *  survive panel toggling. */
   session: SearchSession;
   onClose: () => void;
-  onResultClick: (entryId: string, highlight: string, section: string, lineNumber: number, matchIndex: number) => void;
+  onResultClick: (
+    target: SearchTarget,
+    highlight: string,
+    section: string,
+    lineNumber: number,
+    matchIndex: number,
+  ) => void;
   docsActive: boolean;
   onToggleDocs: () => void;
 }
+
+const SOURCE_CHIPS: ReadonlyArray<{ kind: SearchSourceKind; label: string }> = [
+  { kind: 'network', label: 'Network' },
+  { kind: 'storage', label: 'Storage' },
+  { kind: 'console', label: 'Console' },
+];
+
+const SOURCE_BADGES: Record<SearchSourceKind, string | null> = {
+  network: null,
+  storage: 'Storage',
+  console: 'Console',
+};
 
 function formatTimestamp(ms: number): string {
   const d = new Date(ms);
@@ -30,7 +49,7 @@ function formatElapsed(ms: number): string {
   return `${(ms / 1000).toFixed(2)} s`;
 }
 
-function highlightParts(text: string, query: string, config: FilterConfig): Array<{ text: string; hl: boolean }> {
+function highlightParts(text: string, query: string, config: TextMatchConfig): Array<{ text: string; hl: boolean }> {
   if (!query) return [{ text, hl: false }];
 
   if (config.regexMode) {
@@ -68,7 +87,7 @@ function highlightParts(text: string, query: string, config: FilterConfig): Arra
   return parts;
 }
 
-function HighlightedText({ text, query, config }: { text: string; query: string; config: FilterConfig }) {
+function HighlightedText({ text, query, config }: { text: string; query: string; config: TextMatchConfig }) {
   const parts = highlightParts(text, query, config);
   return (
     <>
@@ -113,7 +132,7 @@ interface ResultRowProps {
   group: SearchGroup;
   rows: readonly DisplayRow[];
   query: string;
-  config: FilterConfig;
+  config: TextMatchConfig;
   onResultClick: SearchPanelProps['onResultClick'];
   /** Absolute index of this group's first display row in the flat
    *  result list — used to derive per-row global indices for
@@ -124,12 +143,15 @@ interface ResultRowProps {
 }
 
 function ResultGroup({ group, rows, query, config, onResultClick, firstFlatIndex, activeGlobalIndex }: ResultRowProps) {
+  const sourceBadge = SOURCE_BADGES[group.source];
   return (
     <details className="dt-search-group" open>
       <summary>
-        <span className="dt-search-group-time">{formatTimestamp(group.timestamp)}</span>
+        {group.timestamp > 0 && <span className="dt-search-group-time">{formatTimestamp(group.timestamp)}</span>}
+        {sourceBadge !== null && <span className="dt-search-group-source">{sourceBadge}</span>}
         <span className="dt-search-group-file">
-          #{group.displayId} {group.filename}
+          {group.displayId != null ? `#${group.displayId} ` : ''}
+          {group.filename}
         </span>
         <span className="dt-search-group-origin">{group.origin}</span>
         <span className="dt-search-group-count" title={`${group.matches.length} matches in this file`}>
@@ -156,7 +178,7 @@ function ResultGroup({ group, rows, query, config, onResultClick, firstFlatIndex
             className={`dt-search-match${isActive ? ' dt-search-match--active' : ''}`}
             data-global-index={globalIndex}
             title={titleParts.join(' · ')}
-            onClick={() => onResultClick(group.entryId, query, r.section, r.lineNumber, r.sectionIndex)}
+            onClick={() => onResultClick(group.target, query, r.section, r.lineNumber, r.sectionIndex)}
           >
             <span className="dt-search-match-line">{ordinalLabel}</span>
             {showLineCol && (
@@ -183,6 +205,8 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
     setDraftQuery,
     draftConfig,
     setDraftConfig,
+    draftSources,
+    toggleDraftSource,
   } = session;
 
   const hasError = useMemo(() => {
@@ -197,10 +221,13 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
 
   const submit = useCallback(() => {
     if (hasError) return;
-    run(draftQuery, draftConfig);
-  }, [hasError, draftQuery, draftConfig, run]);
+    run(draftQuery, draftConfig, draftSources);
+  }, [hasError, draftQuery, draftConfig, draftSources, run]);
 
-  const isDirty = draftQuery.trim() !== state.committedQuery || draftConfig !== state.committedConfig;
+  const isDirty =
+    draftQuery.trim() !== state.committedQuery ||
+    draftConfig !== state.committedConfig ||
+    draftSources.join() !== state.committedSources.join();
 
   // Single-pass transformation from engine output to render-ready
   // view model — coalesced per-line display rows, grouped under each
@@ -243,7 +270,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
       const displayRow = groupBlock?.rows[ptr.rowIndex];
       if (!groupBlock || !displayRow) return;
       onResultClick(
-        groupBlock.group.entryId,
+        groupBlock.group.target,
         state.committedQuery,
         displayRow.section,
         displayRow.lineNumber,
@@ -284,67 +311,91 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
 
   return (
     <div className="dt-panel dt-search-panel">
-      <PanelHeader wiring={headerWiring} title={<strong>Search</strong>} />
-      <div className="dt-search-panel-input-row">
-        <FilterInput
-          value={draftQuery}
-          onChange={setDraftQuery}
-          config={draftConfig}
-          onConfigChange={setDraftConfig}
-          hasError={hasError}
-          placeholder="Search (press Enter)"
-          onKeyDown={handleInputKeyDown}
-        />
-        {state.status === 'running' ? (
-          <button
-            type="button"
-            className="dt-btn dt-btn-secondary dt-search-submit"
-            onClick={cancel}
-            title="Cancel search"
-          >
-            Cancel
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="dt-btn dt-btn-primary dt-search-submit"
-            onClick={submit}
-            disabled={hasError || draftQuery.trim().length < 2}
-            title="Run search (Enter)"
-          >
-            Search
-          </button>
-        )}
-        <button
-          type="button"
-          className="dt-toolbar-icon"
-          data-active={docsActive}
-          onClick={onToggleDocs}
-          title="Search syntax help"
-        >
-          <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-            <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-            <text
-              x="8"
-              y="12"
-              textAnchor="middle"
-              fill="currentColor"
-              fontSize="10"
-              fontFamily="serif"
-              fontStyle="italic"
+      <PanelHeader
+        wiring={headerWiring}
+        title={
+          <div className="dt-header-filter-row">
+            <strong className="dt-header-panel-name">Search</strong>
+            <div className="dt-filter-separator" />
+            <FilterInput
+              value={draftQuery}
+              onChange={setDraftQuery}
+              config={draftConfig}
+              onConfigChange={setDraftConfig}
+              hasError={hasError}
+              placeholder="Search (press Enter)"
+              onKeyDown={handleInputKeyDown}
+              ariaLabel="Search captured data"
+            />
+            <button
+              type="button"
+              className="dt-toolbar-icon"
+              data-active={docsActive}
+              onClick={onToggleDocs}
+              title="Search syntax help"
             >
-              i
-            </text>
-          </svg>
-        </button>
-      </div>
+              <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <text
+                  x="8"
+                  y="12"
+                  textAnchor="middle"
+                  fill="currentColor"
+                  fontSize="10"
+                  fontFamily="serif"
+                  fontStyle="italic"
+                >
+                  i
+                </text>
+              </svg>
+            </button>
+            <div className="dt-filter-separator" />
+            {/* Source chips — at least one stays selected: clicking the
+                last active chip is a no-op (the session enforces it). */}
+            <div className="dt-filter-pills">
+              {SOURCE_CHIPS.map((chip) => (
+                <button
+                  key={chip.kind}
+                  type="button"
+                  className="dt-filter-pill"
+                  data-active={draftSources.includes(chip.kind)}
+                  onClick={() => toggleDraftSource(chip.kind)}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+            <div className="dt-filter-separator" />
+            {state.status === 'running' ? (
+              <button
+                type="button"
+                className="dt-btn dt-btn-secondary dt-search-submit"
+                onClick={cancel}
+                title="Cancel search"
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="dt-btn dt-btn-primary dt-search-submit"
+                onClick={submit}
+                disabled={hasError || draftQuery.trim().length < 2}
+                title="Run search (Enter)"
+              >
+                Search
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {state.status === 'running' && (
         <>
           <SearchProgressBar done={state.progress.done} total={state.progress.total} />
           <div className="dt-search-panel-status dt-search-panel-status--running">
             Searching… {state.progress.done} / {state.progress.total}
-            {state.progress.currentDisplayId != null ? ` · #${state.progress.currentDisplayId}` : ''}
+            {state.progress.current != null ? ` · ${state.progress.current}` : ''}
             {state.progress.currentSection ? ` (${state.progress.currentSection})` : ''}
             {state.progress.sectionTotal != null && state.progress.sectionTotal > 64 * 1024
               ? ` · ${Math.round(((state.progress.sectionScanned ?? 0) / state.progress.sectionTotal) * 100)}%`
@@ -369,7 +420,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
         {state.status === 'running' && state.results.length === 0 && <SearchSkeleton />}
         {groupedDisplay.map(({ group, rows, firstFlatIndex }) => (
           <ResultGroup
-            key={group.entryId}
+            key={group.docId}
             group={group}
             rows={rows}
             query={state.committedQuery}
@@ -391,6 +442,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
           {totalMatches > 0
             ? `Found ${totalMatches} match${totalMatches === 1 ? '' : 'es'} in ${totalFiles} file${totalFiles === 1 ? '' : 's'} · ${formatElapsed(state.progress.elapsedMs)}`
             : `No results · ${formatElapsed(state.progress.elapsedMs)}`}
+          {state.progress.truncated ? ' · capped — refine the query to see the rest' : ''}
         </div>
       )}
     </div>
