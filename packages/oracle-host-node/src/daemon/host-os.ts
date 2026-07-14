@@ -6,6 +6,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import os from 'node:os';
 import type { PlatformKind } from '@openheaders/core/utils';
 
 /**
@@ -54,4 +55,21 @@ export function detectNodeHostOs(): PlatformKind | undefined {
     default:
       return undefined;
   }
+}
+
+/**
+ * The machine's hostname, first label, lower-cased — how this host is
+ * named when it answers work on a peer's behalf (the executed-run
+ * `executedOn` attribution). Mirrors the mDNS instance label so the
+ * name a user discovers the host by is the name their runs credit.
+ */
+export function hostDisplayLabel(): string {
+  let raw: string;
+  try {
+    raw = os.hostname();
+  } catch {
+    raw = '';
+  }
+  const label = raw.split('.')[0]?.trim().toLowerCase() ?? '';
+  return label !== '' ? label : 'openheaders-daemon';
 }

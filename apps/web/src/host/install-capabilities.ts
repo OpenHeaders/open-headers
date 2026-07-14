@@ -18,6 +18,12 @@ registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorks
 // sheet and hides browser-only knobs.
 registerCapability('requestRuntime', () => 'node');
 
+// …and that stack is REMOTE: the serving host's machine makes the
+// egress connection, so the target sees ITS IP and network locale, not
+// this device's. Named by the origin the user typed to reach this tab —
+// the Send hint and the response's "Sent from" attribution read it.
+registerCapability('remoteRequestDispatch', () => window.location.host);
+
 // External links open a plain new tab; the browser owns session trust.
 registerCapability('openExternalUrl', (url) => {
   window.open(url, '_blank', 'noopener');

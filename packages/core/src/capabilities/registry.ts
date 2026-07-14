@@ -254,6 +254,18 @@ export interface Capabilities {
   scriptRuntime?: () => ScriptExecutionMode;
 
   /**
+   * Declares that this surface's Sends FORWARD to a remote answering
+   * host instead of executing locally, and names that host as the user
+   * knows it (the tab's serving origin). The response's egress IP and
+   * network locale belong to that host, not this device — the Send
+   * button's hint and the response meta strip's "Sent from" attribution
+   * key off it. Registered only by the web app; desktop and extension
+   * surfaces execute on their own machine and leave it absent, which
+   * keeps those surfaces free of remote-execution copy.
+   */
+  remoteRequestDispatch?: () => string;
+
+  /**
    * Declares that FORWARDED sends run scripts on the answering
    * back-end, and names the mode they run under — always `'safe'`: a
    * peer-forwarded send never rides anything else, so this is a fact,

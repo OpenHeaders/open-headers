@@ -151,6 +151,19 @@ export interface ExecutedRequestSnapshot {
    * the jar was off or nothing was stored.
    */
   cookiesCaptured?: string[];
+  /**
+   * The remote host that executed this send on the caller's behalf — a
+   * peer-forwarded dispatch answered by a connected back-end. Stamped
+   * by the ANSWERING host at run time, so the attribution (the egress
+   * IP / locale the target saw belongs to that machine, not this
+   * surface's) survives reconnecting to a different back-end. Absent =
+   * the send executed on this surface's own host.
+   */
+  executedOn?: {
+    kind: 'backend';
+    /** The executing machine's hostname label. */
+    name: string;
+  };
   /** Non-null when the request failed before producing a response. */
   error: string | null;
   /** Actionable remedy for the failure — present only alongside

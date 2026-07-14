@@ -32,7 +32,7 @@
  */
 
 import { mkdtemp, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseWorkspaceExport, type WorkspaceExport } from '@openheaders/core/workspace-export';
 import {
@@ -360,6 +360,31 @@ test('flipping backend.allowPeerExecute on lets the same Send return a real snap
   expect(echo.url).toBe('/echo');
 });
 
+// ── Egress attribution: the run says WHERE it executed ───────────────
+// A forwarded send's egress connection is the serving host's — the
+// target saw ITS IP and locale, not the tab device's. The answering
+// host stamps `executedOn` at run time; the tab's meta strip renders
+// the "Sent from" tag, and the Send button's tooltip sets the
+// expectation before the first send.
+
+test('the response meta strip attributes the run to the serving host', async () => {
+  // The serving desktop runs in this same test process's machine — its
+  // hostname label is computable here.
+  const expectedLabel = hostname().split('.')[0]?.trim().toLowerCase() ?? '';
+  const tag = page.getByTestId('oh-response-executed-on').filter({ visible: true });
+  await tag.waitFor({ state: 'visible', timeout: 15_000 });
+  await expect(tag).toContainText(`Sent from ${expectedLabel}`);
+});
+
+test('the Send tooltip names the connected back-end before the first send', async () => {
+  const sendButton = page.getByRole('button', { name: /Send$/ }).filter({ visible: true });
+  await sendButton.hover();
+  const tooltip = page.locator('.ant-tooltip').filter({ visible: true });
+  await expect(tooltip).toContainText(`Runs on 127.0.0.1:${DAEMON_PORT} — the connected back-end`);
+  // Park the pointer elsewhere so the tooltip never occludes later legs.
+  await page.mouse.move(0, 0);
+});
+
 // ── The jar loop over the wire, keyed by the tab's stamped workspace ─
 
 test('a jar-enabled login send captures the cookie mid-chain daemon-side', async () => {
@@ -411,6 +436,7 @@ test('a scripted forwarded Send runs Safe on the serving host and stamps the mod
       error: string | null;
       status: number;
       body: string;
+      executedOn?: { kind: string; name: string };
       scripts?: {
         mode?: string;
         preRequest?: { succeeded: boolean };
@@ -449,6 +475,9 @@ test('a scripted forwarded Send runs Safe on the serving host and stamps the mod
   expect(snapshot?.scripts?.postResponse?.assertions).toEqual([
     expect.objectContaining({ name: 'script header reached the wire', passed: true }),
   ]);
+  // Egress attribution rides the raw channel too, not only the UI path.
+  expect(snapshot?.executedOn?.kind).toBe('backend');
+  expect(snapshot?.executedOn?.name).toBe(hostname().split('.')[0]?.trim().toLowerCase());
 });
 
 test('the Settings tab states the forwarded script posture as a fact row', async () => {

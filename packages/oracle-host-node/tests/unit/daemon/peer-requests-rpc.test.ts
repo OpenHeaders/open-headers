@@ -129,6 +129,28 @@ describe('createPeerRequestsRpc — executeRequest', () => {
     expect(h.hasCapability).toHaveBeenCalledWith(expect.anything(), 'workspace.write', { workspaceId: 'ws-active' });
   });
 
+  it('stamps executedOn onto the returned snapshot — this host made the egress connection', async () => {
+    const snapshot = { status: 200, statusText: 'OK', url: 'https://api.openheaders.io/x', error: null };
+    const execute = vi.fn(async () => ({ success: true, snapshot }) as unknown as ExecuteRequestRpcResult);
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    const result = (await rpc.dispatch({ type: 'executeRequest', draft: {} }, PEER)) as ExecuteRequestRpcResult;
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.executedOn?.kind).toBe('backend');
+    expect(result.snapshot?.executedOn?.name).toMatch(/^[^.]+$/);
+    expect(result.snapshot?.executedOn?.name.length).toBeGreaterThan(0);
+    // The stamp decorates — the wire facts pass through untouched.
+    expect(result.snapshot?.status).toBe(200);
+  });
+
+  it('stamps executedOn on error snapshots too — where the send failed is still this host', async () => {
+    const snapshot = { status: 0, statusText: '', url: '', error: 'socket hang up' };
+    const execute = vi.fn(async () => ({ success: true, snapshot }) as unknown as ExecuteRequestRpcResult);
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    const result = (await rpc.dispatch({ type: 'executeRequest', draft: {} }, PEER)) as ExecuteRequestRpcResult;
+    expect(result.snapshot?.error).toBe('socket hang up');
+    expect(result.snapshot?.executedOn?.kind).toBe('backend');
+  });
+
   it('denies without reaching the handler, with the decision audited', async () => {
     h.decision = { allow: false, reason: 'no-grant' };
     const execute = vi.fn(async () => ({ success: true }));

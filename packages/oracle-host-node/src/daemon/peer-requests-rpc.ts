@@ -37,6 +37,7 @@ import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-wo
 import type { WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
 import { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
+import { hostDisplayLabel } from './host-os';
 import { getHostScriptCapability } from './script-capability';
 
 /** Honest opt-in refusal — the web seam renders it on the Send surface. */
@@ -95,8 +96,17 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
       }
 
       switch (type) {
-        case 'executeRequest':
-          return await executeRequest(message);
+        case 'executeRequest': {
+          // Egress attribution: THIS machine made (or attempted) the
+          // connection on the peer's behalf — the target saw its IP and
+          // network locale, not the calling surface's. Stamped at run
+          // time on success and error snapshots alike; refusals throw
+          // above and carry no snapshot to stamp.
+          const result = await executeRequest(message);
+          return result.snapshot
+            ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
+            : result;
+        }
         case 'getCookieJarSummary':
           return { cookies: peekCookieJar(workspaceId)?.list() ?? [] };
         case 'getScriptRuntimeInfo':

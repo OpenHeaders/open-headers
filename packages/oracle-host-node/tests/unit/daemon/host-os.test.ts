@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectNodeHostOs, parseOsRelease } from '../../../src/daemon/host-os';
+import { detectNodeHostOs, hostDisplayLabel, parseOsRelease } from '../../../src/daemon/host-os';
 
 describe('parseOsRelease', () => {
   it('resolves distros from the ID field', () => {
@@ -25,5 +25,14 @@ describe('detectNodeHostOs', () => {
     // The test process runs on macOS (dev) or Linux (CI) — both must
     // resolve to a concrete mark, never the undefined fallthrough.
     expect(['macos', 'windows', 'ubuntu', 'debian', 'fedora', 'linux']).toContain(kind);
+  });
+});
+
+describe('hostDisplayLabel', () => {
+  it('yields the lower-cased first hostname label, never empty', () => {
+    const label = hostDisplayLabel();
+    expect(label.length).toBeGreaterThan(0);
+    expect(label).not.toContain('.');
+    expect(label).toBe(label.toLowerCase());
   });
 });

@@ -475,6 +475,7 @@ export const workbenchEditors = {
   'workbench.editors.request.send.sending': 'Sending…',
   'workbench.editors.request.send.unresolvedTooltip':
     'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.',
+  'workbench.editors.request.send.remoteDispatchHint': 'Runs on {host} — the connected back-end',
   'workbench.editors.request.schemeHint':
     'Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in.',
 
@@ -967,6 +968,10 @@ export const workbenchEditors = {
   'workbench.editors.request.response.meta.scriptsDeveloperMode': 'Scripts: Developer mode',
   'workbench.editors.request.response.meta.scriptsDeveloperModeSummary':
     'This request’s pre-request / post-response scripts ran in Developer mode — the full runtime this workspace explicitly opted into on this device. The mode is recorded on this run, so the marker stays accurate even if the setting changes later.',
+  'workbench.editors.request.response.meta.executedOnTag': 'Sent from {name}',
+  'workbench.editors.request.response.meta.executedOnTitle': 'Executed on the connected back-end',
+  'workbench.editors.request.response.meta.executedOnSummary':
+    'This request was sent by "{name}" — the back-end this surface is connected to — not from this device. The target server saw that machine’s IP address and network location, so geo- or IP-based behavior reflects where the back-end runs. Recorded on this run by the host that executed it.',
   'workbench.editors.request.response.meta.cookieJar': 'Cookie jar',
   'workbench.editors.request.response.meta.cookieJarSummary':
     'This request used the workspace’s in-memory cookie jar: matching stored cookies were attached automatically, and Set-Cookie responses were kept for later jar-enabled sends.',

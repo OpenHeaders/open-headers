@@ -458,6 +458,18 @@ function scriptsModeContent(mode: 'safe' | 'developer', t: Translate): InfoPopov
       };
 }
 
+/** Popover for the neutral tag on a run a REMOTE host executed on this
+ *  surface's behalf (a forwarded send answered by the connected
+ *  back-end) — attribution of where the egress connection was actually
+ *  made, stamped by the answering host at run time. */
+function executedOnContent(name: string, t: Translate): InfoPopoverContent {
+  return {
+    title: t('workbench.editors.request.response.meta.executedOnTitle'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.executedOnSummary', { name }),
+  };
+}
+
 function networkContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopoverContent {
   return {
     title: t('workbench.editors.request.response.meta.networkTitle'),
@@ -568,6 +580,16 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
               {response.scripts.mode === 'safe'
                 ? t('workbench.editors.request.response.meta.scriptsSafeMode')
                 : t('workbench.editors.request.response.meta.scriptsDeveloperMode')}
+            </Tag>
+          </InfoPopover>
+        </>
+      )}
+      {response.executedOn !== undefined && (
+        <>
+          <MetaDot />
+          <InfoPopover content={executedOnContent(response.executedOn.name, t)} trigger="hover">
+            <Tag color="default" data-testid="oh-response-executed-on" style={{ marginInlineEnd: 0, cursor: 'help' }}>
+              {t('workbench.editors.request.response.meta.executedOnTag', { name: response.executedOn.name })}
             </Tag>
           </InfoPopover>
         </>

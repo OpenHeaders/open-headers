@@ -28,6 +28,7 @@
  */
 
 import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
+import { getCapability } from '@openheaders/core/capabilities';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
@@ -600,6 +601,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     />
   );
 
+  // Surfaces whose Sends execute on a remote host (the web tab's
+  // serving daemon) set the expectation at the button: the egress
+  // connection — the IP and locale the target sees — is that host's.
+  const remoteDispatchHost = getCapability('remoteRequestDispatch')?.();
+
   const headerActions = (
     <Tooltip
       placement="bottom"
@@ -607,7 +613,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         hasUnresolvedRefs ? (
           t('workbench.editors.request.send.unresolvedTooltip')
         ) : (
-          <ShortcutHintTitle label={SEND_SHORTCUT}>{t('workbench.editors.request.send.label')}</ShortcutHintTitle>
+          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+            <ShortcutHintTitle label={SEND_SHORTCUT}>{t('workbench.editors.request.send.label')}</ShortcutHintTitle>
+            {remoteDispatchHost !== undefined && (
+              <span style={{ fontSize: 11, opacity: 0.75 }}>
+                {t('workbench.editors.request.send.remoteDispatchHint', { host: remoteDispatchHost })}
+              </span>
+            )}
+          </span>
         )
       }
     >
