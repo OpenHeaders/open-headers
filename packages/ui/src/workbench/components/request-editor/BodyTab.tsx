@@ -230,16 +230,21 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
       )}
 
       {(body.type === 'json' || body.type === 'xml' || body.type === 'text') && (
-        <div style={{ flex: 1, minHeight: 240, display: 'flex', flexDirection: 'column' }}>
-          <CodeEditor
-            value={body.content}
-            onChange={(content) => onChange(rawBodyOf(raw, content))}
-            language={rawLangForEditor}
-            fill
-            valueDetection
-            actions="external"
-            actionsRef={rawActionsRef}
-          />
+        // Absolute inset host — see ScriptsTab: a fill editor must not
+        // contribute intrinsic height or Monaco's inline height ratchets
+        // the scroller's content size and the pane never shrinks back.
+        <div style={{ flex: 1, minHeight: 240, position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+            <CodeEditor
+              value={body.content}
+              onChange={(content) => onChange(rawBodyOf(raw, content))}
+              language={rawLangForEditor}
+              fill
+              valueDetection
+              actions="external"
+              actionsRef={rawActionsRef}
+            />
+          </div>
         </div>
       )}
 
@@ -274,21 +279,23 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
               />
               <CodeEditorActions target={graphqlQueryActionsRef} language="graphql" style={{ marginLeft: 'auto' }} />
             </div>
-            <div style={{ flex: 1, minHeight: 300, display: 'flex', flexDirection: 'column' }}>
-              <CodeEditor
-                value={body.content}
-                onChange={(content) =>
-                  onChange(
-                    body.graphqlVariables !== undefined
-                      ? { type: 'graphql', content, graphqlVariables: body.graphqlVariables }
-                      : { type: 'graphql', content },
-                  )
-                }
-                language="graphql"
-                fill
-                actions="external"
-                actionsRef={graphqlQueryActionsRef}
-              />
+            <div style={{ flex: 1, minHeight: 300, position: 'relative' }}>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+                <CodeEditor
+                  value={body.content}
+                  onChange={(content) =>
+                    onChange(
+                      body.graphqlVariables !== undefined
+                        ? { type: 'graphql', content, graphqlVariables: body.graphqlVariables }
+                        : { type: 'graphql', content },
+                    )
+                  }
+                  language="graphql"
+                  fill
+                  actions="external"
+                  actionsRef={graphqlQueryActionsRef}
+                />
+              </div>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
@@ -312,17 +319,19 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
               />
               <CodeEditorActions target={graphqlVariablesActionsRef} language="json" style={{ marginLeft: 'auto' }} />
             </div>
-            <div style={{ flex: 1, minHeight: 300, display: 'flex', flexDirection: 'column' }}>
-              <CodeEditor
-                value={body.graphqlVariables ?? ''}
-                onChange={(variables) =>
-                  onChange({ type: 'graphql', content: body.content, graphqlVariables: variables })
-                }
-                language="json"
-                fill
-                actions="external"
-                actionsRef={graphqlVariablesActionsRef}
-              />
+            <div style={{ flex: 1, minHeight: 300, position: 'relative' }}>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+                <CodeEditor
+                  value={body.graphqlVariables ?? ''}
+                  onChange={(variables) =>
+                    onChange({ type: 'graphql', content: body.content, graphqlVariables: variables })
+                  }
+                  language="json"
+                  fill
+                  actions="external"
+                  actionsRef={graphqlVariablesActionsRef}
+                />
+              </div>
             </div>
           </div>
         </div>

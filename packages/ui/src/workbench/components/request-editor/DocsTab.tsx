@@ -76,19 +76,24 @@ const DocsTab: React.FC<DocsTabProps> = ({ value, onChange }) => {
         )}
       </div>
       {mode === 'write' ? (
-        <div style={{ flex: 1, minHeight: 280, display: 'flex', flexDirection: 'column' }}>
-          <CodeEditor
-            value={value}
-            onChange={onChange}
-            language="markdown"
-            fill
-            placeholder={t('workbench.editors.request.docs.placeholder')}
-            variableAutoComplete={false}
-            onEditorMount={(ed, monacoApi) => {
-              setEditor(ed);
-              registerMarkdownShortcuts(ed, monacoApi);
-            }}
-          />
+        // Absolute inset host — see ScriptsTab: a fill editor must not
+        // contribute intrinsic height or Monaco's inline height ratchets
+        // the scroller's content size and the pane never shrinks back.
+        <div style={{ flex: 1, minHeight: 280, position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+            <CodeEditor
+              value={value}
+              onChange={onChange}
+              language="markdown"
+              fill
+              placeholder={t('workbench.editors.request.docs.placeholder')}
+              variableAutoComplete={false}
+              onEditorMount={(ed, monacoApi) => {
+                setEditor(ed);
+                registerMarkdownShortcuts(ed, monacoApi);
+              }}
+            />
+          </div>
         </div>
       ) : value.trim() ? (
         <MarkdownView renderCodeBlock={renderDocsCodeBlock}>{value}</MarkdownView>

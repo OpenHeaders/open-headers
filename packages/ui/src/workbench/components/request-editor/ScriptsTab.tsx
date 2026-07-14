@@ -206,103 +206,110 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
         <Rail kind="pre-request" label={t('workbench.editors.request.scripts.preRequest')} />
         <Rail kind="post-response" label={t('workbench.editors.request.scripts.postResponse')} />
       </div>
-      <div
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, position: 'relative' }}
-      >
-        <CodeEditor
-          language="javascript"
-          value={value}
-          onChange={onChange}
-          fill
-          placeholder={t(SCRIPT_PLACEHOLDER_KEY[active])}
-          onEditorMount={(editor) => {
-            editorRef.current = editor;
-            installMenuIconInjector(editor, t('workbench.editors.scriptEditor.saveToPackage'));
-            const container = editor.getContainerDomNode();
-            const selectedText = (): string => {
-              const model = editor.getModel();
-              const selection = editor.getSelection();
-              if (!model || !selection || selection.isEmpty()) return '';
-              return model.getValueInRange(selection);
-            };
-            const replaceSelection = (transform: (text: string) => string): void => {
-              const selection = editor.getSelection();
-              const text = selectedText();
-              if (!selection || !text) return;
-              let next = text;
-              try {
-                next = transform(text);
-              } catch {
-                // Malformed escape sequence on decode — keep as-is.
-              }
-              editor.executeEdits('oh-selection-action', [{ range: selection, text: next }]);
-            };
-            // Custom entries on Monaco's built-in context menu — shown
-            // only while a selection exists.
-            // Viewport coords of the selection end — where the popover
-            // anchors. Falls back to the container's top edge when the
-            // selection has scrolled out of view.
-            const selectionAnchorPoint = (): { x: number; y: number } => {
-              const rect = container.getBoundingClientRect();
-              const selection = editor.getSelection();
-              const pos = selection ? editor.getScrolledVisiblePosition(selection.getEndPosition()) : null;
-              if (!pos) return { x: rect.left + 24, y: rect.top + 24 };
-              return { x: rect.left + pos.left, y: rect.top + pos.top + pos.height };
-            };
-            editor.addAction({
-              id: 'oh.set-as-variable',
-              label: t('shared.templateInput.setAsVariable'),
-              contextMenuGroupId: '9_oh_actions',
-              contextMenuOrder: 1,
-              precondition: 'editorHasSelection',
-              run: () => {
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative' }}>
+        {/* Absolute inset host: the fill editor must not contribute
+            intrinsic height — Monaco's automaticLayout writes an explicit
+            pixel height on its DOM, and in-flow that height feeds back
+            into the scroller's content size, ratcheting the editor so it
+            grows with the pane but never shrinks. Out of flow, the cell's
+            height is purely divider-driven and Monaco tracks it both
+            ways. */}
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+          <CodeEditor
+            language="javascript"
+            value={value}
+            onChange={onChange}
+            fill
+            placeholder={t(SCRIPT_PLACEHOLDER_KEY[active])}
+            onEditorMount={(editor) => {
+              editorRef.current = editor;
+              installMenuIconInjector(editor, t('workbench.editors.scriptEditor.saveToPackage'));
+              const container = editor.getContainerDomNode();
+              const selectedText = (): string => {
+                const model = editor.getModel();
+                const selection = editor.getSelection();
+                if (!model || !selection || selection.isEmpty()) return '';
+                return model.getValueInRange(selection);
+              };
+              const replaceSelection = (transform: (text: string) => string): void => {
+                const selection = editor.getSelection();
                 const text = selectedText();
-                if (!text) return;
-                setAnchorPoint(selectionAnchorPoint());
-                setVarPopover({ text });
-              },
-            });
-            editor.addAction({
-              id: 'oh.save-to-package',
-              label: t('workbench.editors.scriptEditor.saveToPackage'),
-              contextMenuGroupId: '9_oh_actions',
-              contextMenuOrder: 2,
-              precondition: 'editorHasSelection',
-              run: () => {
-                const text = selectedText();
-                if (!text) return;
-                setAnchorPoint(selectionAnchorPoint());
-                setPkgPopover({ text });
-              },
-            });
-            editor.addAction({
-              id: 'oh.encode-uri-component',
-              label: 'EncodeURIComponent',
-              contextMenuGroupId: '9_oh_transform',
-              contextMenuOrder: 1,
-              precondition: 'editorHasSelection',
-              run: () => replaceSelection(encodeURIComponent),
-            });
-            editor.addAction({
-              id: 'oh.decode-uri-component',
-              label: 'DecodeURIComponent',
-              contextMenuGroupId: '9_oh_transform',
-              contextMenuOrder: 2,
-              precondition: 'editorHasSelection',
-              run: () => replaceSelection(decodeURIComponent),
-            });
-            editor.addAction({
-              id: 'oh.find-selection',
-              label: t('workbench.editors.scriptEditor.menuFind'),
-              contextMenuGroupId: '9_oh_transform',
-              contextMenuOrder: 3,
-              precondition: 'editorHasSelection',
-              run: () => {
-                void editor.getAction('actions.find')?.run();
-              },
-            });
-          }}
-        />
+                if (!selection || !text) return;
+                let next = text;
+                try {
+                  next = transform(text);
+                } catch {
+                  // Malformed escape sequence on decode — keep as-is.
+                }
+                editor.executeEdits('oh-selection-action', [{ range: selection, text: next }]);
+              };
+              // Custom entries on Monaco's built-in context menu — shown
+              // only while a selection exists.
+              // Viewport coords of the selection end — where the popover
+              // anchors. Falls back to the container's top edge when the
+              // selection has scrolled out of view.
+              const selectionAnchorPoint = (): { x: number; y: number } => {
+                const rect = container.getBoundingClientRect();
+                const selection = editor.getSelection();
+                const pos = selection ? editor.getScrolledVisiblePosition(selection.getEndPosition()) : null;
+                if (!pos) return { x: rect.left + 24, y: rect.top + 24 };
+                return { x: rect.left + pos.left, y: rect.top + pos.top + pos.height };
+              };
+              editor.addAction({
+                id: 'oh.set-as-variable',
+                label: t('shared.templateInput.setAsVariable'),
+                contextMenuGroupId: '9_oh_actions',
+                contextMenuOrder: 1,
+                precondition: 'editorHasSelection',
+                run: () => {
+                  const text = selectedText();
+                  if (!text) return;
+                  setAnchorPoint(selectionAnchorPoint());
+                  setVarPopover({ text });
+                },
+              });
+              editor.addAction({
+                id: 'oh.save-to-package',
+                label: t('workbench.editors.scriptEditor.saveToPackage'),
+                contextMenuGroupId: '9_oh_actions',
+                contextMenuOrder: 2,
+                precondition: 'editorHasSelection',
+                run: () => {
+                  const text = selectedText();
+                  if (!text) return;
+                  setAnchorPoint(selectionAnchorPoint());
+                  setPkgPopover({ text });
+                },
+              });
+              editor.addAction({
+                id: 'oh.encode-uri-component',
+                label: 'EncodeURIComponent',
+                contextMenuGroupId: '9_oh_transform',
+                contextMenuOrder: 1,
+                precondition: 'editorHasSelection',
+                run: () => replaceSelection(encodeURIComponent),
+              });
+              editor.addAction({
+                id: 'oh.decode-uri-component',
+                label: 'DecodeURIComponent',
+                contextMenuGroupId: '9_oh_transform',
+                contextMenuOrder: 2,
+                precondition: 'editorHasSelection',
+                run: () => replaceSelection(decodeURIComponent),
+              });
+              editor.addAction({
+                id: 'oh.find-selection',
+                label: t('workbench.editors.scriptEditor.menuFind'),
+                contextMenuGroupId: '9_oh_transform',
+                contextMenuOrder: 3,
+                precondition: 'editorHasSelection',
+                run: () => {
+                  void editor.getAction('actions.find')?.run();
+                },
+              });
+            }}
+          />
+        </div>
         {(varPopover || pkgPopover) &&
           anchorPoint &&
           createPortal(
