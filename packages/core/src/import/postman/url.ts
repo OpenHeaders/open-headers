@@ -1,6 +1,6 @@
 import type { QueryParam } from '../../types/request';
 import { generateUid } from '../../utils/workspace';
-import { type ImportReport, recordDrop } from '../report';
+import { type ImportReport, recordTransform } from '../report';
 import type { PostmanUrl } from './types';
 
 // ── URL handling ────────────────────────────────────────────────────
@@ -8,10 +8,13 @@ import type { PostmanUrl } from './types';
 export function buildUrl(url: PostmanUrl | string | undefined, jsonPath: string, report: ImportReport): string {
   if (typeof url === 'string') return url;
   if (!url || typeof url !== 'object') {
-    recordDrop(report, {
+    // The request itself IS imported — an unset URL is a placeholder
+    // to fill in the editor, not a loss.
+    recordTransform(report, {
       path: `${jsonPath}.request.url`,
-      reason: 'URL missing — defaulting to empty string.',
-      tracking: 'PERMANENT: Postman shape validation',
+      from: 'request without a URL',
+      to: 'imported with an empty URL',
+      reason: 'The source request has no URL yet — the request was imported as-is; add the URL in the editor.',
     });
     return '';
   }
@@ -19,7 +22,7 @@ export function buildUrl(url: PostmanUrl | string | undefined, jsonPath: string,
     // Path variables: `{{foo}}` in raw stays literal so the destination
     // resolver can fill it. `:foo` in the path is Postman's own
     // placeholder syntax — substitute from `variable[]` if present.
-    return substitutePathVars(url.raw, url.variable);
+    return substitutePathVars(url.raw, url.variable, jsonPath, report);
   }
   // Build from structured parts. This is the fallback for exports
   // where `raw` is missing.
@@ -37,13 +40,32 @@ export function buildUrl(url: PostmanUrl | string | undefined, jsonPath: string,
   return `${protocol}://${host}${port}${path}${queryStr}`;
 }
 
-function substitutePathVars(raw: string, variables: PostmanUrl['variable']): string {
+function substitutePathVars(
+  raw: string,
+  variables: PostmanUrl['variable'],
+  jsonPath: string,
+  report: ImportReport,
+): string {
   if (!Array.isArray(variables) || variables.length === 0) return raw;
   let out = raw;
+  const substituted: string[] = [];
   for (const v of variables) {
     if (!v.key) continue;
     const pattern = new RegExp(`:${escapeRegExp(v.key)}(?![a-zA-Z0-9_])`, 'g');
-    out = out.replace(pattern, encodeURIComponent(v.value ?? ''));
+    const next = out.replace(pattern, encodeURIComponent(v.value ?? ''));
+    if (next !== out) substituted.push(`:${v.key}`);
+    out = next;
+  }
+  if (substituted.length > 0) {
+    // A lossless automatic conversion — the source's own values were
+    // inlined, so the URL sends identical bytes. Recorded so no
+    // rewrite is silent.
+    recordTransform(report, {
+      path: `${jsonPath}.request.url`,
+      from: `path variable${substituted.length === 1 ? '' : 's'} ${substituted.join(', ')}`,
+      to: 'inline values',
+      reason: 'Path-variable placeholders were filled from their own stored values — nothing to do.',
+    });
   }
   return out;
 }

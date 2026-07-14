@@ -256,6 +256,19 @@ describe('request mapping — method + URL', () => {
     expect(stripUids(result.requests[0]!.request.params)).toEqual([{ key: 'k', value: 'v' }]);
   });
 
+  it('imports a URL-less request with a transform, not a drop', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [{ name: 'Draft', request: { method: 'POST' } }],
+      }),
+    );
+    expect(result.requests).toHaveLength(1);
+    expect(result.requests[0]?.request.url).toBe('');
+    expect(result.report.drops.some((d) => d.path.endsWith('.request.url'))).toBe(false);
+    const t = result.report.transforms.find((t) => t.path.endsWith('.request.url'));
+    expect(t?.to).toBe('imported with an empty URL');
+  });
+
   it('substitutes :path variables with url.variable values', () => {
     const result = parsePostman(
       postmanCollection({
@@ -277,6 +290,9 @@ describe('request mapping — method + URL', () => {
       }),
     );
     expect(result.requests[0]?.request.url).toBe('https://api.openheaders.io/users/42/posts/99');
+    const t = result.report.transforms.find((t) => t.to === 'inline values');
+    expect(t?.from).toBe('path variables :id, :postId');
+    expect(result.report.drops).toHaveLength(0);
   });
 
   it('accepts string-shorthand request (GET <url>)', () => {
@@ -1769,6 +1785,8 @@ describe('edge cases', () => {
         type: 'form',
         formParts: [{ uid: expect.stringMatching(/^[a-z0-9]{8}$/), key: 'k', value: 'v' }],
       });
+      const t = result.report.transforms.find((t) => t.to === 'structured form fields');
+      expect(t?.reason).toContain('wire bytes are identical');
     });
 
     it('falls back to text when no hints are present', () => {

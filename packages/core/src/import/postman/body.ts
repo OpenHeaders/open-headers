@@ -50,7 +50,15 @@ export function buildBody(
         // Promote the raw text to structured form fields so the editor's
         // form-urlencoded tab renders them. Importers seeing a `raw`
         // body with a urlencoded Content-Type usually mean the user
-        // copy-pasted `key=value&key2=value2` into the raw box.
+        // copy-pasted `key=value&key2=value2` into the raw box. A
+        // lossless automatic conversion — same wire bytes — recorded
+        // so no rewrite is silent.
+        recordTransform(report, {
+          path: `${jsonPath}.request.body`,
+          from: 'raw text with a form-urlencoded Content-Type',
+          to: 'structured form fields',
+          reason: 'The raw key=value text was promoted to form fields — the wire bytes are identical; nothing to do.',
+        });
         return { type: 'form', formParts: parseUrlEncodedToFormFields(content) };
       }
       return { type: 'text', content };
