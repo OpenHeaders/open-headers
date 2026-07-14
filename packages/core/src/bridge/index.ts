@@ -38,6 +38,7 @@ export type {
   MigrationPullStartResult,
   MigrationReadBackupResult,
   MigrationScanResult,
+  SecretsStorageState,
   SiteDataTypeWire,
   SiteJarCookieWire,
   StorageInvalidationKind,

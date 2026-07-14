@@ -46,6 +46,7 @@ import type {
 } from '../sync-bridge';
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
+import type { SecretsStorageState } from './secrets';
 import type { AppUpdateState } from './updates';
 
 /** Which storage type a `storageInvalidated` push says went stale. */
@@ -120,6 +121,14 @@ export interface BridgeBroadcastContract {
    * simply never emit it.
    */
   appUpdateState: AppUpdateState;
+  /**
+   * Fires on every observed at-rest-cipher status transition — the
+   * secrets-storage banner's feed. Payload is the full state so
+   * listeners never re-query; late joiners hydrate via the
+   * `oh.secrets.getState` RPC. Hosts without an at-rest cipher seam
+   * never emit it.
+   */
+  secretsStorageState: SecretsStorageState;
   /**
    * Migration pull progress — ONE message for every connected surface
    * (MIGRATION_STATUS.md S5 addendum): each `PostmanPullEvent` the run

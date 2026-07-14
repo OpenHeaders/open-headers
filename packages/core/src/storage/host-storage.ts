@@ -39,6 +39,18 @@ import type { StorageKey } from './keys';
 export type GuardedRead<T> = { status: 'ok'; value: T | null } | { status: 'absent' } | { status: 'undecryptable' };
 
 /**
+ * Observed availability of the at-rest cipher guarding sensitive slots.
+ *
+ * Derived from sensitive-slot traffic, never from probing — on macOS the
+ * availability check itself triggers the OS-keychain fetch (and its user
+ * prompt), so an eager probe would prompt users who hold no secrets at all.
+ * `unknown` means no sensitive slot has been touched yet this session;
+ * `unavailable` means at least one read/write was refused and the condition
+ * still stands (an unavailability episode is open).
+ */
+export type SecretCipherStatus = 'unknown' | 'available' | 'unavailable';
+
+/**
  * The runtime contract every host's persisted-state adapter must
  * satisfy. UI code only sees this interface — never the concrete
  * adapter class.

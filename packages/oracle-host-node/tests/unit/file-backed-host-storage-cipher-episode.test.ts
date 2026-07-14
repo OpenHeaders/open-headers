@@ -108,6 +108,53 @@ describe('FileBackedHostStorage — cipher-unavailability log collapse', () => {
     expect(unavailableLines).toHaveLength(2);
   });
 
+  it('derives cipherStatus from slot traffic and fires transitions once each', async () => {
+    const cipher = makeToggleCipher();
+    const transitions: string[] = [];
+    const store = new FileBackedHostStorage({
+      filePath: freshFile(),
+      secretCipher: cipher,
+      onCipherStatusChange: (status) => transitions.push(status),
+    });
+
+    // Untouched: no probe has run, no transition fired.
+    expect(store.cipherStatus()).toBe('unknown');
+    expect(transitions).toEqual([]);
+
+    await store.set(secretKey, { seed: 'persisted' });
+    expect(store.cipherStatus()).toBe('available');
+
+    cipher.available = false;
+    await store.get(secretKey);
+    await store.get(secretKey); // suppressed refusal — no second transition
+    expect(store.cipherStatus()).toBe('unavailable');
+
+    cipher.available = true;
+    await store.get(secretKey);
+    expect(store.cipherStatus()).toBe('available');
+
+    expect(transitions).toEqual(['available', 'unavailable', 'available']);
+  });
+
+  it('reports unavailable as the first observation when the cipher starts down', async () => {
+    const cipher = makeToggleCipher();
+    const transitions: string[] = [];
+    const filePath = freshFile();
+    const sealed = new FileBackedHostStorage({ filePath, secretCipher: cipher });
+    await sealed.set(secretKey, { seed: 'persisted' });
+
+    cipher.available = false;
+    const reopened = new FileBackedHostStorage({
+      filePath,
+      secretCipher: cipher,
+      onCipherStatusChange: (status) => transitions.push(status),
+    });
+    expect(reopened.cipherStatus()).toBe('unknown');
+    await reopened.get(secretKey);
+    expect(reopened.cipherStatus()).toBe('unavailable');
+    expect(transitions).toEqual(['unavailable']);
+  });
+
   it('never consults the cipher for plain slots — no episode noise', async () => {
     const cipher = makeToggleCipher();
     cipher.available = false;

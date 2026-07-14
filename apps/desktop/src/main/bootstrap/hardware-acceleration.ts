@@ -19,10 +19,8 @@
 import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, dialog } from 'electron';
-import { writeRestartHiddenFlag } from './launch-flags';
 import { createLogger } from './logger';
-import { markQuitting } from './quit-state';
-import { getMainWindow } from './window-manager';
+import { relaunchApp } from './relaunch';
 
 const logger = createLogger('hardware-acceleration');
 
@@ -79,18 +77,5 @@ export async function toggleHardwareAcceleration(): Promise<void> {
     defaultId: 0,
     cancelId: 1,
   });
-  if (response === 0) relaunchToApply();
-}
-
-function relaunchToApply(): void {
-  // Tray-resident hidden window: keep the relaunch silent instead of
-  // flashing the window visible (same contract as the updater's
-  // quitAndInstall path).
-  const win = getMainWindow();
-  if (win && !win.isDestroyed() && !win.isVisible()) writeRestartHiddenFlag();
-  // The primary window intercepts 'close' into a hide unless the
-  // quitting flag is up — without this the quit never completes.
-  markQuitting();
-  app.relaunch();
-  app.quit();
+  if (response === 0) relaunchApp();
 }

@@ -119,6 +119,7 @@ import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
 import { useAppUpdateTask, useMigrationPullTask } from '@openheaders/ui/shared/background-tasks';
 import {
   AppUpdateToast,
+  SecretsStorageBanner,
   SecurityUpdateBanner,
   useAppUpdateNotification,
   useSeedNotifications,
@@ -1334,6 +1335,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           />
 
           <SecurityUpdateBanner onOpenAbout={() => openSettings({ categoryId: 'about' })} />
+
+          <SecretsStorageBanner />
 
           <OrgWorkspaceAccessNotice
             workspaces={workspacesApi.workspaces}

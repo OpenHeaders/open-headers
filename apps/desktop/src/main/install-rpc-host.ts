@@ -67,6 +67,7 @@ import {
 } from '@openheaders/oracle-host-node/migration';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app } from 'electron';
+import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
 import { createElectronUpdaterPort, updaterSupported } from './electron-updater-port';
@@ -128,7 +129,16 @@ export async function installRpcHost(): Promise<void> {
   // Logger first so the storage + lifeline installs below can log; the
   // spine re-installs the same adapter, which is a no-op.
   setHostLogger(consoleLogger);
-  const { backend: hostStorage } = installHostStorage();
+  // Secrets-storage state (the "unlock secrets storage" surface): the
+  // file-backed store observes cipher availability from sensitive-slot
+  // traffic — never probing, so no keychain prompt fires for users who
+  // hold no secrets — and every transition fans to open renderers. Late
+  // joiners hydrate via `oh.secrets.getState` below.
+  const { backend: hostStorage } = installHostStorage({
+    onCipherStatusChange: (status) => {
+      broadcastToAllRenderers('secretsStorageState', { status, platform: process.platform });
+    },
+  });
   installLifelineServer();
 
   // Web bundle serving (Phase 4) — the desktop-as-daemon hands out the
@@ -293,6 +303,19 @@ export async function installRpcHost(): Promise<void> {
     // both run only when the renderer's migration surface asks, never on
     // a timer. `readBackup` re-validates against the scan allowlist
     // host-side, so a renderer-supplied path can't open anything else.
+    // Secrets-storage surface: state reads the store's observed cipher
+    // status (never probes — see installHostStorage above); relaunch is
+    // the one honest remedy for a canceled keychain prompt (cached for
+    // the process lifetime, so no in-process retry can succeed).
+    if (type === 'oh.secrets.getState') {
+      return { status: hostStorage.cipherStatus(), platform: process.platform };
+    }
+    if (type === 'oh.secrets.relaunch') {
+      // Resolve before tearing the process down so the caller's await
+      // settles; the relaunch proceeds on the next tick.
+      setImmediate(() => relaunchApp());
+      return { ok: true };
+    }
     if (type === 'oh.migration.detectTools') {
       return detectInstalledTools();
     }

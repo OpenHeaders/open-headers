@@ -4,6 +4,7 @@ export {
   type HostStorage,
   hostStorage,
   requireHostStorage,
+  type SecretCipherStatus,
   setHostStorage,
 } from './host-storage';
 export {

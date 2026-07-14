@@ -32,7 +32,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openheaders/core/schemas';
-import type { GuardedRead, HostStorage, StorageKey } from '@openheaders/core/storage';
+import type { GuardedRead, HostStorage, SecretCipherStatus, StorageKey } from '@openheaders/core/storage';
 import type { SecretCipher } from '@openheaders/oracle/host-storage';
 import type * as v from 'valibot';
 
@@ -58,6 +58,13 @@ export interface FileBackedHostStorageOptions {
    * Defaults to silent — hosts should pass a {@link HostLogger}.
    */
   log?: (level: 'warn' | 'error', msg: string, ...rest: unknown[]) => void;
+  /**
+   * Fired on every {@link FileBackedHostStorage.cipherStatus} transition —
+   * the host's seam for surfacing "secrets storage is locked" to users the
+   * moment a sensitive operation is refused (and its recovery). Derived from
+   * slot traffic only; never probes the cipher (see {@link SecretCipherStatus}).
+   */
+  onCipherStatusChange?: (status: SecretCipherStatus) => void;
 }
 
 type ChangeListener = (next: unknown) => void;
@@ -73,11 +80,26 @@ export class FileBackedHostStorage implements HostStorage {
   private writeChain: Promise<void> = Promise.resolve();
   /** Refusals suppressed since the episode-opening log line; `null` while the cipher is available. */
   private cipherEpisodeSuppressed: number | null = null;
+  /** Whether any sensitive operation has ever found the cipher available this session. */
+  private cipherEverAvailable = false;
+  private readonly onCipherStatusChange: ((status: SecretCipherStatus) => void) | undefined;
 
   constructor(options: FileBackedHostStorageOptions) {
     this.filePath = options.filePath;
     this.cipher = options.secretCipher;
     this.log = options.log ?? (() => undefined);
+    this.onCipherStatusChange = options.onCipherStatusChange;
+  }
+
+  /**
+   * Observed at-rest-cipher availability — derived from sensitive-slot
+   * traffic, never from probing (see {@link SecretCipherStatus}). Hosts read
+   * this to answer a UI's "is secrets storage locked?" without triggering an
+   * OS-keychain fetch of their own.
+   */
+  cipherStatus(): SecretCipherStatus {
+    if (this.cipherEpisodeSuppressed !== null) return 'unavailable';
+    return this.cipherEverAvailable ? 'available' : 'unknown';
   }
 
   async get<T>(spec: StorageKey<T>): Promise<T | undefined> {
@@ -233,18 +255,27 @@ export class FileBackedHostStorage implements HostStorage {
         `FileBackedHostStorage: cipher unavailable; refusing to ${action} slot "${key}" ` +
           '(further refusals suppressed until the cipher returns)',
       );
+      this.onCipherStatusChange?.('unavailable');
       return;
     }
     this.cipherEpisodeSuppressed += 1;
   }
 
   private noteCipherAvailable(): void {
-    if (this.cipherEpisodeSuppressed === null) return;
+    if (this.cipherEpisodeSuppressed === null) {
+      if (!this.cipherEverAvailable) {
+        this.cipherEverAvailable = true;
+        this.onCipherStatusChange?.('available');
+      }
+      return;
+    }
     this.log(
       'warn',
       `FileBackedHostStorage: cipher available again; ${this.cipherEpisodeSuppressed} further refusal(s) were suppressed`,
     );
     this.cipherEpisodeSuppressed = null;
+    this.cipherEverAvailable = true;
+    this.onCipherStatusChange?.('available');
   }
 
   private readSlot<T>(spec: StorageKey<T>): T | undefined {

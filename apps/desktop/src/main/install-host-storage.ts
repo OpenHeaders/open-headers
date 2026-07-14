@@ -23,7 +23,9 @@
  *     etc.) we call `detachClient` to drop all of its subscriptions.
  */
 
-import { app, ipcMain, webContents } from 'electron';
+import * as path from 'node:path';
+import { hostLogger as logger } from '@openheaders/core/logger';
+import type { SecretCipherStatus } from '@openheaders/core/storage';
 import {
   createHostStorageDispatcher,
   type HostStorageDispatcher,
@@ -37,8 +39,7 @@ import {
   type StorageUnsubscribeRequest,
 } from '@openheaders/oracle/host-storage';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
-import { hostLogger as logger } from '@openheaders/core/logger';
-import * as path from 'node:path';
+import { app, ipcMain, webContents } from 'electron';
 import { safeStorageCipher } from './safe-storage-cipher';
 
 const SCOPE = 'HostStorageIpc';
@@ -59,6 +60,8 @@ export interface InstallHostStorageOptions {
   filePath?: string;
   /** Override the default `safeStorage` cipher (tests use `noopSecretCipher`). */
   cipher?: SecretCipher;
+  /** Observed at-rest-cipher status transitions (see {@link FileBackedHostStorage}). */
+  onCipherStatusChange?: (status: SecretCipherStatus) => void;
 }
 
 export interface HostStorageHandle {
@@ -74,6 +77,7 @@ export function installHostStorage(options: InstallHostStorageOptions = {}): Hos
     filePath,
     secretCipher: cipher,
     log: (level, msg, ...rest) => logger[level](SCOPE, msg, ...rest),
+    onCipherStatusChange: options.onCipherStatusChange,
   });
 
   const dispatcher = createHostStorageDispatcher(backend);

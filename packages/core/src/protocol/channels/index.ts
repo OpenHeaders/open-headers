@@ -40,6 +40,7 @@ import type { OAuthRpc } from './oauth';
 import type { ObservabilityRpc } from './observability';
 import type { RequestRpc } from './requests';
 import type { RuleRpc } from './rules';
+import type { SecretsRpc } from './secrets';
 import type { SyncEngineRpc } from './sync-engine';
 import type { TemplateRpc } from './templates';
 import type { UpdatesRpc } from './updates';
@@ -75,6 +76,7 @@ export type { EnvironmentsSnapshot } from './environments';
 export type { LiveWorkflowRunSnapshot } from './live';
 export type { MigrationPullStartResult, MigrationReadBackupResult, MigrationScanResult } from './migration';
 export type { CookieJarEntryWire } from './requests';
+export type { SecretsStorageState } from './secrets';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 
 /**
@@ -104,6 +106,7 @@ export interface BridgeRpcContract
     DevToolsRpc,
     DaemonRpc,
     UpdatesRpc,
+    SecretsRpc,
     MigrationRpc {}
 
 /**
