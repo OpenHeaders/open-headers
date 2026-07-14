@@ -926,34 +926,6 @@
   text-decoration: underline;
 }
 
-/* ── Filter docs panel ──────────────────────────────────── */
-.dt-filter-docs {
-  font-size: 11px;
-  line-height: 1.6;
-}
-
-.dt-filter-docs-row {
-  display: flex;
-  gap: 8px;
-  padding: 2px 0 2px 12px;
-  align-items: baseline;
-}
-
-.dt-filter-docs-row code {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  font-size: 11px;
-  background: var(--dt-bg-alt);
-  border: 1px solid var(--dt-border);
-  border-radius: 2px;
-  padding: 0 3px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.dt-filter-docs-row span {
-  color: var(--dt-text-muted);
-}
-
 /* ── Export menu (toolbar) ───────────────────────────────── */
 .dt-export-menu-wrap {
   position: relative;

@@ -20,7 +20,7 @@ const FILTER_SYNTAX_GROUP: DocGroup = {
     {
       id: 'filter-syntax',
       title: 'Filter Syntax',
-      summary: 'Text filters, property filters, and toggle buttons for the traffic filter input.',
+      summary: 'Text tokens, property filters, and the match toggles — every card filters one shared example capture.',
       group: 'panel-filter',
       icon: <FilterOutlined />,
       Component: FilterSyntaxSection,
