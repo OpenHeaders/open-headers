@@ -15,11 +15,13 @@ export const HEX_VIEW_CAP_BYTES = 512 * 1024;
 const BYTES_PER_ROW = 16;
 
 /**
- * A run of dump lines for rendering. Plain pieces batch every
- * unremarkable row into one string (a 512 KB dump is 32k rows — one
- * DOM node each would jank the panel); a magic piece is a single row
- * whose bytes intersect a detected file signature, split before the
- * ASCII column so just that column can carry the highlight.
+ * A run of dump lines for rendering — hex pairs + ASCII only; the
+ * offset column ships separately (`offsetsText`) so it can render as
+ * its own colored column. Plain pieces batch every unremarkable row
+ * into one string (a 512 KB dump is 32k rows — one DOM node each would
+ * jank the panel); a magic piece is a single row whose bytes intersect
+ * a detected file signature, split before the ASCII column so just
+ * that column can carry the highlight.
  */
 export type HexDumpPiece =
   | { kind: 'plain'; text: string }
@@ -28,7 +30,13 @@ export type HexDumpPiece =
 export interface HexDump {
   /** Dump lines joined with newlines: `offset: hex pairs  ascii`. */
   text: string;
-  /** The same lines grouped for rendering — see {@link HexDumpPiece}. */
+  /** The offset column alone (`00000000:` per row, newline-joined) —
+   *  rendered beside the pieces as its own colored column. */
+  offsetsText: string;
+  /** Rendered rows — drives the line-number gutter. */
+  rowCount: number;
+  /** The dump lines minus the offset column, grouped for rendering —
+   *  see {@link HexDumpPiece}. */
   pieces: HexDumpPiece[];
   shownBytes: number;
   totalBytes: number;
@@ -55,6 +63,26 @@ export function snapshotBodyBytes(
   return response.bodyEncoding === 'base64' ? fromBase64(response.body) : encodeBodyBytes(response.body);
 }
 
+/** The body as display text for the Raw view — verbatim for text
+ *  bodies; a binary body decodes lossily (U+FFFD where bytes aren't
+ *  UTF-8), which is exactly what "the wire as text" looks like. The
+ *  byte-faithful views are Hex/Base64. */
+export function decodeBodyTextLossy(response: Pick<ExecutedRequestSnapshot, 'body' | 'bodyEncoding'>): string {
+  return response.bodyEncoding === 'base64' ? new TextDecoder().decode(fromBase64(response.body)) : response.body;
+}
+
+/** Base64 wire width for the Base64 view — the classic MIME line. */
+export const BASE64_LINE_WIDTH = 76;
+
+/** Reflow one base64 string into fixed-width lines so the view can
+ *  carry a line-number gutter. */
+export function formatBase64Lines(b64: string, width: number = BASE64_LINE_WIDTH): string[] {
+  if (b64 === '') return [''];
+  const lines: string[] = [];
+  for (let at = 0; at < b64.length; at += width) lines.push(b64.slice(at, at + width));
+  return lines;
+}
+
 export function toBase64(bytes: Uint8Array): string {
   let binary = '';
   const chunk = 0x8000;
@@ -72,6 +100,7 @@ export function buildHexDump(
   const shownBytes = Math.min(bytes.length, capBytes);
   const hexColumnWidth = BYTES_PER_ROW * 3 - 1;
   const lines: string[] = [];
+  const offsets: string[] = [];
   const pieces: HexDumpPiece[] = [];
   let plainRun: string[] = [];
   const flushPlain = () => {
@@ -83,15 +112,16 @@ export function buildHexDump(
   for (let rowStart = 0; rowStart < shownBytes; rowStart += BYTES_PER_ROW) {
     const rowEnd = Math.min(rowStart + BYTES_PER_ROW, shownBytes);
     const row = bytes.subarray(rowStart, rowEnd);
-    const offset = rowStart.toString(16).padStart(8, '0');
+    const offset = `${rowStart.toString(16).padStart(8, '0')}:`;
     const pairs: string[] = [];
     let ascii = '';
     for (const byte of row) {
       pairs.push(byte.toString(16).padStart(2, '0').toUpperCase());
       ascii += byte >= 0x20 && byte <= 0x7e ? String.fromCharCode(byte) : '.';
     }
-    const head = `${offset}: ${pairs.join(' ').padEnd(hexColumnWidth, ' ')}  `;
-    lines.push(head + ascii);
+    const head = ` ${pairs.join(' ').padEnd(hexColumnWidth, ' ')}  `;
+    offsets.push(offset);
+    lines.push(offset + head + ascii);
     const hit = magic.find((m) => m.start < rowEnd && m.end > rowStart);
     if (hit) {
       flushPlain();
@@ -101,5 +131,13 @@ export function buildHexDump(
     }
   }
   flushPlain();
-  return { text: lines.join('\n'), pieces, shownBytes, totalBytes: bytes.length, capped: shownBytes < bytes.length };
+  return {
+    text: lines.join('\n'),
+    offsetsText: offsets.join('\n'),
+    rowCount: offsets.length,
+    pieces,
+    shownBytes,
+    totalBytes: bytes.length,
+    capped: shownBytes < bytes.length,
+  };
 }

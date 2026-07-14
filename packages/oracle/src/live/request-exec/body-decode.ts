@@ -1,10 +1,14 @@
 /**
- * Response-body materialization — hold the wire bytes losslessly in the
+ * Response-body materialization — hold the wire bytes losslessly in a
  * snapshot's string `body` field. Valid UTF-8 stays text verbatim;
  * anything else is stored base64 with `bodyEncoding: 'base64'` so the
  * viewer can reconstruct the exact bytes (hex view, PDF preview, save
  * to file). The bytes decide text-vs-binary — never the Content-Type,
  * which lies in both directions.
+ *
+ * Shared by every executor that reads a wire body: the transports
+ * behind the chain executor (node + browser) and the extension's
+ * interactive request executor — one contract, no per-host drift.
  */
 
 export interface MaterializedBody {

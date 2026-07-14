@@ -1,6 +1,9 @@
 import {
+  BASE64_LINE_WIDTH,
   buildHexDump,
+  decodeBodyTextLossy,
   encodeBodyBytes,
+  formatBase64Lines,
   fromBase64,
   HEX_VIEW_CAP_BYTES,
   snapshotBodyBytes,
@@ -47,6 +50,30 @@ describe('snapshotBodyBytes', () => {
     const wire = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xe2, 0xe3]);
     const snapshot = { body: toBase64(wire), bodyEncoding: 'base64' as const };
     expect(Array.from(snapshotBodyBytes(snapshot))).toEqual(Array.from(wire));
+  });
+});
+
+describe('decodeBodyTextLossy', () => {
+  it('returns text bodies verbatim', () => {
+    expect(decodeBodyTextLossy({ body: '{"ok":true}' })).toBe('{"ok":true}');
+  });
+
+  it('decodes binary bodies for display, minting U+FFFD for invalid bytes', () => {
+    const wire = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xe2]);
+    expect(decodeBodyTextLossy({ body: toBase64(wire), bodyEncoding: 'base64' })).toBe('%PDF�');
+  });
+});
+
+describe('formatBase64Lines', () => {
+  it('reflows at the MIME line width', () => {
+    const lines = formatBase64Lines('A'.repeat(BASE64_LINE_WIDTH * 2 + 5));
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toHaveLength(BASE64_LINE_WIDTH);
+    expect(lines[2]).toBe('AAAAA');
+  });
+
+  it('keeps an empty body as one empty line', () => {
+    expect(formatBase64Lines('')).toEqual(['']);
   });
 });
 

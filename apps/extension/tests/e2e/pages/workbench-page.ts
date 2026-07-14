@@ -597,15 +597,27 @@ export class WorkbenchPage {
     await this.pickResponseView(/Raw$/);
     const body = this.page.getByTestId('oh-response-body').filter({ visible: true });
     await body.waitFor({ state: 'visible', timeout: 15000 });
-    return (await body.textContent())?.trim() ?? '';
+    // innerText, not textContent: the Raw view renders a numbered grid
+    // whose line breaks are layout (one row per line) — innerText keeps
+    // them and excludes the pseudo-content line numbers.
+    return (await body.innerText()).trim();
   }
 
-  /** Read the Hex view's dump text (switches the pane to Hex first). */
+  /** Read the Hex view's dump text — hex pairs + ASCII columns; the
+   *  offsets live in their own column (`responseHexOffsetsText`).
+   *  Switches the pane to Hex first. */
   async responseHexText(): Promise<string> {
     await this.pickResponseView(/Hex$/);
     const hex = this.page.getByTestId('oh-response-hex').filter({ visible: true });
     await hex.waitFor({ state: 'visible', timeout: 15000 });
     return (await hex.textContent()) ?? '';
+  }
+
+  /** Read the Hex view's offset column (assumes Hex is active). */
+  async responseHexOffsetsText(): Promise<string> {
+    const offsets = this.page.getByTestId('oh-response-hex-offsets').filter({ visible: true });
+    await offsets.waitFor({ state: 'visible', timeout: 15000 });
+    return (await offsets.textContent()) ?? '';
   }
 
   /** The response Body pane's Preview toggle — rendered only when the

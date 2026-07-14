@@ -119,6 +119,7 @@ export async function executeOverTransport(
       url: response.url || url,
       headers: [...response.headers],
       body: response.body,
+      ...(response.bodyEncoding ? { bodyEncoding: response.bodyEncoding } : {}),
       bodyTruncated: response.bodyTruncated,
       // A truncated read records the cap that was in force so the UI
       // labels the actual limit, not an assumed constant.

@@ -1,0 +1,21 @@
+/*
+ * Raw view's numbered grid — see ResponseBodyView. Line numbers render
+ * as ::before pseudo-content so they never enter textContent, text
+ * selection, or copies of the body text; the grid row keeps a wrapped
+ * line and its number height-aligned.
+ */
+.oh-response-raw-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12px;
+}
+
+.oh-response-raw-ln {
+  text-align: right;
+  user-select: none;
+  min-width: 22px;
+}
+
+.oh-response-raw-ln::before {
+  content: attr(data-ln);
+}

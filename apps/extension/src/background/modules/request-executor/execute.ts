@@ -8,13 +8,13 @@
 import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
+import { materializeBody } from '@openheaders/oracle/live/request-exec/body-decode';
 import { ensureScheme } from '@openheaders/ui/shared/fetch';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { recordLog } from '../observability-log';
-import { materializeBody } from './body-decode';
 import { classifyFetchFailure } from './failure-classify';
 import type { ResolvedRequest } from './resolve';
 import {

@@ -123,10 +123,12 @@ test.describe('Request editor — PDF response rendering (UI)', () => {
 
     // Hex shows the TRUE wire bytes — the binary-marker comment
     // (E2 E3 CF D3) that a lossy text decode would have destroyed —
-    // with the PDF header magic highlighted in the ASCII column.
+    // with the PDF header magic highlighted in the ASCII column. The
+    // offsets render as their own colored column beside the dump.
     const hex = await workbench.responseHexText();
-    expect(hex.startsWith('00000000: 25 50 44 46 2D 31 2E 34 0A 25 E2 E3 CF D3')).toBe(true);
+    expect(hex.trimStart().startsWith('25 50 44 46 2D 31 2E 34 0A 25 E2 E3 CF D3')).toBe(true);
     expect(hex).toContain('%PDF-1.4');
     expect(hex.trimEnd().endsWith('%%EOF.')).toBe(true);
+    expect((await workbench.responseHexOffsetsText()).startsWith('00000000:')).toBe(true);
   });
 });

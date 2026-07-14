@@ -16,17 +16,19 @@
  *     JSON (collapsible key/value tree), or a PDF (the browser's own
  *     viewer over the captured bytes — the default view for PDFs).
  *
- * Binary bodies (`bodyEncoding: 'base64'`) have no wire text, so the
- * language half of the picker and the Raw view stand down: the picker
- * offers Hex (default) and Base64, both decoding the snapshot back to
- * the exact wire bytes.
+ * Binary-like bodies (`bodyEncoding: 'base64'`, and PDFs regardless of
+ * how their bytes decoded) drop the language half of the picker and
+ * keep Postman's set — Raw / Hex / Base64: Raw shows the wire as text
+ * (lossy U+FFFD where bytes aren't UTF-8), Hex and Base64 decode the
+ * snapshot back to the exact wire bytes. Raw and Base64 carry a
+ * line-number gutter; Hex numbers its rows.
  */
 
 import { CheckOutlined, CopyOutlined, DownOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Badge, Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
@@ -36,7 +38,15 @@ import ResponseJsonPreview from './ResponseJsonPreview';
 import ResponsePdfPreview from './ResponsePdfPreview';
 import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
 import { detectMagicSignatures } from './magic-signatures';
-import { buildHexDump, encodeBodyBytes, snapshotBodyBytes, toBase64 } from './response-encoding';
+import './response-body.css';
+import {
+  buildHexDump,
+  decodeBodyTextLossy,
+  encodeBodyBytes,
+  formatBase64Lines,
+  snapshotBodyBytes,
+  toBase64,
+} from './response-encoding';
 import {
   evaluateJsonPath,
   evaluateXPath,
@@ -70,6 +80,19 @@ const ENCODING_VIEWS: ReadonlyArray<{ mode: 'raw' | 'hex' | 'base64'; label: str
   { mode: 'hex', label: 'Hex' },
   { mode: 'base64', label: 'Base64' },
 ];
+
+/** Line cap for the Raw view's numbered grid — beyond this the per-line
+ *  rows would jank the panel, so Raw falls back to one plain `<pre>`. */
+const RAW_GUTTER_MAX_LINES = 5000;
+
+/** Shared column style for the Hex view's three `<pre>`s — the gutter,
+ *  the offsets, and the dump must line up row for row. */
+const HEX_PRE_STYLE: React.CSSProperties = {
+  fontFamily: "'SF Mono', 'Fira Code', monospace",
+  fontSize: 12,
+  margin: 0,
+  whiteSpace: 'pre',
+};
 
 function PickerLabel({ icon, text }: { icon: string; text: string }) {
   return (
@@ -115,6 +138,11 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   }, [response]);
 
   const isBinary = response.bodyEncoding === 'base64';
+  const isPdf = isPdfResponse(response.headers);
+  // Binary-LIKE drives the view set: a PDF keeps the Raw/Hex/Base64
+  // picker even when its bytes happen to decode as text (all-ASCII
+  // PDFs exist; the document is still not a text body).
+  const binaryView = isBinary || isPdf;
   const language = langOverride ?? detectBodyLanguage(response.headers);
   // JSON re-indents synchronously; markup/code languages swap in the
   // Prettier result when it resolves (wire text paints first).
@@ -136,7 +164,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     }
   }, [response.body, language, isBinary]);
 
-  const previewKind: 'pdf' | 'html' | 'json' | null = isPdfResponse(response.headers)
+  const previewKind: 'pdf' | 'html' | 'json' | null = isPdf
     ? 'pdf'
     : isBinary
       ? null
@@ -148,10 +176,10 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
 
   // A language override can take Preview away while it's the active
   // mode (e.g. HTML body overridden to Text) — fall back to the body's
-  // base view (Hex for binary, Pretty otherwise).
+  // base view (Hex for binary-like, Pretty otherwise).
   useEffect(() => {
-    if (mode === 'preview' && !previewKind) setMode(isBinary ? 'hex' : 'pretty');
-  }, [mode, previewKind, isBinary]);
+    if (mode === 'preview' && !previewKind) setMode(binaryView ? 'hex' : 'pretty');
+  }, [mode, previewKind, binaryView]);
 
   // Structural filter: JSONPath for parseable JSON, XPath for markup,
   // nothing for languages without a query form (Find covers those) —
@@ -214,20 +242,37 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     const bytes = snapshotBodyBytes(response);
     return buildHexDump(bytes, undefined, detectMagicSignatures(bytes));
   }, [mode, response]);
-  const base64Body = useMemo(
-    () => (mode === 'base64' ? (isBinary ? response.body : toBase64(encodeBodyBytes(response.body))) : null),
+  const hexLineNumbers = useMemo(
+    () => (hexDump ? Array.from({ length: hexDump.rowCount }, (_, i) => i + 1).join('\n') : ''),
+    [hexDump],
+  );
+  const base64Lines = useMemo(
+    () =>
+      mode === 'base64'
+        ? formatBase64Lines(isBinary ? response.body : toBase64(encodeBodyBytes(response.body)))
+        : null,
     [mode, response.body, isBinary],
   );
+  const base64LineNumbers = useMemo(
+    () => (base64Lines ? base64Lines.map((_, i) => i + 1).join('\n') : ''),
+    [base64Lines],
+  );
+  // Raw shows the wire as text — for a binary body that's a lossy
+  // display decode (U+FFFD where bytes aren't UTF-8), never the stored
+  // base64 string.
+  const rawLines = useMemo(() => (mode === 'raw' ? decodeBodyTextLossy(response).split('\n') : null), [
+    mode,
+    response,
+  ]);
   const pdfBytes = useMemo(
     () => (mode === 'preview' && previewKind === 'pdf' ? snapshotBodyBytes(response) : null),
     [mode, previewKind, response],
   );
 
-  // Binary has no wire text: the language half of the picker and the
-  // Raw view stand down, leaving the byte-faithful views.
-  const encodingViews = isBinary ? ENCODING_VIEWS.filter((v) => v.mode !== 'raw') : ENCODING_VIEWS;
+  // Binary-like bodies have no meaningful language: the language half
+  // of the picker stands down, leaving Postman's Raw / Hex / Base64.
   const pickerItems: MenuProps['items'] = [
-    ...(isBinary
+    ...(binaryView
       ? []
       : [
           ...LANGUAGE_OPTIONS.map((opt) => ({
@@ -236,7 +281,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           })),
           { type: 'divider' as const },
         ]),
-    ...encodingViews.map((view) => ({
+    ...ENCODING_VIEWS.map((view) => ({
       key: `view:${view.mode}`,
       label: <PickerLabel icon={view.mode} text={view.label} />,
     })),
@@ -258,9 +303,9 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // otherwise. Binary in Preview shows its base view (Hex) — the one a
   // picker click falls back to.
   const activeEncoding = ENCODING_VIEWS.find((v) => v.mode === mode);
-  const pickerKey = activeEncoding ? `view:${activeEncoding.mode}` : isBinary ? 'view:hex' : `lang:${language}`;
-  const pickerIcon = activeEncoding ? activeEncoding.mode : isBinary ? 'hex' : language;
-  const pickerLabel = activeEncoding ? activeEncoding.label : isBinary ? 'Hex' : getLanguage(language).label;
+  const pickerKey = activeEncoding ? `view:${activeEncoding.mode}` : binaryView ? 'view:hex' : `lang:${language}`;
+  const pickerIcon = activeEncoding ? activeEncoding.mode : binaryView ? 'hex' : language;
+  const pickerLabel = activeEncoding ? activeEncoding.label : binaryView ? 'Hex' : getLanguage(language).label;
 
   // Picker and Preview act as a two-way toggle: the active side carries
   // a quiet selected fill, the other renders as plain text. While
@@ -269,7 +314,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const pickerSelected = mode !== 'preview';
   const onPickerOpenChange = (next: boolean) => {
     if (next && !pickerSelected) {
-      setMode(isBinary ? 'hex' : 'pretty');
+      setMode(binaryView ? 'hex' : 'pretty');
       return;
     }
     setPickerOpen(next);
@@ -350,7 +395,10 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             type="text"
             icon={<EyeOutlined />}
             style={mode === 'preview' ? { background: token.colorBgTextActive } : undefined}
-            onClick={() => setMode(mode === 'preview' ? 'pretty' : 'preview')}
+            // Toggling Preview off lands on the body's base view — Hex
+            // for binary-like bodies (Pretty would paint the stored
+            // base64 into Monaco), Pretty otherwise.
+            onClick={() => setMode(mode === 'preview' ? (binaryView ? 'hex' : 'pretty') : 'preview')}
           >
             {t('workbench.editors.request.response.body.preview')}
           </Button>
@@ -468,24 +516,57 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           />
         </div>
       )}
-      {mode === 'raw' && (
+      {mode === 'raw' && rawLines && (
         <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', minHeight: 0 }}>
-          <pre
-            // Role-less rendered body — same exception as the status chip:
-            // a single inline test id so e2e can read the wire text
-            // directly instead of sniffing the DOM for a JSON-shaped <pre>.
-            data-testid="oh-response-body"
-            style={{
-              fontFamily: "'SF Mono', 'Fira Code', monospace",
-              fontSize: 12,
-              margin: 0,
-              whiteSpace: wrapLines ? 'pre-wrap' : 'pre',
-              wordBreak: wrapLines ? 'break-word' : 'normal',
-              color: token.colorText,
-            }}
-          >
-            {response.body}
-          </pre>
+          {rawLines.length <= RAW_GUTTER_MAX_LINES ? (
+            // Numbered grid — one row per logical line, so a wrapped
+            // line and its number stay height-aligned. Numbers render
+            // as ::before pseudo-content (see response-body.css): they
+            // never enter textContent, selection, or copies — e2e reads
+            // the same `oh-response-body` element and sees body only.
+            <div
+              data-testid="oh-response-body"
+              className="oh-response-raw-grid"
+              style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12, color: token.colorText }}
+            >
+              {rawLines.map((line, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional derivations of one immutable body
+                <Fragment key={i}>
+                  <span
+                    className="oh-response-raw-ln"
+                    aria-hidden="true"
+                    data-ln={i + 1}
+                    style={{ color: token.geekblue7 }}
+                  />
+                  <span
+                    style={{
+                      whiteSpace: wrapLines ? 'pre-wrap' : 'pre',
+                      wordBreak: wrapLines ? 'break-word' : 'normal',
+                      minHeight: '1em',
+                    }}
+                  >
+                    {line}
+                  </span>
+                </Fragment>
+              ))}
+            </div>
+          ) : (
+            // Beyond the gutter cap the per-line grid would jank the
+            // panel — fall back to the single-text-node <pre>.
+            <pre
+              data-testid="oh-response-body"
+              style={{
+                fontFamily: "'SF Mono', 'Fira Code', monospace",
+                fontSize: 12,
+                margin: 0,
+                whiteSpace: wrapLines ? 'pre-wrap' : 'pre',
+                wordBreak: wrapLines ? 'break-word' : 'normal',
+                color: token.colorText,
+              }}
+            >
+              {rawLines.join('\n')}
+            </pre>
+          )}
         </div>
       )}
       {mode === 'hex' && hexDump && (
@@ -498,51 +579,77 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
               })}
             </Text>
           )}
-          <pre
-            data-testid="oh-response-hex"
-            style={{
-              fontFamily: "'SF Mono', 'Fira Code', monospace",
-              fontSize: 12,
-              margin: 0,
-              whiteSpace: 'pre',
-              color: token.colorText,
-            }}
-          >
-            {/* Rows whose bytes carry a detected file signature render
-                their ASCII column highlighted (hover names the format);
-                everything else stays one cheap text node per run. */}
-            {hexDump.pieces.map((piece, i) => {
-              const nl = i < hexDump.pieces.length - 1 ? '\n' : '';
-              if (piece.kind === 'plain') return `${piece.text}${nl}`;
-              return (
-                // biome-ignore lint/suspicious/noArrayIndexKey: pieces are positional derivations of one immutable dump
-                <span key={i}>
-                  {piece.head}
-                  <span title={piece.label} style={{ color: token.colorInfoText, fontWeight: 600 }}>
-                    {piece.ascii}
+          {/* Three columns, each ONE text node regardless of row count
+              (a 512 KB dump is 32k rows — per-row elements would jank):
+              line-number gutter (sticky through horizontal scroll),
+              colored offsets, then the dump itself. Only rows carrying
+              a detected file signature split off spans, so their ASCII
+              column highlights (hover names the format). */}
+          <div style={{ display: 'flex', width: 'fit-content', minWidth: '100%' }}>
+            <pre
+              aria-hidden="true"
+              style={{
+                ...HEX_PRE_STYLE,
+                color: token.geekblue7,
+                textAlign: 'right',
+                userSelect: 'none',
+                position: 'sticky',
+                left: 0,
+                background: token.colorBgContainer,
+                paddingRight: 12,
+                minWidth: 34,
+              }}
+            >
+              {hexLineNumbers}
+            </pre>
+            <pre data-testid="oh-response-hex-offsets" style={{ ...HEX_PRE_STYLE, color: token.magenta7 }}>
+              {hexDump.offsetsText}
+            </pre>
+            <pre data-testid="oh-response-hex" style={{ ...HEX_PRE_STYLE, color: token.colorText }}>
+              {hexDump.pieces.map((piece, i) => {
+                const nl = i < hexDump.pieces.length - 1 ? '\n' : '';
+                if (piece.kind === 'plain') return `${piece.text}${nl}`;
+                return (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: pieces are positional derivations of one immutable dump
+                  <span key={i}>
+                    {piece.head}
+                    <span title={piece.label} style={{ color: token.colorInfoText, fontWeight: 600 }}>
+                      {piece.ascii}
+                    </span>
+                    {nl}
                   </span>
-                  {nl}
-                </span>
-              );
-            })}
-          </pre>
+                );
+              })}
+            </pre>
+          </div>
         </div>
       )}
-      {mode === 'base64' && base64Body !== null && (
+      {mode === 'base64' && base64Lines && (
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-          <pre
-            data-testid="oh-response-base64"
-            style={{
-              fontFamily: "'SF Mono', 'Fira Code', monospace",
-              fontSize: 12,
-              margin: 0,
-              whiteSpace: wrapLines ? 'pre-wrap' : 'pre',
-              wordBreak: wrapLines ? 'break-all' : 'normal',
-              color: token.colorText,
-            }}
-          >
-            {base64Body}
-          </pre>
+          {/* Fixed-width base64 rows (the classic 76-char MIME line)
+              never wrap, so the gutter and content stay two single
+              text nodes at any size — same layout as the Hex view. */}
+          <div style={{ display: 'flex', width: 'fit-content', minWidth: '100%' }}>
+            <pre
+              aria-hidden="true"
+              style={{
+                ...HEX_PRE_STYLE,
+                color: token.geekblue7,
+                textAlign: 'right',
+                userSelect: 'none',
+                position: 'sticky',
+                left: 0,
+                background: token.colorBgContainer,
+                paddingRight: 12,
+                minWidth: 34,
+              }}
+            >
+              {base64LineNumbers}
+            </pre>
+            <pre data-testid="oh-response-base64" style={{ ...HEX_PRE_STYLE, color: token.colorText }}>
+              {base64Lines.join('\n')}
+            </pre>
+          </div>
         </div>
       )}
       {mode === 'preview' && previewKind === 'pdf' && pdfBytes && <ResponsePdfPreview bytes={pdfBytes} />}

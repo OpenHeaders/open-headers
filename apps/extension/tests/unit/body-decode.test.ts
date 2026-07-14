@@ -1,5 +1,5 @@
+import { materializeBody, toBase64 } from '@openheaders/oracle/live/request-exec/body-decode';
 import { describe, expect, it } from 'vitest';
-import { materializeBody, toBase64 } from '@/background/modules/request-executor/body-decode';
 
 describe('materializeBody', () => {
   it('keeps valid UTF-8 as text with no encoding marker', () => {

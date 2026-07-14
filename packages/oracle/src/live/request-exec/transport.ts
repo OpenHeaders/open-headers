@@ -253,6 +253,10 @@ export interface TransportResponse {
    * The executor surfaces this verbatim — it does NOT re-slice.
    */
   body: string;
+  /** Present (`'base64'`) when the wire bytes are not valid UTF-8, so
+   *  `body` carries them base64-encoded, losslessly (see
+   *  `body-decode.ts`). Absent = text verbatim. */
+  bodyEncoding?: 'base64';
   /** True when the upstream body exceeded `maxBodyBytes` and the read was
    *  aborted — i.e. `body` is the capped prefix, not the whole response. */
   bodyTruncated: boolean;

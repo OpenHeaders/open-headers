@@ -24,6 +24,7 @@
  * request executor onto the shared core.
  */
 
+import { materializeBody } from '@openheaders/oracle/live/request-exec/body-decode';
 import {
   type RequestTransport,
   type TransportBody,
@@ -88,6 +89,7 @@ export const browserRequestTransport: RequestTransport = {
         url: response.url || request.url,
         headers: outHeaders,
         body: read.body,
+        ...(read.bodyEncoding ? { bodyEncoding: read.bodyEncoding } : {}),
         bodyBytes: read.bodyBytes,
         bodyTruncated: read.bodyTruncated,
       };
@@ -127,7 +129,7 @@ function timeoutError(timeoutMs: number | undefined): TransportError {
 async function readCappedBody(
   response: Response,
   maxBodyBytes: number,
-): Promise<{ body: string; bodyBytes: number; bodyTruncated: boolean }> {
+): Promise<{ body: string; bodyEncoding?: 'base64'; bodyBytes: number; bodyTruncated: boolean }> {
   const stream = response.body;
   if (!stream) {
     return { body: '', bodyBytes: 0, bodyTruncated: false };
@@ -161,7 +163,7 @@ async function readCappedBody(
     buf.set(part.subarray(0, take), offset);
     offset += take;
   }
-  return { body: new TextDecoder().decode(buf), bodyBytes: retained, bodyTruncated: truncated };
+  return { ...materializeBody(buf, truncated), bodyBytes: retained, bodyTruncated: truncated };
 }
 
 function buildBody(body: TransportBody): BodyInit | undefined {

@@ -44,13 +44,16 @@ describe('buildHexDump with magic matches', () => {
     expect(magicPieces.map((p) => p.label)).toEqual(['PDF header', 'PDF trailer']);
     expect(magicPieces[0]?.ascii.startsWith('%PDF-1.4')).toBe(true);
     expect(magicPieces[1]?.ascii).toContain('%%EOF');
-    // Reassembling the pieces reproduces the flat dump text exactly.
-    const reassembled = dump.pieces.map((p) => (p.kind === 'plain' ? p.text : p.head + p.ascii)).join('\n');
-    expect(reassembled).toBe(dump.text);
+    // Offsets column + pieces reassemble the flat dump text exactly.
+    const offsetLines = dump.offsetsText.split('\n');
+    const bodyLines = dump.pieces.flatMap((p) => (p.kind === 'plain' ? p.text.split('\n') : [p.head + p.ascii]));
+    expect(bodyLines).toHaveLength(dump.rowCount);
+    expect(offsetLines.map((o, i) => o + bodyLines[i]).join('\n')).toBe(dump.text);
   });
 
   it('yields one plain piece and no magic pieces without matches', () => {
     const dump = buildHexDump(PDF_BYTES);
-    expect(dump.pieces).toEqual([{ kind: 'plain', text: dump.text }]);
+    expect(dump.pieces).toHaveLength(1);
+    expect(dump.pieces[0]?.kind).toBe('plain');
   });
 });

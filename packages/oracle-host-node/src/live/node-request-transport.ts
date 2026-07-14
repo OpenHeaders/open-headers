@@ -68,6 +68,7 @@
 import { createHash } from 'node:crypto';
 import { isIP, type LookupFunction } from 'node:net';
 import { createSecureContext, type SecureVersion } from 'node:tls';
+import { materializeBody } from '@openheaders/oracle/live/request-exec/body-decode';
 import {
   type RequestTransport,
   type TransportBody,
@@ -660,6 +661,7 @@ async function finalizeResponse(
     url: response.url || finalUrl,
     headers,
     body: read.body,
+    ...(read.bodyEncoding ? { bodyEncoding: read.bodyEncoding } : {}),
     bodyBytes: read.bodyBytes,
     bodyTruncated: read.bodyTruncated,
     ...(authorizationForwarded ? { authorizationForwarded: true } : {}),
@@ -704,7 +706,7 @@ function timeoutError(timeoutMs: number | undefined): TransportError {
 async function readCappedBody(
   response: Awaited<ReturnType<NodeFetchFn>>,
   maxBodyBytes: number,
-): Promise<{ body: string; bodyBytes: number; bodyTruncated: boolean }> {
+): Promise<{ body: string; bodyEncoding?: 'base64'; bodyBytes: number; bodyTruncated: boolean }> {
   const stream = response.body;
   if (!stream) {
     // No readable stream (empty body / HEAD) — nothing to bound.
@@ -733,15 +735,16 @@ async function readCappedBody(
   return decodeCapped(parts, bytesRead, maxBodyBytes, truncated);
 }
 
-/** Concatenate the retained chunks, cap to `maxBodyBytes`, and decode as
- *  UTF-8. Shared cap arithmetic so the byte count + truncation flag stay
- *  consistent with what's actually decoded. */
+/** Concatenate the retained chunks, cap to `maxBodyBytes`, and
+ *  materialize losslessly: valid UTF-8 stays text, anything else goes
+ *  base64 with the encoding marked. Shared cap arithmetic so the byte
+ *  count + truncation flag stay consistent with what's materialized. */
 function decodeCapped(
   parts: ReadonlyArray<Uint8Array>,
   bytesRead: number,
   maxBodyBytes: number,
   truncated: boolean,
-): { body: string; bodyBytes: number; bodyTruncated: boolean } {
+): { body: string; bodyEncoding?: 'base64'; bodyBytes: number; bodyTruncated: boolean } {
   const retained = Math.min(bytesRead, maxBodyBytes);
   const buf = new Uint8Array(retained);
   let offset = 0;
@@ -751,7 +754,7 @@ function decodeCapped(
     buf.set(part.subarray(0, take), offset);
     offset += take;
   }
-  return { body: new TextDecoder().decode(buf), bodyBytes: retained, bodyTruncated: truncated };
+  return { ...materializeBody(buf, truncated), bodyBytes: retained, bodyTruncated: truncated };
 }
 
 function buildHeaders(headers: ReadonlyArray<TransportHeader>): Headers {
