@@ -15,13 +15,27 @@
  *
  * Quick toggles in the UI compile to synthetic tokens (`is:failed`,
  * `is:third-party`) so the same matching path covers both code paths.
+ *
+ * Free-text comparison rides the shared panel `TextMatchConfig`
+ * (Match Case / Whole Word / Regex). Regex mode treats the whole input
+ * as one pattern tested against the URL; property tokens are not
+ * parsed in that mode. Matchers are precompiled at parse time — the
+ * per-row path never constructs a RegExp.
  */
 
 import type { InitiatorRowMeta } from '../initiator/initiator-row-meta';
+import {
+  buildNeedleMatcher,
+  compileRegexQuery,
+  DEFAULT_TEXT_MATCH_CONFIG,
+  type TextMatchConfig,
+  type TextMatcher,
+} from '../text-match';
 
 type Token =
-  | { kind: 'text'; value: string; negated: boolean }
-  | { kind: 'property'; key: 'is' | 'type' | 'status' | 'size'; value: string; negated: boolean };
+  | { kind: 'text'; value: string; negated: boolean; match: TextMatcher }
+  | { kind: 'property'; key: 'is' | 'type' | 'status' | 'size'; value: string; negated: boolean }
+  | { kind: 'regex'; pattern: RegExp | null; negated: boolean };
 
 const TYPE_ALIASES: Record<string, readonly string[]> = {
   js: ['script', 'javascript'],
@@ -67,9 +81,17 @@ function tokenizeRaw(input: string): string[] {
   return out;
 }
 
-export function parseCascadeQuery(input: string): readonly Token[] {
+export function parseCascadeQuery(
+  input: string,
+  config: TextMatchConfig = DEFAULT_TEXT_MATCH_CONFIG,
+): readonly Token[] {
   const trimmed = input.trim();
   if (!trimmed) return [];
+
+  if (config.regexMode) {
+    return [{ kind: 'regex', pattern: compileRegexQuery(trimmed, config).pattern, negated: false }];
+  }
+
   const out: Token[] = [];
   for (const raw of tokenizeRaw(trimmed)) {
     let s = raw;
@@ -87,9 +109,14 @@ export function parseCascadeQuery(input: string): readonly Token[] {
         continue;
       }
     }
-    out.push({ kind: 'text', value: s, negated });
+    out.push({ kind: 'text', value: s, negated, match: buildNeedleMatcher(s, config) });
   }
   return out;
+}
+
+/** True when the query is a regex-mode input that failed to parse. */
+export function hasCascadeQueryError(tokens: readonly Token[]): boolean {
+  return tokens.some((t) => t.kind === 'regex' && t.pattern === null);
 }
 
 function matchSize(value: string, bytes: number | null): boolean {
@@ -129,8 +156,14 @@ function matchType(value: string, resourceType: string | null): boolean {
 }
 
 function matchOne(url: string, meta: InitiatorRowMeta, token: Token): boolean {
+  if (token.kind === 'regex') {
+    // A broken pattern matches everything — the input turns red instead
+    // of silently hiding every row.
+    if (token.pattern === null) return true;
+    return token.pattern.test(url);
+  }
   if (token.kind === 'text') {
-    return url.toLowerCase().includes(token.value.toLowerCase());
+    return token.match(url);
   }
   switch (token.key) {
     case 'is': {

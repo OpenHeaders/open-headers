@@ -14,8 +14,10 @@
 
 import { ClearOutlined, DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type React from 'react';
+import { idbRecordMatches, idbStoreMatches } from '../../data/storage/storage-filter';
 import type { IdbDatabase, IdbRecord } from '../../data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '../../data/storage/use-idb-browser';
+import type { TextPredicate } from '../../data/text-match';
 import { walkListSelection } from '../walk-list-selection';
 import { ArmedIconButton } from './ArmedIconButton';
 import { IdbRecordColumnInfo } from './IdbRecordColumnInfo';
@@ -33,7 +35,7 @@ export interface OpenIdbRecordRequest {
 
 interface IndexedDbSectionProps {
   idb: IdbBrowserState;
-  filter: string;
+  filter: TextPredicate;
   onOpenRecord: (request: OpenIdbRecordRequest) => void;
   /** Whether a record is the ACTIVE editor tab's document — exactly
    *  that row renders highlighted, tracking tab switches. */
@@ -65,16 +67,11 @@ export function IndexedDbSection({ idb, filter, onOpenRecord, isRecordActive }: 
     return <div className="dt-empty">No IndexedDB databases for this origin.</div>;
   }
 
-  const needle = filter.trim().toLowerCase();
   return (
     <div className="dt-storage-idb-list">
       {idb.databases.map((db) => {
-        const stores = needle
-          ? db.objectStores.filter(
-              (s) => s.name.toLowerCase().includes(needle) || db.name.toLowerCase().includes(needle),
-            )
-          : db.objectStores;
-        if (needle && stores.length === 0) return null;
+        const stores = filter.empty ? db.objectStores : db.objectStores.filter((s) => idbStoreMatches(db, s, filter));
+        if (!filter.empty && stores.length === 0) return null;
         return (
           <div key={db.name} className="dt-storage-idb-db">
             <div className="dt-storage-idb-db-header">
@@ -147,13 +144,10 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
       keyPreview: r.primaryKeyPreview,
     });
   };
-  const needle = filter.trim().toLowerCase();
   const records = pageData
-    ? needle
-      ? pageData.records.filter(
-          (r) => r.keyPreview.toLowerCase().includes(needle) || r.valuePreview.toLowerCase().includes(needle),
-        )
-      : pageData.records
+    ? filter.empty
+      ? pageData.records
+      : pageData.records.filter((r) => idbRecordMatches(r, filter))
     : [];
 
   const recordActive = (r: IdbRecord): boolean =>

@@ -27,15 +27,30 @@
  *   is:problem             → row triggered any insight
  *   is:rule                → cookie was added/replaced by an Open Headers rule
  *   -foo / -is:secure      → negate any token
+ *
+ * Free-text comparison rides the shared panel `TextMatchConfig`
+ * (Match Case / Whole Word / Regex). Regex mode treats the whole input
+ * as one pattern tested against name, value, domain and path; property
+ * tokens are not parsed in that mode. Matchers are precompiled at
+ * parse time — the per-row path never constructs a RegExp.
  */
 
+import {
+  buildNeedleMatcher,
+  compileRegexQuery,
+  DEFAULT_TEXT_MATCH_CONFIG,
+  type TextMatchConfig,
+  type TextMatcher,
+} from '../text-match';
+
 export type CookieFilterToken =
-  | { kind: 'text'; value: string; negated: boolean }
-  | { kind: 'name'; value: string; negated: boolean }
-  | { kind: 'value'; value: string; negated: boolean }
-  | { kind: 'domain'; value: string; negated: boolean }
-  | { kind: 'path'; value: string; negated: boolean }
-  | { kind: 'is'; value: string; negated: boolean };
+  | { kind: 'text'; value: string; negated: boolean; match: TextMatcher }
+  | { kind: 'name'; value: string; negated: boolean; match: TextMatcher }
+  | { kind: 'value'; value: string; negated: boolean; match: TextMatcher }
+  | { kind: 'domain'; value: string; negated: boolean; match: TextMatcher }
+  | { kind: 'path'; value: string; negated: boolean; match: TextMatcher }
+  | { kind: 'is'; value: string; negated: boolean }
+  | { kind: 'regex'; pattern: RegExp | null; negated: boolean };
 
 export interface CookieRowMeta {
   name: string;
@@ -103,9 +118,17 @@ function tokenizeRaw(input: string): string[] {
   return out;
 }
 
-export function parseCookieQuery(input: string): readonly CookieFilterToken[] {
+export function parseCookieQuery(
+  input: string,
+  config: TextMatchConfig = DEFAULT_TEXT_MATCH_CONFIG,
+): readonly CookieFilterToken[] {
   const trimmed = input.trim();
   if (!trimmed) return [];
+
+  if (config.regexMode) {
+    return [{ kind: 'regex', pattern: compileRegexQuery(trimmed, config).pattern, negated: false }];
+  }
+
   const out: CookieFilterToken[] = [];
   for (const raw of tokenizeRaw(trimmed)) {
     let s = raw;
@@ -119,20 +142,8 @@ export function parseCookieQuery(input: string): readonly CookieFilterToken[] {
       const key = s.slice(0, colon).toLowerCase();
       const value = s.slice(colon + 1);
       if (value) {
-        if (key === 'name') {
-          out.push({ kind: 'name', value, negated });
-          continue;
-        }
-        if (key === 'value') {
-          out.push({ kind: 'value', value, negated });
-          continue;
-        }
-        if (key === 'domain') {
-          out.push({ kind: 'domain', value, negated });
-          continue;
-        }
-        if (key === 'path') {
-          out.push({ kind: 'path', value, negated });
+        if (key === 'name' || key === 'value' || key === 'domain' || key === 'path') {
+          out.push({ kind: key, value, negated, match: buildNeedleMatcher(value, config) });
           continue;
         }
         if (key === 'is' && KNOWN_IS.has(value.toLowerCase())) {
@@ -141,24 +152,35 @@ export function parseCookieQuery(input: string): readonly CookieFilterToken[] {
         }
       }
     }
-    out.push({ kind: 'text', value: s, negated });
+    out.push({ kind: 'text', value: s, negated, match: buildNeedleMatcher(s, config) });
   }
   return out;
 }
 
+/** True when the query is a regex-mode input that failed to parse. */
+export function hasCookieQueryError(tokens: readonly CookieFilterToken[]): boolean {
+  return tokens.some((t) => t.kind === 'regex' && t.pattern === null);
+}
+
 function matchOne(meta: CookieRowMeta, token: CookieFilterToken): boolean {
-  if (token.kind === 'text') {
-    const needle = token.value.toLowerCase();
+  if (token.kind === 'regex') {
+    // A broken pattern matches everything — the input turns red instead
+    // of silently hiding every row.
+    if (token.pattern === null) return true;
     return (
-      meta.name.toLowerCase().includes(needle) ||
-      meta.value.toLowerCase().includes(needle) ||
-      meta.domain.toLowerCase().includes(needle)
+      token.pattern.test(meta.name) ||
+      token.pattern.test(meta.value) ||
+      token.pattern.test(meta.domain) ||
+      token.pattern.test(meta.path)
     );
   }
-  if (token.kind === 'name') return meta.name.toLowerCase().includes(token.value.toLowerCase());
-  if (token.kind === 'value') return meta.value.toLowerCase().includes(token.value.toLowerCase());
-  if (token.kind === 'domain') return meta.domain.toLowerCase().includes(token.value.toLowerCase());
-  if (token.kind === 'path') return meta.path.toLowerCase().includes(token.value.toLowerCase());
+  if (token.kind === 'text') {
+    return token.match(meta.name) || token.match(meta.value) || token.match(meta.domain);
+  }
+  if (token.kind === 'name') return token.match(meta.name);
+  if (token.kind === 'value') return token.match(meta.value);
+  if (token.kind === 'domain') return token.match(meta.domain);
+  if (token.kind === 'path') return token.match(meta.path);
   switch (token.value) {
     case 'secure':
       return meta.secure;

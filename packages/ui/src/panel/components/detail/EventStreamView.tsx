@@ -58,8 +58,8 @@ import { SSE_FIRE_RAIL_INFO, SseColumnInfo } from './streams/SseColumnInfo';
 import SseEventPreview from './streams/SseEventPreview';
 import { SSE_COLUMNS, sseColumnMinWidth, sseGridTemplate } from './streams/sse-grid';
 import { type SseDisplayEvent, sseDisplayEvents } from './streams/sse-events';
+import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
 import StreamGridToolbar from './streams/StreamGridToolbar';
-import { compileStreamFilter } from './streams/stream-filter';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
 import { useMessagesSplitLayout } from './streams/use-messages-split-layout';
 import { useStickToBottom } from './streams/use-stick-to-bottom';
@@ -115,6 +115,7 @@ interface EventStreamViewProps {
 
 export default function EventStreamView({ lifecycle, source, fires, rulesByUid }: EventStreamViewProps) {
   const [filterText, setFilterText] = useState('');
+  const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [sortColumn, setSortColumn] = useState<SortColumn>('time');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
   // Clear-all floors — wire events and capture-minted synthetic rows
@@ -200,8 +201,9 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
     });
   };
 
+  const filterPredicate = useMemo(() => buildTextPredicate(filterText, filterConfig), [filterText, filterConfig]);
+
   const visible = useMemo(() => {
-    const regex = compileStreamFilter(filterText, 'never');
     const cleared = (ev: SseDisplayEvent): boolean =>
       ev.index >= WS_SYNTHETIC_INDEX_BASE
         ? ev.index - WS_SYNTHETIC_INDEX_BASE < clearedFloors.synth
@@ -210,16 +212,18 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
     // A modified event matches on either side — the captured wire data
     // or the derived replacement the split cell renders next to it.
     const takenByFilter = (ev: SseDisplayEvent): boolean => {
-      if (!regex) return true;
-      if (regex.test(ev.eventName) || regex.test(ev.id ?? '') || regex.test(ev.data)) return true;
+      if (filterPredicate.empty) return true;
+      if (filterPredicate.test(ev.eventName) || filterPredicate.test(ev.id ?? '') || filterPredicate.test(ev.data)) {
+        return true;
+      }
       const modification = attributionByIndex.get(ev.index)?.modification;
-      return modification?.kind === 'replaced-in-page' && regex.test(modification.modified);
+      return modification?.kind === 'replaced-in-page' && filterPredicate.test(modification.modified);
     };
     const filtered = afterClear.filter(takenByFilter);
     const sorted = [...filtered].sort((a, b) => compareEvents(a, b, sortColumn));
     if (sortDir === 'desc') sorted.reverse();
     return sorted;
-  }, [all, attributionByIndex, clearedFloors, filterText, sortColumn, sortDir]);
+  }, [all, attributionByIndex, clearedFloors, filterPredicate, sortColumn, sortDir]);
 
   const { onScroll: onStickScroll } = useStickToBottom(listRef, visible.length);
   // Virtualized grid — only the visible slice mounts (uniform pinned-height
@@ -298,7 +302,10 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
         onClear={onClear}
         filterText={filterText}
         onFilterTextChange={setFilterText}
-        filterPlaceholder="Filter using regex (example: https?)"
+        filterConfig={filterConfig}
+        onFilterConfigChange={setFilterConfig}
+        filterError={filterPredicate.error}
+        filterPlaceholder="Filter events"
         action={
           <button
             type="button"

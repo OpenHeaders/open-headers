@@ -7,8 +7,11 @@
 
 import { CacheStorageSection } from '@openheaders/ui/panel/components/storage/CacheStorageSection';
 import type { CacheBrowserState } from '@openheaders/ui/panel/data/storage/use-cache-browser';
+import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG } from '@openheaders/ui/panel/data/text-match';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const filterOf = (text: string) => buildTextPredicate(text, DEFAULT_TEXT_MATCH_CONFIG);
 
 afterEach(() => {
   cleanup();
@@ -35,20 +38,20 @@ function makeCache(overrides: Partial<CacheBrowserState> = {}): CacheBrowserStat
 describe('CacheStorageSection cache list', () => {
   it('opens a cache through the selection callback', () => {
     const cache = makeCache();
-    render(<CacheStorageSection cache={cache} filter="" />);
+    render(<CacheStorageSection cache={cache} filter={filterOf('')} />);
 
     fireEvent.click(screen.getByText('oh-assets-v1'));
     expect(cache.selectCache).toHaveBeenCalledWith('oh-assets-v1');
   });
 
   it('renders the secure-context empty state when the scope is unreadable', () => {
-    render(<CacheStorageSection cache={makeCache({ caches: null })} filter="" />);
+    render(<CacheStorageSection cache={makeCache({ caches: null })} filter={filterOf('')} />);
     expect(screen.getByText('Cache Storage can’t be read')).toBeDefined();
   });
 
   it('deletes a cache only on the second (armed) click, and blur disarms', () => {
     const cache = makeCache();
-    render(<CacheStorageSection cache={cache} filter="" />);
+    render(<CacheStorageSection cache={cache} filter={filterOf('')} />);
 
     const del = screen.getByLabelText('Delete cache oh-assets-v1');
     fireEvent.click(del);
@@ -75,7 +78,7 @@ describe('CacheStorageSection entries view', () => {
         truncated: true,
       },
     });
-    render(<CacheStorageSection cache={cache} filter="" />);
+    render(<CacheStorageSection cache={cache} filter={filterOf('')} />);
 
     expect(screen.getByText('https://openheaders.io/asset-0.js')).toBeDefined();
     expect(screen.getByText('POST')).toBeDefined();
@@ -101,7 +104,7 @@ describe('CacheStorageSection entries view', () => {
         truncated: false,
       },
     });
-    render(<CacheStorageSection cache={cache} filter="" />);
+    render(<CacheStorageSection cache={cache} filter={filterOf('')} />);
 
     expect(screen.getByText('Size')).toBeDefined();
     expect(screen.getByText('Time')).toBeDefined();
@@ -118,7 +121,7 @@ describe('CacheStorageSection entries view', () => {
         truncated: false,
       },
     });
-    render(<CacheStorageSection cache={cache} filter="" />);
+    render(<CacheStorageSection cache={cache} filter={filterOf('')} />);
 
     const del = screen.getByLabelText('Delete entry https://openheaders.io/api/data');
     fireEvent.click(del);
@@ -141,7 +144,7 @@ describe('CacheStorageSection entries view', () => {
         truncated: false,
       },
     });
-    render(<CacheStorageSection cache={cache} filter="" onOpenEntry={onOpenEntry} />);
+    render(<CacheStorageSection cache={cache} filter={filterOf('')} onOpenEntry={onOpenEntry} />);
 
     fireEvent.click(screen.getByText('https://openheaders.io/api/data'));
     expect(onOpenEntry).toHaveBeenCalledWith('https://openheaders.io/api/data', 'POST');
@@ -166,7 +169,7 @@ describe('CacheStorageSection entries view', () => {
       },
     });
     const { container } = render(
-      <CacheStorageSection cache={cache} filter="" isEntryActive={(url) => url === 'https://openheaders.io/a.js'} />,
+      <CacheStorageSection cache={cache} filter={filterOf('')} isEntryActive={(url) => url === 'https://openheaders.io/a.js'} />,
     );
 
     const active = container.querySelectorAll('.dt-storage-row--active');
@@ -183,18 +186,18 @@ describe('CacheStorageSection entries view', () => {
       truncated: false,
     };
 
-    render(<CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter="api" />);
+    render(<CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter={filterOf('api')} />);
     expect(screen.queryByText('https://openheaders.io/asset-0.js')).toBeNull();
     expect(screen.getByText('https://openheaders.io/api/data')).toBeDefined();
     cleanup();
 
-    render(<CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter="post" />);
+    render(<CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter={filterOf('post')} />);
     expect(screen.queryByText('https://openheaders.io/asset-0.js')).toBeNull();
     expect(screen.getByText('https://openheaders.io/api/data')).toBeDefined();
     cleanup();
 
     render(
-      <CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter="javascript" />,
+      <CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter={filterOf('javascript')} />,
     );
     expect(screen.getByText('https://openheaders.io/asset-0.js')).toBeDefined();
     expect(screen.queryByText('https://openheaders.io/api/data')).toBeNull();

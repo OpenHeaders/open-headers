@@ -25,15 +25,29 @@
  *
  * Quick toolbar toggles compile to synthetic tokens (`is:rule`,
  * `is:security`, …) so the same matching path covers both.
+ *
+ * Free-text comparison rides the shared panel `TextMatchConfig`
+ * (Match Case / Whole Word / Regex). Regex mode treats the whole input
+ * as one pattern tested against `name: value`; property tokens are not
+ * parsed in that mode. Matchers are precompiled at parse time — the
+ * per-row path never constructs a RegExp.
  */
 
 import type { HeaderCategory } from '@openheaders/ui/shared/info-popover/data/http-headers/header-category';
+import {
+  buildNeedleMatcher,
+  compileRegexQuery,
+  DEFAULT_TEXT_MATCH_CONFIG,
+  type TextMatchConfig,
+  type TextMatcher,
+} from '../text-match';
 
 export type HeaderFilterToken =
-  | { kind: 'text'; value: string; negated: boolean }
-  | { kind: 'name'; value: string; negated: boolean }
-  | { kind: 'value'; value: string; negated: boolean }
-  | { kind: 'is'; value: string; negated: boolean };
+  | { kind: 'text'; value: string; negated: boolean; match: TextMatcher }
+  | { kind: 'name'; value: string; negated: boolean; match: TextMatcher }
+  | { kind: 'value'; value: string; negated: boolean; match: TextMatcher }
+  | { kind: 'is'; value: string; negated: boolean }
+  | { kind: 'regex'; pattern: RegExp | null; negated: boolean };
 
 export interface HeaderRowMeta {
   name: string;
@@ -105,9 +119,17 @@ function tokenizeRaw(input: string): string[] {
   return out;
 }
 
-export function parseHeaderQuery(input: string): readonly HeaderFilterToken[] {
+export function parseHeaderQuery(
+  input: string,
+  config: TextMatchConfig = DEFAULT_TEXT_MATCH_CONFIG,
+): readonly HeaderFilterToken[] {
   const trimmed = input.trim();
   if (!trimmed) return [];
+
+  if (config.regexMode) {
+    return [{ kind: 'regex', pattern: compileRegexQuery(trimmed, config).pattern, negated: false }];
+  }
+
   const out: HeaderFilterToken[] = [];
   for (const raw of tokenizeRaw(trimmed)) {
     let s = raw;
@@ -122,11 +144,11 @@ export function parseHeaderQuery(input: string): readonly HeaderFilterToken[] {
       const value = s.slice(colon + 1);
       if (value) {
         if (key === 'name') {
-          out.push({ kind: 'name', value, negated });
+          out.push({ kind: 'name', value, negated, match: buildNeedleMatcher(value, config) });
           continue;
         }
         if (key === 'value') {
-          out.push({ kind: 'value', value, negated });
+          out.push({ kind: 'value', value, negated, match: buildNeedleMatcher(value, config) });
           continue;
         }
         if (key === 'is' && KNOWN_IS.has(value.toLowerCase())) {
@@ -135,21 +157,31 @@ export function parseHeaderQuery(input: string): readonly HeaderFilterToken[] {
         }
       }
     }
-    out.push({ kind: 'text', value: s, negated });
+    out.push({ kind: 'text', value: s, negated, match: buildNeedleMatcher(s, config) });
   }
   return out;
 }
 
+/** True when the query is a regex-mode input that failed to parse. */
+export function hasHeaderQueryError(tokens: readonly HeaderFilterToken[]): boolean {
+  return tokens.some((t) => t.kind === 'regex' && t.pattern === null);
+}
+
 function matchOne(meta: HeaderRowMeta, token: HeaderFilterToken): boolean {
+  if (token.kind === 'regex') {
+    // A broken pattern matches everything — the input turns red instead
+    // of silently hiding every row.
+    if (token.pattern === null) return true;
+    return token.pattern.test(`${meta.name}: ${meta.value}`);
+  }
   if (token.kind === 'text') {
-    const needle = token.value.toLowerCase();
-    return meta.name.toLowerCase().includes(needle) || meta.value.toLowerCase().includes(needle);
+    return token.match(meta.name) || token.match(meta.value);
   }
   if (token.kind === 'name') {
-    return meta.name.toLowerCase().includes(token.value.toLowerCase());
+    return token.match(meta.name);
   }
   if (token.kind === 'value') {
-    return meta.value.toLowerCase().includes(token.value.toLowerCase());
+    return token.match(meta.value);
   }
   // is:*
   switch (token.value) {

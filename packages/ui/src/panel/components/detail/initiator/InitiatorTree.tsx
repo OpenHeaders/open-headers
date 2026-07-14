@@ -5,8 +5,10 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeCascadeInsights } from '../../../data/cascade/cascade-insights';
 import { computeCascadeSummary } from '../../../data/cascade/cascade-summary';
-import { parseCascadeQuery } from '../../../data/cascade/cascade-filter';
+import { hasCascadeQueryError, parseCascadeQuery } from '../../../data/cascade/cascade-filter';
 import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
+import { DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../../data/text-match';
+import { FilterInput } from '../../FilterInput';
 import ResourceIcon from '../../traffic/ResourceIcon';
 import { HighlightedText } from '../HighlightedText';
 import { CascadeSummaryHeader } from './CascadeSummaryHeader';
@@ -28,6 +30,7 @@ export function InitiatorTreeView({
   onOpenRequest?: (requestId: string) => void;
 }) {
   const [filter, setFilter] = useState('');
+  const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   // Filter text stays per-tab (request-specific); the toggles + sort
   // + show-insights persist panel-wide via the shared settings store.
   const [failuresOnly, setFailuresOnly] = useSetting('devpanelInitiator.failuresOnly');
@@ -60,14 +63,18 @@ export function InitiatorTreeView({
   );
   const insights = useMemo(() => computeCascadeInsights(summary), [summary]);
 
-  // Build the effective query — free-text + toggles compile to one token list.
+  // Build the effective query — the typed text parses under the match
+  // config (regex mode makes it one pattern); the quick-toggle synthetic
+  // tokens parse separately so they stay property tokens in every mode.
   const compiledQuery = useMemo(() => {
-    const parts: string[] = [];
-    if (filter.trim()) parts.push(filter.trim());
-    if (failuresOnly) parts.push('is:failed');
-    if (thirdPartyOnly) parts.push('is:third-party');
-    return parseCascadeQuery(parts.join(' '));
-  }, [filter, failuresOnly, thirdPartyOnly]);
+    const tokens = [...parseCascadeQuery(filter, filterConfig)];
+    const synthetic: string[] = [];
+    if (failuresOnly) synthetic.push('is:failed');
+    if (thirdPartyOnly) synthetic.push('is:third-party');
+    if (synthetic.length > 0) tokens.push(...parseCascadeQuery(synthetic.join(' ')));
+    return tokens;
+  }, [filter, filterConfig, failuresOnly, thirdPartyOnly]);
+  const filterHasError = useMemo(() => hasCascadeQueryError(compiledQuery), [compiledQuery]);
 
   const tree = useMemo(
     () => buildTree(row, getChildren, pageOrigin, compiledQuery, sortMode, summary.subtreeStats),
@@ -195,13 +202,14 @@ export function InitiatorTreeView({
   return (
     <div className="dt-initiator-pane" ref={paneRef}>
       <div className="dt-initiator-chain-filter" ref={toolbarRef}>
-        <input
-          type="search"
-          placeholder="Filter — text, is:failed, is:third-party, type:js, status:404, size:>50kb"
+        <FilterInput
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="dt-initiator-chain-filter-input"
-          aria-label="Filter initiator chain"
+          onChange={setFilter}
+          config={filterConfig}
+          onConfigChange={setFilterConfig}
+          hasError={filterHasError}
+          placeholder="Filter — text, is:failed, is:third-party, type:js, status:404, size:>50kb"
+          ariaLabel="Filter initiator chain"
         />
         {filtering && (
           <span className="dt-initiator-chain-filter-count">

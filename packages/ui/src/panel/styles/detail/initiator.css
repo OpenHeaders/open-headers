@@ -167,20 +167,9 @@
   border-bottom: 1px solid var(--dt-border);
   background: var(--dt-bg);
 }
-.dt-initiator-stack-filter-input {
-  width: 100%;
-  font: inherit;
-  font-size: 11px;
-  padding: 2px 6px;
-  color: var(--dt-text);
-  background: var(--dt-row-hover);
-  border: 1px solid transparent;
-  border-radius: 3px;
-  outline: none;
-}
-.dt-initiator-stack-filter-input:focus {
-  border-color: var(--dt-link);
-  background: var(--dt-bg);
+.dt-initiator-stack-filter .dt-filter-input-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .dt-initiator-stack-status {
   padding: 4px 12px;
@@ -328,20 +317,9 @@
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
 }
-.dt-initiator-chain-filter-input {
+.dt-initiator-chain-filter .dt-filter-input-wrap {
   flex: 1 1 auto;
   min-width: 0;
-  font: inherit;
-  color: var(--dt-text);
-  background: var(--dt-row-hover);
-  border: 1px solid transparent;
-  border-radius: 3px;
-  padding: 2px 6px;
-  outline: none;
-}
-.dt-initiator-chain-filter-input:focus {
-  border-color: var(--dt-link);
-  background: var(--dt-bg);
 }
 .dt-initiator-chain-filter-count {
   flex-shrink: 0;

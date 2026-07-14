@@ -687,6 +687,29 @@
   padding-right: 58px;
 }
 
+.dt-filter-input-wrap--clearable .dt-filter-input {
+  padding-right: 76px;
+}
+
+.dt-filter-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.dt-filter-clear:hover {
+  color: var(--dt-text);
+}
+
 .dt-filter-input-toggles {
   position: absolute;
   right: 2px;

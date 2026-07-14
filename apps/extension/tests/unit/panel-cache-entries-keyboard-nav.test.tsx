@@ -14,9 +14,12 @@
 import { CacheStorageSection } from '@openheaders/ui/panel/components/storage/CacheStorageSection';
 import type { CacheEntry } from '@openheaders/ui/panel/data/storage/storage-inspector-host';
 import type { CacheBrowserState } from '@openheaders/ui/panel/data/storage/use-cache-browser';
+import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG } from '@openheaders/ui/panel/data/text-match';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+const filterOf = (text: string) => buildTextPredicate(text, DEFAULT_TEXT_MATCH_CONFIG);
 
 beforeAll(() => {
   // jsdom computes no layout and implements no scrollIntoView — the
@@ -65,7 +68,7 @@ function Harness({
   return (
     <CacheStorageSection
       cache={makeCacheState(entries)}
-      filter=""
+      filter={filterOf('')}
       onOpenEntry={(url, method) => {
         onOpenSpy(url, method);
         setActiveKey(`${method} ${url}`);

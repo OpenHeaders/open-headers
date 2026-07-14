@@ -30,7 +30,9 @@ import {
 import { useSiteCookieJarSticky } from '../../data/cookies/use-cookie-jar';
 import { cacheEntryTabId, cookieTabId, domStorageEntryTabId, idbRecordTabId } from '../../data/inspector-tab';
 import type { DomStorageArea, DomStorageEntry, SiteDataType } from '../../data/storage/storage-inspector-host';
+import { cacheMatches, cookieMatches, countIdbStoreMatches, domEntryMatches } from '../../data/storage/storage-filter';
 import { parseStorageKey } from '../../data/storage/storage-key';
+import { useDomAreaSnapshot } from '../../data/storage/use-dom-area-snapshot';
 import { useCacheBrowser } from '../../data/storage/use-cache-browser';
 import { useIdbBrowser } from '../../data/storage/use-idb-browser';
 import { useStorageQuota } from '../../data/storage/use-storage-quota';
@@ -39,7 +41,9 @@ import {
   type StorageSection,
   useStorageInspector,
 } from '../../data/storage/use-storage-inspector';
+import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
 import { CookieEditPopover } from '../detail/cookies/CookieEditPopover';
+import { FilterInput } from '../FilterInput';
 import { CacheStorageSection } from './CacheStorageSection';
 import { CookiesSection } from './CookiesSection';
 import { IndexedDbSection, type OpenIdbRecordRequest } from './IndexedDbSection';
@@ -132,7 +136,11 @@ export function StoragePanel({
   const [section, setSection] = useState<StorageSection>('local');
   const inspector = useStorageInspector(section);
   const [textFilter, setTextFilter] = useState('');
+  const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [adding, setAdding] = useState(false);
+
+  const filterPredicate = useMemo(() => buildTextPredicate(textFilter, filterConfig), [textFilter, filterConfig]);
+  const filterActive = !filterPredicate.empty;
 
   // Selection or section moved out from under an open add row — drop it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: selection identity is the reset trigger
@@ -142,10 +150,9 @@ export function StoragePanel({
 
   const entries = inspector.snapshot?.entries ?? [];
   const filtered = useMemo<ReadonlyArray<DomStorageEntry>>(() => {
-    const needle = textFilter.trim().toLowerCase();
-    if (!needle) return entries;
-    return entries.filter((e) => e.key.toLowerCase().includes(needle) || e.value.toLowerCase().includes(needle));
-  }, [entries, textFilter]);
+    if (filterPredicate.empty) return entries;
+    return entries.filter((e) => domEntryMatches(e, filterPredicate));
+  }, [entries, filterPredicate]);
 
   // Partition evidence (CDP tier): the selected scope's storage key, when
   // the browser reported one and it carries partition components.
@@ -153,8 +160,11 @@ export function StoragePanel({
   const partition = selectedScope?.storageKey ? parseStorageKey(selectedScope.storageKey) : null;
 
   // ── IndexedDB / Cache Storage / Usage section data (own hooks, own polls) ──
-  const idb = useIdbBrowser(section === 'indexeddb', selectedScope?.frameId ?? null);
-  const cacheStorage = useCacheBrowser(section === 'cachestorage', selectedScope?.frameId ?? null);
+  // While a filter is typed, the sectioned stores' hooks activate too:
+  // the nav rail's match-count badges need every section's data, not
+  // just the active one's. Idle (no filter) keeps today's gating.
+  const idb = useIdbBrowser(section === 'indexeddb' || filterActive, selectedScope?.frameId ?? null);
+  const cacheStorage = useCacheBrowser(section === 'cachestorage' || filterActive, selectedScope?.frameId ?? null);
   const quota = useStorageQuota(section === 'quota', selectedScope?.frameId ?? null);
 
   // Scope-bar sweeps for the sectioned stores — every enumerated
@@ -306,7 +316,7 @@ export function StoragePanel({
     (cookie: SiteJarCookie) => activeStorageTabId != null && activeStorageTabId === cookieTabId(jarCookieToKey(cookie)),
     [activeStorageTabId],
   );
-  const jar = useSiteCookieJarSticky(section === 'cookies' ? scopeUrl : '');
+  const jar = useSiteCookieJarSticky(section === 'cookies' || filterActive ? scopeUrl : '');
   const sortedCookies = useMemo<ReadonlyArray<SiteJarCookie> | null>(() => {
     if (!jar) return jar;
     return [...jar].sort(
@@ -315,15 +325,41 @@ export function StoragePanel({
   }, [jar]);
   const filteredCookies = useMemo<ReadonlyArray<SiteJarCookie>>(() => {
     if (!sortedCookies) return [];
-    const needle = textFilter.trim().toLowerCase();
-    if (!needle) return sortedCookies;
-    return sortedCookies.filter(
-      (c) =>
-        c.name.toLowerCase().includes(needle) ||
-        c.value.toLowerCase().includes(needle) ||
-        c.domain.toLowerCase().includes(needle),
-    );
-  }, [sortedCookies, textFilter]);
+    if (filterPredicate.empty) return sortedCookies;
+    return sortedCookies.filter((c) => cookieMatches(c, filterPredicate));
+  }, [sortedCookies, filterPredicate]);
+
+  // ── Nav-rail match badges (settings-sidebar idiom) ────────────────
+  // While a filter is typed, every section tab shows how many of its
+  // rows match. The non-active DOM area rides a read-only sibling
+  // snapshot; everything else reuses the data the hooks above already
+  // load once `filterActive` ungates them.
+  const domSection: DomStorageArea | null = section === 'local' ? 'local' : section === 'session' ? 'session' : null;
+  const localSibling = useDomAreaSnapshot(filterActive && domSection !== 'local', selectedFrameId, 'local');
+  const sessionSibling = useDomAreaSnapshot(filterActive && domSection !== 'session', selectedFrameId, 'session');
+  const navMatchCounts = useMemo<Partial<Record<StorageSection, number>>>(() => {
+    if (filterPredicate.empty) return {};
+    const counts: Partial<Record<StorageSection, number>> = {};
+    const localEntries = domSection === 'local' ? inspector.snapshot?.entries : localSibling?.entries;
+    const sessionEntries = domSection === 'session' ? inspector.snapshot?.entries : sessionSibling?.entries;
+    if (localEntries) counts.local = localEntries.filter((e) => domEntryMatches(e, filterPredicate)).length;
+    if (sessionEntries) counts.session = sessionEntries.filter((e) => domEntryMatches(e, filterPredicate)).length;
+    if (sortedCookies) counts.cookies = sortedCookies.filter((c) => cookieMatches(c, filterPredicate)).length;
+    if (idb.databases) counts.indexeddb = countIdbStoreMatches(idb.databases, filterPredicate);
+    if (cacheStorage.caches) {
+      counts.cachestorage = cacheStorage.caches.filter((c) => cacheMatches(c, filterPredicate)).length;
+    }
+    return counts;
+  }, [
+    filterPredicate,
+    domSection,
+    inspector.snapshot,
+    localSibling,
+    sessionSibling,
+    sortedCookies,
+    idb.databases,
+    cacheStorage.caches,
+  ]);
 
   const cookiesWritable = isCookieJarWritable() && inspector.scopes.length > 0;
   const [cookieWriteFailed, setCookieWriteFailed] = useState(false);
@@ -412,12 +448,13 @@ export function StoragePanel({
           <div className="dt-header-filter-row">
             <strong className="dt-header-panel-name">Storage</strong>
             <div className="dt-filter-separator" />
-            <input
-              type="text"
-              className="dt-filter-input dt-filter-input--grow"
-              placeholder="Filter"
+            <FilterInput
               value={textFilter}
-              onChange={(e) => setTextFilter(e.target.value)}
+              onChange={setTextFilter}
+              config={filterConfig}
+              onConfigChange={setFilterConfig}
+              hasError={filterPredicate.error}
+              ariaLabel="Filter storage entries"
             />
             <div className="dt-filter-separator" />
             {section === 'cookies' ? (
@@ -486,6 +523,11 @@ export function StoragePanel({
             >
               <span className="dt-storage-nav-icon">{s.icon}</span>
               {s.label}
+              {navMatchCounts[s.value] !== undefined && navMatchCounts[s.value] !== 0 && (
+                <span className="dt-storage-nav-badge" title={`${navMatchCounts[s.value]} matches`}>
+                  {navMatchCounts[s.value]}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -556,14 +598,14 @@ export function StoragePanel({
                 section === 'indexeddb' ? (
                   <IndexedDbSection
                     idb={idb}
-                    filter={textFilter}
+                    filter={filterPredicate}
                     onOpenRecord={openIdbRecord}
                     isRecordActive={isIdbRecordActive}
                   />
                 ) : section === 'cachestorage' ? (
                   <CacheStorageSection
                     cache={cacheStorage}
-                    filter={textFilter}
+                    filter={filterPredicate}
                     onOpenEntry={openCacheEntry}
                     isEntryActive={isCacheEntryActive}
                   />

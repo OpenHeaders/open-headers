@@ -34,7 +34,9 @@ import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasu
 import { useModifiedSettings, useResetSettings, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { deleteKeyForRow, emptyEditForm } from '../../data/cookies/cookie-edit';
 import { enrichCookies } from '../../data/cookies/cookie-enrich';
-import { parseCookieQuery, type CookieFilterToken } from '../../data/cookies/cookie-filter';
+import { hasCookieQueryError, parseCookieQuery, type CookieFilterToken } from '../../data/cookies/cookie-filter';
+import { DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
+import { FilterInput } from '../FilterInput';
 import { cookieHeaderRuleTouched } from '../../data/cookies/cookie-indicators';
 import {
   getEditedCookieKeys,
@@ -119,6 +121,7 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
 
   // ── Settings ────────────────────────────────────────────────────
   const [filter, setFilter] = useState('');
+  const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [sortMode, setSortMode] = useSetting('devpanelCookies.sortMode');
   const [expiresFormat, setExpiresFormat] = useSetting('devpanelCookies.expiresFormat');
   const [showInsights, setShowInsights] = useSetting('devpanelCookies.showInsights');
@@ -220,13 +223,18 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
 
   // ── Compiled filter ────────────────────────────────────────────
   const compiledQuery = useMemo<readonly CookieFilterToken[]>(() => {
-    const parts: string[] = [];
-    if (filter.trim()) parts.push(filter.trim());
-    if (problemsOnly) parts.push('is:problem');
-    if (thirdPartyOnly) parts.push('is:third-party');
-    if (ruleOnly) parts.push('is:rule');
-    return parseCookieQuery(parts.join(' '));
-  }, [filter, problemsOnly, thirdPartyOnly, ruleOnly]);
+    // The typed query parses under the match config (regex mode makes it
+    // one pattern); the quick-toggle synthetic tokens parse separately so
+    // they stay property tokens in every mode.
+    const tokens = [...parseCookieQuery(filter, filterConfig)];
+    const synthetic: string[] = [];
+    if (problemsOnly) synthetic.push('is:problem');
+    if (thirdPartyOnly) synthetic.push('is:third-party');
+    if (ruleOnly) synthetic.push('is:rule');
+    if (synthetic.length > 0) tokens.push(...parseCookieQuery(synthetic.join(' ')));
+    return tokens;
+  }, [filter, filterConfig, problemsOnly, thirdPartyOnly, ruleOnly]);
+  const filterHasError = useMemo(() => hasCookieQueryError(compiledQuery), [compiledQuery]);
 
   // ── Footprint line ─────────────────────────────────────────────
   const sentCount = requestRows.filter((r) => r.attribution !== 'filtered-out').length;
@@ -296,13 +304,14 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
   return (
     <div className="dt-cookies-pane" ref={paneRef}>
       <div className="dt-header-filter" ref={toolbarRef}>
-        <input
-          type="search"
-          placeholder="Filter — text, name:sess, is:secure, is:samesite-none, is:problem, is:third-party, …"
+        <FilterInput
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="dt-header-filter-input"
-          aria-label="Filter cookies"
+          onChange={setFilter}
+          config={filterConfig}
+          onConfigChange={setFilterConfig}
+          hasError={filterHasError}
+          placeholder="Filter — text, name:sess, is:secure, is:samesite-none, is:problem, is:third-party, …"
+          ariaLabel="Filter cookies"
         />
         <CookieCtaMenu
           onOverrideRequest={onCreateCookieOverride}

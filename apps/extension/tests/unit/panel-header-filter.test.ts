@@ -1,8 +1,10 @@
 import {
   type HeaderRowMeta,
+  hasHeaderQueryError,
   matchesHeaderQuery,
   parseHeaderQuery,
 } from '@openheaders/ui/panel/data/headers/header-filter';
+import { DEFAULT_TEXT_MATCH_CONFIG } from '@openheaders/ui/panel/data/text-match';
 import { describe, expect, it } from 'vitest';
 
 function meta(over: Partial<HeaderRowMeta> = {}): HeaderRowMeta {
@@ -26,22 +28,35 @@ describe('parseHeaderQuery', () => {
 
   it('parses bare text, quoted text and negation', () => {
     expect(parseHeaderQuery('cookie -auth "no cache"')).toEqual([
-      { kind: 'text', value: 'cookie', negated: false },
-      { kind: 'text', value: 'auth', negated: true },
-      { kind: 'text', value: 'no cache', negated: false },
+      { kind: 'text', value: 'cookie', negated: false, match: expect.any(Function) },
+      { kind: 'text', value: 'auth', negated: true, match: expect.any(Function) },
+      { kind: 'text', value: 'no cache', negated: false, match: expect.any(Function) },
     ]);
   });
 
   it('parses name:/value:/is: operators', () => {
     expect(parseHeaderQuery('name:cookie value:no-cache is:rule')).toEqual([
-      { kind: 'name', value: 'cookie', negated: false },
-      { kind: 'value', value: 'no-cache', negated: false },
+      { kind: 'name', value: 'cookie', negated: false, match: expect.any(Function) },
+      { kind: 'value', value: 'no-cache', negated: false, match: expect.any(Function) },
       { kind: 'is', value: 'rule', negated: false },
     ]);
   });
 
   it('falls back to text when is: value is unknown', () => {
-    expect(parseHeaderQuery('is:nonsense')).toEqual([{ kind: 'text', value: 'is:nonsense', negated: false }]);
+    expect(parseHeaderQuery('is:nonsense')).toEqual([
+      { kind: 'text', value: 'is:nonsense', negated: false, match: expect.any(Function) },
+    ]);
+  });
+
+  it('compiles the whole input as one pattern in regex mode', () => {
+    const tokens = parseHeaderQuery('^x-.*: ', { ...DEFAULT_TEXT_MATCH_CONFIG, regexMode: true });
+    expect(tokens).toEqual([{ kind: 'regex', pattern: expect.any(RegExp), negated: false }]);
+    expect(hasHeaderQueryError(tokens)).toBe(false);
+  });
+
+  it('flags a broken regex-mode pattern', () => {
+    const tokens = parseHeaderQuery('x-(', { ...DEFAULT_TEXT_MATCH_CONFIG, regexMode: true });
+    expect(hasHeaderQueryError(tokens)).toBe(true);
   });
 });
 
@@ -95,5 +110,28 @@ describe('matchesHeaderQuery', () => {
   it('honours negation', () => {
     expect(matchesHeaderQuery(meta({ origin: 'server' }), parseHeaderQuery('-is:rule'))).toBe(true);
     expect(matchesHeaderQuery(meta({ origin: 'rule' }), parseHeaderQuery('-is:rule'))).toBe(false);
+  });
+
+  it('honours Match Case', () => {
+    const caseSensitive = { ...DEFAULT_TEXT_MATCH_CONFIG, matchCase: true };
+    expect(matchesHeaderQuery(meta({ name: 'Set-Cookie' }), parseHeaderQuery('COOKIE', caseSensitive))).toBe(false);
+    expect(matchesHeaderQuery(meta({ name: 'Set-Cookie' }), parseHeaderQuery('Cookie', caseSensitive))).toBe(true);
+  });
+
+  it('honours Whole Word', () => {
+    const wholeWord = { ...DEFAULT_TEXT_MATCH_CONFIG, wholeWord: true };
+    expect(matchesHeaderQuery(meta({ value: 'no-cache' }), parseHeaderQuery('cache', wholeWord))).toBe(true);
+    expect(matchesHeaderQuery(meta({ value: 'cachetastic' }), parseHeaderQuery('cache', wholeWord))).toBe(false);
+  });
+
+  it('regex mode tests the pattern against "name: value"', () => {
+    const regex = { ...DEFAULT_TEXT_MATCH_CONFIG, regexMode: true };
+    expect(matchesHeaderQuery(meta(), parseHeaderQuery('^content-type: application', regex))).toBe(true);
+    expect(matchesHeaderQuery(meta(), parseHeaderQuery('^application', regex))).toBe(false);
+  });
+
+  it('a broken regex matches every row (error shows in the input instead)', () => {
+    const regex = { ...DEFAULT_TEXT_MATCH_CONFIG, regexMode: true };
+    expect(matchesHeaderQuery(meta(), parseHeaderQuery('x-(', regex))).toBe(true);
   });
 });

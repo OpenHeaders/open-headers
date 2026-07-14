@@ -28,6 +28,6 @@ export function matchesPanelFilters(
 ): boolean {
   if (!passesRowFilters(lc, filterConfig)) return false;
   if (!matchesResourceType(lc.resourceType, filter)) return false;
-  if (filterTokens.length > 0 && !matchesUrlFilter(lc, filterTokens, filterConfig)) return false;
+  if (filterTokens.length > 0 && !matchesUrlFilter(lc, filterTokens)) return false;
   return true;
 }

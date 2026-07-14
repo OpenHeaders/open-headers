@@ -15,7 +15,9 @@
 
 import { DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type React from 'react';
+import { cacheEntryMatches, cacheMatches } from '../../data/storage/storage-filter';
 import type { CacheBrowserState } from '../../data/storage/use-cache-browser';
+import type { TextPredicate } from '../../data/text-match';
 import { formatDateTime, formatSize } from '../traffic/formatters';
 import { walkListSelection } from '../walk-list-selection';
 import { ArmedIconButton } from './ArmedIconButton';
@@ -24,7 +26,7 @@ import { StorageColumnHeaderCell } from './StorageColumnHeaderCell';
 
 interface CacheStorageSectionProps {
   cache: CacheBrowserState;
-  filter: string;
+  filter: TextPredicate;
   /** Open one entry's stored response as an editor-tab document. */
   onOpenEntry?: (url: string, method: string) => void;
   /** Is this entry the ACTIVE editor tab? Exactly that row highlights. */
@@ -51,8 +53,7 @@ export function CacheStorageSection({ cache, filter, onOpenEntry, isEntryActive 
     return <div className="dt-empty">No caches for this origin.</div>;
   }
 
-  const needle = filter.trim().toLowerCase();
-  const caches = needle ? cache.caches.filter((c) => c.name.toLowerCase().includes(needle)) : cache.caches;
+  const caches = filter.empty ? cache.caches : cache.caches.filter((c) => cacheMatches(c, filter));
   if (caches.length === 0) {
     return <div className="dt-empty">No caches match your filter.</div>;
   }
@@ -87,16 +88,10 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
   if (name === null) return null;
 
   const pageData = cache.entriesPage;
-  const needle = filter.trim().toLowerCase();
   const entries = pageData
-    ? needle
-      ? pageData.entries.filter(
-          (e) =>
-            e.url.toLowerCase().includes(needle) ||
-            e.method.toLowerCase().includes(needle) ||
-            (e.headersPreview?.toLowerCase().includes(needle) ?? false),
-        )
-      : pageData.entries
+    ? filter.empty
+      ? pageData.entries
+      : pageData.entries.filter((e) => cacheEntryMatches(e, filter))
     : [];
 
   // Keyboard row navigation — StorageGrid's selection model on a

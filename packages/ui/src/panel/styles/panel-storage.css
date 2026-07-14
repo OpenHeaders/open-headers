@@ -46,6 +46,22 @@
   opacity: 0.8;
 }
 
+/* Filter match-count badge — the settings-sidebar idiom: a small
+ * right-aligned count that appears per section while a filter is
+ * typed, so matches in non-active sections are discoverable. */
+.dt-storage-nav-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--dt-pill-active-bg);
+  color: var(--dt-pill-active-text);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+}
+
 .dt-storage-nav-item:hover {
   background: var(--dt-row-hover);
 }

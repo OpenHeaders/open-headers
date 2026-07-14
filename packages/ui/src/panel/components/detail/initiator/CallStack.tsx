@@ -13,6 +13,13 @@ import {
   sourceFileLabel,
   useResolvedFrames,
 } from '../../../data/initiator/use-resolved-frames';
+import {
+  buildTextPredicate,
+  DEFAULT_TEXT_MATCH_CONFIG,
+  type TextMatchConfig,
+  type TextPredicate,
+} from '../../../data/text-match';
+import { FilterInput } from '../../FilterInput';
 
 export interface CallFrame {
   functionName?: string;
@@ -147,11 +154,9 @@ function flattenStack(stack: StackTrace): CopyStackInput[] {
   return out;
 }
 
-function frameMatchesQuery(frame: CallFrameLike, displayName: string, needle: string): boolean {
-  if (!needle) return true;
-  const n = needle.toLowerCase();
-  if (displayName.toLowerCase().includes(n)) return true;
-  if (frame.url && frame.url.toLowerCase().includes(n)) return true;
+function frameMatchesQuery(frame: CallFrameLike, displayName: string, predicate: TextPredicate): boolean {
+  if (predicate.test(displayName)) return true;
+  if (frame.url && predicate.test(frame.url)) return true;
   return false;
 }
 
@@ -169,9 +174,10 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
   );
   const resolvedCount = useMemo(() => resolvedNames.size, [resolvedNames]);
   const [filter, setFilter] = useState('');
+  const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [hideNoise, setHideNoise] = useState(false);
   const [copied, setCopied] = useState(false);
-  const needle = filter.trim();
+  const filterPredicate = useMemo(() => buildTextPredicate(filter, filterConfig), [filter, filterConfig]);
 
   // Count frames that would ACTUALLY be hidden by the noise toggle —
   // a frame the source map resolved is no longer "noise" because we
@@ -251,13 +257,14 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
         </span>
       </summary>
       <div className="dt-initiator-stack-filter">
-        <input
-          type="search"
-          placeholder="Filter frames (function name or URL)…"
+        <FilterInput
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="dt-initiator-stack-filter-input"
-          aria-label="Filter call-stack frames"
+          onChange={setFilter}
+          config={filterConfig}
+          onConfigChange={setFilterConfig}
+          hasError={filterPredicate.error}
+          placeholder="Filter frames (function name or URL)…"
+          ariaLabel="Filter call-stack frames"
         />
       </div>
       {(() => {
@@ -276,7 +283,9 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
             const noisy = meta.isLikelyNoise && !resolved;
             if (hideNoise && noisy) return false;
             const nameForQuery = resolved?.name ?? meta.displayName;
-            if (needle && !frameMatchesQuery(frame as CallFrameLike, nameForQuery, needle)) return false;
+            if (!filterPredicate.empty && !frameMatchesQuery(frame as CallFrameLike, nameForQuery, filterPredicate)) {
+              return false;
+            }
             return true;
           });
           totalVisible += visible.length;
@@ -301,7 +310,7 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
         return (
           <>
             {rendered}
-            {(needle || hideNoise) && (
+            {(!filterPredicate.empty || hideNoise) && (
               <div className="dt-initiator-stack-status">
                 {totalVisible === 0 ? (
                   <span className="dt-col-muted">No frames match.</span>

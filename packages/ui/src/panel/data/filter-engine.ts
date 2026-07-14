@@ -1,6 +1,7 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
 import { classifyRequestState } from './request-state';
+import { buildNeedleMatcher, type TextMatchConfig, type TextMatcher } from './text-match';
 
 /**
  * Toolbar-level coarse filters — mirrors the "More filters" menu
@@ -8,10 +9,7 @@ import { classifyRequestState } from './request-state';
  * restrict the list to matching rows only. Multiple filters compose
  * via AND (a row must pass every active filter).
  */
-export interface FilterConfig {
-  matchCase: boolean;
-  wholeWord: boolean;
-  regexMode: boolean;
+export interface FilterConfig extends TextMatchConfig {
   /** Hide `data:` / `blob:` URLs (usually inline images, fonts). */
   hideDataUrls: boolean;
   /** Hide `chrome-extension://` / `moz-extension://` / etc. URLs. */
@@ -61,7 +59,7 @@ const PROPERTY_KEYS = new Set<string>([
 ]);
 
 export type FilterToken =
-  | { type: 'text'; value: string; negated: boolean }
+  | { type: 'text'; value: string; negated: boolean; match: TextMatcher }
   | { type: 'property'; key: PropertyFilterKey; value: string; negated: boolean }
   | { type: 'regex'; pattern: RegExp | null; error?: string };
 
@@ -140,7 +138,7 @@ export function parseFilter(input: string, config: FilterConfig): FilterToken[] 
       }
     }
 
-    tokens.push({ type: 'text', value: s, negated });
+    tokens.push({ type: 'text', value: s, negated, match: buildNeedleMatcher(s, config) });
   }
 
   return tokens;
@@ -148,23 +146,6 @@ export function parseFilter(input: string, config: FilterConfig): FilterToken[] 
 
 export function hasFilterError(tokens: FilterToken[]): boolean {
   return tokens.some((t) => t.type === 'regex' && t.pattern === null);
-}
-
-function textMatches(haystack: string, needle: string, config: FilterConfig): boolean {
-  const h = config.matchCase ? haystack : haystack.toLowerCase();
-  const n = config.matchCase ? needle : needle.toLowerCase();
-
-  if (config.wholeWord) {
-    try {
-      const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`\\b${escaped}\\b`, config.matchCase ? '' : 'i');
-      return re.test(haystack);
-    } catch {
-      return h.includes(n);
-    }
-  }
-
-  return h.includes(n);
 }
 
 function transferredBytes(lc: RequestLifecycle): number {
@@ -221,10 +202,10 @@ function matchProperty(lc: RequestLifecycle, key: PropertyFilterKey, value: stri
   }
 }
 
-function matchToken(lc: RequestLifecycle, token: FilterToken, config: FilterConfig): boolean {
+function matchToken(lc: RequestLifecycle, token: FilterToken): boolean {
   switch (token.type) {
     case 'text': {
-      const result = textMatches(lc.url, token.value, config);
+      const result = token.match(lc.url);
       return token.negated ? !result : result;
     }
     case 'property': {
@@ -238,9 +219,9 @@ function matchToken(lc: RequestLifecycle, token: FilterToken, config: FilterConf
   }
 }
 
-export function matchesUrlFilter(lc: RequestLifecycle, tokens: readonly FilterToken[], config: FilterConfig): boolean {
+export function matchesUrlFilter(lc: RequestLifecycle, tokens: readonly FilterToken[]): boolean {
   for (const token of tokens) {
-    if (!matchToken(lc, token, config)) return false;
+    if (!matchToken(lc, token)) return false;
   }
   return true;
 }

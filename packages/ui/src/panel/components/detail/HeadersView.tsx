@@ -23,7 +23,7 @@ import {
   type AnnotatedHeader,
   isAttributionEdited,
 } from '../../data/headers/header-attribution';
-import { type HeaderFilterToken, parseHeaderQuery } from '../../data/headers/header-filter';
+import { type HeaderFilterToken, hasHeaderQueryError, parseHeaderQuery } from '../../data/headers/header-filter';
 import { computeHeaderFootprint } from '../../data/headers/header-footprint';
 import { useFutureMatches } from '../../data/future-matches';
 import { computeRuleFootprint, formatRuleFootprint } from '../../data/rule-footprint';
@@ -43,6 +43,8 @@ import {
 } from '../../data/inspector-row-projection';
 import type { RowAnnotation } from '../../data/row-annotations';
 import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
+import { DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
+import { FilterInput } from '../FilterInput';
 import { useModifiedSettings, useResetSettings, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { GeneralRow } from './headers/GeneralRow';
 import { HeaderSection } from './headers/HeaderSection';
@@ -128,6 +130,7 @@ export function HeadersView({
   const har = currentHarEntry(lc);
   // Filter text stays per-tab — it's request-specific scratch state.
   const [filter, setFilter] = useState('');
+  const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   // Everything below is panel-wide and persisted via the shared
   // settings store so the user sets defaults once and they carry across
   // requests, tabs, and panel reopens.
@@ -153,13 +156,18 @@ export function HeadersView({
   const resetViewMenu = useResetSettings(HEADER_VIEW_MENU_KEYS);
 
   const compiledQuery = useMemo<readonly HeaderFilterToken[]>(() => {
-    const parts: string[] = [];
-    if (filter.trim()) parts.push(filter.trim());
-    if (ruleOnly) parts.push('is:rule');
-    if (securityOnly) parts.push('is:security');
-    if (overridableOnly) parts.push('is:overridable');
-    return parseHeaderQuery(parts.join(' '));
-  }, [filter, ruleOnly, securityOnly, overridableOnly]);
+    // The typed query parses under the match config (regex mode makes it
+    // one pattern); the quick-toggle synthetic tokens parse separately so
+    // they stay property tokens in every mode.
+    const tokens = [...parseHeaderQuery(filter, filterConfig)];
+    const synthetic: string[] = [];
+    if (ruleOnly) synthetic.push('is:rule');
+    if (securityOnly) synthetic.push('is:security');
+    if (overridableOnly) synthetic.push('is:overridable');
+    if (synthetic.length > 0) tokens.push(...parseHeaderQuery(synthetic.join(' ')));
+    return tokens;
+  }, [filter, filterConfig, ruleOnly, securityOnly, overridableOnly]);
+  const filterHasError = useMemo(() => hasHeaderQueryError(compiledQuery), [compiledQuery]);
 
   // Drift detection (rule-edit only — value/var drift is computed in the
   // row so we can read the resolver there).
@@ -244,13 +252,14 @@ export function HeadersView({
   return (
     <div className="dt-headers-pane" ref={paneRef}>
       <div className="dt-header-filter" ref={toolbarRef}>
-        <input
-          type="search"
-          placeholder="Filter — text, name:cookie, value:no-cache, is:rule, is:security, is:overridable, …"
+        <FilterInput
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="dt-header-filter-input"
-          aria-label="Filter headers"
+          onChange={setFilter}
+          config={filterConfig}
+          onConfigChange={setFilterConfig}
+          hasError={filterHasError}
+          placeholder="Filter — text, name:cookie, value:no-cache, is:rule, is:security, is:overridable, …"
+          ariaLabel="Filter headers"
         />
         <HeaderMoreFiltersMenu
           ruleOnly={ruleOnly}

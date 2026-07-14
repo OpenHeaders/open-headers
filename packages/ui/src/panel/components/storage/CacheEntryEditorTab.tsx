@@ -18,7 +18,9 @@ import type { CacheEntryInspectorTab } from '../../data/inspector-tab';
 import type { CacheEntryDocument } from '../../data/storage/storage-inspector-host';
 import { getStorageInspectorHost } from '../../data/storage/storage-inspector-host';
 import { useDocumentSync } from '../../data/storage/use-document-sync';
+import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
 import Skeleton from '../detail/Skeleton';
+import { FilterInput } from '../FilterInput';
 import { formatSize } from '../traffic/formatters';
 import { ArmedIconButton } from './ArmedIconButton';
 
@@ -61,6 +63,7 @@ interface CacheEntryEditorTabProps {
 export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditorTabProps) {
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [headerFilter, setHeaderFilter] = useState('');
+  const [headerFilterConfig, setHeaderFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [headersOpen, setHeadersOpen] = useState(true);
   const [bodyOpen, setBodyOpen] = useState(true);
   const [deleteFailed, setDeleteFailed] = useState(false);
@@ -152,14 +155,15 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
     [doc],
   );
 
+  const headerPredicate = useMemo(
+    () => buildTextPredicate(headerFilter, headerFilterConfig),
+    [headerFilter, headerFilterConfig],
+  );
   const filteredHeaders = useMemo(() => {
     if (doc === null) return [];
-    const needle = headerFilter.trim().toLowerCase();
-    if (!needle) return doc.headers;
-    return doc.headers.filter(
-      (h) => h.name.toLowerCase().includes(needle) || h.value.toLowerCase().includes(needle),
-    );
-  }, [doc, headerFilter]);
+    if (headerPredicate.empty) return doc.headers;
+    return doc.headers.filter((h) => headerPredicate.test(h.name) || headerPredicate.test(h.value));
+  }, [doc, headerPredicate]);
 
   const isImage = doc?.bodyBase64 === true && /^image\//i.test(contentType) && doc.bodyTruncated !== true;
 
@@ -232,13 +236,14 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
             <summary>
               <span className="dt-cachedoc-summary-label">Response headers ({slot.headers.length})</span>
               <span className="dt-cachedoc-summary-controls" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="text"
-                  className="dt-filter-input"
-                  placeholder="Filter headers"
+                <FilterInput
                   value={headerFilter}
-                  onChange={(e) => setHeaderFilter(e.target.value)}
-                  aria-label="Filter response headers"
+                  onChange={setHeaderFilter}
+                  config={headerFilterConfig}
+                  onConfigChange={setHeaderFilterConfig}
+                  hasError={headerPredicate.error}
+                  placeholder="Filter headers"
+                  ariaLabel="Filter response headers"
                 />
               </span>
             </summary>

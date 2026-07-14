@@ -1,5 +1,10 @@
-import { matchesCascadeQuery, parseCascadeQuery } from '@openheaders/ui/panel/data/cascade/cascade-filter';
+import {
+  hasCascadeQueryError,
+  matchesCascadeQuery,
+  parseCascadeQuery,
+} from '@openheaders/ui/panel/data/cascade/cascade-filter';
 import type { InitiatorRowMeta } from '@openheaders/ui/panel/data/initiator/initiator-row-meta';
+import { DEFAULT_TEXT_MATCH_CONFIG } from '@openheaders/ui/panel/data/text-match';
 import { describe, expect, it } from 'vitest';
 
 function meta(over: Partial<InitiatorRowMeta>): InitiatorRowMeta {
@@ -68,5 +73,26 @@ describe('parseCascadeQuery / matchesCascadeQuery', () => {
     expect(matchesCascadeQuery('x', meta({ resourceType: 'script', isThirdParty: true }), tokens)).toBe(true);
     expect(matchesCascadeQuery('x', meta({ resourceType: 'script', isThirdParty: false }), tokens)).toBe(false);
     expect(matchesCascadeQuery('x', meta({ resourceType: 'stylesheet', isThirdParty: true }), tokens)).toBe(false);
+  });
+
+  it('honours Match Case and Whole Word', () => {
+    const caseSensitive = parseCascadeQuery('LIB', { ...DEFAULT_TEXT_MATCH_CONFIG, matchCase: true });
+    expect(matchesCascadeQuery('https://cdn.example.com/lib.js', meta({}), caseSensitive)).toBe(false);
+    const wholeWord = parseCascadeQuery('lib', { ...DEFAULT_TEXT_MATCH_CONFIG, wholeWord: true });
+    expect(matchesCascadeQuery('https://cdn.example.com/lib.js', meta({}), wholeWord)).toBe(true);
+    expect(matchesCascadeQuery('https://cdn.example.com/library.js', meta({}), wholeWord)).toBe(false);
+  });
+
+  it('regex mode tests one pattern against the URL', () => {
+    const tokens = parseCascadeQuery('cdn\\..*\\.js$', { ...DEFAULT_TEXT_MATCH_CONFIG, regexMode: true });
+    expect(hasCascadeQueryError(tokens)).toBe(false);
+    expect(matchesCascadeQuery('https://cdn.example.com/lib.js', meta({}), tokens)).toBe(true);
+    expect(matchesCascadeQuery('https://openheaders.io/app.css', meta({}), tokens)).toBe(false);
+  });
+
+  it('flags a broken regex-mode pattern and matches every row', () => {
+    const tokens = parseCascadeQuery('cdn(', { ...DEFAULT_TEXT_MATCH_CONFIG, regexMode: true });
+    expect(hasCascadeQueryError(tokens)).toBe(true);
+    expect(matchesCascadeQuery('https://openheaders.io/app.css', meta({}), tokens)).toBe(true);
   });
 });

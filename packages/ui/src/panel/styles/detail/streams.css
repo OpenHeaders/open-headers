@@ -46,24 +46,10 @@
   font-size: 11px;
 }
 
-/* The toolbar row sits on the plain content background; the grey fill
-   lives inside the pill-shaped filter input only. */
-.dt-stream-toolbar-filter {
-  flex: 1;
-  min-width: 80px;
+/* The standard filter input rides the toolbar row; cap its reach so
+   the action button stays adjacent on wide panes. */
+.dt-stream-toolbar .dt-filter-input-wrap {
   max-width: 360px;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid var(--dt-input-border);
-  border-radius: 11px;
-  background: var(--dt-header-bg);
-  color: var(--dt-text);
-  font-size: 11px;
-  outline: none;
-}
-
-.dt-stream-toolbar-filter:focus {
-  border-color: var(--dt-tab-active-border);
 }
 
 .dt-stream-toolbar-layout {

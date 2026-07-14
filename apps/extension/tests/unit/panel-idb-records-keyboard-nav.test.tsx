@@ -16,9 +16,12 @@
 import { IndexedDbSection, type OpenIdbRecordRequest } from '@openheaders/ui/panel/components/storage/IndexedDbSection';
 import type { IdbRecord } from '@openheaders/ui/panel/data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '@openheaders/ui/panel/data/storage/use-idb-browser';
+import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG } from '@openheaders/ui/panel/data/text-match';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+const filterOf = (text: string) => buildTextPredicate(text, DEFAULT_TEXT_MATCH_CONFIG);
 
 beforeAll(() => {
   // jsdom computes no layout and implements no scrollIntoView — the
@@ -82,7 +85,7 @@ function Harness({
   return (
     <IndexedDbSection
       idb={makeIdbState(records)}
-      filter=""
+      filter={filterOf('')}
       onOpenRecord={(request) => {
         onOpenSpy(request);
         setActiveWire(request.primaryKeyWire);

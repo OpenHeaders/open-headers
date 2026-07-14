@@ -10,8 +10,11 @@
 import { IndexedDbSection } from '@openheaders/ui/panel/components/storage/IndexedDbSection';
 import type { IdbDatabase } from '@openheaders/ui/panel/data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '@openheaders/ui/panel/data/storage/use-idb-browser';
+import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG } from '@openheaders/ui/panel/data/text-match';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const filterOf = (text: string) => buildTextPredicate(text, DEFAULT_TEXT_MATCH_CONFIG);
 
 afterEach(() => {
   cleanup();
@@ -61,7 +64,7 @@ describe('IndexedDbSection records view', () => {
   it('opens a record as an editor document on row click, gated on the wire key', () => {
     const onOpenRecord = vi.fn();
     const idb = makeIdb({ selection: { database: 'oh-app', store: 'kv' }, recordsPage: RECORDS_PAGE });
-    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={onOpenRecord} />);
+    render(<IndexedDbSection idb={idb} filter={filterOf('')} onOpenRecord={onOpenRecord} />);
 
     fireEvent.click(screen.getByTitle('Open this record in the editor'));
     expect(onOpenRecord).toHaveBeenCalledWith({
@@ -80,7 +83,7 @@ describe('IndexedDbSection records view', () => {
   it('shows a delete only on rows carrying a wire key, and deleting never also opens', () => {
     const onOpenRecord = vi.fn();
     const idb = makeIdb({ selection: { database: 'oh-app', store: 'kv' }, recordsPage: RECORDS_PAGE });
-    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={onOpenRecord} />);
+    render(<IndexedDbSection idb={idb} filter={filterOf('')} onOpenRecord={onOpenRecord} />);
 
     expect(screen.queryByLabelText('Delete record Infinity')).toBeNull();
     fireEvent.click(screen.getByLabelText('Delete record "simple"'));
@@ -94,7 +97,7 @@ describe('IndexedDbSection records view', () => {
       (database: string, store: string, wire: string) =>
         database === 'oh-app' && store === 'kv' && wire === '{"s":"simple"}',
     );
-    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} isRecordActive={isRecordActive} />);
+    render(<IndexedDbSection idb={idb} filter={filterOf('')} onOpenRecord={vi.fn()} isRecordActive={isRecordActive} />);
 
     const rows = screen.getAllByRole('row').filter((r) => r.classList.contains('dt-storage-row'));
     expect(rows[0]?.classList.contains('dt-storage-row--active')).toBe(true);
@@ -114,7 +117,7 @@ describe('IndexedDbSection index cursor selector', () => {
       selection: { database: 'oh-app', store: 'kv' },
       recordsPage: { records: [], truncated: false },
     });
-    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} />);
+    render(<IndexedDbSection idb={idb} filter={filterOf('')} onOpenRecord={vi.fn()} />);
 
     const select = screen.getByLabelText('Record cursor');
     fireEvent.change(select, { target: { value: 'by-user' } });
@@ -128,7 +131,7 @@ describe('IndexedDbSection index cursor selector', () => {
       selection: { database: 'oh-app', store: 'kv' },
       recordsPage: { records: [], truncated: false },
     });
-    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} />);
+    render(<IndexedDbSection idb={idb} filter={filterOf('')} onOpenRecord={vi.fn()} />);
     expect(screen.queryByLabelText('Record cursor')).toBeNull();
   });
 });
@@ -136,7 +139,7 @@ describe('IndexedDbSection index cursor selector', () => {
 describe('IndexedDbSection bulk deletes', () => {
   it('clears a store only on the second (armed) click', () => {
     const idb = makeIdb();
-    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} />);
+    render(<IndexedDbSection idb={idb} filter={filterOf('')} onOpenRecord={vi.fn()} />);
 
     const clear = screen.getByLabelText('Clear store kv');
     fireEvent.click(clear);
@@ -147,7 +150,7 @@ describe('IndexedDbSection bulk deletes', () => {
 
   it('deletes a database only on the second click, and blur disarms', () => {
     const idb = makeIdb();
-    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} />);
+    render(<IndexedDbSection idb={idb} filter={filterOf('')} onOpenRecord={vi.fn()} />);
 
     const del = screen.getByLabelText('Delete database oh-app');
     fireEvent.click(del);

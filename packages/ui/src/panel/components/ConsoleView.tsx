@@ -51,7 +51,9 @@ import {
 } from '../data/initiator/use-resolved-frames';
 import { useStickToBottom } from './detail/streams/use-stick-to-bottom';
 import { CONSOLE_ROW_PX, consoleStackPx, useConsoleRowWindow } from './use-console-row-window';
+import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../data/text-match';
 import { formatClock } from '../data/timing/format-time';
+import { FilterInput } from './FilterInput';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
 import { ConsoleContextSelector } from './ConsoleContextSelector';
 import { ConsolePrompt } from './ConsolePrompt';
@@ -268,6 +270,7 @@ export function ConsoleView({
   onHide,
 }: ConsoleViewProps) {
   const [textFilter, setTextFilter] = useState('');
+  const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const { hasCdpCapability, cdpEnabled, cdpOwned } = useInspectedTabCdp();
   const [, setCdpEnabled] = useSetting('inspection.cdpEnabled');
@@ -310,8 +313,9 @@ export function ConsoleView({
     [entries, cutoff, prefs.logXhr, xhrLogEntries, prefs.cutoffMs],
   );
 
+  const filterPredicate = useMemo(() => buildTextPredicate(textFilter, filterConfig), [textFilter, filterConfig]);
+
   const rows = useMemo<ConsoleRow[]>(() => {
-    const needle = textFilter.trim().toLowerCase();
     const result: ConsoleRow[] = [];
     for (const { entry, key } of visibleEntries) {
       if (!passesLevelMask(entry.level, prefs.levels)) continue;
@@ -333,9 +337,9 @@ export function ConsoleView({
       }
       const row = buildRow(entry, key, resolveRequest);
       if (
-        needle &&
-        !row.displayText.toLowerCase().includes(needle) &&
-        !(row.location?.full.toLowerCase().includes(needle) ?? false)
+        !filterPredicate.empty &&
+        !filterPredicate.test(row.displayText) &&
+        !(row.location ? filterPredicate.test(row.location.full) : false)
       ) {
         continue;
       }
@@ -362,7 +366,7 @@ export function ConsoleView({
     prefs.selectedContextOnly,
     prefs.groupSimilar,
     prefs.showCorsErrors,
-    textFilter,
+    filterPredicate,
     resolveRequest,
     effectiveContextKey,
   ]);
@@ -507,12 +511,13 @@ export function ConsoleView({
               onSelect={setPickedContextKey}
             />
             {contexts.length > 0 && <div className="dt-filter-separator" />}
-            <input
-              type="text"
-              className="dt-filter-input dt-filter-input--grow"
-              placeholder="Filter"
+            <FilterInput
               value={textFilter}
-              onChange={(e) => setTextFilter(e.target.value)}
+              onChange={setTextFilter}
+              config={filterConfig}
+              onConfigChange={setFilterConfig}
+              hasError={filterPredicate.error}
+              ariaLabel="Filter console messages"
             />
             <div className="dt-filter-separator" />
             <span

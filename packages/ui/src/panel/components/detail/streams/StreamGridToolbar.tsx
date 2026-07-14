@@ -1,14 +1,17 @@
 /**
  * Toolbar above a message-stream grid — Clear all, an optional
- * direction filter (Messages only), the regex filter input, an
- * optional action button right of it and an optional right-aligned
- * group (Messages only): the grid/payload split-orientation toggle
- * plus the `View ▾` menu. Mirrors the host's Messages / EventStream
- * toolbars; the views own the filter state, this renders the controls.
+ * direction filter (Messages only), the standard filter input
+ * (Aa / ab / .* toggles + clear), an optional action button right of
+ * it and an optional right-aligned group (Messages only): the
+ * grid/payload split-orientation toggle plus the `View ▾` menu.
+ * Mirrors the host's Messages / EventStream toolbars; the views own
+ * the filter state, this renders the controls.
  */
 
 import { type SplitLayout, SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 import type { ReactNode } from 'react';
+import type { TextMatchConfig } from '../../../data/text-match';
+import { FilterInput } from '../../FilterInput';
 
 export type WsDirectionFilter = 'all' | 'send' | 'receive';
 
@@ -21,6 +24,9 @@ interface StreamGridToolbarProps {
   };
   filterText: string;
   onFilterTextChange: (text: string) => void;
+  filterConfig: TextMatchConfig;
+  onFilterConfigChange: (config: TextMatchConfig) => void;
+  filterError: boolean;
   filterPlaceholder: string;
   /** Optional action button rendered right of the filter input —
    *  the Messages tab's connection-scoped "Override message". */
@@ -40,6 +46,9 @@ export default function StreamGridToolbar({
   directionFilter,
   filterText,
   onFilterTextChange,
+  filterConfig,
+  onFilterConfigChange,
+  filterError,
   filterPlaceholder,
   action,
   layoutToggle,
@@ -71,13 +80,14 @@ export default function StreamGridToolbar({
           <option value="receive">Receive</option>
         </select>
       )}
-      <input
-        type="text"
-        className="dt-stream-toolbar-filter"
-        placeholder={filterPlaceholder}
+      <FilterInput
         value={filterText}
-        onChange={(e) => onFilterTextChange(e.target.value)}
-        spellCheck={false}
+        onChange={onFilterTextChange}
+        config={filterConfig}
+        onConfigChange={onFilterConfigChange}
+        hasError={filterError}
+        placeholder={filterPlaceholder}
+        ariaLabel="Filter stream messages"
       />
       {action}
       {(layoutToggle || viewMenu) && (

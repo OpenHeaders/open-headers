@@ -70,7 +70,7 @@ import MessagePreview from './streams/MessagePreview';
 import { MessagesColumnInfo, WS_DIRECTION_INFO, WS_FIRE_RAIL_INFO } from './streams/MessagesColumnInfo';
 import { MESSAGES_VIEW_MENU_KEYS, MessagesViewMenu } from './streams/MessagesViewMenu';
 import StreamGridToolbar, { type WsDirectionFilter } from './streams/StreamGridToolbar';
-import { compileStreamFilter } from './streams/stream-filter';
+import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
 import { useMessagesSplitLayout } from './streams/use-messages-split-layout';
 import { useStickToBottom } from './streams/use-stick-to-bottom';
@@ -145,6 +145,7 @@ function directionArrow(type: WsDisplayFrame['type']): string {
 export default function MessagesView({ lifecycle, har, source, fires, rulesByUid }: MessagesViewProps) {
   const [direction, setDirection] = useState<WsDirectionFilter>('all');
   const [filterText, setFilterText] = useState('');
+  const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
   // Clear-all floors — wire frames and capture-minted synthetic rows index
   // in separate spaces (synthetic from WS_SYNTHETIC_INDEX_BASE), so each
@@ -231,8 +232,9 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
     });
   };
 
+  const filterPredicate = useMemo(() => buildTextPredicate(filterText, filterConfig), [filterText, filterConfig]);
+
   const visible = useMemo(() => {
-    const regex = compileStreamFilter(filterText, 'literal');
     const cleared = (f: WsDisplayFrame): boolean =>
       f.index >= WS_SYNTHETIC_INDEX_BASE
         ? f.index - WS_SYNTHETIC_INDEX_BASE < clearedFloors.synth
@@ -241,10 +243,10 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
     // A modified frame matches on either side — the captured wire data or
     // the derived replacement the split cell renders next to it.
     const takenByFilter = (f: WsDisplayFrame): boolean => {
-      if (!regex) return true;
-      if (regex.test(f.data)) return true;
+      if (filterPredicate.empty) return true;
+      if (filterPredicate.test(f.data)) return true;
       const modification = attributionByIndex.get(f.index)?.modification;
-      return modification?.kind === 'replaced-in-page' && regex.test(modification.modified);
+      return modification?.kind === 'replaced-in-page' && filterPredicate.test(modification.modified);
     };
     const filtered = afterClear.filter((f) => (direction === 'all' || f.type === direction) && takenByFilter(f));
     // Arrival order is time order; a stable index tiebreak keeps
@@ -253,7 +255,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
       return [...filtered].sort((a, b) => b.atMs - a.atMs || b.index - a.index);
     }
     return filtered;
-  }, [all, attributionByIndex, clearedFloors, direction, filterText, sortDir]);
+  }, [all, attributionByIndex, clearedFloors, direction, filterPredicate, sortDir]);
 
   const { onScroll: onStickScroll } = useStickToBottom(listRef, visible.length);
   // Virtualized grid — only the visible slice mounts (uniform pinned-height
@@ -321,7 +323,10 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
         directionFilter={{ value: direction, onChange: setDirection }}
         filterText={filterText}
         onFilterTextChange={setFilterText}
-        filterPlaceholder="Filter using regex (example: (web)?socket)"
+        filterConfig={filterConfig}
+        onFilterConfigChange={setFilterConfig}
+        filterError={filterPredicate.error}
+        filterPlaceholder="Filter messages"
         action={
           <button
             type="button"
