@@ -105,7 +105,8 @@ const MigrationReportModal: React.FC<{
           <Text strong>{workspace.workspaceName}</Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {workspace.collections} collections · {workspace.environments} environments · {workspace.requests}{' '}
-            requests{notes > 0 ? ` · ${notes} note${notes === 1 ? '' : 's'}` : ''}
+            requests{workspace.examples > 0 ? ` · ${workspace.examples} saved examples` : ''}
+            {notes > 0 ? ` · ${notes} note${notes === 1 ? '' : 's'}` : ''}
           </Text>
         </span>
       ),
@@ -143,7 +144,14 @@ const MigrationReportModal: React.FC<{
         <Paragraph style={{ marginBottom: 12 }}>
           Imported <Text strong>{summary.collections}</Text> collection{summary.collections === 1 ? '' : 's'},{' '}
           <Text strong>{summary.environments}</Text> environment{summary.environments === 1 ? '' : 's'}, and{' '}
-          <Text strong>{summary.requests}</Text> request{summary.requests === 1 ? '' : 's'} into{' '}
+          <Text strong>{summary.requests}</Text> request{summary.requests === 1 ? '' : 's'}
+          {summary.examples > 0 ? (
+            <>
+              {' '}
+              (with <Text strong>{summary.examples}</Text> saved example{summary.examples === 1 ? '' : 's'})
+            </>
+          ) : null}{' '}
+          into{' '}
           <Text strong>
             {summary.workspaces.length} workspace{summary.workspaces.length === 1 ? '' : 's'}
           </Text>

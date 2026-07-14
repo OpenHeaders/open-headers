@@ -114,12 +114,14 @@ describe('pull-run progress fold', () => {
           collections: 2,
           environments: 1,
           requests: 14,
+          examples: 0,
           drops: 3,
         },
       ],
       collections: 2,
       environments: 1,
       requests: 14,
+      examples: 0,
       drops: 3,
     };
     const importing = foldAll([

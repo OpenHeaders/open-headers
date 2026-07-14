@@ -120,6 +120,8 @@ export interface PostmanImportedWorkspace {
   collections: number;
   environments: number;
   requests: number;
+  /** Saved responses minted as Response Examples under their requests. */
+  examples: number;
   /** That workspace's report drop count. */
   drops: number;
 }
@@ -133,6 +135,8 @@ export interface PostmanImportSummary {
   collections: number;
   environments: number;
   requests: number;
+  /** Saved responses minted as Response Examples across the run. */
+  examples: number;
   /** Total drop count across the run — the "view report" teaser number. */
   drops: number;
 }

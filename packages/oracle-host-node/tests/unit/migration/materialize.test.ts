@@ -46,6 +46,32 @@ const COLLECTION_JSON = JSON.stringify({
         url: 'https://api.openheaders.io/charges',
         description: 'Lists charges for the account.',
       },
+      response: [
+        {
+          id: 'r-1',
+          name: 'Charges page',
+          originalRequest: {
+            method: 'GET',
+            header: [{ key: 'Accept', value: 'application/json' }],
+            url: { raw: 'https://api.openheaders.io/charges?limit=2', query: [{ key: 'limit', value: '2' }] },
+          },
+          status: 'OK',
+          code: 200,
+          _postman_previewlanguage: 'json',
+          header: [{ key: 'Content-Type', value: 'application/json' }],
+          cookie: [],
+          responseTime: null,
+          body: '{"data":[]}',
+          createdAt: '2021-08-02T14:23:01.000Z',
+        },
+        {
+          name: 'Empty page',
+          status: 'OK',
+          code: 200,
+          header: [],
+          body: '',
+        },
+      ],
     },
     {
       name: 'Admin',
@@ -153,10 +179,13 @@ describe('materializePostmanPull', () => {
     const summary = await materializePostmanPull(pullResult(), { ensureWorkspaceFor });
 
     expect(summary).toMatchObject({
-      workspaces: [{ workspaceId: wsId, workspaceName: 'Team', collections: 1, environments: 1, requests: 2 }],
+      workspaces: [
+        { workspaceId: wsId, workspaceName: 'Team', collections: 1, environments: 1, requests: 2, examples: 2 },
+      ],
       collections: 1,
       environments: 1,
       requests: 2,
+      examples: 2,
     });
 
     const collections = snapshotRequestCollectionPostStates(wsId).map((ps) => ps.collection);
@@ -187,6 +216,32 @@ describe('materializePostmanPull', () => {
       { name: 'host', value: 'staging.openheaders.io', type: 'default' },
       { name: 'token', value: 'shh', type: 'secret' },
     ]);
+
+    const examples = snapshotResponseExamplePostStates(wsId).map((ps) => ps.responseExample);
+    expect(examples.map((e) => e.name).sort()).toEqual(['Charges page', 'Empty page']);
+    const captured = examples.find((e) => e.name === 'Charges page');
+    expect(captured?.requestUid).toBe(flat?.uid);
+    expect(captured?.path.startsWith(`${flat?.path}/examples/`)).toBe(true);
+    expect(captured?.capturedAt).toBe('2021-08-02T14:23:01.000Z');
+    expect(captured?.request.url).toBe('https://api.openheaders.io/charges');
+    expect(captured?.request.params).toMatchObject([{ key: 'limit', value: '2' }]);
+    expect(captured?.request.headers).toMatchObject([{ key: 'Accept', value: 'application/json' }]);
+    expect(captured?.response).toMatchObject({
+      status: 200,
+      statusText: 'OK',
+      url: 'https://api.openheaders.io/charges?limit=2',
+      headers: [{ key: 'Content-Type', value: 'application/json' }],
+      body: '{"data":[]}',
+      bodyTruncated: false,
+      bodyBytes: 11,
+      durationMs: 0,
+    });
+    // No wire `createdAt` — the run's import moment stands in; the
+    // snapshot without `originalRequest` captures the parent shape.
+    const fallback = examples.find((e) => e.name === 'Empty page');
+    expect(Number.isNaN(new Date(fallback?.capturedAt ?? '').getTime())).toBe(false);
+    expect(fallback?.request.method).toBe('GET');
+    expect(fallback?.request.url).toBe('https://api.openheaders.io/charges');
   });
 
   it('records ONE aggregated report with a sourceHash in the landing workspace ring', async () => {
@@ -202,7 +257,8 @@ describe('materializePostmanPull', () => {
     const report = reports[0];
     expect(report.source).toBe('postman-pull');
     expect(report.sourceHash.length).toBeGreaterThan(0);
-    expect(report.summary.imported).toBe(3);
+    // 2 requests + 1 environment + 2 saved examples.
+    expect(report.summary.imported).toBe(5);
     const skipDrop = report.drops.find((d) => d.path.startsWith('pull.skipped[0]'));
     expect(skipDrop?.reason).toContain('stopped early');
   });
@@ -269,18 +325,23 @@ describe('materializePostmanPull', () => {
     const parent = imported.find((r) => r.name === 'List charges');
     if (!parent) throw new Error('expected imported request');
     await saveExampleUnder(parent);
-    expect(snapshotResponseExamplePostStates(wsId)).toHaveLength(1);
+    // 2 imported examples + the user-saved one.
+    expect(snapshotResponseExamplePostStates(wsId)).toHaveLength(3);
 
     const summary = await materializePostmanPull(pullResult(), { ensureWorkspaceFor });
 
-    expect(summary).toMatchObject({ collections: 1, environments: 1, requests: 2 });
+    expect(summary).toMatchObject({ collections: 1, environments: 1, requests: 2, examples: 2 });
     const collections = snapshotRequestCollectionPostStates(wsId).map((ps) => ps.collection);
     expect(collections).toHaveLength(1);
     expect(collections[0].uid).not.toBe(firstCollections[0].uid);
     expect(snapshotRequestPostStates(wsId)).toHaveLength(2);
     expect(snapshotRequestFolderPostStates(wsId)).toHaveLength(1);
     expect(snapshotEnvironmentPostStates(wsId)).toHaveLength(1);
-    expect(snapshotResponseExamplePostStates(wsId)).toHaveLength(0);
+    // Only this pull's imported examples survive — the user-saved one
+    // was swept with its parent.
+    const survivingExamples = snapshotResponseExamplePostStates(wsId).map((ps) => ps.responseExample);
+    expect(survivingExamples).toHaveLength(2);
+    expect(survivingExamples.some((e) => e.name === 'Saved 200')).toBe(false);
 
     // Same sourceHash — the ring entry is replaced, now carrying the
     // ONE replacement transform.

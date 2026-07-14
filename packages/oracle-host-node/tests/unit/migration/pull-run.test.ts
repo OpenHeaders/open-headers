@@ -20,11 +20,20 @@ const API_KEY = 'PMAK-super-secret-key';
 
 const SUMMARY: PostmanImportSummary = {
   workspaces: [
-    { workspaceId: 'ws-team', workspaceName: 'Team', collections: 1, environments: 1, requests: 3, drops: 0 },
+    {
+      workspaceId: 'ws-team',
+      workspaceName: 'Team',
+      collections: 1,
+      environments: 1,
+      requests: 3,
+      examples: 0,
+      drops: 0,
+    },
   ],
   collections: 1,
   environments: 1,
   requests: 3,
+  examples: 0,
   drops: 0,
 };
 

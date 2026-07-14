@@ -40,7 +40,7 @@ import {
   recordDrop,
   recordTransform,
 } from '@openheaders/core/import';
-import { EnvironmentSchema, RequestSchema } from '@openheaders/core/schemas';
+import { EnvironmentSchema, RequestSchema, ResponseExampleSchema } from '@openheaders/core/schemas';
 import {
   computeInverseSpec,
   ENVIRONMENT_ENTITY_TYPE,
@@ -65,9 +65,12 @@ import {
   buildAddBatch as buildAddRequestBatch,
   buildDeleteBatch as buildDeleteRequestBatch,
 } from '@openheaders/core/sync-builders/mutations/request-mutations';
-import { buildDeleteResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
+import {
+  buildAddResponseExampleBatch,
+  buildDeleteResponseExampleBatch,
+} from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
-import type { Collection, Environment, Request, Variable } from '@openheaders/core/types';
+import type { Collection, Environment, Request, ResponseExample, Variable } from '@openheaders/core/types';
 import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { recordImportReport } from '@openheaders/oracle/entity/import-reports-store';
 import { makeOracleInverseAccess, rememberPriorForMutation } from '@openheaders/oracle/sync';
@@ -262,16 +265,20 @@ function contextMinter(workspaceId: string): MutatorContextMinter {
 /**
  * Materialize one pulled collection: the request collection (carrying
  * the collection variables), its folder tree depth-first so parents
- * exist, then every request under its folder's reconstructed path.
- * Returns the number of requests minted.
+ * exist, then every request under its folder's reconstructed path —
+ * each with its saved responses minted as Response Examples.
+ * `importedAt` is the run's capture-time fallback for examples whose
+ * wire payload carried no `createdAt` (the parser is clock-free).
+ * Returns the numbers of entities minted.
  */
 async function materializeCollection(
   json: string,
   index: number,
+  importedAt: string,
   report: ImportReport,
   mintCtx: MutatorContextMinter,
-): Promise<{ collections: number; requests: number }> {
-  const parsed = parsePostman(json);
+): Promise<{ collections: number; requests: number; examples: number }> {
+  const parsed = parsePostman(json, { responseExamples: true });
   mergeSubReport(report, parsed.report, `pull.collections[${index}].`);
 
   const collectionUid = generateUid();
@@ -328,6 +335,7 @@ async function materializeCollection(
   }
 
   let requests = 0;
+  let examples = 0;
   for (let r = 0; r < parsed.requests.length; r++) {
     const entry = parsed.requests[r];
     if (!entry) continue;
@@ -358,8 +366,9 @@ async function materializeCollection(
     }
     const ctx = mintCtx();
     if (!ctx) throw new Error('landing workspace is not loaded on this host');
+    const request = candidate.output as Request;
     try {
-      const payload = buildAddRequestBatch(candidate.output as Request, ctx);
+      const payload = buildAddRequestBatch(request, ctx);
       await applyMigrationMutation(payload.batch, payload.sideEffects);
       requests++;
     } catch (err) {
@@ -368,9 +377,46 @@ async function materializeCollection(
         reason: `Failed to create request "${name}": ${failureReason(err)}`,
         tracking: 'PERMANENT: write-path failure',
       });
+      continue;
+    }
+    for (let e = 0; e < (entry.examples?.length ?? 0); e++) {
+      const example = entry.examples?.[e];
+      if (!example) continue;
+      const exampleUid = generateUid();
+      const exampleCandidate = v.safeParse(ResponseExampleSchema, {
+        schemaVersion: 5,
+        uid: exampleUid,
+        path: `${request.path}/examples/${toFolderName(example.name, exampleUid)}`,
+        requestUid: request.uid,
+        name: example.name,
+        capturedAt: example.capturedAt ?? importedAt,
+        request: example.request,
+        response: example.response,
+      });
+      if (!exampleCandidate.success) {
+        recordDrop(report, {
+          path: `pull.collections[${index}].requests[${r}].response[${e}]`,
+          reason: `Saved response "${example.name}" did not fit the response-example shape — skipped.`,
+          tracking: 'PERMANENT: write-path validation',
+        });
+        continue;
+      }
+      const exampleCtx = mintCtx();
+      if (!exampleCtx) throw new Error('landing workspace is not loaded on this host');
+      try {
+        const payload = buildAddResponseExampleBatch(exampleCandidate.output as ResponseExample, exampleCtx);
+        await applyMigrationMutation(payload.batch, payload.sideEffects);
+        examples++;
+      } catch (err) {
+        recordDrop(report, {
+          path: `pull.collections[${index}].requests[${r}].response[${e}]`,
+          reason: `Failed to create the "${example.name}" example under request "${name}": ${failureReason(err)}`,
+          tracking: 'PERMANENT: write-path failure',
+        });
+      }
     }
   }
-  return { collections: 1, requests };
+  return { collections: 1, requests, examples };
 }
 
 async function materializeEnvironment(
@@ -412,6 +458,7 @@ async function materializeWorkspacePull(
   workspace: PullWorkspaceSummary,
   result: PostmanPullResult,
   target: LandingWorkspaceRef,
+  importedAt: string,
 ): Promise<PostmanImportedWorkspace> {
   const wsCollections = result.collections
     .map((pulled, index) => ({ pulled, index }))
@@ -446,6 +493,7 @@ async function materializeWorkspacePull(
   let collections = 0;
   let environments = 0;
   let requests = 0;
+  let examples = 0;
   try {
     const mintCtx = contextMinter(target.id);
     await service.hydrated;
@@ -468,9 +516,10 @@ async function materializeWorkspacePull(
     }
     for (const { pulled, index } of wsCollections) {
       try {
-        const outcome = await materializeCollection(pulled.json, index, report, mintCtx);
+        const outcome = await materializeCollection(pulled.json, index, importedAt, report, mintCtx);
         collections += outcome.collections;
         requests += outcome.requests;
+        examples += outcome.examples;
       } catch (err) {
         recordDrop(report, {
           path: `pull.collections[${index}]["${pulled.name ?? pulled.id}"]`,
@@ -494,7 +543,7 @@ async function materializeWorkspacePull(
     releaseWorkspaceService(target.id);
   }
 
-  report.summary = { ...report.summary, imported: requests + environments };
+  report.summary = { ...report.summary, imported: requests + environments + examples };
   await recordImportReport(report, target.id);
 
   return {
@@ -503,6 +552,7 @@ async function materializeWorkspacePull(
     collections,
     environments,
     requests,
+    examples,
     drops: report.summary.dropped,
   };
 }
@@ -519,12 +569,15 @@ export async function materializePostmanPull(
   options: MaterializePostmanPullOptions = {},
 ): Promise<PostmanImportSummary> {
   const ensure = options.ensureWorkspaceFor ?? findOrCreateVendorWorkspace;
+  // One capture-time fallback for the whole run — examples whose wire
+  // payload carried no `createdAt` all stamp the run's import moment.
+  const importedAt = new Date().toISOString();
   const workspaces: PostmanImportedWorkspace[] = [];
   let failures = 0;
   for (const workspace of result.workspaces) {
     try {
       const target = await ensure(workspace);
-      workspaces.push(await materializeWorkspacePull(workspace, result, target));
+      workspaces.push(await materializeWorkspacePull(workspace, result, target, importedAt));
     } catch (err) {
       failures++;
       logger.warn(SCOPE, `workspace "${workspace.name}" was not imported: ${failureReason(err)}`);
@@ -538,6 +591,7 @@ export async function materializePostmanPull(
     collections: workspaces.reduce((sum, ws) => sum + ws.collections, 0),
     environments: workspaces.reduce((sum, ws) => sum + ws.environments, 0),
     requests: workspaces.reduce((sum, ws) => sum + ws.requests, 0),
+    examples: workspaces.reduce((sum, ws) => sum + ws.examples, 0),
     drops: workspaces.reduce((sum, ws) => sum + ws.drops, 0),
   };
 }
