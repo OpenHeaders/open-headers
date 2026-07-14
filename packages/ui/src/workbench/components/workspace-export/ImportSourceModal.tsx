@@ -202,17 +202,9 @@ const ImportSourceModal: React.FC<Props> = ({
             </div>
 
             <div
-              // The drop zone is also clickable as a `Browse…` shortcut.
-              role="button"
-              tabIndex={0}
-              aria-label="Drop an importable file here, or activate to browse"
-              onClick={pickFile}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  pickFile();
-                }
-              }}
+              // Drop target only — the OS pickers open exclusively from
+              // the explicit Browse buttons.
+              aria-label="Drop an importable file or folder here"
               onDragEnter={(e) => {
                 e.preventDefault();
                 setDragActive(true);
@@ -277,26 +269,10 @@ const ImportSourceModal: React.FC<Props> = ({
                 The format is recognized automatically.
               </Text>
               <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                <Button
-                  type="primary"
-                  icon={<UploadOutlined />}
-                  // Stop propagation: the parent zone div is also `role="button"`
-                  // wired to `pickFile`, so without this the Button's click
-                  // bubbles up and the OS file picker opens twice.
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    pickFile();
-                  }}
-                >
+                <Button type="primary" icon={<UploadOutlined />} onClick={pickFile}>
                   Browse files…
                 </Button>
-                <Button
-                  icon={<FolderOpenOutlined />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    pickFolder();
-                  }}
-                >
+                <Button icon={<FolderOpenOutlined />} onClick={pickFolder}>
                   Browse folder…
                 </Button>
               </div>
