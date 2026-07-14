@@ -44,9 +44,13 @@ interface CodeEditorActionsProps {
   target: React.RefObject<CodeEditorActionsTarget | null>;
   language: LanguageId;
   readOnly?: boolean;
-  /** Visible text on the Format button (e.g. the Body tab's translated
-   *  "Beautify") — icon-only when omitted. Also names the tooltip. */
-  formatLabel?: string;
+  /** Show the action names as visible button text next to the icons
+   *  (e.g. the Scripts tab's toolbar row) — icon-only when omitted. */
+  labels?: boolean;
+  /** Action names — tooltips always, visible text with `labels`. */
+  findText?: string;
+  replaceText?: string;
+  formatText?: string;
   style?: React.CSSProperties;
 }
 
@@ -54,7 +58,10 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
   target,
   language,
   readOnly = false,
-  formatLabel,
+  labels = false,
+  findText = 'Find',
+  replaceText = 'Replace',
+  formatText = 'Format',
   style,
 }) => {
   const formatShortcutLabel = useShortcutLabel('format-code');
@@ -62,29 +69,33 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2, ...style }}>
-      <Tooltip title={<ShortcutHintTitle label={FIND_SHORTCUT}>Find</ShortcutHintTitle>} placement="top">
+      <Tooltip title={<ShortcutHintTitle label={FIND_SHORTCUT}>{findText}</ShortcutHintTitle>} placement="top">
         <Button
           size="small"
           type="text"
           icon={<SearchOutlined />}
           onClick={() => target.current?.find()}
-          aria-label="Find"
-        />
+          aria-label={findText}
+        >
+          {labels ? findText : null}
+        </Button>
       </Tooltip>
       {!readOnly && (
-        <Tooltip title={<ShortcutHintTitle label={REPLACE_SHORTCUT}>Replace</ShortcutHintTitle>} placement="top">
+        <Tooltip title={<ShortcutHintTitle label={REPLACE_SHORTCUT}>{replaceText}</ShortcutHintTitle>} placement="top">
           <Button
             size="small"
             type="text"
             icon={<SwapOutlined />}
             onClick={() => target.current?.replace()}
-            aria-label="Replace"
-          />
+            aria-label={replaceText}
+          >
+            {labels ? replaceText : null}
+          </Button>
         </Tooltip>
       )}
       {!readOnly && formattable && (
         <Tooltip
-          title={<ShortcutHintTitle label={formatShortcutLabel}>{formatLabel ?? 'Format'}</ShortcutHintTitle>}
+          title={<ShortcutHintTitle label={formatShortcutLabel}>{formatText}</ShortcutHintTitle>}
           placement="top"
         >
           <Button
@@ -92,9 +103,9 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
             type="text"
             icon={<AlignLeftOutlined />}
             onClick={() => target.current?.format()}
-            aria-label="Format code"
+            aria-label={formatText}
           >
-            {formatLabel}
+            {labels ? formatText : null}
           </Button>
         </Tooltip>
       )}

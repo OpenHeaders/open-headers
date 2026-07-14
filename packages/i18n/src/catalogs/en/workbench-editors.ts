@@ -703,8 +703,6 @@ export const workbenchEditors = {
   'workbench.editors.request.scripts.prePlaceholder': 'Use JavaScript to modify this request before it is sent.',
   'workbench.editors.request.scripts.postPlaceholder':
     'Use JavaScript to test and read this response after it arrives.',
-  'workbench.editors.request.scripts.format': 'Format',
-  'workbench.editors.request.scripts.formatAria': 'Format script',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
   'workbench.editors.request.settings.enabled': 'Enabled',
@@ -1094,6 +1092,9 @@ export const workbenchEditors = {
   'workbench.editors.scriptEditor.packageNotFound': 'Package not found — it may have been deleted.',
   'workbench.editors.scriptEditor.saveFailed': 'Save failed',
   'workbench.editors.scriptEditor.menuFind': 'Find',
+  'workbench.editors.scriptEditor.find': 'Find',
+  'workbench.editors.scriptEditor.replace': 'Replace',
+  'workbench.editors.scriptEditor.beautify': 'Beautify',
   'workbench.editors.scriptEditor.group.request': 'Request',
   'workbench.editors.scriptEditor.group.workflows': 'Workflows',
   'workbench.editors.scriptEditor.group.packages': 'Packages',

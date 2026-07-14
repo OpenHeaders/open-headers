@@ -197,7 +197,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
           <CodeEditorActions
             target={rawActionsRef}
             language={rawLangForEditor}
-            formatLabel={t('workbench.editors.request.body.beautify')}
+            formatText={t('workbench.editors.request.body.beautify')}
             style={{ marginLeft: 'auto' }}
           />
         )}

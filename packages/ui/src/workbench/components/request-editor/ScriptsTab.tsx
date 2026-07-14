@@ -4,19 +4,20 @@
  * `(i)` popover explaining when that script runs and its `oh.*` API —
  * the editor pane itself stays chrome-free.
  *
- * The editor is the shared CodeEditor host (Find / Replace / Format
- * corner actions, Prettier-backed `editor.action.formatDocument`) with
- * a native Monaco ghost placeholder — the hint is NOT actual script
- * content, so the draft stays empty until the user types and the dirty
- * fingerprint never sees example code. A floating action bar inside the
- * editor's bottom-right corner hosts the snippets menu (ready-made
- * `oh.*` examples, inserted at the cursor) and a Format shortcut.
+ * The editor is the shared CodeEditor host (Prettier-backed
+ * `editor.action.formatDocument`) with a native Monaco ghost
+ * placeholder — the hint is NOT actual script content, so the draft
+ * stays empty until the user types and the dirty fingerprint never
+ * sees example code. The labelled Find / Replace / Beautify cluster
+ * sits in a toolbar row above the editor (`actions="external"`); a
+ * floating bar inside the editor's bottom-right corner hosts the
+ * Packages and Snippets menus (ready-made `oh.*` examples, inserted
+ * at the cursor).
  */
 
-import { AlignLeftOutlined } from '@ant-design/icons';
 import type { ScriptKind } from '@openheaders/core/scripts';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, Divider, Tooltip, theme } from 'antd';
+import { Divider, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useRef, useState } from 'react';
@@ -27,6 +28,7 @@ import { installMenuIconInjector } from '../script-editor/monaco-menu-icons';
 import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
 import ScriptPackagesMenu from '../script-editor/ScriptPackagesMenu';
 import CodeEditor from '../shared/CodeEditor';
+import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import DismissLayer from '../template-input/DismissLayer';
 import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
 import SetAsVariablePopover from '../template-input/SetAsVariablePopover';
@@ -96,6 +98,9 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   const t = useT();
   const [active, setActive] = useState<ScriptKind>('pre-request');
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  // Imperative surface of the mounted editor — drives the labelled
+  // Find / Replace / Beautify cluster in the toolbar row above it.
+  const editorActionsRef = useRef<CodeEditorActionsTarget | null>(null);
   const suggestionContext = useAutoSuggestionContext();
   // Selection-action popovers, opened from the editor's context menu.
   // They anchor to a tiny fixed-position marker planted at the
@@ -206,183 +211,188 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
         <Rail kind="pre-request" label={t('workbench.editors.request.scripts.preRequest')} />
         <Rail kind="post-response" label={t('workbench.editors.request.scripts.postResponse')} />
       </div>
-      <div style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative' }}>
-        {/* Absolute inset host: the fill editor must not contribute
-            intrinsic height — Monaco's automaticLayout writes an explicit
-            pixel height on its DOM, and in-flow that height feeds back
-            into the scroller's content size, ratcheting the editor so it
-            grows with the pane but never shrinks. Out of flow, the cell's
-            height is purely divider-driven and Monaco tracks it both
-            ways. */}
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-          <CodeEditor
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, minHeight: 0 }}>
+        {/* Toolbar row ABOVE the editor (labelled variant of the shared
+            cluster) — keeps the buttons out of the buffer so they never
+            cover long first lines. */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <CodeEditorActions
+            target={editorActionsRef}
             language="javascript"
-            value={value}
-            onChange={onChange}
-            fill
-            placeholder={t(SCRIPT_PLACEHOLDER_KEY[active])}
-            onEditorMount={(editor) => {
-              editorRef.current = editor;
-              installMenuIconInjector(editor, t('workbench.editors.scriptEditor.saveToPackage'));
-              const container = editor.getContainerDomNode();
-              const selectedText = (): string => {
-                const model = editor.getModel();
-                const selection = editor.getSelection();
-                if (!model || !selection || selection.isEmpty()) return '';
-                return model.getValueInRange(selection);
-              };
-              const replaceSelection = (transform: (text: string) => string): void => {
-                const selection = editor.getSelection();
-                const text = selectedText();
-                if (!selection || !text) return;
-                let next = text;
-                try {
-                  next = transform(text);
-                } catch {
-                  // Malformed escape sequence on decode — keep as-is.
-                }
-                editor.executeEdits('oh-selection-action', [{ range: selection, text: next }]);
-              };
-              // Custom entries on Monaco's built-in context menu — shown
-              // only while a selection exists.
-              // Viewport coords of the selection end — where the popover
-              // anchors. Falls back to the container's top edge when the
-              // selection has scrolled out of view.
-              const selectionAnchorPoint = (): { x: number; y: number } => {
-                const rect = container.getBoundingClientRect();
-                const selection = editor.getSelection();
-                const pos = selection ? editor.getScrolledVisiblePosition(selection.getEndPosition()) : null;
-                if (!pos) return { x: rect.left + 24, y: rect.top + 24 };
-                return { x: rect.left + pos.left, y: rect.top + pos.top + pos.height };
-              };
-              editor.addAction({
-                id: 'oh.set-as-variable',
-                label: t('shared.templateInput.setAsVariable'),
-                contextMenuGroupId: '9_oh_actions',
-                contextMenuOrder: 1,
-                precondition: 'editorHasSelection',
-                run: () => {
-                  const text = selectedText();
-                  if (!text) return;
-                  setAnchorPoint(selectionAnchorPoint());
-                  setVarPopover({ text });
-                },
-              });
-              editor.addAction({
-                id: 'oh.save-to-package',
-                label: t('workbench.editors.scriptEditor.saveToPackage'),
-                contextMenuGroupId: '9_oh_actions',
-                contextMenuOrder: 2,
-                precondition: 'editorHasSelection',
-                run: () => {
-                  const text = selectedText();
-                  if (!text) return;
-                  setAnchorPoint(selectionAnchorPoint());
-                  setPkgPopover({ text });
-                },
-              });
-              editor.addAction({
-                id: 'oh.encode-uri-component',
-                label: 'EncodeURIComponent',
-                contextMenuGroupId: '9_oh_transform',
-                contextMenuOrder: 1,
-                precondition: 'editorHasSelection',
-                run: () => replaceSelection(encodeURIComponent),
-              });
-              editor.addAction({
-                id: 'oh.decode-uri-component',
-                label: 'DecodeURIComponent',
-                contextMenuGroupId: '9_oh_transform',
-                contextMenuOrder: 2,
-                precondition: 'editorHasSelection',
-                run: () => replaceSelection(decodeURIComponent),
-              });
-              editor.addAction({
-                id: 'oh.find-selection',
-                label: t('workbench.editors.scriptEditor.menuFind'),
-                contextMenuGroupId: '9_oh_transform',
-                contextMenuOrder: 3,
-                precondition: 'editorHasSelection',
-                run: () => {
-                  void editor.getAction('actions.find')?.run();
-                },
-              });
-            }}
+            labels
+            findText={t('workbench.editors.scriptEditor.find')}
+            replaceText={t('workbench.editors.scriptEditor.replace')}
+            formatText={t('workbench.editors.scriptEditor.beautify')}
           />
         </div>
-        {(varPopover || pkgPopover) &&
-          anchorPoint &&
-          createPortal(
-            <span
-              ref={setAnchorNode}
-              aria-hidden
-              style={{
-                position: 'fixed',
-                top: anchorPoint.y,
-                left: anchorPoint.x,
-                width: 2,
-                height: 2,
-                pointerEvents: 'none',
-              }}
-            />,
-            document.body,
-          )}
-        {varPopover &&
-          anchorNode &&
-          createPortal(
-            <DismissLayer onClose={closeSelectionPopovers}>
-              <SetAsVariablePopover
-                anchorEl={anchorNode}
-                initialValue={varPopover.text}
-                collectionId={suggestionContext.collectionId}
-                onClose={closeSelectionPopovers}
-              />
-            </DismissLayer>,
-            document.body,
-          )}
-        {pkgPopover && anchorNode && (
-          <SaveToPackagePopover
-            anchorEl={anchorNode}
-            workspaceId={workspaceId}
-            selectionText={pkgPopover.text}
-            onClose={closeSelectionPopovers}
-          />
-        )}
-        {/* Floating action bar INSIDE the editor surface, bottom-right —
-            above Monaco's horizontal scrollbar (the fill-mode editor has
-            no resize grip strip). z-index 12 matches the editor's corner
-            action cluster. */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 22,
-            right: 26,
-            zIndex: 12,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            padding: '2px 4px',
-            background: token.colorBgElevated,
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: 8,
-            boxShadow: token.boxShadowTertiary,
-          }}
-        >
-          <ScriptPackagesMenu workspaceId={workspaceId} onInsert={insertSnippet} onOpenLibrary={onOpenPackageLibrary} />
-          <Divider type="vertical" style={{ margin: 0 }} />
-          <ScriptSnippetsMenu kind={active} onInsert={insertSnippet} />
-          <Divider type="vertical" style={{ margin: 0 }} />
-          <Tooltip title={t('workbench.editors.request.scripts.format')} placement="top">
-            <Button
-              size="small"
-              type="text"
-              icon={<AlignLeftOutlined />}
-              aria-label={t('workbench.editors.request.scripts.formatAria')}
-              onClick={() => {
-                void editorRef.current?.getAction('editor.action.formatDocument')?.run();
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          {/* Absolute inset host: the fill editor must not contribute
+              intrinsic height — Monaco's automaticLayout writes an explicit
+              pixel height on its DOM, and in-flow that height feeds back
+              into the scroller's content size, ratcheting the editor so it
+              grows with the pane but never shrinks. Out of flow, the cell's
+              height is purely divider-driven and Monaco tracks it both
+              ways. */}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+            <CodeEditor
+              language="javascript"
+              value={value}
+              onChange={onChange}
+              fill
+              actions="external"
+              actionsRef={editorActionsRef}
+              placeholder={t(SCRIPT_PLACEHOLDER_KEY[active])}
+              onEditorMount={(editor) => {
+                editorRef.current = editor;
+                installMenuIconInjector(editor, t('workbench.editors.scriptEditor.saveToPackage'));
+                const container = editor.getContainerDomNode();
+                const selectedText = (): string => {
+                  const model = editor.getModel();
+                  const selection = editor.getSelection();
+                  if (!model || !selection || selection.isEmpty()) return '';
+                  return model.getValueInRange(selection);
+                };
+                const replaceSelection = (transform: (text: string) => string): void => {
+                  const selection = editor.getSelection();
+                  const text = selectedText();
+                  if (!selection || !text) return;
+                  let next = text;
+                  try {
+                    next = transform(text);
+                  } catch {
+                    // Malformed escape sequence on decode — keep as-is.
+                  }
+                  editor.executeEdits('oh-selection-action', [{ range: selection, text: next }]);
+                };
+                // Custom entries on Monaco's built-in context menu — shown
+                // only while a selection exists.
+                // Viewport coords of the selection end — where the popover
+                // anchors. Falls back to the container's top edge when the
+                // selection has scrolled out of view.
+                const selectionAnchorPoint = (): { x: number; y: number } => {
+                  const rect = container.getBoundingClientRect();
+                  const selection = editor.getSelection();
+                  const pos = selection ? editor.getScrolledVisiblePosition(selection.getEndPosition()) : null;
+                  if (!pos) return { x: rect.left + 24, y: rect.top + 24 };
+                  return { x: rect.left + pos.left, y: rect.top + pos.top + pos.height };
+                };
+                editor.addAction({
+                  id: 'oh.set-as-variable',
+                  label: t('shared.templateInput.setAsVariable'),
+                  contextMenuGroupId: '9_oh_actions',
+                  contextMenuOrder: 1,
+                  precondition: 'editorHasSelection',
+                  run: () => {
+                    const text = selectedText();
+                    if (!text) return;
+                    setAnchorPoint(selectionAnchorPoint());
+                    setVarPopover({ text });
+                  },
+                });
+                editor.addAction({
+                  id: 'oh.save-to-package',
+                  label: t('workbench.editors.scriptEditor.saveToPackage'),
+                  contextMenuGroupId: '9_oh_actions',
+                  contextMenuOrder: 2,
+                  precondition: 'editorHasSelection',
+                  run: () => {
+                    const text = selectedText();
+                    if (!text) return;
+                    setAnchorPoint(selectionAnchorPoint());
+                    setPkgPopover({ text });
+                  },
+                });
+                editor.addAction({
+                  id: 'oh.encode-uri-component',
+                  label: 'EncodeURIComponent',
+                  contextMenuGroupId: '9_oh_transform',
+                  contextMenuOrder: 1,
+                  precondition: 'editorHasSelection',
+                  run: () => replaceSelection(encodeURIComponent),
+                });
+                editor.addAction({
+                  id: 'oh.decode-uri-component',
+                  label: 'DecodeURIComponent',
+                  contextMenuGroupId: '9_oh_transform',
+                  contextMenuOrder: 2,
+                  precondition: 'editorHasSelection',
+                  run: () => replaceSelection(decodeURIComponent),
+                });
+                editor.addAction({
+                  id: 'oh.find-selection',
+                  label: t('workbench.editors.scriptEditor.menuFind'),
+                  contextMenuGroupId: '9_oh_transform',
+                  contextMenuOrder: 3,
+                  precondition: 'editorHasSelection',
+                  run: () => {
+                    void editor.getAction('actions.find')?.run();
+                  },
+                });
               }}
             />
-          </Tooltip>
+          </div>
+          {(varPopover || pkgPopover) &&
+            anchorPoint &&
+            createPortal(
+              <span
+                ref={setAnchorNode}
+                aria-hidden
+                style={{
+                  position: 'fixed',
+                  top: anchorPoint.y,
+                  left: anchorPoint.x,
+                  width: 2,
+                  height: 2,
+                  pointerEvents: 'none',
+                }}
+              />,
+              document.body,
+            )}
+          {varPopover &&
+            anchorNode &&
+            createPortal(
+              <DismissLayer onClose={closeSelectionPopovers}>
+                <SetAsVariablePopover
+                  anchorEl={anchorNode}
+                  initialValue={varPopover.text}
+                  collectionId={suggestionContext.collectionId}
+                  onClose={closeSelectionPopovers}
+                />
+              </DismissLayer>,
+              document.body,
+            )}
+          {pkgPopover && anchorNode && (
+            <SaveToPackagePopover
+              anchorEl={anchorNode}
+              workspaceId={workspaceId}
+              selectionText={pkgPopover.text}
+              onClose={closeSelectionPopovers}
+            />
+          )}
+          {/* Floating action bar INSIDE the editor surface, bottom-right —
+              above Monaco's horizontal scrollbar (the fill-mode editor has
+              no resize grip strip). z-index 12 matches the editor's corner
+              action cluster. */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 22,
+              right: 26,
+              zIndex: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              padding: '2px 4px',
+              background: token.colorBgElevated,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: 8,
+              boxShadow: token.boxShadowTertiary,
+            }}
+          >
+            <ScriptPackagesMenu workspaceId={workspaceId} onInsert={insertSnippet} onOpenLibrary={onOpenPackageLibrary} />
+            <Divider type="vertical" style={{ margin: 0 }} />
+            <ScriptSnippetsMenu kind={active} onInsert={insertSnippet} />
+          </div>
         </div>
       </div>
     </div>
