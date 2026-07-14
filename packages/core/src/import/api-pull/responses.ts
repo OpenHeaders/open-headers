@@ -61,6 +61,12 @@ export interface WorkspaceDetail {
   workspaceId: string;
   collections: WorkspaceItemRef[];
   environments: WorkspaceItemRef[];
+  /**
+   * API specs listed by the workspace. Never pulled — the spec
+   * importer hasn't landed — but surfaced so the host can report the
+   * "not imported yet" skip instead of silently ignoring the section.
+   */
+  specs: WorkspaceItemRef[];
   /** Item refs without a usable id — the host reports them as one skip. */
   malformedRefs: number;
 }
@@ -85,7 +91,23 @@ function readItemRefs(raw: unknown, malformed: { count: number }): WorkspaceItem
   return refs;
 }
 
-/** Interpret the workspace-detail envelope: `{ workspace: { collections?, environments? } }`. */
+/**
+ * Spec entries aren't pulled, so a ref without an id is not a lost
+ * item — read whatever is nameable without touching the malformed
+ * counter that gates real pulls.
+ */
+function readSpecRefs(raw: unknown): WorkspaceItemRef[] {
+  if (!Array.isArray(raw)) return [];
+  const refs: WorkspaceItemRef[] = [];
+  for (const entry of raw) {
+    if (!isRecord(entry)) continue;
+    const id = typeof entry.id === 'string' && entry.id !== '' ? entry.id : '(unknown)';
+    refs.push({ id, ...(typeof entry.name === 'string' && entry.name !== '' ? { name: entry.name } : {}) });
+  }
+  return refs;
+}
+
+/** Interpret the workspace-detail envelope: `{ workspace: { collections?, environments?, specs? } }`. */
 export function readWorkspaceDetail(workspaceId: string, text: string): Interpreted<WorkspaceDetail> {
   const envelope = parseJsonRecord(text, 'Workspace detail');
   if (!envelope.ok) return envelope;
@@ -98,6 +120,7 @@ export function readWorkspaceDetail(workspaceId: string, text: string): Interpre
       workspaceId,
       collections: readItemRefs(workspace.collections, malformed),
       environments: readItemRefs(workspace.environments, malformed),
+      specs: readSpecRefs(workspace.specs),
       malformedRefs: malformed.count,
     },
   };

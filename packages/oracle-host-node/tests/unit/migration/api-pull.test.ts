@@ -286,6 +286,28 @@ describe('pullPostmanData', () => {
     expect(result.skipped[0]).toMatchObject({ item: 'workspace', id: 'ws-1', workspaceIds: ['ws-1'] });
   });
 
+  it('reports listed API specs as a per-workspace "not imported yet" skip', async () => {
+    const routes = happyRoutes();
+    routes[1] = {
+      url: DETAIL_URL,
+      respond: () =>
+        response({
+          workspace: {
+            ...workspaceDetail.workspace,
+            specs: [{ id: 's1', name: 'Orders OpenAPI' }],
+          },
+        }),
+    };
+    const { fetchFn } = fetchStub(routes);
+    const result = await pullPostmanData({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
+
+    expect(result.outcome).toBe('complete');
+    expect(result.collections).toHaveLength(1);
+    const specSkip = result.skipped.find((skip) => skip.reason.includes('not imported yet'));
+    expect(specSkip).toMatchObject({ item: 'workspace', id: 'ws-1', workspaceIds: ['ws-1'] });
+    expect(specSkip?.reason).toContain('Orders OpenAPI');
+  });
+
   it('attributes pulled items to the workspaces that listed them', async () => {
     const { fetchFn } = fetchStub(happyRoutes());
     const result = await pullPostmanData({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });

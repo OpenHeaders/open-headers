@@ -297,6 +297,16 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
             workspaceIds: [workspace.id],
           });
         }
+        if (detail.value.specs.length > 0) {
+          const names = detail.value.specs.map((spec) => spec.name ?? spec.id).join(', ');
+          skipped.push({
+            item: 'workspace',
+            id: workspace.id,
+            name: workspace.name,
+            reason: `${detail.value.specs.length} API spec${detail.value.specs.length === 1 ? '' : 's'} (${names}) not imported yet — spec import hasn't landed.`,
+            workspaceIds: [workspace.id],
+          });
+        }
       } else {
         skipped.push({
           item: 'workspace',

@@ -70,8 +70,29 @@ describe('readWorkspaceDetail', () => {
       workspaceId: 'ws-1',
       collections: [{ id: 'owner-c1', name: 'Orders API' }],
       environments: [],
+      specs: [],
       malformedRefs: 1,
     });
+  });
+
+  it('reads the specs section without gating pulls on it', () => {
+    const read = readWorkspaceDetail(
+      'ws-1',
+      JSON.stringify({
+        workspace: {
+          id: 'ws-1',
+          collections: [{ id: 'c1', name: 'Orders API' }],
+          specs: [{ id: 's1', name: 'Orders OpenAPI' }, { name: 'no id spec' }],
+        },
+      }),
+    );
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    expect(read.value.specs).toEqual([
+      { id: 's1', name: 'Orders OpenAPI' },
+      { id: '(unknown)', name: 'no id spec' },
+    ]);
+    expect(read.value.malformedRefs).toBe(0);
   });
 
   it('surfaces a reason when the workspace object is missing', () => {
@@ -127,9 +148,10 @@ describe('buildPullPlan', () => {
         workspaceId: 'ws-1',
         collections: [{ id: 'c1', name: 'Shared' }],
         environments: [{ id: 'e1', name: 'Staging' }],
+        specs: [],
         malformedRefs: 0,
       },
-      { workspaceId: 'ws-2', collections: [{ id: 'c1' }], environments: [], malformedRefs: 0 },
+      { workspaceId: 'ws-2', collections: [{ id: 'c1' }], environments: [], specs: [], malformedRefs: 0 },
     ]);
     expect(plan.items).toEqual([
       { item: 'collection', id: 'c1', name: 'Shared', workspaceIds: ['ws-1', 'ws-2'] },
