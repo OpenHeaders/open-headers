@@ -57,6 +57,20 @@ describe('bridge', () => {
       expect((error as BridgeError).message).toContain('No receiving end');
     });
 
+    it('rejects with BridgeError when no handler answers (undefined response, no lastError)', async () => {
+      // Firefox resolves an unhandled sendMessage with undefined instead
+      // of setting lastError — the bridge must still reject.
+      vi.mocked(chrome.runtime.sendMessage).mockImplementation((_message, callback) => {
+        (callback as (response: unknown) => void)(undefined);
+      });
+
+      const error = await call('getRules').catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(BridgeError);
+      expect((error as BridgeError).type).toBe('getRules');
+      expect((error as BridgeError).message).toContain('no response');
+    });
+
     it('rejects with "unknown error" when lastError has no message', async () => {
       vi.mocked(chrome.runtime.sendMessage).mockImplementation((_message, callback) => {
         setLastError({});

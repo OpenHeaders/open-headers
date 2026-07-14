@@ -76,6 +76,16 @@ export function call<K extends BridgeRpcType>(
         reject(new BridgeError(type, api.runtime.lastError.message ?? 'unknown error'));
         return;
       }
+      // Every RPC contract responds with a value; `undefined` means no
+      // handler answered. Chrome surfaces that via `lastError` above, but
+      // Firefox resolves an unhandled sendMessage with undefined (and the
+      // runtime wrapper collapses Firefox transport errors to undefined
+      // too) — reject so both browsers honor the HostBridge contract of
+      // never silently resolving to undefined on error.
+      if (response === undefined) {
+        reject(new BridgeError(type, 'no response — no handler for this message type'));
+        return;
+      }
       resolve(response as BridgeRpcResponse<K>);
     });
   });
