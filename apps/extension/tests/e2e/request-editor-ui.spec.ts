@@ -28,6 +28,10 @@ const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 /** The full 7×7 = 49 cross, driven through the UI. */
 const COMBOS = API_CLIENT_COMBOS;
 
+/** The playground's binary probe (see `playground/server/api-pdf.ts`). */
+const API_PDF_URL = 'http://127.0.0.1:3000/api/pdf';
+const PDF_REQUEST_NAME = 'GET a generated PDF';
+
 let context: BrowserContext;
 let extensionId: string;
 let workbench: WorkbenchPage;
@@ -65,6 +69,16 @@ test.beforeAll(async () => {
     });
     seededUids.set(combo.name, uid);
   }
+  seededUids.set(
+    PDF_REQUEST_NAME,
+    await workbench.seedRequest({
+      name: PDF_REQUEST_NAME,
+      method: 'GET',
+      url: API_PDF_URL,
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    }),
+  );
   await workbench.reload();
   await workbench.showRequestsView();
   await workbench.collapseDocsPanel();
@@ -86,4 +100,32 @@ test.describe('Request editor — open → Send → response renders (UI)', () =
       expect(status).toContain('200');
     });
   }
+});
+
+test.describe('Request editor — PDF response rendering (UI)', () => {
+  test('binary body renders through the panel: Text fallback, no Preview, structure in Raw', async () => {
+    const uid = seededUids.get(PDF_REQUEST_NAME);
+    expect(uid, `no seeded uid for ${PDF_REQUEST_NAME}`).toBeTruthy();
+
+    await workbench.openRequest(uid!);
+    await workbench.send();
+    const status = await workbench.responseStatusText();
+    expect(status).toContain('200');
+
+    // Current contract for `application/pdf`: no dedicated viewer, so
+    // the language picker falls back to Text and the Preview toggle
+    // (HTML/JSON only) must not appear. When a PDF preview lands, these
+    // two assertions are the ones to flip.
+    // The picker label carries a glyph prefix (same as its menu items),
+    // so anchor on the trailing text.
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
+    expect(await workbench.responsePreviewToggle().count()).toBe(0);
+
+    // The body is a lossy text decode (binary-marker bytes become
+    // U+FFFD), but the PDF's ASCII structure must render end-to-end.
+    const raw = await workbench.responseRawBody();
+    expect(raw.startsWith('%PDF-1.4')).toBe(true);
+    expect(raw).toContain('(Open Headers PDF probe) Tj');
+    expect(raw.endsWith('%%EOF')).toBe(true);
+  });
 });

@@ -573,6 +573,13 @@ export class WorkbenchPage {
    * exception as the status chip).
    */
   async responseEcho<T = unknown>(): Promise<T> {
+    return JSON.parse(await this.responseRawBody()) as T;
+  }
+
+  /** Read the rendered response body verbatim via the Raw view — the
+   *  plain `<pre>` under `data-testid="oh-response-body"` (Pretty is
+   *  Monaco, whose DOM virtualizes long buffers). */
+  async responseRawBody(): Promise<string> {
     // The view switch is a dropdown: open the picker button, then pick
     // the Raw entry from the portal-rendered menu (its label carries a
     // glyph prefix, so match on the trailing text).
@@ -587,7 +594,21 @@ export class WorkbenchPage {
       .click();
     const body = this.page.getByTestId('oh-response-body').filter({ visible: true });
     await body.waitFor({ state: 'visible', timeout: 15000 });
-    const txt = (await body.textContent())?.trim() ?? '';
-    return JSON.parse(txt) as T;
+    return (await body.textContent())?.trim() ?? '';
+  }
+
+  /** The response Body pane's Preview toggle — rendered only when the
+   *  body previews (HTML or parseable JSON), so its absence is itself
+   *  an assertable state. */
+  responsePreviewToggle(): Locator {
+    return this.page.getByRole('button', { name: /Preview$/ }).filter({ visible: true });
+  }
+
+  /** Text of the response Body view picker — the language the viewer
+   *  detected from the Content-Type (or the active encoding view). */
+  async responseViewPickerLabel(): Promise<string> {
+    const picker = this.page.getByTestId('oh-response-view-picker').filter({ visible: true }).first();
+    await picker.waitFor({ state: 'visible', timeout: 15000 });
+    return (await picker.textContent())?.trim() ?? '';
   }
 }

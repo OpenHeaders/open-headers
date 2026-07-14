@@ -106,7 +106,10 @@ interface EchoResponse {
 
 interface ExecSnapshot {
   status: number;
+  headers: Array<{ key: string; value: string }>;
   body: string;
+  bodyBytes: number;
+  bodyTruncated: boolean;
   error?: string | null;
 }
 
@@ -185,6 +188,46 @@ function assertBody(echo: EchoResponse, expected: ApiClientCombo['expected']['bo
     }
   }
 }
+
+/** The playground's binary probe (see `playground/server/api-pdf.ts`). */
+const API_PDF_URL = 'http://127.0.0.1:3000/api/pdf';
+
+test.describe('Request executor — binary response (/api/pdf)', () => {
+  test('PDF body reaches the snapshot: status, Content-Type, document structure', async () => {
+    const exec = await rpc<{ success: boolean; snapshot?: ExecSnapshot; error?: string }>('executeRequest', {
+      draft: {
+        schemaVersion: 5,
+        uid: 'req-api-pdf-e2e',
+        path: 'requests/api-echo-e2e/req-api-pdf-e2e',
+        name: 'GET a generated PDF',
+        method: 'GET',
+        url: API_PDF_URL,
+        headers: [],
+        params: [],
+        auth: { type: 'none' },
+        body: { type: 'none' },
+      },
+    });
+
+    expect(exec.success, exec.error).toBe(true);
+    const snapshot = exec.snapshot!;
+    expect(snapshot.error ?? null).toBeNull();
+    expect(snapshot.status).toBe(200);
+
+    const contentType = snapshot.headers.find((h) => h.key.toLowerCase() === 'content-type')?.value ?? '';
+    expect(contentType).toContain('application/pdf');
+
+    // The executor reads every body as text (the documented v1 gap —
+    // `ExecutedRequestSnapshot.body`), so the PDF's binary-marker bytes
+    // arrive as U+FFFD. The ASCII document structure must still survive
+    // the decode end-to-end: header magic, page text, xref, EOF marker.
+    expect(snapshot.bodyTruncated).toBe(false);
+    expect(snapshot.body.startsWith('%PDF-1.4')).toBe(true);
+    expect(snapshot.body).toContain('(Open Headers PDF probe) Tj');
+    expect(snapshot.body).toContain('startxref');
+    expect(snapshot.body.trimEnd().endsWith('%%EOF')).toBe(true);
+  });
+});
 
 test.describe('Request executor — auth × body combos against /api/echo', () => {
   for (const combo of API_CLIENT_COMBOS) {
