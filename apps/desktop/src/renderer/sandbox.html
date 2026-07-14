@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- 'unsafe-eval' is the point of this page: user pre-request /
+         post-response scripts compile via `new Function(...)` here and
+         nowhere else. Everything else is locked down — no network, no
+         styles, no frames; the page only ever speaks postMessage to its
+         own preload bridge. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' 'unsafe-eval'"
+    />
+    <title>Script sandbox</title>
+  </head>
+  <body>
+    <script type="module" src="./sandbox/sandbox-runner.ts"></script>
+  </body>
+</html>

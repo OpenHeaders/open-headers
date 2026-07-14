@@ -843,6 +843,13 @@ export const workbenchEditors = {
   'workbench.editors.request.settings.managed.referer': 'Referer header',
   'workbench.editors.request.settings.managed.refererDesc':
     'The runtime has no page context, so no Referer goes on the wire unless you add one as a header yourself.',
+  'workbench.editors.request.settings.managed.scripts': 'Pre-request / post-response scripts',
+  'workbench.editors.request.settings.managed.scriptsSafeMode': 'Safe mode',
+  'workbench.editors.request.settings.managed.scriptsSafeModeDesc':
+    'Scripts on this request run in the app’s sandboxed script runtime: the oh.* script API only — no filesystem, no process access, no module loader. The run’s mode is recorded on the response.',
+  'workbench.editors.request.settings.managed.scriptsNotRun': 'Don’t run here',
+  'workbench.editors.request.settings.managed.scriptsNotRunDesc':
+    'The host answering this surface’s sends has no script runtime, so pre-request and post-response scripts are skipped and the response carries no script results.',
 
   // ── Settings tab — cookie jar row ──────────────────────────────────
   'workbench.editors.request.settings.jar.count': ({ count }, locale) =>
@@ -944,6 +951,12 @@ export const workbenchEditors = {
   'workbench.editors.request.response.meta.authForwarded': 'Authorization forwarded',
   'workbench.editors.request.response.meta.authForwardedSummary':
     'A redirect took this request to a different origin, and its Settings keep the Authorization header across origins — so the credentials were re-sent to the new host. Normally the header is dropped when a redirect leaves the original origin.',
+  'workbench.editors.request.response.meta.scriptsSafeMode': 'Scripts: Safe mode',
+  'workbench.editors.request.response.meta.scriptsSafeModeSummary':
+    'This request’s pre-request / post-response scripts ran in the app’s sandboxed script runtime — the oh.* script API only, no filesystem or process access. The mode is recorded on this run, so the marker stays accurate even if the workspace’s setting changes later.',
+  'workbench.editors.request.response.meta.scriptsDeveloperMode': 'Scripts: Developer mode',
+  'workbench.editors.request.response.meta.scriptsDeveloperModeSummary':
+    'This request’s pre-request / post-response scripts ran in Developer mode — the full runtime this workspace explicitly opted into on this device. The mode is recorded on this run, so the marker stays accurate even if the setting changes later.',
   'workbench.editors.request.response.meta.cookieJar': 'Cookie jar',
   'workbench.editors.request.response.meta.cookieJarSummary':
     'This request used the workspace’s in-memory cookie jar: matching stored cookies were attached automatically, and Set-Cookie responses were kept for later jar-enabled sends.',

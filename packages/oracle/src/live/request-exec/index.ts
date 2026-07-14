@@ -21,6 +21,7 @@ export {
   UnresolvedRequestError,
 } from './resolve-request';
 export { buildResolver, type ResolverContext } from './resolver-scope';
+export { type RunInteractiveSendOptions, runInteractiveSend } from './run-interactive-send';
 export { type RunStepRequestOptions, runStepRequest } from './run-step-request';
 export {
   applyScriptMutation,

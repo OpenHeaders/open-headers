@@ -86,11 +86,18 @@ export default defineConfig({
     build: {
       outDir: 'dist-webpack/preload',
       lib: {
-        entry: 'src/preload.ts',
+        // `index` is the workbench windows' bridge; `sandbox` is the
+        // minimal IPC ⇄ postMessage bridge for the hidden script-sandbox
+        // window. Output names follow the entry names, so the main
+        // window keeps loading `preload/index.js`.
+        entry: {
+          index: 'src/preload.ts',
+          sandbox: 'src/preload/sandbox.ts',
+        },
       },
       rollupOptions: {
         output: {
-          entryFileNames: 'index.js',
+          entryFileNames: '[name].js',
         },
       },
       minify: process.env.NODE_ENV === 'production' ? 'terser' : false,
@@ -116,7 +123,13 @@ export default defineConfig({
       // ts.worker and the main index chunk both sit near 7MB.
       chunkSizeWarningLimit: 8000,
       rollupOptions: {
-        input: resolve(__dirname, 'src/renderer/index.html'),
+        // `sandbox.html` is the hidden script-sandbox page — a second,
+        // React-free entry whose CSP allows `new Function` for user
+        // scripts. It ships beside index.html in the renderer bundle.
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+          sandbox: resolve(__dirname, 'src/renderer/sandbox.html'),
+        },
         onwarn(warning, warn) {
           if (
             warning.message?.includes('dynamically imported by') &&

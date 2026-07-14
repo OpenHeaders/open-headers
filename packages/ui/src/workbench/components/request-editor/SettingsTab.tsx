@@ -297,6 +297,29 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
   },
 ];
 
+/**
+ * The node sheet's Scripts row is per-surface, not static: it reads
+ * the `scriptRuntime` capability. The desktop's answering host runs
+ * scripts in its Safe-mode sandbox; the web surface's sends execute
+ * on the connected daemon, which has no script runtime — that surface
+ * keeps the honest "don't run here" fact.
+ */
+function nodeScriptsRow(): RuntimeManagedDef {
+  const mode = getCapability('scriptRuntime')?.();
+  if (mode === 'safe') {
+    return {
+      labelKey: 'workbench.editors.request.settings.managed.scripts',
+      valueKey: 'workbench.editors.request.settings.managed.scriptsSafeMode',
+      descriptionKey: 'workbench.editors.request.settings.managed.scriptsSafeModeDesc',
+    };
+  }
+  return {
+    labelKey: 'workbench.editors.request.settings.managed.scripts',
+    valueKey: 'workbench.editors.request.settings.managed.scriptsNotRun',
+    descriptionKey: 'workbench.editors.request.settings.managed.scriptsNotRunDesc',
+  };
+}
+
 interface RuntimeManagedSheet {
   rows: RuntimeManagedDef[];
   /** Reveal-toggle variants: "N <noun>" collapsed / "Hide <noun> settings" open. */
@@ -512,6 +535,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
   const [showRuntimeManaged, setShowRuntimeManaged] = useState(false);
   const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const sheet = MANAGED_SHEETS[runtime];
+  const sheetRows = runtime === 'node' ? [...sheet.rows, nodeScriptsRow()] : sheet.rows;
   // Vault client-certificate entries feed the picker's options. The
   // context defaults to an empty vault when no provider is mounted, so
   // the tab stays renderable everywhere.
@@ -761,7 +785,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
           onClick={() => setShowRuntimeManaged((s) => !s)}
           style={{ color: token.colorTextSecondary, fontSize: 12 }}
         >
-          {showRuntimeManaged ? t(sheet.hideKey) : t(sheet.countKey, { count: sheet.rows.length })}
+          {showRuntimeManaged ? t(sheet.hideKey) : t(sheet.countKey, { count: sheetRows.length })}
         </Button>
       </div>
       {showRuntimeManaged && (
@@ -776,7 +800,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
           }}
         >
           <Text style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 2 }}>{t(sheet.introKey)}</Text>
-          {sheet.rows.map((def) => (
+          {sheetRows.map((def) => (
             <RuntimeManagedRow key={def.labelKey} {...def} kicker={t(sheet.kickerKey)} />
           ))}
         </div>

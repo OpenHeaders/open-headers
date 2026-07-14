@@ -230,6 +230,35 @@ export type ScriptWireMessage =
   | { type: 'script.host-request'; request: ScriptHostRequest }
   | { type: 'script.host-response'; response: ScriptHostResponse };
 
+// ── Execution modes ────────────────────────────────────────────────
+
+/**
+ * The trust posture a host runs a scripted send under. `'safe'` is the
+ * default everywhere: scripts execute in a real sandbox with the
+ * brokered `oh.*` surface only — no filesystem, no process access, no
+ * module loader. `'developer'` is an explicit per-workspace opt-in for
+ * a full-runtime worker (a later host capability); the setting is
+ * host-local by design so a synced workspace can never carry Developer
+ * mode onto another device, and peer-forwarded sends never ride it.
+ */
+export type ScriptExecutionMode = 'safe' | 'developer';
+
+export const DEFAULT_SCRIPT_EXECUTION_MODE: ScriptExecutionMode = 'safe';
+
+/**
+ * Resolve a workspace's script execution mode from the host-local
+ * per-workspace map (`OH.scriptExecutionModes`). Absent map, absent
+ * entry, or an unrecognized value all read as the safe default.
+ */
+export function readScriptExecutionMode(
+  modes: Record<string, unknown> | null | undefined,
+  workspaceId: string | null | undefined,
+): ScriptExecutionMode {
+  if (!modes || !workspaceId) return DEFAULT_SCRIPT_EXECUTION_MODE;
+  const value = modes[workspaceId];
+  return value === 'developer' ? 'developer' : DEFAULT_SCRIPT_EXECUTION_MODE;
+}
+
 /** Default timeout when `ScriptExecutionRequest.timeoutMs` is omitted. */
 export const DEFAULT_SCRIPT_TIMEOUT_MS = 5000;
 

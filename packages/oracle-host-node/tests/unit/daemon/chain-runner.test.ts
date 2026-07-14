@@ -47,7 +47,9 @@ vi.mock('@openheaders/core/utils', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn() },
 }));
 
+import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
 import { runWorkflowRefresh } from '../../../src/daemon/live/chain-runner';
+import { setHostScriptCapability } from '../../../src/daemon/script-capability';
 
 function makeWorkflow(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
@@ -122,6 +124,46 @@ describe('runWorkflowRefresh — success commit', () => {
     await runWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
 
     expect(h.putWorkflowRunCache.mock.calls[0][0].expiresAt).toBeNull();
+  });
+});
+
+describe('runWorkflowRefresh — script capability injection', () => {
+  it('builds the adapter without a script runner on a host with no capability', async () => {
+    h.runChain.mockResolvedValue(successOutcome());
+    await runWorkflowRefresh({ workspaceId: 'ws-1', workflow: makeWorkflow(), environmentId: null });
+    const options = vi.mocked(buildChainFetchAdapter).mock.calls[0][0];
+    expect(options.scriptRunner).toBeUndefined();
+  });
+
+  it('hands the adapter a chain-context runner when the host registered a capability', async () => {
+    const runScript = vi.fn(async () => ({
+      executionId: 'e1',
+      succeeded: true,
+      assertions: [],
+      consoleLog: [],
+      durationMs: 1,
+    }));
+    setHostScriptCapability({ mode: 'safe', runScript });
+    try {
+      h.runChain.mockResolvedValue(successOutcome());
+      await runWorkflowRefresh({ workspaceId: 'ws-1', workflow: makeWorkflow(), environmentId: null });
+      const options = vi.mocked(buildChainFetchAdapter).mock.calls[0][0];
+      expect(options.scriptRunner).toBeDefined();
+      await options.scriptRunner?.({
+        kind: 'pre-request',
+        source: 'oh.setHeader("X", "1");',
+        request: {
+          method: 'GET',
+          url: 'https://api.openheaders.io/x',
+          headers: [],
+          params: [],
+          body: { type: 'none' },
+        },
+      });
+      expect(runScript).toHaveBeenCalledWith(expect.objectContaining({ hostContext: 'chain' }));
+    } finally {
+      setHostScriptCapability(null);
+    }
   });
 });
 

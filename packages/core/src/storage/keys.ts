@@ -21,6 +21,7 @@
  */
 
 import type { BackendReach } from '../protocol';
+import type { ScriptExecutionMode } from '../scripts';
 import type {
   BackendConnection,
   Collection,
@@ -343,6 +344,15 @@ export const OH = {
    * by the connections list under the refused backend's row.
    */
   backendOrgConflicts: storageKey<BackendOrgConflict[]>('oh.backendOrgConflicts'),
+  /**
+   * Per-workspace script execution mode — `workspaceId → 'safe' |
+   * 'developer'`. Deliberately a HOST-LOCAL global slot (not a
+   * workspace-scoped synced key): the mode is a trust decision about
+   * THIS device's runtime, and a synced workspace must never be able to
+   * carry Developer mode onto another machine. Absent entries read as
+   * `'safe'` via `readScriptExecutionMode` in `../scripts`.
+   */
+  scriptExecutionModes: storageKey<Record<string, ScriptExecutionMode>>('oh.scriptExecutionModes'),
 } as const;
 
 // ── UI-global keys (not workspace-scoped by design) ─────────────────

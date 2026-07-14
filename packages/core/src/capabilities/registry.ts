@@ -44,6 +44,8 @@
  * swap in fakes; production code installs once at boot.
  */
 
+import type { ScriptExecutionMode } from '../scripts';
+
 /**
  * Input to {@link Capabilities.pairWithCode}. `url` is the back-end's
  * WebSocket URL exactly as the user configured it (`backend.url`); the
@@ -234,6 +236,20 @@ export interface Capabilities {
    * runtime-managed fact sheet off this value.
    */
   requestRuntime?: () => RequestRuntimeKind;
+
+  /**
+   * How the surface's node request runtime executes pre-request /
+   * post-response scripts — the mode a scripted Send runs under.
+   * Registered only by node-runtime surfaces whose answering host has
+   * a script runtime (the desktop renderer: the main process's
+   * sandboxed Safe-mode runner). Left absent where scripts genuinely
+   * don't run (the web app — its sends execute on the connected
+   * daemon, which has no script runtime yet), and shared UI keeps the
+   * honest "don't run here" fact row. Browser-runtime surfaces never
+   * register it — their offscreen sandbox story is not a node-sheet
+   * fact.
+   */
+  scriptRuntime?: () => ScriptExecutionMode;
 
   /**
    * The release notes bundled into this build, as markdown, or `null`

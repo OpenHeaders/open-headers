@@ -14,7 +14,7 @@ import type {
   TransportRequest,
   TransportResponse,
 } from '@openheaders/oracle/live/request-exec/transport';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
   vault: vi.fn((): Vault => ({ schemaVersion: 5, secrets: [] })),
@@ -71,6 +71,7 @@ vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
 }));
 
 import { handleExecuteRequestRpc } from '../../../src/daemon/execute-request-rpc';
+import { setHostScriptCapability } from '../../../src/daemon/script-capability';
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
@@ -304,6 +305,91 @@ describe('handleExecuteRequestRpc — uid path', () => {
     expect(result.success).toBe(true);
     expect(result.snapshot?.error).toBe('Request missing not found');
     expect(calls()).toBe(0);
+  });
+});
+
+describe('handleExecuteRequestRpc — scripts', () => {
+  afterEach(() => {
+    setHostScriptCapability(null);
+  });
+
+  it('stays scriptless without a host script capability — the daemon posture', async () => {
+    const { transport } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ preRequestScript: 'oh.setHeader("X-Scripted", "1");' }) },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.scripts ?? null).toBeNull();
+  });
+
+  it('runs pre-request scripts through the capability, applies the mutation, and stamps the mode', async () => {
+    setHostScriptCapability({
+      mode: 'safe',
+      runScript: async (opts) => ({
+        executionId: 'e1',
+        succeeded: true,
+        mutation: { headers: [...opts.request.headers, { key: 'X-Scripted', value: '1' }] },
+        assertions: [],
+        consoleLog: [],
+        durationMs: 2,
+      }),
+    });
+    const { transport, sent } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ preRequestScript: 'oh.setHeader("X-Scripted", "1");' }) },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toBeNull();
+    expect(sent().headers).toContainEqual({ key: 'X-Scripted', value: '1' });
+    expect(result.snapshot?.scripts?.mode).toBe('safe');
+    expect(result.snapshot?.scripts?.preRequest?.succeeded).toBe(true);
+  });
+
+  it('interactive semantics are lenient — a failed assertion never fails the run', async () => {
+    setHostScriptCapability({
+      mode: 'safe',
+      runScript: async () => ({
+        executionId: 'e2',
+        succeeded: true,
+        assertions: [{ name: 'status is 201', passed: false, message: 'expected 200 to be 201' }],
+        consoleLog: [],
+        durationMs: 1,
+      }),
+    });
+    const { transport } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ postResponseScript: 'await oh.test("status is 201", () => {});' }) },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toBeNull();
+    expect(result.snapshot?.scripts?.postResponse?.assertions).toEqual([
+      { name: 'status is 201', passed: false, message: 'expected 200 to be 201' },
+    ]);
+    expect(result.snapshot?.scripts?.mode).toBe('safe');
+  });
+
+  it('a pre-request script failure is recorded and the send still reaches the wire, unmutated', async () => {
+    setHostScriptCapability({
+      mode: 'safe',
+      runScript: async () => ({
+        executionId: 'e3',
+        succeeded: false,
+        error: { name: 'ReferenceError', message: 'nope is not defined' },
+        assertions: [{ name: 'script error', passed: false, message: 'nope is not defined' }],
+        consoleLog: [],
+        durationMs: 1,
+      }),
+    });
+    const { transport, calls, sent } = captureTransport();
+    const result = await handleExecuteRequestRpc({ draft: makeRequest({ preRequestScript: 'nope();' }) }, transport);
+    expect(result.success).toBe(true);
+    expect(calls()).toBe(1);
+    expect(sent().headers).toEqual([]);
+    expect(result.snapshot?.error).toBeNull();
+    expect(result.snapshot?.scripts?.preRequest?.succeeded).toBe(false);
   });
 });
 

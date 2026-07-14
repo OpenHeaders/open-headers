@@ -69,6 +69,20 @@ interface ExecSnapshot {
   authorizationForwarded?: boolean;
   cookieHeaderAttached?: string;
   cookiesCaptured?: string[];
+  scripts?: {
+    mode?: string;
+    preRequest?: {
+      succeeded: boolean;
+      error?: { name: string; message: string };
+      consoleLog: Array<{ level: string; args: string[] }>;
+      mutation?: { headers?: Array<{ key: string; value: string }> };
+    };
+    postResponse?: {
+      succeeded: boolean;
+      assertions: Array<{ name: string; passed: boolean; message?: string }>;
+      consoleLog: Array<{ level: string; args: string[] }>;
+    };
+  } | null;
 }
 
 interface Echo {
@@ -583,4 +597,59 @@ test('exportWorkspace round-trips through importWorkspace with the vault intact'
     currentTargetWorkspaceId: null,
   });
   expect(matches.exportIdOtherTargets.map((m) => m.workspaceId)).toContain(imported.targetWorkspaceId);
+});
+
+// ── Scripts: the desktop Safe-mode sandbox ───────────────────────────
+// A scripted send runs its pre/post scripts in the hidden sandboxed
+// renderer through the main-process broker — the pre-request mutation
+// must reach the real wire, the post-response assertions must see the
+// real response, and the snapshot must record the Safe mode it ran
+// under. This is the live proof of the whole chain: renderer bridge →
+// spine route → interactive pipeline → sandbox window → node transport.
+
+test('a scripted send mutates the request in the sandbox and records assertions + mode', async () => {
+  const snapshot = await exec(
+    draft({
+      preRequestScript: [
+        "oh.setHeader('Authorization', 'Bearer sandbox-token');",
+        "console.log('pre-request ran');",
+      ].join('\n'),
+      postResponseScript: [
+        'const echoed = JSON.parse(oh.response.body);',
+        "await oh.test('mutated header reached the wire', () => {",
+        "  oh.expect(echoed.authorization).toBe('Bearer sandbox-token');",
+        '});',
+        "await oh.test('status is 200', () => { oh.expect(oh.response).toHaveStatus(200); });",
+      ].join('\n'),
+    }),
+  );
+  expect(snapshot.error).toBeNull();
+  expect(snapshot.status).toBe(200);
+  // The rig echoed the header the SCRIPT set — the mutation crossed the
+  // sandbox boundary and rode the actual fetch.
+  expect(JSON.parse(snapshot.body).authorization).toBe('Bearer sandbox-token');
+  expect(snapshot.scripts?.mode).toBe('safe');
+  expect(snapshot.scripts?.preRequest?.succeeded).toBe(true);
+  expect(snapshot.scripts?.preRequest?.consoleLog).toEqual([
+    expect.objectContaining({ level: 'log', args: ['pre-request ran'] }),
+  ]);
+  expect(snapshot.scripts?.postResponse?.succeeded).toBe(true);
+  expect(snapshot.scripts?.postResponse?.assertions).toEqual([
+    expect.objectContaining({ name: 'mutated header reached the wire', passed: true }),
+    expect.objectContaining({ name: 'status is 200', passed: true }),
+  ]);
+});
+
+test('interactive semantics stay lenient — a failed assertion is recorded, the run is not failed', async () => {
+  const snapshot = await exec(
+    draft({
+      postResponseScript: "await oh.test('impossible', () => { oh.expect(oh.response).toHaveStatus(599); });",
+    }),
+  );
+  expect(snapshot.error).toBeNull();
+  expect(snapshot.status).toBe(200);
+  expect(snapshot.scripts?.mode).toBe('safe');
+  expect(snapshot.scripts?.postResponse?.assertions).toEqual([
+    expect.objectContaining({ name: 'impossible', passed: false }),
+  ]);
 });

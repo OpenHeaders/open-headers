@@ -46,6 +46,7 @@ import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/liv
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
 import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
 import { createNodeRequestTransport } from '../../live/node-request-transport';
+import { resolveScriptRunner } from '../script-capability';
 
 /** One Node transport for the whole process — stateless, so a singleton
  *  avoids rebuilding the `fetch` wrapper on every step fetch. */
@@ -72,7 +73,19 @@ export type WorkflowRefreshResult =
  */
 export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<WorkflowRefreshResult> {
   const { workspaceId, workflow, environmentId } = args;
-  const adapter = buildChainFetchAdapter({ workspaceId, environmentId, transport: nodeTransport });
+  // Host script capability, consulted per refresh: only steps with
+  // `runScripts: true` reach the runner (the adapter gates per step),
+  // and it runs under the strict chain contract — read-only `oh.*`
+  // tier, script errors and failed assertions fail the step. A host
+  // without the capability (the headless daemon) resolves null and
+  // opted-in steps run scriptless, today's behavior.
+  const scripts = await resolveScriptRunner({ workspaceId, hostContext: 'chain' });
+  const adapter = buildChainFetchAdapter({
+    workspaceId,
+    environmentId,
+    transport: nodeTransport,
+    scriptRunner: scripts?.runner,
+  });
   const outcome: ChainRunOutcome = await runChain({
     workflow,
     adapter,

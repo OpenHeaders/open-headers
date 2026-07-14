@@ -4,7 +4,7 @@
  */
 
 import type { ResourceTimingEntry } from '../resource-timing';
-import type { RequestMutation, ScriptConsoleEntry, TestAssertion } from '../scripts';
+import type { RequestMutation, ScriptConsoleEntry, ScriptExecutionMode, TestAssertion } from '../scripts';
 import type { CredentialsMode } from './request';
 
 /**
@@ -152,6 +152,15 @@ export interface ExecutedRequestSnapshot {
    * render them independently (pre-request logs vs assertions).
    */
   scripts?: {
+    /**
+     * Execution mode this send's scripts ran under (`'safe'` = the
+     * host's sandboxed runtime, `'developer'` = the full-runtime worker
+     * opt-in). Recorded on the snapshot — never read from live settings
+     * — so the response surface can attribute the run even after the
+     * workspace's mode is flipped. Absent on snapshots minted before
+     * the mode existed (the extension's offscreen sandbox pre-dates it).
+     */
+    mode?: ScriptExecutionMode;
     preRequest?: {
       succeeded: boolean;
       error?: { name: string; message: string };

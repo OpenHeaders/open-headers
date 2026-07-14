@@ -6,14 +6,20 @@
  * record), so every per-request knob and the cookie jar behave
  * identically to a chain or MCP send.
  *
- * Deliberately scriptless: no node-side sandbox exists for pre/post
- * request scripts, so `snapshot.scripts` stays null and the response
- * surface degrades cleanly. OAuth refresh-on-expired is likewise
- * omitted — like every node path today, the last-synced bundle attaches
- * as-is and the target's 401 is the actionable signal. No rate limiter:
- * a user-initiated Send is deliberate, matching the extension's
- * user-facing executor (the refresh token bucket is for agent and
- * scheduled traffic).
+ * Scripts run when the host shell registered a script runtime (the
+ * desktop's sandboxed-renderer broker via `setHostScriptCapability`):
+ * the run rides the host-neutral `StepScriptRunner` port, the snapshot
+ * carries `scripts` with the execution mode stamped, and the response
+ * surface renders it exactly as the extension does. A host without the
+ * capability (the headless daemon) stays scriptless — `snapshot
+ * .scripts` stays null and the surface degrades cleanly. A
+ * peer-forwarded send (frame stamped with a foreign workspace) still
+ * runs scripts, but only ever Safe — it never consults this host's
+ * mode slot. OAuth refresh-on-expired is omitted — like every node
+ * path today, the last-synced bundle attaches as-is and the target's
+ * 401 is the actionable signal. No rate limiter: a user-initiated Send
+ * is deliberate, matching the extension's user-facing executor (the
+ * refresh token bucket is for agent and scheduled traffic).
  *
  * Runs unpinned (`workspaceId: null`) when the caller's workspace is
  * this host's runtime-Active one (or unstated) — the run resolves
@@ -36,10 +42,12 @@
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { getRequest } from '@openheaders/oracle/entity/request-store';
 import { errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
+import { runInteractiveSend } from '@openheaders/oracle/live/request-exec/run-interactive-send';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
 import type { RequestTransport } from '@openheaders/oracle/live/request-exec/transport';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createNodeRequestTransport } from '../live/node-request-transport';
+import { resolveScriptRunner } from './script-capability';
 
 export interface ExecuteRequestRpcResult {
   success: boolean;
@@ -87,8 +95,31 @@ export async function handleExecuteRequestRpc(
   if (!request) return { success: false, error: 'No request or draft provided' };
 
   try {
-    const snapshot = await runStepRequest(request, { workspaceId, environmentId, transport });
-    return { success: true, snapshot };
+    // A frame stamped with a foreign workspace is a peer-forwarded send
+    // — its scripts run Safe unconditionally (never this host's slot).
+    const forwarded = requestedWorkspaceId !== undefined && requestedWorkspaceId !== getActiveWorkspaceId();
+    const hasScripts = Boolean(request.preRequestScript?.trim() || request.postResponseScript?.trim());
+    const resolved = hasScripts
+      ? await resolveScriptRunner({
+          workspaceId: workspaceId ?? getActiveWorkspaceId(),
+          hostContext: 'interactive',
+          forwarded,
+        })
+      : null;
+    // With a script runtime, the send rides the interactive pipeline —
+    // LENIENT script semantics, the SW's `executeRequestDraft` twin: a
+    // script failure or failed assertion is recorded on the snapshot,
+    // never mapped onto the run's error. Scriptless sends (and hosts
+    // without the capability, the headless daemon) keep the step
+    // runner — behavior-identical when no script runs.
+    const snapshot = resolved
+      ? await runInteractiveSend(request, { workspaceId, environmentId, transport, scriptRunner: resolved.runner })
+      : await runStepRequest(request, { workspaceId, environmentId, transport });
+    // Stamp the mode the scripted portion actually ran under — snapshot
+    // attribution, never a live-settings read (the SSL-off precedent).
+    const stamped =
+      resolved && snapshot.scripts ? { ...snapshot, scripts: { ...snapshot.scripts, mode: resolved.mode } } : snapshot;
+    return { success: true, snapshot: stamped };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

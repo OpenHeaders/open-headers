@@ -73,6 +73,7 @@ import { createElectronUpdaterPort, updaterSupported } from './electron-updater-
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
+import { installScriptSandbox } from './script-sandbox';
 import { createUpdateService, readUpdatePreferences } from './update-service';
 import { fetchDesktopSeverity } from './versions-manifest';
 import { readServeWebApp, webAppRootCandidate } from './web-app-root';
@@ -233,6 +234,13 @@ export async function installRpcHost(): Promise<void> {
   // plane composes over are live.
   await installBackendClient({ hostStorage, appVersion: app.getVersion() });
 
+  // Safe-mode script runtime: pre/post request scripts run in a hidden
+  // sandboxed renderer; the capability makes the spine's executeRequest
+  // + chain runner inject script runners on this host. Installed after
+  // the spine so host RPCs read hydrated stores; the window itself
+  // spawns lazily on the first scripted run.
+  const scriptSandbox = installScriptSandbox();
+
   // Migration pull (MIGRATION_PLAN.md §3.3) — the desktop runs the
   // ladder, so the run orchestrator lives here beside the engine it
   // writes through. Progress fans as the ONE `migrationPullEvent`
@@ -343,6 +351,7 @@ export async function installRpcHost(): Promise<void> {
   app.on('before-quit', () => {
     rpcDispatcher = null;
     updateService.dispose();
+    scriptSandbox.dispose();
     void spine.dispose();
   });
 }

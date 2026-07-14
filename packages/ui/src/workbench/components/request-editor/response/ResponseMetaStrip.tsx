@@ -440,6 +440,24 @@ function cookieJarContent(response: ExecutedRequestSnapshot, t: Translate): Info
   };
 }
 
+/** Popover for the neutral tag on a run whose scripts executed —
+ *  attribution of the mode recorded on the snapshot (never a
+ *  live-settings read): Safe mode is the sandboxed runtime with the
+ *  `oh.*` surface only; Developer mode is the full-runtime opt-in. */
+function scriptsModeContent(mode: 'safe' | 'developer', t: Translate): InfoPopoverContent {
+  return mode === 'safe'
+    ? {
+        title: t('workbench.editors.request.response.meta.scriptsSafeMode'),
+        kicker: t('workbench.editors.request.response.meta.kicker'),
+        summary: t('workbench.editors.request.response.meta.scriptsSafeModeSummary'),
+      }
+    : {
+        title: t('workbench.editors.request.response.meta.scriptsDeveloperMode'),
+        kicker: t('workbench.editors.request.response.meta.kicker'),
+        summary: t('workbench.editors.request.response.meta.scriptsDeveloperModeSummary'),
+      };
+}
+
 function networkContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopoverContent {
   return {
     title: t('workbench.editors.request.response.meta.networkTitle'),
@@ -538,6 +556,18 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >
               {t('workbench.editors.request.response.meta.authForwarded')}
+            </Tag>
+          </InfoPopover>
+        </>
+      )}
+      {response.scripts?.mode !== undefined && (
+        <>
+          <MetaDot />
+          <InfoPopover content={scriptsModeContent(response.scripts.mode, t)} trigger="hover">
+            <Tag color="default" data-testid="oh-response-scripts-mode" style={{ marginInlineEnd: 0, cursor: 'help' }}>
+              {response.scripts.mode === 'safe'
+                ? t('workbench.editors.request.response.meta.scriptsSafeMode')
+                : t('workbench.editors.request.response.meta.scriptsDeveloperMode')}
             </Tag>
           </InfoPopover>
         </>

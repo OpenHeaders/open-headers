@@ -21,6 +21,12 @@ registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorks
 // tab shows the Node fact sheet and hides browser-only knobs.
 registerCapability('requestRuntime', () => 'node');
 
+// Pre/post request scripts run on this host: the main process executes
+// a scripted Send inside its hidden sandboxed renderer (Safe mode). The
+// node fact sheet's Scripts row reads this instead of the "don't run
+// here" default the web surface keeps.
+registerCapability('scriptRuntime', () => 'safe');
+
 // Desktop opens external URLs in the OS default browser via the
 // main-process `shell.openExternal` allowlist (http(s) + mailto). The
 // preload bridge takes care of marshalling.
