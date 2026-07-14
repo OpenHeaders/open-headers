@@ -24,6 +24,7 @@ import {
   MIN_STEP_TIMEOUT_MS,
 } from '@openheaders/core/schemas';
 import type { PriorityRef, StatusMatch, StepGate, StepRetryPolicy } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { Button, type CollapseProps, InputNumber, Select, Space, Switch, Tooltip, Typography } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
@@ -33,6 +34,7 @@ const { Text } = Typography;
 
 export interface WorkflowStepSectionsOptions {
   token: GlobalToken;
+  t: Translate;
   index: number;
   runIf: StepGate | undefined;
   dependsOnValue: string[] | undefined;
@@ -86,6 +88,7 @@ function decodeRetryOn(choice: RetryOnChoice): StatusMatch | undefined {
 
 export function buildWorkflowStepSections({
   token,
+  t,
   index,
   runIf,
   dependsOnValue,
@@ -118,13 +121,13 @@ export function buildWorkflowStepSections({
         <span style={{ fontSize: 11 }}>
           <BranchesOutlined style={{ marginRight: 4 }} />
           <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
-            Depends on
+            {t('workbench.editors.live.sections.dependsOn')}
           </span>
           <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
             {dependsOnValue === undefined
-              ? '(implicit — prior step)'
+              ? t('workbench.editors.live.sections.dependsOnImplicit')
               : dependsOnValue.length === 0
-                ? '(root)'
+                ? t('workbench.editors.live.sections.dependsOnRoot')
                 : `(${dependsOnValue.join(', ')})`}
           </span>
         </span>
@@ -136,7 +139,7 @@ export function buildWorkflowStepSections({
               size="small"
               mode="multiple"
               style={{ width: '100%' }}
-              placeholder="Select ancestor step(s) — empty = root step"
+              placeholder={t('workbench.editors.live.sections.dependsOnPlaceholder')}
               status={dependsOnError ? 'error' : undefined}
               data-testid={`wf-step-${index}-deps-select`}
               value={dependsOnValue ?? []}
@@ -156,25 +159,24 @@ export function buildWorkflowStepSections({
           >
             {dependsOnValue === undefined ? (
               <Text type="secondary" style={{ fontSize: 11 }}>
-                No explicit dependsOn — implicitly depends on the previous step in declared order.
+                {t('workbench.editors.live.sections.dependsOnImplicitHint')}
               </Text>
             ) : dependsOnValue.length === 0 ? (
               <>
                 <Text type="secondary" style={{ fontSize: 11 }}>
-                  Explicit root — runs as soon as the workflow starts.
+                  {t('workbench.editors.live.sections.dependsOnRootHint')}
                 </Text>
                 <Button size="small" type="link" style={{ fontSize: 11, padding: 0 }} onClick={clearExplicitDependsOn}>
-                  Use implicit
+                  {t('workbench.editors.live.sections.useImplicit')}
                 </Button>
               </>
             ) : (
               <>
                 <Text type="secondary" style={{ fontSize: 11 }}>
-                  Step waits for {dependsOnValue.length} ancestor{dependsOnValue.length === 1 ? '' : 's'} to complete
-                  or skip.
+                  {t('workbench.editors.live.sections.waitsFor', { count: dependsOnValue.length })}
                 </Text>
                 <Button size="small" type="link" style={{ fontSize: 11, padding: 0 }} onClick={clearExplicitDependsOn}>
-                  Reset
+                  {t('workbench.editors.live.sections.reset')}
                 </Button>
               </>
             )}
@@ -187,10 +189,10 @@ export function buildWorkflowStepSections({
       label: (
         <span style={{ fontSize: 11 }}>
           <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
-            Run condition
+            {t('workbench.editors.live.sections.runCondition')}
           </span>
           <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
-            {runIfCount === 0 ? '(none)' : `(${runIfCount})`}
+            {runIfCount === 0 ? t('workbench.editors.live.sections.none') : `(${runIfCount})`}
           </span>
         </span>
       ),
@@ -211,10 +213,12 @@ export function buildWorkflowStepSections({
       label: (
         <span style={{ fontSize: 11 }}>
           <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
-            Priority
+            {t('workbench.editors.live.sections.priority')}
           </span>
           <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
-            {priority ? `(${priority.stepId}.${priority.captureName})` : '(none)'}
+            {priority
+              ? `(${priority.stepId}.${priority.captureName})`
+              : t('workbench.editors.live.sections.none')}
           </span>
         </span>
       ),
@@ -227,7 +231,7 @@ export function buildWorkflowStepSections({
             >
               <Select
                 size="small"
-                placeholder="Ancestor step"
+                placeholder={t('workbench.editors.live.sections.priorityStepPlaceholder')}
                 style={{ width: 160 }}
                 status={priorityError && priorityError.issue !== 'priority-unknown-capture' ? 'error' : undefined}
                 data-testid={`wf-step-${index}-priority-step`}
@@ -248,7 +252,7 @@ export function buildWorkflowStepSections({
             >
               <Select
                 size="small"
-                placeholder="Capture name"
+                placeholder={t('workbench.editors.live.sections.priorityCapturePlaceholder')}
                 style={{ width: 160 }}
                 disabled={!priority?.stepId}
                 status={priorityError?.issue === 'priority-unknown-capture' ? 'error' : undefined}
@@ -268,20 +272,20 @@ export function buildWorkflowStepSections({
               data-testid={`wf-step-${index}-priority-sort`}
               value={priority?.sort ?? 'numeric'}
               options={[
-                { value: 'numeric', label: 'Numeric' },
-                { value: 'lexicographic', label: 'Lexicographic' },
+                { value: 'numeric', label: t('workbench.editors.live.sections.sortNumeric') },
+                { value: 'lexicographic', label: t('workbench.editors.live.sections.sortLexicographic') },
               ]}
               onChange={(sort) => {
                 if (!priority) return;
                 setPriority({ ...priority, sort });
               }}
             />
-            <Tooltip title="When multiple steps can run next, the one with the lowest priority value runs first. Missing values sort last.">
+            <Tooltip title={t('workbench.editors.live.sections.priorityTooltip')}>
               <InfoCircleOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
             </Tooltip>
             {priority && (
               <Button size="small" type="text" onClick={() => setPriority(undefined)}>
-                Clear
+                {t('workbench.editors.live.sections.clear')}
               </Button>
             )}
           </Space>
@@ -294,12 +298,14 @@ export function buildWorkflowStepSections({
         <span style={{ fontSize: 11 }}>
           <ReloadOutlined style={{ marginRight: 4 }} />
           <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
-            Retry policy
+            {t('workbench.editors.live.sections.retryPolicy')}
           </span>
           <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
             {retry
-              ? `(${retry.maxAttempts} attempts${retry.backoff === 'exponential' ? ', exponential' : ''})`
-              : '(none)'}
+              ? retry.backoff === 'exponential'
+                ? t('workbench.editors.live.sections.retrySummaryExponential', { count: retry.maxAttempts })
+                : t('workbench.editors.live.sections.retrySummary', { count: retry.maxAttempts })
+              : t('workbench.editors.live.sections.none')}
           </span>
         </span>
       ),
@@ -311,8 +317,12 @@ export function buildWorkflowStepSections({
               style={{ width: 130 }}
               min={MIN_RETRY_ATTEMPTS}
               max={MAX_RETRY_ATTEMPTS}
-              placeholder="Attempts"
-              prefix={<Text type="secondary" style={{ fontSize: 11 }}>attempts</Text>}
+              placeholder={t('workbench.editors.live.sections.attemptsPlaceholder')}
+              prefix={
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('workbench.editors.live.sections.attemptsPrefix')}
+                </Text>
+              }
               data-testid={`wf-step-${index}-retry-attempts`}
               value={retry?.maxAttempts ?? null}
               onChange={(v) => {
@@ -331,7 +341,11 @@ export function buildWorkflowStepSections({
               step={100}
               disabled={!retry}
               placeholder={String(DEFAULT_RETRY_DELAY_MS)}
-              prefix={<Text type="secondary" style={{ fontSize: 11 }}>delay ms</Text>}
+              prefix={
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('workbench.editors.live.sections.delayPrefix')}
+                </Text>
+              }
               data-testid={`wf-step-${index}-retry-delay`}
               value={retry?.delayMs ?? null}
               onChange={(v) => {
@@ -352,8 +366,8 @@ export function buildWorkflowStepSections({
               data-testid={`wf-step-${index}-retry-backoff`}
               value={retry?.backoff ?? 'fixed'}
               options={[
-                { value: 'fixed', label: 'Fixed' },
-                { value: 'exponential', label: 'Exponential' },
+                { value: 'fixed', label: t('workbench.editors.live.sections.backoffFixed') },
+                { value: 'exponential', label: t('workbench.editors.live.sections.backoffExponential') },
               ]}
               onChange={(backoff) => {
                 if (!retry) return;
@@ -373,11 +387,13 @@ export function buildWorkflowStepSections({
               data-testid={`wf-step-${index}-retry-on`}
               value={retryOnChoice}
               options={[
-                { value: 'network', label: 'Network errors only' },
-                { value: '5xx', label: 'Network + 5xx' },
-                { value: '429', label: 'Network + 429' },
-                { value: '4xx', label: 'Network + 4xx' },
-                ...(retryOnChoice === 'custom' ? [{ value: 'custom', label: 'Custom (edited as data)' }] : []),
+                { value: 'network', label: t('workbench.editors.live.sections.retryOnNetwork') },
+                { value: '5xx', label: t('workbench.editors.live.sections.retryOn5xx') },
+                { value: '429', label: t('workbench.editors.live.sections.retryOn429') },
+                { value: '4xx', label: t('workbench.editors.live.sections.retryOn4xx') },
+                ...(retryOnChoice === 'custom'
+                  ? [{ value: 'custom', label: t('workbench.editors.live.sections.retryOnCustom') }]
+                  : []),
               ]}
               onChange={(choice: RetryOnChoice) => {
                 if (!retry) return;
@@ -391,12 +407,12 @@ export function buildWorkflowStepSections({
                 setRetry(next);
               }}
             />
-            <Tooltip title="Network failures (DNS, connection, timeout) always retry while attempts remain. Adding a status match also retries matching responses; extraction errors never retry. Clear the attempts field to disable retries.">
+            <Tooltip title={t('workbench.editors.live.sections.retryTooltip')}>
               <InfoCircleOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
             </Tooltip>
             {retry && (
               <Button size="small" type="text" onClick={() => setRetry(undefined)}>
-                Clear
+                {t('workbench.editors.live.sections.clear')}
               </Button>
             )}
           </Space>
@@ -409,10 +425,10 @@ export function buildWorkflowStepSections({
         <span style={{ fontSize: 11 }}>
           <ClockCircleOutlined style={{ marginRight: 4 }} />
           <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
-            Timeout
+            {t('workbench.editors.live.sections.timeout')}
           </span>
           <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
-            {timeoutMs === undefined ? '(none)' : `(${timeoutMs} ms)`}
+            {timeoutMs === undefined ? t('workbench.editors.live.sections.none') : `(${timeoutMs} ms)`}
           </span>
         </span>
       ),
@@ -425,18 +441,18 @@ export function buildWorkflowStepSections({
               min={MIN_STEP_TIMEOUT_MS}
               max={MAX_STEP_TIMEOUT_MS}
               step={500}
-              placeholder="No timeout"
+              placeholder={t('workbench.editors.live.sections.noTimeoutPlaceholder')}
               suffix={<Text type="secondary" style={{ fontSize: 11 }}>ms</Text>}
               data-testid={`wf-step-${index}-timeout`}
               value={timeoutMs ?? null}
               onChange={(v) => setTimeoutMs(v ?? undefined)}
             />
-            <Tooltip title="Per attempt — the request (including the body read) aborts past this ceiling. A retrying step gets the full timeout on every attempt. Clear the field for no ceiling.">
+            <Tooltip title={t('workbench.editors.live.sections.timeoutTooltip')}>
               <InfoCircleOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
             </Tooltip>
             {timeoutMs !== undefined && (
               <Button size="small" type="text" onClick={() => setTimeoutMs(undefined)}>
-                Clear
+                {t('workbench.editors.live.sections.clear')}
               </Button>
             )}
           </Space>
@@ -449,9 +465,13 @@ export function buildWorkflowStepSections({
         <span style={{ fontSize: 11 }}>
           <CodeOutlined style={{ marginRight: 4 }} />
           <span style={{ textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextSecondary }}>
-            Scripts
+            {t('workbench.editors.live.sections.scripts')}
           </span>
-          <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>{runScripts === true ? '(on)' : '(off)'}</span>
+          <span style={{ marginLeft: 6, color: token.colorTextTertiary }}>
+            {runScripts === true
+              ? t('workbench.editors.live.sections.scriptsOn')
+              : t('workbench.editors.live.sections.scriptsOff')}
+          </span>
         </span>
       ),
       children: (
@@ -461,13 +481,13 @@ export function buildWorkflowStepSections({
               size="small"
               checked={runScripts === true}
               data-testid={`wf-step-${index}-run-scripts`}
-              aria-label="Run the request's scripts on this step"
+              aria-label={t('workbench.editors.live.sections.runScriptsAria')}
               onChange={(on) => setRunScripts(on ? true : undefined)}
             />
             <Text type="secondary" style={{ fontSize: 11 }}>
-              Run the request&apos;s pre-request / post-response scripts
+              {t('workbench.editors.live.sections.runScriptsLabel')}
             </Text>
-            <Tooltip title="Runs on every chain attempt. Step scripts get a read-only oh.* surface (oh.sendRequest and oh.variables.set are rejected). A script error or a failed oh.test assertion fails the step, so last-good values are preserved — assertions gate what this workflow publishes. Needs a script-capable runtime; on hosts without one the step runs without scripts.">
+            <Tooltip title={t('workbench.editors.live.sections.scriptsTooltip')}>
               <InfoCircleOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
             </Tooltip>
           </Space>

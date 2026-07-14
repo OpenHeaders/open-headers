@@ -61,6 +61,7 @@ interface Row {
 
 const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { message } = App.useApp();
   const { workflows } = useLiveWorkflows();
   // Editing-scope workspace: in workbench per-tab mode this is the
@@ -76,10 +77,10 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow })
 
   const envName = useCallback(
     (envId: string | null): string => {
-      if (envId === null) return 'No environment';
-      return environments.find((e) => e.uid === envId)?.name ?? 'Unknown env';
+      if (envId === null) return t('workbench.editors.live.status.noEnvironment');
+      return environments.find((e) => e.uid === envId)?.name ?? t('workbench.editors.live.status.unknownEnv');
     },
-    [environments],
+    [environments, t],
   );
 
   // Flatten the nested map into one row per (workflow, env) cache
@@ -143,12 +144,12 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow })
         workspaceId: editingWorkspaceId,
       });
       if (resp.success) {
-        message.success('Refreshed');
+        message.success(t('workbench.editors.live.workflow.refreshed'));
       } else {
-        message.error(`Refresh failed: ${resp.error}`);
+        message.error(t('workbench.editors.live.workflow.refreshFailed', { error: resp.error }));
       }
     },
-    [message, editingWorkspaceId],
+    [message, editingWorkspaceId, t],
   );
 
   const handleResetCircuit = useCallback(
@@ -159,12 +160,12 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow })
         workspaceId: editingWorkspaceId,
       });
       if (resp.success) {
-        message.success('Circuit reset');
+        message.success(t('workbench.editors.live.status.circuitReset'));
       } else {
-        message.error(`Reset failed: ${resp.error}`);
+        message.error(t('workbench.editors.live.status.resetFailed', { error: resp.error }));
       }
     },
-    [message, editingWorkspaceId],
+    [message, editingWorkspaceId, t],
   );
 
   // ── Shared panel header (title + summary chip, hide on right) ──
@@ -174,7 +175,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow })
       wiring={headerWiring}
       title={
         <>
-          <strong>Workflow Status</strong>
+          <strong>{t('workbench.editors.live.status.title')}</strong>
           <OverallSummary rows={rows} />
         </>
       }
@@ -188,7 +189,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow })
     body = (
       <div style={{ padding: 20, textAlign: 'center' }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          Loading…
+          {t('workbench.editors.live.status.loading')}
         </Text>
       </div>
     );
@@ -199,7 +200,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow })
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
             <Text type="secondary" style={{ fontSize: 12 }}>
-              No workflow runs yet. Create a workflow and click Refresh to populate.
+              {t('workbench.editors.live.status.empty')}
             </Text>
           }
         />
@@ -244,6 +245,7 @@ export default WorkflowStatusPanel;
 // ── Overall summary (N healthy / M failing / K paused) ─────────────
 
 const OverallSummary: React.FC<{ rows: Row[] }> = ({ rows }) => {
+  const t = useT();
   const counts = useMemo(() => {
     let open = 0;
     let halfOpen = 0;
@@ -263,22 +265,22 @@ const OverallSummary: React.FC<{ rows: Row[] }> = ({ rows }) => {
     <Space size={4}>
       {counts.healthy > 0 && (
         <Tag color="success" style={{ fontSize: 10, marginInlineEnd: 0 }}>
-          {counts.healthy} healthy
+          {t('workbench.editors.live.status.summaryHealthy', { count: counts.healthy })}
         </Tag>
       )}
       {counts.failing > 0 && (
         <Tag color="warning" style={{ fontSize: 10, marginInlineEnd: 0 }}>
-          {counts.failing} retrying
+          {t('workbench.editors.live.status.summaryRetrying', { count: counts.failing })}
         </Tag>
       )}
       {counts.halfOpen > 0 && (
         <Tag color="warning" style={{ fontSize: 10, marginInlineEnd: 0 }}>
-          {counts.halfOpen} probing
+          {t('workbench.editors.live.status.summaryProbing', { count: counts.halfOpen })}
         </Tag>
       )}
       {counts.open > 0 && (
         <Tag color="error" style={{ fontSize: 10, marginInlineEnd: 0 }}>
-          {counts.open} paused
+          {t('workbench.editors.live.status.summaryPaused', { count: counts.open })}
         </Tag>
       )}
     </Space>
@@ -311,11 +313,11 @@ const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, on
   };
 
   const stateLabel = (): string => {
-    if (!c) return 'idle';
-    if (c.state === 'open') return 'PAUSED';
-    if (c.state === 'half-open') return 'PROBING';
-    if (c.consecutiveFailures > 0) return 'RETRYING';
-    return 'HEALTHY';
+    if (!c) return t('workbench.editors.live.circuit.idleLabel');
+    if (c.state === 'open') return t('workbench.editors.live.status.pillPaused');
+    if (c.state === 'half-open') return t('workbench.editors.live.status.pillProbing');
+    if (c.consecutiveFailures > 0) return t('workbench.editors.live.status.pillRetrying');
+    return t('workbench.editors.live.status.pillHealthy');
   };
 
   // When an `onOpenWorkflow` handler is wired the row becomes a
@@ -365,7 +367,7 @@ const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, on
         </Text>
         <Text type="secondary" style={{ fontSize: 11 }}>
           · {row.environmentName}
-          {isActiveEnv && ' (active)'}
+          {isActiveEnv && ` ${t('workbench.editors.live.status.activeSuffix')}`}
         </Text>
         <div style={{ flex: 1 }} />
         <Tooltip title={descriptor.hint}>
@@ -379,16 +381,16 @@ const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, on
       {/* Row 2 — meta: counts, schedule chunks, circuit countdown, last-error */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 11, color: token.colorTextSecondary }}>
         {c && c.consecutiveFailures > 0 && (
-          <Tooltip title="Consecutive failures since the last successful refresh.">
+          <Tooltip title={t('workbench.editors.live.status.failuresTooltip')}>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              failures: {c.consecutiveFailures}
+              {t('workbench.editors.live.status.failuresCount', { count: c.consecutiveFailures })}
             </Text>
           </Tooltip>
         )}
         {c && c.consecutiveOpenings > 0 && (
-          <Tooltip title="Number of times the circuit has transitioned OPEN in the current cycle. Halves on a well-aged recovery, decrements by one on a recent recovery.">
+          <Tooltip title={t('workbench.editors.live.status.openingsTooltip')}>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              openings: {c.consecutiveOpenings}
+              {t('workbench.editors.live.status.openingsCount', { count: c.consecutiveOpenings })}
             </Text>
           </Tooltip>
         )}
@@ -398,9 +400,9 @@ const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, on
           </Text>
         ))}
         {c?.state === 'open' && c.nextAttemptAt !== null && (
-          <Tooltip title="Wall-clock time at which the next automatic probe will run. Click Refresh now to bypass.">
+          <Tooltip title={t('workbench.editors.live.status.nextAttemptTooltip')}>
             <Text type="danger" style={{ fontSize: 11 }}>
-              next attempt {formatCountdown(c.nextAttemptAt)}
+              {t('workbench.editors.live.status.nextAttempt', { countdown: formatCountdown(c.nextAttemptAt) })}
             </Text>
           </Tooltip>
         )}
@@ -417,12 +419,12 @@ const WorkflowStatusRow: React.FC<RowProps> = ({ row, isActiveEnv, onRefresh, on
       {/* Row 3 — actions */}
       <div style={{ display: 'flex', gap: 6 }}>
         <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh}>
-          Refresh now
+          {t('workbench.editors.live.status.refreshNow')}
         </Button>
         {c && (c.state !== 'closed' || c.consecutiveFailures > 0 || c.consecutiveOpenings > 0) && (
-          <Tooltip title="Clear failure counters + pending backoff. Does not run a probe.">
+          <Tooltip title={t('workbench.editors.live.status.resetCircuitTooltip')}>
             <Button size="small" icon={<UndoOutlined />} onClick={onResetCircuit}>
-              Reset circuit
+              {t('workbench.editors.live.status.resetCircuit')}
             </Button>
           </Tooltip>
         )}

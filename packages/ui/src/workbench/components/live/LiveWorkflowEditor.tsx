@@ -48,6 +48,7 @@ import {
 } from '@openheaders/core/live';
 import { canonicalJson, LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
 import { EntityConflictBanner, EntityConflictDialog, hasDialogOnlyConflict } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
@@ -158,6 +159,7 @@ type WorkflowView = 'form' | 'graph';
 
 const ViewToggle: React.FC<{ view: WorkflowView; setView: (v: WorkflowView) => void }> = ({ view, setView }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <ConfigProvider
       theme={{
@@ -174,8 +176,8 @@ const ViewToggle: React.FC<{ view: WorkflowView; setView: (v: WorkflowView) => v
         value={view}
         onChange={(v) => setView(v as WorkflowView)}
         options={[
-          { label: 'Editor', value: 'form', icon: <FormOutlined /> },
-          { label: 'Preview', value: 'graph', icon: <ApartmentOutlined /> },
+          { label: t('workbench.editors.live.workflow.viewEditor'), value: 'form', icon: <FormOutlined /> },
+          { label: t('workbench.editors.live.workflow.viewPreview'), value: 'graph', icon: <ApartmentOutlined /> },
         ]}
       />
     </ConfigProvider>
@@ -195,6 +197,7 @@ export default LiveWorkflowEditor;
 
 const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { message } = App.useApp();
   const { workflows, updateWorkflow, refreshNow } = useLiveWorkflows();
   const editingWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
@@ -391,16 +394,17 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
       return;
     }
     if (result.reason === 'not-found') {
-      message.error('Workflow was deleted from another tab');
+      message.error(t('workbench.editors.live.workflow.deletedElsewhere'));
       return;
     }
-    message.error('Failed to save workflow');
+    message.error(t('workbench.editors.live.workflow.saveFailed'));
   }, [
     workflow,
     draft,
     updateWorkflow,
     editingWorkspaceId,
     message,
+    t,
     variables,
     createVariable,
     updateVariable,
@@ -427,11 +431,11 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
     const resp = await refreshNow(workflow.uid, activeEnvironmentId);
     setRefreshing(false);
     if (!resp.success) {
-      message.error(`Refresh failed: ${resp.error ?? 'unknown error'}`);
+      message.error(t('workbench.editors.live.workflow.refreshFailed', { error: resp.error ?? 'unknown error' }));
     } else {
-      message.success('Refreshed');
+      message.success(t('workbench.editors.live.workflow.refreshed'));
     }
-  }, [workflow, refreshNow, activeEnvironmentId, message]);
+  }, [workflow, refreshNow, activeEnvironmentId, message, t]);
 
   const run = useMemo(() => pickActiveRun(runs, activeEnvironmentId ?? null), [runs, activeEnvironmentId]);
   const level = classifyRun(run);
@@ -439,7 +443,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
   if (!workflow) {
     return (
       <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">Workflow not found.</Text>
+        <Text type="secondary">{t('workbench.editors.live.workflow.notFound')}</Text>
       </div>
     );
   }
@@ -460,7 +464,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
       <Title level={5} ellipsis style={{ margin: 0, minWidth: 0 }}>
         {workflow.name}
       </Title>
-      {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>Disabled</Tag>}
+      {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>{t('workbench.editors.live.workflow.disabledTag')}</Tag>}
     </>
   );
 
@@ -468,7 +472,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
     <>
       <ViewToggle view={view} setView={setView} />
       <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
-        Refresh
+        {t('workbench.editors.live.workflow.refresh')}
       </Button>
     </>
   );
@@ -539,6 +543,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
 const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange, registerSaveRef, onCreated }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { message } = App.useApp();
   const { createWorkflow } = useLiveWorkflows();
   const { createVariable } = useLiveVariables();
@@ -581,7 +586,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
   const isDirty = useMemo(() => fingerprint(draft) !== seedFp, [draft, seedFp]);
 
   const handleSave = useCallback(async () => {
-    const name = draft.name.trim() || draftName?.trim() || 'Workflow';
+    const name = draft.name.trim() || draftName?.trim() || t('workbench.editors.live.workflow.defaultName');
     const wf = await createWorkflow({
       name,
       description: draft.description.trim() ? draft.description : undefined,
@@ -590,7 +595,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
       enabled: draft.enabled,
     });
     if (!wf) {
-      message.error('Failed to create workflow');
+      message.error(t('workbench.editors.live.workflow.createFailed'));
       return;
     }
     // New workflow — no existing LVs. Every exposed capture becomes
@@ -616,7 +621,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
       await applyLiveWorkflowPublish(wf.uid, { workspaceId: editingWorkspaceId, surfaceId: 'workbench' });
     }
     onCreated(wf);
-  }, [draft, draftName, createWorkflow, createVariable, editingWorkspaceId, message, onCreated]);
+  }, [draft, draftName, createWorkflow, createVariable, editingWorkspaceId, message, t, onCreated]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
 
@@ -629,7 +634,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedSteps, onDirtyChange
     registerSaveRef,
   });
 
-  const displayName = draft.name.trim() || draftName || 'New Workflow';
+  const displayName = draft.name.trim() || draftName || t('workbench.editors.live.workflow.newDraftName');
 
   const createHeaderTitle = (
     <>

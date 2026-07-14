@@ -9,6 +9,7 @@
  */
 
 import type { TreeNode } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Modal, Tree, Typography } from 'antd';
 import type { DataNode } from 'antd/es/tree';
 import type React from 'react';
@@ -66,6 +67,7 @@ function toDataNodes(tree: readonly TreeNode[]): DataNode[] {
 }
 
 const CreateWorkflowFromRequestsModal: React.FC<Props> = ({ target, onCancel, onCreate }) => {
+  const t = useT();
   const allSeeds = useMemo(() => (target ? collectRequestSeeds(target.tree) : []), [target]);
   const [checkedUids, setCheckedUids] = useState<ReadonlySet<string>>(new Set());
 
@@ -85,12 +87,16 @@ const CreateWorkflowFromRequestsModal: React.FC<Props> = ({ target, onCancel, on
   return (
     <Modal
       open={target !== null}
-      title={<span style={{ fontSize: 13, fontWeight: 600 }}>Create Workflow from “{target?.name ?? ''}”</span>}
+      title={
+        <span style={{ fontSize: 13, fontWeight: 600 }}>
+          {t('workbench.editors.live.fromRequests.title', { name: target?.name ?? '' })}
+        </span>
+      }
       width={440}
       onCancel={onCancel}
       okText={
         <span data-testid="wf-from-requests-create">
-          {`Create Workflow (${selected.length} ${selected.length === 1 ? 'step' : 'steps'})`}
+          {t('workbench.editors.live.fromRequests.createButton', { count: selected.length })}
         </span>
       }
       okButtonProps={{ size: 'small', disabled: selected.length === 0 }}
@@ -103,12 +109,12 @@ const CreateWorkflowFromRequestsModal: React.FC<Props> = ({ target, onCancel, on
       <div data-testid="wf-from-requests-modal">
         {allSeeds.length === 0 ? (
           <Text type="secondary" style={{ fontSize: 12 }}>
-            This container has no requests to build a workflow from.
+            {t('workbench.editors.live.fromRequests.empty')}
           </Text>
         ) : (
           <>
             <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-              Each selected request becomes a workflow step, in the order shown.
+              {t('workbench.editors.live.fromRequests.hint')}
             </Text>
             <Tree
               checkable

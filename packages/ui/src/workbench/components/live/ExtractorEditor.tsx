@@ -1,21 +1,28 @@
+import type { MessageKey } from '@openheaders/i18n';
 import type { Extractor } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Input, InputNumber, Select } from 'antd';
 import type React from 'react';
 
-const KIND_OPTIONS = [
+// Extractor kind ids stay raw (resolver-vocab precedent); the picker
+// labels around them are keyed and resolve at render.
+const KIND_OPTIONS: {
+  labelKey: MessageKey;
+  options: { value: Extractor['kind']; labelKey: MessageKey }[];
+}[] = [
   {
-    label: 'Response body',
+    labelKey: 'workbench.editors.live.extractor.groupBody',
     options: [
-      { value: 'whole-body' as const, label: 'Whole body' },
-      { value: 'json-path' as const, label: 'JSON path' },
-      { value: 'body-regex' as const, label: 'Regex' },
+      { value: 'whole-body', labelKey: 'workbench.editors.live.extractor.wholeBody' },
+      { value: 'json-path', labelKey: 'workbench.editors.live.extractor.jsonPath' },
+      { value: 'body-regex', labelKey: 'workbench.editors.live.extractor.regex' },
     ],
   },
   {
-    label: 'Response',
+    labelKey: 'workbench.editors.live.extractor.groupResponse',
     options: [
-      { value: 'header' as const, label: 'Header' },
-      { value: 'status-code' as const, label: 'Status code' },
+      { value: 'header', labelKey: 'workbench.editors.live.extractor.header' },
+      { value: 'status-code', labelKey: 'workbench.editors.live.extractor.statusCode' },
     ],
   },
 ];
@@ -42,6 +49,7 @@ interface Props {
 }
 
 const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact }) => {
+  const t = useT();
   const size = compact ? 'small' : 'middle';
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: 1, minWidth: 0 }}>
@@ -49,7 +57,10 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact }) => {
         size={size}
         style={{ width: 220, flexShrink: 0 }}
         value={value.kind}
-        options={KIND_OPTIONS}
+        options={KIND_OPTIONS.map((group) => ({
+          label: t(group.labelKey),
+          options: group.options.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+        }))}
         onChange={(kind) => onChange(defaultExtractorFor(kind as Extractor['kind']))}
       />
       {value.kind === 'json-path' && (

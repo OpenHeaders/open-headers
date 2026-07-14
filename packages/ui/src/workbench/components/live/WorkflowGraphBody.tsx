@@ -70,6 +70,7 @@ import type { DraftStep, DraftWorkflow } from '@openheaders/core/live';
 import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { LiveVariable, LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -111,22 +112,31 @@ interface WorkflowGraphBodyProps {
   boundVars?: LiveVariable[];
 }
 
-function clauseSummary(clause: NonNullable<WorkflowStep['runIf']>['all'][number]): string {
+function clauseSummary(clause: NonNullable<WorkflowStep['runIf']>['all'][number], t: Translate): string {
   switch (clause.kind) {
     case 'status':
       return typeof clause.match === 'string'
-        ? `${clause.stepId} status is ${clause.match}`
+        ? t('workbench.editors.live.graph.clauseStatusIs', { stepId: clause.stepId, value: clause.match })
         : clause.match[0] === 'eq'
-          ? `${clause.stepId} status is ${clause.match[1]}`
+          ? t('workbench.editors.live.graph.clauseStatusIs', { stepId: clause.stepId, value: clause.match[1] })
           : clause.match[0] === 'ne'
-            ? `${clause.stepId} status is not ${clause.match[1]}`
-            : `${clause.stepId} status in [${clause.match[1].join(', ')}]`;
+            ? t('workbench.editors.live.graph.clauseStatusIsNot', { stepId: clause.stepId, value: clause.match[1] })
+            : t('workbench.editors.live.graph.clauseStatusIn', {
+                stepId: clause.stepId,
+                list: clause.match[1].join(', '),
+              });
     case 'capture-exists':
-      return `${clause.stepId}.${clause.captureName} exists`;
+      return t('workbench.editors.live.graph.clauseCaptureExists', {
+        ref: `${clause.stepId}.${clause.captureName}`,
+      });
     case 'capture-equals':
+      // Pure technical composition — no English words, stays raw.
       return `${clause.stepId}.${clause.captureName} = "${clause.value}"`;
     case 'capture-matches':
-      return `${clause.stepId}.${clause.captureName} matches /${clause.pattern}/`;
+      return t('workbench.editors.live.graph.clauseCaptureMatches', {
+        ref: `${clause.stepId}.${clause.captureName}`,
+        pattern: clause.pattern,
+      });
   }
 }
 
@@ -177,6 +187,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   boundVars,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { requests, isReady: requestsReady } = useRequests();
   const editable = setDraft !== undefined;
   const paneRef = useRef<HTMLDivElement>(null);
@@ -486,14 +497,21 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
     menu === null
       ? []
       : menu.kind === 'canvas'
-        ? [{ key: 'add-step', icon: <PlusOutlined />, text: 'Add step', onClick: handleAddStep }]
+        ? [
+            {
+              key: 'add-step',
+              icon: <PlusOutlined />,
+              text: t('workbench.editors.live.graph.menuAddStep'),
+              onClick: handleAddStep,
+            },
+          ]
         : [
             ...(onOpenStep
               ? [
                   {
                     key: 'edit-step',
                     icon: <EditOutlined />,
-                    text: 'Edit step',
+                    text: t('workbench.editors.live.graph.menuEditStep'),
                     kbd: '⏎',
                     onClick: () => onOpenStep(menu.stepId),
                   },
@@ -504,7 +522,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
                   {
                     key: 'delete-step',
                     icon: <DeleteOutlined />,
-                    text: 'Delete step',
+                    text: t('workbench.editors.live.graph.menuDeleteStep'),
                     kbd: '⌫',
                     danger: true,
                     disabled: draft.steps.length <= 1,
@@ -532,7 +550,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
           onClick={handleAddStep}
           style={{ position: 'absolute', top: 8, right: 16, zIndex: 3 }}
         >
-          Step
+          {t('workbench.editors.live.form.addStepButton')}
         </Button>
       )}
       <GraphLegend editable={editable} canOpen={onOpenStep !== undefined} />
@@ -689,7 +707,9 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               hasPriority={node.step.priorityFrom !== undefined}
               priorityLabel={
                 node.step.priorityFrom
-                  ? `Ordered by ${node.step.priorityFrom.stepId}.${node.step.priorityFrom.captureName}`
+                  ? t('workbench.editors.live.graph.orderedBy', {
+                      ref: `${node.step.priorityFrom.stepId}.${node.step.priorityFrom.captureName}`,
+                    })
                   : ''
               }
               method={request?.method ?? ''}
@@ -718,7 +738,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               <div
                 key={`connect-${node.step.uid}`}
                 data-testid={`wf-graph-connect-${node.step.id}`}
-                title="Drag to another step to add a dependency"
+                title={t('workbench.editors.live.graph.connectTitle')}
                 onPointerDown={beginConnect(node.step.id)}
                 onPointerMove={moveConnect}
                 onPointerUp={endConnect}
@@ -750,7 +770,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
             const mx = (from.x + to.x + NODE_W) / 2;
             const my = (from.y + NODE_H + to.y) / 2;
             return (
-              <Tooltip title="Remove dependency">
+              <Tooltip title={t('workbench.editors.live.graph.removeDependency')}>
                 <button
                   type="button"
                   data-testid={`wf-graph-edge-remove-${activeEdge.from}-${activeEdge.to}`}
@@ -877,6 +897,7 @@ const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void;
   onFit,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <div
       style={{
@@ -893,10 +914,10 @@ const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void;
         overflow: 'hidden',
       }}
     >
-      <Tooltip title="Zoom in" placement="right">
+      <Tooltip title={t('workbench.editors.live.graph.zoomIn')} placement="right">
         <Button type="text" size="small" data-testid="wf-graph-zoom-in" icon={<ZoomInOutlined />} onClick={onZoomIn} />
       </Tooltip>
-      <Tooltip title="Zoom out" placement="right">
+      <Tooltip title={t('workbench.editors.live.graph.zoomOut')} placement="right">
         <Button
           type="text"
           size="small"
@@ -905,7 +926,7 @@ const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void;
           onClick={onZoomOut}
         />
       </Tooltip>
-      <Tooltip title="Re-center" placement="right">
+      <Tooltip title={t('workbench.editors.live.graph.recenter')} placement="right">
         <Button type="text" size="small" data-testid="wf-graph-fit" icon={<AimOutlined />} onClick={onFit} />
       </Tooltip>
     </div>
@@ -918,19 +939,30 @@ const GraphViewControls: React.FC<{ onZoomIn: () => void; onZoomOut: () => void;
  */
 const GraphLegend: React.FC<{ editable: boolean; canOpen: boolean }> = ({ editable, canOpen }) => {
   const { token } = theme.useToken();
+  const t = useT();
+  // Word-bearing gesture chips are keyed; the lone ⌫ glyph stays raw
+  // (key caps/glyphs raw — standing rule).
   const entries: { keys: string; action: string }[] = [
-    { keys: 'click', action: 'select' },
-    ...(canOpen ? [{ keys: '2×click / ⏎', action: 'edit' }] : []),
+    { keys: t('workbench.editors.live.graph.legendClick'), action: t('workbench.editors.live.graph.legendSelect') },
+    ...(canOpen
+      ? [{ keys: t('workbench.editors.live.graph.legendEditKeys'), action: t('workbench.editors.live.graph.legendEdit') }]
+      : []),
     ...(editable
       ? [
-          { keys: '⌫', action: 'delete' },
-          { keys: 'drag ○', action: 'connect' },
-          { keys: 'right-click', action: 'menu' },
+          { keys: '⌫', action: t('workbench.editors.live.graph.legendDelete') },
+          {
+            keys: t('workbench.editors.live.graph.legendConnectKeys'),
+            action: t('workbench.editors.live.graph.legendConnect'),
+          },
+          {
+            keys: t('workbench.editors.live.graph.legendRightClick'),
+            action: t('workbench.editors.live.graph.legendMenu'),
+          },
         ]
       : []),
-    { keys: 'drag node', action: 'move' },
-    { keys: 'drag bg', action: 'pan' },
-    { keys: 'scroll', action: 'zoom' },
+    { keys: t('workbench.editors.live.graph.legendDragNode'), action: t('workbench.editors.live.graph.legendMove') },
+    { keys: t('workbench.editors.live.graph.legendDragBg'), action: t('workbench.editors.live.graph.legendPan') },
+    { keys: t('workbench.editors.live.graph.legendScroll'), action: t('workbench.editors.live.graph.legendZoom') },
   ];
   return (
     <div
@@ -1041,9 +1073,12 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   cycleWarn,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const gateClauses = runIf?.all ?? [];
   const captures = draftStep?.captures ?? [];
-  const requestLine = requestMissing ? 'Request not found' : requestName || 'No request selected';
+  const requestLine = requestMissing
+    ? t('workbench.editors.live.graph.requestNotFound')
+    : requestName || t('workbench.editors.live.graph.noRequestSelected');
   const requestMuted = requestMissing || requestName === '';
   const borderColor = cycleWarn
     ? token.colorWarning
@@ -1109,7 +1144,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
               <div>
                 {gateClauses.map((clause) => (
                   <div key={clause.uid} style={{ fontSize: 11 }}>
-                    {clauseSummary(clause)}
+                    {clauseSummary(clause, t)}
                   </div>
                 ))}
               </div>
@@ -1145,7 +1180,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
           </Tooltip>
         )}
         {selected && onOpen && (
-          <Tooltip title="Edit step in form">
+          <Tooltip title={t('workbench.editors.live.graph.editStepInForm')}>
             <EditOutlined
               data-testid={`wf-graph-open-${stepId}`}
               style={{ fontSize: 11, color: token.colorPrimary }}
@@ -1177,7 +1212,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}>
         {captures.length === 0 && (
           <Text type="secondary" style={{ fontSize: 10, fontStyle: 'italic' }}>
-            No captures
+            {t('workbench.editors.live.graph.noCaptures')}
           </Text>
         )}
         {captures.map((capture) => {
@@ -1195,8 +1230,8 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
           const publicationKnown = capture.exposed && boundVars !== undefined;
           const pending = publicationKnown && lv?.published !== true;
           const exposedTitle = pending
-            ? `Exposed as {{live.${capture.liveName}}} — pending first run`
-            : `Exposed as {{live.${capture.liveName}}}`;
+            ? t('workbench.editors.live.graph.exposedAsPending', { name: capture.liveName })
+            : t('workbench.editors.live.graph.exposedAs', { name: capture.liveName });
           return (
             <span
               key={capture.uid}

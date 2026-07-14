@@ -8,6 +8,7 @@
 import { InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { type DraftStep, type DraftWorkflow, validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Alert, Button, Switch, Tooltip, Typography, theme } from 'antd';
@@ -42,6 +43,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
   onScrollToStepDone,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { requests, collectionTrees: requestCollectionTrees, isReady: requestsReady } = useRequests();
 
   // Construct a full LiveWorkflow shape so the validator + layout
@@ -194,7 +196,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
         <Alert
           type="error"
           showIcon
-          message="Workflow has structural issues"
+          message={t('workbench.editors.live.form.structuralIssues')}
           description={
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {workflowLevelErrors.map((err) => (
@@ -215,7 +217,9 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
         sticky
         title={
           <>
-            <span style={{ flexShrink: 0 }}>Steps ({draft.steps.length})</span>
+            <span style={{ flexShrink: 0 }}>
+              {t('workbench.editors.live.form.stepsTitle', { count: draft.steps.length })}
+            </span>
             <span
               data-field-path={LIVE_WORKFLOW_FIELD.description}
               style={{ flex: 1, minWidth: 0, textTransform: 'none', letterSpacing: 'normal', fontWeight: 400 }}
@@ -226,14 +230,14 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
               />
             </span>
             <Button size="small" icon={<PlusOutlined />} onClick={addStep}>
-              Step
+              {t('workbench.editors.live.form.addStepButton')}
             </Button>
           </>
         }
       >
         {draft.steps.length === 0 && (
           <Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic' }}>
-            No steps yet — add one to wire a request + extraction into this workflow.
+            {t('workbench.editors.live.form.noSteps')}
           </Text>
         )}
         {draft.steps.map((step, idx) => {
@@ -294,7 +298,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
         }}
       >
       <div data-field-path={LIVE_WORKFLOW_FIELD.refresh}>
-      <Section title="Refresh policy">
+      <Section title={t('workbench.editors.live.form.refreshPolicySection')}>
         <RefreshPolicyEditor
           value={draft.refresh}
           onChange={(refresh) => setDraft({ ...draft, refresh })}
@@ -317,17 +321,19 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
         <div data-field-path={LIVE_WORKFLOW_FIELD.enabled} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Switch
             size="small"
-            aria-label="Workflow enabled"
+            aria-label={t('workbench.editors.live.form.enabledAria')}
             checked={draft.enabled}
             onChange={(enabled) => setDraft({ ...draft, enabled })}
           />
-          <Text style={{ fontSize: 12 }}>{draft.enabled ? 'Enabled' : 'Disabled'}</Text>
+          <Text style={{ fontSize: 12 }}>
+            {draft.enabled ? t('workbench.editors.live.form.enabled') : t('workbench.editors.live.form.disabled')}
+          </Text>
         </div>
-        <Tooltip title="Sequential only in v1. Parallel execution coming in a future release.">
+        <Tooltip title={t('workbench.editors.live.form.parallelTooltip')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Switch aria-label="Run independent steps in parallel" size="small" checked={false} disabled />
+            <Switch aria-label={t('workbench.editors.live.form.parallelLabel')} size="small" checked={false} disabled />
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Run independent steps in parallel
+              {t('workbench.editors.live.form.parallelLabel')}
             </Text>
             <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
           </div>

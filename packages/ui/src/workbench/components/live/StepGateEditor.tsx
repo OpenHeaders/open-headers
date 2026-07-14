@@ -19,9 +19,11 @@
  */
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import type { StructuralError } from '@openheaders/core/live';
 import type { StatusMatch, StepGate, StepGateClause, StepGateClauseKind } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Input, InputNumber, Segmented, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -30,9 +32,9 @@ import { useCallback, useMemo } from 'react';
 
 interface ClauseKindDef {
   value: StepGateClauseKind | FutureClauseKind;
-  label: string;
+  labelKey: MessageKey;
   disabled?: boolean;
-  tooltip?: string;
+  tooltipKey?: MessageKey;
 }
 
 /**
@@ -44,27 +46,27 @@ interface ClauseKindDef {
 type FutureClauseKind = 'capture-numeric-compare' | 'capture-in-list' | 'header-contains';
 
 const CLAUSE_KINDS: ClauseKindDef[] = [
-  { value: 'status', label: 'Status' },
-  { value: 'capture-exists', label: 'Capture exists' },
-  { value: 'capture-equals', label: 'Capture equals' },
-  { value: 'capture-matches', label: 'Capture matches' },
+  { value: 'status', labelKey: 'workbench.editors.live.gate.kindStatus' },
+  { value: 'capture-exists', labelKey: 'workbench.editors.live.gate.kindCaptureExists' },
+  { value: 'capture-equals', labelKey: 'workbench.editors.live.gate.kindCaptureEquals' },
+  { value: 'capture-matches', labelKey: 'workbench.editors.live.gate.kindCaptureMatches' },
   {
     value: 'capture-numeric-compare',
-    label: 'Capture numeric compare',
+    labelKey: 'workbench.editors.live.gate.kindNumericCompare',
     disabled: true,
-    tooltip: 'Numeric compare — coming in a future release.',
+    tooltipKey: 'workbench.editors.live.gate.futureNumericCompare',
   },
   {
     value: 'capture-in-list',
-    label: 'Capture in list',
+    labelKey: 'workbench.editors.live.gate.kindInList',
     disabled: true,
-    tooltip: 'In-list match — coming in a future release.',
+    tooltipKey: 'workbench.editors.live.gate.futureInList',
   },
   {
     value: 'header-contains',
-    label: 'Header contains',
+    labelKey: 'workbench.editors.live.gate.kindHeaderContains',
     disabled: true,
-    tooltip: 'Header contains — coming in a future release.',
+    tooltipKey: 'workbench.editors.live.gate.futureHeaderContains',
   },
 ];
 
@@ -72,14 +74,14 @@ const CLAUSE_KINDS: ClauseKindDef[] = [
 
 type StatusMatchMode = '2xx' | '3xx' | '4xx' | '5xx' | 'eq' | 'ne' | 'in';
 
-const STATUS_MATCH_OPTIONS: { value: StatusMatchMode; label: string }[] = [
-  { value: '2xx', label: '2xx (any success)' },
-  { value: '3xx', label: '3xx (redirect)' },
-  { value: '4xx', label: '4xx (client error)' },
-  { value: '5xx', label: '5xx (server error)' },
-  { value: 'eq', label: 'equals…' },
-  { value: 'ne', label: 'not equals…' },
-  { value: 'in', label: 'one of…' },
+const STATUS_MATCH_OPTIONS: { value: StatusMatchMode; labelKey: MessageKey }[] = [
+  { value: '2xx', labelKey: 'workbench.editors.live.gate.status2xx' },
+  { value: '3xx', labelKey: 'workbench.editors.live.gate.status3xx' },
+  { value: '4xx', labelKey: 'workbench.editors.live.gate.status4xx' },
+  { value: '5xx', labelKey: 'workbench.editors.live.gate.status5xx' },
+  { value: 'eq', labelKey: 'workbench.editors.live.gate.statusEquals' },
+  { value: 'ne', labelKey: 'workbench.editors.live.gate.statusNotEquals' },
+  { value: 'in', labelKey: 'workbench.editors.live.gate.statusOneOf' },
 ];
 
 function statusMatchMode(match: StatusMatch): StatusMatchMode {
@@ -136,6 +138,7 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
   errors = [],
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const clauses: StepGateClause[] = useMemo(() => value?.all ?? [], [value]);
 
   const emitNext = useCallback(
@@ -222,8 +225,8 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
           size="small"
           value="all"
           options={[
-            { value: 'all', label: 'All (AND)' },
-            { value: 'any', label: 'Any (OR)', disabled: true },
+            { value: 'all', label: t('workbench.editors.live.gate.allAnd') },
+            { value: 'any', label: t('workbench.editors.live.gate.anyOr'), disabled: true },
           ]}
         />
         {/* Tooltip on an adjacent info icon rather than on the disabled option
@@ -231,17 +234,17 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
          *  items which can swallow hover on the option's inner tooltip trigger.
          *  A sibling trigger is keyboard-discoverable (Tab → focus-shown
          *  tooltip) and never relies on the disabled-option hover working. */}
-        <Tooltip title="OR logic coming in a future release. Use multiple steps with mutually-exclusive gates for now.">
+        <Tooltip title={t('workbench.editors.live.gate.orTooltip')}>
           <InfoCircleOutlined
             tabIndex={0}
-            aria-label="About match modes"
+            aria-label={t('workbench.editors.live.gate.matchModesAria')}
             style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }}
           />
         </Tooltip>
         <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
           {clauses.length === 0
-            ? 'No conditions — step runs whenever its dependencies complete.'
-            : `${clauses.length} condition(s)`}
+            ? t('workbench.editors.live.gate.noConditions')
+            : t('workbench.editors.live.gate.conditionCount', { count: clauses.length })}
         </span>
       </div>
 
@@ -277,7 +280,7 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
           style={{ fontSize: 12 }}
           data-testid="gate-add-condition"
         >
-          Add condition
+          {t('workbench.editors.live.gate.addCondition')}
         </Button>
       </div>
     </div>
@@ -310,6 +313,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
   onRemove,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
 
   // Extract the errors that target THIS clause's step/capture reference
   // so we can badge the relevant field. The validator currently scopes
@@ -343,7 +347,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
         style={{ width: 180, flexShrink: 0 }}
         status={stepError ? 'error' : undefined}
         data-testid={`gate-clause-${index}-step`}
-        placeholder="Step"
+        placeholder={t('workbench.editors.live.gate.stepPlaceholder')}
         value={clause.stepId || undefined}
         options={stepOptions}
         onChange={(stepId) => onChange({ ...clause, stepId } as StepGateClause)}
@@ -362,11 +366,11 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
         value: k.value,
         disabled: k.disabled,
         label: k.disabled ? (
-          <Tooltip title={k.tooltip} placement="right">
-            <span style={{ color: token.colorTextDisabled }}>{k.label}</span>
+          <Tooltip title={k.tooltipKey ? t(k.tooltipKey) : undefined} placement="right">
+            <span style={{ color: token.colorTextDisabled }}>{t(k.labelKey)}</span>
           </Tooltip>
         ) : (
-          k.label
+          t(k.labelKey)
         ),
       }))}
       onChange={(nextKind) => onKindChange(nextKind as StepGateClauseKind | FutureClauseKind)}
@@ -397,7 +401,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
             flexShrink: 0,
           }}
         >
-          AND
+          {t('workbench.editors.live.gate.andTag')}
         </Tag>
       )}
 
@@ -413,7 +417,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
             style={{ flex: 1, minWidth: 160 }}
             status={captureError ? 'error' : undefined}
             data-testid={`gate-clause-${index}-capture`}
-            placeholder="Capture name"
+            placeholder={t('workbench.editors.live.gate.capturePlaceholder')}
             value={clause.captureName || undefined}
             options={captureOptions}
             onChange={(captureName) => onChange({ ...clause, captureName })}
@@ -427,7 +431,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
               style={{ width: 160, flexShrink: 0 }}
               status={captureError ? 'error' : undefined}
               data-testid={`gate-clause-${index}-capture`}
-              placeholder="Capture name"
+              placeholder={t('workbench.editors.live.gate.capturePlaceholder')}
               value={clause.captureName || undefined}
               options={captureOptions}
               onChange={(captureName) => onChange({ ...clause, captureName })}
@@ -436,7 +440,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
           <Input
             size="small"
             style={{ flex: 1, minWidth: 100 }}
-            placeholder="Equals value"
+            placeholder={t('workbench.editors.live.gate.equalsPlaceholder')}
             data-testid={`gate-clause-${index}-value`}
             value={clause.value}
             onChange={(e) => onChange({ ...clause, value: e.target.value })}
@@ -451,7 +455,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
               style={{ width: 160, flexShrink: 0 }}
               status={captureError ? 'error' : undefined}
               data-testid={`gate-clause-${index}-capture`}
-              placeholder="Capture name"
+              placeholder={t('workbench.editors.live.gate.capturePlaceholder')}
               value={clause.captureName || undefined}
               options={captureOptions}
               onChange={(captureName) => onChange({ ...clause, captureName })}
@@ -475,7 +479,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
         icon={<CloseOutlined style={{ fontSize: 10 }} />}
         onClick={onRemove}
         style={{ color: token.colorTextTertiary, flexShrink: 0 }}
-        aria-label={`Remove clause ${index + 1}`}
+        aria-label={t('workbench.editors.live.gate.removeClauseAria', { number: index + 1 })}
       />
     </div>
   );
@@ -487,6 +491,7 @@ const StatusMatchControls: React.FC<{
   match: StatusMatch;
   onChange: (next: StatusMatch) => void;
 }> = ({ match, onChange }) => {
+  const t = useT();
   const mode = statusMatchMode(match);
 
   const onModeChange = (nextMode: StatusMatchMode) => {
@@ -499,7 +504,7 @@ const StatusMatchControls: React.FC<{
         size="small"
         style={{ width: 150, flexShrink: 0 }}
         value={mode}
-        options={STATUS_MATCH_OPTIONS}
+        options={STATUS_MATCH_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
         onChange={(v) => onModeChange(v as StatusMatchMode)}
       />
       {(mode === 'eq' || mode === 'ne') && Array.isArray(match) ? (
@@ -534,7 +539,7 @@ const StatusMatchControls: React.FC<{
         />
       ) : null}
       {(mode === '2xx' || mode === '3xx' || mode === '4xx' || mode === '5xx') && (
-        <Tooltip title="Matches any status in the class (e.g. 2xx = 200-299).">
+        <Tooltip title={t('workbench.editors.live.gate.statusClassTooltip')}>
           <InfoCircleOutlined style={{ fontSize: 11, color: 'rgba(0,0,0,0.35)' }} />
         </Tooltip>
       )}

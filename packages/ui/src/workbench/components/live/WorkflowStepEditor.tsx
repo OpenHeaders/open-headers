@@ -23,6 +23,7 @@ import { DeleteOutlined, DownOutlined, InfoCircleOutlined, UpOutlined } from '@a
 import type { DraftCapture, DraftStep, StructuralError } from '@openheaders/core/live';
 import { newDraftCapture } from '@openheaders/core/live';
 import type { PriorityRef, StepGate, StepRetryPolicy } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Collapse, Input, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -89,6 +90,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
   onScrollDone,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
 
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -307,10 +309,12 @@ const WorkflowStepEditor: React.FC<Props> = ({
             lineHeight: 1.4,
           }}
         >
-          ↳ after {effectiveParents.join(', ')}
+          {t('workbench.editors.live.step.afterChip', { parents: effectiveParents.join(', ') })}
           {step.dependsOn === undefined && (
-            <Tooltip title="Implicit prior-step dependency (no explicit dependsOn declared). Set an explicit dependsOn to lock the relationship.">
-              <span style={{ marginLeft: 4, fontStyle: 'italic' }}>(implicit)</span>
+            <Tooltip title={t('workbench.editors.live.step.implicitTooltip')}>
+              <span style={{ marginLeft: 4, fontStyle: 'italic' }}>
+                {t('workbench.editors.live.step.implicitMark')}
+              </span>
             </Tooltip>
           )}
         </div>
@@ -318,14 +322,14 @@ const WorkflowStepEditor: React.FC<Props> = ({
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Text strong style={{ fontSize: 12 }}>
-          Step {index + 1}
+          {t('workbench.editors.live.step.title', { number: index + 1 })}
         </Text>
         <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'id')} style={{ display: 'contents' }}>
           <Tooltip open={stepLevelError ? undefined : false} title={stepLevelError?.message}>
             <Input
               size="small"
               style={{ width: 160 }}
-              prefix={<Text type="secondary">id</Text>}
+              prefix={<Text type="secondary">{t('workbench.editors.live.step.idPrefix')}</Text>}
               value={step.id}
               disabled={lockStepId}
               status={stepLevelError?.issue === 'duplicate-step-id' ? 'error' : undefined}
@@ -335,15 +339,15 @@ const WorkflowStepEditor: React.FC<Props> = ({
         </span>
 
         {/* Disabled step-type selector — show-but-disable catalog. */}
-        <Tooltip title="Step type — Foreach and Composite coming in a future release.">
+        <Tooltip title={t('workbench.editors.live.step.typeTooltip')}>
           <Select
             size="small"
             style={{ width: 110, flexShrink: 0 }}
             value="request"
             options={[
-              { value: 'request', label: 'Request' },
-              { value: 'foreach', label: 'Foreach', disabled: true },
-              { value: 'composite', label: 'Composite', disabled: true },
+              { value: 'request', label: t('workbench.editors.live.step.typeRequest') },
+              { value: 'foreach', label: t('workbench.editors.live.step.typeForeach'), disabled: true },
+              { value: 'composite', label: t('workbench.editors.live.step.typeComposite'), disabled: true },
             ]}
             onChange={() => {
               // Disabled options suppress selection; no-op.
@@ -354,17 +358,17 @@ const WorkflowStepEditor: React.FC<Props> = ({
         <div style={{ flex: 1 }} />
         {runIfCount > 0 && (
           <Tag color="gold" style={{ fontSize: 10, lineHeight: '18px', margin: 0 }}>
-            runs if {runIfCount} condition{runIfCount === 1 ? '' : 's'}
+            {t('workbench.editors.live.step.runsIfTag', { count: runIfCount })}
           </Tag>
         )}
         {priority && (
           <Tag color="cyan" style={{ fontSize: 10, lineHeight: '18px', margin: 0 }}>
-            priority: {priority.stepId}.{priority.captureName}
+            {t('workbench.editors.live.step.priorityTag', { ref: `${priority.stepId}.${priority.captureName}` })}
           </Tag>
         )}
         {step.runScripts === true && (
           <Tag color="purple" style={{ fontSize: 10, lineHeight: '18px', margin: 0 }}>
-            scripts
+            {t('workbench.editors.live.step.scriptsTag')}
           </Tag>
         )}
         {onMoveUp && (
@@ -415,7 +419,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
               const haystack = String(option.title ?? '').toLowerCase();
               return haystack.includes(input.toLowerCase());
             }}
-            placeholder="Select a request"
+            placeholder={t('workbench.editors.live.step.selectRequest')}
             value={step.requestUid || undefined}
             onChange={(uid) => onChange({ ...step, requestUid: uid })}
             options={buildRequestPickerOptions(availableRequests, token)}
@@ -425,7 +429,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
           <Input
             size="small"
             style={{ flex: '1 1 40%' }}
-            placeholder="Optional step description"
+            placeholder={t('workbench.editors.live.step.descriptionPlaceholder')}
             value={step.description ?? ''}
             onChange={(e) => onChange({ ...step, description: e.target.value || undefined })}
           />
@@ -434,15 +438,15 @@ const WorkflowStepEditor: React.FC<Props> = ({
         <div data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'captures')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              CAPTURES ({step.captures.length})
+              {t('workbench.editors.live.step.capturesHeader', { count: step.captures.length })}
             </Text>
             <Button size="small" onClick={addCapture}>
-              + Capture
+              {t('workbench.editors.live.step.addCapture')}
             </Button>
           </div>
           {step.captures.length === 0 && (
             <Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic' }}>
-              At least one capture is required before an LV can bind to this step.
+              {t('workbench.editors.live.step.captureRequired')}
             </Text>
           )}
           {step.captures.map((c, idx) => (
@@ -468,7 +472,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
                 <Input
                   size="small"
                   style={{ width: 160, flexShrink: 0 }}
-                  prefix={<Text type="secondary">name</Text>}
+                  prefix={<Text type="secondary">{t('workbench.editors.live.step.namePrefix')}</Text>}
                   value={c.name}
                   onChange={(e) => updateCapture(idx, { ...c, name: e.target.value })}
                 />
@@ -483,7 +487,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
                   danger
                   icon={<DeleteOutlined />}
                   onClick={() => removeCapture(idx)}
-                  aria-label={`Remove capture ${c.name || idx + 1}`}
+                  aria-label={t('workbench.editors.live.step.removeCaptureAria', { name: c.name || idx + 1 })}
                 />
               </div>
               {/* Expose switch — flipping on creates a Live Variable
@@ -503,10 +507,10 @@ const WorkflowStepEditor: React.FC<Props> = ({
                     if (exposed && !c.liveName.trim()) next.liveName = c.name;
                     updateCapture(idx, next);
                   }}
-                  aria-label={`Expose capture ${c.name || idx + 1} as live variable`}
+                  aria-label={t('workbench.editors.live.step.exposeAria', { name: c.name || idx + 1 })}
                 />
                 <Text type="secondary" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {scopeBadge('live', 13)} Expose as
+                  {scopeBadge('live', 13)} {t('workbench.editors.live.step.exposeAs')}
                 </Text>
                 <span style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, color: token.colorTextTertiary }}>
                   {'{{'}live.
@@ -515,14 +519,14 @@ const WorkflowStepEditor: React.FC<Props> = ({
                   size="small"
                   disabled={!c.exposed}
                   style={{ width: 180 }}
-                  placeholder={c.name || 'name'}
+                  placeholder={c.name || t('workbench.editors.live.step.namePrefix')}
                   value={c.liveName}
                   onChange={(e) => updateCapture(idx, { ...c, liveName: e.target.value })}
                 />
                 <span style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, color: token.colorTextTertiary }}>
                   {'}}'}
                 </span>
-                <Tooltip title="When on, saving the workflow creates a Live Variable that resolves `{{live.<name>}}` from this capture. Turn off to use the capture only inside this workflow (e.g. via {{step.<stepId>.<captureName>}}).">
+                <Tooltip title={t('workbench.editors.live.step.exposeTooltip')}>
                   <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
                 </Tooltip>
               </div>
@@ -538,6 +542,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
           defaultActiveKey={[]}
           items={buildWorkflowStepSections({
             token,
+            t,
             index,
             runIf: step.runIf,
             dependsOnValue,

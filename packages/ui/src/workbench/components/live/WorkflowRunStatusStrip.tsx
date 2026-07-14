@@ -69,10 +69,10 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
   const perEnvRuns = useMemo(() => summarizeRunsByEnv(runs, activeEnvironmentId ?? null), [runs, activeEnvironmentId]);
   const envName = useCallback(
     (environmentId: string | null) => {
-      if (environmentId === null) return 'No environment';
-      return environments.find((e) => e.uid === environmentId)?.name ?? 'Unknown env';
+      if (environmentId === null) return t('workbench.editors.live.status.noEnvironment');
+      return environments.find((e) => e.uid === environmentId)?.name ?? t('workbench.editors.live.status.unknownEnv');
     },
-    [environments],
+    [environments, t],
   );
 
   return (
@@ -93,7 +93,7 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
       {/* Drag divider — resizes the strip between MIN and MAX. */}
       <div
         data-testid="wf-run-status-strip-resize"
-        title="Drag to resize"
+        title={t('workbench.editors.live.status.dragToResize')}
         onPointerDown={handleResizeDown}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
@@ -117,7 +117,7 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
         </Text>
         <div style={{ flex: 1 }} />
         <Text type="secondary" style={{ fontSize: 11 }}>
-          bound: {boundCount} variable{boundCount === 1 ? '' : 's'}
+          {t('workbench.editors.live.status.boundCount', { count: boundCount })}
         </Text>
       </div>
       {/* Per-env table — one row per env that has a cache, plus the
@@ -164,7 +164,7 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
                 }}
               >
                 {envName(entry.environmentId)}
-                {entry.isActive ? ' (active)' : ''}
+                {entry.isActive ? ` ${t('workbench.editors.live.status.activeSuffix')}` : ''}
               </Text>
               {entry.run ? (
                 <>
@@ -181,16 +181,16 @@ const WorkflowRunStatusStrip: React.FC<WorkflowRunStatusStripProps> = ({ runs, r
                     </Text>
                   )}
                   {entry.run.definitionallyStale === true && (
-                    <Tooltip title="The workflow or an input it resolves changed since this value was extracted — run Refresh to re-extract.">
+                    <Tooltip title={t('workbench.editors.live.status.needsReRunTooltip')}>
                       <Text type="warning" style={{ fontSize: 11 }}>
-                        · needs re-run
+                        · {t('workbench.editors.live.status.needsReRun')}
                       </Text>
                     </Tooltip>
                   )}
                 </>
               ) : (
                 <Text type="warning" style={{ fontSize: 11 }}>
-                  · never run for this env — click Refresh to populate
+                  · {t('workbench.editors.live.status.neverRunForEnv')}
                 </Text>
               )}
             </div>
@@ -244,7 +244,7 @@ const CircuitInlineStatus: React.FC<{ run: LiveWorkflowRunSnapshot }> = ({ run }
     <Tooltip title={descriptor.hint}>
       <Text type={labelColor} style={{ fontSize: 11 }}>
         · {descriptor.label}
-        {countdown ? ` · next attempt ${countdown}` : ''}
+        {countdown ? ` · ${t('workbench.editors.live.status.nextAttempt', { countdown })}` : ''}
       </Text>
     </Tooltip>
   );

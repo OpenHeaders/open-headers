@@ -121,7 +121,7 @@ const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({
       </div>
       {state === 'skipped' && (
         <Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic', display: 'block', marginBottom: 4 }}>
-          values preserved from an earlier run
+          {t('workbench.editors.live.runOverlay.valuesPreserved')}
         </Text>
       )}
       {errorMessage && (
@@ -146,7 +146,7 @@ const StepCapturePopover: React.FC<StepCapturePopoverProps> = ({
       ))}
       {responseBytes !== undefined && (
         <Text type="secondary" style={{ fontSize: 10, display: 'block', marginTop: 4 }}>
-          {`response ${responseBytes} bytes`}
+          {t('workbench.editors.live.runOverlay.responseBytes', { bytes: responseBytes })}
         </Text>
       )}
     </div>
