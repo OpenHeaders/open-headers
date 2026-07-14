@@ -21,6 +21,9 @@ export interface BackgroundTask {
   percent: number | null;
   /** Renders the progress bar in its failure state. */
   error?: boolean;
+  /** The work settled successfully — renders green with a check mark
+   *  instead of the in-flight pulse. */
+  done?: boolean;
   /**
    * Click-through for a settled task (e.g. "view report"). Producers
    * must pass a stable reference — upserts compare it by identity.
@@ -49,6 +52,7 @@ export function upsertBackgroundTask(task: BackgroundTask): void {
     existing.detail === task.detail &&
     existing.percent === task.percent &&
     existing.error === task.error &&
+    existing.done === task.done &&
     existing.onActivate === task.onActivate
   )
     return;
@@ -75,8 +79,27 @@ export function useBackgroundTasks(): readonly BackgroundTask[] {
   return useSyncExternalStore(subscribe, getTasks);
 }
 
+// The Processes panel's visibility lives here so producers can surface
+// it when their work starts (e.g. the migration pull opens it on
+// kickoff instead of leaving only the footer slot as a hint).
+let panelOpen = false;
+
+export function setBackgroundTasksPanelOpen(open: boolean): void {
+  if (panelOpen === open) return;
+  panelOpen = open;
+  for (const fn of listeners) fn();
+}
+
+const getPanelOpen = () => panelOpen;
+
+/** Whether the standalone Processes panel is showing. */
+export function useBackgroundTasksPanelOpen(): boolean {
+  return useSyncExternalStore(subscribe, getPanelOpen);
+}
+
 /** Test hook — reset module state between cases. */
 export function __resetBackgroundTasksForTests(): void {
   tasks = [];
+  panelOpen = false;
   listeners.clear();
 }

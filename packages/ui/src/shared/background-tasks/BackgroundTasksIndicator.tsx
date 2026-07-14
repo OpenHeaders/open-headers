@@ -16,15 +16,21 @@ import { Progress, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { type BackgroundTask, useBackgroundTasks } from './store';
+import {
+  type BackgroundTask,
+  setBackgroundTasksPanelOpen,
+  useBackgroundTasks,
+  useBackgroundTasksPanelOpen,
+} from './store';
 
 function taskProgress(task: BackgroundTask, width?: number): React.ReactNode {
   return (
     <Progress
       // Indeterminate work renders as a full pulsing bar — antd has no
-      // dedicated indeterminate mode.
+      // dedicated indeterminate mode. Settled work goes green ('success')
+      // so it stops reading as in-flight.
       percent={task.percent ?? 100}
-      status={task.error ? 'exception' : 'active'}
+      status={task.error ? 'exception' : task.done ? 'success' : 'active'}
       showInfo={false}
       size="small"
       style={{ width, margin: 0, flex: width === undefined ? 1 : undefined, lineHeight: 1 }}
@@ -35,7 +41,8 @@ function taskProgress(task: BackgroundTask, width?: number): React.ReactNode {
 const BackgroundTasksIndicator: React.FC = () => {
   const { token } = theme.useToken();
   const tasks = useBackgroundTasks();
-  const [panelOpen, setPanelOpen] = useState(false);
+  const panelOpen = useBackgroundTasksPanelOpen();
+  const setPanelOpen = setBackgroundTasksPanelOpen;
   // Inline-dismissed task ids: hidden from the footer, still listed in
   // the panel. Pruned when the task leaves the store so a later run
   // with the same id shows again.
@@ -50,8 +57,9 @@ const BackgroundTasksIndicator: React.FC = () => {
   }, [tasks]);
 
   const visible = tasks.filter((t) => !hiddenIds.has(t.id));
+  // The slot is permanent: with no task in flight it renders the plain
+  // "Processes" label so the panel is reachable at any time.
   const anchor = visible[visible.length - 1];
-  if (!anchor && !panelOpen) return null;
 
   // The ✕ sits in a small grey disc, vertically centered on the row it
   // dismisses.
@@ -134,27 +142,32 @@ const BackgroundTasksIndicator: React.FC = () => {
           ) : (
             tasks.map((task) => (
               <div key={task.id} style={{ padding: '4px 0' }}>
-                {task.onActivate ? (
-                  <button
-                    type="button"
-                    onClick={task.onActivate}
-                    style={{
-                      display: 'block',
-                      padding: 0,
-                      border: 'none',
-                      background: 'transparent',
-                      fontSize: 13,
-                      color: token.colorPrimary,
-                      cursor: 'pointer',
-                      marginBottom: 4,
-                      textAlign: 'left',
-                    }}
-                  >
-                    {task.title}
-                  </button>
-                ) : (
-                  <div style={{ fontSize: 13, color: token.colorText, marginBottom: 4 }}>{task.title}</div>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  {task.done && !task.error && (
+                    <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13 }} />
+                  )}
+                  {task.onActivate ? (
+                    <button
+                      type="button"
+                      onClick={task.onActivate}
+                      style={{
+                        display: 'block',
+                        padding: 0,
+                        border: 'none',
+                        background: 'transparent',
+                        fontSize: 13,
+                        color: token.colorText,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      {task.title}
+                    </button>
+                  ) : (
+                    <div style={{ fontSize: 13, color: token.colorText }}>{task.title}</div>
+                  )}
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {taskProgress(task)}
                   {circleClose((e) => {
@@ -163,7 +176,9 @@ const BackgroundTasksIndicator: React.FC = () => {
                   }, 'Hide background task')}
                 </div>
                 {task.detail && (
-                  <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 2 }}>{task.detail}</div>
+                  <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 2, whiteSpace: 'pre-line' }}>
+                    {task.detail}
+                  </div>
                 )}
               </div>
             ))
@@ -179,17 +194,20 @@ const BackgroundTasksIndicator: React.FC = () => {
         className="rules-statusbar-item"
         role="button"
         tabIndex={0}
-        onClick={() => setPanelOpen((prev) => !prev)}
+        onClick={() => setPanelOpen(!panelOpen)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setPanelOpen((prev) => !prev);
+            setPanelOpen(!panelOpen);
           }
         }}
         style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', minWidth: 0 }}
       >
         {anchor ? (
           <>
+            {anchor.done && !anchor.error && (
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 10 }} />
+            )}
             <span
               // A settled task's title is its click-through ("view
               // report"); the rest of the slot still toggles the panel.
@@ -203,7 +221,8 @@ const BackgroundTasksIndicator: React.FC = () => {
               }
               style={{
                 fontSize: 10,
-                color: anchor.onActivate ? token.colorPrimary : token.colorTextSecondary,
+                color: anchor.onActivate ? token.colorText : token.colorTextSecondary,
+                fontWeight: anchor.onActivate ? 600 : undefined,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',

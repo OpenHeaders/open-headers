@@ -10,10 +10,10 @@
  * effect of viewing the report.
  */
 
-import { CheckCircleFilled } from '@ant-design/icons';
+import { CheckCircleFilled, ExclamationCircleFilled } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import type { ImportReport, PostmanImportedWorkspace, PostmanImportSummary } from '@openheaders/core/import';
-import { Button, Modal, Skeleton, Typography, theme } from 'antd';
+import { Button, Collapse, Modal, Skeleton, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import ImportReportPanel from './ImportReportPanel';
@@ -30,44 +30,27 @@ function newestPullReport(reports: ImportReport[]): ImportReport | null {
   return [...reports].reverse().find((r) => r.source === 'postman-pull') ?? null;
 }
 
-const WorkspaceReportSection: React.FC<{
-  entry: WorkspaceReportEntry;
-  onOpenWorkspace?: (workspaceId: string) => void;
-}> = ({ entry, onOpenWorkspace }) => {
+const WorkspaceReportBody: React.FC<{ entry: WorkspaceReportEntry }> = ({ entry }) => {
   const { token } = theme.useToken();
-  const { workspace, report } = entry;
-  const clean = report !== null && report.drops.length === 0 && report.transforms.length === 0;
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <Text strong style={{ flex: 1, minWidth: 0 }}>
-          {workspace.workspaceName}
-        </Text>
+  const { report } = entry;
+  if (report === null) {
+    return (
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        No import report found for this workspace.
+      </Text>
+    );
+  }
+  if (report.drops.length === 0 && report.transforms.length === 0) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <CheckCircleFilled style={{ color: token.colorSuccess }} />
         <Text type="secondary" style={{ fontSize: 12 }}>
-          {workspace.collections} collections · {workspace.environments} environments · {workspace.requests} requests
+          Everything imported cleanly — no drops or transforms.
         </Text>
-        {onOpenWorkspace && (
-          <Button size="small" onClick={() => onOpenWorkspace(workspace.workspaceId)}>
-            Open workspace
-          </Button>
-        )}
-      </div>
-      {report === null ? (
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          No import report found for this workspace.
-        </Text>
-      ) : clean ? (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <CheckCircleFilled style={{ color: token.colorSuccess }} />
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            Everything imported cleanly — no drops or transforms.
-          </Text>
-        </span>
-      ) : (
-        <ImportReportPanel report={report} token={token} />
-      )}
-    </div>
-  );
+      </span>
+    );
+  }
+  return <ImportReportPanel report={report} token={token} />;
 };
 
 const MigrationReportModal: React.FC<{
@@ -77,6 +60,7 @@ const MigrationReportModal: React.FC<{
   /** Explicit jump into an imported workspace — the user's choice. */
   onOpenWorkspace?: (workspaceId: string) => void;
 }> = ({ open, summary, onClose, onOpenWorkspace }) => {
+  const { token } = theme.useToken();
   const [entries, setEntries] = useState<WorkspaceReportEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -104,6 +88,42 @@ const MigrationReportModal: React.FC<{
     };
   }, [open, summary]);
 
+  const items = entries.map((entry) => {
+    const { workspace, report } = entry;
+    const clean = report !== null && report.drops.length === 0 && report.transforms.length === 0;
+    const notes = report ? report.drops.length + report.transforms.length : 0;
+    return {
+      key: workspace.workspaceId,
+      label: (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          {report !== null &&
+            (clean ? (
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13 }} />
+            ) : (
+              <ExclamationCircleFilled style={{ color: token.colorWarning, fontSize: 13 }} />
+            ))}
+          <Text strong>{workspace.workspaceName}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {workspace.collections} collections · {workspace.environments} environments · {workspace.requests}{' '}
+            requests{notes > 0 ? ` · ${notes} note${notes === 1 ? '' : 's'}` : ''}
+          </Text>
+        </span>
+      ),
+      extra: onOpenWorkspace && (
+        <Button
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenWorkspace(workspace.workspaceId);
+          }}
+        >
+          Open workspace
+        </Button>
+      ),
+      children: <WorkspaceReportBody entry={entry} />,
+    };
+  });
+
   return (
     <Modal
       title="Postman import report"
@@ -112,7 +132,12 @@ const MigrationReportModal: React.FC<{
       onOk={onClose}
       cancelButtonProps={{ style: { display: 'none' } }}
       okText="Close"
-      width={640}
+      width={720}
+      centered
+      maskClosable={false}
+      // One scroll container: the modal stays in view and only its body
+      // scrolls — never the app behind it.
+      styles={{ body: { maxHeight: '65vh', overflowY: 'auto' } }}
     >
       {summary && (
         <Paragraph style={{ marginBottom: 12 }}>
@@ -128,9 +153,14 @@ const MigrationReportModal: React.FC<{
       {loading ? (
         <Skeleton active paragraph={{ rows: 2 }} />
       ) : (
-        entries.map((entry) => (
-          <WorkspaceReportSection key={entry.workspace.workspaceId} entry={entry} onOpenWorkspace={onOpenWorkspace} />
-        ))
+        <Collapse
+          items={items}
+          bordered={false}
+          size="small"
+          // A single-workspace run opens expanded — the caret dance is
+          // only worth it when many workspaces compete for space.
+          defaultActiveKey={entries.length === 1 ? [entries[0].workspace.workspaceId] : []}
+        />
       )}
     </Modal>
   );

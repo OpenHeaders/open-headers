@@ -19,6 +19,7 @@ import type { PostmanWorkspacePreview } from '@openheaders/core/import';
 import { Alert, Button, Checkbox, Input, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { setBackgroundTasksPanelOpen } from '@openheaders/ui/shared/background-tasks';
 
 const { Text, Paragraph } = Typography;
 
@@ -134,6 +135,9 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted }) =>
       .then((result) => {
         if (result.started) {
           setApiKey('');
+          // The corner task carries the run from here — surface the
+          // Processes panel so progress is visible immediately.
+          setBackgroundTasksPanelOpen(true);
           onStarted();
         } else {
           setStartReason(result.reason ?? 'The import could not start.');

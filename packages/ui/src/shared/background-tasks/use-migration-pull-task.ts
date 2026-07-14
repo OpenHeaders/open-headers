@@ -61,7 +61,7 @@ export function deriveMigrationPullTask(
         };
       }
       const last = state.lastItem;
-      const itemNote = last ? `${last.status === 'pulled' ? 'Pulled' : 'Skipped'} ${last.name ?? last.id} · ` : '';
+      const itemNote = last ? `${last.status === 'pulled' ? 'Pulled' : 'Skipped'} ${last.name ?? last.id}\n` : '';
       return {
         id: TASK_ID,
         title: 'Migrating from Postman',
@@ -89,6 +89,7 @@ export function deriveMigrationPullTask(
           title: 'Import finished — view report',
           detail: `${partial}${counts} ${target}${notes}`,
           percent: 100,
+          done: true,
           ...(onViewReport ? { onActivate: onViewReport } : {}),
         };
       }
@@ -116,6 +117,7 @@ export function deriveMigrationPullTask(
         title: 'Postman migration finished',
         detail: state.stopReason ?? 'No collections or environments to import.',
         percent: 100,
+        done: true,
       };
     }
   }
