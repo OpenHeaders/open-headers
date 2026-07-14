@@ -128,7 +128,7 @@ const ScriptModeTag: React.FC<ScriptModeTagProps> = ({ workspaceId }) => {
   };
 
   const popoverContent = control.available ? (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 400 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 470 }}>
       <Text strong style={{ fontSize: 13 }}>
         {t('workbench.editors.request.settings.scriptMode')}
       </Text>
@@ -139,7 +139,7 @@ const ScriptModeTag: React.FC<ScriptModeTagProps> = ({ workspaceId }) => {
       </Text>
     </div>
   ) : (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 400 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 470 }}>
       <Text strong style={{ fontSize: 13 }}>
         {t('workbench.editors.request.settings.scriptMode')}
       </Text>
@@ -157,7 +157,7 @@ const ScriptModeTag: React.FC<ScriptModeTagProps> = ({ workspaceId }) => {
         open={open}
         onOpenChange={setOpen}
         trigger="click"
-        placement="bottomRight"
+        placement="bottomLeft"
         arrow={false}
         content={popoverContent}
       >
