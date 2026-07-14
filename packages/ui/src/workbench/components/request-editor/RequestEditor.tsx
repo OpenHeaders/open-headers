@@ -708,7 +708,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
               panels / editor leaves — so the request/response divider
               reads consistently with the rest of the shell. */}
             <Allotment key={layout} vertical={layout === 'vertical'} proportionalLayout separator>
-              <Allotment.Pane minSize={layout === 'vertical' ? 140 : 320} preferredSize="55%">
+              {/* Vertical (stacked) minimum leaves room for the tab bar +
+                the fill editors' 100-120px floors, so at the sash's travel
+                limit no tab needs a fallback scrollbar. */}
+              <Allotment.Pane minSize={layout === 'vertical' ? 220 : 320} preferredSize="55%">
                 <div
                   className="rules-thin-scrollbar"
                   style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}

@@ -79,7 +79,7 @@ const DocsTab: React.FC<DocsTabProps> = ({ value, onChange }) => {
         // Absolute inset host — see ScriptsTab: a fill editor must not
         // contribute intrinsic height or Monaco's inline height ratchets
         // the scroller's content size and the pane never shrinks back.
-        <div style={{ flex: 1, minHeight: 280, position: 'relative' }}>
+        <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
             <CodeEditor
               value={value}

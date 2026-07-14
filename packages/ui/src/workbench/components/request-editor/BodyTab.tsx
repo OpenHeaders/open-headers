@@ -233,7 +233,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
         // Absolute inset host — see ScriptsTab: a fill editor must not
         // contribute intrinsic height or Monaco's inline height ratchets
         // the scroller's content size and the pane never shrinks back.
-        <div style={{ flex: 1, minHeight: 240, position: 'relative' }}>
+        <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
             <CodeEditor
               value={body.content}
@@ -255,7 +255,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             gridTemplateColumns: '1fr 1fr',
             gap: 16,
             flex: 1,
-            minHeight: 320,
+            minHeight: 160,
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
@@ -279,7 +279,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
               />
               <CodeEditorActions target={graphqlQueryActionsRef} language="graphql" style={{ marginLeft: 'auto' }} />
             </div>
-            <div style={{ flex: 1, minHeight: 300, position: 'relative' }}>
+            <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
                 <CodeEditor
                   value={body.content}
@@ -319,7 +319,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
               />
               <CodeEditorActions target={graphqlVariablesActionsRef} language="json" style={{ marginLeft: 'auto' }} />
             </div>
-            <div style={{ flex: 1, minHeight: 300, position: 'relative' }}>
+            <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
                 <CodeEditor
                   value={body.graphqlVariables ?? ''}

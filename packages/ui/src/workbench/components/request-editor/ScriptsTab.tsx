@@ -191,7 +191,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 340 }}>
+    <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 120 }}>
       <div
         style={{
           display: 'flex',
