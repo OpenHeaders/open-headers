@@ -29,6 +29,8 @@ import {
 } from '../../data/cookies/cookie-jar-cache';
 import { useSiteCookieJarSticky } from '../../data/cookies/use-cookie-jar';
 import { cacheEntryTabId, cookieTabId, domStorageEntryTabId, idbRecordTabId } from '../../data/inspector-tab';
+import { buildStorageFooterStatus, type StorageFooterStatus } from '../../data/footer-status';
+import { setStorageFooterStatus } from '../../data/stores/footer-status-store';
 import type { DomStorageArea, DomStorageEntry, SiteDataType } from '../../data/storage/storage-inspector-host';
 import { cacheMatches, cookieMatches, countIdbStoreMatches, domEntryMatches } from '../../data/storage/storage-filter';
 import { parseStorageKey } from '../../data/storage/storage-key';
@@ -363,6 +365,93 @@ export function StoragePanel({
 
   const cookiesWritable = isCookieJarWritable() && inspector.scopes.length > 0;
   const [cookieWriteFailed, setCookieWriteFailed] = useState(false);
+
+  // ── Focused-tool footer status (published to the status bar) ──────
+  // The active section's counts, the cross-section match note, and the
+  // failure alert, mirrored from the same data the scope note reads.
+  // `null` (no data yet / no scopes) makes the footer fall back to the
+  // Network line.
+  const matchingSections = useMemo(
+    () => Object.values(navMatchCounts).filter((count) => count > 0).length,
+    [navMatchCounts],
+  );
+  const footerStatus = useMemo<StorageFooterStatus | null>(() => {
+    if (inspector.scopes.length === 0) return null;
+    const common = { section, filterActive, matchingSections };
+    if (section === 'cookies') {
+      if (!sortedCookies) return null;
+      return buildStorageFooterStatus({
+        ...common,
+        filteredCount: filteredCookies.length,
+        totalCount: sortedCookies.length,
+        writeFailed: cookieWriteFailed,
+        deleteFailed: false,
+        readFailed: false,
+        quotaUsage: null,
+        quotaTotal: null,
+      });
+    }
+    if (section === 'indexeddb' || section === 'cachestorage') {
+      const total = section === 'indexeddb' ? idb.databases?.length : cacheStorage.caches?.length;
+      if (total === undefined) return null;
+      return buildStorageFooterStatus({
+        ...common,
+        filteredCount: null,
+        totalCount: total,
+        writeFailed: false,
+        deleteFailed: section === 'indexeddb' ? idb.mutationFailed : cacheStorage.mutationFailed,
+        readFailed: false,
+        quotaUsage: null,
+        quotaTotal: null,
+      });
+    }
+    if (section === 'quota') {
+      if (quota.quota === null) return null;
+      return buildStorageFooterStatus({
+        ...common,
+        filteredCount: null,
+        totalCount: 0,
+        writeFailed: false,
+        deleteFailed: false,
+        readFailed: false,
+        quotaUsage: quota.quota.usage,
+        quotaTotal: quota.quota.quota,
+      });
+    }
+    if (inspector.snapshot === null) return null;
+    return buildStorageFooterStatus({
+      ...common,
+      filteredCount: filtered.length,
+      totalCount: entries.length,
+      writeFailed: inspector.writeFailed,
+      deleteFailed: false,
+      readFailed: inspector.readFailed,
+      quotaUsage: null,
+      quotaTotal: null,
+    });
+  }, [
+    inspector.scopes.length,
+    inspector.snapshot,
+    inspector.writeFailed,
+    inspector.readFailed,
+    section,
+    filterActive,
+    matchingSections,
+    sortedCookies,
+    filteredCookies,
+    cookieWriteFailed,
+    idb.databases,
+    idb.mutationFailed,
+    cacheStorage.caches,
+    cacheStorage.mutationFailed,
+    quota.quota,
+    filtered,
+    entries,
+  ]);
+  useEffect(() => {
+    setStorageFooterStatus(footerStatus);
+  }, [footerStatus]);
+  useEffect(() => () => setStorageFooterStatus(null), []);
 
   const applyCookieEdit = useCallback(async (edit: JarCookieEdit): Promise<boolean> => {
     const { cookie } = await writeJarCookie(edit);

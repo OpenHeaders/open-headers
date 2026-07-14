@@ -18,6 +18,9 @@ export type DevpanelBottomPanelAlignmentSetting = v.InferOutput<typeof bottomPan
 const footerTimingModeSchema = v.picklist(['aggregate', 'lastNav']);
 export type DevpanelFooterTimingModeSetting = v.InferOutput<typeof footerTimingModeSchema>;
 
+const footerScopeSchema = v.picklist(['focused', 'network']);
+export type DevpanelFooterScopeSetting = v.InferOutput<typeof footerScopeSchema>;
+
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'devpanelLayout.footerShowVersion': boolean;
@@ -27,6 +30,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelLayout.footerShowCached': boolean;
     'devpanelLayout.footerShowPageContext': boolean;
     'devpanelLayout.footerTimingMode': DevpanelFooterTimingModeSetting;
+    'devpanelLayout.footerScope': DevpanelFooterScopeSetting;
     'devpanelLayout.topbarShowPanelToggles': boolean;
     'devpanelLayout.topbarShowLayoutMenu': boolean;
     'devpanelLayout.bottomPanelAlignment': DevpanelBottomPanelAlignmentSetting;
@@ -140,6 +144,31 @@ registerSetting({
       value: 'lastNav',
       labelKey: 'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.label',
       descriptionKey: 'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.description',
+    },
+  ],
+});
+
+registerSetting({
+  key: 'devpanelLayout.footerScope',
+  type: 'enum',
+  default: 'focused',
+  schema: footerScopeSchema,
+  labelKey: 'workbench.settings.def.devpanelLayout.footerScope.label',
+  descriptionKey: 'workbench.settings.def.devpanelLayout.footerScope.description',
+  category: 'devpanelLayout',
+  subcategory: 'Footer',
+  tags: ['statusbar', 'footer', 'focus', 'tool window', 'storage', 'console', 'search', 'devtools'],
+  scope: 'user',
+  enumOptions: [
+    {
+      value: 'focused',
+      labelKey: 'workbench.settings.def.devpanelLayout.footerScope.option.focused.label',
+      descriptionKey: 'workbench.settings.def.devpanelLayout.footerScope.option.focused.description',
+    },
+    {
+      value: 'network',
+      labelKey: 'workbench.settings.def.devpanelLayout.footerScope.option.network.label',
+      descriptionKey: 'workbench.settings.def.devpanelLayout.footerScope.option.network.description',
     },
   ],
 });

@@ -41,6 +41,8 @@ import {
   passesLevelMask,
 } from '../data/console-levels';
 import { noteTopContext, setConsolePrefs, useConsolePrefs } from '../data/console-prefs';
+import { type ConsoleFooterStatus, countConsoleLevels } from '../data/footer-status';
+import { setConsoleFooterStatus } from '../data/stores/footer-status-store';
 import type { ConsoleRequestJoin } from '../data/console-request-join';
 import { isXhrLogEntry, type XhrLogConsoleEntry } from '../data/console-xhr-log';
 import {
@@ -370,6 +372,25 @@ export function ConsoleView({
     resolveRequest,
     effectiveContextKey,
   ]);
+
+  // ── Focused-tool footer status (published to the status bar) ──────
+  // Total = the current log window before any filtering; visible = the
+  // rendered rows with grouped repeats expanded back to message counts;
+  // error/warning tallies over the unfiltered window (the browser's
+  // level counters don't shrink under a text filter).
+  const footerStatus = useMemo<ConsoleFooterStatus>(() => {
+    const { errors, warnings } = countConsoleLevels(visibleEntries.map(({ entry }) => entry.level));
+    return {
+      visibleCount: rows.reduce((n, row) => n + row.repeat, 0),
+      totalCount: visibleEntries.length,
+      errorCount: errors,
+      warningCount: warnings,
+    };
+  }, [visibleEntries, rows]);
+  useEffect(() => {
+    setConsoleFooterStatus(footerStatus);
+  }, [footerStatus]);
+  useEffect(() => () => setConsoleFooterStatus(null), []);
 
   // Source-map resolution over every distinct frame the visible rows carry —
   // the same cache + host fetcher the Network call-stack view uses, so

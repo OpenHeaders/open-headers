@@ -3,6 +3,12 @@
  * shared system-status pill, theme dropdown, and version. The panel
  * toggles + layout menu live in PanelToolbar so layout chrome stays
  * at the top across all surfaces.
+ *
+ * Under the Focused-tool footer scope (`devpanelLayout.footerScope`)
+ * the left side follows the focused tool window: Storage and Console
+ * render the lines they publish through the footer-status store,
+ * Search its session summary; everything else falls back to the
+ * Network figures.
  */
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
@@ -13,6 +19,10 @@ import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
+import { type SearchFooterStatus, searchFooterLine } from '../data/footer-status';
+import { useConsoleFooterStatus, useStorageFooterStatus } from '../data/stores/footer-status-store';
+import type { PanelToolWindowId } from '../data/tool-windows';
+import { type FocusedToolLayout, useFocusedToolWindow } from '../data/use-focused-tool-window';
 import { formatFooterDuration } from '../data/timing/footer-timing';
 
 declare const __APP_VERSION__: string;
@@ -68,6 +78,11 @@ interface PanelStatusBarProps {
   /** True when a live debug-tier rule is realizable now (debug-tier + static),
    * so the dormant-notice chip has something to be dormant about. */
   hasRealizableDebugRule?: boolean;
+  /** Tool-window layout — resolves which window the focused dock shows,
+   * for the Focused-tool footer scope. */
+  tl: FocusedToolLayout;
+  /** Search state summary — rendered while Search is the focused tool. */
+  searchStatus: SearchFooterStatus;
 }
 
 /** Host portion of an origin for the compact current-page label. */
@@ -79,6 +94,118 @@ function originHost(origin: string | null | undefined): string {
     return origin;
   }
 }
+
+interface NetworkFooterClusterProps {
+  requestCount: number;
+  transferredSize: string;
+  resourceSize: string;
+  subset?: FooterSubset;
+  finishTime: string;
+  dclText: string;
+  loadText: string;
+  modifiedCount: number;
+  failedCount: number;
+  cachedCount: number;
+  showModified: boolean;
+  showFailed: boolean;
+  showCached: boolean;
+  showPageLabel: boolean;
+  pageHost: string;
+  pageOrigin?: string | null;
+  hasTiming: boolean;
+}
+
+/** The Network tool's footer figures — today's always-on line, and the
+ *  fallback every tool without its own summary renders. */
+const NetworkFooterCluster: React.FC<NetworkFooterClusterProps> = ({
+  requestCount,
+  transferredSize,
+  resourceSize,
+  subset,
+  finishTime,
+  dclText,
+  loadText,
+  modifiedCount,
+  failedCount,
+  cachedCount,
+  showModified,
+  showFailed,
+  showCached,
+  showPageLabel,
+  pageHost,
+  pageOrigin,
+  hasTiming,
+}) => {
+  const { token } = theme.useToken();
+  return (
+    <>
+      {/* Cumulative traffic across whatever the log holds — or `subset / total`
+          while a filter hides rows (browser summary-bar parity). */}
+      <span className="rules-statusbar-item">
+        {subset
+          ? `${subset.requestCount} / ${requestCount} requests`
+          : `${requestCount} request${requestCount === 1 ? '' : 's'}`}
+      </span>
+      {showModified && (
+        <span
+          className="rules-statusbar-item"
+          style={{ color: modifiedCount > 0 ? token.colorPrimary : token.colorTextTertiary }}
+          title="Requests your rules modified"
+        >
+          {modifiedCount} modified
+        </span>
+      )}
+      {showFailed && (
+        <span
+          className="rules-statusbar-item"
+          style={{ color: failedCount > 0 ? token.colorError : token.colorTextTertiary }}
+          title="Failed or error-status requests"
+        >
+          {failedCount} failed
+        </span>
+      )}
+      {showCached && (
+        <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title="Requests served from cache">
+          {cachedCount} cached
+        </span>
+      )}
+      {subset ? (
+        <>
+          <span className="rules-statusbar-item">
+            {subset.transferredSize} / {subset.totalTransferredSize} transferred
+          </span>
+          <span className="rules-statusbar-item">
+            {subset.resourceSize} / {subset.totalResourceSize} resources
+          </span>
+        </>
+      ) : (
+        <span className="rules-statusbar-item">
+          {transferredSize} transferred
+          {resourceSize && resourceSize !== transferredSize ? ` / ${resourceSize} resources` : ''}
+        </span>
+      )}
+
+      {/* This-navigation milestones. The per-item dividers (panel-shell.css)
+          already separate Finish from the cumulative counts. */}
+      {finishTime && <span className="rules-statusbar-item">Finish: {finishTime}</span>}
+      {dclText && (
+        <span className="rules-statusbar-item" style={{ color: '#1a73e8' }} title="DOMContentLoaded">
+          DOMContentLoaded: {dclText}
+        </span>
+      )}
+      {loadText && (
+        <span className="rules-statusbar-item" style={{ color: '#d93025' }} title="Load event">
+          Load: {loadText}
+        </span>
+      )}
+      {hasTiming && showPageLabel && (
+        <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title={pageOrigin ?? undefined}>
+          {pageHost}
+        </span>
+      )}
+    </>
+  );
+};
 
 const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   requestCount,
@@ -94,6 +221,8 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   cachedCount = 0,
   pageOrigin,
   hasRealizableDebugRule = false,
+  tl,
+  searchStatus,
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
@@ -113,6 +242,27 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   const handleOpenDocs: StatusPillProps['onOpenDocs'] = (sectionId) => {
     void openWorkspace({ kind: 'open-docs', section: sectionId }, 'devpanel');
   };
+
+  // Focused-tool footer scope: which tool window's summary the left side
+  // shows. `network` keeps today's line; `focused` follows the focused
+  // dock's active window — Storage / Console publish their lines through
+  // the footer-status store (their state lives in their views), Search
+  // rides the App-level session. A tool with nothing to say (no status
+  // published, idle search, other tools) falls back to the Network line.
+  const footerScope = useSettingValue('devpanelLayout.footerScope');
+  const focusedTool = useFocusedToolWindow(tl);
+  const storageStatus = useStorageFooterStatus();
+  const consoleStatus = useConsoleFooterStatus();
+  const searchLine = searchFooterLine(searchStatus);
+  const scopedTool: PanelToolWindowId = footerScope === 'focused' ? focusedTool : 'network';
+  const footerTool: 'network' | 'storage' | 'console' | 'search' =
+    scopedTool === 'storage' && storageStatus !== null && (storageStatus.summary !== '' || storageStatus.alert !== '')
+      ? 'storage'
+      : scopedTool === 'console' && consoleStatus !== null
+        ? 'console'
+        : scopedTool === 'search' && searchLine !== ''
+          ? 'search'
+          : 'network';
 
   const showVersion = useSettingValue('devpanelLayout.footerShowVersion');
   const showThemeSwitcher = useSettingValue('devpanelLayout.footerShowThemeSwitcher');
@@ -139,69 +289,64 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
       }}
     >
       <div className="rules-statusbar-left">
-        {/* Cumulative traffic across whatever the log holds — or `subset / total`
-            while a filter hides rows (browser summary-bar parity). */}
-        <span className="rules-statusbar-item">
-          {subset
-            ? `${subset.requestCount} / ${requestCount} requests`
-            : `${requestCount} request${requestCount === 1 ? '' : 's'}`}
-        </span>
-        {showModified && (
-          <span
-            className="rules-statusbar-item"
-            style={{ color: modifiedCount > 0 ? token.colorPrimary : token.colorTextTertiary }}
-            title="Requests your rules modified"
-          >
-            {modifiedCount} modified
-          </span>
-        )}
-        {showFailed && (
-          <span
-            className="rules-statusbar-item"
-            style={{ color: failedCount > 0 ? token.colorError : token.colorTextTertiary }}
-            title="Failed or error-status requests"
-          >
-            {failedCount} failed
-          </span>
-        )}
-        {showCached && (
-          <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title="Requests served from cache">
-            {cachedCount} cached
-          </span>
-        )}
-        {subset ? (
+        {footerTool === 'storage' && storageStatus !== null ? (
+          <>
+            {storageStatus.summary !== '' && <span className="rules-statusbar-item">{storageStatus.summary}</span>}
+            {storageStatus.matches !== '' && (
+              <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }}>
+                {storageStatus.matches}
+              </span>
+            )}
+            {storageStatus.alert !== '' && (
+              <span className="rules-statusbar-item" style={{ color: token.colorError }}>
+                {storageStatus.alert}
+              </span>
+            )}
+          </>
+        ) : footerTool === 'console' && consoleStatus !== null ? (
           <>
             <span className="rules-statusbar-item">
-              {subset.transferredSize} / {subset.totalTransferredSize} transferred
+              {consoleStatus.visibleCount !== consoleStatus.totalCount
+                ? `${consoleStatus.visibleCount} of ${consoleStatus.totalCount} messages`
+                : `${consoleStatus.totalCount} message${consoleStatus.totalCount === 1 ? '' : 's'}`}
             </span>
-            <span className="rules-statusbar-item">
-              {subset.resourceSize} / {subset.totalResourceSize} resources
+            <span
+              className="rules-statusbar-item"
+              style={{ color: consoleStatus.errorCount > 0 ? token.colorError : token.colorTextTertiary }}
+              title="Console messages at the error level"
+            >
+              {consoleStatus.errorCount} error{consoleStatus.errorCount === 1 ? '' : 's'}
+            </span>
+            <span
+              className="rules-statusbar-item"
+              style={{ color: consoleStatus.warningCount > 0 ? token.colorWarning : token.colorTextTertiary }}
+              title="Console messages at the warning level"
+            >
+              {consoleStatus.warningCount} warning{consoleStatus.warningCount === 1 ? '' : 's'}
             </span>
           </>
+        ) : footerTool === 'search' ? (
+          <span className="rules-statusbar-item">{searchLine}</span>
         ) : (
-          <span className="rules-statusbar-item">
-            {transferredSize} transferred
-            {resourceSize && resourceSize !== transferredSize ? ` / ${resourceSize} resources` : ''}
-          </span>
-        )}
-
-        {/* This-navigation milestones. The per-item dividers (panel-shell.css)
-            already separate Finish from the cumulative counts. */}
-        {finishTime && <span className="rules-statusbar-item">Finish: {finishTime}</span>}
-        {dclText && (
-          <span className="rules-statusbar-item" style={{ color: '#1a73e8' }} title="DOMContentLoaded">
-            DOMContentLoaded: {dclText}
-          </span>
-        )}
-        {loadText && (
-          <span className="rules-statusbar-item" style={{ color: '#d93025' }} title="Load event">
-            Load: {loadText}
-          </span>
-        )}
-        {hasTiming && showPageLabel && (
-          <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title={pageOrigin ?? undefined}>
-            {pageHost}
-          </span>
+          <NetworkFooterCluster
+            requestCount={requestCount}
+            transferredSize={transferredSize}
+            resourceSize={resourceSize}
+            subset={subset}
+            finishTime={finishTime}
+            dclText={dclText}
+            loadText={loadText}
+            modifiedCount={modifiedCount}
+            failedCount={failedCount}
+            cachedCount={cachedCount}
+            showModified={showModified}
+            showFailed={showFailed}
+            showCached={showCached}
+            showPageLabel={showPageLabel}
+            pageHost={pageHost}
+            pageOrigin={pageOrigin}
+            hasTiming={hasTiming}
+          />
         )}
 
         {tabCount > 0 && (
@@ -210,7 +355,6 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
           </span>
         )}
       </div>
-
       <div className="rules-statusbar-right">
         <DebugModeDormantNotice tabSource="inspected" hasRealizableRule={hasRealizableDebugRule} />
         <DebugModePill tabSource="inspected" onOpenDocs={handleOpenDocs} />

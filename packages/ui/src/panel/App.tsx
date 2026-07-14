@@ -74,6 +74,7 @@ import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
 import { matchesPanelFilters } from './components/traffic/row-filter';
 import { type ConsoleRequestJoin, consoleRequestJoin } from './data/console-request-join';
+import type { SearchFooterStatus } from './data/footer-status';
 import { deriveXhrLogEntries } from './data/console-xhr-log';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
@@ -703,6 +704,22 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const activeTab = groups.focusedLeaf.tabs.find((t) => t.id === groups.activeTabId);
   const selectedId = activeTab?.kind === 'request' ? activeTab.requestId : null;
   const footer = useFooterSummary(data, filteredRows);
+  // Search summary for the focused-tool footer. Derived here because the
+  // search session lives at App level (already re-rendering per stream
+  // flush); Storage/Console publish theirs through the footer-status store.
+  const searchFooterStatus = useMemo<SearchFooterStatus>(() => {
+    const st = searchSession.search.state;
+    let matches = 0;
+    for (const g of st.results) matches += g.matches.length;
+    return {
+      status: st.status,
+      done: st.progress.done,
+      total: st.progress.total,
+      matches,
+      files: st.results.length,
+      elapsedMs: st.progress.elapsedMs,
+    };
+  }, [searchSession.search.state]);
 
   // ── HAR export helpers ─────────────────────────────────────
   const { handleSaveAllAsHar, handleSaveAsHar, handleCopyAllAsHar, handleCopyAsHar } = useHarExport({
@@ -974,6 +991,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         pageCount={data.pageCount}
         pageOrigin={data.navTiming?.pageOrigin}
         hasRealizableDebugRule={hasRealizableDebugRule}
+        tl={tl}
+        searchStatus={searchFooterStatus}
       />
     </div>
   );

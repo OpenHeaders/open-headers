@@ -876,6 +876,15 @@ export const workbenchSettings = {
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.label': 'Current page only',
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.description':
     'Finish / DCL / Load report only the latest navigation, anchored to when it started.',
+  'workbench.settings.def.devpanelLayout.footerScope.label': 'Footer Summary Scope',
+  'workbench.settings.def.devpanelLayout.footerScope.description':
+    'What the DevTools panel status bar summarizes. Focused tool follows the tool window you are working in (Storage, Console, and Search get their own summary lines); Network tool only always shows the Network figures.',
+  'workbench.settings.def.devpanelLayout.footerScope.option.focused.label': 'Focused tool',
+  'workbench.settings.def.devpanelLayout.footerScope.option.focused.description':
+    'The footer follows the focused tool window — Storage, Console, and Search show their own summaries; other tools fall back to the Network line.',
+  'workbench.settings.def.devpanelLayout.footerScope.option.network.label': 'Network tool only',
+  'workbench.settings.def.devpanelLayout.footerScope.option.network.description':
+    'The footer always shows the Network figures, whichever tool window has focus.',
   'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label': 'Show Panel Toggles in Top Bar',
   'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.description':
     'Display the left / bottom / right panel toggle icons in the DevTools panel top bar.',

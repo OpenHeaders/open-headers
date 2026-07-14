@@ -117,12 +117,14 @@ export function MoreFiltersMenu({
  * stats currently surfaced beyond the always-on counts.
  */
 export function ViewMenu() {
+  const [footerScope, setFooterScope] = useSetting('devpanelLayout.footerScope');
   const [showModified, setShowModified] = useSetting('devpanelLayout.footerShowModified');
   const [showFailed, setShowFailed] = useSetting('devpanelLayout.footerShowFailed');
   const [showCached, setShowCached] = useSetting('devpanelLayout.footerShowCached');
   const [showPageContext, setShowPageContext] = useSetting('devpanelLayout.footerShowPageContext');
   const [timingMode, setTimingMode] = useSetting('devpanelLayout.footerTimingMode');
 
+  const resetFooterScope = useResetSetting('devpanelLayout.footerScope');
   const resetModified = useResetSetting('devpanelLayout.footerShowModified');
   const resetFailed = useResetSetting('devpanelLayout.footerShowFailed');
   const resetCached = useResetSetting('devpanelLayout.footerShowCached');
@@ -132,12 +134,14 @@ export function ViewMenu() {
   // Each hook is called unconditionally and folded afterwards — chaining the
   // calls through `||` directly would short-circuit once one is true, skipping
   // the rest and changing the hook count between renders (React error #300).
+  const footerScopeDirty = useIsModified('devpanelLayout.footerScope');
   const modifiedDirty = useIsModified('devpanelLayout.footerShowModified');
   const failedDirty = useIsModified('devpanelLayout.footerShowFailed');
   const cachedDirty = useIsModified('devpanelLayout.footerShowCached');
   const pageContextDirty = useIsModified('devpanelLayout.footerShowPageContext');
   const timingModeDirty = useIsModified('devpanelLayout.footerTimingMode');
-  const anyModified = modifiedDirty || failedDirty || cachedDirty || pageContextDirty || timingModeDirty;
+  const anyModified =
+    footerScopeDirty || modifiedDirty || failedDirty || cachedDirty || pageContextDirty || timingModeDirty;
 
   const flags = [showModified, showFailed, showCached, showPageContext];
   const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
@@ -150,6 +154,34 @@ export function ViewMenu() {
       placement="bottomLeft"
       title="Choose which footer stats to show"
     >
+      {/* Footer scope — a radio pair: the summary follows the focused
+          tool window (Storage/Console/Search get their own lines), or
+          always shows the Network figures. */}
+      <label
+        className="dt-morefilters-item"
+        title="The footer follows the focused tool window — Storage, Console, and Search show their own summaries; other tools fall back to the Network line."
+      >
+        <input
+          type="radio"
+          name="dt-footer-scope"
+          checked={footerScope === 'focused'}
+          onChange={() => setFooterScope('focused')}
+        />
+        Focused tool
+      </label>
+      <label
+        className="dt-morefilters-item"
+        title="The footer always shows the Network figures, whichever tool window has focus."
+      >
+        <input
+          type="radio"
+          name="dt-footer-scope"
+          checked={footerScope === 'network'}
+          onChange={() => setFooterScope('network')}
+        />
+        Network tool only
+      </label>
+      <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showModified} onChange={(e) => setShowModified(e.target.checked)} />
         Modified count
@@ -187,6 +219,7 @@ export function ViewMenu() {
         className="dt-morefilters-reset"
         disabled={!anyModified}
         onClick={() => {
+          resetFooterScope();
           resetModified();
           resetFailed();
           resetCached();

@@ -32,6 +32,19 @@ export const VIEW_INFO: InfoPopoverContent = {
   summary: 'Chooses which optional stats the footer shows, beside the always-on request and transfer counts.',
   sections: [
     {
+      heading: 'Summary scope',
+      items: [
+        {
+          label: 'Focused tool',
+          desc: 'The footer follows the focused tool window — Storage, Console, and Search show their own summary lines; other tools fall back to the Network line.',
+        },
+        {
+          label: 'Network tool only',
+          desc: 'The footer always shows the Network figures, whichever tool window has focus.',
+        },
+      ],
+    },
+    {
       heading: 'Footer counts',
       items: [
         { label: 'Modified', desc: 'How many requests a rule changed.' },

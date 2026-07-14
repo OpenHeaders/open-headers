@@ -1,0 +1,143 @@
+/**
+ * Focused-tool footer summaries — what the status bar's left side shows
+ * for each tool window when `devpanelLayout.footerScope` is `focused`.
+ * Pure builders only; the publish/subscribe seam the tool windows and
+ * the status bar meet at lives in `stores/footer-status-store.ts`.
+ */
+
+import type { ConsoleLevel } from '@openheaders/core/console-stream';
+import type { StorageSection } from './storage/use-storage-inspector';
+
+// ── Storage ──────────────────────────────────────────────────────────
+
+export interface StorageFooterStatus {
+  /** The active section's count line (`12 of 64 items`, `3 databases`,
+   *  `4.2 MB of 10 MB used`). */
+  summary: string;
+  /** Cross-section match note while a filter is typed
+   *  (`3 sections match`), empty otherwise. */
+  matches: string;
+  /** Failure note rendered in the error tone (`write failed`), empty
+   *  when healthy. */
+  alert: string;
+}
+
+export interface StorageFooterInput {
+  section: StorageSection;
+  /** The active section's row count after the typed filter — `null` for
+   *  sections whose grid filters below the top-level rows (IndexedDB
+   *  stores, cache entries), where `x of y` over the top-level noun
+   *  would misread. */
+  filteredCount: number | null;
+  totalCount: number;
+  /** A non-empty filter is typed — count lines read `x of y` and the
+   *  cross-section match note appears. */
+  filterActive: boolean;
+  /** Sections with at least one matching row (nav-rail badge counts). */
+  matchingSections: number;
+  writeFailed: boolean;
+  /** IndexedDB / Cache Storage per-name delete failed. */
+  deleteFailed: boolean;
+  readFailed: boolean;
+  /** Usage section figures; `null` until the quota read lands. */
+  quotaUsage: number | null;
+  quotaTotal: number | null;
+}
+
+/** Footer bytes in the browser's decimal units, kB→MB→GB rolling. */
+function formatStorageBytes(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`;
+  const kilobytes = bytes / 1000;
+  if (kilobytes < 1000) return `${kilobytes.toFixed(1)} kB`;
+  const megabytes = kilobytes / 1000;
+  if (megabytes < 1000) return `${megabytes.toFixed(1)} MB`;
+  return `${(megabytes / 1000).toFixed(1)} GB`;
+}
+
+const SECTION_NOUNS: Record<Exclude<StorageSection, 'quota'>, { one: string; many: string }> = {
+  local: { one: 'item', many: 'items' },
+  session: { one: 'item', many: 'items' },
+  cookies: { one: 'cookie', many: 'cookies' },
+  indexeddb: { one: 'database', many: 'databases' },
+  cachestorage: { one: 'cache', many: 'caches' },
+};
+
+export function buildStorageFooterStatus(input: StorageFooterInput): StorageFooterStatus {
+  const matches =
+    input.filterActive && input.section !== 'quota'
+      ? `${input.matchingSections} section${input.matchingSections === 1 ? ' matches' : 's match'}`
+      : '';
+  const alert = input.readFailed
+    ? 'read failed — showing last data'
+    : input.writeFailed
+      ? 'write failed'
+      : input.deleteFailed
+        ? 'delete failed'
+        : '';
+  if (input.section === 'quota') {
+    const summary =
+      input.quotaUsage !== null && input.quotaTotal !== null
+        ? `${formatStorageBytes(input.quotaUsage)} of ${formatStorageBytes(input.quotaTotal)} used`
+        : '';
+    return { summary, matches, alert };
+  }
+  const noun = SECTION_NOUNS[input.section];
+  const summary =
+    input.filterActive && input.filteredCount !== null
+      ? `${input.filteredCount} of ${input.totalCount} ${input.totalCount === 1 ? noun.one : noun.many}`
+      : `${input.totalCount} ${input.totalCount === 1 ? noun.one : noun.many}`;
+  return { summary, matches, alert };
+}
+
+// ── Console ──────────────────────────────────────────────────────────
+
+export interface ConsoleFooterStatus {
+  /** Messages the view currently shows (level mask + filters applied,
+   *  grouped repeats expanded back to message counts). */
+  visibleCount: number;
+  /** All messages in the current log window, before any filtering. */
+  totalCount: number;
+  errorCount: number;
+  warningCount: number;
+}
+
+/** Error/warning tallies over the console's unfiltered log window. */
+export function countConsoleLevels(levels: ReadonlyArray<ConsoleLevel>): { errors: number; warnings: number } {
+  let errors = 0;
+  let warnings = 0;
+  for (const level of levels) {
+    if (level === 'error') errors++;
+    else if (level === 'warning') warnings++;
+  }
+  return { errors, warnings };
+}
+
+// ── Search ───────────────────────────────────────────────────────────
+
+export interface SearchFooterStatus {
+  status: 'idle' | 'running' | 'done';
+  /** Scan progress (requests done / total) while running. */
+  done: number;
+  total: number;
+  matches: number;
+  files: number;
+  elapsedMs: number;
+}
+
+function formatSearchElapsed(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  return `${(ms / 1000).toFixed(2)} s`;
+}
+
+/** The footer's one-line search summary — empty while idle (the bar
+ *  falls back to the Network line). */
+export function searchFooterLine(status: SearchFooterStatus): string {
+  if (status.status === 'running') return `Searching… ${status.done} / ${status.total}`;
+  if (status.status === 'done') {
+    if (status.matches === 0) return `No results · ${formatSearchElapsed(status.elapsedMs)}`;
+    return `Found ${status.matches} match${status.matches === 1 ? '' : 'es'} in ${status.files} file${
+      status.files === 1 ? '' : 's'
+    } · ${formatSearchElapsed(status.elapsedMs)}`;
+  }
+  return '';
+}
