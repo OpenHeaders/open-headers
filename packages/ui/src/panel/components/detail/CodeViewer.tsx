@@ -70,6 +70,7 @@ export default function CodeViewer({
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
   const decorationIdsRef = useRef<string[]>([]);
+  const revealRafRef = useRef<number | null>(null);
   // Monaco mounts asynchronously (lazy chunk + loader) — flipped by
   // onMount so the decoration effect below re-runs once the editor
   // exists; on a fresh open its first run precedes the mount and
@@ -133,8 +134,38 @@ export default function CodeViewer({
     decorationIdsRef.current = editor.deltaDecorations(decorationIdsRef.current, decorations);
 
     const activeMatch = matches[activeIdx];
-    editor.revealRangeInCenter(activeMatch.range);
     editor.setSelection(activeMatch.range);
+
+    // Center the active match and hold it centered per frame for a
+    // bounded window: a one-shot reveal races post-mount layout settle
+    // (word-wrap re-measure of large bodies shifts line positions over
+    // several frames), leaving the line parked at the viewport top
+    // behind Monaco's sticky-scroll rows. Each tick re-centers
+    // immediately (no smooth animation to interrupt), but only when the
+    // line has drifted out of the middle band — a doc too short to
+    // center just no-ops until the deadline.
+    if (revealRafRef.current !== null) cancelAnimationFrame(revealRafRef.current);
+    const deadline = performance.now() + 2000;
+    const tick = (): void => {
+      revealRafRef.current = null;
+      const ed = editorRef.current;
+      const mn = monacoRef.current;
+      if (!ed || !mn || ed.getModel() !== model) return;
+      const height = ed.getLayoutInfo().height;
+      const top = ed.getTopForLineNumber(activeMatch.range.startLineNumber) - ed.getScrollTop();
+      if (height === 0 || top < height * 0.2 || top > height * 0.8) {
+        ed.revealRangeInCenter(activeMatch.range, mn.editor.ScrollType.Immediate);
+      }
+      if (performance.now() > deadline) return;
+      revealRafRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => {
+      if (revealRafRef.current !== null) {
+        cancelAnimationFrame(revealRafRef.current);
+        revealRafRef.current = null;
+      }
+    };
   }, [searchQuery, searchMatchIndex, value, editorReady]);
 
   return (
