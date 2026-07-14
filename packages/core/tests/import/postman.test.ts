@@ -1130,7 +1130,7 @@ describe('request mapping — protocolProfileBehavior', () => {
           {
             name: 'X',
             request: { method: 'GET', url: 'https://api.openheaders.io/x' },
-            protocolProfileBehavior: { disableBodyPruning: true, insecureHTTPParser: true, strictSSL: false },
+            protocolProfileBehavior: { disableCookies: false, insecureHTTPParser: true, strictSSL: false },
           },
         ],
       }),
@@ -1138,9 +1138,30 @@ describe('request mapping — protocolProfileBehavior', () => {
     expect(result.requests[0]?.request.settings).toEqual({ sslVerification: false });
     const noted = result.report.drops.filter((d) => d.tracking === '#todo-request-settings');
     expect(noted.map((d) => d.path)).toEqual([
-      'collection.item[0].protocolProfileBehavior.disableBodyPruning',
+      'collection.item[0].protocolProfileBehavior.disableCookies',
       'collection.item[0].protocolProfileBehavior.insecureHTTPParser',
     ]);
+  });
+
+  it('silently accepts disableBodyPruning: true (behavior-identical) but notes false', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'A',
+            request: { method: 'GET', url: 'https://api.openheaders.io/a' },
+            protocolProfileBehavior: { disableBodyPruning: true },
+          },
+          {
+            name: 'B',
+            request: { method: 'GET', url: 'https://api.openheaders.io/b' },
+            protocolProfileBehavior: { disableBodyPruning: false },
+          },
+        ],
+      }),
+    );
+    const noted = result.report.drops.filter((d) => d.tracking === '#todo-request-settings');
+    expect(noted.map((d) => d.path)).toEqual(['collection.item[1].protocolProfileBehavior.disableBodyPruning']);
   });
 
   it('clamps an out-of-bounds maxRedirects with a transform', () => {

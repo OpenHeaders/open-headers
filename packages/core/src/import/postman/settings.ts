@@ -86,6 +86,15 @@ export function mapProtocolProfileBehavior(
       continue;
     }
 
+    // `disableBodyPruning: true` opts OUT of the vendor's own strip-the-
+    // body-on-bodiless-methods behavior — sending the authored body is
+    // exactly what our executor already does, so the value is
+    // behaviorally identical and lossless to ignore. The vendor stamps
+    // it on nearly every generated request, so noting it would bury a
+    // real report under hundreds of no-op entries. `false` (prune)
+    // genuinely differs and keeps the note.
+    if (key === 'disableBodyPruning' && value === true) continue;
+
     recordDrop(report, {
       path: `${jsonPath}.protocolProfileBehavior.${key}`,
       reason: `Protocol setting "${key}" has no counterpart request setting — not imported.`,
