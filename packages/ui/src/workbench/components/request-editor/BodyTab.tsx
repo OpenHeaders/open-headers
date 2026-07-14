@@ -28,15 +28,14 @@
  * re-entry — purely local UI state, never persisted.
  */
 
-import { AlignLeftOutlined } from '@ant-design/icons';
 import type { RequestBody } from '@openheaders/core/types';
-import { Button, Radio, Select, Tooltip, Typography, theme } from 'antd';
-import type * as monaco from 'monaco-editor';
+import { Radio, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CodeEditor from '../shared/CodeEditor';
+import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import MultipartEditor from './MultipartEditor';
 import FormEditor from './FormEditor';
 import { ViewPickerIcon } from './response/ViewPickerIcons';
@@ -130,10 +129,12 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
   // only the active variant; this ref is the editor-local memory of
   // the others. Cleared on unmount (component-scoped useRef).
   const draftCacheRef = useRef<Partial<Record<RadioValue, RequestBody>>>({});
-  // Mounted Monaco instance of the raw-body editor — the Format button
-  // in the picker row dispatches through it (same path as the editor's
-  // own corner action and Shift+Alt+F).
-  const rawEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  // Action surfaces of the mounted editors — the Find / Replace /
+  // Beautify clusters live in the rows ABOVE the editors (`actions=
+  // "external"`), so they never cover long first lines of the buffer.
+  const rawActionsRef = useRef<CodeEditorActionsTarget | null>(null);
+  const graphqlQueryActionsRef = useRef<CodeEditorActionsTarget | null>(null);
+  const graphqlVariablesActionsRef = useRef<CodeEditorActionsTarget | null>(null);
   // Mirror the live body into the cache on every render so the active
   // variant's edits are captured for return-trips.
   draftCacheRef.current[radio] = body;
@@ -192,21 +193,13 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             popupMatchSelectWidth={false}
           />
         )}
-        {radio === 'raw' && raw !== 'text' && (
-          <Tooltip title={t('workbench.editors.request.body.format')} placement="top">
-            <Button
-              size="small"
-              type="text"
-              icon={<AlignLeftOutlined />}
-              aria-label={t('workbench.editors.request.body.formatAria')}
-              style={{ marginLeft: 'auto' }}
-              onClick={() => {
-                void rawEditorRef.current?.getAction('editor.action.formatDocument')?.run();
-              }}
-            >
-              {t('workbench.editors.request.body.beautify')}
-            </Button>
-          </Tooltip>
+        {radio === 'raw' && (
+          <CodeEditorActions
+            target={rawActionsRef}
+            language={rawLangForEditor}
+            formatLabel={t('workbench.editors.request.body.beautify')}
+            style={{ marginLeft: 'auto' }}
+          />
         )}
       </div>
 
@@ -244,9 +237,8 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             language={rawLangForEditor}
             minHeight={240}
             valueDetection
-            onEditorMount={(ed) => {
-              rawEditorRef.current = ed;
-            }}
+            actions="external"
+            actionsRef={rawActionsRef}
           />
         </div>
       )}
@@ -279,6 +271,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                   summary: t('workbench.editors.request.body.queryInfoSummary'),
                 }}
               />
+              <CodeEditorActions target={graphqlQueryActionsRef} language="graphql" style={{ marginLeft: 'auto' }} />
             </div>
             <div style={{ flex: 1, minHeight: 300 }}>
               <CodeEditor
@@ -292,6 +285,8 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                 }
                 language="graphql"
                 minHeight={300}
+                actions="external"
+                actionsRef={graphqlQueryActionsRef}
               />
             </div>
           </div>
@@ -314,6 +309,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                   summary: t('workbench.editors.request.body.variablesInfoSummary'),
                 }}
               />
+              <CodeEditorActions target={graphqlVariablesActionsRef} language="json" style={{ marginLeft: 'auto' }} />
             </div>
             <div style={{ flex: 1, minHeight: 300 }}>
               <CodeEditor
@@ -323,6 +319,8 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                 }
                 language="json"
                 minHeight={300}
+                actions="external"
+                actionsRef={graphqlVariablesActionsRef}
               />
             </div>
           </div>

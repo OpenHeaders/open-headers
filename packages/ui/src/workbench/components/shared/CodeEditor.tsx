@@ -14,17 +14,13 @@
  * `value` / `onChange` / `readOnly` / `placeholder` / `minHeight`.
  */
 
-import { AlignLeftOutlined, SearchOutlined, SwapOutlined } from '@ant-design/icons';
 import { useUiTheme } from '@openheaders/ui/context';
 import Editor, { type Monaco } from '@monaco-editor/react';
-import { Alert, Button, Tooltip, theme } from 'antd';
+import { Alert, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
-import { isMac } from '@openheaders/ui/shared/platform';
-import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
-import { getLanguage, type LanguageId, toMonacoLanguage } from '../../languages/registry';
+import { type LanguageId, toMonacoLanguage } from '../../languages/registry';
 import { resolveFontFamily } from '../../settings/schema/editor';
 import { useSettingValue } from '../../settings/hooks';
 // Side-effect import: kicks the Monaco bootstrap (loader.config + worker
@@ -34,18 +30,7 @@ import { useSettingValue } from '../../settings/hooks';
 import '../monaco/bootstrap';
 import { useMonacoVariableCompletions } from '../template-input';
 import { useMonacoJwtEdit } from '../value-editors';
-
-/** Monaco language ids that have a registered formatter — either
- *  Monaco's built-in LSP (JSON / CSS / HTML) or our Prettier provider
- *  (JS / XML). `plaintext` + graphql fallbacks stay off. The set is
- *  source-of-truth constant: adding a language here requires adding a
- *  provider somewhere Monaco can see. */
-const MONACO_FORMATTABLE_LANGUAGES = new Set(['javascript', 'json', 'css', 'html', 'xml']);
-
-// Monaco's own (fixed) keybindings for the find / replace widgets —
-// shown as tooltip hints on the corner action buttons.
-const FIND_SHORTCUT = isMac ? '⌘F' : 'Ctrl+F';
-const REPLACE_SHORTCUT = isMac ? '⌥⌘F' : 'Ctrl+H';
+import CodeEditorActions, { type CodeEditorActionsTarget, isFormattableLanguage } from './CodeEditorActions';
 
 interface CodeEditorProps {
   value?: string;
@@ -77,6 +62,15 @@ interface CodeEditorProps {
    *  open the shared JWT modal and write the edited token back in
    *  place. Off by default; the raw request-body editor opts in. */
   valueDetection?: boolean;
+  /** Where the Find / Replace / Format cluster renders. `'corner'`
+   *  (default) keeps the hover overlay inside the editor; `'external'`
+   *  suppresses it — the host renders a `CodeEditorActions` in its own
+   *  toolbar row, driven through `actionsRef`, so the buttons never
+   *  cover the buffer's first lines. */
+  actions?: 'corner' | 'external';
+  /** Populated with the editor's imperative action surface — hand it
+   *  to an externally-rendered `CodeEditorActions`. */
+  actionsRef?: React.MutableRefObject<CodeEditorActionsTarget | null>;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -91,6 +85,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onEditorMount,
   wordWrapOverride,
   valueDetection = false,
+  actions = 'corner',
+  actionsRef,
 }) => {
   const registerCompletions = useMonacoVariableCompletions();
   const { attachJwtDetection, jwtModal } = useMonacoJwtEdit();
@@ -139,14 +135,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const lineNumbers = useSettingValue('editor.lineNumbers');
   const renderWhitespace = useSettingValue('editor.renderWhitespace');
   const bracketPairColorization = useSettingValue('editor.bracketPairColorization');
-  const formatShortcutLabel = useShortcutLabel('format-code');
 
-  // Ask Monaco whether a `DocumentFormattingEditProvider` is registered
-  // for the language — single source of truth for "is this buffer
+  // Whether a `DocumentFormattingEditProvider` is registered for the
+  // language — single source of truth for "is this buffer
   // formattable?". JSON / CSS / HTML have Monaco's built-ins; JS / XML
   // are registered by `registerPrettierFormatters`. Unregistered
   // languages (text, graphql) return false → button stays hidden.
-  const formattable = MONACO_FORMATTABLE_LANGUAGES.has(toMonacoLanguage(language));
+  const formattable = isFormattableLanguage(language);
 
   const runFormat = useCallback(async () => {
     const editor = editorRef.current;
@@ -183,6 +178,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     editor.focus();
     void editor.getAction(id)?.run();
   }, []);
+
+  // Imperative surface for the action cluster — the corner overlay and
+  // any externally-rendered `CodeEditorActions` both drive the editor
+  // through it. Refreshed every render (same pattern as `valueRef`).
+  const actionsTargetRef = useRef<CodeEditorActionsTarget | null>(null);
+  const actionsTarget: CodeEditorActionsTarget = {
+    find: () => runEditorAction('actions.find'),
+    replace: () => runEditorAction('editor.action.startFindReplaceAction'),
+    format: () => void runFormatRef.current(),
+  };
+  actionsTargetRef.current = actionsTarget;
+  if (actionsRef) actionsRef.current = actionsTarget;
 
   const options: monaco.editor.IStandaloneEditorConstructionOptions = {
     minimap: { enabled: false },
@@ -232,14 +239,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // `rules.less` (`.editorPlaceholder`); Monaco's default is one line.
     placeholder,
   };
-
-  const formatTooltip: React.ReactNode = readOnly ? (
-    'Read-only'
-  ) : !formattable ? (
-    `No formatter for ${getLanguage(language).label}`
-  ) : (
-    <ShortcutHintTitle label={formatShortcutLabel}>Format</ShortcutHintTitle>
-  );
 
   return (
     <div
@@ -321,58 +320,27 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       {/* z-index 12: above Monaco's sticky-scroll rows (4) and scrollbar
           (11), below the find widget (35) so the opened widget covers
           the cluster that launched it. */}
-      <div
-        className="rules-code-editor-actions"
-        style={{
-          position: 'absolute',
-          top: 6,
-          right: 14,
-          zIndex: 12,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          // Elevated rounded rect (same chrome as the Scripts tab's
-          // Packages/Snippets bar) — the icons floated transparent over
-          // the buffer text and became unreadable on long first lines.
-          padding: '2px 4px',
-          background: token.colorBgElevated,
-          border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: 8,
-          boxShadow: token.boxShadowTertiary,
-        }}
-      >
-        <Tooltip title={<ShortcutHintTitle label={FIND_SHORTCUT}>Find</ShortcutHintTitle>} placement="top">
-          <Button
-            size="small"
-            type="text"
-            icon={<SearchOutlined />}
-            onClick={() => runEditorAction('actions.find')}
-            aria-label="Find"
-          />
-        </Tooltip>
-        {!readOnly && (
-          <Tooltip title={<ShortcutHintTitle label={REPLACE_SHORTCUT}>Replace</ShortcutHintTitle>} placement="top">
-            <Button
-              size="small"
-              type="text"
-              icon={<SwapOutlined />}
-              onClick={() => runEditorAction('editor.action.startFindReplaceAction')}
-              aria-label="Replace"
-            />
-          </Tooltip>
-        )}
-        {!readOnly && formattable && (
-          <Tooltip title={formatTooltip} placement="top">
-            <Button
-              size="small"
-              type="text"
-              icon={<AlignLeftOutlined />}
-              onClick={() => void runFormat()}
-              aria-label="Format code"
-            />
-          </Tooltip>
-        )}
-      </div>
+      {actions === 'corner' && (
+        <div
+          className="rules-code-editor-actions"
+          style={{
+            position: 'absolute',
+            top: 6,
+            right: 14,
+            zIndex: 12,
+            // Elevated rounded rect (same chrome as the Scripts tab's
+            // Packages/Snippets bar) — the icons floated transparent over
+            // the buffer text and became unreadable on long first lines.
+            padding: '2px 4px',
+            background: token.colorBgElevated,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: 8,
+            boxShadow: token.boxShadowTertiary,
+          }}
+        >
+          <CodeEditorActions target={actionsTargetRef} language={language} readOnly={readOnly} />
+        </div>
+      )}
       {/* Grip strip — reserved row below the editor so Monaco's vertical
           scrollbar (which spans only the Editor element) ends above the
           grip instead of sharing its corner. Fill mode sizes from the
