@@ -43,32 +43,39 @@ export function computeBreadcrumbs(
   displayLabel: string,
   rules: Rule[],
   localCollectionTrees: CollectionTree[],
-  requestCollectionTrees: readonly CollectionTree[] = [],
-  requests: readonly Request[] = [],
-  templateCollectionTrees: readonly CollectionTree[] = [],
+  requestCollectionTrees: readonly CollectionTree[],
+  requests: readonly Request[],
+  templateCollectionTrees: readonly CollectionTree[],
+  t: Translate,
 ): string[] {
   if (!tab) return [];
 
-  if (tab.mode === 'settings') return ['Settings'];
-  if (tab.mode === 'whats-new') return ["What's New"];
+  if (tab.mode === 'settings') return [t('workbench.shell.breadcrumbs.settings')];
+  if (tab.mode === 'whats-new') return [t('workbench.shell.breadcrumbs.whatsNew')];
 
-  if (tab.mode === 'workspace-manager') return ['Workspaces'];
-  if (tab.mode === 'daemon-admin') return ['Daemon admin'];
-  if (tab.mode === 'env-edit') return ['Environments', displayLabel];
-  if (tab.mode === 'workspace-vars') return ['Workspace Variables'];
-  if (tab.mode === 'vault') return ['Vault'];
-  if (tab.mode === 'script-packages') return ['Package Library'];
+  if (tab.mode === 'workspace-manager') return [t('workbench.shell.breadcrumbs.workspaces')];
+  if (tab.mode === 'daemon-admin') return [t('workbench.shell.breadcrumbs.daemonAdmin')];
+  if (tab.mode === 'env-edit') return [t('workbench.shell.breadcrumbs.environments'), displayLabel];
+  if (tab.mode === 'workspace-vars') return [t('workbench.shell.breadcrumbs.workspaceVariables')];
+  if (tab.mode === 'vault') return [t('workbench.shell.breadcrumbs.vault')];
+  if (tab.mode === 'script-packages') return [t('workbench.shell.breadcrumbs.packageLibrary')];
   if (tab.mode === 'collection-vars') {
     const col = tab.collectionUid ? localCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
-    return col ? ['Rules', col.name, 'Variables'] : ['Variables'];
+    return col
+      ? [t('workbench.shell.breadcrumbs.rules'), col.name, t('workbench.shell.breadcrumbs.variables')]
+      : [t('workbench.shell.breadcrumbs.variables')];
   }
   if (tab.mode === 'request-collection-vars') {
     const col = tab.collectionUid ? requestCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
-    return col ? ['Requests', col.name, 'Variables'] : ['Variables'];
+    return col
+      ? [t('workbench.shell.breadcrumbs.requests'), col.name, t('workbench.shell.breadcrumbs.variables')]
+      : [t('workbench.shell.breadcrumbs.variables')];
   }
   if (tab.mode === 'template-collection-vars') {
     const col = tab.collectionUid ? templateCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
-    return col ? ['Templates', col.name, 'Variables'] : ['Variables'];
+    return col
+      ? [t('workbench.shell.breadcrumbs.templates'), col.name, t('workbench.shell.breadcrumbs.variables')]
+      : [t('workbench.shell.breadcrumbs.variables')];
   }
   if (tab.mode === 'request-edit' && tab.requestUid) {
     const req = requests.find((r) => r.uid === tab.requestUid);
@@ -86,10 +93,12 @@ export function computeBreadcrumbs(
           }
           return false;
         };
-        if (findRequest(col.tree)) return ['API Requests', col.name, ...trail, displayLabel];
+        if (findRequest(col.tree)) {
+          return [t('workbench.shell.breadcrumbs.apiRequests'), col.name, ...trail, displayLabel];
+        }
       }
     }
-    return ['API Requests', displayLabel];
+    return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
   }
   if (tab.mode === 'response-example') {
     // Frozen example under a request — extend the parent request's
@@ -98,11 +107,19 @@ export function computeBreadcrumbs(
       const req = requests.find((r) => r.uid === tab.requestUid);
       if (req) {
         const hit = computeRequestTrail(req.uid, requestCollectionTrees);
-        if (hit) return ['API Requests', hit.collectionName, ...hit.folderTrail, req.name, displayLabel];
-        return ['API Requests', req.name, displayLabel];
+        if (hit) {
+          return [
+            t('workbench.shell.breadcrumbs.apiRequests'),
+            hit.collectionName,
+            ...hit.folderTrail,
+            req.name,
+            displayLabel,
+          ];
+        }
+        return [t('workbench.shell.breadcrumbs.apiRequests'), req.name, displayLabel];
       }
     }
-    return ['API Requests', displayLabel];
+    return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
   }
   if (tab.mode === 'request-create') {
     const colId = tab.preferredCollectionId;
@@ -110,8 +127,8 @@ export function computeBreadcrumbs(
     const folderTrail = tab.preferredFolderPath
       ? tab.preferredFolderPath.split('/').filter((seg) => seg.length > 0)
       : [];
-    if (col) return ['API Requests', col.name, ...folderTrail, displayLabel];
-    return ['API Requests', displayLabel];
+    if (col) return [t('workbench.shell.breadcrumbs.apiRequests'), col.name, ...folderTrail, displayLabel];
+    return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
   }
   if (tab.mode === 'rule-create') {
     const colId = tab.preferredCollectionId;
@@ -119,15 +136,15 @@ export function computeBreadcrumbs(
     const folderTrail = tab.preferredFolderPath
       ? tab.preferredFolderPath.split('/').filter((seg) => seg.length > 0)
       : [];
-    if (col) return ['Rules', col.name, ...folderTrail, displayLabel];
-    return ['Rules', displayLabel];
+    if (col) return [t('workbench.shell.breadcrumbs.rules'), col.name, ...folderTrail, displayLabel];
+    return [t('workbench.shell.breadcrumbs.rules'), displayLabel];
   }
 
-  if (tab.mode === 'live-workflow-edit') return ['Workflows', displayLabel];
-  if (tab.mode === 'live-workflow-create') return ['Workflows', displayLabel];
-  if (tab.mode === 'live-variable-edit') return ['Live Variables', displayLabel];
-  if (tab.mode === 'live-variable-create') return ['Live Variables', displayLabel];
-  if (tab.mode === 'live-vars') return ['Live Variables'];
+  if (tab.mode === 'live-workflow-edit') return [t('workbench.shell.breadcrumbs.workflows'), displayLabel];
+  if (tab.mode === 'live-workflow-create') return [t('workbench.shell.breadcrumbs.workflows'), displayLabel];
+  if (tab.mode === 'live-variable-edit') return [t('workbench.shell.breadcrumbs.liveVariables'), displayLabel];
+  if (tab.mode === 'live-variable-create') return [t('workbench.shell.breadcrumbs.liveVariables'), displayLabel];
+  if (tab.mode === 'live-vars') return [t('workbench.shell.breadcrumbs.liveVariables')];
 
   if (tab.mode === 'collection-overview') {
     // Family-disambiguate by entity uid — collection-overview is a
@@ -136,10 +153,14 @@ export function computeBreadcrumbs(
     // misled users on a request- or template-collection overview tab.
     const uid = tab.entityId;
     if (uid) {
-      if (requestCollectionTrees.some((c) => c.uid === uid)) return ['API Requests', displayLabel];
-      if (templateCollectionTrees.some((c) => c.uid === uid)) return ['Templates', displayLabel];
+      if (requestCollectionTrees.some((c) => c.uid === uid)) {
+        return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
+      }
+      if (templateCollectionTrees.some((c) => c.uid === uid)) {
+        return [t('workbench.shell.breadcrumbs.templates'), displayLabel];
+      }
     }
-    return ['Rules', displayLabel];
+    return [t('workbench.shell.breadcrumbs.rules'), displayLabel];
   }
 
   if (tab.mode === 'folder-overview' && tab.entityId) {
@@ -166,12 +187,27 @@ export function computeBreadcrumbs(
       return null;
     };
     const ruleHit = findIn(localCollectionTrees);
-    if (ruleHit) return ['Rules', ruleHit.collectionName, ...ruleHit.trail, displayLabel];
+    if (ruleHit)
+      return [t('workbench.shell.breadcrumbs.rules'), ruleHit.collectionName, ...ruleHit.trail, displayLabel];
     const requestHit = findIn(requestCollectionTrees);
-    if (requestHit) return ['API Requests', requestHit.collectionName, ...requestHit.trail, displayLabel];
+    if (requestHit) {
+      return [
+        t('workbench.shell.breadcrumbs.apiRequests'),
+        requestHit.collectionName,
+        ...requestHit.trail,
+        displayLabel,
+      ];
+    }
     const templateHit = findIn(templateCollectionTrees);
-    if (templateHit) return ['Templates', templateHit.collectionName, ...templateHit.trail, displayLabel];
-    return ['Rules', displayLabel];
+    if (templateHit) {
+      return [
+        t('workbench.shell.breadcrumbs.templates'),
+        templateHit.collectionName,
+        ...templateHit.trail,
+        displayLabel,
+      ];
+    }
+    return [t('workbench.shell.breadcrumbs.rules'), displayLabel];
   }
 
   if (tab.mode === 'edit' && tab.ruleUid) {
@@ -190,13 +226,13 @@ export function computeBreadcrumbs(
           }
           return false;
         };
-        if (findRule(col.tree)) return ['Rules', col.name, ...trail, displayLabel];
+        if (findRule(col.tree)) return [t('workbench.shell.breadcrumbs.rules'), col.name, ...trail, displayLabel];
       }
     }
-    return ['Rules', displayLabel];
+    return [t('workbench.shell.breadcrumbs.rules'), displayLabel];
   }
 
-  return ['Rules', displayLabel];
+  return [t('workbench.shell.breadcrumbs.rules'), displayLabel];
 }
 
 /**

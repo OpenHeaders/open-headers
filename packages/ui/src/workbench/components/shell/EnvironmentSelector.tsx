@@ -20,6 +20,7 @@ import type { InputRef } from 'antd';
 import { Button, Divider, Dropdown, Input, Popover, Radio, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import './EnvironmentSelector.css';
 import { useSetting } from '../../settings/hooks';
@@ -63,6 +64,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
   onToggleTabPin,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const isActive = env.uid === activeEnvironmentId;
   const isDefault = env.uid === activeCollectionDefaultEnvId;
   const anyPinned = tabPinned || pinned;
@@ -161,7 +163,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
         <CheckCircleFilled style={{ fontSize: 14, color: token.colorPrimary, flexShrink: 0 }} />
       )}
       {isDefault && (
-        <Tooltip title="Default environment is auto-selected while working with the collection." placement="top">
+        <Tooltip title={t('workbench.shell.envSelector.defaultTooltip')} placement="top">
           <Text
             style={{
               fontSize: 10,
@@ -171,16 +173,16 @@ const EnvRow: React.FC<EnvRowProps> = ({
               letterSpacing: 0.5,
             }}
           >
-            DEFAULT
+            {t('workbench.shell.envSelector.defaultPill')}
           </Text>
         </Tooltip>
       )}
       <div className="oh-env-row-actions">
-        <Tooltip title={`Open ${env.name}`} placement="top" mouseEnterDelay={0.5}>
+        <Tooltip title={t('workbench.shell.envSelector.openEnv', { name: env.name })} placement="top" mouseEnterDelay={0.5}>
           <span
             role="button"
             tabIndex={-1}
-            aria-label={`Open ${env.name}`}
+            aria-label={t('workbench.shell.envSelector.openEnv', { name: env.name })}
             className="oh-env-row-action"
             onClick={(e) => {
               e.stopPropagation();
@@ -204,16 +206,18 @@ const EnvRow: React.FC<EnvRowProps> = ({
               <div style={{ padding: 2, width: 240 }} onClick={(e) => e.stopPropagation()}>
                 {tabPinnable &&
                   pinMenuRow(
-                    tabPinned ? 'Unpin from this tab' : 'Pin to this tab',
-                    'Switches to this environment whenever the tab is focused.',
+                    tabPinned ? t('workbench.shell.envSelector.unpinFromTab') : t('workbench.shell.envSelector.pinToTab'),
+                    t('workbench.shell.envSelector.pinToTabDesc'),
                     tabPinned,
                     tabPinColor,
                     onToggleTabPin,
                   )}
                 {activeCollectionId &&
                   pinMenuRow(
-                    pinned ? 'Unpin from collection' : 'Pin to collection',
-                    'Shows this environment in the collection’s pinned list.',
+                    pinned
+                      ? t('workbench.shell.envSelector.unpinFromCollection')
+                      : t('workbench.shell.envSelector.pinToCollection'),
+                    t('workbench.shell.envSelector.pinToCollectionDesc'),
                     pinned,
                     collectionPinColor,
                     onTogglePin,
@@ -224,7 +228,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
             <span
               role="button"
               tabIndex={-1}
-              aria-label="Pin environment"
+              aria-label={t('workbench.shell.envSelector.pinAria')}
               className="oh-env-row-action"
               style={anyPinned ? { opacity: 1 } : undefined}
               onClick={(e) => e.stopPropagation()}
@@ -236,14 +240,22 @@ const EnvRow: React.FC<EnvRowProps> = ({
         {activeCollectionId && (
           <>
             <Tooltip
-              title={isDefault ? 'Clear collection default' : 'Set as collection default'}
+              title={
+                isDefault
+                  ? t('workbench.shell.envSelector.clearCollectionDefault')
+                  : t('workbench.shell.envSelector.setCollectionDefault')
+              }
               placement="top"
               mouseEnterDelay={0.5}
             >
               <span
                 role="button"
                 tabIndex={-1}
-                aria-label={isDefault ? 'Clear collection default' : 'Set as collection default'}
+                aria-label={
+                  isDefault
+                    ? t('workbench.shell.envSelector.clearCollectionDefault')
+                    : t('workbench.shell.envSelector.setCollectionDefault')
+                }
                 className="oh-env-row-action"
                 style={isDefault ? { opacity: 1 } : undefined}
                 onClick={(e) => {
@@ -272,6 +284,7 @@ interface NoEnvRowProps {
 
 const NoEnvRow: React.FC<NoEnvRowProps> = ({ activeEnvironmentId, onSelect }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [hovered, setHovered] = useState(false);
   const isActive = activeEnvironmentId === null;
 
@@ -307,7 +320,7 @@ const NoEnvRow: React.FC<NoEnvRowProps> = ({ activeEnvironmentId, onSelect }) =>
           fontWeight: isActive ? 500 : 400,
         }}
       >
-        No environment
+        {t('workbench.shell.envSelector.noEnvironment')}
       </Text>
       {isActive && (
         <CheckCircleFilled style={{ fontSize: 14, color: token.colorPrimary, flexShrink: 0 }} />
@@ -355,6 +368,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   compact = false,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -486,7 +500,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   // the header stays put so the grouped layout never jumps mid-search.
   const noMatchesHint = (
     <Text type="secondary" style={{ fontSize: 12, display: 'block', padding: '3px 8px 5px', userSelect: 'none' }}>
-      No matching environments
+      {t('workbench.shell.envSelector.noMatches')}
     </Text>
   );
 
@@ -506,7 +520,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         <Input
           ref={searchRef}
           size="small"
-          placeholder="Search environments…"
+          placeholder={t('workbench.shell.envSelector.searchPlaceholder')}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           allowClear
@@ -514,7 +528,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           autoFocus
         />
         <Text type="secondary" style={{ fontSize: 11, userSelect: 'none' }}>
-          Mode: {autoSwitchMode}
+          {t('workbench.shell.envSelector.modeLabel', { mode: autoSwitchMode })}
         </Text>
         <Popover
           open={settingsOpen}
@@ -533,7 +547,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           content={
             <div style={{ padding: 2, width: 320 }} onClick={(e) => e.stopPropagation()}>
               <Text strong style={{ display: 'block', padding: '4px 8px 6px', fontSize: 12 }}>
-                When switching between collections
+                {t('workbench.shell.envSelector.switchBehavior.title')}
               </Text>
               <div
                 className="oh-env-row"
@@ -554,9 +568,9 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                   style={{ marginRight: 0, pointerEvents: 'none' }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Keep selected environment</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>{t('workbench.shell.envSelector.switchBehavior.keep')}</div>
                   <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}>
-                    Your selection stays put across collections and everything inside them.
+                    {t('workbench.shell.envSelector.switchBehavior.keepDesc')}
                   </Text>
                 </div>
               </div>
@@ -579,9 +593,11 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                   style={{ marginRight: 0, pointerEvents: 'none' }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Apply collection defaults</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>
+                    {t('workbench.shell.envSelector.switchBehavior.applyDefaults')}
+                  </div>
                   <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}>
-                    Defaults take over while inside. Your last manual pick is restored elsewhere.
+                    {t('workbench.shell.envSelector.switchBehavior.applyDefaultsDesc')}
                   </Text>
                 </div>
               </div>
@@ -604,9 +620,11 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                   style={{ marginRight: 0, pointerEvents: 'none' }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Follow each collection</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>
+                    {t('workbench.shell.envSelector.switchBehavior.follow')}
+                  </div>
                   <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}>
-                    Collections with a default switch to it (and remember your picks). Others don't switch.
+                    {t('workbench.shell.envSelector.switchBehavior.followDesc')}
                   </Text>
                 </div>
               </div>
@@ -614,7 +632,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           }
         >
           <Tooltip
-            title="Environment switching behavior"
+            title={t('workbench.shell.envSelector.switchBehavior.aria')}
             placement="top"
             mouseEnterDelay={0.3}
             open={settingsOpen ? false : undefined}
@@ -623,7 +641,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
               type="text"
               size="small"
               icon={<SettingOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />}
-              aria-label="Environment switching behavior"
+              aria-label={t('workbench.shell.envSelector.switchBehavior.aria')}
             />
           </Tooltip>
         </Popover>
@@ -641,7 +659,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         >
           <PushpinFilled style={{ fontSize: 11, color: token.colorPrimary, flexShrink: 0 }} />
           <Text type="secondary" style={{ fontSize: 11, flex: 1, lineHeight: 1.3 }}>
-            Pinned to the current tab — picking an environment moves the pin.
+            {t('workbench.shell.envSelector.pinnedBanner')}
           </Text>
           <Button
             type="link"
@@ -649,7 +667,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
             style={{ fontSize: 11, padding: 0, height: 'auto' }}
             onClick={() => setActiveTabPinnedEnv(undefined)}
           >
-            Unpin
+            {t('workbench.shell.envSelector.unpin')}
           </Button>
         </div>
       )}
@@ -673,13 +691,13 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         }}
       >
         <PlusOutlined style={{ fontSize: 12 }} />
-        <Text style={{ fontSize: 13 }}>Create new environment</Text>
+        <Text style={{ fontSize: 13 }}>{t('workbench.shell.envSelector.createNew')}</Text>
       </div>
 
       {hasPinnedSection ? (
         <>
           <Divider style={{ margin: '4px 0' }} />
-          <div style={sectionLabelStyle}>Pinned to this collection</div>
+          <div style={sectionLabelStyle}>{t('workbench.shell.envSelector.pinnedSection')}</div>
           {/* Cap each section at ~3 rows; taller lists scroll. Each row
            *  is ~32px (5px padding × 2 + 22px content). */}
           {pinnedEnvs.length === 0 && noMatchesHint}
@@ -711,7 +729,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           {hasOtherSection && (
             <>
               <Divider style={{ margin: '4px 0' }} />
-              <div style={sectionLabelStyle}>Other environments</div>
+              <div style={sectionLabelStyle}>{t('workbench.shell.envSelector.othersSection')}</div>
               {otherEnvs.length === 0 && noMatchesHint}
               <div className="oh-env-scroll" style={{ maxHeight: 108 }}>
                 {otherEnvs.map((env) => (
@@ -780,19 +798,19 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           host wires an opener (workbench opens the list in place; the
           devpanel routes there via the open-live-variables intent). */}
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
-        {footerSegment('vault', 'Vault', onOpenVault)}
+        {footerSegment('vault', t('workbench.shell.envSelector.footer.vault'), onOpenVault)}
         {activeCollectionId && (
           <>
             <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
-            {footerSegment('collection', 'Collection', onOpenCollectionVariables)}
+            {footerSegment('collection', t('workbench.shell.envSelector.footer.collection'), onOpenCollectionVariables)}
           </>
         )}
         <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
-        {footerSegment('workspace', 'Workspace', onOpenWorkspaceVariables)}
+        {footerSegment('workspace', t('workbench.shell.envSelector.footer.workspace'), onOpenWorkspaceVariables)}
         {onOpenLiveVariables && (
           <>
             <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
-            {footerSegment('live', 'Live', onOpenLiveVariables)}
+            {footerSegment('live', t('workbench.shell.envSelector.footer.live'), onOpenLiveVariables)}
           </>
         )}
       </div>
@@ -820,8 +838,12 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         size="small"
         aria-label={
           active
-            ? `Active environment: ${active.name}${pinnedByTab ? ' (pinned by this tab)' : ''}`
-            : `No environment selected${pinnedByTab ? ' (pinned by this tab)' : ''}`
+            ? pinnedByTab
+              ? t('workbench.shell.envSelector.triggerAriaActivePinned', { name: active.name })
+              : t('workbench.shell.envSelector.triggerAriaActive', { name: active.name })
+            : pinnedByTab
+              ? t('workbench.shell.envSelector.triggerAriaNonePinned')
+              : t('workbench.shell.envSelector.triggerAriaNone')
         }
         style={{
           padding: '0 8px',
@@ -850,7 +872,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
               fontSize: compact ? 12 : 13,
             }}
           >
-            {active?.name ?? 'No environment'}
+            {active?.name ?? t('workbench.shell.envSelector.noEnvironment')}
           </Text>
           <DownOutlined style={{ fontSize: compact ? 9 : 10, color: token.colorTextTertiary }} />
         </Space>

@@ -11,6 +11,7 @@ import type { InputRef } from 'antd';
 import { Input, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 
 // ── Public types ──────────────────────────────────────────────────
@@ -59,6 +60,7 @@ function matchItem(item: CommandPaletteItem, q: string): boolean {
 
 const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups = [], sections = [] }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const commandPaletteLabel = useShortcutLabel('command-palette');
   const inputRef = useRef<InputRef>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -91,7 +93,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups =
           )
         : groups;
       if (filtered.length > 0) {
-        rows.push({ kind: 'divider', id: 'div-collections', title: 'Collections' });
+        rows.push({ kind: 'divider', id: 'div-collections', title: t('workbench.shell.commandPalette.collectionsDivider') });
         for (const g of filtered) rows.push({ kind: 'group', id: g.id, icon: g.icon, label: g.label, group: g });
       }
     }
@@ -240,7 +242,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups =
           ref={inputRef}
           className="rules-cmd-input"
           placeholder={
-            drillGroup ? `Search in ${drillGroup.label}...` : 'Search rules, collections, or type > for commands...'
+            drillGroup
+              ? t('workbench.shell.commandPalette.searchInGroup', { name: drillGroup.label })
+              : t('workbench.shell.commandPalette.placeholder')
           }
           value={query}
           onChange={(e) => {
@@ -259,7 +263,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups =
         <div ref={resultsRef} className="rules-cmd-results" onMouseDown={(e) => e.preventDefault()}>
           {selectable.length === 0 && (
             <div className="rules-cmd-empty" style={{ color: token.colorTextTertiary }}>
-              {query ? 'No results found' : 'Type to search or > for commands'}
+              {query ? t('workbench.shell.commandPalette.noResults') : t('workbench.shell.commandPalette.emptyHint')}
             </div>
           )}
           {rows.map((row, i) => {
@@ -344,10 +348,14 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups =
           className="rules-cmd-footer"
           style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, color: token.colorTextTertiary }}
         >
-          <span>↑↓ navigate</span>
-          {drillGroupId ? <span>← back</span> : <span>→ open</span>}
-          <span>↵ select</span>
-          <span>esc close</span>
+          <span>{t('workbench.shell.commandPalette.footer.navigate')}</span>
+          {drillGroupId ? (
+            <span>{t('workbench.shell.commandPalette.footer.back')}</span>
+          ) : (
+            <span>{t('workbench.shell.commandPalette.footer.open')}</span>
+          )}
+          <span>{t('workbench.shell.commandPalette.footer.select')}</span>
+          <span>{t('workbench.shell.commandPalette.footer.close')}</span>
           <span style={{ marginLeft: 'auto' }}>{commandPaletteLabel}</span>
         </div>
       </div>

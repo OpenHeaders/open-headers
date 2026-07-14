@@ -1,17 +1,25 @@
 /**
  * Workbench chrome station (Phase C) — the sidebar (section headers,
  * tree-node hooks, container menus, placeholders, create actions,
- * confirm-delete modal) and the tab strip (tab context menu, create
- * menu, tab search overlay, pill arias). Namespaces:
- * `workbench.sidebar.*`, `workbench.tabbar.*`, plus the surface-neutral
- * `workbench.scratch.*` labels shared by the tab tooltip and the
- * breadcrumb bar.
+ * confirm-delete modal), the tab strip (tab context menu, create
+ * menu, tab search overlay, pill arias), the shell plane (top bar,
+ * status bar, activity bar, command palette, environment selector,
+ * editor empty state, breadcrumb root nouns), the workspace family
+ * (manager, switcher, publish modal, home-Org identity card, grant
+ * notices, identity picker), and the save modals. Namespaces:
+ * `workbench.sidebar.*`, `workbench.tabbar.*`, `workbench.shell.*`,
+ * `workbench.workspace.*`, `workbench.save.*`, plus the
+ * surface-neutral `workbench.scratch.*` labels shared by the tab
+ * tooltip and the breadcrumb bar.
  *
  * Technical plane stays raw: HTTP method tags (GET/POST…), entity
  * names, key glyphs (the ✓ checkmark composes in JSX ahead of the
- * keyed behavior labels), and the 'User Templates' default collection
- * name (identity-compared against the background seed — localizing it
- * would re-enable rename/delete on the default collection).
+ * keyed behavior labels), keyboard chords ({chord} interpolations),
+ * the tool-window registry labels (deferred as one unit), host-unit
+ * nouns interpolated as {unit}/{units}, backend annotation text, and
+ * the 'User Templates' default collection name (identity-compared
+ * against the background seed — localizing it would re-enable
+ * rename/delete on the default collection).
  */
 
 import { plural } from '../../runtime';
@@ -140,9 +148,9 @@ export const workbenchChrome = {
   'workbench.sidebar.singleton.packageLibrary': 'Package Library',
 
   // ── Sidebar: default entity names ───────────────────────────────────
+  // (New Rules/Requests Collection promoted to `shared.defaults.*` when
+  // the save modals became their second converted consumer.)
   'workbench.sidebar.defaults.newFolder': 'New Folder',
-  'workbench.sidebar.defaults.newRulesCollection': 'New Rules Collection',
-  'workbench.sidebar.defaults.newRequestsCollection': 'New Requests Collection',
   'workbench.sidebar.defaults.newEnvironment': 'New Environment',
 
   // ── Sidebar: confirm-delete modal + toasts ──────────────────────────
@@ -196,4 +204,345 @@ export const workbenchChrome = {
   'workbench.scratch.rule': 'Scratch Rule',
   'workbench.scratch.variable': 'Scratch Variable',
   'workbench.scratch.workflow': 'Scratch Workflow',
+
+  // ── Shell: command palette ──────────────────────────────────────────
+  'workbench.shell.commandPalette.collectionsDivider': 'Collections',
+  'workbench.shell.commandPalette.searchInGroup': 'Search in {name}...',
+  'workbench.shell.commandPalette.placeholder': 'Search rules, collections, or type > for commands...',
+  'workbench.shell.commandPalette.noResults': 'No results found',
+  'workbench.shell.commandPalette.emptyHint': 'Type to search or > for commands',
+  'workbench.shell.commandPalette.footer.navigate': '↑↓ navigate',
+  'workbench.shell.commandPalette.footer.back': '← back',
+  'workbench.shell.commandPalette.footer.open': '→ open',
+  'workbench.shell.commandPalette.footer.select': '↵ select',
+  'workbench.shell.commandPalette.footer.close': 'esc close',
+  'workbench.shell.commandPalette.group.rules': 'Rules',
+  'workbench.shell.commandPalette.group.templates': 'Templates',
+  'workbench.shell.commandPalette.group.requests': 'Requests',
+  'workbench.shell.commandPalette.group.systemTemplates': 'System Templates',
+  'workbench.shell.commandPalette.group.settings': 'Settings',
+  'workbench.shell.commandPalette.section.create': 'Create',
+  'workbench.shell.commandPalette.section.commands': 'Commands',
+  'workbench.shell.commandPalette.section.variables': 'Variables',
+  'workbench.shell.commandPalette.cmd.createItem': 'Create Item...',
+  'workbench.shell.commandPalette.cmd.newRuleType': 'New {type}',
+  'workbench.shell.commandPalette.cmd.toggleLeftSidebar': 'Toggle Left Sidebar',
+  'workbench.shell.commandPalette.cmd.toggleRightSidebar': 'Toggle Right Sidebar',
+  'workbench.shell.commandPalette.cmd.toggleBottomPanel': 'Toggle Bottom Panel',
+  'workbench.shell.commandPalette.cmd.toggleActivityFeed': 'Toggle Activity Feed',
+  'workbench.shell.commandPalette.cmd.keyboardShortcuts': 'Keyboard Shortcuts',
+  'workbench.shell.commandPalette.cmd.openSettings': 'Open Settings',
+  'workbench.shell.commandPalette.cmd.openWorkspaceVariables': 'Open Workspace Variables',
+  'workbench.shell.commandPalette.cmd.openVault': 'Open Vault',
+  'workbench.shell.commandPalette.cmd.openLiveVariables': 'Open Live Variables',
+  'workbench.shell.commandPalette.cmd.openPackageLibrary': 'Open Package Library',
+  'workbench.shell.commandPalette.cmd.openEnvironment': 'Open Environment: {name}',
+
+  // ── Shell: top bar (search button, layout menu, panel toggles) ──────
+  'workbench.shell.topbar.search': 'Search or run a command...',
+  'workbench.shell.topbar.layout.bottomAlignment': 'Bottom Panel Alignment',
+  'workbench.shell.topbar.layout.alignCenter': 'Center (nested)',
+  'workbench.shell.topbar.layout.alignLeft': 'Left',
+  'workbench.shell.topbar.layout.alignRight': 'Right',
+  'workbench.shell.topbar.layout.alignJustify': 'Justify (full width)',
+  'workbench.shell.topbar.layout.showToolWindowNames': 'Show Tool Window Names',
+  'workbench.shell.topbar.layout.activityBarLayout': 'Activity Bar Layout',
+  'workbench.shell.topbar.layout.sidebarProportional': 'Proportional (even halves)',
+  'workbench.shell.topbar.layout.sidebarCompact': 'Compact (bottom pinned)',
+  'workbench.shell.topbar.layout.sidebarStacked': 'Stacked (all at top)',
+  'workbench.shell.topbar.layout.sidebarDynamic': 'Dynamic (follows panel heights)',
+  'workbench.shell.topbar.layout.defaultLayoutDonor': 'Default layout {unit}',
+  'workbench.shell.topbar.layout.inheritsDefault': 'Inherits default layout',
+  'workbench.shell.topbar.layout.donorTooltip': 'This {unit} is the default — new {units} inherit this layout.',
+  'workbench.shell.topbar.layout.nonDonorTooltip': 'Another {unit} is the default — new {units} inherit from there.',
+  'workbench.shell.topbar.layout.resetToDefaults': 'Reset layout to defaults',
+  'workbench.shell.topbar.layout.restoreHidden': 'Restore Hidden Activity Bar Tools',
+  'workbench.shell.topbar.toggle.leftSidebar': 'Left sidebar',
+  'workbench.shell.topbar.toggle.bottomPanel': 'Bottom panel',
+  'workbench.shell.topbar.toggle.rightSidebar': 'Right sidebar',
+  'workbench.shell.topbar.bottomAlign.center': 'Bottom panel: center (nested)',
+  'workbench.shell.topbar.bottomAlign.left': 'Bottom panel: left-aligned',
+  'workbench.shell.topbar.bottomAlign.right': 'Bottom panel: right-aligned',
+  'workbench.shell.topbar.bottomAlign.justify': 'Bottom panel: full width',
+  'workbench.shell.topbar.bottomAlign.chooseAria': 'Choose bottom panel alignment',
+  'workbench.shell.topbar.layoutOptions': 'Layout options',
+
+  // ── Shell: status bar ───────────────────────────────────────────────
+  'workbench.shell.statusbar.theme.light': 'Light',
+  'workbench.shell.statusbar.theme.dark': 'Dark',
+  'workbench.shell.statusbar.theme.auto': 'Auto',
+  'workbench.shell.statusbar.systemStatus': 'System status',
+
+  // ── Shell: activity bar ─────────────────────────────────────────────
+  'workbench.shell.activityBar.hideLabels': 'Hide labels',
+  'workbench.shell.activityBar.showLabels': 'Show labels',
+
+  // ── Shell: editor empty state ───────────────────────────────────────
+  'workbench.shell.empty.createRule': 'Create rule',
+  'workbench.shell.empty.createRuleDesc': 'Headers, redirects, blocking, and more',
+  'workbench.shell.empty.createVariable': 'Create variable',
+  'workbench.shell.empty.createVariableDesc': 'Environment, workspace, live, and more',
+  'workbench.shell.empty.createRequest': 'Create API request',
+  'workbench.shell.empty.createRequestDesc': 'Build, send, and save HTTP requests',
+  'workbench.shell.empty.createWorkflow': 'Create workflow',
+  'workbench.shell.empty.createWorkflowDesc': 'Chain and schedule API requests',
+  'workbench.shell.empty.import': 'Import',
+  'workbench.shell.empty.importDesc': 'Curl, HAR, Postman, and more',
+  'workbench.shell.empty.migrate': 'Migrate from another tool',
+  'workbench.shell.empty.migrateDesc': 'Bring your Postman, Insomnia, or Bruno data',
+  'workbench.shell.empty.browseTemplates': 'Browse all templates…',
+  'workbench.shell.empty.varEnvironment': 'Environment variable',
+  'workbench.shell.empty.varWorkspace': 'Workspace variable',
+  'workbench.shell.empty.varLive': 'Live variable',
+  'workbench.shell.empty.varVault': 'Vault secret',
+  'workbench.shell.empty.varCollection': 'Collection variable',
+  'workbench.shell.empty.varCollectionTooltip': 'Collection variables are created from within a collection.',
+
+  // ── Shell: environment selector ─────────────────────────────────────
+  'workbench.shell.envSelector.noEnvironment': 'No environment',
+  'workbench.shell.envSelector.defaultPill': 'DEFAULT',
+  'workbench.shell.envSelector.defaultTooltip':
+    'Default environment is auto-selected while working with the collection.',
+  'workbench.shell.envSelector.openEnv': 'Open {name}',
+  'workbench.shell.envSelector.pinToTab': 'Pin to this tab',
+  'workbench.shell.envSelector.unpinFromTab': 'Unpin from this tab',
+  'workbench.shell.envSelector.pinToTabDesc': 'Switches to this environment whenever the tab is focused.',
+  'workbench.shell.envSelector.pinToCollection': 'Pin to collection',
+  'workbench.shell.envSelector.unpinFromCollection': 'Unpin from collection',
+  'workbench.shell.envSelector.pinToCollectionDesc': 'Shows this environment in the collection’s pinned list.',
+  'workbench.shell.envSelector.pinAria': 'Pin environment',
+  'workbench.shell.envSelector.setCollectionDefault': 'Set as collection default',
+  'workbench.shell.envSelector.clearCollectionDefault': 'Clear collection default',
+  'workbench.shell.envSelector.searchPlaceholder': 'Search environments…',
+  'workbench.shell.envSelector.modeLabel': 'Mode: {mode}',
+  'workbench.shell.envSelector.switchBehavior.title': 'When switching between collections',
+  'workbench.shell.envSelector.switchBehavior.keep': 'Keep selected environment',
+  'workbench.shell.envSelector.switchBehavior.keepDesc':
+    'Your selection stays put across collections and everything inside them.',
+  'workbench.shell.envSelector.switchBehavior.applyDefaults': 'Apply collection defaults',
+  'workbench.shell.envSelector.switchBehavior.applyDefaultsDesc':
+    'Defaults take over while inside. Your last manual pick is restored elsewhere.',
+  'workbench.shell.envSelector.switchBehavior.follow': 'Follow each collection',
+  'workbench.shell.envSelector.switchBehavior.followDesc':
+    "Collections with a default switch to it (and remember your picks). Others don't switch.",
+  'workbench.shell.envSelector.switchBehavior.aria': 'Environment switching behavior',
+  'workbench.shell.envSelector.pinnedBanner': 'Pinned to the current tab — picking an environment moves the pin.',
+  'workbench.shell.envSelector.unpin': 'Unpin',
+  'workbench.shell.envSelector.createNew': 'Create new environment',
+  'workbench.shell.envSelector.pinnedSection': 'Pinned to this collection',
+  'workbench.shell.envSelector.othersSection': 'Other environments',
+  'workbench.shell.envSelector.noMatches': 'No matching environments',
+  'workbench.shell.envSelector.footer.vault': 'Vault',
+  'workbench.shell.envSelector.footer.collection': 'Collection',
+  'workbench.shell.envSelector.footer.workspace': 'Workspace',
+  'workbench.shell.envSelector.footer.live': 'Live',
+  'workbench.shell.envSelector.triggerAriaActive': 'Active environment: {name}',
+  'workbench.shell.envSelector.triggerAriaActivePinned': 'Active environment: {name} (pinned by this tab)',
+  'workbench.shell.envSelector.triggerAriaNone': 'No environment selected',
+  'workbench.shell.envSelector.triggerAriaNonePinned': 'No environment selected (pinned by this tab)',
+
+  // ── Shell: breadcrumb root nouns ────────────────────────────────────
+  'workbench.shell.breadcrumbs.settings': 'Settings',
+  'workbench.shell.breadcrumbs.whatsNew': "What's New",
+  'workbench.shell.breadcrumbs.workspaces': 'Workspaces',
+  'workbench.shell.breadcrumbs.daemonAdmin': 'Daemon admin',
+  'workbench.shell.breadcrumbs.environments': 'Environments',
+  'workbench.shell.breadcrumbs.workspaceVariables': 'Workspace Variables',
+  'workbench.shell.breadcrumbs.vault': 'Vault',
+  'workbench.shell.breadcrumbs.packageLibrary': 'Package Library',
+  'workbench.shell.breadcrumbs.rules': 'Rules',
+  'workbench.shell.breadcrumbs.requests': 'Requests',
+  'workbench.shell.breadcrumbs.templates': 'Templates',
+  'workbench.shell.breadcrumbs.variables': 'Variables',
+  'workbench.shell.breadcrumbs.apiRequests': 'API Requests',
+  'workbench.shell.breadcrumbs.workflows': 'Workflows',
+  'workbench.shell.breadcrumbs.liveVariables': 'Live Variables',
+
+  // ── Shell: fallback entity labels ───────────────────────────────────
+  'workbench.shell.fallback.workflow': 'Workflow',
+
+  // ── Workspace: manager page ─────────────────────────────────────────
+  'workbench.workspace.title': 'Workspaces',
+  'workbench.workspace.newWorkspace': 'New workspace',
+  'workbench.workspace.intro':
+    'Each workspace holds its own rules, collections, folders, templates, variables, and test run history. ' +
+    'Drag to reorder.',
+  'workbench.workspace.deleteTitle': 'Delete "{name}"?',
+  'workbench.workspace.deleteBody':
+    'This permanently deletes the workspace and all its rules, collections, folders, templates, variables, and ' +
+    'test run history. This action cannot be undone.',
+  'workbench.workspace.deleteOk': 'Delete',
+  'workbench.workspace.deleteFailed': 'Failed to delete workspace',
+  'workbench.workspace.deletedToast': 'Deleted "{name}"',
+  'workbench.workspace.createOk': 'Create',
+  'workbench.workspace.createFailed': 'Failed to create workspace',
+  'workbench.workspace.createdToastPrefix': 'Created workspace',
+  'workbench.workspace.duplicateTitle': 'Duplicate "{name}"',
+  'workbench.workspace.duplicateTitleFallback': 'Duplicate workspace',
+  'workbench.workspace.duplicateOk': 'Duplicate',
+  'workbench.workspace.duplicateFailed': 'Failed to duplicate workspace',
+  'workbench.workspace.duplicatedToast': 'Duplicated "{source}" → "{name}"',
+  'workbench.workspace.publishFailed': 'Failed to publish workspace',
+  'workbench.workspace.publishedToast': 'Published "{name}" to {org}',
+  'workbench.workspace.selectedOrgFallback': 'the selected Org',
+  'workbench.workspace.editTitle': 'Edit workspace',
+  'workbench.workspace.saveOk': 'Save',
+  'workbench.workspace.updatedToast': 'Updated "{name}"',
+  'workbench.workspace.deletedElsewhere': 'This workspace was deleted from another tab',
+  'workbench.workspace.updateFailed': 'Failed to update workspace',
+  'workbench.workspace.updateFailedWithMessage': 'Failed to update workspace: {message}',
+  'workbench.workspace.newWorkspacesGoTo': 'New workspaces go to',
+  'workbench.workspace.orgPrefHint': 'Change it anytime — existing workspaces stay where they are.',
+  'workbench.workspace.otherWorkspaces': 'Other workspaces',
+  'workbench.workspace.dragToReorder': 'Drag to reorder',
+  'workbench.workspace.activePill': 'Active',
+  'workbench.workspace.switch': 'Switch',
+  'workbench.workspace.renameAria': 'Rename workspace',
+  'workbench.workspace.duplicateAria': 'Duplicate workspace',
+  'workbench.workspace.publishAria': 'Publish workspace to a back-end',
+  'workbench.workspace.deleteAria': 'Delete workspace',
+  'workbench.workspace.prefixLabel': 'Prefix',
+  'workbench.workspace.nameLabel': 'Name',
+  'workbench.workspace.nameRequired': 'Name is required',
+  'workbench.workspace.nameTooLong': 'Keep names under 60 characters',
+  'workbench.workspace.namePlaceholder': 'My Workspace',
+  'workbench.workspace.descriptionLabel': 'Description (optional)',
+  'workbench.workspace.copyOfName': 'Copy of {name}',
+  'workbench.workspace.copyOfPlaceholder': 'Copy of …',
+  'workbench.workspace.intoOrg': 'Into Org',
+  'workbench.workspace.includeSecrets': 'Include vault contents (secrets)',
+  'workbench.workspace.includeSecretsHint':
+    'Re-enter secrets in the copy if needed. OAuth connections are re-authorized either way.',
+
+  // ── Workspace: switcher ─────────────────────────────────────────────
+  'workbench.workspace.makeActiveTitle': 'Make "{name}" the active workspace?',
+  'workbench.workspace.makeActiveBody':
+    "The popup, side-panel, and any new {units} that aren't pinned to a specific workspace will switch " +
+    'to "{name}".',
+  'workbench.workspace.makeActiveOk': 'Make active',
+  'workbench.workspace.cancel': 'Cancel',
+  'workbench.workspace.nowActiveToast': '"{name}" is now the active workspace',
+  'workbench.workspace.switcherAria': 'This {unit} is editing workspace: {name}. Click to switch.',
+
+  // ── Workspace: publish modal ────────────────────────────────────────
+  'workbench.workspace.publishTitle': 'Publish "{name}"',
+  'workbench.workspace.publishTitleFallback': 'Publish workspace',
+  'workbench.workspace.publishToOk': 'Publish to {org}',
+  'workbench.workspace.publishOk': 'Publish',
+  'workbench.workspace.publishIntro':
+    'Publishing copies this workspace into the chosen Org, where it syncs through that back-end. The original ' +
+    'stays here.',
+  'workbench.workspace.toOrg': 'To Org',
+  'workbench.workspace.pickTargetOrg': 'Pick a target Org',
+  'workbench.workspace.includeSecretsPublishHint':
+    'Re-enter secrets in the published copy if needed. OAuth connections are re-authorized either way.',
+
+  // ── Workspace: home-Org identity card ───────────────────────────────
+  'workbench.workspace.org.logoButton': 'Logo',
+  'workbench.workspace.org.logoAria': "Change this organization's logo",
+  'workbench.workspace.org.renameButton': 'Rename',
+  'workbench.workspace.org.renameAria': 'Rename this organization',
+  'workbench.workspace.org.renameTitle': 'Rename {hint}',
+  'workbench.workspace.org.renameTitleFallback': 'Rename',
+  'workbench.workspace.org.nameUpdated': 'Name updated',
+  'workbench.workspace.org.identityLoading': 'Identity is still loading — try again in a moment',
+  'workbench.workspace.org.renameExtra': 'Shown in the workspace switcher and to anyone you share workspaces with.',
+  'workbench.workspace.org.nameTooLong': 'Keep names under {max} characters',
+  'workbench.workspace.org.namePlaceholder': 'My Work Laptop',
+  'workbench.workspace.org.logoTitle': '{hint} logo',
+  'workbench.workspace.org.logoTitleFallback': 'Organization logo',
+  'workbench.workspace.org.logoAlt': 'Current organization logo',
+  'workbench.workspace.org.replace': 'Replace…',
+  'workbench.workspace.org.upload': 'Upload…',
+  'workbench.workspace.org.remove': 'Remove',
+  'workbench.workspace.org.logoUpdated': 'Logo updated',
+  'workbench.workspace.org.logoRemoved': 'Logo removed',
+  'workbench.workspace.org.fileReadFailed': 'That file could not be read.',
+  'workbench.workspace.org.logoHint':
+    'PNG, JPEG, WebP, or SVG, up to {kb} KB. Square images look best. Shown to everyone who syncs with this ' +
+    'organization.',
+  'workbench.workspace.org.logoReject.notImage': 'That file could not be read as an image.',
+  'workbench.workspace.org.logoReject.corruptImage': 'That file is not a valid image of its declared type.',
+  'workbench.workspace.org.logoReject.unsupportedFormat': 'Use a PNG, JPEG, WebP, or SVG file.',
+  'workbench.workspace.org.logoReject.tooLarge': 'Keep the logo under {kb} KB.',
+  'workbench.workspace.org.logoReject.unsafeSvg':
+    'This SVG contains scripts or external references — export a plain, self-contained SVG.',
+
+  // ── Workspace: grant arrival + zero-grant banner ────────────────────
+  'workbench.workspace.grant.arrivedActiveTitle': 'You now have access to a workspace',
+  'workbench.workspace.grant.arrivedTitle': 'A workspace is now available',
+  'workbench.workspace.grant.open': 'Open workspace',
+  'workbench.workspace.grant.notifTitleActive': 'You now have access to "{name}"',
+  'workbench.workspace.grant.notifTitle': 'Workspace "{name}" is now available',
+  'workbench.workspace.grant.notifBodyActive': "An admin granted you access — you're working in it now.",
+  'workbench.workspace.grant.notifBody': 'An admin granted you access — it appears in the workspace switcher.',
+  'workbench.workspace.grant.orgFallback': 'your organization',
+  'workbench.workspace.grant.zeroBanner':
+    "Connected to {orgs} — no workspaces granted to you yet. You're working in a local workspace; granted " +
+    'workspaces appear here automatically once an admin gives you access.',
+
+  // ── Workspace: identity picker ──────────────────────────────────────
+  'workbench.workspace.picker.colorAria': 'Color {name}',
+  'workbench.workspace.picker.searchIcons': 'Search icons...',
+  'workbench.workspace.picker.noIconTooltip': 'No icon — show color square only',
+  'workbench.workspace.picker.noIconAria': 'No icon',
+  'workbench.workspace.picker.triggerAria': 'Choose workspace prefix (color or icon)',
+
+  // ── Save: collection modal chrome ───────────────────────────────────
+  'workbench.save.title': 'SAVE',
+  'workbench.save.newFolder': 'New folder',
+  'workbench.save.newFolderTooltip': 'New folder ({chord})',
+  'workbench.save.newCollection': 'New collection',
+  'workbench.save.newCollectionTooltip': 'New collection ({chord})',
+  'workbench.save.cancel': 'Cancel',
+  'workbench.save.save': 'Save',
+  'workbench.save.selectCollectionFirst': 'Select a collection first',
+  'workbench.save.enterName': 'Enter a name',
+  'workbench.save.saveWithChord': 'Save ({chord})',
+  'workbench.save.footer.navigate': '↑↓ navigate',
+  'workbench.save.footer.open': '→ open',
+  'workbench.save.footer.back': '← back',
+  'workbench.save.footer.new': '{chord} new',
+  'workbench.save.footer.save': '{chord} save',
+  'workbench.save.footer.close': 'esc close',
+  'workbench.save.nameLabel': 'Name',
+  'workbench.save.saveTo': 'Save to ',
+  'workbench.save.rootCrumb': 'Local Rules',
+  'workbench.save.searchFolders': 'Search folders',
+  'workbench.save.searchCollections': 'Search for collection',
+  'workbench.save.nameYourCollection': 'Name your collection',
+  'workbench.save.create': 'Create',
+  'workbench.save.noCollections': 'No collections yet.',
+  'workbench.save.noMatchingCollections': 'No matching collections.',
+  'workbench.save.createCollection': 'Create collection',
+  'workbench.save.orPressPrefix': 'or press',
+  'workbench.save.nameYourFolder': 'Name your folder',
+  'workbench.save.folderEmpty': 'This folder is empty.',
+  'workbench.save.collectionEmpty': 'This collection is empty.',
+  'workbench.save.pressPrefix': 'Press',
+  'workbench.save.pressMiddle': 'to save here, or',
+  'workbench.save.pressSuffix': 'for a new folder.',
+
+  // ── Save: as-template step ──────────────────────────────────────────
+  'workbench.save.template.title': 'Save as User Template',
+  'workbench.save.template.next': 'Next',
+  'workbench.save.template.intro': 'Save the current {type} configuration as a reusable template.',
+  'workbench.save.template.iconLabel': 'Icon',
+  'workbench.save.template.nameLabel': 'Name *',
+  'workbench.save.template.namePlaceholder': 'My template name',
+  'workbench.save.template.descriptionLabel': 'Description',
+  'workbench.save.template.descriptionPlaceholder': 'What does this template do? (optional)',
+  'workbench.save.template.includeConditions': 'Include conditions',
+  'workbench.save.template.includeActions': 'Include actions',
+  'workbench.save.template.ruleFallback': 'Rule',
+
+  // ── Save: per-surface rule-type vocabulary ──────────────────────────
+  'workbench.save.ruleType.header': 'Header',
+  'workbench.save.ruleType.block': 'Block',
+  'workbench.save.ruleType.redirect': 'Redirect',
+  'workbench.save.ruleType.queryParam': 'Query Param',
+  'workbench.save.ruleType.inject': 'Inject',
+  'workbench.save.ruleType.delay': 'Delay',
+  'workbench.save.ruleType.requestBody': 'API Request Body',
+  'workbench.save.ruleType.response': 'API Response',
 } as const satisfies Catalog;

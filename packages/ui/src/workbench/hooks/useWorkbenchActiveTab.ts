@@ -217,6 +217,7 @@ export function useWorkbenchActiveTab({
       requestCollectionTrees,
       requests,
       templateCollectionTrees,
+      t,
     );
     const scratchLabel = scratchLabelForMode(activeTab.mode, t);
     if (scratchLabel && base.length >= 2) {

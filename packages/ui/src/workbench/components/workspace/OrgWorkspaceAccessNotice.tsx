@@ -29,6 +29,7 @@ import { pushNotification } from '@openheaders/ui/shared/notifications';
 import { Alert, App, Button, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
@@ -89,6 +90,7 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
 }) => {
   const { notification } = App.useApp();
   const { token } = theme.useToken();
+  const t = useT();
   const snapshot = useIdentitySnapshot();
   const bindings = getOrgBackendBindings();
 
@@ -127,7 +129,9 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
         style: { width: 380 },
         message: (
           <span style={TOAST_TITLE_STYLE}>
-            {alreadyActive ? 'You now have access to a workspace' : 'A workspace is now available'}
+            {alreadyActive
+              ? t('workbench.workspace.grant.arrivedActiveTitle')
+              : t('workbench.workspace.grant.arrivedTitle')}
           </span>
         ),
         description: (
@@ -149,38 +153,41 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
               notification.destroy(toastKey);
             }}
           >
-            Open workspace
+            {t('workbench.workspace.grant.open')}
           </Button>
         ),
         duration: 8,
       });
       pushNotification({
         severity: 'success',
-        title: alreadyActive ? `You now have access to "${ws.name}"` : `Workspace "${ws.name}" is now available`,
+        title: alreadyActive
+          ? t('workbench.workspace.grant.notifTitleActive', { name: ws.name })
+          : t('workbench.workspace.grant.notifTitle', { name: ws.name }),
         description: alreadyActive
-          ? "An admin granted you access — you're working in it now."
-          : 'An admin granted you access — it appears in the workspace switcher.',
+          ? t('workbench.workspace.grant.notifBodyActive')
+          : t('workbench.workspace.grant.notifBody'),
         dedupeKey: `org-workspace-arrived:${ws.id}`,
-        ...(alreadyActive ? {} : { actions: [{ label: 'Open workspace', run: () => onSwitchWorkspace(ws.id) }] }),
+        ...(alreadyActive
+          ? {}
+          : { actions: [{ label: t('workbench.workspace.grant.open'), run: () => onSwitchWorkspace(ws.id) }] }),
       });
     }
-  }, [hydrated, consumedKey, activeWorkspaceId, notification, onSwitchWorkspace]);
+  }, [hydrated, consumedKey, activeWorkspaceId, notification, onSwitchWorkspace, t]);
 
   if (!hydrated) return null;
   const zeroGrantOrgs = [...bindings.keys()].filter((orgId) => !consumed.some((ws) => ws.orgId === orgId));
   if (zeroGrantOrgs.length === 0) return null;
 
-  const orgNames = zeroGrantOrgs.map((orgId) => snapshot.orgs.get(orgId)?.name ?? 'your organization').join(', ');
+  const orgNames = zeroGrantOrgs
+    .map((orgId) => snapshot.orgs.get(orgId)?.name ?? t('workbench.workspace.grant.orgFallback'))
+    .join(', ');
   return (
     <Alert
       banner
       type="info"
       showIcon
       data-testid="org-zero-grant-notice"
-      message={
-        `Connected to ${orgNames} — no workspaces granted to you yet. ` +
-        "You're working in a local workspace; granted workspaces appear here automatically once an admin gives you access."
-      }
+      message={t('workbench.workspace.grant.zeroBanner', { orgs: orgNames })}
     />
   );
 };

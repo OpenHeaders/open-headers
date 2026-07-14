@@ -14,6 +14,7 @@
 
 import type { Collection, CollectionTree, ExtensionRuleType, LiveWorkflow } from '@openheaders/core/types';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { findFolderByUid } from '@openheaders/ui/shared/variables';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import CollectionOverview from '../overviews/CollectionOverview';
@@ -132,6 +133,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   templateCollectionTrees,
   liveWorkflows,
 }) => {
+  const t = useT();
   if (tab.mode === 'edit' && tab.ruleUid) {
     return (
       <RuleEditor
@@ -336,7 +338,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
             return;
           }
           const wf = liveWorkflows.find((w) => w.uid === target.workflowUid);
-          openLiveWorkflowEdit(target.workflowUid, wf?.name ?? 'Workflow', [seedStep]);
+          openLiveWorkflowEdit(target.workflowUid, wf?.name ?? t('workbench.shell.fallback.workflow'), [seedStep]);
         }}
       />
     );

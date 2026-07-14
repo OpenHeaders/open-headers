@@ -62,10 +62,7 @@ export function useSidebarCreateActions({
 }: UseSidebarCreateActionsParams): SidebarCreateActions {
   const t = useT();
   const createNewCollection = useCallback(async () => {
-    const name = uniqueName(
-      t('workbench.sidebar.defaults.newRulesCollection'),
-      new Set(localCollections.map((c) => c.name)),
-    );
+    const name = uniqueName(t('shared.defaults.newRulesCollection'), new Set(localCollections.map((c) => c.name)));
     const col = await createLocalCollection(name);
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, rules: true }));
@@ -74,10 +71,7 @@ export function useSidebarCreateActions({
   }, [createLocalCollection, localCollections, onOpenCollectionOverview, t, setSectionsExpanded]);
 
   const createNewRequestCollection = useCallback(async () => {
-    const name = uniqueName(
-      t('workbench.sidebar.defaults.newRequestsCollection'),
-      new Set(requestCollections.map((c) => c.name)),
-    );
+    const name = uniqueName(t('shared.defaults.newRequestsCollection'), new Set(requestCollections.map((c) => c.name)));
     const col = await createRequestCollectionRpc(name);
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, 'api-requests': true }));

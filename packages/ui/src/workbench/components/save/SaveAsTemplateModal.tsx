@@ -9,23 +9,25 @@ import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { NEW_TEMPLATE_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
 import type { RuleCondition, RuleType, Template } from '@openheaders/core/types';
 import { Checkbox, Input, Modal, Typography, theme } from 'antd';
+import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import SaveToCollectionModal from './SaveToCollectionModal';
 import TwoToneIconPicker, { getDefaultIconForType } from '../shared/TwoToneIconPicker';
 
 const { Text } = Typography;
 const { TextArea } = Input;
 
-const RULE_TYPE_LABEL: Record<string, string> = {
-  header: 'Header',
-  block: 'Block',
-  redirect: 'Redirect',
-  'query-param': 'Query Param',
-  inject: 'Inject',
-  delay: 'Delay',
-  'request-body': 'API Request Body',
-  response: 'API Response',
+const RULE_TYPE_LABEL_KEYS: Record<string, MessageKey> = {
+  header: 'workbench.save.ruleType.header',
+  block: 'workbench.save.ruleType.block',
+  redirect: 'workbench.save.ruleType.redirect',
+  'query-param': 'workbench.save.ruleType.queryParam',
+  inject: 'workbench.save.ruleType.inject',
+  delay: 'workbench.save.ruleType.delay',
+  'request-body': 'workbench.save.ruleType.requestBody',
+  response: 'workbench.save.ruleType.response',
 };
 
 interface SaveAsTemplateModalProps {
@@ -46,6 +48,7 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
   onSaved,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const {
     templateCollectionTrees,
     templateCollections,
@@ -130,9 +133,9 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
   return (
     <Modal
       open={open}
-      title="Save as User Template"
-      okText="Next"
-      cancelText="Cancel"
+      title={t('workbench.save.template.title')}
+      okText={t('workbench.save.template.next')}
+      cancelText={t('workbench.save.cancel')}
       onOk={handleMetadataNext}
       onCancel={onCancel}
       // Unmount on close so the icon picker's popover state can't go
@@ -144,26 +147,28 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
     >
       <div style={{ marginBottom: 16 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          Save the current {RULE_TYPE_LABEL[ruleType] ?? 'Rule'} configuration as a reusable template.
+          {t('workbench.save.template.intro', {
+            type: RULE_TYPE_LABEL_KEYS[ruleType] ? t(RULE_TYPE_LABEL_KEYS[ruleType]) : t('workbench.save.template.ruleFallback'),
+          })}
         </Text>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
         <div>
           <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-            Icon
+            {t('workbench.save.template.iconLabel')}
           </Text>
           <TwoToneIconPicker value={icon} onChange={setIcon} />
         </div>
         <div style={{ flex: 1 }}>
           <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-            Name *
+            {t('workbench.save.template.nameLabel')}
           </Text>
           <Input
             size="small"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="My template name"
+            placeholder={t('workbench.save.template.namePlaceholder')}
             autoFocus
             onPressEnter={handleMetadataNext}
           />
@@ -172,13 +177,13 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
 
       <div style={{ marginBottom: 16 }}>
         <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-          Description
+          {t('workbench.save.template.descriptionLabel')}
         </Text>
         <TextArea
           size="small"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What does this template do? (optional)"
+          placeholder={t('workbench.save.template.descriptionPlaceholder')}
           autoSize={{ minRows: 1, maxRows: 3 }}
         />
       </div>
@@ -194,7 +199,7 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
         }}
       >
         <Checkbox checked={includeConditions} onChange={(e) => setIncludeConditions(e.target.checked)}>
-          <Text style={{ fontSize: 12 }}>Include conditions</Text>
+          <Text style={{ fontSize: 12 }}>{t('workbench.save.template.includeConditions')}</Text>
           {conditions.length > 0 && (
             <Text type="secondary" style={{ fontSize: 11, marginLeft: 4 }}>
               ({conditions.length})
@@ -202,7 +207,7 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
           )}
         </Checkbox>
         <Checkbox checked={includeFormValues} onChange={(e) => setIncludeFormValues(e.target.checked)}>
-          <Text style={{ fontSize: 12 }}>Include actions</Text>
+          <Text style={{ fontSize: 12 }}>{t('workbench.save.template.includeActions')}</Text>
           {(() => {
             // Count non-empty action fields
             const reqH = formValues.requestHeaders as unknown[] | undefined;

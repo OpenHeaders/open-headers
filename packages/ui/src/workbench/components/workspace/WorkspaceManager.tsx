@@ -45,6 +45,7 @@ import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import HomeOrgIdentityCard from './HomeOrgIdentityCard';
 import PublishWorkspaceModal from './PublishWorkspaceModal';
 import WorkspaceIdentityPicker, { type WorkspaceIdentity } from './WorkspaceIdentityPicker';
@@ -72,6 +73,7 @@ interface WorkspaceManagerProps {
 
 const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspaceId, onSwitch }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { message, modal } = AntApp.useApp();
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ExtensionWorkspace | null>(null);
@@ -139,19 +141,18 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   const handleDelete = useCallback(
     (workspace: ExtensionWorkspace) => {
       modal.confirm({
-        title: `Delete "${workspace.name}"?`,
-        content:
-          'This permanently deletes the workspace and all its rules, collections, folders, templates, variables, and test run history. This action cannot be undone.',
-        okText: 'Delete',
+        title: t('workbench.workspace.deleteTitle', { name: workspace.name }),
+        content: t('workbench.workspace.deleteBody'),
+        okText: t('workbench.workspace.deleteOk'),
         okButtonProps: { danger: true },
         onOk: async () => {
           const result = await api.deleteWorkspace(workspace.id);
-          if (!result.success) message.error(result.error ?? 'Failed to delete workspace');
-          else message.success(`Deleted "${workspace.name}"`);
+          if (!result.success) message.error(result.error ?? t('workbench.workspace.deleteFailed'));
+          else message.success(t('workbench.workspace.deletedToast', { name: workspace.name }));
         },
       });
     },
-    [api, modal, message],
+    [api, modal, message, t],
   );
 
   const handleDuplicate = useCallback((workspace: ExtensionWorkspace) => {
@@ -184,16 +185,15 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
     <div style={{ padding: 24, maxWidth: 920, margin: '0 auto', height: '100%', overflow: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Title level={4} style={{ margin: 0 }}>
-          Workspaces
+          {t('workbench.workspace.title')}
         </Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-          New workspace
+          {t('workbench.workspace.newWorkspace')}
         </Button>
       </div>
 
       <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-        Each workspace holds its own rules, collections, folders, templates, variables, and test run history. Drag to
-        reorder.
+        {t('workbench.workspace.intro')}
       </Text>
 
       <HomeOrgIdentityCard />
@@ -219,18 +219,18 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 
       <WorkspaceFormModal
         open={createOpen}
-        title="New workspace"
-        okText="Create"
+        title={t('workbench.workspace.newWorkspace')}
+        okText={t('workbench.workspace.createOk')}
         onCancel={() => setCreateOpen(false)}
         onSubmit={async (values) => {
           const ws = await api.createWorkspace(values);
           if (!ws) {
-            message.error('Failed to create workspace');
+            message.error(t('workbench.workspace.createFailed'));
             return false;
           }
           message.success(
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, verticalAlign: 'middle' }}>
-              Created workspace
+              {t('workbench.workspace.createdToastPrefix')}
               {renderWorkspacePrefix({ icon: ws.icon, color: ws.color }, token, { size: 16 })}
               {ws.name}
             </span>,
@@ -248,10 +248,10 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
           if (!duplicateTarget) return false;
           const created = await api.duplicateWorkspace(duplicateTarget.id, values);
           if (!created) {
-            message.error('Failed to duplicate workspace');
+            message.error(t('workbench.workspace.duplicateFailed'));
             return false;
           }
-          message.success(`Duplicated "${duplicateTarget.name}" → "${created.name}"`);
+          message.success(t('workbench.workspace.duplicatedToast', { source: duplicateTarget.name, name: created.name }));
           return true;
         }}
       />
@@ -264,19 +264,24 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
           if (!publishSource) return false;
           const created = await api.duplicateWorkspace(publishSource.id, values);
           if (!created) {
-            message.error('Failed to publish workspace');
+            message.error(t('workbench.workspace.publishFailed'));
             return false;
           }
-          const target = publishTargets.find((t) => t.orgId === values.targetOrgId);
-          message.success(`Published "${created.name}" to ${target?.orgName ?? 'the selected Org'}`);
+          const target = publishTargets.find((pt) => pt.orgId === values.targetOrgId);
+          message.success(
+            t('workbench.workspace.publishedToast', {
+              name: created.name,
+              org: target?.orgName ?? t('workbench.workspace.selectedOrgFallback'),
+            }),
+          );
           return true;
         }}
       />
 
       <WorkspaceFormModal
         open={editTarget !== null}
-        title="Edit workspace"
-        okText="Save"
+        title={t('workbench.workspace.editTitle')}
+        okText={t('workbench.workspace.saveOk')}
         initial={editTarget ?? undefined}
         onCancel={() => setEditTarget(null)}
         onSubmit={async (values) => {
@@ -287,15 +292,19 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
           // (field not in the patch) from "clear it" (null).
           const result = await api.updateWorkspace(editTarget.id, { ...values, icon: values.icon ?? null });
           if (result.success) {
-            message.success(`Updated "${result.workspace.name}"`);
+            message.success(t('workbench.workspace.updatedToast', { name: result.workspace.name }));
             return true;
           }
           if (result.reason === 'not-found') {
-            message.error('This workspace was deleted from another tab');
+            message.error(t('workbench.workspace.deletedElsewhere'));
             setEditTarget(null);
             return false;
           }
-          message.error(`Failed to update workspace${'message' in result ? `: ${result.message}` : ''}`);
+          message.error(
+            'message' in result
+              ? t('workbench.workspace.updateFailedWithMessage', { message: result.message })
+              : t('workbench.workspace.updateFailed'),
+          );
           return false;
         }}
       />
@@ -317,6 +326,7 @@ const NewWorkspaceOrgPreference: React.FC<{
   reach: BackendReach | null;
 }> = ({ snapshot, catalogue, reach }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { prefs, isReady, setDefaultNewWorkspaceOrgId } = useOrgBindingPrefs();
 
   if (catalogue.length <= 1) return null;
@@ -335,7 +345,7 @@ const NewWorkspaceOrgPreference: React.FC<{
         borderRadius: token.borderRadius,
       }}
     >
-      <Text style={{ fontSize: 13, flexShrink: 0 }}>New workspaces go to</Text>
+      <Text style={{ fontSize: 13, flexShrink: 0 }}>{t('workbench.workspace.newWorkspacesGoTo')}</Text>
       <Select
         size="small"
         value={resolved ?? undefined}
@@ -353,7 +363,7 @@ const NewWorkspaceOrgPreference: React.FC<{
         }))}
       />
       <Text type="secondary" style={{ fontSize: 12 }}>
-        Change it anytime — existing workspaces stay where they are.
+        {t('workbench.workspace.orgPrefHint')}
       </Text>
     </div>
   );
@@ -366,6 +376,7 @@ const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null; reach: Backen
   reach,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px' }}>
       {descriptor && <OrgIcon descriptor={descriptor} size={14} style={{ color: token.colorTextTertiary }} />}
@@ -378,7 +389,7 @@ const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null; reach: Backen
           color: token.colorTextTertiary,
         }}
       >
-        {descriptor ? orgFullLabel(descriptor, reach) : 'Other workspaces'}
+        {descriptor ? orgFullLabel(descriptor, reach) : t('workbench.workspace.otherWorkspaces')}
       </Text>
     </div>
   );
@@ -417,6 +428,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
   tokenColorPrimary,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: workspace.id });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -442,7 +454,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
         type="button"
         {...attributes}
         {...listeners}
-        aria-label="Drag to reorder"
+        aria-label={t('workbench.workspace.dragToReorder')}
         style={{
           cursor: 'grab',
           color: token.colorTextTertiary,
@@ -485,7 +497,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
                 color: tokenColorPrimary,
               }}
             >
-              Active
+              {t('workbench.workspace.activePill')}
             </Text>
           )}
         </div>
@@ -499,17 +511,22 @@ const SortableRow: React.FC<SortableRowProps> = ({
       <Space>
         {!isActive && (
           <Button size="small" onClick={onSwitch}>
-            Switch
+            {t('workbench.workspace.switch')}
           </Button>
         )}
-        <Button size="small" icon={<EditOutlined />} onClick={onEdit} aria-label="Rename workspace" />
-        <Button size="small" icon={<CopyOutlined />} onClick={onDuplicate} aria-label="Duplicate workspace" />
+        <Button size="small" icon={<EditOutlined />} onClick={onEdit} aria-label={t('workbench.workspace.renameAria')} />
+        <Button
+          size="small"
+          icon={<CopyOutlined />}
+          onClick={onDuplicate}
+          aria-label={t('workbench.workspace.duplicateAria')}
+        />
         {onPublish && (
           <Button
             size="small"
             icon={<CloudUploadOutlined />}
             onClick={onPublish}
-            aria-label="Publish workspace to a back-end"
+            aria-label={t('workbench.workspace.publishAria')}
           />
         )}
         <Button
@@ -518,7 +535,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
           danger
           onClick={onDelete}
           disabled={!canDelete}
-          aria-label="Delete workspace"
+          aria-label={t('workbench.workspace.deleteAria')}
         />
       </Space>
     </div>
@@ -551,6 +568,7 @@ const WorkspaceFormModal: React.FC<WorkspaceFormModalProps> = ({
   onCancel,
   onSubmit,
 }) => {
+  const t = useT();
   const [form] = Form.useForm<WorkspaceFormValues>();
 
   const handleOk = useCallback(async () => {
@@ -601,7 +619,7 @@ const WorkspaceFormModal: React.FC<WorkspaceFormModalProps> = ({
             keeps `icon` and `color` as separate fields so the backend
             patch contract stays unchanged. */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 16 }}>
-          <Form.Item label="Prefix" style={{ marginBottom: 0 }} shouldUpdate>
+          <Form.Item label={t('workbench.workspace.prefixLabel')} style={{ marginBottom: 0 }} shouldUpdate>
             {({ getFieldValue, setFieldsValue }) => (
               <WorkspaceIdentityPicker
                 value={{
@@ -614,14 +632,14 @@ const WorkspaceFormModal: React.FC<WorkspaceFormModalProps> = ({
           </Form.Item>
           <Form.Item
             name="name"
-            label="Name"
+            label={t('workbench.workspace.nameLabel')}
             rules={[
-              { required: true, message: 'Name is required' },
-              { max: 60, message: 'Keep names under 60 characters' },
+              { required: true, message: t('workbench.workspace.nameRequired') },
+              { max: 60, message: t('workbench.workspace.nameTooLong') },
             ]}
             style={{ flex: 1, marginBottom: 0 }}
           >
-            <Input autoFocus placeholder="My Workspace" />
+            <Input autoFocus placeholder={t('workbench.workspace.namePlaceholder')} />
           </Form.Item>
         </div>
 
@@ -633,7 +651,7 @@ const WorkspaceFormModal: React.FC<WorkspaceFormModalProps> = ({
           <Input />
         </Form.Item>
 
-        <Form.Item name="description" label="Description (optional)">
+        <Form.Item name="description" label={t('workbench.workspace.descriptionLabel')}>
           <Input.TextArea rows={2} maxLength={240} />
         </Form.Item>
       </Form>
@@ -669,6 +687,7 @@ const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
   onCancel,
   onSubmit,
 }) => {
+  const t = useT();
   const [form] = Form.useForm<DuplicateFormValues>();
 
   const handleOk = useCallback(async () => {
@@ -687,8 +706,12 @@ const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
   return (
     <Modal
       open={source !== null}
-      title={source ? `Duplicate "${source.name}"` : 'Duplicate workspace'}
-      okText="Duplicate"
+      title={
+        source
+          ? t('workbench.workspace.duplicateTitle', { name: source.name })
+          : t('workbench.workspace.duplicateTitleFallback')
+      }
+      okText={t('workbench.workspace.duplicateOk')}
       onCancel={() => {
         form.resetFields();
         onCancel();
@@ -702,7 +725,7 @@ const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
           layout="vertical"
           preserve={false}
           initialValues={{
-            name: `Copy of ${source.name}`,
+            name: t('workbench.workspace.copyOfName', { name: source.name }),
             targetOrgId: source.orgId,
             includeSecrets: false,
           }}
@@ -710,16 +733,16 @@ const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
         >
           <Form.Item
             name="name"
-            label="Name"
+            label={t('workbench.workspace.nameLabel')}
             rules={[
-              { required: true, message: 'Name is required' },
-              { max: 60, message: 'Keep names under 60 characters' },
+              { required: true, message: t('workbench.workspace.nameRequired') },
+              { max: 60, message: t('workbench.workspace.nameTooLong') },
             ]}
           >
-            <Input autoFocus placeholder="Copy of …" />
+            <Input autoFocus placeholder={t('workbench.workspace.copyOfPlaceholder')} />
           </Form.Item>
 
-          <Form.Item name="targetOrgId" label="Into Org" rules={[{ required: true }]}>
+          <Form.Item name="targetOrgId" label={t('workbench.workspace.intoOrg')} rules={[{ required: true }]}>
             <Select
               options={catalogue.map((descriptor) => ({
                 value: descriptor.id,
@@ -734,10 +757,10 @@ const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
           </Form.Item>
 
           <Form.Item name="includeSecrets" valuePropName="checked" style={{ marginBottom: 4 }}>
-            <Checkbox>Include vault contents (secrets)</Checkbox>
+            <Checkbox>{t('workbench.workspace.includeSecrets')}</Checkbox>
           </Form.Item>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Re-enter secrets in the copy if needed. OAuth connections are re-authorized either way.
+            {t('workbench.workspace.includeSecretsHint')}
           </Text>
         </Form>
       )}

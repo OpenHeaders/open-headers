@@ -33,13 +33,16 @@ import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Form, Input, Modal, Typography, Upload, theme } from 'antd';
+import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 const { Text } = Typography;
 
 const HomeOrgIdentityCard: React.FC = () => {
   const { token } = theme.useToken();
+  const t = useT();
   const snapshot = useIdentitySnapshot();
   // Home-Org host hint reads the host's OWN bind tier (self entry).
   const { self: reach } = useBackendReach();
@@ -84,17 +87,17 @@ const HomeOrgIdentityCard: React.FC = () => {
           size="small"
           icon={<PictureOutlined />}
           onClick={() => setLogoOpen(true)}
-          aria-label="Change this organization's logo"
+          aria-label={t('workbench.workspace.org.logoAria')}
         >
-          Logo
+          {t('workbench.workspace.org.logoButton')}
         </Button>
         <Button
           size="small"
           icon={<EditOutlined />}
           onClick={() => setRenameOpen(true)}
-          aria-label="Rename this organization"
+          aria-label={t('workbench.workspace.org.renameAria')}
         >
-          Rename
+          {t('workbench.workspace.org.renameButton')}
         </Button>
       </div>
 
@@ -121,6 +124,7 @@ interface RenameHomeOrgModalProps {
 
 const RenameHomeOrgModal: React.FC<RenameHomeOrgModalProps> = ({ open, currentName, hint, onClose }) => {
   const { message } = AntApp.useApp();
+  const t = useT();
   const [form] = Form.useForm<{ name: string }>();
 
   const handleOk = useCallback(async () => {
@@ -132,23 +136,27 @@ const RenameHomeOrgModal: React.FC<RenameHomeOrgModalProps> = ({ open, currentNa
     }
     const result = await renameHomeOrg(name);
     if (result.ok) {
-      message.success('Name updated');
+      message.success(t('workbench.workspace.org.nameUpdated'));
       form.resetFields();
       onClose();
       return;
     }
     if (result.reason === 'empty-name') {
-      form.setFields([{ name: 'name', errors: ['Name is required'] }]);
+      form.setFields([{ name: 'name', errors: [t('workbench.workspace.nameRequired')] }]);
     } else {
-      message.error('Identity is still loading — try again in a moment');
+      message.error(t('workbench.workspace.org.identityLoading'));
     }
-  }, [form, message, onClose]);
+  }, [form, message, onClose, t]);
 
   return (
     <Modal
       open={open}
-      title={hint ? `Rename ${hint.toLowerCase()}` : 'Rename'}
-      okText="Save"
+      title={
+        hint
+          ? t('workbench.workspace.org.renameTitle', { hint: hint.toLowerCase() })
+          : t('workbench.workspace.org.renameTitleFallback')
+      }
+      okText={t('workbench.workspace.saveOk')}
       destroyOnClose
       onCancel={() => {
         form.resetFields();
@@ -159,14 +167,14 @@ const RenameHomeOrgModal: React.FC<RenameHomeOrgModalProps> = ({ open, currentNa
       <Form form={form} layout="vertical" preserve={false} initialValues={{ name: currentName }}>
         <Form.Item
           name="name"
-          label="Name"
-          extra="Shown in the workspace switcher and to anyone you share workspaces with."
+          label={t('workbench.workspace.nameLabel')}
+          extra={t('workbench.workspace.org.renameExtra')}
           rules={[
-            { required: true, message: 'Name is required' },
-            { max: MAX_ORG_NAME_LENGTH, message: `Keep names under ${MAX_ORG_NAME_LENGTH} characters` },
+            { required: true, message: t('workbench.workspace.nameRequired') },
+            { max: MAX_ORG_NAME_LENGTH, message: t('workbench.workspace.org.nameTooLong', { max: MAX_ORG_NAME_LENGTH }) },
           ]}
         >
-          <Input autoFocus maxLength={MAX_ORG_NAME_LENGTH} placeholder="My Work Laptop" />
+          <Input autoFocus maxLength={MAX_ORG_NAME_LENGTH} placeholder={t('workbench.workspace.org.namePlaceholder')} />
         </Form.Item>
       </Form>
     </Modal>
@@ -175,14 +183,16 @@ const RenameHomeOrgModal: React.FC<RenameHomeOrgModalProps> = ({ open, currentNa
 
 // ── Logo modal ───────────────────────────────────────────────────────
 
-const LOGO_REJECT_COPY: Record<OrgLogoRejectReason, string> = {
-  'not-a-data-uri': 'That file could not be read as an image.',
-  'not-base64': 'That file could not be read as an image.',
-  'corrupt-image': 'That file is not a valid image of its declared type.',
-  'unsupported-format': 'Use a PNG, JPEG, WebP, or SVG file.',
-  'too-large': `Keep the logo under ${Math.round(ORG_LOGO_MAX_BYTES / 1024)} KB.`,
-  'unsafe-svg': 'This SVG contains scripts or external references — export a plain, self-contained SVG.',
+const LOGO_REJECT_KEYS: Record<OrgLogoRejectReason, MessageKey> = {
+  'not-a-data-uri': 'workbench.workspace.org.logoReject.notImage',
+  'not-base64': 'workbench.workspace.org.logoReject.notImage',
+  'corrupt-image': 'workbench.workspace.org.logoReject.corruptImage',
+  'unsupported-format': 'workbench.workspace.org.logoReject.unsupportedFormat',
+  'too-large': 'workbench.workspace.org.logoReject.tooLarge',
+  'unsafe-svg': 'workbench.workspace.org.logoReject.unsafeSvg',
 };
+
+const LOGO_MAX_KB = Math.round(ORG_LOGO_MAX_BYTES / 1024);
 
 const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg';
 
@@ -207,6 +217,7 @@ interface HomeOrgLogoModalProps {
 const HomeOrgLogoModal: React.FC<HomeOrgLogoModalProps> = ({ open, currentLogo, hint, onClose }) => {
   const { message } = AntApp.useApp();
   const { token } = theme.useToken();
+  const t = useT();
   const [busy, setBusy] = useState(false);
 
   const applyFile = useCallback(
@@ -219,26 +230,26 @@ const HomeOrgLogoModal: React.FC<HomeOrgLogoModalProps> = ({ open, currentLogo, 
         // if a future caller skips this.
         const validation = validateOrgLogoDataUri(dataUri);
         if (!validation.ok) {
-          message.error(LOGO_REJECT_COPY[validation.reason]);
+          message.error(t(LOGO_REJECT_KEYS[validation.reason], { kb: LOGO_MAX_KB }));
           return;
         }
         const result = await setHomeOrgLogo(dataUri);
         if (!result.ok) {
           message.error(
             result.reason === 'no-identity'
-              ? 'Identity is still loading — try again in a moment'
-              : LOGO_REJECT_COPY[result.reason],
+              ? t('workbench.workspace.org.identityLoading')
+              : t(LOGO_REJECT_KEYS[result.reason], { kb: LOGO_MAX_KB }),
           );
           return;
         }
-        message.success('Logo updated');
+        message.success(t('workbench.workspace.org.logoUpdated'));
       } catch {
-        message.error('That file could not be read.');
+        message.error(t('workbench.workspace.org.fileReadFailed'));
       } finally {
         setBusy(false);
       }
     },
-    [message],
+    [message, t],
   );
 
   const removeLogo = useCallback(async () => {
@@ -246,19 +257,23 @@ const HomeOrgLogoModal: React.FC<HomeOrgLogoModalProps> = ({ open, currentLogo, 
     try {
       const result = await setHomeOrgLogo(null);
       if (result.ok) {
-        message.success('Logo removed');
+        message.success(t('workbench.workspace.org.logoRemoved'));
       } else {
-        message.error('Identity is still loading — try again in a moment');
+        message.error(t('workbench.workspace.org.identityLoading'));
       }
     } finally {
       setBusy(false);
     }
-  }, [message]);
+  }, [message, t]);
 
   return (
     <Modal
       open={open}
-      title={hint ? `${hint} logo` : 'Organization logo'}
+      title={
+        hint
+          ? t('workbench.workspace.org.logoTitle', { hint })
+          : t('workbench.workspace.org.logoTitleFallback')
+      }
       footer={null}
       destroyOnClose
       onCancel={onClose}
@@ -278,7 +293,13 @@ const HomeOrgLogoModal: React.FC<HomeOrgLogoModalProps> = ({ open, currentLogo, 
           }}
         >
           {currentLogo ? (
-            <img src={currentLogo} alt="Current organization logo" width={40} height={40} style={{ objectFit: 'contain' }} />
+            <img
+              src={currentLogo}
+              alt={t('workbench.workspace.org.logoAlt')}
+              width={40}
+              height={40}
+              style={{ objectFit: 'contain' }}
+            />
           ) : (
             <PictureOutlined style={{ fontSize: 22, color: token.colorTextQuaternary }} />
           )}
@@ -294,18 +315,17 @@ const HomeOrgLogoModal: React.FC<HomeOrgLogoModalProps> = ({ open, currentLogo, 
               }}
             >
               <Button icon={<UploadOutlined />} loading={busy}>
-                {currentLogo ? 'Replace…' : 'Upload…'}
+                {currentLogo ? t('workbench.workspace.org.replace') : t('workbench.workspace.org.upload')}
               </Button>
             </Upload>
             {currentLogo && (
               <Button icon={<DeleteOutlined />} danger disabled={busy} onClick={() => void removeLogo()}>
-                Remove
+                {t('workbench.workspace.org.remove')}
               </Button>
             )}
           </div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            PNG, JPEG, WebP, or SVG, up to {Math.round(ORG_LOGO_MAX_BYTES / 1024)} KB. Square images look best. Shown
-            to everyone who syncs with this organization.
+            {t('workbench.workspace.org.logoHint', { kb: LOGO_MAX_KB })}
           </Text>
         </div>
       </div>

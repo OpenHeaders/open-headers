@@ -24,6 +24,7 @@ import { Dropdown, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { forwardRef, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 // ── Public types ────────────────────────────────────────────────────
 
@@ -76,16 +77,17 @@ export interface ActivityBarProps {
 const ActivityBar = forwardRef<HTMLDivElement, ActivityBarProps>(
   ({ side, topItems, bottomItems = [], trailingItem, labelsVisible, onToggleLabels }, ref) => {
     const { token } = theme.useToken();
+    const t = useT();
 
     const contextMenuItems = useMemo<ItemType[]>(
       () => [
         {
           key: 'toggle-labels',
-          label: labelsVisible ? 'Hide labels' : 'Show labels',
+          label: labelsVisible ? t('workbench.shell.activityBar.hideLabels') : t('workbench.shell.activityBar.showLabels'),
           onClick: onToggleLabels,
         },
       ],
-      [labelsVisible, onToggleLabels],
+      [labelsVisible, onToggleLabels, t],
     );
 
     const barStyle: React.CSSProperties = {

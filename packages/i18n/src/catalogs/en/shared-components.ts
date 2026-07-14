@@ -247,4 +247,11 @@ export const sharedComponents = {
   'shared.valueEditors.editTooltip.link': 'Edit links',
   'shared.valueEditors.editTooltip.authParams': 'Edit auth parameters',
   'shared.valueEditors.editTooltip.acceptList': 'Edit accept list',
+
+  // ── Default entity names (multi-surface: sidebar create actions +
+  //    save-modal prefilled collection create). 'User Templates' is NOT
+  //    here — it identity-compares against the background seed and
+  //    stays raw everywhere. ───────────────────────────────────────────
+  'shared.defaults.newRulesCollection': 'New Rules Collection',
+  'shared.defaults.newRequestsCollection': 'New Requests Collection',
 } as const satisfies Catalog;

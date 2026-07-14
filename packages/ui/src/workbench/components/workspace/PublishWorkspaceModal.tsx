@@ -14,6 +14,7 @@ import type { PublishTarget } from '@openheaders/ui/shared/backend';
 import { Checkbox, Form, Input, Modal, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 const { Text } = Typography;
 
@@ -33,6 +34,7 @@ interface PublishWorkspaceModalProps {
 
 const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, targets, onCancel, onSubmit }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [form] = Form.useForm<PublishFormValues>();
 
   const single = targets.length === 1 ? targets[0] : null;
@@ -54,8 +56,14 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
   return (
     <Modal
       open={source !== null}
-      title={source ? `Publish "${source.name}"` : 'Publish workspace'}
-      okText={single ? `Publish to ${single.orgName}` : 'Publish'}
+      title={
+        source
+          ? t('workbench.workspace.publishTitle', { name: source.name })
+          : t('workbench.workspace.publishTitleFallback')
+      }
+      okText={
+        single ? t('workbench.workspace.publishToOk', { org: single.orgName }) : t('workbench.workspace.publishOk')
+      }
       okButtonProps={{ disabled: firstHealthy === null }}
       onCancel={() => {
         form.resetFields();
@@ -77,16 +85,15 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
           onFinish={handleOk}
         >
           <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 12 }}>
-            Publishing copies this workspace into the chosen Org, where it syncs through that back-end. The original
-            stays here.
+            {t('workbench.workspace.publishIntro')}
           </Text>
 
           <Form.Item
             name="name"
-            label="Name"
+            label={t('workbench.workspace.nameLabel')}
             rules={[
-              { required: true, message: 'Name is required' },
-              { max: 60, message: 'Keep names under 60 characters' },
+              { required: true, message: t('workbench.workspace.nameRequired') },
+              { max: 60, message: t('workbench.workspace.nameTooLong') },
             ]}
           >
             <Input autoFocus />
@@ -112,7 +119,11 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
               </div>
             </>
           ) : (
-            <Form.Item name="targetOrgId" label="To Org" rules={[{ required: true, message: 'Pick a target Org' }]}>
+            <Form.Item
+              name="targetOrgId"
+              label={t('workbench.workspace.toOrg')}
+              rules={[{ required: true, message: t('workbench.workspace.pickTargetOrg') }]}
+            >
               <Select
                 options={targets.map((target) => ({
                   value: target.orgId,
@@ -136,10 +147,10 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
           )}
 
           <Form.Item name="includeSecrets" valuePropName="checked" style={{ marginBottom: 4 }}>
-            <Checkbox>Include vault contents (secrets)</Checkbox>
+            <Checkbox>{t('workbench.workspace.includeSecrets')}</Checkbox>
           </Form.Item>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Re-enter secrets in the published copy if needed. OAuth connections are re-authorized either way.
+            {t('workbench.workspace.includeSecretsPublishHint')}
           </Text>
         </Form>
       )}

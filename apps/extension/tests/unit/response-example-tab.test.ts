@@ -11,6 +11,7 @@
 
 import type { CapturedResponse, CollectionTree, ResponseExample } from '@openheaders/core/types';
 import { buildEmptyRequest } from '@openheaders/core/utils';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import { computeBreadcrumbs } from '@openheaders/ui/workbench/breadcrumbs';
 import {
   capturedRequestFromDraft,
@@ -198,18 +199,20 @@ describe('tabDisplayLabel — response-example tabs', () => {
 });
 
 describe('computeBreadcrumbs — response-example tabs', () => {
+  const t = getTranslator(DEFAULT_LOCALE);
+
   it('extends the parent request trail with the example label', () => {
-    const crumbs = computeBreadcrumbs(exampleTab, '200 OK', [], [], requestCollectionTrees, [parentRequest], []);
+    const crumbs = computeBreadcrumbs(exampleTab, '200 OK', [], [], requestCollectionTrees, [parentRequest], [], t);
     expect(crumbs).toEqual(['API Requests', 'API', 'Tokens', 'Get users', '200 OK']);
   });
 
   it('degrades to the request name when the tree has no trail for it', () => {
-    const crumbs = computeBreadcrumbs(exampleTab, '200 OK', [], [], [], [parentRequest], []);
+    const crumbs = computeBreadcrumbs(exampleTab, '200 OK', [], [], [], [parentRequest], [], t);
     expect(crumbs).toEqual(['API Requests', 'Get users', '200 OK']);
   });
 
   it('degrades to the family root when the parent request is gone', () => {
-    const crumbs = computeBreadcrumbs(exampleTab, '200 OK', [], [], requestCollectionTrees, [], []);
+    const crumbs = computeBreadcrumbs(exampleTab, '200 OK', [], [], requestCollectionTrees, [], [], t);
     expect(crumbs).toEqual(['API Requests', '200 OK']);
   });
 });

@@ -12,7 +12,8 @@ import type { Collection, CollectionTree, Rule } from '@openheaders/core/types';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NEW_RULES_COLLECTION_NAME, uniqueName } from '@openheaders/ui/shared/naming';
+import { uniqueName } from '@openheaders/ui/shared/naming';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { renderCollectionRows, renderNodeRows } from './save-browser-rows';
 import { useSaveBrowser } from './use-save-browser';
@@ -52,9 +53,11 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   onCreateCollection,
   onCreateFolder,
   onCancel,
-  defaultNewCollectionName = NEW_RULES_COLLECTION_NAME,
+  defaultNewCollectionName,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
+  const effectiveDefaultCollectionName = defaultNewCollectionName ?? t('shared.defaults.newRulesCollection');
   const saveLabel = useShortcutLabel('save');
   // Platform-appropriate label for the "new folder/collection" chord — local to this modal.
   // Uses literal Control on both platforms (Cmd+N / Cmd+Shift+N are reserved by the
@@ -159,12 +162,12 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
     }
     if (selectedCollectionId || !name.trim()) return;
     if (collections.length === 0) {
-      setNewCollectionName(uniqueName(defaultNewCollectionName, new Set(collections.map((c) => c.name))));
+      setNewCollectionName(uniqueName(effectiveDefaultCollectionName, new Set(collections.map((c) => c.name))));
       setCreatingCollection(true);
       return;
     }
     if (drillIntoFocusedRow()) setTimeout(() => searchInputRef.current?.focus(), 50);
-  }, [canSave, handleSave, selectedCollectionId, name, collections, defaultNewCollectionName, drillIntoFocusedRow]);
+  }, [canSave, handleSave, selectedCollectionId, name, collections, effectiveDefaultCollectionName, drillIntoFocusedRow]);
 
   // Search input + browser share nav keys; Enter on an empty folder view
   // (nothing left to drill into) saves right where the user is standing.
@@ -206,23 +209,23 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   }, [open, canSave, handleSave, selectedCollectionId]);
 
   const saveTooltip = !selectedCollectionId
-    ? 'Select a collection first'
+    ? t('workbench.save.selectCollectionFirst')
     : !name.trim()
-      ? 'Enter a name'
+      ? t('workbench.save.enterName')
       : saveLabel
-        ? `Save (${saveLabel})`
-        : 'Save';
+        ? t('workbench.save.saveWithChord', { chord: saveLabel })
+        : t('workbench.save.save');
 
   return (
     <Modal
       open={open}
-      title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>SAVE</span>}
+      title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>{t('workbench.save.title')}</span>}
       onCancel={onCancel}
       footer={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {selectedCollectionId ? (
-              <Tooltip title={`New folder (${newLabel})`}>
+              <Tooltip title={t('workbench.save.newFolderTooltip', { chord: newLabel })}>
                 <Button
                   type="link"
                   size="small"
@@ -230,11 +233,11 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                   style={{ padding: 0, fontSize: 12 }}
                   onClick={() => setCreatingFolder(true)}
                 >
-                  New folder
+                  {t('workbench.save.newFolder')}
                 </Button>
               </Tooltip>
             ) : (
-              <Tooltip title={`New collection (${newLabel})`}>
+              <Tooltip title={t('workbench.save.newCollectionTooltip', { chord: newLabel })}>
                 <Button
                   type="link"
                   size="small"
@@ -242,13 +245,13 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                   style={{ padding: 0, fontSize: 12 }}
                   onClick={() => setCreatingCollection(true)}
                 >
-                  New collection
+                  {t('workbench.save.newCollection')}
                 </Button>
               </Tooltip>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               <Button onClick={onCancel} size="small">
-                Cancel
+                {t('workbench.save.cancel')}
               </Button>
               <Tooltip title={saveTooltip}>
                 <span>
@@ -260,7 +263,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                     onClick={handleSave}
                     style={canSave ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
                   >
-                    Save
+                    {t('workbench.save.save')}
                   </Button>
                 </span>
               </Tooltip>
@@ -277,12 +280,12 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
               paddingTop: 6,
             }}
           >
-            <span>↑↓ navigate</span>
-            <span>→ open</span>
-            {(selectedCollectionId || selectedFolderPath) && <span>← back</span>}
-            <span>{newLabel} new</span>
-            {saveLabel && <span>{saveLabel} save</span>}
-            <span style={{ marginLeft: 'auto' }}>esc close</span>
+            <span>{t('workbench.save.footer.navigate')}</span>
+            <span>{t('workbench.save.footer.open')}</span>
+            {(selectedCollectionId || selectedFolderPath) && <span>{t('workbench.save.footer.back')}</span>}
+            <span>{t('workbench.save.footer.new', { chord: newLabel })}</span>
+            {saveLabel && <span>{t('workbench.save.footer.save', { chord: saveLabel })}</span>}
+            <span style={{ marginLeft: 'auto' }}>{t('workbench.save.footer.close')}</span>
           </div>
         </div>
       }
@@ -291,7 +294,9 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
     >
       {/* Rule name */}
       <div style={{ marginBottom: 16 }}>
-        <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Name</Text>
+        <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+          {t('workbench.save.nameLabel')}
+        </Text>
         <Input
           ref={nameInputRef}
           value={name}
@@ -310,7 +315,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
 
       {/* Save to breadcrumb */}
       <div style={{ marginBottom: 8, fontSize: 12 }}>
-        <Text style={{ fontSize: 12, fontWeight: 600 }}>Save to </Text>
+        <Text style={{ fontSize: 12, fontWeight: 600 }}>{t('workbench.save.saveTo')}</Text>
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: decorative breadcrumb nav — keyboard access via the confirm button */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: decorative breadcrumb nav */}
         <span
@@ -330,7 +335,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
             }
           }}
         >
-          Local Rules
+          {t('workbench.save.rootCrumb')}
         </span>
         {breadcrumb.map((seg, i) => (
           <span key={i}>
@@ -354,7 +359,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       {/* Search */}
       <Input
         ref={searchInputRef}
-        placeholder={selectedCollectionId ? 'Search folders' : 'Search for collection'}
+        placeholder={selectedCollectionId ? t('workbench.save.searchFolders') : t('workbench.save.searchCollections')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         onKeyDown={handleBrowseKeyDown}
@@ -397,7 +402,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
               ref={newCollectionInputRef}
               value={newCollectionName}
               onChange={(e) => setNewCollectionName(e.target.value)}
-              placeholder="Name your collection"
+              placeholder={t('workbench.save.nameYourCollection')}
               size="small"
               style={{ flex: 1, fontSize: 12 }}
               onPressEnter={() => void handleCreateCollection()}
@@ -414,7 +419,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
               style={{ padding: 0, fontSize: 11 }}
               onClick={() => void handleCreateCollection()}
             >
-              Create
+              {t('workbench.save.create')}
             </Button>
             <Button
               type="link"
@@ -425,7 +430,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                 setNewCollectionName('');
               }}
             >
-              Cancel
+              {t('workbench.save.cancel')}
             </Button>
           </div>
         )}
@@ -439,7 +444,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                   type="secondary"
                   style={{ fontSize: 12, display: 'block', marginBottom: collections.length === 0 ? 12 : 0 }}
                 >
-                  {collections.length === 0 ? 'No collections yet.' : 'No matching collections.'}
+                  {collections.length === 0 ? t('workbench.save.noCollections') : t('workbench.save.noMatchingCollections')}
                 </Text>
                 {collections.length === 0 && (
                   <>
@@ -450,11 +455,11 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                       style={{ fontSize: 12, padding: 0 }}
                       onClick={() => setCreatingCollection(true)}
                     >
-                      Create collection
+                      {t('workbench.save.createCollection')}
                     </Button>
                     <div style={{ marginTop: 6 }}>
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        or press <kbd style={kbdStyle(token)}>{newLabel}</kbd>
+                        {t('workbench.save.orPressPrefix')} <kbd style={kbdStyle(token)}>{newLabel}</kbd>
                       </Text>
                     </div>
                   </>
@@ -491,7 +496,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                   ref={newFolderInputRef}
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="Name your folder"
+                  placeholder={t('workbench.save.nameYourFolder')}
                   size="small"
                   style={{ flex: 1, fontSize: 12 }}
                   onPressEnter={() => void handleCreateFolder()}
@@ -508,7 +513,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                   style={{ padding: 0, fontSize: 11 }}
                   onClick={() => void handleCreateFolder()}
                 >
-                  Create
+                  {t('workbench.save.create')}
                 </Button>
                 <Button
                   type="link"
@@ -519,7 +524,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                     setNewFolderName('');
                   }}
                 >
-                  Cancel
+                  {t('workbench.save.cancel')}
                 </Button>
               </div>
             )}
@@ -549,12 +554,13 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                 }}
               >
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  This {selectedFolderPath ? 'folder' : 'collection'} is empty.
+                  {selectedFolderPath ? t('workbench.save.folderEmpty') : t('workbench.save.collectionEmpty')}
                 </Text>
                 {canSave && saveLabel && (
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    Press <kbd style={kbdStyle(token)}>{saveLabel}</kbd> to save here, or{' '}
-                    <kbd style={kbdStyle(token)}>{newLabel}</kbd> for a new folder.
+                    {t('workbench.save.pressPrefix')} <kbd style={kbdStyle(token)}>{saveLabel}</kbd>{' '}
+                    {t('workbench.save.pressMiddle')} <kbd style={kbdStyle(token)}>{newLabel}</kbd>{' '}
+                    {t('workbench.save.pressSuffix')}
                   </Text>
                 )}
               </div>

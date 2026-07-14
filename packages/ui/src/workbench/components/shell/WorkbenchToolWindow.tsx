@@ -20,6 +20,7 @@ import type { LiveWorkflow } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
 import type React from 'react';
 import type { MutableRefObject, RefObject } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import WorkflowStatusPanel from '../live/WorkflowStatusPanel';
 import ActivityFeedPanel from '../panels/ActivityFeedPanel';
 import DeepNetworkInspectionPanel from '../panels/DeepNetworkInspectionPanel';
@@ -145,6 +146,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   activeTab,
   liveWorkflows,
 }) => {
+  const t = useT();
   switch (id) {
     case 'http-rules':
     case 'api-requests':
@@ -212,7 +214,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           // the workflow list so the tab title renders correctly.
           onOpenWorkflow={(uid) => {
             const wf = liveWorkflows.find((w) => w.uid === uid);
-            openLiveWorkflowEdit(uid, wf?.name ?? 'Workflow');
+            openLiveWorkflowEdit(uid, wf?.name ?? t('workbench.shell.fallback.workflow'));
           }}
         />
       );

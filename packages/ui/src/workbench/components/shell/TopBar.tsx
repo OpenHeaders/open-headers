@@ -16,6 +16,7 @@ import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@openheaders/ui
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import { hostAssets } from '@openheaders/core/assets';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { ToolLayoutApi, WorkbenchViewState } from '../../hooks/useToolLayout';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { useEnvSwitcher } from '../../services/env-switcher';
@@ -78,6 +79,7 @@ const TopBar: React.FC<TopBarProps> = ({
   onSetCollectionPinnedEnvs,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { pickActiveEnvironment } = useEnvSwitcher();
   const commandPaletteLabel = useShortcutLabel('command-palette');
   const openSettingsLabel = useShortcutLabel('open-settings');
@@ -165,13 +167,13 @@ const TopBar: React.FC<TopBarProps> = ({
     {
       key: 'bottom-alignment',
       icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} />),
-      label: 'Bottom Panel Alignment',
+      label: t('workbench.shell.topbar.layout.bottomAlignment'),
       children: (
         [
-          { key: 'center', label: 'Center (nested)' },
-          { key: 'left', label: 'Left' },
-          { key: 'right', label: 'Right' },
-          { key: 'justify', label: 'Justify (full width)' },
+          { key: 'center', label: t('workbench.shell.topbar.layout.alignCenter') },
+          { key: 'left', label: t('workbench.shell.topbar.layout.alignLeft') },
+          { key: 'right', label: t('workbench.shell.topbar.layout.alignRight') },
+          { key: 'justify', label: t('workbench.shell.topbar.layout.alignJustify') },
         ] as { key: BottomPanelAlignmentSetting; label: string }[]
       ).map((opt) => ({
         key: `bottom-${opt.key}`,
@@ -183,19 +185,19 @@ const TopBar: React.FC<TopBarProps> = ({
     {
       key: 'show-labels',
       icon: menuIconWrap(<LayoutMenuIcon kind={showLabelsSetting ? 'show-labels' : 'hide-labels'} />),
-      label: menuLabel(showLabelsSetting, 'Show Tool Window Names'),
+      label: menuLabel(showLabelsSetting, t('workbench.shell.topbar.layout.showToolWindowNames')),
       onClick: () => setShowLabels(!showLabelsSetting),
     },
     {
       key: 'sidebar-layout',
       icon: menuIconWrap(<SidebarLayoutIcon variant={sidebarLayout} />),
-      label: 'Activity Bar Layout',
+      label: t('workbench.shell.topbar.layout.activityBarLayout'),
       children: (
         [
-          { key: 'proportional', label: 'Proportional (even halves)' },
-          { key: 'compact', label: 'Compact (bottom pinned)' },
-          { key: 'stacked', label: 'Stacked (all at top)' },
-          { key: 'dynamic', label: 'Dynamic (follows panel heights)' },
+          { key: 'proportional', label: t('workbench.shell.topbar.layout.sidebarProportional') },
+          { key: 'compact', label: t('workbench.shell.topbar.layout.sidebarCompact') },
+          { key: 'stacked', label: t('workbench.shell.topbar.layout.sidebarStacked') },
+          { key: 'dynamic', label: t('workbench.shell.topbar.layout.sidebarDynamic') },
         ] as { key: SidebarLayoutVariantSetting; label: string }[]
       ).map((opt) => ({
         key: `sidebar-${opt.key}`,
@@ -211,14 +213,22 @@ const TopBar: React.FC<TopBarProps> = ({
       label: (
         <Space size={6}>
           <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
-            {perTab.isDonor ? `Default layout ${instanceLabel()}` : 'Inherits default layout'}
+            {perTab.isDonor
+              ? t('workbench.shell.topbar.layout.defaultLayoutDonor', { unit: instanceLabel() })
+              : t('workbench.shell.topbar.layout.inheritsDefault')}
           </span>
           <Tooltip
             trigger={['hover', 'click']}
             title={
               perTab.isDonor
-                ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
-                : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`
+                ? t('workbench.shell.topbar.layout.donorTooltip', {
+                    unit: instanceLabel(),
+                    units: instanceLabelPlural(),
+                  })
+                : t('workbench.shell.topbar.layout.nonDonorTooltip', {
+                    unit: instanceLabel(),
+                    units: instanceLabelPlural(),
+                  })
             }
           >
             <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
@@ -230,14 +240,14 @@ const TopBar: React.FC<TopBarProps> = ({
     {
       key: 'reset-layout',
       icon: menuIconWrap(<ReloadOutlined style={{ fontSize: 12 }} />),
-      label: 'Reset layout to defaults',
+      label: t('workbench.shell.topbar.layout.resetToDefaults'),
       onClick: () => perTab.resetToDefaults(),
     },
     { type: 'divider' },
     {
       key: 'restore',
       icon: menuIconWrap(<LayoutMenuIcon kind="restore-hidden" />),
-      label: 'Restore Hidden Activity Bar Tools',
+      label: t('workbench.shell.topbar.layout.restoreHidden'),
       disabled: tl.state.hidden.length === 0,
       children:
         tl.state.hidden.length === 0
@@ -313,7 +323,7 @@ const TopBar: React.FC<TopBarProps> = ({
           <Space size={4}>
             <SearchOutlined style={{ color: token.colorTextTertiary }} />
             <span className="rules-topbar-search-label" style={{ color: token.colorTextTertiary }}>
-              Search or run a command...
+              {t('workbench.shell.topbar.search')}
             </span>
             <kbd
               style={{
@@ -361,22 +371,34 @@ const TopBar: React.FC<TopBarProps> = ({
             />
             <div className="rules-panel-toggles">
               <RegionToggle
-                title={<ShortcutHintTitle label={toggleLeftSidebarLabel}>Left sidebar</ShortcutHintTitle>}
-                ariaTitle="Left sidebar"
+                title={
+                  <ShortcutHintTitle label={toggleLeftSidebarLabel}>
+                    {t('workbench.shell.topbar.toggle.leftSidebar')}
+                  </ShortcutHintTitle>
+                }
+                ariaTitle={t('workbench.shell.topbar.toggle.leftSidebar')}
                 active={tl.isRegionOpen('left')}
                 position="left"
                 onClick={() => tl.toggleRegion('left')}
               />
               <RegionToggle
-                title={<ShortcutHintTitle label={toggleBottomPanelLabel}>Bottom panel</ShortcutHintTitle>}
-                ariaTitle="Bottom panel"
+                title={
+                  <ShortcutHintTitle label={toggleBottomPanelLabel}>
+                    {t('workbench.shell.topbar.toggle.bottomPanel')}
+                  </ShortcutHintTitle>
+                }
+                ariaTitle={t('workbench.shell.topbar.toggle.bottomPanel')}
                 active={tl.isRegionOpen('bottom')}
                 position="bottom"
                 onClick={() => tl.toggleRegion('bottom')}
               />
               <RegionToggle
-                title={<ShortcutHintTitle label={toggleRightSidebarLabel}>Right sidebar</ShortcutHintTitle>}
-                ariaTitle="Right sidebar"
+                title={
+                  <ShortcutHintTitle label={toggleRightSidebarLabel}>
+                    {t('workbench.shell.topbar.toggle.rightSidebar')}
+                  </ShortcutHintTitle>
+                }
+                ariaTitle={t('workbench.shell.topbar.toggle.rightSidebar')}
                 active={tl.isRegionOpen('right')}
                 position="right"
                 onClick={() => tl.toggleRegion('right')}
@@ -389,10 +411,10 @@ const TopBar: React.FC<TopBarProps> = ({
                 menu={{
                   items: (
                     [
-                      { key: 'center', label: 'Center (nested)' },
-                      { key: 'left', label: 'Left' },
-                      { key: 'right', label: 'Right' },
-                      { key: 'justify', label: 'Justify (full width)' },
+                      { key: 'center', label: t('workbench.shell.topbar.layout.alignCenter') },
+                      { key: 'left', label: t('workbench.shell.topbar.layout.alignLeft') },
+                      { key: 'right', label: t('workbench.shell.topbar.layout.alignRight') },
+                      { key: 'justify', label: t('workbench.shell.topbar.layout.alignJustify') },
                     ] as { key: BottomPanelAlignmentSetting; label: string }[]
                   ).map((opt) => ({
                     key: `topbar-bottom-${opt.key}`,
@@ -405,12 +427,12 @@ const TopBar: React.FC<TopBarProps> = ({
                 <Tooltip
                   title={
                     bottomPanelAlignment === 'center'
-                      ? 'Bottom panel: center (nested)'
+                      ? t('workbench.shell.topbar.bottomAlign.center')
                       : bottomPanelAlignment === 'left'
-                        ? 'Bottom panel: left-aligned'
+                        ? t('workbench.shell.topbar.bottomAlign.left')
                         : bottomPanelAlignment === 'right'
-                          ? 'Bottom panel: right-aligned'
-                          : 'Bottom panel: full width'
+                          ? t('workbench.shell.topbar.bottomAlign.right')
+                          : t('workbench.shell.topbar.bottomAlign.justify')
                   }
                   placement="bottom"
                   open={bottomAlignDropdownOpen ? false : undefined}
@@ -419,7 +441,7 @@ const TopBar: React.FC<TopBarProps> = ({
                     className="rules-panel-toggle"
                     role="button"
                     tabIndex={0}
-                    aria-label="Choose bottom panel alignment"
+                    aria-label={t('workbench.shell.topbar.bottomAlign.chooseAria')}
                   >
                     <LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} size={16} />
                   </div>
@@ -443,12 +465,12 @@ const TopBar: React.FC<TopBarProps> = ({
               open={layoutMenuOpen}
               onOpenChange={handleLayoutOpenChange}
             >
-              <Tooltip title="Layout options" open={layoutMenuOpen ? false : undefined}>
+              <Tooltip title={t('workbench.shell.topbar.layoutOptions')} open={layoutMenuOpen ? false : undefined}>
                 <div
                   className="rules-topbar-item rules-layout-toggle"
                   role="button"
                   tabIndex={0}
-                  aria-label="Layout options"
+                  aria-label={t('workbench.shell.topbar.layoutOptions')}
                   style={{ cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center' }}
                 >
                   <LayoutOutlined style={{ fontSize: 13 }} />

@@ -8,8 +8,10 @@
  */
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useActiveEditorLifecycle } from '@openheaders/ui/shared/awareness';
 import { BackgroundTasksIndicator } from '@openheaders/ui/shared/background-tasks';
 import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
@@ -38,10 +40,10 @@ interface StatusBarProps {
   autoRenameKey?: string | null;
 }
 
-const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string }> = {
-  light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, text: 'Light' },
-  dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, text: 'Dark' },
-  auto: { icon: <span style={{ fontSize: 12 }}>&#x25D0;</span>, text: 'Auto' },
+const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; textKey: MessageKey }> = {
+  light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, textKey: 'workbench.shell.statusbar.theme.light' },
+  dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, textKey: 'workbench.shell.statusbar.theme.dark' },
+  auto: { icon: <span style={{ fontSize: 12 }}>&#x25D0;</span>, textKey: 'workbench.shell.statusbar.theme.auto' },
 };
 
 const StatusBar: React.FC<StatusBarProps> = ({
@@ -52,6 +54,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
   autoRenameKey,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const themeMode = useSettingValue('appearance.theme');
 
   // Per-mode accents from the antd preset palettes — the active algorithm
@@ -138,7 +141,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
         <DebugModePill tabSource="none" onOpenDocs={openDocs} />
         <StatusPill
           density="full"
-          label="System status"
+          label={t('workbench.shell.statusbar.systemStatus')}
           renderSubsystemExtras={productStatusExtras}
           onOpenDocs={openDocs}
         />
@@ -152,7 +155,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
                   label: (
                     <Space size={4}>
                       {THEME_DISPLAY[mode].icon}
-                      <span>{THEME_DISPLAY[mode].text}</span>
+                      <span>{t(THEME_DISPLAY[mode].textKey)}</span>
                       {themeMode === mode && <span style={{ marginLeft: 4 }}>&#x2713;</span>}
                     </Space>
                   ),
@@ -175,7 +178,9 @@ const StatusBar: React.FC<StatusBarProps> = ({
                 }}
               >
                 {THEME_DISPLAY[themeMode as ThemeMode]?.icon}
-                <span style={{ fontSize: 10 }}>{THEME_DISPLAY[themeMode as ThemeMode]?.text}</span>
+                <span style={{ fontSize: 10 }}>
+                  {THEME_DISPLAY[themeMode as ThemeMode] ? t(THEME_DISPLAY[themeMode as ThemeMode].textKey) : null}
+                </span>
               </div>
             </Dropdown>
           </>

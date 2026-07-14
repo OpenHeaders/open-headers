@@ -14,6 +14,7 @@ import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 import { Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useState } from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { buildRuleTypeMenuItemsWithTemplates, templatesBadge } from '../../rule-type-menu';
 import { useSettingValue } from '../../settings/hooks';
 import CappedMenuPopup from '../shared/CappedMenuPopup';
@@ -44,30 +45,43 @@ interface EmptyStateProps {
 /** Variable-scope dropdown, mirroring the rule-type menu. Scope badges
  *  match the sidebar's Variables view; the collection entry is disabled
  *  with a tooltip since it can only be authored within a collection. */
-function buildVariableScopeMenuItems(onCreateVariable: (scope: VariableCreateScope) => void): MenuProps['items'] {
+function buildVariableScopeMenuItems(
+  onCreateVariable: (scope: VariableCreateScope) => void,
+  t: Translate,
+): MenuProps['items'] {
   return [
     {
       key: 'environment',
       icon: scopeBadge('environment'),
-      label: 'Environment variable',
+      label: t('workbench.shell.empty.varEnvironment'),
       onClick: () => onCreateVariable('environment'),
     },
     {
       key: 'workspace',
       icon: scopeBadge('workspace'),
-      label: 'Workspace variable',
+      label: t('workbench.shell.empty.varWorkspace'),
       onClick: () => onCreateVariable('workspace'),
     },
-    { key: 'live', icon: scopeBadge('live'), label: 'Live variable', onClick: () => onCreateVariable('live') },
-    { key: 'vault', icon: scopeBadge('vault'), label: 'Vault secret', onClick: () => onCreateVariable('vault') },
+    {
+      key: 'live',
+      icon: scopeBadge('live'),
+      label: t('workbench.shell.empty.varLive'),
+      onClick: () => onCreateVariable('live'),
+    },
+    {
+      key: 'vault',
+      icon: scopeBadge('vault'),
+      label: t('workbench.shell.empty.varVault'),
+      onClick: () => onCreateVariable('vault'),
+    },
     {
       key: 'collection',
       icon: scopeBadge('collection'),
       disabled: true,
       label: (
-        <Tooltip title="Collection variables are created from within a collection.">
+        <Tooltip title={t('workbench.shell.empty.varCollectionTooltip')}>
           {/* pointer-events kept on so the tooltip still fires over the disabled row */}
-          <span style={{ pointerEvents: 'auto' }}>Collection variable</span>
+          <span style={{ pointerEvents: 'auto' }}>{t('workbench.shell.empty.varCollection')}</span>
         </Tooltip>
       ),
     },
@@ -112,6 +126,7 @@ ActionRow.displayName = 'ActionRow';
  *  item but rendered outside the scroller so it never scrolls away. */
 const BrowseTemplatesRow: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [hover, setHover] = useState(false);
   return (
     <button
@@ -135,7 +150,7 @@ const BrowseTemplatesRow: React.FC<{ onClick: () => void }> = ({ onClick }) => {
       }}
     >
       {templatesBadge()}
-      <span>Browse all templates…</span>
+      <span>{t('workbench.shell.empty.browseTemplates')}</span>
     </button>
   );
 };
@@ -151,6 +166,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   onMigrate,
 }) => {
   const showHints = useSettingValue('general.showEmptyStateHints');
+  const t = useT();
   // Viewport fit for the two dropdown menus — caps each menu to the room
   // below its trigger so it shrinks + scrolls internally (persistent
   // scrollbar) instead of getting clipped on short windows.
@@ -198,14 +214,14 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           <ActionRow
             ref={ruleMenuFit.triggerRef}
             icon={<RequestRulesIcon />}
-            label="Create rule"
-            description="Headers, redirects, blocking, and more"
+            label={t('workbench.shell.empty.createRule')}
+            description={t('workbench.shell.empty.createRuleDesc')}
             showDescription={showHints}
             hasMenu
           />
         </Dropdown>
         <Dropdown
-          menu={{ items: buildVariableScopeMenuItems(onCreateVariable) }}
+          menu={{ items: buildVariableScopeMenuItems(onCreateVariable, t) }}
           popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={variableMenuFit.maxHeight} />}
           trigger={['click']}
           autoAdjustOverflow={false}
@@ -214,38 +230,38 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           <ActionRow
             ref={variableMenuFit.triggerRef}
             icon={<VariablesIcon />}
-            label="Create variable"
-            description="Environment, workspace, live, and more"
+            label={t('workbench.shell.empty.createVariable')}
+            description={t('workbench.shell.empty.createVariableDesc')}
             showDescription={showHints}
             hasMenu
           />
         </Dropdown>
         <ActionRow
           icon={<ApiRequestsIcon />}
-          label="Create API request"
-          description="Build, send, and save HTTP requests"
+          label={t('workbench.shell.empty.createRequest')}
+          description={t('workbench.shell.empty.createRequestDesc')}
           showDescription={showHints}
           onClick={onCreateRequest}
         />
         <ActionRow
           icon={<SisternodeOutlined />}
-          label="Create workflow"
-          description="Chain and schedule API requests"
+          label={t('workbench.shell.empty.createWorkflow')}
+          description={t('workbench.shell.empty.createWorkflowDesc')}
           showDescription={showHints}
           onClick={onCreateWorkflow}
         />
         <ActionRow
           icon={<ImportOutlined />}
-          label="Import"
-          description="Curl, HAR, Postman, and more"
+          label={t('workbench.shell.empty.import')}
+          description={t('workbench.shell.empty.importDesc')}
           showDescription={showHints}
           onClick={onImport}
         />
         {onMigrate && (
           <ActionRow
             icon={<SwapOutlined />}
-            label="Migrate from another tool"
-            description="Bring your Postman, Insomnia, or Bruno data"
+            label={t('workbench.shell.empty.migrate')}
+            description={t('workbench.shell.empty.migrateDesc')}
             showDescription={showHints}
             onClick={onMigrate}
           />

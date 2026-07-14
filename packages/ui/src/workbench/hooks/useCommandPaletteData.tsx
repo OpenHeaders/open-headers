@@ -108,7 +108,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         id: `col-${col.uid}`,
         icon: <FolderOutlined style={{ fontSize: 12 }} />,
         label: col.name,
-        children: [{ id: `rules-in-${col.uid}`, title: 'Rules', items: ruleItems }],
+        children: [{ id: `rules-in-${col.uid}`, title: t('workbench.shell.commandPalette.group.rules'), items: ruleItems }],
       });
     }
 
@@ -130,7 +130,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     result.push({
       id: 'sys-templates',
       icon: <FolderOutlined style={{ fontSize: 12 }} />,
-      label: 'System Templates',
+      label: t('workbench.shell.commandPalette.group.systemTemplates'),
       children: systemSections,
     });
 
@@ -159,7 +159,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
           id: `tpl-col-${col.uid}`,
           icon: <FolderOutlined style={{ fontSize: 12 }} />,
           label: col.name,
-          children: [{ id: `tpls-in-${col.uid}`, title: 'Templates', items: tplItems }],
+          children: [{ id: `tpls-in-${col.uid}`, title: t('workbench.shell.commandPalette.group.templates'), items: tplItems }],
         });
       }
     }
@@ -190,7 +190,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
           id: `req-col-${col.uid}`,
           icon: <ApiRequestsIcon style={{ fontSize: 12 }} />,
           label: col.name,
-          children: [{ id: `reqs-in-${col.uid}`, title: 'Requests', items: requestItems }],
+          children: [{ id: `reqs-in-${col.uid}`, title: t('workbench.shell.commandPalette.group.requests'), items: requestItems }],
         });
       }
     }
@@ -220,7 +220,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       result.push({
         id: 'settings',
         icon: <SettingOutlined style={{ fontSize: 12 }} />,
-        label: 'Settings',
+        label: t('workbench.shell.commandPalette.group.settings'),
         children: settingsSections,
       });
     }
@@ -263,18 +263,18 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     ] as const;
     result.push({
       id: 'create',
-      title: 'Create',
+      title: t('workbench.shell.commandPalette.section.create'),
       items: [
         {
           id: 'cmd-create-rule',
-          label: 'Create Item...',
+          label: t('workbench.shell.commandPalette.cmd.createItem'),
           shortcut: newRuleLabel,
           onSelect: onOpenCreateMenu,
         },
         ...ruleTypes.map((type) => ({
           id: `cmd-new-${type}`,
           icon: buildRuleIcon({ ruleType: type, isActive: true }),
-          label: `New ${getRuleTypeLabel(type)}`,
+          label: t('workbench.shell.commandPalette.cmd.newRuleType', { type: getRuleTypeLabel(type) }),
           onSelect: () => openCreateTab(type),
         })),
       ],
@@ -282,41 +282,41 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
 
     result.push({
       id: 'commands',
-      title: 'Commands',
+      title: t('workbench.shell.commandPalette.section.commands'),
       items: [
         {
           id: 'cmd-toggle-left-sidebar',
-          label: 'Toggle Left Sidebar',
+          label: t('workbench.shell.commandPalette.cmd.toggleLeftSidebar'),
           shortcut: toggleLeftSidebarLabel,
           onSelect: () => onTogglePanel('sidebar'),
         },
         {
           id: 'cmd-toggle-right-sidebar',
-          label: 'Toggle Right Sidebar',
+          label: t('workbench.shell.commandPalette.cmd.toggleRightSidebar'),
           shortcut: toggleRightSidebarLabel,
           onSelect: () => onTogglePanel('inspector'),
         },
         {
           id: 'cmd-toggle-bottom-panel',
-          label: 'Toggle Bottom Panel',
+          label: t('workbench.shell.commandPalette.cmd.toggleBottomPanel'),
           shortcut: toggleBottomPanelLabel,
           onSelect: () => onTogglePanel('bottomPanel'),
         },
         {
           id: 'cmd-toggle-activity-feed',
-          label: 'Toggle Activity Feed',
+          label: t('workbench.shell.commandPalette.cmd.toggleActivityFeed'),
           shortcut: toggleActivityFeedLabel,
           onSelect: onToggleActivityFeed,
         },
         {
           id: 'cmd-shortcuts',
-          label: 'Keyboard Shortcuts',
+          label: t('workbench.shell.commandPalette.cmd.keyboardShortcuts'),
           shortcut: '?',
           onSelect: onShowShortcuts,
         },
         {
           id: 'cmd-open-settings',
-          label: 'Open Settings',
+          label: t('workbench.shell.commandPalette.cmd.openSettings'),
           shortcut: openSettingsLabel,
           onSelect: onOpenSettings,
         },
@@ -327,42 +327,43 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       {
         id: 'cmd-open-workspace-vars',
         icon: scopeBadge('workspace'),
-        label: 'Open Workspace Variables',
+        label: t('workbench.shell.commandPalette.cmd.openWorkspaceVariables'),
         onSelect: openWorkspaceVariables,
       },
       {
         id: 'cmd-open-vault',
         icon: scopeBadge('vault'),
-        label: 'Open Vault',
+        label: t('workbench.shell.commandPalette.cmd.openVault'),
         onSelect: openVault,
       },
       {
         id: 'cmd-open-live-vars',
         icon: scopeBadge('live'),
-        label: 'Open Live Variables',
+        label: t('workbench.shell.commandPalette.cmd.openLiveVariables'),
         onSelect: openLiveVariables,
       },
       {
         id: 'cmd-open-script-packages',
         icon: <CodeSandboxOutlined />,
-        label: 'Open Package Library',
+        label: t('workbench.shell.commandPalette.cmd.openPackageLibrary'),
         onSelect: openScriptPackages,
       },
       ...environments.map((env) => ({
         id: `cmd-open-env-${env.uid}`,
         icon: scopeBadge('environment'),
-        label: `Open Environment: ${env.name}`,
+        label: t('workbench.shell.commandPalette.cmd.openEnvironment', { name: env.name }),
         onSelect: () => openEnvironmentEdit(env.uid, env.name),
       })),
     ];
     result.push({
       id: 'variables',
-      title: 'Variables',
+      title: t('workbench.shell.commandPalette.section.variables'),
       items: variableItems,
     });
 
     return result;
   }, [
+    t,
     openCreateTab,
     onOpenCreateMenu,
     onTogglePanel,

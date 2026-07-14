@@ -17,6 +17,7 @@ import { App, Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 import { WorkspaceDropdownBody } from '../../../shared/workspace-dropdown/WorkspaceDropdownBody';
 import { WorkspaceOrgBadge } from '../../../shared/workspace-org/WorkspaceOrgBadge';
@@ -50,6 +51,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   setActiveWorkspace,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { modal, message } = App.useApp();
   const [open, setOpen] = useState(false);
   const activeGlobalId = useActiveWorkspaceId();
@@ -64,17 +66,17 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
       const target = workspaces.find((w) => w.id === id);
       if (!target) return;
       modal.confirm({
-        title: `Make "${target.name}" the active workspace?`,
-        content: `The popup, side-panel, and any new ${instanceLabelPlural()} that aren't pinned to a specific workspace will switch to "${target.name}".`,
-        okText: 'Make active',
-        cancelText: 'Cancel',
+        title: t('workbench.workspace.makeActiveTitle', { name: target.name }),
+        content: t('workbench.workspace.makeActiveBody', { units: instanceLabelPlural(), name: target.name }),
+        okText: t('workbench.workspace.makeActiveOk'),
+        cancelText: t('workbench.workspace.cancel'),
         onOk: async () => {
           const ok = await setActiveWorkspace(target.id);
-          if (ok) message.success(`"${target.name}" is now the active workspace`);
+          if (ok) message.success(t('workbench.workspace.nowActiveToast', { name: target.name }));
         },
       });
     },
-    [workspaces, modal, message, setActiveWorkspace],
+    [workspaces, modal, message, setActiveWorkspace, t],
   );
 
   if (!selected) return null;
@@ -108,7 +110,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
         <Button
           type="text"
           size="small"
-          aria-label={`This ${instanceLabel()} is editing workspace: ${selected.name}. Click to switch.`}
+          aria-label={t('workbench.workspace.switcherAria', { unit: instanceLabel(), name: selected.name })}
           style={{
             padding: '0 8px',
             height: 28,

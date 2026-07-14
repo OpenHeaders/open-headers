@@ -20,6 +20,7 @@ import { StopOutlined } from '@ant-design/icons';
 import { Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { renderTwoToneIcon, TWO_TONE_ICON_MAP } from '../shared/TwoToneIconPicker';
 import { resolveWorkspaceColor, resolveWorkspaceIconColor, WORKSPACE_COLOR_KEYS } from './workspace-colors';
 import { renderWorkspacePrefix } from './workspace-prefix';
@@ -43,6 +44,7 @@ const ALL_ICON_KEYS = Object.keys(TWO_TONE_ICON_MAP);
 
 const WorkspaceIdentityPicker: React.FC<WorkspaceIdentityPickerProps> = ({ value, onChange, size = 32 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -76,7 +78,7 @@ const WorkspaceIdentityPicker: React.FC<WorkspaceIdentityPickerProps> = ({ value
             <Tooltip key={key} title={key} placement="top">
               <button
                 type="button"
-                aria-label={`Color ${key}`}
+                aria-label={t('workbench.workspace.picker.colorAria', { name: key })}
                 onClick={() => handlePickColor(key)}
                 style={{
                   width: 22,
@@ -99,7 +101,7 @@ const WorkspaceIdentityPicker: React.FC<WorkspaceIdentityPickerProps> = ({ value
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search icons..."
+        placeholder={t('workbench.workspace.picker.searchIcons')}
         style={{
           width: '100%',
           padding: '4px 8px',
@@ -124,11 +126,11 @@ const WorkspaceIdentityPicker: React.FC<WorkspaceIdentityPickerProps> = ({ value
           overflowY: 'auto', overscrollBehavior: 'none',
         }}
       >
-        <Tooltip title="No icon — show color square only" placement="top">
+        <Tooltip title={t('workbench.workspace.picker.noIconTooltip')} placement="top">
           <button
             type="button"
             onClick={() => handlePickIcon(undefined)}
-            aria-label="No icon"
+            aria-label={t('workbench.workspace.picker.noIconAria')}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -187,7 +189,7 @@ const WorkspaceIdentityPicker: React.FC<WorkspaceIdentityPickerProps> = ({ value
     >
       <button
         type="button"
-        aria-label="Choose workspace prefix (color or icon)"
+        aria-label={t('workbench.workspace.picker.triggerAria')}
         onClick={() => setOpen(true)}
         style={{
           width: size,
