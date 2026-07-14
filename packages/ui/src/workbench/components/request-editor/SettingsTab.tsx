@@ -110,6 +110,18 @@
  *     Clear action and a per-entry ✕; it rides the
  *     `getCookieJarSummary` / `clearCookieJar` / `deleteCookieJarEntry`
  *     bridge RPCs and hides on hosts that don't answer them.
+ *   • Script execution (`useScriptExecutionMode`) — the one row here
+ *     that is NOT a per-request knob: a PER-WORKSPACE, HOST-LOCAL
+ *     chooser between Safe mode (recommended default; scripts run in
+ *     the app's sandboxed runtime, `oh.*` API only) and Developer mode
+ *     (explicit opt-in; full Node runtime — trust-relaxing, warned in
+ *     place while selected, and the executed run records its mode on
+ *     the response meta strip). Rendered only where the answering host
+ *     actually runs scripts (the `scriptRuntime` capability); the
+ *     node sheet's former Scripts fact row graduated into it there,
+ *     while runtime-less surfaces keep the "don't run here" fact. The
+ *     setting rides `OH.scriptExecutionModes` and never syncs — a
+ *     shared workspace cannot switch another device to Developer mode.
  *
  * Everything else a request-settings surface traditionally exposes
  * (HTTP version, TLS policy, redirect internals, URL encoding, …) is
@@ -153,6 +165,7 @@ import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CookieJarRow from './CookieJarRow';
+import { useScriptExecutionMode } from './use-script-execution-mode';
 
 const { Text } = Typography;
 
@@ -217,6 +230,9 @@ export interface RequestSettingsDraft {
 interface SettingsTabProps {
   value: RequestSettingsDraft;
   onChange: (next: RequestSettingsDraft) => void;
+  /** Editing-scope workspace — target of the per-workspace Script
+   *  execution chooser. `null` = the host's active workspace. */
+  workspaceId?: string | null;
 }
 
 interface RuntimeManagedDef {
@@ -298,27 +314,18 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
 ];
 
 /**
- * The node sheet's Scripts row is per-surface, not static: it reads
- * the `scriptRuntime` capability. The desktop's answering host runs
- * scripts in its Safe-mode sandbox; the web surface's sends execute
- * on the connected daemon, which has no script runtime — that surface
- * keeps the honest "don't run here" fact.
+ * The node sheet's Scripts row survives only where scripts genuinely
+ * don't run: on a surface whose answering host has a script runtime
+ * (the `scriptRuntime` capability — the desktop), the row graduates
+ * into the Script execution chooser knob (the cookie-jar precedent);
+ * the web surface's sends execute on the connected daemon, which has
+ * no script runtime, so it keeps the honest "don't run here" fact.
  */
-function nodeScriptsRow(): RuntimeManagedDef {
-  const mode = getCapability('scriptRuntime')?.();
-  if (mode === 'safe') {
-    return {
-      labelKey: 'workbench.editors.request.settings.managed.scripts',
-      valueKey: 'workbench.editors.request.settings.managed.scriptsSafeMode',
-      descriptionKey: 'workbench.editors.request.settings.managed.scriptsSafeModeDesc',
-    };
-  }
-  return {
-    labelKey: 'workbench.editors.request.settings.managed.scripts',
-    valueKey: 'workbench.editors.request.settings.managed.scriptsNotRun',
-    descriptionKey: 'workbench.editors.request.settings.managed.scriptsNotRunDesc',
-  };
-}
+const SCRIPTS_NOT_RUN_ROW: RuntimeManagedDef = {
+  labelKey: 'workbench.editors.request.settings.managed.scripts',
+  valueKey: 'workbench.editors.request.settings.managed.scriptsNotRun',
+  descriptionKey: 'workbench.editors.request.settings.managed.scriptsNotRunDesc',
+};
 
 interface RuntimeManagedSheet {
   rows: RuntimeManagedDef[];
@@ -434,9 +441,12 @@ const SelectKnobRow: React.FC<{
   onChange: (value: string | undefined) => void;
   info: string;
   options: Array<{ value: string; label: string; disabled?: boolean }>;
-  placeholder: string;
+  placeholder?: string;
   warning?: string;
-}> = ({ label, value, onChange, info, options, placeholder, warning }) => (
+  /** Off for always-set knobs (a cleared field would be meaningless). */
+  allowClear?: boolean;
+  testId?: string;
+}> = ({ label, value, onChange, info, options, placeholder, warning, allowClear = true, testId }) => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
@@ -445,10 +455,11 @@ const SelectKnobRow: React.FC<{
       <Select
         size="small"
         aria-label={label}
+        data-testid={testId}
         value={value}
         onChange={(v) => onChange(v)}
         options={options}
-        allowClear
+        allowClear={allowClear}
         placeholder={placeholder}
         style={{ width: 148 }}
       />
@@ -529,13 +540,14 @@ const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
  *  OTHER select already pinned, so min ≤ max holds by construction. */
 const tlsVersionRank = (version: TlsVersion): number => TLS_VERSIONS.indexOf(version);
 
-const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
+const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId = null }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [showRuntimeManaged, setShowRuntimeManaged] = useState(false);
   const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  const scriptMode = useScriptExecutionMode(workspaceId);
   const sheet = MANAGED_SHEETS[runtime];
-  const sheetRows = runtime === 'node' ? [...sheet.rows, nodeScriptsRow()] : sheet.rows;
+  const sheetRows = runtime === 'node' && !scriptMode.available ? [...sheet.rows, SCRIPTS_NOT_RUN_ROW] : sheet.rows;
   // Vault client-certificate entries feed the picker's options. The
   // context defaults to an empty vault when no provider is mounted, so
   // the tab stays renderable everywhere.
@@ -752,6 +764,25 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
             info={t('workbench.editors.request.settings.cookieJarInfo')}
           />
           <CookieJarRow />
+          {scriptMode.available && (
+            <SelectKnobRow
+              label={t('workbench.editors.request.settings.scriptMode')}
+              value={scriptMode.mode}
+              onChange={(v) => scriptMode.setMode(v === 'developer' ? 'developer' : 'safe')}
+              info={t('workbench.editors.request.settings.scriptModeInfo')}
+              options={[
+                { value: 'safe', label: t('workbench.editors.request.settings.scriptModeSafe') },
+                { value: 'developer', label: t('workbench.editors.request.settings.scriptModeDeveloper') },
+              ]}
+              allowClear={false}
+              testId="oh-script-mode-select"
+              warning={
+                scriptMode.mode === 'developer'
+                  ? t('workbench.editors.request.settings.scriptModeWarning')
+                  : undefined
+              }
+            />
+          )}
         </>
       )}
       <NumericKnobRow

@@ -71,7 +71,7 @@ vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
 }));
 
 import { handleExecuteRequestRpc } from '../../../src/daemon/execute-request-rpc';
-import { setHostScriptCapability } from '../../../src/daemon/script-capability';
+import { setHostScriptCapabilities } from '../../../src/daemon/script-capability';
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
@@ -310,7 +310,7 @@ describe('handleExecuteRequestRpc — uid path', () => {
 
 describe('handleExecuteRequestRpc — scripts', () => {
   afterEach(() => {
-    setHostScriptCapability(null);
+    setHostScriptCapabilities(null);
   });
 
   it('stays scriptless without a host script capability — the daemon posture', async () => {
@@ -324,16 +324,18 @@ describe('handleExecuteRequestRpc — scripts', () => {
   });
 
   it('runs pre-request scripts through the capability, applies the mutation, and stamps the mode', async () => {
-    setHostScriptCapability({
-      mode: 'safe',
-      runScript: async (opts) => ({
-        executionId: 'e1',
-        succeeded: true,
-        mutation: { headers: [...opts.request.headers, { key: 'X-Scripted', value: '1' }] },
-        assertions: [],
-        consoleLog: [],
-        durationMs: 2,
-      }),
+    setHostScriptCapabilities({
+      safe: {
+        mode: 'safe',
+        runScript: async (opts) => ({
+          executionId: 'e1',
+          succeeded: true,
+          mutation: { headers: [...opts.request.headers, { key: 'X-Scripted', value: '1' }] },
+          assertions: [],
+          consoleLog: [],
+          durationMs: 2,
+        }),
+      },
     });
     const { transport, sent } = captureTransport();
     const result = await handleExecuteRequestRpc(
@@ -348,15 +350,17 @@ describe('handleExecuteRequestRpc — scripts', () => {
   });
 
   it('interactive semantics are lenient — a failed assertion never fails the run', async () => {
-    setHostScriptCapability({
-      mode: 'safe',
-      runScript: async () => ({
-        executionId: 'e2',
-        succeeded: true,
-        assertions: [{ name: 'status is 201', passed: false, message: 'expected 200 to be 201' }],
-        consoleLog: [],
-        durationMs: 1,
-      }),
+    setHostScriptCapabilities({
+      safe: {
+        mode: 'safe',
+        runScript: async () => ({
+          executionId: 'e2',
+          succeeded: true,
+          assertions: [{ name: 'status is 201', passed: false, message: 'expected 200 to be 201' }],
+          consoleLog: [],
+          durationMs: 1,
+        }),
+      },
     });
     const { transport } = captureTransport();
     const result = await handleExecuteRequestRpc(
@@ -372,16 +376,18 @@ describe('handleExecuteRequestRpc — scripts', () => {
   });
 
   it('a pre-request script failure is recorded and the send still reaches the wire, unmutated', async () => {
-    setHostScriptCapability({
-      mode: 'safe',
-      runScript: async () => ({
-        executionId: 'e3',
-        succeeded: false,
-        error: { name: 'ReferenceError', message: 'nope is not defined' },
-        assertions: [{ name: 'script error', passed: false, message: 'nope is not defined' }],
-        consoleLog: [],
-        durationMs: 1,
-      }),
+    setHostScriptCapabilities({
+      safe: {
+        mode: 'safe',
+        runScript: async () => ({
+          executionId: 'e3',
+          succeeded: false,
+          error: { name: 'ReferenceError', message: 'nope is not defined' },
+          assertions: [{ name: 'script error', passed: false, message: 'nope is not defined' }],
+          consoleLog: [],
+          durationMs: 1,
+        }),
+      },
     });
     const { transport, calls, sent } = captureTransport();
     const result = await handleExecuteRequestRpc({ draft: makeRequest({ preRequestScript: 'nope();' }) }, transport);

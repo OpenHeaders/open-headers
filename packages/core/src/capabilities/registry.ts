@@ -238,16 +238,18 @@ export interface Capabilities {
   requestRuntime?: () => RequestRuntimeKind;
 
   /**
-   * How the surface's node request runtime executes pre-request /
-   * post-response scripts — the mode a scripted Send runs under.
-   * Registered only by node-runtime surfaces whose answering host has
-   * a script runtime (the desktop renderer: the main process's
-   * sandboxed Safe-mode runner). Left absent where scripts genuinely
-   * don't run (the web app — its sends execute on the connected
-   * daemon, which has no script runtime yet), and shared UI keeps the
-   * honest "don't run here" fact row. Browser-runtime surfaces never
-   * register it — their offscreen sandbox story is not a node-sheet
-   * fact.
+   * Declares that the surface's answering host RUNS pre-request /
+   * post-response scripts, and names its default posture (`'safe'` —
+   * every host defaults secure). Registered only by node-runtime
+   * surfaces with a script runtime (the desktop renderer). Left absent
+   * where scripts genuinely don't run (the web app — its sends execute
+   * on the connected daemon, which has no script runtime yet), and
+   * shared UI keeps the honest "don't run here" fact row. The LIVE
+   * per-workspace mode is not this capability's answer — it rides the
+   * host-local `OH.scriptExecutionModes` slot, read and written by
+   * `useScriptExecutionMode` behind the Settings tab's chooser.
+   * Browser-runtime surfaces never register it — their offscreen
+   * sandbox story is not a node-sheet fact.
    */
   scriptRuntime?: () => ScriptExecutionMode;
 

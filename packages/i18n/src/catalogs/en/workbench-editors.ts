@@ -844,12 +844,19 @@ export const workbenchEditors = {
   'workbench.editors.request.settings.managed.refererDesc':
     'The runtime has no page context, so no Referer goes on the wire unless you add one as a header yourself.',
   'workbench.editors.request.settings.managed.scripts': 'Pre-request / post-response scripts',
-  'workbench.editors.request.settings.managed.scriptsSafeMode': 'Safe mode',
-  'workbench.editors.request.settings.managed.scriptsSafeModeDesc':
-    'Scripts on this request run in the app’s sandboxed script runtime: the oh.* script API only — no filesystem, no process access, no module loader. The run’s mode is recorded on the response.',
   'workbench.editors.request.settings.managed.scriptsNotRun': 'Don’t run here',
   'workbench.editors.request.settings.managed.scriptsNotRunDesc':
     'The host answering this surface’s sends has no script runtime, so pre-request and post-response scripts are skipped and the response carries no script results.',
+
+  // ── Settings tab — script execution chooser (per-workspace,
+  //    host-local — never syncs) ───────────────────────────────────────
+  'workbench.editors.request.settings.scriptMode': 'Script execution',
+  'workbench.editors.request.settings.scriptModeInfo':
+    'How pre-request and post-response scripts in this workspace run on this device. Safe mode executes them in the app’s sandboxed script runtime: the oh.* script API only — no filesystem, no process access, no module loader. Developer mode executes them in a full Node.js runtime with require and system access. The choice applies to every request in the workspace, stays on this device, and never syncs — each run records the mode it executed under on the response.',
+  'workbench.editors.request.settings.scriptModeSafe': 'Safe mode',
+  'workbench.editors.request.settings.scriptModeDeveloper': 'Developer mode',
+  'workbench.editors.request.settings.scriptModeWarning':
+    'Developer mode runs this workspace’s scripts with full system access — filesystem, processes, and network. Enable it only if you trust everyone who can edit this workspace’s scripts. Workflow steps and requests forwarded by other devices keep running in Safe mode.',
 
   // ── Settings tab — cookie jar row ──────────────────────────────────
   'workbench.editors.request.settings.jar.count': ({ count }, locale) =>
@@ -983,6 +990,9 @@ export const workbenchEditors = {
   'workbench.editors.request.response.body.showingLastMatch': 'Showing the last match.',
   'workbench.editors.request.response.body.hexCapNotice': 'Hex view shows the first {shown} of {total}.',
   'workbench.editors.request.response.body.previewIframeTitle': 'Response preview',
+  'workbench.editors.request.response.body.pdfPreviewIframeTitle': 'PDF preview',
+  'workbench.editors.request.response.body.requestBodyOmittedNotice':
+    'Request body not sent — the browser cannot attach a body to GET or HEAD requests.',
 
   // ── Response headers view ──────────────────────────────────────────
   'workbench.editors.request.response.headers.name': 'Name',

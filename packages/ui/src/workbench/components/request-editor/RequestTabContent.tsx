@@ -23,7 +23,8 @@ interface RequestTabContentProps {
   headerConflictBridge?: KeyValueRowConflictBridge;
   paramConflictBridge?: KeyValueRowConflictBridge;
   /** Editing-scope workspace — target for script-editor selection
-   *  actions (Save to Package Library). */
+   *  actions (Save to Package Library) and the Settings tab's
+   *  per-workspace Script execution chooser. */
   workspaceId?: string | null;
   /** Open the Package Library tab (Scripts tab's Packages popover). */
   onOpenPackageLibrary?: () => void;
@@ -86,6 +87,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
     case 'settings':
       return (
         <SettingsTab
+          workspaceId={workspaceId}
           value={{
             credentialsMode: draft.credentialsMode,
             followRedirects: draft.followRedirects,

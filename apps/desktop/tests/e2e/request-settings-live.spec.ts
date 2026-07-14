@@ -653,3 +653,64 @@ test('interactive semantics stay lenient — a failed assertion is recorded, the
     expect.objectContaining({ name: 'impossible', passed: false }),
   ]);
 });
+
+// ── Scripts: the Developer-mode worker ───────────────────────────────
+// Flipping the ACTIVE workspace's `oh.scriptExecutionModes` slot (the
+// same host-storage seam the Settings tab's chooser writes) must route
+// the next scripted send into the full-Node utilityProcess worker: a
+// Node-only construct works, the mutation reaches the real wire, and
+// the snapshot stamps `'developer'`. Clearing the slot returns the
+// workspace to Safe — where the same construct is a recorded script
+// error, proving the sandbox really carries no `require`.
+
+async function setActiveWorkspaceScriptMode(mode: 'developer' | null): Promise<void> {
+  const { activeWorkspaceId } = await invoke<{ activeWorkspaceId: string | null }>({ type: 'getActiveWorkspaceId' });
+  expect(activeWorkspaceId).toBeTruthy();
+  await workbench.evaluate(
+    async (input) => {
+      const storage = (
+        window as unknown as { oh: { storage: { set(req: { key: string; value: unknown }): Promise<unknown> } } }
+      ).oh.storage;
+      await storage.set({
+        key: 'oh.scriptExecutionModes',
+        value: input.mode ? { [input.wsId]: input.mode } : {},
+      });
+    },
+    { wsId: activeWorkspaceId as string, mode },
+  );
+}
+
+const NODE_ONLY_PRE_SCRIPT = [
+  "const crypto = require('node:crypto');",
+  "const sig = crypto.createHash('sha256').update('openheaders').digest('hex').slice(0, 12);",
+  "oh.setHeader('Authorization', 'NodeSig ' + sig);",
+  "console.log('node', process.versions.node);",
+].join('\n');
+
+test('a developer-mode workspace runs scripts in the full-runtime worker and stamps the mode', async () => {
+  await setActiveWorkspaceScriptMode('developer');
+  const snapshot = await exec(draft({ preRequestScript: NODE_ONLY_PRE_SCRIPT }));
+  expect(snapshot.error).toBeNull();
+  expect(snapshot.status).toBe(200);
+  // The rig echoed a value only a Node runtime could compute — the
+  // script really ran with require + process in scope.
+  expect(JSON.parse(snapshot.body).authorization).toMatch(/^NodeSig [0-9a-f]{12}$/);
+  expect(snapshot.scripts?.mode).toBe('developer');
+  expect(snapshot.scripts?.preRequest?.succeeded).toBe(true);
+  expect(snapshot.scripts?.preRequest?.consoleLog).toEqual([
+    expect.objectContaining({ level: 'log', args: expect.arrayContaining(['node']) }),
+  ]);
+});
+
+test('clearing the slot returns the workspace to Safe — where require does not exist', async () => {
+  await setActiveWorkspaceScriptMode(null);
+  const snapshot = await exec(draft({ preRequestScript: NODE_ONLY_PRE_SCRIPT }));
+  // Lenient interactive semantics: the script fault is recorded, the
+  // send still reached the wire unmutated under the Safe sandbox.
+  expect(snapshot.error).toBeNull();
+  expect(snapshot.status).toBe(200);
+  expect(snapshot.scripts?.mode).toBe('safe');
+  expect(snapshot.scripts?.preRequest?.succeeded).toBe(false);
+  expect(snapshot.scripts?.preRequest?.error?.message).toContain('require');
+  expect(JSON.parse(snapshot.body).authorization).toBe('');
+});

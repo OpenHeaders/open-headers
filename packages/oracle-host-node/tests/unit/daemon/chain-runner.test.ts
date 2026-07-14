@@ -49,7 +49,7 @@ vi.mock('@openheaders/core/utils', () => ({
 
 import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
 import { runWorkflowRefresh } from '../../../src/daemon/live/chain-runner';
-import { setHostScriptCapability } from '../../../src/daemon/script-capability';
+import { setHostScriptCapabilities } from '../../../src/daemon/script-capability';
 
 function makeWorkflow(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
@@ -143,7 +143,7 @@ describe('runWorkflowRefresh — script capability injection', () => {
       consoleLog: [],
       durationMs: 1,
     }));
-    setHostScriptCapability({ mode: 'safe', runScript });
+    setHostScriptCapabilities({ safe: { mode: 'safe', runScript } });
     try {
       h.runChain.mockResolvedValue(successOutcome());
       await runWorkflowRefresh({ workspaceId: 'ws-1', workflow: makeWorkflow(), environmentId: null });
@@ -162,7 +162,7 @@ describe('runWorkflowRefresh — script capability injection', () => {
       });
       expect(runScript).toHaveBeenCalledWith(expect.objectContaining({ hostContext: 'chain' }));
     } finally {
-      setHostScriptCapability(null);
+      setHostScriptCapabilities(null);
     }
   });
 });

@@ -14,8 +14,9 @@ export { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute
 export type { DaemonMetrics } from './metrics';
 export type { DaemonOidcConfig, OidcClaimMappingRule, OidcClaimMappings } from './oidc/oidc-config';
 export {
+  type HostScriptCapabilities,
   type HostScriptCapability,
   type HostScriptRunOptions,
-  setHostScriptCapability,
+  setHostScriptCapabilities,
 } from './script-capability';
 export type { SpineStatusReport, SpineStatusReporter, SpineStatusStore } from './status-seam';

@@ -7,7 +7,7 @@
  * identically to a chain or MCP send.
  *
  * Scripts run when the host shell registered a script runtime (the
- * desktop's sandboxed-renderer broker via `setHostScriptCapability`):
+ * desktop's brokers via `setHostScriptCapabilities`):
  * the run rides the host-neutral `StepScriptRunner` port, the snapshot
  * carries `scripts` with the execution mode stamped, and the response
  * surface renders it exactly as the extension does. A host without the

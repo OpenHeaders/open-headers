@@ -43,11 +43,19 @@ export default defineConfig({
     build: {
       outDir: 'dist-webpack/main',
       lib: {
-        entry: 'src/main.ts',
+        // `index` is the app's main-process entry; `script-worker` is
+        // the Developer-mode script runtime, forked as a utilityProcess
+        // by `src/main/script-sandbox/worker-transport.ts`. Output names
+        // follow the entry names, so Electron keeps loading
+        // `main/index.js`.
+        entry: {
+          index: 'src/main.ts',
+          'script-worker': 'src/main/script-sandbox/worker/script-worker.ts',
+        },
       },
       rollupOptions: {
         output: {
-          entryFileNames: 'index.js',
+          entryFileNames: '[name].js',
         },
         onwarn(warning, warn) {
           // Suppress mixed static/dynamic import warnings — these are intentional lazy-load patterns

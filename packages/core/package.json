@@ -79,6 +79,10 @@
       "import": "./src/scripts/index.ts",
       "default": "./dist/scripts/index.js"
     },
+    "./scripts/runner": {
+      "import": "./src/scripts/runner.ts",
+      "default": "./dist/scripts/runner.js"
+    },
     "./totp": {
       "import": "./src/totp/index.ts",
       "default": "./dist/totp/index.js"
