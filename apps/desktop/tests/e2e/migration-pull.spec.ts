@@ -15,7 +15,7 @@
  *   3. The pull drains the stub — every call carries the key as
  *      X-Api-Key, item pulls address the uid forms, the month budget
  *      folds off the response headers.
- *   4. The corner task settles into "Import finished — view report";
+ *   4. The Processes panel settles into "Import finished" + View report;
  *      its click-through opens the per-workspace report IN PLACE
  *      (workspace parity: the counterpart carries the vendor
  *      workspace's exact name) and "Open workspace" jumps into it.
@@ -264,7 +264,8 @@ test('the pull drains the stub — key on every call, uid item forms, nothing el
 });
 
 test('the corner task settles into the report flip with the folded month budget', async () => {
-  await expect(workbench.getByText('Import finished — view report')).toBeVisible({ timeout: 30000 });
+  const processes = workbench.getByRole('dialog', { name: 'Processes' });
+  await expect(processes.getByText('Import finished')).toBeVisible({ timeout: 30000 });
   await pace(workbench);
 
   // The month budget folded off the stub's headers into the run state.
@@ -292,7 +293,11 @@ test('the corner task settles into the report flip with the folded month budget'
 });
 
 test('the click-through opens the report in place, then Open workspace jumps into the counterpart', async () => {
-  await workbench.getByText('Import finished — view report').first().click();
+  await workbench
+    .getByRole('dialog', { name: 'Processes' })
+    .getByRole('button', { name: 'View report' })
+    .first()
+    .click();
   const report = workbench.getByRole('dialog').filter({ hasText: 'Postman import report' });
   await expect(report).toBeVisible({ timeout: 15000 });
   // Workspace parity — the counterpart carries the vendor workspace's
@@ -301,8 +306,9 @@ test('the click-through opens the report in place, then Open workspace jumps int
   await expect(report).toContainText('Everything imported cleanly');
   await pace(workbench);
 
-  // Switching is the user's explicit choice.
-  await report.getByRole('button', { name: 'Open workspace' }).first().click();
+  // Switching is the user's explicit choice. `exact` keeps the match off
+  // the collapse header, whose accessible name contains the button's.
+  await report.getByRole('button', { name: 'Open workspace', exact: true }).first().click();
   await expect(report).toHaveCount(0);
   await expect(workbench.getByLabel(/editing workspace: OpenHeaders Team/)).toBeVisible({ timeout: 15000 });
   await pace(workbench);
@@ -417,7 +423,9 @@ test('a connected extension mirrors the finished run in its own corner', async (
   // peer plane — the finished run appears with no live event ever seen.
   extensionWorkbench = await extensionContext.newPage();
   await extensionWorkbench.goto(`chrome-extension://${extensionId}/workbench.html`);
-  await expect(extensionWorkbench.getByText('Import finished — view report')).toBeVisible({ timeout: 30000 });
+  // The panel starts closed on a fresh page — the permanent footer slot
+  // anchors the mirrored done task.
+  await expect(extensionWorkbench.getByText('Import finished')).toBeVisible({ timeout: 30000 });
   await pace(extensionWorkbench);
 });
 
@@ -426,7 +434,10 @@ test('the extension click-through opens the mirrored report and jumps to the syn
   expect(page).toBeTruthy();
   if (!page) return;
 
-  await page.getByText('Import finished — view report').first().click();
+  // Open the Processes panel from the footer slot, then the report from
+  // its View report button.
+  await page.getByText('Import finished').first().click();
+  await page.getByRole('dialog', { name: 'Processes' }).getByRole('button', { name: 'View report' }).first().click();
   const report = page.getByRole('dialog').filter({ hasText: 'Postman import report' });
   await expect(report).toBeVisible({ timeout: 15000 });
   // The summary rides the mirrored run state; the report ring itself is
@@ -435,7 +446,7 @@ test('the extension click-through opens the mirrored report and jumps to the syn
   await expect(report).toContainText('OpenHeaders Team');
   await pace(page);
 
-  await report.getByRole('button', { name: 'Open workspace' }).first().click();
+  await report.getByRole('button', { name: 'Open workspace', exact: true }).first().click();
   await expect(report).toHaveCount(0);
   await expect(page.getByLabel(/editing workspace: OpenHeaders Team/)).toBeVisible({ timeout: 15000 });
   await pace(page);
@@ -506,7 +517,11 @@ test('a complete re-pull refreshes the counterpart workspace instead of duplicat
 });
 
 test('the re-pull report records the replacement transform', async () => {
-  await workbench.getByText('Import finished — view report').first().click();
+  await workbench
+    .getByRole('dialog', { name: 'Processes' })
+    .getByRole('button', { name: 'View report' })
+    .first()
+    .click();
   const report = workbench.getByRole('dialog').filter({ hasText: 'Postman import report' });
   await expect(report).toBeVisible({ timeout: 15000 });
   await expect(report).toContainText('replaced by this pull');
