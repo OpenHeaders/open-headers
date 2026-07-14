@@ -1,4 +1,4 @@
-import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useModifiedSettings, useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type {
   DevpanelNetworkWaterfallPopoverLayoutSetting,
   DevpanelNetworkWaterfallTimestampTzSetting,
@@ -16,7 +16,7 @@ import {
 } from '../../data/network-sort-modes';
 import { COLUMN_DEFS, type ColumnDef } from './columns';
 import { NetworkSortMenu } from './NetworkSortMenu';
-import { NetworkViewMenu } from './NetworkViewMenu';
+import { NETWORK_VIEW_MENU_KEYS, NetworkViewMenu } from './NetworkViewMenu';
 import { sortCompare, type SortDir, type SortTarget } from './sort';
 
 export interface NetworkViewApi {
@@ -75,6 +75,7 @@ export function useNetworkView(): NetworkViewApi {
   // Custom-nested levels are session-scoped scratch state.
   const [customNested, setCustomNested] = useState<NetworkCustomNestedLevel[]>([]);
   const compact = layout === 'compact';
+  const viewMenuModified = useModifiedSettings(NETWORK_VIEW_MENU_KEYS);
 
   // Per-menu "Reset to default" — restores each setting to its registered
   // default (no hardcoded values). View owns the display axis; Sort owns the
@@ -240,6 +241,7 @@ export function useNetworkView(): NetworkViewApi {
         onWaterfallPopoverLayoutChange={setWaterfallPopoverLayout}
         onToggleShowFireDots={toggleShowFireDots}
         onReset={resetView}
+        modified={viewMenuModified}
       />
     ),
     [
@@ -260,6 +262,7 @@ export function useNetworkView(): NetworkViewApi {
       setWaterfallPopoverLayout,
       toggleShowFireDots,
       resetView,
+      viewMenuModified,
     ],
   );
 

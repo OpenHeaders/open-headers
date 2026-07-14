@@ -21,6 +21,16 @@ import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
  * at extreme sizes, and the root's `overflow: hidden` clips bottom overflow
  * instead of painting a panel-wide scrollbar.
  */
+/**
+ * Accent dot appended to a menu row whose setting differs from its
+ * registered default — the rows that add up to the trigger's count
+ * badge. Renders nothing while the row sits at its default.
+ */
+export function MenuNonDefaultDot({ show }: { show: boolean }) {
+  if (!show) return null;
+  return <span className="dt-morefilters-dot" aria-hidden="true" />;
+}
+
 export function ToolbarMenuPopover({
   label,
   activeCount,

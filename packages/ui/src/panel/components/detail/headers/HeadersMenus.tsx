@@ -1,6 +1,16 @@
+import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
 import type { HeaderNameCase } from '../../../data/headers/header-name-case';
-import { ToolbarMenuPopover } from '../../ToolbarMenuPopover';
+import { MenuNonDefaultDot, ToolbarMenuPopover } from '../../ToolbarMenuPopover';
 import type { HeaderLayoutMode, HeaderSortMode } from './types';
+
+/** Settings behind the `View ▾` menu — its badge, dots, and reset derive from these. */
+export const HEADER_VIEW_MENU_KEYS: readonly SettingKey[] = [
+  'devpanelHeaders.layout',
+  'devpanelHeaders.sortMode',
+  'devpanelHeaders.nameCase',
+  'devpanelHeaders.showChips',
+  'devpanelHeaders.showInsights',
+];
 
 /**
  * `More filters ▾` dropdown — checkbox-only toggles that narrow the
@@ -62,8 +72,10 @@ export function HeaderMoreFiltersMenu({
 /**
  * `View ▾` dropdown — layout + sort options. Kept separate from More
  * filters so changing how the list is presented doesn't read as a
- * filtering action. The badge counts non-default values, so the user
- * always knows the list shape isn't its default.
+ * filtering action. The badge counts settings that differ from their
+ * registered defaults and each such row carries a dot; the parent
+ * derives `modified` from the settings registry ([[HEADER_VIEW_MENU_KEYS]])
+ * so the menu carries no baseline of its own.
  */
 export function HeaderViewMenu({
   layout,
@@ -71,47 +83,47 @@ export function HeaderViewMenu({
   nameCase,
   showInsights,
   showChips,
+  modified,
   onLayoutChange,
   onSortChange,
   onNameCaseChange,
   onToggleShowInsights,
   onToggleShowChips,
+  onReset,
 }: {
   layout: HeaderLayoutMode;
   sortMode: HeaderSortMode;
   nameCase: HeaderNameCase;
   showInsights: boolean;
   showChips: boolean;
+  /** View settings that differ from their registered default. */
+  modified: ReadonlySet<SettingKey>;
   onLayoutChange: (mode: HeaderLayoutMode) => void;
   onSortChange: (mode: HeaderSortMode) => void;
   onNameCaseChange: (mode: HeaderNameCase) => void;
   onToggleShowInsights: () => void;
   onToggleShowChips: () => void;
+  /** Restore every View option to its registered default. */
+  onReset: () => void;
 }) {
-  const activeCount =
-    (layout !== 'grouped' ? 1 : 0) +
-    (sortMode !== 'original' ? 1 : 0) +
-    (nameCase !== 'train' ? 1 : 0) +
-    (!showInsights ? 1 : 0) +
-    (!showChips ? 1 : 0);
-  const reset = () => {
-    if (layout !== 'grouped') onLayoutChange('grouped');
-    if (sortMode !== 'original') onSortChange('original');
-    if (nameCase !== 'train') onNameCaseChange('train');
-    if (!showChips) onToggleShowChips();
-    if (!showInsights) onToggleShowInsights();
-  };
+  const activeCount = modified.size;
   return (
     <ToolbarMenuPopover label="View" activeCount={activeCount}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Layout</span>
+        <span className="dt-morefilters-item-label">
+          Layout
+          <MenuNonDefaultDot show={modified.has('devpanelHeaders.layout')} />
+        </span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as HeaderLayoutMode)}>
           <option value="grouped">Grouped</option>
           <option value="flat">Flat</option>
         </select>
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Sort</span>
+        <span className="dt-morefilters-item-label">
+          Sort
+          <MenuNonDefaultDot show={modified.has('devpanelHeaders.sortMode')} />
+        </span>
         <select value={sortMode} onChange={(e) => onSortChange(e.target.value as HeaderSortMode)}>
           <option value="original">Original</option>
           <option value="az">A → Z</option>
@@ -119,7 +131,10 @@ export function HeaderViewMenu({
         </select>
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Name case</span>
+        <span className="dt-morefilters-item-label">
+          Name case
+          <MenuNonDefaultDot show={modified.has('devpanelHeaders.nameCase')} />
+        </span>
         <select value={nameCase} onChange={(e) => onNameCaseChange(e.target.value as HeaderNameCase)}>
           <option value="train">Train-Case</option>
           <option value="original">Original (raw)</option>
@@ -129,13 +144,15 @@ export function HeaderViewMenu({
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showChips} onChange={onToggleShowChips} />
         Show tags
+        <MenuNonDefaultDot show={modified.has('devpanelHeaders.showChips')} />
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showInsights} onChange={onToggleShowInsights} />
         Show suggestions
+        <MenuNonDefaultDot show={modified.has('devpanelHeaders.showInsights')} />
       </label>
       <div className="dt-morefilters-divider" />
-      <button type="button" className="dt-morefilters-reset" onClick={reset} disabled={activeCount === 0}>
+      <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeCount === 0}>
         Reset to default
       </button>
     </ToolbarMenuPopover>

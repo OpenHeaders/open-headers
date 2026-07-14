@@ -31,7 +31,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 import { App } from 'antd';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
-import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useModifiedSettings, useResetSettings, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { deleteKeyForRow, emptyEditForm } from '../../data/cookies/cookie-edit';
 import { enrichCookies } from '../../data/cookies/cookie-enrich';
 import { parseCookieQuery, type CookieFilterToken } from '../../data/cookies/cookie-filter';
@@ -59,7 +59,7 @@ import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/inf
 import { CookieCtaMenu } from './cookies/CookieCtaMenu';
 import { CookieEditPopover } from './cookies/CookieEditPopover';
 import { CookieInsightCard } from './cookies/CookieInsightCard';
-import { CookieMoreFiltersMenu, CookieViewMenu } from './cookies/CookieMenus';
+import { COOKIE_VIEW_MENU_KEYS, CookieMoreFiltersMenu, CookieViewMenu } from './cookies/CookieMenus';
 import { CookieSection } from './cookies/CookieSection';
 
 export interface CookiesViewProps {
@@ -138,6 +138,8 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
   const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
   const toggleShowChips = useCallback(() => setShowChips(!showChips), [showChips, setShowChips]);
   const toggleGroupByRole = useCallback(() => setGroupByRole(!groupByRole), [groupByRole, setGroupByRole]);
+  const viewMenuModified = useModifiedSettings(COOKIE_VIEW_MENU_KEYS);
+  const resetViewMenu = useResetSettings(COOKIE_VIEW_MENU_KEYS);
 
   // ── Jar lookup ─────────────────────────────────────────────────
   const jar = useCookieJar(lc.url);
@@ -335,12 +337,14 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
           showInsights={showInsights}
           showChips={showChips}
           groupByRole={groupByRole}
+          modified={viewMenuModified}
           onSortChange={setSortMode}
           onExpiresFormatChange={setExpiresFormat}
           onToggleDecodeValues={toggleDecodeValues}
           onToggleShowInsights={toggleShowInsights}
           onToggleShowChips={toggleShowChips}
           onToggleGroupByRole={toggleGroupByRole}
+          onReset={resetViewMenu}
         />
       </div>
 

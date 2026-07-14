@@ -29,7 +29,7 @@ import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { Rule } from '@openheaders/core/types';
 import { InfoPopover } from '@openheaders/ui/shared/info-popover';
-import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useModifiedSettings, useResetSettings, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { Allotment } from 'allotment';
 import {
   type CSSProperties,
@@ -53,7 +53,7 @@ import type { InspectorFire } from '../../data/types';
 import { CONNECTION_FRAME, useRulePopover } from '../RulePopoverHost';
 import { useColumnResize } from '../use-column-resize';
 import { walkListSelection } from '../walk-list-selection';
-import { MessagesViewMenu } from './streams/MessagesViewMenu';
+import { MESSAGES_VIEW_MENU_KEYS, MessagesViewMenu } from './streams/MessagesViewMenu';
 import { SSE_FIRE_RAIL_INFO, SseColumnInfo } from './streams/SseColumnInfo';
 import SseEventPreview from './streams/SseEventPreview';
 import { SSE_COLUMNS, sseColumnMinWidth, sseGridTemplate } from './streams/sse-grid';
@@ -125,13 +125,9 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
   const listRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useMessagesSplitLayout();
   const [gridLayout, setGridLayout] = useSetting('devpanelNetwork.messagesLayout');
-  const resetGridLayout = useResetSetting('devpanelNetwork.messagesLayout');
   const [showPreview, setShowPreview] = useSetting('devpanelNetwork.messagesShowPreview');
-  const resetShowPreview = useResetSetting('devpanelNetwork.messagesShowPreview');
-  const resetViewMenu = () => {
-    resetGridLayout();
-    resetShowPreview();
-  };
+  const viewMenuModified = useModifiedSettings(MESSAGES_VIEW_MENU_KEYS);
+  const resetViewMenu = useResetSettings(MESSAGES_VIEW_MENU_KEYS);
   const { columnWidths, registerCellRef, beginResize, resetColumnWidth } = useColumnResize(sseColumnMinWidth);
 
   const body = (lifecycle.messages ?? []).some((m) => m.kind === 'sse')
@@ -318,6 +314,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
           <MessagesViewMenu
             layout={gridLayout}
             showPreview={showPreview}
+            modified={viewMenuModified}
             onLayoutChange={setGridLayout}
             onToggleShowPreview={() => setShowPreview(!showPreview)}
             onReset={resetViewMenu}

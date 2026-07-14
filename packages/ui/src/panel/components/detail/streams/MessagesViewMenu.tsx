@@ -7,28 +7,40 @@
  */
 
 import type { DevpanelNetworkLayoutSetting } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
-import { ToolbarMenuPopover } from '../../ToolbarMenuPopover';
+import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
+import { MenuNonDefaultDot, ToolbarMenuPopover } from '../../ToolbarMenuPopover';
+
+/** Settings behind the `View ▾` menu — its badge, dots, and reset derive from these. */
+export const MESSAGES_VIEW_MENU_KEYS: readonly SettingKey[] = [
+  'devpanelNetwork.messagesLayout',
+  'devpanelNetwork.messagesShowPreview',
+];
 
 export function MessagesViewMenu({
   layout,
   showPreview,
+  modified,
   onLayoutChange,
   onToggleShowPreview,
   onReset,
 }: {
   layout: DevpanelNetworkLayoutSetting;
   showPreview: boolean;
+  /** View settings that differ from their registered default. */
+  modified: ReadonlySet<SettingKey>;
   onLayoutChange: (mode: DevpanelNetworkLayoutSetting) => void;
   onToggleShowPreview: () => void;
   /** Restore every View option to its registered default. */
   onReset: () => void;
 }) {
-  const activeBadgeCount = (layout !== 'compact' ? 1 : 0) + (!showPreview ? 1 : 0);
-
+  const activeCount = modified.size;
   return (
-    <ToolbarMenuPopover label="View" activeCount={activeBadgeCount} menuClassName="dt-messages-view-menu">
+    <ToolbarMenuPopover label="View" activeCount={activeCount} menuClassName="dt-messages-view-menu">
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Layout</span>
+        <span className="dt-morefilters-item-label">
+          Layout
+          <MenuNonDefaultDot show={modified.has('devpanelNetwork.messagesLayout')} />
+        </span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as DevpanelNetworkLayoutSetting)}>
           <option value="compact">Compact</option>
           <option value="wide">Wide</option>
@@ -38,9 +50,10 @@ export function MessagesViewMenu({
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showPreview} onChange={onToggleShowPreview} />
         Show payload preview
+        <MenuNonDefaultDot show={modified.has('devpanelNetwork.messagesShowPreview')} />
       </label>
       <div className="dt-morefilters-divider" />
-      <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeBadgeCount === 0}>
+      <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeCount === 0}>
         Reset to default
       </button>
     </ToolbarMenuPopover>

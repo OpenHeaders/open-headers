@@ -5,8 +5,9 @@ import type {
   DevpanelNetworkWaterfallValueFormatSetting,
   DevpanelNetworkWaterfallValuesSetting,
 } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
+import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
 import { type WaterfallMetric, WATERFALL_METRIC_LABELS } from '../../data/network-columns';
-import { ToolbarMenuPopover } from '../ToolbarMenuPopover';
+import { MenuNonDefaultDot, ToolbarMenuPopover } from '../ToolbarMenuPopover';
 
 /**
  * `View ▾` dropdown for the Network requests table — display options that
@@ -18,6 +19,20 @@ import { ToolbarMenuPopover } from '../ToolbarMenuPopover';
  * ([[NetworkSortMenu]]) and column visibility on the column-header context
  * menu, so this stays small.
  */
+
+/** Settings behind the `View ▾` menu — its badge and dots derive from
+ *  these. The Timezone select is deliberately absent: it only appears
+ *  while `waterfallValueFormat` is `timestamp` (itself non-default), so
+ *  badging it would double-count one visible choice. */
+export const NETWORK_VIEW_MENU_KEYS: readonly SettingKey[] = [
+  'devpanelNetwork.layout',
+  'devpanelNetwork.waterfallMetric',
+  'devpanelNetwork.waterfallValues',
+  'devpanelNetwork.waterfallValueFormat',
+  'devpanelNetwork.waterfallExplainValue',
+  'devpanelNetwork.waterfallPopoverLayout',
+  'devpanelNetwork.showFireDots',
+];
 
 const WATERFALL_METRICS: readonly WaterfallMetric[] = ['startTime', 'responseTime', 'endTime', 'duration', 'latency'];
 const WATERFALL_VALUES_OPTIONS: ReadonlyArray<{ value: DevpanelNetworkWaterfallValuesSetting; label: string }> = [
@@ -57,6 +72,7 @@ export function NetworkViewMenu({
   onWaterfallPopoverLayoutChange,
   onToggleShowFireDots,
   onReset,
+  modified,
 }: {
   layout: DevpanelNetworkLayoutSetting;
   waterfallMetric: WaterfallMetric;
@@ -77,20 +93,17 @@ export function NetworkViewMenu({
   onToggleShowFireDots: () => void;
   /** Restore every View option to its registered default. */
   onReset: () => void;
+  /** View settings that differ from their registered default. */
+  modified: ReadonlySet<SettingKey>;
 }) {
-  const activeBadgeCount =
-    (layout !== 'compact' ? 1 : 0) +
-    (waterfallMetric !== 'startTime' ? 1 : 0) +
-    (waterfallValues !== 'always' ? 1 : 0) +
-    (waterfallValueFormat !== 'relative' ? 1 : 0) +
-    (!waterfallExplainValue ? 1 : 0) +
-    (waterfallPopoverLayout !== 'auto' ? 1 : 0) +
-    (!showFireDots ? 1 : 0);
-
+  const activeCount = modified.size;
   return (
-    <ToolbarMenuPopover label="View" activeCount={activeBadgeCount} menuClassName="dt-network-view-menu">
+    <ToolbarMenuPopover label="View" activeCount={activeCount} menuClassName="dt-network-view-menu">
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Layout</span>
+        <span className="dt-morefilters-item-label">
+          Layout
+          <MenuNonDefaultDot show={modified.has('devpanelNetwork.layout')} />
+        </span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as DevpanelNetworkLayoutSetting)}>
           <option value="compact">Compact</option>
           <option value="wide">Wide</option>
@@ -99,7 +112,10 @@ export function NetworkViewMenu({
       <div className="dt-morefilters-divider" />
       <div className="dt-sortmode-heading">Waterfall</div>
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Value number</span>
+        <span className="dt-morefilters-item-label">
+          Value number
+          <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallMetric')} />
+        </span>
         <select
           value={waterfallMetric}
           onChange={(e) => onWaterfallMetricChange(e.target.value as WaterfallMetric)}
@@ -112,7 +128,10 @@ export function NetworkViewMenu({
         </select>
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Show value</span>
+        <span className="dt-morefilters-item-label">
+          Show value
+          <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallValues')} />
+        </span>
         <select
           value={waterfallValues}
           onChange={(e) => onWaterfallValuesChange(e.target.value as DevpanelNetworkWaterfallValuesSetting)}
@@ -125,7 +144,10 @@ export function NetworkViewMenu({
         </select>
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Value format</span>
+        <span className="dt-morefilters-item-label">
+          Value format
+          <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallValueFormat')} />
+        </span>
         <select
           value={waterfallValueFormat}
           onChange={(e) => onWaterfallValueFormatChange(e.target.value as DevpanelNetworkWaterfallValueFormatSetting)}
@@ -155,12 +177,16 @@ export function NetworkViewMenu({
       <label className="dt-morefilters-item" title="In the hover popover, highlight the rows that make up the total and show their sum.">
         <input type="checkbox" checked={waterfallExplainValue} onChange={onToggleExplainValue} />
         Explain value
+        <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallExplainValue')} />
       </label>
       <label
         className="dt-morefilters-item dt-morefilters-item--select"
         title="Orientation of the hover timing breakdown. Auto picks by panel width — horizontal when wide, vertical when narrow."
       >
-        <span className="dt-morefilters-item-label">Popover</span>
+        <span className="dt-morefilters-item-label">
+          Popover
+          <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallPopoverLayout')} />
+        </span>
         <select
           value={waterfallPopoverLayout}
           onChange={(e) =>
@@ -178,9 +204,10 @@ export function NetworkViewMenu({
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showFireDots} onChange={onToggleShowFireDots} />
         Show rule-fire dots
+        <MenuNonDefaultDot show={modified.has('devpanelNetwork.showFireDots')} />
       </label>
       <div className="dt-morefilters-divider" />
-      <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeBadgeCount === 0}>
+      <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeCount === 0}>
         Reset to default
       </button>
     </ToolbarMenuPopover>

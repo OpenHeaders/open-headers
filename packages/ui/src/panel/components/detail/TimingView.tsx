@@ -1,6 +1,6 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useCallback } from 'react';
-import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useModifiedSettings, useResetSettings, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { ConnectionReuseInfo } from '../../data/connection-reuse';
 import { formatTimeMs } from '../../data/timing/format-time';
 import { computeInFlightTiming } from '../../data/timing/in-flight-timing';
@@ -20,7 +20,7 @@ import type { RepeatStats } from '../../data/timing/timing-repeats';
 import { formatSize } from '../traffic/formatters';
 import { HorizontalTimingChart } from '../traffic/HorizontalTimingChart';
 import { TimingLadderLegend } from '../traffic/TimingLadderLegend';
-import { TimingViewMenu } from './timing/TimingMenus';
+import { TIMING_VIEW_MENU_KEYS, TimingViewMenu } from './timing/TimingMenus';
 
 function formatMs(ms: number): string {
   if (ms < 0.01) return '< 0.01 ms';
@@ -70,6 +70,8 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
     () => setShowTransferRate(!showTransferRate),
     [showTransferRate, setShowTransferRate],
   );
+  const viewMenuModified = useModifiedSettings(TIMING_VIEW_MENU_KEYS);
+  const resetViewMenu = useResetSettings(TIMING_VIEW_MENU_KEYS);
 
   // Section header instead of a near-empty toolbar row: "Timing" reads
   // like the sibling sections (Server Timing, Transfer rate) and the
@@ -88,6 +90,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
           showServerTiming={showServerTiming}
           showRepeats={showRepeats}
           showTransferRate={showTransferRate}
+          modified={viewMenuModified}
           onToggleShowInsights={toggleShowInsights}
           onToggleShowContextStrip={toggleShowContextStrip}
           onToggleShowPhaseGroups={toggleShowPhaseGroups}
@@ -95,6 +98,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
           onToggleShowServerTiming={toggleShowServerTiming}
           onToggleShowRepeats={toggleShowRepeats}
           onToggleShowTransferRate={toggleShowTransferRate}
+          onReset={resetViewMenu}
         />
       </span>
     </summary>

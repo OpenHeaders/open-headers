@@ -43,10 +43,10 @@ import {
 } from '../../data/inspector-row-projection';
 import type { RowAnnotation } from '../../data/row-annotations';
 import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
-import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useModifiedSettings, useResetSettings, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { GeneralRow } from './headers/GeneralRow';
 import { HeaderSection } from './headers/HeaderSection';
-import { HeaderMoreFiltersMenu, HeaderViewMenu } from './headers/HeadersMenus';
+import { HEADER_VIEW_MENU_KEYS, HeaderMoreFiltersMenu, HeaderViewMenu } from './headers/HeadersMenus';
 import { RedirectCtaMenu } from './headers/RedirectCtaMenu';
 import { InsightCard } from './headers/InsightCard';
 import { ProvisionalHeadersBanner } from './headers/ProvisionalHeadersBanner';
@@ -149,6 +149,8 @@ export function HeadersView({
   const toggleHideNoise = useCallback(() => setHideNoise(!hideNoise), [hideNoise, setHideNoise]);
   const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
   const toggleShowChips = useCallback(() => setShowChips(!showChips), [showChips, setShowChips]);
+  const viewMenuModified = useModifiedSettings(HEADER_VIEW_MENU_KEYS);
+  const resetViewMenu = useResetSettings(HEADER_VIEW_MENU_KEYS);
 
   const compiledQuery = useMemo<readonly HeaderFilterToken[]>(() => {
     const parts: string[] = [];
@@ -266,11 +268,13 @@ export function HeadersView({
           nameCase={nameCase}
           showInsights={showInsights}
           showChips={showChips}
+          modified={viewMenuModified}
           onLayoutChange={setLayout}
           onSortChange={setSortMode}
           onNameCaseChange={setNameCase}
           onToggleShowInsights={toggleShowInsights}
           onToggleShowChips={toggleShowChips}
+          onReset={resetViewMenu}
         />
       </div>
 

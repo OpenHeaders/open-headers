@@ -4,7 +4,18 @@
  */
 
 import type { DevpanelCookiesExpiresFormatSetting, DevpanelCookiesSortSetting } from '../../../../workbench/settings/schema/devpanel-cookies';
-import { ToolbarMenuPopover } from '../../ToolbarMenuPopover';
+import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
+import { MenuNonDefaultDot, ToolbarMenuPopover } from '../../ToolbarMenuPopover';
+
+/** Settings behind the `View ▾` menu — its badge, dots, and reset derive from these. */
+export const COOKIE_VIEW_MENU_KEYS: readonly SettingKey[] = [
+  'devpanelCookies.sortMode',
+  'devpanelCookies.expiresFormat',
+  'devpanelCookies.decodeValues',
+  'devpanelCookies.groupByRole',
+  'devpanelCookies.showChips',
+  'devpanelCookies.showInsights',
+];
 
 export function CookieMoreFiltersMenu({
   problemsOnly,
@@ -69,36 +80,29 @@ export interface CookieViewMenuProps {
   showInsights: boolean;
   showChips: boolean;
   groupByRole: boolean;
+  /** View settings that differ from their registered default. */
+  modified: ReadonlySet<SettingKey>;
   onSortChange: (v: DevpanelCookiesSortSetting) => void;
   onExpiresFormatChange: (v: DevpanelCookiesExpiresFormatSetting) => void;
   onToggleDecodeValues: () => void;
   onToggleShowInsights: () => void;
   onToggleShowChips: () => void;
   onToggleGroupByRole: () => void;
+  /** Restore every View option to its registered default. */
+  onReset: () => void;
 }
 
 export function CookieViewMenu(props: CookieViewMenuProps) {
-  const activeCount =
-    (props.sortMode !== 'az' ? 1 : 0) +
-    (props.expiresFormat !== 'relative' ? 1 : 0) +
-    (props.decodeValues ? 1 : 0) +
-    (!props.showInsights ? 1 : 0) +
-    (!props.showChips ? 1 : 0) +
-    (!props.groupByRole ? 1 : 0);
-
-  const reset = () => {
-    if (props.sortMode !== 'az') props.onSortChange('az');
-    if (props.expiresFormat !== 'relative') props.onExpiresFormatChange('relative');
-    if (props.decodeValues) props.onToggleDecodeValues();
-    if (!props.groupByRole) props.onToggleGroupByRole();
-    if (!props.showChips) props.onToggleShowChips();
-    if (!props.showInsights) props.onToggleShowInsights();
-  };
+  const { modified, onReset } = props;
+  const activeCount = modified.size;
 
   return (
     <ToolbarMenuPopover label="View" activeCount={activeCount}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Sort</span>
+        <span className="dt-morefilters-item-label">
+          Sort
+          <MenuNonDefaultDot show={modified.has('devpanelCookies.sortMode')} />
+        </span>
         <select value={props.sortMode} onChange={(e) => props.onSortChange(e.target.value as DevpanelCookiesSortSetting)}>
           <option value="original">Original</option>
           <option value="az">A → Z</option>
@@ -107,7 +111,10 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
         </select>
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
-        <span className="dt-morefilters-item-label">Expires</span>
+        <span className="dt-morefilters-item-label">
+          Expires
+          <MenuNonDefaultDot show={modified.has('devpanelCookies.expiresFormat')} />
+        </span>
         <select
           value={props.expiresFormat}
           onChange={(e) => props.onExpiresFormatChange(e.target.value as DevpanelCookiesExpiresFormatSetting)}
@@ -119,22 +126,26 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.decodeValues} onChange={props.onToggleDecodeValues} />
         Decode URL-encoded values
+        <MenuNonDefaultDot show={modified.has('devpanelCookies.decodeValues')} />
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.groupByRole} onChange={props.onToggleGroupByRole} />
         Group by role (auth / pref / tracking)
+        <MenuNonDefaultDot show={modified.has('devpanelCookies.groupByRole')} />
       </label>
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.showChips} onChange={props.onToggleShowChips} />
         Show tags
+        <MenuNonDefaultDot show={modified.has('devpanelCookies.showChips')} />
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.showInsights} onChange={props.onToggleShowInsights} />
         Show suggestions
+        <MenuNonDefaultDot show={modified.has('devpanelCookies.showInsights')} />
       </label>
       <div className="dt-morefilters-divider" />
-      <button type="button" className="dt-morefilters-reset" onClick={reset} disabled={activeCount === 0}>
+      <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeCount === 0}>
         Reset to default
       </button>
     </ToolbarMenuPopover>

@@ -1,4 +1,4 @@
-import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useModifiedSettings, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import { useStickyAncestors } from '@openheaders/ui/shared/hooks/dom/useStickyAncestors';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
@@ -10,7 +10,7 @@ import type { InspectorRowWithFires } from '../../../data/inspector-row-projecti
 import ResourceIcon from '../../traffic/ResourceIcon';
 import { HighlightedText } from '../HighlightedText';
 import { CascadeSummaryHeader } from './CascadeSummaryHeader';
-import { InitiatorMoreFiltersMenu, InitiatorViewMenu } from './InitiatorMenus';
+import { INITIATOR_VIEW_MENU_KEYS, InitiatorMoreFiltersMenu, InitiatorViewMenu } from './InitiatorMenus';
 import { InsightCallout } from './InsightCallout';
 import { RowChips } from './RowChips';
 import { buildTree, flattenTree, type FlatRow } from './tree-model';
@@ -40,6 +40,7 @@ export function InitiatorTreeView({
     [thirdPartyOnly, setThirdPartyOnly],
   );
   const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
+  const viewMenuModified = useModifiedSettings(INITIATOR_VIEW_MENU_KEYS);
   const [expanded, setExpanded] = useState<ReadonlyMap<string, boolean>>(() => new Map());
   const [focusedKey, setFocusedKey] = useState<string>(row.lifecycle.requestId);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
@@ -216,6 +217,7 @@ export function InitiatorTreeView({
         <InitiatorViewMenu
           sortMode={sortMode}
           showInsights={showInsights}
+          modified={viewMenuModified}
           onSortChange={setSortMode}
           onToggleShowInsights={toggleShowInsights}
         />

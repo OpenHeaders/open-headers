@@ -292,6 +292,24 @@
   margin: 0;
 }
 
+/* Accent dot on a menu row whose setting differs from its registered
+ * default — shows the user which rows add up to the trigger's count
+ * badge. Inline-block so it also sits cleanly inside the `--select`
+ * row's label span. */
+.dt-morefilters-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dt-link);
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.dt-morefilters-item-label .dt-morefilters-dot {
+  margin-left: 6px;
+}
+
 /* Full-width "Reset to default" action at the foot of the Sort / View popovers
  * — a button styled like a menu row (the column-header menu has its own). */
 .dt-morefilters-reset {
