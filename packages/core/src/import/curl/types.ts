@@ -3,6 +3,13 @@ import type { ImportReport } from '../report';
 
 export interface CurlRequest {
   name: string;
+  /**
+   * Free-form documentation carried into `Request.description`. curl
+   * commands have no doc field, but the structured importers sharing
+   * this shape (Postman / Insomnia / Bruno) do — absent when the
+   * source carries none.
+   */
+  description?: string;
   method: HttpMethod;
   url: string;
   headers: RequestHeader[];

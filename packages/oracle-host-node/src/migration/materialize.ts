@@ -335,6 +335,7 @@ async function materializeCollection(
     const uid = generateUid();
     const name = entry.request.name.trim() || 'Untitled Request';
     const candidate = v.safeParse(RequestSchema, {
+      ...(entry.request.description !== undefined ? { description: entry.request.description } : {}),
       method: entry.request.method,
       url: entry.request.url,
       headers: entry.request.headers,

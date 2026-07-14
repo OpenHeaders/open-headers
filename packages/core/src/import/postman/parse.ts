@@ -170,8 +170,10 @@ function tryConvertRequest(item: PostmanItem, jsonPath: string, report: ImportRe
   // `request` can be a string shorthand for GET <url>.
   if (typeof item.request === 'string') {
     const { base, params } = splitUrl(item.request);
+    const itemDescription = textOf(item.description);
     return {
       name,
+      ...(itemDescription !== undefined && itemDescription !== '' ? { description: itemDescription } : {}),
       method: 'GET',
       url: base,
       headers: [],
@@ -190,6 +192,10 @@ function tryConvertRequest(item: PostmanItem, jsonPath: string, report: ImportRe
     });
     return null;
   }
+
+  // Request docs live on `request.description`; some exports carry
+  // them on the item instead. First non-empty one wins.
+  const description = textOf(req.description) ?? textOf(item.description);
 
   const method = coerceMethod(req.method, jsonPath, report);
   const url = buildUrl(req.url, jsonPath, report);
@@ -225,6 +231,7 @@ function tryConvertRequest(item: PostmanItem, jsonPath: string, report: ImportRe
 
   return {
     name,
+    ...(description !== undefined && description !== '' ? { description } : {}),
     method,
     url: base,
     headers: headersWithoutAuth,

@@ -166,6 +166,7 @@ export function createImportToolDefinitions(): McpToolDefinition[] {
           const request = parseOrThrow(
             RequestSchema,
             {
+              ...(seed.description !== undefined ? { description: seed.description } : {}),
               method: seed.method,
               url: seed.url,
               headers: seed.headers,

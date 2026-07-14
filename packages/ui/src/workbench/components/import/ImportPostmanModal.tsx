@@ -243,6 +243,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
         const key = folderPath.join('/');
         const parentPath = folderPathMap.get(key) ?? coll.path;
         const seed: Partial<Request> = {
+          ...(request.description !== undefined ? { description: request.description } : {}),
           method: request.method,
           url: request.url,
           headers: request.headers,

@@ -292,6 +292,73 @@ describe('request mapping — method + URL', () => {
   });
 });
 
+describe('request mapping — description', () => {
+  it('imports request.description (string form)', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: { method: 'GET', url: 'https://api.openheaders.io/x', description: 'Fetches the thing.' },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.description).toBe('Fetches the thing.');
+  });
+
+  it('imports request.description (object form)', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              description: { content: 'Object-form docs.' },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.description).toBe('Object-form docs.');
+  });
+
+  it('falls back to the item description when the request carries none', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            description: 'Item-level docs.',
+            request: { method: 'GET', url: 'https://api.openheaders.io/x' },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.description).toBe('Item-level docs.');
+  });
+
+  it('carries the item description through the string-shorthand request form', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [{ name: 'X', description: 'Shorthand docs.', request: 'https://api.openheaders.io/ping' }],
+      }),
+    );
+    expect(result.requests[0]?.request.description).toBe('Shorthand docs.');
+  });
+
+  it('omits the field when neither request nor item has a description', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [{ name: 'X', request: { method: 'GET', url: 'https://api.openheaders.io/x' } }],
+      }),
+    );
+    expect('description' in result.requests[0]!.request).toBe(false);
+  });
+});
+
 describe('request mapping — headers', () => {
   it('maps enabled + disabled headers', () => {
     const result = parsePostman(

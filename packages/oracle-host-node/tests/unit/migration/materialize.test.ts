@@ -41,7 +41,11 @@ const COLLECTION_JSON = JSON.stringify({
   item: [
     {
       name: 'List charges',
-      request: { method: 'GET', url: 'https://api.openheaders.io/charges' },
+      request: {
+        method: 'GET',
+        url: 'https://api.openheaders.io/charges',
+        description: 'Lists charges for the account.',
+      },
     },
     {
       name: 'Admin',
@@ -171,6 +175,7 @@ describe('materializePostmanPull', () => {
     expect(flat?.path.startsWith(`${collections[0].path}/`)).toBe(true);
     expect(flat?.path).not.toContain('/admin-');
     expect(nested?.headers).toMatchObject([{ key: 'X-Env', value: 'staging' }]);
+    expect(flat?.description).toBe('Lists charges for the account.');
 
     const environments = snapshotEnvironmentPostStates(wsId).map((ps) => ps.environment);
     expect(environments).toHaveLength(1);
