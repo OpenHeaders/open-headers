@@ -1,7 +1,6 @@
 export { default as AppUpdateToast } from './AppUpdateToast';
 export { default as NotificationsIcon } from './NotificationsIcon';
 export { default as NotificationsPanel, NOTIFICATIONS_PANEL_INFO } from './NotificationsPanel';
-export { default as SecretsStorageBanner } from './SecretsStorageBanner';
 export { default as SecurityUpdateBanner } from './SecurityUpdateBanner';
 export {
   __resetNotificationsForTests,
@@ -27,4 +26,5 @@ export {
   useUnseenNotificationCount,
 } from './store';
 export { useAppUpdateNotification } from './use-app-update-notification';
+export { useSecretsStorageNotice } from './use-secrets-storage-notice';
 export { useSeedNotifications } from './use-seed-notifications';

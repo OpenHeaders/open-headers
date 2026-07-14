@@ -119,9 +119,9 @@ import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
 import { useAppUpdateTask, useMigrationPullTask } from '@openheaders/ui/shared/background-tasks';
 import {
   AppUpdateToast,
-  SecretsStorageBanner,
   SecurityUpdateBanner,
   useAppUpdateNotification,
+  useSecretsStorageNotice,
   useSeedNotifications,
 } from '@openheaders/ui/shared/notifications';
 import { UpdateDialog } from '@openheaders/ui/shared/updates';
@@ -392,6 +392,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   useAppUpdateNotification();
   useAppUpdateTask();
   useSeedNotifications();
+  // Locked secrets storage (denied keychain / missing keyring) surfaces
+  // as a standing suggestion with the relaunch remedy; the footer's
+  // status pill carries the same fact as a red `secrets` row.
+  useSecretsStorageNotice();
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -1335,8 +1339,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           />
 
           <SecurityUpdateBanner onOpenAbout={() => openSettings({ categoryId: 'about' })} />
-
-          <SecretsStorageBanner />
 
           <OrgWorkspaceAccessNotice
             workspaces={workspacesApi.workspaces}

@@ -10,10 +10,11 @@
  */
 
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
-import { Tag, Tooltip, Typography } from 'antd';
+import { Button, Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useBackends } from '../backend';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
+import { requestSecretsRelaunch } from '../hooks/useSecretsStorageState';
 import { STATUS_TAG_WIDTH } from './StatusPill';
 import type { StatusEntry, StatusSubsystem } from './types';
 import { useBootRegression } from './use-boot-regression';
@@ -28,7 +29,7 @@ import { useBootRegression } from './use-boot-regression';
  * the extras line up visually with the standard rows — no bespoke
  * styling that would make them look like foreign elements.
  */
-export function productStatusExtras(subsystem: StatusSubsystem, _entry: StatusEntry | undefined): React.ReactNode {
+export function productStatusExtras(subsystem: StatusSubsystem, entry: StatusEntry | undefined): React.ReactNode {
   if (subsystem === 'sync') {
     return (
       <>
@@ -37,8 +38,30 @@ export function productStatusExtras(subsystem: StatusSubsystem, _entry: StatusEn
       </>
     );
   }
+  if (subsystem === 'secrets') {
+    return <SecretsRelaunchCallout entry={entry} />;
+  }
   return null;
 }
+
+/**
+ * Relaunch follow-through under the red `secrets` row — rendered only
+ * while the host reports the at-rest cipher unavailable (the desktop
+ * main stamps `context.cipher`; hosts without a cipher seam never do).
+ * Relaunching is the one honest remedy: a canceled keychain prompt is
+ * cached for the process lifetime, so no in-process retry can succeed.
+ */
+const SecretsRelaunchCallout: React.FC<{ entry: StatusEntry | undefined }> = ({ entry }) => {
+  if (entry?.state !== 'red' || entry.context?.cipher !== 'unavailable') return null;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ width: STATUS_TAG_WIDTH, flexShrink: 0 }} />
+      <Button size="small" danger onClick={requestSecretsRelaunch} data-testid="secrets-status-relaunch">
+        Relaunch app
+      </Button>
+    </div>
+  );
+};
 
 /**
  * Per-backend breakdown under the `sync` row — the worst-of pill names

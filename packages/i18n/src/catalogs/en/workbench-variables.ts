@@ -92,6 +92,9 @@ export const workbenchVariables = {
   'workbench.variables.vault.title': 'Vault',
   'workbench.variables.vault.infoBanner':
     'Vault secrets are encrypted at rest, never leave this device, and take priority over every other scope.',
+  'workbench.variables.vault.cipherLocked':
+    'Secrets storage is locked — the system denied access to its keychain, so vault secrets cannot be read or saved this session.',
+  'workbench.variables.vault.cipherLockedRelaunch': 'Relaunch app',
   'workbench.variables.vault.lockedTitle': 'Vault locked — at-rest key lost',
   'workbench.variables.vault.lockedDescription':
     "This vault's secrets are still stored on this device but can no longer be decrypted: the at-rest key that sealed them is gone (cleared browser data, a new profile, or a reset extension key). Editing is disabled so a new entry can't overwrite the sealed data. Re-enter the secrets to unlock the vault — the existing entries will be replaced.",

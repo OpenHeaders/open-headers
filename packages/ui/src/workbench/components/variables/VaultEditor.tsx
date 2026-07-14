@@ -30,10 +30,11 @@
 
 import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import { useVault } from '@openheaders/ui/shared/hooks/readers/useVault';
+import { requestSecretsRelaunch, useSecretsStorageState } from '@openheaders/ui/shared/hooks/useSecretsStorageState';
 import { canonicalJsonPretty, VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Alert, App, Typography, theme } from 'antd';
+import { Alert, App, Button, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@openheaders/ui/shared/awareness';
@@ -75,6 +76,12 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const { message } = App.useApp();
   const t = useT();
   const { vault, isLocked } = useVault();
+  // Cipher-down (denied keychain / missing keyring) is a different fact
+  // than the lost-at-rest-key lock: the remedy is a relaunch, not
+  // re-entry. When the cipher is down the guarded read reports the
+  // vault locked too, so this branch renders INSTEAD of the lost-key
+  // alert — one banner, the right remedy.
+  const cipherLocked = useSecretsStorageState()?.status === 'unavailable';
   const { replaceVault } = useVariableMutator();
 
   const [draft, setDraft] = useState<VaultSecret[]>(() => vault.secrets ?? EMPTY_SECRETS);
@@ -300,7 +307,18 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
               message={t('workbench.variables.vault.infoBanner')}
             />
 
-            {isLocked ? (
+            {cipherLocked ? (
+              <Alert
+                type="error"
+                showIcon
+                message={t('workbench.variables.vault.cipherLocked')}
+                action={
+                  <Button size="small" danger onClick={requestSecretsRelaunch}>
+                    {t('workbench.variables.vault.cipherLockedRelaunch')}
+                  </Button>
+                }
+              />
+            ) : isLocked ? (
               <Alert
                 type="error"
                 showIcon

@@ -132,11 +132,24 @@ export async function installRpcHost(): Promise<void> {
   // Secrets-storage state (the "unlock secrets storage" surface): the
   // file-backed store observes cipher availability from sensitive-slot
   // traffic — never probing, so no keychain prompt fires for users who
-  // hold no secrets — and every transition fans to open renderers. Late
-  // joiners hydrate via `oh.secrets.getState` below.
+  // hold no secrets. Every transition fans to open renderers (the vault
+  // page + Notifications suggestion follow it live; late joiners hydrate
+  // via `oh.secrets.getState` below) AND lands in the shared status
+  // store, so the footer's System status pill carries the red `secrets`
+  // row on every surface.
   const { backend: hostStorage } = installHostStorage({
     onCipherStatusChange: (status) => {
       broadcastToAllRenderers('secretsStorageState', { status, platform: process.platform });
+      if (status === 'unavailable') {
+        report({
+          subsystem: 'secrets',
+          state: 'red',
+          message: 'Secrets storage locked — relaunch to unlock',
+          context: { cipher: 'unavailable', platform: process.platform },
+        });
+      } else if (status === 'available') {
+        report({ subsystem: 'secrets', state: 'green', message: 'Encrypted secrets storage available' });
+      }
     },
   });
   installLifelineServer();
