@@ -33,9 +33,10 @@ const ActivateTitle: React.FC<{
   title: string;
   fontSize: number;
   color: string;
+  bold?: boolean;
   onActivate: () => void;
   onClick?: (e: React.MouseEvent) => void;
-}> = ({ title, fontSize, color, onActivate, onClick }) => {
+}> = ({ title, fontSize, color, bold = false, onActivate, onClick }) => {
   const [hover, setHover] = useState(false);
   return (
     <button
@@ -50,7 +51,7 @@ const ActivateTitle: React.FC<{
         background: 'transparent',
         fontSize,
         color,
-        fontWeight: 600,
+        fontWeight: bold ? 600 : undefined,
         cursor: 'pointer',
         textAlign: 'left',
         textDecoration: hover ? 'underline' : 'none',
@@ -189,7 +190,13 @@ const BackgroundTasksIndicator: React.FC = () => {
                     <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13 }} />
                   )}
                   {task.onActivate ? (
-                    <ActivateTitle title={task.title} fontSize={13} color={token.colorText} onActivate={task.onActivate} />
+                    <ActivateTitle
+                      title={task.title}
+                      fontSize={13}
+                      color={token.colorText}
+                      bold
+                      onActivate={task.onActivate}
+                    />
                   ) : (
                     <div style={{ fontSize: 13, color: token.colorText }}>{task.title}</div>
                   )}
@@ -239,8 +246,8 @@ const BackgroundTasksIndicator: React.FC = () => {
               // report"); the rest of the slot still toggles the panel.
               <ActivateTitle
                 title={anchor.title}
-                fontSize={10}
-                color={token.colorText}
+                fontSize={11}
+                color={token.colorTextSecondary}
                 onActivate={anchor.onActivate}
                 onClick={(e) => {
                   e.stopPropagation();
