@@ -2,11 +2,11 @@
  * Workflow step-editor combination matrix — slice 7 e2e
  * (WORKFLOW_GRAPH_PLAN.md §7, follow-up to the retry/timeout slice).
  *
- * Pairwise coverage over the five per-step dimensions — dependsOn
+ * Pairwise coverage over the six per-step dimensions — dependsOn
  * (implicit / explicit root / multi-parent) × run condition (each
  * clause kind) × priority × retry (attempts / delay / backoff /
- * retry-on / clear) × timeout (set / clear) — plus the interaction
- * cases that matter:
+ * retry-on / clear) × timeout (set / clear) × scripts (on / off) —
+ * plus the interaction cases that matter:
  *
  *   - Seeded combinations render the right section summaries and the
  *     expanded controls carry the persisted values (including the
@@ -163,6 +163,7 @@ test('seeded combinations render section summaries + controls, survive view togg
         ],
         retry: { maxAttempts: 3, delayMs: 500, backoff: 'exponential', retryOn: '5xx' },
         timeoutMs: 5000,
+        runScripts: true,
       },
       {
         uid: 'stpmtx02',
@@ -203,6 +204,9 @@ test('seeded combinations render section summaries + controls, survive view togg
   await expect(sectionHeader(s1, 'Priority')).toContainText('(none)');
   await expect(sectionHeader(s1, 'Retry policy')).toContainText('(3 attempts, exponential)');
   await expect(sectionHeader(s1, 'Timeout')).toContainText('(5000 ms)');
+  await expect(sectionHeader(s1, 'Scripts')).toContainText('(on)');
+  // Opted-in step advertises itself in the card header chip row.
+  await expect(s1.getByText('scripts', { exact: true })).toBeVisible();
 
   const s2 = card(page, 's2');
   await expect(sectionHeader(s2, 'Depends on')).toContainText('(s1)');
@@ -210,6 +214,7 @@ test('seeded combinations render section summaries + controls, survive view togg
   await expect(sectionHeader(s2, 'Priority')).toContainText('(s1.token)');
   await expect(sectionHeader(s2, 'Retry policy')).toContainText('(2 attempts)');
   await expect(sectionHeader(s2, 'Timeout')).toContainText('(none)');
+  await expect(sectionHeader(s2, 'Scripts')).toContainText('(off)');
 
   const s3 = card(page, 's3');
   await expect(sectionHeader(s3, 'Depends on')).toContainText('(root)');
@@ -298,6 +303,10 @@ test('editing every knob through the UI persists the exact step fields on Save',
   await sectionHeader(b, 'Timeout').click();
   await numberInput(page, 'wf-step-1-timeout').fill('1500');
   await expect(sectionHeader(b, 'Timeout')).toContainText('(1500 ms)');
+
+  await sectionHeader(b, 'Scripts').click();
+  await page.getByTestId('wf-step-1-run-scripts').click();
+  await expect(sectionHeader(b, 'Scripts')).toContainText('(on)');
   await expect(saveButton).toBeEnabled();
 
   // ── Step c (index 2): multi-parent deps + gate + priority ────────
@@ -336,6 +345,7 @@ test('editing every knob through the UI persists the exact step fields on Save',
     priorityFrom?: { stepId: string; captureName: string };
     retry?: Record<string, unknown>;
     timeoutMs?: number;
+    runScripts?: boolean;
   };
   await expect
     .poll(async () => {
@@ -350,6 +360,7 @@ test('editing every knob through the UI persists the exact step fields on Save',
         id: 'b',
         retry: { maxAttempts: 4, delayMs: 2000, backoff: 'exponential', retryOn: ['eq', 429] },
         timeoutMs: 1500,
+        runScripts: true,
       },
       {
         id: 'c',
@@ -395,6 +406,7 @@ test('clearing every knob removes the fields and persists the deletions', async 
         priorityFrom: { stepId: 'a', captureName: 'token' },
         retry: { maxAttempts: 3, delayMs: 250, backoff: 'exponential', retryOn: '5xx' },
         timeoutMs: 3000,
+        runScripts: true,
         captures: [],
       },
     ],
@@ -431,6 +443,11 @@ test('clearing every knob removes the fields and persists the deletions', async 
   await sectionHeader(b, 'Depends on').click();
   await page.getByTestId('wf-step-1-deps').getByRole('button', { name: 'Reset' }).click();
   await expect(sectionHeader(b, 'Depends on')).toContainText('(implicit — prior step)');
+
+  // Toggling scripts off deletes the field (absent is canonical).
+  await sectionHeader(b, 'Scripts').click();
+  await page.getByTestId('wf-step-1-run-scripts').click();
+  await expect(sectionHeader(b, 'Scripts')).toContainText('(off)');
 
   await expect(saveButton).toBeEnabled();
   await saveButton.click();
