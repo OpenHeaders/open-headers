@@ -41,7 +41,7 @@ const DocsTab: React.FC<DocsTabProps> = ({ value, onChange }) => {
   const [editor, setEditor] = useState<MarkdownEditor | null>(null);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
       <div
         style={{
           display: 'flex',
@@ -76,18 +76,20 @@ const DocsTab: React.FC<DocsTabProps> = ({ value, onChange }) => {
         )}
       </div>
       {mode === 'write' ? (
-        <CodeEditor
-          value={value}
-          onChange={onChange}
-          language="markdown"
-          minHeight={280}
-          placeholder={t('workbench.editors.request.docs.placeholder')}
-          variableAutoComplete={false}
-          onEditorMount={(ed, monacoApi) => {
-            setEditor(ed);
-            registerMarkdownShortcuts(ed, monacoApi);
-          }}
-        />
+        <div style={{ flex: 1, minHeight: 280, display: 'flex', flexDirection: 'column' }}>
+          <CodeEditor
+            value={value}
+            onChange={onChange}
+            language="markdown"
+            fill
+            placeholder={t('workbench.editors.request.docs.placeholder')}
+            variableAutoComplete={false}
+            onEditorMount={(ed, monacoApi) => {
+              setEditor(ed);
+              registerMarkdownShortcuts(ed, monacoApi);
+            }}
+          />
+        </div>
       ) : value.trim() ? (
         <MarkdownView renderCodeBlock={renderDocsCodeBlock}>{value}</MarkdownView>
       ) : (

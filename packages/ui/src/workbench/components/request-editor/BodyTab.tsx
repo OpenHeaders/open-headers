@@ -162,7 +162,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
   })();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
       {/* Fixed row height: the raw/GraphQL variants add a 24px Select /
           Beautify button next to the radios, so without a reserved
           height the row (and the editor below) jumps when switching
@@ -230,12 +230,12 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
       )}
 
       {(body.type === 'json' || body.type === 'xml' || body.type === 'text') && (
-        <div style={{ minHeight: 240 }}>
+        <div style={{ flex: 1, minHeight: 240, display: 'flex', flexDirection: 'column' }}>
           <CodeEditor
             value={body.content}
             onChange={(content) => onChange(rawBodyOf(raw, content))}
             language={rawLangForEditor}
-            minHeight={240}
+            fill
             valueDetection
             actions="external"
             actionsRef={rawActionsRef}
@@ -249,6 +249,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: 16,
+            flex: 1,
             minHeight: 320,
           }}
         >
@@ -273,7 +274,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
               />
               <CodeEditorActions target={graphqlQueryActionsRef} language="graphql" style={{ marginLeft: 'auto' }} />
             </div>
-            <div style={{ flex: 1, minHeight: 300 }}>
+            <div style={{ flex: 1, minHeight: 300, display: 'flex', flexDirection: 'column' }}>
               <CodeEditor
                 value={body.content}
                 onChange={(content) =>
@@ -284,7 +285,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                   )
                 }
                 language="graphql"
-                minHeight={300}
+                fill
                 actions="external"
                 actionsRef={graphqlQueryActionsRef}
               />
@@ -311,14 +312,14 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
               />
               <CodeEditorActions target={graphqlVariablesActionsRef} language="json" style={{ marginLeft: 'auto' }} />
             </div>
-            <div style={{ flex: 1, minHeight: 300 }}>
+            <div style={{ flex: 1, minHeight: 300, display: 'flex', flexDirection: 'column' }}>
               <CodeEditor
                 value={body.graphqlVariables ?? ''}
                 onChange={(variables) =>
                   onChange({ type: 'graphql', content: body.content, graphqlVariables: variables })
                 }
                 language="json"
-                minHeight={300}
+                fill
                 actions="external"
                 actionsRef={graphqlVariablesActionsRef}
               />

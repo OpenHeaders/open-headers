@@ -191,7 +191,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', gap: 8, height: '100%', minHeight: 340 }}>
+    <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 340 }}>
       <div
         style={{
           display: 'flex',
@@ -206,12 +206,14 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
         <Rail kind="pre-request" label={t('workbench.editors.request.scripts.preRequest')} />
         <Rail kind="post-response" label={t('workbench.editors.request.scripts.postResponse')} />
       </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
+      <div
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, position: 'relative' }}
+      >
         <CodeEditor
           language="javascript"
           value={value}
           onChange={onChange}
-          minHeight={300}
+          fill
           placeholder={t(SCRIPT_PLACEHOLDER_KEY[active])}
           onEditorMount={(editor) => {
             editorRef.current = editor;
@@ -340,13 +342,13 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           />
         )}
         {/* Floating action bar INSIDE the editor surface, bottom-right —
-            above Monaco's horizontal scrollbar and clear of the resize
-            grip strip (12px) below the buffer. z-index 12 matches the
-            editor's corner action cluster. */}
+            above Monaco's horizontal scrollbar (the fill-mode editor has
+            no resize grip strip). z-index 12 matches the editor's corner
+            action cluster. */}
         <div
           style={{
             position: 'absolute',
-            bottom: 34,
+            bottom: 22,
             right: 26,
             zIndex: 12,
             display: 'flex',

@@ -732,8 +732,24 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                     container's vertical padding at 0 the header pins flush
                     to the scrollport top; the inner padding just scrolls
                     away. */}
-                  <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: '0 16px' }}>
-                    <div style={{ padding: '10px 0' }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      overflow: 'auto',
+                      overscrollBehavior: 'none',
+                      padding: '0 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    {/* Grow-to-pane flex chain: the wrapper fills the
+                      scrollport (`flex: 1 0 auto` — content height still
+                      wins, so taller tabs scroll) and is a flex column so
+                      pane-filling tabs (Scripts / Body / Docs editors)
+                      can `flex: 1` and track the request/response divider
+                      instead of sitting at a fixed height behind a
+                      scrollbar. */}
+                    <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
                       <RequestTabContent
                         tab={activeTab}
                         draft={draft}
