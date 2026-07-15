@@ -56,6 +56,9 @@ const MAGIC_SPECS: MagicSpec[] = [
   { name: 'WOFF2', header: ascii('wOF2') },
   { name: 'WOFF', header: ascii('wOFF') },
   { name: 'MP3', header: ascii('ID3') },
+  // POSIX ustar and GNU tar share the first five magic bytes at offset
+  // 257 (the sixth differs: NUL vs space).
+  { name: 'TAR', header: ascii('ustar'), headerAt: 257 },
   { name: 'MP4', header: ascii('ftyp'), headerAt: 4 },
   { name: 'OGG', header: ascii('OggS') },
   { name: 'RIFF', header: ascii('RIFF') },

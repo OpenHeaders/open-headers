@@ -32,6 +32,8 @@ const PROBE_REQUESTS = [
   'bigint-json',
   'metrics',
   'ansi-log',
+  'json-seq',
+  'tar',
   'media',
   'latin1',
 ] as const;
@@ -199,6 +201,27 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     const plain = await workbench.responseRawBody();
     expect(plain).toContain('[32mINFO');
     await workbench.responseAnsiToggle().click();
+  });
+
+  test('json-seq strips the record separator in the line-wise JSON paths', async () => {
+    await sendProbe('json-seq');
+    expect(await workbench.responseViewPickerLabel()).toMatch(/JSON$/);
+    // The RS byte would fail every per-line parse — stripping it makes
+    // the records parse, which is what lights the tree Preview.
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    await workbench.responsePreviewToggle().click();
+    const tree = workbench.responseJsonPreview();
+    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    expect(await tree.innerText()).toContain('api.openheaders.io');
+  });
+
+  test('tar stays text (NULs are valid UTF-8) with the ustar magic flagged in Hex', async () => {
+    await sendProbe('tar');
+    // Bytes decide: a tar of ASCII names + NUL padding decodes as text.
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
+    const hex = await workbench.responseHexText();
+    expect(hex).toContain('ustar');
+    await expect(workbench.responseHexMagic('TAR header')).toBeVisible();
   });
 
   test('WAV opens on the media Preview with the byte views behind it', async () => {

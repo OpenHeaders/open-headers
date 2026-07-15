@@ -34,6 +34,9 @@ export interface LosslessParseResult {
   /** Object keys that appeared more than once (last value kept), in
    *  first-repeat order, deduplicated. */
   duplicateKeys: string[];
+  /** Set by {@link parseLosslessJsonPrefix} when the tail of a
+   *  truncated body was dropped — the view is partial. */
+  partial?: boolean;
 }
 
 /** Duplicate-key report ceiling — a notice, not an index. */
@@ -79,9 +82,46 @@ const WHITESPACE = new Set([0x20, 0x09, 0x0a, 0x0d]);
  * error — callers treat it exactly like a `JSON.parse` throw.
  */
 export function parseLosslessJson(text: string): LosslessParseResult | null {
+  return parseJson(text, false);
+}
+
+/**
+ * Best-effort salvage for a body CUT AT THE CAPTURE CAP: parse the
+ * longest valid prefix, closing containers the cut left open and
+ * dropping the member the cut ran through. Only failures near the end
+ * of the text salvage — a genuine syntax error mid-body still returns
+ * `null` (salvaging it would present garbage as data). Callers gate on
+ * `bodyTruncated`; the result carries `partial: true`.
+ */
+export function parseLosslessJsonPrefix(text: string): LosslessParseResult | null {
+  return parseJson(text, true);
+}
+
+/** How close to the text's end a parse failure must sit to count as a
+ *  truncation artifact rather than a syntax error — wide enough for a
+ *  cut mid-escape (`\u12`), mid-literal (`tru`), or mid-sign (`-`). */
+const SALVAGE_TAIL_WINDOW = 8;
+
+function parseJson(text: string, salvage: boolean): LosslessParseResult | null {
   let pos = 0;
+  let partial = false;
   const duplicates: string[] = [];
   const duplicateSeen = new Set<string>();
+
+  /** Close an open container at a truncation-shaped failure point —
+   *  `null` when the failure sits too far from the end to be the cut. */
+  const salvageClose = (container: unknown): { value: unknown } | null => {
+    if (!salvage || pos + SALVAGE_TAIL_WINDOW < text.length) return null;
+    partial = true;
+    return { value: container };
+  };
+
+  /** True when a container hit end-of-input right after `member` — the
+   *  container never closed, and a number token running to the exact
+   *  cut may itself be cut short, so it drops; any other value ends
+   *  with an unambiguous terminator and keeps. */
+  const dropAmbiguousTail = (member: { value: unknown }, valueEnd: number): boolean =>
+    valueEnd === text.length && (typeof member.value === 'number' || isJsonNumber(member.value));
 
   const skipWhitespace = () => {
     while (pos < text.length && WHITESPACE.has(text.charCodeAt(pos))) pos++;
@@ -187,20 +227,21 @@ export function parseLosslessJson(text: string): LosslessParseResult | null {
       }
       while (true) {
         skipWhitespace();
-        if (text.charCodeAt(pos) !== 0x22) return null;
+        if (text.charCodeAt(pos) !== 0x22) return salvageClose(obj);
         pos++;
         const key = parseString();
-        if (key === null) return null;
+        if (key === null) return salvageClose(obj);
         if (Object.hasOwn(obj, key) && !duplicateSeen.has(key) && duplicates.length < DUPLICATE_KEY_LIMIT) {
           duplicateSeen.add(key);
           duplicates.push(key);
         }
         skipWhitespace();
-        if (text.charCodeAt(pos) !== 0x3a) return null;
+        if (text.charCodeAt(pos) !== 0x3a) return salvageClose(obj);
         pos++;
         const member = parseValue();
-        if (member === null) return null;
+        if (member === null) return salvageClose(obj);
         obj[key] = member.value;
+        const valueEnd = pos;
         skipWhitespace();
         const sep = text.charCodeAt(pos);
         if (sep === 0x2c) {
@@ -209,6 +250,11 @@ export function parseLosslessJson(text: string): LosslessParseResult | null {
         }
         if (sep === 0x7d) {
           pos++;
+          return { value: obj };
+        }
+        if (salvage && pos >= text.length) {
+          if (dropAmbiguousTail(member, valueEnd)) delete obj[key];
+          partial = true;
           return { value: obj };
         }
         return null;
@@ -225,8 +271,9 @@ export function parseLosslessJson(text: string): LosslessParseResult | null {
       }
       while (true) {
         const item = parseValue();
-        if (item === null) return null;
+        if (item === null) return salvageClose(arr);
         arr.push(item.value);
+        const valueEnd = pos;
         skipWhitespace();
         const sep = text.charCodeAt(pos);
         if (sep === 0x2c) {
@@ -235,6 +282,11 @@ export function parseLosslessJson(text: string): LosslessParseResult | null {
         }
         if (sep === 0x5d) {
           pos++;
+          return { value: arr };
+        }
+        if (salvage && pos >= text.length) {
+          if (dropAmbiguousTail(item, valueEnd)) arr.pop();
+          partial = true;
           return { value: arr };
         }
         return null;
@@ -266,7 +318,12 @@ export function parseLosslessJson(text: string): LosslessParseResult | null {
   const root = parseValue();
   if (root === null) return null;
   skipWhitespace();
-  if (pos !== text.length) return null;
+  // Trailing text after a closed root is never a truncation artifact —
+  // the strict rejection stands in salvage mode too. The one exception:
+  // a salvage-close leaves `pos` at the cut fragment itself (`tru`,
+  // `\u12`) — those few tail chars are the artifact, not garbage.
+  if (pos !== text.length && !(partial && pos + SALVAGE_TAIL_WINDOW >= text.length)) return null;
+  if (partial) return { value: root.value, duplicateKeys: duplicates, partial };
   return { value: root.value, duplicateKeys: duplicates };
 }
 

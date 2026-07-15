@@ -46,7 +46,12 @@ import ResponseJsonPreview from './ResponseJsonPreview';
 import ResponseMediaPreview from './ResponseMediaPreview';
 import ResponsePdfPreview from './ResponsePdfPreview';
 import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
-import { type LosslessParseResult, parseLosslessJson, stringifyLossless } from './lossless-json';
+import {
+  type LosslessParseResult,
+  parseLosslessJson,
+  parseLosslessJsonPrefix,
+  stringifyLossless,
+} from './lossless-json';
 import { detectMagicSignatures } from './magic-signatures';
 import { ansiRunStyle, buildAnsiPalette, hasAnsiEscapes, parseAnsiBody, stripAnsiEscapes } from './response-ansi';
 import './response-body.css';
@@ -72,6 +77,7 @@ import {
   isNdjsonResponse,
   isPdfResponse,
   mediaPreviewKind,
+  ndjsonRecordLines,
   prettyBody,
   prettyNdjsonBody,
   sniffsAsMetricsBody,
@@ -206,22 +212,39 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const parsed = useMemo<LosslessParseResult | undefined>(() => {
     if (isBinary || language !== 'json') return undefined;
     if (isNdjson) {
-      const lines = response.body.split('\n').filter((line) => line.trim() !== '');
+      const lines = ndjsonRecordLines(response.body);
       if (lines.length === 0) return undefined;
       const records: unknown[] = [];
       const duplicateKeys: string[] = [];
-      for (const line of lines) {
-        const record = parseLosslessJson(line);
-        if (record === null) return undefined;
+      let partial = false;
+      for (let i = 0; i < lines.length; i++) {
+        const record = parseLosslessJson(lines[i]);
+        if (record === null) {
+          // A capture cut at the cap runs through the last record —
+          // line-wise salvage drops it and keeps the complete ones. A
+          // failing record anywhere else is a genuine parse error.
+          if (response.bodyTruncated && i === lines.length - 1) {
+            partial = true;
+            break;
+          }
+          return undefined;
+        }
         records.push(record.value);
         for (const key of record.duplicateKeys) {
           if (!duplicateKeys.includes(key)) duplicateKeys.push(key);
         }
       }
-      return { value: records, duplicateKeys };
+      if (records.length === 0) return undefined;
+      return partial ? { value: records, duplicateKeys, partial } : { value: records, duplicateKeys };
     }
-    return parseLosslessJson(response.body) ?? undefined;
-  }, [response.body, language, isBinary, isNdjson]);
+    const strict = parseLosslessJson(response.body);
+    if (strict !== null) return strict;
+    // A whole-body parse lost to the byte cap salvages its longest
+    // valid prefix — tree and filter stay usable exactly when payloads
+    // are big; the partial notice below says the view is incomplete.
+    if (response.bodyTruncated) return parseLosslessJsonPrefix(response.body) ?? undefined;
+    return undefined;
+  }, [response.body, response.bodyTruncated, language, isBinary, isNdjson]);
   const parsedJson = parsed?.value;
 
   // Media previews come from the Content-Type (they name a RENDERER,
@@ -457,6 +480,11 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           {t('workbench.editors.request.response.body.duplicateJsonKeysNotice', {
             keys: parsed.duplicateKeys.join(', '),
           })}
+        </Text>
+      )}
+      {parsed?.partial && (
+        <Text type="warning" style={{ fontSize: 11, marginTop: 6 }}>
+          {t('workbench.editors.request.response.body.partialJsonNotice')}
         </Text>
       )}
       {response.bodyTruncated && (

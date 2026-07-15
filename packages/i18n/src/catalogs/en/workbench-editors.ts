@@ -1061,6 +1061,8 @@ export const workbenchEditors = {
     'Request body not sent — the browser cannot attach a body to GET or HEAD requests.',
   'workbench.editors.request.response.body.duplicateJsonKeysNotice':
     'Duplicate JSON keys — the last value is shown: {keys}',
+  'workbench.editors.request.response.body.partialJsonNotice':
+    'Truncated body — Preview and filter show only the values captured completely.',
 
   // ── Response headers view ──────────────────────────────────────────
   'workbench.editors.request.response.headers.name': 'Name',

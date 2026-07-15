@@ -58,6 +58,17 @@ describe('detectMagicSignatures', () => {
     const mp4 = encodeBodyBytes('\u0000\u0000\u0000\u0018ftypisom rest');
     expect(detectMagicSignatures(mp4)).toEqual([{ label: 'MP4 header', start: 4, end: 8 }]);
   });
+
+  it('identifies tar by the ustar magic anchored at offset 257', () => {
+    const tar = new Uint8Array(512);
+    tar.set(encodeBodyBytes('probe.txt'), 0);
+    tar.set(encodeBodyBytes('ustar'), 257);
+    expect(detectMagicSignatures(tar)).toEqual([{ label: 'TAR header', start: 257, end: 262 }]);
+    // `ustar` anywhere else is body text, not a signature.
+    expect(detectMagicSignatures(encodeBodyBytes('the ustar format'))).toEqual([]);
+    // A short body can't carry the offset-anchored magic at all.
+    expect(detectMagicSignatures(encodeBodyBytes('ustar'))).toEqual([]);
+  });
 });
 
 describe('buildHexDump with magic matches', () => {

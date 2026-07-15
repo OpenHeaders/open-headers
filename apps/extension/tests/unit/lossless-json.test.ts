@@ -11,6 +11,7 @@ import {
   isJsonNumber,
   JsonNumber,
   parseLosslessJson,
+  parseLosslessJsonPrefix,
   stringifyLossless,
 } from '@openheaders/ui/workbench/components/request-editor/response/lossless-json';
 import { describe, expect, it } from 'vitest';
@@ -179,5 +180,69 @@ describe('stringifyLossless', () => {
     expect(stringifyLossless(parsed?.value)).toBe(
       '{\n  "resourceVersion": 9007199254740993,\n  "count": 2,\n  "pi": 3.14159265358979323846\n}',
     );
+  });
+});
+
+describe('parseLosslessJsonPrefix — truncated-body salvage', () => {
+  it('closes an object the cut left open, keeping complete members', () => {
+    const salvaged = parseLosslessJsonPrefix('{"a":1,"b":"done","c":"cut he');
+    expect(salvaged).not.toBeNull();
+    expect(salvaged?.partial).toBe(true);
+    expect(collapse(salvaged?.value)).toEqual({ a: 1, b: 'done' });
+  });
+
+  it('closes nested containers upward from the cut', () => {
+    const salvaged = parseLosslessJsonPrefix('{"items":[{"id":1},{"id":2},{"id":3,"name":"cu');
+    expect(collapse(salvaged?.value)).toEqual({ items: [{ id: 1 }, { id: 2 }, { id: 3 }] });
+    expect(salvaged?.partial).toBe(true);
+  });
+
+  it('drops a trailing number token that runs to the exact cut — it may itself be cut', () => {
+    expect(collapse(parseLosslessJsonPrefix('[10,20,34')?.value)).toEqual([10, 20]);
+    expect(collapse(parseLosslessJsonPrefix('{"a":1,"b":123')?.value)).toEqual({ a: 1 });
+  });
+
+  it('keeps a terminated value at end-of-input — only the container was open', () => {
+    expect(collapse(parseLosslessJsonPrefix('{"a":1,"b":"done"')?.value)).toEqual({ a: 1, b: 'done' });
+    expect(collapse(parseLosslessJsonPrefix('[1,[2,3]')?.value)).toEqual([1, [2, 3]]);
+  });
+
+  it('salvages through a cut literal, escape, and lone minus sign', () => {
+    expect(collapse(parseLosslessJsonPrefix('{"a":1,"ok":tru')?.value)).toEqual({ a: 1 });
+    expect(collapse(parseLosslessJsonPrefix('{"a":1,"s":"x\\u12')?.value)).toEqual({ a: 1 });
+    expect(collapse(parseLosslessJsonPrefix('[5,-')?.value)).toEqual([5]);
+  });
+
+  it('still reports duplicate keys seen before the cut', () => {
+    const salvaged = parseLosslessJsonPrefix('{"dup":1,"dup":2,"tail":"cu');
+    expect(salvaged?.duplicateKeys).toEqual(['dup']);
+  });
+
+  it('refuses a genuine syntax error away from the cut — salvage is not repair', () => {
+    expect(parseLosslessJsonPrefix('{"a":<oops>,"b":1,"c":2,"d":"a long enough tail"')).toBeNull();
+    expect(parseLosslessJsonPrefix('{"a":1}trailing garbage')).toBeNull();
+  });
+
+  it('returns null when nothing parseable started', () => {
+    expect(parseLosslessJsonPrefix('')).toBeNull();
+    expect(parseLosslessJsonPrefix('   ')).toBeNull();
+    expect(parseLosslessJsonPrefix('tru')).toBeNull();
+  });
+
+  it('never marks a complete body partial', () => {
+    const complete = parseLosslessJsonPrefix('{"a":1}');
+    expect(complete?.partial).toBeUndefined();
+    expect(collapse(complete?.value)).toEqual({ a: 1 });
+  });
+
+  it('keeps lossless number handling in salvaged output', () => {
+    const salvaged = parseLosslessJsonPrefix('{"id":9007199254740993,"tail":"cu');
+    expect(stringifyLossless(salvaged?.value)).toContain('9007199254740993');
+  });
+
+  it('strict parseLosslessJson still rejects every truncated shape', () => {
+    for (const cut of ['{"a":1,', '{"a":1', '[1,2', '{"a":"cut he', '{"ok":tru']) {
+      expect(parseLosslessJson(cut)).toBeNull();
+    }
   });
 });

@@ -10,6 +10,7 @@ import {
   detectBodyLanguage,
   isNdjsonResponse,
   mediaPreviewKind,
+  ndjsonRecordLines,
   prettyBody,
   prettyNdjsonBody,
   sniffsAsMetricsBody,
@@ -138,6 +139,22 @@ describe('prettyNdjsonBody', () => {
 
   it('leaves scalar records on their own lines', () => {
     expect(prettyNdjsonBody('1\n"two"\ntrue')).toBe('1\n"two"\ntrue');
+  });
+
+  it('strips the json-seq record separator so each record parses', () => {
+    expect(prettyNdjsonBody('\u001e{"a":1}\n\u001e{"b":2}\n')).toBe('{\n  "a": 1\n}\n{\n  "b": 2\n}');
+  });
+});
+
+describe('ndjsonRecordLines', () => {
+  it('drops empty lines and strips a leading RS per record — wire untouched', () => {
+    const wire = '\u001e{"a":1}\n\n\u001e{"b":2}\n';
+    expect(ndjsonRecordLines(wire)).toEqual(['{"a":1}', '{"b":2}']);
+    expect(wire).toContain('\u001e');
+  });
+
+  it('leaves plain ndjson lines alone — only a LEADING RS is framing', () => {
+    expect(ndjsonRecordLines('{"a":1}\n{"b":"x\u001ey"}')).toEqual(['{"a":1}', '{"b":"x\u001ey"}']);
   });
 });
 

@@ -622,6 +622,13 @@ export class WorkbenchPage {
     return (await hex.textContent()) ?? '';
   }
 
+  /** A magic-signature highlight in the Hex dump by its label (e.g.
+   *  `TAR header`) — the ASCII-column span buildHexDump splits off for
+   *  a detected file signature (assumes Hex is active). */
+  responseHexMagic(label: string): Locator {
+    return this.page.getByTestId('oh-response-hex').filter({ visible: true }).locator(`span[title="${label}"]`);
+  }
+
   /** Read the Hex view's offset column (assumes Hex is active). */
   async responseHexOffsetsText(): Promise<string> {
     const offsets = this.page.getByTestId('oh-response-hex-offsets').filter({ visible: true });

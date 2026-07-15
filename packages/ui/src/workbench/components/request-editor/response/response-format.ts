@@ -127,6 +127,20 @@ export function prettyBody(body: string, language: LanguageId): string {
 }
 
 /**
+ * Record lines of a newline-delimited JSON body: empty lines drop
+ * (they separate nothing), and RFC 7464 json-seq's leading record
+ * separator (`\x1e`) strips per line — the one framing byte between
+ * the ndjson siblings and a parseable record. Display-only, like every
+ * line-wise path riding it; the wire body keeps its separators.
+ */
+export function ndjsonRecordLines(body: string): string[] {
+  return body
+    .split('\n')
+    .map((line) => (line.charCodeAt(0) === 0x1e ? line.slice(1) : line))
+    .filter((line) => line.trim() !== '');
+}
+
+/**
  * Line-wise Pretty for newline-delimited JSON: a whole-body parse can
  * never succeed, so each line re-indents as its own record — blocks
  * back to back, jq-style, losslessly like {@link prettyBody}. Lines
@@ -134,9 +148,7 @@ export function prettyBody(body: string, language: LanguageId): string {
  * nothing in ndjson).
  */
 export function prettyNdjsonBody(body: string): string {
-  return body
-    .split('\n')
-    .filter((line) => line.trim() !== '')
+  return ndjsonRecordLines(body)
     .map((line) => {
       const parsed = parseLosslessJson(line);
       return parsed === null ? line : stringifyLossless(parsed.value);
