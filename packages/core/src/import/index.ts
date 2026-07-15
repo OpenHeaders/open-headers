@@ -135,6 +135,14 @@ export {
   type ToolInstallFinding,
 } from './install-detect';
 export {
+  type OpenApiCollectionVariable,
+  type OpenApiParsedFolder,
+  type OpenApiParsedRequest,
+  OpenApiParseError,
+  type OpenApiParseResult,
+  parseOpenApi,
+} from './openapi';
+export {
   type PostmanCollectionVariable,
   type PostmanEnvironmentParseResult,
   type PostmanParsedEnvironmentVariable,
