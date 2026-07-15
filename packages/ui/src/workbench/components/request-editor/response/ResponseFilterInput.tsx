@@ -21,11 +21,14 @@ import '../../monaco/bootstrap';
 const FILTER_LANGUAGE = 'oh-path-filter';
 
 /** A suggestion ending in a separator descends further — accepting it
- *  re-opens the lookahead for the next level. */
-const CONTINUES_PATH = /[/.[]$/;
+ *  re-opens the lookahead for the next level (path separators, plus the
+ *  metrics selector's `{` and `=`). */
+const CONTINUES_PATH = /[/.[{=]$/;
 
 /** The segment a suggestion appends — what the list shows as its label
- *  (the full path is the insert text, minus any trailing separator). */
+ *  (the full path is the insert text, minus any trailing separator).
+ *  Default labeler covers the JSONPath/XPath grammars; the metrics
+ *  filter passes its own via `getSuggestionLabel`. */
 function suggestionLabel(path: string): string {
   const p = path.replace(/[/.[]+$/, '');
   const cut = Math.max(p.lastIndexOf('.'), p.lastIndexOf('/'));
@@ -40,8 +43,11 @@ interface ResponseFilterInputProps {
   placeholder: string;
   hasError: boolean;
   /** Contextual completions for the current query — full replacement
-   *  strings (see `response-filter.ts`). */
+   *  strings (see `response-filter.ts` / `response-metrics-filter.ts`). */
   getSuggestions: (query: string) => string[];
+  /** Grammar-specific list label for a suggestion — defaults to the
+   *  path labeler. */
+  getSuggestionLabel?: (suggestion: string) => string;
 }
 
 const ResponseFilterInput: React.FC<ResponseFilterInputProps> = ({
@@ -50,11 +56,14 @@ const ResponseFilterInput: React.FC<ResponseFilterInputProps> = ({
   placeholder,
   hasError,
   getSuggestions,
+  getSuggestionLabel,
 }) => {
   const { token } = theme.useToken();
   const { monacoTheme } = useUiTheme();
   const suggestRef = useRef(getSuggestions);
   suggestRef.current = getSuggestions;
+  const labelRef = useRef(getSuggestionLabel ?? suggestionLabel);
+  labelRef.current = getSuggestionLabel ?? suggestionLabel;
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const providerRef = useRef<monaco.IDisposable | null>(null);
 
@@ -98,14 +107,14 @@ const ResponseFilterInput: React.FC<ResponseFilterInputProps> = ({
       monacoApi.languages.register({ id: FILTER_LANGUAGE });
     }
     providerRef.current = monacoApi.languages.registerCompletionItemProvider(FILTER_LANGUAGE, {
-      triggerCharacters: ['.', '[', '/', "'", '"'],
+      triggerCharacters: ['.', '[', '/', "'", '"', '{', ',', '='],
       provideCompletionItems: (model: monaco.editor.ITextModel) => {
         if (model !== editorRef.current?.getModel()) return { suggestions: [] };
         const query = model.getValue();
         const range = new monacoApi.Range(1, 1, 1, model.getLineMaxColumn(1));
         return {
           suggestions: suggestRef.current(query).map((path, i) => ({
-            label: suggestionLabel(path),
+            label: labelRef.current(path),
             detail: path,
             kind: monacoApi.languages.CompletionItemKind.Field,
             insertText: path,

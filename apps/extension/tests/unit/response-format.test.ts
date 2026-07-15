@@ -12,6 +12,7 @@ import {
   mediaPreviewKind,
   prettyBody,
   prettyNdjsonBody,
+  sniffsAsMetricsBody,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-format';
 import { describe, expect, it } from 'vitest';
 
@@ -35,6 +36,41 @@ describe('detectBodyLanguage', () => {
 
   it('maps svg to the xml grammar', () => {
     expect(detectBodyLanguage(ct('image/svg+xml'))).toBe('xml');
+  });
+
+  it('maps Prometheus/OpenMetrics exposition media types to the prometheus grammar', () => {
+    expect(detectBodyLanguage(ct('application/openmetrics-text; version=1.0.0; charset=utf-8'))).toBe('prometheus');
+    expect(detectBodyLanguage(ct('text/plain; version=0.0.4; charset=utf-8'))).toBe('prometheus');
+  });
+
+  it('keeps bare text/plain as plain text (shape sniff picks defaults separately)', () => {
+    expect(detectBodyLanguage(ct('text/plain'))).toBe('text');
+    expect(detectBodyLanguage(ct('text/plain; charset=utf-8'))).toBe('text');
+  });
+});
+
+describe('sniffsAsMetricsBody', () => {
+  const METRICS = [
+    '# HELP oh_http_requests HTTP requests.',
+    '# TYPE oh_http_requests counter',
+    'oh_http_requests_total{code="200"} 1027',
+    'oh_http_requests_total{code="500"} 3 1720000000123',
+    '',
+  ].join('\n');
+
+  it('recognizes exposition-shaped plain text', () => {
+    expect(sniffsAsMetricsBody(METRICS)).toBe(true);
+  });
+
+  it('requires metadata AND a sample — bare samples or comments alone stay text', () => {
+    expect(sniffsAsMetricsBody('oh_up 1\noh_total 3')).toBe(false);
+    expect(sniffsAsMetricsBody('# HELP x y\n# TYPE x counter')).toBe(false);
+  });
+
+  it('rejects logs, csv, and empty bodies', () => {
+    expect(sniffsAsMetricsBody('2026-07-15 12:00:01 INFO started')).toBe(false);
+    expect(sniffsAsMetricsBody('id,name\n1,Echo')).toBe(false);
+    expect(sniffsAsMetricsBody('')).toBe(false);
   });
 });
 

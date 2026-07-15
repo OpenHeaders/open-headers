@@ -30,7 +30,17 @@
  *      `components/monaco/formatters.ts`.
  */
 
-export type LanguageId = 'javascript' | 'css' | 'json' | 'xml' | 'html' | 'text' | 'graphql' | 'markdown' | 'yaml';
+export type LanguageId =
+  | 'javascript'
+  | 'css'
+  | 'json'
+  | 'xml'
+  | 'html'
+  | 'text'
+  | 'graphql'
+  | 'markdown'
+  | 'yaml'
+  | 'prometheus';
 
 export interface LanguageDef {
   id: LanguageId;
@@ -47,6 +57,7 @@ export const LANGUAGES: Record<LanguageId, LanguageDef> = {
   graphql: { id: 'graphql', label: 'GraphQL' },
   markdown: { id: 'markdown', label: 'Markdown' },
   yaml: { id: 'yaml', label: 'YAML' },
+  prometheus: { id: 'prometheus', label: 'Prometheus' },
 };
 
 /**
@@ -54,7 +65,9 @@ export const LANGUAGES: Record<LanguageId, LanguageDef> = {
  * registers. For most languages the id is identical, but `text` needs
  * to be mapped to Monaco's built-in `plaintext` and `graphql` has no
  * native Monaco grammar so we fall back to plaintext until the
- * GraphQL plugin is wired.
+ * GraphQL plugin is wired. `prometheus` is our own Monarch grammar
+ * (`languages/prometheus.ts`), registered under the same id in the
+ * Monaco bootstrap.
  */
 export function toMonacoLanguage(id: LanguageId): string {
   if (id === 'text') return 'plaintext';

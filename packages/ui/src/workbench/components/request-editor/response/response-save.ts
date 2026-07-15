@@ -21,6 +21,7 @@ const SAVE_EXTENSIONS: Record<LanguageId, string> = {
   graphql: 'graphql',
   markdown: 'md',
   yaml: 'yaml',
+  prometheus: 'txt',
 };
 
 /**

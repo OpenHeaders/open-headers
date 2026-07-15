@@ -30,6 +30,7 @@ const PROBE_REQUESTS = [
   'yaml',
   'ndjson',
   'bigint-json',
+  'metrics',
   'media',
   'latin1',
 ] as const;
@@ -159,6 +160,23 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     const text = await tree.innerText();
     expect(text).toContain('9007199254740993');
     expect(text).toContain('3.14159265358979323846');
+  });
+
+  test('Prometheus metrics detect their grammar; the family filter narrows the pane', async () => {
+    await sendProbe('metrics');
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Prometheus$/);
+    // Raw shows the exposition text verbatim, exemplar included.
+    const raw = await workbench.responseRawBody();
+    expect(raw).toContain('# TYPE oh_request_duration_seconds histogram');
+    expect(raw).toContain('oh_request_duration_seconds_bucket{le="0.1"} 512 # {trace_id="4bf92f3577b34da6"}');
+
+    // Selector query: series-level narrowing, header lines riding along.
+    await workbench.filterResponseBody('oh_http_requests{code="500"}');
+    const filtered = await workbench.responsePrettyText();
+    expect(filtered).toContain('# TYPE oh_http_requests counter');
+    expect(filtered).toContain('oh_http_requests_total{code="500",path="/api/echo"} 3');
+    expect(filtered).not.toContain('code="200"');
+    expect(filtered).not.toContain('oh_build_info');
   });
 
   test('WAV opens on the media Preview with the byte views behind it', async () => {

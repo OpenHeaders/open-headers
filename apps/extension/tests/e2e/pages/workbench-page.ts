@@ -661,6 +661,25 @@ export class WorkbenchPage {
     return this.page.getByText(text).filter({ visible: true });
   }
 
+  /** Open the response body Filter bar (switches the pane to Pretty)
+   *  and type a query into its one-line Monaco input — which autofocuses
+   *  on open. Esc dismisses the suggest widget so it can't swallow later
+   *  interactions (same trap as `fillMonacoEditor`). */
+  async filterResponseBody(query: string): Promise<void> {
+    await this.page.getByRole('button', { name: 'Filter body' }).filter({ visible: true }).first().click();
+    await this.page.keyboard.type(query);
+    await this.page.keyboard.press('Escape');
+  }
+
+  /** Read the Pretty view's rendered text (Monaco virtualizes — only
+   *  suitable for short buffers, e.g. a filtered result). Monaco paints
+   *  spaces as U+00A0; the readback normalizes them to plain spaces. */
+  async responsePrettyText(): Promise<string> {
+    const lines = this.page.locator('.rules-code-editor .monaco-editor .view-lines').filter({ visible: true }).last();
+    await lines.waitFor({ state: 'visible', timeout: 15000 });
+    return (await lines.innerText()).replace(/ /g, ' ');
+  }
+
   /** Text of the response Body view picker — the language the viewer
    *  detected from the Content-Type (or the active encoding view). */
   async responseViewPickerLabel(): Promise<string> {

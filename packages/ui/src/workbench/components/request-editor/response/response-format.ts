@@ -63,7 +63,51 @@ export function detectBodyLanguage(headers: ReadonlyArray<{ key: string; value: 
   if (ct.includes('css')) return 'css';
   if (ct.includes('markdown')) return 'markdown';
   if (ct.includes('yaml')) return 'yaml';
+  // Prometheus/OpenMetrics exposition: its own media type, or the
+  // `version=` parameter Prometheus servers stamp on text/plain
+  // (`text/plain; version=0.0.4; charset=utf-8`).
+  if (ct.includes('openmetrics-text')) return 'prometheus';
+  if (ct.startsWith('text/plain') && /;\s*version=/.test(ct)) return 'prometheus';
   return 'text';
+}
+
+/** How much of a body the exposition-shape sniff reads — enough for a
+ *  handful of families, cheap on a multi-MB /metrics dump. */
+const METRICS_SNIFF_CHARS = 4096;
+
+const METRICS_COMMENT_LINE = /^#(\s|$)/;
+const METRICS_SAMPLE_LINE =
+  /^[a-zA-Z_:][a-zA-Z0-9_:]*(?:\{.*\})?\s+(?:[+-]?(?:Inf|NaN)|-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)(\s|$)/;
+
+/**
+ * Shape sniff for servers that expose /metrics as bare `text/plain`:
+ * the leading lines must all fit the exposition grammar AND include at
+ * least one `# TYPE`/`# HELP` and one sample. Picks the DEFAULT view
+ * only — the caller applies it when the Content-Type detected plain
+ * text, and a manual language override always wins.
+ */
+export function sniffsAsMetricsBody(body: string): boolean {
+  // Cut at the last complete line inside the sniff window — a partial
+  // trailing line must not fail the shape test.
+  const cut = body.length > METRICS_SNIFF_CHARS ? body.lastIndexOf('\n', METRICS_SNIFF_CHARS) : body.length;
+  if (cut <= 0) return false;
+  const lines = body
+    .slice(0, cut)
+    .split('\n')
+    .filter((line) => line.trim() !== '');
+  if (lines.length === 0) return false;
+  let hasMeta = false;
+  let hasSample = false;
+  for (const line of lines) {
+    if (/^#\s*(?:HELP|TYPE)\s+[a-zA-Z_:]/.test(line)) {
+      hasMeta = true;
+    } else if (METRICS_SAMPLE_LINE.test(line)) {
+      hasSample = true;
+    } else if (!METRICS_COMMENT_LINE.test(line)) {
+      return false;
+    }
+  }
+  return hasMeta && hasSample;
 }
 
 /**

@@ -71,6 +71,14 @@ const ICON_MARKS: Record<string, React.ReactNode> = {
   ),
   text: <Letters text="Aa" size={10.5} />,
   yaml: <Letters text="Y" size={11.5} />,
+  prometheus: (
+    // Metrics bars — three rising columns on a shared baseline.
+    <>
+      <line x1={3.2} y1={12.6} x2={3.2} y2={8.4} {...STROKE} strokeWidth={1.7} />
+      <line x1={8} y1={12.6} x2={8} y2={3.6} {...STROKE} strokeWidth={1.7} />
+      <line x1={12.8} y1={12.6} x2={12.8} y2={6.2} {...STROKE} strokeWidth={1.7} />
+    </>
+  ),
   raw: (
     <>
       <Badge />

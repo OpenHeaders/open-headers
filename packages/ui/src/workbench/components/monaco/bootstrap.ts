@@ -68,6 +68,7 @@ import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import { allVariants } from '@openheaders/ui/themes';
 import { type ChromeHoverOptions, HoverService } from 'monaco-editor/esm/vs/platform/hover/browser/hoverService';
+import { registerPrometheusLanguage } from '../../languages/prometheus';
 import { registerPrettierFormatters } from './formatters';
 import { configureTsLanguageService, loadTsWorker } from './ts-language-service';
 
@@ -91,6 +92,11 @@ for (const variant of allVariants()) {
 // ambient `oh.*` lib) for every JS-flavored editor. No-op on Firefox,
 // where `./ts-language-service` resolves to the stub.
 configureTsLanguageService();
+
+// Prometheus/OpenMetrics exposition grammar — our own Monarch tokenizer
+// (Monaco ships no built-in for it), registered under the registry id
+// `prometheus`. Tokenizer only; no worker, no language service.
+registerPrometheusLanguage(monacoEdCore);
 
 // Register Prettier as Monaco's `DocumentFormattingEditProvider` for
 // languages Monaco has no built-in formatter for (JS / XML). JSON /

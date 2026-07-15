@@ -66,7 +66,14 @@ import {
   mediaPreviewKind,
   prettyBody,
   prettyNdjsonBody,
+  sniffsAsMetricsBody,
 } from './response-format';
+import {
+  evaluateMetricsFilter,
+  metricsSuggestionLabel,
+  parseMetricsBody,
+  suggestMetricsCompletions,
+} from './response-metrics-filter';
 import { useFormattedBody } from './use-formatted-body';
 
 const { Text } = Typography;
@@ -157,7 +164,15 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // picker even when its bytes happen to decode as text (all-ASCII
   // PDFs exist; the document is still not a text body).
   const binaryView = isBinary || isPdf;
-  const language = langOverride ?? detectBodyLanguage(response.headers);
+  // Content-Type detection first; a plain-text body whose leading lines
+  // fit the exposition grammar DEFAULTS to the Prometheus view (bare
+  // text/plain /metrics endpoints) — a manual override always wins.
+  const language = useMemo<LanguageId>(() => {
+    if (langOverride) return langOverride;
+    const detected = detectBodyLanguage(response.headers);
+    if (detected === 'text' && !isBinary && sniffsAsMetricsBody(response.body)) return 'prometheus';
+    return detected;
+  }, [langOverride, response.headers, response.body, isBinary]);
   const isNdjson = isNdjsonResponse(response.headers);
   // JSON re-indents synchronously (newline-delimited JSON line-wise,
   // each record its own block); markup/code languages swap in the
@@ -225,16 +240,27 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     if (mode === 'preview' && !previewKind) setMode(binaryView ? 'hex' : 'pretty');
   }, [mode, previewKind, binaryView]);
 
+  // Parsed family model for the metrics filter — one linear pass,
+  // memoized per body, computed only while the Prometheus grammar is
+  // active (multi-MB /metrics bodies parse once, never per keystroke).
+  const metricsDoc = useMemo(
+    () => (!isBinary && language === 'prometheus' ? parseMetricsBody(response.body) : undefined),
+    [response.body, language, isBinary],
+  );
+
   // Structural filter: JSONPath for parseable JSON, XPath for markup,
-  // nothing for languages without a query form (Find covers those) —
-  // and nothing for binary, which has no text to query.
-  const filterKind: 'jsonpath' | 'xpath' | null = isBinary
+  // metric families for Prometheus bodies, nothing for languages
+  // without a query form (Find covers those) — and nothing for binary,
+  // which has no text to query.
+  const filterKind: 'jsonpath' | 'xpath' | 'metrics' | null = isBinary
     ? null
     : language === 'json' && parsedJson !== undefined
       ? 'jsonpath'
       : language === 'xml' || language === 'html'
         ? 'xpath'
-        : null;
+        : language === 'prometheus'
+          ? 'metrics'
+          : null;
 
   // A language override can take the filter away — close the bar.
   useEffect(() => {
@@ -244,16 +270,22 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const filterApplied = filterOpen && filterKind !== null && filterQuery.trim() !== '';
   const filterResult = useMemo(() => {
     if (!filterApplied || !filterKind) return null;
+    // Metrics queries carry their own mid-edit forgiveness (a dangling
+    // matcher fragment evaluates the completed part).
+    if (filterKind === 'metrics') {
+      return metricsDoc ? evaluateMetricsFilter(metricsDoc, filterQuery) : null;
+    }
     // Normalized: a trailing separator means "descend", not an error.
     const query = normalizeFilterQuery(filterQuery, filterKind);
     if (filterKind === 'jsonpath') return evaluateJsonPath(parsedJson, query);
     return evaluateXPath(response.body, query, language === 'xml' ? 'xml' : 'html');
-  }, [filterApplied, filterKind, filterQuery, parsedJson, response.body, language]);
+  }, [filterApplied, filterKind, filterQuery, parsedJson, metricsDoc, response.body, language]);
 
   // What Pretty shows while the filter matches: the single match, or
-  // the match list (JSON as an array, markup joined line-wise and
-  // pretty-printed — XPath matches serialize single-line). Null while
-  // the query is invalid or hits nothing.
+  // the match list (JSON as an array; markup and metric-family blocks
+  // joined line-wise — XPath matches serialize single-line, metrics
+  // matches are verbatim exposition lines). Null while the query is
+  // invalid or hits nothing.
   const filteredDisplay = useFormattedBody(
     useMemo(() => {
       if (!filterResult?.ok || filterResult.matches.length === 0) return null;
@@ -480,7 +512,9 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             title={
               filterKind === 'jsonpath'
                 ? t('workbench.editors.request.response.body.filterJsonPathTooltip')
-                : t('workbench.editors.request.response.body.filterXPathTooltip')
+                : filterKind === 'metrics'
+                  ? t('workbench.editors.request.response.body.filterMetricsTooltip')
+                  : t('workbench.editors.request.response.body.filterXPathTooltip')
             }
             placement="bottom"
           >
@@ -534,20 +568,29 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             placeholder={
               filterKind === 'jsonpath'
                 ? "Filter with JSONPath — $.headers['content-type'], $.items[0], $..url"
-                : 'Filter with XPath — //item/name, /html/head/title'
+                : filterKind === 'metrics'
+                  ? 'Filter metric families — http, http_requests_total{code="500"}, {job=~"api.*"}'
+                  : 'Filter with XPath — //item/name, /html/head/title'
             }
             hasError={filterResult !== null && !filterResult.ok}
             getSuggestions={(query) =>
               filterKind === 'jsonpath'
                 ? suggestJsonPathCompletions(parsedJson, query)
-                : suggestXPathCompletions(response.body, language === 'xml' ? 'xml' : 'html', query)
+                : filterKind === 'metrics'
+                  ? metricsDoc
+                    ? suggestMetricsCompletions(metricsDoc, query)
+                    : []
+                  : suggestXPathCompletions(response.body, language === 'xml' ? 'xml' : 'html', query)
             }
+            getSuggestionLabel={filterKind === 'metrics' ? metricsSuggestionLabel : undefined}
           />
           {filterResult && !filterResult.ok && (
             <Text type="danger" style={{ fontSize: 11 }}>
               {filterKind === 'jsonpath'
                 ? t('workbench.editors.request.response.body.invalidJsonPath')
-                : t('workbench.editors.request.response.body.invalidXPath')}
+                : filterKind === 'metrics'
+                  ? t('workbench.editors.request.response.body.invalidMetricsFilter')
+                  : t('workbench.editors.request.response.body.invalidXPath')}
               {lastMatch !== null && ` ${t('workbench.editors.request.response.body.showingLastMatch')}`}
             </Text>
           )}
