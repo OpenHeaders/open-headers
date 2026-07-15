@@ -1,17 +1,25 @@
 # Wire transparency — every outbound call, byte for byte
 
-OpenHeaders sends **no telemetry, ever** (LICENSING_PLAN.md §1). Outbound
-connections from the desktop app and the daemon are limited to the
-documented OpenHeaders endpoints below, plus targets the operator
-configures themselves (IdP issuer for SSO, Git remotes, an audit/SIEM
-collector, and whatever requests the user's own rules/workflows make).
-This document is the published specification of every phone-home payload;
-if a request is not listed here, the app does not make it. The app is
+Outbound connections from the apps are limited to the documented
+OpenHeaders endpoints below, plus targets the operator configures
+themselves (IdP issuer for SSO, Git remotes, an audit/SIEM collector,
+and whatever requests the user's own rules/workflows make). This
+document is the published specification of every phone-home payload; if
+a request is not listed here, the app does not make it. The app is
 fully functional with all of these unreachable or disabled — see the
 per-endpoint off switches.
 
-The extension makes **no OpenHeaders-bound calls at all**; browser store
-distribution owns its updates.
+The only usage data that ever leaves is the anonymous telemetry channel
+of section 4 (TELEMETRY_PLAN.md, amending LICENSING_PLAN.md §1): a typed
+allowlist of feature-usage counts, structurally incapable of carrying
+URLs, headers, traffic, or identity, default-on for desktop/extension/CLI
+with first-run disclosure and a one-switch opt-out, and hard-off for the
+daemon, served web app, and MCP server. The license system itself remains
+telemetry-free: license endpoints and telemetry never share identifiers,
+payloads, or deployments.
+
+The extension's only OpenHeaders-bound call is that telemetry channel
+(section 4); browser store distribution owns its updates.
 
 ## 1. License refresh
 
@@ -106,6 +114,72 @@ about your install.
 - **Off switch**: the same as the update check — `updates.check: off`
   disables both, `OH_DISABLE_UPDATE_CHECKS=1` for test rigs. If the
   manifest is unreachable, the app simply treats severity as unknown.
+
+## 4. Anonymous telemetry
+
+Anonymous usage counting (TELEMETRY_PLAN.md) — which features get used,
+nothing more. The event vocabulary is a typed allowlist compiled into
+the app (`packages/core/src/telemetry/`): every payload property is a
+closed union, boolean, or number; free-form strings are banned by a
+guard test, so URLs, hostnames, header names or values, rule contents,
+request/response data, and file paths are inexpressible. The in-app
+inspector (Settings → General → View telemetry events) shows every
+event of the current session byte for byte, sent or suppressed.
+
+- **Endpoint**: `POST https://telemetry.openheaders.io/v1/events`
+- **Request headers**: `content-type: application/json`
+- **Request body** — a batch envelope, exactly these four fields:
+
+```json
+{
+  "schemaVersion": 1,
+  "sessionId": "c0ffee00c0ffee00c0ffee00c0ffee00",
+  "sentAt": 1760000000000,
+  "events": [
+    { "name": "session_start", "host": "extension", "appVersion": { "year": 2026, "month": 7, "patch": 2 },
+      "platform": "mac", "browser": "firefox", "locale": "en" },
+    { "name": "feature_used", "feature": "workflow-editor" },
+    { "name": "rule_created", "ruleType": "header" },
+    { "name": "import_run", "source": "postman", "ok": true },
+    { "name": "workflow_run", "ok": true },
+    { "name": "error_beacon", "code": "ws-connect-failed" }
+  ]
+}
+```
+
+  - `sessionId` — 32 hex chars minted at random per process launch,
+    held in memory only, never persisted. It groups one session's
+    events and nothing else: there is no install id, no account
+    identity, no fingerprint, so sessions cannot be joined across
+    launches.
+  - `events` — only the six event shapes above exist, and every field
+    value comes from a closed union checked into the repository
+    (`host` can only ever be `desktop`/`extension`/`cli` — the daemon,
+    served web app, and MCP server are hard-off and have no vocabulary
+    member). `appVersion` is the CalVer version as three integers.
+- **Response**: `202` when the envelope validates, `4xx` otherwise.
+  The client never acts on the status either way — failures are
+  silent, the batch simply rides the next flush, and nothing ever
+  retries aggressively, blocks, or degrades the app.
+- **Storage**: the worker validates against the same compiled schema
+  and writes one Cloudflare Workers Analytics Engine data point per
+  event, carrying only the vocabulary values and the session id.
+  IP addresses and geo are never written; no third-party analytics
+  SDK or processor is involved (Cloudflare already hosts the license
+  worker and is the only processor named in the privacy policy).
+- **Cadence**: batched — the host flushes the in-memory queue on an
+  interval and best-effort on quit. No events are sent before the
+  first-run disclosure has been shown.
+- **Off switches**: Settings → General → telemetry toggle (extension
+  and desktop), `OH_TELEMETRY=0` env var or config key (CLI). The
+  daemon, served web app, and MCP server never send telemetry and have
+  no toggle to misconfigure. Off means off: the channel goes silent
+  entirely, with no "essential telemetry" residue.
+- **Strict channel separation**: no license id, subscription ref,
+  licensee email, seat data, or OIDC subject can appear in an event —
+  the vocabulary has no such fields — and the telemetry worker is a
+  separate deployment sharing no secrets or code paths with the
+  license worker beyond the published schema.
 
 ---
 
