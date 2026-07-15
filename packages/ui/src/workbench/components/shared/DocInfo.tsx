@@ -9,6 +9,8 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { resolveDocSummary, resolveDocTitle } from '@openheaders/ui/shared/docs/registry';
 import { findSection } from '../docs/registry';
 import { resolveDocLink } from '../docs/doc-ids';
 import { DOC_ANCHOR_INFO } from './doc-anchor-info';
@@ -21,12 +23,17 @@ export interface DocInfoProps {
 }
 
 const DocInfo: React.FC<DocInfoProps> = ({ docId }) => {
+  const t = useT();
   const { section } = resolveDocLink(docId);
   const sectionDef = findSection(section);
   const anchor = DOC_ANCHOR_INFO[docId];
   const content = anchor
-    ? { kicker: sectionDef?.title, title: anchor.title, summary: anchor.summary }
-    : { kicker: sectionDef?.group, title: sectionDef?.title ?? docId, summary: sectionDef?.summary ?? '' };
+    ? { kicker: sectionDef ? resolveDocTitle(sectionDef, t) : undefined, title: anchor.title, summary: anchor.summary }
+    : {
+        kicker: sectionDef?.group,
+        title: sectionDef ? resolveDocTitle(sectionDef, t) : docId,
+        summary: sectionDef ? resolveDocSummary(sectionDef, t) : '',
+      };
   return <SectionInfo content={content} docId={docId} />;
 };
 

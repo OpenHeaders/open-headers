@@ -27,11 +27,20 @@ import type { InputRef } from 'antd';
 import { Button, Empty, Input, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useDocsNav } from './use-docs-nav';
 import { resolveDocLink } from './doc-ids';
-import { buildSectionIndex, type DocGroup, type DocSection, flattenGroups } from './registry';
+import {
+  buildSectionIndex,
+  type DocGroup,
+  type DocSection,
+  flattenGroups,
+  resolveDocGroupLabel,
+  resolveDocSummary,
+  resolveDocTitle,
+} from './registry';
 import { type SectionRegister, SectionRegistryContext } from './shared';
 
 const { Text } = Typography;
@@ -50,6 +59,7 @@ interface DocsPanelProps {
 }
 
 const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, onClose }) => {
+  const t = useT();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const { token } = theme.useToken();
   const { pendingSection, pendingCounter, clearPending, reportCurrentSection } = useDocsNav();
@@ -175,23 +185,26 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
   }, [activeId]);
 
   // Filter: match group label, section title, or section summary
-  // (case-insensitive substring). No body-text indexing — at this size
-  // the title + summary surface area is enough to find anything.
+  // (case-insensitive substring, against the displayed language). No
+  // body-text indexing — at this size the title + summary surface
+  // area is enough to find anything.
   const lower = filterText.toLowerCase();
   const visibleGroups = useMemo<readonly DocGroup[]>(() => {
     if (!lower) return groups;
     return groups
       .map((g) => {
-        const groupMatch = g.label.toLowerCase().includes(lower);
+        const groupMatch = resolveDocGroupLabel(g, t).toLowerCase().includes(lower);
         const filteredSections = groupMatch
           ? g.sections
           : g.sections.filter(
-              (s) => s.title.toLowerCase().includes(lower) || s.summary.toLowerCase().includes(lower),
+              (s) =>
+                resolveDocTitle(s, t).toLowerCase().includes(lower) ||
+                resolveDocSummary(s, t).toLowerCase().includes(lower),
             );
         return filteredSections.length > 0 ? { ...g, sections: filteredSections } : null;
       })
       .filter((g): g is DocGroup => g !== null);
-  }, [lower, groups]);
+  }, [lower, groups, t]);
 
   const flatVisibleSections: DocSection[] = useMemo(() => visibleGroups.flatMap((g) => g.sections), [visibleGroups]);
 
@@ -335,7 +348,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
       data-active-section={activeId}
       style={{ display: 'flex', flexDirection: 'column', height: '100%', outline: 'none' }}
     >
-      <PanelHeader wiring={wiring} title={<strong>Docs</strong>} info={info} />
+      <PanelHeader wiring={wiring} title={<strong>{t('shared.docs.title')}</strong>} info={info} />
 
       {/* Top bar: menu-icon + breadcrumb */}
       <div
@@ -354,7 +367,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
           size="small"
           icon={<MenuOutlined />}
           onClick={() => (view === 'toc' ? setView('reading') : openToc())}
-          aria-label={view === 'toc' ? 'Close table of contents' : 'Open table of contents'}
+          aria-label={view === 'toc' ? t('shared.docs.ariaCloseToc') : t('shared.docs.ariaOpenToc')}
         />
         <div
           style={{
@@ -371,14 +384,14 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
         >
           {view === 'toc' ? (
             <Text strong style={{ fontSize: 12 }}>
-              Contents
+              {t('shared.docs.contents')}
             </Text>
           ) : (
             <>
               {activeGroup && (
                 <>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {activeGroup.label}
+                    {resolveDocGroupLabel(activeGroup, t)}
                   </Text>
                   <RightOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
                 </>
@@ -388,7 +401,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
                   {activeSection.icon}
                 </span>
                 <Text strong style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {activeSection.title}
+                  {resolveDocTitle(activeSection, t)}
                 </Text>
               </span>
             </>
@@ -402,7 +415,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
           <Input
             ref={filterInputRef}
             size="small"
-            placeholder="Filter sections"
+            placeholder={t('shared.docs.filterPlaceholder')}
             prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 11 }} />}
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
@@ -410,7 +423,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
             style={{ marginBottom: 10 }}
           />
           {visibleGroups.length === 0 ? (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No matches" style={{ marginTop: 24 }} />
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('shared.docs.noMatches')} style={{ marginTop: 24 }} />
           ) : (
             visibleGroups.map((g) => (
               <div key={g.id} style={{ marginBottom: 12 }}>
@@ -423,7 +436,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
                     paddingLeft: 4,
                   }}
                 >
-                  {g.label}
+                  {resolveDocGroupLabel(g, t)}
                 </Text>
                 <ol
                   start={1}
@@ -486,7 +499,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            {s.title}
+                            {resolveDocTitle(s, t)}
                           </span>
                         </button>
                       </li>
@@ -529,9 +542,9 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
       >
         {view === 'toc' ? (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, margin: '0 auto' }}>
-            <FooterHint chord="↑↓" label="navigate" />
-            <FooterHint chord="↵" label="open" />
-            <FooterHint chord="esc" label="back" />
+            <FooterHint chord="↑↓" label={t('shared.docs.hint.navigate')} />
+            <FooterHint chord="↵" label={t('shared.docs.hint.open')} />
+            <FooterHint chord="esc" label={t('shared.docs.hint.back')} />
           </div>
         ) : (
           <>
@@ -539,7 +552,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
               {prevSection ? (
                 <PagerLink
                   direction="prev"
-                  title={prevSection.title}
+                  title={resolveDocTitle(prevSection, t)}
                   onClick={() => navigateTo(prevSection.id)}
                 />
               ) : (
@@ -547,13 +560,13 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
               )}
             </div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-              <FooterHint chord="esc" label="contents" />
+              <FooterHint chord="esc" label={t('shared.docs.hint.contents')} />
             </div>
             <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
               {nextSection ? (
                 <PagerLink
                   direction="next"
-                  title={nextSection.title}
+                  title={resolveDocTitle(nextSection, t)}
                   onClick={() => navigateTo(nextSection.id)}
                 />
               ) : (
@@ -607,13 +620,14 @@ const PagerLink: React.FC<{
   title: string;
   onClick: () => void;
 }> = ({ direction, title, onClick }) => {
+  const t = useT();
   const isPrev = direction === 'prev';
   return (
     <Button
       type={isPrev ? 'default' : 'primary'}
       size="small"
       onClick={onClick}
-      title={(isPrev ? 'Previous: ' : 'Next: ') + title}
+      title={isPrev ? t('shared.docs.previousTooltip', { title }) : t('shared.docs.nextTooltip', { title })}
     >
       <span style={PAGER_BTN_ROW}>
         {isPrev && (
@@ -621,7 +635,7 @@ const PagerLink: React.FC<{
             {'←'}
           </span>
         )}
-        <span>{isPrev ? 'Previous' : 'Next'}</span>
+        <span>{isPrev ? t('shared.docs.previous') : t('shared.docs.next')}</span>
         {!isPrev && (
           <span className="kbd-key" style={PAGER_KBD_STYLE}>
             {'→'}

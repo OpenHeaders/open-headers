@@ -380,4 +380,23 @@ export const sharedComponents = {
   'shared.dock.closeDock': 'Close dock',
   'shared.dock.panelOptions': 'Panel options',
   'shared.dock.hidePanel': 'Hide panel',
+
+  // ── Docs panel chrome (shared reader: workbench + devtools panel).
+  //    Registry titles/summaries resolve per-surface via the
+  //    raw-or-key DocSection idiom; these are the reader's own
+  //    labels. Key caps / chords (↑↓ ↵ esc ← →) stay raw. ─────────────
+  'shared.docs.title': 'Docs',
+  'shared.docs.contents': 'Contents',
+  'shared.docs.ariaOpenToc': 'Open table of contents',
+  'shared.docs.ariaCloseToc': 'Close table of contents',
+  'shared.docs.filterPlaceholder': 'Filter sections',
+  'shared.docs.noMatches': 'No matches',
+  'shared.docs.hint.navigate': 'navigate',
+  'shared.docs.hint.open': 'open',
+  'shared.docs.hint.back': 'back',
+  'shared.docs.hint.contents': 'contents',
+  'shared.docs.previous': 'Previous',
+  'shared.docs.next': 'Next',
+  'shared.docs.previousTooltip': 'Previous: {title}',
+  'shared.docs.nextTooltip': 'Next: {title}',
 } as const satisfies Catalog;

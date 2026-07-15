@@ -368,6 +368,7 @@ export const workbenchChrome = {
   // with no breadcrumb twin lives here. Draft seeds persist as entity
   // names BY DESIGN (V5 fresh start) — keyed at mint time. ────────────
   'workbench.shell.tabLabel.collectionVariables': '{name} · Variables',
+  'workbench.shell.tabLabel.collectionScripts': '{name} · Scripts',
   'workbench.shell.tabLabel.newRequest': 'New Request',
   'workbench.shell.tabLabel.newWorkflow': 'New Workflow',
   'workbench.shell.tabLabel.newLiveVariable': 'New Live Variable',
@@ -804,4 +805,74 @@ export const workbenchChrome = {
   'workbench.shortcuts.introMiddle': 'anytime to jump here. Shortcuts use',
   'workbench.shortcuts.introSuffix': 'as the modifier key.',
   'workbench.shortcuts.regionsCaption': 'Four chords park your focus in one of four shell regions.',
+
+  // ── Docs navigator plane: group labels + section titles/summaries
+  // from the workbench DOC_GROUPS registry (raw-or-key DocSection
+  // idiom). Section body corpus + diagrams are their own station. ────
+  'workbench.docs.nav.group.openHeaders': 'Open Headers',
+  'workbench.docs.nav.group.concepts': 'Concepts',
+  'workbench.docs.nav.group.modifyRequests': 'Modify Requests',
+  'workbench.docs.nav.group.modifyResponses': 'Modify Responses',
+  'workbench.docs.nav.group.runCode': 'Run Code',
+  'workbench.docs.nav.group.reference': 'Reference',
+  'workbench.docs.nav.paradigm.title': 'What do we do (differently)',
+  'workbench.docs.nav.paradigm.summary':
+    'A browser extension that does what used to need a proxy, a desktop binary, or a cloud account.',
+  'workbench.docs.nav.comparison.title': 'How we compare',
+  'workbench.docs.nav.comparison.summary':
+    'How Open Headers lands against cloud platforms, desktop proxies, and header-only extensions.',
+  'workbench.docs.nav.roadmap.title': "What we're building next",
+  'workbench.docs.nav.roadmap.summary':
+    'Milestones in sequence — Git workspaces, desktop app, daemon, CLI, web app, more importers.',
+  'workbench.docs.nav.conditions.title': 'Conditions',
+  'workbench.docs.nav.conditions.summary':
+    'AND-matching filters that gate every rule — domains, URL patterns, methods, headers.',
+  'workbench.docs.nav.actions.title': 'Actions',
+  'workbench.docs.nav.actions.summary':
+    'The "do" half of a rule — modify request, modify response, or run code. Pairs with conditions.',
+  'workbench.docs.nav.variables.title': 'Variables',
+  'workbench.docs.nav.variables.summary':
+    'Five variable scopes — vault, environment, collection, workspace, live — and how references resolve.',
+  'workbench.docs.nav.requestTracking.title': 'Request Tracking',
+  'workbench.docs.nav.requestTracking.summary':
+    'How matched requests are observed, recorded, and surfaced as badges in the popup.',
+  'workbench.docs.nav.execution.title': 'How rules execute',
+  'workbench.docs.nav.execution.summary': 'The two engines (DNR and script-based) that decide where each rule applies.',
+  'workbench.docs.nav.multiTab.title': 'Multi-tab Behavior',
+  'workbench.docs.nav.multiTab.summary':
+    'What syncs across workspace tabs (data) and what stays per-tab (layout, drafts).',
+  'workbench.docs.nav.systemStatus.title': 'System Status',
+  'workbench.docs.nav.systemStatus.summary':
+    'The traffic-light pill — what each subsystem reports and what red / yellow / green mean.',
+  'workbench.docs.nav.debugMode.title': 'Debug Mode',
+  'workbench.docs.nav.debugMode.summary':
+    'Attach to the browser debugging protocol — deeper reach for requests, injection, and tab environment.',
+  'workbench.docs.nav.headerActions.title': 'Header Actions',
+  'workbench.docs.nav.headerActions.summary': 'Add, replace, append, remove, or merge request and response headers.',
+  'workbench.docs.nav.block.title': 'Block',
+  'workbench.docs.nav.block.summary': 'Cancel matching requests at the network layer.',
+  'workbench.docs.nav.redirect.title': 'Redirect',
+  'workbench.docs.nav.redirect.summary': 'Send matching requests to a different URL — static or regex-substituted.',
+  'workbench.docs.nav.queryParam.title': 'Query Params',
+  'workbench.docs.nav.queryParam.summary': 'Add, replace, or remove URL query parameters before the request leaves.',
+  'workbench.docs.nav.requestBody.title': 'Request Body',
+  'workbench.docs.nav.requestBody.summary':
+    'Override or transform outgoing fetch / XHR bodies — static, dynamic, or GraphQL-filtered.',
+  'workbench.docs.nav.response.title': 'Modify Response',
+  'workbench.docs.nav.response.summary':
+    'Mock or modify API responses — synthetic or transformed body, status, and headers.',
+  'workbench.docs.nav.inject.title': 'Inject JS / CSS',
+  'workbench.docs.nav.inject.summary':
+    'Run JavaScript or CSS in the page context — pre-page-script or after DOM is ready.',
+  'workbench.docs.nav.delay.title': 'Delay',
+  'workbench.docs.nav.delay.summary': 'Add artificial latency to navigations and JS-initiated fetch / XHR.',
+  'workbench.docs.nav.resourceTypes.title': 'Resource Types',
+  'workbench.docs.nav.resourceTypes.summary':
+    'Lookup table for the Chrome ResourceType values — Page, Frame, Fetch/XHR, Script, and the rest.',
+  'workbench.docs.nav.keyboardShortcuts.title': 'Keyboard Shortcuts',
+  'workbench.docs.nav.keyboardShortcuts.summary':
+    'Every workbench shortcut, grouped by surface — panels, tabs, navigation, actions.',
+  'workbench.docs.nav.limitations.title': 'Limitations',
+  'workbench.docs.nav.limitations.summary':
+    'Known surprises in one place — DevTools visibility, script reach, header matching, Merge.',
 } as const satisfies Catalog;
