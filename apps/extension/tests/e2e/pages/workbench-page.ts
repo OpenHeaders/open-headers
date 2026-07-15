@@ -577,17 +577,26 @@ export class WorkbenchPage {
   }
 
   /** Switch the response Body pane to a picker view by its trailing
-   *  label text (menu labels carry a glyph prefix). */
+   *  label text (menu labels carry a glyph prefix). While Preview holds
+   *  the selection the picker's FIRST click only takes it back to the
+   *  base view without opening the menu (the two-way toggle law), so a
+   *  second click may be needed before the menu items exist. */
   async pickResponseView(label: RegExp): Promise<void> {
     const picker = this.page.getByTestId('oh-response-view-picker').filter({ visible: true }).first();
     await picker.waitFor({ state: 'visible', timeout: 15000 });
     await picker.click();
-    await this.page
+    const item = this.page
       .locator('.ant-dropdown-menu-item')
       .filter({ hasText: label })
       .filter({ visible: true })
-      .first()
-      .click();
+      .first();
+    try {
+      await item.waitFor({ state: 'visible', timeout: 2000 });
+    } catch {
+      await picker.click();
+      await item.waitFor({ state: 'visible', timeout: 15000 });
+    }
+    await item.click();
   }
 
   /** Read the rendered response body verbatim via the Raw view — the
