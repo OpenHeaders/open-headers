@@ -28,6 +28,7 @@ import { useSettingValue } from '../../settings/hooks';
 // at module-load time so it wins the race against `<Editor>`'s own
 // `loader.init`.
 import '../monaco/bootstrap';
+import { ensureEditorKeybindingSync } from '../monaco/editor-keybindings';
 import { useMonacoVariableCompletions } from '../template-input';
 import { useMonacoJwtEdit } from '../value-editors';
 import CodeEditorActions, { type CodeEditorActionsTarget, isFormattableLanguage } from './CodeEditorActions';
@@ -271,11 +272,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         value={value}
         onMount={(ed, monacoApi) => {
           editorRef.current = ed;
-          // Shift+Alt+F is Monaco's default keybinding for
-          // `editor.action.formatDocument`. Since both the Format
-          // button and the shortcut go through the same action, no
-          // custom keybinding registration is needed — Monaco dispatches
-          // to the language's formatter provider on its own.
+          // Bind the configured find / replace / format chords from
+          // the `keyboard.*` settings as page-global Monaco keybinding
+          // rules (and keep them synced on rebind) — so Settings →
+          // Keyboard rebinds change the actual key, not just the hint.
+          ensureEditorKeybindingSync(monacoApi);
           if (variableAutoComplete) registerCompletions(monacoApi);
           if (valueDetection) attachJwtDetection(ed, monacoApi);
           onEditorMount?.(ed, monacoApi);

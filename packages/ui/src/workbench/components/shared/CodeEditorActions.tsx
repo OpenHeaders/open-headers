@@ -10,7 +10,6 @@
 import { AlignLeftOutlined, SearchOutlined, SwapOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from 'antd';
 import type React from 'react';
-import { isMac } from '@openheaders/ui/shared/platform';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { type LanguageId, toMonacoLanguage } from '../../languages/registry';
@@ -25,11 +24,6 @@ const MONACO_FORMATTABLE_LANGUAGES = new Set(['javascript', 'json', 'css', 'html
 export function isFormattableLanguage(language: LanguageId): boolean {
   return MONACO_FORMATTABLE_LANGUAGES.has(toMonacoLanguage(language));
 }
-
-// Monaco's own (fixed) keybindings for the find / replace widgets —
-// shown as tooltip hints on the action buttons.
-const FIND_SHORTCUT = isMac ? '⌘F' : 'Ctrl+F';
-const REPLACE_SHORTCUT = isMac ? '⌥⌘F' : 'Ctrl+H';
 
 /** Imperative surface a CodeEditor exposes (via `actionsRef`) so an
  *  externally-rendered cluster can drive it. */
@@ -64,12 +58,17 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
   formatText = 'Format',
   style,
 }) => {
+  // Live registry hints — rebinding in Settings → Keyboard repaints
+  // the tooltips, and the same settings drive the actual Monaco
+  // keybindings (see monaco/editor-keybindings.ts).
+  const findShortcutLabel = useShortcutLabel('find');
+  const replaceShortcutLabel = useShortcutLabel('replace');
   const formatShortcutLabel = useShortcutLabel('format-code');
   const formattable = isFormattableLanguage(language);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2, ...style }}>
-      <Tooltip title={<ShortcutHintTitle label={FIND_SHORTCUT}>{findText}</ShortcutHintTitle>} placement="top">
+      <Tooltip title={<ShortcutHintTitle label={findShortcutLabel}>{findText}</ShortcutHintTitle>} placement="top">
         <Button
           size="small"
           type="text"
@@ -81,7 +80,10 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
         </Button>
       </Tooltip>
       {!readOnly && (
-        <Tooltip title={<ShortcutHintTitle label={REPLACE_SHORTCUT}>{replaceText}</ShortcutHintTitle>} placement="top">
+        <Tooltip
+          title={<ShortcutHintTitle label={replaceShortcutLabel}>{replaceText}</ShortcutHintTitle>}
+          placement="top"
+        >
           <Button
             size="small"
             type="text"

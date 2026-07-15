@@ -51,6 +51,7 @@ const keyboardCategory: CategoryDef = {
     { id: 'workbench-layout', label: 'Workbench · Layout', order: 20 },
     { id: 'workbench-tabs', label: 'Workbench · Tabs', order: 30 },
     { id: 'workbench-focus', label: 'Workbench · Focus', order: 40 },
+    { id: 'workbench-editor', label: 'Workbench · Editor', order: 50 },
   ],
 };
 
@@ -124,6 +125,15 @@ describe('KeymapPane', () => {
     fireEvent.change(screen.getByPlaceholderText('Search shortcuts'), { target: { value: 'Close Tab' } });
     expect(container.querySelector('[data-setting-key="keyboard.closeTab"]')).not.toBeNull();
     expect(container.querySelector('[data-setting-key="keyboard.save"]')).toBeNull();
+  });
+
+  it('groups the editor-scoped bindings under the Editor subcategory', async () => {
+    const { container } = await setup();
+    const editorGroup = screen.getByRole('button', { name: /Workbench · Editor/ });
+    expect(editorGroup).toBeTruthy();
+    for (const key of ['keyboard.find', 'keyboard.replace', 'keyboard.formatCode']) {
+      expect(container.querySelector(`[data-setting-key="${key}"]`)).not.toBeNull();
+    }
   });
 
   it('collapses and re-expands a group from its header', async () => {

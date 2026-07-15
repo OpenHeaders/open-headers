@@ -127,6 +127,7 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.workbench-layout': 'Workbench · Layout',
   'workbench.settings.category.keyboard.sub.workbench-tabs': 'Workbench · Tabs',
   'workbench.settings.category.keyboard.sub.workbench-focus': 'Workbench · Focus',
+  'workbench.settings.category.keyboard.sub.workbench-editor': 'Workbench · Editor',
   'workbench.settings.category.keyboard.sub.popup-general': 'Popup & Side Panel',
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup & Side Panel · Navigation',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup & Side Panel · Row Actions',
@@ -1431,6 +1432,12 @@ export const workbenchSettings = {
   'workbench.settings.def.keyboard.focusBottomPanel.description': 'Move keyboard focus to the bottom panel tab row.',
   'workbench.settings.def.keyboard.showShortcutHelp.label': 'Show Shortcut Help',
   'workbench.settings.def.keyboard.showShortcutHelp.description': 'Display the keyboard shortcut cheatsheet.',
+  'workbench.settings.def.keyboard.find.label': 'Find in Editor',
+  'workbench.settings.def.keyboard.find.description':
+    'Open the find widget in the focused code editor. Only fires when the editor has focus — does not interfere with global shortcuts.',
+  'workbench.settings.def.keyboard.replace.label': 'Replace in Editor',
+  'workbench.settings.def.keyboard.replace.description':
+    'Open the find-and-replace widget in the focused code editor. Only fires when the editor has focus — does not interfere with global shortcuts.',
   'workbench.settings.def.keyboard.formatCode.label': 'Format Code',
   'workbench.settings.def.keyboard.formatCode.description':
     'Format the focused code editor buffer. Only fires when the editor has focus — does not interfere with global shortcuts.',

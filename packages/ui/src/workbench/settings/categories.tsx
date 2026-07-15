@@ -206,6 +206,7 @@ registerCategory({
     { id: 'workbench-layout', labelKey: 'workbench.settings.category.keyboard.sub.workbench-layout', order: 20 },
     { id: 'workbench-tabs', labelKey: 'workbench.settings.category.keyboard.sub.workbench-tabs', order: 30 },
     { id: 'workbench-focus', labelKey: 'workbench.settings.category.keyboard.sub.workbench-focus', order: 40 },
+    { id: 'workbench-editor', labelKey: 'workbench.settings.category.keyboard.sub.workbench-editor', order: 50 },
     { id: 'popup-general', labelKey: 'workbench.settings.category.keyboard.sub.popup-general', order: 110 },
     { id: 'popup-navigation', labelKey: 'workbench.settings.category.keyboard.sub.popup-navigation', order: 120 },
     { id: 'popup-rows', labelKey: 'workbench.settings.category.keyboard.sub.popup-rows', order: 130 },

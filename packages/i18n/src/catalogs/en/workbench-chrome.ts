@@ -802,6 +802,8 @@ export const workbenchChrome = {
   'workbench.shortcuts.action.import': 'Import',
   'workbench.shortcuts.action.showShortcuts': 'Keyboard shortcuts',
   'workbench.shortcuts.action.openSettings': 'Open settings',
+  'workbench.shortcuts.action.find': 'Find in editor',
+  'workbench.shortcuts.action.replace': 'Replace in editor',
   'workbench.shortcuts.action.formatCode': 'Format code',
   'workbench.shortcuts.category.panels': 'Panels',
   'workbench.shortcuts.category.tabs': 'Tabs',

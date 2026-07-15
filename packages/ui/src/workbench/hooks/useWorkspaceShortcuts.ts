@@ -270,14 +270,30 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     category: 'actions',
     handler: { kind: 'direct', name: 'onOpenSettings' },
   },
+  // Editor-scoped entries — handled inside the focused code editor
+  // (Monaco keybindings registered from the settings values, see
+  // components/monaco/editor-keybindings.ts). The window event loop
+  // skips them; they're listed so the cheatsheet and Settings page
+  // expose the bindings.
+  {
+    id: 'find',
+    labelKey: 'workbench.shortcuts.action.find',
+    settingKey: 'keyboard.find',
+    category: 'actions',
+    handler: { kind: 'editor' },
+  },
+  {
+    id: 'replace',
+    labelKey: 'workbench.shortcuts.action.replace',
+    settingKey: 'keyboard.replace',
+    category: 'actions',
+    handler: { kind: 'editor' },
+  },
   {
     id: 'format-code',
     labelKey: 'workbench.shortcuts.action.formatCode',
     settingKey: 'keyboard.formatCode',
     category: 'actions',
-    // Handled inside CodeEditor's own keymap — the window event loop
-    // skips this entry. Listed here so the cheatsheet and Settings
-    // page expose the binding.
     handler: { kind: 'editor' },
   },
 ];

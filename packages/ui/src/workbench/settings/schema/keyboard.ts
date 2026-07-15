@@ -17,6 +17,7 @@
 
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
+import { isMac } from '../../../shared/platform';
 import { registerSetting } from '../registry';
 
 // Permissive chord validator: empty, or zero-or-more known modifiers
@@ -36,6 +37,13 @@ const chordSchema = v.pipe(
 // after the entry point has installed the host — never at registration.
 function hostChord(desktopChord: string, browserChord: string): () => string {
   return () => (getCurrentHost() === 'desktop' ? desktopChord : browserChord);
+}
+
+// Per-platform chord default. Editor-scoped bindings mirror Monaco's
+// own defaults, and some of those split by platform rather than by
+// host (Replace is ⌥⌘F on macOS, Ctrl+H elsewhere).
+function platformChord(macChord: string, otherChord: string): () => string {
+  return () => (isMac ? macChord : otherChord);
 }
 
 declare module '@openheaders/ui/workbench/settings/types' {
@@ -61,6 +69,8 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'keyboard.focusRightSidebar': string;
     'keyboard.focusBottomPanel': string;
     'keyboard.showShortcutHelp': string;
+    'keyboard.find': string;
+    'keyboard.replace': string;
     'keyboard.formatCode': string;
   }
 }
@@ -366,6 +376,39 @@ registerSetting({
   scope: 'user',
 });
 
+// Editor-scoped bindings — dispatched inside the focused code editor
+// (Monaco keybinding registration, see components/monaco/
+// editor-keybindings.ts), never by the window shortcut loop. Defaults
+// mirror Monaco's own so a fresh install behaves like stock Monaco.
+registerSetting({
+  key: 'keyboard.find',
+  type: 'keybinding',
+  default: 'mod+f',
+  schema: chordSchema,
+  labelKey: 'workbench.settings.def.keyboard.find.label',
+  descriptionKey: 'workbench.settings.def.keyboard.find.description',
+  category: 'keyboard',
+  subcategory: 'workbench-editor',
+  tags: ['find', 'search', 'editor'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'keyboard.replace',
+  type: 'keybinding',
+  // Monaco's Replace default splits by platform, not host: ⌥⌘F on
+  // macOS, Ctrl+H elsewhere.
+  default: 'mod+h',
+  getDefault: platformChord('mod+alt+f', 'mod+h'),
+  schema: chordSchema,
+  labelKey: 'workbench.settings.def.keyboard.replace.label',
+  descriptionKey: 'workbench.settings.def.keyboard.replace.description',
+  category: 'keyboard',
+  subcategory: 'workbench-editor',
+  tags: ['replace', 'find', 'search', 'editor'],
+  scope: 'user',
+});
+
 registerSetting({
   key: 'keyboard.formatCode',
   type: 'keybinding',
@@ -374,7 +417,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.keyboard.formatCode.label',
   descriptionKey: 'workbench.settings.def.keyboard.formatCode.description',
   category: 'keyboard',
-  subcategory: 'workbench-general',
+  subcategory: 'workbench-editor',
   tags: ['format', 'prettier', 'editor', 'prettify'],
   scope: 'user',
 });
