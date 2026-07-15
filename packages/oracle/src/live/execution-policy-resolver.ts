@@ -35,18 +35,26 @@ import {
 import { getRequestCollectionsForWorkspace, getRequestInWorkspace } from '../entity/request-store';
 import { getLiveWorkflowsForWorkspace } from './live-workflow-store';
 
-/** Flat `{name, value}` list → name → value map (later entries win on a duplicate name). */
-function toVarMap(variables: ReadonlyArray<{ name: string; value: string }>): Map<string, string> {
+/** Flat `{name, value}` list → name → value map (later entries win on a duplicate name).
+ *  Disabled rows are excluded — the resolver skips them, matching the
+ *  LF2 variable-surface snapshot's treatment. */
+function toVarMap(variables: ReadonlyArray<{ name: string; value: string; enabled?: boolean }>): Map<string, string> {
   const out = new Map<string, string>();
-  for (const v of variables) out.set(v.name, v.value);
+  for (const v of variables) {
+    if (v.enabled === false) continue;
+    out.set(v.name, v.value);
+  }
   return out;
 }
 
-/** Merge every request collection's variables in the workspace into one name → value map. */
+/** Merge every request collection's variables in the workspace into one name → value map (disabled rows excluded). */
 function collectionVarMap(workspaceId: string): Map<string, string> {
   const out = new Map<string, string>();
   for (const collection of getRequestCollectionsForWorkspace(workspaceId)) {
-    for (const v of collection.variables ?? []) out.set(v.name, v.value);
+    for (const v of collection.variables ?? []) {
+      if (v.enabled === false) continue;
+      out.set(v.name, v.value);
+    }
   }
   return out;
 }

@@ -37,6 +37,14 @@ export const VariableSchema = v.object({
   name: v.string(),
   value: v.string(),
   type: VariableTypeSchema,
+  /**
+   * Row participation flag. ABSENT means enabled — existing data is
+   * never rewritten; only `false` is ever persisted (writers normalize
+   * `true` back to absent so untouched rows stay byte-stable). Disabled
+   * rows are skipped by resolution in every scope but keep their place
+   * in editors and suggestion pickers (marked, deprioritized).
+   */
+  enabled: v.optional(v.boolean()),
 });
 
 // ── Vault secrets (discriminated on `kind`) ────────────────────────

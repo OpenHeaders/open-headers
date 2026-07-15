@@ -75,6 +75,11 @@ export interface VariableEntry {
   name: string;
   value: string;
   type?: 'default' | 'secret';
+  /** Absent means enabled. Disabled rows still surface (marked +
+   *  deprioritized) so the user can discover and re-enable them; the
+   *  resolver skips them, so a picked reference resolves unset until
+   *  the row is re-enabled. */
+  enabled?: boolean;
 }
 
 /**
@@ -165,10 +170,14 @@ export interface SuggestionRegistries {
  * `definitionallyStale` rides the `value` / `stale` variants as an
  * orthogonal flag (a value can be expiry-stale, definitionally stale,
  * both, or neither): the UI badges "needs re-run" when it is set.
+ * `entryDisabled` rides the same variants for env / collection /
+ * workspace rows whose `enabled` flag is off — the row stays pickable
+ * (the reference resolves unset until re-enabled) but the UI badges +
+ * dims it.
  */
 export type SuggestionPreview =
-  | { kind: 'value'; value: string; masked: boolean; definitionallyStale?: boolean }
-  | { kind: 'stale'; value: string; masked: boolean; definitionallyStale?: boolean }
+  | { kind: 'value'; value: string; masked: boolean; definitionallyStale?: boolean; entryDisabled?: boolean }
+  | { kind: 'stale'; value: string; masked: boolean; definitionallyStale?: boolean; entryDisabled?: boolean }
   | { kind: 'reserved'; subtitle: string }
   | { kind: 'namespace'; subtitle: string }
   | { kind: 'step-runtime' }
@@ -225,6 +234,9 @@ const BASE_PRIORITY = 100;
 /** Live entries whose cache row is past its expiry drop this far below
  *  their fresh peers so they sort after equally-matching fresh entries. */
 const STALE_PENALTY = 50;
+/** Env / collection / workspace rows whose `enabled` flag is off drop
+ *  below their enabled peers — still offered (marked), rarely wanted. */
+const DISABLED_ROW_PENALTY = 50;
 /** Reserved-namespace entries (file) sink below every real
  *  suggestion regardless of match rank. */
 const DISABLED_PENALTY = 200;
@@ -263,6 +275,18 @@ function valuePreview(value: string, masked: boolean, stale: boolean, definition
   return definitionallyStale ? { kind, value, masked, definitionallyStale: true } : { kind, value, masked };
 }
 
+/** Preview for a user-scoped row (env / collection / workspace) —
+ *  disabled rows carry the `entryDisabled` marker. */
+function entryPreview(entry: VariableEntry, masked: boolean): SuggestionPreview {
+  return entry.enabled === false
+    ? { kind: 'value', value: entry.value, masked, entryDisabled: true }
+    : valuePreview(entry.value, masked, false);
+}
+
+function entryPenalty(entry: VariableEntry): number {
+  return entry.enabled === false ? DISABLED_ROW_PENALTY : 0;
+}
+
 function buildEnvSuggestion(
   name: string,
   entry: VariableEntry,
@@ -274,10 +298,10 @@ function buildEnvSuggestion(
     reference: `env.${name}`,
     scope: 'env',
     name,
-    preview: valuePreview(entry.value, maskForScope('env', entry, maskAll), false),
+    preview: entryPreview(entry, maskForScope('env', entry, maskAll)),
     // Fallback-env entries sort below active-env entries by decrementing
     // priority an extra step. Within a bucket, insertion order controls.
-    priority: BASE_PRIORITY - sourceOrder - (fromActive ? 0 : 1),
+    priority: BASE_PRIORITY - sourceOrder - (fromActive ? 0 : 1) - entryPenalty(entry),
   };
 }
 
@@ -323,31 +347,38 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
   }
 
   // 2. env — merge active + default, active wins on name collision.
+  // Exception mirroring the resolver: a DISABLED active-env row falls
+  // through to the default env, so an enabled fallback row with the
+  // same name replaces the disabled pick (one row per reference).
   if (scopeAllowed('env', context)) {
-    const seen = new Set<string>();
     const active = registries.environments.find((e) => e.uid === registries.activeEnvironmentId) ?? null;
     const fallback =
       registries.defaultEnvironmentId && registries.defaultEnvironmentId !== registries.activeEnvironmentId
         ? (registries.environments.find((e) => e.uid === registries.defaultEnvironmentId) ?? null)
         : null;
-    let order = 0;
+    const picked = new Map<string, { entry: VariableEntry; fromActive: boolean }>();
     if (active) {
       for (const v of active.variables) {
         if (v.value === '') continue;
-        if (seen.has(v.name)) continue;
-        seen.add(v.name);
-        out.push(buildEnvSuggestion(v.name, v, order, true, maskAll));
-        order++;
+        if (picked.has(v.name)) continue;
+        picked.set(v.name, { entry: v, fromActive: true });
       }
     }
     if (fallback) {
       for (const v of fallback.variables) {
         if (v.value === '') continue;
-        if (seen.has(v.name)) continue;
-        seen.add(v.name);
-        out.push(buildEnvSuggestion(v.name, v, order, false, maskAll));
-        order++;
+        const current = picked.get(v.name);
+        if (!current) {
+          picked.set(v.name, { entry: v, fromActive: false });
+        } else if (current.entry.enabled === false && v.enabled !== false) {
+          picked.set(v.name, { entry: v, fromActive: false });
+        }
       }
+    }
+    let order = 0;
+    for (const [name, pick] of picked) {
+      out.push(buildEnvSuggestion(name, pick.entry, order, pick.fromActive, maskAll));
+      order++;
     }
   }
 
@@ -362,8 +393,8 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
           reference: `collection.${v.name}`,
           scope: 'collection',
           name: v.name,
-          preview: valuePreview(v.value, maskForScope('collection', v, maskAll), false),
-          priority: BASE_PRIORITY - order,
+          preview: entryPreview(v, maskForScope('collection', v, maskAll)),
+          priority: BASE_PRIORITY - order - entryPenalty(v),
         });
         order++;
       }
@@ -379,8 +410,8 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
         reference: `workspace.${v.name}`,
         scope: 'workspace',
         name: v.name,
-        preview: valuePreview(v.value, maskForScope('workspace', v, maskAll), false),
-        priority: BASE_PRIORITY - order,
+        preview: entryPreview(v, maskForScope('workspace', v, maskAll)),
+        priority: BASE_PRIORITY - order - entryPenalty(v),
       });
       order++;
     }

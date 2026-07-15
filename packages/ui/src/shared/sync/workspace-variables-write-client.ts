@@ -24,7 +24,7 @@ import {
   WORKSPACE_VARIABLES_PATH,
   workspaceVariablesInvalidateResolverIntent,
 } from '@openheaders/core/sync';
-import { synthesizeSetDiff, toLiveSetEntries } from '@openheaders/core/sync-builders';
+import { normalizeVariableRow, synthesizeSetDiff, toLiveSetEntries } from '@openheaders/core/sync-builders';
 import {
   buildRemoveWorkspaceVarBatch,
   buildSetWorkspaceVarBatch,
@@ -104,12 +104,15 @@ export async function applyWorkspaceVariablesReplacement(
   await mirror.hydrated;
   const currentKeys = new Map(mirror.liveVarOrderKeys().map((e) => [e.itemId, e.orderKey] as const));
 
+  // Normalize both sides to the canonical persisted row shape (`type`
+  // defaulted, truthy `enabled` stripped) so a conflict-resolution write
+  // that set `enabled: true` explicitly can't read as a content edit.
   const bodies = synthesizeSetDiff({
     type: WORKSPACE_VARIABLES_ENTITY_TYPE,
     id: WORKSPACE_VARIABLES_ID,
     path: WORKSPACE_VARIABLES_PATH,
-    live: toLiveSetEntries(oldVars, currentKeys),
-    newItems: newVars.filter((v) => v.name.trim()),
+    live: toLiveSetEntries(oldVars.map(normalizeVariableRow), currentKeys),
+    newItems: newVars.filter((v) => v.name.trim()).map(normalizeVariableRow),
   });
   if (bodies.length === 0) return { ok: true };
 

@@ -185,6 +185,24 @@ describe('variable-edit refresh (LF2)', () => {
     expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
   });
 
+  it('treats toggling a referenced variable to disabled as a value change (LF2 fires)', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    H.scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-dev';
+    await startPrimed();
+
+    // Same name + value — only the enabled flag flips. The resolver now
+    // skips the row, so the workflow's resolved surface changed.
+    const disabledDev = makeEnvironment('env-dev', [{ name: 'token', value: 'dev-aaa' }]);
+    disabledDev.variables = disabledDev.variables.map((v) => ({ ...v, enabled: false }));
+    storeState.environments = [disabledDev, makeEnvironment('env-prod', [{ name: 'token', value: 'prod-aaa' }])];
+    fireEnvChange();
+    await flushAsync();
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflow001', 'env-dev', 'ws-live');
+  });
+
   it('flags a non-active env row when that env variable changes', async () => {
     const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
     H.scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });

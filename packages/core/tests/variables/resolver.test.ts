@@ -725,3 +725,77 @@ describe('VariableResolver — structured resolution errors', () => {
     expect(reasons).toEqual(['unknown-namespace', 'unresolved', 'unset-in-scope']);
   });
 });
+
+describe('VariableResolver — disabled rows', () => {
+  let resolver: VariableResolver;
+
+  function disabledVariable(name: string, value: string): Variable {
+    return { ...makeVariable(name, value), enabled: false };
+  }
+
+  beforeEach(() => {
+    resolver = new VariableResolver();
+  });
+
+  it('skips a disabled workspace row (flat walk resolves nothing)', () => {
+    resolver.setWorkspaceVariables(makeWorkspaceVars([disabledVariable('API_URL', 'https://api.openheaders.io')]));
+    expect(resolver.resolve('API_URL')).toBeNull();
+  });
+
+  it('skips a disabled env row and falls through to a lower scope', () => {
+    const dev = makeEnvironment('Dev', [disabledVariable('TOKEN', 'from-env')]);
+    resolver.setEnvironments([dev]);
+    resolver.setActiveEnvironmentId(dev.uid);
+    resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('TOKEN', 'from-workspace')]));
+
+    const result = resolver.resolve('TOKEN');
+    expect(result?.value).toBe('from-workspace');
+    expect(result?.scope).toBe('workspace');
+  });
+
+  it('skips a disabled collection row in the flat walk', () => {
+    resolver.setCollectionVariables('coll-1', [disabledVariable('VERSION', 'v3')]);
+    resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('VERSION', 'v1')]));
+
+    const result = resolver.resolve('VERSION', { collectionId: 'coll-1' });
+    expect(result?.value).toBe('v1');
+    expect(result?.scope).toBe('workspace');
+  });
+
+  it('an explicitly enabled row (enabled: true) resolves like an absent flag', () => {
+    resolver.setWorkspaceVariables(
+      makeWorkspaceVars([{ ...makeVariable('API_URL', 'https://api.openheaders.io'), enabled: true }]),
+    );
+    expect(resolver.resolve('API_URL')?.value).toBe('https://api.openheaders.io');
+  });
+
+  it('explicit {{env.X}} skips a disabled active-env row and falls back to the default env', () => {
+    const staging = makeEnvironment('Staging', [disabledVariable('API_URL', 'https://staging.openheaders.io')]);
+    const prod = makeEnvironment('Prod', [makeVariable('API_URL', 'https://prod.openheaders.io')]);
+    resolver.setEnvironments([staging, prod]);
+    resolver.setActiveEnvironmentId(staging.uid);
+    resolver.setDefaultEnvironmentId(prod.uid);
+
+    const result = resolver.resolveScoped('API_URL', 'env');
+    expect(result?.value).toBe('https://prod.openheaders.io');
+  });
+
+  it('explicit {{collection.X}} / {{workspace.X}} report a disabled row as unset-in-scope', () => {
+    resolver.setCollectionVariables('coll-1', [disabledVariable('COLL_VAR', 'x')]);
+    resolver.setWorkspaceVariables(makeWorkspaceVars([disabledVariable('WS_VAR', 'y')]));
+
+    expect(resolver.resolveScoped('COLL_VAR', 'collection', { collectionId: 'coll-1' })).toBeNull();
+    expect(resolver.resolveScoped('WS_VAR', 'workspace')).toBeNull();
+    const { errors } = resolver.resolveTemplate('{{workspace.WS_VAR}}');
+    expect(errors[0]).toMatchObject({ reason: 'unset-in-scope', namespace: 'workspace' });
+  });
+
+  it('re-enabling a row (flag removed) resolves again', () => {
+    const row = disabledVariable('FLIP', 'on');
+    resolver.setWorkspaceVariables(makeWorkspaceVars([row]));
+    expect(resolver.resolve('FLIP')).toBeNull();
+    const { enabled: _enabled, ...enabledRow } = row;
+    resolver.setWorkspaceVariables(makeWorkspaceVars([enabledRow]));
+    expect(resolver.resolve('FLIP')?.value).toBe('on');
+  });
+});

@@ -223,7 +223,7 @@ export class VariableResolver {
     const env = this.environments.find((e) => e.uid === envId);
     if (!env) return null;
     const envVar = env.variables.find((v) => v.name === name);
-    if (!envVar || envVar.value === '') return null;
+    if (!envVar || envVar.enabled === false || envVar.value === '') return null;
     return {
       name,
       value: envVar.value,
@@ -270,7 +270,7 @@ export class VariableResolver {
       const collVars = this.collectionVariables.get(context.collectionId);
       if (collVars) {
         const collVar = collVars.find((v) => v.name === name);
-        if (collVar && collVar.value !== '') {
+        if (collVar && collVar.enabled !== false && collVar.value !== '') {
           return {
             name,
             value: collVar.value,
@@ -283,7 +283,7 @@ export class VariableResolver {
 
     // 5. Workspace (lowest priority)
     const workspaceVar = this.workspaceVariables.variables.find((v) => v.name === name);
-    if (workspaceVar && workspaceVar.value !== '') {
+    if (workspaceVar && workspaceVar.enabled !== false && workspaceVar.value !== '') {
       return {
         name,
         value: workspaceVar.value,
@@ -350,7 +350,7 @@ export class VariableResolver {
         const collVars = this.collectionVariables.get(context.collectionId);
         if (!collVars) return { resolved: null };
         const collVar = collVars.find((v) => v.name === name);
-        if (collVar && collVar.value !== '') {
+        if (collVar && collVar.enabled !== false && collVar.value !== '') {
           return {
             resolved: {
               name,
@@ -364,7 +364,7 @@ export class VariableResolver {
       }
       case 'workspace': {
         const wsVar = this.workspaceVariables.variables.find((v) => v.name === name);
-        if (wsVar && wsVar.value !== '') {
+        if (wsVar && wsVar.enabled !== false && wsVar.value !== '') {
           return {
             resolved: {
               name,

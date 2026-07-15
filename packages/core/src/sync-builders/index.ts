@@ -19,6 +19,7 @@ export {
 } from './set-diff';
 export {
   buildVariablesReplacement,
+  normalizeVariableRow,
   type VariableLike,
   type VariablesReplacementBindings,
   type VariablesReplacementInput,

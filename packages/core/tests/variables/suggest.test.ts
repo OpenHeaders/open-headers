@@ -531,3 +531,71 @@ describe('filterSuggestions', () => {
     expect(refs(filtered)).toEqual(['env.API_URL']);
   });
 });
+
+// ── Disabled rows ──────────────────────────────────────────────────
+
+describe('buildSuggestions — disabled rows', () => {
+  const disabled = (name: string, value: string): VariableEntry => ({ name, value, enabled: false });
+
+  it('still offers a disabled workspace row, marked entryDisabled and deprioritized', () => {
+    const out = buildSuggestions(
+      makeRegistries({ workspaceVariables: [v('ON', 'a'), disabled('OFF', 'b')] }),
+      {},
+    );
+    const on = out.find((s) => s.reference === 'workspace.ON');
+    const off = out.find((s) => s.reference === 'workspace.OFF');
+    expect(on?.preview).toMatchObject({ kind: 'value', value: 'a' });
+    expect((on?.preview as { entryDisabled?: boolean }).entryDisabled).toBeUndefined();
+    expect(off?.preview).toMatchObject({ kind: 'value', value: 'b', entryDisabled: true });
+    expect(off?.disabled).toBeUndefined();
+    expect((off?.priority ?? 0) < (on?.priority ?? 0)).toBe(true);
+  });
+
+  it('marks disabled collection rows', () => {
+    const out = buildSuggestions(
+      makeRegistries({ collections: [collection('col-1', [disabled('BASE_PATH', '/api/v1')])] }),
+      { collectionId: 'col-1' },
+    );
+    const row = out.find((s) => s.reference === 'collection.BASE_PATH');
+    expect(row?.preview).toMatchObject({ kind: 'value', entryDisabled: true });
+  });
+
+  it('a disabled active-env row is replaced by an enabled default-env row of the same name', () => {
+    const out = buildSuggestions(
+      makeRegistries({
+        environments: [
+          env('e-active', 'Staging', [disabled('API_URL', 'https://staging.openheaders.io')]),
+          env('e-default', 'Prod', [v('API_URL', 'https://prod.openheaders.io')]),
+        ],
+        activeEnvironmentId: 'e-active',
+        defaultEnvironmentId: 'e-default',
+      }),
+      {},
+    );
+    const rows = out.filter((s) => s.reference === 'env.API_URL');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].preview).toMatchObject({ kind: 'value', value: 'https://prod.openheaders.io' });
+    expect((rows[0].preview as { entryDisabled?: boolean }).entryDisabled).toBeUndefined();
+  });
+
+  it('a disabled active-env row stays (marked) when the default env lacks the name', () => {
+    const out = buildSuggestions(
+      makeRegistries({
+        environments: [env('e-active', 'Staging', [disabled('API_URL', 'https://staging.openheaders.io')])],
+        activeEnvironmentId: 'e-active',
+      }),
+      {},
+    );
+    const row = out.find((s) => s.reference === 'env.API_URL');
+    expect(row?.preview).toMatchObject({ kind: 'value', entryDisabled: true });
+  });
+
+  it('disabled rows sort below enabled peers on an empty query', () => {
+    const all = buildSuggestions(
+      makeRegistries({ workspaceVariables: [disabled('AAA', 'x'), v('BBB', 'y')] }),
+      {},
+    );
+    const filtered = refs(filterSuggestions(all, ''));
+    expect(filtered.indexOf('workspace.BBB')).toBeLessThan(filtered.indexOf('workspace.AAA'));
+  });
+});

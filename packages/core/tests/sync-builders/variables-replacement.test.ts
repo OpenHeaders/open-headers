@@ -115,3 +115,52 @@ describe('buildVariablesReplacement — order keys', () => {
     expect(adds(payload).map((m) => (m.body as { itemId: string }).itemId)).toEqual(['v-keep']);
   });
 });
+
+describe('buildVariablesReplacement — enabled flag normalization', () => {
+  it('enabled: true normalizes to absent — no diff against a flag-less row', () => {
+    const oldVars = [variable('v1', 'A', 'a')];
+    const newVars = [{ ...variable('v1', 'A', 'a'), enabled: true }];
+    const payload = buildVariablesReplacement(bindings, ctx(), {
+      entityUid: 'coll-1',
+      newVars,
+      oldVars,
+      currentKeys: keys(['v1']),
+    });
+    expect(payload).toBeNull();
+  });
+
+  it('toggling a row to enabled: false is a content edit at the existing orderKey', () => {
+    const oldVars = [variable('v1', 'A', 'a'), variable('v2', 'B', 'b')];
+    const newVars = [{ ...variable('v1', 'A', 'a'), enabled: false }, variable('v2', 'B', 'b')];
+    const payload = buildVariablesReplacement(bindings, ctx(), {
+      entityUid: 'coll-1',
+      newVars,
+      oldVars,
+      currentKeys: keys(['v1', 'v2']),
+    });
+    const a = adds(payload);
+    expect(a).toHaveLength(1);
+    expect(a[0].body).toMatchObject({ itemId: 'v1', orderKey: 'm' });
+    expect((a[0].body as { item: VariableLike }).item).toEqual({
+      uid: 'v1',
+      name: 'A',
+      value: 'a',
+      type: 'default',
+      enabled: false,
+    });
+  });
+
+  it('re-enabling strips the flag from the persisted row', () => {
+    const oldVars = [{ ...variable('v1', 'A', 'a'), enabled: false }];
+    const newVars = [{ ...variable('v1', 'A', 'a'), enabled: true }];
+    const payload = buildVariablesReplacement(bindings, ctx(), {
+      entityUid: 'coll-1',
+      newVars,
+      oldVars,
+      currentKeys: keys(['v1']),
+    });
+    const a = adds(payload);
+    expect(a).toHaveLength(1);
+    expect((a[0].body as { item: VariableLike }).item).toEqual({ uid: 'v1', name: 'A', value: 'a', type: 'default' });
+  });
+});

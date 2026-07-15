@@ -37,11 +37,31 @@ export interface VariableLike {
   name: string;
   value: string;
   type?: VariableType;
+  /** Absent means enabled; only `false` is ever persisted. */
+  enabled?: boolean;
 }
 
 export interface VariablesReplacementBindings {
   entityType: string;
   varsPath: string;
+}
+
+/**
+ * Canonical persisted row shape. Normalizes both diff sides so a `type`
+ * that round-trips as undefined vs 'default' (or an `enabled` that
+ * round-trips as undefined vs true) doesn't read as a content edit.
+ * `enabled` only persists as `false` — a truthy flag is stripped so
+ * untouched rows stay byte-stable. Shared with the env / workspace-vars
+ * replacement write clients, which run the same set diff directly.
+ */
+export function normalizeVariableRow(v: VariableLike): VariableLike {
+  return {
+    uid: v.uid,
+    name: v.name,
+    value: v.value,
+    type: v.type ?? 'default',
+    ...(v.enabled === false ? { enabled: false } : {}),
+  };
 }
 
 export interface VariablesReplacementInput {
@@ -80,21 +100,13 @@ export function buildVariablesReplacement(
   const { entityUid, newVars, oldVars } = input;
   const currentKeys = input.currentKeys ?? new Map<string, string>();
 
-  // Normalize both sides so a `type` that round-trips as undefined vs
-  // 'default' doesn't read as a content edit.
-  const normalize = (v: VariableLike): VariableLike => ({
-    uid: v.uid,
-    name: v.name,
-    value: v.value,
-    type: v.type ?? 'default',
-  });
-  const survivors = newVars.filter((v) => v.name.trim()).map(normalize);
+  const survivors = newVars.filter((v) => v.name.trim()).map(normalizeVariableRow);
 
   const bodies = synthesizeSetDiff({
     type: entityType,
     id: entityUid,
     path: varsPath,
-    live: toLiveSetEntries(oldVars.map(normalize), currentKeys),
+    live: toLiveSetEntries(oldVars.map(normalizeVariableRow), currentKeys),
     newItems: survivors,
   });
   if (bodies.length === 0) return null;

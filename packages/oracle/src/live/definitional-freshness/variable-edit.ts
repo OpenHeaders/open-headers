@@ -69,18 +69,26 @@ function snapshotVaultVars(): Map<string, string> {
   return out;
 }
 
-/** Map a flat variable list to name → value (later entries win on a duplicate name). */
-function toVarMap(variables: ReadonlyArray<{ name: string; value: string }>): Map<string, string> {
+/** Map a flat variable list to name → value (later entries win on a duplicate name).
+ *  Disabled rows are excluded — the resolver skips them, so toggling
+ *  `enabled` changes the resolved surface and must flip `valuesKey`. */
+function toVarMap(variables: ReadonlyArray<{ name: string; value: string; enabled?: boolean }>): Map<string, string> {
   const out = new Map<string, string>();
-  for (const v of variables) out.set(v.name, v.value);
+  for (const v of variables) {
+    if (v.enabled === false) continue;
+    out.set(v.name, v.value);
+  }
   return out;
 }
 
-/** Merge every request collection's variables into one name → value map. */
+/** Merge every request collection's variables into one name → value map (disabled rows excluded). */
 function snapshotCollectionVars(): Map<string, string> {
   const out = new Map<string, string>();
   for (const collection of getRequestCollections()) {
-    for (const v of collection.variables ?? []) out.set(v.name, v.value);
+    for (const v of collection.variables ?? []) {
+      if (v.enabled === false) continue;
+      out.set(v.name, v.value);
+    }
   }
   return out;
 }
