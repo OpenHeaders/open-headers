@@ -31,7 +31,7 @@ import {
   parsePostman,
   parsePostmanEnvironment,
 } from '@openheaders/core/import';
-import type { Request, Variable } from '@openheaders/core/types';
+import type { AuthConfig, Request, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, App as AntApp, Button, Divider, Input, type InputRef, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -72,6 +72,10 @@ interface ImportPostmanModalProps {
     folderUid: string,
     scripts: { preRequestScript?: string; postResponseScript?: string },
   ) => Promise<boolean>;
+  /** Lands collection-level default auth on the new collection. */
+  setCollectionAuth?: (collectionUid: string, auth: AuthConfig) => Promise<boolean>;
+  /** Lands folder-level default auth on a new folder. */
+  setFolderAuth?: (folderUid: string, auth: AuthConfig) => Promise<boolean>;
   /**
    * Creates a request under `parentPath`. We route through parentPath
    * directly (not collectionUid) so requests land inside the folder
@@ -118,6 +122,8 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
   createFolder,
   setCollectionScripts,
   setFolderScripts,
+  setCollectionAuth,
+  setFolderAuth,
   createRequest,
   createEnvironment,
   findPreviousReport,
@@ -245,6 +251,12 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
         });
       }
 
+      // Collection-level default auth lands on the new collection —
+      // requests imported as `inherit` resolve it at send time.
+      if (setCollectionAuth && result.collectionAuth !== undefined) {
+        await setCollectionAuth(coll.uid, result.collectionAuth);
+      }
+
       // 2. Walk folders depth-first, record each folder's full path
       //    keyed by Postman path so requests can find their parent.
       const folderPathMap = new Map<string, string>();
@@ -265,6 +277,9 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
               ...(f.preRequestScript !== undefined ? { preRequestScript: f.preRequestScript } : {}),
               ...(f.postResponseScript !== undefined ? { postResponseScript: f.postResponseScript } : {}),
             });
+          }
+          if (setFolderAuth && f.auth !== undefined) {
+            await setFolderAuth(created.uid, f.auth);
           }
         }
       }
@@ -343,6 +358,8 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
     createFolder,
     setCollectionScripts,
     setFolderScripts,
+    setCollectionAuth,
+    setFolderAuth,
     createRequest,
     createEnvironment,
     onImported,

@@ -1,3 +1,4 @@
+import type { AuthConfig } from '../../types/request';
 import type { CapturedRequest, CapturedResponse } from '../../types/response-example';
 import type { CurlRequest } from '../curl';
 import type { ImportReport } from '../report';
@@ -183,6 +184,10 @@ export interface PostmanParsedFolder {
    *  script slots (Phase D landing). */
   preRequestScript?: string;
   postResponseScript?: string;
+  /** Folder-level default auth, mapped onto the folder's ancestor auth
+   *  slot — requests importing as `inherit` resolve it at send time.
+   *  Absent when nothing was configured at this level. */
+  auth?: AuthConfig;
 }
 
 /**
@@ -216,6 +221,9 @@ export interface PostmanParseResult {
    *  ancestor script slots (Phase D landing). */
   collectionPreRequestScript?: string;
   collectionPostResponseScript?: string;
+  /** Collection-level default auth, mapped onto the collection's
+   *  ancestor auth slot. Absent when nothing was configured. */
+  collectionAuth?: AuthConfig;
   folders: PostmanParsedFolder[];
   requests: PostmanParsedRequest[];
   report: ImportReport;

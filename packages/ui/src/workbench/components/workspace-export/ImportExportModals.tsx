@@ -475,6 +475,8 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         }}
         setCollectionScripts={requestsApi.setCollectionScripts}
         setFolderScripts={requestsApi.setFolderScripts}
+        setCollectionAuth={requestsApi.setCollectionAuth}
+        setFolderAuth={requestsApi.setFolderAuth}
         createRequest={async ({ name, parentPath, seed }) => {
           const r = await requestsApi.createRequest({ name, parentPath, seed });
           return r ? { uid: r.uid } : null;
@@ -512,6 +514,8 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         }}
         setCollectionScripts={requestsApi.setCollectionScripts}
         setFolderScripts={requestsApi.setFolderScripts}
+        setCollectionAuth={requestsApi.setCollectionAuth}
+        setFolderAuth={requestsApi.setFolderAuth}
         createRequest={async ({ name, parentPath, seed }) => {
           const r = await requestsApi.createRequest({ name, parentPath, seed });
           return r ? { uid: r.uid } : null;

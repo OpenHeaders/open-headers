@@ -61,14 +61,43 @@ function tryPromoteAuthHeaderValue(value: string): AuthConfig | null {
   return null;
 }
 
+/**
+ * A drop / explicit "No Auth" must land a CONCRETE config, never
+ * `inherit` — landing `inherit` for a construct the user explicitly
+ * authored would silently apply the ancestor chain's auth in its
+ * place. A promoted-header fallback stays as-is (the header is real
+ * authored auth); only the "nothing promoted" `inherit` placeholder
+ * concretizes to `none`.
+ */
+function concreteFallback(fallback: AuthConfig): AuthConfig {
+  return fallback.type === 'inherit' ? { type: 'none' } : fallback;
+}
+
+/**
+ * Map a vendor auth block onto an {@link AuthConfig}.
+ *
+ * `fallback` is what an ABSENT block resolves to — the vendor's
+ * absent-auth semantic is "inherit from parent", so request call
+ * sites pass their promoted-header auth or `{ type: 'inherit' }`;
+ * ancestor call sites (collection/folder default auth) pass
+ * `{ type: 'inherit' }`, whose round-trip means "nothing configured
+ * at this level". An explicit `noauth` is NOT inheritance — it lands
+ * `none` (stopping the chain) unless a promoted header carries real
+ * auth. `authPath` is the report path for drop notes — call sites
+ * name their own site (`…item[i].request.auth`, `collection.auth`,
+ * `…item[i].auth`).
+ */
 export function resolveAuth(
   raw: PostmanAuth | undefined,
   fallback: AuthConfig,
-  jsonPath: string,
+  authPath: string,
   report: ImportReport,
 ): { auth: AuthConfig; report: ImportReport } {
-  if (!raw?.type || raw.type === 'noauth') {
+  if (!raw?.type) {
     return { auth: fallback, report };
+  }
+  if (raw.type === 'noauth') {
+    return { auth: concreteFallback(fallback), report };
   }
 
   switch (raw.type) {
@@ -92,16 +121,16 @@ export function resolveAuth(
       return { auth: { type: 'api-key', key, value, in: at }, report };
     }
     case 'oauth2': {
-      const mapped = resolveOAuth2Auth(raw, jsonPath, report);
-      return { auth: mapped ?? fallback, report };
+      const mapped = resolveOAuth2Auth(raw, authPath, report);
+      return { auth: mapped ?? concreteFallback(fallback), report };
     }
     case 'awsv4': {
       recordDrop(report, {
-        path: `${jsonPath}.request.auth`,
+        path: authPath,
         reason: 'AWS Signature v4 auth not imported — first-class support lands with §18.',
         tracking: '#todo-aws-sigv4',
       });
-      return { auth: fallback, report };
+      return { auth: concreteFallback(fallback), report };
     }
     case 'digest':
     case 'hawk':
@@ -109,19 +138,19 @@ export function resolveAuth(
     case 'edgegrid':
     case 'oauth1': {
       recordDrop(report, {
-        path: `${jsonPath}.request.auth`,
+        path: authPath,
         reason: `${raw.type} auth not imported — only basic/bearer/apikey are supported in v1.`,
         tracking: '#todo-auth-types',
       });
-      return { auth: fallback, report };
+      return { auth: concreteFallback(fallback), report };
     }
     default: {
       recordDrop(report, {
-        path: `${jsonPath}.request.auth`,
+        path: authPath,
         reason: `Unknown auth type "${raw.type}" — ignored.`,
         tracking: 'PERMANENT: auth picklist',
       });
-      return { auth: fallback, report };
+      return { auth: concreteFallback(fallback), report };
     }
   }
 }

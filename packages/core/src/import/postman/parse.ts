@@ -1,6 +1,7 @@
+import type { AuthConfig } from '../../types/request';
 import type { CapturedRequest } from '../../types/response-example';
 import type { CurlRequest } from '../curl';
-import { createReport, type ImportReport, recordDrop, recordTransform } from '../report';
+import { createReport, type ImportReport, recordDrop } from '../report';
 import { buildHeaders, promoteAuthHeader, resolveAuth } from './auth';
 import { buildBody } from './body';
 import { coerceMethod } from './method';
@@ -58,20 +59,12 @@ export function parsePostman(input: string, options: PostmanParseOptions = {}): 
   // silently.
   const collectionScripts = buildScriptFields(collection.event, 'collection', report);
 
-  // Collection-level auth at the top level is inherited by every
-  // request that doesn't override. We'd need a full inheritance
-  // walker to apply it correctly; v1 only applies auth declared on
-  // the request itself. Log as a transform so users know.
-  if (collection.auth?.type && collection.auth.type !== 'noauth') {
-    recordTransform(report, {
-      path: 'collection.auth',
-      from: `collection default: ${collection.auth.type}`,
-      to: 'ignored',
-      reason:
-        'Collection-level default auth inheritance not supported; set auth on each request (or the folder) instead.',
-      tracking: '#todo-auth-inheritance',
-    });
-  }
+  // Collection-level default auth lands on the collection's own auth
+  // slot — requests importing as `inherit` resolve it up the ancestor
+  // chain at send time, matching the vendor's inheritance natively.
+  // An `inherit` result means nothing was configured at this level
+  // (absent block, or an unmappable one that dropped with its note).
+  const { auth: collectionAuth } = resolveAuth(collection.auth, { type: 'inherit' }, 'collection.auth', report);
 
   // Collection-level protocol settings would need inheritance to apply
   // to requests — note instead of silently ignoring.
@@ -110,6 +103,7 @@ export function parsePostman(input: string, options: PostmanParseOptions = {}): 
     ...(collectionScripts.postResponseScript !== undefined
       ? { collectionPostResponseScript: collectionScripts.postResponseScript }
       : {}),
+    ...(collectionAuth.type !== 'inherit' ? { collectionAuth } : {}),
     folders,
     requests,
     report,
@@ -139,22 +133,16 @@ function walkItems(
       // Folder-level scripts land on the folder's ancestor script
       // slots — same translation + landing as the collection level.
       const folderScripts = buildScriptFields(item.event, jsonPath, report);
+      // Folder-level default auth lands on the folder's own auth slot —
+      // same native inheritance landing as the collection level. An
+      // `inherit` result means nothing was configured here.
+      const { auth: folderAuth } = resolveAuth(item.auth, { type: 'inherit' }, `${jsonPath}.auth`, report);
       folders.push({
         path,
         description: textOf(item.description),
         ...folderScripts,
+        ...(folderAuth.type !== 'inherit' ? { auth: folderAuth } : {}),
       });
-
-      // Folder-level auth (same inheritance limitation as collection level).
-      if (item.auth?.type && item.auth.type !== 'noauth') {
-        recordTransform(report, {
-          path: `${jsonPath}.auth`,
-          from: `folder default: ${item.auth.type}`,
-          to: 'ignored',
-          reason: 'Folder-level default auth inheritance not supported; set auth on each request instead.',
-          tracking: '#todo-auth-inheritance',
-        });
-      }
 
       recordAncestorProtocolBehavior(item.protocolProfileBehavior, 'folder', jsonPath, report);
 
@@ -189,7 +177,9 @@ function tryConvertRequest(
   // marker otherwise.
   const scripts = buildScriptFields(item.event, jsonPath, report);
 
-  // `request` can be a string shorthand for GET <url>.
+  // `request` can be a string shorthand for GET <url>. It carries no
+  // auth block, so it inherits from its ancestors like any other
+  // request without one.
   if (typeof item.request === 'string') {
     const { base, params } = splitUrl(item.request);
     const itemDescription = textOf(item.description);
@@ -201,7 +191,7 @@ function tryConvertRequest(
         url: base,
         headers: [],
         params,
-        auth: { type: 'none' },
+        auth: { type: 'inherit' },
         body: { type: 'none' },
         ...scripts,
       },
@@ -228,7 +218,11 @@ function tryConvertRequest(
   // Promote Authorization header BEFORE layering the explicit auth
   // on top — explicit Postman auth wins over any implicit header.
   const { auth: authFromHeader, headers: headersWithoutAuth } = promoteAuthHeader(headerCollection);
-  const { auth: finalAuth } = resolveAuth(req.auth, authFromHeader, jsonPath, report);
+  // A request with no auth block (and no promoted header) inherits
+  // from its ancestors in the vendor model — it imports as `inherit`
+  // so the collection/folder default auth applies at send time.
+  const requestFallback: AuthConfig = authFromHeader.type === 'none' ? { type: 'inherit' } : authFromHeader;
+  const { auth: finalAuth } = resolveAuth(req.auth, requestFallback, `${jsonPath}.request.auth`, report);
   const body = buildBody(req.body, headersWithoutAuth, jsonPath, report);
   const settings = mapProtocolProfileBehavior(item.protocolProfileBehavior, jsonPath, report);
 

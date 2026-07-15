@@ -34,7 +34,7 @@ import {
   parsePostmanBackup,
   recordDrop,
 } from '@openheaders/core/import';
-import type { Request, RequestHeader, Variable } from '@openheaders/core/types';
+import type { AuthConfig, Request, RequestHeader, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, App as AntApp, Button, Divider, Input, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -55,7 +55,9 @@ interface SectionedCollection {
    *  them; Insomnia/Bruno parsers keep their own drop notes). */
   preRequestScript?: string;
   postResponseScript?: string;
-  folders: Array<{ path: string[]; preRequestScript?: string; postResponseScript?: string }>;
+  /** Collection-level default auth (Postman backups carry it). */
+  auth?: AuthConfig;
+  folders: Array<{ path: string[]; preRequestScript?: string; postResponseScript?: string; auth?: AuthConfig }>;
   requests: Array<{ folderPath: string[]; request: CurlRequest }>;
 }
 
@@ -118,6 +120,7 @@ function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse
           ...(c.collectionPostResponseScript !== undefined
             ? { postResponseScript: c.collectionPostResponseScript }
             : {}),
+          ...(c.collectionAuth !== undefined ? { auth: c.collectionAuth } : {}),
           folders: c.folders,
           requests: c.requests,
         })),
@@ -167,6 +170,10 @@ interface ImportSectionedModalProps {
     folderUid: string,
     scripts: { preRequestScript?: string; postResponseScript?: string },
   ) => Promise<boolean>;
+  /** Lands collection-level default auth on a new collection. */
+  setCollectionAuth?: (collectionUid: string, auth: AuthConfig) => Promise<boolean>;
+  /** Lands folder-level default auth on a new folder. */
+  setFolderAuth?: (folderUid: string, auth: AuthConfig) => Promise<boolean>;
   createRequest: (payload: {
     name: string;
     parentPath: string;
@@ -223,6 +230,8 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   createFolder,
   setCollectionScripts,
   setFolderScripts,
+  setCollectionAuth,
+  setFolderAuth,
   createRequest,
   createEnvironment,
   createHeaderRules,
@@ -317,6 +326,9 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
             ...(section.postResponseScript !== undefined ? { postResponseScript: section.postResponseScript } : {}),
           });
         }
+        if (setCollectionAuth && section.auth !== undefined) {
+          await setCollectionAuth(coll.uid, section.auth);
+        }
         const folderPathMap = new Map<string, string>();
         folderPathMap.set('', coll.path);
         const sortedFolders = [...section.folders].sort((a, b) => a.path.length - b.path.length);
@@ -333,6 +345,9 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
                 ...(f.preRequestScript !== undefined ? { preRequestScript: f.preRequestScript } : {}),
                 ...(f.postResponseScript !== undefined ? { postResponseScript: f.postResponseScript } : {}),
               });
+            }
+            if (setFolderAuth && f.auth !== undefined) {
+              await setFolderAuth(created.uid, f.auth);
             }
           }
         }
@@ -422,6 +437,8 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
     createFolder,
     setCollectionScripts,
     setFolderScripts,
+    setCollectionAuth,
+    setFolderAuth,
     createRequest,
     createEnvironment,
     createHeaderRules,

@@ -116,15 +116,92 @@ describe('collection metadata', () => {
     expect(result.report.transforms.filter((t) => t.path.includes('collection.event'))).toHaveLength(2);
   });
 
-  it('flags ignored collection-level auth as a transform', () => {
+  it('lands collection-level auth on the collection auth slot (no transform note)', () => {
     const result = parsePostman(
       postmanCollection({
         auth: { type: 'bearer', bearer: [{ key: 'token', value: 'xyz' }] },
       }),
     );
-    const t = result.report.transforms.find((t) => t.path === 'collection.auth');
-    expect(t).toBeDefined();
-    expect(t?.to).toBe('ignored');
+    expect(result.collectionAuth).toEqual({ type: 'bearer', token: 'xyz' });
+    expect(result.report.transforms.find((t) => t.path === 'collection.auth')).toBeUndefined();
+  });
+
+  it('omits collectionAuth when the collection has no auth block', () => {
+    const result = parsePostman(postmanCollection({}));
+    expect(result.collectionAuth).toBeUndefined();
+  });
+
+  it("maps a collection's explicit noauth to a `none` carrier", () => {
+    const result = parsePostman(postmanCollection({ auth: { type: 'noauth' } }));
+    expect(result.collectionAuth).toEqual({ type: 'none' });
+  });
+
+  it('lands folder-level auth on the folder entry', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'Tokens',
+            auth: {
+              type: 'basic',
+              basic: [
+                { key: 'username', value: 'svc' },
+                { key: 'password', value: 'pw' },
+              ],
+            },
+            item: [{ name: 'R', request: { method: 'GET', url: 'https://api.openheaders.io/x' } }],
+          },
+        ],
+      }),
+    );
+    expect(result.folders[0]?.auth).toEqual({ type: 'basic', username: 'svc', password: 'pw' });
+  });
+
+  it('an unmappable folder auth drops with a note and lands `none` (never inherit)', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'Signed',
+            auth: { type: 'awsv4' },
+            item: [{ name: 'R', request: { method: 'GET', url: 'https://api.openheaders.io/x' } }],
+          },
+        ],
+      }),
+    );
+    expect(result.folders[0]?.auth).toEqual({ type: 'none' });
+    const drop = result.report.drops.find((d) => d.path === 'collection.item[0].auth');
+    expect(drop?.tracking).toBe('#todo-aws-sigv4');
+  });
+
+  it("maps a request's explicit noauth to `none`, not inherit", () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          { name: 'X', request: { method: 'GET', url: 'https://api.openheaders.io/x', auth: { type: 'noauth' } } },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
+  });
+
+  it('a promoted Authorization header still wins over an explicit noauth block', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              header: [{ key: 'Authorization', value: 'Bearer tok-1' }],
+              auth: { type: 'noauth' },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({ type: 'bearer', token: 'tok-1' });
   });
 });
 
@@ -1552,7 +1629,9 @@ describe('edge cases', () => {
         url: 'https://api.openheaders.io/x',
         headers: [],
         params: [],
-        auth: { type: 'none' },
+        // No auth block and no promoted header — the request inherits
+        // its ancestors' default auth, matching the vendor semantic.
+        auth: { type: 'inherit' },
         body: { type: 'none' },
       });
     });
@@ -1759,7 +1838,8 @@ describe('edge cases', () => {
           ],
         }),
       );
-      expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
+      // Not promoted — and with no authored auth the request inherits.
+      expect(result.requests[0]?.request.auth).toEqual({ type: 'inherit' });
       // Empty auth header stays in the list so the user can edit it.
       expect(stripUids(result.requests[0]!.request.headers)).toContainEqual({ key: 'Authorization', value: '' });
     });

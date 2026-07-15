@@ -316,6 +316,47 @@ describe('materializePostmanPull', () => {
     expect(report.drops.filter((d) => d.tracking === '#todo-scripts')).toHaveLength(0);
   });
 
+  it('lands collection + folder default auth on their auth slots — no inheritance transform', async () => {
+    const authJson = JSON.stringify({
+      info: { name: 'Authed', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+      auth: { type: 'bearer', bearer: [{ key: 'token', value: '{{auth_token}}' }] },
+      item: [
+        {
+          name: 'Admin',
+          auth: {
+            type: 'basic',
+            basic: [
+              { key: 'username', value: 'svc' },
+              { key: 'password', value: 'pw' },
+            ],
+          },
+          item: [{ name: 'Ping', request: { method: 'GET', url: 'https://api.openheaders.io/ping' } }],
+        },
+      ],
+    });
+    await materializePostmanPull(
+      pullResult({
+        collections: [{ item: 'collection', id: 'c-au', name: 'Authed', json: authJson, workspaceIds: ['pm-ws-1'] }],
+        environments: [],
+      }),
+      { ensureWorkspaceFor },
+    );
+
+    const [collection] = snapshotRequestCollectionPostStates(wsId).map((ps) => ps.collection);
+    expect(collection.auth).toEqual({ type: 'bearer', token: '{{auth_token}}' });
+
+    const [folder] = snapshotRequestFolderPostStates(wsId).map((ps) => ps.folder);
+    expect(folder.auth).toEqual({ type: 'basic', username: 'svc', password: 'pw' });
+
+    // The request without its own auth imports as `inherit` — the
+    // ancestor carriers resolve it at send time.
+    const [request] = snapshotRequestPostStates(wsId).map((ps) => ps.request);
+    expect(request.auth).toEqual({ type: 'inherit' });
+
+    const [report] = await readRecordedReports();
+    expect(report.transforms.filter((t) => t.tracking === '#todo-auth-inheritance')).toHaveLength(0);
+  });
+
   it('records ONE aggregated report with a sourceHash in the landing workspace ring', async () => {
     await materializePostmanPull(
       pullResult({

@@ -60,6 +60,7 @@ import { buildDeleteRequestCollectionBatch } from '@openheaders/core/sync-builde
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderEntityBatch,
+  buildSetRequestFolderAuthBatch,
   buildSetRequestFolderScriptsBatch,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import {
@@ -296,12 +297,13 @@ async function materializeCollection(
     })),
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
-    // Ancestor script slots ride the create shell — the seed batch
-    // carries the whole collection literal.
+    // Ancestor script slots + default auth ride the create shell — the
+    // seed batch carries the whole collection literal.
     ...(parsed.collectionPreRequestScript !== undefined ? { preRequestScript: parsed.collectionPreRequestScript } : {}),
     ...(parsed.collectionPostResponseScript !== undefined
       ? { postResponseScript: parsed.collectionPostResponseScript }
       : {}),
+    ...(parsed.collectionAuth !== undefined ? { auth: parsed.collectionAuth } : {}),
   };
   const collectionCtx = mintCtx();
   if (!collectionCtx) throw new Error('landing workspace is not loaded on this host');
@@ -342,6 +344,17 @@ async function materializeCollection(
         }
         const scriptsIntent = buildSetRequestFolderScriptsBatch({ folderUid, updates }, scriptsCtx);
         await applyMigrationMutation(scriptsIntent.batch, scriptsIntent.sideEffects);
+      }
+      // Folder-level default auth lands as a follow-up batch too — the
+      // fresh folder has no prior auth, so the diff baseline is absent.
+      if (folder.auth !== undefined) {
+        const authCtx = mintCtx();
+        if (!authCtx) throw new Error('landing workspace is not loaded on this host');
+        const authIntent = buildSetRequestFolderAuthBatch(
+          { folderUid, auth: folder.auth, currentAuth: undefined },
+          authCtx,
+        );
+        await applyMigrationMutation(authIntent.batch, authIntent.sideEffects);
       }
       folderMap.set(folder.path.join('/'), {
         type: 'request-folder',

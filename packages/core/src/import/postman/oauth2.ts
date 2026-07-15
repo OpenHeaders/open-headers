@@ -84,14 +84,14 @@ function extraParamsOf(raw: unknown): Array<{ uid: string; key: string; value: s
  * grant isn't shipped yet or the config is missing the endpoints the
  * flow cannot run without.
  */
-export function resolveOAuth2Auth(raw: PostmanAuth, jsonPath: string, report: ImportReport): AuthConfig | null {
+export function resolveOAuth2Auth(raw: PostmanAuth, authPath: string, report: ImportReport): AuthConfig | null {
   const params = rawParamMap(raw.oauth2);
   const grantType = stringOf(params, 'grant_type') ?? 'authorization_code';
 
   const flow = shippedFlowOf(grantType);
   if (flow === null) {
     recordDrop(report, {
-      path: `${jsonPath}.request.auth`,
+      path: authPath,
       reason: `OAuth 2.0 "${grantType}" grant not imported — only PKCE, client-credentials, and device-code flows ship today.`,
       tracking: '#todo-oauth-grants',
     });
@@ -106,7 +106,7 @@ export function resolveOAuth2Auth(raw: PostmanAuth, jsonPath: string, report: Im
       ...(clientId === undefined ? ['client id'] : []),
     ].join(' + ');
     recordDrop(report, {
-      path: `${jsonPath}.request.auth`,
+      path: authPath,
       reason: `OAuth 2.0 config not imported — the ${missing} is missing, and the flow cannot run without it.`,
       tracking: 'PERMANENT: OAuth 2.0 config completeness',
     });
@@ -127,7 +127,7 @@ export function resolveOAuth2Auth(raw: PostmanAuth, jsonPath: string, report: Im
   const leftovers = [...params.keys()].filter((key) => !CONSUMED_KEYS.has(key) && !isIgnorableDefault(params, key));
   if (leftovers.length > 0) {
     recordDrop(report, {
-      path: `${jsonPath}.request.auth.oauth2`,
+      path: `${authPath}.oauth2`,
       reason: `OAuth 2.0 parameter${leftovers.length === 1 ? '' : 's'} without a counterpart (${leftovers.join(', ')}) — review the imported config before the first send.`,
       tracking: '#todo-oauth-params',
     });
