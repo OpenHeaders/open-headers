@@ -42,6 +42,7 @@ import type { Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
+import type { WireFetchResult, WirePlan } from '@/shared/wire-fetch/plan';
 import { recordLog } from './observability-log';
 
 // The absolute request executor import is deferred via a getter to
@@ -244,6 +245,62 @@ export async function runScript(opts: RunScriptOptions): Promise<ScriptExecution
     return result;
   } finally {
     chainExecutionIds.delete(executionId);
+    inFlight -= 1;
+    if (inFlight <= 0) scheduleIdleClose();
+  }
+}
+
+/** Ceiling on the wire-fetch reply transport when the plan carries no
+ *  timeout of its own — a plan `timeoutMs` aborts inside the offscreen
+ *  document well before this fires. */
+const WIRE_FETCH_TRANSPORT_TIMEOUT_MS = 300_000;
+
+/**
+ * Run a serialized wire fetch inside the offscreen document — the
+ * certificate-exception retry path (see shared/wire-fetch). Shares the
+ * script host's document lifecycle: spawn on demand, in-flight
+ * counting, idle close.
+ */
+export async function runWireFetch(plan: WirePlan): Promise<WireFetchResult> {
+  await ensureOffscreen();
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+  inFlight += 1;
+  try {
+    const timeoutMs = plan.timeoutMs !== undefined ? plan.timeoutMs + 10_000 : WIRE_FETCH_TRANSPORT_TIMEOUT_MS;
+    const transport = new Promise<WireFetchResult>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`offscreen wire.fetch transport timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+      chrome.runtime
+        .sendMessage({ target: 'offscreen', type: 'wire.fetch', plan })
+        .then((reply: unknown) => {
+          clearTimeout(timer);
+          if (!reply || typeof reply !== 'object' || typeof (reply as WireFetchResult).ok !== 'boolean') {
+            reject(new Error('offscreen returned no reply for wire.fetch'));
+            return;
+          }
+          resolve(reply as WireFetchResult);
+        })
+        .catch((err: Error) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+    return await transport;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    recordLog({
+      subsystem: 'request-executor',
+      op: 'wire-fetch-offscreen',
+      level: 'error',
+      message: `wire.fetch transport failed for ${plan.url}: ${message}`,
+      context: {},
+    });
+    return { ok: false, message };
+  } finally {
     inFlight -= 1;
     if (inFlight <= 0) scheduleIdleClose();
   }

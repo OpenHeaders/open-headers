@@ -240,7 +240,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           {/* While a retry is in flight, the pane goes back to "Sending…"
               instead of leaving the stale failure on screen. */}
           {response && !sending ? (
-            <ResponseErrorState error={response.error ?? ''} hint={response.errorHint} />
+            <ResponseErrorState error={response.error ?? ''} hint={response.errorHint} layout={layout} />
           ) : (
             <ResponseEmptyState sending={sending} />
           )}

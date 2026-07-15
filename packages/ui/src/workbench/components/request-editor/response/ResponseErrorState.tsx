@@ -4,21 +4,34 @@
  * empty Body/Headers tab set with the error crammed into the header.
  * Mirrors ResponseEmptyState's centered grey-icon layout so the two
  * placeholder states read as one family.
+ *
+ * Certificate rejections (`open-in-tab` hint) additionally render the
+ * CertTrustSteps walkthrough — open in tab → accept warning → resend —
+ * laid out to match the pane's shape: a stacked editor split gives a
+ * wide pane (steps in a row), a side-by-side split a narrow one
+ * (steps stacked).
  */
 
-import { DisconnectOutlined, ExportOutlined } from '@ant-design/icons';
+import { DisconnectOutlined } from '@ant-design/icons';
 import type { ExecutedRequestErrorHint } from '@openheaders/core/types';
-import { Button, Typography, theme } from 'antd';
+import { Typography, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { RequestEditorLayout } from '../useRequestEditorLayout';
+import CertTrustSteps from './CertTrustSteps';
 
 const { Text } = Typography;
 
-const ResponseErrorState: React.FC<{ error: string; hint?: ExecutedRequestErrorHint }> = ({ error, hint }) => {
+const ResponseErrorState: React.FC<{
+  error: string;
+  hint?: ExecutedRequestErrorHint;
+  layout: RequestEditorLayout;
+}> = ({ error, hint, layout }) => {
   const { token } = theme.useToken();
   const t = useT();
   return (
     <div
+      className="rules-thin-scrollbar"
       style={{
         flex: 1,
         display: 'flex',
@@ -29,6 +42,7 @@ const ResponseErrorState: React.FC<{ error: string; hint?: ExecutedRequestErrorH
         minHeight: 0,
         padding: 24,
         textAlign: 'center',
+        overflowY: 'auto',
       }}
     >
       <DisconnectOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
@@ -39,14 +53,10 @@ const ResponseErrorState: React.FC<{ error: string; hint?: ExecutedRequestErrorH
         {error}
       </Text>
       {hint?.kind === 'open-in-tab' && (
-        <Button
-          size="small"
-          icon={<ExportOutlined />}
-          data-testid="oh-response-error-open-tab"
-          onClick={() => window.open(hint.url, '_blank', 'noopener')}
-        >
-          {t('workbench.editors.request.response.error.openInTab')}
-        </Button>
+        // Split vocabulary: layout 'vertical' stacks the panes, so the
+        // response pane spans the editor's width → steps fit in a row;
+        // 'horizontal' puts the panes side-by-side → stack the steps.
+        <CertTrustSteps url={hint.url} direction={layout === 'vertical' ? 'horizontal' : 'vertical'} />
       )}
     </div>
   );

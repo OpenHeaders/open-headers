@@ -80,8 +80,12 @@ function describeNetError(
     const localNote = local
       ? ' Local dev servers usually run with a self-signed certificate, which the browser rejects before the request is sent.'
       : '';
+    // With a hint attached the response pane renders the trust-steps
+    // walkthrough, so the message stays factual; without one the
+    // guidance rides in prose.
+    const guidance = hint ? '' : ' Open the URL in a new tab, accept the certificate warning, then retry.';
     return {
-      message: `${host} presented an untrusted or invalid certificate (${code}).${localNote} Open the URL in a new tab, accept the certificate warning, then retry.`,
+      message: `${host} presented an untrusted or invalid certificate (${code}).${localNote}${guidance}`,
       ...(hint ? { hint } : {}),
     };
   }
@@ -135,12 +139,14 @@ export function classifyFetchFailure(url: string, rawMessage: string, netError?:
   }
   const looksLocal = looksLocalHostname(hostname);
   if (looksLocal && isHttps) {
+    // Hint always set on this branch (https) — the response pane
+    // renders the trust-steps walkthrough, so no prose step list here.
     return {
       message:
         `Could not reach ${hostname} over HTTPS. Local HTTPS endpoints usually fail here because the ` +
         'development certificate is self-signed — the browser rejects untrusted certificates before the ' +
-        'request is sent. Open the URL in a new tab, accept the certificate warning, then retry. ' +
-        'If the tab loads cleanly, check that the service is running and serves HTTPS on this port.',
+        'request is sent. If the URL loads cleanly in a tab, check that the service is running and serves ' +
+        'HTTPS on this port.',
       hint,
     };
   }

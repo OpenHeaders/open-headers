@@ -14,8 +14,11 @@ import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
+import { base64ToBytes } from '@/shared/wire-fetch/plan';
 import { recordLog } from '../observability-log';
+import { graphqlWireText } from './body';
 import { classifyFetchFailure } from './failure-classify';
+import { isCertRejection, retryCertRejectedFetch } from './offscreen-retry';
 import type { ResolvedRequest } from './resolve';
 import {
   estimateMultipartBytes,
@@ -159,26 +162,9 @@ export async function executeResolved(
       bodyBytes = stringBodyBytes(req.body.content);
       break;
     case 'graphql': {
-      // GraphQL HTTP transport (https://graphql.org/learn/serving-over-http/):
-      // the wire body is `{"query": "...", "variables": {...}}` —
-      // application/json. Sending the raw query string verbatim is what
-      // the executor used to do; no GraphQL server accepts that.
-      // `graphqlVariables` is JSON text the user typed; embed it as
-      // parsed JSON when valid so the wire body has a real `variables`
-      // object, falling back to omitting the field on parse failure
-      // (better to send `{query}` than a malformed wire body that
-      // crashes the server JSON parser).
-      const wire: { query: string; variables?: unknown } = { query: req.body.content };
-      const variablesText = req.body.graphqlVariables?.trim();
-      if (variablesText) {
-        try {
-          wire.variables = JSON.parse(variablesText);
-        } catch {
-          // Leave `variables` unset; the server sees `{query}` which
-          // most accept as "no variables" rather than 400.
-        }
-      }
-      const wireText = JSON.stringify(wire);
+      // GraphQL wire fold — see graphqlWireText: `{"query", "variables"}`
+      // as application/json, shared with the offscreen wire-plan builder.
+      const wireText = graphqlWireText(req.body.content, req.body.graphqlVariables);
       init.body = wireText;
       bodyBytes = stringBodyBytes(wireText);
       break;
@@ -324,6 +310,42 @@ export async function executeResolved(
     let netError: string | undefined;
     if (isGenericFetchFail) {
       netError = await wireCapture.settleNetError();
+      // Certificate-family rejection: Chromium never honors a user-
+      // accepted certificate exception for a SW fetch, but it does for
+      // a document — re-run the exchange inside the offscreen document
+      // so "open in tab → accept the warning → retry" actually works
+      // (see offscreen-retry.ts). Falls through to the classified error
+      // when the retry can't do better.
+      if (isCertRejection(netError)) {
+        const capBytes = maxBodyBytes();
+        const retried = await retryCertRejectedFetch(req, capBytes);
+        if (retried) {
+          const { body, bodyEncoding } = materializeBody(base64ToBytes(retried.bodyBase64), retried.truncated);
+          if (!options.silentStatus) {
+            reportStatus({
+              subsystem: 'requests',
+              state: 'green',
+              message: `Last request: ${retried.status} ${retried.statusText || 'OK'}`,
+            });
+          }
+          return {
+            status: retried.status,
+            statusText: retried.statusText,
+            url: retried.url,
+            headers: retried.headers,
+            body,
+            ...(bodyEncoding ? { bodyEncoding } : {}),
+            bodyTruncated: retried.truncated,
+            ...(retried.truncated ? { bodyCapBytes: capBytes } : {}),
+            bodyBytes: retried.bodyBytes,
+            durationMs: retried.durationMs,
+            requestSize,
+            ...(requestBodyOmitted ? { requestBodyOmitted: true } : {}),
+            error: null,
+            scripts: null,
+          };
+        }
+      }
     } else {
       wireCapture.cancel();
     }

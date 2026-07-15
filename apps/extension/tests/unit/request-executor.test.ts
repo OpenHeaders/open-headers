@@ -522,7 +522,9 @@ describe('fetch-failure classification', () => {
       expect(res.status).toBe(0);
       expect(res.error).toContain('localhost');
       expect(res.error).toMatch(/self-signed|certificate/i);
-      expect(res.error).toMatch(/accept the certificate/i);
+      // Step-by-step guidance moved out of the prose — the hint drives
+      // the response pane's CertTrustSteps walkthrough instead.
+      expect(res.error).toMatch(/untrusted certificates/i);
       expect(res.errorHint).toEqual({ kind: 'open-in-tab', url: 'https://localhost:8080/v1/workspaces/123/rules' });
     } finally {
       vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {

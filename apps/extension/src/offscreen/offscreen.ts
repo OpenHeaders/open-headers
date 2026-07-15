@@ -18,6 +18,9 @@
  * Message tags on the `chrome.runtime` boundary:
  *   • `{ target: 'offscreen', type: 'script.execute', ... }` —
  *     SW asks us to run a script.
+ *   • `{ target: 'offscreen', type: 'wire.fetch', ... }` —
+ *     SW asks us to run a wire fetch in this document context (the
+ *     certificate-exception retry — see shared/wire-fetch).
  *   • `{ target: 'background', type: 'script.host-request', ... }` —
  *     sandbox asked for an `oh.*` operation we must bounce to the SW.
  *
@@ -31,6 +34,8 @@ import type {
   ScriptHostRequest,
   ScriptHostResponse,
 } from '@openheaders/core/scripts';
+import { executeWirePlan } from '@/shared/wire-fetch/execute-plan';
+import type { WirePlan } from '@/shared/wire-fetch/plan';
 
 type PendingExec = (result: ScriptExecutionResult) => void;
 const pendingExecs = new Map<string, PendingExec>();
@@ -101,7 +106,12 @@ window.addEventListener('message', (ev) => {
 // SW → offscreen messages (execute + teardown).
 chrome.runtime.onMessage.addListener(
   (message: unknown, _sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
-    const msg = message as { target?: string; type?: string; request?: ScriptExecutionRequest } | null;
+    const msg = message as {
+      target?: string;
+      type?: string;
+      request?: ScriptExecutionRequest;
+      plan?: WirePlan;
+    } | null;
     if (!msg || msg.target !== 'offscreen') return;
 
     if (msg.type === 'script.execute' && msg.request) {
@@ -120,6 +130,16 @@ chrome.runtime.onMessage.addListener(
         const result = await resultPromise;
         sendResponse(result);
       })();
+      return true; // async reply
+    }
+
+    if (msg.type === 'wire.fetch' && msg.plan) {
+      // Certificate-retry wire fetch — runs in THIS document context
+      // (not the sandbox iframe) because the whole point is the page
+      // context: Chromium honors user-accepted certificate exceptions
+      // for document-associated requests only, never for SW fetches.
+      // See shared/wire-fetch/execute-plan.ts.
+      void executeWirePlan(msg.plan).then(sendResponse);
       return true; // async reply
     }
 

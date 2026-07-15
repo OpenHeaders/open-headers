@@ -1066,6 +1066,11 @@ export const workbenchEditors = {
   'workbench.editors.request.response.empty.prompt': 'Send the request to see the response here.',
   'workbench.editors.request.response.error.title': 'Could not send request',
   'workbench.editors.request.response.error.openInTab': 'Open in new tab',
+  'workbench.editors.request.response.error.certSteps.step1': 'Open the URL in a new tab',
+  'workbench.editors.request.response.error.certSteps.step2': 'Accept the certificate warning',
+  'workbench.editors.request.response.error.certSteps.step2DetailChromium': 'Advanced → Proceed (unsafe)',
+  'workbench.editors.request.response.error.certSteps.step2DetailFirefox': 'Advanced… → Accept the Risk and Continue',
+  'workbench.editors.request.response.error.certSteps.step3': 'Send the request again',
 
   // ── Response-example editor ────────────────────────────────────────
   'workbench.editors.responseExample.loading': 'Loading example…',
