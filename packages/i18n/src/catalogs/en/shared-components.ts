@@ -423,4 +423,9 @@ export const sharedComponents = {
   'shared.docs.surfaces.workbench': 'Workbench',
   'shared.docs.surfaces.devtools': 'DevTools',
   'shared.docs.engineScript': 'Script-based',
+
+  // ── Split-layout orientation (shared/split-layout) — overflow-menu
+  //    entries for the two-pane split direction. ─────────────────────
+  'shared.splitLayout.horizontal': 'Horizontal layout — side by side',
+  'shared.splitLayout.vertical': 'Vertical layout — stacked',
 } as const satisfies Catalog;

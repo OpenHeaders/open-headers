@@ -1,12 +1,12 @@
 /**
  * ResponsePanel — the response half of the request editor split.
  *
- * Always mounted (so the divider + layout toggle are reachable before
- * the first Send); shows an empty-state until a response arrives. With
- * a response, the whole header is ONE row — the tab bar itself: tabs
- * on the left, then meta strip, the "use response in workflow" action,
- * orientation toggle and a ⋯ menu (Copy / Save body, Clear response)
- * on the right. Each tab's body is its own view component
+ * Always mounted (so the divider + orientation menu are reachable
+ * before the first Send); shows an empty-state until a response
+ * arrives. With a response, the whole header is ONE row — the tab bar
+ * itself: tabs on the left, then meta strip, the "use response in
+ * workflow" action and a ⋯ menu (Copy / Save body, Clear response,
+ * split orientation) on the right. Each tab's body is its own view component
  * (Body · Headers · Cookies · Assertions · Console), the latter tabs
  * appearing only when the response carries that data.
  */
@@ -40,7 +40,7 @@ import { setCookieLinesOf } from './response-cookies';
 import { detectBodyLanguage } from './response-format';
 import { withWireCookieHeaders } from './response-headers';
 import { downloadBodyAsFile } from './response-save';
-import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
+import { useSplitLayoutMenuItems } from '@openheaders/ui/shared/split-layout';
 
 const { Text } = Typography;
 
@@ -173,6 +173,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   );
   const [activeTab, setActiveTab] = useState<ResponseTabKey>('body');
   const [bodyCopied, setBodyCopied] = useState(false);
+  const layoutMenuItems = useSplitLayoutMenuItems(layout, onLayoutChange);
 
   const copyBody = () => {
     if (!response) return;
@@ -234,7 +235,14 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                   {t('workbench.editors.request.response.clear')}
                 </Button>
               )}
-              <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
+              <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} overlayStyle={{ minWidth: 220 }}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<EllipsisOutlined />}
+                  aria-label={t('workbench.editors.request.response.moreActionsAria')}
+                />
+              </Dropdown>
             </div>
           </div>
           {/* While a retry is in flight, the pane goes back to "Sending…"
@@ -267,9 +275,9 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                 ) : extractRequiresSave ? (
                   <CreateWorkflowNeedsSave />
                 ) : null}
-                <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
                 <Dropdown
                   trigger={['click']}
+                  overlayStyle={{ minWidth: 220 }}
                   menu={{
                     items: [
                       {
@@ -295,6 +303,8 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                         label: t('workbench.editors.request.response.clearResponse'),
                         onClick: onClear,
                       },
+                      { type: 'divider' },
+                      ...layoutMenuItems,
                     ],
                   }}
                 >
