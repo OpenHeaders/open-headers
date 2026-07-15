@@ -24,3 +24,11 @@ export {
   parseDigestChallenges,
   selectDigestChallenge,
 } from './http-digest';
+export {
+  buildOAuth1SignatureBaseString,
+  type OAuth1Credentials,
+  type OAuth1SignatureMethod,
+  type OAuth1SignInput,
+  type OAuth1SignResult,
+  signOAuth1,
+} from './oauth1';

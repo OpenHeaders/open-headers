@@ -75,6 +75,15 @@ export function collectRequestTemplateStrings(request: Request): string[] {
       if (request.auth.username) out.push(request.auth.username);
       if (request.auth.password) out.push(request.auth.password);
       break;
+    case 'oauth1':
+      // Credential fields are templatable — `{{vault.consumer_secret}}`
+      // is the expected idiom for the key material.
+      if (request.auth.consumerKey) out.push(request.auth.consumerKey);
+      if (request.auth.consumerSecret) out.push(request.auth.consumerSecret);
+      if (request.auth.token) out.push(request.auth.token);
+      if (request.auth.tokenSecret) out.push(request.auth.tokenSecret);
+      if (request.auth.realm) out.push(request.auth.realm);
+      break;
   }
 
   // ── Body ──

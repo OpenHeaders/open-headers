@@ -118,3 +118,43 @@ describe('collectRequestTemplateStrings — aws-sigv4 auth', () => {
     expect(strings).toHaveLength(5);
   });
 });
+
+describe('collectRequestTemplateStrings — oauth1 auth', () => {
+  it('collects every credential field so vault-templated secrets gate resolution', () => {
+    const strings = collectRequestTemplateStrings(
+      makeRequest({
+        auth: {
+          type: 'oauth1',
+          consumerKey: '{{vault.oauth1_key}}',
+          consumerSecret: '{{vault.oauth1_secret}}',
+          token: '{{vault.oauth1_token}}',
+          tokenSecret: '{{vault.oauth1_token_secret}}',
+          signatureMethod: 'HMAC-SHA1',
+          paramsLocation: 'header',
+          realm: '{{env.OAUTH_REALM}}',
+        },
+      }),
+    );
+    expect(strings).toContain('{{vault.oauth1_key}}');
+    expect(strings).toContain('{{vault.oauth1_secret}}');
+    expect(strings).toContain('{{vault.oauth1_token}}');
+    expect(strings).toContain('{{vault.oauth1_token_secret}}');
+    expect(strings).toContain('{{env.OAUTH_REALM}}');
+  });
+
+  it('skips the absent token pair and realm on one-legged configs', () => {
+    const strings = collectRequestTemplateStrings(
+      makeRequest({
+        auth: {
+          type: 'oauth1',
+          consumerKey: 'ck_openheaders',
+          consumerSecret: 'cs_openheaders',
+          signatureMethod: 'HMAC-SHA1',
+          paramsLocation: 'query',
+        },
+      }),
+    );
+    expect(strings).toEqual(expect.arrayContaining(['ck_openheaders', 'cs_openheaders']));
+    expect(strings).toHaveLength(3);
+  });
+});

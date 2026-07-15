@@ -31,6 +31,10 @@
  *                                        request-completeness concern.
  *     · `digest`                       — `username` non-empty (password may
  *                                        be blank), mirroring basic.
+ *     · `oauth1`                       — `consumerKey` non-empty (the one
+ *                                        param every signed request must
+ *                                        carry; an empty consumer secret
+ *                                        is a legal signing key).
  */
 
 import { collectRequestTemplateStrings } from '../live/request-scan';
@@ -84,6 +88,11 @@ export function isRequestComplete(
       // legitimately be blank. Everything else (realm, nonce, algorithm,
       // qop) arrives on the server's challenge at send time.
       return auth.username.trim().length > 0;
+    case 'oauth1':
+      // `oauth_consumer_key` is the one param every signed request must
+      // carry; an empty consumer secret is a legal signing key and the
+      // token pair is absent on one-legged calls.
+      return auth.consumerKey.trim().length > 0;
   }
 }
 
@@ -103,7 +112,8 @@ export type RequestIncompleteReason =
   | 'aws-sigv4-missing-secret-key'
   | 'aws-sigv4-missing-service'
   | 'aws-sigv4-missing-region'
-  | 'digest-missing-username';
+  | 'digest-missing-username'
+  | 'oauth1-missing-consumer-key';
 
 // ── Variable-resolution gating ─────────────────────────────────────
 
@@ -164,5 +174,7 @@ export function requestIncompleteReason(
       return null;
     case 'digest':
       return auth.username.trim().length > 0 ? null : 'digest-missing-username';
+    case 'oauth1':
+      return auth.consumerKey.trim().length > 0 ? null : 'oauth1-missing-consumer-key';
   }
 }

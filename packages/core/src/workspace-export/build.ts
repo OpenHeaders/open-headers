@@ -139,6 +139,12 @@ function stripAuthSecrets<E extends { auth?: Request['auth'] }>(entity: E): E {
     const { sessionToken: _omitted, ...rest } = entity.auth;
     return { ...entity, auth: { ...rest, secretAccessKey: '' } };
   }
+  if (entity.auth?.type === 'oauth1') {
+    // Same shape as SigV4: the required `consumerSecret` blanks so the
+    // config stays schema-valid; the optional `tokenSecret` drops.
+    const { tokenSecret: _omitted, ...rest } = entity.auth;
+    return { ...entity, auth: { ...rest, consumerSecret: '' } };
+  }
   return entity;
 }
 

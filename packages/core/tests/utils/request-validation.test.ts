@@ -84,6 +84,19 @@ describe('isRequestComplete — auth', () => {
     expect(isRequestComplete(makeRequest({ auth: { ...full, region: '' } }))).toBe(false);
   });
 
+  it('oauth1: requires only a non-empty consumerKey', () => {
+    const full = {
+      type: 'oauth1' as const,
+      consumerKey: 'ck_openheaders',
+      consumerSecret: '{{vault.oauth1_secret}}',
+      signatureMethod: 'HMAC-SHA1' as const,
+      paramsLocation: 'header' as const,
+    };
+    expect(isRequestComplete(makeRequest({ auth: full }))).toBe(true);
+    expect(isRequestComplete(makeRequest({ auth: { ...full, consumerSecret: '' } }))).toBe(true);
+    expect(isRequestComplete(makeRequest({ auth: { ...full, consumerKey: ' ' } }))).toBe(false);
+  });
+
   it('oauth2: always complete at the request level (runtime token state is separate)', () => {
     expect(
       isRequestComplete(
@@ -163,6 +176,20 @@ describe('requestIncompleteReason', () => {
     expect(requestIncompleteReason(makeRequest({ auth: { ...full, service: '' } }))).toBe('aws-sigv4-missing-service');
     expect(requestIncompleteReason(makeRequest({ auth: { ...full, region: '' } }))).toBe('aws-sigv4-missing-region');
   });
+
+  it('reports oauth1-missing-consumer-key when the consumer key is blank', () => {
+    const full = {
+      type: 'oauth1' as const,
+      consumerKey: 'ck_openheaders',
+      consumerSecret: 'cs_openheaders',
+      signatureMethod: 'PLAINTEXT' as const,
+      paramsLocation: 'query' as const,
+    };
+    expect(requestIncompleteReason(makeRequest({ auth: full }))).toBeNull();
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, consumerKey: '' } }))).toBe(
+      'oauth1-missing-consumer-key',
+    );
+  });
 });
 
 // ── isRequestResolvable — reference-gating ─────────────────────────
@@ -239,12 +266,16 @@ describe('isRequestResolvable', () => {
     // Scoped lookup resolving the generator (the real resolver path)
     // passes the gate; a miss (unknown generator) blocks the send.
     expect(
-      isRequestResolvable(req, () => null, (name) => ({
-        name,
-        value: '1751500000',
-        scope: 'dynamic',
-        isSensitive: false,
-      })),
+      isRequestResolvable(
+        req,
+        () => null,
+        (name) => ({
+          name,
+          value: '1751500000',
+          scope: 'dynamic',
+          isSensitive: false,
+        }),
+      ),
     ).toBe(true);
     expect(
       isRequestResolvable(

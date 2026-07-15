@@ -303,6 +303,33 @@ describe('buildWorkspaceExport — strip rules', () => {
     expect(builtAuth.region).toBe('us-east-1');
   });
 
+  it('blanks OAuth1 consumerSecret and drops tokenSecret from request.auth', () => {
+    const input = baseInput();
+    input.entities.requests = [
+      makeRequest({
+        auth: {
+          type: 'oauth1',
+          consumerKey: 'ck_openheaders',
+          consumerSecret: 'super-sensitive-DO-NOT-EXPORT',
+          token: 'tok_openheaders',
+          tokenSecret: 'also-sensitive-DO-NOT-EXPORT',
+          signatureMethod: 'HMAC-SHA1',
+          paramsLocation: 'header',
+        },
+      }),
+    ];
+
+    const exp = buildWorkspaceExport(input);
+    const builtAuth = exp.entities.requests[0].auth;
+    expect(builtAuth.type).toBe('oauth1');
+    if (builtAuth.type !== 'oauth1') throw new Error('unreachable');
+    expect(builtAuth.consumerKey).toBe('ck_openheaders');
+    expect(builtAuth.consumerSecret).toBe('');
+    expect(builtAuth.token).toBe('tok_openheaders');
+    expect('tokenSecret' in builtAuth).toBe(false);
+    expect(builtAuth.signatureMethod).toBe('HMAC-SHA1');
+  });
+
   it('canonicalizes path via toFolderName(name, uid) regardless of input', () => {
     const input = baseInput();
     input.entities.environments = [makeEnvironment({ path: 'totally-wrong-path', name: 'Staging' })];

@@ -414,6 +414,36 @@ export const DigestAuthSchema = v.object({
   password: v.string(),
 });
 
+/**
+ * OAuth 1.0a request signing (RFC 5849). Like SigV4, nothing rides the
+ * wire verbatim: the executor derives the `oauth_*` protocol params by
+ * signing the FINAL wire shape just before dispatch, AFTER pre-request
+ * scripts have had their say. HMAC-SHA1 rides WebCrypto and PLAINTEXT
+ * needs no crypto, so both runtimes sign — the type is not host-gated.
+ * RSA-SHA1 is deliberately absent (rare, drags private-key management).
+ *
+ * `token`/`tokenSecret` are optional — one-legged calls
+ * (WooCommerce-style) have neither. Fields are plain strings (templates
+ * welcome — `{{vault.consumer_secret}}` is the expected idiom);
+ * completeness is a send-time gate, so partial configs stay saveable.
+ */
+export const OAuth1AuthSchema = v.object({
+  type: v.literal('oauth1'),
+  disabled: AuthDisabledSchema,
+  consumerKey: v.string(),
+  consumerSecret: v.string(),
+  token: v.optional(v.string()),
+  tokenSecret: v.optional(v.string()),
+  signatureMethod: v.picklist(['HMAC-SHA1', 'PLAINTEXT']),
+  /** Where the `oauth_*` protocol params ride: the `Authorization:
+   *  OAuth …` header or the URL's query string. The signature is
+   *  identical either way (RFC 5849 §3.5). */
+  paramsLocation: v.picklist(['header', 'query']),
+  /** Protection realm, echoed in the Authorization header (header mode
+   *  only); never signed. */
+  realm: v.optional(v.string()),
+});
+
 export const AuthConfigSchema = v.variant('type', [
   v.object({ type: v.literal('none'), disabled: AuthDisabledSchema }),
   v.object({ type: v.literal('inherit'), disabled: AuthDisabledSchema }),
@@ -438,6 +468,7 @@ export const AuthConfigSchema = v.variant('type', [
   OAuth2AuthSchema,
   AwsSigV4AuthSchema,
   DigestAuthSchema,
+  OAuth1AuthSchema,
 ]);
 
 export const RequestHeaderSchema = v.object({
