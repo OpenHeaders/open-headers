@@ -139,8 +139,10 @@ export {
   PostmanParseError,
   type PostmanParseOptions,
   type PostmanParseResult,
+  type PostmanScriptTranslation,
   parsePostman,
   parsePostmanEnvironment,
+  translatePostmanScript,
 } from './postman';
 export {
   type PostmanBackupCounts,

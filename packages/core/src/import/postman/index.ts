@@ -24,8 +24,11 @@
  *     `urlencoded`, `graphql`, `formdata` (text parts only — file
  *     parts tracked for §6 content-addressed storage). `file` /
  *     `binary` body modes DROPPED with tracking.
- *   • Scripts — `event: prerequest | test` DROPPED with tracking
- *     for §19 (scripts via offscreen document).
+ *   • Scripts — request-level `event: prerequest | test` translate to
+ *     the `oh.*` sandbox API (`./scripts`) and land on the request's
+ *     script slots; untranslatable ones import verbatim behind a
+ *     marker comment. Collection/folder-level scripts still drop with
+ *     tracking until those levels grow script slots.
  *   • Responses — saved `response[]` entries convert to Response
  *     Example payloads under `PostmanParseOptions.responseExamples`
  *     (`./responses`); consumers that can't mint examples yet keep a
@@ -58,6 +61,7 @@ export {
   parsePostmanEnvironment,
 } from './environment';
 export { parsePostman } from './parse';
+export { type PostmanScriptTranslation, translatePostmanScript } from './scripts';
 export {
   type PostmanCollectionVariable,
   type PostmanParsedExample,

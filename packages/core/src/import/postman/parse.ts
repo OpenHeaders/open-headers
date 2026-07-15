@@ -5,6 +5,7 @@ import { buildHeaders, promoteAuthHeader, resolveAuth } from './auth';
 import { buildBody } from './body';
 import { coerceMethod } from './method';
 import { buildExamples } from './responses';
+import { buildScriptFields, eventSource } from './scripts';
 import { mapProtocolProfileBehavior } from './settings';
 import type {
   PostmanCollection,
@@ -49,17 +50,11 @@ export function parsePostman(input: string, options: PostmanParseOptions = {}): 
   const collectionDescription = textOf(collection.info?.description) ?? '';
   const report = createReport('postman-v2.1', 0);
 
-  // Collection-level scripts — drop with one aggregate entry.
-  if (Array.isArray(collection.event) && collection.event.length > 0) {
-    for (const ev of collection.event) {
-      if (ev.disabled) continue;
-      recordDrop(report, {
-        path: `collection.event[${ev.listen}]`,
-        reason: `Collection-level ${ev.listen ?? 'unknown'} script not imported — pre-request/test scripts need the offscreen-document sandbox (§19).`,
-        tracking: '#todo-scripts',
-      });
-    }
-  }
+  // Collection-level scripts have no landing slot yet (the request
+  // slots exist; collection/folder slots are model work). Non-empty
+  // ones keep an honest drop; empty ones are vendor UI residue with
+  // no logic to lose and vanish silently.
+  recordAncestorScripts(collection.event, 'collection', 'collection', report);
 
   // Collection-level auth at the top level is inherited by every
   // request that doesn't override. We'd need a full inheritance
@@ -138,17 +133,9 @@ function walkItems(
         description: textOf(item.description),
       });
 
-      // Folder-level scripts.
-      if (Array.isArray(item.event) && item.event.length > 0) {
-        for (const ev of item.event) {
-          if (ev.disabled) continue;
-          recordDrop(report, {
-            path: `${jsonPath}.event[${ev.listen}]`,
-            reason: `Folder-level ${ev.listen ?? 'unknown'} script not imported — pre-request/test scripts need the offscreen-document sandbox (§19).`,
-            tracking: '#todo-scripts',
-          });
-        }
-      }
+      // Folder-level scripts — same no-landing-slot posture as the
+      // collection level.
+      recordAncestorScripts(item.event, 'folder', jsonPath, report);
 
       // Folder-level auth (same inheritance limitation as collection level).
       if (item.auth?.type && item.auth.type !== 'noauth') {
@@ -189,6 +176,11 @@ function tryConvertRequest(
 ): ConvertedItem | null {
   const name = (item.name ?? 'Untitled Request').trim() || 'Untitled Request';
 
+  // Item-level event scripts land on the request's script slots —
+  // translated to the oh.* API where possible, verbatim behind a
+  // marker otherwise.
+  const scripts = buildScriptFields(item.event, jsonPath, report);
+
   // `request` can be a string shorthand for GET <url>.
   if (typeof item.request === 'string') {
     const { base, params } = splitUrl(item.request);
@@ -203,6 +195,7 @@ function tryConvertRequest(
         params,
         auth: { type: 'none' },
         body: { type: 'none' },
+        ...scripts,
       },
     };
   }
@@ -230,18 +223,6 @@ function tryConvertRequest(
   const { auth: finalAuth } = resolveAuth(req.auth, authFromHeader, jsonPath, report);
   const body = buildBody(req.body, headersWithoutAuth, jsonPath, report);
   const settings = mapProtocolProfileBehavior(item.protocolProfileBehavior, jsonPath, report);
-
-  // Item-level event scripts.
-  if (Array.isArray(item.event) && item.event.length > 0) {
-    for (const ev of item.event) {
-      if (ev.disabled) continue;
-      recordDrop(report, {
-        path: `${jsonPath}.event[${ev.listen}]`,
-        reason: `${ev.listen ?? 'unknown'} script not imported — pre-request/test scripts need the offscreen-document sandbox (§19).`,
-        tracking: '#todo-scripts',
-      });
-    }
-  }
 
   const { base, params } = splitUrl(url);
 
@@ -272,12 +253,37 @@ function tryConvertRequest(
       auth: finalAuth,
       body,
       ...(settings !== undefined ? { settings } : {}),
+      ...scripts,
     },
     ...(examples !== undefined && examples.length > 0 ? { examples } : {}),
   };
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
+
+/**
+ * Collection/folder-level scripts have no landing slot until the
+ * model grows script fields on those levels — non-empty ones keep an
+ * honest drop per event; empty ones (vendor UI residue) are silently
+ * lossless.
+ */
+function recordAncestorScripts(
+  events: PostmanItem['event'],
+  level: 'collection' | 'folder',
+  jsonPath: string,
+  report: ImportReport,
+): void {
+  if (!Array.isArray(events)) return;
+  for (const ev of events) {
+    if (!ev || ev.disabled) continue;
+    if (eventSource(ev).trim().length === 0) continue;
+    recordDrop(report, {
+      path: `${jsonPath}.event[${ev.listen ?? 'unknown'}]`,
+      reason: `${level === 'collection' ? 'Collection' : 'Folder'}-level ${ev.listen ?? 'unknown'} script not imported — ${level} scripts aren't supported yet; attach it to the requests that need it.`,
+      tracking: '#todo-scripts',
+    });
+  }
+}
 
 /**
  * Collection/folder-level `protocolProfileBehavior` would need

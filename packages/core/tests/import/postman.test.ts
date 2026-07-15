@@ -1219,7 +1219,7 @@ describe('request mapping — protocolProfileBehavior', () => {
 });
 
 describe('events (scripts)', () => {
-  it('drops per-request scripts with tracking', () => {
+  it('lands per-request scripts on the script slots with a transform each', () => {
     const result = parsePostman(
       postmanCollection({
         item: [
@@ -1227,15 +1227,136 @@ describe('events (scripts)', () => {
             name: 'X',
             request: { method: 'GET', url: 'https://api.openheaders.io/x' },
             event: [
-              { listen: 'prerequest', script: { exec: ['pm.request.headers.add(...)'] } },
-              { listen: 'test', script: { exec: ['pm.test(...)'] } },
+              { listen: 'prerequest', script: { exec: ['pm.environment.set("k", "v")'] } },
+              { listen: 'test', script: { exec: ['const data = pm.response.json();'] } },
             ],
           },
         ],
       }),
     );
-    const scriptDrops = result.report.drops.filter((d) => d.tracking === '#todo-scripts');
-    expect(scriptDrops).toHaveLength(2);
+    expect(result.report.drops.filter((d) => d.tracking === '#todo-scripts')).toHaveLength(0);
+    const request = result.requests[0]?.request;
+    expect(request?.preRequestScript).toBe('await oh.variables.set("k", "v")');
+    expect(request?.postResponseScript).toBe('const data = JSON.parse(oh.response.body);');
+    expect(result.report.transforms.filter((t) => t.to === 'oh.* script')).toHaveLength(2);
+  });
+
+  it('imports untranslatable scripts verbatim behind a marker with a tracked transform', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: { method: 'GET', url: 'https://api.openheaders.io/x' },
+            event: [
+              {
+                listen: 'test',
+                script: { exec: ["const sdk = require('postman-collection');", 'console.log(request.name);'] },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const request = result.requests[0]?.request;
+    expect(request?.postResponseScript).toContain('// == Imported unchanged ==');
+    expect(request?.postResponseScript).toContain("const sdk = require('postman-collection');");
+    const t = result.report.transforms.find((t) => t.tracking === '#todo-script-translation');
+    expect(t?.to).toBe('imported unchanged');
+    expect(t?.reason).toContain('require(…)');
+  });
+
+  it('silently skips empty scripts at every level', () => {
+    const result = parsePostman(
+      postmanCollection({
+        event: [{ listen: 'prerequest', script: { exec: [''] } }],
+        item: [
+          {
+            name: 'Folder',
+            item: [
+              {
+                name: 'X',
+                request: { method: 'GET', url: 'https://api.openheaders.io/x' },
+                event: [{ listen: 'test', script: { exec: ['', ''] } }],
+              },
+            ],
+            event: [{ listen: 'test', script: { exec: [] } }],
+          },
+        ],
+      }),
+    );
+    expect(result.report.drops.filter((d) => d.tracking === '#todo-scripts')).toHaveLength(0);
+    expect(result.report.transforms.filter((t) => t.path.includes('event'))).toHaveLength(0);
+    expect(result.requests[0]?.request.postResponseScript).toBeUndefined();
+  });
+
+  it('keeps honest drops for non-empty folder/collection scripts', () => {
+    const result = parsePostman(
+      postmanCollection({
+        event: [{ listen: 'prerequest', script: { exec: ['pm.environment.set("a", "1")'] } }],
+        item: [
+          {
+            name: 'Folder',
+            item: [],
+            event: [{ listen: 'test', script: { exec: ['pm.environment.set("b", "2")'] } }],
+          },
+        ],
+      }),
+    );
+    const drops = result.report.drops.filter((d) => d.tracking === '#todo-scripts');
+    expect(drops).toHaveLength(2);
+    expect(drops[0]?.path).toBe('collection.event[prerequest]');
+    expect(drops[1]?.path).toBe('collection.item[0].event[test]');
+  });
+
+  it('concatenates multiple events of the same kind in order', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: { method: 'GET', url: 'https://api.openheaders.io/x' },
+            event: [
+              { listen: 'test', script: { exec: ['console.log(1);'] } },
+              { listen: 'test', script: { exec: ['console.log(2);'] } },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.postResponseScript).toBe('console.log(1);\n\nconsole.log(2);');
+  });
+
+  it('drops events with an unrecognized listen kind', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: { method: 'GET', url: 'https://api.openheaders.io/x' },
+            event: [{ listen: 'weird', script: { exec: ['console.log(1);'] } }],
+          },
+        ],
+      }),
+    );
+    const drop = result.report.drops.find((d) => d.path.includes('event[weird]'));
+    expect(drop?.reason).toContain('unrecognized event');
+    expect(result.requests[0]?.request.postResponseScript).toBeUndefined();
+  });
+
+  it('lands scripts on string-shorthand request items too', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: 'https://api.openheaders.io/x',
+            event: [{ listen: 'prerequest', script: { exec: ['console.log("hi");'] } }],
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.preRequestScript).toBe('console.log("hi");');
   });
 
   it('ignores disabled events', () => {
@@ -1251,6 +1372,7 @@ describe('events (scripts)', () => {
       }),
     );
     expect(result.report.drops.some((d) => d.tracking === '#todo-scripts')).toBe(false);
+    expect(result.requests[0]?.request.preRequestScript).toBeUndefined();
   });
 });
 
@@ -2082,8 +2204,11 @@ describe('realistic round-trip (authentic Postman export)', () => {
     const ping = result.requests[3]!;
     expect(ping.folderPath).toEqual([]);
 
-    // One drop per script — the Login test script.
-    expect(result.report.drops.filter((d) => d.tracking === '#todo-scripts')).toHaveLength(1);
+    // The Login test script translates onto the request's script slot.
+    expect(result.report.drops.filter((d) => d.tracking === '#todo-scripts')).toHaveLength(0);
+    expect(login.request.postResponseScript).toBe(
+      'await oh.variables.set("token", JSON.parse(oh.response.body).token)',
+    );
     // imported count reflects all 4 successful mappings.
     expect(result.report.summary.imported).toBe(4);
   });

@@ -35,6 +35,13 @@ export interface CurlRequest {
    * source carries none. Spread into the request seed as-is.
    */
   settings?: ImportedRequestSettings;
+  /**
+   * Scripts carried from the source (translated to the `oh.*` sandbox
+   * API where possible, verbatim behind a marker otherwise). curl/HAR
+   * never set these; the structured importers do.
+   */
+  preRequestScript?: string;
+  postResponseScript?: string;
 }
 
 export interface CurlParseResult {
