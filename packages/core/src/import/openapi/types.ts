@@ -1,3 +1,5 @@
+import type { AuthConfig } from '../../types/request';
+import type { CapturedRequest, CapturedResponse } from '../../types/response-example';
 import type { CurlRequest } from '../curl';
 import type { ImportReport } from '../report';
 
@@ -55,6 +57,26 @@ export interface OpenApiOperation {
 export interface OpenApiParsedRequest {
   folderPath: string[];
   request: CurlRequest;
+  /**
+   * Concrete response examples converted to Response Example payloads
+   * — emitted only under `OpenApiParseOptions.responseExamples`, and
+   * only when the operation documents any. OpenAPI carries no capture
+   * moment, so entries never carry `capturedAt`; the caller supplies
+   * its import timestamp at mint time (core parsers are clock-free).
+   */
+  examples?: OpenApiParsedExample[];
+}
+
+/**
+ * One documented response as an importable Response Example: the
+ * request shape the operation imported as (auth excluded per the
+ * ResponseExample schema) plus the response block built from the
+ * documented status, headers, and example body.
+ */
+export interface OpenApiParsedExample {
+  name: string;
+  request: CapturedRequest;
+  response: CapturedResponse;
 }
 
 export interface OpenApiParsedFolder {
@@ -74,11 +96,26 @@ export interface OpenApiCollectionVariable {
   description?: string;
 }
 
+export interface OpenApiParseOptions {
+  /**
+   * Emit documented responses as `examples` on each parsed request.
+   * Off by default: consumers that cannot mint Response Examples yet
+   * keep the honest aggregate drop note instead of silently
+   * discarding emitted examples (the Postman precedent).
+   */
+  responseExamples?: boolean;
+}
+
 /** One OpenAPI document — maps onto one destination collection. */
 export interface OpenApiParseResult {
   collectionName: string;
   collectionDescription: string;
   collectionVariables: OpenApiCollectionVariable[];
+  /** Document-level `security` mapped onto the collection's ancestor
+   *  auth slot — requests without their own security import as
+   *  `inherit` and resolve it at send time. Absent when the document
+   *  declares none. */
+  collectionAuth?: AuthConfig;
   folders: OpenApiParsedFolder[];
   requests: OpenApiParsedRequest[];
   report: ImportReport;

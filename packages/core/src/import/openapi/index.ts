@@ -16,18 +16,31 @@
  *     valued path parameters seeding collection variables.
  *   • query/header parameters → request rows (optional ones land
  *     disabled); cookie parameters drop (session state).
+ *   • request bodies import per media type (JSON preferred; concrete
+ *     examples win, schema-only JSON bodies synthesize a bounded
+ *     placeholder scaffold; urlencoded/multipart/text mapped, file
+ *     parts as placeholder FileRefs).
+ *   • security schemes → AuthConfig arms (http basic/bearer/digest,
+ *     apiKey header/query, oauth2 flows per the Phase G dispositions
+ *     with `{{clientId}}`/`{{clientSecret}}` placeholders); the
+ *     document-level requirement becomes the collection default and
+ *     requests without their own security import as `inherit`.
+ *   • documented responses mint Response Example payloads under
+ *     `OpenApiParseOptions.responseExamples` (off = honest note);
+ *     schema-only responses stay a counted note.
  *   • Internal `$ref`s resolve with a cycle guard; external refs are
  *     never fetched — both failure classes drop with reasons.
- *   • Request bodies, security schemes, and response documentation
- *     carry honest `#todo-openapi-*` notes until their slices land;
- *     TRACE operations, callbacks, and webhooks are permanent drops.
+ *   • TRACE operations, cookie material, callbacks, webhooks, and
+ *     response links are permanent drops.
  */
 
 export { parseOpenApi } from './parse';
 export {
   type OpenApiCollectionVariable,
+  type OpenApiParsedExample,
   type OpenApiParsedFolder,
   type OpenApiParsedRequest,
   OpenApiParseError,
+  type OpenApiParseOptions,
   type OpenApiParseResult,
 } from './types';

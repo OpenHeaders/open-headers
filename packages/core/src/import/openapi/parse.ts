@@ -1,16 +1,20 @@
 import { parse as parseYaml } from 'yaml';
-import type { QueryParam, RequestHeader } from '../../types/request';
+import type { AuthConfig, QueryParam, RequestHeader } from '../../types/request';
 import { generateUid } from '../../utils/workspace';
 import type { CurlRequest } from '../curl';
 import { isRecord } from '../data-scan/json';
 import { createReport, type ImportReport, recordDrop, recordTransform } from '../report';
+import { buildOpenApiBody } from './body';
+import { buildResponseExamples } from './examples';
 import { createRefResolver, type RefFailure, type RefResolver } from './ref';
+import { buildSecuritySchemes, resolveSecurityRequirements, type SecuritySchemeTable } from './security';
 import type {
   OpenApiCollectionVariable,
   OpenApiOperation,
   OpenApiParameter,
   OpenApiParsedFolder,
   OpenApiParsedRequest,
+  OpenApiParseOptions,
   OpenApiParseResult,
   OpenApiServer,
 } from './types';
@@ -23,11 +27,13 @@ import { OpenApiParseError } from './types';
  * requests: `servers[0]` becomes the `{{baseUrl}}` collection
  * variable, `paths` × operations become requests, first tags become
  * folders, and path templating (`{id}`) rewrites to `{{id}}` template
- * references. This slice maps the request skeleton — bodies, security
- * schemes, and response examples land as honest `#todo-openapi-*`
- * notes until their slices absorb them.
+ * references. Bodies import per media type (`body.ts`), security
+ * schemes map onto AuthConfig arms with document-level security
+ * landing as the collection's default auth (`security.ts`), and
+ * documented responses mint Response Example payloads under
+ * `options.responseExamples` (`examples.ts`).
  */
-export function parseOpenApi(input: string): OpenApiParseResult {
+export function parseOpenApi(input: string, options: OpenApiParseOptions = {}): OpenApiParseResult {
   const doc = parseDocument(input);
 
   if (typeof doc.swagger === 'string') {
@@ -56,17 +62,25 @@ export function parseOpenApi(input: string): OpenApiParseResult {
   const variables = new Map<string, OpenApiCollectionVariable>();
   variables.set('baseUrl', { name: 'baseUrl', value: readRootBaseUrl(doc.servers, report), type: 'default' });
 
+  const securitySchemes = buildSecuritySchemes(doc, resolver, report);
+  const collectionAuth = Array.isArray(doc.security)
+    ? resolveSecurityRequirements(doc.security, securitySchemes, 'security', report)
+    : undefined;
+
   const assembly: Assembly = {
     report,
     resolver,
+    options,
+    securitySchemes,
     variables,
     folders: [],
     folderTags: new Set<string>(),
     tagDescriptions: readTagDescriptions(doc.tags),
     requests: [],
     cookieParams: 0,
-    securedOperations: 0,
-    documentedResponses: 0,
+    schemaOnlyResponses: 0,
+    unmintedResponses: 0,
+    links: 0,
     callbacks: 0,
   };
 
@@ -89,6 +103,7 @@ export function parseOpenApi(input: string): OpenApiParseResult {
     collectionName,
     collectionDescription: descriptionParts.join('\n\n'),
     collectionVariables: [...variables.values()],
+    ...(collectionAuth !== undefined ? { collectionAuth } : {}),
     folders: assembly.folders,
     requests: assembly.requests,
     report,
@@ -188,14 +203,20 @@ function readTagDescriptions(rawTags: unknown): Map<string, string> {
 interface Assembly {
   report: ImportReport;
   resolver: RefResolver;
+  options: OpenApiParseOptions;
+  securitySchemes: SecuritySchemeTable;
   variables: Map<string, OpenApiCollectionVariable>;
   folders: OpenApiParsedFolder[];
   folderTags: Set<string>;
   tagDescriptions: Map<string, string>;
   requests: OpenApiParsedRequest[];
   cookieParams: number;
-  securedOperations: number;
-  documentedResponses: number;
+  /** Operations whose responses carry only schemas — nothing concrete to mint. */
+  schemaOnlyResponses: number;
+  /** Operations with documented response content left unminted because
+   *  the consumer opted out of example emission. */
+  unmintedResponses: number;
+  links: number;
   callbacks: number;
 }
 
@@ -422,20 +443,26 @@ function convertOperation(
     }
   }
 
+  let body: CurlRequest['body'] = { type: 'none' };
   const requestBody = resolver.resolve(op.requestBody);
   if (requestBody.ok && isRecord(requestBody.value)) {
-    const mediaTypes = isRecord(requestBody.value.content) ? Object.keys(requestBody.value.content) : [];
-    recordDrop(report, {
-      path: `${jsonPath}.requestBody`,
-      reason: `Request body (${mediaTypes.length > 0 ? mediaTypes.join(', ') : 'no media types'}) not imported yet — body import lands in the next slice.`,
-      tracking: '#todo-openapi-bodies',
-    });
+    body = buildOpenApiBody(requestBody.value, jsonPath, resolver, report);
   } else if (!requestBody.ok) {
     recordDrop(report, { path: `${jsonPath}.requestBody`, reason: refDropReason(requestBody.failure) });
   }
 
-  if (Array.isArray(op.security) && op.security.length > 0) assembly.securedOperations++;
-  if (isRecord(op.responses) && Object.keys(op.responses).length > 0) assembly.documentedResponses++;
+  // Auth: an absent security list means the document-level requirement
+  // applies — that's `inherit`, resolving the collection default at
+  // send time. An authored list maps through the scheme table;
+  // `security: []` (opt-out) and an unmappable authored list land
+  // `none` — never `inherit` in place of authored security.
+  let auth: AuthConfig = { type: 'inherit' };
+  if (Array.isArray(op.security)) {
+    auth = resolveSecurityRequirements(op.security, assembly.securitySchemes, `${jsonPath}.security`, report) ?? {
+      type: 'none',
+    };
+  }
+
   if (isRecord(op.callbacks)) assembly.callbacks += Object.keys(op.callbacks).length;
 
   // Folder: the first tag. Additional tags can't be represented — a
@@ -466,10 +493,41 @@ function convertOperation(
     url: `${base}${templated}`,
     headers,
     params,
-    auth: { type: 'none' },
-    body: { type: 'none' },
+    auth,
+    body,
   };
-  assembly.requests.push({ folderPath, request });
+  const parsed: OpenApiParsedRequest = { folderPath, request };
+
+  // Documented responses — Response Example payloads when the consumer
+  // can mint them; a counted honest note otherwise (never a silent
+  // discard). Schema-only documentation never mints either way.
+  if (isRecord(op.responses) && Object.keys(op.responses).length > 0) {
+    if (assembly.options.responseExamples === true) {
+      const read = buildResponseExamples(
+        op.responses,
+        { method, url: request.url, headers, params, body },
+        request.url,
+        jsonPath,
+        resolver,
+        report,
+      );
+      if (read.examples.length > 0) parsed.examples = read.examples;
+      if (read.schemaOnly) assembly.schemaOnlyResponses++;
+      assembly.links += read.links;
+    } else if (hasResponseContent(op.responses, resolver)) {
+      assembly.unmintedResponses++;
+    }
+  }
+  assembly.requests.push(parsed);
+}
+
+function hasResponseContent(responses: Record<string, unknown>, resolver: RefResolver): boolean {
+  for (const rawResponse of Object.values(responses)) {
+    const resolved = resolver.resolve(rawResponse);
+    if (!resolved.ok || !isRecord(resolved.value)) continue;
+    if (isRecord(resolved.value.content) && Object.keys(resolved.value.content).length > 0) return true;
+  }
+  return false;
 }
 
 // ── Document-level aggregates ──────────────────────────────────────
@@ -483,26 +541,25 @@ function recordAggregates(doc: Record<string, unknown>, assembly: Assembly): voi
       tracking: 'PERMANENT: cookies out of scope',
     });
   }
-  if (Array.isArray(doc.security) && doc.security.length > 0) {
-    recordDrop(report, {
-      path: 'security',
-      reason:
-        'The document-level security requirement (default auth for every operation) not imported yet — security-scheme import lands in a later slice.',
-      tracking: '#todo-openapi-auth',
-    });
-  }
-  if (assembly.securedOperations > 0) {
-    recordDrop(report, {
-      path: 'paths[operations with security]',
-      reason: `${assembly.securedOperations} operation${assembly.securedOperations === 1 ? ' declares' : 's declare'} security requirements — security-scheme import lands in a later slice.`,
-      tracking: '#todo-openapi-auth',
-    });
-  }
-  if (assembly.documentedResponses > 0) {
+  if (assembly.unmintedResponses > 0) {
     recordDrop(report, {
       path: 'paths[operations with responses]',
-      reason: `Response documentation (schemas/examples) on ${assembly.documentedResponses} operation${assembly.documentedResponses === 1 ? '' : 's'} not imported yet — response-example import lands in a later slice.`,
-      tracking: '#todo-openapi-response-examples',
+      reason: `Documented responses on ${assembly.unmintedResponses} operation${assembly.unmintedResponses === 1 ? '' : 's'} not imported here — they land as Response Examples when the import flow writes examples.`,
+      tracking: '#todo-file-import-examples',
+    });
+  }
+  if (assembly.schemaOnlyResponses > 0) {
+    recordDrop(report, {
+      path: 'paths[operations with schema-only responses]',
+      reason: `Response documentation on ${assembly.schemaOnlyResponses} operation${assembly.schemaOnlyResponses === 1 ? '' : 's'} carries only schemas (no concrete example) — nothing to mint; add examples to the spec or author them in the editor.`,
+      tracking: 'PERMANENT: response schemas without concrete examples',
+    });
+  }
+  if (assembly.links > 0) {
+    recordDrop(report, {
+      path: 'paths[responses with links]',
+      reason: `${assembly.links} response link${assembly.links === 1 ? '' : 's'} not imported — links describe request chaining hints, not importable exchange data.`,
+      tracking: 'PERMANENT: response links',
     });
   }
   if (assembly.callbacks > 0) {

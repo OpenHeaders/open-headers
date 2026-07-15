@@ -4,8 +4,9 @@
  * Sections mirror the parser's mapping scope: entry gate (versions,
  * JSON/YAML), document metadata, servers → {{baseUrl}}, paths ×
  * operations → requests, parameters (path/query/header/cookie),
- * tags → folders, $ref resolution, and the honest-note aggregates
- * for the slices that haven't landed yet.
+ * tags → folders, $ref resolution, request bodies (examples +
+ * schema scaffolds), security schemes → auth arms, documented
+ * responses → Response Example payloads, and the permanent drops.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -339,49 +340,509 @@ describe('$ref resolution', () => {
   });
 });
 
-// ── Honest notes for later slices ──────────────────────────────────
+// ── Request bodies ─────────────────────────────────────────────────
 
-describe('todo notes for unlanded slices', () => {
-  it('notes request bodies with their media types', () => {
+describe('request bodies', () => {
+  it('imports a concrete JSON example verbatim (structured values pretty-print)', () => {
     const result = parseOpenApi(
       doc({
         paths: {
           '/users': {
-            post: { requestBody: { content: { 'application/json': { schema: { type: 'object' } } } } },
+            post: {
+              requestBody: { content: { 'application/json': { example: { name: 'Ada', role: 'admin' } } } },
+            },
           },
         },
       }),
     );
-    const drop = result.report.drops.find((d) => d.tracking === '#todo-openapi-bodies');
-    expect(drop?.reason).toContain('application/json');
+    expect(result.requests[0].request.body).toEqual({
+      type: 'json',
+      content: JSON.stringify({ name: 'Ada', role: 'admin' }, null, 2),
+    });
   });
 
-  it('notes document-level and per-operation security requirements', () => {
-    const result = parseOpenApi(
-      doc({
-        security: [{ apiKey: [] }],
-        paths: { '/a': { get: { security: [{ apiKey: [] }] } }, '/b': { get: {} } },
-      }),
-    );
-    const drops = result.report.drops.filter((d) => d.tracking === '#todo-openapi-auth');
-    expect(drops).toHaveLength(2);
-    expect(drops.some((d) => d.path === 'security')).toBe(true);
-    expect(drops.some((d) => d.reason.includes('1 operation declares'))).toBe(true);
-  });
-
-  it('aggregates response documentation into one note', () => {
+  it('synthesizes a scaffold for schema-only JSON bodies with a transform', () => {
     const result = parseOpenApi(
       doc({
         paths: {
-          '/a': { get: { responses: { '200': { description: 'ok' } } } },
-          '/b': { get: { responses: { '200': { description: 'ok' } } } },
+          '/users': {
+            post: {
+              requestBody: {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string' },
+                        age: { type: 'integer' },
+                        active: { type: 'boolean' },
+                        email: { type: 'string', format: 'email' },
+                        tags: { type: 'array', items: { type: 'string' } },
+                        plan: { enum: ['free', 'pro'] },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       }),
     );
-    const drop = result.report.drops.find((d) => d.tracking === '#todo-openapi-response-examples');
-    expect(drop?.reason).toContain('2 operations');
+    const body = result.requests[0].request.body;
+    expect(body.type).toBe('json');
+    expect(JSON.parse(body.type === 'json' ? body.content : '{}')).toEqual({
+      name: 'string',
+      age: 0,
+      active: true,
+      email: 'user@openheaders.io',
+      tags: ['string'],
+      plan: 'free',
+    });
+    expect(result.report.transforms.some((t) => t.to === 'synthesized placeholder body')).toBe(true);
   });
 
+  it('survives a self-referential schema without hanging', () => {
+    const result = parseOpenApi(
+      doc({
+        components: {
+          schemas: {
+            Node: {
+              type: 'object',
+              properties: { name: { type: 'string' }, next: { $ref: '#/components/schemas/Node' } },
+            },
+          },
+        },
+        paths: {
+          '/nodes': {
+            post: {
+              requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Node' } } } },
+            },
+          },
+        },
+      }),
+    );
+    const body = result.requests[0].request.body;
+    const parsed = JSON.parse(body.type === 'json' ? body.content : '{}');
+    expect(parsed.name).toBe('string');
+  });
+
+  it('prefers JSON and names the other media types in a transform', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/things': {
+            post: {
+              requestBody: {
+                content: { 'text/plain': { example: 'hi' }, 'application/json': { example: { ok: true } } },
+              },
+            },
+          },
+        },
+      }),
+    );
+    expect(result.requests[0].request.body.type).toBe('json');
+    const transform = result.report.transforms.find((t) => t.to === 'application/json');
+    expect(transform?.reason).toContain('text/plain');
+  });
+
+  it('maps urlencoded bodies to form parts from the example', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/login': {
+            post: {
+              requestBody: {
+                content: {
+                  'application/x-www-form-urlencoded': { example: { user: 'ada', remember: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+    const body = result.requests[0].request.body;
+    expect(body.type).toBe('form');
+    expect(body.type === 'form' ? body.formParts : []).toMatchObject([
+      { key: 'user', value: 'ada' },
+      { key: 'remember', value: 'true' },
+    ]);
+  });
+
+  it('maps multipart bodies — binary properties become placeholder file parts', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/upload': {
+            post: {
+              requestBody: {
+                content: {
+                  'multipart/form-data': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        avatar: { type: 'string', format: 'binary' },
+                        caption: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+    const body = result.requests[0].request.body;
+    expect(body.type).toBe('multipart');
+    const parts = body.type === 'multipart' ? body.multipartParts : [];
+    expect(parts).toMatchObject([
+      { kind: 'file', name: 'avatar' },
+      { kind: 'text', name: 'caption', value: 'string' },
+    ]);
+    expect(result.report.transforms.some((t) => t.tracking === '#todo-file-blobs')).toBe(true);
+  });
+
+  it('keeps literal XML examples and empties structured ones with a transform', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/a': {
+            post: { requestBody: { content: { 'application/xml': { example: '<user name="ada"/>' } } } },
+          },
+          '/b': {
+            post: { requestBody: { content: { 'application/xml': { schema: { type: 'object' } } } } },
+          },
+        },
+      }),
+    );
+    expect(result.requests[0].request.body).toEqual({ type: 'xml', content: '<user name="ada"/>' });
+    expect(result.requests[1].request.body).toEqual({ type: 'xml', content: '' });
+    expect(result.report.transforms.some((t) => t.to === 'empty XML body')).toBe(true);
+  });
+
+  it('drops unmappable media types with the type named', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/blob': { post: { requestBody: { content: { 'application/octet-stream': { schema: {} } } } } },
+        },
+      }),
+    );
+    expect(result.requests[0].request.body).toEqual({ type: 'none' });
+    expect(result.report.drops.some((d) => d.reason.includes('application/octet-stream'))).toBe(true);
+  });
+});
+
+// ── Security schemes → auth ────────────────────────────────────────
+
+describe('security schemes → auth', () => {
+  function securedDoc(scheme: Record<string, unknown>, overrides: Record<string, unknown> = {}): string {
+    return doc({
+      components: { securitySchemes: { main: scheme } },
+      security: [{ main: [] }],
+      ...overrides,
+    });
+  }
+
+  it('maps http basic / bearer / digest schemes onto native arms', () => {
+    expect(parseOpenApi(securedDoc({ type: 'http', scheme: 'basic' })).collectionAuth).toEqual({
+      type: 'basic',
+      username: '',
+      password: '',
+    });
+    expect(parseOpenApi(securedDoc({ type: 'http', scheme: 'bearer' })).collectionAuth).toEqual({
+      type: 'bearer',
+      token: '',
+    });
+    expect(parseOpenApi(securedDoc({ type: 'http', scheme: 'digest' })).collectionAuth).toEqual({
+      type: 'digest',
+      username: '',
+      password: '',
+    });
+  });
+
+  it('maps apiKey header/query and drops cookie placement', () => {
+    expect(parseOpenApi(securedDoc({ type: 'apiKey', name: 'X-Api-Key', in: 'header' })).collectionAuth).toEqual({
+      type: 'api-key',
+      key: 'X-Api-Key',
+      value: '',
+      in: 'header',
+    });
+    const cookie = parseOpenApi(securedDoc({ type: 'apiKey', name: 'session', in: 'cookie' }));
+    expect(cookie.collectionAuth).toEqual({ type: 'none' });
+    expect(cookie.report.drops.some((d) => d.tracking === 'PERMANENT: cookies out of scope')).toBe(true);
+  });
+
+  it('maps the oauth2 authorizationCode flow with credential placeholders', () => {
+    const result = parseOpenApi(
+      securedDoc({
+        type: 'oauth2',
+        flows: {
+          authorizationCode: {
+            authorizationUrl: 'https://auth.openheaders.io/authorize',
+            tokenUrl: 'https://auth.openheaders.io/token',
+            scopes: { 'read:users': 'Read users', 'write:users': 'Write users' },
+          },
+        },
+      }),
+    );
+    expect(result.collectionAuth).toMatchObject({
+      type: 'oauth2',
+      flow: 'authorization-code-pkce',
+      grantType: 'authorization-code',
+      authorizationEndpoint: 'https://auth.openheaders.io/authorize',
+      tokenEndpoint: 'https://auth.openheaders.io/token',
+      clientId: '{{clientId}}',
+      clientSecret: '{{clientSecret}}',
+      scopes: ['read:users', 'write:users'],
+    });
+    expect(result.report.transforms.some((t) => t.to === '{{clientId}} / {{clientSecret}} placeholders')).toBe(true);
+  });
+
+  it('maps clientCredentials and password flows onto their arms', () => {
+    const cc = parseOpenApi(
+      securedDoc({
+        type: 'oauth2',
+        flows: { clientCredentials: { tokenUrl: 'https://auth.openheaders.io/token', scopes: {} } },
+      }),
+    );
+    expect(cc.collectionAuth).toMatchObject({ type: 'oauth2', flow: 'client-credentials' });
+    const pw = parseOpenApi(
+      securedDoc({
+        type: 'oauth2',
+        flows: { password: { tokenUrl: 'https://auth.openheaders.io/token', scopes: {} } },
+      }),
+    );
+    expect(pw.collectionAuth).toMatchObject({ type: 'oauth2', flow: 'password-credentials' });
+  });
+
+  it('prefers authorizationCode over other flows and names the skipped ones', () => {
+    const result = parseOpenApi(
+      securedDoc({
+        type: 'oauth2',
+        flows: {
+          implicit: { authorizationUrl: 'https://auth.openheaders.io/authorize', scopes: {} },
+          clientCredentials: { tokenUrl: 'https://auth.openheaders.io/token', scopes: {} },
+          authorizationCode: {
+            authorizationUrl: 'https://auth.openheaders.io/authorize',
+            tokenUrl: 'https://auth.openheaders.io/token',
+            scopes: {},
+          },
+        },
+      }),
+    );
+    expect(result.collectionAuth).toMatchObject({ type: 'oauth2', flow: 'authorization-code-pkce' });
+    const transform = result.report.transforms.find((t) => t.to === 'authorizationCode');
+    expect(transform?.reason).toContain('implicit');
+    expect(transform?.reason).toContain('clientCredentials');
+  });
+
+  it('drops implicit-only schemes permanently', () => {
+    const result = parseOpenApi(
+      securedDoc({
+        type: 'oauth2',
+        flows: { implicit: { authorizationUrl: 'https://auth.openheaders.io/authorize', scopes: {} } },
+      }),
+    );
+    expect(result.collectionAuth).toEqual({ type: 'none' });
+    expect(result.report.drops.some((d) => d.tracking === 'PERMANENT: OAuth 2.0 implicit grant')).toBe(true);
+  });
+
+  it('drops oauth2 flows missing the token URL, openIdConnect, and mutualTLS with reasons', () => {
+    const noToken = parseOpenApi(securedDoc({ type: 'oauth2', flows: { clientCredentials: { scopes: {} } } }));
+    expect(noToken.report.drops.some((d) => d.reason.includes('token URL is missing'))).toBe(true);
+    const oidc = parseOpenApi(
+      securedDoc({ type: 'openIdConnect', openIdConnectUrl: 'https://auth.openheaders.io/.well-known' }),
+    );
+    expect(oidc.report.drops.some((d) => d.tracking === '#todo-openapi-oidc-discovery')).toBe(true);
+    const mtls = parseOpenApi(securedDoc({ type: 'mutualTLS' }));
+    expect(mtls.report.drops.some((d) => d.tracking === 'PERMANENT: mTLS is a request setting')).toBe(true);
+  });
+
+  it('requests without their own security import as inherit; overrides map; [] opts out', () => {
+    const result = parseOpenApi(
+      securedDoc(
+        { type: 'http', scheme: 'bearer' },
+        {
+          components: {
+            securitySchemes: {
+              main: { type: 'http', scheme: 'bearer' },
+              alt: { type: 'apiKey', name: 'X-Key', in: 'query' },
+            },
+          },
+          paths: {
+            '/inherits': { get: {} },
+            '/overrides': { get: { security: [{ alt: [] }] } },
+            '/open': { get: { security: [] } },
+          },
+        },
+      ),
+    );
+    const byUrl = (suffix: string) => result.requests.find((r) => r.request.url.endsWith(suffix))?.request.auth;
+    expect(byUrl('/inherits')).toEqual({ type: 'inherit' });
+    expect(byUrl('/overrides')).toEqual({ type: 'api-key', key: 'X-Key', value: '', in: 'query' });
+    expect(byUrl('/open')).toEqual({ type: 'none' });
+  });
+
+  it('requirement scopes override the flow-declared scope list', () => {
+    const result = parseOpenApi(
+      doc({
+        components: {
+          securitySchemes: {
+            oauth: {
+              type: 'oauth2',
+              flows: {
+                clientCredentials: {
+                  tokenUrl: 'https://auth.openheaders.io/token',
+                  scopes: { 'read:all': '', 'write:all': '' },
+                },
+              },
+            },
+          },
+        },
+        security: [{ oauth: ['read:all'] }],
+      }),
+    );
+    expect(result.collectionAuth).toMatchObject({ type: 'oauth2', scopes: ['read:all'] });
+  });
+
+  it('imports the first of combined schemes and of alternative requirements with transforms', () => {
+    const result = parseOpenApi(
+      doc({
+        components: {
+          securitySchemes: {
+            key: { type: 'apiKey', name: 'X-Key', in: 'header' },
+            bearer: { type: 'http', scheme: 'bearer' },
+          },
+        },
+        security: [{ key: [], bearer: [] }, { bearer: [] }],
+      }),
+    );
+    expect(result.collectionAuth).toMatchObject({ type: 'api-key', key: 'X-Key' });
+    expect(result.report.transforms.some((t) => t.from.includes('2 alternative security requirements'))).toBe(true);
+    expect(result.report.transforms.some((t) => t.from.includes('combined schemes key + bearer'))).toBe(true);
+  });
+
+  it('authored security naming only unmappable schemes lands none, never inherit', () => {
+    const result = parseOpenApi(
+      doc({
+        components: { securitySchemes: { mtls: { type: 'mutualTLS' } } },
+        paths: { '/secure': { get: { security: [{ mtls: [] }] } } },
+      }),
+    );
+    expect(result.requests[0].request.auth).toEqual({ type: 'none' });
+  });
+});
+
+// ── Responses → examples ───────────────────────────────────────────
+
+describe('responses → examples', () => {
+  const RESPONSES_DOC = {
+    paths: {
+      '/users': {
+        get: {
+          responses: {
+            '200': {
+              description: 'OK',
+              headers: { 'X-Request-Id': { schema: { type: 'string', example: 'req-1' } } },
+              content: {
+                'application/json': {
+                  examples: {
+                    one: { value: { users: [] } },
+                    two: { value: { users: [{ name: 'Ada' }] } },
+                  },
+                },
+              },
+            },
+            default: {
+              description: 'Error',
+              content: { 'application/json': { example: { error: 'nope' } } },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  it('mints one example per named example plus singular examples, off the request shape', () => {
+    const result = parseOpenApi(doc(RESPONSES_DOC), { responseExamples: true });
+    const examples = result.requests[0].examples ?? [];
+    expect(examples.map((e) => e.name)).toEqual(['200 — OK · one', '200 — OK · two', 'default — Error']);
+    expect(examples[0].response.status).toBe(200);
+    expect(examples[0].response.headers).toContainEqual({ key: 'Content-Type', value: 'application/json' });
+    expect(examples[0].response.headers).toContainEqual({ key: 'X-Request-Id', value: 'req-1' });
+    expect(JSON.parse(examples[1].response.body)).toEqual({ users: [{ name: 'Ada' }] });
+    expect(examples[2].response.status).toBe(0);
+    expect(examples[2].response.statusText).toBe('default');
+    expect(examples[0].request.method).toBe('GET');
+  });
+
+  it('keeps an honest aggregate note when example emission is off', () => {
+    const result = parseOpenApi(doc(RESPONSES_DOC));
+    expect(result.requests[0].examples).toBeUndefined();
+    const drop = result.report.drops.find((d) => d.tracking === '#todo-file-import-examples');
+    expect(drop?.reason).toContain('1 operation');
+  });
+
+  it('notes schema-only responses instead of minting empty examples', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/things': {
+            get: {
+              responses: {
+                '200': { description: 'OK', content: { 'application/json': { schema: { type: 'object' } } } },
+              },
+            },
+          },
+        },
+      }),
+      { responseExamples: true },
+    );
+    expect(result.requests[0].examples).toBeUndefined();
+    expect(
+      result.report.drops.some((d) => d.tracking === 'PERMANENT: response schemas without concrete examples'),
+    ).toBe(true);
+  });
+
+  it('drops response links with a count', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/users': {
+            post: {
+              responses: {
+                '201': {
+                  description: 'Created',
+                  content: { 'application/json': { example: { id: 1 } } },
+                  links: { getUser: { operationId: 'getUser' } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      { responseExamples: true },
+    );
+    const drop = result.report.drops.find((d) => d.tracking === 'PERMANENT: response links');
+    expect(drop?.reason).toContain('1 response link');
+  });
+
+  it('responses without content mint nothing and note nothing', () => {
+    const result = parseOpenApi(
+      doc({ paths: { '/a': { get: { responses: { '204': { description: 'No Content' } } } } } }),
+      { responseExamples: true },
+    );
+    expect(result.requests[0].examples).toBeUndefined();
+    expect(result.report.drops).toHaveLength(0);
+  });
+});
+
+// ── Document-level drops ───────────────────────────────────────────
+
+describe('document-level drops', () => {
   it('drops callbacks and webhooks permanently', () => {
     const result = parseOpenApi(
       doc({
@@ -405,7 +866,7 @@ describe('report bookkeeping', () => {
     const result = parseOpenApi(doc({ paths: { '/a': { get: {}, post: {} }, '/b': { put: {} } } }));
     expect(result.report.summary.imported).toBe(3);
     for (const { request } of result.requests) {
-      expect(request.auth).toEqual({ type: 'none' });
+      expect(request.auth).toEqual({ type: 'inherit' });
       expect(request.body).toEqual({ type: 'none' });
     }
   });

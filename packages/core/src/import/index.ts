@@ -136,9 +136,11 @@ export {
 } from './install-detect';
 export {
   type OpenApiCollectionVariable,
+  type OpenApiParsedExample,
   type OpenApiParsedFolder,
   type OpenApiParsedRequest,
   OpenApiParseError,
+  type OpenApiParseOptions,
   type OpenApiParseResult,
   parseOpenApi,
 } from './openapi';
