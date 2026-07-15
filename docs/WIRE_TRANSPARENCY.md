@@ -13,8 +13,9 @@ The only usage data that ever leaves is the anonymous telemetry channel
 of section 4 (TELEMETRY_PLAN.md, amending LICENSING_PLAN.md §1): a typed
 allowlist of feature-usage counts, structurally incapable of carrying
 URLs, headers, traffic, or identity, default-on for desktop/extension/CLI
-with first-run disclosure and a one-switch opt-out, and hard-off for the
-daemon, served web app, and MCP server. The license system itself remains
+with a one-switch opt-out (the CLI additionally prints a one-time notice
+on its first enabled run), and hard-off for the daemon, served web app,
+and MCP server. The license system itself remains
 telemetry-free: license endpoints and telemetry never share identifiers,
 payloads, or deployments.
 
@@ -168,8 +169,7 @@ event of the current session byte for byte, sent or suppressed.
   SDK or processor is involved (Cloudflare already hosts the license
   worker and is the only processor named in the privacy policy).
 - **Cadence**: batched — the host flushes the in-memory queue on an
-  interval and best-effort on quit. No events are sent before the
-  first-run disclosure has been shown.
+  interval and best-effort on quit.
 - **Off switches**: Settings → General → telemetry toggle (extension
   and desktop), `OH_TELEMETRY=0` env var or config key (CLI). The
   daemon, served web app, and MCP server never send telemetry and have
