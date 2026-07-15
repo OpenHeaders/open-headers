@@ -114,6 +114,7 @@ export async function executeOverTransport(
     maxRedirects: resolved.maxRedirects,
     followOriginalHttpMethod: resolved.followOriginalHttpMethod,
     followAuthorizationHeader: resolved.followAuthorizationHeader,
+    ...(resolved.digest ? { digestAuth: resolved.digest } : {}),
   };
 
   // A verification-off send is stamped on the snapshot (success or

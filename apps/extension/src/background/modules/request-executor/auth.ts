@@ -52,6 +52,14 @@ export async function applyAuth(
     // only resolves the credential templates. Twin of the oracle arm.
     return;
   }
+  if (auth.type === 'digest') {
+    // Digest is challenge/response, and the browser's fetch stack has
+    // no seat for the second leg — the SW skips the contribution like
+    // a disabled one and the target's 401 is the actionable signal
+    // (the OAuth2 silent-failure precedent). Node-runtime hosts drive
+    // the exchange in their transport instead.
+    return;
+  }
   if (auth.type === 'oauth2') {
     // OAuth2 access tokens live in the SW's per-workspace token
     // store (ARCHITECTURE §18). We fetch the bundle, refresh if

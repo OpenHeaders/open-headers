@@ -239,6 +239,19 @@ export interface TransportRequest {
    * can't control their redirect chain ignore it.
    */
   followAuthorizationHeader?: boolean;
+  /**
+   * HTTP digest credentials (RFC 7616 / 2617), templates already
+   * resolved by the executor. The honoring transport drives the
+   * scheme's second leg itself: when a hop answers 401 with a
+   * `Digest` challenge in `WWW-Authenticate`, it computes the
+   * `Authorization` answer for THAT hop's method + target and resends
+   * the hop once — a 401 on the authorized resend is final. Plain
+   * data on the seam; never part of a cache key. Transports whose
+   * network stack can't run a challenge/response exchange (the
+   * browser SW) ignore it, and the target's 401 surfaces verbatim as
+   * the actionable signal.
+   */
+  digestAuth?: { username: string; password: string };
 }
 
 export interface TransportResponse {

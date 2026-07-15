@@ -12,7 +12,7 @@
  * that omits the hook attaches the last-synced bundle as-is.
  */
 
-import type { AwsSigV4Credentials } from '@openheaders/core/auth-signing';
+import type { AwsSigV4Credentials, DigestCredentials } from '@openheaders/core/auth-signing';
 import { isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type {
   AuthConfig,
@@ -108,6 +108,16 @@ export interface ResolvedRequest {
    * pre-request script mutation.
    */
   awsSigV4?: AwsSigV4Credentials;
+  /**
+   * HTTP digest credentials, templates already resolved — present only
+   * when the effective auth is an enabled `digest` config. Nothing is
+   * computable here: the scheme is challenge/response, so the honoring
+   * transport (node) answers the target's 401 `WWW-Authenticate`
+   * challenge with one authorized resend of that hop. Transports whose
+   * network stack can't drive the second leg (the browser SW) ignore
+   * the carry and the target's 401 is the actionable signal.
+   */
+  digest?: DigestCredentials;
 }
 
 /** One TOTP vault entry the resolved request used. Carries the code (so
@@ -248,6 +258,13 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // Digest credentials resolve here but answer the challenge at the
+  // wire — see {@link ResolvedRequest.digest}.
+  const digest: DigestCredentials | undefined =
+    effectiveAuth.type === 'digest' && !effectiveAuth.disabled
+      ? { username: resolveStr(effectiveAuth.username), password: resolveStr(effectiveAuth.password) }
+      : undefined;
+
   // Append params after auth — api-key-in-query lives in enabledParams.
   resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
@@ -303,6 +320,7 @@ export async function resolveRequest(
       followOriginalHttpMethod: request.followOriginalHttpMethod,
       followAuthorizationHeader: request.followAuthorizationHeader,
       ...(awsSigV4 ? { awsSigV4 } : {}),
+      ...(digest ? { digest } : {}),
     },
     totpUsed: [...totpUsed.values()],
   };
@@ -412,6 +430,13 @@ export async function applyAuth(
     // Nothing folds here — SigV4 signs the FINAL wire shape at execute
     // time (see ResolvedRequest.awsSigV4); the resolver only resolves
     // the credential templates.
+    return;
+  }
+  if (auth.type === 'digest') {
+    // Nothing folds here either — digest is challenge/response, so the
+    // honoring transport derives the Authorization header from the
+    // target's 401 (see ResolvedRequest.digest); the resolver only
+    // resolves the credential templates.
     return;
   }
   if (auth.type === 'oauth2') {

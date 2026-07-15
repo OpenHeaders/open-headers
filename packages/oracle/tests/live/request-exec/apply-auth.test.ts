@@ -98,6 +98,14 @@ describe('applyAuth', () => {
     }
   });
 
+  it('digest folds nothing at resolve time — the transport answers the challenge', async () => {
+    const { headers, params } = await run({ type: 'digest', username: 'u', password: 'p' }, [
+      { key: 'X-A', value: '1' },
+    ]);
+    expect(headers).toEqual([{ key: 'X-A', value: '1' }]);
+    expect(params).toEqual([]);
+  });
+
   it('basic encodes username:password as UTF-8 base64 and replaces the user row', async () => {
     const { headers } = await run({ type: 'basic', username: 'alice', password: 'pässwörd' }, [
       { key: 'Authorization', value: 'Basic old' },

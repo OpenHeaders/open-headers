@@ -584,3 +584,17 @@ describe('executeOverTransport — AWS SigV4 signing', () => {
     expect(sent().headers).toEqual([{ key: 'X-A', value: '1' }]);
   });
 });
+
+describe('executeOverTransport — digest carry', () => {
+  it('forwards digest credentials onto the transport seam untouched', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved({ digest: { username: 'cam-admin', password: 'pw' } }), transport);
+    expect(sent().digestAuth).toEqual({ username: 'cam-admin', password: 'pw' });
+  });
+
+  it('leaves digestAuth absent when the request carries no digest config', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved(), transport);
+    expect('digestAuth' in sent()).toBe(false);
+  });
+});

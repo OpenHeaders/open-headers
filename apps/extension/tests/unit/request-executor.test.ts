@@ -245,6 +245,13 @@ describe('RequestExecutor', () => {
     expect(headers.get('x-amz-date')).toBeNull();
   });
 
+  it('skips a digest config on the browser runtime — the target 401 is the signal', async () => {
+    await executeRequestDraft(makeRequest({ auth: { type: 'digest', username: 'cam-admin', password: 'pw' } }));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get('authorization')).toBeNull();
+  });
+
   it('an inherit request resolves the collection-level bearer up the ancestor chain', async () => {
     mockRequestCollections.mockReturnValue([
       {
