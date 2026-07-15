@@ -26,6 +26,7 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { App, Button, Dropdown, Progress, Tooltip } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { readIgnoredVersion, releasePageUrl, writeIgnoredVersion } from '../updates/release-notes';
 import { openUpdateDialog } from '../updates/store';
 import './corner-notifications.css';
@@ -74,6 +75,7 @@ interface AppUpdateToastProps {
 
 const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, onOpenWhatsNew }) => {
   const { notification } = App.useApp();
+  const t = useT();
   // `${version}:${phase}` whose balloon closed — that phase stays
   // quiet. Any close counts: a ✕ is a dismissal, an action click means
   // the user already acted, a programmatic close precedes a quiet
@@ -101,8 +103,8 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
         overlayStyle={{ zIndex: OVERLAY_Z }}
         menu={{
           items: [
-            { key: 'settings', label: 'Settings…' },
-            { key: 'ignore', label: "Don't Show Again" },
+            { key: 'settings', label: t('shared.notifications.toast.settings') },
+            { key: 'ignore', label: t('shared.notifications.toast.dontShowAgain') },
           ],
           onClick: ({ key }) => {
             close();
@@ -111,8 +113,12 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
           },
         }}
       >
-        <Tooltip title="Turn off or change behavior" zIndex={OVERLAY_Z}>
-          <button type="button" aria-label="Update notification options" className="oh-update-toast-menu">
+        <Tooltip title={t('shared.notifications.toast.optionsTooltip')} zIndex={OVERLAY_Z}>
+          <button
+            type="button"
+            aria-label={t('shared.notifications.toast.optionsAria')}
+            className="oh-update-toast-menu"
+          >
             <MoreOutlined />
           </button>
         </Tooltip>
@@ -134,7 +140,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
           description
         ),
         closeIcon: (
-          <Tooltip title="Close" zIndex={OVERLAY_Z}>
+          <Tooltip title={t('shared.notifications.toast.close')} zIndex={OVERLAY_Z}>
             <CloseOutlined />
           </Tooltip>
         ),
@@ -192,13 +198,17 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
         if (shownMarkerRef.current !== null) close();
         if (settledFrom === 'checking' && state.lastCheckReason === 'manual') {
           if (state.phase === 'idle') {
-            showTransient('info', "You're up to date", `Open Headers ${state.currentVersion} is the latest version.`);
+            showTransient(
+              'info',
+              t('shared.notifications.toast.upToDateTitle'),
+              t('shared.notifications.toast.upToDateDescription', { version: state.currentVersion }),
+            );
           } else if (state.phase === 'error') {
-            showTransient('error', 'Update check failed', state.errorMessage ?? undefined);
+            showTransient('error', t('shared.notifications.toast.checkFailed'), state.errorMessage ?? undefined);
           }
         } else if (settledFrom === 'downloading' && state.phase === 'error') {
           // A download failure is always user-consented work — speak up.
-          showTransient('error', 'Update download failed', state.errorMessage ?? undefined);
+          showTransient('error', t('shared.notifications.toast.downloadFailed'), state.errorMessage ?? undefined);
         }
         return;
       }
@@ -214,14 +224,19 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
           if (!isOpen && (announcedRef.current.has(marker) || readAck() === version)) return;
           announcedRef.current.add(marker);
           writeAck(version);
-          show(marker, `Open Headers ${version} available`, updateLink('Update…', openUpdateDialog), version);
+          show(
+            marker,
+            t('shared.notifications.toast.available', { version }),
+            updateLink(t('shared.notifications.toast.update'), openUpdateDialog),
+            version,
+          );
           break;
         case 'downloading':
           // Only keep an open balloon in sync — never conjure one.
           if (!isOpen) return;
           show(
             marker,
-            `Downloading Open Headers ${version}…`,
+            t('shared.notifications.toast.downloading', { version }),
             <Progress percent={state.progressPercent ?? 0} size="small" style={{ marginTop: 2 }} />,
             version,
           );
@@ -232,8 +247,8 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
           announcedRef.current.add(marker);
           show(
             marker,
-            `Open Headers ${version} ready to install`,
-            updateLink('Restart to install', () => {
+            t('shared.notifications.toast.readyToInstall', { version }),
+            updateLink(t('shared.notifications.toast.restartToInstall'), () => {
               void bridge?.call('oh.updates.install');
             }),
             version,
@@ -269,7 +284,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
       notification.success({
         key: 'oh-updated-to',
         className: 'oh-update-toast',
-        message: `Updated to Open Headers ${currentVersion}`,
+        message: t('shared.notifications.toast.updatedTo', { version: currentVersion }),
         description: (
           <Button
             type="link"
@@ -280,7 +295,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
               openReleasePage();
             }}
           >
-            See what's new
+            {t('shared.notifications.toast.seeWhatsNew')}
           </Button>
         ),
         placement: 'bottomRight',
@@ -288,9 +303,9 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
       });
       pushNotification({
         severity: 'success',
-        title: `Updated to Open Headers ${currentVersion}`,
+        title: t('shared.notifications.toast.updatedTo', { version: currentVersion }),
         dedupeKey: `app-updated:${currentVersion}`,
-        actions: [{ label: "See what's new", run: openReleasePage }],
+        actions: [{ label: t('shared.notifications.toast.seeWhatsNew'), run: openReleasePage }],
       });
     };
 
@@ -339,7 +354,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
     return () => {
       cancelled = true;
     };
-  }, [notification, onOpenUpdateSettings, onOpenWhatsNew]);
+  }, [notification, onOpenUpdateSettings, onOpenWhatsNew, t]);
 
   return null;
 };

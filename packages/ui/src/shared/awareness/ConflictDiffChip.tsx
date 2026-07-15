@@ -21,6 +21,7 @@ import { ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Popover, Typography } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { ConflictRemoteInfo } from '../conflicts/types';
 import SurfaceChip from './SurfaceChip';
 
@@ -61,12 +62,13 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
   onKeepMine,
   style,
 }) => {
+  const t = useT();
   const [showBase, setShowBase] = useState(false);
 
   const content = (
     <div style={{ minWidth: 260, maxWidth: 360, fontSize: 12 }}>
       <Text strong style={{ display: 'block', marginBottom: remote ? 4 : 8 }}>
-        External change
+        {t('shared.conflicts.chip.externalChange')}
       </Text>
       {remote && (
         <div style={{ marginBottom: 8 }}>
@@ -80,22 +82,22 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
       )}
       <div style={{ marginBottom: 6 }}>
         <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>
-          Saved value
+          {t('shared.conflicts.chip.savedValue')}
         </Text>
-        <div style={monoBlock}>{theirs || '(empty)'}</div>
+        <div style={monoBlock}>{theirs || t('shared.conflicts.chip.empty')}</div>
       </div>
       <div style={{ marginBottom: 10 }}>
         <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>
-          Your edit
+          {t('shared.conflicts.chip.yourEdit')}
         </Text>
-        <div style={monoBlock}>{local || '(empty)'}</div>
+        <div style={monoBlock}>{local || t('shared.conflicts.chip.empty')}</div>
       </div>
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginBottom: 6 }}>
         <Button size="small" onClick={onKeepMine}>
-          Keep mine
+          {t('shared.conflicts.chip.keepMine')}
         </Button>
         <Button size="small" type="primary" onClick={onTakeTheirs}>
-          Use saved
+          {t('shared.conflicts.chip.useSaved')}
         </Button>
       </div>
       <button
@@ -110,9 +112,11 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
           cursor: 'pointer',
         }}
       >
-        {showBase ? '▾' : '▸'} Last synced value
+        {showBase ? '▾' : '▸'} {t('shared.conflicts.chip.lastSyncedValue')}
       </button>
-      {showBase && <div style={{ ...monoBlock, marginTop: 4, opacity: 0.85 }}>{base || '(empty)'}</div>}
+      {showBase && (
+        <div style={{ ...monoBlock, marginTop: 4, opacity: 0.85 }}>{base || t('shared.conflicts.chip.empty')}</div>
+      )}
     </div>
   );
 
@@ -124,7 +128,7 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
       <span
         role="button"
         tabIndex={0}
-        title="External change available — click to resolve"
+        title={t('shared.conflicts.chip.trigger')}
         style={{
           display: 'inline-flex',
           alignItems: 'center',

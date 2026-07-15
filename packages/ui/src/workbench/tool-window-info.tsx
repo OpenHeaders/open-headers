@@ -9,12 +9,13 @@
  * and threads it into the panel's `PanelHeader`. Copy resolves at call
  * time through the supplied translator; `{{name}}` / `{{live.*}}`
  * reference syntax composes raw in JSX between the keyed fragments.
- * The Notifications entry stays on the shared NOTIFICATIONS_PANEL_INFO
- * corpus — the devtools panel co-consumes it unconverted (Phase D).
+ * The Notifications entry comes from the shared notifications family
+ * (`getNotificationsPanelInfo`) so every surface's registry describes
+ * the panel identically.
  */
 
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { NOTIFICATIONS_PANEL_INFO } from '@openheaders/ui/shared/notifications';
+import { getNotificationsPanelInfo } from '@openheaders/ui/shared/notifications';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { buildRuleIcon } from './components/shared/rule-icon';
 import { scopeBadge } from './components/shared/scope-colors';
@@ -217,7 +218,7 @@ function buildToolWindowInfo(t: Translate): Record<ToolWindowId, InfoPopoverCont
       title: t('workbench.toolWindows.workflowStatus'),
       summary: t('workbench.toolWindows.info.workflowStatus.summary'),
     },
-    notifications: NOTIFICATIONS_PANEL_INFO,
+    notifications: getNotificationsPanelInfo(t),
     activity: {
       title: t('workbench.toolWindows.activity'),
       summary: t('workbench.toolWindows.info.activity.summary'),

@@ -13,6 +13,7 @@
 
 import type React from 'react';
 import { useUiTheme } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { buildEntityMergeSession } from './entity-merge-adapter';
 
@@ -51,6 +52,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
   onClose,
 }) => {
   const { isDarkMode, monacoTheme } = useUiTheme();
+  const t = useT();
   if (!open) return null;
   return (
     <MergeConflictModal
@@ -61,8 +63,8 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
       onClose={onClose}
       session={buildEntityMergeSession({
         fileId: 'entity',
-        label: 'Resolve external changes',
-        title: 'Resolve external changes',
+        label: t('shared.conflicts.dialog.title'),
+        title: t('shared.conflicts.dialog.title'),
         language,
         theirsText: savedText,
         mineText,

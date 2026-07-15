@@ -13,6 +13,7 @@
  * "what should I do about it" copy of that signal.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEffect } from 'react';
 import { requestSecretsRelaunch, secretsStorageRemedy, useSecretsStorageState } from '../hooks/useSecretsStorageState';
 import { dismissSuggestionByKey, pushSuggestion } from './store';
@@ -20,6 +21,7 @@ import { dismissSuggestionByKey, pushSuggestion } from './store';
 const SUGGESTION_KEY = 'secrets-storage-locked';
 
 export function useSecretsStorageNotice(): void {
+  const t = useT();
   const state = useSecretsStorageState();
   const locked = state?.status === 'unavailable';
   const platform = state?.platform ?? '';
@@ -31,10 +33,10 @@ export function useSecretsStorageNotice(): void {
     }
     pushSuggestion({
       severity: 'error',
-      title: 'Secrets storage is locked',
-      description: `Vault secrets and OAuth tokens cannot be read or saved this session. ${secretsStorageRemedy(platform)}`,
+      title: t('shared.notifications.secrets.title'),
+      description: t('shared.notifications.secrets.description', { remedy: secretsStorageRemedy(t, platform) }),
       dedupeKey: SUGGESTION_KEY,
-      actions: [{ label: 'Relaunch app', run: requestSecretsRelaunch }],
+      actions: [{ label: t('shared.notifications.secrets.relaunch'), run: requestSecretsRelaunch }],
     });
-  }, [locked, platform]);
+  }, [locked, platform, t]);
 }

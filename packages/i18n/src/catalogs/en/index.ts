@@ -9,9 +9,11 @@ import type { Catalog } from '../../types';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedComponents } from './shared-components';
+import { sharedConflicts } from './shared-conflicts';
 import { sharedInfoCookies } from './shared-info-cookies';
 import { sharedInfoHeaders } from './shared-info-headers';
 import { sharedInfoStatus } from './shared-info-status';
+import { sharedNotifications } from './shared-notifications';
 import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
 import { workbenchDocs } from './workbench-docs';
@@ -23,9 +25,11 @@ import { workbenchVariables } from './workbench-variables';
 export const en = {
   ...shared,
   ...sharedComponents,
+  ...sharedConflicts,
   ...sharedInfoCookies,
   ...sharedInfoHeaders,
   ...sharedInfoStatus,
+  ...sharedNotifications,
   ...popup,
   ...workbench,
   ...workbenchChrome,

@@ -32,9 +32,10 @@ import {
   useFocusRegion,
 } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import DocsPanel from '@openheaders/ui/shared/docs/DocsPanel';
 import {
-  NOTIFICATIONS_PANEL_INFO,
+  getNotificationsPanelInfo,
   NotificationsPanel,
   useAppUpdateNotification,
   useSeedNotifications,
@@ -245,6 +246,7 @@ function PanelContent() {
 }
 
 function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelViewState> }) {
+  const t = useT();
   // Three port-bound clients (lifecycle / page / fire) plus
   // `usePanelUiState`, which owns the panel-local toggles
   // (preserveLog / recording) and the `clear()` action that fans out
@@ -913,7 +915,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         case 'notifications':
           return (
             <NotificationsPanel
-              info={NOTIFICATIONS_PANEL_INFO}
+              info={getNotificationsPanelInfo(t)}
               onClose={() => tl.toggleWindow('notifications')}
             />
           );
@@ -972,6 +974,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       handleCopyAllAsHar,
       searchSession,
       rulesByUid,
+      t,
     ],
   );
 

@@ -24,6 +24,7 @@ import { Allotment } from 'allotment';
 import { Button, Dropdown, Empty, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
@@ -46,11 +47,12 @@ import {
 
 /** Title-bar `(i)` popover copy — shared so every surface's tool-window
  *  registry describes the panel identically. */
-export const NOTIFICATIONS_PANEL_INFO: InfoPopoverContent = {
-  title: 'Notifications',
-  summary:
-    'Suggestions about your setup and a session timeline of app events — update availability, background task outcomes, and other notices, collected here instead of interrupting your work.',
-};
+export function getNotificationsPanelInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('shared.notifications.title'),
+    summary: t('shared.notifications.info.summary'),
+  };
+}
 
 interface NotificationsPanelProps {
   /** Title-bar `(i)` popover copy. */
@@ -121,18 +123,18 @@ const ActionLink: React.FC<{ action: NotificationAction }> = ({ action }) => {
  * again" is discoverable to undo. The notice dismisses itself when
  * re-enabled.
  */
-function muteWithNotice(dedupeKey: string, title: string): void {
+function muteWithNotice(t: Translate, dedupeKey: string, title: string): void {
   muteNotificationKey(dedupeKey);
   const noticeKey = `unmute:${dedupeKey}`;
   pushNotification({
     severity: 'info',
-    title: 'Notifications disabled',
-    description: `“${title}” won't be shown again.`,
+    title: t('shared.notifications.muted.title'),
+    description: t('shared.notifications.muted.description', { title }),
     dedupeKey: noticeKey,
     actions: [
       {
-        label: 'Re-enable',
-        tooltip: 'Allow this notification to show again',
+        label: t('shared.notifications.muted.reEnable'),
+        tooltip: t('shared.notifications.muted.reEnableTooltip'),
         run: () => {
           unmuteNotificationKey(dedupeKey);
           dismissByKey(noticeKey);
@@ -154,11 +156,12 @@ const CardMuteMenu: React.FC<{
   onOpenChange: (open: boolean) => void;
 }> = ({ dedupeKey, title, visible, onOpenChange }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const items: MenuProps['items'] = [
     {
       key: 'mute',
-      label: "Don't show again",
-      onClick: () => muteWithNotice(dedupeKey, title),
+      label: t('shared.notifications.dontShowAgain'),
+      onClick: () => muteWithNotice(t, dedupeKey, title),
     },
   ];
   return (
@@ -166,7 +169,7 @@ const CardMuteMenu: React.FC<{
       <Button
         size="small"
         type="text"
-        aria-label="More actions"
+        aria-label={t('shared.notifications.moreActions')}
         icon={<MoreOutlined style={{ fontSize: 12 }} />}
         style={{
           width: 20,
@@ -184,6 +187,7 @@ const CardMuteMenu: React.FC<{
 
 const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const clockFormat = useSettingValue('appearance.clockFormat');
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -235,7 +239,7 @@ const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => 
         )}
       </div>
       {!entry.sticky && (
-        <Tooltip title="Dismiss">
+        <Tooltip title={t('shared.notifications.dismiss')}>
           <Button
             size="small"
             type="text"
@@ -308,6 +312,7 @@ const SuggestionCard: React.FC<{ entry: SuggestionEntry }> = ({ entry }) => {
 
 const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const entries = useNotifications();
   const suggestions = useSuggestions();
@@ -328,7 +333,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
       className="rules-right-panel rules-right-panel--notifications"
       style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
     >
-      <PanelHeader wiring={wiring} title={<strong>Notifications</strong>} info={info} />
+      <PanelHeader wiring={wiring} title={<strong>{t('shared.notifications.title')}</strong>} info={info} />
       <div className="rules-notifications-split" style={{ flex: '1 1 auto', minHeight: 0 }}>
         <Allotment vertical>
           <Allotment.Pane
@@ -339,7 +344,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
             <div style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'none', padding: '8px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>
-                  Suggestions
+                  {t('shared.notifications.suggestionsHeading')}
                 </span>
                 <Button
                   size="small"
@@ -348,12 +353,12 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
                   disabled={suggestions.length === 0}
                   style={{ fontSize: 12, padding: 0, height: 'auto' }}
                 >
-                  Clear all
+                  {t('shared.notifications.clearAll')}
                 </Button>
               </div>
               {suggestions.length === 0 ? (
                 <div style={{ fontSize: 12, color: token.colorTextTertiary }}>
-                  No suggestions — advice about your setup will appear here.
+                  {t('shared.notifications.suggestionsEmpty')}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -368,7 +373,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
             <div style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'none', padding: '8px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>
-                  Timeline
+                  {t('shared.notifications.timelineHeading')}
                 </span>
                 <Button
                   size="small"
@@ -377,7 +382,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
                   disabled={entries.every((e) => e.sticky)}
                   style={{ fontSize: 12, padding: 0, height: 'auto' }}
                 >
-                  Clear all
+                  {t('shared.notifications.clearAll')}
                 </Button>
               </div>
               {entries.length === 0 ? (
@@ -394,7 +399,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
                     imageStyle={{ height: 40 }}
                     description={
                       <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
-                        No notifications — app events and updates will appear here.
+                        {t('shared.notifications.timelineEmpty')}
                       </span>
                     }
                   />

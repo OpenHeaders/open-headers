@@ -15,6 +15,7 @@
 
 import type { SecretsStorageState } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { useEffect, useState } from 'react';
 
 export function useSecretsStorageState(): SecretsStorageState | null {
@@ -50,12 +51,8 @@ export function requestSecretsRelaunch(): void {
 }
 
 /** Platform-appropriate remedy line for the locked state. */
-export function secretsStorageRemedy(platform: string): string {
-  if (platform === 'darwin') {
-    return 'Open Headers was denied access to the system keychain. Relaunch the app and allow keychain access when prompted.';
-  }
-  if (platform === 'linux') {
-    return 'No usable keyring backend is available. Set one up (GNOME Keyring or KWallet), then relaunch the app.';
-  }
-  return 'Open Headers could not access the system credential store. Relaunch the app to try again.';
+export function secretsStorageRemedy(t: Translate, platform: string): string {
+  if (platform === 'darwin') return t('shared.notifications.secrets.remedy.darwin');
+  if (platform === 'linux') return t('shared.notifications.secrets.remedy.linux');
+  return t('shared.notifications.secrets.remedy.other');
 }

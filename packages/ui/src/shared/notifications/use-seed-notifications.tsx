@@ -13,6 +13,7 @@
 import { LikeTwoTone, SmileTwoTone } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useEffect } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { dismissByKey, pushNotification } from './store';
 
 const GITHUB_URL = 'https://github.com/OpenHeaders/open-headers-releases';
@@ -41,24 +42,25 @@ function openExternal(url: string): void {
 }
 
 export function useSeedNotifications(): void {
+  const t = useT();
   useEffect(() => {
     // Pushed first so Help Us Grow lands on top of the timeline.
     if (!isDone('oh.websiteVisited')) {
       pushNotification({
         severity: 'info',
-        title: 'Discover Open Headers',
+        title: t('shared.notifications.seed.website.title'),
         description: (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <SmileTwoTone style={{ fontSize: 13 }} />
-            See all our features interactively, plus the latest updates.
+            {t('shared.notifications.seed.website.description')}
           </span>
         ),
         dedupeKey: 'visit-website',
         sticky: true,
         actions: [
           {
-            label: 'Visit our website',
-            tooltip: 'Open website and clear notification',
+            label: t('shared.notifications.seed.website.action'),
+            tooltip: t('shared.notifications.seed.website.tooltip'),
             run: () => {
               openExternal(WEBSITE_URL);
               rememberDone('oh.websiteVisited');
@@ -71,19 +73,19 @@ export function useSeedNotifications(): void {
     if (!isDone('oh.helpUsGrowStarred')) {
       pushNotification({
         severity: 'info',
-        title: 'Help Us Grow',
+        title: t('shared.notifications.seed.star.title'),
         description: (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <LikeTwoTone style={{ fontSize: 13 }} />
-            Recommend us to your friends &amp; colleagues
+            {t('shared.notifications.seed.star.description')}
           </span>
         ),
         dedupeKey: 'help-us-grow',
         sticky: true,
         actions: [
           {
-            label: 'Give us a star on GitHub',
-            tooltip: 'Open github and clear notification',
+            label: t('shared.notifications.seed.star.action'),
+            tooltip: t('shared.notifications.seed.star.tooltip'),
             run: () => {
               openExternal(GITHUB_URL);
               rememberDone('oh.helpUsGrowStarred');
@@ -93,5 +95,5 @@ export function useSeedNotifications(): void {
         ],
       });
     }
-  }, []);
+  }, [t]);
 }

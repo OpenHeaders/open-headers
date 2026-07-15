@@ -14,18 +14,19 @@
 import type { AppUpdateState } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useEffect } from 'react';
 import { readIgnoredVersion } from '../updates/release-notes';
 import { pushNotification } from './store';
 
-function pushAppUpdateEntry(version: string, options: { url?: string; security?: boolean } = {}): void {
+function pushAppUpdateEntry(t: Translate, version: string, options: { url?: string; security?: boolean } = {}): void {
   const { url, security } = options;
   pushNotification({
     severity: security ? 'warning' : 'info',
-    title: security ? `Open Headers ${version} security update available` : `Open Headers ${version} available`,
-    description: security
-      ? 'This release fixes a security issue affecting the version you are running. Update as soon as possible.'
-      : undefined,
+    title: security
+      ? t('shared.notifications.appUpdate.securityTitle', { version })
+      : t('shared.notifications.appUpdate.title', { version }),
+    description: security ? t('shared.notifications.appUpdate.securityDescription') : undefined,
     // The escalated entry is a different fact than the plain one — a
     // check that learns the floor mid-session must still speak up.
     dedupeKey: security ? `app-update-security:${version}` : `app-update:${version}`,
@@ -34,7 +35,7 @@ function pushAppUpdateEntry(version: string, options: { url?: string; security?:
     actions: url
       ? [
           {
-            label: 'Download…',
+            label: t('shared.notifications.appUpdate.download'),
             run: () => {
               const openUrl = getCapability('openExternalUrl');
               if (openUrl) void openUrl(url);
@@ -46,17 +47,18 @@ function pushAppUpdateEntry(version: string, options: { url?: string; security?:
   });
 }
 
-function pushFromState(state: AppUpdateState): void {
+function pushFromState(t: Translate, state: AppUpdateState): void {
   const pending = state.phase === 'available' || state.phase === 'downloading' || state.phase === 'downloaded';
   if (pending && state.availableVersion !== null) {
     // An explicitly ignored version stays out of the timeline — unless
     // it's below the security floor, which always speaks.
     if (!state.belowSafeFloor && readIgnoredVersion() === state.availableVersion) return;
-    pushAppUpdateEntry(state.availableVersion, { security: state.belowSafeFloor });
+    pushAppUpdateEntry(t, state.availableVersion, { security: state.belowSafeFloor });
   }
 }
 
 export function useAppUpdateNotification(): void {
+  const t = useT();
   useEffect(() => {
     const probe = getCapability('getAppUpdate');
     if (!probe) return;
@@ -68,16 +70,16 @@ export function useAppUpdateNotification(): void {
       void bridge
         .call('oh.updates.getState')
         .then((state) => {
-          if (!cancelled) pushFromState(state);
+          if (!cancelled) pushFromState(t, state);
         })
         .catch(() => {
           // Host without the updater RPC — fall back to the probe.
           void probe().then((info) => {
             if (cancelled || !info) return;
-            pushAppUpdateEntry(info.version, { url: info.url });
+            pushAppUpdateEntry(t, info.version, { url: info.url });
           });
         });
-      const unsubscribe = bridge.subscribe('appUpdateState', pushFromState);
+      const unsubscribe = bridge.subscribe('appUpdateState', (state) => pushFromState(t, state));
       return () => {
         cancelled = true;
         unsubscribe();
@@ -85,10 +87,10 @@ export function useAppUpdateNotification(): void {
     }
     void probe().then((info) => {
       if (cancelled || !info) return;
-      pushAppUpdateEntry(info.version, { url: info.url });
+      pushAppUpdateEntry(t, info.version, { url: info.url });
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 }

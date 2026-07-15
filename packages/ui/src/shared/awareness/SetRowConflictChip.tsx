@@ -14,6 +14,7 @@
 import { MinusCircleFilled } from '@ant-design/icons';
 import { Button, Popover, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { ConflictRemoteInfo } from '../conflicts/types';
 import SurfaceChip from './SurfaceChip';
 
@@ -45,10 +46,11 @@ const SetRowConflictChip: React.FC<SetRowConflictChipProps> = ({
   onKeepMine,
   style,
 }) => {
+  const t = useT();
   const content = (
     <div style={{ minWidth: 260, maxWidth: 360, fontSize: 12 }}>
       <Text strong style={{ display: 'block', marginBottom: remote ? 4 : 8 }}>
-        Row removed externally
+        {t('shared.conflicts.rowChip.removedExternally')}
       </Text>
       {remote && (
         <div style={{ marginBottom: 8 }}>
@@ -62,16 +64,16 @@ const SetRowConflictChip: React.FC<SetRowConflictChipProps> = ({
       )}
       <div style={{ marginBottom: 10 }}>
         <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>
-          Last synced row
+          {t('shared.conflicts.rowChip.lastSyncedRow')}
         </Text>
-        <div style={monoBlock}>{baseSummary || '(empty)'}</div>
+        <div style={monoBlock}>{baseSummary || t('shared.conflicts.chip.empty')}</div>
       </div>
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
         <Button size="small" onClick={onKeepMine}>
-          Keep mine
+          {t('shared.conflicts.chip.keepMine')}
         </Button>
         <Button size="small" type="primary" danger onClick={onUseSaved}>
-          Use saved (remove)
+          {t('shared.conflicts.rowChip.useSavedRemove')}
         </Button>
       </div>
     </div>
@@ -82,7 +84,7 @@ const SetRowConflictChip: React.FC<SetRowConflictChipProps> = ({
       <span
         role="button"
         tabIndex={0}
-        title="Saved version removed this row — click to resolve"
+        title={t('shared.conflicts.rowChip.trigger')}
         style={{
           display: 'inline-flex',
           alignItems: 'center',

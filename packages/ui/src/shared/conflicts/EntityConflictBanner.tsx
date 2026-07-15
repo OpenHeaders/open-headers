@@ -20,6 +20,7 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
 import { Alert, Button, Space, Typography } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { PathConflict } from './types';
 
 const { Text } = Typography;
@@ -59,28 +60,30 @@ const EntityConflictBanner: React.FC<EntityConflictBannerProps> = ({
   onReview,
   onKeepAllMine,
   onUseAllSaved,
-  fieldNoun = 'fields',
+  fieldNoun,
   forceVisible = false,
   style,
 }) => {
+  const t = useT();
   if (count === 0) return null;
   if (count < 2 && !forceVisible) return null;
+  const noun = fieldNoun ?? t('shared.conflicts.banner.fieldsNoun');
   const message = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
       <Text style={{ fontSize: 13 }}>
-        <strong>{count}</strong> {fieldNoun} changed externally while you were editing.
+        <strong>{count}</strong> {t('shared.conflicts.banner.changedExternally', { noun })}
       </Text>
       <Space size={6} wrap>
         {onReview && (
           <Button size="small" onClick={onReview}>
-            Review changes
+            {t('shared.conflicts.banner.review')}
           </Button>
         )}
         <Button size="small" onClick={onKeepAllMine}>
-          Keep all mine
+          {t('shared.conflicts.banner.keepAllMine')}
         </Button>
         <Button size="small" type="primary" onClick={onUseAllSaved}>
-          Use all saved
+          {t('shared.conflicts.banner.useAllSaved')}
         </Button>
       </Space>
     </div>

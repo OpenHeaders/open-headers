@@ -16,6 +16,7 @@ import { getHostBridge } from '@openheaders/core/bridge';
 import { Alert, Button } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 interface SecurityUpdateBannerProps {
   /** Route to the Settings update row, which owns download/install. */
@@ -23,6 +24,7 @@ interface SecurityUpdateBannerProps {
 }
 
 const SecurityUpdateBanner: React.FC<SecurityUpdateBannerProps> = ({ onOpenAbout }) => {
+  const t = useT();
   const [state, setState] = useState<AppUpdateState | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -48,10 +50,11 @@ const SecurityUpdateBanner: React.FC<SecurityUpdateBannerProps> = ({ onOpenAbout
   if (state === null || !state.belowSafeFloor || dismissed) return null;
 
   const message = state.availableVersion
-    ? `Open Headers ${state.availableVersion} fixes a security issue affecting the version you are running ` +
-      `(${state.currentVersion}). Update as soon as possible.`
-    : `A security fix is published for the version you are running (${state.currentVersion}). ` +
-      'Update as soon as possible.';
+    ? t('shared.notifications.securityBanner.messageWithVersion', {
+        availableVersion: state.availableVersion,
+        currentVersion: state.currentVersion,
+      })
+    : t('shared.notifications.securityBanner.messageNoVersion', { currentVersion: state.currentVersion });
 
   return (
     <Alert
@@ -64,7 +67,7 @@ const SecurityUpdateBanner: React.FC<SecurityUpdateBannerProps> = ({ onOpenAbout
       message={message}
       action={
         <Button size="small" danger onClick={onOpenAbout}>
-          Update…
+          {t('shared.notifications.securityBanner.update')}
         </Button>
       }
     />
