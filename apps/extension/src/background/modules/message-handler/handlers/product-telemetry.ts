@@ -1,7 +1,11 @@
 /** Product-telemetry RPCs — anonymous usage counting, not per-tab traffic telemetry. */
 
 import type { TelemetryEvent } from '@openheaders/core/telemetry';
-import { readProductTelemetrySnapshot, trackProductTelemetryEvent } from '../../product-telemetry';
+import {
+  readProductTelemetrySnapshot,
+  resetProductTelemetryInstallId,
+  trackProductTelemetryEvent,
+} from '../../product-telemetry';
 import type { HandlerMap } from '../types';
 
 export const productTelemetryHandlers: HandlerMap = {
@@ -12,6 +16,11 @@ export const productTelemetryHandlers: HandlerMap = {
 
   productTelemetryRead: ({ respond }) => {
     void readProductTelemetrySnapshot().then(respond);
+    return true;
+  },
+
+  productTelemetryResetInstallId: ({ respond }) => {
+    void resetProductTelemetryInstallId().then((installId) => respond({ installId }));
     return true;
   },
 };

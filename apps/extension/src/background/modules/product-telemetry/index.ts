@@ -8,13 +8,19 @@
  */
 
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
+import { getHostStorage, OH, wsKeys } from '@openheaders/core/storage';
 import {
+  bucketScale,
   PRODUCT_TELEMETRY_ENDPOINT,
+  PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT,
   ProductTelemetryController,
+  type ProductTelemetryInstallStore,
   type ProductTelemetrySessionStore,
   parseTelemetryAppVersion,
+  type TelemetryChannelId,
   type TelemetryEnvelope,
   type TelemetryEvent,
+  type TelemetryInstallContext,
 } from '@openheaders/core/telemetry';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { alarms, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
@@ -26,6 +32,8 @@ const FLUSH_PERIOD_MINUTES = 1;
 
 const SESSION_ID_KEY = 'oh.productTelemetry.sessionId';
 const LATCH_KEY_PREFIX = 'oh.productTelemetry.latch.';
+const INSTALL_RECORD_KEY = 'oh.productTelemetry.install';
+const FIRST_RUN_SENT_KEY = 'oh.productTelemetry.firstRunSent';
 
 /**
  * `chrome.storage.session` survives SW eviction but lives in memory only
@@ -74,12 +82,71 @@ const sessionStore: ProductTelemetrySessionStore = {
   },
 };
 
+/**
+ * Durable install identity (plan §4, amended 2026-07-16) on
+ * `chrome.storage.local`: survives SW eviction and browser restarts,
+ * dies with the extension. The record and the first_run sent-bit are
+ * separate keys on purpose — toggle-off deletes the identity record
+ * while the boolean latch keeps toggle cycles out of install counts.
+ */
+const installStore: ProductTelemetryInstallStore = {
+  async getRecord() {
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    const items = await api.storage.local.get(INSTALL_RECORD_KEY);
+    const value = items[INSTALL_RECORD_KEY] as TelemetryInstallContext | undefined;
+    return typeof value?.installId === 'string' && typeof value?.installedAt === 'number' ? value : null;
+  },
+  async setRecord(record) {
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    await api.storage.local.set({ [INSTALL_RECORD_KEY]: record });
+  },
+  async clearRecord() {
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    await api.storage.local.remove(INSTALL_RECORD_KEY);
+  },
+  async wasFirstRunSent() {
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    const items = await api.storage.local.get(FIRST_RUN_SENT_KEY);
+    return items[FIRST_RUN_SENT_KEY] === true;
+  },
+  async markFirstRunSent() {
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    await api.storage.local.set({ [FIRST_RUN_SENT_KEY]: true });
+  },
+};
+
 function detectBrowserKind(): 'chrome' | 'firefox' | 'edge' | 'safari' | 'other' {
   if (isFirefox) return 'firefox';
   if (isEdge) return 'edge';
   if (isSafari) return 'safari';
   if (navigator.userAgent.includes('Chrome')) return 'chrome';
   return 'other';
+}
+
+/** The store this build ships through — a static fact of the browser flavor. */
+export function detectDistributionChannel(): TelemetryChannelId {
+  if (isFirefox) return 'firefox-amo';
+  if (isEdge) return 'edge-store';
+  if (isSafari) return 'safari-store';
+  return 'chrome-store';
+}
+
+/**
+ * Coarse scale-of-use for `session_start`: active-workspace rule count
+ * and workspace count, bucketed. Reads two storage keys at boot; any
+ * failure just omits the buckets — context, never worth blocking over.
+ */
+async function readScaleBuckets(): Promise<Pick<Extract<TelemetryEvent, { name: 'session_start' }>, 'rules' | 'workspaces'>> {
+  try {
+    const storage = getHostStorage();
+    if (!storage) return {};
+    const workspaces = (await storage.get(OH.workspaces)) ?? [];
+    const activeId = (await storage.get(OH.runtimeActive)) ?? workspaces[0]?.id;
+    const rules = activeId ? ((await storage.get(wsKeys(activeId).rules)) ?? []) : [];
+    return { rules: bucketScale(rules.length), workspaces: bucketScale(workspaces.length) };
+  } catch {
+    return {};
+  }
 }
 
 async function buildSessionStart(): Promise<TelemetryEvent | null> {
@@ -95,7 +162,27 @@ async function buildSessionStart(): Promise<TelemetryEvent | null> {
     platform: info.os,
     browser: detectBrowserKind(),
     locale: 'en',
+    ...(await readScaleBuckets()),
   };
+}
+
+/** The uninstall-URL target for one install id (WIRE_TRANSPARENCY.md §4). */
+export function uninstallUrlFor(installId: string | null): string {
+  return installId ? `${PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT}?i=${installId}` : '';
+}
+
+/**
+ * Keep the browser's uninstall ping in step with the identity: set while
+ * an install id exists, cleared the moment the toggle wipes it. Best
+ * effort — not every engine implements `setUninstallURL`.
+ */
+function syncUninstallUrl(installId: string | null): void {
+  const api = typeof browser !== 'undefined' ? browser : chrome;
+  try {
+    void api.runtime.setUninstallURL?.(uninstallUrlFor(installId))?.catch?.(() => undefined);
+  } catch {
+    // Engines without the API just never ping.
+  }
 }
 
 const controller = new ProductTelemetryController({
@@ -111,9 +198,12 @@ const controller = new ProductTelemetryController({
   },
   now: Date.now,
   sessionStore,
+  installStore,
+  channel: detectDistributionChannel(),
   getEnabled: () => getSetting('telemetry.enabled'),
   subscribeEnabled: (fn) => void subscribeKey('telemetry.enabled', fn),
   buildSessionStart,
+  onIdentityChanged: syncUninstallUrl,
 });
 
 /**
@@ -146,4 +236,9 @@ export function trackProductTelemetryEvent(event: TelemetryEvent): void {
 /** UI-surface entry (bridge RPC): the inspector's snapshot. */
 export function readProductTelemetrySnapshot(): Promise<ProductTelemetrySnapshot> {
   return controller.snapshot();
+}
+
+/** UI-surface entry (bridge RPC): mint a fresh install id. Null while the channel is off. */
+export function resetProductTelemetryInstallId(): Promise<string | null> {
+  return controller.resetInstallId();
 }

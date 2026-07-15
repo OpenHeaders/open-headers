@@ -50,6 +50,15 @@ const ProductTelemetryEventsRow: React.FC<{ def: SettingDef }> = ({ def }) => {
     refresh();
   }, [refresh]);
 
+  const resetInstallId = useCallback(() => {
+    const bridge = getHostBridge();
+    if (!bridge) return;
+    void bridge
+      .call('productTelemetryResetInstallId')
+      .then(refresh)
+      .catch(() => undefined);
+  }, [refresh]);
+
   useEffect(() => {
     if (!open) return;
     const timer = setInterval(refresh, REFRESH_INTERVAL_MS);
@@ -73,6 +82,16 @@ const ProductTelemetryEventsRow: React.FC<{ def: SettingDef }> = ({ def }) => {
             <Text type="secondary" style={{ fontSize: 12 }}>
               {`Session ${snapshot.sessionId} — counting is ${snapshot.enabled ? 'on' : 'off'}`}
             </Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {snapshot.installId
+                ? `Install ${snapshot.installId} (random — identifies this install, not you)`
+                : 'No install identifier — counting is off'}
+            </Text>
+            {snapshot.installId && (
+              <Button size="small" onClick={resetInstallId} data-testid="product-telemetry-reset-install-id">
+                Reset identifier
+              </Button>
+            )}
           </div>
         )}
         {!snapshot || snapshot.entries.length === 0 ? (

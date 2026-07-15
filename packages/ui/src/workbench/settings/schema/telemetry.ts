@@ -34,7 +34,7 @@ registerSetting({
   schema: v.boolean(),
   label: 'Anonymous usage counting',
   description:
-    'Count which features get used — nothing more. No URLs, no headers, no request or response data, no account identity, no persistent device id. Every event is visible byte for byte in "View telemetry events" below. Off means off: the channel goes completely silent.',
+    'Count which features get used — nothing more. No URLs, no headers, no request or response data, no account identity, nothing derived from your device. A random install identifier groups the counts; it identifies this install, not you — reset it anytime, and turning the switch off deletes it. Every event is visible byte for byte in "View telemetry events" below. Off means off: the channel goes completely silent.',
   category: 'general',
   tags: ['telemetry', 'privacy', 'analytics', 'usage', 'anonymous'],
   scope: 'user',
