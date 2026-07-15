@@ -98,6 +98,10 @@ export interface UseTabOpenersApi {
   openRequestCollectionScripts: (uid: string, name: string) => void;
   /** Open the ancestor-scripts editor for a request folder. */
   openRequestFolderScripts: (uid: string, name: string) => void;
+  /** Open the ancestor-auth editor for a request collection. */
+  openRequestCollectionAuth: (uid: string, name: string) => void;
+  /** Open the ancestor-auth editor for a request folder. */
+  openRequestFolderAuth: (uid: string, name: string) => void;
   openTemplateCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   /**

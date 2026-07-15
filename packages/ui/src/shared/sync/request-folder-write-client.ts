@@ -15,10 +15,12 @@ import {
   buildDeleteRequestFolderEntityBatch,
   buildMoveRequestFolderBatch,
   buildRenameRequestFolderBatch,
+  buildSetRequestFolderAuthBatch,
   buildSetRequestFolderScriptsBatch,
   type SetRequestFolderScriptsInput,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import type { AuthConfig } from '@openheaders/core/types';
 import {
   getRequestFolderSyncMirrorForWorkspace,
   type RequestFolderSyncMirror,
@@ -88,6 +90,35 @@ export async function applyRequestFolderSetScripts(
     batchId: opts.batchId ?? `request-folder-scripts-${input.folderUid}`,
   });
   return applySyncPayload(buildSetRequestFolderScriptsBatch(input, ctx));
+}
+
+export interface ApplyRequestFolderSetAuthInput {
+  folderUid: string;
+  /** New ancestor default auth; `undefined` clears the field (the
+   *  level goes transparent — the inherit walk passes through it). */
+  auth: AuthConfig | undefined;
+}
+
+/** Persist the folder's ancestor default auth. The per-leaf diff
+ *  baseline is the mirror's live folder — see
+ *  `buildSetRequestFolderAuthBatch` for the granularity contract. */
+export async function applyRequestFolderSetAuth(
+  input: ApplyRequestFolderSetAuthInput,
+  opts: RequestFolderWriteOptions,
+): Promise<RequestFolderSimpleResult> {
+  const mirror = resolveMirror(opts, getRequestFolderSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  const entry = mirror.getRequestFolderMirror(input.folderUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
+  const ctx = resolveRendererContext(opts).next({
+    batchId: opts.batchId ?? `request-folder-auth-${input.folderUid}`,
+  });
+  const payload = buildSetRequestFolderAuthBatch(
+    { folderUid: input.folderUid, auth: input.auth, currentAuth: entry.folder.auth },
+    ctx,
+  );
+  if (payload.batch.mutations.length === 0) return { ok: true };
+  return applySyncPayload(payload);
 }
 
 export interface ApplyRequestFolderDeleteInput {

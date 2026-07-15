@@ -510,6 +510,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openRequestCollectionVariables,
     openRequestCollectionScripts: openRequestCollectionScriptsRaw,
     openRequestFolderScripts: openRequestFolderScriptsRaw,
+    openRequestCollectionAuth,
+    openRequestFolderAuth,
     openTemplateCollectionVariables,
     openRequestEditTab: openRequestEditTabRaw,
     openCreateRequestTab,
@@ -1037,6 +1039,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openRequestCollectionVariables={openRequestCollectionVariables}
         openRequestCollectionScripts={openRequestCollectionScripts}
         openRequestFolderScripts={openRequestFolderScripts}
+        openRequestCollectionAuth={openRequestCollectionAuth}
+        openRequestFolderAuth={openRequestFolderAuth}
         openRequestEditTab={openRequestEditTab}
         openTemplateEditTab={openTemplateEditTab}
         openTemplateCollectionVariables={openTemplateCollectionVariables}
@@ -1092,6 +1096,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openRequestCollectionVariables,
       openRequestCollectionScripts,
       openRequestFolderScripts,
+      openRequestCollectionAuth,
+      openRequestFolderAuth,
       openRequestEditTab,
       openTemplateCollectionVariables,
       openTemplateEditTab,

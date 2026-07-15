@@ -717,6 +717,19 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.saveFailedDetail': 'Could not save scripts: {message}',
   'workbench.editors.ancestorScripts.deletedElsewhere': 'This item was deleted in another window.',
 
+  // ── Ancestor auth editor (collection/folder default authorization) ──
+  'workbench.editors.ancestorAuth.titleCollection': 'Authorization — {name}',
+  'workbench.editors.ancestorAuth.titleFolder': 'Authorization — {name}',
+  'workbench.editors.ancestorAuth.descriptionCollection':
+    'Requests set to Inherit use this authorization. A folder\u2019s own authorization takes precedence, and a request\u2019s explicit authorization always wins. Inherit here means nothing is configured at this level.',
+  'workbench.editors.ancestorAuth.descriptionFolder':
+    'Requests set to Inherit use this authorization ahead of the collection\u2019s. A request\u2019s explicit authorization always wins. Inherit here means nothing is configured at this level \u2014 requests fall through to the collection.',
+  'workbench.editors.ancestorAuth.notFoundCollection': 'Request collection not found.',
+  'workbench.editors.ancestorAuth.notFoundFolder': 'Folder not found.',
+  'workbench.editors.ancestorAuth.saveFailed': 'Could not save authorization.',
+  'workbench.editors.ancestorAuth.saveFailedDetail': 'Could not save authorization: {message}',
+  'workbench.editors.ancestorAuth.deletedElsewhere': 'This item was deleted in another window.',
+
   // ── Settings tab — wired knobs ─────────────────────────────────────
   'workbench.editors.request.settings.enabled': 'Enabled',
   'workbench.editors.request.settings.disabled': 'Disabled',

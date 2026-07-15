@@ -18,6 +18,7 @@ import {
   buildDeleteRequestCollectionBatch,
   buildRemoveRequestCollectionVarBatch,
   buildRenameRequestCollectionBatch,
+  buildSetRequestCollectionAuthBatch,
   buildSetRequestCollectionPinnedAndDefaultBatch,
   buildSetRequestCollectionScriptsBatch,
   buildSetRequestCollectionVarBatch,
@@ -26,7 +27,7 @@ import {
 import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
-import type { Collection, Variable } from '@openheaders/core/types';
+import type { AuthConfig, Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
   getRequestCollectionSyncMirrorForWorkspace,
@@ -136,6 +137,35 @@ export async function applyRequestCollectionSetScripts(
     batchId: opts.batchId ?? `request-collection-scripts-${input.collectionUid}`,
   });
   return applySyncPayload(buildSetRequestCollectionScriptsBatch(input, ctx));
+}
+
+export interface ApplyRequestCollectionSetAuthInput {
+  collectionUid: string;
+  /** New ancestor default auth; `undefined` clears the field (the
+   *  level goes transparent — the inherit walk passes through it). */
+  auth: AuthConfig | undefined;
+}
+
+/** Persist the collection's ancestor default auth. The per-leaf diff
+ *  baseline is the mirror's live collection — see
+ *  `buildSetRequestCollectionAuthBatch` for the granularity contract. */
+export async function applyRequestCollectionSetAuth(
+  input: ApplyRequestCollectionSetAuthInput,
+  opts: RequestCollectionWriteOptions,
+): Promise<RequestCollectionSimpleResult> {
+  const mirror = resolveMirror(opts, getRequestCollectionSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  const entry = mirror.getRequestCollectionMirror(input.collectionUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
+  const ctx = resolveRendererContext(opts).next({
+    batchId: opts.batchId ?? `request-collection-auth-${input.collectionUid}`,
+  });
+  const payload = buildSetRequestCollectionAuthBatch(
+    { collectionUid: input.collectionUid, auth: input.auth, currentAuth: entry.collection.auth },
+    ctx,
+  );
+  if (payload.batch.mutations.length === 0) return { ok: true };
+  return applySyncPayload(payload);
 }
 
 export interface ApplyRequestCollectionDeleteInput {

@@ -35,6 +35,8 @@ export type TabMode =
   | 'request-collection-vars'
   | 'request-collection-scripts'
   | 'request-folder-scripts'
+  | 'request-collection-auth'
+  | 'request-folder-auth'
   | 'template-collection-vars'
   | 'request-edit'
   | 'request-create'

@@ -37,19 +37,21 @@ import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
+import type { AuthConfig, ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { buildRequestCollectionTrees } from '../shared/local-tree-builder';
 import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/core/storage';
 import {
   applyRequestCollectionCreate,
   applyRequestCollectionDelete,
   applyRequestCollectionRename,
+  applyRequestCollectionSetAuth,
   applyRequestCollectionSetScripts,
 } from '../shared/sync/request-collection-write-client';
 import {
   applyRequestFolderCreate,
   applyRequestFolderDelete,
   applyRequestFolderRename,
+  applyRequestFolderSetAuth,
   applyRequestFolderSetScripts,
 } from '../shared/sync/request-folder-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
@@ -107,6 +109,11 @@ export interface RequestsContextValue {
     scripts: { preRequestScript?: string; postResponseScript?: string },
   ) => Promise<boolean>;
 
+  /** Ancestor default auth — same override-branch discipline as the
+   *  script setters (import modals + the Authorization editor). */
+  setCollectionAuth: (collectionUid: string, auth: AuthConfig) => Promise<boolean>;
+  setFolderAuth: (folderUid: string, auth: AuthConfig) => Promise<boolean>;
+
   execute: (input: {
     requestUid?: string;
     draft?: Request;
@@ -132,6 +139,8 @@ const defaultContextValue: RequestsContextValue = {
   deleteFolder: () => Promise.resolve(false),
   setCollectionScripts: () => Promise.resolve(false),
   setFolderScripts: () => Promise.resolve(false),
+  setCollectionAuth: () => Promise.resolve(false),
+  setFolderAuth: () => Promise.resolve(false),
   execute: () => Promise.resolve(null),
 };
 
@@ -540,6 +549,28 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
+  const setCollectionAuth = useCallback<RequestsContextValue['setCollectionAuth']>(
+    async (collectionUid, auth) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const result = await applyRequestCollectionSetAuth({ collectionUid, auth }, { workspaceId: wsId, surfaceId });
+      return result.ok;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const setFolderAuth = useCallback<RequestsContextValue['setFolderAuth']>(
+    async (folderUid, auth) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const result = await applyRequestFolderSetAuth({ folderUid, auth }, { workspaceId: wsId, surfaceId });
+      return result.ok;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
   const execute = useCallback<RequestsContextValue['execute']>(async (input) => {
     const resp = await hostBridge.call('executeRequest', input).catch(() => null);
     return resp?.success ? (resp.snapshot ?? null) : null;
@@ -564,6 +595,8 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       deleteFolder,
       setCollectionScripts,
       setFolderScripts,
+      setCollectionAuth,
+      setFolderAuth,
       execute,
     }),
     [
@@ -584,6 +617,8 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       deleteFolder,
       setCollectionScripts,
       setFolderScripts,
+      setCollectionAuth,
+      setFolderAuth,
       execute,
     ],
   );

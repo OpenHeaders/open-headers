@@ -25,6 +25,7 @@ import FolderOverview from '../overviews/FolderOverview';
 import LiveVariablesEditor from '../variables/LiveVariablesEditor';
 import LiveVariableEditor from '../live/LiveVariableEditor';
 import LiveWorkflowEditor from '../live/LiveWorkflowEditor';
+import AncestorAuthEditor from '../auth/AncestorAuthEditor';
 import AncestorScriptsEditor from '../scripts/AncestorScriptsEditor';
 import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
 import RequestEditor from '../request-editor/RequestEditor';
@@ -69,6 +70,8 @@ interface WorkbenchTabBodyProps {
   openRequestCollectionVariables: UseTabOpenersApi['openRequestCollectionVariables'];
   openRequestCollectionScripts: UseTabOpenersApi['openRequestCollectionScripts'];
   openRequestFolderScripts: UseTabOpenersApi['openRequestFolderScripts'];
+  openRequestCollectionAuth: UseTabOpenersApi['openRequestCollectionAuth'];
+  openRequestFolderAuth: UseTabOpenersApi['openRequestFolderAuth'];
   openRequestEditTab: UseTabOpenersApi['openRequestEditTab'];
   openTemplateEditTab: UseTabOpenersApi['openTemplateEditTab'];
   openTemplateCollectionVariables: UseTabOpenersApi['openTemplateCollectionVariables'];
@@ -115,6 +118,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openRequestCollectionVariables,
   openRequestCollectionScripts,
   openRequestFolderScripts,
+  openRequestCollectionAuth,
+  openRequestFolderAuth,
   openRequestEditTab,
   openTemplateEditTab,
   openTemplateCollectionVariables,
@@ -168,6 +173,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenCollectionVariables={openRequestCollectionVariables}
           onOpenCollectionScripts={openRequestCollectionScripts}
+          onOpenCollectionAuth={openRequestCollectionAuth}
         />
       );
     }
@@ -211,6 +217,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onCreateRequest={openCreateRequestTab}
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenFolderScripts={openRequestFolderScripts}
+          onOpenFolderAuth={openRequestFolderAuth}
         />
       );
     }
@@ -337,6 +344,26 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         onOpenPackageLibrary={openScriptPackages}
+      />
+    );
+  }
+  if (tab.mode === 'request-collection-auth' && tab.entityId) {
+    return (
+      <AncestorAuthEditor
+        kind="collection"
+        entityUid={tab.entityId}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+      />
+    );
+  }
+  if (tab.mode === 'request-folder-auth' && tab.entityId) {
+    return (
+      <AncestorAuthEditor
+        kind="folder"
+        entityUid={tab.entityId}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
     );
   }

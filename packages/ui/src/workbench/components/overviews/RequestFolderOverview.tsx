@@ -15,7 +15,7 @@
  * "Folder not found" because the uid lives in a request tree.
  */
 
-import { CodeOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import { CodeOutlined, FolderOutlined, LockOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import type { CollectionTree, FolderNode, HttpMethod, TreeNode } from '@openheaders/core/types';
 import { Button, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
@@ -31,6 +31,7 @@ interface RequestFolderOverviewProps {
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
   onOpenFolderScripts?: (uid: string, name: string) => void;
+  onOpenFolderAuth?: (uid: string, name: string) => void;
 }
 
 interface ContentRow {
@@ -98,6 +99,7 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
   onCreateRequest,
   onOpenFolderOverview,
   onOpenFolderScripts,
+  onOpenFolderAuth,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -215,6 +217,13 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
         <Tooltip title={t('workbench.overview.action.scriptsTooltipFolder')}>
           <Button size="small" icon={<CodeOutlined />} onClick={() => onOpenFolderScripts(folderUid, folder.name)}>
             {t('workbench.overview.action.scripts')}
+          </Button>
+        </Tooltip>
+      )}
+      {onOpenFolderAuth && folder && (
+        <Tooltip title={t('workbench.overview.action.authTooltipFolder')}>
+          <Button size="small" icon={<LockOutlined />} onClick={() => onOpenFolderAuth(folderUid, folder.name)}>
+            {t('workbench.overview.action.auth')}
           </Button>
         </Tooltip>
       )}

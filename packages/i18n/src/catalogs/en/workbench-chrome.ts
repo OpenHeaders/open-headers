@@ -369,6 +369,7 @@ export const workbenchChrome = {
   // names BY DESIGN (V5 fresh start) — keyed at mint time. ────────────
   'workbench.shell.tabLabel.collectionVariables': '{name} · Variables',
   'workbench.shell.tabLabel.collectionScripts': '{name} · Scripts',
+  'workbench.shell.tabLabel.collectionAuth': '{name} · Authorization',
   'workbench.shell.tabLabel.newRequest': 'New Request',
   'workbench.shell.tabLabel.newWorkflow': 'New Workflow',
   'workbench.shell.tabLabel.newLiveVariable': 'New Live Variable',
@@ -740,6 +741,11 @@ export const workbenchChrome = {
   'workbench.overview.action.scripts': 'Scripts',
   'workbench.overview.action.scriptsTooltipCollection': 'Edit scripts that run for every request in this collection',
   'workbench.overview.action.scriptsTooltipFolder': 'Edit scripts that run for every request in this folder',
+  'workbench.overview.action.auth': 'Authorization',
+  'workbench.overview.action.authTooltipCollection':
+    'Set the default authorization inherited by every request in this collection',
+  'workbench.overview.action.authTooltipFolder':
+    'Set the default authorization inherited by every request in this folder',
   'workbench.overview.caption.description': 'Description',
   'workbench.overview.caption.contents': 'Contents',
   'workbench.overview.empty.collectionNotFound': 'Collection not found',
