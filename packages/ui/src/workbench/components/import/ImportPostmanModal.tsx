@@ -245,6 +245,8 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
         const seed: Partial<Request> = {
           ...(request.description !== undefined ? { description: request.description } : {}),
           ...request.settings,
+          ...(request.preRequestScript !== undefined ? { preRequestScript: request.preRequestScript } : {}),
+          ...(request.postResponseScript !== undefined ? { postResponseScript: request.postResponseScript } : {}),
           method: request.method,
           url: request.url,
           headers: request.headers,
@@ -369,9 +371,10 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       destroyOnClose
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-        Import a Postman Collection v2.1 JSON. Folder structure, collection variables, request docs and settings, and
-        per-request auth (basic / bearer / api-key / OAuth 2.0) are preserved. Scripts, AWS sigv4, and file uploads
-        are tracked as drops. Optionally attach a Postman environment file to land a matching Environment.
+        Import a Postman Collection v2.1 JSON. Folder structure, collection variables, request docs and settings,
+        per-request auth (basic / bearer / api-key / OAuth 2.0), and request scripts (translated to the oh.* API
+        where possible) are preserved. AWS sigv4 and file uploads are tracked as drops. Optionally attach a Postman
+        environment file to land a matching Environment.
       </Paragraph>
 
       {stage.kind === 'empty' && (

@@ -168,6 +168,8 @@ export function createImportToolDefinitions(): McpToolDefinition[] {
             {
               ...(seed.description !== undefined ? { description: seed.description } : {}),
               ...seed.settings,
+              ...(seed.preRequestScript !== undefined ? { preRequestScript: seed.preRequestScript } : {}),
+              ...(seed.postResponseScript !== undefined ? { postResponseScript: seed.postResponseScript } : {}),
               method: seed.method,
               url: seed.url,
               headers: seed.headers,

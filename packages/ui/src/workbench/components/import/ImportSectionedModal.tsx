@@ -304,6 +304,8 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           const seed: Partial<Request> = {
             ...(request.description !== undefined ? { description: request.description } : {}),
             ...request.settings,
+            ...(request.preRequestScript !== undefined ? { preRequestScript: request.preRequestScript } : {}),
+            ...(request.postResponseScript !== undefined ? { postResponseScript: request.postResponseScript } : {}),
             method: request.method,
             url: request.url,
             headers: request.headers,

@@ -244,6 +244,43 @@ describe('materializePostmanPull', () => {
     expect(fallback?.request.url).toBe('https://api.openheaders.io/charges');
   });
 
+  it('lands request scripts on the script slots — translated and verbatim-with-marker', async () => {
+    const scriptedJson = JSON.stringify({
+      info: { name: 'Scripted', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+      item: [
+        {
+          name: 'Login',
+          request: { method: 'POST', url: 'https://api.openheaders.io/login' },
+          event: [
+            { listen: 'prerequest', script: { exec: ['pm.environment.set("stamp", "1");'] } },
+            { listen: 'test', script: { exec: ["const sdk = require('postman-collection');"] } },
+          ],
+        },
+      ],
+    });
+    const summary = await materializePostmanPull(
+      pullResult({
+        collections: [
+          { item: 'collection', id: 'c-s', name: 'Scripted', json: scriptedJson, workspaceIds: ['pm-ws-1'] },
+        ],
+        environments: [],
+      }),
+      { ensureWorkspaceFor },
+    );
+
+    expect(summary.requests).toBe(1);
+    const [request] = snapshotRequestPostStates(wsId).map((ps) => ps.request);
+    expect(request.preRequestScript).toBe('await oh.variables.set("stamp", "1");');
+    expect(request.postResponseScript).toContain('// == Imported unchanged ==');
+    expect(request.postResponseScript).toContain("const sdk = require('postman-collection');");
+
+    const [report] = await readRecordedReports();
+    const scriptTransforms = report.transforms.filter((t) => t.path.includes('.event['));
+    expect(scriptTransforms).toHaveLength(2);
+    expect(scriptTransforms.some((t) => t.to === 'oh.* script')).toBe(true);
+    expect(scriptTransforms.some((t) => t.tracking === '#todo-script-translation')).toBe(true);
+  });
+
   it('records ONE aggregated report with a sourceHash in the landing workspace ring', async () => {
     await materializePostmanPull(
       pullResult({

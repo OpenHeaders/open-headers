@@ -345,6 +345,10 @@ async function materializeCollection(
     const candidate = v.safeParse(RequestSchema, {
       ...(entry.request.description !== undefined ? { description: entry.request.description } : {}),
       ...entry.request.settings,
+      ...(entry.request.preRequestScript !== undefined ? { preRequestScript: entry.request.preRequestScript } : {}),
+      ...(entry.request.postResponseScript !== undefined
+        ? { postResponseScript: entry.request.postResponseScript }
+        : {}),
       method: entry.request.method,
       url: entry.request.url,
       headers: entry.request.headers,
