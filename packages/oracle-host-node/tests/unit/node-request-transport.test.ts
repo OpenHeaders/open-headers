@@ -6,8 +6,11 @@
  * affords via `err.cause.code` (vs. the browser's opaque failure).
  */
 
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { Readable } from 'node:stream';
 import { createSecureContext } from 'node:tls';
+import { zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 import { TransportError, type TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { Agent, FormData, Headers, ProxyAgent, Response } from 'undici';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -81,6 +84,21 @@ describe('createNodeRequestTransport', () => {
     expect(res.bodyBytes).toBe('{"ok":true}'.length);
     // Response.url is empty for a synthetic Response → falls back to the request URL.
     expect(res.url).toBe('https://api.openheaders.io/v1/ping');
+  });
+
+  it('maps multiple Set-Cookie response headers entry-wise, never comma-joined', async () => {
+    // Display integrity rides undici's spec-current Headers iteration,
+    // which yields each set-cookie separately (only `get()` joins). A
+    // joined value would corrupt cookies carrying an `Expires=` comma.
+    const headers = new Headers();
+    headers.append('set-cookie', 'session=abc123; Path=/; HttpOnly');
+    headers.append('set-cookie', 'pref=dark; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/');
+    fetchMock.mockResolvedValue(new Response('ok', { status: 200, headers }));
+    const res = await transport().send(makeRequest());
+    expect(res.headers.filter((h) => h.key === 'set-cookie')).toEqual([
+      { key: 'set-cookie', value: 'session=abc123; Path=/; HttpOnly' },
+      { key: 'set-cookie', value: 'pref=dark; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/' },
+    ]);
   });
 
   it('reads a body that fits under the cap in full, untruncated', async () => {
@@ -1083,6 +1101,24 @@ describe('createNodeRequestTransport — GET/HEAD with a body on the wire', () =
     expect(res.cookiesCaptured).toEqual(['session', 'theme']);
   });
 
+  it('maps a request()-path Set-Cookie array entry-wise onto the response headers', async () => {
+    requestMock.mockResolvedValue(
+      requestResponse('ok', {
+        headers: {
+          'set-cookie': [
+            'session=abc123; Path=/; HttpOnly',
+            'pref=dark; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/',
+          ],
+        },
+      }),
+    );
+    const res = await transport().send(makeRequest({ body: { kind: 'raw', content: 'q' } }));
+    expect(res.headers.filter((h) => h.key === 'set-cookie')).toEqual([
+      { key: 'set-cookie', value: 'session=abc123; Path=/; HttpOnly' },
+      { key: 'set-cookie', value: 'pref=dark; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/' },
+    ]);
+  });
+
   it('classifies a request()-path connect failure like the fetch path', async () => {
     requestMock.mockRejectedValue(fetchError('ECONNREFUSED'));
     const attempt = transport().send(makeRequest({ body: { kind: 'raw', content: 'q' } }));
@@ -1398,5 +1434,32 @@ describe('createNodeRequestTransport — per-request cookie jar', () => {
     const second = await transport().send(makeRequest({ cookieJarKey: 'ws-a', redirect: 'manual' }));
     expect(sentCookie(1)).toBe('session=abc');
     expect(second.cookieHeaderAttached).toBe('session=abc');
+  });
+});
+
+describe('createNodeRequestTransport — wire content decoding (real undici pipeline)', () => {
+  it('a zstd-encoded body arrives decoded, Content-Encoding header preserved', async () => {
+    // Pins undici's zstd decompression on the fetch path — the capture
+    // relies on it, and it lives inside the body pipeline a mocked fetch
+    // never exercises, so this test rides a real local server.
+    const payload = JSON.stringify({ ok: true, host: 'api.openheaders.io' });
+    const compressed = zstdCompressSync(Buffer.from(payload, 'utf8'));
+    // Probe discipline: minted bytes must round-trip a real decoder.
+    expect(zstdDecompressSync(compressed).toString('utf8')).toBe(payload);
+    const server = createServer((_req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Encoding', 'zstd');
+      res.end(compressed);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(makeRequest({ url: `http://127.0.0.1:${port}/zstd` }));
+      expect(res.body).toBe(payload);
+      expect(res.bodyBytes).toBe(Buffer.byteLength(payload));
+      expect(res.headers).toContainEqual({ key: 'content-encoding', value: 'zstd' });
+    } finally {
+      server.close();
+    }
   });
 });
