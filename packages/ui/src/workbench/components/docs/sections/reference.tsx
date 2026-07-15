@@ -1,6 +1,8 @@
 import { hasCapability } from '@openheaders/core/capabilities';
+import type { MessageKey } from '@openheaders/i18n';
 import { Card, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { SHORTCUTS, useChordLabel, useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
 import { KeyboardRegionsDiagram, ResourceTypesAnatomyDiagram } from '../diagrams';
@@ -46,7 +48,15 @@ const ShortcutRow: React.FC<{ id: string; label: string; codeBg: string }> = ({ 
   <ChordRow label={label} chord={useShortcutLabel(id)} codeBg={codeBg} />
 );
 
+const CATEGORY_TITLE_KEYS: Record<(typeof SHORTCUTS)[number]['category'], MessageKey> = {
+  panels: 'workbench.shortcuts.category.panels',
+  tabs: 'workbench.shortcuts.category.tabs',
+  navigation: 'workbench.shortcuts.category.navigation',
+  actions: 'workbench.shortcuts.category.actions',
+};
+
 export const KeyboardShortcutsSection: React.FC = () => {
+  const t = useT();
   const { token } = theme.useToken();
   const debugChord = useChordLabel('keyboard.toggleDebugMode');
   const debugAvailable = hasCapability('cdpInspection');
@@ -54,16 +64,21 @@ export const KeyboardShortcutsSection: React.FC = () => {
     <>
       <SurfaceContext surfaces={['workbench']} />
       <DocParagraph>
-        Press <code>?</code> anytime to jump here. Shortcuts use{' '}
-        <strong>{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘ Cmd' : 'Ctrl'}</strong> as the modifier key.
+        {t('workbench.shortcuts.introPrefix')} <code>?</code> {t('workbench.shortcuts.introMiddle')}{' '}
+        <strong>{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘ Cmd' : 'Ctrl'}</strong>{' '}
+        {t('workbench.shortcuts.introSuffix')}
       </DocParagraph>
-      <DiagramFrame caption="Four chords park your focus in one of four shell regions.">
+      <DiagramFrame caption={t('workbench.shortcuts.regionsCaption')}>
         <KeyboardRegionsDiagram />
       </DiagramFrame>
       {debugAvailable && (
-        <Card size="small" style={{ marginBottom: 8 }} title="All surfaces">
+        <Card size="small" style={{ marginBottom: 8 }} title={t('workbench.shortcuts.allSurfacesTitle')}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <ChordRow label="Toggle debug mode" chord={debugChord} codeBg={token.colorFillQuaternary} />
+            <ChordRow
+              label={t('workbench.shortcuts.toggleDebugMode')}
+              chord={debugChord}
+              codeBg={token.colorFillQuaternary}
+            />
           </div>
         </Card>
       )}
@@ -71,19 +86,14 @@ export const KeyboardShortcutsSection: React.FC = () => {
         const items = SHORTCUTS.filter((s) => s.category === category);
         if (items.length === 0) return null;
         return (
-          <Card
-            key={category}
-            size="small"
-            style={{ marginBottom: 8 }}
-            title={category.charAt(0).toUpperCase() + category.slice(1)}
-          >
+          <Card key={category} size="small" style={{ marginBottom: 8 }} title={t(CATEGORY_TITLE_KEYS[category])}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {items.map((s) => (
-                <ShortcutRow key={s.id} id={s.id} label={s.label} codeBg={token.colorFillQuaternary} />
+                <ShortcutRow key={s.id} id={s.id} label={t(s.labelKey)} codeBg={token.colorFillQuaternary} />
               ))}
               {category === 'tabs' && getCurrentHost() === 'desktop' && (
                 <ChordRow
-                  label="Go to tab 1–9 (9 = last)"
+                  label={t('workbench.shortcuts.goToTab')}
                   chord={/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘1–⌘9' : 'Ctrl+1–9'}
                   codeBg={token.colorFillQuaternary}
                 />

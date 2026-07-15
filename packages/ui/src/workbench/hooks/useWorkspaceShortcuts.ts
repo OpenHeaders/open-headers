@@ -19,6 +19,7 @@
  *     code-derived key (KeyN → "n", Digit1 → "1") as a fallback.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import { useShellKeyDown } from '@openheaders/ui/shared/dock-layout';
 import { useCallback } from 'react';
 import { useSettingValue } from '../settings/hooks';
@@ -76,8 +77,8 @@ export interface WorkspaceShortcutHandlers {
 export interface ShortcutDef {
   /** Stable ID consumed by `shortcutLabel` and the command palette */
   id: string;
-  /** Human-readable label */
-  label: string;
+  /** Catalog key of the user-facing action name (docs cheatsheet) */
+  labelKey: MessageKey;
   /** Settings key whose value provides the chord */
   settingKey: SettingKey;
   /** Category for grouping in docs */
@@ -118,28 +119,28 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   // Panels
   {
     id: 'toggle-left-sidebar',
-    label: 'Toggle left sidebar',
+    labelKey: 'workbench.shortcuts.action.toggleLeftSidebar',
     settingKey: 'keyboard.toggleLeftSidebar',
     category: 'panels',
     handler: { kind: 'direct', name: 'onToggleSidebar' },
   },
   {
     id: 'toggle-right-sidebar',
-    label: 'Toggle right sidebar',
+    labelKey: 'workbench.shortcuts.action.toggleRightSidebar',
     settingKey: 'keyboard.toggleRightSidebar',
     category: 'panels',
     handler: { kind: 'direct', name: 'onToggleInspector' },
   },
   {
     id: 'toggle-bottom-panel',
-    label: 'Toggle bottom panel',
+    labelKey: 'workbench.shortcuts.action.toggleBottomPanel',
     settingKey: 'keyboard.toggleBottomPanel',
     category: 'panels',
     handler: { kind: 'direct', name: 'onToggleBottomPanel' },
   },
   {
     id: 'toggle-activity-feed',
-    label: 'Toggle activity feed',
+    labelKey: 'workbench.shortcuts.action.toggleActivityFeed',
     settingKey: 'keyboard.toggleActivityFeed',
     category: 'panels',
     handler: { kind: 'direct', name: 'onToggleActivityFeed' },
@@ -148,7 +149,7 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   // Tabs
   {
     id: 'close-tab',
-    label: 'Close tab',
+    labelKey: 'workbench.shortcuts.action.closeTab',
     settingKey: 'keyboard.closeTab',
     category: 'tabs',
     handler: { kind: 'direct', name: 'onCloseTab' },
@@ -156,28 +157,28 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   },
   {
     id: 'new-tab',
-    label: 'New tab',
+    labelKey: 'workbench.shortcuts.action.newTab',
     settingKey: 'keyboard.newTab',
     category: 'tabs',
     handler: { kind: 'direct', name: 'onNewTab' },
   },
   {
     id: 'prev-tab',
-    label: 'Previous tab',
+    labelKey: 'workbench.shortcuts.action.prevTab',
     settingKey: 'keyboard.previousTab',
     category: 'tabs',
     handler: { kind: 'direct', name: 'onPrevTab' },
   },
   {
     id: 'next-tab',
-    label: 'Next tab',
+    labelKey: 'workbench.shortcuts.action.nextTab',
     settingKey: 'keyboard.nextTab',
     category: 'tabs',
     handler: { kind: 'direct', name: 'onNextTab' },
   },
   {
     id: 'tab-search',
-    label: 'Search tabs',
+    labelKey: 'workbench.shortcuts.action.tabSearch',
     settingKey: 'keyboard.tabSearch',
     category: 'tabs',
     handler: { kind: 'direct', name: 'onTabSearch' },
@@ -186,14 +187,14 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   // Navigation
   {
     id: 'command-palette',
-    label: 'Command palette',
+    labelKey: 'workbench.shortcuts.action.commandPalette',
     settingKey: 'keyboard.commandPalette',
     category: 'navigation',
     handler: { kind: 'direct', name: 'onCommandPalette' },
   },
   {
     id: 'focus-filter',
-    label: 'Focus active section filter',
+    labelKey: 'workbench.shortcuts.action.focusFilter',
     settingKey: 'keyboard.focusSidebarFilter',
     category: 'navigation',
     handler: { kind: 'direct', name: 'onFocusFilter' },
@@ -205,28 +206,28 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   },
   {
     id: 'focus-left-sidebar',
-    label: 'Focus left sidebar',
+    labelKey: 'workbench.shortcuts.action.focusLeftSidebar',
     settingKey: 'keyboard.focusLeftSidebar',
     category: 'navigation',
     handler: { kind: 'focus', region: 'left' },
   },
   {
     id: 'focus-editor',
-    label: 'Focus editor',
+    labelKey: 'workbench.shortcuts.action.focusEditor',
     settingKey: 'keyboard.focusEditor',
     category: 'navigation',
     handler: { kind: 'focus', region: 'editor' },
   },
   {
     id: 'focus-right-sidebar',
-    label: 'Focus right sidebar',
+    labelKey: 'workbench.shortcuts.action.focusRightSidebar',
     settingKey: 'keyboard.focusRightSidebar',
     category: 'navigation',
     handler: { kind: 'focus', region: 'right' },
   },
   {
     id: 'focus-bottom-panel',
-    label: 'Focus bottom panel',
+    labelKey: 'workbench.shortcuts.action.focusBottomPanel',
     settingKey: 'keyboard.focusBottomPanel',
     category: 'navigation',
     handler: { kind: 'focus', region: 'bottom' },
@@ -235,28 +236,28 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   // Actions
   {
     id: 'save',
-    label: 'Save',
+    labelKey: 'workbench.shortcuts.action.save',
     settingKey: 'keyboard.save',
     category: 'actions',
     handler: { kind: 'direct', name: 'onSave' },
   },
   {
     id: 'new-rule',
-    label: 'Create item',
+    labelKey: 'workbench.shortcuts.action.newRule',
     settingKey: 'keyboard.newRule',
     category: 'actions',
     handler: { kind: 'direct', name: 'onNewRule' },
   },
   {
     id: 'import',
-    label: 'Import',
+    labelKey: 'workbench.shortcuts.action.import',
     settingKey: 'keyboard.import',
     category: 'actions',
     handler: { kind: 'direct', name: 'onImport' },
   },
   {
     id: 'show-shortcuts',
-    label: 'Keyboard shortcuts',
+    labelKey: 'workbench.shortcuts.action.showShortcuts',
     settingKey: 'keyboard.showShortcutHelp',
     category: 'actions',
     handler: { kind: 'direct', name: 'onShowShortcuts' },
@@ -264,14 +265,14 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   },
   {
     id: 'open-settings',
-    label: 'Open settings',
+    labelKey: 'workbench.shortcuts.action.openSettings',
     settingKey: 'keyboard.openSettings',
     category: 'actions',
     handler: { kind: 'direct', name: 'onOpenSettings' },
   },
   {
     id: 'format-code',
-    label: 'Format code',
+    labelKey: 'workbench.shortcuts.action.formatCode',
     settingKey: 'keyboard.formatCode',
     category: 'actions',
     // Handled inside CodeEditor's own keymap — the window event loop
