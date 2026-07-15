@@ -154,6 +154,10 @@
     "./rule-fire-stream": {
       "import": "./src/rule-fire-stream/index.ts",
       "default": "./dist/rule-fire-stream/index.js"
+    },
+    "./telemetry": {
+      "import": "./src/telemetry/index.ts",
+      "default": "./dist/telemetry/index.js"
     }
   },
   "scripts": {
