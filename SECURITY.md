@@ -41,10 +41,11 @@ research conducted under this policy.
 ## Scope notes
 
 - The software is local-first: it stores data on your machine and
-  sends no telemetry. Every OpenHeaders-bound network call is
-  specified byte-for-byte in the published wire-transparency
-  documentation; a request the software makes that is not documented
-  there is a valid finding on its own.
+  sends no personal data — the only usage data is the anonymous,
+  typed telemetry channel. Every OpenHeaders-bound network call,
+  telemetry included, is specified byte-for-byte in the published
+  wire-transparency documentation; a request the software makes that
+  is not documented there is a valid finding on its own.
 - The license system is designed so that its failure is never lockout:
   circumventing seat limits on your own deployment is a licensing
   matter, not a security vulnerability — but any way a *third party*

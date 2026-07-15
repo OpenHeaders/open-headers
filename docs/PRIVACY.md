@@ -1,6 +1,6 @@
 # Privacy Policy for Open Headers
 
-**Effective Date: July 11, 2026**
+**Effective Date: July 15, 2026**
 
 ## Introduction
 
@@ -19,26 +19,38 @@ Every network call the software can make is publicly documented byte-for-byte in
 ### What We Collect
 
 **We Do Not Collect:**
-- Personal information
-- Usage statistics
+- Personal information or account identity
 - Browsing history
-- Header values or content
-- Any data from your computer
+- URLs, hostnames, header names, or header values
+- Request or response data
+- Rule contents, configurations, or any data from your computer
+
+The only data that ever reaches us is the anonymous usage counting described in section 3 — which features get used, never what you use them on.
 
 **Local Storage Only:**
 - Your header configurations are stored locally in your browser using the browser's storage API
 - Dynamic header sources accessed through the companion app remain on your local device
-- No data is transmitted to our servers or third parties
+- Your configurations and data are never transmitted to our servers or third parties
 
 ### How Information is Used
 
 All configuration data is used solely for the functioning of the extension and remains on your device. We have no access to this information.
 
-## 3. Data Sharing and Transfer
+## 3. Anonymous Usage Counting (Telemetry)
 
-We do not collect or share any user data with third parties, as we do not collect any data in the first place.
+The browser extension, the desktop app, and the command-line tool count which features get used — nothing more. This helps us understand what to improve, and it is designed so that it *cannot* carry your data:
 
-## 4. Local Communication
+- **A fixed event vocabulary, compiled into the app.** Only six event types exist (session start, feature used, rule created, import run, workflow run, error code), and every field in them comes from a fixed list — feature names, platform (such as `mac`/`win`/`linux`), browser, app version, interface language. Free-form text is structurally impossible, so URLs, headers, request or response data, rule contents, and file paths cannot appear in an event.
+- **Anonymous, with no persistent identifier.** Events carry a random session id minted when the app starts, held in memory only and never saved. There is no install id, no account, no fingerprinting, and IP addresses are not stored — sessions cannot be joined together or traced to a person or machine.
+- **Inspectable, byte for byte.** Settings → General → "View telemetry events" shows every event of your current session exactly as sent (or as suppressed, when the channel is off). The exact wire payload is also published in our wire-transparency documentation.
+- **Disclosed, and off with one switch.** Each app tells you about usage counting when you first run it, and nothing is sent before that disclosure. The extension and desktop app have a single toggle in Settings → General; the command-line tool honors `OH_TELEMETRY=0` or a config key. Off means off — the channel goes completely silent, and every feature keeps working.
+- **Hard-off on server surfaces.** The daemon, the self-hosted web app it serves, and the MCP server never send telemetry and contain no code path to do so.
+
+## 4. Data Sharing and Transfer
+
+We do not share or sell any data. Anonymous usage counts are received and stored in our own Cloudflare account (Cloudflare is our infrastructure provider and the only data processor involved); no third-party analytics service or SDK is used, and nothing else is collected in the first place.
+
+## 5. Local Communication
 
 The browser extension and companion app communicate locally via WebSocket on port 59210. This connection:
 - Is limited to localhost (127.0.0.1)
@@ -46,7 +58,7 @@ The browser extension and companion app communicate locally via WebSocket on por
 - Requires explicit user action to enable
 - Uses a simple JSON-based protocol for requesting and receiving header values
 
-## 5. Permissions
+## 6. Permissions
 
 The extension requires certain permissions to function:
 
@@ -58,32 +70,32 @@ The extension requires certain permissions to function:
 
 These permissions are used solely for the extension's core header modification functionality and not for collecting information.
 
-## 6. Security
+## 7. Security
 
 We prioritize security through:
 - Local-only data storage
-- No external network connections beyond documented endpoints (license renewal, update checks, notification manifests) and destinations you configure yourself
+- No external network connections beyond documented endpoints (license renewal, update checks, notification manifests, anonymous usage counting) and destinations you configure yourself
 - Publicly documented wire behavior that anyone can verify with a packet capture
 - Regular security updates and a published vulnerability disclosure policy
 
-## 7. Children's Privacy
+## 8. Children's Privacy
 
 Open Headers is a developer tool and not intended for use by children under 13 years of age.
 
-## 8. Changes to This Policy
+## 9. Changes to This Policy
 
-We may update this Privacy Policy from time to time. We will notify users of any changes by updating the "Effective Date" at the top of this policy.
+We may update this Privacy Policy from time to time. We will notify users of any changes by updating the "Effective Date" at the top of this policy, and previous versions remain archived and linked from the policy page.
 
-## 9. Transparency Commitment
+## 10. Transparency Commitment
 
 Open Headers is proprietary software with a verifiable privacy posture. We publish:
-- A wire-transparency specification documenting the exact payload of every network call the software can make
+- A wire-transparency specification documenting the exact payload of every network call the software can make — including every telemetry event
 - A security whitepaper describing the architecture behind these guarantees
 - A vulnerability disclosure policy
 
 Because the software's outbound behavior is fully documented, you can verify our privacy claims yourself with browser DevTools or a system-level packet capture — no source access or trust in us required.
 
-## 10. Contact Information
+## 11. Contact Information
 
 If you have questions about this Privacy Policy or the Open Headers project, please:
 - Create an issue at https://github.com/OpenHeaders/open-headers-releases
@@ -91,8 +103,8 @@ If you have questions about this Privacy Policy or the Open Headers project, ple
 
 We welcome feedback on both our software and our policies.
 
-## 11. Consent
+## 12. Consent
 
-By using Open Headers, you consent to this Privacy Policy. As we do not collect any personal information, there is no data to manage or delete.
+By using Open Headers, you consent to this Privacy Policy. As we do not collect any personal information, there is no personal data to manage or delete; anonymous usage counting can be switched off at any time in the app.
 
 This Privacy Policy is provided to meet browser extension store requirements and to be transparent about our commitment to privacy and data security.

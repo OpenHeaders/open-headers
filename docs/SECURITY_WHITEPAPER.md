@@ -15,11 +15,17 @@ built, and each one is stated so it can be verified from the outside.
    and secrets live on your machine, in your browser profile, or in
    Git remotes you choose. There is no vendor cloud and no account with
    us; nothing you create ever transits our infrastructure.
-2. **No telemetry, ever.** The software collects no usage data, crash
-   reports, or analytics. This is a product law, not a default.
-3. **Verifiable, not trusted.** Every OpenHeaders-bound network call is
-   specified byte-for-byte in the published wire-transparency document.
-   The claim "no telemetry" is checkable with browser DevTools or a
+2. **Anonymous by construction.** The only usage data is anonymous
+   feature counting over a typed event allowlist compiled into the
+   app — closed unions only, no free-form strings, so URLs, headers,
+   traffic, and identity are inexpressible. It is disclosed on first
+   run, inspectable byte for byte in-app, off with one switch, and the
+   server surfaces (daemon, served web app, MCP server) never send it
+   at all. No crash reports, no stack traces, no third-party analytics
+   SDK.
+3. **Verifiable, not trusted.** Every OpenHeaders-bound network call —
+   telemetry included — is specified byte-for-byte in the published
+   wire-transparency document and checkable with browser DevTools or a
    system-level packet capture — you never have to take our word.
 4. **Failure is never lockout.** No licensing or network condition can
    withhold your data or lock out existing users.
@@ -33,13 +39,15 @@ The full outbound surface of the software is:
 | License refresh (`POST license.openheaders.io/refresh`) | desktop main process, daemon | `{licenseKey, appVersion, platform}` — nothing else | no license / `offline` license / `licenseRefresh: false` |
 | Update check (GitHub releases repo) | packaged desktop builds | plain `GET`s, no payload | `updates.check: off` |
 | Severity manifest (planned) | packaged desktop builds | plain `GET` of a static file | same as update check |
+| Anonymous telemetry (`POST telemetry.openheaders.io/v1/events`) | extension, desktop app, CLI — never the daemon, served web app, or MCP server | typed event allowlist — closed unions only, no free-form strings | Settings → General toggle / `OH_TELEMETRY=0` |
 
 Everything else leaving the process is operator-configured: your OIDC
 issuer, your Git remotes, your SIEM collector, and the HTTP requests
-your own rules, sources, and workflows define. The browser extension
-makes no OpenHeaders-bound calls at all. The exact bytes of each call
-above are published in the wire-transparency specification; a request
-not listed there is a bug we treat as a vulnerability.
+your own rules, sources, and workflows define. The browser extension's
+only OpenHeaders-bound call is the telemetry channel above. The exact
+bytes of each call above are published in the wire-transparency
+specification; a request not listed there is a bug we treat as a
+vulnerability.
 
 The software is fully functional with every OpenHeaders endpoint
 unreachable — offline use is a supported mode, not a degraded one.

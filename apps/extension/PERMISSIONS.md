@@ -9,9 +9,12 @@ for and why.
 entry in this file at PR time.** If a permission lands without a
 justification, the PR is incomplete.
 
-**Trust commitment**: this extension is local-first. It sends no
-telemetry, makes no network calls except the ones the user explicitly
-triggers, and stores no data outside the user's browser profile.
+**Trust commitment**: this extension is local-first. Its only
+OpenHeaders-bound call is the documented anonymous product-telemetry
+channel (typed feature counts, disclosed on first run, inspectable
+byte-for-byte in Settings, off with one switch); beyond that it makes
+no network calls except the ones the user explicitly triggers, and
+stores no data outside the user's browser profile.
 `credentials: 'omit'` is hardcoded at the wire level for user-triggered
 requests — the browser's cookie jar is only attached when a user opts in
 per-request.
@@ -109,12 +112,15 @@ authorize every scheme the user can legitimately test:
 - `blob:` — OPFS-spilled response bodies streamed back into the
   renderer (§17 future work).
 
-The trust commitment stays the same: no telemetry, no background
-network, no writes to cookies. The CSP authorizes the user's own
-requests; it is not a license for the extension to talk to the
-internet on its own. Every outbound fetch either:
+The trust commitment stays the same: no undisclosed network, no
+writes to cookies. The CSP authorizes the user's own requests; it is
+not a license for the extension to talk to the internet on its own.
+Every outbound fetch either:
 - Is a direct response to a user action (Send, test run, rule
   refresh schedule the user configured), OR
+- Is the documented anonymous product-telemetry batch flush to
+  `telemetry.openheaders.io` (typed event allowlist, disclosed on
+  first run, one-switch off), OR
 - Routes through `withHostAccess(url, fn)` in
   `apps/extension/src/shared/fetch/with-host-access.ts` — the single
   choke point a future "request hosts on first use" minimal-
@@ -145,8 +151,8 @@ ours.
 
 ## What this extension NEVER does
 
-- No telemetry. No analytics pings. No crash reports sent off-device. The "Export logs" button exists so bug reports can be file-attached manually when the user chooses.
-- No background network activity. The service worker only makes HTTP calls in response to an explicit user action (send a request, run a test, rebuild DNR rules from the configured refresh schedule).
+- No undisclosed data collection. The only analytics is the documented anonymous product-telemetry channel: typed feature counts (closed unions, no free-form strings — URLs, headers, and traffic are inexpressible), disclosed on first run, inspectable byte-for-byte in Settings, off with one switch. No crash reports sent off-device. The "Export logs" button exists so bug reports can be file-attached manually when the user chooses.
+- No background network activity beyond that telemetry flush. The service worker otherwise only makes HTTP calls in response to an explicit user action (send a request, run a test, rebuild DNR rules from the configured refresh schedule).
 - No reading of page DOM or page `window` globals from content scripts running in the ISOLATED world.
 - No writing of cookies. We only read them (in the DevTools cookie inspector), never set, delete, or mutate.
-- No data leaves the user's browser profile. The workspace manifest, request collections, rule definitions, vault secrets — all of it stays in `chrome.storage.local` / IndexedDB / OPFS on this machine.
+- No user data leaves the browser profile. The workspace manifest, request collections, rule definitions, vault secrets — all of it stays in `chrome.storage.local` / IndexedDB / OPFS on this machine.

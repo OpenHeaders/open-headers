@@ -32,7 +32,7 @@ Open Headers is a privacy-focused desktop app that works with browser extensions
 - **Workflow Recording**: Capture browser activity, network requests, console logs
 - **HTTP Modification**: Real-time header injection with dynamic values
 - **Team Workspaces**: Git-based configuration sharing
-- **Privacy First**: No telemetry, runs offline, data stays local
+- **Privacy First**: Runs offline, data stays local, no personal data — only anonymous feature counting, inspectable in-app and off with one switch
 - **Cross-platform**: macOS, Windows, Linux support
 
 ## Documentation
