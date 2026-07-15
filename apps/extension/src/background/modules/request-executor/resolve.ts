@@ -5,7 +5,7 @@
  * tracking, and the default Content-Type fill.
  */
 
-import type { AwsSigV4Credentials } from '@openheaders/core/auth-signing';
+import type { AwsSigV4Credentials, OAuth1Credentials } from '@openheaders/core/auth-signing';
 import type { CredentialsMode, HttpMethod, Request, RequestBody, VaultSecretTotp } from '@openheaders/core/types';
 import { isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
@@ -55,6 +55,14 @@ export interface ResolvedRequest {
    * folded into the URL — twin of the oracle resolver's carry.
    */
   awsSigV4?: AwsSigV4Credentials;
+  /**
+   * OAuth 1.0a credentials, templates already resolved — present only
+   * when the effective auth is an enabled `oauth1` config. Like SigV4,
+   * signing happens at the wire in {@link executeResolved}, after the
+   * pre-request script has mutated the request and the params have
+   * folded into the URL — twin of the oracle resolver's carry.
+   */
+  oauth1?: OAuth1Credentials;
   // auth folds into `url` + `headers`; params ride structured to the wire.
 }
 
@@ -197,6 +205,21 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // OAuth1 credentials resolve here but sign at the wire — see
+  // {@link ResolvedRequest.oauth1}.
+  const oauth1: OAuth1Credentials | undefined =
+    effectiveAuth.type === 'oauth1' && !effectiveAuth.disabled
+      ? {
+          consumerKey: resolveStr(effectiveAuth.consumerKey),
+          consumerSecret: resolveStr(effectiveAuth.consumerSecret),
+          ...(effectiveAuth.token ? { token: resolveStr(effectiveAuth.token) } : {}),
+          ...(effectiveAuth.tokenSecret ? { tokenSecret: resolveStr(effectiveAuth.tokenSecret) } : {}),
+          signatureMethod: effectiveAuth.signatureMethod,
+          paramsLocation: effectiveAuth.paramsLocation,
+          ...(effectiveAuth.realm !== undefined ? { realm: resolveStr(effectiveAuth.realm) } : {}),
+        }
+      : undefined;
+
   // ── Body ────────────────────────────────────────────────────────
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
 
@@ -228,6 +251,7 @@ export async function resolveRequest(
       followRedirects: request.followRedirects,
       timeoutMs: request.timeoutMs,
       ...(awsSigV4 ? { awsSigV4 } : {}),
+      ...(oauth1 ? { oauth1 } : {}),
     },
     totpUsed: [...totpUsed.values()],
   };

@@ -5,7 +5,7 @@
  * Exercised with a fake transport that captures what it was handed.
  */
 
-import { sha256Hex, signAwsSigV4 } from '@openheaders/core/auth-signing';
+import { type OAuth1Credentials, sha256Hex, signAwsSigV4, signOAuth1 } from '@openheaders/core/auth-signing';
 import type { RequestBody } from '@openheaders/core/types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { executeOverTransport } from '../../../src/live/request-exec/execute';
@@ -582,6 +582,89 @@ describe('executeOverTransport — AWS SigV4 signing', () => {
     const { transport, sent } = captureTransport();
     await executeOverTransport(makeResolved({ headers: [{ key: 'X-A', value: '1' }] }), transport);
     expect(sent().headers).toEqual([{ key: 'X-A', value: '1' }]);
+  });
+});
+
+describe('executeOverTransport — OAuth1 signing', () => {
+  const credentials: OAuth1Credentials = {
+    consumerKey: 'ck_openheaders',
+    consumerSecret: 'cs_openheaders',
+    token: 'tok_openheaders',
+    tokenSecret: 'ts_openheaders',
+    signatureMethod: 'HMAC-SHA1',
+    paramsLocation: 'header',
+  };
+
+  function oauthHeaderParams(authorization: string): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const part of authorization.slice('OAuth '.length).split(', ')) {
+      const eq = part.indexOf('=');
+      out.set(part.slice(0, eq), decodeURIComponent(part.slice(eq + 1).replace(/^"|"$/g, '')));
+    }
+    return out;
+  }
+
+  it('signs the final wire shape and replaces a user Authorization header', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        url: 'https://api.openheaders.io/v1/items?page=2',
+        oauth1: credentials,
+        headers: [{ key: 'Authorization', value: 'Bearer stale-user-token' }],
+      }),
+      transport,
+    );
+    expect(snap.error).toBeNull();
+    const rows = sent().headers.filter((h) => h.key.toLowerCase() === 'authorization');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].value.startsWith('OAuth ')).toBe(true);
+    expect(rows[0].value).not.toContain('stale-user-token');
+    const params = oauthHeaderParams(rows[0].value);
+    expect(params.get('oauth_consumer_key')).toBe('ck_openheaders');
+    expect(params.get('oauth_token')).toBe('tok_openheaders');
+
+    // The signature must equal an independent signer call over the same
+    // wire shape at the nonce + timestamp the send stamped.
+    const expected = await signOAuth1(credentials, {
+      method: 'GET',
+      url: sent().url,
+      timestampSec: Number(params.get('oauth_timestamp')),
+      nonce: params.get('oauth_nonce') ?? '',
+    });
+    expect(rows[0].value).toBe(expected.headers[0].value);
+  });
+
+  it('folds the urlencoded body fields into the signature', async () => {
+    const { transport, sent } = captureTransport();
+    const body: RequestBody = {
+      type: 'form',
+      formParts: [{ uid: 'ffield01', key: 'status', value: 'openheaders release' }],
+    };
+    await executeOverTransport(makeResolved({ method: 'POST', oauth1: credentials, body, headers: [] }), transport);
+    const auth = sent().headers.find((h) => h.key.toLowerCase() === 'authorization')?.value ?? '';
+    const params = oauthHeaderParams(auth);
+    const expected = await signOAuth1(credentials, {
+      method: 'POST',
+      url: sent().url,
+      bodyParams: [{ name: 'status', value: 'openheaders release' }],
+      timestampSec: Number(params.get('oauth_timestamp')),
+      nonce: params.get('oauth_nonce') ?? '',
+    });
+    expect(auth).toBe(expected.headers[0].value);
+  });
+
+  it('appends the oauth_* params to the URL in query mode', async () => {
+    const { transport, sent } = captureTransport();
+    const creds: OAuth1Credentials = { ...credentials, paramsLocation: 'query' };
+    await executeOverTransport(
+      makeResolved({ url: 'https://api.openheaders.io/v1/items?page=2', oauth1: creds }),
+      transport,
+    );
+    const url = new URL(sent().url);
+    expect(url.searchParams.get('page')).toBe('2');
+    expect(url.searchParams.get('oauth_consumer_key')).toBe('ck_openheaders');
+    expect(url.searchParams.get('oauth_signature')).toBeTruthy();
+    expect(sent().headers.some((h) => h.key.toLowerCase() === 'authorization')).toBe(false);
   });
 });
 

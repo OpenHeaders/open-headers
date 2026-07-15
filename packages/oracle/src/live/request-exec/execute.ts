@@ -11,9 +11,9 @@
  * becomes a structured error snapshot; a 4xx/5xx is a normal response.
  */
 
-import { AWS_SIGV4_UNSIGNED_PAYLOAD, sha256Hex, signAwsSigV4 } from '@openheaders/core/auth-signing';
+import { AWS_SIGV4_UNSIGNED_PAYLOAD, sha256Hex, signAwsSigV4, signOAuth1 } from '@openheaders/core/auth-signing';
 import type { ExecutedRequestSnapshot, RequestBody } from '@openheaders/core/types';
-import { ensureScheme } from '@openheaders/core/utils';
+import { appendQueryParams, ensureScheme } from '@openheaders/core/utils';
 import { getFileBlob } from '../../entity/files-store';
 import type { ResolvedRequest } from './resolve-request';
 import {
@@ -51,7 +51,7 @@ export async function executeOverTransport(
 ): Promise<ExecutedRequestSnapshot> {
   const trimmed = resolved.url.trim();
   if (!trimmed) return errorSnapshot('URL is empty');
-  const url = ensureScheme(trimmed);
+  let url = ensureScheme(trimmed);
 
   // Pre-flight URL validation — catch malformed inputs before the wire
   // so the consumer sees a specific reason. Templated URLs are left
@@ -83,6 +83,25 @@ export async function executeOverTransport(
       for (const h of signed) setHeader(headers, h.key, h.value);
     } catch (err) {
       return errorSnapshot(`AWS SigV4 signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // OAuth1 signs HERE too — same execute-time discipline. Header mode
+  // replaces a same-key user Authorization row; query mode appends the
+  // oauth_* params to the final URL.
+  if (resolved.oauth1) {
+    try {
+      const signed = await signOAuth1(resolved.oauth1, {
+        method: resolved.method,
+        url,
+        ...(body.kind === 'urlencoded' ? { bodyParams: body.fields } : {}),
+        timestampSec: Math.floor(Date.now() / 1000),
+        nonce: generateNonce(),
+      });
+      for (const h of signed.headers) setHeader(headers, h.key, h.value);
+      if (signed.queryParams.length > 0) url = appendQueryParams(url, signed.queryParams);
+    } catch (err) {
+      return errorSnapshot(`OAuth 1.0 signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -265,6 +284,14 @@ async function transportPayloadHash(body: TransportBody): Promise<string> {
       return sha256Hex('');
     }
   }
+}
+
+/** 128-bit hex client nonce for OAuth1 signing. */
+function generateNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  let out = '';
+  for (const b of bytes) out += b.toString(16).padStart(2, '0');
+  return out;
 }
 
 /** Replace-not-append header set (case-insensitive key match). */

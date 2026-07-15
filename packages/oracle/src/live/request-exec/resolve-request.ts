@@ -12,7 +12,7 @@
  * that omits the hook attaches the last-synced bundle as-is.
  */
 
-import type { AwsSigV4Credentials, DigestCredentials } from '@openheaders/core/auth-signing';
+import type { AwsSigV4Credentials, DigestCredentials, OAuth1Credentials } from '@openheaders/core/auth-signing';
 import { isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type {
   AuthConfig,
@@ -118,6 +118,15 @@ export interface ResolvedRequest {
    * the carry and the target's 401 is the actionable signal.
    */
   digest?: DigestCredentials;
+  /**
+   * OAuth 1.0a credentials, templates already resolved — present only
+   * when the effective auth is an enabled `oauth1` config. Like SigV4,
+   * signing happens at EXECUTE time (the wire executor derives the
+   * `oauth_*` protocol params over the final wire shape), never here:
+   * a resolve-time signature would be invalidated by any pre-request
+   * script mutation.
+   */
+  oauth1?: OAuth1Credentials;
 }
 
 /** One TOTP vault entry the resolved request used. Carries the code (so
@@ -265,6 +274,21 @@ export async function resolveRequest(
       ? { username: resolveStr(effectiveAuth.username), password: resolveStr(effectiveAuth.password) }
       : undefined;
 
+  // OAuth1 credentials resolve here but sign at execute time — see
+  // {@link ResolvedRequest.oauth1}.
+  const oauth1: OAuth1Credentials | undefined =
+    effectiveAuth.type === 'oauth1' && !effectiveAuth.disabled
+      ? {
+          consumerKey: resolveStr(effectiveAuth.consumerKey),
+          consumerSecret: resolveStr(effectiveAuth.consumerSecret),
+          ...(effectiveAuth.token ? { token: resolveStr(effectiveAuth.token) } : {}),
+          ...(effectiveAuth.tokenSecret ? { tokenSecret: resolveStr(effectiveAuth.tokenSecret) } : {}),
+          signatureMethod: effectiveAuth.signatureMethod,
+          paramsLocation: effectiveAuth.paramsLocation,
+          ...(effectiveAuth.realm !== undefined ? { realm: resolveStr(effectiveAuth.realm) } : {}),
+        }
+      : undefined;
+
   // Append params after auth — api-key-in-query lives in enabledParams.
   resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
@@ -321,6 +345,7 @@ export async function resolveRequest(
       followAuthorizationHeader: request.followAuthorizationHeader,
       ...(awsSigV4 ? { awsSigV4 } : {}),
       ...(digest ? { digest } : {}),
+      ...(oauth1 ? { oauth1 } : {}),
     },
     totpUsed: [...totpUsed.values()],
   };
@@ -437,6 +462,12 @@ export async function applyAuth(
     // honoring transport derives the Authorization header from the
     // target's 401 (see ResolvedRequest.digest); the resolver only
     // resolves the credential templates.
+    return;
+  }
+  if (auth.type === 'oauth1') {
+    // Nothing folds here — OAuth1 signs the FINAL wire shape at execute
+    // time (see ResolvedRequest.oauth1); the resolver only resolves the
+    // credential templates.
     return;
   }
   if (auth.type === 'oauth2') {

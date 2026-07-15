@@ -106,6 +106,21 @@ describe('applyAuth', () => {
     expect(params).toEqual([]);
   });
 
+  it('oauth1 folds nothing at resolve time — the wire executor signs the final shape', async () => {
+    const { headers, params } = await run(
+      {
+        type: 'oauth1',
+        consumerKey: 'ck_openheaders',
+        consumerSecret: 'cs_openheaders',
+        signatureMethod: 'HMAC-SHA1',
+        paramsLocation: 'header',
+      },
+      [{ key: 'X-A', value: '1' }],
+    );
+    expect(headers).toEqual([{ key: 'X-A', value: '1' }]);
+    expect(params).toEqual([]);
+  });
+
   it('basic encodes username:password as UTF-8 base64 and replaces the user row', async () => {
     const { headers } = await run({ type: 'basic', username: 'alice', password: 'pässwörd' }, [
       { key: 'Authorization', value: 'Basic old' },

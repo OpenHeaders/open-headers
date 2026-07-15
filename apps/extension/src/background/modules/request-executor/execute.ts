@@ -5,7 +5,7 @@
  * failure) into an `ExecutedRequestSnapshot`.
  */
 
-import { AWS_SIGV4_UNSIGNED_PAYLOAD, sha256Hex, signAwsSigV4 } from '@openheaders/core/auth-signing';
+import { AWS_SIGV4_UNSIGNED_PAYLOAD, sha256Hex, signAwsSigV4, signOAuth1 } from '@openheaders/core/auth-signing';
 import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
@@ -233,6 +233,29 @@ export async function executeResolved(
     }
   }
 
+  // OAuth1 signs HERE too — same wire-time discipline as SigV4. Header
+  // mode replaces a same-key user Authorization row; query mode appends
+  // the oauth_* params to the final URL. Both mirror back onto `req` so
+  // the offscreen cert-exception retry ships the same signature.
+  if (req.oauth1) {
+    try {
+      const signed = await signOAuth1(req.oauth1, {
+        method: req.method,
+        url: req.url,
+        ...(init.body instanceof URLSearchParams
+          ? { bodyParams: [...init.body.entries()].map(([name, value]) => ({ name, value })) }
+          : {}),
+        timestampSec: Math.floor(Date.now() / 1000),
+        nonce: generateOAuth1Nonce(),
+      });
+      for (const h of signed.headers) fetchHeaders.set(h.key, h.value);
+      const url = signed.queryParams.length > 0 ? appendQueryParams(req.url, signed.queryParams) : req.url;
+      req = { ...req, url, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
+    } catch (err) {
+      return errorSnapshot(`OAuth 1.0 signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   const requestSize = {
     headersBytes: serializedHeaderBytes(fetchHeaders),
     bodyBytes,
@@ -427,6 +450,14 @@ export async function executeResolved(
   } finally {
     deadline?.clear();
   }
+}
+
+/** 128-bit hex client nonce for OAuth1 signing. */
+function generateOAuth1Nonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  let out = '';
+  for (const b of bytes) out += b.toString(16).padStart(2, '0');
+  return out;
 }
 
 /**

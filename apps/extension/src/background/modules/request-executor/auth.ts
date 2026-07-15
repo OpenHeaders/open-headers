@@ -52,6 +52,12 @@ export async function applyAuth(
     // only resolves the credential templates. Twin of the oracle arm.
     return;
   }
+  if (auth.type === 'oauth1') {
+    // Nothing folds here — OAuth1 signs the FINAL wire shape in
+    // `executeResolved` (see ResolvedRequest.oauth1); the resolver
+    // only resolves the credential templates. Twin of the oracle arm.
+    return;
+  }
   if (auth.type === 'digest') {
     // Digest is challenge/response, and the browser's fetch stack has
     // no seat for the second leg — the SW skips the contribution like

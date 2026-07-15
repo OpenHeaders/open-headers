@@ -245,6 +245,79 @@ describe('RequestExecutor', () => {
     expect(headers.get('x-amz-date')).toBeNull();
   });
 
+  it('signs oauth1 requests at the wire, resolving templated credentials', async () => {
+    mockWsVars.mockReturnValue({
+      schemaVersion: 5,
+      variables: [{ uid: 'oa1sec01', name: 'CONSUMER_SECRET', value: 'cs_openheaders', type: 'secret' }],
+    });
+    await executeRequestDraft(
+      makeRequest({
+        url: 'https://api.openheaders.io/v1/items',
+        params: [{ uid: 'qparam01', key: 'page', value: '2' }],
+        headers: [{ uid: 'stalehdr', key: 'Authorization', value: 'Bearer stale-user-token' }],
+        auth: {
+          type: 'oauth1',
+          consumerKey: 'ck_openheaders',
+          consumerSecret: '{{CONSUMER_SECRET}}',
+          token: 'tok_openheaders',
+          tokenSecret: 'ts_openheaders',
+          signatureMethod: 'HMAC-SHA1',
+          paramsLocation: 'header',
+        },
+      }),
+    );
+    const [url, init] = fetchMock.mock.calls[0];
+    // Structured params folded into the URL before signing.
+    expect(url).toBe('https://api.openheaders.io/v1/items?page=2');
+    const auth = (init.headers as Headers).get('authorization') ?? '';
+    expect(auth.startsWith('OAuth ')).toBe(true);
+    expect(auth).toContain('oauth_consumer_key="ck_openheaders"');
+    expect(auth).toContain('oauth_token="tok_openheaders"');
+    expect(auth).toContain('oauth_signature_method="HMAC-SHA1"');
+    expect(auth).toContain('oauth_signature="');
+    expect(auth).not.toContain('stale-user-token');
+  });
+
+  it('appends oauth1 query-mode params to the final URL', async () => {
+    await executeRequestDraft(
+      makeRequest({
+        url: 'https://api.openheaders.io/v1/items',
+        auth: {
+          type: 'oauth1',
+          consumerKey: 'ck_openheaders',
+          consumerSecret: 'cs_openheaders',
+          signatureMethod: 'HMAC-SHA1',
+          paramsLocation: 'query',
+        },
+      }),
+    );
+    const [url, init] = fetchMock.mock.calls[0];
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get('oauth_consumer_key')).toBe('ck_openheaders');
+    expect(parsed.searchParams.get('oauth_signature')).toBeTruthy();
+    // One-legged config — no oauth_token param.
+    expect(parsed.searchParams.get('oauth_token')).toBeNull();
+    expect((init.headers as Headers).get('authorization')).toBeNull();
+  });
+
+  it('skips a disabled oauth1 config entirely', async () => {
+    await executeRequestDraft(
+      makeRequest({
+        auth: {
+          type: 'oauth1',
+          consumerKey: 'ck_openheaders',
+          consumerSecret: 'cs_openheaders',
+          signatureMethod: 'PLAINTEXT',
+          paramsLocation: 'header',
+          disabled: true,
+        },
+      }),
+    );
+    const [url, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get('authorization')).toBeNull();
+    expect(url).toBe('https://api.openheaders.io/v1/ping');
+  });
+
   it('skips a digest config on the browser runtime — the target 401 is the signal', async () => {
     await executeRequestDraft(makeRequest({ auth: { type: 'digest', username: 'cam-admin', password: 'pw' } }));
     expect(fetchMock).toHaveBeenCalledTimes(1);
