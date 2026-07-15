@@ -129,16 +129,19 @@ event of the current session byte for byte, sent or suppressed.
 
 - **Endpoint**: `POST https://telemetry.openheaders.io/v1/events`
 - **Request headers**: `content-type: application/json`
-- **Request body** — a batch envelope, exactly these four fields:
+- **Request body** — a batch envelope, exactly these six fields:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sessionId": "c0ffee00c0ffee00c0ffee00c0ffee00",
+  "installId": "feedface00feedface00feedface0000",
+  "sinceInstall": "2-7",
   "sentAt": 1760000000000,
   "events": [
+    { "name": "first_run", "channel": "chrome-store" },
     { "name": "session_start", "host": "extension", "appVersion": { "year": 2026, "month": 7, "patch": 2 },
-      "platform": "mac", "browser": "firefox", "locale": "en" },
+      "platform": "mac", "browser": "firefox", "locale": "en", "rules": "1-5", "workspaces": "0" },
     { "name": "feature_used", "feature": "workflow-editor" },
     { "name": "rule_created", "ruleType": "header" },
     { "name": "import_run", "source": "postman", "ok": true },
@@ -150,24 +153,49 @@ event of the current session byte for byte, sent or suppressed.
 
   - `sessionId` — 32 hex chars minted at random per process launch,
     held in memory only, never persisted. It groups one session's
-    events and nothing else: there is no install id, no account
-    identity, no fingerprint, so sessions cannot be joined across
-    launches.
-  - `events` — only the six event shapes above exist, and every field
-    value comes from a closed union checked into the repository
+    events and nothing else.
+  - `installId` — 32 hex chars minted at random on first run and kept
+    by the host. **Random by law**: never derived from hardware, the
+    network, an account, or any real-world fact — it identifies this
+    install, not you, and cannot be traced back to either. You can
+    mint a fresh one anytime ("Reset identifier" beside the event
+    inspector), and turning the telemetry toggle off **deletes** it —
+    a later re-enable mints a new one unlinkable to history.
+  - `sinceInstall` — how old the install is, only ever as one of five
+    coarse buckets (`0`, `1`, `2-7`, `8-30`, `31+` days); precise ages
+    are inexpressible.
+  - `events` — only the seven event shapes above exist, and every
+    field value comes from a closed union checked into the repository
     (`host` can only ever be `desktop`/`extension`/`cli` — the daemon,
     served web app, and MCP server are hard-off and have no vocabulary
     member). `appVersion` is the CalVer version as three integers.
+    `first_run` fires once per install and carries only the
+    distribution channel (which store or package manager the build
+    shipped through — a static fact of the build, never sniffed from
+    traffic). `rules`/`workspaces` are the same coarse buckets as
+    `sinceInstall` (`0`, `1-5`, `6-20`, `21+`), never exact counts.
 - **Response**: `202` when the envelope validates, `4xx` otherwise.
   The client never acts on the status either way — failures are
   silent, the batch simply rides the next flush, and nothing ever
   retries aggressively, blocks, or degrades the app.
 - **Storage**: the worker validates against the same compiled schema
   and writes one Cloudflare Workers Analytics Engine data point per
-  event, carrying only the vocabulary values and the session id.
-  IP addresses and geo are never written; no third-party analytics
-  SDK or processor is involved (Cloudflare already hosts the license
-  worker and is the only processor named in the privacy policy).
+  event, carrying only the vocabulary values, the session id, the
+  install id, and one caller-derived value: the **coarse two-letter
+  country code** Cloudflare resolves at its edge (`cf-ipcountry`).
+  The IP address it derives from is never read into a data point, and
+  no other request header is either; no third-party analytics SDK or
+  processor is involved (Cloudflare already hosts the license worker
+  and is the only processor named in the privacy policy). Monthly
+  aggregate snapshots (counts only — ids are aggregated away) are
+  committed to the repository as the long-term metrics ledger.
+- **Uninstall ping (extension only)**: the extension registers
+  `GET https://telemetry.openheaders.io/v1/uninstall?i=<installId>`
+  as its browser uninstall URL — the page the browser opens when the
+  extension is removed. It carries only the install id, counts one
+  departure, and redirects to `https://openheaders.io/`. It is
+  registered only while the telemetry toggle is on and an install id
+  exists; toggling off clears it (no id, no ping).
 - **Cadence**: batched — the host flushes the in-memory queue on an
   interval and best-effort on quit.
 - **Off switches**: Settings → General → telemetry toggle (extension
