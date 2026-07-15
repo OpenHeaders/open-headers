@@ -4,21 +4,25 @@
  * (`TELEMETRY_PLAN.md` §6). Reads the host client's session log over
  * `productTelemetryRead`: every event since launch, including the ones
  * suppressed while the switch was off, rendered exactly as they travel
- * on the wire.
+ * on the wire. The log lives with the host client, so the open modal
+ * re-polls the snapshot — the poll only runs while the modal is on
+ * screen, keeping the read path one-shot RPCs with no standing wire.
  */
 
-import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
+import { EyeOutlined } from '@ant-design/icons';
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { Button, Empty, Modal, Tag, Typography } from 'antd';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../fields/FieldRow';
 import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
 
 const { Text } = Typography;
+
+const REFRESH_INTERVAL_MS = 3000;
 
 const DISPOSITION_COLOR: Record<string, string> = {
   sent: 'green',
@@ -46,6 +50,12 @@ const ProductTelemetryEventsRow: React.FC<{ def: SettingDef }> = ({ def }) => {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!open) return;
+    const timer = setInterval(refresh, REFRESH_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [open, refresh]);
+
   return (
     <FieldRow settingKey={def.key} label={resolveLabel(def, t)} description={resolveDescription(def, t)} resettable={false}>
       <Button size="small" icon={<EyeOutlined />} onClick={show} data-testid="product-telemetry-view-events">
@@ -63,9 +73,6 @@ const ProductTelemetryEventsRow: React.FC<{ def: SettingDef }> = ({ def }) => {
             <Text type="secondary" style={{ fontSize: 12 }}>
               {`Session ${snapshot.sessionId} — counting is ${snapshot.enabled ? 'on' : 'off'}`}
             </Text>
-            <Button size="small" icon={<ReloadOutlined />} onClick={refresh}>
-              Refresh
-            </Button>
           </div>
         )}
         {!snapshot || snapshot.entries.length === 0 ? (
