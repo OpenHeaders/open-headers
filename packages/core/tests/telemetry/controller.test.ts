@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createInMemoryProductTelemetryInstallStore,
   createInMemoryProductTelemetrySessionStore,
   oncePerSessionLatchKey,
   ProductTelemetryController,
   type ProductTelemetryControllerDeps,
+  type ProductTelemetryInstallStore,
   type ProductTelemetrySessionStore,
   SESSION_START_LATCH_KEY,
   type TelemetryEnvelope,
   type TelemetryEvent,
+  type TelemetryInstallContext,
 } from '../../src/telemetry';
 
 const SESSION_START: TelemetryEvent = {
@@ -34,11 +37,16 @@ function makeSessionStore(initial: Partial<{ sessionId: string; latched: string[
   return { store, state };
 }
 
+const INSTALL: TelemetryInstallContext = { installId: 'feedface00feedface00feedface0000', installedAt: 1_760_000_000_000 };
+
 interface RigOptions {
   enabled?: boolean;
   sessionId?: string;
   latched?: string[];
   sessionStart?: TelemetryEvent | null;
+  /** Preseeded by default so session-focused tests carry no first_run noise; null = fresh install. */
+  install?: TelemetryInstallContext | null;
+  installStore?: ProductTelemetryInstallStore;
 }
 
 function makeRig(options: RigOptions = {}) {
@@ -46,6 +54,8 @@ function makeRig(options: RigOptions = {}) {
   const gates = { enabled: options.enabled ?? true };
   const listeners = { enabled: [] as Array<() => void> };
   const { store, state } = makeSessionStore(options);
+  const installStore =
+    options.installStore ?? createInMemoryProductTelemetryInstallStore(options.install === undefined ? INSTALL : options.install);
 
   const deps: ProductTelemetryControllerDeps = {
     transport: {
@@ -56,6 +66,8 @@ function makeRig(options: RigOptions = {}) {
     },
     now: () => 1_760_000_000_000,
     sessionStore: store,
+    installStore,
+    channel: 'chrome-store',
     getEnabled: () => gates.enabled,
     subscribeEnabled: (fn) => listeners.enabled.push(fn),
     buildSessionStart: async () => (options.sessionStart === undefined ? SESSION_START : options.sessionStart),
@@ -66,7 +78,7 @@ function makeRig(options: RigOptions = {}) {
     gates.enabled = value;
     for (const fn of listeners.enabled) fn();
   };
-  return { controller, sent, state, setEnabled };
+  return { controller, sent, state, setEnabled, installStore };
 }
 
 describe('ProductTelemetryController — session identity', () => {
@@ -223,6 +235,79 @@ describe('ProductTelemetryController — gates', () => {
     expect(snapshot.entries).toHaveLength(1);
     expect(snapshot.entries[0].disposition).toBe('suppressed');
     expect(snapshot.sessionId).toMatch(/^[0-9a-f]{32}$/);
+  });
+});
+
+describe('ProductTelemetryController — install identity lifecycle', () => {
+  it('mints an install record at first enabled boot and announces first_run before session_start', async () => {
+    const { controller, sent, installStore } = makeRig({ install: null });
+    await controller.init();
+    await controller.flush();
+    const record = await installStore.getRecord();
+    expect(record?.installId).toMatch(/^[0-9a-f]{32}$/);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].installId).toBe(record?.installId);
+    expect(sent[0].sinceInstall).toBe('0');
+    expect(sent[0].events).toEqual([{ name: 'first_run', channel: 'chrome-store' }, SESSION_START]);
+  });
+
+  it('does not re-announce first_run for an existing install', async () => {
+    const { controller, sent } = makeRig();
+    await controller.init();
+    await controller.flush();
+    expect(sent[0].installId).toBe(INSTALL.installId);
+    expect(sent[0].events).toEqual([SESSION_START]);
+  });
+
+  it('wipes the identity on toggle-off and mints a fresh one on re-enable, without a second first_run', async () => {
+    const { controller, sent, setEnabled, installStore } = makeRig({ sessionStart: null });
+    await controller.init();
+    setEnabled(false);
+    await controller.flush();
+    expect(await installStore.getRecord()).toBeNull();
+    expect((await controller.snapshot()).installId).toBeNull();
+
+    setEnabled(true);
+    await controller.track({ name: 'workflow_run', ok: true });
+    await controller.flush();
+    const reminted = await installStore.getRecord();
+    expect(reminted?.installId).toMatch(/^[0-9a-f]{32}$/);
+    expect(reminted?.installId).not.toBe(INSTALL.installId);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].installId).toBe(reminted?.installId);
+    expect(sent[0].events).toEqual([{ name: 'workflow_run', ok: true }]);
+  });
+
+  it('wipes a leftover record when booting with the toggle already off', async () => {
+    const { controller, installStore } = makeRig({ enabled: false, sessionStart: null });
+    await controller.init();
+    expect(await installStore.getRecord()).toBeNull();
+  });
+
+  it('reset mints a fresh id and date, keeps the first_run latch, and re-stamps the next envelope', async () => {
+    const { controller, sent } = makeRig({ sessionStart: null });
+    await controller.init();
+    const fresh = await controller.resetInstallId();
+    expect(fresh).toMatch(/^[0-9a-f]{32}$/);
+    expect(fresh).not.toBe(INSTALL.installId);
+    expect((await controller.snapshot()).installId).toBe(fresh);
+    await controller.track({ name: 'workflow_run', ok: true });
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].installId).toBe(fresh);
+    expect(sent[0].events).toEqual([{ name: 'workflow_run', ok: true }]);
+  });
+
+  it('refuses a reset while the channel is off — there is no identity to reset', async () => {
+    const { controller } = makeRig({ enabled: false, sessionStart: null });
+    await controller.init();
+    expect(await controller.resetInstallId()).toBeNull();
+  });
+
+  it('exposes the install id in the snapshot while enabled', async () => {
+    const { controller } = makeRig({ sessionStart: null });
+    await controller.init();
+    expect((await controller.snapshot()).installId).toBe(INSTALL.installId);
   });
 });
 

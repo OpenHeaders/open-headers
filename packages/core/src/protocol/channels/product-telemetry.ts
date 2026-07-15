@@ -19,9 +19,11 @@ export interface ProductTelemetryLogEntryWire {
   disposition: TelemetryDisposition;
 }
 
-/** Everything the inspector shows: the log plus the channel's current gate. */
+/** Everything the inspector shows: the log plus the channel's current gate and identity. */
 export interface ProductTelemetrySnapshot {
   sessionId: string;
+  /** The durable random install id, or null while the channel is off (off = no identity). */
+  installId: string | null;
   enabled: boolean;
   entries: ProductTelemetryLogEntryWire[];
 }
@@ -31,4 +33,6 @@ export interface ProductTelemetryRpc {
   productTelemetryTrack: { req: { event: TelemetryEvent }; res: { success: boolean } };
   /** Read the session event log + channel gates for the telemetry inspector. */
   productTelemetryRead: { req: Record<string, never>; res: ProductTelemetrySnapshot };
+  /** Mint a fresh install id (settings affordance). Not an acquisition: `first_run` never re-fires. Null while disabled. */
+  productTelemetryResetInstallId: { req: Record<string, never>; res: { installId: string | null } };
 }

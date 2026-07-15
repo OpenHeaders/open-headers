@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { DetectedImportSource } from '../../src/import/detect';
 import { RuleTypeSchema } from '../../src/schemas/rule';
 import {
+  bucketScale,
+  bucketSinceInstall,
   parseTelemetryAppVersion,
   TELEMETRY_SCHEMA_VERSION,
   type TelemetryEnvelope,
@@ -11,6 +13,7 @@ import {
   TelemetryEventSchema,
   type TelemetryImportSourceId,
   TelemetryImportSourceIdSchema,
+  TelemetryInstallIdSchema,
   TelemetryRuleTypeIdSchema,
   TelemetrySessionIdSchema,
 } from '../../src/telemetry';
@@ -22,8 +25,10 @@ type MutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : neve
 const importSourcesMatchDetector: MutuallyAssignable<TelemetryImportSourceId, DetectedImportSource['kind']> = true;
 
 const SESSION_ID = 'c0ffee00c0ffee00c0ffee00c0ffee00';
+const INSTALL_ID = 'feedface00feedface00feedface0000';
 
 const SAMPLE_EVENTS: TelemetryEvent[] = [
+  { name: 'first_run', channel: 'chrome-store' },
   {
     name: 'session_start',
     host: 'extension',
@@ -31,6 +36,8 @@ const SAMPLE_EVENTS: TelemetryEvent[] = [
     platform: 'mac',
     browser: 'chrome',
     locale: 'en',
+    rules: '1-5',
+    workspaces: '0',
   },
   { name: 'feature_used', feature: 'traffic-panel' },
   { name: 'rule_created', ruleType: 'header' },
@@ -55,6 +62,8 @@ describe('telemetry vocabulary — round-trips', () => {
     const envelope: TelemetryEnvelope = {
       schemaVersion: TELEMETRY_SCHEMA_VERSION,
       sessionId: SESSION_ID,
+      installId: INSTALL_ID,
+      sinceInstall: '2-7',
       sentAt: 1_760_000_000_000,
       events: SAMPLE_EVENTS,
     };
@@ -62,7 +71,7 @@ describe('telemetry vocabulary — round-trips', () => {
     expect(parsed).toEqual(envelope);
   });
 
-  it('accepts session_start without the optional browser (desktop, cli)', () => {
+  it('accepts session_start without the optional browser and scale buckets (desktop, cli)', () => {
     const event = {
       name: 'session_start',
       host: 'cli',
@@ -103,15 +112,38 @@ describe('telemetry vocabulary — rejections', () => {
     const envelope = {
       schemaVersion: TELEMETRY_SCHEMA_VERSION,
       sessionId: SESSION_ID,
+      installId: INSTALL_ID,
+      sinceInstall: '0',
       sentAt: 1,
       events: [],
-      installId: 'abc',
+      country: 'US',
     };
     expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(false);
   });
 
-  it('rejects an unsupported schemaVersion', () => {
-    const envelope = { schemaVersion: 2, sessionId: SESSION_ID, sentAt: 1, events: [] };
+  it('rejects retired and unknown schemaVersions', () => {
+    for (const schemaVersion of [1, 3]) {
+      const envelope = {
+        schemaVersion,
+        sessionId: SESSION_ID,
+        installId: INSTALL_ID,
+        sinceInstall: '0',
+        sentAt: 1,
+        events: [],
+      };
+      expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(false);
+    }
+  });
+
+  it('rejects a precise sinceInstall day count — buckets only', () => {
+    const envelope = {
+      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      sessionId: SESSION_ID,
+      installId: INSTALL_ID,
+      sinceInstall: '12',
+      sentAt: 1,
+      events: [],
+    };
     expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(false);
   });
 
@@ -122,11 +154,38 @@ describe('telemetry vocabulary — rejections', () => {
     ['arbitrary text', 'user@openheaders.io-was-here-now'],
   ];
 
-  for (const [label, sessionId] of BAD_SESSION_IDS) {
-    it(`rejects a session id with ${label}`, () => {
-      expect(v.safeParse(TelemetrySessionIdSchema, sessionId).success).toBe(false);
+  for (const [label, id] of BAD_SESSION_IDS) {
+    it(`rejects a session or install id with ${label}`, () => {
+      expect(v.safeParse(TelemetrySessionIdSchema, id).success).toBe(false);
+      expect(v.safeParse(TelemetryInstallIdSchema, id).success).toBe(false);
     });
   }
+});
+
+describe('telemetry vocabulary — coarse buckets', () => {
+  const NOW = 1_760_000_000_000;
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it('buckets install age coarsely and clamps a backwards clock to day 0', () => {
+    expect(bucketSinceInstall(NOW, NOW)).toBe('0');
+    expect(bucketSinceInstall(NOW - 1 * DAY, NOW)).toBe('1');
+    expect(bucketSinceInstall(NOW - 3 * DAY, NOW)).toBe('2-7');
+    expect(bucketSinceInstall(NOW - 7 * DAY, NOW)).toBe('2-7');
+    expect(bucketSinceInstall(NOW - 12 * DAY, NOW)).toBe('8-30');
+    expect(bucketSinceInstall(NOW - 30 * DAY, NOW)).toBe('8-30');
+    expect(bucketSinceInstall(NOW - 31 * DAY, NOW)).toBe('31+');
+    expect(bucketSinceInstall(NOW + DAY, NOW)).toBe('0');
+  });
+
+  it('buckets entity counts coarsely', () => {
+    expect(bucketScale(0)).toBe('0');
+    expect(bucketScale(1)).toBe('1-5');
+    expect(bucketScale(5)).toBe('1-5');
+    expect(bucketScale(6)).toBe('6-20');
+    expect(bucketScale(20)).toBe('6-20');
+    expect(bucketScale(21)).toBe('21+');
+    expect(bucketScale(-3)).toBe('0');
+  });
 });
 
 describe('telemetry vocabulary — sync pins', () => {

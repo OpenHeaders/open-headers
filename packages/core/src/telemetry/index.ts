@@ -7,6 +7,7 @@
  */
 
 export {
+  mintTelemetryInstallId,
   mintTelemetrySessionId,
   PRODUCT_TELEMETRY_ENDPOINT,
   TELEMETRY_MAX_LOG,
@@ -14,24 +15,31 @@ export {
   TelemetryClient,
   type TelemetryClientDeps,
   type TelemetryDisposition,
+  type TelemetryInstallContext,
   type TelemetryLogEntry,
   type TelemetryTransport,
 } from './client';
 export {
+  createInMemoryProductTelemetryInstallStore,
   createInMemoryProductTelemetrySessionStore,
   oncePerSessionLatchKey,
   ProductTelemetryController,
   type ProductTelemetryControllerDeps,
+  type ProductTelemetryInstallStore,
   type ProductTelemetrySessionStore,
   SESSION_START_LATCH_KEY,
 } from './controller';
 export {
+  bucketScale,
+  bucketSinceInstall,
   parseTelemetryAppVersion,
   TELEMETRY_SCHEMA_VERSION,
   type TelemetryAppVersion,
   TelemetryAppVersionSchema,
   type TelemetryBrowserKind,
   TelemetryBrowserKindSchema,
+  type TelemetryChannelId,
+  TelemetryChannelIdSchema,
   type TelemetryEnvelope,
   TelemetryEnvelopeSchema,
   type TelemetryErrorCode,
@@ -44,11 +52,16 @@ export {
   TelemetryHostKindSchema,
   type TelemetryImportSourceId,
   TelemetryImportSourceIdSchema,
+  TelemetryInstallIdSchema,
   type TelemetryLocale,
   TelemetryLocaleSchema,
   type TelemetryPlatform,
   TelemetryPlatformSchema,
   type TelemetryRuleTypeId,
   TelemetryRuleTypeIdSchema,
+  type TelemetryScaleBucket,
+  TelemetryScaleBucketSchema,
   TelemetrySessionIdSchema,
+  type TelemetrySinceInstallBucket,
+  TelemetrySinceInstallBucketSchema,
 } from './vocabulary';

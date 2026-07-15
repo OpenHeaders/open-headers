@@ -19,9 +19,9 @@
  */
 
 import type { ProductTelemetrySnapshot } from '../protocol/channels/product-telemetry';
-import type { TelemetryTransport } from './client';
-import { TelemetryClient } from './client';
-import type { TelemetryEvent } from './vocabulary';
+import type { TelemetryInstallContext, TelemetryTransport } from './client';
+import { mintTelemetryInstallId, TelemetryClient } from './client';
+import type { TelemetryChannelId, TelemetryEvent } from './vocabulary';
 
 /**
  * Per-session state; RAM-backed on every host, never written to disk.
@@ -39,6 +39,43 @@ export interface ProductTelemetrySessionStore {
 
 /** Latch key for the once-per-session `session_start` sent-bit. */
 export const SESSION_START_LATCH_KEY = 'session_start';
+
+/**
+ * Durable install identity (plan §4, amended 2026-07-16), host-persisted.
+ * Two independent pieces by design: the identity record is wiped whenever
+ * the toggle goes off and re-minted fresh on re-enable — opting out
+ * forgets you. The `first_run` sent-bit survives the wipe: it is a plain
+ * boolean ("this install already announced itself"), carries no identity,
+ * and keeps toggle cycles from inflating acquisition counts.
+ */
+export interface ProductTelemetryInstallStore {
+  getRecord(): Promise<TelemetryInstallContext | null>;
+  setRecord(record: TelemetryInstallContext): Promise<void>;
+  clearRecord(): Promise<void>;
+  wasFirstRunSent(): Promise<boolean>;
+  markFirstRunSent(): Promise<void>;
+}
+
+/** Install store for tests and rigs; real hosts persist (extension `chrome.storage.local`, desktop settings, CLI config). */
+export function createInMemoryProductTelemetryInstallStore(
+  initial: TelemetryInstallContext | null = null,
+): ProductTelemetryInstallStore {
+  let record = initial;
+  let firstRunSent = initial !== null;
+  return {
+    getRecord: async () => record,
+    setRecord: async (next) => {
+      record = next;
+    },
+    clearRecord: async () => {
+      record = null;
+    },
+    wasFirstRunSent: async () => firstRunSent,
+    markFirstRunSent: async () => {
+      firstRunSent = true;
+    },
+  };
+}
 
 /**
  * Latch key for events that fire once per session per union member
@@ -71,6 +108,9 @@ export interface ProductTelemetryControllerDeps {
   transport: TelemetryTransport;
   now(): number;
   sessionStore: ProductTelemetrySessionStore;
+  installStore: ProductTelemetryInstallStore;
+  /** This build's distribution channel — a static host fact stamped on `first_run`. */
+  channel: TelemetryChannelId;
   /** Current `telemetry.enabled` setting value. */
   getEnabled(): boolean;
   /** Subscribe to `telemetry.enabled` changes. */
@@ -87,6 +127,8 @@ export class ProductTelemetryController {
   private readonly deps: ProductTelemetryControllerDeps;
   private client: TelemetryClient | null = null;
   private ready: Promise<void> | null = null;
+  private installContext: TelemetryInstallContext | null = null;
+  private gateWork: Promise<void> = Promise.resolve();
 
   constructor(deps: ProductTelemetryControllerDeps) {
     this.deps = deps;
@@ -100,19 +142,80 @@ export class ProductTelemetryController {
 
   private async boot(): Promise<void> {
     let sessionId = await this.deps.sessionStore.getSessionId();
-    const client = sessionId
-      ? new TelemetryClient({ transport: this.deps.transport, now: this.deps.now, sessionId })
-      : new TelemetryClient({ transport: this.deps.transport, now: this.deps.now });
+    const baseDeps = { transport: this.deps.transport, now: this.deps.now, install: () => this.installContext };
+    const client = sessionId ? new TelemetryClient({ ...baseDeps, sessionId }) : new TelemetryClient(baseDeps);
     if (!sessionId) {
       sessionId = client.sessionId;
       await this.deps.sessionStore.setSessionId(sessionId);
     }
     this.client = client;
 
-    client.setEnabled(this.deps.getEnabled());
-    this.deps.subscribeEnabled(() => client.setEnabled(this.deps.getEnabled()));
+    const enabled = this.deps.getEnabled();
+    client.setEnabled(enabled);
+    if (enabled) {
+      await this.ensureInstallIdentity();
+    } else {
+      // Off means no identity: a toggle turned off while this host was
+      // not running still wipes the record at the next boot.
+      await this.deps.installStore.clearRecord();
+    }
+    // Transitions serialize on one chain; every entry point awaits it
+    // (`settled`), so identity work never races a track or flush.
+    this.deps.subscribeEnabled(() => {
+      this.gateWork = this.gateWork.then(() => this.onEnabledChange());
+    });
 
     await this.ensureSessionStart();
+  }
+
+  private async settled(): Promise<void> {
+    await this.init();
+    await this.gateWork;
+  }
+
+  /**
+   * Enabled transitions own the identity lifecycle: off wipes the install
+   * record entirely; on re-mints a fresh one. `first_run` never re-fires
+   * across toggle cycles — its sent-bit survives the wipe by design.
+   */
+  private async onEnabledChange(): Promise<void> {
+    const enabled = this.deps.getEnabled();
+    this.client?.setEnabled(enabled);
+    if (enabled) {
+      await this.ensureInstallIdentity();
+    } else {
+      this.installContext = null;
+      await this.deps.installStore.clearRecord();
+    }
+  }
+
+  /** Load-or-mint the install record; announce a first run exactly once per install-store lifetime. */
+  private async ensureInstallIdentity(): Promise<void> {
+    let record = await this.deps.installStore.getRecord();
+    if (!record) {
+      record = { installId: mintTelemetryInstallId(), installedAt: this.deps.now() };
+      await this.deps.installStore.setRecord(record);
+    }
+    this.installContext = record;
+    if (!(await this.deps.installStore.wasFirstRunSent())) {
+      await this.deps.installStore.markFirstRunSent();
+      this.client?.track({ name: 'first_run', channel: this.deps.channel });
+    }
+  }
+
+  /**
+   * Manual "reset identifier" (settings affordance): mint a fresh id and
+   * install date, keeping the `first_run` sent-bit — a reset is not an
+   * acquisition. No-op while the channel is off (there is no identity to
+   * reset). Resolves the new id, or null when disabled.
+   */
+  async resetInstallId(): Promise<string | null> {
+    await this.settled();
+    if (!this.deps.getEnabled()) return null;
+    const record: TelemetryInstallContext = { installId: mintTelemetryInstallId(), installedAt: this.deps.now() };
+    await this.deps.installStore.setRecord(record);
+    this.installContext = record;
+    return record.installId;
   }
 
   /** Fire `session_start` once per session. */
@@ -132,7 +235,7 @@ export class ProductTelemetryController {
    * never reach the client or its log.
    */
   async track(event: TelemetryEvent): Promise<void> {
-    await this.init();
+    await this.settled();
     const latchKey = oncePerSessionLatchKey(event);
     if (latchKey) {
       if (await this.deps.sessionStore.wasLatched(latchKey)) return;
@@ -142,16 +245,17 @@ export class ProductTelemetryController {
   }
 
   async flush(): Promise<void> {
-    await this.init();
+    await this.settled();
     await this.client?.flush();
   }
 
   async snapshot(): Promise<ProductTelemetrySnapshot> {
-    await this.init();
+    await this.settled();
     const client = this.client;
-    if (!client) return { sessionId: '', enabled: false, entries: [] };
+    if (!client) return { sessionId: '', installId: null, enabled: false, entries: [] };
     return {
       sessionId: client.sessionId,
+      installId: this.installContext?.installId ?? null,
       enabled: client.isEnabled,
       entries: client.readEventLog().map((entry) => ({ ...entry })),
     };

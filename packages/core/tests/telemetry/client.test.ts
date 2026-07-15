@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
+  mintTelemetryInstallId,
   mintTelemetrySessionId,
   TELEMETRY_MAX_LOG,
   TELEMETRY_MAX_QUEUE,
@@ -9,7 +10,11 @@ import {
   type TelemetryEnvelope,
   TelemetryEnvelopeSchema,
   type TelemetryEvent,
+  type TelemetryInstallContext,
 } from '../../src/telemetry';
+
+const NOW = 1_760_000_000_000;
+const INSTALL: TelemetryInstallContext = { installId: 'feedface00feedface00feedface0000', installedAt: NOW };
 
 function makeTransport(overrides: Partial<{ result: boolean; error: Error }> = {}) {
   const sent: TelemetryEnvelope[] = [];
@@ -23,10 +28,14 @@ function makeTransport(overrides: Partial<{ result: boolean; error: Error }> = {
   };
 }
 
-function makeClient(overrides: Partial<{ result: boolean; error: Error }> = {}) {
+function makeClient(overrides: Partial<{ result: boolean; error: Error; install: TelemetryInstallContext | null }> = {}) {
   const transport = makeTransport(overrides);
-  let clock = 1_760_000_000_000;
-  const client = new TelemetryClient({ transport, now: () => clock++ });
+  let clock = NOW;
+  const client = new TelemetryClient({
+    transport,
+    now: () => clock++,
+    install: () => (overrides.install === undefined ? INSTALL : overrides.install),
+  });
   return { client, transport };
 }
 
@@ -37,6 +46,7 @@ function makeEvent(overrides: Partial<Extract<TelemetryEvent, { name: 'import_ru
 describe('TelemetryClient — session id', () => {
   it('mints 32 lowercase hex chars', () => {
     expect(mintTelemetrySessionId()).toMatch(/^[0-9a-f]{32}$/);
+    expect(mintTelemetryInstallId()).toMatch(/^[0-9a-f]{32}$/);
   });
 
   it('mints a fresh id per construction', () => {
@@ -49,11 +59,58 @@ describe('TelemetryClient — session id', () => {
   it('carries an injected session id onto the envelope', async () => {
     const transport = makeTransport();
     const injected = 'deadbeefdeadbeefdeadbeefdeadbeef';
-    const client = new TelemetryClient({ transport, now: () => 1_760_000_000_000, sessionId: injected });
+    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, sessionId: injected });
     client.track(makeEvent());
     await client.flush();
     expect(client.sessionId).toBe(injected);
     expect(transport.sent[0].sessionId).toBe(injected);
+  });
+});
+
+describe('TelemetryClient — install identity on the envelope', () => {
+  it('stamps the install id and a day-0 sinceInstall bucket at flush time', async () => {
+    const { client, transport } = makeClient();
+    client.track(makeEvent());
+    await client.flush();
+    expect(transport.sent[0].installId).toBe(INSTALL.installId);
+    expect(transport.sent[0].sinceInstall).toBe('0');
+  });
+
+  it('buckets an older install coarsely, never as a day count', async () => {
+    const transport = makeTransport();
+    const client = new TelemetryClient({
+      transport,
+      now: () => NOW,
+      install: () => ({ installId: INSTALL.installId, installedAt: NOW - 12 * 24 * 60 * 60 * 1000 }),
+    });
+    client.track(makeEvent());
+    await client.flush();
+    expect(transport.sent[0].sinceInstall).toBe('8-30');
+  });
+
+  it('re-reads the install context per flush so a reset re-stamps the next envelope', async () => {
+    const transport = makeTransport();
+    let installId = INSTALL.installId;
+    const client = new TelemetryClient({
+      transport,
+      now: () => NOW,
+      install: () => ({ installId, installedAt: NOW }),
+    });
+    client.track(makeEvent());
+    await client.flush();
+    installId = mintTelemetryInstallId();
+    client.track(makeEvent());
+    await client.flush();
+    expect(transport.sent[0].installId).toBe(INSTALL.installId);
+    expect(transport.sent[1].installId).toBe(installId);
+  });
+
+  it('flushes nothing without an install identity and keeps the batch pending', async () => {
+    const { client, transport } = makeClient({ install: null });
+    client.track(makeEvent());
+    expect(await client.flush()).toBe(false);
+    expect(transport.sent).toEqual([]);
+    expect(client.queuedCount).toBe(1);
   });
 });
 
@@ -120,7 +177,8 @@ describe('TelemetryClient — failure is silent, batch rides the next flush', ()
           return transport.send(envelope);
         },
       },
-      now: () => 1_760_000_000_000,
+      now: () => NOW,
+      install: () => INSTALL,
     });
     client.track(makeEvent());
     await client.flush();

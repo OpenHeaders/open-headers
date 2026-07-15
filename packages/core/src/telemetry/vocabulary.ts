@@ -15,7 +15,7 @@
 
 import * as v from 'valibot';
 
-export const TELEMETRY_SCHEMA_VERSION = 1 as const;
+export const TELEMETRY_SCHEMA_VERSION = 2 as const;
 
 /**
  * Surfaces where telemetry can ever be on. Daemon, served-web, and MCP are
@@ -80,6 +80,51 @@ export const TelemetryImportSourceIdSchema = v.picklist([
   'unknown',
 ]);
 
+/**
+ * Distribution channels a first run can be attributed to — a static fact
+ * of the build/store flavor, never derived from referrers or requests.
+ */
+export const TelemetryChannelIdSchema = v.picklist([
+  'chrome-store',
+  'firefox-amo',
+  'edge-store',
+  'safari-store',
+  'github-release',
+  'website-download',
+  'npm',
+  'brew',
+  'unknown',
+]);
+
+/**
+ * Coarse days-since-install, stamped on the envelope at flush time.
+ * Buckets, never day counts: precise ages could fingerprint (plan §3).
+ */
+export const TelemetrySinceInstallBucketSchema = v.picklist(['0', '1', '2-7', '8-30', '31+']);
+
+/** Coarse scale-of-use buckets — exact counts could fingerprint (plan §3). */
+export const TelemetryScaleBucketSchema = v.picklist(['0', '1-5', '6-20', '21+']);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Bucket an install age; a clock that ran backwards reads as day 0, never a failure. */
+export function bucketSinceInstall(installedAt: number, now: number): TelemetrySinceInstallBucket {
+  const days = Math.floor((now - installedAt) / DAY_MS);
+  if (days <= 0) return '0';
+  if (days === 1) return '1';
+  if (days <= 7) return '2-7';
+  if (days <= 30) return '8-30';
+  return '31+';
+}
+
+/** Bucket an entity count (rules, workspaces) for `session_start`. */
+export function bucketScale(count: number): TelemetryScaleBucket {
+  if (count <= 0) return '0';
+  if (count <= 5) return '1-5';
+  if (count <= 20) return '6-20';
+  return '21+';
+}
+
 /** Typed failure codes only — never messages, never stacks (stacks can embed URLs; plan §3). */
 export const TelemetryErrorCodeSchema = v.picklist([
   'ws-connect-failed',
@@ -123,12 +168,18 @@ export function parseTelemetryAppVersion(version: string): TelemetryAppVersion {
  */
 export const TelemetryEventSchema = v.variant('name', [
   v.strictObject({
+    name: v.literal('first_run'),
+    channel: TelemetryChannelIdSchema,
+  }),
+  v.strictObject({
     name: v.literal('session_start'),
     host: TelemetryHostKindSchema,
     appVersion: TelemetryAppVersionSchema,
     platform: TelemetryPlatformSchema,
     browser: v.optional(TelemetryBrowserKindSchema),
     locale: TelemetryLocaleSchema,
+    rules: v.optional(TelemetryScaleBucketSchema),
+    workspaces: v.optional(TelemetryScaleBucketSchema),
   }),
   v.strictObject({
     name: v.literal('feature_used'),
@@ -154,21 +205,35 @@ export const TelemetryEventSchema = v.variant('name', [
 ]);
 
 /**
- * The session id is the single non-payload string on the wire; its alphabet
- * is pinned to 32 lowercase hex chars so it cannot smuggle text. Minted per
- * process launch, held in memory only, never persisted (plan §4).
+ * The two non-payload strings on the wire share one pinned alphabet — 32
+ * lowercase hex chars — so neither can smuggle text. The session id is
+ * minted per process launch, held in memory only, never persisted. The
+ * install id is minted at first run, persisted by the host, resettable
+ * from settings, and deleted whenever the toggle goes off (plan §4,
+ * amended 2026-07-16): random, never derived from hardware or identity.
  */
 export const TelemetrySessionIdSchema = v.pipe(v.string(), v.regex(/^[0-9a-f]{32}$/));
+export const TelemetryInstallIdSchema = v.pipe(v.string(), v.regex(/^[0-9a-f]{32}$/));
 
-/** The batch envelope: exactly `schemaVersion` + `sessionId` + `sentAt` + events, nothing else (plan §3). */
+/**
+ * The batch envelope: exactly `schemaVersion` + `sessionId` + `installId`
+ * + `sinceInstall` + `sentAt` + events, nothing else (plan §3). Install
+ * facts live on the envelope, not on events, so every event carries the
+ * day-bucket without any payload shape widening.
+ */
 export const TelemetryEnvelopeSchema = v.strictObject({
   schemaVersion: v.literal(TELEMETRY_SCHEMA_VERSION),
   sessionId: TelemetrySessionIdSchema,
+  installId: TelemetryInstallIdSchema,
+  sinceInstall: TelemetrySinceInstallBucketSchema,
   sentAt: wholeNumber(),
   events: v.array(TelemetryEventSchema),
 });
 
 export type TelemetryHostKind = v.InferOutput<typeof TelemetryHostKindSchema>;
+export type TelemetryChannelId = v.InferOutput<typeof TelemetryChannelIdSchema>;
+export type TelemetrySinceInstallBucket = v.InferOutput<typeof TelemetrySinceInstallBucketSchema>;
+export type TelemetryScaleBucket = v.InferOutput<typeof TelemetryScaleBucketSchema>;
 export type TelemetryPlatform = v.InferOutput<typeof TelemetryPlatformSchema>;
 export type TelemetryBrowserKind = v.InferOutput<typeof TelemetryBrowserKindSchema>;
 export type TelemetryLocale = v.InferOutput<typeof TelemetryLocaleSchema>;

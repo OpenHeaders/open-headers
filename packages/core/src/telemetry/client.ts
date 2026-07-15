@@ -15,7 +15,7 @@
  */
 
 import type { TelemetryEnvelope, TelemetryEvent } from './vocabulary';
-import { TELEMETRY_SCHEMA_VERSION } from './vocabulary';
+import { bucketSinceInstall, TELEMETRY_SCHEMA_VERSION } from './vocabulary';
 
 /** The one published ingestion endpoint (`docs/WIRE_TRANSPARENCY.md` §4); hosts' transports POST envelopes here. */
 export const PRODUCT_TELEMETRY_ENDPOINT = 'https://telemetry.openheaders.io/v1/events';
@@ -28,10 +28,24 @@ export interface TelemetryTransport {
   send(envelope: TelemetryEnvelope): Promise<boolean>;
 }
 
+/** The durable identity facts an envelope carries (plan §4, amended 2026-07-16). */
+export interface TelemetryInstallContext {
+  /** 32 lowercase hex chars — random, resettable, deleted on toggle-off. */
+  installId: string;
+  /** ms since epoch when this install id was minted; feeds the coarse `sinceInstall` bucket. */
+  installedAt: number;
+}
+
 export interface TelemetryClientDeps {
   transport: TelemetryTransport;
   /** Wall clock (ms since epoch), injected so hosts and tests own time. */
   now(): number;
+  /**
+   * Current install identity, read at flush time so a mid-session reset
+   * re-stamps the very next envelope. `null` means no identity exists
+   * (channel disabled or being wiped) — nothing flushes without one.
+   */
+  install(): TelemetryInstallContext | null;
   /**
    * Session id override for hosts whose process outlives — or is shorter
    * than — the user-facing session (the extension service worker is
@@ -70,6 +84,15 @@ export function mintTelemetrySessionId(): string {
   const bytes = new Uint8Array(16);
   globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Same alphabet and entropy as a session id, but host-persisted: minted at
+ * first run, resettable from settings, deleted on toggle-off. Random by
+ * law — never derived from hardware, network, or identity (plan §4).
+ */
+export function mintTelemetryInstallId(): string {
+  return mintTelemetrySessionId();
 }
 
 export class TelemetryClient {
@@ -134,14 +157,19 @@ export class TelemetryClient {
    */
   async flush(): Promise<boolean> {
     if (this.flushing || !this.enabled || this.queue.length === 0) return false;
+    const install = this.deps.install();
+    if (!install) return false;
     this.flushing = true;
     const batch = this.queue;
     this.queue = [];
     try {
+      const sentAt = this.deps.now();
       const envelope: TelemetryEnvelope = {
         schemaVersion: TELEMETRY_SCHEMA_VERSION,
         sessionId: this.sessionId,
-        sentAt: this.deps.now(),
+        installId: install.installId,
+        sinceInstall: bucketSinceInstall(install.installedAt, sentAt),
+        sentAt,
         events: batch.map((entry) => entry.event),
       };
       const accepted = await this.deps.transport.send(envelope);
