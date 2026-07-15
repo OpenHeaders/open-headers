@@ -95,7 +95,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
                 paused,
               }),
               label: node.name,
-              scope: getRuleTypeLabel(node.ruleType),
+              scope: getRuleTypeLabel(node.ruleType, t),
               onSelect: () => openEditTab(node.uid),
             });
           } else if (node.type === 'folder') {
@@ -117,12 +117,12 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       if (tpls.length === 0) continue;
       systemSections.push({
         id: `sys-tpl-${ruleType}`,
-        title: getRuleTypeLabel(ruleType),
+        title: getRuleTypeLabel(ruleType, t),
         items: tpls.map((tpl) => ({
           id: `sys-tpl-${tpl.key}`,
           icon: <span style={{ fontSize: 12 }}>{tpl.icon}</span>,
-          label: tpl.name,
-          scope: tpl.description,
+          label: t(tpl.nameKey),
+          scope: t(tpl.descriptionKey),
           onSelect: () => openCreateTab(ruleType, undefined, tpl.key),
         })),
       });
@@ -145,7 +145,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
                 renderTwoToneIcon(node.icon, { fontSize: 12 }) ||
                 buildRuleIcon({ ruleType: node.ruleType, isActive: false }),
               label: node.name,
-              scope: getRuleTypeLabel(node.ruleType),
+              scope: getRuleTypeLabel(node.ruleType, t),
               onSelect: () => openTemplateEditTab(node.uid),
             });
           } else if (node.type === 'folder') {
@@ -274,7 +274,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         ...ruleTypes.map((type) => ({
           id: `cmd-new-${type}`,
           icon: buildRuleIcon({ ruleType: type, isActive: true }),
-          label: t('workbench.shell.commandPalette.cmd.newRuleType', { type: getRuleTypeLabel(type) }),
+          label: t('workbench.shell.commandPalette.cmd.newRuleType', { type: getRuleTypeLabel(type, t) }),
           onSelect: () => openCreateTab(type),
         })),
       ],

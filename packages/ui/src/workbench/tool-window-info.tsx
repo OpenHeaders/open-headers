@@ -5,12 +5,17 @@
  * forces its info entry here. Edit a panel's design/text in one place
  * instead of chasing its render site.
  *
- * The shell (`App.tsx`) resolves copy via `getToolWindowInfo(id)` and
- * threads it into the panel's `PanelHeader`.
+ * The shell (`App.tsx`) resolves copy via `getToolWindowInfo(id, t)`
+ * and threads it into the panel's `PanelHeader`. Copy resolves at call
+ * time through the supplied translator; `{{name}}` / `{{live.*}}`
+ * reference syntax composes raw in JSX between the keyed fragments.
+ * The Notifications entry stays on the shared NOTIFICATIONS_PANEL_INFO
+ * corpus — the devtools panel co-consumes it unconverted (Phase D).
  */
 
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { NOTIFICATIONS_PANEL_INFO } from '@openheaders/ui/shared/notifications';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { buildRuleIcon } from './components/shared/rule-icon';
 import { scopeBadge } from './components/shared/scope-colors';
 import { ALL_RULE_TYPES } from './rule-type-menu';
@@ -33,165 +38,194 @@ const Code = ({ children }: { children: string }) => (
   </code>
 );
 
-const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
-  'http-rules': {
-    title: 'HTTP Rules',
-    summary:
-      'Create rules that rewrite outgoing requests and incoming responses. Rules live in collections and can inject values from variables, the vault, and live workflows.',
-    sections: [
-      {
-        heading: 'Rule types',
-        // Single-sourced from the create-menu catalogue so the popover
-        // never drifts from what the picker actually offers. The lead
-        // icon is the same fixed-width type code rows render, so the
-        // labels form an aligned column. Stacked layout: these labels
-        // are long, so descriptions get their own line.
-        layout: 'stacked',
-        items: ALL_RULE_TYPES.map((t) => ({
-          icon: buildRuleIcon({ ruleType: t.key, isActive: true }),
-          label: t.label,
-          desc: t.description,
-        })),
-      },
-    ],
-  },
-  workflows: {
-    title: 'Workflows',
-    summary: (
-      <>
-        A scheduled-refresh variable producer: a request chain plus an extraction rule. Its output surfaces as a{' '}
-        <Code>{'{{live.*}}'}</Code> reference you can use anywhere a variable is accepted.
-      </>
-    ),
-  },
-  docs: {
-    title: 'Docs',
-    summary:
-      'In-app documentation for rules, variables, workflows, and the workbench itself — browse without leaving the app.',
-  },
-  'var-scope': {
-    title: 'Variable Scope',
-    summary: (
-      <>
-        The variables the active tab references and every scope they resolve against. A bare <Code>{'{{name}}'}</Code>{' '}
-        falls through the priority order below; namespaced refs like <Code>{'{{live.*}}'}</Code> target one scope
-        directly.
-      </>
-    ),
-    sections: [
-      {
-        heading: 'Priority order',
-        items: [
-          { icon: scopeBadge('vault', 14), label: 'Vault', desc: 'Per-user secrets, never synced — highest priority.' },
-          {
-            icon: scopeBadge('environment', 14),
-            label: 'Environment',
-            desc: 'The active environment, falling back to the default environment.',
-          },
-          { icon: scopeBadge('collection', 14), label: 'Collection', desc: "The active entity's collection." },
-          {
-            icon: scopeBadge('workspace', 14),
-            label: 'Workspace',
-            desc: 'Shared across the workspace — lowest priority.',
-          },
-        ],
-      },
-      {
-        heading: 'Namespaced',
-        items: [
-          {
-            icon: scopeBadge('live', 14),
-            label: 'Live',
-            desc: (
-              <>
-                Workflow-backed; reached only via <Code>{'{{live.*}}'}</Code>, resolved from the latest run.
-              </>
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  variables: {
-    title: 'Variables',
-    summary:
-      'The variable catalogue — everything defined across environments, collections, the workspace, and the vault. Use Scope to see what is actually in scope for the active tab.',
-    sections: [
-      {
-        heading: 'Variable types',
-        items: [
-          { icon: scopeBadge('vault', 14), label: 'Vault', desc: 'Per-user secrets — stored locally, never synced.' },
-          {
-            icon: scopeBadge('environment', 14),
-            label: 'Environment',
-            desc: 'Defined per environment; the active one supplies values.',
-          },
-          {
-            icon: scopeBadge('collection', 14),
-            label: 'Collection',
-            desc: 'Defined on a collection; apply to the entities inside it.',
-          },
-          { icon: scopeBadge('workspace', 14), label: 'Workspace', desc: 'Shared across the whole workspace.' },
-          {
-            icon: scopeBadge('live', 14),
-            label: 'Live',
-            desc: (
-              <>
-                Workflow-produced values, referenced as <Code>{'{{live.*}}'}</Code>.
-              </>
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  'api-requests': {
-    title: 'API Requests',
-    summary: 'Saved API requests and the environments they run against, organized into collections and folders.',
-    sections: [
-      {
-        heading: 'Request editor',
-        // Mirrors the editor's tab strip so the popover is a map of the
-        // surface, not generic HTTP trivia. Sub-type lists match the
-        // actual pickers (AuthorizationTab, BodyTab, ScriptsTab).
-        layout: 'stacked',
-        items: [
-          { label: 'Docs', desc: 'Free-form notes for the request — Markdown supported.' },
-          { label: 'Params', desc: 'Query parameters appended to the request URL.' },
-          {
-            label: 'Authorization',
-            desc: 'Inherit from parent, Basic, Bearer Token, API Key, or OAuth 2.0 — applied at send time.',
-          },
-          { label: 'Headers', desc: 'Request headers, with variable references resolved at send.' },
-          {
-            label: 'Body',
-            desc: 'Form data, URL-encoded, raw (Text, JavaScript, JSON, HTML, XML), or GraphQL.',
-          },
-          { label: 'Scripts', desc: 'Pre-request and post-response JavaScript hooks.' },
-          { label: 'Settings', desc: 'Per-request behavior — SSL verification, redirects, and more.' },
-        ],
-      },
-    ],
-  },
-  'deep-network-inspection': {
-    title: 'Deep Network Inspection',
-    summary:
-      'Connection-level (L4) and HTTP (L7) inspection in one view — TCP/TLS health like RTT, retransmissions, and handshake timing alongside full request/response visibility, modification, and replay.',
-  },
-  'workflow-status': {
-    title: 'Workflow Status',
-    summary:
-      'Per-workflow circuit-breaker dashboard — state, consecutive failures, openings, and next-attempt countdown, with manual Retry and Reset-circuit actions.',
-  },
-  notifications: NOTIFICATIONS_PANEL_INFO,
-  activity: {
-    title: 'Activity',
-    summary:
-      'Workspace-wide feed of inbound changes from peers, with classifier highlights for sensitive-field rotations, permission-scope expansions, and local-edit supersedes.',
-  },
-};
+function buildToolWindowInfo(t: Translate): Record<ToolWindowId, InfoPopoverContent> {
+  return {
+    'http-rules': {
+      title: t('workbench.toolWindows.httpRules'),
+      summary: t('workbench.toolWindows.info.httpRules.summary'),
+      sections: [
+        {
+          heading: t('workbench.toolWindows.info.httpRules.ruleTypesHeading'),
+          // Single-sourced from the create-menu catalogue so the popover
+          // never drifts from what the picker actually offers. The lead
+          // icon is the same fixed-width type code rows render, so the
+          // labels form an aligned column. Stacked layout: these labels
+          // are long, so descriptions get their own line.
+          layout: 'stacked',
+          items: ALL_RULE_TYPES.map((rt) => ({
+            icon: buildRuleIcon({ ruleType: rt.key, isActive: true }),
+            label: t(rt.labelKey),
+            desc: t(rt.descriptionKey),
+          })),
+        },
+      ],
+    },
+    workflows: {
+      title: t('workbench.toolWindows.workflows'),
+      summary: (
+        <>
+          {t('workbench.toolWindows.info.workflows.summaryPrefix')} <Code>{'{{live.*}}'}</Code>{' '}
+          {t('workbench.toolWindows.info.workflows.summarySuffix')}
+        </>
+      ),
+    },
+    docs: {
+      title: t('workbench.toolWindows.docs'),
+      summary: t('workbench.toolWindows.info.docs.summary'),
+    },
+    'var-scope': {
+      title: t('workbench.toolWindows.varScope'),
+      summary: (
+        <>
+          {t('workbench.toolWindows.info.varScope.summaryPrefix')} <Code>{'{{name}}'}</Code>{' '}
+          {t('workbench.toolWindows.info.varScope.summaryMiddle')} <Code>{'{{live.*}}'}</Code>{' '}
+          {t('workbench.toolWindows.info.varScope.summarySuffix')}
+        </>
+      ),
+      sections: [
+        {
+          heading: t('workbench.toolWindows.info.varScope.priorityHeading'),
+          items: [
+            {
+              icon: scopeBadge('vault', 14),
+              label: t('workbench.toolWindows.info.varScope.vaultLabel'),
+              desc: t('workbench.toolWindows.info.varScope.vaultDesc'),
+            },
+            {
+              icon: scopeBadge('environment', 14),
+              label: t('workbench.toolWindows.info.varScope.environmentLabel'),
+              desc: t('workbench.toolWindows.info.varScope.environmentDesc'),
+            },
+            {
+              icon: scopeBadge('collection', 14),
+              label: t('workbench.toolWindows.info.varScope.collectionLabel'),
+              desc: t('workbench.toolWindows.info.varScope.collectionDesc'),
+            },
+            {
+              icon: scopeBadge('workspace', 14),
+              label: t('workbench.toolWindows.info.varScope.workspaceLabel'),
+              desc: t('workbench.toolWindows.info.varScope.workspaceDesc'),
+            },
+          ],
+        },
+        {
+          heading: t('workbench.toolWindows.info.varScope.namespacedHeading'),
+          items: [
+            {
+              icon: scopeBadge('live', 14),
+              label: t('workbench.toolWindows.info.varScope.liveLabel'),
+              desc: (
+                <>
+                  {t('workbench.toolWindows.info.varScope.liveDescPrefix')} <Code>{'{{live.*}}'}</Code>
+                  {t('workbench.toolWindows.info.varScope.liveDescSuffix')}
+                </>
+              ),
+            },
+          ],
+        },
+      ],
+    },
+    variables: {
+      title: t('workbench.toolWindows.variables'),
+      summary: t('workbench.toolWindows.info.variables.summary'),
+      sections: [
+        {
+          heading: t('workbench.toolWindows.info.variables.typesHeading'),
+          items: [
+            {
+              icon: scopeBadge('vault', 14),
+              label: t('workbench.toolWindows.info.varScope.vaultLabel'),
+              desc: t('workbench.toolWindows.info.variables.vaultDesc'),
+            },
+            {
+              icon: scopeBadge('environment', 14),
+              label: t('workbench.toolWindows.info.varScope.environmentLabel'),
+              desc: t('workbench.toolWindows.info.variables.environmentDesc'),
+            },
+            {
+              icon: scopeBadge('collection', 14),
+              label: t('workbench.toolWindows.info.varScope.collectionLabel'),
+              desc: t('workbench.toolWindows.info.variables.collectionDesc'),
+            },
+            {
+              icon: scopeBadge('workspace', 14),
+              label: t('workbench.toolWindows.info.varScope.workspaceLabel'),
+              desc: t('workbench.toolWindows.info.variables.workspaceDesc'),
+            },
+            {
+              icon: scopeBadge('live', 14),
+              label: t('workbench.toolWindows.info.varScope.liveLabel'),
+              desc: (
+                <>
+                  {t('workbench.toolWindows.info.variables.liveDescPrefix')} <Code>{'{{live.*}}'}</Code>
+                  {t('workbench.toolWindows.info.variables.liveDescSuffix')}
+                </>
+              ),
+            },
+          ],
+        },
+      ],
+    },
+    'api-requests': {
+      title: t('workbench.toolWindows.apiRequests'),
+      summary: t('workbench.toolWindows.info.apiRequests.summary'),
+      sections: [
+        {
+          heading: t('workbench.toolWindows.info.apiRequests.editorHeading'),
+          // Mirrors the editor's tab strip so the popover is a map of the
+          // surface, not generic HTTP trivia. Sub-type lists match the
+          // actual pickers (AuthorizationTab, BodyTab, ScriptsTab).
+          layout: 'stacked',
+          items: [
+            {
+              label: t('workbench.toolWindows.info.apiRequests.docsLabel'),
+              desc: t('workbench.toolWindows.info.apiRequests.docsDesc'),
+            },
+            {
+              label: t('workbench.toolWindows.info.apiRequests.paramsLabel'),
+              desc: t('workbench.toolWindows.info.apiRequests.paramsDesc'),
+            },
+            {
+              label: t('workbench.toolWindows.info.apiRequests.authorizationLabel'),
+              desc: t('workbench.toolWindows.info.apiRequests.authorizationDesc'),
+            },
+            {
+              label: t('workbench.toolWindows.info.apiRequests.headersLabel'),
+              desc: t('workbench.toolWindows.info.apiRequests.headersDesc'),
+            },
+            {
+              label: t('workbench.toolWindows.info.apiRequests.bodyLabel'),
+              desc: t('workbench.toolWindows.info.apiRequests.bodyDesc'),
+            },
+            {
+              label: t('workbench.toolWindows.info.apiRequests.scriptsLabel'),
+              desc: t('workbench.toolWindows.info.apiRequests.scriptsDesc'),
+            },
+            {
+              label: t('workbench.toolWindows.info.apiRequests.settingsLabel'),
+              desc: t('workbench.toolWindows.info.apiRequests.settingsDesc'),
+            },
+          ],
+        },
+      ],
+    },
+    'deep-network-inspection': {
+      title: t('workbench.toolWindows.deepNetworkInspection'),
+      summary: t('workbench.toolWindows.info.deepNetworkInspection.summary'),
+    },
+    'workflow-status': {
+      title: t('workbench.toolWindows.workflowStatus'),
+      summary: t('workbench.toolWindows.info.workflowStatus.summary'),
+    },
+    notifications: NOTIFICATIONS_PANEL_INFO,
+    activity: {
+      title: t('workbench.toolWindows.activity'),
+      summary: t('workbench.toolWindows.info.activity.summary'),
+    },
+  };
+}
 
 /** Title-bar `(i)` popover copy for a workbench tool window. */
-export function getToolWindowInfo(id: ToolWindowId): InfoPopoverContent {
-  return TOOL_WINDOW_INFO[id];
+export function getToolWindowInfo(id: ToolWindowId, t: Translate): InfoPopoverContent {
+  return buildToolWindowInfo(t)[id];
 }

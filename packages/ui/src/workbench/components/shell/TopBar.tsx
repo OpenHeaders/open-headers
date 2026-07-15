@@ -12,7 +12,13 @@ import { Button, Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
+import {
+  DOCK_LABEL_KEYS,
+  LayoutMenuIcon,
+  RegionToggle,
+  resolveToolWindowLabel,
+  SidebarLayoutIcon,
+} from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import { hostAssets } from '@openheaders/core/assets';
@@ -22,7 +28,7 @@ import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSetting, useSettingValue } from '../../settings/hooks';
 import type { BottomPanelAlignmentSetting, SidebarLayoutVariantSetting } from '../../settings/schema/workspace-layout';
-import { DOCK_LABELS, TOOL_WINDOW_MAP } from '../../tool-windows';
+import { TOOL_WINDOW_MAP } from '../../tool-windows';
 import EnvironmentSelector from './EnvironmentSelector';
 import { SettingsGearMenu } from '@openheaders/ui/shared/settings-menu';
 import WorkspaceSwitcher from '../workspace/WorkspaceSwitcher';
@@ -259,9 +265,9 @@ const TopBar: React.FC<TopBarProps> = ({
                 icon: menuIconWrap(def.icon),
                 label: (
                   <Space size={6}>
-                    <span>{def.label}</span>
+                    <span>{resolveToolWindowLabel(def, t)}</span>
                     <span style={{ color: token.colorTextTertiary, fontSize: 10 }}>
-                      → {DOCK_LABELS[def.defaultSlot]}
+                      → {t(DOCK_LABEL_KEYS[def.defaultSlot])}
                     </span>
                   </Space>
                 ),

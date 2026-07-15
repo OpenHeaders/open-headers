@@ -333,7 +333,7 @@ const TabBar: React.FC<TabBarProps> = ({
       onClick: onCreateRequest,
     },
     { type: 'divider' },
-    ...buildRuleTypeMenuItems(onCreateRule),
+    ...buildRuleTypeMenuItems(onCreateRule, t),
   ];
   const sortableIds = tabs.map((t) => `${leafId}::${t.id}`);
 

@@ -6,10 +6,11 @@
 
 import type { Collection, Rule, RuleDraft, RuleType } from '@openheaders/core/types';
 import { buildEmptyRule } from '@openheaders/core/utils';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { applyRuleCreate } from '@openheaders/ui/shared/sync/rule-write-client';
 import { App } from 'antd';
 import { useCallback } from 'react';
-import { RULE_TYPE_LABELS, resolveContextParentPath, type TabOpenerContext, type UseTabOpenersApi } from './shared';
+import { getRuleTypeLabel, resolveContextParentPath, type TabOpenerContext, type UseTabOpenersApi } from './shared';
 
 export interface UseRuleOpenersOptions {
   rules: Rule[];
@@ -38,11 +39,11 @@ export function useRuleOpeners(
   { allTabs, addTab, switchTab, setPendingRenameTabId }: TabOpenerContext,
 ): RuleOpeners {
   const { message } = App.useApp();
+  const t = useT();
 
   const generateDraftName = useCallback(
     (type: string) => {
-      const label = RULE_TYPE_LABELS[type] ?? 'Rule';
-      const baseName = `New ${label}`;
+      const baseName = t('workbench.shell.ruleTypeName.draftName', { name: getRuleTypeLabel(type, t) });
       const existingNames = new Set(rules.map((r) => r.name));
       for (const tab of allTabs) existingNames.add(tab.label);
       if (!existingNames.has(baseName)) return baseName;
@@ -50,7 +51,7 @@ export function useRuleOpeners(
       while (existingNames.has(`${baseName} (${counter})`)) counter++;
       return `${baseName} (${counter})`;
     },
-    [rules, allTabs],
+    [rules, allTabs, t],
   );
 
   /**
@@ -156,14 +157,14 @@ export function useRuleOpeners(
       const rule = rules.find((r) => r.uid === uid);
       addTab({
         id: `edit-${uid}`,
-        label: rule?.name ?? 'Rule',
+        label: rule?.name ?? t('workbench.shell.ruleTypeName.fallback'),
         ruleType: rule?.type ?? 'header',
         dirty: false,
         mode: 'edit',
         ruleUid: uid,
       });
     },
-    [allTabs, rules, addTab, switchTab],
+    [allTabs, rules, addTab, switchTab, t],
   );
 
   const openCollectionOverview = useCallback(

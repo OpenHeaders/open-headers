@@ -25,6 +25,7 @@
  */
 
 import { type CollisionDetection, closestCenter, DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Allotment, LayoutPriority } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -40,6 +41,7 @@ import type {
   SidebarLayoutVariant,
   ToolWindowDef,
 } from './types';
+import { resolveToolWindowLabel } from './tool-window-copy';
 import { useActivityBarSizing } from './use-activity-bar-sizing';
 import { useDockDrag } from './use-dock-drag';
 import type { DockLayoutApi } from './use-dock-layout';
@@ -106,6 +108,7 @@ function ShellLayoutInner<T extends string>({
   collisionDetection,
   focusStore,
 }: ShellLayoutProps<T>) {
+  const t = useT();
   const {
     sensors,
     draggingId,
@@ -528,7 +531,7 @@ function ShellLayoutInner<T extends string>({
         {draggingDef ? (
           <div className="rules-drag-preview">
             <span className="rules-drag-preview-icon">{draggingDef.icon}</span>
-            <span className="rules-drag-preview-label">{draggingDef.label}</span>
+            <span className="rules-drag-preview-label">{resolveToolWindowLabel(draggingDef, t)}</span>
           </div>
         ) : (
           editorTabPreview

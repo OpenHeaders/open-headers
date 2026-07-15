@@ -14,12 +14,14 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { useState } from 'react';
-import { ALL_DOCK_SLOTS, DOCK_LABELS } from './constants';
+import { ALL_DOCK_SLOTS } from './constants';
 import DockSlotIcon from './DockSlotIcon';
+import { DOCK_LABEL_KEYS, resolveToolWindowLabel, resolveToolWindowTooltip } from './tool-window-copy';
 import type { DockSlot, ToolWindowDef } from './types';
 
 export interface DockTabStripProps<T extends string> {
@@ -67,6 +69,7 @@ function SortableDockTab<T extends string>({
   contextMenu,
 }: SortableDockTabProps<T>) {
   const { token } = theme.useToken();
+  const t = useT();
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -133,7 +136,7 @@ function SortableDockTab<T extends string>({
         setTooltipOpen(false);
       }}
       aria-selected={active}
-      aria-label={def.label}
+      aria-label={resolveToolWindowLabel(def, t)}
       data-tool-window={id}
       {...attributes}
       {...listeners}
@@ -141,7 +144,7 @@ function SortableDockTab<T extends string>({
       tabIndex={0}
     >
       <span className="rules-dock-tab-icon">{def.icon}</span>
-      {showLabels && <span className="rules-dock-tab-label">{def.label}</span>}
+      {showLabels && <span className="rules-dock-tab-label">{resolveToolWindowLabel(def, t)}</span>}
     </div>
   );
 
@@ -167,7 +170,7 @@ function SortableDockTab<T extends string>({
       }}
     >
       <Tooltip
-        title={def.tooltip ?? def.label}
+        title={resolveToolWindowTooltip(def, t)}
         open={tooltipOpen}
         onOpenChange={setTooltipOpen}
         placement={orientation === 'vertical' ? (slot.startsWith('left-') ? 'right' : 'left') : 'top'}
@@ -194,6 +197,7 @@ function DockTabStripInner<T extends string>({
   onToggleLabels,
 }: DockTabStripProps<T>) {
   const { token } = theme.useToken();
+  const t = useT();
   const { setNodeRef: setStripRef, isOver: isStripOver } = useDroppable({
     id: `dock:${slot}`,
     data: { slot },
@@ -212,13 +216,13 @@ function DockTabStripInner<T extends string>({
         : [
             {
               key: 'hide',
-              label: 'Hide',
+              label: t('shared.dock.hide'),
               onClick: () => onHide(id),
             },
           ]),
       {
         key: 'move',
-        label: 'Move to',
+        label: t('shared.dock.moveTo'),
         children: ALL_DOCK_SLOTS.flatMap((target, index) => {
           const entry: ItemType = {
             key: target,
@@ -244,9 +248,9 @@ function DockTabStripInner<T extends string>({
                   lineHeight: '20px',
                 }}
               >
-                <span style={{ flex: 1 }}>{DOCK_LABELS[target]}</span>
+                <span style={{ flex: 1 }}>{t(DOCK_LABEL_KEYS[target])}</span>
                 {target === slot && (
-                  <span style={{ marginLeft: 12, fontSize: 12, opacity: 0.75 }} title="current slot">
+                  <span style={{ marginLeft: 12, fontSize: 12, opacity: 0.75 }} title={t('shared.dock.currentSlot')}>
                     {'\u2713'}
                   </span>
                 )}
@@ -269,7 +273,7 @@ function DockTabStripInner<T extends string>({
             <span style={{ width: 12, display: 'inline-block', visibility: showLabels ? 'visible' : 'hidden' }}>
               {'\u2713'}
             </span>
-            Show Tool Window Names
+            {t('shared.dock.showToolWindowNames')}
           </span>
         ),
         onClick: onToggleLabels,
@@ -313,7 +317,7 @@ function DockTabStripInner<T extends string>({
         </div>
       </SortableContext>
       {orientation === 'horizontal' && activeId !== null && (
-        <Tooltip title="Hide this dock">
+        <Tooltip title={t('shared.dock.hideThisDock')}>
           <div
             className="rules-dock-strip-close"
             role="button"
@@ -322,7 +326,7 @@ function DockTabStripInner<T extends string>({
             onKeyDown={(e) => {
               if (e.key === 'Enter') onCloseDock();
             }}
-            aria-label="Close dock"
+            aria-label={t('shared.dock.closeDock')}
           >
             <CloseOutlined />
           </div>

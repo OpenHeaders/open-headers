@@ -40,9 +40,9 @@ function buildPaletteItems(t: Translate): PaletteItem[] {
       id: `${type.key}-blank`,
       ruleType: type.key,
       title: t('popup.palette.blankRule'),
-      subtitle: type.description,
+      subtitle: t(type.descriptionKey),
       icon: <CodeOutlined style={{ opacity: 0.55 }} />,
-      group: type.label,
+      group: t(type.labelKey),
       groupIcon: ruleTypeBadge(type.key),
     });
     for (const tpl of TEMPLATES_BY_TYPE[type.key] ?? []) {
@@ -50,10 +50,10 @@ function buildPaletteItems(t: Translate): PaletteItem[] {
         id: `${type.key}-${tpl.key}`,
         ruleType: type.key,
         templateKey: tpl.key,
-        title: tpl.name,
-        subtitle: tpl.description,
+        title: t(tpl.nameKey),
+        subtitle: t(tpl.descriptionKey),
         icon: <span style={{ fontSize: 14 }}>{tpl.icon}</span>,
-        group: type.label,
+        group: t(type.labelKey),
         groupIcon: ruleTypeBadge(type.key),
       });
     }
@@ -98,14 +98,14 @@ export function AddRulePalette({ open, onClose, onSelect }: AddRulePaletteProps)
   // dump. Group order matches `ALL_RULE_TYPES` (definitive sort order).
   const grouped = useMemo(() => {
     const order = new Map<string, { groupIcon: React.ReactNode; items: PaletteItem[] }>();
-    for (const t of ALL_RULE_TYPES) {
-      order.set(t.label, { groupIcon: ruleTypeBadge(t.key), items: [] });
+    for (const type of ALL_RULE_TYPES) {
+      order.set(t(type.labelKey), { groupIcon: ruleTypeBadge(type.key), items: [] });
     }
     for (const item of filtered) {
       order.get(item.group)?.items.push(item);
     }
     return [...order.entries()].filter(([, v]) => v.items.length > 0);
-  }, [filtered]);
+  }, [filtered, t]);
 
   // Clamp focusIndex when filter shrinks the list — otherwise an out-of-
   // range index would silently break Enter selection.

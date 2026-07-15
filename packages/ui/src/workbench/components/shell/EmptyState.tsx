@@ -188,7 +188,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           // sidebar's template tree starts collapsed on a fresh
           // profile). The sticky "Browse all templates…" footer hands
           // off to the sidebar for exploration.
-          menu={{ items: buildRuleTypeMenuItemsWithTemplates(onCreateRule, onCreateRuleFromTemplate) }}
+          menu={{ items: buildRuleTypeMenuItemsWithTemplates(onCreateRule, onCreateRuleFromTemplate, t) }}
           popupRender={(menu) => (
             <CappedMenuPopup
               menu={menu}

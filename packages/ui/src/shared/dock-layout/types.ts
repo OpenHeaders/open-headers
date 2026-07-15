@@ -7,6 +7,8 @@
  * reusing all layout logic.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
+
 /** The six dock slots a tool window can live in. */
 export type DockSlot = 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom' | 'bottom-left' | 'bottom-right';
 
@@ -45,17 +47,17 @@ export interface ToolLayoutState<TWindowId extends string = string> {
   zenSnapshot: Record<DockSlot, TWindowId | null> | null;
 }
 
-/** Definition of a tool window in a surface's registry. */
-export interface ToolWindowDef<TWindowId extends string = string> {
+/**
+ * Definition of a tool window in a surface's registry.
+ *
+ * Copy is raw-or-key: converted surfaces (workbench) mint `labelKey`
+ * plus optional `tooltipKey`; unconverted surfaces (devtools panel)
+ * keep raw `label`/`tooltip`. Renderers resolve either shape through
+ * `resolveToolWindowLabel` / `resolveToolWindowTooltip`.
+ */
+export type ToolWindowDef<TWindowId extends string = string> = {
   id: TWindowId;
-  label: string;
   icon: React.ReactNode;
-  /**
-   * Optional tooltip text. When omitted, the tab strip uses `label`.
-   * Useful when the label is an abbreviation and the hover copy should
-   * spell out the full meaning for discoverability.
-   */
-  tooltip?: string;
   /** Core tool windows cannot be hidden — the Hide menu entry is omitted. */
   core: boolean;
   /** Initial dock slot on a fresh profile; also the restore target for Hide → Show. */
@@ -67,7 +69,20 @@ export interface ToolWindowDef<TWindowId extends string = string> {
    * dormant until the user explicitly opens them.
    */
   openByDefault?: boolean;
-}
+} & (
+  | {
+      label: string;
+      labelKey?: never;
+      /**
+       * Optional tooltip text. When omitted, the tab strip uses `label`.
+       * Useful when the label is an abbreviation and the hover copy should
+       * spell out the full meaning for discoverability.
+       */
+      tooltip?: string;
+      tooltipKey?: never;
+    }
+  | { label?: never; labelKey: MessageKey; tooltip?: never; tooltipKey?: MessageKey }
+);
 
 /** Layout variant for the activity bar. */
 export type SidebarLayoutVariant = 'proportional' | 'compact' | 'stacked' | 'dynamic';

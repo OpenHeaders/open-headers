@@ -155,7 +155,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
       return (
         <Sidebar
           view={id}
-          info={getToolWindowInfo(id)}
+          info={getToolWindowInfo(id, t)}
           activeTabId={activeTabId}
           onSelectRule={openEditTab}
           onCreateRule={openCreateTab}
@@ -207,7 +207,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     case 'workflow-status':
       return (
         <WorkflowStatusPanel
-          info={getToolWindowInfo('workflow-status')}
+          info={getToolWindowInfo('workflow-status', t)}
           onClose={() => tl.toggleWindow('workflow-status')}
           // `openLiveWorkflowEdit` expects `(uid, name, seedSteps?)`.
           // The sidebar only knows the uid; look up the name from
@@ -221,7 +221,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     case 'activity':
       return (
         <ActivityFeedPanel
-          info={getToolWindowInfo('activity')}
+          info={getToolWindowInfo('activity', t)}
           onClose={() => tl.toggleWindow('activity')}
           onViewEntity={handleViewActivityEntity}
         />
@@ -229,16 +229,16 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     case 'notifications':
       return (
         <NotificationsPanel
-          info={getToolWindowInfo('notifications')}
+          info={getToolWindowInfo('notifications', t)}
           onClose={() => tl.toggleWindow('notifications')}
         />
       );
     case 'docs':
-      return <DocsPanel info={getToolWindowInfo('docs')} onClose={() => tl.toggleWindow('docs')} />;
+      return <DocsPanel info={getToolWindowInfo('docs', t)} onClose={() => tl.toggleWindow('docs')} />;
     case 'var-scope':
       return (
         <VariablesPanel
-          info={getToolWindowInfo('var-scope')}
+          info={getToolWindowInfo('var-scope', t)}
           onClose={() => tl.toggleWindow('var-scope')}
           activeTab={activeTab ?? null}
           onOpenVault={openVault}
@@ -253,7 +253,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
         />
       );
     case 'deep-network-inspection':
-      return <DeepNetworkInspectionPanel info={getToolWindowInfo(id)} onHide={() => tl.closeDock(slot)} />;
+      return <DeepNetworkInspectionPanel info={getToolWindowInfo(id, t)} onHide={() => tl.closeDock(slot)} />;
     default:
       return null;
   }

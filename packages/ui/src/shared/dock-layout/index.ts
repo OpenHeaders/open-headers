@@ -2,9 +2,9 @@ export { ALL_DOCK_SLOTS, BAR_LABELED_MAX, BAR_LABELED_MIN, DOCK_LABELS, dockRegi
 export { default as DockSlotIcon } from './DockSlotIcon';
 export type { DockTabStripProps } from './DockTabStrip';
 export { default as DockTabStrip } from './DockTabStrip';
+export { default as DropZoneOverlay } from './DropZoneOverlay';
 export type { DragData, EditorTabDragData, ToolWindowDragData } from './drag-data';
 export { asDragData } from './drag-data';
-export { default as DropZoneOverlay } from './DropZoneOverlay';
 export { makeEditorTabCollisionDetection } from './editor-tab-collision';
 export type { FocusStore } from './focus-store';
 export { createFocusStore } from './focus-store';
@@ -27,6 +27,7 @@ export {
   useShellFocusOut,
   useShellKeyDown,
 } from './shell-event-bus';
+export { DOCK_LABEL_KEYS, resolveToolWindowLabel, resolveToolWindowTooltip } from './tool-window-copy';
 export type {
   BottomPanelAlignment,
   DockSlot,

@@ -1,5 +1,6 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
 import type { CollectionTree, ExtensionRuleType, Template } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { FormInstance, MenuProps } from 'antd';
 import { type Dispatch, type SetStateAction, useCallback, useMemo, useState } from 'react';
 import type { RuleTemplate } from '../../../rule-templates';
@@ -57,6 +58,7 @@ export function useRuleTemplates({
   setHeaderReqCount,
   setHeaderResCount,
 }: UseRuleTemplatesArgs): RuleTemplates {
+  const t = useT();
   const [selectedTemplate, setSelectedTemplate] = useState<string>(initialTemplateKey ?? 'empty');
 
   const builtinTemplates = useMemo(() => TEMPLATES_BY_TYPE[selectedType ?? 'header'] ?? [], [selectedType]);
@@ -127,8 +129,8 @@ export function useRuleTemplates({
   );
 
   const systemMenuItems = useMemo(
-    () => buildSystemMenuItems(systemTemplateTree, selectTemplate),
-    [systemTemplateTree, selectTemplate],
+    () => buildSystemMenuItems(systemTemplateTree, selectTemplate, t),
+    [systemTemplateTree, selectTemplate, t],
   );
 
   const userMenuItems = useMemo(() => {
@@ -163,10 +165,10 @@ export function useRuleTemplates({
       : 'blank';
 
   const selectedDescription = useMemo(() => {
-    if (activeSystemTemplate) return activeSystemTemplate.description.split('\n')[0];
+    if (activeSystemTemplate) return t(activeSystemTemplate.descriptionKey).split('\n')[0];
     if (activeUserTemplate?.description) return activeUserTemplate.description.split('\n')[0];
     return null;
-  }, [activeSystemTemplate, activeUserTemplate]);
+  }, [activeSystemTemplate, activeUserTemplate, t]);
 
   // Menu keys are prefixed per source (see template-menu.tsx) so the
   // same uid can't collide across System / User trees.

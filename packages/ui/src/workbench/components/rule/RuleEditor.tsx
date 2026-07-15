@@ -601,7 +601,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   const activeTemplateSuffix = activeSystemTemplate ? (
     <span>
-      {activeSystemTemplate.icon} {activeSystemTemplate.name}
+      {activeSystemTemplate.icon} {t(activeSystemTemplate.nameKey)}
     </span>
   ) : activeUserTemplate ? (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>

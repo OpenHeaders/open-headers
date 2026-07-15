@@ -1,5 +1,6 @@
 import { FolderOutlined } from '@ant-design/icons';
 import type { TreeNode } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { MenuProps } from 'antd';
 import type { SystemTemplateNode } from '../../../rule-templates';
 import { renderTwoToneIcon } from '../../shared/TwoToneIconPicker';
@@ -14,14 +15,15 @@ import { renderTwoToneIcon } from '../../shared/TwoToneIconPicker';
 export function buildSystemMenuItems(
   nodes: SystemTemplateNode[],
   applyTemplate: (key: string) => void,
+  t: Translate,
 ): NonNullable<MenuProps['items']> {
   return nodes.map((node) => {
     if (node.kind === 'folder') {
       return {
-        key: `sys-folder:${node.name}`,
-        label: node.name,
+        key: `sys-folder:${node.key}`,
+        label: t(node.nameKey),
         icon: <FolderOutlined />,
-        children: buildSystemMenuItems(node.children, applyTemplate),
+        children: buildSystemMenuItems(node.children, applyTemplate, t),
       };
     }
     const tpl = node.template;
@@ -30,7 +32,7 @@ export function buildSystemMenuItems(
       label: (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <span>{tpl.icon}</span>
-          <span>{tpl.name}</span>
+          <span>{t(tpl.nameKey)}</span>
         </span>
       ),
       onClick: () => applyTemplate(tpl.key),

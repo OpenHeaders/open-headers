@@ -211,7 +211,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     // inconsistency that reads as a bug.
     if (lowerFilter && !t('workbench.sidebar.templates.systemGroup').toLowerCase().includes(lowerFilter)) {
       const hasMatch = Object.values(TEMPLATES_BY_TYPE).some((tpls) =>
-        tpls.some((t) => t.name.toLowerCase().includes(lowerFilter)),
+        tpls.some((tpl) => t(tpl.nameKey).toLowerCase().includes(lowerFilter)),
       );
       if (!hasMatch) return items;
     }
@@ -232,7 +232,9 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     if (isExpanded) {
       for (const [ruleType, tpls] of Object.entries(TEMPLATES_BY_TYPE)) {
         if (tpls.length === 0) continue;
-        const filteredTpls = lowerFilter ? tpls.filter((t) => t.name.toLowerCase().includes(lowerFilter)) : tpls;
+        const filteredTpls = lowerFilter
+          ? tpls.filter((tpl) => t(tpl.nameKey).toLowerCase().includes(lowerFilter))
+          : tpls;
         if (lowerFilter && filteredTpls.length === 0) continue;
 
         const folderId = `sys-tpl-${ruleType}`;
@@ -257,7 +259,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
             items.push({
               id: `sys-tpl-item-${tpl.key}`,
               kind: 'leaf',
-              label: tpl.name,
+              label: t(tpl.nameKey),
               depth: 2,
               expandable: false,
               parentId: folderId,

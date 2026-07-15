@@ -5,6 +5,8 @@
  */
 
 import type { Collection, Request, Rule, RuleDraft } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab, WorkflowSeedStep } from '../../types';
 
 /** Tab plumbing every opener family closes over. */
@@ -31,21 +33,22 @@ export function resolveContextParentPath(
   return collections.find((c) => c.uid === context.collectionId)?.path;
 }
 
-export const RULE_TYPE_LABELS: Record<string, string> = {
-  header: 'Header Rule',
-  block: 'Block Rule',
-  redirect: 'Redirect Rule',
-  'query-param': 'Query Param Rule',
-  inject: 'Inject Rule',
-  delay: 'Delay Rule',
-  'request-body': 'API Request Body Rule',
-  response: 'API Response Rule',
-  ws: 'WebSocket Rule',
-  sse: 'SSE Rule',
+export const RULE_TYPE_NAME_KEYS: Record<string, MessageKey> = {
+  header: 'workbench.shell.ruleTypeName.header',
+  block: 'workbench.shell.ruleTypeName.block',
+  redirect: 'workbench.shell.ruleTypeName.redirect',
+  'query-param': 'workbench.shell.ruleTypeName.queryParam',
+  inject: 'workbench.shell.ruleTypeName.inject',
+  delay: 'workbench.shell.ruleTypeName.delay',
+  'request-body': 'workbench.shell.ruleTypeName.requestBody',
+  response: 'workbench.shell.ruleTypeName.response',
+  ws: 'workbench.shell.ruleTypeName.ws',
+  sse: 'workbench.shell.ruleTypeName.sse',
 };
 
-export function getRuleTypeLabel(type: string): string {
-  return RULE_TYPE_LABELS[type] ?? 'Rule';
+export function getRuleTypeLabel(type: string, t: Translate): string {
+  const key = RULE_TYPE_NAME_KEYS[type];
+  return key ? t(key) : t('workbench.shell.ruleTypeName.fallback');
 }
 
 export interface UseTabOpenersApi {

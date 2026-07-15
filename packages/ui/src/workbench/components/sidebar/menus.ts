@@ -21,8 +21,8 @@ import { buildRuleTypeMenuItemsCE } from '../../rule-type-menu';
 // — drift here re-enables rename/delete on the default collection.
 export const DEFAULT_TEMPLATE_COLLECTION = 'User Templates';
 
-export function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
-  return buildRuleTypeMenuItemsCE(onAddRule) as ItemType[];
+export function ruleTypeSubmenu(onAddRule: (type: string) => void, t: Translate): ItemType[] {
+  return buildRuleTypeMenuItemsCE(onAddRule, t) as ItemType[];
 }
 
 /**
@@ -52,7 +52,7 @@ export function containerAddMenuItems(
       key: 'add-rule',
       icon: createElement(PlusOutlined),
       label: t('workbench.sidebar.menu.addRule'),
-      children: ruleTypeSubmenu(onAddRule),
+      children: ruleTypeSubmenu(onAddRule, t),
     });
   }
   if (onAddRequest) {

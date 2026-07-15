@@ -8,18 +8,20 @@
  *
  * Each leaf template contains:
  *   - key: stable id referenced from tab state / template lookups
- *   - name: display name
- *   - description: what it does (shown under the selector)
+ *   - nameKey: display-name message key
+ *   - descriptionKey: what it does (shown under the selector)
  *   - conditions: prefilled RuleCondition[]
  *   - formValues: prefilled form field values (not the action object)
  */
 
 import type { RuleCondition } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+
 export interface RuleTemplate {
   key: string;
   icon: string;
-  name: string;
-  description: string;
+  nameKey: MessageKey;
+  descriptionKey: MessageKey;
   conditions: RuleCondition[];
   /** Form field values to set (not the action object — these are form fields). */
   formValues: Record<string, unknown>;
@@ -27,12 +29,16 @@ export interface RuleTemplate {
 
 // ── System template tree ────────────────────────────────────────
 //
-// A folder has a name + children (folders or templates). A template node
-// wraps a RuleTemplate. `kind` is the discriminator used when rendering.
+// A folder has a stable key + display-name message key + children
+// (folders or templates). A template node wraps a RuleTemplate.
+// `kind` is the discriminator used when rendering.
 
 export interface SystemTemplateFolder {
   kind: 'folder';
-  name: string;
+  /** Stable id — menu/tree keys derive from this, never from the
+   *  (localized) display name. */
+  key: string;
+  nameKey: MessageKey;
   children: SystemTemplateNode[];
 }
 
@@ -45,21 +51,22 @@ export type SystemTemplateNode = SystemTemplateFolder | SystemTemplateLeaf;
 
 /** Convenience constructor — less visual noise in the tree below. */
 const t = (template: RuleTemplate): SystemTemplateLeaf => ({ kind: 'template', template });
-const f = (name: string, children: SystemTemplateNode[]): SystemTemplateFolder => ({
+const f = (key: string, nameKey: MessageKey, children: SystemTemplateNode[]): SystemTemplateFolder => ({
   kind: 'folder',
-  name,
+  key,
+  nameKey,
   children,
 });
 
 // ── Header templates ────────────────────────────────────────────
 
 const HEADER_TREE: SystemTemplateNode[] = [
-  f('CORS & Security', [
+  f('cors-security', 'shared.ruleTemplates.folder.corsSecurity', [
     t({
       key: 'cors-bypass',
       icon: '🔓',
-      name: 'CORS Bypass',
-      description: 'Remove restrictive CORS headers to allow cross-origin requests during development',
+      nameKey: 'shared.ruleTemplates.corsBypass.name',
+      descriptionKey: 'shared.ruleTemplates.corsBypass.description',
       conditions: [{ uid: 'sct00001', type: 'request-domains', values: ['openheaders.io'] }],
       formValues: {
         requestHeaders: [],
@@ -79,8 +86,8 @@ const HEADER_TREE: SystemTemplateNode[] = [
     t({
       key: 'remove-csp',
       icon: '⚡',
-      name: 'Remove CSP',
-      description: 'Strip Content-Security-Policy headers for development',
+      nameKey: 'shared.ruleTemplates.removeCsp.name',
+      descriptionKey: 'shared.ruleTemplates.removeCsp.description',
       conditions: [{ uid: 'sct00002', type: 'request-domains', values: ['openheaders.io'] }],
       formValues: {
         requestHeaders: [],
@@ -93,8 +100,8 @@ const HEADER_TREE: SystemTemplateNode[] = [
     t({
       key: 'allow-embedding',
       icon: '🖼️',
-      name: 'Allow Embedding',
-      description: 'Remove X-Frame-Options to allow iframing',
+      nameKey: 'shared.ruleTemplates.allowEmbedding.name',
+      descriptionKey: 'shared.ruleTemplates.allowEmbedding.description',
       conditions: [{ uid: 'sct00003', type: 'resource-types', values: ['page'] }],
       formValues: {
         requestHeaders: [],
@@ -105,12 +112,12 @@ const HEADER_TREE: SystemTemplateNode[] = [
       },
     }),
   ]),
-  f('Authentication', [
+  f('authentication', 'shared.ruleTemplates.folder.authentication', [
     t({
       key: 'api-auth',
       icon: '🔑',
-      name: 'API Auth Injection',
-      description: 'Auto-inject Authorization header into API calls',
+      nameKey: 'shared.ruleTemplates.apiAuth.name',
+      descriptionKey: 'shared.ruleTemplates.apiAuth.description',
       conditions: [{ uid: 'sct00004', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
         requestHeaders: [
@@ -121,12 +128,12 @@ const HEADER_TREE: SystemTemplateNode[] = [
       },
     }),
   ]),
-  f('Privacy', [
+  f('privacy', 'shared.ruleTemplates.folder.privacy', [
     t({
       key: 'custom-ua',
       icon: '🕵️',
-      name: 'Custom User-Agent',
-      description: 'Override the User-Agent header for specific domains',
+      nameKey: 'shared.ruleTemplates.customUa.name',
+      descriptionKey: 'shared.ruleTemplates.customUa.description',
       conditions: [{ uid: 'sct00005', type: 'request-domains', values: ['openheaders.io'] }],
       formValues: {
         requestHeaders: [
@@ -143,8 +150,8 @@ const HEADER_TREE: SystemTemplateNode[] = [
     t({
       key: 'block-cookies',
       icon: '🍪',
-      name: 'Block Cookies',
-      description: 'Remove Cookie header from outgoing requests',
+      nameKey: 'shared.ruleTemplates.blockCookies.name',
+      descriptionKey: 'shared.ruleTemplates.blockCookies.description',
       conditions: [{ uid: 'sct00006', type: 'request-domains', values: ['openheaders.io'] }],
       formValues: {
         requestHeaders: [{ uid: 'shm00012', operation: 'remove', headerName: 'Cookie' }],
@@ -152,13 +159,12 @@ const HEADER_TREE: SystemTemplateNode[] = [
       },
     }),
   ]),
-  f('Testing', [
+  f('testing', 'shared.ruleTemplates.folder.testing', [
     t({
       key: 'test-merge',
       icon: '🧪',
-      name: 'Test Merge (httpbin)',
-      description:
-        'Test the Merge operation by appending to a response header.\n1. Enable this rule\n2. Open httpbin.org in a new tab\n3. Run in console: fetch("https://httpbin.org/get").then(r=>{console.log("Content-Type:",r.headers.get("Content-Type"))})\n4. Content-Type should show "application/json, x-openheaders-merged"',
+      nameKey: 'shared.ruleTemplates.testMerge.name',
+      descriptionKey: 'shared.ruleTemplates.testMerge.description',
       conditions: [{ uid: 'sct00007', type: 'request-domains', values: ['httpbin.org'] }],
       formValues: {
         requestHeaders: [],
@@ -179,12 +185,12 @@ const HEADER_TREE: SystemTemplateNode[] = [
 // ── Block templates ─────────────────────────────────────────────
 
 const BLOCK_TREE: SystemTemplateNode[] = [
-  f('Privacy', [
+  f('privacy', 'shared.ruleTemplates.folder.privacy', [
     t({
       key: 'block-trackers',
       icon: '🛡️',
-      name: 'Block Trackers',
-      description: 'Block analytics and tracking scripts',
+      nameKey: 'shared.ruleTemplates.blockTrackers.name',
+      descriptionKey: 'shared.ruleTemplates.blockTrackers.description',
       conditions: [
         { uid: 'sct00008', type: 'request-domains', values: ['google-analytics.com', 'googletagmanager.com'] },
         { uid: 'sct00009', type: 'resource-types', values: ['script', 'xhr'] },
@@ -194,8 +200,8 @@ const BLOCK_TREE: SystemTemplateNode[] = [
     t({
       key: 'block-ads',
       icon: '🚫',
-      name: 'Block Ads',
-      description: 'Block common ad network domains',
+      nameKey: 'shared.ruleTemplates.blockAds.name',
+      descriptionKey: 'shared.ruleTemplates.blockAds.description',
       conditions: [
         {
           uid: 'sct00010',
@@ -211,20 +217,20 @@ const BLOCK_TREE: SystemTemplateNode[] = [
 // ── Redirect templates ──────────────────────────────────────────
 
 const REDIRECT_TREE: SystemTemplateNode[] = [
-  f('URL Handling', [
+  f('url-handling', 'shared.ruleTemplates.folder.urlHandling', [
     t({
       key: 'redirect-domain',
       icon: '↪️',
-      name: 'Redirect Domain',
-      description: 'Redirect all traffic from one domain to another',
+      nameKey: 'shared.ruleTemplates.redirectDomain.name',
+      descriptionKey: 'shared.ruleTemplates.redirectDomain.description',
       conditions: [{ uid: 'sct00011', type: 'url-filter', values: ['*://old.openheaders.io/*'] }],
       formValues: { redirectTo: 'https://new.openheaders.io/' },
     }),
     t({
       key: 'force-https',
       icon: '🔒',
-      name: 'Force HTTPS',
-      description: 'Upgrade HTTP to HTTPS — uses regex capture group to preserve the full path',
+      nameKey: 'shared.ruleTemplates.forceHttps.name',
+      descriptionKey: 'shared.ruleTemplates.forceHttps.description',
       conditions: [{ uid: 'sct00012', type: 'url-regex', values: ['^http://(openheaders\\.io/.*)$'] }],
       formValues: { redirectTo: 'https://\\1' },
     }),
@@ -234,12 +240,12 @@ const REDIRECT_TREE: SystemTemplateNode[] = [
 // ── Query Param templates ───────────────────────────────────────
 
 const QUERY_PARAM_TREE: SystemTemplateNode[] = [
-  f('Tracking', [
+  f('tracking', 'shared.ruleTemplates.folder.tracking', [
     t({
       key: 'remove-utm',
       icon: '🧹',
-      name: 'Remove UTM Params',
-      description: 'Strip UTM tracking parameters from URLs',
+      nameKey: 'shared.ruleTemplates.removeUtm.name',
+      descriptionKey: 'shared.ruleTemplates.removeUtm.description',
       conditions: [{ uid: 'sct00013', type: 'request-domains', values: ['openheaders.io'] }],
       formValues: {
         queryParams: [
@@ -252,12 +258,12 @@ const QUERY_PARAM_TREE: SystemTemplateNode[] = [
       },
     }),
   ]),
-  f('Debugging', [
+  f('debugging', 'shared.ruleTemplates.folder.debugging', [
     t({
       key: 'add-debug',
       icon: '🐛',
-      name: 'Add Debug Flag',
-      description: 'Add a debug=true query parameter to API calls',
+      nameKey: 'shared.ruleTemplates.addDebug.name',
+      descriptionKey: 'shared.ruleTemplates.addDebug.description',
       conditions: [{ uid: 'sct00014', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: { queryParams: [{ param: 'debug', value: 'true', operation: 'add' }] },
     }),
@@ -267,12 +273,12 @@ const QUERY_PARAM_TREE: SystemTemplateNode[] = [
 // ── Inject templates ────────────────────────────────────────────
 
 const INJECT_TREE: SystemTemplateNode[] = [
-  f('Appearance', [
+  f('appearance', 'shared.ruleTemplates.folder.appearance', [
     t({
       key: 'dark-mode',
       icon: '🌙',
-      name: 'Dark Mode CSS',
-      description: 'Inject a basic dark mode stylesheet',
+      nameKey: 'shared.ruleTemplates.darkMode.name',
+      descriptionKey: 'shared.ruleTemplates.darkMode.description',
       conditions: [{ uid: 'sct00015', type: 'request-domains', values: ['openheaders.io'] }],
       formValues: {
         injectType: 'css',
@@ -282,12 +288,12 @@ const INJECT_TREE: SystemTemplateNode[] = [
       },
     }),
   ]),
-  f('Debugging', [
+  f('debugging', 'shared.ruleTemplates.folder.debugging', [
     t({
       key: 'console-logger',
       icon: '📋',
-      name: 'Console Logger',
-      description: 'Log all fetch requests to the console',
+      nameKey: 'shared.ruleTemplates.consoleLogger.name',
+      descriptionKey: 'shared.ruleTemplates.consoleLogger.description',
       conditions: [{ uid: 'sct00016', type: 'request-domains', values: ['openheaders.io'] }],
       formValues: {
         injectType: 'script',
@@ -303,20 +309,20 @@ const INJECT_TREE: SystemTemplateNode[] = [
 // ── Delay templates ─────────────────────────────────────────────
 
 const DELAY_TREE: SystemTemplateNode[] = [
-  f('Testing', [
+  f('testing', 'shared.ruleTemplates.folder.testing', [
     t({
       key: 'slow-api',
       icon: '🐢',
-      name: 'Slow API (2s)',
-      description: 'Add 2 second delay to API calls — test loading states',
+      nameKey: 'shared.ruleTemplates.slowApi.name',
+      descriptionKey: 'shared.ruleTemplates.slowApi.description',
       conditions: [{ uid: 'sct00017', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: { delayMs: 2000 },
     }),
     t({
       key: 'timeout-test',
       icon: '⏱️',
-      name: 'Timeout Test (5s)',
-      description: 'Add 5 second delay — test timeout handling',
+      nameKey: 'shared.ruleTemplates.timeoutTest.name',
+      descriptionKey: 'shared.ruleTemplates.timeoutTest.description',
       conditions: [{ uid: 'sct00018', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: { delayMs: 5000 },
     }),
@@ -326,12 +332,12 @@ const DELAY_TREE: SystemTemplateNode[] = [
 // ── Request-body templates ──────────────────────────────────────
 
 const REQUEST_BODY_TREE: SystemTemplateNode[] = [
-  f('REST', [
+  f('rest', 'shared.ruleTemplates.folder.rest', [
     t({
       key: 'rest-body-override',
       icon: '📝',
-      name: 'REST Body Override',
-      description: 'Replace the request body with a static JSON payload',
+      nameKey: 'shared.ruleTemplates.restBodyOverride.name',
+      descriptionKey: 'shared.ruleTemplates.restBodyOverride.description',
       conditions: [{ uid: 'sct00019', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
         requestResourceType: 'rest',
@@ -340,12 +346,12 @@ const REQUEST_BODY_TREE: SystemTemplateNode[] = [
       },
     }),
   ]),
-  f('GraphQL', [
+  f('graphql', 'shared.ruleTemplates.folder.graphql', [
     t({
       key: 'graphql-override',
       icon: '🔮',
-      name: 'GraphQL Override',
-      description: 'Override a GraphQL request body with a custom query and variables',
+      nameKey: 'shared.ruleTemplates.graphqlOverride.name',
+      descriptionKey: 'shared.ruleTemplates.graphqlOverride.description',
       conditions: [{ uid: 'sct00020', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
         requestResourceType: 'graphql',
@@ -363,12 +369,12 @@ const REQUEST_BODY_TREE: SystemTemplateNode[] = [
 // ── Response (Modify Response) templates ─────────────────────────
 
 const RESPONSE_TREE: SystemTemplateNode[] = [
-  f('Status Codes', [
+  f('status-codes', 'shared.ruleTemplates.folder.statusCodes', [
     t({
       key: 'mock-200',
       icon: '✅',
-      name: 'Mock 200 JSON',
-      description: 'Return a successful JSON response for a REST API endpoint',
+      nameKey: 'shared.ruleTemplates.mock200.name',
+      descriptionKey: 'shared.ruleTemplates.mock200.description',
       conditions: [{ uid: 'sct00021', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
         responseSource: 'mock',
@@ -381,8 +387,8 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
     t({
       key: 'mock-404',
       icon: '❌',
-      name: 'Mock 404',
-      description: 'Return a 404 Not Found response',
+      nameKey: 'shared.ruleTemplates.mock404.name',
+      descriptionKey: 'shared.ruleTemplates.mock404.description',
       conditions: [{ uid: 'sct00022', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
         responseSource: 'mock',
@@ -395,8 +401,8 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
     t({
       key: 'mock-500',
       icon: '💥',
-      name: 'Mock Server Error',
-      description: 'Return a 500 Internal Server Error — test error handling',
+      nameKey: 'shared.ruleTemplates.mock500.name',
+      descriptionKey: 'shared.ruleTemplates.mock500.description',
       conditions: [{ uid: 'sct00023', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
         responseSource: 'mock',
@@ -407,12 +413,12 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
       },
     }),
   ]),
-  f('GraphQL', [
+  f('graphql', 'shared.ruleTemplates.folder.graphql', [
     t({
       key: 'mock-graphql',
       icon: '🔮',
-      name: 'Mock GraphQL Response',
-      description: 'Return a custom response for a specific GraphQL operation',
+      nameKey: 'shared.ruleTemplates.mockGraphql.name',
+      descriptionKey: 'shared.ruleTemplates.mockGraphql.description',
       conditions: [{ uid: 'sct00024', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
         responseSource: 'mock',
@@ -427,13 +433,12 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
       },
     }),
   ]),
-  f('Dynamic', [
+  f('dynamic', 'shared.ruleTemplates.folder.dynamic', [
     t({
       key: 'mock-dynamic',
       icon: '⚙️',
-      name: 'Dynamic REST Response',
-      description:
-        'Intercept the real REST API response and modify it with JavaScript — inject test data, remove fields, or transform the response shape',
+      nameKey: 'shared.ruleTemplates.mockDynamic.name',
+      descriptionKey: 'shared.ruleTemplates.mockDynamic.description',
       conditions: [{ uid: 'sct00025', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
         responseSource: 'network',
@@ -478,9 +483,8 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
     t({
       key: 'mock-dynamic-graphql',
       icon: '⚙️',
-      name: 'Dynamic GraphQL Response',
-      description:
-        'Intercept a specific GraphQL operation response and modify it with JavaScript — reshape data, inject mock fields, or simulate errors',
+      nameKey: 'shared.ruleTemplates.mockDynamicGraphql.name',
+      descriptionKey: 'shared.ruleTemplates.mockDynamicGraphql.description',
       conditions: [{ uid: 'sct00026', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
         responseSource: 'network',

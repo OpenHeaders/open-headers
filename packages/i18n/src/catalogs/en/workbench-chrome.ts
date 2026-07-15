@@ -15,11 +15,11 @@
  * Technical plane stays raw: HTTP method tags (GET/POST…), entity
  * names, key glyphs (the ✓ checkmark composes in JSX ahead of the
  * keyed behavior labels), keyboard chords ({chord} interpolations),
- * the tool-window registry labels (deferred as one unit), host-unit
- * nouns interpolated as {unit}/{units}, backend annotation text, and
- * the 'User Templates' default collection name (identity-compared
- * against the background seed — localizing it would re-enable
- * rename/delete on the default collection).
+ * host-unit nouns interpolated as {unit}/{units}, backend annotation
+ * text, `{{ns.*}}` reference syntax inside the tool-window info
+ * popovers, and the 'User Templates' default collection name
+ * (identity-compared against the background seed — localizing it
+ * would re-enable rename/delete on the default collection).
  */
 
 import { plural } from '../../runtime';
@@ -545,4 +545,106 @@ export const workbenchChrome = {
   'workbench.save.ruleType.delay': 'Delay',
   'workbench.save.ruleType.requestBody': 'API Request Body',
   'workbench.save.ruleType.response': 'API Response',
+
+  // ── Shell: rule-type entity names ('New {name}' draft seeds, command
+  //    palette scope column + New-rule rows). Draft names persist as
+  //    entity names — keyed at mint time (V5 fresh start, no back-compat). ─
+  'workbench.shell.ruleTypeName.header': 'Header Rule',
+  'workbench.shell.ruleTypeName.block': 'Block Rule',
+  'workbench.shell.ruleTypeName.redirect': 'Redirect Rule',
+  'workbench.shell.ruleTypeName.queryParam': 'Query Param Rule',
+  'workbench.shell.ruleTypeName.inject': 'Inject Rule',
+  'workbench.shell.ruleTypeName.delay': 'Delay Rule',
+  'workbench.shell.ruleTypeName.requestBody': 'API Request Body Rule',
+  'workbench.shell.ruleTypeName.response': 'API Response Rule',
+  'workbench.shell.ruleTypeName.ws': 'WebSocket Rule',
+  'workbench.shell.ruleTypeName.sse': 'SSE Rule',
+  'workbench.shell.ruleTypeName.fallback': 'Rule',
+  'workbench.shell.ruleTypeName.draftName': 'New {name}',
+
+  // ── Tool-window registry (activity bars, dock tab strips, restore
+  //    rows, drag previews) ───────────────────────────────────────────
+  'workbench.toolWindows.httpRules': 'HTTP Rules',
+  'workbench.toolWindows.apiRequests': 'API Requests',
+  'workbench.toolWindows.workflows': 'Workflows',
+  'workbench.toolWindows.notifications': 'Notifications',
+  'workbench.toolWindows.docs': 'Docs',
+  'workbench.toolWindows.varScope': 'Variable Scope',
+  'workbench.toolWindows.variables': 'Variables',
+  'workbench.toolWindows.workflowStatus': 'Workflow Status',
+  'workbench.toolWindows.activity': 'Activity',
+  'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
+  'workbench.toolWindows.deepNetworkInspection': 'Deep Network Inspection',
+
+  // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`
+  //    reference chips compose raw in JSX between the keyed prefix/
+  //    suffix fragments; the Notifications entry stays on the shared
+  //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
+  'workbench.toolWindows.info.httpRules.summary':
+    'Create rules that rewrite outgoing requests and incoming responses. Rules live in collections and can ' +
+    'inject values from variables, the vault, and live workflows.',
+  'workbench.toolWindows.info.httpRules.ruleTypesHeading': 'Rule types',
+  'workbench.toolWindows.info.workflows.summaryPrefix':
+    'A scheduled-refresh variable producer: a request chain plus an extraction rule. Its output surfaces as a',
+  'workbench.toolWindows.info.workflows.summarySuffix': 'reference you can use anywhere a variable is accepted.',
+  'workbench.toolWindows.info.docs.summary':
+    'In-app documentation for rules, variables, workflows, and the workbench itself — browse without leaving ' +
+    'the app.',
+  'workbench.toolWindows.info.varScope.summaryPrefix':
+    'The variables the active tab references and every scope they resolve against. A bare',
+  'workbench.toolWindows.info.varScope.summaryMiddle': 'falls through the priority order below; namespaced refs like',
+  'workbench.toolWindows.info.varScope.summarySuffix': 'target one scope directly.',
+  'workbench.toolWindows.info.varScope.priorityHeading': 'Priority order',
+  'workbench.toolWindows.info.varScope.vaultLabel': 'Vault',
+  'workbench.toolWindows.info.varScope.vaultDesc': 'Per-user secrets, never synced — highest priority.',
+  'workbench.toolWindows.info.varScope.environmentLabel': 'Environment',
+  'workbench.toolWindows.info.varScope.environmentDesc':
+    'The active environment, falling back to the default environment.',
+  'workbench.toolWindows.info.varScope.collectionLabel': 'Collection',
+  'workbench.toolWindows.info.varScope.collectionDesc': "The active entity's collection.",
+  'workbench.toolWindows.info.varScope.workspaceLabel': 'Workspace',
+  'workbench.toolWindows.info.varScope.workspaceDesc': 'Shared across the workspace — lowest priority.',
+  'workbench.toolWindows.info.varScope.namespacedHeading': 'Namespaced',
+  'workbench.toolWindows.info.varScope.liveLabel': 'Live',
+  'workbench.toolWindows.info.varScope.liveDescPrefix': 'Workflow-backed; reached only via',
+  'workbench.toolWindows.info.varScope.liveDescSuffix': ', resolved from the latest run.',
+  'workbench.toolWindows.info.variables.summary':
+    'The variable catalogue — everything defined across environments, collections, the workspace, and the ' +
+    'vault. Use Scope to see what is actually in scope for the active tab.',
+  'workbench.toolWindows.info.variables.typesHeading': 'Variable types',
+  'workbench.toolWindows.info.variables.vaultDesc': 'Per-user secrets — stored locally, never synced.',
+  'workbench.toolWindows.info.variables.environmentDesc': 'Defined per environment; the active one supplies values.',
+  'workbench.toolWindows.info.variables.collectionDesc': 'Defined on a collection; apply to the entities inside it.',
+  'workbench.toolWindows.info.variables.workspaceDesc': 'Shared across the whole workspace.',
+  'workbench.toolWindows.info.variables.liveDescPrefix': 'Workflow-produced values, referenced as',
+  'workbench.toolWindows.info.variables.liveDescSuffix': '.',
+  'workbench.toolWindows.info.apiRequests.summary':
+    'Saved API requests and the environments they run against, organized into collections and folders.',
+  'workbench.toolWindows.info.apiRequests.editorHeading': 'Request editor',
+  'workbench.toolWindows.info.apiRequests.docsLabel': 'Docs',
+  'workbench.toolWindows.info.apiRequests.docsDesc': 'Free-form notes for the request — Markdown supported.',
+  'workbench.toolWindows.info.apiRequests.paramsLabel': 'Params',
+  'workbench.toolWindows.info.apiRequests.paramsDesc': 'Query parameters appended to the request URL.',
+  'workbench.toolWindows.info.apiRequests.authorizationLabel': 'Authorization',
+  'workbench.toolWindows.info.apiRequests.authorizationDesc':
+    'Inherit from parent, Basic, Bearer Token, API Key, or OAuth 2.0 — applied at send time.',
+  'workbench.toolWindows.info.apiRequests.headersLabel': 'Headers',
+  'workbench.toolWindows.info.apiRequests.headersDesc': 'Request headers, with variable references resolved at send.',
+  'workbench.toolWindows.info.apiRequests.bodyLabel': 'Body',
+  'workbench.toolWindows.info.apiRequests.bodyDesc':
+    'Form data, URL-encoded, raw (Text, JavaScript, JSON, HTML, XML), or GraphQL.',
+  'workbench.toolWindows.info.apiRequests.scriptsLabel': 'Scripts',
+  'workbench.toolWindows.info.apiRequests.scriptsDesc': 'Pre-request and post-response JavaScript hooks.',
+  'workbench.toolWindows.info.apiRequests.settingsLabel': 'Settings',
+  'workbench.toolWindows.info.apiRequests.settingsDesc':
+    'Per-request behavior — SSL verification, redirects, and more.',
+  'workbench.toolWindows.info.deepNetworkInspection.summary':
+    'Connection-level (L4) and HTTP (L7) inspection in one view — TCP/TLS health like RTT, retransmissions, ' +
+    'and handshake timing alongside full request/response visibility, modification, and replay.',
+  'workbench.toolWindows.info.workflowStatus.summary':
+    'Per-workflow circuit-breaker dashboard — state, consecutive failures, openings, and next-attempt ' +
+    'countdown, with manual Retry and Reset-circuit actions.',
+  'workbench.toolWindows.info.activity.summary':
+    'Workspace-wide feed of inbound changes from peers, with classifier highlights for sensitive-field ' +
+    'rotations, permission-scope expansions, and local-edit supersedes.',
 } as const satisfies Catalog;

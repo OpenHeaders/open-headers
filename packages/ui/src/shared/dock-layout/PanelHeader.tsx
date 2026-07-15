@@ -20,6 +20,7 @@
  */
 
 import { EllipsisOutlined, MinusOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Dropdown, type MenuProps } from 'antd';
 import type React from 'react';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
@@ -43,6 +44,7 @@ export interface PanelHeaderProps {
 }
 
 const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions, optionsMenuItems }) => {
+  const t = useT();
   // The brand carries `onHide` only; un-brand at the consume site via
   // the canonical `as unknown as` pattern. Same shape as EditorHeader's
   // un-brand.
@@ -63,7 +65,7 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions,
             <span
               role="button"
               tabIndex={0}
-              aria-label="Panel options"
+              aria-label={t('shared.dock.panelOptions')}
               className="rules-panel-header-action"
               // Prevent the button from stealing DOM focus on click — we
               // want whatever had focus before (editor, another panel) to
@@ -77,7 +79,7 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions,
         <span
           role="button"
           tabIndex={0}
-          aria-label="Hide panel"
+          aria-label={t('shared.dock.hidePanel')}
           className="rules-panel-header-action"
           onMouseDown={(e) => e.preventDefault()}
           onClick={onHide}

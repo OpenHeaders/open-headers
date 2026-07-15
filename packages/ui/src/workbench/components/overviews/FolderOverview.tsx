@@ -18,6 +18,7 @@ import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import { buildRuleIcon } from '../shared/rule-icon';
 
@@ -84,6 +85,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
   onOpenFolderOverview,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { rules, localCollectionTrees, pauseMarkers, togglePause } = useRules();
 
   const found = useMemo(() => findFolder(localCollectionTrees, folderUid), [localCollectionTrees, folderUid]);
@@ -221,8 +223,9 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
     [token, rules],
   );
 
-  const addRuleMenuItems = buildRuleTypeMenuItems((type) =>
-    onCreateRule(type, { collectionId: collectionUid, folderPath }),
+  const addRuleMenuItems = buildRuleTypeMenuItems(
+    (type) => onCreateRule(type, { collectionId: collectionUid, folderPath }),
+    t,
   );
 
   if (!folder) {

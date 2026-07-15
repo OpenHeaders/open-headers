@@ -13,6 +13,9 @@ export const ALL_DOCK_SLOTS: readonly DockSlot[] = [
   'bottom-right',
 ];
 
+// Raw English slot names — kept for the unconverted devtools-panel
+// registry. Converted render sites resolve `DOCK_LABEL_KEYS` from
+// `tool-window-copy.ts` instead.
 export const DOCK_LABELS: Record<DockSlot, string> = {
   'left-top': 'Left Top',
   'left-bottom': 'Left Bottom',

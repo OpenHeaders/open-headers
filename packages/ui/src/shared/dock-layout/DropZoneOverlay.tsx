@@ -9,10 +9,11 @@
  */
 
 import { useDroppable } from '@dnd-kit/core';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { theme } from 'antd';
 import type React from 'react';
-import { DOCK_LABELS } from './constants';
 import DockSlotIcon from './DockSlotIcon';
+import { DOCK_LABEL_KEYS } from './tool-window-copy';
 import type { DockSlot, DropZoneRect } from './types';
 
 interface DropZoneProps {
@@ -23,6 +24,7 @@ interface DropZoneProps {
 
 const DropZone: React.FC<DropZoneProps> = ({ slot, rect, highlighted }) => {
   const { token } = theme.useToken();
+  const t = useT();
   // Drop-zone sizes are computed once at drag start and never change
   // during the drag, so we don't need a ResizeObserver on each node.
   // Disabling it removes the only RO loop class still attached to these
@@ -62,7 +64,7 @@ const DropZone: React.FC<DropZoneProps> = ({ slot, rect, highlighted }) => {
         <span className="rules-drop-zone-label-icon">
           <DockSlotIcon slot={slot} size={20} />
         </span>
-        {DOCK_LABELS[slot]}
+        {t(DOCK_LABEL_KEYS[slot])}
       </span>
     </div>
   );

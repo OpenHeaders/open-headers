@@ -8,6 +8,7 @@
  * tool-window ID type.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Dropdown, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
@@ -206,6 +207,7 @@ function VerticalActivityBar<T extends string>({
   layoutRevision,
 }: VerticalBarProps<T>) {
   const { token } = theme.useToken();
+  const t = useT();
   const [upperFirstSlot, upperSecondSlot] = regionDocks(side);
   const lowerSlot: DockSlot = side === 'left' ? 'bottom-left' : 'bottom-right';
 
@@ -246,7 +248,7 @@ function VerticalActivityBar<T extends string>({
               when unchecked, so the row height and text position are
               identical in both states. */}
           <span style={{ width: 12, display: 'inline-block', visibility: showLabels ? 'visible' : 'hidden' }}>✓</span>
-          Show Tool Window Names
+          {t('shared.dock.showToolWindowNames')}
         </span>
       ),
       onClick: onToggleLabels,

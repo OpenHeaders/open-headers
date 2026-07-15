@@ -254,4 +254,129 @@ export const sharedComponents = {
   //    stays raw everywhere. ───────────────────────────────────────────
   'shared.defaults.newRulesCollection': 'New Rules Collection',
   'shared.defaults.newRequestsCollection': 'New Requests Collection',
+
+  // ── Rule-type registry (multi-surface: workbench create menus +
+  //    overviews + command palette + tool-window info, popup
+  //    AddRulePalette). Labels and descriptions single-source every
+  //    create/picker menu; type ids and code badges (HDR…) stay raw. ──
+  'shared.ruleTypes.header.label': 'Modify Headers',
+  'shared.ruleTypes.header.description': 'Add, override, or remove HTTP headers',
+  'shared.ruleTypes.requestBody.label': 'Modify API Request Body',
+  'shared.ruleTypes.requestBody.description': 'Override or transform API request body (fetch/XHR only)',
+  'shared.ruleTypes.response.label': 'Modify API Response',
+  'shared.ruleTypes.response.description': 'Mock or modify API response status, body, and headers (fetch/XHR only)',
+  'shared.ruleTypes.queryParam.label': 'Modify Query Params',
+  'shared.ruleTypes.queryParam.description': 'Add, override, or remove URL parameters',
+  'shared.ruleTypes.inject.label': 'Inject Script/Stylesheet',
+  'shared.ruleTypes.inject.description': 'Inject JavaScript or CSS into pages',
+  'shared.ruleTypes.ws.label': 'Modify WebSocket Messages',
+  'shared.ruleTypes.ws.description': 'Replace, inject, or drop WebSocket frames (page sockets only)',
+  'shared.ruleTypes.sse.label': 'Modify Server-Sent Events',
+  'shared.ruleTypes.sse.description': 'Replace, inject, or drop SSE events (page streams only)',
+  'shared.ruleTypes.block.label': 'Block Requests',
+  'shared.ruleTypes.block.description': 'Prevent requests from completing',
+  'shared.ruleTypes.redirect.label': 'Redirect Requests',
+  'shared.ruleTypes.redirect.description': 'Redirect to a different URL',
+  'shared.ruleTypes.delay.label': 'Delay Requests',
+  'shared.ruleTypes.delay.description': 'Add latency to network requests (fetch/XHR only)',
+  'shared.ruleTypes.auth.label': 'Answer Auth Challenge',
+  'shared.ruleTypes.auth.description': 'Provide credentials for an HTTP/proxy auth challenge (requires Debug mode)',
+
+  // ── System rule-template registry (same surfaces as the rule types).
+  //    Template keys, icons, conditions, and form values stay raw data;
+  //    embedded code/URLs inside descriptions travel inside the value. ──
+  'shared.ruleTemplates.blankRule': 'Blank Rule',
+
+  'shared.ruleTemplates.folder.corsSecurity': 'CORS & Security',
+  'shared.ruleTemplates.folder.authentication': 'Authentication',
+  'shared.ruleTemplates.folder.privacy': 'Privacy',
+  'shared.ruleTemplates.folder.testing': 'Testing',
+  'shared.ruleTemplates.folder.urlHandling': 'URL Handling',
+  'shared.ruleTemplates.folder.tracking': 'Tracking',
+  'shared.ruleTemplates.folder.debugging': 'Debugging',
+  'shared.ruleTemplates.folder.appearance': 'Appearance',
+  'shared.ruleTemplates.folder.rest': 'REST',
+  'shared.ruleTemplates.folder.graphql': 'GraphQL',
+  'shared.ruleTemplates.folder.statusCodes': 'Status Codes',
+  'shared.ruleTemplates.folder.dynamic': 'Dynamic',
+
+  'shared.ruleTemplates.corsBypass.name': 'CORS Bypass',
+  'shared.ruleTemplates.corsBypass.description':
+    'Remove restrictive CORS headers to allow cross-origin requests during development',
+  'shared.ruleTemplates.removeCsp.name': 'Remove CSP',
+  'shared.ruleTemplates.removeCsp.description': 'Strip Content-Security-Policy headers for development',
+  'shared.ruleTemplates.allowEmbedding.name': 'Allow Embedding',
+  'shared.ruleTemplates.allowEmbedding.description': 'Remove X-Frame-Options to allow iframing',
+  'shared.ruleTemplates.apiAuth.name': 'API Auth Injection',
+  'shared.ruleTemplates.apiAuth.description': 'Auto-inject Authorization header into API calls',
+  'shared.ruleTemplates.customUa.name': 'Custom User-Agent',
+  'shared.ruleTemplates.customUa.description': 'Override the User-Agent header for specific domains',
+  'shared.ruleTemplates.blockCookies.name': 'Block Cookies',
+  'shared.ruleTemplates.blockCookies.description': 'Remove Cookie header from outgoing requests',
+  'shared.ruleTemplates.testMerge.name': 'Test Merge (httpbin)',
+  'shared.ruleTemplates.testMerge.description':
+    'Test the Merge operation by appending to a response header.\n1. Enable this rule\n2. Open httpbin.org in a ' +
+    'new tab\n3. Run in console: fetch("https://httpbin.org/get").then(r=>{console.log("Content-Type:",' +
+    'r.headers.get("Content-Type"))})\n4. Content-Type should show "application/json, x-openheaders-merged"',
+  'shared.ruleTemplates.blockTrackers.name': 'Block Trackers',
+  'shared.ruleTemplates.blockTrackers.description': 'Block analytics and tracking scripts',
+  'shared.ruleTemplates.blockAds.name': 'Block Ads',
+  'shared.ruleTemplates.blockAds.description': 'Block common ad network domains',
+  'shared.ruleTemplates.redirectDomain.name': 'Redirect Domain',
+  'shared.ruleTemplates.redirectDomain.description': 'Redirect all traffic from one domain to another',
+  'shared.ruleTemplates.forceHttps.name': 'Force HTTPS',
+  'shared.ruleTemplates.forceHttps.description':
+    'Upgrade HTTP to HTTPS — uses regex capture group to preserve the full path',
+  'shared.ruleTemplates.removeUtm.name': 'Remove UTM Params',
+  'shared.ruleTemplates.removeUtm.description': 'Strip UTM tracking parameters from URLs',
+  'shared.ruleTemplates.addDebug.name': 'Add Debug Flag',
+  'shared.ruleTemplates.addDebug.description': 'Add a debug=true query parameter to API calls',
+  'shared.ruleTemplates.darkMode.name': 'Dark Mode CSS',
+  'shared.ruleTemplates.darkMode.description': 'Inject a basic dark mode stylesheet',
+  'shared.ruleTemplates.consoleLogger.name': 'Console Logger',
+  'shared.ruleTemplates.consoleLogger.description': 'Log all fetch requests to the console',
+  'shared.ruleTemplates.slowApi.name': 'Slow API (2s)',
+  'shared.ruleTemplates.slowApi.description': 'Add 2 second delay to API calls — test loading states',
+  'shared.ruleTemplates.timeoutTest.name': 'Timeout Test (5s)',
+  'shared.ruleTemplates.timeoutTest.description': 'Add 5 second delay — test timeout handling',
+  'shared.ruleTemplates.restBodyOverride.name': 'REST Body Override',
+  'shared.ruleTemplates.restBodyOverride.description': 'Replace the request body with a static JSON payload',
+  'shared.ruleTemplates.graphqlOverride.name': 'GraphQL Override',
+  'shared.ruleTemplates.graphqlOverride.description':
+    'Override a GraphQL request body with a custom query and variables',
+  'shared.ruleTemplates.mock200.name': 'Mock 200 JSON',
+  'shared.ruleTemplates.mock200.description': 'Return a successful JSON response for a REST API endpoint',
+  'shared.ruleTemplates.mock404.name': 'Mock 404',
+  'shared.ruleTemplates.mock404.description': 'Return a 404 Not Found response',
+  'shared.ruleTemplates.mock500.name': 'Mock Server Error',
+  'shared.ruleTemplates.mock500.description': 'Return a 500 Internal Server Error — test error handling',
+  'shared.ruleTemplates.mockGraphql.name': 'Mock GraphQL Response',
+  'shared.ruleTemplates.mockGraphql.description': 'Return a custom response for a specific GraphQL operation',
+  'shared.ruleTemplates.mockDynamic.name': 'Dynamic REST Response',
+  'shared.ruleTemplates.mockDynamic.description':
+    'Intercept the real REST API response and modify it with JavaScript — inject test data, remove fields, or ' +
+    'transform the response shape',
+  'shared.ruleTemplates.mockDynamicGraphql.name': 'Dynamic GraphQL Response',
+  'shared.ruleTemplates.mockDynamicGraphql.description':
+    'Intercept a specific GraphQL operation response and modify it with JavaScript — reshape data, inject mock ' +
+    'fields, or simulate errors',
+
+  // ── Dock-layout chrome (shared shell: workbench + devtools panel).
+  //    Slot labels feed the Move-to submenu, drop-zone overlays, and
+  //    the workbench restore rows; the raw DOCK_LABELS record stays
+  //    exported for the unconverted panel registry (Phase D). ──────────
+  'shared.dock.slot.leftTop': 'Left Top',
+  'shared.dock.slot.leftBottom': 'Left Bottom',
+  'shared.dock.slot.rightTop': 'Right Top',
+  'shared.dock.slot.rightBottom': 'Right Bottom',
+  'shared.dock.slot.bottomLeft': 'Bottom Left',
+  'shared.dock.slot.bottomRight': 'Bottom Right',
+  'shared.dock.hide': 'Hide',
+  'shared.dock.moveTo': 'Move to',
+  'shared.dock.currentSlot': 'current slot',
+  'shared.dock.showToolWindowNames': 'Show Tool Window Names',
+  'shared.dock.hideThisDock': 'Hide this dock',
+  'shared.dock.closeDock': 'Close dock',
+  'shared.dock.panelOptions': 'Panel options',
+  'shared.dock.hidePanel': 'Hide panel',
 } as const satisfies Catalog;

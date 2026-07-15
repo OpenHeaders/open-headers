@@ -20,6 +20,8 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
 import { createElement } from 'react';
 import { RULE_TYPE_CODES } from './components/shared/rule-codes';
@@ -28,8 +30,8 @@ import { TEMPLATES_BY_TYPE } from './rule-templates';
 export interface RuleTypeMenuItem {
   key: ExtensionRuleType;
   icon: React.ReactNode;
-  label: string;
-  description: string;
+  labelKey: MessageKey;
+  descriptionKey: MessageKey;
   desktopOnly: boolean;
 }
 
@@ -40,78 +42,78 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
   {
     key: 'header',
     icon: <SwapOutlined />,
-    label: 'Modify Headers',
-    description: 'Add, override, or remove HTTP headers',
+    labelKey: 'shared.ruleTypes.header.label',
+    descriptionKey: 'shared.ruleTypes.header.description',
     desktopOnly: false,
   },
   {
     key: 'request-body',
     icon: <FileTextOutlined />,
-    label: 'Modify API Request Body',
-    description: 'Override or transform API request body (fetch/XHR only)',
+    labelKey: 'shared.ruleTypes.requestBody.label',
+    descriptionKey: 'shared.ruleTypes.requestBody.description',
     desktopOnly: false,
   },
   {
     key: 'response',
     icon: <DatabaseOutlined />,
-    label: 'Modify API Response',
-    description: 'Mock or modify API response status, body, and headers (fetch/XHR only)',
+    labelKey: 'shared.ruleTypes.response.label',
+    descriptionKey: 'shared.ruleTypes.response.description',
     desktopOnly: false,
   },
   {
     key: 'query-param',
     icon: <LinkOutlined />,
-    label: 'Modify Query Params',
-    description: 'Add, override, or remove URL parameters',
+    labelKey: 'shared.ruleTypes.queryParam.label',
+    descriptionKey: 'shared.ruleTypes.queryParam.description',
     desktopOnly: false,
   },
   {
     key: 'inject',
     icon: <CodeOutlined />,
-    label: 'Inject Script/Stylesheet',
-    description: 'Inject JavaScript or CSS into pages',
+    labelKey: 'shared.ruleTypes.inject.label',
+    descriptionKey: 'shared.ruleTypes.inject.description',
     desktopOnly: false,
   },
   {
     key: 'ws',
     icon: <ThunderboltOutlined />,
-    label: 'Modify WebSocket Messages',
-    description: 'Replace, inject, or drop WebSocket frames (page sockets only)',
+    labelKey: 'shared.ruleTypes.ws.label',
+    descriptionKey: 'shared.ruleTypes.ws.description',
     desktopOnly: false,
   },
   {
     key: 'sse',
     icon: <NotificationOutlined />,
-    label: 'Modify Server-Sent Events',
-    description: 'Replace, inject, or drop SSE events (page streams only)',
+    labelKey: 'shared.ruleTypes.sse.label',
+    descriptionKey: 'shared.ruleTypes.sse.description',
     desktopOnly: false,
   },
   {
     key: 'block',
     icon: <StopOutlined />,
-    label: 'Block Requests',
-    description: 'Prevent requests from completing',
+    labelKey: 'shared.ruleTypes.block.label',
+    descriptionKey: 'shared.ruleTypes.block.description',
     desktopOnly: false,
   },
   {
     key: 'redirect',
     icon: <SendOutlined />,
-    label: 'Redirect Requests',
-    description: 'Redirect to a different URL',
+    labelKey: 'shared.ruleTypes.redirect.label',
+    descriptionKey: 'shared.ruleTypes.redirect.description',
     desktopOnly: false,
   },
   {
     key: 'delay',
     icon: <ClockCircleOutlined />,
-    label: 'Delay Requests',
-    description: 'Add latency to network requests (fetch/XHR only)',
+    labelKey: 'shared.ruleTypes.delay.label',
+    descriptionKey: 'shared.ruleTypes.delay.description',
     desktopOnly: false,
   },
   {
     key: 'auth',
     icon: <KeyOutlined />,
-    label: 'Answer Auth Challenge',
-    description: 'Provide credentials for an HTTP/proxy auth challenge (requires Debug mode)',
+    labelKey: 'shared.ruleTypes.auth.label',
+    descriptionKey: 'shared.ruleTypes.auth.description',
     desktopOnly: false,
   },
 ];
@@ -151,12 +153,12 @@ export function ruleTypeBadge(type: ExtensionRuleType): React.ReactNode {
 /**
  * Build Ant Design menu items for rule creation menus (no templates).
  */
-export function buildRuleTypeMenuItems(onClick: (type: string) => void) {
-  return ALL_RULE_TYPES.map((t) => ({
-    key: t.key,
-    icon: ruleTypeBadge(t.key),
-    label: t.label,
-    onClick: () => onClick(t.key),
+export function buildRuleTypeMenuItems(onClick: (type: string) => void, t: Translate) {
+  return ALL_RULE_TYPES.map((rt) => ({
+    key: rt.key,
+    icon: ruleTypeBadge(rt.key),
+    label: t(rt.labelKey),
+    onClick: () => onClick(rt.key),
   }));
 }
 
@@ -174,36 +176,37 @@ export function buildRuleTypeMenuItems(onClick: (type: string) => void) {
 export function buildRuleTypeMenuItemsWithTemplates(
   onClickType: (type: string) => void,
   onClickTemplate: (type: string, templateKey: string) => void,
+  t: Translate,
 ) {
-  return ALL_RULE_TYPES.map((t) => {
-    const templates = TEMPLATES_BY_TYPE[t.key] ?? [];
+  return ALL_RULE_TYPES.map((rt) => {
+    const templates = TEMPLATES_BY_TYPE[rt.key] ?? [];
 
     if (templates.length === 0) {
       // No templates — direct click
       return {
-        key: t.key,
-        icon: ruleTypeBadge(t.key),
-        label: t.label,
-        onClick: () => onClickType(t.key),
+        key: rt.key,
+        icon: ruleTypeBadge(rt.key),
+        label: t(rt.labelKey),
+        onClick: () => onClickType(rt.key),
       };
     }
 
     // Has templates — cascading submenu
     return {
-      key: t.key,
-      icon: ruleTypeBadge(t.key),
-      label: t.label,
+      key: rt.key,
+      icon: ruleTypeBadge(rt.key),
+      label: t(rt.labelKey),
       children: [
         {
-          key: `${t.key}-blank`,
-          label: 'Blank Rule',
-          onClick: () => onClickType(t.key),
+          key: `${rt.key}-blank`,
+          label: t('shared.ruleTemplates.blankRule'),
+          onClick: () => onClickType(rt.key),
         },
-        { type: 'divider' as const, key: `${t.key}-div` },
+        { type: 'divider' as const, key: `${rt.key}-div` },
         ...templates.map((tpl) => ({
-          key: `${t.key}-${tpl.key}`,
-          label: `${tpl.icon} ${tpl.name}`,
-          onClick: () => onClickTemplate(t.key, tpl.key),
+          key: `${rt.key}-${tpl.key}`,
+          label: `${tpl.icon} ${t(tpl.nameKey)}`,
+          onClick: () => onClickTemplate(rt.key, tpl.key),
         })),
       ],
     };
@@ -221,11 +224,11 @@ export function templatesBadge(): React.ReactNode {
  * {@link buildRuleTypeMenuItems}; kept as a separate export so the
  * Sidebar's `menus.ts` can cast the result to its `ItemType[]` shape.
  */
-export function buildRuleTypeMenuItemsCE(onClick: (type: string) => void) {
-  return ALL_RULE_TYPES.map((t) => ({
-    key: t.key,
-    icon: ruleTypeBadge(t.key),
-    label: t.label,
-    onClick: () => onClick(t.key),
+export function buildRuleTypeMenuItemsCE(onClick: (type: string) => void, t: Translate) {
+  return ALL_RULE_TYPES.map((rt) => ({
+    key: rt.key,
+    icon: ruleTypeBadge(rt.key),
+    label: t(rt.labelKey),
+    onClick: () => onClick(rt.key),
   }));
 }

@@ -15,7 +15,7 @@ import {
   ScanOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
-import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
+import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
@@ -38,35 +38,65 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  * Variable Scope is what's actually in scope for the current tab.
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
-  { id: 'http-rules', label: 'HTTP Rules', icon: <RequestRulesIcon />, core: true, defaultSlot: 'left-top' },
-  { id: 'api-requests', label: 'API Requests', icon: <ApiRequestsIcon />, core: false, defaultSlot: 'left-bottom' },
+  {
+    id: 'http-rules',
+    labelKey: 'workbench.toolWindows.httpRules',
+    icon: <RequestRulesIcon />,
+    core: true,
+    defaultSlot: 'left-top',
+  },
+  {
+    id: 'api-requests',
+    labelKey: 'workbench.toolWindows.apiRequests',
+    icon: <ApiRequestsIcon />,
+    core: false,
+    defaultSlot: 'left-bottom',
+  },
   // A Workflow is the scheduled-refresh variable producer: a request
   // chain + extraction rule. Its output surfaces as a `{{live.X}}`
   // reference in the Scope panel's Live category via a Live Variable
   // binding. First-class left-bottom tab (below `api-requests`) so
   // users see it as a feature rather than a Variables sub-section.
-  { id: 'workflows', label: 'Workflows', icon: <SisternodeOutlined />, core: false, defaultSlot: 'left-bottom' },
+  {
+    id: 'workflows',
+    labelKey: 'workbench.toolWindows.workflows',
+    icon: <SisternodeOutlined />,
+    core: false,
+    defaultSlot: 'left-bottom',
+  },
   // Registry order within a slot is the slot's tab order on first
   // open. `right-top` runs `notifications` then `docs`; `right-bottom`
   // runs `var-scope` (active by default) then `variables`.
   {
     id: 'notifications',
-    label: 'Notifications',
+    labelKey: 'workbench.toolWindows.notifications',
     icon: <NotificationsIcon />,
     // Core: notifications must stay reachable — hiding the tab would
     // silently cut the user off from surfaced problems.
     core: true,
     defaultSlot: 'right-top',
   },
-  { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
-  { id: 'var-scope', label: 'Variable Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-bottom' },
-  { id: 'variables', label: 'Variables', icon: <VariablesIcon />, core: false, defaultSlot: 'right-bottom' },
+  { id: 'docs', labelKey: 'workbench.toolWindows.docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
+  {
+    id: 'var-scope',
+    labelKey: 'workbench.toolWindows.varScope',
+    icon: <ScanOutlined />,
+    core: false,
+    defaultSlot: 'right-bottom',
+  },
+  {
+    id: 'variables',
+    labelKey: 'workbench.toolWindows.variables',
+    icon: <VariablesIcon />,
+    core: false,
+    defaultSlot: 'right-bottom',
+  },
   // Per-workflow circuit-breaker dashboard (state, consecutive
   // failures, openings, next-attempt countdown, manual Retry /
   // Reset-circuit actions).
   {
     id: 'workflow-status',
-    label: 'Workflow Status',
+    labelKey: 'workbench.toolWindows.workflowStatus',
     icon: <DashboardOutlined />,
     core: false,
     defaultSlot: 'bottom-left',
@@ -79,8 +109,8 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   // the bar icon — discoverability rides the badge instead.
   {
     id: 'activity',
-    label: 'Activity',
-    tooltip: 'Activity Feed — inbound changes from peers',
+    labelKey: 'workbench.toolWindows.activity',
+    tooltipKey: 'workbench.toolWindows.activityTooltip',
     icon: <ActivityFeedIcon />,
     core: false,
     defaultSlot: 'bottom-right',
@@ -88,7 +118,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   },
   {
     id: 'deep-network-inspection',
-    label: 'Deep Network Inspection',
+    labelKey: 'workbench.toolWindows.deepNetworkInspection',
     icon: <FundViewOutlined />,
     core: false,
     defaultSlot: 'bottom-right',
@@ -103,9 +133,3 @@ export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS
   },
   {} as Record<ToolWindowId, ToolWindowDef>,
 );
-
-// Re-export the subset of shared dock-layout constants that workbench
-// surfaces consume directly via `../tool-windows`. Keeping this alias
-// lets `StatusBar.tsx` import `DOCK_LABELS` alongside `TOOL_WINDOW_MAP`
-// without reaching into `@openheaders/ui/shared/dock-layout` explicitly.
-export const DOCK_LABELS = _LABELS;

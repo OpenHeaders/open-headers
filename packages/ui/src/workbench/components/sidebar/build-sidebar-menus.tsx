@@ -26,7 +26,7 @@ export function buildCreateMenuItems({ onCreateRule, createNewCollection }: Buil
       onClick: () => void createNewCollection(),
     },
     { type: 'divider' as const, key: 'div-collection' },
-    ...buildRuleTypeMenuItems(onCreateRule),
+    ...buildRuleTypeMenuItems(onCreateRule, t),
   ];
 }
 
