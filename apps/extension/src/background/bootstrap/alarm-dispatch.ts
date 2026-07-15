@@ -10,6 +10,7 @@ import { logger } from '@utils/logger';
 import { handleActivityPruneAlarm, isActivityPruneAlarm } from '../activity-prune-scheduler';
 import { handleLiveAlarm, isLiveRefreshAlarm } from '../modules/live-refresh-scheduler';
 import { handleOAuthAlarm, isOAuthRefreshAlarm } from '../modules/oauth-refresh-scheduler';
+import { handleProductTelemetryAlarm, isProductTelemetryAlarm } from '../modules/product-telemetry';
 import { handleTotpAlarm, isTotpAlarm } from '../modules/totp-scheduler';
 import { backgroundReady } from './background-ready';
 import { updateBadgeForCurrentTab } from './badge-update';
@@ -55,6 +56,11 @@ export function installAlarmDispatch(): void {
     }
     if (alarm.name === 'updateBadge') {
       void updateBadgeForCurrentTab();
+      return;
+    }
+    // No hydration barrier: the flush reads only the client's own queue.
+    if (isProductTelemetryAlarm(alarm)) {
+      void handleProductTelemetryAlarm();
       return;
     }
     // Hydration barrier — live / OAuth / TOTP handlers read in-memory

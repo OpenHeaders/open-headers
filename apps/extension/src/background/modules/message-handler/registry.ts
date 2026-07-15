@@ -17,6 +17,7 @@ import { miscHandlers } from './handlers/misc';
 import { navigationHandlers } from './handlers/navigation';
 import { oauthHandlers } from './handlers/oauth';
 import { observabilityHandlers } from './handlers/observability';
+import { productTelemetryHandlers } from './handlers/product-telemetry';
 import { requestHandlers } from './handlers/requests';
 import { ruleHandlers } from './handlers/rules';
 import { storageInspectorHandlers } from './handlers/storage-inspector';
@@ -36,6 +37,7 @@ export const registry: HandlerMap = {
   ...telemetryHandlers,
   ...templateHandlers,
   ...observabilityHandlers,
+  ...productTelemetryHandlers,
   ...importReportHandlers,
   ...migrationHandlers,
   ...fileHandlers,

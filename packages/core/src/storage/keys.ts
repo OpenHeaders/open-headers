@@ -223,6 +223,14 @@ export const OH = {
   /** User-scope settings dict (global — never per-workspace). */
   settingsUser: storageKey<Record<string, unknown>>('oh.settings.user'),
   /**
+   * Whether the first-run product-telemetry disclosure has been shown
+   * (`TELEMETRY_PLAN.md` §2/§7). Set once by whichever UI surface shows
+   * the notice first; the host client refuses to queue or send anything
+   * while it is unset. Distinct from `telemetry.enabled` (the settings
+   * toggle) — this flag only records that the user has seen the notice.
+   */
+  productTelemetryDisclosed: storageKey<boolean>('oh.productTelemetry.disclosed'),
+  /**
    * Observability ring-buffer snapshot. Capped at {@link DEFAULT_CAPACITY}
    * entries; persisted in full on each flush because a ring trimmed to
    * 500 structured records is still tiny. Global (not per-workspace)

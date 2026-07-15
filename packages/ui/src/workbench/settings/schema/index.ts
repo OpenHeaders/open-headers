@@ -31,3 +31,4 @@ import './workspace-sharing';
 import './data';
 import './about';
 import './updates';
+import './telemetry';

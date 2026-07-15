@@ -39,6 +39,8 @@ export type {
   MigrationReadBackupResult,
   MigrationReadInsomniaDataResult,
   MigrationScanResult,
+  ProductTelemetryLogEntryWire,
+  ProductTelemetrySnapshot,
   SecretsStorageState,
   SiteDataTypeWire,
   SiteJarCookieWire,

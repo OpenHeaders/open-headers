@@ -89,6 +89,7 @@ import { rehydrateNetworkConditionsFromSession } from './modules/net/network-con
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { auditHostPermissions } from './modules/permissions-audit';
+import { initProductTelemetry } from './modules/product-telemetry';
 import { precompileRulePatterns, rehydrateTabTracking, restoreTrackingState } from './modules/request-tracker';
 import { installParityFireReadback } from './modules/rules/parity-fire-readback';
 import { installParityRuleImport } from './modules/rules/parity-rule-import';
@@ -156,6 +157,10 @@ async function initializeExtension(): Promise<void> {
   extensionInitialized = true;
 
   await bootstrapIdentity();
+
+  // After settingsReady (awaited above): the enabled gate reads the
+  // hydrated settings store. Fire-and-forget — nothing awaits telemetry.
+  initProductTelemetry();
 
   await hydrateObservabilityLog();
   recordLog({

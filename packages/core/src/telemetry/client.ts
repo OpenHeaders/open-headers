@@ -29,6 +29,14 @@ export interface TelemetryClientDeps {
   transport: TelemetryTransport;
   /** Wall clock (ms since epoch), injected so hosts and tests own time. */
   now(): number;
+  /**
+   * Session id override for hosts whose process outlives — or is shorter
+   * than — the user-facing session (the extension service worker is
+   * evicted many times per browser session, so it holds the id in
+   * `chrome.storage.session`: RAM-backed, never on disk, gone at browser
+   * exit). Must match `TelemetrySessionIdSchema`; omitted = minted fresh.
+   */
+  sessionId?: string;
 }
 
 /** Hard cap on undelivered events awaiting flush; the oldest are dropped first. */
@@ -73,7 +81,7 @@ export class TelemetryClient {
 
   constructor(deps: TelemetryClientDeps) {
     this.deps = deps;
-    this.sessionId = mintTelemetrySessionId();
+    this.sessionId = deps.sessionId ?? mintTelemetrySessionId();
   }
 
   get isEnabled(): boolean {

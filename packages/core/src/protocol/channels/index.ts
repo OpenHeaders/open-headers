@@ -38,6 +38,7 @@ import type { MigrationRpc } from './migration';
 import type { NavigationRpc } from './navigation';
 import type { OAuthRpc } from './oauth';
 import type { ObservabilityRpc } from './observability';
+import type { ProductTelemetryRpc } from './product-telemetry';
 import type { RequestRpc } from './requests';
 import type { RuleRpc } from './rules';
 import type { SecretsRpc } from './secrets';
@@ -80,6 +81,7 @@ export type {
   MigrationReadInsomniaDataResult,
   MigrationScanResult,
 } from './migration';
+export type { ProductTelemetryLogEntryWire, ProductTelemetrySnapshot } from './product-telemetry';
 export type { CookieJarEntryWire } from './requests';
 export type { SecretsStorageState } from './secrets';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
@@ -112,7 +114,8 @@ export interface BridgeRpcContract
     DaemonRpc,
     UpdatesRpc,
     SecretsRpc,
-    MigrationRpc {}
+    MigrationRpc,
+    ProductTelemetryRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages

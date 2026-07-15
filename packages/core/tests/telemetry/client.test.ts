@@ -51,6 +51,17 @@ describe('TelemetryClient — session id', () => {
     expect(a.sessionId).toMatch(/^[0-9a-f]{32}$/);
     expect(a.sessionId).not.toBe(b.sessionId);
   });
+
+  it('carries an injected session id onto the envelope', async () => {
+    const transport = makeTransport();
+    const injected = 'deadbeefdeadbeefdeadbeefdeadbeef';
+    const client = new TelemetryClient({ transport, now: () => 1_760_000_000_000, sessionId: injected });
+    client.noteDisclosureShown();
+    client.track(makeEvent());
+    await client.flush();
+    expect(client.sessionId).toBe(injected);
+    expect(transport.sent[0].sessionId).toBe(injected);
+  });
 });
 
 describe('TelemetryClient — disclosure latch', () => {

@@ -19,6 +19,7 @@ import {
 import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useAppUpdateNotification, useSeedNotifications } from '@openheaders/ui/shared/notifications';
+import { ProductTelemetryNotice } from '@openheaders/ui/shared/product-telemetry';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider } from '@openheaders/ui/workbench/services/env-switcher';
@@ -74,6 +75,7 @@ const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
         onClose={() => setIsShortcutsOverlayVisible(false)}
       />
       <OnboardingTour open={tourOpen} onClose={onTourClose} />
+      <ProductTelemetryNotice />
     </div>
   );
 };
