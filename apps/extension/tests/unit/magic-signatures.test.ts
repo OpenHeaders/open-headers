@@ -35,6 +35,29 @@ describe('detectMagicSignatures', () => {
     ]);
     expect(detectMagicSignatures(png).map((m) => m.label)).toEqual(['PNG header', 'PNG trailer']);
   });
+
+  it('splits RIFF containers by their subtype tag at byte 8', () => {
+    const riff = (tag: string) => encodeBodyBytes(`RIFF\u0000\u0000\u0000\u0000${tag}rest of payload`);
+    expect(detectMagicSignatures(riff('WEBP'))).toEqual([{ label: 'WEBP header', start: 0, end: 12 }]);
+    expect(detectMagicSignatures(riff('WAVE')).map((m) => m.label)).toEqual(['WAV header']);
+    expect(detectMagicSignatures(riff('AVI ')).map((m) => m.label)).toEqual(['AVI header']);
+    expect(detectMagicSignatures(riff('XXXX')).map((m) => m.label)).toEqual(['RIFF header']);
+  });
+
+  it('identifies wasm, fonts, and audio containers at offset 0', () => {
+    expect(detectMagicSignatures(new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]))).toEqual([
+      { label: 'WASM header', start: 0, end: 4 },
+    ]);
+    expect(detectMagicSignatures(encodeBodyBytes('wOFFrest')).map((m) => m.label)).toEqual(['WOFF header']);
+    expect(detectMagicSignatures(encodeBodyBytes('wOF2rest')).map((m) => m.label)).toEqual(['WOFF2 header']);
+    expect(detectMagicSignatures(encodeBodyBytes('ID3tag')).map((m) => m.label)).toEqual(['MP3 header']);
+    expect(detectMagicSignatures(encodeBodyBytes('OggS\u0000page')).map((m) => m.label)).toEqual(['OGG header']);
+  });
+
+  it('identifies MP4 by the ftyp box tag buried at byte 4', () => {
+    const mp4 = encodeBodyBytes('\u0000\u0000\u0000\u0018ftypisom rest');
+    expect(detectMagicSignatures(mp4)).toEqual([{ label: 'MP4 header', start: 4, end: 8 }]);
+  });
 });
 
 describe('buildHexDump with magic matches', () => {
