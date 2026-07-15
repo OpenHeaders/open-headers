@@ -79,6 +79,15 @@ A failed send or run still prints its `--json` payload on stdout before
 exiting 1, so pipelines can capture the failure detail. The exit codes below
 separate "the operation failed" from "the daemon was never reachable".
 
+## Telemetry
+
+The CLI collects anonymous usage counts (command names and versions — never
+your data or targets) and says so once, on first run. Opt out anytime with
+`export OH_TELEMETRY=0` or `"telemetry": false` in the config file
+(`~/.config/openheaders/cli.json`). The exact wire format is documented in
+the repository's `WIRE_TRANSPARENCY.md`; details:
+[openheaders.io/privacy](https://openheaders.io/privacy).
+
 ## Shell completions
 
 ```sh

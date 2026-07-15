@@ -16,6 +16,10 @@ import * as path from 'node:path';
 export interface CliConfig {
   daemonUrl?: string;
   token?: string;
+  /** Anonymous usage counting (`TELEMETRY_PLAN.md` §2) — absent = on; the `OH_TELEMETRY` env var overrides. */
+  telemetry?: boolean;
+  /** Set once the first-run telemetry notice has been printed; the notice never repeats. */
+  telemetryNoticeShown?: boolean;
 }
 
 export function cliConfigPath(
@@ -57,6 +61,8 @@ export async function readCliConfig(filePath: string): Promise<CliConfig> {
   const config: CliConfig = {};
   if (typeof parsed.daemonUrl === 'string') config.daemonUrl = parsed.daemonUrl;
   if (typeof parsed.token === 'string') config.token = parsed.token;
+  if (typeof parsed.telemetry === 'boolean') config.telemetry = parsed.telemetry;
+  if (typeof parsed.telemetryNoticeShown === 'boolean') config.telemetryNoticeShown = parsed.telemetryNoticeShown;
   return config;
 }
 

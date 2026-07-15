@@ -15,6 +15,7 @@ import { completionScript } from './completions';
 import { DAEMON_URL_ENV, DEFAULT_DAEMON_URL, TOKEN_ENV } from './connection';
 import { EXEC_COMMANDS, findExecCommand } from './exec-commands';
 import { EXIT_USAGE, exitCodeFor, OperationFailedError } from './exit-codes';
+import { bootCliProductTelemetry } from './product-telemetry';
 import { findReadCommand, READ_COMMANDS } from './read-commands';
 import { CLI_VERSION } from './version';
 import { findWriteCommand, WRITE_COMMANDS } from './write-commands';
@@ -66,6 +67,19 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const [first] = argv;
 
+  // Anonymous usage counting (TELEMETRY_PLAN.md §2): one invocation is
+  // one session. Boot prints the first-run notice to stderr when owed;
+  // the exit flush in the finally is best-effort and abort-capped, so
+  // telemetry can never change a command's outcome or hold it open.
+  const telemetry = await bootCliProductTelemetry();
+  try {
+    await runCommand(argv, first);
+  } finally {
+    await telemetry.finish();
+  }
+}
+
+async function runCommand(argv: string[], first: string | undefined): Promise<void> {
   if (first === '--version' || first === '-v') {
     console.log(CLI_VERSION);
     return;

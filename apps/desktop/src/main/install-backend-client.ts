@@ -32,6 +32,7 @@ import { refreshBackendsFromHostStorage, watchBackendsInHostStorage } from '@ope
 import { HANDSHAKE_ROLES } from '@openheaders/core/protocol';
 import type { HostStorage } from '@openheaders/core/storage';
 import { OH } from '@openheaders/core/storage';
+import type { TelemetryEvent } from '@openheaders/core/telemetry';
 import { forwardCurrentAwarenessOnConnect } from '@openheaders/oracle/sync/client/awareness-forwarder';
 import { handleIncomingAwarenessFrame } from '@openheaders/oracle/sync/client/awareness-receiver';
 import {
@@ -88,6 +89,13 @@ export interface InstallBackendClientConfig {
   hostStorage: HostStorage;
   /** Desktop app version — the HELLO agent string. */
   appVersion: string;
+  /**
+   * Product-telemetry sink for the `ws-connect-failed` beacon — a dial
+   * that closes without ever opening (`TELEMETRY_PLAN.md` §3). The
+   * remaining sync-plane beacons ride `installProductTelemetrySyncBeacons`
+   * over the returned wiring.
+   */
+  trackProductTelemetry?: (event: TelemetryEvent) => void;
 }
 
 /**
@@ -111,6 +119,7 @@ export async function installBackendClient(config: InstallBackendClientConfig): 
     getReconnectDelayMs: () => knobs.reconnectDelayMs,
     getMaxReconnectDelayMs: () => knobs.maxReconnectDelayMs,
     getPingIntervalMs: () => knobs.pingIntervalMs,
+    onConnectFailed: () => config.trackProductTelemetry?.({ name: 'error_beacon', code: 'ws-connect-failed' }),
   });
 
   const syncWiring = installBackendSyncPlane({

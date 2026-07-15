@@ -77,6 +77,7 @@ import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
 import { installProductTelemetry } from './product-telemetry';
+import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
 import { installScriptSandbox } from './script-sandbox';
 import { createUpdateService, readUpdatePreferences } from './update-service';
 import { fetchDesktopSeverity } from './versions-manifest';
@@ -282,8 +283,14 @@ export async function installRpcHost(): Promise<void> {
   // The outbound client role — the desktop joining daemon backends
   // through the same host-neutral plane the extension SW runs. Installed
   // after the spine so the persistence provider and workspace store the
-  // plane composes over are live.
-  await installBackendClient({ hostStorage, appVersion: app.getVersion() });
+  // plane composes over are live. The client plane's observability seams
+  // feed the product-telemetry beacons, same mapping as the extension SW.
+  const syncWiring = await installBackendClient({
+    hostStorage,
+    appVersion: app.getVersion(),
+    trackProductTelemetry: (event) => productTelemetry.track(event),
+  });
+  installProductTelemetrySyncBeacons(syncWiring, (event) => productTelemetry.track(event));
 
   // Safe-mode script runtime: pre/post request scripts run in a hidden
   // sandboxed renderer; the capability makes the spine's executeRequest

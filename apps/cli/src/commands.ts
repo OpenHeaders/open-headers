@@ -141,9 +141,12 @@ export async function commandConnect(argv: readonly string[]): Promise<string[]>
   if (token === undefined || token === '') {
     throw new UsageError(`oh connect needs a token — pass --token <secret> (or set ${TOKEN_ENV})`);
   }
-  const conn = resolveConnection({ daemon: values.daemon, token }, process.env, await readCliConfig(cliConfigPath()));
+  const existing = await readCliConfig(cliConfigPath());
+  const conn = resolveConnection({ daemon: values.daemon, token }, process.env, existing);
   const tools = await listTools(conn);
   const configPath = cliConfigPath();
-  await writeCliConfig(configPath, { daemonUrl: conn.daemonUrl, token });
+  // Merge over the existing file — connect owns only the connection pair,
+  // never the telemetry keys.
+  await writeCliConfig(configPath, { ...existing, daemonUrl: conn.daemonUrl, token });
   return [`connected — ${tools.length} tool(s) at ${conn.daemonUrl}`, `saved to ${configPath}`];
 }
