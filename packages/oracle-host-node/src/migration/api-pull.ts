@@ -31,15 +31,18 @@ import {
   type PostmanWorkspacePreview,
   type PulledCollection,
   type PulledEnvironment,
+  type PulledWorkspaceGlobals,
   type PullFailure,
   type PullWorkspaceSummary,
   readCollectionPayload,
   readEnvironmentPayload,
   readRateBudget,
   readWorkspaceDetail,
+  readWorkspaceGlobals,
   readWorkspaceList,
   type WorkspaceDetail,
   workspaceDetailUrl,
+  workspaceGlobalsUrl,
   workspaceListUrl,
 } from '@openheaders/core/import';
 import { fetch as undiciFetch } from 'undici';
@@ -234,6 +237,7 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
   const skipped: PostmanPullSkip[] = [];
   const collections: PulledCollection[] = [];
   const environments: PulledEnvironment[] = [];
+  const globals: PulledWorkspaceGlobals[] = [];
   let workspaces: PullWorkspaceSummary[] = [];
 
   function finish(outcome: PostmanPullOutcome, stopReason?: string): PostmanPullResult {
@@ -251,6 +255,7 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
       workspaces,
       collections,
       environments,
+      globals,
       skipped,
       budget,
       callsMade: caller.calls(),
@@ -336,6 +341,54 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
       });
     }
     emit({ kind: 'enumerating', step: 'workspace-detail', completedCalls: caller.calls() });
+
+    // Workspace globals — its own call in the same enumeration bucket,
+    // independent of the detail read (a workspace whose detail was
+    // unreadable can still land its globals). A failed read skips with
+    // the reason; only a terminal failure stops the run.
+    await sleep(ENUMERATION_CALL_SPACING_MS);
+    try {
+      const read = readWorkspaceGlobals(await callApi(workspaceGlobalsUrl(workspace.id)));
+      if (read.ok) {
+        globals.push({ workspaceId: workspace.id, variables: read.value.variables });
+        if (read.value.malformedValues > 0) {
+          skipped.push({
+            item: 'workspace',
+            id: workspace.id,
+            name: workspace.name,
+            reason: `${read.value.malformedValues} global variable row(s) in the workspace had no usable name — skipped.`,
+            workspaceIds: [workspace.id],
+          });
+        }
+      } else {
+        skipped.push({
+          item: 'workspace',
+          id: workspace.id,
+          name: workspace.name,
+          reason: `Workspace globals were not pulled — ${read.reason}`,
+          workspaceIds: [workspace.id],
+        });
+      }
+    } catch (err) {
+      if (err instanceof TerminalPullError) {
+        skipped.push({
+          item: 'workspace',
+          id: workspace.id,
+          name: workspace.name,
+          reason: `Workspace globals were not pulled — the run stopped early: ${err.failure.reason}`,
+          workspaceIds: [workspace.id],
+        });
+        return finish('partial', err.failure.reason);
+      }
+      skipped.push({
+        item: 'workspace',
+        id: workspace.id,
+        name: workspace.name,
+        reason: `Workspace globals were not pulled — ${failureReason(err)}`,
+        workspaceIds: [workspace.id],
+      });
+    }
+    emit({ kind: 'enumerating', step: 'workspace-globals', completedCalls: caller.calls() });
   }
 
   const plan = buildPullPlan(workspaces, details);

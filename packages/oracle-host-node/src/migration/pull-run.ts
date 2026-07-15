@@ -91,7 +91,10 @@ export function createMigrationPullRunner(options: MigrationPullRunnerOptions): 
       // A failed run never enumerated anything; an empty one has
       // nothing to land. Everything else materializes — a labeled
       // partial included, so what DID arrive isn't discarded.
-      const hasPayload = result.collections.length > 0 || result.environments.length > 0;
+      const hasPayload =
+        result.collections.length > 0 ||
+        result.environments.length > 0 ||
+        result.globals.some((entry) => entry.variables.length > 0);
       if (result.outcome === 'failed' || !hasPayload) return;
       emit(runId, seq, { kind: 'importing' });
       const summary = await materialize(result);

@@ -62,9 +62,13 @@ const workspaceDetail = {
 };
 const collectionBody = { collection: { info: { name: 'Orders API' }, item: [] } };
 const environmentBody = { environment: { id: 'owner-e1', name: 'Staging', values: [] } };
+const globalsBody = {
+  values: [{ key: 'api_host', value: 'api.openheaders.io', type: 'default', enabled: true }],
+};
 
 const LIST_URL = 'https://api.postman.com/workspaces';
 const DETAIL_URL = 'https://api.postman.com/workspaces/ws-1';
+const GLOBALS_URL = 'https://api.postman.com/workspaces/ws-1/global-variables';
 const COLLECTION_URL = 'https://api.postman.com/collections/owner-c1';
 const ENVIRONMENT_URL = 'https://api.postman.com/environments/owner-e1';
 
@@ -72,6 +76,7 @@ function happyRoutes(): Route[] {
   return [
     { url: LIST_URL, respond: () => response(workspaceList) },
     { url: DETAIL_URL, respond: () => response(workspaceDetail) },
+    { url: GLOBALS_URL, respond: () => response(globalsBody) },
     { url: COLLECTION_URL, respond: () => response(collectionBody) },
     { url: ENVIRONMENT_URL, respond: () => response(environmentBody) },
   ];
@@ -94,23 +99,32 @@ describe('pullPostmanData', () => {
     });
 
     expect(result.outcome).toBe('complete');
-    expect(result.callsMade).toBe(4);
+    expect(result.callsMade).toBe(5);
     expect(result.workspaces).toEqual([{ id: 'ws-1', name: 'Team', type: 'team' }]);
     expect(result.collections).toHaveLength(1);
     expect(result.collections[0]).toMatchObject({ item: 'collection', id: 'owner-c1', name: 'Orders API' });
     expect(JSON.parse(result.collections[0]?.json ?? '{}')).toEqual(collectionBody.collection);
     expect(result.environments).toHaveLength(1);
     expect(result.environments[0]).toMatchObject({ item: 'environment', id: 'owner-e1', name: 'Staging' });
+    expect(result.globals).toEqual([
+      {
+        workspaceId: 'ws-1',
+        variables: [{ name: 'api_host', value: 'api.openheaders.io', type: 'default' }],
+      },
+    ]);
     expect(result.skipped).toEqual([]);
-    // One enumeration-bucket pause before the detail call, one item pause per item.
-    expect(sleeps).toEqual([1000, 200, 200]);
-    expect(calls.map((call) => call.url)).toEqual([LIST_URL, DETAIL_URL, COLLECTION_URL, ENVIRONMENT_URL]);
+    // Enumeration-bucket pauses before the detail and globals calls, one item pause per item.
+    expect(sleeps).toEqual([1000, 1000, 200, 200]);
+    expect(calls.map((call) => call.url)).toEqual([LIST_URL, DETAIL_URL, GLOBALS_URL, COLLECTION_URL, ENVIRONMENT_URL]);
     expect(events.find((event) => event.kind === 'planned')).toEqual({
       kind: 'planned',
       workspaces: 1,
       collections: 1,
       environments: 1,
-      totalCalls: 4,
+      totalCalls: 5,
+    });
+    expect(events.filter((event) => event.kind === 'enumerating').at(-1)).toMatchObject({
+      step: 'workspace-globals',
     });
     const progress = events.filter((event) => event.kind === 'item-progress');
     expect(progress).toHaveLength(2);
@@ -153,6 +167,7 @@ describe('pullPostmanData', () => {
     expect(calls.map((call) => call.url)).toEqual([
       `${stubOrigin}/workspaces`,
       `${stubOrigin}/workspaces/ws-1`,
+      `${stubOrigin}/workspaces/ws-1/global-variables`,
       `${stubOrigin}/collections/owner-c1`,
       `${stubOrigin}/environments/owner-e1`,
     ]);
@@ -161,7 +176,7 @@ describe('pullPostmanData', () => {
 
   it('honors RetryAfter on a transient 429 and resumes the same call', async () => {
     const routes = happyRoutes();
-    routes.splice(2, 0, {
+    routes.splice(3, 0, {
       url: COLLECTION_URL,
       respond: () =>
         response(
@@ -187,13 +202,14 @@ describe('pullPostmanData', () => {
     expect(result.collections).toHaveLength(1);
     expect(events).toContainEqual({ kind: 'rate-limit-pause', retryAfterSeconds: 3 });
     expect(sleeps).toContain(3000);
-    expect(result.callsMade).toBe(5);
+    expect(result.callsMade).toBe(6);
   });
 
   it('stops the run on a monthly service-limit 429 with a labeled partial result', async () => {
     const routes: Route[] = [
       { url: LIST_URL, respond: () => response(workspaceList) },
       { url: DETAIL_URL, respond: () => response(workspaceDetail) },
+      { url: GLOBALS_URL, respond: () => response(globalsBody) },
       {
         url: COLLECTION_URL,
         respond: () =>
@@ -213,7 +229,7 @@ describe('pullPostmanData', () => {
     expect(result.skipped).toHaveLength(2);
     expect(result.skipped.every((skip) => skip.reason.includes('stopped early'))).toBe(true);
     // No environment call ever went out.
-    expect(calls.map((call) => call.url)).toEqual([LIST_URL, DETAIL_URL, COLLECTION_URL]);
+    expect(calls.map((call) => call.url)).toEqual([LIST_URL, DETAIL_URL, GLOBALS_URL, COLLECTION_URL]);
     expect(result.budget).toEqual({ remainingMonth: 0 });
   });
 
@@ -229,7 +245,7 @@ describe('pullPostmanData', () => {
 
   it('skips an item on an http error and finishes the rest of the run', async () => {
     const routes = happyRoutes();
-    routes[2] = {
+    routes[3] = {
       url: COLLECTION_URL,
       respond: () => response({ error: { name: 'instanceNotFoundError', message: 'Not found' } }, { status: 404 }),
     };
@@ -276,14 +292,55 @@ describe('pullPostmanData', () => {
     expect(result.budget).toEqual({ limitMonth: 10000, remainingMonth: 9998 });
   });
 
-  it('records a workspace skip when its detail cannot be interpreted', async () => {
+  it('records a workspace skip when its detail cannot be interpreted, still pulling its globals', async () => {
     const routes = happyRoutes();
     routes[1] = { url: DETAIL_URL, respond: () => response({ nope: true }) };
-    const { fetchFn } = fetchStub(routes.slice(0, 2));
+    const { fetchFn } = fetchStub(routes.slice(0, 3));
     const result = await pullPostmanData({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
     expect(result.outcome).toBe('complete');
     expect(result.skipped).toHaveLength(1);
     expect(result.skipped[0]).toMatchObject({ item: 'workspace', id: 'ws-1', workspaceIds: ['ws-1'] });
+    // The globals call is independent of the detail read.
+    expect(result.globals).toHaveLength(1);
+    expect(result.globals[0]?.variables).toHaveLength(1);
+  });
+
+  it('skips a workspace\'s globals on a failed read and finishes the run', async () => {
+    const routes = happyRoutes();
+    routes[2] = {
+      url: GLOBALS_URL,
+      respond: () => response({ error: { name: 'instanceNotFoundError', message: 'Not found' } }, { status: 404 }),
+    };
+    const { fetchFn } = fetchStub(routes);
+    const result = await pullPostmanData({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
+
+    expect(result.outcome).toBe('complete');
+    expect(result.globals).toEqual([]);
+    expect(result.collections).toHaveLength(1);
+    expect(result.environments).toHaveLength(1);
+    const globalsSkip = result.skipped.find((skip) => skip.reason.includes('globals'));
+    expect(globalsSkip).toMatchObject({ item: 'workspace', id: 'ws-1', workspaceIds: ['ws-1'] });
+    expect(globalsSkip?.reason).toContain('404');
+  });
+
+  it('reports keyless globals rows as a per-workspace skip and keeps the usable rows', async () => {
+    const routes = happyRoutes();
+    routes[2] = {
+      url: GLOBALS_URL,
+      respond: () =>
+        response({
+          values: [{ key: 'api_host', value: 'api.openheaders.io' }, { value: 'orphan' }],
+        }),
+    };
+    const { fetchFn } = fetchStub(routes);
+    const result = await pullPostmanData({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
+
+    expect(result.outcome).toBe('complete');
+    expect(result.globals).toEqual([
+      { workspaceId: 'ws-1', variables: [{ name: 'api_host', value: 'api.openheaders.io', type: 'default' }] },
+    ]);
+    const rowSkip = result.skipped.find((skip) => skip.reason.includes('no usable name'));
+    expect(rowSkip).toMatchObject({ item: 'workspace', id: 'ws-1', workspaceIds: ['ws-1'] });
   });
 
   it('reports listed API specs as a per-workspace "not imported yet" skip', async () => {
@@ -313,6 +370,7 @@ describe('pullPostmanData', () => {
     const result = await pullPostmanData({ apiKey: API_KEY, fetchFn, sleep: () => Promise.resolve() });
     expect(result.collections[0]?.workspaceIds).toEqual(['ws-1']);
     expect(result.environments[0]?.workspaceIds).toEqual(['ws-1']);
+    expect(result.globals[0]?.workspaceId).toBe('ws-1');
   });
 
   it('narrows the pull to the selected workspaces', async () => {
@@ -320,6 +378,7 @@ describe('pullPostmanData', () => {
     const routes: Route[] = [
       { url: LIST_URL, respond: () => response(twoWorkspaces) },
       { url: DETAIL_URL, respond: () => response(workspaceDetail) },
+      { url: GLOBALS_URL, respond: () => response(globalsBody) },
       { url: COLLECTION_URL, respond: () => response(collectionBody) },
       { url: ENVIRONMENT_URL, respond: () => response(environmentBody) },
     ];
@@ -333,8 +392,8 @@ describe('pullPostmanData', () => {
 
     expect(result.outcome).toBe('complete');
     expect(result.workspaces).toEqual([{ id: 'ws-1', name: 'Team', type: 'team' }]);
-    // ws-2 was never enumerated — no detail call went out for it.
-    expect(calls.map((call) => call.url)).toEqual([LIST_URL, DETAIL_URL, COLLECTION_URL, ENVIRONMENT_URL]);
+    // ws-2 was never enumerated — no detail or globals call went out for it.
+    expect(calls.map((call) => call.url)).toEqual([LIST_URL, DETAIL_URL, GLOBALS_URL, COLLECTION_URL, ENVIRONMENT_URL]);
   });
 });
 

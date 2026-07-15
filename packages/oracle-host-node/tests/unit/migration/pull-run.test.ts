@@ -27,6 +27,7 @@ const SUMMARY: PostmanImportSummary = {
       environments: 1,
       requests: 3,
       examples: 0,
+      globals: 0,
       drops: 0,
     },
   ],
@@ -34,6 +35,7 @@ const SUMMARY: PostmanImportSummary = {
   environments: 1,
   requests: 3,
   examples: 0,
+  globals: 0,
   drops: 0,
 };
 
@@ -43,6 +45,7 @@ function pullResult(overrides: Partial<PostmanPullResult> = {}): PostmanPullResu
     workspaces: [{ id: 'ws-1', name: 'Team' }],
     collections: [{ item: 'collection', id: 'c-1', name: 'APIs', json: '{}', workspaceIds: ['ws-1'] }],
     environments: [{ item: 'environment', id: 'e-1', name: 'Staging', json: '{}', workspaceIds: ['ws-1'] }],
+    globals: [],
     skipped: [],
     budget: {},
     callsMade: 4,
@@ -177,6 +180,30 @@ describe('createMigrationPullRunner', () => {
     runner.start(API_KEY);
     await runner.settled();
     expect(materialized).toBe(0);
+  });
+
+  it('materializes a globals-only pull — workspace variables are payload too', async () => {
+    let materialized = 0;
+    const { runner } = makeHarness({
+      events: [{ kind: 'finished', outcome: 'complete', collections: 0, environments: 0, skipped: 0 }],
+      result: pullResult({
+        collections: [],
+        environments: [],
+        globals: [
+          {
+            workspaceId: 'ws-1',
+            variables: [{ name: 'api_host', value: 'api.openheaders.io', type: 'default' }],
+          },
+        ],
+      }),
+      materialize: async () => {
+        materialized++;
+        return SUMMARY;
+      },
+    });
+    runner.start(API_KEY);
+    await runner.settled();
+    expect(materialized).toBe(1);
   });
 
   it('materializes a labeled partial so what arrived is not discarded', async () => {
