@@ -64,6 +64,7 @@ import {
   isPdfResponse,
   mediaPreviewKind,
   prettyBody,
+  prettyNdjsonBody,
 } from './response-format';
 import { useFormattedBody } from './use-formatted-body';
 
@@ -156,10 +157,16 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // PDFs exist; the document is still not a text body).
   const binaryView = isBinary || isPdf;
   const language = langOverride ?? detectBodyLanguage(response.headers);
-  // JSON re-indents synchronously; markup/code languages swap in the
+  const isNdjson = isNdjsonResponse(response.headers);
+  // JSON re-indents synchronously (newline-delimited JSON line-wise,
+  // each record its own block); markup/code languages swap in the
   // Prettier result when it resolves (wire text paints first).
   const pretty = useFormattedBody(
-    useMemo(() => prettyBody(response.body, language), [response.body, language]),
+    useMemo(
+      () =>
+        isNdjson && language === 'json' ? prettyNdjsonBody(response.body) : prettyBody(response.body, language),
+      [response.body, language, isNdjson],
+    ),
     language,
   );
 
@@ -169,7 +176,6 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // otherwise "parse" as a JSON number. Newline-delimited JSON can
   // never whole-body-parse, so it parses line-wise into an array —
   // the tree preview and JSONPath filter see the record list.
-  const isNdjson = isNdjsonResponse(response.headers);
   const parsedJson = useMemo<unknown>(() => {
     if (isBinary || language !== 'json') return undefined;
     try {

@@ -82,6 +82,26 @@ export function prettyBody(body: string, language: LanguageId): string {
   return body;
 }
 
+/**
+ * Line-wise Pretty for newline-delimited JSON: a whole-body parse can
+ * never succeed, so each line re-indents as its own record — blocks
+ * back to back, jq-style. Lines that don't parse stay verbatim; empty
+ * lines drop (they separate nothing in ndjson).
+ */
+export function prettyNdjsonBody(body: string): string {
+  return body
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => {
+      try {
+        return JSON.stringify(JSON.parse(line), null, 2);
+      } catch {
+        return line;
+      }
+    })
+    .join('\n');
+}
+
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;

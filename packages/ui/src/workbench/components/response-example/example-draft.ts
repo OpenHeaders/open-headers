@@ -23,7 +23,12 @@ import { stableStringify } from '@openheaders/ui/shared/forms';
 import { statusCodePhrase } from '@openheaders/ui/shared/info-popover/data/http-status';
 import { type Draft, draftFromRequest, rowsToHeaders, rowsToParams } from '../request-editor/draft';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
-import { detectBodyLanguage, prettyBody } from '../request-editor/response/response-format';
+import {
+  detectBodyLanguage,
+  isNdjsonResponse,
+  prettyBody,
+  prettyNdjsonBody,
+} from '../request-editor/response/response-format';
 
 export interface ExampleResponseDraft {
   status: number;
@@ -111,18 +116,24 @@ export function capturedResponseFromDraft(
 /**
  * Capture side of "Save Response" — the persisted response block from
  * an executed snapshot. Text bodies store display-ready (JSON pretty-
- * printed — sync + lossless modulo whitespace; `bodyBytes` keeps the
- * true wire size); a binary body (`bodyEncoding: 'base64'`) stores its
- * base64 text verbatim and carries the marker, byte-for-byte lossless.
+ * printed, newline-delimited JSON record-wise — sync + lossless modulo
+ * whitespace; `bodyBytes` keeps the true wire size); a binary body
+ * (`bodyEncoding: 'base64'`) stores its base64 text verbatim and
+ * carries the marker, byte-for-byte lossless.
  */
 export function capturedResponseFromSnapshot(response: ExecutedRequestSnapshot): CapturedResponse {
   const binary = response.bodyEncoding === 'base64';
+  const body = binary
+    ? response.body
+    : isNdjsonResponse(response.headers)
+      ? prettyNdjsonBody(response.body)
+      : prettyBody(response.body, detectBodyLanguage(response.headers));
   return {
     status: response.status,
     statusText: response.statusText,
     url: response.url,
     headers: response.headers,
-    body: binary ? response.body : prettyBody(response.body, detectBodyLanguage(response.headers)),
+    body,
     ...(binary ? { bodyEncoding: 'base64' as const } : {}),
     bodyTruncated: response.bodyTruncated,
     ...(response.bodyCapBytes === undefined ? {} : { bodyCapBytes: response.bodyCapBytes }),

@@ -10,6 +10,7 @@ import {
   detectBodyLanguage,
   isNdjsonResponse,
   mediaPreviewKind,
+  prettyNdjsonBody,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-format';
 import { describe, expect, it } from 'vitest';
 
@@ -58,6 +59,24 @@ describe('isNdjsonResponse', () => {
     expect(isNdjsonResponse(ct('application/jsonl'))).toBe(true);
     expect(isNdjsonResponse(ct('application/json-seq'))).toBe(true);
     expect(isNdjsonResponse(ct('application/json'))).toBe(false);
+  });
+});
+
+describe('prettyNdjsonBody', () => {
+  it('re-indents each record independently, blocks back to back', () => {
+    expect(prettyNdjsonBody('{"a":1}\n{"b":[2,3]}')).toBe('{\n  "a": 1\n}\n{\n  "b": [\n    2,\n    3\n  ]\n}');
+  });
+
+  it('drops empty lines and tolerates a trailing newline', () => {
+    expect(prettyNdjsonBody('{"a":1}\n\n{"b":2}\n')).toBe('{\n  "a": 1\n}\n{\n  "b": 2\n}');
+  });
+
+  it('keeps unparseable lines verbatim between valid records', () => {
+    expect(prettyNdjsonBody('{"a":1}\nnot json\n{"b":2}')).toBe('{\n  "a": 1\n}\nnot json\n{\n  "b": 2\n}');
+  });
+
+  it('leaves scalar records on their own lines', () => {
+    expect(prettyNdjsonBody('1\n"two"\ntrue')).toBe('1\n"two"\ntrue');
   });
 });
 

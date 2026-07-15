@@ -217,6 +217,17 @@ describe('capturedResponseFromSnapshot', () => {
     expect(captured).not.toHaveProperty('bodyCapBytes');
   });
 
+  it('pretty-prints an ndjson body record-wise', () => {
+    const captured = capturedResponseFromSnapshot({
+      ...snapshot,
+      headers: [{ key: 'content-type', value: 'application/x-ndjson' }],
+      body: '{"a":1}\n{"b":2}\n',
+      bodyBytes: 16,
+    });
+    expect(captured.body).toBe('{\n  "a": 1\n}\n{\n  "b": 2\n}');
+    expect(captured.bodyBytes).toBe(16);
+  });
+
   it('stores a binary body verbatim with its marker', () => {
     const captured = capturedResponseFromSnapshot({
       ...snapshot,
