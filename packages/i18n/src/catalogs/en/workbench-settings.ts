@@ -522,6 +522,9 @@ export const workbenchSettings = {
     'The browser reserves this shortcut — it may act on it before it reaches the app.',
   'workbench.settings.keymapPane.reservedSystem':
     'The operating system reserves this shortcut — it may act on it before it reaches the app.',
+  'workbench.settings.keymapPane.lookupTip': 'Find actions by pressing their shortcut',
+  'workbench.settings.keymapPane.lookupAria': 'Find action by shortcut',
+  'workbench.settings.keymapPane.lookupEmpty': 'No action is bound to {chord}.',
   'workbench.settings.keymapPane.conflictPrompt': '{chord} is already assigned to: {labels}',
   'workbench.settings.keymapPane.conflictReassign': 'Reassign',
   'workbench.settings.keymapPane.conflictKeepBoth': 'Keep both',
