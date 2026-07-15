@@ -13,6 +13,7 @@
 
 import type { Request, Rule, Template } from '@openheaders/core/types';
 import type { ResolutionError } from '@openheaders/core/variables';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEnvVarVault } from '@openheaders/ui/shared/hooks/readers/useEnvVarVault';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
@@ -24,8 +25,8 @@ import { useMemo } from 'react';
 import { useEnvSwitcher } from '../../../services/env-switcher';
 import type { WorkbenchTab } from '../../../types';
 import { buildScopeEditorDispatch } from '../scope-editor-dispatch';
-import type { ScopeHeaderAction } from './ScopeSection';
 import { buildLiveRegistry } from './live-registry';
+import type { ScopeHeaderAction } from './ScopeSection';
 import { resolveScopeContext } from './scope-context';
 import { getScopeKind } from './scope-kind';
 import { buildScopeResolver } from './scope-resolver';
@@ -83,6 +84,7 @@ export function useVariablesPanel(
     onOpenTemplateCollectionVariables,
     onCreateEnvironment,
   } = handlers;
+  const t = useT();
   const { requestEnvSelectorOpen } = useEnvSwitcher();
 
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
@@ -199,14 +201,28 @@ export function useVariablesPanel(
   const environmentAction = useMemo<ScopeHeaderAction | null>(() => {
     if (activeEnvironmentId) {
       const run = openScopeEditor('environment');
-      return run ? { label: 'Edit', tooltip: 'Open the environment variables editor', run } : null;
+      return run
+        ? {
+            label: t('workbench.variables.panel.action.edit'),
+            tooltip: t('workbench.variables.panel.env.editTooltip'),
+            run,
+          }
+        : null;
     }
     if (environments.length === 0) {
       if (!onCreateEnvironment) return null;
-      return { label: 'Create', tooltip: 'Create your first environment', run: onCreateEnvironment };
+      return {
+        label: t('workbench.variables.panel.action.create'),
+        tooltip: t('workbench.variables.panel.env.createTooltip'),
+        run: onCreateEnvironment,
+      };
     }
-    return { label: 'Select', tooltip: 'Choose the active environment', run: requestEnvSelectorOpen };
-  }, [activeEnvironmentId, environments.length, onCreateEnvironment, openScopeEditor, requestEnvSelectorOpen]);
+    return {
+      label: t('workbench.variables.panel.action.select'),
+      tooltip: t('workbench.variables.panel.env.selectTooltip'),
+      run: requestEnvSelectorOpen,
+    };
+  }, [activeEnvironmentId, environments.length, onCreateEnvironment, openScopeEditor, requestEnvSelectorOpen, t]);
 
   const { inContextVars, inContextErrors } = useMemo(
     () => buildInContextVariables({ contextEntity, activeCollectionId, resolver, liveVariables }),

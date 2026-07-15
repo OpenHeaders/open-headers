@@ -9,6 +9,7 @@
  */
 
 import { CaretRightOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tooltip, Typography, theme } from 'antd';
 import { useMemo, useState } from 'react';
 import { scopeBadge } from '../../shared/scope-colors';
@@ -40,13 +41,14 @@ interface ScopeSectionProps {
 
 export function ScopeSection({ scope, variables, subtitle, action, isLast }: ScopeSectionProps) {
   const { token } = theme.useToken();
+  const t = useT();
   const config = SCOPE_CONFIG[scope];
   const hasVariables = variables.length > 0;
   // Each scope collapses independently so users can hide the scopes
   // they aren't fiddling with. Default open — the panel reads top-down.
   const [expanded, setExpanded] = useState(true);
   const toggle = () => setExpanded((e) => !e);
-  const scopeInfo = useMemo(() => buildScopeInfo(scope), [scope]);
+  const scopeInfo = useMemo(() => buildScopeInfo(t, scope), [t, scope]);
   // A populated, expanded table draws its own bottom border, so the
   // section divider would stack a second line right under it. The last
   // section never needs one — nothing follows it. Keep the divider in
@@ -92,13 +94,13 @@ export function ScopeSection({ scope, variables, subtitle, action, isLast }: Sco
         />
         {scopeBadge(scope, 16)}
         <Text strong style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-          {config.label}
+          {t(config.labelKey)}
         </Text>
         <SectionInfo
           content={scopeInfo}
           docId={`variables-${scope}`}
           className="vp-scope-reveal"
-          ariaLabel={`About ${config.label} variables`}
+          ariaLabel={t('workbench.variables.panel.scopeAboutAria', { scope: t(config.labelKey) })}
         />
         {subtitle && (
           <Text
@@ -146,7 +148,11 @@ export function ScopeSection({ scope, variables, subtitle, action, isLast }: Sco
           <VariableTable variables={variables} />
         ) : (
           <Text type="secondary" style={{ fontSize: 10 }}>
-            No {scope === 'vault' ? 'secrets' : 'variables'} defined.
+            {t(
+              scope === 'vault'
+                ? 'workbench.variables.panel.emptyScopeSecrets'
+                : 'workbench.variables.panel.emptyScopeVariables',
+            )}
           </Text>
         ))}
     </div>

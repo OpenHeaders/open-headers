@@ -11,6 +11,7 @@
  */
 
 import { CheckOutlined, CopyOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tooltip, Typography, theme } from 'antd';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { scopeBadge, unknownScopeBadge } from '../../shared/scope-colors';
@@ -59,6 +60,7 @@ interface VariableTableRowProps {
 
 function VariableTableRow({ variable, showScopeGlyph, emptyMode, isLast }: VariableTableRowProps) {
   const { token } = theme.useToken();
+  const t = useT();
   const [revealed, setRevealed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const border = `1px solid ${token.colorBorderSecondary}`;
@@ -108,11 +110,13 @@ function VariableTableRow({ variable, showScopeGlyph, emptyMode, isLast }: Varia
             density="compact"
           />
         ) : unresolved ? (
-          <Text style={{ ...textStyle, color: token.colorError }}>unresolved</Text>
+          <Text style={{ ...textStyle, color: token.colorError }}>
+            {t('workbench.variables.panel.valueUnresolved')}
+          </Text>
         ) : (
           <>
             <Text type="secondary" style={textStyle} title={showValue ? variable.value || undefined : undefined}>
-              {showValue ? variable.value || '(empty)' : '••••••••'}
+              {showValue ? variable.value || t('workbench.variables.panel.valueEmpty') : '••••••••'}
             </Text>
             {variable.value !== '' && (
               // Copies the real value even while masked — a secret can be
@@ -123,7 +127,9 @@ function VariableTableRow({ variable, showScopeGlyph, emptyMode, isLast }: Varia
               // Eye reveals on hover — peripheral read surface, so the
               // affordance stays out of the way until the row is hovered
               // (or the control is focused for keyboard users).
-              <Tooltip title={revealed ? 'Hide value' : 'Show value'}>
+              <Tooltip
+                title={t(revealed ? 'workbench.variables.panel.hideValue' : 'workbench.variables.panel.showValue')}
+              >
                 <span
                   role="button"
                   tabIndex={0}
@@ -166,6 +172,7 @@ function CopyButton({
   onHoverChange: (v: boolean) => void;
 }) {
   const { token } = theme.useToken();
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -187,7 +194,7 @@ function CopyButton({
       .catch(() => {});
   };
   return (
-    <Tooltip title={copied ? 'Copied' : 'Copy value'}>
+    <Tooltip title={t(copied ? 'workbench.variables.panel.copied' : 'workbench.variables.panel.copyValue')}>
       <span
         role="button"
         tabIndex={0}

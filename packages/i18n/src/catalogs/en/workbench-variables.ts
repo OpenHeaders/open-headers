@@ -2,22 +2,27 @@
  * Workbench variables station (Phase C) — the five sibling variables
  * pages (Workspace / Environment / Collection / Vault / Live Variables)
  * plus their shared spreadsheet editor (`VariableTable` +
- * `VariableTableRow`) and the TOTP live preview (`workbench.totpPreview.*`
+ * `VariableTableRow`), the TOTP live preview (`workbench.totpPreview.*`
  * — a workbench-pane-shared component: mounted by the vault table rows
- * AND the variables panel).
+ * AND the variables panel), and the Variable Scope tool window
+ * (`workbench.variables.panel.*` — the workbench Scope panel's section
+ * chrome, scope-info popovers, read-only table, and resolution-error
+ * list).
  *
  * Namespaces: page copy under `workbench.variables.<page>.*`, the shared
  * table chrome under `workbench.variables.table.*`, the live-variables
- * list page under `workbench.variables.live.*`.
+ * list page under `workbench.variables.live.*`, the Scope tool window
+ * under `workbench.variables.panel.*`.
  *
  * Technical plane stays raw inside keyed sentences: `{{live.NAME}}`
  * reference syntax, TOTP algorithm names (SHA1/SHA256/SHA512), PEM /
  * Base32 / TOTP spec vocabulary (glossary duty), masking bullets,
  * variable/workflow names ({name}), server error text ({message}).
- * The conflict-adapter labels (prettyPath / rowLabel / summary) render
- * only through the deferred shared-conflicts family and convert with it.
+ * The conflict-adapter labels (prettyPath / rowLabel) key under
+ * `shared.conflicts.label.*` in the shared family (S26), not here.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchVariables = {
@@ -129,6 +134,75 @@ export const workbenchVariables = {
   'workbench.variables.live.delete': 'Delete',
   'workbench.variables.live.deleteAria': 'Delete {name}',
   'workbench.variables.live.deleteFailed': 'Failed to delete "{name}"',
+
+  // ── Variable Scope tool window (Scope panel) ────────────────────────
+  'workbench.variables.panel.scope.vault': 'Vault',
+  'workbench.variables.panel.scope.environment': 'Environment',
+  'workbench.variables.panel.scope.collection': 'Collection',
+  'workbench.variables.panel.scope.workspace': 'Workspace',
+  'workbench.variables.panel.scope.live': 'Live',
+  'workbench.variables.panel.inContextTitle': 'In scope',
+  'workbench.variables.panel.inContextTitleNamed': 'In scope: {name}',
+  'workbench.variables.panel.inContextSummary':
+    'The variables the active rule, request, or template references — each resolved through every scope so you see the exact value that will apply. Empty until you open one.',
+  'workbench.variables.panel.allScopesTitle': 'All scopes',
+  'workbench.variables.panel.allScopesSummary':
+    "Every variable defined across all scopes, grouped by resolution priority. Open a scope's (i) for how to reference it and where it ranks.",
+  'workbench.variables.panel.sectionAboutAria': 'About {title}',
+  'workbench.variables.panel.scopeAboutAria': 'About {scope} variables',
+  'workbench.variables.panel.scopeSummary.vault': 'Per-user secrets, stored in your vault and never synced.',
+  'workbench.variables.panel.scopeSummary.environment':
+    'Variables from the active environment, with default-environment fallback.',
+  'workbench.variables.panel.scopeSummary.collection': 'Variables scoped to the active collection.',
+  'workbench.variables.panel.scopeSummary.workspace': 'Variables shared across the whole workspace.',
+  'workbench.variables.panel.scopeSummary.live': 'A workflow-backed value, resolved from the latest run.',
+  'workbench.variables.panel.scopeInfo.title': '{label} {qualifier}',
+  'workbench.variables.panel.scopeInfo.qualifierSecret': 'secret',
+  'workbench.variables.panel.scopeInfo.qualifierVariable': 'variable',
+  'workbench.variables.panel.scopeInfo.writePrefix': 'Write',
+  'workbench.variables.panel.scopeInfo.liveOnlyMiddle': 'only — not as bare',
+  'workbench.variables.panel.scopeInfo.orJustMiddle': 'or just',
+  'workbench.variables.panel.scopeInfo.sentenceEnd': '.',
+  'workbench.variables.panel.scopeInfo.barePrefix': 'Bare',
+  'workbench.variables.panel.scopeInfo.bareSuffix': 'resolves by priority:',
+  'workbench.variables.panel.scopeInfo.liveOutside': 'Live sits outside this order.',
+  'workbench.variables.panel.env.subtitleActiveDefault': '{active} · default: {default}',
+  'workbench.variables.panel.env.subtitleNoneDefault': 'No environment · default: {default}',
+  'workbench.variables.panel.env.subtitleNone': 'No environment',
+  'workbench.variables.panel.env.editTooltip': 'Open the environment variables editor',
+  'workbench.variables.panel.env.createTooltip': 'Create your first environment',
+  'workbench.variables.panel.env.selectTooltip': 'Choose the active environment',
+  'workbench.variables.panel.collection.noneActive': 'No active collection',
+  'workbench.variables.panel.live.resolvedCount': '{resolved}/{total} resolved',
+  'workbench.variables.panel.live.noneDefined': 'no live variables defined',
+  'workbench.variables.panel.action.edit': 'Edit',
+  'workbench.variables.panel.action.editTooltip': 'Open the {scope} variables editor',
+  'workbench.variables.panel.action.create': 'Create',
+  'workbench.variables.panel.action.select': 'Select',
+  'workbench.variables.panel.emptyScopeSecrets': 'No secrets defined.',
+  'workbench.variables.panel.emptyScopeVariables': 'No variables defined.',
+  'workbench.variables.panel.openHint': 'Open a request or rule to see the variables it references.',
+  'workbench.variables.panel.noneReferenced': 'No variables referenced in this {noun}.',
+  'workbench.variables.panel.noun.rule': 'rule',
+  'workbench.variables.panel.noun.request': 'request',
+  'workbench.variables.panel.noun.template': 'template',
+  'workbench.variables.panel.allResolved': ({ count }, locale) =>
+    plural(locale, Number(count), { one: 'All {count} variable resolved', other: 'All {count} variables resolved' }),
+  'workbench.variables.panel.unresolvedCount': '{count} unresolved',
+  'workbench.variables.panel.valueUnresolved': 'unresolved',
+  'workbench.variables.panel.valueEmpty': '(empty)',
+  'workbench.variables.panel.showValue': 'Show value',
+  'workbench.variables.panel.hideValue': 'Hide value',
+  'workbench.variables.panel.copyValue': 'Copy value',
+  'workbench.variables.panel.copied': 'Copied',
+  'workbench.variables.panel.errors.title': 'Resolution issues ({count})',
+  'workbench.variables.panel.errors.referenceTooltip': 'The raw reference inside {{…}}',
+  'workbench.variables.panel.errors.reason.unresolved': 'unresolved',
+  'workbench.variables.panel.errors.reason.unsetInScope': 'not in scope',
+  'workbench.variables.panel.errors.reason.unknownNamespace': 'unknown namespace',
+  'workbench.variables.panel.errors.reason.stepOutOfContext': 'step ref out of scope',
+  'workbench.variables.panel.errors.reason.empty': 'empty',
+  'workbench.variables.panel.errors.reason.invalidResolvedValue': 'invalid value',
 
   // ── TOTP preview (workbench-pane-shared component) ─────────────────
   'workbench.totpPreview.copyCode': 'Copy code',

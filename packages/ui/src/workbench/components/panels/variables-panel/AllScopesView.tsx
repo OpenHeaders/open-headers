@@ -6,6 +6,7 @@
  * Create / Select when no env is active).
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type ScopeHeaderAction, ScopeSection } from './ScopeSection';
 import { SCOPE_CONFIG, type AllScopeVariables, type DisplayScope } from './types';
 
@@ -26,22 +27,34 @@ export function AllScopesView({
   openScopeEditor,
   environmentAction,
 }: AllScopesViewProps) {
+  const t = useT();
   // If a default env is configured and differs from the active one,
   // surface it in the environment-scope subtitle so users understand why
   // a value is resolving from a different env than the one they picked.
   const envSubtitle = (() => {
     if (activeEnvironmentName && defaultEnvironmentName && defaultEnvironmentName !== activeEnvironmentName) {
-      return `${activeEnvironmentName} · default: ${defaultEnvironmentName}`;
+      return t('workbench.variables.panel.env.subtitleActiveDefault', {
+        active: activeEnvironmentName,
+        default: defaultEnvironmentName,
+      });
     }
     if (activeEnvironmentName) return activeEnvironmentName;
-    if (defaultEnvironmentName) return `No environment · default: ${defaultEnvironmentName}`;
-    return 'No environment';
+    if (defaultEnvironmentName) {
+      return t('workbench.variables.panel.env.subtitleNoneDefault', { default: defaultEnvironmentName });
+    }
+    return t('workbench.variables.panel.env.subtitleNone');
   })();
 
   const editAction = (scope: DisplayScope): ScopeHeaderAction | null => {
     const run = openScopeEditor(scope);
     if (!run) return null;
-    return { label: 'Edit', tooltip: `Open the ${SCOPE_CONFIG[scope].label.toLowerCase()} variables editor`, run };
+    return {
+      label: t('workbench.variables.panel.action.edit'),
+      tooltip: t('workbench.variables.panel.action.editTooltip', {
+        scope: t(SCOPE_CONFIG[scope].labelKey).toLowerCase(),
+      }),
+      run,
+    };
   };
 
   return (
@@ -56,7 +69,7 @@ export function AllScopesView({
       <ScopeSection
         scope="collection"
         variables={allVars.collection}
-        subtitle={activeCollectionName ?? 'No active collection'}
+        subtitle={activeCollectionName ?? t('workbench.variables.panel.collection.noneActive')}
         action={editAction('collection')}
       />
       <ScopeSection scope="workspace" variables={allVars.workspace} action={editAction('workspace')} />
@@ -65,8 +78,11 @@ export function AllScopesView({
         variables={allVars.live}
         subtitle={
           allVars.live.length > 0
-            ? `${allVars.live.filter((v) => v.resolved).length}/${allVars.live.length} resolved`
-            : 'no live variables defined'
+            ? t('workbench.variables.panel.live.resolvedCount', {
+                resolved: allVars.live.filter((v) => v.resolved).length,
+                total: allVars.live.length,
+              })
+            : t('workbench.variables.panel.live.noneDefined')
         }
         action={editAction('live')}
         isLast

@@ -8,6 +8,7 @@
  * itself.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { Typography, theme } from 'antd';
 import { type ReactNode, useState } from 'react';
@@ -29,6 +30,7 @@ interface PanelSectionProps {
 
 export function PanelSection({ title, info, docId, defaultExpanded = true, isLast, children }: PanelSectionProps) {
   const { token } = theme.useToken();
+  const t = useT();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const toggle = () => setExpanded((e) => !e);
   return (
@@ -92,7 +94,12 @@ export function PanelSection({ title, info, docId, defaultExpanded = true, isLas
           {title}
         </Text>
         {info && (
-          <SectionInfo content={info} docId={docId} className="vp-scope-reveal" ariaLabel={`About ${info.title}`} />
+          <SectionInfo
+            content={info}
+            docId={docId}
+            className="vp-scope-reveal"
+            ariaLabel={t('workbench.variables.panel.sectionAboutAria', { title: info.title })}
+          />
         )}
       </div>
       {/* 18px matches the sidebar tree rows (4px margin + 14px padding) so

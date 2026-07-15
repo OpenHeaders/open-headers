@@ -6,21 +6,23 @@
  */
 
 import type { TotpAlgorithm } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 
-// Per-scope metadata for the "All scopes" view. `label` is the section
-// title; `namespace` is the reference prefix ({{namespace.name}}). The
-// four real scopes form a fallback ladder for a bare {{name}} (highest →
-// lowest precedence in the resolver): whichever ranks higher wins when
-// the same name is defined in more than one. Live is namespace-only —
-// reached solely via {{live.*}}, never part of bare-name fallback. Both
-// facts surface in each scope's (i) popover (`buildScopeInfo`).
+// Per-scope metadata for the "All scopes" view. `labelKey` resolves to
+// the section title; `namespace` is the reference prefix
+// ({{namespace.name}}). The four real scopes form a fallback ladder for
+// a bare {{name}} (highest → lowest precedence in the resolver):
+// whichever ranks higher wins when the same name is defined in more than
+// one. Live is namespace-only — reached solely via {{live.*}}, never
+// part of bare-name fallback. Both facts surface in each scope's (i)
+// popover (`buildScopeInfo`).
 export const SCOPE_CONFIG = {
-  vault: { label: 'Vault', namespace: 'vault' },
-  environment: { label: 'Environment', namespace: 'env' },
-  collection: { label: 'Collection', namespace: 'collection' },
-  workspace: { label: 'Workspace', namespace: 'workspace' },
-  live: { label: 'Live', namespace: 'live' },
-} as const;
+  vault: { labelKey: 'workbench.variables.panel.scope.vault', namespace: 'vault' },
+  environment: { labelKey: 'workbench.variables.panel.scope.environment', namespace: 'env' },
+  collection: { labelKey: 'workbench.variables.panel.scope.collection', namespace: 'collection' },
+  workspace: { labelKey: 'workbench.variables.panel.scope.workspace', namespace: 'workspace' },
+  live: { labelKey: 'workbench.variables.panel.scope.live', namespace: 'live' },
+} as const satisfies Record<string, { labelKey: MessageKey; namespace: string }>;
 
 export type DisplayScope = keyof typeof SCOPE_CONFIG;
 

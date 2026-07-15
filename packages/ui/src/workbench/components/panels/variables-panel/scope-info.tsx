@@ -10,6 +10,8 @@
  * through every reference so the syntax is easy to follow.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { theme } from 'antd';
 import { SCOPE_CONFIG, type DisplayScope } from './types';
@@ -22,33 +24,39 @@ const BARE_PRECEDENCE: readonly DisplayScope[] = ['vault', 'environment', 'colle
 
 /** `(i)` content for the panel's two top-level sections, so each one is
  *  self-explanatory next to its caret. */
-export const IN_CONTEXT_INFO: InfoPopoverContent = {
-  title: 'In scope',
-  summary:
-    'The variables the active rule, request, or template references — each resolved through every scope so you see the exact value that will apply. Empty until you open one.',
-};
+export function getInContextInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('workbench.variables.panel.inContextTitle'),
+    summary: t('workbench.variables.panel.inContextSummary'),
+  };
+}
 
-export const ALL_SCOPES_INFO: InfoPopoverContent = {
-  title: 'All scopes',
-  summary:
-    "Every variable defined across all scopes, grouped by resolution priority. Open a scope's (i) for how to reference it and where it ranks.",
-};
+export function getAllScopesInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('workbench.variables.panel.allScopesTitle'),
+    summary: t('workbench.variables.panel.allScopesSummary'),
+  };
+}
 
 /** One-line orientation per scope — the InfoPopover summary line. */
-const SCOPE_SUMMARY: Record<DisplayScope, string> = {
-  vault: 'Per-user secrets, stored in your vault and never synced.',
-  environment: 'Variables from the active environment, with default-environment fallback.',
-  collection: 'Variables scoped to the active collection.',
-  workspace: 'Variables shared across the whole workspace.',
-  live: 'A workflow-backed value, resolved from the latest run.',
+const SCOPE_SUMMARY: Record<DisplayScope, MessageKey> = {
+  vault: 'workbench.variables.panel.scopeSummary.vault',
+  environment: 'workbench.variables.panel.scopeSummary.environment',
+  collection: 'workbench.variables.panel.scopeSummary.collection',
+  workspace: 'workbench.variables.panel.scopeSummary.workspace',
+  live: 'workbench.variables.panel.scopeSummary.live',
 };
 
-export function buildScopeInfo(scope: DisplayScope): InfoPopoverContent {
-  const { label } = SCOPE_CONFIG[scope];
-  const qualifier = scope === 'vault' ? 'secret' : 'variable';
+export function buildScopeInfo(t: Translate, scope: DisplayScope): InfoPopoverContent {
+  const label = t(SCOPE_CONFIG[scope].labelKey);
+  const qualifier = t(
+    scope === 'vault'
+      ? 'workbench.variables.panel.scopeInfo.qualifierSecret'
+      : 'workbench.variables.panel.scopeInfo.qualifierVariable',
+  );
   return {
-    title: `${label} ${qualifier}`,
-    summary: SCOPE_SUMMARY[scope],
+    title: t('workbench.variables.panel.scopeInfo.title', { label, qualifier }),
+    summary: t(SCOPE_SUMMARY[scope]),
     description: <ScopeInfoBody scope={scope} />,
   };
 }
@@ -74,28 +82,32 @@ function Code({ children }: { children: string }) {
 
 function ScopeInfoBody({ scope }: { scope: DisplayScope }) {
   const { token } = theme.useToken();
+  const t = useT();
   const ns = SCOPE_CONFIG[scope].namespace;
   const isLive = scope === 'live';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div>
-        Write <Code>{`{{${ns}.${EXAMPLE}}}`}</Code>
+        {t('workbench.variables.panel.scopeInfo.writePrefix')} <Code>{`{{${ns}.${EXAMPLE}}}`}</Code>
         {isLive ? (
           <>
             {' '}
-            only — not as bare <Code>{`{{${EXAMPLE}}}`}</Code>.
+            {t('workbench.variables.panel.scopeInfo.liveOnlyMiddle')} <Code>{`{{${EXAMPLE}}}`}</Code>
+            {t('workbench.variables.panel.scopeInfo.sentenceEnd')}
           </>
         ) : (
           <>
             {' '}
-            or just <Code>{`{{${EXAMPLE}}}`}</Code>.
+            {t('workbench.variables.panel.scopeInfo.orJustMiddle')} <Code>{`{{${EXAMPLE}}}`}</Code>
+            {t('workbench.variables.panel.scopeInfo.sentenceEnd')}
           </>
         )}
       </div>
       <div style={{ height: 1, background: token.colorBorderSecondary }} />
       <div>
         <div style={{ color: token.colorTextSecondary, marginBottom: 4 }}>
-          Bare <Code>{`{{${EXAMPLE}}}`}</Code> resolves by priority:
+          {t('workbench.variables.panel.scopeInfo.barePrefix')} <Code>{`{{${EXAMPLE}}}`}</Code>{' '}
+          {t('workbench.variables.panel.scopeInfo.bareSuffix')}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
           {BARE_PRECEDENCE.map((s, i) => {
@@ -109,13 +121,17 @@ function ScopeInfoBody({ scope }: { scope: DisplayScope }) {
                     color: current ? `var(--scope-${s}-color)` : token.colorTextSecondary,
                   }}
                 >
-                  {SCOPE_CONFIG[s].label}
+                  {t(SCOPE_CONFIG[s].labelKey)}
                 </span>
               </span>
             );
           })}
         </div>
-        {isLive && <div style={{ color: token.colorTextSecondary, marginTop: 4 }}>Live sits outside this order.</div>}
+        {isLive && (
+          <div style={{ color: token.colorTextSecondary, marginTop: 4 }}>
+            {t('workbench.variables.panel.scopeInfo.liveOutside')}
+          </div>
+        )}
       </div>
     </div>
   );

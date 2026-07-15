@@ -7,6 +7,7 @@
  */
 
 import type { ResolutionError } from '@openheaders/core/variables';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Typography, theme } from 'antd';
 import { ResolutionErrorList } from './ResolutionErrorList';
 import type { DisplayVariable, ScopeKind } from './types';
@@ -23,18 +24,25 @@ interface InContextViewProps {
 
 export function InContextView({ vars, errors, scopeKind, hasContext }: InContextViewProps) {
   const { token } = theme.useToken();
-  const noun = scopeKind === 'request' ? 'request' : scopeKind === 'template' ? 'template' : 'rule';
+  const t = useT();
+  const noun = t(
+    scopeKind === 'request'
+      ? 'workbench.variables.panel.noun.request'
+      : scopeKind === 'template'
+        ? 'workbench.variables.panel.noun.template'
+        : 'workbench.variables.panel.noun.rule',
+  );
   if (!hasContext) {
     return (
       <Text type="secondary" style={{ fontSize: 11 }}>
-        Open a request or rule to see the variables it references.
+        {t('workbench.variables.panel.openHint')}
       </Text>
     );
   }
   if (vars.length === 0) {
     return (
       <Text type="secondary" style={{ fontSize: 11 }}>
-        No variables referenced in this {noun}.
+        {t('workbench.variables.panel.noneReferenced', { noun })}
       </Text>
     );
   }
@@ -45,10 +53,12 @@ export function InContextView({ vars, errors, scopeKind, hasContext }: InContext
       <div style={{ marginTop: 10, fontSize: 11 }}>
         {resolvedCount === vars.length ? (
           <Text style={{ color: token.colorSuccess, fontSize: 11 }}>
-            ✓ All {vars.length} variable{vars.length !== 1 ? 's' : ''} resolved
+            ✓ {t('workbench.variables.panel.allResolved', { count: vars.length })}
           </Text>
         ) : (
-          <Text style={{ color: token.colorError, fontSize: 11 }}>⚠ {vars.length - resolvedCount} unresolved</Text>
+          <Text style={{ color: token.colorError, fontSize: 11 }}>
+            ⚠ {t('workbench.variables.panel.unresolvedCount', { count: vars.length - resolvedCount })}
+          </Text>
         )}
       </div>
 

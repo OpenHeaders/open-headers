@@ -8,6 +8,8 @@
 
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ResolutionError } from '@openheaders/core/variables';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tag, Tooltip, Typography, theme } from 'antd';
 
 const { Text } = Typography;
@@ -21,22 +23,23 @@ const REASON_TAG_COLOR: Record<ResolutionError['reason'], string> = {
   'invalid-resolved-value': 'warning',
 };
 
-const REASON_TAG_LABEL: Record<ResolutionError['reason'], string> = {
-  unresolved: 'unresolved',
-  'unset-in-scope': 'not in scope',
-  'unknown-namespace': 'unknown namespace',
-  'step-out-of-context': 'step ref out of scope',
-  empty: 'empty',
-  'invalid-resolved-value': 'invalid value',
+const REASON_TAG_LABEL: Record<ResolutionError['reason'], MessageKey> = {
+  unresolved: 'workbench.variables.panel.errors.reason.unresolved',
+  'unset-in-scope': 'workbench.variables.panel.errors.reason.unsetInScope',
+  'unknown-namespace': 'workbench.variables.panel.errors.reason.unknownNamespace',
+  'step-out-of-context': 'workbench.variables.panel.errors.reason.stepOutOfContext',
+  empty: 'workbench.variables.panel.errors.reason.empty',
+  'invalid-resolved-value': 'workbench.variables.panel.errors.reason.invalidResolvedValue',
 };
 
 export function ResolutionErrorList({ errors }: { errors: ResolutionError[] }) {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <div style={{ marginTop: 14, paddingTop: 10, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
       <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 6, color: token.colorError }}>
         <ExclamationCircleOutlined style={{ marginRight: 4 }} />
-        Resolution issues ({errors.length})
+        {t('workbench.variables.panel.errors.title', { count: errors.length })}
       </Text>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {errors.map((e) => (
@@ -49,6 +52,7 @@ export function ResolutionErrorList({ errors }: { errors: ResolutionError[] }) {
 
 function ResolutionErrorRow({ error }: { error: ResolutionError }) {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <div
       style={{
@@ -59,13 +63,13 @@ function ResolutionErrorRow({ error }: { error: ResolutionError }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
-        <Tooltip title="The raw reference inside {{…}}">
+        <Tooltip title={t('workbench.variables.panel.errors.referenceTooltip')}>
           <Text code style={{ fontSize: 11 }}>
             {`{{${error.reference}}}`}
           </Text>
         </Tooltip>
         <Tag color={REASON_TAG_COLOR[error.reason]} style={{ fontSize: 10, margin: 0 }}>
-          {REASON_TAG_LABEL[error.reason]}
+          {t(REASON_TAG_LABEL[error.reason])}
         </Tag>
       </div>
       <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>

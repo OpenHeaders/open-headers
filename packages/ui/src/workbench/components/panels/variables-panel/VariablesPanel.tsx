@@ -16,6 +16,7 @@
  * wrapped in the collapsible `PanelSection`.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { PanelHeader, createPanelHeaderWiring } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type React from 'react';
@@ -24,7 +25,7 @@ import type { WorkbenchTab } from '../../../types';
 import { AllScopesView } from './AllScopesView';
 import { InContextView } from './InContextView';
 import { PanelSection } from './PanelSection';
-import { ALL_SCOPES_INFO, IN_CONTEXT_INFO } from './scope-info';
+import { getAllScopesInfo, getInContextInfo } from './scope-info';
 import { useVariablesPanel, type VariablesPanelHandlers } from './use-variables-panel';
 
 interface VariablesPanelProps extends VariablesPanelHandlers {
@@ -37,20 +38,23 @@ interface VariablesPanelProps extends VariablesPanelHandlers {
 
 const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
   const { info, onClose, activeTab } = props;
+  const t = useT();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const vm = useVariablesPanel(activeTab, props);
 
-  const inContextTitle = vm.contextEntityName ? `In scope: ${vm.contextEntityName}` : 'In scope';
+  const inContextTitle = vm.contextEntityName
+    ? t('workbench.variables.panel.inContextTitleNamed', { name: vm.contextEntityName })
+    : t('workbench.variables.panel.inContextTitle');
 
   return (
     <div
       className="rules-right-panel rules-right-panel--variables"
       style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
     >
-      <PanelHeader wiring={headerWiring} title={<strong>Variable Scope</strong>} info={info} />
+      <PanelHeader wiring={headerWiring} title={<strong>{t('workbench.toolWindows.varScope')}</strong>} info={info} />
 
       <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
-        <PanelSection title={inContextTitle} info={IN_CONTEXT_INFO} docId="variables-inspecting">
+        <PanelSection title={inContextTitle} info={getInContextInfo(t)} docId="variables-inspecting">
           <InContextView
             vars={vm.inContextVars}
             errors={vm.inContextErrors}
@@ -59,7 +63,12 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
           />
         </PanelSection>
 
-        <PanelSection title="All scopes" info={ALL_SCOPES_INFO} docId="variables-priority" isLast>
+        <PanelSection
+          title={t('workbench.variables.panel.allScopesTitle')}
+          info={getAllScopesInfo(t)}
+          docId="variables-priority"
+          isLast
+        >
           <AllScopesView
             allVars={vm.allVars}
             activeEnvironmentName={vm.activeEnvironmentName}
