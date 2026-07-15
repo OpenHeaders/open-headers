@@ -1015,7 +1015,137 @@ describe('request mapping — auth', () => {
     expect(result.requests[0]?.request.auth).toEqual({ type: 'digest', username: '', password: '' });
   });
 
-  it('drops oauth1 as a planned type with tracking', () => {
+  it('maps oauth1 credentials, silently shedding dance/pin residue', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'oauth1',
+                oauth1: [
+                  { key: 'consumerKey', value: 'ck_openheaders' },
+                  { key: 'consumerSecret', value: 'cs_openheaders' },
+                  { key: 'token', value: 'tok_openheaders' },
+                  { key: 'tokenSecret', value: 'ts_openheaders' },
+                  { key: 'signatureMethod', value: 'HMAC-SHA1' },
+                  { key: 'addParamsToHeader', value: 'true' },
+                  { key: 'realm', value: 'photos' },
+                  // Dance/pin residue — re-minted or irrelevant on the
+                  // next live sign.
+                  { key: 'version', value: '1.0' },
+                  { key: 'timestamp', value: '137131201' },
+                  { key: 'nonce', value: 'stale-nonce' },
+                  { key: 'callback', value: 'https://api.openheaders.io/cb' },
+                  { key: 'verifier', value: 'stale-verifier' },
+                  { key: 'disableHeaderEncoding', value: 'false' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'oauth1',
+      consumerKey: 'ck_openheaders',
+      consumerSecret: 'cs_openheaders',
+      token: 'tok_openheaders',
+      tokenSecret: 'ts_openheaders',
+      signatureMethod: 'HMAC-SHA1',
+      paramsLocation: 'header',
+      realm: 'photos',
+    });
+    expect(result.report.drops.some((d) => /oauth/i.test(d.reason))).toBe(false);
+    expect(result.report.transforms.some((t) => /oauth 1/i.test(t.reason))).toBe(false);
+  });
+
+  it('folds the oauth1 body/URL params location to query with a transform', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'oauth1',
+                oauth1: [
+                  { key: 'consumerKey', value: 'ck_openheaders' },
+                  { key: 'consumerSecret', value: 'cs_openheaders' },
+                  { key: 'addParamsToHeader', value: 'false' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    const auth = result.requests[0]?.request.auth;
+    expect(auth).toMatchObject({ type: 'oauth1', paramsLocation: 'query' });
+    const transform = result.report.transforms.find((t) => /request body or URL/.test(t.reason));
+    expect(transform?.tracking).toBe('PERMANENT: oauth1 header/query only');
+  });
+
+  it('transform-notes the signature-affecting oauth1 flags it does not reproduce', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'oauth1',
+                oauth1: [
+                  { key: 'consumerKey', value: 'ck_openheaders' },
+                  { key: 'consumerSecret', value: 'cs_openheaders' },
+                  { key: 'includeBodyHash', value: 'true' },
+                  { key: 'addEmptyParamsToSign', value: 'true' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toMatchObject({ type: 'oauth1' });
+    expect(result.report.transforms.some((t) => /oauth_body_hash/.test(t.reason))).toBe(true);
+    expect(result.report.transforms.some((t) => /empty parameters/.test(t.reason))).toBe(true);
+  });
+
+  it('drops oauth1 with an unsupported signature method, naming the method', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'oauth1',
+                oauth1: [
+                  { key: 'consumerKey', value: 'ck_openheaders' },
+                  { key: 'signatureMethod', value: 'RSA-SHA1' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
+    const drop = result.report.drops.find((d) => /"RSA-SHA1" signature method/.test(d.reason));
+    expect(drop?.tracking).toBe('#todo-oauth1-signature-methods');
+  });
+
+  it('an empty oauth1 block lands an empty header-mode config (the user chose the type)', () => {
     const result = parsePostman(
       postmanCollection({
         item: [
@@ -1030,9 +1160,14 @@ describe('request mapping — auth', () => {
         ],
       }),
     );
-    expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
-    const drop = result.report.drops.find((d) => /oauth1 auth not imported yet/.test(d.reason));
-    expect(drop?.tracking).toBe('#todo-auth-types');
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'oauth1',
+      consumerKey: '',
+      consumerSecret: '',
+      signatureMethod: 'HMAC-SHA1',
+      paramsLocation: 'header',
+    });
+    expect(result.report.transforms.some((t) => /oauth/i.test(t.reason))).toBe(false);
   });
 
   it('drops ntlm / edgegrid / hawk as permanent with accurate per-type reasons', () => {

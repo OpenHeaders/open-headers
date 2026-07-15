@@ -169,14 +169,80 @@ export function resolveAuth(
       };
     }
     case 'oauth1': {
-      // Living scheme per the Phase F disposition — planned, not yet
-      // first-class.
-      recordDrop(report, {
-        path: authPath,
-        reason: `${raw.type} auth not imported yet — first-class support is planned.`,
-        tracking: '#todo-auth-types',
-      });
-      return { auth: concreteFallback(fallback), report };
+      const params = asParams(raw.oauth1);
+      // Absent defaults to the vendor's default method. Unsupported
+      // methods (the RSA family, HMAC-SHA256/512) drop the block with
+      // the method named — landing a config that signs differently
+      // would be silent lossiness.
+      const rawMethod = paramValue(params, 'signatureMethod') ?? 'HMAC-SHA1';
+      const method = rawMethod.toUpperCase();
+      if (method !== 'HMAC-SHA1' && method !== 'PLAINTEXT') {
+        recordDrop(report, {
+          path: authPath,
+          reason: `OAuth 1.0 with the "${rawMethod}" signature method not imported — only HMAC-SHA1 and PLAINTEXT are supported.`,
+          tracking: '#todo-oauth1-signature-methods',
+        });
+        return { auth: concreteFallback(fallback), report };
+      }
+      // The vendor's second location is "request body / URL" (body only
+      // when the wire body is urlencoded, URL otherwise). Both fold to
+      // query — RFC 5849 §3.5 makes the signature identical wherever
+      // the oauth_* params ride, so the fold is wire-valid. An absent
+      // flag keeps the vendor's default (headers).
+      const headerFlag: unknown = params.find((p) => p.key === 'addParamsToHeader')?.value;
+      const toHeader = headerFlag === undefined || headerFlag === true || headerFlag === 'true';
+      if (!toHeader) {
+        recordTransform(report, {
+          path: authPath,
+          from: 'oauth1/params-in-body-or-url',
+          to: 'oauth1/params-in-query',
+          reason:
+            'OAuth 1.0 was set to send its parameters in the request body or URL — imported to send them as URL query parameters (the signature is unchanged).',
+          tracking: 'PERMANENT: oauth1 header/query only',
+        });
+      }
+      // Signature-affecting knobs this signer does not reproduce get an
+      // honest transform; the dance/pin residue (timestamp, nonce,
+      // callback, verifier, version, privateKey, header-encoding flag)
+      // is re-minted or irrelevant on the next live sign, so it sheds
+      // silently lossless (the digest stale-challenge precedent).
+      if (paramFlag(params, 'includeBodyHash')) {
+        recordTransform(report, {
+          path: authPath,
+          from: 'oauth1/body-hash',
+          to: 'oauth1/no-body-hash',
+          reason:
+            'OAuth 1.0 was set to include a request-body hash (oauth_body_hash) — the extension parameter is not supported, so requests are signed without it.',
+          tracking: 'PERMANENT: oauth1 no body hash',
+        });
+      }
+      if (paramFlag(params, 'addEmptyParamsToSign')) {
+        recordTransform(report, {
+          path: authPath,
+          from: 'oauth1/sign-empty-params',
+          to: 'oauth1/standard-signing',
+          reason:
+            'OAuth 1.0 was set to add empty parameters to the signature — the non-standard option is not supported, so requests are signed per RFC 5849.',
+          tracking: 'PERMANENT: oauth1 standard signing',
+        });
+      }
+      const token = paramValue(params, 'token');
+      const tokenSecret = paramValue(params, 'tokenSecret');
+      const realm = paramValue(params, 'realm');
+      const signatureMethod: 'HMAC-SHA1' | 'PLAINTEXT' = method === 'PLAINTEXT' ? 'PLAINTEXT' : 'HMAC-SHA1';
+      return {
+        auth: {
+          type: 'oauth1',
+          consumerKey: paramValue(params, 'consumerKey') ?? '',
+          consumerSecret: paramValue(params, 'consumerSecret') ?? '',
+          ...(token ? { token } : {}),
+          ...(tokenSecret ? { tokenSecret } : {}),
+          signatureMethod,
+          paramsLocation: toHeader ? 'header' : 'query',
+          ...(realm ? { realm } : {}),
+        },
+        report,
+      };
     }
     case 'ntlm': {
       recordDrop(report, {
