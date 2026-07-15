@@ -661,6 +661,22 @@ export class WorkbenchPage {
     return this.page.getByText(text).filter({ visible: true });
   }
 
+  /** The Raw view's ANSI toggle — rendered only while the display text
+   *  carries SGR escapes, so its absence is itself an assertable state. */
+  responseAnsiToggle(): Locator {
+    return this.page.getByTestId('oh-response-ansi-toggle').filter({ visible: true });
+  }
+
+  /** Styled run spans in the Raw grid matching `text` — the span-per-run
+   *  ANSI render (assumes Raw is the active view). */
+  responseAnsiRuns(text: string): Locator {
+    return this.page
+      .getByTestId('oh-response-body')
+      .filter({ visible: true })
+      .locator('span[style*="color"]')
+      .filter({ hasText: text });
+  }
+
   /** Open the response body Filter bar (switches the pane to Pretty)
    *  and type a query into its one-line Monaco input — which autofocuses
    *  on open. Esc dismisses the suggest widget so it can't swallow later

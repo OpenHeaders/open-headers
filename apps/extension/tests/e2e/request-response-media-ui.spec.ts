@@ -31,6 +31,7 @@ const PROBE_REQUESTS = [
   'ndjson',
   'bigint-json',
   'metrics',
+  'ansi-log',
   'media',
   'latin1',
 ] as const;
@@ -177,6 +178,27 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(filtered).toContain('oh_http_requests_total{code="500",path="/api/echo"} 3');
     expect(filtered).not.toContain('code="200"');
     expect(filtered).not.toContain('oh_build_info');
+  });
+
+  test('ANSI log renders SGR colors in Raw; the toggle falls back to plain text', async () => {
+    await sendProbe('ansi-log');
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
+
+    // Rendered by default: escapes vanish from the display text and
+    // styled runs paint (the INFO badge gets its color span); the plain
+    // line stays span-free — the fast path.
+    const raw = await workbench.responseRawBody();
+    expect(raw).toContain('INFO  server started on api.openheaders.io:59210');
+    expect(raw).toContain('redrawn progress line (cursor controls strip)');
+    expect(raw).not.toContain('[32m');
+    expect(raw).not.toContain('[2K');
+    expect(await workbench.responseAnsiRuns('INFO').count()).toBe(1);
+
+    // Plain-text fallback: the wire text verbatim, escape noise visible.
+    await workbench.responseAnsiToggle().click();
+    const plain = await workbench.responseRawBody();
+    expect(plain).toContain('[32mINFO');
+    await workbench.responseAnsiToggle().click();
   });
 
   test('WAV opens on the media Preview with the byte views behind it', async () => {

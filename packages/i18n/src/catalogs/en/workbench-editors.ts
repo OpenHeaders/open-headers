@@ -1020,6 +1020,8 @@ export const workbenchEditors = {
   'workbench.editors.request.response.body.preview': 'Preview',
   'workbench.editors.request.response.body.wrapLines': 'Wrap lines',
   'workbench.editors.request.response.body.unwrapLines': 'Unwrap lines',
+  'workbench.editors.request.response.body.renderAnsi': 'Render ANSI colors',
+  'workbench.editors.request.response.body.plainAnsi': 'Show plain text',
   'workbench.editors.request.response.body.filterJsonPathTooltip': 'Filter body (JSONPath)',
   'workbench.editors.request.response.body.filterXPathTooltip': 'Filter body (XPath)',
   'workbench.editors.request.response.body.filterMetricsTooltip': 'Filter body (metric families)',

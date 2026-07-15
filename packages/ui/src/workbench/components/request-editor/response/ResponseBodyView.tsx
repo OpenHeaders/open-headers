@@ -24,7 +24,14 @@
  * line-number gutter; Hex numbers its rows.
  */
 
-import { CheckOutlined, CopyOutlined, DownOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons';
+import {
+  CheckOutlined,
+  CopyOutlined,
+  DownOutlined,
+  EyeOutlined,
+  FilterOutlined,
+  FontColorsOutlined,
+} from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Badge, Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -41,6 +48,7 @@ import ResponsePdfPreview from './ResponsePdfPreview';
 import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
 import { type LosslessParseResult, parseLosslessJson, stringifyLossless } from './lossless-json';
 import { detectMagicSignatures } from './magic-signatures';
+import { ansiRunStyle, buildAnsiPalette, hasAnsiEscapes, parseAnsiBody, stripAnsiEscapes } from './response-ansi';
 import './response-body.css';
 import {
   buildHexDump,
@@ -337,10 +345,32 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // Raw shows the wire as text — for a binary body that's a lossy
   // display decode (U+FFFD where bytes aren't UTF-8), never the stored
   // base64 string.
-  const rawLines = useMemo(() => (mode === 'raw' ? decodeBodyTextLossy(response).split('\n') : null), [
-    mode,
-    response,
-  ]);
+  const rawText = useMemo(() => (mode === 'raw' ? decodeBodyTextLossy(response) : null), [mode, response]);
+  const rawLines = useMemo(() => (rawText === null ? null : rawText.split('\n')), [rawText]);
+  // ANSI SGR rendering for log bodies: `ESC [` in the display text
+  // lights it (bytes decide, never the Content-Type); the toggle falls
+  // back to the verbatim plain text. Display-only — Copy stays the
+  // wire body. The parse is one pass, memoized per body, and computed
+  // only inside the gutter cap (beyond it Raw must stay one text node,
+  // so the fallback strips escapes instead of styling them).
+  const rawHasAnsi = rawText !== null && hasAnsiEscapes(rawText);
+  const [ansiPlain, setAnsiPlain] = useState(false);
+  const ansiActive = rawHasAnsi && !ansiPlain;
+  const ansiLines = useMemo(
+    () =>
+      ansiActive && rawText !== null && rawLines !== null && rawLines.length <= RAW_GUTTER_MAX_LINES
+        ? parseAnsiBody(rawText)
+        : null,
+    [ansiActive, rawText, rawLines],
+  );
+  const strippedRawText = useMemo(
+    () =>
+      ansiActive && rawText !== null && rawLines !== null && rawLines.length > RAW_GUTTER_MAX_LINES
+        ? stripAnsiEscapes(rawText)
+        : null,
+    [ansiActive, rawText, rawLines],
+  );
+  const ansiPalette = useMemo(() => buildAnsiPalette(token), [token]);
   const previewBytes = useMemo(
     () =>
       mode === 'preview' && (previewKind === 'pdf' || previewKind === 'image' || previewKind === 'media')
@@ -507,6 +537,26 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             style={{ marginLeft: 'auto', ...(wrapLines ? { background: token.colorBgTextActive } : {}) }}
           />
         </Tooltip>
+        {mode === 'raw' && rawHasAnsi && (
+          <Tooltip
+            title={
+              ansiPlain
+                ? t('workbench.editors.request.response.body.renderAnsi')
+                : t('workbench.editors.request.response.body.plainAnsi')
+            }
+            placement="bottom"
+          >
+            <Button
+              size="small"
+              type="text"
+              icon={<FontColorsOutlined />}
+              data-testid="oh-response-ansi-toggle"
+              onClick={() => setAnsiPlain((prev) => !prev)}
+              aria-label={t('workbench.editors.request.response.body.renderAnsi')}
+              style={ansiPlain ? undefined : { background: token.colorBgTextActive }}
+            />
+          </Tooltip>
+        )}
         {filterKind && (
           <Tooltip
             title={
@@ -627,30 +677,49 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
               className="oh-response-raw-grid"
               style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12, color: token.colorText }}
             >
-              {rawLines.map((line, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional derivations of one immutable body
-                <Fragment key={i}>
-                  <span
-                    className="oh-response-raw-ln"
-                    aria-hidden="true"
-                    data-ln={i + 1}
-                    style={{ color: token.geekblue7 }}
-                  />
-                  <span
-                    style={{
-                      whiteSpace: wrapLines ? 'pre-wrap' : 'pre',
-                      wordBreak: wrapLines ? 'break-word' : 'normal',
-                      minHeight: '1em',
-                    }}
-                  >
-                    {line}
-                  </span>
-                </Fragment>
-              ))}
+              {rawLines.map((line, i) => {
+                // ANSI rendering swaps in the parsed line: still a plain
+                // string for escape-free lines (the fast path), spans
+                // only where a style run actually paints.
+                const shown = ansiLines ? ansiLines[i] : line;
+                return (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional derivations of one immutable body
+                  <Fragment key={i}>
+                    <span
+                      className="oh-response-raw-ln"
+                      aria-hidden="true"
+                      data-ln={i + 1}
+                      style={{ color: token.geekblue7 }}
+                    />
+                    <span
+                      style={{
+                        whiteSpace: wrapLines ? 'pre-wrap' : 'pre',
+                        wordBreak: wrapLines ? 'break-word' : 'normal',
+                        minHeight: '1em',
+                      }}
+                    >
+                      {typeof shown === 'string'
+                        ? shown
+                        : shown.map((run, j) =>
+                            run.style === null ? (
+                              run.text
+                            ) : (
+                              // biome-ignore lint/suspicious/noArrayIndexKey: runs are positional derivations of one immutable line
+                              <span key={j} style={ansiRunStyle(run.style, ansiPalette)}>
+                                {run.text}
+                              </span>
+                            ),
+                          )}
+                    </span>
+                  </Fragment>
+                );
+              })}
             </div>
           ) : (
             // Beyond the gutter cap the per-line grid would jank the
-            // panel — fall back to the single-text-node <pre>.
+            // panel — fall back to the single-text-node <pre>. With ANSI
+            // rendering active the escapes strip (still one text node —
+            // per-run spans would defeat the cap's purpose).
             <pre
               data-testid="oh-response-body"
               style={{
@@ -662,7 +731,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
                 color: token.colorText,
               }}
             >
-              {rawLines.join('\n')}
+              {strippedRawText ?? rawLines.join('\n')}
             </pre>
           )}
         </div>
