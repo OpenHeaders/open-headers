@@ -79,7 +79,7 @@ export function deriveMigrationPullTask(
     case 'done': {
       if (state.imported) {
         const s = state.imported;
-        const counts = `${s.collections} collections, ${s.environments} environments, ${s.requests} requests${s.examples > 0 ? `, ${s.examples} saved examples` : ''}`;
+        const counts = `${s.collections} collections, ${s.environments} environments, ${s.requests} requests${s.examples > 0 ? `, ${s.examples} saved examples` : ''}${s.globals > 0 ? `, ${s.globals} global variables` : ''}`;
         const only = s.workspaces.length === 1 ? s.workspaces[0] : undefined;
         const target = only ? `into “${only.workspaceName}”` : `into ${s.workspaces.length} workspaces`;
         const notes = s.drops > 0 ? `${s.drops} import notes` : undefined;

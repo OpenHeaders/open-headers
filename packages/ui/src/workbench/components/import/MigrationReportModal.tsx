@@ -106,6 +106,7 @@ const MigrationReportModal: React.FC<{
           <Text type="secondary" style={{ fontSize: 12 }}>
             {workspace.collections} collections · {workspace.environments} environments · {workspace.requests}{' '}
             requests{workspace.examples > 0 ? ` · ${workspace.examples} saved examples` : ''}
+            {workspace.globals > 0 ? ` · ${workspace.globals} global variables` : ''}
             {notes > 0 ? ` · ${notes} note${notes === 1 ? '' : 's'}` : ''}
           </Text>
         </span>
@@ -145,10 +146,24 @@ const MigrationReportModal: React.FC<{
           Imported <Text strong>{summary.collections}</Text> collection{summary.collections === 1 ? '' : 's'},{' '}
           <Text strong>{summary.environments}</Text> environment{summary.environments === 1 ? '' : 's'}, and{' '}
           <Text strong>{summary.requests}</Text> request{summary.requests === 1 ? '' : 's'}
-          {summary.examples > 0 ? (
+          {summary.examples > 0 || summary.globals > 0 ? (
             <>
               {' '}
-              (with <Text strong>{summary.examples}</Text> saved example{summary.examples === 1 ? '' : 's'})
+              (with
+              {summary.examples > 0 ? (
+                <>
+                  {' '}
+                  <Text strong>{summary.examples}</Text> saved example{summary.examples === 1 ? '' : 's'}
+                </>
+              ) : null}
+              {summary.examples > 0 && summary.globals > 0 ? ' and' : null}
+              {summary.globals > 0 ? (
+                <>
+                  {' '}
+                  <Text strong>{summary.globals}</Text> global variable{summary.globals === 1 ? '' : 's'}
+                </>
+              ) : null}
+              )
             </>
           ) : null}{' '}
           into{' '}

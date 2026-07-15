@@ -62,6 +62,7 @@ const IMPORTED: PostmanPullEvent = {
         environments: 4,
         requests: 42,
         examples: 0,
+        globals: 0,
         drops: 3,
       },
     ],
@@ -69,6 +70,7 @@ const IMPORTED: PostmanPullEvent = {
     environments: 4,
     requests: 42,
     examples: 0,
+    globals: 0,
     drops: 3,
   },
 };
