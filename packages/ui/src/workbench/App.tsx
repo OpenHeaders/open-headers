@@ -124,6 +124,7 @@ import {
   useSecretsStorageNotice,
   useSeedNotifications,
 } from '@openheaders/ui/shared/notifications';
+import { useProductTelemetryDisclosureNotification } from '@openheaders/ui/shared/product-telemetry';
 import { UpdateDialog } from '@openheaders/ui/shared/updates';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 import { EnvSwitcherProvider } from './services/env-switcher';
@@ -699,6 +700,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // "Settings…", tray update actions). Hosts without native chrome
   // never emit it.
   useEffect(() => hostBridge.subscribe('openSettings', (target) => openSettings(target)), [openSettings]);
+
+  // First-run product-telemetry disclosure rides the Notifications
+  // panel; its action deep-links to the Anonymous usage counting row.
+  useProductTelemetryDisclosureNotification(
+    useCallback(() => openSettings({ settingKey: 'telemetry.enabled' }), [openSettings]),
+  );
 
   // Host-shell navigation: the desktop Window menu's "Next Tab" /
   // "Previous Tab" items drive the same focused-leaf cycling as the

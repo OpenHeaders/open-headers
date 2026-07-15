@@ -40,6 +40,9 @@ import {
   useSeedNotifications,
 } from '@openheaders/ui/shared/notifications';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
+import { useProductTelemetryDisclosureNotification } from '@openheaders/ui/shared/product-telemetry';
+import { useSurface } from '@openheaders/ui/shared/surface';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
@@ -264,6 +267,14 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // (no-op on hosts without the getAppUpdate capability).
   useAppUpdateNotification();
   useSeedNotifications();
+  // First-run product-telemetry disclosure rides the Notifications
+  // panel; its action deep-links to the Anonymous usage counting row.
+  const surface = useSurface();
+  useProductTelemetryDisclosureNotification(
+    useCallback(() => {
+      void openWorkspace({ kind: 'open-settings', target: { settingKey: 'telemetry.enabled' } }, surface.mode);
+    }, [surface.mode]),
+  );
   const ui = usePanelUiState({
     resettables: useMemo(
       // Lifecycle clears via `clearSession` (local mirror + engine session
