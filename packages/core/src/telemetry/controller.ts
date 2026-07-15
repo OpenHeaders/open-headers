@@ -1,8 +1,8 @@
 /**
  * Product-telemetry controller — owns a host's single `TelemetryClient`
  * (TELEMETRY_PLAN.md §7) behind injected seams so the whole gate matrix
- * (disclosure latch, enabled toggle, once-per-session `session_start`)
- * is unit-testable without any platform API. Exactly one instance lives
+ * (enabled toggle, once-per-session `session_start`) is unit-testable
+ * without any platform API. Exactly one instance lives
  * per host process (extension SW / desktop main); UI surfaces never
  * construct one — they reach it over the `productTelemetry*` RPCs.
  *
@@ -75,10 +75,6 @@ export interface ProductTelemetryControllerDeps {
   getEnabled(): boolean;
   /** Subscribe to `telemetry.enabled` changes. */
   subscribeEnabled(fn: () => void): void;
-  /** Current first-run-disclosure-shown flag. */
-  getDisclosed(): Promise<boolean>;
-  /** Subscribe to the disclosure flag flipping (UI surfaces set it). */
-  subscribeDisclosed(fn: () => void): void;
   /**
    * Build this host's `session_start` event, or null when the running
    * platform has no vocabulary member (we skip the event rather than
@@ -96,7 +92,7 @@ export class ProductTelemetryController {
     this.deps = deps;
   }
 
-  /** Idempotent boot: resolve the session id, build the client, wire both gates. */
+  /** Idempotent boot: resolve the session id, build the client, wire the enabled gate. */
   init(): Promise<void> {
     this.ready ??= this.boot();
     return this.ready;
@@ -116,19 +112,12 @@ export class ProductTelemetryController {
     client.setEnabled(this.deps.getEnabled());
     this.deps.subscribeEnabled(() => client.setEnabled(this.deps.getEnabled()));
 
-    const applyDisclosure = async (): Promise<void> => {
-      if (client.isDisclosed) return;
-      if (!(await this.deps.getDisclosed())) return;
-      client.noteDisclosureShown();
-      await this.ensureSessionStart();
-    };
-    this.deps.subscribeDisclosed(() => void applyDisclosure());
-    await applyDisclosure();
+    await this.ensureSessionStart();
   }
 
-  /** Fire `session_start` once per session, only after disclosure. */
+  /** Fire `session_start` once per session. */
   private async ensureSessionStart(): Promise<void> {
-    if (!this.client?.isDisclosed) return;
+    if (!this.client) return;
     if (await this.deps.sessionStore.wasLatched(SESSION_START_LATCH_KEY)) return;
     const event = await this.deps.buildSessionStart();
     await this.deps.sessionStore.latch(SESSION_START_LATCH_KEY);
@@ -160,11 +149,10 @@ export class ProductTelemetryController {
   async snapshot(): Promise<ProductTelemetrySnapshot> {
     await this.init();
     const client = this.client;
-    if (!client) return { sessionId: '', enabled: false, disclosed: false, entries: [] };
+    if (!client) return { sessionId: '', enabled: false, entries: [] };
     return {
       sessionId: client.sessionId,
       enabled: client.isEnabled,
-      disclosed: client.isDisclosed,
       entries: client.readEventLog().map((entry) => ({ ...entry })),
     };
   }

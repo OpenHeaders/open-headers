@@ -10,10 +10,9 @@
  * any other value forces it on) → `telemetry` key in `cli.json` →
  * default on. The first enabled run prints the user-signed §8 notice to
  * stderr — stdout stays the machine contract — and persists
- * `telemetryNoticeShown`, which is the disclosure flag: the notice was
- * on screen before anything can flush, so events queue from that same
- * run. Disabled runs skip the channel entirely and never print the
- * notice (nothing is collected, so there is nothing to disclose).
+ * `telemetryNoticeShown` so the notice prints exactly once. Disabled
+ * runs skip the channel entirely and never print the notice (nothing is
+ * collected, so there is nothing to disclose).
  *
  * Every telemetry failure is silent — a broken config file or an
  * unreachable endpoint must never change a command's outcome.
@@ -144,10 +143,6 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
       sessionStore: createInMemoryProductTelemetrySessionStore(),
       getEnabled: () => true,
       subscribeEnabled: () => undefined,
-      // Printing the notice IS the disclosure — by the time anything
-      // flushes, the copy has been on screen (this run or an earlier one).
-      getDisclosed: async () => true,
-      subscribeDisclosed: () => undefined,
       buildSessionStart: async () =>
         buildSessionStart(deps.platform ?? process.platform, deps.cliVersion ?? CLI_VERSION),
     });

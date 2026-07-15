@@ -183,9 +183,8 @@ export async function installRpcHost(): Promise<void> {
   // Anonymous usage counting (TELEMETRY_PLAN.md §7): the desktop host's
   // product-telemetry adapter. A host-shell concern the spine never
   // learns — the daemon distribution stays hard-off by construction.
-  // Gates ride the same storage the renderer writes: `telemetry.enabled`
-  // in the settings blob and the disclosure flag the workbench's
-  // Notifications-panel card sets.
+  // The enabled gate rides the same storage the renderer writes:
+  // `telemetry.enabled` in the settings blob.
   const productTelemetry = await installProductTelemetry({
     storage: hostStorage,
     appVersion: app.getVersion(),

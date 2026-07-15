@@ -5,17 +5,13 @@ import { installProductTelemetry, type ProductTelemetryHostDeps } from '../../..
 
 interface RigOptions {
   settings?: Record<string, unknown>;
-  disclosed?: boolean;
   platform?: NodeJS.Platform;
   appVersion?: string;
 }
 
 function makeRig(options: RigOptions = {}) {
   const sent: TelemetryEnvelope[] = [];
-  const values = new Map<string, unknown>([
-    [OH.settingsUser.key, options.settings],
-    [OH.productTelemetryDisclosed.key, options.disclosed ?? false],
-  ]);
+  const values = new Map<string, unknown>([[OH.settingsUser.key, options.settings]]);
   const listeners = new Map<string, Array<(next: unknown) => void>>();
 
   const storage: ProductTelemetryHostDeps['storage'] = {
@@ -49,12 +45,12 @@ function makeRig(options: RigOptions = {}) {
   return { install, sent, write };
 }
 
-// The disclosure subscription re-reads asynchronously; settle it.
+// track() is fire-and-forget; settle the microtask queue before reading.
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('installProductTelemetry — session_start', () => {
-  it('fires once after disclosure with the desktop identity and mapped platform', async () => {
-    const { install, sent, write } = makeRig({ disclosed: true });
+  it('fires once at boot with the desktop identity and mapped platform', async () => {
+    const { install, sent } = makeRig();
     const handle = await install();
     await handle.flush();
     expect(sent).toHaveLength(1);
@@ -69,29 +65,13 @@ describe('installProductTelemetry — session_start', () => {
     ]);
 
     // A second flush sends nothing — the latch holds for the process lifetime.
-    write(OH.productTelemetryDisclosed, true);
     await handle.flush();
     expect(sent).toHaveLength(1);
-    handle.dispose();
-  });
-
-  it('holds every event until the disclosure flag flips, then opens the channel live', async () => {
-    const { install, sent, write } = makeRig();
-    const handle = await install();
-    handle.track({ name: 'feature_used', feature: 'workspace-sync' });
-    await handle.flush();
-    expect(sent).toEqual([]);
-
-    write(OH.productTelemetryDisclosed, true);
-    await settle();
-    await handle.flush();
-    expect(sent).toHaveLength(1);
-    expect(sent[0].events).toEqual([expect.objectContaining({ name: 'session_start' })]);
     handle.dispose();
   });
 
   it('skips the event on unmappable platforms instead of misreporting', async () => {
-    const { install, sent } = makeRig({ disclosed: true, platform: 'freebsd' });
+    const { install, sent } = makeRig({ platform: 'freebsd' });
     const handle = await install();
     await handle.flush();
     expect(sent).toEqual([]);
@@ -103,7 +83,7 @@ describe('installProductTelemetry — session_start', () => {
       ['win32', 'win'],
       ['linux', 'linux'],
     ] as const) {
-      const { install, sent } = makeRig({ disclosed: true, platform: node });
+      const { install, sent } = makeRig({ platform: node });
       const handle = await install();
       await handle.flush();
       expect(sent[0].events[0]).toMatchObject({ name: 'session_start', platform: wire });
@@ -114,7 +94,7 @@ describe('installProductTelemetry — session_start', () => {
 
 describe('installProductTelemetry — enabled gate', () => {
   it('defaults on when the settings blob is absent or silent about the key', async () => {
-    const { install, sent } = makeRig({ disclosed: true, settings: { 'appearance.theme': 'dark' } });
+    const { install, sent } = makeRig({ settings: { 'appearance.theme': 'dark' } });
     const handle = await install();
     await handle.flush();
     expect(sent).toHaveLength(1);
@@ -122,7 +102,7 @@ describe('installProductTelemetry — enabled gate', () => {
   });
 
   it('respects telemetry.enabled=false at boot and suppresses everything', async () => {
-    const { install, sent } = makeRig({ disclosed: true, settings: { 'telemetry.enabled': false } });
+    const { install, sent } = makeRig({ settings: { 'telemetry.enabled': false } });
     const handle = await install();
     handle.track({ name: 'workflow_run', ok: true });
     await handle.flush();
@@ -134,7 +114,7 @@ describe('installProductTelemetry — enabled gate', () => {
   });
 
   it('kills the channel live when the settings blob flips the toggle off', async () => {
-    const { install, sent, write } = makeRig({ disclosed: true });
+    const { install, sent, write } = makeRig();
     const handle = await install();
     await handle.flush();
     expect(sent).toHaveLength(1);
@@ -154,18 +134,27 @@ describe('installProductTelemetry — enabled gate', () => {
 });
 
 describe('installProductTelemetry — inspector snapshot', () => {
-  it('exposes the session log including suppressed pre-disclosure events', async () => {
-    const { install } = makeRig();
+  it('exposes the session log including suppressed while-disabled events', async () => {
+    const { install } = makeRig({ settings: { 'telemetry.enabled': false } });
     const handle = await install();
     handle.track({ name: 'feature_used', feature: 'variables' });
-    // track() is fire-and-forget and now consults the session-store
-    // latch before logging; settle the microtask queue so the snapshot
-    // read observes the appended entry.
+    // track() consults the session-store latch before logging; settle
+    // the microtask queue so the snapshot read observes the entry.
     await settle();
     const snapshot = await handle.snapshot();
-    expect(snapshot.disclosed).toBe(false);
     expect(snapshot.sessionId).toMatch(/^[0-9a-f]{32}$/);
     expect(snapshot.entries).toEqual([
+      {
+        event: {
+          name: 'session_start',
+          host: 'desktop',
+          appVersion: { year: 2026, month: 7, patch: 1 },
+          platform: 'mac',
+          locale: 'en',
+        },
+        at: 1_760_000_000_000,
+        disposition: 'suppressed',
+      },
       { event: { name: 'feature_used', feature: 'variables' }, at: 1_760_000_000_000, disposition: 'suppressed' },
     ]);
     handle.dispose();

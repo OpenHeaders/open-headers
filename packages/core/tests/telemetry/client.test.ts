@@ -34,12 +34,6 @@ function makeEvent(overrides: Partial<Extract<TelemetryEvent, { name: 'import_ru
   return { name: 'import_run', source: 'insomnia', ok: true, ...overrides };
 }
 
-function makeDisclosedClient(overrides: Partial<{ result: boolean; error: Error }> = {}) {
-  const made = makeClient(overrides);
-  made.client.noteDisclosureShown();
-  return made;
-}
-
 describe('TelemetryClient — session id', () => {
   it('mints 32 lowercase hex chars', () => {
     expect(mintTelemetrySessionId()).toMatch(/^[0-9a-f]{32}$/);
@@ -56,7 +50,6 @@ describe('TelemetryClient — session id', () => {
     const transport = makeTransport();
     const injected = 'deadbeefdeadbeefdeadbeefdeadbeef';
     const client = new TelemetryClient({ transport, now: () => 1_760_000_000_000, sessionId: injected });
-    client.noteDisclosureShown();
     client.track(makeEvent());
     await client.flush();
     expect(client.sessionId).toBe(injected);
@@ -64,19 +57,9 @@ describe('TelemetryClient — session id', () => {
   });
 });
 
-describe('TelemetryClient — disclosure latch', () => {
-  it('never queues or sends before the disclosure has been shown', async () => {
+describe('TelemetryClient — queueing', () => {
+  it('queues on track and marks the entry sent after a flush', async () => {
     const { client, transport } = makeClient();
-    client.track(makeEvent());
-    expect(client.queuedCount).toBe(0);
-    expect(await client.flush()).toBe(false);
-    expect(transport.sent).toEqual([]);
-    expect(client.readEventLog()).toHaveLength(1);
-    expect(client.readEventLog()[0].disposition).toBe('suppressed');
-  });
-
-  it('queues and sends after the disclosure has been shown', async () => {
-    const { client, transport } = makeDisclosedClient();
     client.track(makeEvent());
     expect(client.queuedCount).toBe(1);
     expect(await client.flush()).toBe(true);
@@ -87,7 +70,7 @@ describe('TelemetryClient — disclosure latch', () => {
 
 describe('TelemetryClient — batching and envelope shape', () => {
   it('delivers all pending events as one schema-valid envelope', async () => {
-    const { client, transport } = makeDisclosedClient();
+    const { client, transport } = makeClient();
     const events: TelemetryEvent[] = [
       makeEvent(),
       { name: 'feature_used', feature: 'import-hub' },
@@ -105,7 +88,7 @@ describe('TelemetryClient — batching and envelope shape', () => {
   });
 
   it('sends nothing when the queue is empty', async () => {
-    const { client, transport } = makeDisclosedClient();
+    const { client, transport } = makeClient();
     expect(await client.flush()).toBe(false);
     expect(transport.sent).toEqual([]);
   });
@@ -113,7 +96,7 @@ describe('TelemetryClient — batching and envelope shape', () => {
 
 describe('TelemetryClient — failure is silent, batch rides the next flush', () => {
   it('requeues on a transport rejection (false)', async () => {
-    const { client } = makeDisclosedClient({ result: false });
+    const { client } = makeClient({ result: false });
     client.track(makeEvent());
     expect(await client.flush()).toBe(false);
     expect(client.queuedCount).toBe(1);
@@ -121,7 +104,7 @@ describe('TelemetryClient — failure is silent, batch rides the next flush', ()
   });
 
   it('requeues on a transport throw without rejecting the flush', async () => {
-    const { client } = makeDisclosedClient({ error: new Error('offline') });
+    const { client } = makeClient({ error: new Error('offline') });
     client.track(makeEvent());
     await expect(client.flush()).resolves.toBe(false);
     expect(client.queuedCount).toBe(1);
@@ -139,7 +122,6 @@ describe('TelemetryClient — failure is silent, batch rides the next flush', ()
       },
       now: () => 1_760_000_000_000,
     });
-    client.noteDisclosureShown();
     client.track(makeEvent());
     await client.flush();
     failNext = false;
@@ -152,7 +134,7 @@ describe('TelemetryClient — failure is silent, batch rides the next flush', ()
 
 describe('TelemetryClient — hard caps', () => {
   it('caps the queue and marks the overflow dropped, oldest first', () => {
-    const { client } = makeDisclosedClient();
+    const { client } = makeClient();
     for (let i = 0; i < TELEMETRY_MAX_QUEUE + 10; i++) client.track(makeEvent({ ok: i % 2 === 0 }));
     expect(client.queuedCount).toBe(TELEMETRY_MAX_QUEUE);
     const log = client.readEventLog();
@@ -169,7 +151,7 @@ describe('TelemetryClient — hard caps', () => {
 
 describe('TelemetryClient — the one-switch toggle', () => {
   it('disabled: track() still logs would-be events but nothing queues or sends', async () => {
-    const { client, transport } = makeDisclosedClient();
+    const { client, transport } = makeClient();
     client.setEnabled(false);
     client.track(makeEvent());
     expect(client.queuedCount).toBe(0);
@@ -180,7 +162,7 @@ describe('TelemetryClient — the one-switch toggle', () => {
   });
 
   it('turning off suppresses the pending queue completely', () => {
-    const { client } = makeDisclosedClient();
+    const { client } = makeClient();
     client.track(makeEvent());
     client.track(makeEvent());
     client.setEnabled(false);
@@ -189,7 +171,7 @@ describe('TelemetryClient — the one-switch toggle', () => {
   });
 
   it('re-enabling resumes delivery for later events only', async () => {
-    const { client, transport } = makeDisclosedClient();
+    const { client, transport } = makeClient();
     client.setEnabled(false);
     client.track(makeEvent());
     client.setEnabled(true);

@@ -9,9 +9,9 @@
  *
  * Fire-and-forget: a failed batch silently rides the next flush (no retry
  * loop), the queue is hard-capped, and nothing here throws at a caller.
- * Two latches gate sending — the first-run disclosure and the enabled
- * toggle — but the session log keeps recording would-be events while the
- * channel is off: the telemetry inspector (§6) reads it byte-for-byte.
+ * The enabled toggle gates sending, but the session log keeps recording
+ * would-be events while the channel is off: the telemetry inspector (§6)
+ * reads it byte-for-byte.
  */
 
 import type { TelemetryEnvelope, TelemetryEvent } from './vocabulary';
@@ -55,7 +55,7 @@ export type TelemetryDisposition =
   | 'sent'
   /** Pushed out of the capped queue before it could be flushed. */
   | 'dropped'
-  /** Never queued: channel disabled or first-run disclosure not yet shown. */
+  /** Never queued: channel disabled. */
   | 'suppressed';
 
 export interface TelemetryLogEntry {
@@ -77,7 +77,6 @@ export class TelemetryClient {
 
   private readonly deps: TelemetryClientDeps;
   private enabled = true;
-  private disclosed = false;
   private queue: TelemetryLogEntry[] = [];
   private log: TelemetryLogEntry[] = [];
   private flushing = false;
@@ -91,20 +90,8 @@ export class TelemetryClient {
     return this.enabled;
   }
 
-  get isDisclosed(): boolean {
-    return this.disclosed;
-  }
-
   get queuedCount(): number {
     return this.queue.length;
-  }
-
-  /**
-   * The host reports that the first-run disclosure has been shown (this
-   * launch or a previous one). Until then nothing is ever queued or sent.
-   */
-  noteDisclosureShown(): void {
-    this.disclosed = true;
   }
 
   /**
@@ -122,13 +109,13 @@ export class TelemetryClient {
 
   /**
    * Record one event. Always logs for the inspector; queues for delivery
-   * only when the channel is disclosed and enabled. Never throws.
+   * only when the channel is enabled. Never throws.
    */
   track(event: TelemetryEvent): void {
     const entry: TelemetryLogEntry = {
       event,
       at: this.deps.now(),
-      disposition: this.enabled && this.disclosed ? 'pending' : 'suppressed',
+      disposition: this.enabled ? 'pending' : 'suppressed',
     };
     this.log.push(entry);
     if (this.log.length > TELEMETRY_MAX_LOG) this.log.splice(0, this.log.length - TELEMETRY_MAX_LOG);
@@ -146,7 +133,7 @@ export class TelemetryClient {
    * non-empty batch was accepted by the transport.
    */
   async flush(): Promise<boolean> {
-    if (this.flushing || !this.enabled || !this.disclosed || this.queue.length === 0) return false;
+    if (this.flushing || !this.enabled || this.queue.length === 0) return false;
     this.flushing = true;
     const batch = this.queue;
     this.queue = [];

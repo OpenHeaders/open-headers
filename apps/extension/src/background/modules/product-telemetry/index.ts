@@ -2,14 +2,12 @@
  * Product-telemetry host wiring — binds the controller to this
  * extension's substrates: `chrome.storage.session` for the
  * browser-session id (RAM only, never persisted to disk), the settings
- * store for `telemetry.enabled`, `hostStorage` for the disclosure flag,
- * a fetch transport to the published endpoint
- * (`docs/WIRE_TRANSPARENCY.md` §4), and an alarm for flush cadence
- * (the SW is evictable, so `setInterval` is not a cadence).
+ * store for `telemetry.enabled`, a fetch transport to the published
+ * endpoint (`docs/WIRE_TRANSPARENCY.md` §4), and an alarm for flush
+ * cadence (the SW is evictable, so `setInterval` is not a cadence).
  */
 
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
-import { hostStorage, OH } from '@openheaders/core/storage';
 import {
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
@@ -115,8 +113,6 @@ const controller = new ProductTelemetryController({
   sessionStore,
   getEnabled: () => getSetting('telemetry.enabled'),
   subscribeEnabled: (fn) => void subscribeKey('telemetry.enabled', fn),
-  getDisclosed: async () => (await hostStorage.get(OH.productTelemetryDisclosed)) === true,
-  subscribeDisclosed: (fn) => void hostStorage.subscribe(OH.productTelemetryDisclosed, fn),
   buildSessionStart,
 });
 

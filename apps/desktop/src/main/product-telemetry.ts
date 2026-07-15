@@ -6,12 +6,10 @@
  * in-memory store (never persisted); cadence is a plain interval because
  * nothing evicts this process.
  *
- * Gates ride the file-backed host storage the renderer writes through:
- * `telemetry.enabled` inside the `oh.settings.user` blob (default on,
- * absent key = on) and the `oh.productTelemetry.disclosed` flag the
- * workbench's Notifications-panel disclosure card sets. Both are
- * subscribed, so a toggle or a first disclosure takes effect live
- * without a restart.
+ * The enabled gate rides the file-backed host storage the renderer
+ * writes through: `telemetry.enabled` inside the `oh.settings.user`
+ * blob (default on, absent key = on). It is subscribed, so a toggle
+ * takes effect live without a restart.
  *
  * "Product telemetry" naming: plain "telemetry" in this codebase means
  * the per-tab traffic telemetry the inspector shows — this channel is
@@ -103,8 +101,6 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
     sessionStore: createInMemoryProductTelemetrySessionStore(),
     getEnabled: () => enabled,
     subscribeEnabled: (fn) => enabledListeners.push(fn),
-    getDisclosed: async () => (await deps.storage.get(OH.productTelemetryDisclosed)) === true,
-    subscribeDisclosed: (fn) => void deps.storage.subscribe(OH.productTelemetryDisclosed, fn),
     buildSessionStart: async () => buildSessionStart(deps.platform, deps.appVersion),
   });
   await controller.init();

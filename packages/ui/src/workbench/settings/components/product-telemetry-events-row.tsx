@@ -61,7 +61,7 @@ const ProductTelemetryEventsRow: React.FC<{ def: SettingDef }> = ({ def }) => {
         {snapshot && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              {`Session ${snapshot.sessionId} — counting is ${snapshot.enabled ? 'on' : 'off'}${snapshot.disclosed ? '' : '; nothing sends before the first-run notice'}`}
+              {`Session ${snapshot.sessionId} — counting is ${snapshot.enabled ? 'on' : 'off'}`}
             </Text>
             <Button size="small" icon={<ReloadOutlined />} onClick={refresh}>
               Refresh

@@ -19,11 +19,10 @@ export interface ProductTelemetryLogEntryWire {
   disposition: TelemetryDisposition;
 }
 
-/** Everything the inspector shows: the log plus the channel's current gates. */
+/** Everything the inspector shows: the log plus the channel's current gate. */
 export interface ProductTelemetrySnapshot {
   sessionId: string;
   enabled: boolean;
-  disclosed: boolean;
   entries: ProductTelemetryLogEntryWire[];
 }
 

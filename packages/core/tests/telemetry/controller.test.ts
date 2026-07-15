@@ -36,7 +36,6 @@ function makeSessionStore(initial: Partial<{ sessionId: string; latched: string[
 
 interface RigOptions {
   enabled?: boolean;
-  disclosed?: boolean;
   sessionId?: string;
   latched?: string[];
   sessionStart?: TelemetryEvent | null;
@@ -44,8 +43,8 @@ interface RigOptions {
 
 function makeRig(options: RigOptions = {}) {
   const sent: TelemetryEnvelope[] = [];
-  const gates = { enabled: options.enabled ?? true, disclosed: options.disclosed ?? false };
-  const listeners = { enabled: [] as Array<() => void>, disclosed: [] as Array<() => void> };
+  const gates = { enabled: options.enabled ?? true };
+  const listeners = { enabled: [] as Array<() => void> };
   const { store, state } = makeSessionStore(options);
 
   const deps: ProductTelemetryControllerDeps = {
@@ -59,8 +58,6 @@ function makeRig(options: RigOptions = {}) {
     sessionStore: store,
     getEnabled: () => gates.enabled,
     subscribeEnabled: (fn) => listeners.enabled.push(fn),
-    getDisclosed: async () => gates.disclosed,
-    subscribeDisclosed: (fn) => listeners.disclosed.push(fn),
     buildSessionStart: async () => (options.sessionStart === undefined ? SESSION_START : options.sessionStart),
   };
 
@@ -69,21 +66,14 @@ function makeRig(options: RigOptions = {}) {
     gates.enabled = value;
     for (const fn of listeners.enabled) fn();
   };
-  const setDisclosed = async (value: boolean): Promise<void> => {
-    gates.disclosed = value;
-    for (const fn of listeners.disclosed) fn();
-    // The disclosure subscription re-reads asynchronously; settle it.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  };
-  return { controller, sent, state, setEnabled, setDisclosed };
+  return { controller, sent, state, setEnabled };
 }
 
 describe('ProductTelemetryController — session identity', () => {
   it('reuses the browser-session id from the session store', async () => {
     const injected = 'deadbeefdeadbeefdeadbeefdeadbeef';
-    const { controller, setDisclosed, sent } = makeRig({ sessionId: injected });
+    const { controller, sent } = makeRig({ sessionId: injected });
     await controller.init();
-    await setDisclosed(true);
     await controller.flush();
     expect(sent[0].sessionId).toBe(injected);
   });
@@ -96,13 +86,9 @@ describe('ProductTelemetryController — session identity', () => {
 });
 
 describe('ProductTelemetryController — session_start', () => {
-  it('fires once per browser session, only after disclosure', async () => {
-    const { controller, sent, state, setDisclosed } = makeRig();
+  it('fires once per browser session at boot', async () => {
+    const { controller, sent, state } = makeRig();
     await controller.init();
-    await controller.flush();
-    expect(sent).toEqual([]);
-
-    await setDisclosed(true);
     await controller.flush();
     expect(sent).toHaveLength(1);
     expect(sent[0].events).toEqual([SESSION_START]);
@@ -110,14 +96,13 @@ describe('ProductTelemetryController — session_start', () => {
   });
 
   it('does not fire again on a later SW wake within the same browser session', async () => {
-    const first = makeRig({ disclosed: true });
+    const first = makeRig();
     await first.controller.init();
     await first.controller.flush();
     expect(first.sent).toHaveLength(1);
 
     // A fresh controller with the same session store = SW eviction + wake.
     const second = makeRig({
-      disclosed: true,
       sessionId: first.state.sessionId ?? '',
       latched: [SESSION_START_LATCH_KEY],
     });
@@ -127,7 +112,7 @@ describe('ProductTelemetryController — session_start', () => {
   });
 
   it('skips the event on platforms outside the vocabulary but still latches the session', async () => {
-    const { controller, sent, state } = makeRig({ disclosed: true, sessionStart: null });
+    const { controller, sent, state } = makeRig({ sessionStart: null });
     await controller.init();
     await controller.flush();
     expect(sent).toEqual([]);
@@ -137,9 +122,8 @@ describe('ProductTelemetryController — session_start', () => {
 
 describe('ProductTelemetryController — once-per-session dedupe', () => {
   it('sends feature_used once per feature per session and keeps repeats out of the log', async () => {
-    const { controller, sent, setDisclosed } = makeRig({ sessionStart: null });
+    const { controller, sent } = makeRig({ sessionStart: null });
     await controller.init();
-    await setDisclosed(true);
     await controller.track({ name: 'feature_used', feature: 'vault' });
     await controller.track({ name: 'feature_used', feature: 'vault' });
     await controller.track({ name: 'feature_used', feature: 'variables' });
@@ -154,9 +138,8 @@ describe('ProductTelemetryController — once-per-session dedupe', () => {
   });
 
   it('sends error_beacon once per code per session', async () => {
-    const { controller, sent, setDisclosed } = makeRig({ sessionStart: null });
+    const { controller, sent } = makeRig({ sessionStart: null });
     await controller.init();
-    await setDisclosed(true);
     await controller.track({ name: 'error_beacon', code: 'source-refresh-failed' });
     await controller.track({ name: 'error_beacon', code: 'source-refresh-failed' });
     await controller.track({ name: 'error_beacon', code: 'ws-connect-failed' });
@@ -168,14 +151,13 @@ describe('ProductTelemetryController — once-per-session dedupe', () => {
   });
 
   it('dedupes across SW wakes through the shared session store', async () => {
-    const first = makeRig({ disclosed: true, sessionStart: null });
+    const first = makeRig({ sessionStart: null });
     await first.controller.init();
     await first.controller.track({ name: 'feature_used', feature: 'import-hub' });
     await first.controller.flush();
     expect(first.sent).toHaveLength(1);
 
     const second = makeRig({
-      disclosed: true,
       sessionStart: null,
       sessionId: first.state.sessionId ?? '',
       latched: [...first.state.latched],
@@ -186,11 +168,11 @@ describe('ProductTelemetryController — once-per-session dedupe', () => {
     expect(second.sent).toEqual([]);
   });
 
-  it('latches a pre-disclosure first use permanently and counts every workflow_run', async () => {
-    const { controller, sent, setDisclosed } = makeRig({ sessionStart: null });
+  it('latches a while-disabled first use permanently and counts every workflow_run', async () => {
+    const { controller, sent, setEnabled } = makeRig({ enabled: false, sessionStart: null });
     await controller.init();
     await controller.track({ name: 'feature_used', feature: 'vault' });
-    await setDisclosed(true);
+    setEnabled(true);
     await controller.track({ name: 'feature_used', feature: 'vault' });
     await controller.track({ name: 'workflow_run', ok: true });
     await controller.track({ name: 'workflow_run', ok: false });
@@ -218,9 +200,8 @@ describe('oncePerSessionLatchKey', () => {
 
 describe('ProductTelemetryController — gates', () => {
   it('applies the enabled setting at boot and live on change', async () => {
-    const { controller, sent, setEnabled, setDisclosed } = makeRig({ enabled: false, sessionStart: null });
+    const { controller, sent, setEnabled } = makeRig({ enabled: false, sessionStart: null });
     await controller.init();
-    await setDisclosed(true);
     await controller.track({ name: 'workflow_run', ok: true });
     await controller.flush();
     expect(sent).toEqual([]);
@@ -233,23 +214,13 @@ describe('ProductTelemetryController — gates', () => {
   });
 
   it('records suppressed would-be events in the snapshot while disabled', async () => {
-    const { controller, setDisclosed, setEnabled } = makeRig({ sessionStart: null });
+    const { controller, setEnabled } = makeRig({ sessionStart: null });
     await controller.init();
-    await setDisclosed(true);
     setEnabled(false);
     await controller.track({ name: 'feature_used', feature: 'vault' });
     const snapshot = await controller.snapshot();
     expect(snapshot.enabled).toBe(false);
-    expect(snapshot.disclosed).toBe(true);
     expect(snapshot.entries).toHaveLength(1);
-    expect(snapshot.entries[0].disposition).toBe('suppressed');
-  });
-
-  it('reports the pre-disclosure state in the snapshot', async () => {
-    const { controller } = makeRig();
-    await controller.track({ name: 'feature_used', feature: 'variables' });
-    const snapshot = await controller.snapshot();
-    expect(snapshot.disclosed).toBe(false);
     expect(snapshot.entries[0].disposition).toBe('suppressed');
     expect(snapshot.sessionId).toMatch(/^[0-9a-f]{32}$/);
   });
