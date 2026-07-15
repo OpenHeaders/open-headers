@@ -268,13 +268,19 @@ describe('parseStatusInput', () => {
 });
 
 describe('tabDisplayLabel — response-example tabs', () => {
+  const t = getTranslator(DEFAULT_LOCALE);
+
   it('resolves the live example name by uid', () => {
-    const label = tabDisplayLabel(exampleTab, { ...emptyLookups, responseExamples: [{ ...example, name: 'Renamed' }] });
+    const label = tabDisplayLabel(
+      exampleTab,
+      { ...emptyLookups, responseExamples: [{ ...example, name: 'Renamed' }] },
+      t,
+    );
     expect(label).toBe('Renamed');
   });
 
   it('falls back to the seed label when the example is gone', () => {
-    expect(tabDisplayLabel(exampleTab, emptyLookups)).toBe('200 OK');
+    expect(tabDisplayLabel(exampleTab, emptyLookups, t)).toBe('200 OK');
   });
 });
 

@@ -24,6 +24,7 @@ import { Button, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import CollectionOverviewShell from './CollectionOverviewShell';
 
 interface RequestCollectionOverviewProps {
@@ -81,6 +82,7 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
   onOpenCollectionVariables,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { collectionTrees } = useRequests();
 
   const collection = useMemo(
@@ -153,7 +155,7 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
           if (row.kind === 'folder') {
             return (
               <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
-                Folder · {row.childCount} request{row.childCount !== 1 ? 's' : ''}
+                {t('workbench.overview.cell.folderRequests', { count: row.childCount ?? 0 })}
               </span>
             );
           }
@@ -166,7 +168,7 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
         },
       },
     ],
-    [token],
+    [token, t],
   );
 
   if (!collection) {
@@ -176,18 +178,18 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
         actions={null}
         contents={null}
         notFound
-        notFoundLabel="Request collection not found"
+        notFoundLabel={t('workbench.overview.empty.requestCollectionNotFound')}
       />
     );
   }
 
   const statsBar = (
     <span style={{ fontSize: 13, color: token.colorTextSecondary }}>
-      {stats.requests} request{stats.requests !== 1 ? 's' : ''}
+      {t('workbench.overview.stats.requests', { count: stats.requests })}
       {stats.folders > 0 && (
         <>
           {' '}
-          · {stats.folders} folder{stats.folders !== 1 ? 's' : ''}
+          {t('workbench.overview.stats.foldersSuffix', { count: stats.folders })}
         </>
       )}
     </span>
@@ -196,16 +198,16 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
   const actions = (
     <>
       <Button size="small" icon={<PlusOutlined />} onClick={() => onCreateRequest({ collectionId: collectionUid })}>
-        Add Request
+        {t('workbench.overview.action.addRequest')}
       </Button>
       {onOpenCollectionVariables && (
-        <Tooltip title="Edit variables scoped to this request collection">
+        <Tooltip title={t('workbench.overview.action.variablesTooltipRequest')}>
           <Button
             size="small"
             icon={<VariablesIcon />}
             onClick={() => onOpenCollectionVariables(collectionUid, collection.name)}
           >
-            Variables
+            {t('workbench.overview.action.variables')}
           </Button>
         </Tooltip>
       )}
@@ -226,9 +228,13 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
         })}
       />
     ) : (
-      <Empty description="No requests yet" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '24px 0' }}>
+      <Empty
+        description={t('workbench.overview.empty.noRequests')}
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        style={{ margin: '24px 0' }}
+      >
         <Button size="small" icon={<PlusOutlined />} onClick={() => onCreateRequest({ collectionId: collectionUid })}>
-          Add Request
+          {t('workbench.overview.action.addRequest')}
         </Button>
       </Empty>
     );

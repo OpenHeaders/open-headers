@@ -18,6 +18,7 @@ import { Empty, Space, Table, Tag, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import CollectionOverviewShell from './CollectionOverviewShell';
 
 interface TemplateFolderOverviewProps {
@@ -78,6 +79,7 @@ const TemplateFolderOverview: React.FC<TemplateFolderOverviewProps> = ({
   onOpenFolderOverview,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { templateCollectionTrees } = useRules();
 
   const folder = useMemo(() => findFolder(templateCollectionTrees, folderUid), [templateCollectionTrees, folderUid]);
@@ -146,7 +148,7 @@ const TemplateFolderOverview: React.FC<TemplateFolderOverviewProps> = ({
           if (row.kind === 'folder') {
             return (
               <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
-                Folder · {row.childCount} template{row.childCount !== 1 ? 's' : ''}
+                {t('workbench.overview.cell.folderTemplates', { count: row.childCount ?? 0 })}
               </span>
             );
           }
@@ -157,7 +159,7 @@ const TemplateFolderOverview: React.FC<TemplateFolderOverviewProps> = ({
         },
       },
     ],
-    [token],
+    [token, t],
   );
 
   if (!folder) {
@@ -167,18 +169,18 @@ const TemplateFolderOverview: React.FC<TemplateFolderOverviewProps> = ({
         actions={null}
         contents={null}
         notFound
-        notFoundLabel="Folder not found"
+        notFoundLabel={t('workbench.overview.empty.folderNotFound')}
       />
     );
   }
 
   const statsBar = (
     <span style={{ fontSize: 13, color: token.colorTextSecondary }}>
-      {stats.templates} template{stats.templates !== 1 ? 's' : ''}
+      {t('workbench.overview.stats.templates', { count: stats.templates })}
       {stats.folders > 0 && (
         <>
           {' '}
-          · {stats.folders} subfolder{stats.folders !== 1 ? 's' : ''}
+          {t('workbench.overview.stats.subfoldersSuffix', { count: stats.folders })}
         </>
       )}
     </span>
@@ -196,7 +198,7 @@ const TemplateFolderOverview: React.FC<TemplateFolderOverviewProps> = ({
       />
     ) : (
       <Empty
-        description="No templates yet — save a rule as a template from the rule editor to populate this folder."
+        description={t('workbench.overview.empty.templatesFolder')}
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         style={{ margin: '24px 0' }}
       />

@@ -203,8 +203,8 @@ export function useWorkbenchActiveTab({
     ],
   );
   const getTabDisplayLabel = useCallback(
-    (tab: WorkbenchTab) => tabDisplayLabel(tab, tabDisplayLookups),
-    [tabDisplayLookups],
+    (tab: WorkbenchTab) => tabDisplayLabel(tab, tabDisplayLookups, t),
+    [tabDisplayLookups, t],
   );
 
   const activeBreadcrumbSegments = useMemo(() => {

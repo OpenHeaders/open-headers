@@ -199,7 +199,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
           if (row.kind === 'folder') {
             return (
               <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
-                Folder · {row.childCount} rule{row.childCount !== 1 ? 's' : ''}
+                {t('workbench.overview.cell.folderRules', { count: row.childCount ?? 0 })}
               </span>
             );
           }
@@ -212,15 +212,15 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
         width: 90,
         render: (_: unknown, row: ContentRow) => {
           if (row.kind === 'folder') return null;
-          if (row.draft) return <Tag color="default">Draft</Tag>;
-          if (!row.complete) return <Tag color="default">Incomplete</Tag>;
-          if (!row.enabled) return <Tag color="default">Disabled</Tag>;
-          if (row.effectivelyPaused) return <Tag color="warning">Paused</Tag>;
-          return <Tag color="success">Active</Tag>;
+          if (row.draft) return <Tag color="default">{t('workbench.overview.status.draft')}</Tag>;
+          if (!row.complete) return <Tag color="default">{t('workbench.overview.status.incomplete')}</Tag>;
+          if (!row.enabled) return <Tag color="default">{t('workbench.overview.status.disabled')}</Tag>;
+          if (row.effectivelyPaused) return <Tag color="warning">{t('workbench.overview.status.paused')}</Tag>;
+          return <Tag color="success">{t('workbench.overview.status.active')}</Tag>;
         },
       },
     ],
-    [token, rules],
+    [token, rules, t],
   );
 
   const addRuleMenuItems = buildRuleTypeMenuItems(
@@ -231,7 +231,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
   if (!folder) {
     return (
       <div style={{ padding: '24px 32px' }}>
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Folder not found" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('workbench.overview.empty.folderNotFound')} />
       </div>
     );
   }
@@ -241,34 +241,42 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
       {/* Stats bar */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 13, color: token.colorTextSecondary }}>
-          {stats.total} rule{stats.total !== 1 ? 's' : ''}
+          {t('workbench.overview.stats.rules', { count: stats.total })}
           {stats.folders > 0 && (
             <>
               {' '}
-              · {stats.folders} subfolder{stats.folders !== 1 ? 's' : ''}
+              {t('workbench.overview.stats.subfoldersSuffix', { count: stats.folders })}
             </>
           )}
         </span>
-        {stats.active > 0 && <Tag color="success">{stats.active} active</Tag>}
-        {stats.disabled > 0 && <Tag color="default">{stats.disabled} disabled</Tag>}
-        {stats.draft > 0 && <Tag color="default">{stats.draft} draft</Tag>}
-        {isPaused && <Tag color="warning">Paused</Tag>}
+        {stats.active > 0 && <Tag color="success">{t('workbench.overview.stats.activeTag', { count: stats.active })}</Tag>}
+        {stats.disabled > 0 && (
+          <Tag color="default">{t('workbench.overview.stats.disabledTag', { count: stats.disabled })}</Tag>
+        )}
+        {stats.draft > 0 && <Tag color="default">{t('workbench.overview.stats.draftTag', { count: stats.draft })}</Tag>}
+        {isPaused && <Tag color="warning">{t('workbench.overview.stats.pausedTag')}</Tag>}
       </div>
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <Dropdown menu={{ items: addRuleMenuItems }} trigger={['click']}>
           <Button size="small" icon={<PlusOutlined />}>
-            Add Rule
+            {t('workbench.overview.action.addRule')}
           </Button>
         </Dropdown>
-        <Tooltip title={isPaused ? 'Resume all rules in this folder' : 'Pause all rules in this folder'}>
+        <Tooltip
+          title={
+            isPaused
+              ? t('workbench.overview.action.resumeFolderTooltip')
+              : t('workbench.overview.action.pauseFolderTooltip')
+          }
+        >
           <Button
             size="small"
             icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
             onClick={() => togglePause(folderPath)}
           >
-            {isPaused ? 'Resume' : 'Pause'}
+            {isPaused ? t('workbench.overview.action.resume') : t('workbench.overview.action.pause')}
           </Button>
         </Tooltip>
       </div>
@@ -284,7 +292,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
           letterSpacing: 0.5,
         }}
       >
-        Contents
+        {t('workbench.overview.caption.contents')}
       </div>
       {rows.length > 0 ? (
         <Table<ContentRow>
@@ -304,10 +312,14 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
           }}
         />
       ) : (
-        <Empty description="No items yet" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '24px 0' }}>
+        <Empty
+          description={t('workbench.overview.empty.noItems')}
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          style={{ margin: '24px 0' }}
+        >
           <Dropdown menu={{ items: addRuleMenuItems }} trigger={['click']}>
             <Button size="small" icon={<PlusOutlined />}>
-              Add Rule
+              {t('workbench.overview.action.addRule')}
             </Button>
           </Dropdown>
         </Empty>

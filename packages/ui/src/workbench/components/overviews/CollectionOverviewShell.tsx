@@ -16,6 +16,7 @@
 
 import { Empty, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 interface CollectionOverviewShellProps {
   /** Tag-row at the top — counts + status pills. */
@@ -38,13 +39,17 @@ const CollectionOverviewShell: React.FC<CollectionOverviewShellProps> = ({
   description,
   contents,
   notFound,
-  notFoundLabel = 'Collection not found',
+  notFoundLabel,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   if (notFound) {
     return (
       <div style={{ padding: '24px 32px' }}>
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={notFoundLabel} />
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={notFoundLabel ?? t('workbench.overview.empty.collectionNotFound')}
+        />
       </div>
     );
   }
@@ -66,7 +71,7 @@ const CollectionOverviewShell: React.FC<CollectionOverviewShellProps> = ({
               letterSpacing: 0.5,
             }}
           >
-            Description
+            {t('workbench.overview.caption.description')}
           </div>
           <div style={{ fontSize: 13, color: token.colorTextSecondary, lineHeight: 1.6 }}>{description}</div>
         </div>
@@ -81,7 +86,7 @@ const CollectionOverviewShell: React.FC<CollectionOverviewShellProps> = ({
           letterSpacing: 0.5,
         }}
       >
-        Contents
+        {t('workbench.overview.caption.contents')}
       </div>
       {contents}
     </div>

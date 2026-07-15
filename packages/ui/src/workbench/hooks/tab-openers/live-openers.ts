@@ -3,6 +3,7 @@
  * workflow edit tabs, and their unsaved-draft create paths.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCallback } from 'react';
 import type { WorkflowSeedStep } from '../../types';
 import type { TabOpenerContext, UseTabOpenersApi } from './shared';
@@ -17,20 +18,21 @@ export type LiveOpeners = Pick<
 >;
 
 export function useLiveOpeners({ allTabs, addTab, switchTab, setPendingRenameTabId }: TabOpenerContext): LiveOpeners {
+  const t = useT();
   const openLiveVariables = useCallback(() => {
     const id = 'live-vars';
-    if (allTabs.some((t) => t.id === id)) {
+    if (allTabs.some((tab) => tab.id === id)) {
       switchTab(id);
       return;
     }
     addTab({
       id,
-      label: 'Live Variables',
+      label: t('workbench.shell.breadcrumbs.liveVariables'),
       ruleType: '',
       dirty: false,
       mode: 'live-vars',
     });
-  }, [allTabs, addTab, switchTab]);
+  }, [allTabs, addTab, switchTab, t]);
 
   const openLiveVariableEdit = useCallback(
     (uid: string, name: string) => {
@@ -77,13 +79,13 @@ export function useLiveOpeners({ allTabs, addTab, switchTab, setPendingRenameTab
     const tabId = `live-var-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     addTab({
       id: tabId,
-      label: 'New Live Variable',
+      label: t('workbench.shell.tabLabel.newLiveVariable'),
       ruleType: '',
       dirty: true,
       mode: 'live-variable-create',
     });
     setPendingRenameTabId(tabId);
-  }, [addTab, setPendingRenameTabId]);
+  }, [addTab, setPendingRenameTabId, t]);
 
   const openCreateLiveWorkflow = useCallback(
     (context?: { seedSteps?: WorkflowSeedStep[]; name?: string }) => {
@@ -93,7 +95,7 @@ export function useLiveOpeners({ allTabs, addTab, switchTab, setPendingRenameTab
       // pre-name the draft after the source container. Only workflow
       // tabs count as collisions: a container-named seed must not get
       // suffixed just because that container's own overview tab is open.
-      const baseName = context?.name?.trim() || 'New Workflow';
+      const baseName = context?.name?.trim() || t('workbench.shell.tabLabel.newWorkflow');
       const existingNames = new Set<string>();
       for (const tab of allTabs) {
         if (tab.mode === 'live-workflow-create' || tab.mode === 'live-workflow-edit') existingNames.add(tab.label);
@@ -116,7 +118,7 @@ export function useLiveOpeners({ allTabs, addTab, switchTab, setPendingRenameTab
       });
       setPendingRenameTabId(tabId);
     },
-    [allTabs, addTab, setPendingRenameTabId],
+    [allTabs, addTab, setPendingRenameTabId, t],
   );
 
   return {

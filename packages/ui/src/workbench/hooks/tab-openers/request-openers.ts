@@ -6,6 +6,7 @@
 
 import type { Collection, Request } from '@openheaders/core/types';
 import { buildEmptyRequest, generateUid, toFolderName } from '@openheaders/core/utils';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { applyRequestCreate } from '@openheaders/ui/shared/sync/request-write-client';
 import { useCallback } from 'react';
 import { resolveContextParentPath, type TabOpenerContext, type UseTabOpenersApi } from './shared';
@@ -35,6 +36,7 @@ export function useRequestOpeners(
   { requestCollections, workspaceId, surfaceId }: UseRequestOpenersOptions,
   { allTabs, addTab, switchTab, setPendingRenameTabId }: TabOpenerContext,
 ): RequestOpeners {
+  const t = useT();
   const openRequestCollectionOverview = useCallback(
     (uid: string, name: string, autoRename = false) => {
       const id = `req-col-${uid}`;
@@ -70,14 +72,14 @@ export function useRequestOpeners(
       }
       addTab({
         id,
-        label: `${name} · Variables`,
+        label: t('workbench.shell.tabLabel.collectionVariables', { name }),
         ruleType: '',
         dirty: false,
         mode: 'request-collection-vars',
         collectionUid: uid,
       });
     },
-    [allTabs, addTab, switchTab],
+    [allTabs, addTab, switchTab, t],
   );
 
   const openRequestEditTab = useCallback(
@@ -110,7 +112,7 @@ export function useRequestOpeners(
       // rule-draft numbering infrastructure through a type override;
       // request drafts don't collide with rule drafts because they
       // live in different stores (names are display-only either way).
-      const baseName = 'New Request';
+      const baseName = t('workbench.shell.tabLabel.newRequest');
       const existingNames = new Set<string>();
       for (const tab of allTabs) existingNames.add(tab.label);
       let draftName = baseName;
@@ -156,7 +158,7 @@ export function useRequestOpeners(
       });
       setPendingRenameTabId(tabId);
     },
-    [allTabs, addTab, requestCollections, workspaceId, surfaceId, setPendingRenameTabId],
+    [allTabs, addTab, requestCollections, workspaceId, surfaceId, setPendingRenameTabId, t],
   );
 
   const openDuplicateRequestScratch = useCallback(

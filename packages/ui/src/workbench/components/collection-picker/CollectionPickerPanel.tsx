@@ -17,6 +17,7 @@ import { Input, type InputRef, Typography, theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import type React from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 const { Text } = Typography;
 
@@ -50,6 +51,7 @@ const CollectionPickerPanel = forwardRef<CollectionPickerHandle, CollectionPicke
   ref,
 ) {
   const { token } = theme.useToken();
+  const t = useT();
   const [search, setSearch] = useState('');
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -117,7 +119,7 @@ const CollectionPickerPanel = forwardRef<CollectionPickerHandle, CollectionPicke
     <div>
       <Input
         ref={searchInputRef}
-        placeholder="Search for collection"
+        placeholder={t('workbench.collectionPicker.searchPlaceholder')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         onKeyDown={handleNavKeyDown}
@@ -146,14 +148,14 @@ const CollectionPickerPanel = forwardRef<CollectionPickerHandle, CollectionPicke
         {collections.length === 0 && (
           <div style={{ padding: '14px 12px 6px', textAlign: 'center' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              No collections yet — one is created for you on import.
+              {t('workbench.collectionPicker.empty')}
             </Text>
           </div>
         )}
         {collections.length > 0 && filteredCollections.length === 0 && (
           <div style={{ padding: '14px 12px 6px', textAlign: 'center' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              No matching collections.
+              {t('workbench.collectionPicker.noMatch')}
             </Text>
           </div>
         )}
@@ -177,7 +179,7 @@ const CollectionPickerPanel = forwardRef<CollectionPickerHandle, CollectionPicke
           icon: <PlusOutlined style={{ fontSize: 12, color: token.colorPrimary }} />,
           label: (
             <span style={{ flex: 1 }}>
-              <span style={{ color: token.colorPrimary }}>New collection</span>{' '}
+              <span style={{ color: token.colorPrimary }}>{t('workbench.collectionPicker.newCollection')}</span>{' '}
               <Text type="secondary" style={{ fontSize: 12 }}>
                 “{newCollectionName}”
               </Text>

@@ -90,7 +90,7 @@ export function useRuleOpeners(
       initialDraft?: RuleDraft,
     ) => {
       if (!workspaceId) {
-        message.error('No active workspace');
+        message.error(t('workbench.shell.toast.noActiveWorkspace'));
         return;
       }
       const draftMatches = initialDraft && initialDraft.type === type ? initialDraft : undefined;
@@ -104,7 +104,7 @@ export function useRuleOpeners(
         const seed = buildEmptyRule(type as RuleType, draftName);
         void applyRuleCreate({ rule: seed, parentPath }, { workspaceId, surfaceId }).then((result) => {
           if (!result.ok) {
-            message.error('Failed to create rule');
+            message.error(t('workbench.shell.toast.createRuleFailed'));
             return;
           }
           const editId = `edit-${result.rule.uid}`;
@@ -144,7 +144,7 @@ export function useRuleOpeners(
       });
       setPendingRenameTabId(tabId);
     },
-    [workspaceId, surfaceId, localCollections, generateDraftName, addTab, message, setPendingRenameTabId],
+    [workspaceId, surfaceId, localCollections, generateDraftName, addTab, message, setPendingRenameTabId, t],
   );
 
   const openEditTab = useCallback(
@@ -216,14 +216,14 @@ export function useRuleOpeners(
       }
       addTab({
         id,
-        label: `${name} · Variables`,
+        label: t('workbench.shell.tabLabel.collectionVariables', { name }),
         ruleType: '',
         dirty: false,
         mode: 'collection-vars',
         collectionUid: uid,
       });
     },
-    [allTabs, addTab, switchTab],
+    [allTabs, addTab, switchTab, t],
   );
 
   const openDuplicateRuleScratch = useCallback(

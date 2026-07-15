@@ -25,6 +25,7 @@ import type { RuleCondition, Template } from '@openheaders/core/types';
 import { App, Checkbox, Form, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ActionPathsProvider,
   EntityField,
@@ -44,6 +45,7 @@ import {
 } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
+import { getRuleTypeLabel } from '../../hooks/tab-openers/shared';
 import ConditionEditor from '../rule/ConditionEditor';
 import EditorHeader from '../shell/EditorHeader';
 import { mergeTemplateForSave } from './merge-template-for-save';
@@ -64,15 +66,15 @@ import { useTemplateConflicts } from './use-template-conflicts';
 const { Text } = Typography;
 const { TextArea } = Input;
 
-const RULE_TYPE_OPTIONS = [
-  { value: 'header', label: 'Header Rule' },
-  { value: 'block', label: 'Block Rule' },
-  { value: 'redirect', label: 'Redirect Rule' },
-  { value: 'query-param', label: 'Query Param Rule' },
-  { value: 'inject', label: 'Inject Rule' },
-  { value: 'delay', label: 'Delay Rule' },
-  { value: 'request-body', label: 'API Request Body Rule' },
-  { value: 'response', label: 'API Response Rule' },
+const RULE_TYPE_OPTION_VALUES = [
+  'header',
+  'block',
+  'redirect',
+  'query-param',
+  'inject',
+  'delay',
+  'request-body',
+  'response',
 ];
 
 const META_KEYS = new Set([
@@ -94,6 +96,7 @@ interface TemplateEditorProps {
 const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyChange, registerSaveRef }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
+  const t = useT();
   const { templates, updateTemplate } = useRules();
   const [form] = Form.useForm();
   const initializedRef = useRef(false);
@@ -102,7 +105,15 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const [headerReqCount, setHeaderReqCount] = useState(0);
   const [headerResCount, setHeaderResCount] = useState(0);
 
-  const liveTemplate = useMemo(() => templates.find((t) => t.uid === templateUid), [templates, templateUid]);
+  const liveTemplate = useMemo(
+    () => templates.find((template) => template.uid === templateUid),
+    [templates, templateUid],
+  );
+
+  const ruleTypeOptions = useMemo(
+    () => RULE_TYPE_OPTION_VALUES.map((value) => ({ value, label: getRuleTypeLabel(value, t) })),
+    [t],
+  );
   const selectedType = liveTemplate?.ruleType;
 
   // ── Form initialization ──────────────────────────────────────
@@ -324,14 +335,14 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     const updates = mergeTemplateForSave(buildTemplateUpdates(values), baselineTemplateRef.current, liveTemplate);
     const success = await updateTemplate(liveTemplate.uid, updates);
     if (success) {
-      message.success('Template saved');
+      message.success(t('workbench.templateEditor.toast.saved'));
       conflicts.clearDismissed();
       // Dirty derives from form-vs-canonical equality; broadcast echo
       // brings live template in line with form, auto-rebase clears.
     } else {
-      message.error('Failed to save template');
+      message.error(t('workbench.templateEditor.toast.saveFailed'));
     }
-  }, [liveTemplate, form, updateTemplate, message, conflicts]);
+  }, [liveTemplate, form, updateTemplate, message, conflicts, t]);
 
   const shell = useEditorShell({
     entityType: TEMPLATE_ENTITY_TYPE,
@@ -375,7 +386,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   if (!liveTemplate) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <Text type="secondary">Template not found</Text>
+        <Text type="secondary">{t('workbench.templateEditor.notFound')}</Text>
       </div>
     );
   }
@@ -383,7 +394,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const headerTitle = (
     <>
       <Typography.Text strong style={{ fontSize: 13 }}>
-        {liveTemplate.name || 'Template'}
+        {liveTemplate.name || t('workbench.shell.fallback.template')}
       </Typography.Text>
       <PresenceBadge
         entityType={TEMPLATE_ENTITY_TYPE}
@@ -418,17 +429,21 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
               </Form.Item>
               <Form.Item name="templateName" style={{ marginBottom: 0, flex: 1 }}>
                 <EntityField path={TEMPLATE_ACTION_PATHS.name}>
-                  <Input size="small" placeholder="Template name" />
+                  <Input size="small" placeholder={t('workbench.templateEditor.namePlaceholder')} />
                 </EntityField>
               </Form.Item>
               <Form.Item name="ruleType" style={{ marginBottom: 0, width: 160 }}>
-                <Select size="small" options={RULE_TYPE_OPTIONS} disabled />
+                <Select size="small" options={ruleTypeOptions} disabled />
               </Form.Item>
             </div>
 
             <Form.Item name="templateDescription" style={{ marginBottom: 16 }}>
               <EntityField path="description">
-                <TextArea size="small" placeholder="Description (optional)" autoSize={{ minRows: 1, maxRows: 3 }} />
+                <TextArea
+                  size="small"
+                  placeholder={t('workbench.templateEditor.descriptionPlaceholder')}
+                  autoSize={{ minRows: 1, maxRows: 3 }}
+                />
               </EntityField>
             </Form.Item>
 
@@ -444,10 +459,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
               }}
             >
               <Form.Item name="includeConditions" valuePropName="checked" style={{ marginBottom: 0 }}>
-                <Checkbox>Include conditions</Checkbox>
+                <Checkbox>{t('workbench.templateEditor.includeConditions')}</Checkbox>
               </Form.Item>
               <Form.Item name="includeFormValues" valuePropName="checked" style={{ marginBottom: 0 }}>
-                <Checkbox>Include actions</Checkbox>
+                <Checkbox>{t('workbench.templateEditor.includeActions')}</Checkbox>
               </Form.Item>
             </div>
 
@@ -475,7 +490,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                 <Text strong style={{ fontSize: 13 }}>
-                  Conditions
+                  {t('workbench.templateEditor.conditionsTitle')}
                 </Text>
                 <InfoCircleOutlined
                   style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}

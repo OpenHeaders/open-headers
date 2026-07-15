@@ -35,6 +35,7 @@ import type {
   Template,
   TreeNode,
 } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from './types';
 
 export interface TabDisplayLookups {
@@ -63,7 +64,7 @@ function findFolderNameInTrees(trees: readonly CollectionTree[], uid: string): s
   return null;
 }
 
-export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups): string {
+export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t: Translate): string {
   switch (tab.mode) {
     case 'edit': {
       if (!tab.ruleUid) return tab.label;
@@ -127,11 +128,28 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups): 
             ? lookups.requestCollectionTrees
             : lookups.templateCollectionTrees;
       const col = trees.find((c) => c.uid === tab.collectionUid);
-      return col ? `${col.name} · Variables` : tab.label;
+      return col ? t('workbench.shell.tabLabel.collectionVariables', { name: col.name }) : tab.label;
     }
-    // Drafts (`*-create`), singletons (`vault`, `workspace-vars`,
-    // `settings`, `workspace-manager`, `live-vars`, `landing`), and
-    // one-off tabs keep their seed label —
+    // Singleton tabs resolve live through the breadcrumb root nouns so
+    // the strip follows a locale switch — the minted seed label is only
+    // the session-persisted fallback.
+    case 'settings':
+      return t('workbench.shell.breadcrumbs.settings');
+    case 'whats-new':
+      return t('workbench.shell.breadcrumbs.whatsNew');
+    case 'workspace-manager':
+      return t('workbench.shell.breadcrumbs.workspaces');
+    case 'daemon-admin':
+      return t('workbench.shell.breadcrumbs.daemonAdmin');
+    case 'workspace-vars':
+      return t('workbench.shell.breadcrumbs.workspaceVariables');
+    case 'vault':
+      return t('workbench.shell.breadcrumbs.vault');
+    case 'script-packages':
+      return t('workbench.shell.breadcrumbs.packageLibrary');
+    case 'live-vars':
+      return t('workbench.shell.breadcrumbs.liveVariables');
+    // Drafts (`*-create`) and one-off tabs keep their seed label —
     // either the user-typed `draftName` or the static `label` set at
     // open time. No entity to look up.
     default:

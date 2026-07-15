@@ -95,7 +95,7 @@ export function useSidebarCreateActions({
   }, [createTemplateCollection, templateCollections, onOpenTemplateCollectionOverview, setSectionsExpanded]);
 
   const createNewEnvironment = useCallback(async () => {
-    const name = uniqueName(t('workbench.sidebar.defaults.newEnvironment'), new Set(environments.map((e) => e.name)));
+    const name = uniqueName(t('shared.defaults.newEnvironment'), new Set(environments.map((e) => e.name)));
     const env = await createEnvironment(name);
     if (env) {
       setSectionsExpanded((prev) => ({ ...prev, environments: true }));

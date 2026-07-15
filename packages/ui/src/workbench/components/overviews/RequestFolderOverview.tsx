@@ -22,6 +22,7 @@ import { Button, Empty, Space, Table, Tag, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import CollectionOverviewShell from './CollectionOverviewShell';
 
 interface RequestFolderOverviewProps {
@@ -97,6 +98,7 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
   onOpenFolderOverview,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { collectionTrees } = useRequests();
 
   const found = useMemo(() => findFolder(collectionTrees, folderUid), [collectionTrees, folderUid]);
@@ -158,7 +160,7 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
           if (row.kind === 'folder') {
             return (
               <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
-                Folder · {row.childCount} request{row.childCount !== 1 ? 's' : ''}
+                {t('workbench.overview.cell.folderRequests', { count: row.childCount ?? 0 })}
               </span>
             );
           }
@@ -171,7 +173,7 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
         },
       },
     ],
-    [token],
+    [token, t],
   );
 
   if (!folder) {
@@ -181,18 +183,18 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
         actions={null}
         contents={null}
         notFound
-        notFoundLabel="Folder not found"
+        notFoundLabel={t('workbench.overview.empty.folderNotFound')}
       />
     );
   }
 
   const statsBar = (
     <span style={{ fontSize: 13, color: token.colorTextSecondary }}>
-      {stats.requests} request{stats.requests !== 1 ? 's' : ''}
+      {t('workbench.overview.stats.requests', { count: stats.requests })}
       {stats.folders > 0 && (
         <>
           {' '}
-          · {stats.folders} subfolder{stats.folders !== 1 ? 's' : ''}
+          {t('workbench.overview.stats.subfoldersSuffix', { count: stats.folders })}
         </>
       )}
     </span>
@@ -204,7 +206,7 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
       icon={<PlusOutlined />}
       onClick={() => onCreateRequest({ collectionId: collectionUid, folderPath })}
     >
-      Add Request
+      {t('workbench.overview.action.addRequest')}
     </Button>
   );
 
@@ -219,13 +221,17 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
         onRow={(row) => ({ onClick: () => handleRowClick(row), style: { cursor: 'pointer' } })}
       />
     ) : (
-      <Empty description="No items yet" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '24px 0' }}>
+      <Empty
+        description={t('workbench.overview.empty.noItems')}
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        style={{ margin: '24px 0' }}
+      >
         <Button
           size="small"
           icon={<PlusOutlined />}
           onClick={() => onCreateRequest({ collectionId: collectionUid, folderPath })}
         >
-          Add Request
+          {t('workbench.overview.action.addRequest')}
         </Button>
       </Empty>
     );

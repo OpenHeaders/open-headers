@@ -542,18 +542,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // updates), then we open the editor in rename mode so the user can
   // name it.
   const handleCreateEnvironment = useCallback(async () => {
-    const baseName = 'New Environment';
+    const baseName = t('shared.defaults.newEnvironment');
     const existingNames = new Set(envApi.environments.map((e) => e.name));
     let name = baseName;
     let counter = 2;
     while (existingNames.has(name)) name = `${baseName} (${counter++})`;
     const env = await envApi.createEnvironment(name);
     if (!env) {
-      message.error('Failed to create environment');
+      message.error(t('workbench.shell.toast.createEnvironmentFailed'));
       return;
     }
     openEnvironmentEdit(env.uid, env.name, true);
-  }, [envApi, openEnvironmentEdit, message]);
+  }, [envApi, openEnvironmentEdit, message, t]);
 
   // Route the empty-state "Create variable" dropdown to each scope's
   // existing create/manage surface. Collection scope is disabled in the
@@ -599,7 +599,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       // reads with the same icon the switcher shows.
       const switchedContent = (suffix: string): React.ReactNode => (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          {`Switched this ${instanceLabel()} to`}
+          {t('workbench.shell.appGlue.switchedTo', { unit: instanceLabel() })}
           {renderWorkspacePrefix({ icon: targetWs?.icon, color: targetWs?.color }, token, { size: 16 })}
           {`${targetName ?? ''}${suffix}`}
         </span>
@@ -618,7 +618,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         if (opts?.makeActive && targetId !== workspacesApi.activeWorkspaceId) {
           const ok = await workspacesApi.setActiveWorkspace(targetId);
           if (ok) {
-            if (targetName) message.success(switchedContent(' and made it active'));
+            if (targetName) message.success(switchedContent(t('workbench.shell.appGlue.andMadeActive')));
             return true;
           }
           if (!sameBinding && targetName) message.success(switchedContent(''));
@@ -630,10 +630,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       if (hasDirty) {
         return new Promise<boolean>((resolve) => {
           modal.confirm({
-            title: 'Discard unsaved drafts?',
-            content: 'Switching workspaces will close editor tabs with unsaved changes.',
-            okText: 'Switch and discard',
-            cancelText: 'Cancel',
+            title: t('workbench.shell.appGlue.discardTitle'),
+            content: t('workbench.shell.appGlue.discardBody'),
+            okText: t('workbench.shell.appGlue.discardOk'),
+            cancelText: t('workbench.shell.appGlue.cancel'),
             okButtonProps: { danger: true },
             onOk: async () => resolve(await doSwitch()),
             onCancel: () => resolve(false),
@@ -642,7 +642,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       }
       return doSwitch();
     },
-    [workspacesApi, modal, message, allTabs, perTab],
+    [workspacesApi, modal, message, allTabs, perTab, t],
   );
 
   // ── Migration pull — background-task tenant ────────────────────
@@ -1309,7 +1309,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onCreateEnvironment={() => void handleCreateEnvironment()}
             onOpenEnvironment={(uid) => {
               const env = envApi.environments.find((e) => e.uid === uid);
-              openEnvironmentEdit(uid, env?.name ?? 'Environment');
+              openEnvironmentEdit(uid, env?.name ?? t('workbench.shell.fallback.environment'));
             }}
             onOpenWorkspaceVariables={openWorkspaceVariables}
             onOpenCollectionVariables={() => {

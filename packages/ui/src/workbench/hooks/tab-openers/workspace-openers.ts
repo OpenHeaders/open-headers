@@ -4,6 +4,7 @@
  * edit tabs.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCallback } from 'react';
 import type { TabOpenerContext, UseTabOpenersApi } from './shared';
 
@@ -25,6 +26,7 @@ export function useWorkspaceOpeners({
   switchTab,
   setPendingRenameTabId,
 }: TabOpenerContext): WorkspaceOpeners {
+  const t = useT();
   const openSettingsTab = useCallback(
     (options?: { settingKey?: string; categoryId?: string }) => {
       const id = 'settings';
@@ -34,7 +36,7 @@ export function useWorkspaceOpeners({
       }
       addTab({
         id,
-        label: 'Settings',
+        label: t('workbench.shell.breadcrumbs.settings'),
         ruleType: '',
         dirty: false,
         mode: 'settings',
@@ -42,7 +44,7 @@ export function useWorkspaceOpeners({
         settingsInitialCategory: options?.categoryId,
       });
     },
-    [allTabs, addTab, switchTab],
+    [allTabs, addTab, switchTab, t],
   );
 
   const openWhatsNew = useCallback(() => {
@@ -53,12 +55,12 @@ export function useWorkspaceOpeners({
     }
     addTab({
       id,
-      label: "What's New",
+      label: t('workbench.shell.breadcrumbs.whatsNew'),
       ruleType: '',
       dirty: false,
       mode: 'whats-new',
     });
-  }, [allTabs, addTab, switchTab]);
+  }, [allTabs, addTab, switchTab, t]);
 
   const openWorkspaceManager = useCallback(() => {
     const id = 'workspace-manager';
@@ -68,12 +70,12 @@ export function useWorkspaceOpeners({
     }
     addTab({
       id,
-      label: 'Workspaces',
+      label: t('workbench.shell.breadcrumbs.workspaces'),
       ruleType: '',
       dirty: false,
       mode: 'workspace-manager',
     });
-  }, [allTabs, addTab, switchTab]);
+  }, [allTabs, addTab, switchTab, t]);
 
   const openDaemonAdmin = useCallback(() => {
     const id = 'daemon-admin';
@@ -83,12 +85,12 @@ export function useWorkspaceOpeners({
     }
     addTab({
       id,
-      label: 'Daemon admin',
+      label: t('workbench.shell.breadcrumbs.daemonAdmin'),
       ruleType: '',
       dirty: false,
       mode: 'daemon-admin',
     });
-  }, [allTabs, addTab, switchTab]);
+  }, [allTabs, addTab, switchTab, t]);
 
   const openEnvironmentEdit = useCallback(
     (uid: string, name: string, autoRename = false) => {
@@ -119,12 +121,12 @@ export function useWorkspaceOpeners({
     }
     addTab({
       id,
-      label: 'Workspace Variables',
+      label: t('workbench.shell.breadcrumbs.workspaceVariables'),
       ruleType: '',
       dirty: false,
       mode: 'workspace-vars',
     });
-  }, [allTabs, addTab, switchTab]);
+  }, [allTabs, addTab, switchTab, t]);
 
   const openVault = useCallback(() => {
     const id = 'vault';
@@ -134,12 +136,12 @@ export function useWorkspaceOpeners({
     }
     addTab({
       id,
-      label: 'Vault',
+      label: t('workbench.shell.breadcrumbs.vault'),
       ruleType: '',
       dirty: false,
       mode: 'vault',
     });
-  }, [allTabs, addTab, switchTab]);
+  }, [allTabs, addTab, switchTab, t]);
 
   const openScriptPackages = useCallback(() => {
     const id = 'script-packages';
@@ -149,12 +151,12 @@ export function useWorkspaceOpeners({
     }
     addTab({
       id,
-      label: 'Package Library',
+      label: t('workbench.shell.breadcrumbs.packageLibrary'),
       ruleType: '',
       dirty: false,
       mode: 'script-packages',
     });
-  }, [allTabs, addTab, switchTab]);
+  }, [allTabs, addTab, switchTab, t]);
 
   return {
     openSettingsTab,

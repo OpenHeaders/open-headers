@@ -4,6 +4,7 @@
  */
 
 import type { Template } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCallback } from 'react';
 import type { TabOpenerContext, UseTabOpenersApi } from './shared';
 
@@ -23,24 +24,25 @@ export function useTemplateOpeners(
   { templates }: UseTemplateOpenersOptions,
   { allTabs, addTab, switchTab, setPendingRenameTabId }: TabOpenerContext,
 ): TemplateOpeners {
+  const t = useT();
   const openTemplateEditTab = useCallback(
     (uid: string) => {
-      const existing = allTabs.find((t) => t.mode === 'template-edit' && t.templateUid === uid);
+      const existing = allTabs.find((tab) => tab.mode === 'template-edit' && tab.templateUid === uid);
       if (existing) {
         switchTab(existing.id);
         return;
       }
-      const tpl = templates.find((t) => t.uid === uid);
+      const tpl = templates.find((template) => template.uid === uid);
       addTab({
         id: `tpl-edit-${uid}`,
-        label: tpl?.name ?? 'Template',
+        label: tpl?.name ?? t('workbench.shell.fallback.template'),
         ruleType: tpl?.ruleType ?? '',
         dirty: false,
         mode: 'template-edit',
         templateUid: uid,
       });
     },
-    [allTabs, templates, addTab, switchTab],
+    [allTabs, templates, addTab, switchTab, t],
   );
 
   const openTemplateCollectionOverview = useCallback(
@@ -78,14 +80,14 @@ export function useTemplateOpeners(
       }
       addTab({
         id,
-        label: `${name} · Variables`,
+        label: t('workbench.shell.tabLabel.collectionVariables', { name }),
         ruleType: '',
         dirty: false,
         mode: 'template-collection-vars',
         collectionUid: uid,
       });
     },
-    [allTabs, addTab, switchTab],
+    [allTabs, addTab, switchTab, t],
   );
 
   return {

@@ -149,9 +149,9 @@ export const workbenchChrome = {
 
   // ── Sidebar: default entity names ───────────────────────────────────
   // (New Rules/Requests Collection promoted to `shared.defaults.*` when
-  // the save modals became their second converted consumer.)
+  // the save modals became their second converted consumer; New
+  // Environment followed when App's env-selector create flow converted.)
   'workbench.sidebar.defaults.newFolder': 'New Folder',
-  'workbench.sidebar.defaults.newEnvironment': 'New Environment',
 
   // ── Sidebar: confirm-delete modal + toasts ──────────────────────────
   'workbench.sidebar.confirmDelete.title': 'Delete item?',
@@ -360,6 +360,30 @@ export const workbenchChrome = {
 
   // ── Shell: fallback entity labels ───────────────────────────────────
   'workbench.shell.fallback.workflow': 'Workflow',
+  'workbench.shell.fallback.template': 'Template',
+  'workbench.shell.fallback.environment': 'Environment',
+
+  // ── Shell: tab-label compositions + draft seeds. Singleton tab
+  // labels resolve live through the breadcrumb root nouns; only copy
+  // with no breadcrumb twin lives here. Draft seeds persist as entity
+  // names BY DESIGN (V5 fresh start) — keyed at mint time. ────────────
+  'workbench.shell.tabLabel.collectionVariables': '{name} · Variables',
+  'workbench.shell.tabLabel.newRequest': 'New Request',
+  'workbench.shell.tabLabel.newWorkflow': 'New Workflow',
+  'workbench.shell.tabLabel.newLiveVariable': 'New Live Variable',
+
+  // ── Shell: App glue — workspace-switch toast, dirty-close confirm,
+  // create-flow toasts. `{unit}` interpolates the host-vocabulary
+  // instance noun (tab / window). ─────────────────────────────────────
+  'workbench.shell.appGlue.switchedTo': 'Switched this {unit} to',
+  'workbench.shell.appGlue.andMadeActive': ' and made it active',
+  'workbench.shell.appGlue.discardTitle': 'Discard unsaved drafts?',
+  'workbench.shell.appGlue.discardBody': 'Switching workspaces will close editor tabs with unsaved changes.',
+  'workbench.shell.appGlue.discardOk': 'Switch and discard',
+  'workbench.shell.appGlue.cancel': 'Cancel',
+  'workbench.shell.toast.createEnvironmentFailed': 'Failed to create environment',
+  'workbench.shell.toast.noActiveWorkspace': 'No active workspace',
+  'workbench.shell.toast.createRuleFailed': 'Failed to create rule',
 
   // ── Workspace: manager page ─────────────────────────────────────────
   'workbench.workspace.title': 'Workspaces',
@@ -647,4 +671,101 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.activity.summary':
     'Workspace-wide feed of inbound changes from peers, with classifier highlights for sensitive-field ' +
     'rotations, permission-scope expansions, and local-edit supersedes.',
+
+  // ── Overview tabs (collection / folder, all three families). The
+  // folder-suffix chunks carry their leading '· ' — the JSX supplies
+  // only the separating space. ────────────────────────────────────────
+  'workbench.overview.stats.rules': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} rule',
+      other: '{count} rules',
+    }),
+  'workbench.overview.stats.requests': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} request',
+      other: '{count} requests',
+    }),
+  'workbench.overview.stats.templates': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} template',
+      other: '{count} templates',
+    }),
+  'workbench.overview.stats.foldersSuffix': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '· {count} folder',
+      other: '· {count} folders',
+    }),
+  'workbench.overview.stats.subfoldersSuffix': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '· {count} subfolder',
+      other: '· {count} subfolders',
+    }),
+  'workbench.overview.stats.activeTag': '{count} active',
+  'workbench.overview.stats.disabledTag': '{count} disabled',
+  'workbench.overview.stats.draftTag': '{count} draft',
+  'workbench.overview.stats.pausedTag': 'Paused',
+  'workbench.overview.cell.folderRules': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'Folder · {count} rule',
+      other: 'Folder · {count} rules',
+    }),
+  'workbench.overview.cell.folderRequests': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'Folder · {count} request',
+      other: 'Folder · {count} requests',
+    }),
+  'workbench.overview.cell.folderTemplates': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'Folder · {count} template',
+      other: 'Folder · {count} templates',
+    }),
+  'workbench.overview.status.draft': 'Draft',
+  'workbench.overview.status.incomplete': 'Incomplete',
+  'workbench.overview.status.disabled': 'Disabled',
+  'workbench.overview.status.paused': 'Paused',
+  'workbench.overview.status.active': 'Active',
+  'workbench.overview.action.addRule': 'Add Rule',
+  'workbench.overview.action.addRequest': 'Add Request',
+  'workbench.overview.action.pause': 'Pause',
+  'workbench.overview.action.resume': 'Resume',
+  'workbench.overview.action.pauseCollectionTooltip': 'Pause all rules in this collection',
+  'workbench.overview.action.resumeCollectionTooltip': 'Resume all rules in this collection',
+  'workbench.overview.action.pauseFolderTooltip': 'Pause all rules in this folder',
+  'workbench.overview.action.resumeFolderTooltip': 'Resume all rules in this folder',
+  'workbench.overview.action.variables': 'Variables',
+  'workbench.overview.action.variablesTooltip': 'Edit variables scoped to this collection',
+  'workbench.overview.action.variablesTooltipRequest': 'Edit variables scoped to this request collection',
+  'workbench.overview.action.variablesTooltipTemplate': 'Edit variables scoped to this template collection',
+  'workbench.overview.caption.description': 'Description',
+  'workbench.overview.caption.contents': 'Contents',
+  'workbench.overview.empty.collectionNotFound': 'Collection not found',
+  'workbench.overview.empty.folderNotFound': 'Folder not found',
+  'workbench.overview.empty.requestCollectionNotFound': 'Request collection not found',
+  'workbench.overview.empty.templateCollectionNotFound': 'Template collection not found',
+  'workbench.overview.empty.noItems': 'No items yet',
+  'workbench.overview.empty.noRequests': 'No requests yet',
+  'workbench.overview.empty.templatesCollection':
+    'No templates in this collection. Save a rule as a template to populate this collection.',
+  'workbench.overview.empty.templatesFolder':
+    'No templates yet — save a rule as a template from the rule editor to populate this folder.',
+
+  // ── Template editor ─────────────────────────────────────────────────
+  'workbench.templateEditor.toast.saved': 'Template saved',
+  'workbench.templateEditor.toast.saveFailed': 'Failed to save template',
+  'workbench.templateEditor.notFound': 'Template not found',
+  'workbench.templateEditor.namePlaceholder': 'Template name',
+  'workbench.templateEditor.descriptionPlaceholder': 'Description (optional)',
+  'workbench.templateEditor.includeConditions': 'Include conditions',
+  'workbench.templateEditor.includeActions': 'Include actions',
+  'workbench.templateEditor.conditionsTitle': 'Conditions',
+
+  // ── What's New tab ──────────────────────────────────────────────────
+  'workbench.whatsNew.title': "What's New in Open Headers {version}",
+  'workbench.whatsNew.noNotes': 'This build ships without release notes.',
+
+  // ── Collection picker panel (import flows) ──────────────────────────
+  'workbench.collectionPicker.searchPlaceholder': 'Search for collection',
+  'workbench.collectionPicker.empty': 'No collections yet — one is created for you on import.',
+  'workbench.collectionPicker.noMatch': 'No matching collections.',
+  'workbench.collectionPicker.newCollection': 'New collection',
 } as const satisfies Catalog;

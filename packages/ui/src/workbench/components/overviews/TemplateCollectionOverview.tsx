@@ -17,6 +17,7 @@ import { Button, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import CollectionOverviewShell from './CollectionOverviewShell';
 
 interface TemplateCollectionOverviewProps {
@@ -62,6 +63,7 @@ const TemplateCollectionOverview: React.FC<TemplateCollectionOverviewProps> = ({
   onOpenCollectionVariables,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { templateCollectionTrees } = useRules();
 
   const collection = useMemo(
@@ -129,7 +131,7 @@ const TemplateCollectionOverview: React.FC<TemplateCollectionOverviewProps> = ({
           if (row.kind === 'folder') {
             return (
               <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
-                Folder · {row.childCount} template{row.childCount !== 1 ? 's' : ''}
+                {t('workbench.overview.cell.folderTemplates', { count: row.childCount ?? 0 })}
               </span>
             );
           }
@@ -138,7 +140,7 @@ const TemplateCollectionOverview: React.FC<TemplateCollectionOverviewProps> = ({
         },
       },
     ],
-    [token],
+    [token, t],
   );
 
   if (!collection) {
@@ -148,31 +150,31 @@ const TemplateCollectionOverview: React.FC<TemplateCollectionOverviewProps> = ({
         actions={null}
         contents={null}
         notFound
-        notFoundLabel="Template collection not found"
+        notFoundLabel={t('workbench.overview.empty.templateCollectionNotFound')}
       />
     );
   }
 
   const statsBar = (
     <span style={{ fontSize: 13, color: token.colorTextSecondary }}>
-      {stats.templates} template{stats.templates !== 1 ? 's' : ''}
+      {t('workbench.overview.stats.templates', { count: stats.templates })}
       {stats.folders > 0 && (
         <>
           {' '}
-          · {stats.folders} folder{stats.folders !== 1 ? 's' : ''}
+          {t('workbench.overview.stats.foldersSuffix', { count: stats.folders })}
         </>
       )}
     </span>
   );
 
   const actions = onOpenCollectionVariables ? (
-    <Tooltip title="Edit variables scoped to this template collection">
+    <Tooltip title={t('workbench.overview.action.variablesTooltipTemplate')}>
       <Button
         size="small"
         icon={<VariablesIcon />}
         onClick={() => onOpenCollectionVariables(collectionUid, collection.name)}
       >
-        Variables
+        {t('workbench.overview.action.variables')}
       </Button>
     </Tooltip>
   ) : null;
@@ -192,7 +194,7 @@ const TemplateCollectionOverview: React.FC<TemplateCollectionOverviewProps> = ({
       />
     ) : (
       <Empty
-        description="No templates in this collection. Save a rule as a template to populate this collection."
+        description={t('workbench.overview.empty.templatesCollection')}
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         style={{ margin: '24px 0' }}
       />
