@@ -2,24 +2,24 @@
  * KeymapPane — custom right-pane renderer for the Keyboard settings
  * category. Replaces the flat record-button rows with an interactive
  * keymap: subcategory groups with collapsible headers, one KeymapRow
- * per action (inline record, unbind, reset, modified dot), and a
- * plain-text filter over action labels/descriptions.
- *
- * Layout deliberately leaves room for the conflict engine's per-row
- * warning badge and bottom summary strip (next phase) — nothing here
- * assumes the row's trailing controls are the last word.
+ * per action (inline record, unbind, reset, modified dot, conflict and
+ * reserved-chord warnings), a plain-text filter over action labels/
+ * descriptions, and a sticky bottom strip summarizing duplicate
+ * assignments — clicking it filters the list down to the conflicted
+ * rows and back.
  */
 
-import { DownOutlined, RightOutlined, SearchOutlined } from '@ant-design/icons';
+import { DownOutlined, RightOutlined, SearchOutlined, WarningOutlined } from '@ant-design/icons';
 import { Input, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSettingsReady } from '../../hooks';
 import { resolveLabel, resolveOptionalDescription } from '../../localize';
 import type { CategoryPaneProps } from '../../types';
 import { buildKeymapGroups } from './keymap-groups';
 import KeymapRow from './KeymapRow';
+import { useKeymapConflicts } from './use-keymap-conflicts';
 
 const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
@@ -27,9 +27,26 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   useSettingsReady();
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [conflictsOnly, setConflictsOnly] = useState(false);
 
-  const groups = useMemo(() => buildKeymapGroups(category, defs, query, t), [category, defs, query, t]);
-  const isSearching = query.trim().length > 0;
+  const conflicts = useKeymapConflicts(defs);
+  // The show-only-conflicts mode has no strip to leave through once the
+  // last conflict resolves — drop it so a future conflict doesn't
+  // surprise-filter the list.
+  useEffect(() => {
+    if (conflicts.size === 0) setConflictsOnly(false);
+  }, [conflicts]);
+  const restrictTo = useMemo(
+    () => (conflictsOnly && conflicts.size > 0 ? new Set(conflicts.keys()) : null),
+    [conflictsOnly, conflicts],
+  );
+  const groups = useMemo(
+    () => buildKeymapGroups(category, defs, query, t, restrictTo),
+    [category, defs, query, t, restrictTo],
+  );
+  // Restriction to conflicted rows counts as searching: hits must not
+  // hide inside collapsed sections here either.
+  const isSearching = query.trim().length > 0 || restrictTo !== null;
   const description = resolveOptionalDescription(category, t);
 
   const toggleGroup = (id: string): void => {
@@ -108,13 +125,44 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
             {!isCollapsed && (
               <div className="settings-card">
                 {group.defs.map((def) => (
-                  <KeymapRow key={def.key} def={def} />
+                  <KeymapRow key={def.key} def={def} scopeDefs={defs} conflicts={conflicts.get(def.key)} />
                 ))}
               </div>
             )}
           </section>
         );
       })}
+
+      {conflicts.size > 0 && (
+        <button
+          type="button"
+          onClick={() => setConflictsOnly((v) => !v)}
+          style={{
+            position: 'sticky',
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: '100%',
+            padding: '6px 10px',
+            border: `1px solid ${token.colorWarningBorder}`,
+            borderRadius: token.borderRadiusSM,
+            background: token.colorWarningBg,
+            cursor: 'pointer',
+            fontSize: 12,
+            color: token.colorText,
+            textAlign: 'left',
+          }}
+        >
+          <WarningOutlined style={{ fontSize: 12, color: token.colorWarning }} />
+          <span style={{ flex: 1 }}>{t('workbench.settings.keymapPane.conflictSummary', { count: conflicts.size })}</span>
+          <span style={{ color: token.colorPrimary }}>
+            {conflictsOnly
+              ? t('workbench.settings.keymapPane.conflictShowAll')
+              : t('workbench.settings.keymapPane.conflictShowOnly')}
+          </span>
+        </button>
+      )}
     </div>
   );
 };

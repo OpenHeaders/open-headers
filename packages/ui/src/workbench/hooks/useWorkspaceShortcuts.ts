@@ -308,7 +308,13 @@ const KEY_DISPLAY: Record<string, string> = {
   space: 'Space',
 };
 
-function formatChord(chord: string): string {
+/**
+ * Platform-appropriate display string for a stored chord (`mod+shift+k`
+ * → `⌘⇧K` / `Ctrl+Shift+K`). Exported for keymap UI that needs to
+ * label a chord that isn't (or isn't yet) a setting value — e.g. the
+ * record-time conflict prompt.
+ */
+export function formatChord(chord: string): string {
   if (chord.length === 0) return '';
   const parts = chord.split('+');
   const key = parts[parts.length - 1] ?? '';

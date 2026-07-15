@@ -26,16 +26,20 @@ function matchesQuery(def: SettingDef, query: string, t: Translate): boolean {
  * Subcategory-ordered groups of the defs matching `query` (empty query
  * matches everything). Groups left empty by the filter are dropped;
  * defs pointing at an undeclared subcategory land in a leading
- * ungrouped bucket, mirroring the default CategoryPane.
+ * ungrouped bucket, mirroring the default CategoryPane. `restrictTo`,
+ * when given, keeps only those setting keys before the query filter —
+ * the conflict strip's show-only-conflicts mode.
  */
 export function buildKeymapGroups(
   category: CategoryDef,
   defs: readonly SettingDef[],
   query: string,
   t: Translate,
+  restrictTo?: ReadonlySet<string> | null,
 ): KeymapGroup[] {
   const needle = query.trim().toLowerCase();
-  const filtered = needle.length === 0 ? [...defs] : defs.filter((def) => matchesQuery(def, needle, t));
+  const scoped = restrictTo ? defs.filter((def) => restrictTo.has(def.key)) : [...defs];
+  const filtered = needle.length === 0 ? scoped : scoped.filter((def) => matchesQuery(def, needle, t));
 
   const subs = [...(category.subcategories ?? [])].sort((a, b) => a.order - b.order);
   if (subs.length === 0) return filtered.length > 0 ? [{ sub: null, defs: filtered }] : [];

@@ -508,6 +508,23 @@ export const workbenchSettings = {
   'workbench.settings.keymapPane.unbind': 'Remove shortcut',
   'workbench.settings.keymapPane.unbindAria': 'Remove shortcut for {label}',
   'workbench.settings.keymapPane.resetAria': 'Reset shortcut for {label}',
+  'workbench.settings.keymapPane.conflictSummary': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} shortcut has a conflicting assignment',
+      other: '{count} shortcuts have conflicting assignments',
+    }),
+  'workbench.settings.keymapPane.conflictShowOnly': 'Show conflicts',
+  'workbench.settings.keymapPane.conflictShowAll': 'Show all shortcuts',
+  'workbench.settings.keymapPane.conflictBadgeAria': 'Shortcut conflict',
+  'workbench.settings.keymapPane.conflictTooltip': 'Also assigned to: {labels}',
+  'workbench.settings.keymapPane.reservedBadgeAria': 'Reserved shortcut',
+  'workbench.settings.keymapPane.reservedBrowser':
+    'The browser reserves this shortcut — it may act on it before it reaches the app.',
+  'workbench.settings.keymapPane.reservedSystem':
+    'The operating system reserves this shortcut — it may act on it before it reaches the app.',
+  'workbench.settings.keymapPane.conflictPrompt': '{chord} is already assigned to: {labels}',
+  'workbench.settings.keymapPane.conflictReassign': 'Reassign',
+  'workbench.settings.keymapPane.conflictKeepBoth': 'Keep both',
 
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
   'workbench.settings.daemonTokens.sectionTitle': 'Paired devices',
