@@ -8,7 +8,7 @@
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import type { LanguageId } from '../../../languages/registry';
 import { fromBase64 } from './response-encoding';
-import { isPdfResponse } from './response-format';
+import { contentTypeOf } from './response-format';
 
 /** File extension per detected body language. */
 const SAVE_EXTENSIONS: Record<LanguageId, string> = {
@@ -20,7 +20,61 @@ const SAVE_EXTENSIONS: Record<LanguageId, string> = {
   text: 'txt',
   graphql: 'graphql',
   markdown: 'md',
+  yaml: 'yaml',
 };
+
+/**
+ * File extension per base media type — formats the language registry
+ * can't name: binary families (images, archives, wasm, fonts, media)
+ * plus text types whose grammar maps to a generic language (csv/tsv →
+ * text, svg → xml, ndjson → json).
+ */
+const MEDIA_TYPE_EXTENSIONS: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'application/x-pdf': 'pdf',
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/svg+xml': 'svg',
+  'image/bmp': 'bmp',
+  'image/tiff': 'tiff',
+  'image/avif': 'avif',
+  'image/x-icon': 'ico',
+  'image/vnd.microsoft.icon': 'ico',
+  'application/zip': 'zip',
+  'application/x-zip-compressed': 'zip',
+  'application/gzip': 'gz',
+  'application/x-gzip': 'gz',
+  'application/wasm': 'wasm',
+  'text/csv': 'csv',
+  'text/tab-separated-values': 'tsv',
+  'application/x-ndjson': 'ndjson',
+  'application/jsonl': 'jsonl',
+  'font/woff': 'woff',
+  'font/woff2': 'woff2',
+  'font/ttf': 'ttf',
+  'font/otf': 'otf',
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/ogg': 'ogg',
+  'audio/webm': 'weba',
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'video/ogg': 'ogv',
+  'video/quicktime': 'mov',
+};
+
+/** Extension named by the response's own media type — parameters
+ *  stripped; `undefined` when the type isn't in the map (the detected
+ *  body language names one instead). */
+export function saveExtensionForContentType(
+  headers: ReadonlyArray<{ key: string; value: string }>,
+): string | undefined {
+  const base = contentTypeOf(headers).split(';')[0].trim();
+  return MEDIA_TYPE_EXTENSIONS[base];
+}
 
 /** A trailing `.ext` the URL segment already carries — kept verbatim
  *  so `report.csv` never becomes `report.csv.txt`. */
@@ -61,12 +115,16 @@ export function downloadBodyAsFile(
   response: Pick<ExecutedRequestSnapshot, 'body' | 'bodyEncoding' | 'headers' | 'url'>,
   language: LanguageId,
 ): void {
-  const isPdf = isPdfResponse(response.headers);
+  const baseType = contentTypeOf(response.headers).split(';')[0].trim();
   const blob =
     response.bodyEncoding === 'base64'
-      ? new Blob([fromBase64(response.body)], { type: isPdf ? 'application/pdf' : 'application/octet-stream' })
-      : new Blob([response.body], { type: 'text/plain;charset=utf-8' });
-  const extensionOverride = isPdf ? 'pdf' : response.bodyEncoding === 'base64' ? 'bin' : undefined;
+      ? new Blob([fromBase64(response.body)], { type: baseType || 'application/octet-stream' })
+      : // Text bodies hold valid UTF-8 by the capture law (anything else
+        // rides base64), so the save is labeled utf-8 regardless of the
+        // wire charset.
+        new Blob([response.body], { type: `${baseType || 'text/plain'};charset=utf-8` });
+  const extensionOverride =
+    saveExtensionForContentType(response.headers) ?? (response.bodyEncoding === 'base64' ? 'bin' : undefined);
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = objectUrl;

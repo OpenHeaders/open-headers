@@ -54,7 +54,7 @@ import {
   suggestJsonPathCompletions,
   suggestXPathCompletions,
 } from './response-filter';
-import { detectBodyLanguage, formatBytes, isPdfResponse, prettyBody } from './response-format';
+import { detectBodyLanguage, formatBytes, isNdjsonResponse, isPdfResponse, prettyBody } from './response-format';
 import { useFormattedBody } from './use-formatted-body';
 
 const { Text } = Typography;
@@ -154,15 +154,22 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // Parsed body for the JSON tree preview — `undefined` when the viewer
   // language isn't JSON or the body doesn't parse. Binary never parses:
   // the body string is base64, whose digit-only edge cases would
-  // otherwise "parse" as a JSON number.
+  // otherwise "parse" as a JSON number. Newline-delimited JSON can
+  // never whole-body-parse, so it parses line-wise into an array —
+  // the tree preview and JSONPath filter see the record list.
+  const isNdjson = isNdjsonResponse(response.headers);
   const parsedJson = useMemo<unknown>(() => {
     if (isBinary || language !== 'json') return undefined;
     try {
+      if (isNdjson) {
+        const lines = response.body.split('\n').filter((line) => line.trim() !== '');
+        return lines.length > 0 ? lines.map((line) => JSON.parse(line)) : undefined;
+      }
       return JSON.parse(response.body);
     } catch {
       return undefined;
     }
-  }, [response.body, language, isBinary]);
+  }, [response.body, language, isBinary, isNdjson]);
 
   const previewKind: 'pdf' | 'html' | 'json' | null = isPdf
     ? 'pdf'

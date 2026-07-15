@@ -70,6 +70,7 @@ const ICON_MARKS: Record<string, React.ReactNode> = {
     </>
   ),
   text: <Letters text="Aa" size={10.5} />,
+  yaml: <Letters text="Y" size={11.5} />,
   raw: (
     <>
       <Badge />

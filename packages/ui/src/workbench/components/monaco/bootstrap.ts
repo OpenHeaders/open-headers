@@ -58,6 +58,7 @@ import 'monaco-editor/esm/vs/basic-languages/css/css.contribution';
 import 'monaco-editor/esm/vs/basic-languages/html/html.contribution';
 import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution';
 import 'monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution';
+import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution';
 // LSP contributions — JSON / CSS / HTML workers + semantic features. The
 // TS/JS language service lives in `./ts-language-service` so the Firefox
 // build can alias it to a no-op stub: its `ts.worker` (the bundled TS

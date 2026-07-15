@@ -12,7 +12,7 @@ import type { LanguageId } from '../../../languages/registry';
  * vendor prefixes (`application/vnd.api+json`) and suffixes (`+xml`),
  * and all of those should light up the base grammar.
  */
-function contentTypeOf(headers: ReadonlyArray<{ key: string; value: string }>): string {
+export function contentTypeOf(headers: ReadonlyArray<{ key: string; value: string }>): string {
   return headers.find((h) => h.key.toLowerCase() === 'content-type')?.value.toLowerCase() ?? '';
 }
 
@@ -20,6 +20,37 @@ function contentTypeOf(headers: ReadonlyArray<{ key: string; value: string }>): 
  *  response body pane offers its dedicated Preview for these. */
 export function isPdfResponse(headers: ReadonlyArray<{ key: string; value: string }>): boolean {
   return contentTypeOf(headers).includes('pdf');
+}
+
+/** Media families the body pane can render natively — each maps to a
+ *  dedicated Preview (browser PDF viewer, blob `<img>`, blob `<audio>`/
+ *  `<video>`). Content-Type picks the RENDERER only; whether the body
+ *  is text or bytes stays decided by the bytes (`bodyEncoding`). */
+export type MediaPreviewKind = 'pdf' | 'image' | 'audio' | 'video';
+
+export function mediaPreviewKind(headers: ReadonlyArray<{ key: string; value: string }>): MediaPreviewKind | null {
+  const ct = contentTypeOf(headers);
+  if (ct.includes('pdf')) return 'pdf';
+  if (ct.startsWith('image/')) return 'image';
+  if (ct.startsWith('audio/')) return 'audio';
+  if (ct.startsWith('video/')) return 'video';
+  return null;
+}
+
+/** True for newline-delimited JSON (`application/x-ndjson`, `…/jsonl`) —
+ *  the body is json-highlighted per line, but a whole-body `JSON.parse`
+ *  can never succeed, so the JSON preview/filter parse line-wise. */
+export function isNdjsonResponse(headers: ReadonlyArray<{ key: string; value: string }>): boolean {
+  const ct = contentTypeOf(headers);
+  return ct.includes('ndjson') || ct.includes('jsonl') || ct.includes('json-seq');
+}
+
+/** The Content-Type `charset=` parameter, normalized — `null` when the
+ *  header carries none. Display-only attribution: capture never
+ *  re-encodes, the viewer just decodes prettier. */
+export function contentTypeCharset(headers: ReadonlyArray<{ key: string; value: string }>): string | null {
+  const match = /;\s*charset=["']?([\w.:-]+)/.exec(contentTypeOf(headers));
+  return match ? match[1] : null;
 }
 
 export function detectBodyLanguage(headers: ReadonlyArray<{ key: string; value: string }>): LanguageId {
@@ -30,6 +61,7 @@ export function detectBodyLanguage(headers: ReadonlyArray<{ key: string; value: 
   if (ct.includes('javascript') || ct.includes('ecmascript')) return 'javascript';
   if (ct.includes('css')) return 'css';
   if (ct.includes('markdown')) return 'markdown';
+  if (ct.includes('yaml')) return 'yaml';
   return 'text';
 }
 
