@@ -9,8 +9,10 @@ import {
   readEnvironmentPayload,
   readRateBudget,
   readWorkspaceDetail,
+  readWorkspaceGlobals,
   readWorkspaceList,
   workspaceDetailUrl,
+  workspaceGlobalsUrl,
   workspaceListUrl,
 } from '../../src/import';
 
@@ -18,6 +20,7 @@ describe('api-pull endpoints', () => {
   it('builds the Data API URLs with encoded ids', () => {
     expect(workspaceListUrl()).toBe('https://api.postman.com/workspaces');
     expect(workspaceDetailUrl('ws 1')).toBe('https://api.postman.com/workspaces/ws%201');
+    expect(workspaceGlobalsUrl('ws 1')).toBe('https://api.postman.com/workspaces/ws%201/global-variables');
     expect(collectionUrl('owner-123')).toBe('https://api.postman.com/collections/owner-123');
     expect(environmentUrl('env/1')).toBe('https://api.postman.com/environments/env%2F1');
   });
@@ -103,6 +106,48 @@ describe('readWorkspaceDetail', () => {
   });
 });
 
+describe('readWorkspaceGlobals', () => {
+  it('reads the values rows with secret typing and only explicit disabled flags', () => {
+    const read = readWorkspaceGlobals(
+      JSON.stringify({
+        values: [
+          { key: 'api_host', value: 'api.openheaders.io', type: 'default', enabled: true },
+          { key: 'api_token', value: 'tok-123', type: 'secret', enabled: false },
+          { key: ' padded ', value: 7, type: 'any' },
+        ],
+      }),
+    );
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    expect(read.value.variables).toEqual([
+      { name: 'api_host', value: 'api.openheaders.io', type: 'default' },
+      { name: 'api_token', value: 'tok-123', type: 'secret', enabled: false },
+      { name: 'padded', value: '7', type: 'default' },
+    ]);
+    expect(read.value.malformedValues).toBe(0);
+  });
+
+  it('counts keyless rows and tolerates a missing values array', () => {
+    const read = readWorkspaceGlobals(JSON.stringify({ values: [{ value: 'orphan' }, 'garbage', { key: '' }] }));
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    expect(read.value.variables).toEqual([]);
+    expect(read.value.malformedValues).toBe(3);
+
+    const empty = readWorkspaceGlobals('{}');
+    expect(empty.ok).toBe(true);
+    if (!empty.ok) return;
+    expect(empty.value).toEqual({ variables: [], malformedValues: 0 });
+  });
+
+  it('surfaces a reason for a non-JSON body', () => {
+    expect(readWorkspaceGlobals('nope')).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('not valid JSON'),
+    });
+  });
+});
+
 describe('payload unwrapping', () => {
   it('unwraps a collection envelope into v2.1 JSON with the info name', () => {
     const inner = {
@@ -157,8 +202,8 @@ describe('buildPullPlan', () => {
       { item: 'collection', id: 'c1', name: 'Shared', workspaceIds: ['ws-1', 'ws-2'] },
       { item: 'environment', id: 'e1', name: 'Staging', workspaceIds: ['ws-1'] },
     ]);
-    // 1 list + 2 workspace details + 1 collection + 1 environment.
-    expect(plan.totalCalls).toBe(5);
+    // 1 list + 2 workspace details + 2 workspace globals + 1 collection + 1 environment.
+    expect(plan.totalCalls).toBe(7);
   });
 });
 

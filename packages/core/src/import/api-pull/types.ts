@@ -16,7 +16,7 @@ export interface PullPlanItem {
 export interface PostmanPullPlan {
   workspaces: PullWorkspaceSummary[];
   items: PullPlanItem[];
-  /** The run's full call cost: 1 + W + C + E. */
+  /** The run's full call cost: 1 + 2W + C + E (detail + globals per workspace). */
   totalCalls: number;
 }
 
@@ -68,6 +68,29 @@ export interface PulledEnvironment {
   workspaceIds: string[];
 }
 
+/**
+ * One workspace-global variable row, normalized to the Variable
+ * vocabulary: `type: 'secret'` lands verbatim, `enabled` carries only
+ * the explicit `false` (absent means enabled — the model's contract).
+ */
+export interface PullGlobalVariable {
+  name: string;
+  value: string;
+  type: 'default' | 'secret';
+  enabled?: boolean;
+}
+
+/**
+ * One workspace's global variables, ready to land as workspace-scoped
+ * variables. Globals are per-workspace on the wire (never shared), so
+ * the attribution is a single id. An entry with zero variables is wire
+ * truth — the workspace has no globals — and materializes nothing.
+ */
+export interface PulledWorkspaceGlobals {
+  workspaceId: string;
+  variables: PullGlobalVariable[];
+}
+
 /** An item that yielded no payload — always with the reason. */
 export interface PostmanPullSkip {
   item: 'workspace' | 'collection' | 'environment';
@@ -91,6 +114,7 @@ export interface PostmanPullResult {
   workspaces: PullWorkspaceSummary[];
   collections: PulledCollection[];
   environments: PulledEnvironment[];
+  globals: PulledWorkspaceGlobals[];
   skipped: PostmanPullSkip[];
   budget: { limitMonth?: number; remainingMonth?: number };
   callsMade: number;
@@ -122,6 +146,8 @@ export interface PostmanImportedWorkspace {
   requests: number;
   /** Saved responses minted as Response Examples under their requests. */
   examples: number;
+  /** Global variables landed as workspace-scoped variables. */
+  globals: number;
   /** That workspace's report drop count. */
   drops: number;
 }
@@ -137,6 +163,8 @@ export interface PostmanImportSummary {
   requests: number;
   /** Saved responses minted as Response Examples across the run. */
   examples: number;
+  /** Global variables landed as workspace-scoped variables across the run. */
+  globals: number;
   /** Total drop count across the run — the "view report" teaser number. */
   drops: number;
 }
@@ -150,7 +178,7 @@ export interface PostmanImportSummary {
  * emits the `importing` / `imported` / `import-failed` tail.
  */
 export type PostmanPullEvent =
-  | { kind: 'enumerating'; step: 'workspace-list' | 'workspace-detail'; completedCalls: number }
+  | { kind: 'enumerating'; step: 'workspace-list' | 'workspace-detail' | 'workspace-globals'; completedCalls: number }
   | { kind: 'planned'; workspaces: number; collections: number; environments: number; totalCalls: number }
   | {
       kind: 'item-progress';

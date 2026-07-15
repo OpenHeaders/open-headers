@@ -25,6 +25,7 @@ export {
   POSTMAN_API_KEY_HEADER,
   POSTMAN_DATA_API_ORIGIN,
   workspaceDetailUrl,
+  workspaceGlobalsUrl,
   workspaceListUrl,
 } from './endpoints';
 export {
@@ -41,8 +42,10 @@ export {
   readCollectionPayload,
   readEnvironmentPayload,
   readWorkspaceDetail,
+  readWorkspaceGlobals,
   readWorkspaceList,
   type WorkspaceDetail,
+  type WorkspaceGlobalsRead,
   type WorkspaceItemRef,
   type WorkspaceListRead,
 } from './responses';
@@ -58,8 +61,10 @@ export type {
   PostmanWorkspacePreview,
   PulledCollection,
   PulledEnvironment,
+  PulledWorkspaceGlobals,
   PullFailure,
   PullFailureKind,
+  PullGlobalVariable,
   PullPlanItem,
   PullRateBudget,
   PullWorkspaceSummary,

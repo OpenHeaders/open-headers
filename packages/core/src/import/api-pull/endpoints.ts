@@ -28,6 +28,10 @@ export function workspaceDetailUrl(id: string): string {
   return `${POSTMAN_DATA_API_ORIGIN}/workspaces/${encodeURIComponent(id)}`;
 }
 
+export function workspaceGlobalsUrl(id: string): string {
+  return `${POSTMAN_DATA_API_ORIGIN}/workspaces/${encodeURIComponent(id)}/global-variables`;
+}
+
 export function collectionUrl(id: string): string {
   return `${POSTMAN_DATA_API_ORIGIN}/collections/${encodeURIComponent(id)}`;
 }

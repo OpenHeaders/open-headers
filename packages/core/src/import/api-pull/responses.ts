@@ -6,7 +6,7 @@
  */
 
 import { isRecord } from '../data-scan/json';
-import type { PostmanPullPlan, PullPlanItem, PullWorkspaceSummary } from './types';
+import type { PostmanPullPlan, PullGlobalVariable, PullPlanItem, PullWorkspaceSummary } from './types';
 
 export type Interpreted<T> = { ok: true; value: T } | { ok: false; reason: string };
 
@@ -126,6 +126,46 @@ export function readWorkspaceDetail(workspaceId: string, text: string): Interpre
   };
 }
 
+export interface WorkspaceGlobalsRead {
+  variables: PullGlobalVariable[];
+  /** Rows without a usable name — the host reports them as one skip. */
+  malformedValues: number;
+}
+
+/**
+ * Interpret the workspace-globals envelope: `{ values: [{key, value,
+ * type, enabled}] }` — the environment `values[]` row vocabulary
+ * without the file wrapper. Own reader on the specs precedent: globals
+ * never gate the item pulls, so malformed rows are counted here and
+ * reported by the host, not folded into a detail read. Non-string
+ * values coerce via `String(...)` and `type: 'secret'` lands verbatim,
+ * both mirroring the environment parser; only an explicit
+ * `enabled: false` carries (absent means enabled).
+ */
+export function readWorkspaceGlobals(text: string): Interpreted<WorkspaceGlobalsRead> {
+  const envelope = parseJsonRecord(text, 'Workspace globals');
+  if (!envelope.ok) return envelope;
+  const raw = envelope.value.values;
+  const variables: PullGlobalVariable[] = [];
+  let malformedValues = 0;
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      const name = isRecord(entry) && typeof entry.key === 'string' ? entry.key.trim() : '';
+      if (!isRecord(entry) || name === '') {
+        malformedValues++;
+        continue;
+      }
+      variables.push({
+        name,
+        value: typeof entry.value === 'string' ? entry.value : String(entry.value ?? ''),
+        type: entry.type === 'secret' ? 'secret' : 'default',
+        ...(entry.enabled === false ? { enabled: false } : {}),
+      });
+    }
+  }
+  return { ok: true, value: { variables, malformedValues } };
+}
+
 export interface PulledPayload {
   name?: string;
   /** The unwrapped inner document, re-serialized for the standard parser. */
@@ -160,7 +200,8 @@ export function readEnvironmentPayload(text: string): Interpreted<PulledPayload>
 /**
  * Fold enumerated workspaces + details into the pull plan: items dedupe
  * by id (a shared collection pulls once, attributed to every workspace
- * that listed it) and the total call cost is 1 + W + C + E.
+ * that listed it) and the total call cost is 1 + 2W + C + E — each
+ * workspace costs a detail call plus a globals call.
  */
 export function buildPullPlan(
   workspaces: readonly PullWorkspaceSummary[],
@@ -189,5 +230,5 @@ export function buildPullPlan(
     }
   }
   const items = [...byKey.values()];
-  return { workspaces: [...workspaces], items, totalCalls: 1 + workspaces.length + items.length };
+  return { workspaces: [...workspaces], items, totalCalls: 1 + workspaces.length * 2 + items.length };
 }
