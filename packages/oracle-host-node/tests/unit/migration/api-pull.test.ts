@@ -305,7 +305,7 @@ describe('pullPostmanData', () => {
     expect(result.globals[0]?.variables).toHaveLength(1);
   });
 
-  it('skips a workspace\'s globals on a failed read and finishes the run', async () => {
+  it("skips a workspace's globals on a failed read and finishes the run", async () => {
     const routes = happyRoutes();
     routes[2] = {
       url: GLOBALS_URL,
