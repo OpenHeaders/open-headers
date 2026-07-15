@@ -247,6 +247,11 @@ const KeyboardShortcutsOverlay: React.FC<KeyboardShortcutsOverlayProps> = ({ vis
   const overlayRef = useRef<HTMLDivElement>(null);
   const t = useT();
   const columns = useOverlayColumns(t);
+  // Live chord for the toggle itself, so the "or X to close" hint in
+  // the header follows a rebind; the fragment drops when unbound
+  // (Esc always closes).
+  const helpChords = usePopupShortcutChords();
+  const helpKeys = displayChordParts(helpChords['toggle-shortcuts-help']);
 
   // Close on click outside
   useEffect(() => {
@@ -279,10 +284,23 @@ const KeyboardShortcutsOverlay: React.FC<KeyboardShortcutsOverlayProps> = ({ vis
               {t('popup.shortcuts.press')}
             </Text>
             <Kbd>Esc</Kbd>
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              {t('popup.shortcuts.or')}
-            </Text>
-            <Kbd>?</Kbd>
+            {helpKeys.length > 0 && (
+              <>
+                <Text type="secondary" style={{ fontSize: '11px' }}>
+                  {t('popup.shortcuts.or')}
+                </Text>
+                {helpKeys.map((key, i) => (
+                  <span key={key}>
+                    {i > 0 && (
+                      <Text type="secondary" style={{ fontSize: '10px', margin: '0 2px' }}>
+                        +
+                      </Text>
+                    )}
+                    <Kbd>{key}</Kbd>
+                  </span>
+                ))}
+              </>
+            )}
             <Text type="secondary" style={{ fontSize: '11px' }}>
               {t('popup.shortcuts.toClose')}
             </Text>

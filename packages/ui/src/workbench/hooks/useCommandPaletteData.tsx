@@ -241,6 +241,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
   ]);
 
   const newRuleLabel = useShortcutLabel('new-rule');
+  const showShortcutsLabel = useShortcutLabel('show-shortcuts');
   const toggleLeftSidebarLabel = useShortcutLabel('toggle-left-sidebar');
   const toggleBottomPanelLabel = useShortcutLabel('toggle-bottom-panel');
   const toggleRightSidebarLabel = useShortcutLabel('toggle-right-sidebar');
@@ -311,7 +312,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         {
           id: 'cmd-shortcuts',
           label: t('workbench.shell.commandPalette.cmd.keyboardShortcuts'),
-          shortcut: '?',
+          shortcut: showShortcutsLabel,
           onSelect: onShowShortcuts,
         },
         {
@@ -371,6 +372,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     onShowShortcuts,
     onOpenSettings,
     newRuleLabel,
+    showShortcutsLabel,
     toggleLeftSidebarLabel,
     toggleBottomPanelLabel,
     toggleRightSidebarLabel,

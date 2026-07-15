@@ -9,7 +9,7 @@
  */
 
 import type React from 'react';
-import { shortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
+import { useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
 import { FILL_BLUE, STROKE, STROKE_BLUE, TEXT, TEXT_DIM } from './_shared';
 
 /**
@@ -49,12 +49,12 @@ const ChordChip: React.FC<{ chord: string; x: number; y: number }> = ({ chord, x
 };
 
 export const KeyboardRegionsDiagram: React.FC = () => {
-  // Chord labels resolve from settings at render time so a rebound
-  // shortcut updates the diagram automatically.
-  const leftChord = shortcutLabel('focus-left-sidebar');
-  const editorChord = shortcutLabel('focus-editor');
-  const rightChord = shortcutLabel('focus-right-sidebar');
-  const bottomChord = shortcutLabel('focus-bottom-panel');
+  // Live subscriptions so a rebind or preset switch repaints the
+  // diagram while the docs panel stays open.
+  const leftChord = useShortcutLabel('focus-left-sidebar');
+  const editorChord = useShortcutLabel('focus-editor');
+  const rightChord = useShortcutLabel('focus-right-sidebar');
+  const bottomChord = useShortcutLabel('focus-bottom-panel');
 
   // Workbench mockup geometry
   const WB_X = 10;

@@ -62,12 +62,13 @@ export const KeyboardShortcutsSection: React.FC = () => {
   const t = useT();
   const { token } = theme.useToken();
   const debugChord = useChordLabel('keyboard.toggleDebugMode');
+  const helpChord = useShortcutLabel('show-shortcuts');
   const debugAvailable = hasCapability('cdpInspection');
   return (
     <>
       <SurfaceContext surfaces={['workbench']} />
       <DocParagraph>
-        {t('workbench.shortcuts.introPrefix')} <code>?</code> {t('workbench.shortcuts.introMiddle')}{' '}
+        {t('workbench.shortcuts.introPrefix')} <code>{helpChord || '—'}</code> {t('workbench.shortcuts.introMiddle')}{' '}
         <strong>{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘ Cmd' : 'Ctrl'}</strong>{' '}
         {t('workbench.shortcuts.introSuffix')}
       </DocParagraph>
