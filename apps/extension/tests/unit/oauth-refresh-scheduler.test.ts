@@ -243,6 +243,19 @@ describe('oauth-refresh-scheduler — canSilentRefresh', () => {
     );
   });
 
+  it('allows refresh for password-credentials with stored resource-owner credentials', async () => {
+    const { canSilentRefresh } = await import('@/background/modules/oauth-refresh-scheduler');
+    const config = makeConfig({ flow: 'password-credentials', username: 'ops@openheaders.io', password: 'hunter2' });
+    expect(canSilentRefresh(makeBundle({ refreshToken: undefined }), config)).toBe(true);
+  });
+
+  it('rejects password-credentials without stored credentials or a refreshToken', async () => {
+    const { canSilentRefresh } = await import('@/background/modules/oauth-refresh-scheduler');
+    const config = makeConfig({ flow: 'password-credentials', username: 'ops@openheaders.io' });
+    expect(canSilentRefresh(makeBundle({ refreshToken: undefined }), config)).toBe(false);
+    expect(canSilentRefresh(makeBundle(), config)).toBe(true);
+  });
+
   it('rejects when bundle or config is null', async () => {
     const { canSilentRefresh } = await import('@/background/modules/oauth-refresh-scheduler');
     expect(canSilentRefresh(null, makeConfig())).toBe(false);

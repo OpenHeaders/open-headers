@@ -33,6 +33,15 @@ export interface OAuthRpc {
     res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
   };
   /**
+   * Trigger a resource-owner password token fetch for the given
+   * config (RFC 6749 §4.3). No browser leg — the SW POSTs the stored
+   * username + password straight to the token endpoint.
+   */
+  oauthPasswordCredentials: {
+    req: { config: OAuth2Auth; workspaceId?: string };
+    res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
+  };
+  /**
    * Force a refresh of the stored token for the given config. Useful
    * when the user wants to proactively rotate the access token or
    * diagnose refresh failures from the editor.

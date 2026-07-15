@@ -18,11 +18,12 @@
  * the core.
  *
  * What is NOT scheduled:
- *   • Credentials without a refresh capability — `authorization-code`
- *     (no PKCE, no refresh_token), `implicit`, `device-code` without a
- *     refresh_token. These require user interaction to renew; the
- *     executor's on-demand refresh path (`applyAuth`) still tries when
- *     a refresh_token is present.
+ *   • Credentials without a refresh capability — authorization-code
+ *     (PKCE or plain) / `device-code` without a refresh_token,
+ *     password-credentials without stored username + password. These
+ *     require user interaction to renew; the executor's on-demand
+ *     refresh path (`applyAuth`) still tries when a refresh_token is
+ *     present.
  *   • Credentials without an `expiresAt` — we have nothing to schedule
  *     against. The executor's 30-second skew check handles these via
  *     the on-demand path.
@@ -115,12 +116,14 @@ export function isOAuthRefreshAlarm(alarm: chrome.alarms.Alarm): boolean {
 /**
  * A credential is refreshable without user interaction when either it
  * has a refresh_token (the standard path for Authorization Code /
- * Password / Device Code flows) OR its flow is Client Credentials
- * (which re-runs the full token exchange on every refresh).
+ * Password / Device Code flows) OR its flow re-runs the full token
+ * exchange from stored material (Client Credentials always; Password
+ * Credentials when the config carries username + password).
  */
 export function canSilentRefresh(bundle: OAuth2TokenBundle | null, config: OAuth2Auth | null): boolean {
   if (!bundle || !config) return false;
   if (config.flow === 'client-credentials') return true;
+  if (config.flow === 'password-credentials' && !!config.username && !!config.password) return true;
   return typeof bundle.refreshToken === 'string' && bundle.refreshToken.length > 0;
 }
 

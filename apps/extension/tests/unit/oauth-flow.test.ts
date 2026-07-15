@@ -1,6 +1,6 @@
 /**
- * oauth-flow — Authorization Code + PKCE, Client Credentials,
- * Refresh Token runners. We mock `chrome.identity.launchWebAuthFlow`
+ * oauth-flow — Authorization Code (± PKCE), Client Credentials,
+ * Password Credentials, Refresh Token runners. We mock `chrome.identity.launchWebAuthFlow`
  * + `fetch` + the token-store's `putTokenBundle` + `getTokenBundle`
  * so each flow is exercised end-to-end without touching real network
  * or storage.
@@ -157,6 +157,34 @@ describe('launchAuthorizationCodeFlow', () => {
   });
 });
 
+describe('launchAuthorizationCodeFlow — plain authorization-code (no PKCE)', () => {
+  it('omits the PKCE pair on both legs when grantType = authorization-code', async () => {
+    let authUrl = '';
+    launchMock.mockImplementation(async (options: { url: string }) => {
+      authUrl = options.url;
+      const url = new URL(options.url);
+      const state = url.searchParams.get('state') ?? '';
+      return `https://test-ext.chromiumapp.org/?code=auth-code-xyz&state=${state}`;
+    });
+
+    const { launchAuthorizationCodeFlow } = await import('@/background/modules/oauth-flow');
+    const result = await launchAuthorizationCodeFlow(
+      makeConfig({ grantType: 'authorization-code', clientSecret: 'shhh' }),
+    );
+
+    expect(result.bundle.accessToken).toBe('at-new');
+    const authParams = new URL(authUrl).searchParams;
+    expect(authParams.has('code_challenge')).toBe(false);
+    expect(authParams.has('code_challenge_method')).toBe(false);
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = (init as RequestInit).body as URLSearchParams;
+    expect(body.get('grant_type')).toBe('authorization_code');
+    expect(body.has('code_verifier')).toBe(false);
+    expect(body.get('client_secret')).toBe('shhh');
+  });
+});
+
 // ── Client Credentials ───────────────────────────────────────────
 
 describe('performClientCredentialsFlow', () => {
@@ -179,6 +207,91 @@ describe('performClientCredentialsFlow', () => {
   it('rejects when flow !== client-credentials', async () => {
     const { performClientCredentialsFlow } = await import('@/background/modules/oauth-flow');
     await expect(performClientCredentialsFlow(makeConfig())).rejects.toThrow(/flow=client-credentials/);
+  });
+});
+
+// ── Password Credentials ─────────────────────────────────────────
+
+describe('performPasswordCredentialsFlow', () => {
+  const passwordConfig = (overrides: Partial<OAuth2Auth> = {}) =>
+    makeConfig({
+      flow: 'password-credentials',
+      authorizationEndpoint: undefined,
+      username: 'ops@openheaders.io',
+      password: 'hunter2',
+      ...overrides,
+    });
+
+  it('POSTs grant_type=password with username + password and stores the bundle', async () => {
+    const { performPasswordCredentialsFlow } = await import('@/background/modules/oauth-flow');
+    const result = await performPasswordCredentialsFlow(passwordConfig());
+    expect(result.accessToken).toBe('at-new');
+    expect(putTokenBundleMock).toHaveBeenCalledWith(
+      'oauth2-cred-test',
+      expect.objectContaining({ accessToken: 'at-new' }),
+      expect.objectContaining({ type: 'oauth2', flow: 'password-credentials' }),
+      undefined,
+    );
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://auth.openheaders.io/token');
+    const body = (init as RequestInit).body as URLSearchParams;
+    expect(body.get('grant_type')).toBe('password');
+    expect(body.get('username')).toBe('ops@openheaders.io');
+    expect(body.get('password')).toBe('hunter2');
+  });
+
+  it('rejects when flow !== password-credentials', async () => {
+    const { performPasswordCredentialsFlow } = await import('@/background/modules/oauth-flow');
+    await expect(performPasswordCredentialsFlow(makeConfig())).rejects.toThrow(/flow=password-credentials/);
+  });
+
+  it('rejects when username or password is missing', async () => {
+    const { performPasswordCredentialsFlow } = await import('@/background/modules/oauth-flow');
+    await expect(performPasswordCredentialsFlow(passwordConfig({ password: undefined }))).rejects.toThrow(/password/);
+    expect(putTokenBundleMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── Flow-agnostic refresh dispatch ───────────────────────────────
+
+describe('refreshCredential — password-credentials dispatch', () => {
+  const passwordConfig = () =>
+    makeConfig({
+      flow: 'password-credentials',
+      authorizationEndpoint: undefined,
+      username: 'ops@openheaders.io',
+      password: 'hunter2',
+    });
+
+  it('uses the refresh_token grant when the provider issued one', async () => {
+    getTokenBundleMock.mockResolvedValue({
+      accessToken: 'at-old',
+      refreshToken: 'rf-old',
+      tokenType: 'Bearer',
+      scope: 'read',
+      issuedAt: 1,
+      expiresAt: 2,
+    });
+    const { refreshCredential } = await import('@/background/modules/oauth-flow');
+    await refreshCredential(passwordConfig());
+    const [, init] = fetchMock.mock.calls[0];
+    const body = (init as RequestInit).body as URLSearchParams;
+    expect(body.get('grant_type')).toBe('refresh_token');
+  });
+
+  it('re-runs the password exchange when no refresh token exists', async () => {
+    getTokenBundleMock.mockResolvedValue({
+      accessToken: 'at-old',
+      tokenType: 'Bearer',
+      scope: 'read',
+      issuedAt: 1,
+      expiresAt: 2,
+    });
+    const { refreshCredential } = await import('@/background/modules/oauth-flow');
+    await refreshCredential(passwordConfig());
+    const [, init] = fetchMock.mock.calls[0];
+    const body = (init as RequestInit).body as URLSearchParams;
+    expect(body.get('grant_type')).toBe('password');
   });
 });
 

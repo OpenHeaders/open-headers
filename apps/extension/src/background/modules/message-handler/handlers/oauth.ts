@@ -13,6 +13,7 @@ import {
   launchAuthorizationCodeFlow,
   OAuth2FlowError,
   performClientCredentialsFlow,
+  performPasswordCredentialsFlow,
   performRefresh,
 } from '../../oauth-flow';
 import type { HandlerMap } from '../types';
@@ -33,6 +34,13 @@ export const oauthHandlers: HandlerMap = {
 
   oauthClientCredentials: ({ message, respond }) => {
     performClientCredentialsFlow(message.config as OAuth2Auth, workspaceIdOf(message))
+      .then((bundle) => respond({ success: true, bundle }))
+      .catch((err: Error) => respond({ success: false, error: flowError(err) }));
+    return true;
+  },
+
+  oauthPasswordCredentials: ({ message, respond }) => {
+    performPasswordCredentialsFlow(message.config as OAuth2Auth, workspaceIdOf(message))
       .then((bundle) => respond({ success: true, bundle }))
       .catch((err: Error) => respond({ success: false, error: flowError(err) }));
     return true;

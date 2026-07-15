@@ -7,9 +7,12 @@
  *   • the token store owns `chrome.storage.local` + `withLock`;
  *   • the runner owns `chrome.identity.launchWebAuthFlow` + `fetch`.
  *
- * Three flows implemented:
- *   • Authorization Code + PKCE (`launchAuthorizationCodeFlow`)
+ * Four flows implemented:
+ *   • Authorization Code (± PKCE) (`launchAuthorizationCodeFlow` —
+ *     PKCE by default; `grantType: 'authorization-code'` omits the
+ *     challenge/verifier pair for plain RFC 6749 §4.1 providers)
  *   • Client Credentials          (`performClientCredentialsFlow`)
+ *   • Password Credentials        (`performPasswordCredentialsFlow`)
  *   • Refresh Token               (`performRefresh`)
  *
  * Device Code lands next — it needs a user-facing polling UI which
@@ -21,12 +24,14 @@ import {
   buildAuthorizationUrl,
   buildClientAuthHeader,
   buildClientCredentialsTokenBody,
+  buildPasswordCredentialsTokenBody,
   buildRefreshTokenBody,
   computeCodeChallenge,
   findOAuth2Preset,
   generateCodeVerifier,
   type OAuth2TokenBundle,
   parseTokenResponse,
+  usesPkce,
 } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { identity } from '@utils/browser-api';
@@ -108,8 +113,11 @@ export async function launchAuthorizationCodeFlow(
 
   const redirectUri = getOAuthRedirectUri();
   const state = base64UrlRandom(RANDOM_SOURCE(16));
-  const codeVerifier = generateCodeVerifier(RANDOM_SOURCE);
-  const codeChallenge = await computeCodeChallenge(codeVerifier, sha256);
+  // Plain authorization-code (grantType: 'authorization-code') skips
+  // the PKCE pair on both legs; the exchange is otherwise identical.
+  const withPkce = usesPkce(config);
+  const codeVerifier = withPkce ? generateCodeVerifier(RANDOM_SOURCE) : undefined;
+  const codeChallenge = codeVerifier !== undefined ? await computeCodeChallenge(codeVerifier, sha256) : undefined;
   const preset = findOAuth2Preset(config.providerPresetId);
 
   const authUrl = buildAuthorizationUrl({
@@ -183,6 +191,24 @@ export async function performClientCredentialsFlow(
   return bundle;
 }
 
+// ── Password Credentials ──────────────────────────────────────────
+
+export async function performPasswordCredentialsFlow(
+  config: OAuth2Auth,
+  workspaceId?: string,
+): Promise<OAuth2TokenBundle> {
+  if (config.flow !== 'password-credentials') {
+    throw new OAuth2FlowError(
+      'precondition',
+      `performPasswordCredentialsFlow requires flow=password-credentials, got ${config.flow}`,
+    );
+  }
+  const body = buildPasswordCredentialsTokenBody(config);
+  const bundle = await exchangeForTokens(config.tokenEndpoint, body, 'password', buildClientAuthHeader(config));
+  await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
+  return bundle;
+}
+
 // ── Refresh Token ─────────────────────────────────────────────────
 
 export async function performRefresh(config: OAuth2Auth, workspaceId?: string): Promise<OAuth2TokenBundle> {
@@ -211,12 +237,21 @@ export async function performRefresh(config: OAuth2Auth, workspaceId?: string): 
  * Refresh a credential regardless of flow. Authorization Code / Device
  * Code flows use the refresh_token grant; Client Credentials re-runs
  * the full client_credentials exchange (no refresh token exists for
- * that flow). The scheduler calls this from its alarm handler without
- * having to branch on the config shape.
+ * that flow); Password Credentials prefers the refresh_token grant
+ * when the provider issued one and re-runs the password exchange
+ * otherwise (the config carries the resource-owner credentials). The
+ * scheduler calls this from its alarm handler without having to
+ * branch on the config shape.
  */
 export async function refreshCredential(config: OAuth2Auth, workspaceId?: string): Promise<OAuth2TokenBundle> {
   if (config.flow === 'client-credentials') {
     return performClientCredentialsFlow(config, workspaceId);
+  }
+  if (config.flow === 'password-credentials') {
+    const current = await getTokenBundle(config.credentialRef, workspaceId);
+    if (!current?.refreshToken) {
+      return performPasswordCredentialsFlow(config, workspaceId);
+    }
   }
   return performRefresh(config, workspaceId);
 }
