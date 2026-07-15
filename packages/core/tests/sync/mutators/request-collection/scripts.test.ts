@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type MutatorContext, REQUEST_COLLECTION_ENTITY_TYPE, setRequestCollectionScript } from '../../../../src/sync';
+import { type MutatorContext, REQUEST_COLLECTION_ENTITY_TYPE, setRequestCollectionScripts } from '../../../../src/sync';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: 'ws-1',
@@ -10,14 +10,16 @@ const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   ...overrides,
 });
 
-describe('setRequestCollectionScript', () => {
-  it('emits a setField at the script path carrying the source', () => {
-    const intent = setRequestCollectionScript(ctx(), {
+describe('setRequestCollectionScripts', () => {
+  it('emits a setField per slot carrying the source', () => {
+    const intent = setRequestCollectionScripts(ctx(), {
       collectionUid: 'rcol-auth',
-      path: 'preRequestScript',
-      value: 'await oh.variables.set("token", "abc");',
+      updates: [
+        { path: 'preRequestScript', value: 'await oh.variables.set("token", "abc");' },
+        { path: 'postResponseScript', value: 'await oh.test("ok", oh.response.status === 200);' },
+      ],
     });
-    expect(intent.batch.mutations).toHaveLength(1);
+    expect(intent.batch.mutations).toHaveLength(2);
     expect(intent.batch.mutations[0].body).toMatchObject({
       kind: 'setField',
       type: REQUEST_COLLECTION_ENTITY_TYPE,
@@ -25,14 +27,19 @@ describe('setRequestCollectionScript', () => {
       path: 'preRequestScript',
       value: 'await oh.variables.set("token", "abc");',
     });
+    expect(intent.batch.mutations[1].body).toMatchObject({
+      kind: 'setField',
+      path: 'postResponseScript',
+    });
+    // Both slots land atomically — one batch id across the mutations.
+    expect(intent.batch.mutations[0].hlc).toBeDefined();
     expect(intent.sideEffects).toEqual([]);
   });
 
-  it('emits an unsetField when clearing the slot (field absent ↔ no script)', () => {
-    const intent = setRequestCollectionScript(ctx(), {
+  it('emits an unsetField when clearing a slot (field absent ↔ no script)', () => {
+    const intent = setRequestCollectionScripts(ctx(), {
       collectionUid: 'rcol-auth',
-      path: 'postResponseScript',
-      value: undefined,
+      updates: [{ path: 'postResponseScript', value: undefined }],
     });
     expect(intent.batch.mutations).toHaveLength(1);
     expect(intent.batch.mutations[0].body).toMatchObject({

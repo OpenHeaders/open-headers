@@ -57,6 +57,14 @@ export type RequestWriteResult = BridgeRpcResponse<'updateLocalRequest'>;
 export interface RequestsContextValue {
   requests: Request[];
   collections: Collection[];
+  /**
+   * Flat request-folder list. Populated on the override branch
+   * (workbench surfaces — per-key storage subscribe); the legacy
+   * branch renders folders only through `collectionTrees` and leaves
+   * this empty. Consumers that need folder-entity fields the tree
+   * nodes don't carry (the ancestor script slots) read this.
+   */
+  folders: PersistedLocalFolder[];
   collectionTrees: CollectionTree[];
   isReady: boolean;
 
@@ -92,6 +100,7 @@ export interface RequestsContextValue {
 const defaultContextValue: RequestsContextValue = {
   requests: [],
   collections: [],
+  folders: [],
   collectionTrees: [],
   isReady: false,
   getRequest: () => Promise.resolve(null),
@@ -129,13 +138,13 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   const isOverridden = activeWorkspaceIdOverride !== undefined;
   const [requests, setRequests] = useState<Request[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [folders, setFolders] = useState<PersistedLocalFolder[]>([]);
   const [collectionTrees, setCollectionTrees] = useState<CollectionTree[]>([]);
   const [isReady, setIsReady] = useState(false);
   const overrideIdRef = useRef<string | null>(null);
-  // Folder list isn't rendered directly — the trees view is — so keep it
-  // in a ref instead of state so override-branch mutators (createFolder,
-  // deleteFolder) can resolve `RequestFolderParentRef` synchronously
-  // from the latest snapshot without forcing re-renders.
+  // Ref twin of the `folders` state so override-branch mutators
+  // (createFolder, deleteFolder) can resolve `RequestFolderParentRef`
+  // synchronously from the latest snapshot mid-callback.
   const foldersRef = useRef<PersistedLocalFolder[]>([]);
 
   // ── Read path (legacy branch) ──────────────────────────────────
@@ -194,6 +203,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     if (!wsId) {
       setRequests([]);
       setCollections([]);
+      setFolders([]);
       setCollectionTrees([]);
       setIsReady(true);
       return;
@@ -221,6 +231,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     const unsubFolders = hostStorage.subscribe(wsKeys(wsId).requestFolders, (record) => {
       currentFolders = record ?? [];
       foldersRef.current = currentFolders;
+      setFolders(currentFolders);
       recomputeTrees();
     });
 
@@ -236,6 +247,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       foldersRef.current = currentFolders;
       setRequests(currentRequests);
       setCollections(currentCollections);
+      setFolders(currentFolders);
       recomputeTrees();
       setIsReady(true);
     });
@@ -477,6 +489,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     () => ({
       requests,
       collections,
+      folders,
       collectionTrees,
       isReady,
       getRequest,
@@ -494,6 +507,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [
       requests,
       collections,
+      folders,
       collectionTrees,
       isReady,
       getRequest,

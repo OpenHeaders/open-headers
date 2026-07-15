@@ -1,44 +1,41 @@
 /**
- * `setRequestFolderScript` — set or clear one of the folder's ancestor
- * script slots (`preRequestScript` / `postResponseScript`).
- *
- * Same contract as `setRequestCollectionScript`: a string value emits
- * `setField`; `undefined` emits `unsetField` so the slot is removed
- * rather than blanked (field absent ↔ no script). No side effects —
- * script source doesn't feed variable resolution.
+ * `setRequestFolderScripts` — set or clear the folder's ancestor
+ * script slots (`preRequestScript` / `postResponseScript`) in ONE
+ * batch. Same contract as `setRequestCollectionScripts`: a string
+ * value emits `setField`; `undefined` emits `unsetField` so the slot
+ * is removed rather than blanked (field absent ↔ no script). No side
+ * effects — script source doesn't feed variable resolution.
  */
 
+import type { MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
 import { REQUEST_FOLDER_ENTITY_TYPE } from './types';
 
 export type RequestFolderScriptPath = 'preRequestScript' | 'postResponseScript';
 
-export interface SetRequestFolderScriptArgs {
+export interface SetRequestFolderScriptsArgs {
   folderUid: string;
-  path: RequestFolderScriptPath;
-  /** Script source; `undefined` removes the slot. */
-  value: string | undefined;
+  /** Slot updates; `value: undefined` removes the slot. */
+  updates: ReadonlyArray<{ path: RequestFolderScriptPath; value: string | undefined }>;
 }
 
-export function setRequestFolderScript(ctx: MutatorContext, args: SetRequestFolderScriptArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      args.value === undefined
-        ? {
-            kind: 'unsetField',
-            type: REQUEST_FOLDER_ENTITY_TYPE,
-            id: args.folderUid,
-            path: args.path,
-          }
-        : {
-            kind: 'setField',
-            type: REQUEST_FOLDER_ENTITY_TYPE,
-            id: args.folderUid,
-            path: args.path,
-            value: args.value,
-          },
-    ]),
-    sideEffects: [],
-  };
+export function setRequestFolderScripts(ctx: MutatorContext, args: SetRequestFolderScriptsArgs): MutatorIntent {
+  const bodies: MutationBody[] = args.updates.map((update) =>
+    update.value === undefined
+      ? {
+          kind: 'unsetField',
+          type: REQUEST_FOLDER_ENTITY_TYPE,
+          id: args.folderUid,
+          path: update.path,
+        }
+      : {
+          kind: 'setField',
+          type: REQUEST_FOLDER_ENTITY_TYPE,
+          id: args.folderUid,
+          path: update.path,
+          value: update.value,
+        },
+  );
+  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }

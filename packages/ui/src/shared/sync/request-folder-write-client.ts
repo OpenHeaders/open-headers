@@ -8,6 +8,22 @@
  * write client is a thin wire layer on top.
  */
 
+import type { MutationEnvelope, RequestFolderParentRef } from '@openheaders/core/sync';
+import {
+  buildCreateRequestFolderBatch,
+  buildDeleteRequestFolderBatch,
+  buildDeleteRequestFolderEntityBatch,
+  buildMoveRequestFolderBatch,
+  buildRenameRequestFolderBatch,
+  buildSetRequestFolderScriptsBatch,
+  type SetRequestFolderScriptsInput,
+} from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
+import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import {
+  getRequestFolderSyncMirrorForWorkspace,
+  type RequestFolderSyncMirror,
+} from '../../context/mirrors/request-folder-sync-mirror';
+import { getRequestSyncMirrorForWorkspace } from '../../context/mirrors/request-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -15,20 +31,6 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import { type MutationEnvelope, type RequestFolderParentRef } from '@openheaders/core/sync';
-import {
-  getRequestFolderSyncMirrorForWorkspace,
-  type RequestFolderSyncMirror,
-} from '../../context/mirrors/request-folder-sync-mirror';
-import { getRequestSyncMirrorForWorkspace } from '../../context/mirrors/request-sync-mirror';
-import {
-  buildCreateRequestFolderBatch,
-  buildDeleteRequestFolderBatch,
-  buildDeleteRequestFolderEntityBatch,
-  buildMoveRequestFolderBatch,
-  buildRenameRequestFolderBatch,
-} from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 
 export { createRequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 
@@ -69,6 +71,23 @@ export async function applyRequestFolderCreate(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `request-folder-create-${input.folderUid}` },
   );
   return applySyncPayload(buildCreateRequestFolderBatch(input, ctx));
+}
+
+export type ApplyRequestFolderSetScriptsInput = SetRequestFolderScriptsInput;
+
+/** Persist the folder's ancestor script slots (both in one batch).
+ *  `value: undefined` clears a slot — field absent ↔ no script. */
+export async function applyRequestFolderSetScripts(
+  input: ApplyRequestFolderSetScriptsInput,
+  opts: RequestFolderWriteOptions,
+): Promise<RequestFolderSimpleResult> {
+  const mirror = resolveMirror(opts, getRequestFolderSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  if (!mirror.getRequestFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
+  const ctx = resolveRendererContext(opts).next({
+    batchId: opts.batchId ?? `request-folder-scripts-${input.folderUid}`,
+  });
+  return applySyncPayload(buildSetRequestFolderScriptsBatch(input, ctx));
 }
 
 export interface ApplyRequestFolderDeleteInput {

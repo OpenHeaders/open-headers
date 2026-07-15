@@ -19,7 +19,9 @@ import {
   buildRemoveRequestCollectionVarBatch,
   buildRenameRequestCollectionBatch,
   buildSetRequestCollectionPinnedAndDefaultBatch,
+  buildSetRequestCollectionScriptsBatch,
   buildSetRequestCollectionVarBatch,
+  type SetRequestCollectionScriptsInput,
 } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
 import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
@@ -117,6 +119,23 @@ export async function applyRequestCollectionSetPinnedAndDefault(
     batchId: opts.batchId ?? `req-coll-pinned-${input.collectionUid}`,
   });
   return applySyncPayload(buildSetRequestCollectionPinnedAndDefaultBatch(input, ctx));
+}
+
+export type ApplyRequestCollectionSetScriptsInput = SetRequestCollectionScriptsInput;
+
+/** Persist the collection's ancestor script slots (both in one batch).
+ *  `value: undefined` clears a slot — field absent ↔ no script. */
+export async function applyRequestCollectionSetScripts(
+  input: ApplyRequestCollectionSetScriptsInput,
+  opts: RequestCollectionWriteOptions,
+): Promise<RequestCollectionSimpleResult> {
+  const mirror = resolveMirror(opts, getRequestCollectionSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  if (!mirror.getRequestCollectionMirror(input.collectionUid)) return { ok: false, reason: 'not-found' };
+  const ctx = resolveRendererContext(opts).next({
+    batchId: opts.batchId ?? `request-collection-scripts-${input.collectionUid}`,
+  });
+  return applySyncPayload(buildSetRequestCollectionScriptsBatch(input, ctx));
 }
 
 export interface ApplyRequestCollectionDeleteInput {

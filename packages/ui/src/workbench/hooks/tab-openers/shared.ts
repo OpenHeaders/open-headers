@@ -94,6 +94,10 @@ export interface UseTabOpenersApi {
   openLiveVariables: () => void;
   openCollectionVariables: (uid: string, name: string) => void;
   openRequestCollectionVariables: (uid: string, name: string) => void;
+  /** Open the ancestor-scripts editor for a request collection. */
+  openRequestCollectionScripts: (uid: string, name: string) => void;
+  /** Open the ancestor-scripts editor for a request folder. */
+  openRequestFolderScripts: (uid: string, name: string) => void;
   openTemplateCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   /**

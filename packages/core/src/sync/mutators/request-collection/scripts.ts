@@ -1,6 +1,7 @@
 /**
- * `setRequestCollectionScript` — set or clear one of the collection's
- * ancestor script slots (`preRequestScript` / `postResponseScript`).
+ * `setRequestCollectionScripts` — set or clear the collection's
+ * ancestor script slots (`preRequestScript` / `postResponseScript`) in
+ * ONE batch, so a save that touches both slots lands atomically.
  *
  * A string value emits `setField`; `undefined` emits `unsetField` so
  * the slot is removed rather than blanked (field absent ↔ no script,
@@ -8,37 +9,35 @@
  * effects — script source doesn't feed variable resolution.
  */
 
+import type { MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
 import { REQUEST_COLLECTION_ENTITY_TYPE } from './types';
 
 export type RequestCollectionScriptPath = 'preRequestScript' | 'postResponseScript';
 
-export interface SetRequestCollectionScriptArgs {
+export interface SetRequestCollectionScriptsArgs {
   collectionUid: string;
-  path: RequestCollectionScriptPath;
-  /** Script source; `undefined` removes the slot. */
-  value: string | undefined;
+  /** Slot updates; `value: undefined` removes the slot. */
+  updates: ReadonlyArray<{ path: RequestCollectionScriptPath; value: string | undefined }>;
 }
 
-export function setRequestCollectionScript(ctx: MutatorContext, args: SetRequestCollectionScriptArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      args.value === undefined
-        ? {
-            kind: 'unsetField',
-            type: REQUEST_COLLECTION_ENTITY_TYPE,
-            id: args.collectionUid,
-            path: args.path,
-          }
-        : {
-            kind: 'setField',
-            type: REQUEST_COLLECTION_ENTITY_TYPE,
-            id: args.collectionUid,
-            path: args.path,
-            value: args.value,
-          },
-    ]),
-    sideEffects: [],
-  };
+export function setRequestCollectionScripts(ctx: MutatorContext, args: SetRequestCollectionScriptsArgs): MutatorIntent {
+  const bodies: MutationBody[] = args.updates.map((update) =>
+    update.value === undefined
+      ? {
+          kind: 'unsetField',
+          type: REQUEST_COLLECTION_ENTITY_TYPE,
+          id: args.collectionUid,
+          path: update.path,
+        }
+      : {
+          kind: 'setField',
+          type: REQUEST_COLLECTION_ENTITY_TYPE,
+          id: args.collectionUid,
+          path: update.path,
+          value: update.value,
+        },
+  );
+  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }

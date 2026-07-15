@@ -9,8 +9,8 @@ export { type MoveRequestFolderArgs, moveRequestFolder } from './move';
 export { type RenameRequestFolderArgs, renameRequestFolder } from './name';
 export {
   type RequestFolderScriptPath,
-  type SetRequestFolderScriptArgs,
-  setRequestFolderScript,
+  type SetRequestFolderScriptsArgs,
+  setRequestFolderScripts,
 } from './scripts';
 export {
   REQUEST_FOLDER_CHILDREN_PATH,

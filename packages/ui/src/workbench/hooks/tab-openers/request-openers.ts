@@ -26,6 +26,8 @@ export type RequestOpeners = Pick<
   | 'openRequestCollectionOverview'
   | 'openRequestFolderOverview'
   | 'openRequestCollectionVariables'
+  | 'openRequestCollectionScripts'
+  | 'openRequestFolderScripts'
   | 'openRequestEditTab'
   | 'openCreateRequestTab'
   | 'openDuplicateRequestScratch'
@@ -77,6 +79,44 @@ export function useRequestOpeners(
         dirty: false,
         mode: 'request-collection-vars',
         collectionUid: uid,
+      });
+    },
+    [allTabs, addTab, switchTab, t],
+  );
+
+  const openRequestCollectionScripts = useCallback(
+    (uid: string, name: string) => {
+      const id = `req-coll-scripts-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: t('workbench.shell.tabLabel.collectionScripts', { name }),
+        ruleType: '',
+        dirty: false,
+        mode: 'request-collection-scripts',
+        entityId: uid,
+      });
+    },
+    [allTabs, addTab, switchTab, t],
+  );
+
+  const openRequestFolderScripts = useCallback(
+    (uid: string, name: string) => {
+      const id = `req-folder-scripts-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: t('workbench.shell.tabLabel.collectionScripts', { name }),
+        ruleType: '',
+        dirty: false,
+        mode: 'request-folder-scripts',
+        entityId: uid,
       });
     },
     [allTabs, addTab, switchTab, t],
@@ -212,6 +252,8 @@ export function useRequestOpeners(
     openRequestCollectionOverview,
     openRequestFolderOverview,
     openRequestCollectionVariables,
+    openRequestCollectionScripts,
+    openRequestFolderScripts,
     openRequestEditTab,
     openCreateRequestTab,
     openDuplicateRequestScratch,

@@ -22,6 +22,7 @@ import {
   removeRequestCollectionVar,
   renameRequestCollection,
   setRequestCollectionPinnedAndDefault,
+  setRequestCollectionScripts,
   setRequestCollectionVar,
 } from '@openheaders/core/sync';
 import type { Variable } from '@openheaders/core/types';
@@ -82,6 +83,19 @@ export function buildSetRequestCollectionPinnedAndDefaultBatch(
   ctx: MutatorContext,
 ): RequestCollectionMutationPayload {
   return setRequestCollectionPinnedAndDefault(ctx, input);
+}
+
+export interface SetRequestCollectionScriptsInput {
+  collectionUid: string;
+  /** Slot updates; `value: undefined` removes the slot. */
+  updates: ReadonlyArray<{ path: 'preRequestScript' | 'postResponseScript'; value: string | undefined }>;
+}
+
+export function buildSetRequestCollectionScriptsBatch(
+  input: SetRequestCollectionScriptsInput,
+  ctx: MutatorContext,
+): RequestCollectionMutationPayload {
+  return setRequestCollectionScripts(ctx, input);
 }
 
 export interface SetRequestCollectionVarInput {

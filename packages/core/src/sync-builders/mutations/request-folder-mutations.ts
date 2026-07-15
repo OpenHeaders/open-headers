@@ -12,17 +12,18 @@
 import {
   createRequestFolder,
   deleteRequestFolder,
-  moveRequestFolder,
   type MutationBatch,
   type MutatorContext,
   type MutatorIntent,
+  moveRequestFolder,
   newBatchId,
-  PRE_BOOTSTRAP_ORG_ID,
   newMutationId,
+  PRE_BOOTSTRAP_ORG_ID,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_MUTATOR_VERSION,
   type RequestFolderParentRef,
   renameRequestFolder,
+  setRequestFolderScripts,
 } from '@openheaders/core/sync';
 
 export type RequestFolderMutationPayload = MutatorIntent;
@@ -34,10 +35,7 @@ export type RequestFolderMutationPayload = MutatorIntent;
  * slot is already covered by the parent's tombstone — emitting a
  * `removeFromSet` against a tombstoned parent is wasted wire churn.
  */
-export function buildDeleteRequestFolderEntityBatch(
-  folderUid: string,
-  ctx: MutatorContext,
-): MutationBatch {
+export function buildDeleteRequestFolderEntityBatch(folderUid: string, ctx: MutatorContext): MutationBatch {
   return {
     batchId: ctx.batchId ?? newBatchId(),
     mutations: [
@@ -92,6 +90,19 @@ export function buildDeleteRequestFolderBatch(
   ctx: MutatorContext,
 ): RequestFolderMutationPayload {
   return deleteRequestFolder(ctx, input);
+}
+
+export interface SetRequestFolderScriptsInput {
+  folderUid: string;
+  /** Slot updates; `value: undefined` removes the slot. */
+  updates: ReadonlyArray<{ path: 'preRequestScript' | 'postResponseScript'; value: string | undefined }>;
+}
+
+export function buildSetRequestFolderScriptsBatch(
+  input: SetRequestFolderScriptsInput,
+  ctx: MutatorContext,
+): RequestFolderMutationPayload {
+  return setRequestFolderScripts(ctx, input);
 }
 
 export interface MoveRequestFolderInput {

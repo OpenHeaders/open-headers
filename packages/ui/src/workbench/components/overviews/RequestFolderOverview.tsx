@@ -15,10 +15,10 @@
  * "Folder not found" because the uid lives in a request tree.
  */
 
-import { FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import { CodeOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import type { CollectionTree, FolderNode, HttpMethod, TreeNode } from '@openheaders/core/types';
-import { Button, Empty, Space, Table, Tag, theme } from 'antd';
+import { Button, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -30,6 +30,7 @@ interface RequestFolderOverviewProps {
   onSelectRequest: (uid: string, name: string, method: HttpMethod) => void;
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
+  onOpenFolderScripts?: (uid: string, name: string) => void;
 }
 
 interface ContentRow {
@@ -96,6 +97,7 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
   onSelectRequest,
   onCreateRequest,
   onOpenFolderOverview,
+  onOpenFolderScripts,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -201,13 +203,22 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
   );
 
   const actions = (
-    <Button
-      size="small"
-      icon={<PlusOutlined />}
-      onClick={() => onCreateRequest({ collectionId: collectionUid, folderPath })}
-    >
-      {t('workbench.overview.action.addRequest')}
-    </Button>
+    <>
+      <Button
+        size="small"
+        icon={<PlusOutlined />}
+        onClick={() => onCreateRequest({ collectionId: collectionUid, folderPath })}
+      >
+        {t('workbench.overview.action.addRequest')}
+      </Button>
+      {onOpenFolderScripts && folder && (
+        <Tooltip title={t('workbench.overview.action.scriptsTooltipFolder')}>
+          <Button size="small" icon={<CodeOutlined />} onClick={() => onOpenFolderScripts(folderUid, folder.name)}>
+            {t('workbench.overview.action.scripts')}
+          </Button>
+        </Tooltip>
+      )}
+    </>
   );
 
   const contents =

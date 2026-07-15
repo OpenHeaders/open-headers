@@ -6,8 +6,8 @@ export {
 } from './pinned';
 export {
   type RequestCollectionScriptPath,
-  type SetRequestCollectionScriptArgs,
-  setRequestCollectionScript,
+  type SetRequestCollectionScriptsArgs,
+  setRequestCollectionScripts,
 } from './scripts';
 export { INVALIDATE_RESOLVER, invalidateResolverIntent } from './side-effects';
 export { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_COLLECTION_VARS_PATH } from './types';

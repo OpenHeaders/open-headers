@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type MutatorContext, REQUEST_FOLDER_ENTITY_TYPE, setRequestFolderScript } from '../../../../src/sync';
+import { type MutatorContext, REQUEST_FOLDER_ENTITY_TYPE, setRequestFolderScripts } from '../../../../src/sync';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: 'ws-1',
@@ -10,12 +10,11 @@ const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   ...overrides,
 });
 
-describe('setRequestFolderScript', () => {
-  it('emits a setField at the script path carrying the source', () => {
-    const intent = setRequestFolderScript(ctx(), {
+describe('setRequestFolderScripts', () => {
+  it('emits a setField per slot carrying the source', () => {
+    const intent = setRequestFolderScripts(ctx(), {
       folderUid: 'rfold-tokens',
-      path: 'postResponseScript',
-      value: 'await oh.test("ok", oh.response.status === 200);',
+      updates: [{ path: 'postResponseScript', value: 'await oh.test("ok", oh.response.status === 200);' }],
     });
     expect(intent.batch.mutations).toHaveLength(1);
     expect(intent.batch.mutations[0].body).toMatchObject({
@@ -28,11 +27,10 @@ describe('setRequestFolderScript', () => {
     expect(intent.sideEffects).toEqual([]);
   });
 
-  it('emits an unsetField when clearing the slot (field absent ↔ no script)', () => {
-    const intent = setRequestFolderScript(ctx(), {
+  it('emits an unsetField when clearing a slot (field absent ↔ no script)', () => {
+    const intent = setRequestFolderScripts(ctx(), {
       folderUid: 'rfold-tokens',
-      path: 'preRequestScript',
-      value: undefined,
+      updates: [{ path: 'preRequestScript', value: undefined }],
     });
     expect(intent.batch.mutations).toHaveLength(1);
     expect(intent.batch.mutations[0].body).toMatchObject({

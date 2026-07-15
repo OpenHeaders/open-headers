@@ -208,10 +208,10 @@ export {
   removeRequestCollectionVar,
   renameRequestCollection,
   type SetRequestCollectionPinnedAndDefaultArgs,
-  type SetRequestCollectionScriptArgs,
+  type SetRequestCollectionScriptsArgs,
   type SetRequestCollectionVarArgs,
   setRequestCollectionPinnedAndDefault,
-  setRequestCollectionScript,
+  setRequestCollectionScripts,
   setRequestCollectionVar,
 } from './request-collection';
 export {
@@ -230,8 +230,8 @@ export {
   type RequestFolderScriptPath,
   type RequestFolderSlot,
   renameRequestFolder,
-  type SetRequestFolderScriptArgs,
-  setRequestFolderScript,
+  type SetRequestFolderScriptsArgs,
+  setRequestFolderScripts,
 } from './request-folder';
 export {
   type CreateResponseExampleArgs,

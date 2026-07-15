@@ -33,6 +33,8 @@ export type TabMode =
   | 'live-vars'
   | 'collection-vars'
   | 'request-collection-vars'
+  | 'request-collection-scripts'
+  | 'request-folder-scripts'
   | 'template-collection-vars'
   | 'request-edit'
   | 'request-create'

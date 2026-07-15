@@ -16,7 +16,7 @@
  * collection precedent.
  */
 
-import { FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import { CodeOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { VariablesIcon } from '@openheaders/ui/shared/icons';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import type { HttpMethod, TreeNode } from '@openheaders/core/types';
@@ -33,6 +33,7 @@ interface RequestCollectionOverviewProps {
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
   onOpenCollectionVariables?: (uid: string, name: string) => void;
+  onOpenCollectionScripts?: (uid: string, name: string) => void;
 }
 
 interface ContentRow {
@@ -80,6 +81,7 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
   onCreateRequest,
   onOpenFolderOverview,
   onOpenCollectionVariables,
+  onOpenCollectionScripts,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -208,6 +210,17 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
             onClick={() => onOpenCollectionVariables(collectionUid, collection.name)}
           >
             {t('workbench.overview.action.variables')}
+          </Button>
+        </Tooltip>
+      )}
+      {onOpenCollectionScripts && (
+        <Tooltip title={t('workbench.overview.action.scriptsTooltipCollection')}>
+          <Button
+            size="small"
+            icon={<CodeOutlined />}
+            onClick={() => onOpenCollectionScripts(collectionUid, collection.name)}
+          >
+            {t('workbench.overview.action.scripts')}
           </Button>
         </Tooltip>
       )}
