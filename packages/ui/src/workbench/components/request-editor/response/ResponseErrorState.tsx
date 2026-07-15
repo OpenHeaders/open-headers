@@ -46,12 +46,34 @@ const ResponseErrorState: React.FC<{
       }}
     >
       <DisconnectOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
-      <Text strong style={{ fontSize: 12 }}>
-        {t('workbench.editors.request.response.error.title')}
-      </Text>
-      <Text type="secondary" style={{ fontSize: 12, maxWidth: 460 }} data-testid="oh-response-error">
-        {error}
-      </Text>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <Text strong style={{ fontSize: 12 }}>
+          {t('workbench.editors.request.response.error.title')}
+        </Text>
+        {hint?.netError !== undefined && (
+          <Text
+            type="secondary"
+            style={{
+              fontSize: 11,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            }}
+          >
+            {`(${hint.netError})`}
+          </Text>
+        )}
+      </div>
+      {hint?.netError !== undefined ? (
+        // Wire-confirmed certificate rejection: the code rides beside
+        // the title, so the prose collapses to one actionable line —
+        // the steps below carry the walkthrough.
+        <Text type="secondary" style={{ fontSize: 12 }} data-testid="oh-response-error">
+          {t('workbench.editors.request.response.error.certSteps.summary')}
+        </Text>
+      ) : (
+        <Text type="secondary" style={{ fontSize: 12, maxWidth: 460 }} data-testid="oh-response-error">
+          {error}
+        </Text>
+      )}
       {hint?.kind === 'open-in-tab' && (
         // Split vocabulary: layout 'vertical' stacks the panes, so the
         // response pane spans the editor's width → steps fit in a row;

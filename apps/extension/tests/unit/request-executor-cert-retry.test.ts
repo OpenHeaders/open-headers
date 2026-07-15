@@ -239,7 +239,11 @@ describe('executor certificate retry', () => {
     const res = await executeRequestDraft(makeRequest(), {});
     expect(res.status).toBe(0);
     expect(res.error).toContain('ERR_CERT_AUTHORITY_INVALID');
-    expect(res.errorHint).toEqual({ kind: 'open-in-tab', url: 'https://localhost.openheaders.io:3443/echo' });
+    expect(res.errorHint).toEqual({
+      kind: 'open-in-tab',
+      url: 'https://localhost.openheaders.io:3443/echo',
+      netError: 'net::ERR_CERT_AUTHORITY_INVALID',
+    });
   });
 
   it('skips the retry when the runtime has no offscreen API (Firefox)', async () => {

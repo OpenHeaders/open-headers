@@ -57,6 +57,11 @@ export interface ExecutedRequestErrorHint {
   kind: 'open-in-tab';
   /** URL to open — the submitted request URL. */
   url: string;
+  /** Recovered net-stack code (e.g. `net::ERR_CERT_AUTHORITY_INVALID`)
+   *  — the UI shows it beside the error title, keeping the generic
+   *  code apart from the actionable guidance. Absent when the failure
+   *  was classified heuristically without a wire-recovered code. */
+  netError?: string;
 }
 
 export interface ExecutedRequestSnapshot {

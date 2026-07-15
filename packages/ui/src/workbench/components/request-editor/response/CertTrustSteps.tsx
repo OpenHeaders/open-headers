@@ -16,6 +16,7 @@
 import { ArrowRightOutlined, ExportOutlined } from '@ant-design/icons';
 import { Button, Typography, theme } from 'antd';
 import type React from 'react';
+import { Fragment } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isFirefox } from '@openheaders/ui/shared/platform';
 
@@ -156,15 +157,19 @@ const CertTrustSteps: React.FC<CertTrustStepsProps> = ({ url, direction }) => {
     fontSize: 10,
   };
 
+  // Cards are direct children of the stretch-aligned flex container:
+  // equal widths via `flex: 1 1 0`, equal heights via the stretch —
+  // the tallest card (step 1 carries the button) sets the row height.
   const stepCard: React.CSSProperties = {
     display: 'flex',
     flexDirection: horizontal ? 'column' : 'row',
-    alignItems: horizontal ? 'center' : 'center',
+    alignItems: 'center',
     gap: 8,
     padding: 8,
     borderRadius: 8,
     border: `1px solid ${token.colorBorderSecondary}`,
     background: token.colorBgContainer,
+    ...(horizontal ? { flex: '1 1 0', minWidth: 0 } : {}),
   };
 
   const caption = (index: number, lines: React.ReactNode): React.ReactNode => (
@@ -239,18 +244,16 @@ const CertTrustSteps: React.FC<CertTrustStepsProps> = ({ url, direction }) => {
       style={{
         display: 'flex',
         flexDirection: horizontal ? 'row' : 'column',
-        alignItems: horizontal ? 'stretch' : 'stretch',
+        alignItems: 'stretch',
         gap: 6,
         marginTop: 8,
-        maxWidth: horizontal ? 640 : 320,
+        width: '100%',
+        maxWidth: horizontal ? 680 : 320,
       }}
       data-testid="oh-cert-trust-steps"
     >
       {steps.map((step, i) => (
-        <div
-          key={['open', 'accept', 'retry'][i]}
-          style={{ display: 'flex', flexDirection: horizontal ? 'row' : 'column', alignItems: 'center', gap: 6, minWidth: 0 }}
-        >
+        <Fragment key={['open', 'accept', 'retry'][i]}>
           {step}
           {i < steps.length - 1 && (
             <ArrowRightOutlined
@@ -259,10 +262,11 @@ const CertTrustSteps: React.FC<CertTrustStepsProps> = ({ url, direction }) => {
                 color: token.colorTextQuaternary,
                 transform: horizontal ? 'none' : 'rotate(90deg)',
                 flexShrink: 0,
+                alignSelf: 'center',
               }}
             />
           )}
-        </div>
+        </Fragment>
       ))}
     </div>
   );

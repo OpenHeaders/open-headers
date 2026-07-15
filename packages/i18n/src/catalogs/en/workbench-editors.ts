@@ -1066,6 +1066,8 @@ export const workbenchEditors = {
   'workbench.editors.request.response.empty.prompt': 'Send the request to see the response here.',
   'workbench.editors.request.response.error.title': 'Could not send request',
   'workbench.editors.request.response.error.openInTab': 'Open in new tab',
+  'workbench.editors.request.response.error.certSteps.summary':
+    'Local dev servers usually run with a self-signed certificate, which you need to accept.',
   'workbench.editors.request.response.error.certSteps.step1': 'Open the URL in a new tab',
   'workbench.editors.request.response.error.certSteps.step2': 'Accept the certificate warning',
   'workbench.editors.request.response.error.certSteps.step2DetailChromium': 'Advanced → Proceed (unsafe)',

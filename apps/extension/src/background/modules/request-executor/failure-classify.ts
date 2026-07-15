@@ -49,11 +49,7 @@ function defaultPort(protocol: string): string {
  * itself is always included verbatim — it is the ground truth the
  * browser's own Network panel shows, and searchable as-is.
  */
-function describeNetError(
-  code: string,
-  parsed: URL,
-  hint: ExecutedRequestErrorHint | undefined,
-): ClassifiedFailure {
+function describeNetError(code: string, parsed: URL, hint: ExecutedRequestErrorHint | undefined): ClassifiedFailure {
   const host = parsed.hostname;
   const port = parsed.port || defaultPort(parsed.protocol);
   const local = looksLocalHostname(host);
@@ -81,12 +77,14 @@ function describeNetError(
       ? ' Local dev servers usually run with a self-signed certificate, which the browser rejects before the request is sent.'
       : '';
     // With a hint attached the response pane renders the trust-steps
-    // walkthrough, so the message stays factual; without one the
-    // guidance rides in prose.
+    // walkthrough and shows the code beside the title (hint.netError),
+    // so the message stays factual; without one the guidance rides in
+    // prose. The message still carries everything for non-UI consumers
+    // (status pill, logs).
     const guidance = hint ? '' : ' Open the URL in a new tab, accept the certificate warning, then retry.';
     return {
       message: `${host} presented an untrusted or invalid certificate (${code}).${localNote}${guidance}`,
-      ...(hint ? { hint } : {}),
+      ...(hint ? { hint: { ...hint, netError: code } } : {}),
     };
   }
   if (code.includes('CONNECTION_RESET') || code.includes('CONNECTION_CLOSED') || code.includes('EMPTY_RESPONSE')) {
@@ -103,7 +101,9 @@ function describeNetError(
     };
   }
   if (code.includes('BLOCKED_BY_ADMINISTRATOR') || code.includes('BLOCKED_BY_POLICY')) {
-    return { message: `The request was blocked by browser policy (${code}) — this machine's enterprise configuration.` };
+    return {
+      message: `The request was blocked by browser policy (${code}) — this machine's enterprise configuration.`,
+    };
   }
   // Unknown family: the raw code is still far better than "Failed to
   // fetch" — pass it through with the host for context.
