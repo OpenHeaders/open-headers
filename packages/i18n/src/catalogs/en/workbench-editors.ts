@@ -1004,6 +1004,12 @@ export const workbenchEditors = {
   'workbench.editors.request.response.body.hexCapNotice': 'Hex view shows the first {shown} of {total}.',
   'workbench.editors.request.response.body.previewIframeTitle': 'Response preview',
   'workbench.editors.request.response.body.pdfPreviewIframeTitle': 'PDF preview',
+  'workbench.editors.request.response.body.imagePreviewAlt': 'Response image',
+  'workbench.editors.request.response.body.imagePreviewFailed':
+    'The image data does not decode — see the Hex view for the raw bytes.',
+  'workbench.editors.request.response.body.mediaPreviewAria': 'Media preview',
+  'workbench.editors.request.response.body.mediaPreviewFailed':
+    'The media data does not decode — see the Hex view for the raw bytes.',
   'workbench.editors.request.response.body.requestBodyOmittedNotice':
     'Request body not sent — the browser cannot attach a body to GET or HEAD requests.',
 

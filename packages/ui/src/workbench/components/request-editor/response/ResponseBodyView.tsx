@@ -34,7 +34,9 @@ import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
 import ResponseFilterInput from './ResponseFilterInput';
+import ResponseImagePreview from './ResponseImagePreview';
 import ResponseJsonPreview from './ResponseJsonPreview';
+import ResponseMediaPreview from './ResponseMediaPreview';
 import ResponsePdfPreview from './ResponsePdfPreview';
 import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
 import { detectMagicSignatures } from './magic-signatures';
@@ -54,7 +56,15 @@ import {
   suggestJsonPathCompletions,
   suggestXPathCompletions,
 } from './response-filter';
-import { detectBodyLanguage, formatBytes, isNdjsonResponse, isPdfResponse, prettyBody } from './response-format';
+import {
+  contentTypeOf,
+  detectBodyLanguage,
+  formatBytes,
+  isNdjsonResponse,
+  isPdfResponse,
+  mediaPreviewKind,
+  prettyBody,
+} from './response-format';
 import { useFormattedBody } from './use-formatted-body';
 
 const { Text } = Typography;
@@ -103,11 +113,12 @@ function PickerLabel({ icon, text }: { icon: string; text: string }) {
   );
 }
 
-/** The view a fresh response opens on: PDFs go straight to Preview
- *  (the rendered document is the answer), other binary bodies to Hex
- *  (the only faithful text-free view), text to Pretty. */
+/** The view a fresh response opens on: media families (PDF, images,
+ *  audio/video) go straight to Preview — the rendered document is the
+ *  answer; other binary bodies open on Hex (the only faithful
+ *  text-free view), text on Pretty. */
 function initialMode(response: ExecutedRequestSnapshot): ViewMode {
-  if (isPdfResponse(response.headers)) return 'preview';
+  if (mediaPreviewKind(response.headers) !== null) return 'preview';
   return response.bodyEncoding === 'base64' ? 'hex' : 'pretty';
 }
 
@@ -138,6 +149,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   }, [response]);
 
   const isBinary = response.bodyEncoding === 'base64';
+  const mediaKind = mediaPreviewKind(response.headers);
   const isPdf = isPdfResponse(response.headers);
   // Binary-LIKE drives the view set: a PDF keeps the Raw/Hex/Base64
   // picker even when its bytes happen to decode as text (all-ASCII
@@ -171,15 +183,22 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     }
   }, [response.body, language, isBinary, isNdjson]);
 
-  const previewKind: 'pdf' | 'html' | 'json' | null = isPdf
+  // Media previews come from the Content-Type (they name a RENDERER,
+  // not the body's textness) and sit above the binary gate so a raster
+  // image still previews; html/json previews need parseable text.
+  const previewKind: 'pdf' | 'image' | 'media' | 'html' | 'json' | null = isPdf
     ? 'pdf'
-    : isBinary
-      ? null
-      : language === 'html'
-        ? 'html'
-        : parsedJson !== undefined
-          ? 'json'
-          : null;
+    : mediaKind === 'image'
+      ? 'image'
+      : mediaKind === 'audio' || mediaKind === 'video'
+        ? 'media'
+        : isBinary
+          ? null
+          : language === 'html'
+            ? 'html'
+            : parsedJson !== undefined
+              ? 'json'
+              : null;
 
   // A language override can take Preview away while it's the active
   // mode (e.g. HTML body overridden to Text) — fall back to the body's
@@ -271,8 +290,11 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     mode,
     response,
   ]);
-  const pdfBytes = useMemo(
-    () => (mode === 'preview' && previewKind === 'pdf' ? snapshotBodyBytes(response) : null),
+  const previewBytes = useMemo(
+    () =>
+      mode === 'preview' && (previewKind === 'pdf' || previewKind === 'image' || previewKind === 'media')
+        ? snapshotBodyBytes(response)
+        : null,
     [mode, previewKind, response],
   );
 
@@ -659,7 +681,20 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           </div>
         </div>
       )}
-      {mode === 'preview' && previewKind === 'pdf' && pdfBytes && <ResponsePdfPreview bytes={pdfBytes} />}
+      {mode === 'preview' && previewKind === 'pdf' && previewBytes && <ResponsePdfPreview bytes={previewBytes} />}
+      {mode === 'preview' && previewKind === 'image' && previewBytes && (
+        <ResponseImagePreview
+          bytes={previewBytes}
+          mimeType={contentTypeOf(response.headers).split(';')[0].trim()}
+        />
+      )}
+      {mode === 'preview' && previewKind === 'media' && previewBytes && (
+        <ResponseMediaPreview
+          bytes={previewBytes}
+          mimeType={contentTypeOf(response.headers).split(';')[0].trim()}
+          kind={mediaKind === 'audio' ? 'audio' : 'video'}
+        />
+      )}
       {mode === 'preview' && previewKind === 'json' && <ResponseJsonPreview value={parsedJson} />}
       {mode === 'preview' && previewKind === 'html' && (
         <iframe
