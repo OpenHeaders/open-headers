@@ -242,6 +242,7 @@ describe('executor certificate retry', () => {
     expect(res.errorHint).toEqual({
       kind: 'open-in-tab',
       url: 'https://localhost.openheaders.io:3443/echo',
+      certificate: true,
       netError: 'net::ERR_CERT_AUTHORITY_INVALID',
     });
   });
@@ -257,6 +258,7 @@ describe('executor certificate retry', () => {
     expect(res.errorHint).toEqual({
       kind: 'open-in-tab',
       url: 'https://localhost.openheaders.io:3443/echo',
+      certificate: true,
       netError: 'MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT',
     });
   });

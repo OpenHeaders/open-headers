@@ -62,10 +62,11 @@ const ResponseErrorState: React.FC<{
           </Text>
         )}
       </div>
-      {hint?.netError !== undefined ? (
-        // Wire-confirmed certificate rejection: the code rides beside
-        // the title, so the prose collapses to one actionable line —
-        // the steps below carry the walkthrough.
+      {hint?.certificate ? (
+        // Certificate rejection (wire-confirmed or heuristic): the
+        // prose collapses to one actionable line — the steps below
+        // carry the walkthrough, the code (when recovered) rides
+        // beside the title.
         <Text type="secondary" style={{ fontSize: 12 }} data-testid="oh-response-error">
           {t('workbench.editors.request.response.error.certSteps.summary')}
         </Text>

@@ -57,6 +57,10 @@ export interface ExecutedRequestErrorHint {
   kind: 'open-in-tab';
   /** URL to open — the submitted request URL. */
   url: string;
+  /** True when the failure is (or is overwhelmingly likely to be) a
+   *  certificate rejection — drives the compact trust-steps
+   *  presentation: one-line summary instead of the message prose. */
+  certificate?: boolean;
   /** Recovered net-stack code (e.g. `net::ERR_CERT_AUTHORITY_INVALID`)
    *  — the UI shows it beside the error title, keeping the generic
    *  code apart from the actionable guidance. Absent when the failure

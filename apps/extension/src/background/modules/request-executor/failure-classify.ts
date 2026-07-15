@@ -118,7 +118,7 @@ function describeNetError(code: string, parsed: URL, hint: ExecutedRequestErrorH
     const guidance = hint ? '' : ' Open the URL in a new tab, accept the certificate warning, then retry.';
     return {
       message: `${host} presented an untrusted or invalid certificate (${code}).${localNote}${guidance}`,
-      ...(hint ? { hint: { ...hint, netError: compactNetCode(code) } } : {}),
+      ...(hint ? { hint: { ...hint, certificate: true, netError: compactNetCode(code) } } : {}),
     };
   }
   if (code.includes('CONNECTION_RESET') || code.includes('CONNECTION_CLOSED') || code.includes('EMPTY_RESPONSE')) {
@@ -173,15 +173,18 @@ export function classifyFetchFailure(url: string, rawMessage: string, netError?:
   }
   const looksLocal = looksLocalHostname(hostname);
   if (looksLocal && isHttps) {
-    // Hint always set on this branch (https) — the response pane
-    // renders the trust-steps walkthrough, so no prose step list here.
+    // Hint always set on this branch (https), marked as a certificate
+    // rejection even without a recovered code — local HTTPS failing at
+    // fetch is overwhelmingly the self-signed case, and the UI renders
+    // the same compact trust-steps presentation as the code-confirmed
+    // path (minus the code beside the title).
     return {
       message:
         `Could not reach ${hostname} over HTTPS. Local HTTPS endpoints usually fail here because the ` +
         'development certificate is self-signed — the browser rejects untrusted certificates before the ' +
         'request is sent. If the URL loads cleanly in a tab, check that the service is running and serves ' +
         'HTTPS on this port.',
-      hint,
+      ...(hint ? { hint: { ...hint, certificate: true } } : {}),
     };
   }
   if (looksLocal) {

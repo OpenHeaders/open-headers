@@ -525,7 +525,11 @@ describe('fetch-failure classification', () => {
       // Step-by-step guidance moved out of the prose — the hint drives
       // the response pane's CertTrustSteps walkthrough instead.
       expect(res.error).toMatch(/untrusted certificates/i);
-      expect(res.errorHint).toEqual({ kind: 'open-in-tab', url: 'https://localhost:8080/v1/workspaces/123/rules' });
+      expect(res.errorHint).toEqual({
+        kind: 'open-in-tab',
+        url: 'https://localhost:8080/v1/workspaces/123/rules',
+        certificate: true,
+      });
     } finally {
       vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
         fetchMock(input, init);
@@ -541,7 +545,7 @@ describe('fetch-failure classification', () => {
       const res = await executeRequestDraft(req, {});
       expect(res.status).toBe(0);
       expect(res.error).toMatch(/self-signed|certificate/i);
-      expect(res.errorHint).toEqual({ kind: 'open-in-tab', url: 'https://localhost:8080/v1/ping' });
+      expect(res.errorHint).toEqual({ kind: 'open-in-tab', url: 'https://localhost:8080/v1/ping', certificate: true });
     } finally {
       vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
         fetchMock(input, init);
