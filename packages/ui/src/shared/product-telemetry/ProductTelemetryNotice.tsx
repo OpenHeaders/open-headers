@@ -6,6 +6,12 @@
  * then, so disclosure always precedes the first event.
  *
  * The paragraph is the user-signed §8 copy, shipped verbatim.
+ *
+ * Currently UNMOUNTED everywhere: the blocking-modal form was rejected
+ * for onboarding UX; the disclosure surface is being redesigned. While
+ * nothing shows this notice the disclosure flag never gets set, so the
+ * client latch keeps the whole channel dormant — no events queue or
+ * send. Re-mount (or replace) this component to reactivate telemetry.
  */
 
 import { hostStorage, OH } from '@openheaders/core/storage';
