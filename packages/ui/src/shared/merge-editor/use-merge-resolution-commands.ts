@@ -6,6 +6,7 @@
  * pill / navigator.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { RefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { HunkAnalysis } from './diff/hunk-analysis';
@@ -59,6 +60,7 @@ export function useMergeResolutionCommands({
   onHunkStatsChange,
   onAnnounce,
 }: UseMergeResolutionCommandsArgs): MergeResolutionCommands {
+  const t = useT();
   // Legacy single-click accept callback retained for the Monaco
   // command palette ("Accept incoming/current hunk at cursor"). The
   // chord lands as if the user clicked the corresponding action-gutter
@@ -67,10 +69,13 @@ export function useMergeResolutionCommands({
   const acceptHunk = useCallback(
     (hunkId: string, side: HunkSide) => {
       pickController.dispatch({ hunkId, slot: side === 'theirs' ? 'left' : 'right', action: 'arrow' });
-      const sourceLabel = side === 'theirs' ? 'incoming' : 'current';
-      onAnnounce?.(`Accepted ${sourceLabel} hunk.`);
+      onAnnounce?.(
+        side === 'theirs'
+          ? t('shared.mergeEditor.announce.acceptedIncoming')
+          : t('shared.mergeEditor.announce.acceptedCurrent'),
+      );
     },
-    [pickController, onAnnounce],
+    [pickController, onAnnounce, t],
   );
 
   useEffect(() => {
@@ -161,10 +166,10 @@ export function useMergeResolutionCommands({
       }
     }
     if (updates.length > 0) {
-      onAnnounce?.(`Applied ${updates.length} non-conflicting ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
+      onAnnounce?.(t('shared.mergeEditor.announce.appliedNonConflicting', { count: updates.length }));
       pickController.bulkSet(updates);
     }
-  }, [analyses, pickController, onAnnounce, minePostState]);
+  }, [analyses, pickController, onAnnounce, minePostState, t]);
 
   const acceptAllTheirs = useCallback(() => {
     const updates: { hunkId: string; next: HunkPickState }[] = pickStateHunks.map((h) => ({
@@ -172,10 +177,10 @@ export function useMergeResolutionCommands({
       next: { theirs: 'accepted', mine: minePostState },
     }));
     if (updates.length > 0) {
-      onAnnounce?.(`Accepted all ${updates.length} incoming ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
+      onAnnounce?.(t('shared.mergeEditor.announce.acceptedAllIncoming', { count: updates.length }));
       pickController.bulkSet(updates);
     }
-  }, [pickStateHunks, pickController, onAnnounce, minePostState]);
+  }, [pickStateHunks, pickController, onAnnounce, minePostState, t]);
 
   const acceptAllMine = useCallback(() => {
     // In 2-pane fallback there is no separate "mine" content to take —
@@ -187,10 +192,10 @@ export function useMergeResolutionCommands({
       next: { theirs: 'dismissed', mine: 'accepted' },
     }));
     if (updates.length > 0) {
-      onAnnounce?.(`Accepted all ${updates.length} current ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
+      onAnnounce?.(t('shared.mergeEditor.announce.acceptedAllCurrent', { count: updates.length }));
       pickController.bulkSet(updates);
     }
-  }, [pickStateHunks, pickController, onAnnounce, has3Panes]);
+  }, [pickStateHunks, pickController, onAnnounce, has3Panes, t]);
 
   return { gotoNextHunk, gotoPrevHunk, applyNonConflicting, acceptAllTheirs, acceptAllMine, acceptHunk };
 }

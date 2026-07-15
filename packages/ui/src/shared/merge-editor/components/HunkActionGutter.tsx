@@ -20,6 +20,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { HunkActionMarker } from '../monaco/use-hunk-action-markers';
 import { type ClickAction, type ClickSlot, PENDING_HUNK, type PickStateController } from '../use-hunk-pick-state';
 import './hunk-action-gutter.css';
@@ -45,6 +46,7 @@ function rightArrow(theirsAccepted: boolean, mineAccepted: boolean): string {
 }
 
 const HunkActionGutter: React.FC<HunkActionGutterProps> = ({ side, markers, controller, stateRev }) => {
+  const t = useT();
   // Reading stateRev forces the closure to recompute on each tick;
   // explicitly dereference to avoid the unused-prop lint without
   // changing the underlying React contract.
@@ -63,11 +65,11 @@ const HunkActionGutter: React.FC<HunkActionGutterProps> = ({ side, markers, cont
         const arrowTitle =
           side === 'left'
             ? state.mine === 'accepted'
-              ? 'Also append incoming after current'
-              : 'Accept incoming'
+              ? t('shared.mergeEditor.gutter.appendIncoming')
+              : t('shared.mergeEditor.gutter.acceptIncoming')
             : state.theirs === 'accepted'
-              ? 'Also append current after incoming'
-              : 'Accept current';
+              ? t('shared.mergeEditor.gutter.appendCurrent')
+              : t('shared.mergeEditor.gutter.acceptCurrent');
         const dispatchClick = (action: ClickAction): void => {
           controller.dispatch({ hunkId: m.hunkId, slot: side, action });
         };
@@ -78,7 +80,7 @@ const HunkActionGutter: React.FC<HunkActionGutterProps> = ({ side, markers, cont
                 <button
                   type="button"
                   className="oh-merge__action-btn oh-merge__action-btn-x"
-                  title="Skip incoming for this hunk"
+                  title={t('shared.mergeEditor.gutter.skipIncoming')}
                   onClick={() => dispatchClick('x')}
                 >
                   ×
@@ -105,7 +107,7 @@ const HunkActionGutter: React.FC<HunkActionGutterProps> = ({ side, markers, cont
                 <button
                   type="button"
                   className="oh-merge__action-btn oh-merge__action-btn-x"
-                  title="Skip current for this hunk"
+                  title={t('shared.mergeEditor.gutter.skipCurrent')}
                   onClick={() => dispatchClick('x')}
                 >
                   ×

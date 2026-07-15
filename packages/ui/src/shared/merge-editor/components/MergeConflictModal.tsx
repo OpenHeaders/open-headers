@@ -16,6 +16,7 @@ import { CheckCircleFilled, DownOutlined, ReloadOutlined, ThunderboltOutlined, U
 import { Allotment, LayoutPriority } from 'allotment';
 import { Alert, Button, Dropdown, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { diffLinesPatience } from '../diff/patience-diff';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
@@ -65,6 +66,7 @@ const MergeConflictModal = ({
   footerLeading,
 }: MergeConflictModalProps): ReactElement => {
   const { token } = theme.useToken();
+  const t = useT();
   const paneRef = useRef<MergePaneHandle>(null);
   const [applying, setApplying] = useState(false);
   const [outcomes, setOutcomes] = useState<MergeApplyOutcome[]>([]);
@@ -134,13 +136,15 @@ const MergeConflictModal = ({
       if (!liveRef.current) return;
       const remaining = stats.totalRemaining;
       const tail =
-        remaining === 0 ? ' All hunks resolved.' : ` ${remaining} ${remaining === 1 ? 'hunk' : 'hunks'} remaining.`;
+        remaining === 0
+          ? ` ${t('shared.mergeEditor.announce.allResolved')}`
+          : ` ${t('shared.mergeEditor.announce.remaining', { count: remaining })}`;
       // Toggle the text to force a re-announcement even if the message
       // is identical to the previous one (some screen readers debounce).
       liveRef.current.textContent = '';
       liveRef.current.textContent = msg + tail;
     },
-    [stats.totalRemaining],
+    [stats.totalRemaining, t],
   );
 
   // Active file id — initialized from `session.initialFileId` or the
@@ -273,37 +277,40 @@ const MergeConflictModal = ({
     const total = session.files.length;
     const groupCounts = new Map<string, number>();
     for (const f of session.files) {
-      const key = f.group ?? 'Other';
+      const key = f.group ?? t('shared.mergeEditor.groupOther');
       groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1);
     }
     const groupParts = Array.from(groupCounts.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([g, n]) => `${n} ${g}`)
       .join(', ');
-    return `${total} ${total === 1 ? 'file' : 'files'}${groupParts ? ` (${groupParts})` : ''}`;
-  }, [session.files]);
+    return `${t('shared.mergeEditor.sessionScope.files', { count: total })}${groupParts ? ` (${groupParts})` : ''}`;
+  }, [session.files, t]);
 
   const applySessionWide = useCallback(
     (side: 'theirs' | 'mine') => {
       Modal.confirm({
-        title: side === 'theirs' ? 'Accept all incoming (session)' : 'Accept all current (session)',
+        title:
+          side === 'theirs'
+            ? t('shared.mergeEditor.confirm.acceptIncomingTitle')
+            : t('shared.mergeEditor.confirm.acceptCurrentTitle'),
         content: (
           <Typography.Paragraph style={{ marginBottom: 0 }}>
             <Typography.Text>
               {side === 'theirs'
-                ? `Replace ${summarizeSessionScope()} with the incoming version.`
-                : `Reset ${summarizeSessionScope()} to your current version.`}
+                ? t('shared.mergeEditor.confirm.replaceWithIncoming', { scope: summarizeSessionScope() })
+                : t('shared.mergeEditor.confirm.resetToCurrent', { scope: summarizeSessionScope() })}
             </Typography.Text>
             <br />
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               {side === 'theirs'
-                ? 'This discards your local edits for every file in the session.'
-                : 'This discards every incoming change for every file in the session.'}
+                ? t('shared.mergeEditor.confirm.discardsLocal')
+                : t('shared.mergeEditor.confirm.discardsIncoming')}
             </Typography.Text>
           </Typography.Paragraph>
         ),
-        okText: side === 'theirs' ? 'Accept all incoming' : 'Accept all current',
-        cancelText: 'Cancel',
+        okText: side === 'theirs' ? t('shared.mergeEditor.confirm.okIncoming') : t('shared.mergeEditor.confirm.okCurrent'),
+        cancelText: t('shared.mergeEditor.confirm.cancel'),
         okButtonProps: { danger: side === 'theirs' },
         onOk: () => {
           setResultsByFileId(() => {
@@ -316,7 +323,7 @@ const MergeConflictModal = ({
         },
       });
     },
-    [session.files, summarizeSessionScope],
+    [session.files, summarizeSessionScope, t],
   );
 
   const handleApply = useCallback(async () => {
@@ -355,10 +362,10 @@ const MergeConflictModal = ({
       footer={[
         footerLeading ?? null,
         <Button key="cancel" onClick={handleCancel} disabled={applying}>
-          Cancel
+          {t('shared.mergeEditor.footer.cancel')}
         </Button>,
         <Button key="apply" type="primary" onClick={handleApply} loading={applying} disabled={!allFilesResolved}>
-          Complete Merge
+          {t('shared.mergeEditor.footer.completeMerge')}
         </Button>,
       ]}
     >
@@ -369,7 +376,7 @@ const MergeConflictModal = ({
         {headerSlot}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Space size={6}>
-            <Tooltip title="Previous hunk · Cmd/Ctrl+K  P">
+            <Tooltip title={t('shared.mergeEditor.toolbar.prevHunk')}>
               <Button
                 size="small"
                 icon={<UpOutlined />}
@@ -377,7 +384,7 @@ const MergeConflictModal = ({
                 onClick={() => paneRef.current?.gotoPrevHunk()}
               />
             </Tooltip>
-            <Tooltip title="Next hunk · Cmd/Ctrl+K  N">
+            <Tooltip title={t('shared.mergeEditor.toolbar.nextHunk')}>
               <Button
                 size="small"
                 icon={<DownOutlined />}
@@ -388,23 +395,27 @@ const MergeConflictModal = ({
           </Space>
           {stats.totalRemaining === 0 ? (
             <Tag color="success" icon={<CheckCircleFilled />}>
-              All hunks resolved
+              {t('shared.mergeEditor.toolbar.allResolved')}
             </Tag>
           ) : (
             <Tag color={stats.conflicts > 0 ? 'warning' : 'processing'}>
-              {stats.totalRemaining} {stats.totalRemaining === 1 ? 'hunk' : 'hunks'} remaining
-              {stats.conflicts > 0 ? ` · ${stats.conflicts} conflict${stats.conflicts === 1 ? '' : 's'}` : ''}
-              {stats.nonConflicting > 0 ? ` · ${stats.nonConflicting} non-conflicting` : ''}
+              {t('shared.mergeEditor.toolbar.hunksRemaining', { count: stats.totalRemaining })}
+              {stats.conflicts > 0
+                ? ` · ${t('shared.mergeEditor.toolbar.conflictsCount', { count: stats.conflicts })}`
+                : ''}
+              {stats.nonConflicting > 0
+                ? ` · ${t('shared.mergeEditor.toolbar.nonConflictingCount', { count: stats.nonConflicting })}`
+                : ''}
             </Tag>
           )}
-          <Tooltip title="Apply every hunk only one side touched, in one undo step. Conflicts stay for manual resolution. · Cmd/Ctrl+K  A">
+          <Tooltip title={t('shared.mergeEditor.toolbar.applyNonConflictingTooltip')}>
             <Button
               size="small"
               icon={<ThunderboltOutlined />}
               disabled={stats.nonConflicting === 0}
               onClick={() => paneRef.current?.applyNonConflicting()}
             >
-              Apply non-conflicting
+              {t('shared.mergeEditor.toolbar.applyNonConflicting')}
             </Button>
           </Tooltip>
           {session.files.length > 1 ? (
@@ -413,33 +424,33 @@ const MergeConflictModal = ({
                 items: [
                   {
                     key: 'file-theirs',
-                    label: 'Accept all incoming (this file)',
+                    label: t('shared.mergeEditor.toolbar.acceptAllIncomingFile'),
                     disabled: stats.theirsRemaining === 0,
                     onClick: () => paneRef.current?.acceptAllTheirs(),
                   },
                   {
                     key: 'file-mine',
-                    label: 'Accept all current (this file)',
+                    label: t('shared.mergeEditor.toolbar.acceptAllCurrentFile'),
                     disabled: stats.mineRemaining === 0,
                     onClick: () => paneRef.current?.acceptAllMine(),
                   },
                   { type: 'divider' },
                   {
                     key: 'session-theirs',
-                    label: 'Accept all incoming (whole session)',
+                    label: t('shared.mergeEditor.toolbar.acceptAllIncomingSession'),
                     danger: true,
                     onClick: () => applySessionWide('theirs'),
                   },
                   {
                     key: 'session-mine',
-                    label: 'Accept all current (whole session)',
+                    label: t('shared.mergeEditor.toolbar.acceptAllCurrentSession'),
                     onClick: () => applySessionWide('mine'),
                   },
                 ],
               }}
             >
               <Button size="small">
-                Accept all <DownOutlined />
+                {t('shared.mergeEditor.toolbar.acceptAll')} <DownOutlined />
               </Button>
             </Dropdown>
           ) : (
@@ -449,60 +460,64 @@ const MergeConflictModal = ({
                 disabled={stats.theirsRemaining === 0}
                 onClick={() => paneRef.current?.acceptAllTheirs()}
               >
-                Accept all incoming
+                {t('shared.mergeEditor.toolbar.acceptAllIncoming')}
               </Button>
               <Button
                 size="small"
                 disabled={stats.mineRemaining === 0}
                 onClick={() => paneRef.current?.acceptAllMine()}
               >
-                Accept all current
+                {t('shared.mergeEditor.toolbar.acceptAllCurrent')}
               </Button>
             </>
           )}
           <Space size={8} style={{ marginLeft: 'auto' }}>
-            <Tooltip title={baseAvailable ? '' : 'Base view unavailable — no common ancestor in this session.'}>
+            <Tooltip title={baseAvailable ? '' : t('shared.mergeEditor.toolbar.baseUnavailable')}>
               <Segmented
                 size="small"
                 value={layout}
                 onChange={(v) => setLayout(v as MergeLayout)}
                 options={[
-                  { label: 'Column', value: 'column' },
-                  { label: 'Base on top', value: 'show-base-top', disabled: !baseAvailable },
-                  { label: 'Base in center', value: 'show-base-center', disabled: !baseAvailable },
+                  { label: t('shared.mergeEditor.layout.column'), value: 'column' },
+                  { label: t('shared.mergeEditor.layout.baseOnTop'), value: 'show-base-top', disabled: !baseAvailable },
+                  {
+                    label: t('shared.mergeEditor.layout.baseInCenter'),
+                    value: 'show-base-center',
+                    disabled: !baseAvailable,
+                  },
                 ]}
               />
             </Tooltip>
-            <Tooltip title="Reset pane sizes for the current layout">
+            <Tooltip title={t('shared.mergeEditor.toolbar.resetLayout')}>
               <Button size="small" icon={<ReloadOutlined />} onClick={() => paneRef.current?.resetLayout()} />
             </Tooltip>
             <Switch size="small" checked={showNonConflicting} onChange={setShowNonConflicting} />
             <Text style={{ fontSize: 12 }} type="secondary">
-              Show non-conflicting
+              {t('shared.mergeEditor.toggle.showNonConflicting')}
             </Text>
-            <Tooltip title="Collapse unchanged regions across all panes — only hunk areas (plus a few lines of context) stay visible. Useful for files where most lines are unchanged.">
+            <Tooltip title={t('shared.mergeEditor.toggle.compactViewTooltip')}>
               <Switch size="small" checked={compactView} onChange={setCompactView} />
             </Tooltip>
             <Text style={{ fontSize: 12 }} type="secondary">
-              Compact view
+              {t('shared.mergeEditor.toggle.compactView')}
             </Text>
-            <Tooltip title="When on, accepting one side of a hunk auto-dismisses the other so the hunk resolves in one click. Off keeps the diagonal-append (↘ / ↙) affordance so you can stack both sides.">
+            <Tooltip title={t('shared.mergeEditor.toggle.singleClickResolveTooltip')}>
               <Switch size="small" checked={singleClickResolve} onChange={setSingleClickResolve} />
             </Tooltip>
             <Text style={{ fontSize: 12 }} type="secondary">
-              Single-click resolve
+              {t('shared.mergeEditor.toggle.singleClickResolve')}
             </Text>
-            <Tooltip title="Show 'Accept Incoming | Accept Combination | Ignore' labels above each pending hunk in the side panes. Layout-agnostic.">
+            <Tooltip title={t('shared.mergeEditor.toggle.inlineLabelsTooltip')}>
               <Switch size="small" checked={inlineActionLabels} onChange={setInlineActionLabels} />
             </Tooltip>
             <Text style={{ fontSize: 12 }} type="secondary">
-              Inline labels
+              {t('shared.mergeEditor.toggle.inlineLabels')}
             </Text>
             <Tooltip
               title={
                 sideGuttersAvailable
-                  ? 'Show ✕ ▶ / ◀ ✕ glyphs flanking the result editor.'
-                  : 'Side gutters are only available in Column layout — base-on-top and base-in-center put the result on a separate row from theirs / mine.'
+                  ? t('shared.mergeEditor.toggle.sideGuttersTooltip')
+                  : t('shared.mergeEditor.toggle.sideGuttersUnavailable')
               }
             >
               <Switch
@@ -513,7 +528,7 @@ const MergeConflictModal = ({
               />
             </Tooltip>
             <Text style={{ fontSize: 12 }} type="secondary" disabled={!sideGuttersAvailable}>
-              Side gutters
+              {t('shared.mergeEditor.toggle.sideGutters')}
             </Text>
           </Space>
         </div>
@@ -523,10 +538,11 @@ const MergeConflictModal = ({
             showIcon
             message={
               <Space direction="vertical" size={2}>
-                <Text strong>Apply reported errors:</Text>
+                <Text strong>{t('shared.mergeEditor.errors.applyReported')}</Text>
                 {failedOutcomes.map((o) => (
                   <Text key={o.fileId} type="secondary" style={{ fontSize: 12 }}>
-                    {session.files.find((f) => f.id === o.fileId)?.label ?? o.fileId}: {o.error ?? 'unknown error'}
+                    {session.files.find((f) => f.id === o.fileId)?.label ?? o.fileId}:{' '}
+                    {o.error ?? t('shared.mergeEditor.errors.unknown')}
                   </Text>
                 ))}
               </Space>
@@ -578,7 +594,7 @@ const MergeConflictModal = ({
                   />
                 ) : (
                   <div style={{ padding: 16 }}>
-                    <Text type="secondary">No files in this merge session.</Text>
+                    <Text type="secondary">{t('shared.mergeEditor.emptySession')}</Text>
                   </div>
                 )}
               </Allotment.Pane>
@@ -603,7 +619,7 @@ const MergeConflictModal = ({
                 />
               ) : (
                 <div style={{ padding: 16 }}>
-                  <Text type="secondary">No files in this merge session.</Text>
+                  <Text type="secondary">{t('shared.mergeEditor.emptySession')}</Text>
                 </div>
               )}
             </div>

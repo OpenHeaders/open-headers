@@ -39,6 +39,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { Hunk } from '../diff/line-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
 import { useGridResize } from '../monaco/use-grid-resize';
@@ -153,6 +154,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     onPickStateChange,
     compactView = false,
   } = props;
+  const t = useT();
   // The shell supplies the Monaco theme id; `isDarkMode` independently
   // drives the merge-pane background shading and the built-in fallback.
   const resolvedMonacoTheme = monacoTheme ?? (isDarkMode ? 'vs-dark' : 'vs');
@@ -520,7 +522,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
         gridArea="sashTL"
         axis="col"
         bg={sashBg}
-        ariaLabel="Resize column 1 / column 2"
+        ariaLabel={t('shared.mergeEditor.sash.columns12')}
         ariaValueNow={Math.round((gridResize.ratios.cols[0] / 3) * 100)}
         onPointerDown={(e) => gridResize.onColSashPointerDown(0, e)}
         onKeyDown={(e) => {
@@ -539,7 +541,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
           gridArea="sashTR"
           axis="col"
           bg={sashBg}
-          ariaLabel="Resize column 2 / column 3"
+          ariaLabel={t('shared.mergeEditor.sash.columns23')}
           ariaValueNow={Math.round((gridResize.ratios.cols[1] / 3) * 100)}
           onPointerDown={(e) => gridResize.onColSashPointerDown(1, e)}
           onKeyDown={(e) => {
@@ -559,7 +561,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
           gridArea="rsash"
           axis="row"
           bg={sashBg}
-          ariaLabel="Resize top row / bottom row"
+          ariaLabel={t('shared.mergeEditor.sash.rows')}
           ariaValueNow={Math.round(gridResize.ratios.rows[0] * 100)}
           onPointerDown={gridResize.onRowSashPointerDown}
           onKeyDown={(e) => {
@@ -578,7 +580,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
         gridArea="theirs"
         visible={visibility.theirs}
         bg={paneBg}
-        header={renderHeader ? renderHeader('theirs') : <DefaultHeader label="Incoming (theirs)" />}
+        header={renderHeader ? renderHeader('theirs') : <DefaultHeader label={t('shared.mergeEditor.pane.incoming')} />}
         containerRef={theirsContainerRef}
       />
       <PaneSlot
@@ -589,7 +591,9 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
           renderHeader ? (
             renderHeader('result')
           ) : (
-            <DefaultHeader label={has3Panes ? 'Result' : 'Yours (mine, edit here)'} />
+            <DefaultHeader
+              label={has3Panes ? t('shared.mergeEditor.pane.result') : t('shared.mergeEditor.pane.yoursEditHere')}
+            />
           )
         }
         containerRef={resultContainerRef}
@@ -623,14 +627,14 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
         gridArea="mine"
         visible={visibility.mine}
         bg={paneBg}
-        header={renderHeader ? renderHeader('mine') : <DefaultHeader label="Current (mine)" />}
+        header={renderHeader ? renderHeader('mine') : <DefaultHeader label={t('shared.mergeEditor.pane.current')} />}
         containerRef={mineContainerRef}
       />
       <PaneSlot
         gridArea="base"
         visible={visibility.base}
         bg={paneBg}
-        header={renderHeader ? renderHeader('base') : <DefaultHeader label="Base (common ancestor)" />}
+        header={renderHeader ? renderHeader('base') : <DefaultHeader label={t('shared.mergeEditor.pane.base')} />}
         containerRef={baseContainerRef}
       />
     </div>

@@ -25,6 +25,8 @@ import {
 } from '@ant-design/icons';
 import { Tag, Tooltip, Typography, theme } from 'antd';
 import type { ReactElement } from 'react';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { MergeFile, MergeFileKind } from '../types';
 
 const { Text } = Typography;
@@ -49,17 +51,21 @@ export interface MergeFileListProps {
   onSelect(fileId: string): void;
 }
 
-const KIND_ICONS: Record<MergeFileKind, { icon: ReactElement; color: string; tooltip: string }> = {
-  add: { icon: <PlusCircleOutlined />, color: '#52c41a', tooltip: 'Added' },
-  modify: { icon: <span style={{ fontWeight: 700 }}>·</span>, color: '#1677ff', tooltip: 'Modified' },
-  remove: { icon: <MinusCircleOutlined />, color: '#ff4d4f', tooltip: 'Removed' },
+const KIND_ICONS: Record<MergeFileKind, { icon: ReactElement; color: string; tooltipKey: MessageKey }> = {
+  add: { icon: <PlusCircleOutlined />, color: '#52c41a', tooltipKey: 'shared.mergeEditor.fileList.kindAdded' },
+  modify: {
+    icon: <span style={{ fontWeight: 700 }}>·</span>,
+    color: '#1677ff',
+    tooltipKey: 'shared.mergeEditor.fileList.kindModified',
+  },
+  remove: { icon: <MinusCircleOutlined />, color: '#ff4d4f', tooltipKey: 'shared.mergeEditor.fileList.kindRemoved' },
 };
 
-const STATUS_TAG: Record<MergeFileStatus, { color: string; label: string }> = {
-  unresolved: { color: 'default', label: 'unresolved' },
-  partial: { color: 'warning', label: 'partial' },
-  resolved: { color: 'success', label: 'resolved' },
-  failed: { color: 'error', label: 'failed' },
+const STATUS_TAG: Record<MergeFileStatus, { color: string; labelKey: MessageKey }> = {
+  unresolved: { color: 'default', labelKey: 'shared.mergeEditor.fileList.statusUnresolved' },
+  partial: { color: 'warning', labelKey: 'shared.mergeEditor.fileList.statusPartial' },
+  resolved: { color: 'success', labelKey: 'shared.mergeEditor.fileList.statusResolved' },
+  failed: { color: 'error', labelKey: 'shared.mergeEditor.fileList.statusFailed' },
 };
 
 interface GroupedFile {
@@ -91,6 +97,7 @@ const MergeFileList = ({
   onSelect,
 }: MergeFileListProps): ReactElement | null => {
   const { token } = theme.useToken();
+  const t = useT();
 
   if (files.length <= 1) return null;
   const grouped = groupFiles(files);
@@ -133,7 +140,7 @@ const MergeFileList = ({
                 padding: '4px 12px',
               }}
             >
-              {group || 'Other'}
+              {group || t('shared.mergeEditor.groupOther')}
             </Text>
           ) : null}
           {groupFiles.map((f) => {
@@ -160,7 +167,7 @@ const MergeFileList = ({
                   borderLeft: `3px solid ${isActive ? token.colorPrimary : 'transparent'}`,
                 }}
               >
-                <Tooltip title={kind.tooltip}>
+                <Tooltip title={t(kind.tooltipKey)}>
                   <span style={{ color: kind.color, fontSize: 12, flexShrink: 0, width: 14, textAlign: 'center' }}>
                     {kind.icon}
                   </span>
@@ -179,7 +186,7 @@ const MergeFileList = ({
                   {f.label}
                 </span>
                 {isPaired(f) ? (
-                  <Tooltip title={`Paired with: ${partnerLabel(f) ?? f.pairedWith}`}>
+                  <Tooltip title={t('shared.mergeEditor.fileList.pairedWith', { label: partnerLabel(f) ?? f.pairedWith ?? '' })}>
                     <SwapOutlined style={{ color: token.colorTextSecondary, fontSize: 12 }} />
                   </Tooltip>
                 ) : null}
@@ -189,12 +196,12 @@ const MergeFileList = ({
                   </Tooltip>
                 ) : null}
                 {hunkCounts?.has(f.id) && (hunkCounts.get(f.id) ?? 0) > 0 ? (
-                  <Tooltip title={`${hunkCounts.get(f.id)} hunks remaining`}>
+                  <Tooltip title={t('shared.mergeEditor.fileList.hunksRemaining', { count: hunkCounts.get(f.id) ?? 0 })}>
                     <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px' }}>{hunkCounts.get(f.id)}</Tag>
                   </Tooltip>
                 ) : null}
                 <Tag color={status.color} style={{ margin: 0, fontSize: 10, lineHeight: '16px' }}>
-                  {status.label}
+                  {t(status.labelKey)}
                 </Tag>
                 {state.status === 'resolved' ? (
                   <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 12 }} />

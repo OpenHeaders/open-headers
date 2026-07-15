@@ -13,6 +13,7 @@ import { sharedConflicts } from './shared-conflicts';
 import { sharedInfoCookies } from './shared-info-cookies';
 import { sharedInfoHeaders } from './shared-info-headers';
 import { sharedInfoStatus } from './shared-info-status';
+import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
 import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
@@ -29,6 +30,7 @@ export const en = {
   ...sharedInfoCookies,
   ...sharedInfoHeaders,
   ...sharedInfoStatus,
+  ...sharedMergeEditor,
   ...sharedNotifications,
   ...popup,
   ...workbench,
