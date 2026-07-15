@@ -12,6 +12,7 @@
  * that omits the hook attaches the last-synced bundle as-is.
  */
 
+import type { AwsSigV4Credentials } from '@openheaders/core/auth-signing';
 import { isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type {
   AuthConfig,
@@ -98,6 +99,15 @@ export interface ResolvedRequest {
   followOriginalHttpMethod?: boolean;
   /** Keep the Authorization header on cross-origin redirect hops. */
   followAuthorizationHeader?: boolean;
+  /**
+   * AWS SigV4 credentials, templates already resolved — present only
+   * when the effective auth is an enabled `aws-sigv4` config. Signing
+   * happens at EXECUTE time (the wire executor derives the
+   * `Authorization` / `X-Amz-Date` headers over the final wire shape),
+   * never here: a resolve-time signature would be invalidated by any
+   * pre-request script mutation.
+   */
+  awsSigV4?: AwsSigV4Credentials;
 }
 
 /** One TOTP vault entry the resolved request used. Carries the code (so
@@ -225,6 +235,19 @@ export async function resolveRequest(
     refreshOAuth: options.refreshOAuth,
   });
 
+  // SigV4 credentials resolve here but sign at execute time — see
+  // {@link ResolvedRequest.awsSigV4}.
+  const awsSigV4: AwsSigV4Credentials | undefined =
+    effectiveAuth.type === 'aws-sigv4' && !effectiveAuth.disabled
+      ? {
+          accessKeyId: resolveStr(effectiveAuth.accessKeyId),
+          secretAccessKey: resolveStr(effectiveAuth.secretAccessKey),
+          ...(effectiveAuth.sessionToken ? { sessionToken: resolveStr(effectiveAuth.sessionToken) } : {}),
+          service: resolveStr(effectiveAuth.service),
+          region: resolveStr(effectiveAuth.region),
+        }
+      : undefined;
+
   // Append params after auth — api-key-in-query lives in enabledParams.
   resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
@@ -279,6 +302,7 @@ export async function resolveRequest(
       maxRedirects: request.maxRedirects,
       followOriginalHttpMethod: request.followOriginalHttpMethod,
       followAuthorizationHeader: request.followAuthorizationHeader,
+      ...(awsSigV4 ? { awsSigV4 } : {}),
     },
     totpUsed: [...totpUsed.values()],
   };
@@ -382,6 +406,12 @@ export async function applyAuth(
     const v = resolveStr(auth.value);
     if (auth.in === 'header') setAuthHeader(headers, k, v);
     else params.push({ key: k, value: v });
+    return;
+  }
+  if (auth.type === 'aws-sigv4') {
+    // Nothing folds here — SigV4 signs the FINAL wire shape at execute
+    // time (see ResolvedRequest.awsSigV4); the resolver only resolves
+    // the credential templates.
     return;
   }
   if (auth.type === 'oauth2') {

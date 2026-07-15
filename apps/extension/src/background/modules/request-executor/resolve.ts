@@ -5,6 +5,7 @@
  * tracking, and the default Content-Type fill.
  */
 
+import type { AwsSigV4Credentials } from '@openheaders/core/auth-signing';
 import type { CredentialsMode, HttpMethod, Request, RequestBody, VaultSecretTotp } from '@openheaders/core/types';
 import { isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
@@ -46,6 +47,14 @@ export interface ResolvedRequest {
    * setting, read per send at the wire.
    */
   timeoutMs?: number;
+  /**
+   * AWS SigV4 credentials, templates already resolved — present only
+   * when the effective auth is an enabled `aws-sigv4` config. Signing
+   * happens at the wire in {@link executeResolved}, after the
+   * pre-request script has mutated the request and the params have
+   * folded into the URL — twin of the oracle resolver's carry.
+   */
+  awsSigV4?: AwsSigV4Credentials;
   // auth folds into `url` + `headers`; params ride structured to the wire.
 }
 
@@ -175,6 +184,19 @@ export async function resolveRequest(
   // user's params.
   await applyAuth(effectiveAuth, headers, enabledParams, resolveStr);
 
+  // SigV4 credentials resolve here but sign at the wire — see
+  // {@link ResolvedRequest.awsSigV4}.
+  const awsSigV4: AwsSigV4Credentials | undefined =
+    effectiveAuth.type === 'aws-sigv4' && !effectiveAuth.disabled
+      ? {
+          accessKeyId: resolveStr(effectiveAuth.accessKeyId),
+          secretAccessKey: resolveStr(effectiveAuth.secretAccessKey),
+          ...(effectiveAuth.sessionToken ? { sessionToken: resolveStr(effectiveAuth.sessionToken) } : {}),
+          service: resolveStr(effectiveAuth.service),
+          region: resolveStr(effectiveAuth.region),
+        }
+      : undefined;
+
   // ── Body ────────────────────────────────────────────────────────
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
 
@@ -205,6 +227,7 @@ export async function resolveRequest(
       credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
       followRedirects: request.followRedirects,
       timeoutMs: request.timeoutMs,
+      ...(awsSigV4 ? { awsSigV4 } : {}),
     },
     totpUsed: [...totpUsed.values()],
   };

@@ -11,6 +11,7 @@
  * becomes a structured error snapshot; a 4xx/5xx is a normal response.
  */
 
+import { AWS_SIGV4_UNSIGNED_PAYLOAD, sha256Hex, signAwsSigV4 } from '@openheaders/core/auth-signing';
 import type { ExecutedRequestSnapshot, RequestBody } from '@openheaders/core/types';
 import { ensureScheme } from '@openheaders/core/utils';
 import { getFileBlob } from '../../entity/files-store';
@@ -66,6 +67,24 @@ export async function executeOverTransport(
 
   const body = await buildTransportBody(resolved.body);
   const headers = transportHeaders(resolved.headers, body);
+
+  // SigV4 signs HERE — the final wire shape, after any script mutation
+  // — and its headers replace same-key user rows (a stale Authorization
+  // would combine into garbage on the wire).
+  if (resolved.awsSigV4) {
+    try {
+      const signed = await signAwsSigV4(resolved.awsSigV4, {
+        method: resolved.method,
+        url,
+        headers,
+        payloadHash: await transportPayloadHash(body),
+        now: new Date(),
+      });
+      for (const h of signed) setHeader(headers, h.key, h.value);
+    } catch (err) {
+      return errorSnapshot(`AWS SigV4 signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   const maxBodyBytes = resolved.maxResponseBytes ?? MAX_BODY_BYTES;
   const request: TransportRequest = {
@@ -217,6 +236,43 @@ async function buildTransportBody(body: RequestBody): Promise<TransportBody> {
       return { kind: 'none' };
     }
   }
+}
+
+/**
+ * SHA-256 of the wire payload for SigV4 signing. `raw` / `urlencoded`
+ * bytes are deterministic (the transport serializes urlencoded fields
+ * through the same `URLSearchParams` construction); multipart bytes are
+ * not — the host generates the boundary — so multipart signs
+ * `UNSIGNED-PAYLOAD` (honored by S3 over HTTPS).
+ */
+async function transportPayloadHash(body: TransportBody): Promise<string> {
+  switch (body.kind) {
+    case 'none':
+      return sha256Hex('');
+    case 'raw':
+      return sha256Hex(body.content);
+    case 'urlencoded': {
+      const params = new URLSearchParams();
+      for (const f of body.fields) params.append(f.name, f.value);
+      return sha256Hex(params.toString());
+    }
+    case 'multipart':
+      return AWS_SIGV4_UNSIGNED_PAYLOAD;
+    default: {
+      const _exhaustive: never = body;
+      void _exhaustive;
+      return sha256Hex('');
+    }
+  }
+}
+
+/** Replace-not-append header set (case-insensitive key match). */
+function setHeader(headers: TransportHeader[], key: string, value: string): void {
+  const lower = key.toLowerCase();
+  for (let i = headers.length - 1; i >= 0; i--) {
+    if (headers[i].key.toLowerCase() === lower) headers.splice(i, 1);
+  }
+  headers.push({ key, value });
 }
 
 /**

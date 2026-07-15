@@ -46,6 +46,12 @@ export async function applyAuth(
     else params.push({ key: k, value: v });
     return;
   }
+  if (auth.type === 'aws-sigv4') {
+    // Nothing folds here — SigV4 signs the FINAL wire shape in
+    // `executeResolved` (see ResolvedRequest.awsSigV4); the resolver
+    // only resolves the credential templates. Twin of the oracle arm.
+    return;
+  }
   if (auth.type === 'oauth2') {
     // OAuth2 access tokens live in the SW's per-workspace token
     // store (ARCHITECTURE §18). We fetch the bundle, refresh if

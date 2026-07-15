@@ -197,6 +197,52 @@ describe('RequestExecutor', () => {
     expect((init.headers as Headers).get('authorization')).toBeNull();
   });
 
+  it('signs aws-sigv4 requests at the wire, resolving templated credentials', async () => {
+    mockWsVars.mockReturnValue({
+      schemaVersion: 5,
+      variables: [{ uid: 'awssec01', name: 'AWS_SECRET', value: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', type: 'secret' }],
+    });
+    await executeRequestDraft(
+      makeRequest({
+        headers: [{ uid: 'stalehdr', key: 'Authorization', value: 'Bearer stale-user-token' }],
+        auth: {
+          type: 'aws-sigv4',
+          accessKeyId: 'AKIDEXAMPLE',
+          secretAccessKey: '{{AWS_SECRET}}',
+          service: 'execute-api',
+          region: 'us-east-1',
+        },
+      }),
+    );
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = init.headers as Headers;
+    expect(headers.get('x-amz-date')).toMatch(/^\d{8}T\d{6}Z$/);
+    const auth = headers.get('authorization') ?? '';
+    expect(auth).toMatch(/^AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE\//);
+    expect(auth).toContain('/us-east-1/execute-api/aws4_request');
+    expect(auth).toContain('SignedHeaders=host;x-amz-date');
+    expect(auth).not.toContain('stale-user-token');
+  });
+
+  it('skips a disabled aws-sigv4 config entirely', async () => {
+    await executeRequestDraft(
+      makeRequest({
+        auth: {
+          type: 'aws-sigv4',
+          accessKeyId: 'AKIDEXAMPLE',
+          secretAccessKey: 'secret',
+          service: 's3',
+          region: 'us-east-1',
+          disabled: true,
+        },
+      }),
+    );
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = init.headers as Headers;
+    expect(headers.get('authorization')).toBeNull();
+    expect(headers.get('x-amz-date')).toBeNull();
+  });
+
   it('an inherit request resolves the collection-level bearer up the ancestor chain', async () => {
     mockRequestCollections.mockReturnValue([
       {

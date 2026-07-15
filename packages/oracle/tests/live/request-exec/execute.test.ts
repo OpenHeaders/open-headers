@@ -5,6 +5,7 @@
  * Exercised with a fake transport that captures what it was handed.
  */
 
+import { sha256Hex, signAwsSigV4 } from '@openheaders/core/auth-signing';
 import type { RequestBody } from '@openheaders/core/types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { executeOverTransport } from '../../../src/live/request-exec/execute';
@@ -481,5 +482,108 @@ describe('executeOverTransport', () => {
     expect(snap.error).toBeNull();
     expect(snap.status).toBe(500);
     expect(snap.body).toBe('boom');
+  });
+});
+
+describe('executeOverTransport — AWS SigV4 signing', () => {
+  const credentials = {
+    accessKeyId: 'AKIDEXAMPLE',
+    secretAccessKey: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
+    service: 'execute-api',
+    region: 'us-east-1',
+  };
+
+  function amzDateToDate(amzDate: string): Date {
+    return new Date(
+      `${amzDate.slice(0, 4)}-${amzDate.slice(4, 6)}-${amzDate.slice(6, 8)}T` +
+        `${amzDate.slice(9, 11)}:${amzDate.slice(11, 13)}:${amzDate.slice(13, 15)}Z`,
+    );
+  }
+
+  it('signs the final wire shape and replaces a user Authorization header', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        awsSigV4: credentials,
+        headers: [{ key: 'Authorization', value: 'Bearer stale-user-token' }],
+      }),
+      transport,
+    );
+    expect(snap.error).toBeNull();
+    const headers = new Map(sent().headers.map((h) => [h.key.toLowerCase(), h.value]));
+    const amzDate = headers.get('x-amz-date');
+    expect(amzDate).toMatch(/^\d{8}T\d{6}Z$/);
+    const auth = headers.get('authorization') ?? '';
+    expect(auth).toMatch(/^AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE\//);
+    expect(auth).toContain('/us-east-1/execute-api/aws4_request');
+    expect(auth).toContain('SignedHeaders=host;x-amz-date');
+    expect(auth).not.toContain('stale-user-token');
+    expect(sent().headers.filter((h) => h.key.toLowerCase() === 'authorization')).toHaveLength(1);
+
+    // The signature must equal an independent signer call over the same
+    // wire shape at the timestamp the send stamped.
+    const expected = await signAwsSigV4(credentials, {
+      method: 'GET',
+      url: sent().url,
+      headers: [],
+      payloadHash: await sha256Hex(''),
+      now: amzDateToDate(amzDate ?? ''),
+    });
+    expect(auth).toBe(expected.find((h) => h.key === 'Authorization')?.value);
+  });
+
+  it('hashes the urlencoded payload exactly as the transport serializes it', async () => {
+    const { transport, sent } = captureTransport();
+    const body: RequestBody = {
+      type: 'form',
+      formParts: [{ uid: 'ffield01', key: 'grant type', value: 'client&credentials' }],
+    };
+    await executeOverTransport(
+      makeResolved({ method: 'POST', awsSigV4: credentials, body, headers: [] }),
+      transport,
+    );
+    const headers = new Map(sent().headers.map((h) => [h.key.toLowerCase(), h.value]));
+    const amzDate = headers.get('x-amz-date') ?? '';
+    const wireBytes = new URLSearchParams([['grant type', 'client&credentials']]).toString();
+    const expected = await signAwsSigV4(credentials, {
+      method: 'POST',
+      url: sent().url,
+      headers: [],
+      payloadHash: await sha256Hex(wireBytes),
+      now: amzDateToDate(amzDate),
+    });
+    expect(headers.get('authorization')).toBe(expected.find((h) => h.key === 'Authorization')?.value);
+  });
+
+  it('signs multipart bodies as UNSIGNED-PAYLOAD with the s3 content header', async () => {
+    const { transport, sent } = captureTransport();
+    const body: RequestBody = {
+      type: 'multipart',
+      multipartParts: [{ kind: 'text', uid: 'mpart001', name: 'label', value: 'report' }],
+    };
+    await executeOverTransport(
+      makeResolved({ method: 'POST', awsSigV4: { ...credentials, service: 's3' }, body }),
+      transport,
+    );
+    const headers = new Map(sent().headers.map((h) => [h.key.toLowerCase(), h.value]));
+    expect(headers.get('x-amz-content-sha256')).toBe('UNSIGNED-PAYLOAD');
+    expect(headers.get('authorization')).toContain('x-amz-content-sha256');
+  });
+
+  it('signs + ships the session token for temporary credentials', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(
+      makeResolved({ awsSigV4: { ...credentials, sessionToken: 'FQoGZXIvYXdzEXAMPLE' } }),
+      transport,
+    );
+    const headers = new Map(sent().headers.map((h) => [h.key.toLowerCase(), h.value]));
+    expect(headers.get('x-amz-security-token')).toBe('FQoGZXIvYXdzEXAMPLE');
+    expect(headers.get('authorization')).toContain('x-amz-security-token');
+  });
+
+  it('leaves unsigned requests untouched', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved({ headers: [{ key: 'X-A', value: '1' }] }), transport);
+    expect(sent().headers).toEqual([{ key: 'X-A', value: '1' }]);
   });
 });

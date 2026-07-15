@@ -5,6 +5,7 @@
  * failure) into an `ExecutedRequestSnapshot`.
  */
 
+import { AWS_SIGV4_UNSIGNED_PAYLOAD, sha256Hex, signAwsSigV4 } from '@openheaders/core/auth-signing';
 import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
@@ -209,6 +210,29 @@ export async function executeResolved(
     }
   }
 
+  // SigV4 signs HERE — the final wire shape, after the pre-request
+  // script's mutations and the params → URL fold — and its headers
+  // replace same-key user rows (a stale Authorization would combine
+  // into garbage on the wire). Twin of the oracle wire executor's leg.
+  if (req.awsSigV4) {
+    try {
+      const signed = await signAwsSigV4(req.awsSigV4, {
+        method: req.method,
+        url: req.url,
+        headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })),
+        payloadHash: await fetchPayloadHash(init.body),
+        now: new Date(),
+      });
+      for (const h of signed) fetchHeaders.set(h.key, h.value);
+      // Mirror the signed set back onto `req.headers` so the offscreen
+      // cert-exception retry (which rebuilds its plan from `req`)
+      // ships the same signature.
+      req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
+    } catch (err) {
+      return errorSnapshot(`AWS SigV4 signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   const requestSize = {
     headersBytes: serializedHeaderBytes(fetchHeaders),
     bodyBytes,
@@ -403,6 +427,20 @@ export async function executeResolved(
   } finally {
     deadline?.clear();
   }
+}
+
+/**
+ * SHA-256 of the wire payload for SigV4 signing. String bodies hash
+ * verbatim; URLSearchParams serializes to the exact bytes fetch ships;
+ * FormData bytes are unknowable ahead of dispatch (the browser picks
+ * the boundary), so multipart signs `UNSIGNED-PAYLOAD` (honored by S3
+ * over HTTPS).
+ */
+async function fetchPayloadHash(body: RequestInit['body']): Promise<string> {
+  if (body === undefined || body === null) return sha256Hex('');
+  if (typeof body === 'string') return sha256Hex(body);
+  if (body instanceof URLSearchParams) return sha256Hex(body.toString());
+  return AWS_SIGV4_UNSIGNED_PAYLOAD;
 }
 
 /**
