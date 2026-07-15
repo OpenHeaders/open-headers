@@ -1039,4 +1039,182 @@ export const workbenchDocs = {
     'on the response.',
   'workbench.docs.body.conditions.headersCaption':
     'Two pills (name + value) joined by =, then test response headers hitting each failure mode.',
+
+  // ── Open Headers: Paradigm ──────────────────────────────────────────
+  'workbench.docs.body.paradigm.oneExtensionHeading': 'Everything in one extension',
+  'workbench.docs.body.paradigm.oneExtension1':
+    'Three product categories have historically split this surface area between them: desktop proxies handle HTTP ' +
+    'interception, cloud API platforms hold your requests and collections, and lightweight header extensions cover ' +
+    'the "just rewrite one header" case. None of them ships the others. Open Headers does — inside a single browser ' +
+    'extension, with one workspace store powering every surface.',
+  'workbench.docs.body.paradigm.convergenceCaption':
+    'Three legacy categories converge into one install. Nobody else ships this combination inside the extension.',
+  'workbench.docs.body.paradigm.ruleEngineHeading': 'Enterprise-grade rule engine',
+  'workbench.docs.body.paradigm.ruleEngine1Prefix':
+    "The rule engine isn't a single trick stretched across nine UIs — it's two real execution paths with one shared " +
+    'language on top.',
+  'workbench.docs.body.paradigm.dnrNativeStrong': 'DNR-native',
+  'workbench.docs.body.paradigm.ruleEngine1Middle': "rules compile down to Chrome's",
+  'workbench.docs.body.paradigm.ruleEngine1Middle2':
+    'API and catch every browser-issued request (pages, sub-frames, fetch, XHR, images, fonts, scripts). The',
+  'workbench.docs.body.paradigm.scriptEngineStrong': 'script engine',
+  'workbench.docs.body.paradigm.ruleEngine1Suffix':
+    "picks up where DNR can't reach — value-merging headers, transforming bodies, mocking responses, injecting " +
+    'code, delaying calls. Both engines read the same condition language and the same five variable scopes, so a ' +
+    'rule you wrote against DNR moves to the script engine by changing one action type.',
+  'workbench.docs.body.paradigm.ruleEngineCaption':
+    'Two execution paths, nine rule categories, one shared condition + variable language.',
+  'workbench.docs.body.paradigm.apiCatalogHeading': 'Full API request catalog',
+  'workbench.docs.body.paradigm.apiCatalog1':
+    'Every capability a desktop API client ships — request building, environments, OAuth 2.0 (including PKCE + ' +
+    'Client Credentials + refresh), pre- and post-response scripts, multipart with content-addressed file blobs, ' +
+    'collections + folders, GraphQL with schema introspection — lives inside the extension. Same workspace store as ' +
+    'the rules, same five variable scopes, same surfaces. Bring your collections from another platform and keep ' +
+    "working; nothing exports back out to a cloud you don't control.",
+  'workbench.docs.body.paradigm.apiCatalogCaption':
+    'The request editor, with protocol support, every auth type, scripts, files, and collections — inside the ' +
+    'extension.',
+  'workbench.docs.body.paradigm.localFirstHeading': 'Local-first by design',
+  'workbench.docs.body.paradigm.localFirst1Prefix':
+    '"Local-first" is a posture, not a feature. The extension has no account system, no cloud relay, no telemetry ' +
+    'endpoint, no background phone-home — and you have a real choice in',
+  'workbench.docs.body.paradigm.localFirstWhere': 'where',
+  'workbench.docs.body.paradigm.localFirst1Suffix':
+    'the back-end lives. Four hosting options, all local-only, all under your control: the in-browser service ' +
+    "worker (today, zero setup), the desktop app's embedded back-end, a standalone local daemon serving every Open " +
+    'Headers surface on one machine, or a back-end you self-host on your own VM. Every option preserves the same ' +
+    'guarantees; the trade-off is reach, not ownership.',
+  'workbench.docs.body.paradigm.localFirst2':
+    'Team collaboration ships through user-controlled storage backends (Git, on the roadmap) — not through a vendor ' +
+    'server.',
+  'workbench.docs.body.paradigm.frontEnds1Prefix': 'The same principle applies to',
+  'workbench.docs.body.paradigm.frontEndsHow': 'how',
+  'workbench.docs.body.paradigm.frontEnds1Suffix':
+    'you reach that data. The browser extension is the default front-end today — four surfaces inside the browser. ' +
+    'A native desktop app, a CLI, and a remote web app follow on the roadmap. Every front-end speaks to a back-end ' +
+    'of your choice; pick any combination, and every surface stays in sync.',
+  'workbench.docs.body.paradigm.autoSyncHeading': 'Auto-Sync without losing your work',
+  'workbench.docs.body.paradigm.autoSync1Prefix':
+    'Cross-device sync is usually where local-first products fold and ask you to trust their cloud. Open Headers ' +
+    'solves it at the',
+  'workbench.docs.body.paradigm.perFieldStrong': 'per-field',
+  'workbench.docs.body.paradigm.autoSync1Middle': "level: the popup toggling a rule's",
+  'workbench.docs.body.paradigm.autoSync1Suffix':
+    'flag and the workbench rewriting a header value in the same rule both land, in any order, with no stale-draft ' +
+    'banner and no overwrite. The same approach scales from the four surfaces of one extension today to a local ' +
+    'daemon backing extension + desktop + CLI tomorrow, and to multi-user team workspaces through a Git remote — ' +
+    'without ever needing a vendor server in the middle.',
+  'workbench.docs.body.paradigm.fieldSyncCaption':
+    'Two surfaces, one rule, different fields — both edits land, nothing overwritten.',
+  'workbench.docs.body.paradigm.noteCalloutPrefix':
+    'Want to see how this compares to other tools you might have tried?',
+  'workbench.docs.body.paradigm.comparisonLink': 'How we compare',
+  'workbench.docs.body.paradigm.noteCalloutMiddle': "is next. Looking for what's coming? Skip to",
+  'workbench.docs.body.paradigm.roadmapLink': "What we're building next",
+  'workbench.docs.body.paradigm.noteCalloutSuffix': '.',
+
+  // ── Open Headers: Comparison ────────────────────────────────────────
+  'workbench.docs.body.comparison.intro1':
+    "The shortest version: Open Headers is what you'd build if you took the request-shaping power of a desktop " +
+    'proxy, the rule library of a cloud API platform, and the always-on surface of a header-only extension, and ' +
+    'asked them to share a single store.',
+  'workbench.docs.body.comparison.matrixCaption':
+    'Three product categories, one set of trade-offs each — and where Open Headers lands.',
+  'workbench.docs.body.comparison.vsCloudHeading': 'vs cloud API platforms',
+  'workbench.docs.body.comparison.vsCloud1':
+    'Cloud-hosted tools expect your traffic, credentials, and rule definitions to live on their servers. That model ' +
+    "assumes you're fine with that data leaving your machine — and with maintaining an account to access your own " +
+    "work. Open Headers doesn't make either assumption. Everything stays local; team collaboration ships through " +
+    "user-controlled storage (Git, on the roadmap), not through a vendor's database.",
+  'workbench.docs.body.comparison.vsProxiesHeading': 'vs desktop proxies',
+  'workbench.docs.body.comparison.vsProxies1Prefix':
+    "Proxies route your full traffic through a separate process. They're powerful but heavy: install a binary, " +
+    "install a CA certificate, configure each app to point at the proxy port. Open Headers uses Chrome's",
+  'workbench.docs.body.comparison.vsProxies1Suffix':
+    'API for static traffic and a per-page script engine for dynamic transforms. No proxy port, no CA cert, no ' +
+    "per-app config — and matched rules apply with the page's own permissions, not a man-in-the-middle's.",
+  'workbench.docs.body.comparison.vsHeaderOnlyHeading': 'vs header-only extensions',
+  'workbench.docs.body.comparison.vsHeaderOnly1Prefix':
+    'Header-only extensions handle exactly one rule type and stop there. Open Headers handles',
+  'workbench.docs.body.comparison.nineLink': 'nine',
+  'workbench.docs.body.comparison.vsHeaderOnly1Middle': '— header Add / Replace / Append / Remove / Merge,',
+  'workbench.docs.body.comparison.blockLink': 'Block',
+  'workbench.docs.body.comparison.redirectLink': 'Redirect',
+  'workbench.docs.body.comparison.queryParamsLink': 'Query Params',
+  'workbench.docs.body.comparison.injectLink': 'Inject',
+  'workbench.docs.body.comparison.delayLink': 'Delay',
+  'workbench.docs.body.comparison.requestBodyLink': 'Request Body',
+  'workbench.docs.body.comparison.responseLink': 'Response',
+  'workbench.docs.body.comparison.vsHeaderOnly1Middle2': '— all driven by the same',
+  'workbench.docs.body.comparison.conditionLanguageLink': 'condition language',
+  'workbench.docs.body.comparison.vsHeaderOnly1Middle3': ', all observable through the same',
+  'workbench.docs.body.comparison.requestTrackingLink': 'request-tracking',
+  'workbench.docs.body.comparison.vsHeaderOnly1Suffix': 'surface.',
+  'workbench.docs.body.comparison.whyMattersTitle': 'Why this matters in practice',
+  'workbench.docs.body.comparison.whyMatters1':
+    'Most workflows hit more than one of these categories. Mocking an API response, blocking a third-party tracker, ' +
+    'and forcing a debug header onto one specific environment are three different rule types — three different ' +
+    'installs in the legacy world. Here, they share one workspace.',
+
+  // ── Open Headers: Roadmap ───────────────────────────────────────────
+  'workbench.docs.body.roadmap.intro1Prefix':
+    'Open Headers is local-only today, one extension on one device. The work below extends that shape without ' +
+    'breaking it. Cross-user sync ships through',
+  'workbench.docs.body.roadmap.userControlledStrong': 'user-controlled',
+  'workbench.docs.body.roadmap.intro1Suffix':
+    'means — Git repositories and self-hosted deployments — never a vendor-hosted cloud.',
+  'workbench.docs.body.roadmap.gitHeading': 'Workspace collaboration via Git (Team-ready)',
+  'workbench.docs.body.roadmap.git1Prefix':
+    'Workspaces serialize to YAML in a Git repository you control. Pull syncs; push shares; merge conflicts resolve ' +
+    "through Git's existing tooling. No central server, no account, no vendor lock-in. Real-time presence is",
+  'workbench.docs.body.roadmap.gitAnd': 'and',
+  'workbench.docs.body.roadmap.git1Suffix': '— durable, auditable, already understood.',
+  'workbench.docs.body.roadmap.desktopHeading': 'Desktop app',
+  'workbench.docs.body.roadmap.desktop1':
+    'A native binary that runs the same workspace store as the extension. Useful for surfaces an extension ' +
+    "can't reach — system-level traffic shaping, multi-window editing, deeper filesystem integration. The two share " +
+    'the same on-disk format, so opening the desktop app on a workspace the extension owns is a read, not a ' +
+    'migration.',
+  'workbench.docs.body.roadmap.mcpHeading': 'MCP Server — AI agent control',
+  'workbench.docs.body.roadmap.mcp1Prefix': 'Open Headers exposes itself over',
+  'workbench.docs.body.roadmap.mcpStrong': 'Model Context Protocol',
+  'workbench.docs.body.roadmap.mcp1Suffix':
+    'so any MCP-capable AI client — Claude Desktop, Claude Code, Cursor, VS Code, Cline, and the growing ecosystem ' +
+    'behind it — can drive your workspace directly. Ask the agent in plain English to add a header rule, run a ' +
+    'saved request against staging, switch environments, diff two workspaces, or import a Postman collection; the ' +
+    'agent translates that to MCP tool calls and your workbench reflects the result.',
+  'workbench.docs.body.roadmap.mcp2Prefix': 'The server runs',
+  'workbench.docs.body.roadmap.mcpLocalOnlyStrong': 'local-only by default',
+  'workbench.docs.body.roadmap.mcp2Middle':
+    '(stdio transport, paired one-to-one with a client on the same machine) and',
+  'workbench.docs.body.roadmap.mcpRemoteStrong': 'HTTP/SSE for remote',
+  'workbench.docs.body.roadmap.mcp2Suffix':
+    'when you self-host. No vendor relay; your agent talks directly to your installation. Tool calls run with the ' +
+    'same workspace permissions you have — secrets stay behind the vault, sensitive operations stay opt-in.',
+  'workbench.docs.body.roadmap.daemonHeading': 'Local / LAN daemon for cross-device sync',
+  'workbench.docs.body.roadmap.daemon1':
+    'A sync daemon you can run on your machine, your LAN, or a tunneled host. Extension, desktop app, and CLI all ' +
+    'become clients of the same daemon — same workspaces, same rules, same vault, across every device you use. The ' +
+    'daemon stays on the local network; there is no opt-in cloud path layered on top.',
+  'workbench.docs.body.roadmap.cliHeading': 'CLI',
+  'workbench.docs.body.roadmap.cli1':
+    'Headless scripting and CI integration. List rules, toggle environments, run a single saved request from the ' +
+    'shell, diff a workspace against another. The CLI talks to the same daemon as the extension and desktop app, so ' +
+    'automation stays in sync with what you see in the UI.',
+  'workbench.docs.body.roadmap.webAppHeading': 'Self-hosted VM deployment + Web App',
+  'workbench.docs.body.roadmap.webApp1':
+    'The same UI shipped as a web bundle you can serve from your own origin. For locked-down corporate browsers, ' +
+    "kiosk devices, or any environment where installing an extension isn't an option — and for users who want a " +
+    'branded deployment of Open Headers under their own domain.',
+  'workbench.docs.body.roadmap.importersHeading': 'More importers',
+  'workbench.docs.body.roadmap.importers1':
+    'Beyond the existing cURL / HAR / Postman importers: Insomnia collections, OpenAPI specs, and full HAR request ' +
+    'imports (not just headers). Importer parity is how Open Headers earns adoption from people already invested in ' +
+    'another tool — bring your collection across in one step, keep working.',
+  'workbench.docs.body.roadmap.cloudCalloutTitle': 'What about a hosted cloud back-end?',
+  'workbench.docs.body.roadmap.cloudCallout1':
+    'Not on the menu for now — if you want a cloud-hosted back-end, you can self-host it on your own VM (see ' +
+    'above). The focus right now is finishing the roadmap, not running and maintaining free cloud infrastructure ' +
+    "for end users. Happy to help if you're setting up a self-hosted deployment and run into trouble; just not in a " +
+    'position to provide hosting itself.',
 } as const satisfies Catalog;
