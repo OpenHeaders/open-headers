@@ -94,6 +94,13 @@ const AUTH_UNION: FieldNode = union({
       extraTokenParams: extraParamSet,
       extraRefreshParams: extraParamSet,
     }),
+    'aws-sigv4': obj({
+      accessKeyId: leaf('string'),
+      secretAccessKey: leaf('string'),
+      sessionToken: leaf('string', { coercion: 'optional-string' }),
+      service: leaf('string'),
+      region: leaf('string'),
+    }),
   },
 });
 

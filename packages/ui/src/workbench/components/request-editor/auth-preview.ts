@@ -71,6 +71,22 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
       };
       return inQuery ? { headers: [], params: [entry] } : { headers: [entry], params: [] };
     }
+    case 'aws-sigv4':
+      return {
+        headers: [
+          {
+            key: 'Authorization',
+            value: t('workbench.editors.request.authPreview.awsSigV4Value'),
+            hint: t('workbench.editors.request.authPreview.awsSigV4Hint'),
+          },
+          {
+            key: 'X-Amz-Date',
+            value: t('workbench.editors.request.authPreview.awsSigV4DateValue'),
+            hint: t('workbench.editors.request.authPreview.awsSigV4DateHint'),
+          },
+        ],
+        params: [],
+      };
     case 'oauth2': {
       const inQuery = auth.sendAs === 'query';
       const entry: AuthPreviewEntry = inQuery

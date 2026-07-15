@@ -87,6 +87,39 @@ describe('REQUEST_SCHEMA — Auth (OAuth2) per-leaf', () => {
   });
 });
 
+describe('REQUEST_SCHEMA — Auth (AWS SigV4) per-leaf', () => {
+  const req = baseRequest({
+    auth: {
+      type: 'aws-sigv4',
+      accessKeyId: 'AKIDEXAMPLE',
+      secretAccessKey: '{{vault.aws_secret}}',
+      sessionToken: 'session-1',
+      service: 'execute-api',
+      region: 'us-east-1',
+    } as AuthConfig,
+  });
+
+  it('emits per-leaf paths for SigV4 fields', () => {
+    const baseline = adapter.tracking.extractBaseline(req);
+    expect(baseline['auth.accessKeyId']).toBe('AKIDEXAMPLE');
+    expect(baseline['auth.secretAccessKey']).toBe('{{vault.aws_secret}}');
+    expect(baseline['auth.sessionToken']).toBe('session-1');
+    expect(baseline['auth.service']).toBe('execute-api');
+    expect(baseline['auth.region']).toBe('us-east-1');
+    expect(baseline['union:auth']).toContain('"kind":"aws-sigv4"');
+  });
+
+  it('applyResolutionToEntity writes a per-leaf change into the auth object', () => {
+    const target = JSON.parse(JSON.stringify(req)) as Request;
+    const ok = adapter.resolve.applyResolutionToEntity(target, 'auth.region', {
+      base: 'us-east-1',
+      theirs: 'eu-central-1',
+    });
+    expect(ok).toBe(true);
+    expect((target.auth as { region: string }).region).toBe('eu-central-1');
+  });
+});
+
 describe('REQUEST_SCHEMA — Body (JSON) per-leaf', () => {
   const req = baseRequest({
     body: { type: 'json', content: '{"a":1}' } as RequestBody,

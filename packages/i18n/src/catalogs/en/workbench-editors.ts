@@ -544,6 +544,12 @@ export const workbenchEditors = {
     'Generated from the Authorization tab (OAuth 2.0). The access token is added to this header when the request is sent.',
   'workbench.editors.request.authPreview.oauth2QueryHint':
     'Generated from the Authorization tab (OAuth 2.0). The access token is appended to the request URL when the request is sent.',
+  'workbench.editors.request.authPreview.awsSigV4Value': 'AWS4-HMAC-SHA256 <signature>',
+  'workbench.editors.request.authPreview.awsSigV4DateValue': '<request timestamp>',
+  'workbench.editors.request.authPreview.awsSigV4Hint':
+    'Generated from the Authorization tab (AWS Signature v4). The request is signed with your credentials when it is sent.',
+  'workbench.editors.request.authPreview.awsSigV4DateHint':
+    'Generated from the Authorization tab (AWS Signature v4). The signing timestamp is added to this header when the request is sent.',
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': 'Auth Type',
@@ -553,6 +559,7 @@ export const workbenchEditors = {
   'workbench.editors.request.auth.type.bearer': 'Bearer Token',
   'workbench.editors.request.auth.type.apiKey': 'API Key',
   'workbench.editors.request.auth.type.oauth2': 'OAuth 2.0',
+  'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
   'workbench.editors.request.auth.inheritNote':
     'The authorization data will be automatically configured based on the parent collection.',
   'workbench.editors.request.auth.noneNote': 'This request does not use any authorization.',
@@ -571,6 +578,16 @@ export const workbenchEditors = {
   'workbench.editors.request.auth.passwordPlaceholder': 'password',
   'workbench.editors.request.auth.tokenPlaceholder': 'bearer token',
   'workbench.editors.request.auth.valuePlaceholder': 'api key value',
+  'workbench.editors.request.auth.awsAccessKey': 'Access Key',
+  'workbench.editors.request.auth.awsSecretKey': 'Secret Key',
+  'workbench.editors.request.auth.awsSessionToken': 'Session Token',
+  'workbench.editors.request.auth.awsService': 'Service Name',
+  'workbench.editors.request.auth.awsRegion': 'Region',
+  'workbench.editors.request.auth.awsAccessKeyPlaceholder': 'e.g. AKIAIOSFODNN7EXAMPLE',
+  'workbench.editors.request.auth.awsSecretKeyPlaceholder': 'secret access key',
+  'workbench.editors.request.auth.awsSessionTokenPlaceholder': 'optional — temporary (STS) credentials only',
+  'workbench.editors.request.auth.awsServicePlaceholder': 'e.g. s3, execute-api',
+  'workbench.editors.request.auth.awsRegionPlaceholder': 'e.g. us-east-1',
   'workbench.editors.request.auth.sendAsLabel': 'Add authorization data to',
   'workbench.editors.request.auth.sendAsHeaders': 'Request Headers',
   'workbench.editors.request.auth.sendAsUrl': 'Request URL',

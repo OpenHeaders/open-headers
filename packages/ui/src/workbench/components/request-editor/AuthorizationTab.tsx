@@ -35,6 +35,7 @@ const AUTH_OPTIONS: AuthOption[] = [
   { value: 'bearer', labelKey: 'workbench.editors.request.auth.type.bearer' },
   { value: 'api-key', labelKey: 'workbench.editors.request.auth.type.apiKey' },
   { value: 'oauth2', labelKey: 'workbench.editors.request.auth.type.oauth2' },
+  { value: 'aws-sigv4', labelKey: 'workbench.editors.request.auth.type.awsSigV4' },
 ];
 
 interface AuthorizationTabProps {
@@ -74,6 +75,8 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         clientId: '',
         scopes: [],
       });
+    } else if (type === 'aws-sigv4') {
+      onChange({ type: 'aws-sigv4', accessKeyId: '', secretAccessKey: '', service: '', region: '' });
     }
   };
 
@@ -287,8 +290,77 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
           </div>
         )}
 
+        {auth.type === 'aws-sigv4' && <AwsSigV4Editor auth={auth} onChange={onChange} />}
+
         {auth.type === 'oauth2' && <OAuth2AuthEditor auth={auth} onChange={onChange} />}
       </div>
+    </div>
+  );
+};
+
+// ── AWS Signature v4 editor ────────────────────────────────────────
+//
+// Plain credential + scope fields; the signature itself is derived at
+// send time over the final wire shape, so there is nothing else to
+// configure. An emptied Session Token persists ABSENT (optional field
+// — the empty string never lands on disk).
+
+const AwsSigV4Editor: React.FC<{
+  auth: Extract<AuthConfig, { type: 'aws-sigv4' }>;
+  onChange: (auth: AuthConfig) => void;
+}> = ({ auth, onChange }) => {
+  const t = useT();
+  const setSessionToken = (next: string) => {
+    if (next) {
+      onChange({ ...auth, sessionToken: next });
+    } else {
+      const { sessionToken: _omit, ...rest } = auth;
+      onChange(rest);
+    }
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <LabeledRow label={t('workbench.editors.request.auth.awsAccessKey')}>
+        <TemplateInput
+          size="small"
+          value={auth.accessKeyId}
+          onChange={(next) => onChange({ ...auth, accessKeyId: next })}
+          placeholder={t('workbench.editors.request.auth.awsAccessKeyPlaceholder')}
+          style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.awsSecretKey')}>
+        <SecretField
+          value={auth.secretAccessKey}
+          onChange={(next) => onChange({ ...auth, secretAccessKey: next })}
+          placeholder={t('workbench.editors.request.auth.awsSecretKeyPlaceholder')}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.awsSessionToken')}>
+        <SecretField
+          value={auth.sessionToken ?? ''}
+          onChange={setSessionToken}
+          placeholder={t('workbench.editors.request.auth.awsSessionTokenPlaceholder')}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.awsService')}>
+        <TemplateInput
+          size="small"
+          value={auth.service}
+          onChange={(next) => onChange({ ...auth, service: next })}
+          placeholder={t('workbench.editors.request.auth.awsServicePlaceholder')}
+          style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.awsRegion')}>
+        <TemplateInput
+          size="small"
+          value={auth.region}
+          onChange={(next) => onChange({ ...auth, region: next })}
+          placeholder={t('workbench.editors.request.auth.awsRegionPlaceholder')}
+          style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
     </div>
   );
 };
