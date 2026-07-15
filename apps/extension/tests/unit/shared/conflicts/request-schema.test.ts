@@ -116,6 +116,33 @@ describe('REQUEST_SCHEMA — Auth (AWS SigV4) per-leaf', () => {
   });
 });
 
+describe('REQUEST_SCHEMA — Auth (Digest) per-leaf', () => {
+  const req = baseRequest({
+    auth: {
+      type: 'digest',
+      username: 'cam-admin',
+      password: '{{vault.camera_password}}',
+    } as AuthConfig,
+  });
+
+  it('emits per-leaf paths for digest fields', () => {
+    const baseline = adapter.tracking.extractBaseline(req);
+    expect(baseline['auth.username']).toBe('cam-admin');
+    expect(baseline['auth.password']).toBe('{{vault.camera_password}}');
+    expect(baseline['union:auth']).toContain('"kind":"digest"');
+  });
+
+  it('applyResolutionToEntity writes a per-leaf change into the auth object', () => {
+    const target = JSON.parse(JSON.stringify(req)) as Request;
+    const ok = adapter.resolve.applyResolutionToEntity(target, 'auth.username', {
+      base: 'cam-admin',
+      theirs: 'cam-viewer',
+    });
+    expect(ok).toBe(true);
+    expect((target.auth as { username: string }).username).toBe('cam-viewer');
+  });
+});
+
 describe('REQUEST_SCHEMA — Body (JSON) per-leaf', () => {
   const req = baseRequest({
     body: { type: 'json', content: '{"a":1}' } as RequestBody,

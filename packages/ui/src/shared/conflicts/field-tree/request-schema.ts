@@ -101,6 +101,10 @@ const AUTH_UNION: FieldNode = union({
       service: leaf('string'),
       region: leaf('string'),
     }),
+    digest: obj({
+      username: leaf('string'),
+      password: leaf('string'),
+    }),
   },
 });
 

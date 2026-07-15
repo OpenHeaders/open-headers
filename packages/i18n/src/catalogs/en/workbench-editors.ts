@@ -550,6 +550,9 @@ export const workbenchEditors = {
     'Generated from the Authorization tab (AWS Signature v4). The request is signed with your credentials when it is sent.',
   'workbench.editors.request.authPreview.awsSigV4DateHint':
     'Generated from the Authorization tab (AWS Signature v4). The signing timestamp is added to this header when the request is sent.',
+  'workbench.editors.request.authPreview.digestValue': 'Digest <challenge response>',
+  'workbench.editors.request.authPreview.digestHint':
+    'Generated from the Authorization tab (Digest Auth). The value is computed from the server’s challenge when the request is sent, then the request is resent with it.',
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': 'Auth Type',
@@ -560,6 +563,9 @@ export const workbenchEditors = {
   'workbench.editors.request.auth.type.apiKey': 'API Key',
   'workbench.editors.request.auth.type.oauth2': 'OAuth 2.0',
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
+  'workbench.editors.request.auth.type.digest': 'Digest Auth',
+  'workbench.editors.request.auth.digestBrowserNote':
+    'Digest Auth answers the server’s challenge with a second request, which runs on the desktop app and CLI. Sends from this surface go out without it — the server replies 401.',
   'workbench.editors.request.auth.inheritNote':
     'The authorization data will be automatically configured based on the parent collection.',
   'workbench.editors.request.auth.noneNote': 'This request does not use any authorization.',

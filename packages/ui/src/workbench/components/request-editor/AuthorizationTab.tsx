@@ -7,6 +7,7 @@
  * Authorization header is assembled.
  */
 
+import { getCapability } from '@openheaders/core/capabilities';
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
@@ -36,6 +37,7 @@ const AUTH_OPTIONS: AuthOption[] = [
   { value: 'api-key', labelKey: 'workbench.editors.request.auth.type.apiKey' },
   { value: 'oauth2', labelKey: 'workbench.editors.request.auth.type.oauth2' },
   { value: 'aws-sigv4', labelKey: 'workbench.editors.request.auth.type.awsSigV4' },
+  { value: 'digest', labelKey: 'workbench.editors.request.auth.type.digest' },
 ];
 
 interface AuthorizationTabProps {
@@ -77,6 +79,8 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
       });
     } else if (type === 'aws-sigv4') {
       onChange({ type: 'aws-sigv4', accessKeyId: '', secretAccessKey: '', service: '', region: '' });
+    } else if (type === 'digest') {
+      onChange({ type: 'digest', username: '', password: '' });
     }
   };
 
@@ -292,6 +296,8 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
 
         {auth.type === 'aws-sigv4' && <AwsSigV4Editor auth={auth} onChange={onChange} />}
 
+        {auth.type === 'digest' && <DigestEditor auth={auth} onChange={onChange} />}
+
         {auth.type === 'oauth2' && <OAuth2AuthEditor auth={auth} onChange={onChange} />}
       </div>
     </div>
@@ -359,6 +365,48 @@ const AwsSigV4Editor: React.FC<{
           onChange={(next) => onChange({ ...auth, region: next })}
           placeholder={t('workbench.editors.request.auth.awsRegionPlaceholder')}
           style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
+    </div>
+  );
+};
+
+// ── HTTP digest editor ─────────────────────────────────────────────
+//
+// Only the credentials are configuration — realm, nonce, algorithm,
+// and qop all arrive on the server's 401 challenge at send time. The
+// challenge/response exchange runs on node-runtime hosts (desktop,
+// CLI/daemon); browser-runtime surfaces can't drive the second leg,
+// so the form carries a note there and the target's 401 is the
+// signal.
+
+const DigestEditor: React.FC<{
+  auth: Extract<AuthConfig, { type: 'digest' }>;
+  onChange: (auth: AuthConfig) => void;
+}> = ({ auth, onChange }) => {
+  const t = useT();
+  const browserRuntime = (getCapability('requestRuntime')?.() ?? 'browser') === 'browser';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {browserRuntime && (
+        <Text type="secondary" style={{ fontSize: 12, maxWidth: FIELD_DEFAULT_MAX_WIDTH }}>
+          {t('workbench.editors.request.auth.digestBrowserNote')}
+        </Text>
+      )}
+      <LabeledRow label={t('workbench.editors.request.auth.username')}>
+        <TemplateInput
+          size="small"
+          value={auth.username}
+          onChange={(next) => onChange({ ...auth, username: next })}
+          placeholder={t('workbench.editors.request.auth.usernamePlaceholder')}
+          style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.password')}>
+        <SecretField
+          value={auth.password}
+          onChange={(next) => onChange({ ...auth, password: next })}
+          placeholder={t('workbench.editors.request.auth.passwordPlaceholder')}
         />
       </LabeledRow>
     </div>

@@ -87,6 +87,17 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
         ],
         params: [],
       };
+    case 'digest':
+      return {
+        headers: [
+          {
+            key: 'Authorization',
+            value: t('workbench.editors.request.authPreview.digestValue'),
+            hint: t('workbench.editors.request.authPreview.digestHint'),
+          },
+        ],
+        params: [],
+      };
     case 'oauth2': {
       const inQuery = auth.sendAs === 'query';
       const entry: AuthPreviewEntry = inQuery

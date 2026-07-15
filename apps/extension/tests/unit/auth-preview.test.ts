@@ -77,4 +77,13 @@ describe('previewAuthContributions', () => {
     expect(query.params[0].key).toBe('access_token');
     expect(query.headers).toEqual([]);
   });
+
+  it('digest advertises the challenge-derived Authorization header without the credential', () => {
+    const out = previewAuthContributions({ type: 'digest', username: 'cam-admin', password: 'hunter2' }, t);
+    expect(out.headers).toHaveLength(1);
+    expect(out.headers[0].key).toBe('Authorization');
+    expect(out.headers[0].value).toMatch(/^Digest /);
+    expect(out.headers[0].value).not.toContain('hunter2');
+    expect(out.params).toEqual([]);
+  });
 });
