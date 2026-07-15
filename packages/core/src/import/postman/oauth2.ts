@@ -5,16 +5,44 @@ import type { PostmanAuth } from './types';
 
 // ── OAuth 2.0 auth import ───────────────────────────────────────────
 
+/** How a vendor grant-type token lands on the product's OAuth2 config. */
+type GrantDisposition =
+  | {
+      kind: 'flow';
+      flow: 'authorization-code-pkce' | 'client-credentials' | 'device-code' | 'password-credentials';
+      /** UI grant-type choice, persisted when the vendor grant needs a
+       *  field-set distinction the flow alone doesn't carry (plain
+       *  authorization-code rides the PKCE wire flow with the PKCE
+       *  pair suppressed). */
+      grantType?: 'authorization-code' | 'authorization-code-pkce';
+    }
+  | { kind: 'permanent-drop'; reason: string }
+  | { kind: 'unknown' };
+
 /**
- * Vendor grant-type tokens that map onto a shipped flow. Plain
- * `authorization_code` (no PKCE), `password_credentials`, and
- * `implicit` stay honest drops until the missing-grants review lands.
+ * Vendor grant-type tokens mapped onto the shipped flows. `implicit`
+ * is a PERMANENT drop — removed by OAuth 2.1 (fragment-delivered
+ * tokens, no refresh); genuinely unknown tokens keep the honest
+ * `#todo-oauth-grants` note.
  */
-function shippedFlowOf(grantType: string): 'authorization-code-pkce' | 'client-credentials' | 'device-code' | null {
-  if (grantType === 'authorization_code_with_pkce') return 'authorization-code-pkce';
-  if (grantType === 'client_credentials') return 'client-credentials';
-  if (/device/.test(grantType)) return 'device-code';
-  return null;
+function grantDispositionOf(grantType: string): GrantDisposition {
+  if (grantType === 'authorization_code_with_pkce') {
+    return { kind: 'flow', flow: 'authorization-code-pkce', grantType: 'authorization-code-pkce' };
+  }
+  if (grantType === 'authorization_code') {
+    return { kind: 'flow', flow: 'authorization-code-pkce', grantType: 'authorization-code' };
+  }
+  if (grantType === 'client_credentials') return { kind: 'flow', flow: 'client-credentials' };
+  if (grantType === 'password_credentials') return { kind: 'flow', flow: 'password-credentials' };
+  if (/device/.test(grantType)) return { kind: 'flow', flow: 'device-code' };
+  if (grantType === 'implicit') {
+    return {
+      kind: 'permanent-drop',
+      reason:
+        'OAuth 2.0 "implicit" grant not imported — removed by OAuth 2.1 (fragment-delivered tokens, no refresh). Migrate the provider config to Authorization Code with PKCE.',
+    };
+  }
+  return { kind: 'unknown' };
 }
 
 /**
@@ -30,6 +58,8 @@ const CONSUMED_KEYS: ReadonlySet<string> = new Set([
   'refreshTokenUrl',
   'clientId',
   'clientSecret',
+  'username',
+  'password',
   'scope',
   'addTokenTo',
   'client_authentication',
@@ -79,24 +109,34 @@ function extraParamsOf(raw: unknown): Array<{ uid: string; key: string; value: s
 
 /**
  * Map a vendor `auth.oauth2` config onto the first-class `oauth2`
- * AuthConfig for the shipped flows (PKCE / client-credentials /
- * device-code). Returns `null` — with the reason recorded — when the
- * grant isn't shipped yet or the config is missing the endpoints the
- * flow cannot run without.
+ * AuthConfig for the shipped flows (authorization-code with or
+ * without PKCE / client-credentials / device-code /
+ * password-credentials). Returns `null` — with the reason recorded —
+ * when the grant is `implicit` (permanent drop), unrecognized, or the
+ * config is missing the endpoints the flow cannot run without.
  */
 export function resolveOAuth2Auth(raw: PostmanAuth, authPath: string, report: ImportReport): AuthConfig | null {
   const params = rawParamMap(raw.oauth2);
   const grantType = stringOf(params, 'grant_type') ?? 'authorization_code';
 
-  const flow = shippedFlowOf(grantType);
-  if (flow === null) {
+  const disposition = grantDispositionOf(grantType);
+  if (disposition.kind === 'permanent-drop') {
     recordDrop(report, {
       path: authPath,
-      reason: `OAuth 2.0 "${grantType}" grant not imported — only PKCE, client-credentials, and device-code flows ship today.`,
+      reason: disposition.reason,
+      tracking: 'PERMANENT: OAuth 2.0 implicit grant',
+    });
+    return null;
+  }
+  if (disposition.kind === 'unknown') {
+    recordDrop(report, {
+      path: authPath,
+      reason: `OAuth 2.0 "${grantType}" grant not imported — not a recognized grant type.`,
       tracking: '#todo-oauth-grants',
     });
     return null;
   }
+  const { flow } = disposition;
 
   const tokenEndpoint = stringOf(params, 'accessTokenUrl');
   const clientId = stringOf(params, 'clientId');
@@ -116,6 +156,8 @@ export function resolveOAuth2Auth(raw: PostmanAuth, authPath: string, report: Im
   const authorizationEndpoint = stringOf(params, 'authUrl');
   const refreshTokenUrl = stringOf(params, 'refreshTokenUrl');
   const clientSecret = stringOf(params, 'clientSecret');
+  const username = stringOf(params, 'username');
+  const password = stringOf(params, 'password');
   const scope = stringOf(params, 'scope');
   const label = stringOf(params, 'tokenName');
   const addTokenTo = stringOf(params, 'addTokenTo');
@@ -137,12 +179,14 @@ export function resolveOAuth2Auth(raw: PostmanAuth, authPath: string, report: Im
     type: 'oauth2',
     credentialRef: generateUid(),
     flow,
-    ...(flow === 'authorization-code-pkce' ? { grantType: 'authorization-code-pkce' as const } : {}),
+    ...(disposition.grantType !== undefined ? { grantType: disposition.grantType } : {}),
     ...(authorizationEndpoint !== undefined ? { authorizationEndpoint } : {}),
     tokenEndpoint,
     ...(refreshTokenUrl !== undefined && refreshTokenUrl !== tokenEndpoint ? { refreshEndpoint: refreshTokenUrl } : {}),
     clientId,
     ...(clientSecret !== undefined ? { clientSecret } : {}),
+    ...(username !== undefined ? { username } : {}),
+    ...(password !== undefined ? { password } : {}),
     scopes: scope !== undefined ? scope.split(/\s+/).filter((s) => s !== '') : [],
     ...(label !== undefined ? { label } : {}),
     ...(addTokenTo === 'queryParams' ? { sendAs: 'query' as const } : {}),

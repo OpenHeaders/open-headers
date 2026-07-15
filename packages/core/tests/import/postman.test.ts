@@ -655,7 +655,7 @@ describe('request mapping — auth', () => {
     expect(result.requests[0]?.request.headers.find((h) => h.key === 'Authorization')).toBeUndefined();
   });
 
-  it('drops oauth2 grants that are not shipped yet (default is plain authorization_code)', () => {
+  it('drops a bare oauth2 block on the completeness gate (no token URL / client id)', () => {
     const result = parsePostman(
       postmanCollection({
         item: [
@@ -671,8 +671,133 @@ describe('request mapping — auth', () => {
       }),
     );
     expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
-    expect(result.report.drops.some((d) => /"authorization_code" grant not imported/.test(d.reason))).toBe(true);
+    expect(result.report.drops.some((d) => d.tracking === 'PERMANENT: OAuth 2.0 config completeness')).toBe(true);
+  });
+
+  it('imports a plain authorization_code config with the PKCE pair suppressed via grantType', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'oauth2',
+                oauth2: [
+                  { key: 'grant_type', value: 'authorization_code' },
+                  { key: 'authUrl', value: 'https://auth.openheaders.io/authorize' },
+                  { key: 'accessTokenUrl', value: 'https://auth.openheaders.io/token' },
+                  { key: 'clientId', value: 'client-abc' },
+                  { key: 'clientSecret', value: 'shhh' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    const auth = result.requests[0]?.request.auth;
+    expect(auth).toMatchObject({
+      type: 'oauth2',
+      flow: 'authorization-code-pkce',
+      grantType: 'authorization-code',
+      authorizationEndpoint: 'https://auth.openheaders.io/authorize',
+      tokenEndpoint: 'https://auth.openheaders.io/token',
+      clientId: 'client-abc',
+      clientSecret: 'shhh',
+    });
+    expect(result.report.drops.some((d) => d.tracking === '#todo-oauth-grants')).toBe(false);
+  });
+
+  it('imports a password_credentials config with the resource-owner credentials', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'oauth2',
+                oauth2: [
+                  { key: 'grant_type', value: 'password_credentials' },
+                  { key: 'accessTokenUrl', value: 'https://auth.openheaders.io/token' },
+                  { key: 'clientId', value: 'client-abc' },
+                  { key: 'username', value: 'ops@openheaders.io' },
+                  { key: 'password', value: 'hunter2' },
+                  { key: 'scope', value: 'read' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    const auth = result.requests[0]?.request.auth;
+    expect(auth).toMatchObject({
+      type: 'oauth2',
+      flow: 'password-credentials',
+      tokenEndpoint: 'https://auth.openheaders.io/token',
+      clientId: 'client-abc',
+      username: 'ops@openheaders.io',
+      password: 'hunter2',
+      scopes: ['read'],
+    });
+    expect(result.report.drops).toHaveLength(0);
+  });
+
+  it('permanently drops the implicit grant with the OAuth 2.1 reason', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'oauth2',
+                oauth2: [
+                  { key: 'grant_type', value: 'implicit' },
+                  { key: 'authUrl', value: 'https://auth.openheaders.io/authorize' },
+                  { key: 'clientId', value: 'client-abc' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
+    const drop = result.report.drops.find((d) => d.tracking === 'PERMANENT: OAuth 2.0 implicit grant');
+    expect(drop).toBeDefined();
+    expect(drop?.reason).toMatch(/removed by OAuth 2\.1/);
+  });
+
+  it('keeps the honest note for a genuinely unknown oauth2 grant token', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'oauth2',
+                oauth2: [{ key: 'grant_type', value: 'saml_bearer' }],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
     expect(result.report.drops.some((d) => d.tracking === '#todo-oauth-grants')).toBe(true);
+    expect(result.report.drops.some((d) => /"saml_bearer" grant not imported/.test(d.reason))).toBe(true);
   });
 
   it('imports an authorization_code_with_pkce oauth2 config', () => {
@@ -846,34 +971,6 @@ describe('request mapping — auth', () => {
     const note = result.report.drops.find((d) => d.tracking === '#todo-oauth-params');
     expect(note?.reason).toContain('headerPrefix');
     expect(note?.reason).toContain('useBrowser');
-  });
-
-  it('drops password_credentials and implicit grants with honest notes', () => {
-    for (const grant of ['password_credentials', 'implicit']) {
-      const result = parsePostman(
-        postmanCollection({
-          item: [
-            {
-              name: 'X',
-              request: {
-                method: 'GET',
-                url: 'https://api.openheaders.io/x',
-                auth: {
-                  type: 'oauth2',
-                  oauth2: [
-                    { key: 'grant_type', value: grant },
-                    { key: 'accessTokenUrl', value: 'https://auth.openheaders.io/token' },
-                    { key: 'clientId', value: 'client-abc' },
-                  ],
-                },
-              },
-            },
-          ],
-        }),
-      );
-      expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
-      expect(result.report.drops.some((d) => new RegExp(`"${grant}" grant not imported`).test(d.reason))).toBe(true);
-    }
   });
 
   it('maps awsv4 onto aws-sigv4 with every credential + scope field', () => {

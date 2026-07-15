@@ -16,8 +16,9 @@
  *     path-variable arrays folded back into the URL string.
  *   • Auth — `basic` / `bearer` / `apikey` (header + query) promoted
  *     to first-class auth types; `oauth2` maps onto the first-class
- *     oauth2 config for the shipped flows (PKCE / client-credentials /
- *     device-code — other grants noted). `awsv4` / `digest` / `hawk` /
+ *     oauth2 config for the shipped flows (authorization-code ± PKCE /
+ *     client-credentials / device-code / password-credentials —
+ *     implicit permanently dropped). `awsv4` / `digest` / `hawk` /
  *     `ntlm` / `edgegrid` DROPPED with tracking pointers to §18
  *     (first-class auth).
  *   • Body — `raw` (content-type from `options.raw.language`),
