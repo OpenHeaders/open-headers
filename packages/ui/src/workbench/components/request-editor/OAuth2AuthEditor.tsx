@@ -16,16 +16,19 @@
  *      Advanced (Refresh Token URL + Auth / Token / Refresh request
  *      extra params) + "Get new access token" button.
  *
- * The grant-type dropdown offers only the two flows that actually run
+ * The grant-type dropdown offers the flows that actually run
  * end-to-end on a browser extension:
  *   • "Authorization Code (With PKCE)" → authorization-code-pkce (browser flow)
+ *   • "Authorization Code"             → same wire flow with the PKCE
+ *     pair omitted (plain RFC 6749 §4.1 providers; secret expected)
  *   • "Client Credentials"             → client-credentials (machine-to-machine)
+ *   • "Password Credentials"           → password-credentials (RFC 6749
+ *     §4.3 resource-owner password; legacy IdPs only)
  *
- * Deprecated / ill-fitting flows (Implicit, Password Credentials, Device
- * Code) are intentionally not offered: PKCE supersedes Implicit for public
- * clients, Password Credentials handles raw passwords, and Device Code
- * earns its keep only where there is no browser. They can return when a
- * real integration needs one.
+ * Deprecated / ill-fitting flows are intentionally not offered:
+ * Implicit is removed by OAuth 2.1 (PKCE supersedes it for public
+ * clients) and Device Code earns its keep only where there is no
+ * browser. They can return when a real integration needs one.
  */
 
 import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
@@ -43,7 +46,7 @@ const { Text, Link } = Typography;
 
 // ── Grant type UI model ───────────────────────────────────────────
 
-type GrantTypeId = 'authorization-code-pkce' | 'client-credentials';
+type GrantTypeId = 'authorization-code-pkce' | 'authorization-code' | 'client-credentials' | 'password-credentials';
 
 interface GrantTypeDef {
   id: GrantTypeId;
@@ -55,6 +58,7 @@ interface GrantTypeDef {
     accessTokenUrl: boolean;
     clientId: boolean;
     clientSecret: boolean;
+    resourceOwner: boolean;
     pkce: boolean;
     scope: boolean;
     state: boolean;
@@ -73,10 +77,29 @@ const GRANT_TYPES: GrantTypeDef[] = [
       accessTokenUrl: true,
       clientId: true,
       clientSecret: true,
+      resourceOwner: false,
       pkce: true,
       scope: true,
       state: true,
     },
+    v5Flow: 'authorization-code-pkce',
+  },
+  {
+    id: 'authorization-code',
+    label: 'Authorization Code',
+    fields: {
+      callbackUrl: true,
+      authUrl: true,
+      accessTokenUrl: true,
+      clientId: true,
+      clientSecret: true,
+      resourceOwner: false,
+      pkce: false,
+      scope: true,
+      state: true,
+    },
+    // Same wire flow — the persisted grantType suppresses the PKCE
+    // pair on both legs (see `usesPkce` in core/oauth).
     v5Flow: 'authorization-code-pkce',
   },
   {
@@ -88,23 +111,41 @@ const GRANT_TYPES: GrantTypeDef[] = [
       accessTokenUrl: true,
       clientId: true,
       clientSecret: true,
+      resourceOwner: false,
       pkce: false,
       scope: true,
       state: false,
     },
     v5Flow: 'client-credentials',
   },
+  {
+    id: 'password-credentials',
+    label: 'Password Credentials',
+    fields: {
+      callbackUrl: false,
+      authUrl: false,
+      accessTokenUrl: true,
+      clientId: true,
+      clientSecret: true,
+      resourceOwner: true,
+      pkce: false,
+      scope: true,
+      state: false,
+    },
+    v5Flow: 'password-credentials',
+  },
 ];
 
 function getGrantType(auth: OAuth2Auth): GrantTypeDef {
-  // Prefer the persisted UI choice. Rows that stored a grant type we no
-  // longer offer (`authorization-code` / `implicit` / `password-credentials`)
-  // fall through to the working flow their wire `flow` already maps to.
+  // Prefer the persisted UI choice. Rows that stored a grant type we
+  // don't offer (`implicit` / `device-code`) fall through to the
+  // working flow their wire `flow` already maps to.
   if (auth.grantType) {
     const match = GRANT_TYPES.find((g) => g.id === auth.grantType);
     if (match) return match;
   }
-  return auth.flow === 'client-credentials' ? GRANT_TYPES[1] : GRANT_TYPES[0];
+  const byFlow = GRANT_TYPES.find((g) => g.v5Flow === auth.flow);
+  return byFlow ?? GRANT_TYPES[0];
 }
 
 // ── Component ─────────────────────────────────────────────────────
@@ -118,7 +159,8 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
   const { token } = theme.useToken();
   const t = useT();
   const { message } = App.useApp();
-  const { tokens, redirectUri, authorize, clientCredentials, refresh, revoke } = useOAuthBundlesContext();
+  const { tokens, redirectUri, authorize, clientCredentials, passwordCredentials, refresh, revoke } =
+    useOAuthBundlesContext();
   const [busy, setBusy] = useState<null | 'authorize' | 'refresh' | 'revoke'>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
@@ -143,6 +185,10 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
     try {
       if (auth.flow === 'client-credentials') {
         const res = await clientCredentials(auth);
+        if (res.success) message.success(t('workbench.editors.request.oauth.toast.tokenReceived'));
+        else message.error(t('workbench.editors.request.oauth.toast.failed', { error: res.error ?? '' }));
+      } else if (auth.flow === 'password-credentials') {
+        const res = await passwordCredentials(auth);
         if (res.success) message.success(t('workbench.editors.request.oauth.toast.tokenReceived'));
         else message.error(t('workbench.editors.request.oauth.toast.failed', { error: res.error ?? '' }));
       } else {
@@ -347,6 +393,27 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                 onChange={(e) => onChange({ ...auth, tokenEndpoint: e.target.value })}
               />
             </LabeledRow>
+          )}
+
+          {grantType.fields.resourceOwner && (
+            <>
+              <LabeledRow label={t('workbench.editors.request.auth.username')}>
+                <Input
+                  size="small"
+                  placeholder={t('workbench.editors.request.auth.usernamePlaceholder')}
+                  value={auth.username ?? ''}
+                  onChange={(e) => onChange({ ...auth, username: e.target.value || undefined })}
+                />
+              </LabeledRow>
+              <LabeledRow label={t('workbench.editors.request.auth.password')}>
+                <Input.Password
+                  size="small"
+                  placeholder={t('workbench.editors.request.auth.passwordPlaceholder')}
+                  value={auth.password ?? ''}
+                  onChange={(e) => onChange({ ...auth, password: e.target.value || undefined })}
+                />
+              </LabeledRow>
+            </>
           )}
 
           {grantType.fields.clientId && (

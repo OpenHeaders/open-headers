@@ -59,6 +59,7 @@ export interface OAuthBundlesContextValue {
   redirectUri: string | null;
   authorize: (config: OAuth2Auth) => Promise<OAuthAuthorizeResult>;
   clientCredentials: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
+  passwordCredentials: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
   refresh: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
   revoke: (credentialRef: string) => Promise<boolean>;
 }
@@ -69,6 +70,7 @@ const defaultContextValue: OAuthBundlesContextValue = {
   redirectUri: null,
   authorize: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
   clientCredentials: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
+  passwordCredentials: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
   refresh: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
   revoke: async () => false,
 };
@@ -179,6 +181,16 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
     [writeWorkspaceId],
   );
 
+  const passwordCredentials = useCallback<OAuthBundlesContextValue['passwordCredentials']>(
+    async (config) => {
+      const workspaceId = writeWorkspaceId ?? undefined;
+      return hostBridge.call('oauthPasswordCredentials', { config, workspaceId }).catch(
+        (err: Error): OAuthFlowResult => ({ success: false, error: err.message }),
+      );
+    },
+    [writeWorkspaceId],
+  );
+
   const refresh = useCallback<OAuthBundlesContextValue['refresh']>(
     async (config) => {
       const workspaceId = writeWorkspaceId ?? undefined;
@@ -200,8 +212,8 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
   );
 
   const value = useMemo<OAuthBundlesContextValue>(
-    () => ({ tokens, isReady, redirectUri, authorize, clientCredentials, refresh, revoke }),
-    [tokens, isReady, redirectUri, authorize, clientCredentials, refresh, revoke],
+    () => ({ tokens, isReady, redirectUri, authorize, clientCredentials, passwordCredentials, refresh, revoke }),
+    [tokens, isReady, redirectUri, authorize, clientCredentials, passwordCredentials, refresh, revoke],
   );
 
   return <OAuthBundlesContext.Provider value={value}>{children}</OAuthBundlesContext.Provider>;

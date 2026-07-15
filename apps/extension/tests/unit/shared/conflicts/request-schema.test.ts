@@ -83,6 +83,28 @@ describe('REQUEST_SCHEMA — Auth (OAuth2) per-leaf', () => {
   });
 });
 
+describe('REQUEST_SCHEMA — Auth (OAuth2 password-credentials) per-leaf', () => {
+  const req = baseRequest({
+    auth: {
+      type: 'oauth2',
+      credentialRef: 'cred-2',
+      flow: 'password-credentials',
+      tokenEndpoint: 'https://openheaders.io/oauth/token',
+      clientId: 'client-2',
+      scopes: [],
+      username: 'ops@openheaders.io',
+      password: 'hunter2',
+    } as unknown as AuthConfig,
+  });
+
+  it('emits per-leaf paths for the resource-owner credentials + flow', () => {
+    const baseline = adapter.tracking.extractBaseline(req);
+    expect(baseline['auth.flow']).toBe('password-credentials');
+    expect(baseline['auth.username']).toBe('ops@openheaders.io');
+    expect(baseline['auth.password']).toBe('hunter2');
+  });
+});
+
 describe('REQUEST_SCHEMA — Auth (AWS SigV4) per-leaf', () => {
   const req = baseRequest({
     auth: {
