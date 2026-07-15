@@ -75,6 +75,10 @@
       "import": "./src/oauth/index.ts",
       "default": "./dist/oauth/index.js"
     },
+    "./auth-signing": {
+      "import": "./src/auth-signing/index.ts",
+      "default": "./dist/auth-signing/index.js"
+    },
     "./scripts": {
       "import": "./src/scripts/index.ts",
       "default": "./dist/scripts/index.js"

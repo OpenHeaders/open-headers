@@ -15,9 +15,11 @@
  *     red banner in the modal warns the user.
  *
  * What the builder strips (every export, regardless of scope):
- *   - OAuth2 `clientSecret` from any `auth.type === 'oauth2'` — on
- *     requests AND on the collection/folder ancestor-auth slots
- *     (always — recipient enters their own at first auth, per §3.1).
+ *   - Auth secrets — OAuth2 `clientSecret` (dropped) and AWS SigV4
+ *     `secretAccessKey` (blanked; required field) + `sessionToken`
+ *     (dropped) — on requests AND on the collection/folder
+ *     ancestor-auth slots (always — recipient enters their own at
+ *     first auth, per §3.1).
  *   - `path` reconstructed from `toFolderName(name, uid)` so the value
  *     is canonical regardless of what the caller passed in.
  *
@@ -124,10 +126,20 @@ export class MissingSecretsBlockError extends Error {
 
 // ── Strip helpers ───────────────────────────────────────────────────
 
-function stripOAuthClientSecret<E extends { auth?: Request['auth'] }>(entity: E): E {
-  if (entity.auth?.type !== 'oauth2') return entity;
-  const { clientSecret: _omitted, ...authWithoutSecret } = entity.auth;
-  return { ...entity, auth: authWithoutSecret };
+function stripAuthSecrets<E extends { auth?: Request['auth'] }>(entity: E): E {
+  if (entity.auth?.type === 'oauth2') {
+    const { clientSecret: _omitted, ...authWithoutSecret } = entity.auth;
+    return { ...entity, auth: authWithoutSecret };
+  }
+  if (entity.auth?.type === 'aws-sigv4') {
+    // `secretAccessKey` is a required field, so it blanks instead of
+    // dropping — the imported config stays schema-valid and the
+    // completeness gate walks the recipient to re-enter it. The
+    // optional session token drops outright (short-lived anyway).
+    const { sessionToken: _omitted, ...rest } = entity.auth;
+    return { ...entity, auth: { ...rest, secretAccessKey: '' } };
+  }
+  return entity;
 }
 
 function canonicalLeafPath(currentPath: string | undefined, name: string, uid: string): string {
@@ -154,11 +166,11 @@ export function buildWorkspaceExport(
     throw new MissingSecretsBlockError();
   }
 
-  const requests = input.entities.requests.map((req) => withCanonicalPath(stripOAuthClientSecret(req)));
-  // Ancestor default auth carries the same oauth2 config shape as
-  // request auth — its clientSecret is stripped the same way.
-  const collections = input.entities.collections.map((c) => withCanonicalPath(stripOAuthClientSecret(c)));
-  const folders = input.entities.folders.map((f) => withCanonicalPath(stripOAuthClientSecret(f)));
+  const requests = input.entities.requests.map((req) => withCanonicalPath(stripAuthSecrets(req)));
+  // Ancestor default auth carries the same auth-config shapes as
+  // request auth — its secrets strip the same way.
+  const collections = input.entities.collections.map((c) => withCanonicalPath(stripAuthSecrets(c)));
+  const folders = input.entities.folders.map((f) => withCanonicalPath(stripAuthSecrets(f)));
   const rules = input.entities.rules.map(withCanonicalPath);
   const templates = input.entities.templates.map(withCanonicalPath);
   const environments = input.entities.environments.map(withCanonicalPath);

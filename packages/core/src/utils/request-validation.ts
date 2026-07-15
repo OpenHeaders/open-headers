@@ -66,6 +66,17 @@ export function isRequestComplete(
       // request can still be dispatched (the API 401s and the user
       // sees that).
       return true;
+    case 'aws-sigv4':
+      // All four scope/credential fields are needed to compute a
+      // signature at all — a partial config can't even produce a
+      // well-formed Authorization header (unlike oauth2, where the
+      // 401 is the actionable signal). sessionToken stays optional.
+      return (
+        auth.accessKeyId.trim().length > 0 &&
+        auth.secretAccessKey.trim().length > 0 &&
+        auth.service.trim().length > 0 &&
+        auth.region.trim().length > 0
+      );
   }
 }
 
@@ -80,7 +91,11 @@ export type RequestIncompleteReason =
   | 'basic-missing-username'
   | 'bearer-missing-token'
   | 'api-key-missing-key'
-  | 'api-key-missing-value';
+  | 'api-key-missing-value'
+  | 'aws-sigv4-missing-access-key'
+  | 'aws-sigv4-missing-secret-key'
+  | 'aws-sigv4-missing-service'
+  | 'aws-sigv4-missing-region';
 
 // ── Variable-resolution gating ─────────────────────────────────────
 
@@ -132,6 +147,12 @@ export function requestIncompleteReason(
       if (!auth.value.trim()) return 'api-key-missing-value';
       return null;
     case 'oauth2':
+      return null;
+    case 'aws-sigv4':
+      if (!auth.accessKeyId.trim()) return 'aws-sigv4-missing-access-key';
+      if (!auth.secretAccessKey.trim()) return 'aws-sigv4-missing-secret-key';
+      if (!auth.service.trim()) return 'aws-sigv4-missing-service';
+      if (!auth.region.trim()) return 'aws-sigv4-missing-region';
       return null;
   }
 }

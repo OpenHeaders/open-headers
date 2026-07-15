@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { requestExecutableFingerprint } from '../../src/live/request-scan';
+import { collectRequestTemplateStrings, requestExecutableFingerprint } from '../../src/live/request-scan';
 import type { Request } from '../../src/types';
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
@@ -78,5 +78,43 @@ describe('requestExecutableFingerprint', () => {
     const a = makeRequest({ auth: { type: 'bearer', token: 'abc' } });
     const b = makeRequest({ auth: { token: 'abc', type: 'bearer' } as Request['auth'] });
     expect(requestExecutableFingerprint(a)).toBe(requestExecutableFingerprint(b));
+  });
+});
+
+describe('collectRequestTemplateStrings — aws-sigv4 auth', () => {
+  it('collects every SigV4 field so vault-templated credentials gate resolution', () => {
+    const strings = collectRequestTemplateStrings(
+      makeRequest({
+        auth: {
+          type: 'aws-sigv4',
+          accessKeyId: '{{vault.aws_key_id}}',
+          secretAccessKey: '{{vault.aws_secret}}',
+          sessionToken: '{{vault.aws_session}}',
+          service: 'execute-api',
+          region: '{{env.AWS_REGION}}',
+        },
+      }),
+    );
+    expect(strings).toContain('{{vault.aws_key_id}}');
+    expect(strings).toContain('{{vault.aws_secret}}');
+    expect(strings).toContain('{{vault.aws_session}}');
+    expect(strings).toContain('execute-api');
+    expect(strings).toContain('{{env.AWS_REGION}}');
+  });
+
+  it('skips the absent sessionToken', () => {
+    const strings = collectRequestTemplateStrings(
+      makeRequest({
+        auth: {
+          type: 'aws-sigv4',
+          accessKeyId: 'AKIDEXAMPLE',
+          secretAccessKey: 'secret',
+          service: 's3',
+          region: 'us-east-1',
+        },
+      }),
+    );
+    expect(strings).toEqual(expect.arrayContaining(['AKIDEXAMPLE', 'secret', 's3', 'us-east-1']));
+    expect(strings).toHaveLength(5);
   });
 });

@@ -277,6 +277,32 @@ describe('buildWorkspaceExport — strip rules', () => {
     expect('clientSecret' in folderAuth).toBe(false);
   });
 
+  it('blanks AWS SigV4 secretAccessKey and drops sessionToken from request.auth', () => {
+    const input = baseInput();
+    input.entities.requests = [
+      makeRequest({
+        auth: {
+          type: 'aws-sigv4',
+          accessKeyId: 'AKIDEXAMPLE',
+          secretAccessKey: 'super-sensitive-DO-NOT-EXPORT',
+          sessionToken: 'short-lived-DO-NOT-EXPORT',
+          service: 'execute-api',
+          region: 'us-east-1',
+        },
+      }),
+    ];
+
+    const exp = buildWorkspaceExport(input);
+    const builtAuth = exp.entities.requests[0].auth;
+    expect(builtAuth.type).toBe('aws-sigv4');
+    if (builtAuth.type !== 'aws-sigv4') throw new Error('unreachable');
+    expect(builtAuth.accessKeyId).toBe('AKIDEXAMPLE');
+    expect(builtAuth.secretAccessKey).toBe('');
+    expect('sessionToken' in builtAuth).toBe(false);
+    expect(builtAuth.service).toBe('execute-api');
+    expect(builtAuth.region).toBe('us-east-1');
+  });
+
   it('canonicalizes path via toFolderName(name, uid) regardless of input', () => {
     const input = baseInput();
     input.entities.environments = [makeEnvironment({ path: 'totally-wrong-path', name: 'Staging' })];

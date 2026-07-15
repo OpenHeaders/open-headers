@@ -364,6 +364,35 @@ export const OAuth2AuthSchema = v.object({
   extraRefreshParams: v.optional(v.array(v.object({ uid: UidSchema, key: v.string(), value: v.string() }))),
 });
 
+/**
+ * AWS Signature Version 4 request signing. Unlike the credential-bearing
+ * types above, nothing here rides the wire verbatim: the executor derives
+ * the `Authorization` / `X-Amz-Date` (+ `X-Amz-Security-Token`) headers by
+ * signing the FINAL wire shape — method, URL, query, headers, payload —
+ * just before dispatch, AFTER pre-request scripts have had their say
+ * (a resolve-time signature would be invalidated by any script mutation).
+ * Both runtimes sign (pure WebCrypto HMAC — no challenge/response), so
+ * the type is not host-gated.
+ *
+ * Fields are plain strings (templates welcome — `{{vault.aws_secret}}`
+ * is the expected idiom for the secret); completeness is a send-time
+ * gate, not a schema constraint, so partial configs stay saveable.
+ */
+export const AwsSigV4AuthSchema = v.object({
+  type: v.literal('aws-sigv4'),
+  disabled: AuthDisabledSchema,
+  accessKeyId: v.string(),
+  secretAccessKey: v.string(),
+  /** STS temporary-credential session token; sent + signed as
+   *  `X-Amz-Security-Token` when present. */
+  sessionToken: v.optional(v.string()),
+  /** Service namespace the credential scope names (`s3`, `execute-api`,
+   *  `dynamodb`, …). `s3` additionally signs `x-amz-content-sha256`. */
+  service: v.string(),
+  /** Region the credential scope names (`us-east-1`, …). */
+  region: v.string(),
+});
+
 export const AuthConfigSchema = v.variant('type', [
   v.object({ type: v.literal('none'), disabled: AuthDisabledSchema }),
   v.object({ type: v.literal('inherit'), disabled: AuthDisabledSchema }),
@@ -386,6 +415,7 @@ export const AuthConfigSchema = v.variant('type', [
     disabled: AuthDisabledSchema,
   }),
   OAuth2AuthSchema,
+  AwsSigV4AuthSchema,
 ]);
 
 export const RequestHeaderSchema = v.object({

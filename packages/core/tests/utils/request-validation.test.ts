@@ -69,6 +69,21 @@ describe('isRequestComplete — auth', () => {
     );
   });
 
+  it('aws-sigv4: requires accessKeyId, secretAccessKey, service, and region', () => {
+    const full = {
+      type: 'aws-sigv4' as const,
+      accessKeyId: 'AKIDEXAMPLE',
+      secretAccessKey: '{{vault.aws_secret}}',
+      service: 'execute-api',
+      region: 'us-east-1',
+    };
+    expect(isRequestComplete(makeRequest({ auth: full }))).toBe(true);
+    expect(isRequestComplete(makeRequest({ auth: { ...full, accessKeyId: '' } }))).toBe(false);
+    expect(isRequestComplete(makeRequest({ auth: { ...full, secretAccessKey: ' ' } }))).toBe(false);
+    expect(isRequestComplete(makeRequest({ auth: { ...full, service: '' } }))).toBe(false);
+    expect(isRequestComplete(makeRequest({ auth: { ...full, region: '' } }))).toBe(false);
+  });
+
   it('oauth2: always complete at the request level (runtime token state is separate)', () => {
     expect(
       isRequestComplete(
@@ -128,6 +143,25 @@ describe('requestIncompleteReason', () => {
     expect(requestIncompleteReason(makeRequest({ auth: { type: 'api-key', key: 'X', value: '', in: 'header' } }))).toBe(
       'api-key-missing-value',
     );
+  });
+
+  it('reports each missing aws-sigv4 field in declaration order', () => {
+    const full = {
+      type: 'aws-sigv4' as const,
+      accessKeyId: 'AKIDEXAMPLE',
+      secretAccessKey: 'secret',
+      service: 's3',
+      region: 'eu-west-1',
+    };
+    expect(requestIncompleteReason(makeRequest({ auth: full }))).toBeNull();
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, accessKeyId: '' } }))).toBe(
+      'aws-sigv4-missing-access-key',
+    );
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, secretAccessKey: '' } }))).toBe(
+      'aws-sigv4-missing-secret-key',
+    );
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, service: '' } }))).toBe('aws-sigv4-missing-service');
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, region: '' } }))).toBe('aws-sigv4-missing-region');
   });
 });
 

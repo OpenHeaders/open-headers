@@ -62,6 +62,15 @@ export function collectRequestTemplateStrings(request: Request): string[] {
       // OAuth2 config fields are not user-templated — the credential
       // ref is an opaque handle; the tokens are fetched, not templated.
       break;
+    case 'aws-sigv4':
+      // Every SigV4 field is templatable — `{{vault.aws_secret}}` is
+      // the expected idiom for the key material.
+      if (request.auth.accessKeyId) out.push(request.auth.accessKeyId);
+      if (request.auth.secretAccessKey) out.push(request.auth.secretAccessKey);
+      if (request.auth.sessionToken) out.push(request.auth.sessionToken);
+      if (request.auth.service) out.push(request.auth.service);
+      if (request.auth.region) out.push(request.auth.region);
+      break;
   }
 
   // ── Body ──

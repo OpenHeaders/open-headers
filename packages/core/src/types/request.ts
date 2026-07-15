@@ -21,6 +21,7 @@
 import type * as v from 'valibot';
 import type {
   AuthConfigSchema,
+  AwsSigV4AuthSchema,
   BodyTypeSchema,
   CredentialsModeSchema,
   FileRefSchema,
@@ -51,10 +52,11 @@ export type QueryParam = v.InferOutput<typeof QueryParamSchema>;
 
 // ── Authentication ─────────────────────────────────────────────────
 
-export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'api-key' | 'oauth2';
+export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'api-key' | 'oauth2' | 'aws-sigv4';
 export type AuthConfig = v.InferOutput<typeof AuthConfigSchema>;
 export type OAuth2Flow = v.InferOutput<typeof OAuth2FlowSchema>;
 export type OAuth2Auth = v.InferOutput<typeof OAuth2AuthSchema>;
+export type AwsSigV4Auth = v.InferOutput<typeof AwsSigV4AuthSchema>;
 
 // ── Body ───────────────────────────────────────────────────────────
 //

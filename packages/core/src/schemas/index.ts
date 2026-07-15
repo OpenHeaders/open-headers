@@ -58,6 +58,7 @@ export type { ParseEntityOptions } from './parse';
 export { parseEntity, parseEntityArray } from './parse';
 export {
   AuthConfigSchema,
+  AwsSigV4AuthSchema,
   BodyTypeSchema,
   ClientCertificateRefSchema,
   CredentialsModeSchema,
