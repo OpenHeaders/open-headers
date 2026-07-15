@@ -133,9 +133,10 @@ export interface ImporterOptions {
   /**
    * Omit OAuth configs on import (design §5.5). Default is to keep the
    * OAuth2 config (token endpoint, client id, scopes — `clientSecret`
-   * is always stripped on export). When `true`, every incoming
-   * oauth2 `Request.auth` is replaced with `{ type: 'none' }` so the
-   * recipient configures auth from scratch.
+   * is always stripped on export). When `true`, every incoming oauth2
+   * auth — on requests and on the collection/folder ancestor slots —
+   * is replaced with `{ type: 'none' }` so the recipient configures
+   * auth from scratch.
    */
   omitOAuthConfigs?: boolean;
   /**
@@ -196,9 +197,11 @@ function stripRequestScripts<T extends { preRequestScript?: string; postResponse
 }
 
 /**
- * Replace OAuth2 `Request.auth` with `{ type: 'none' }` when the user
- * opts out of importing OAuth configs. The recipient configures auth
- * from scratch; the request's URL / method / headers / body still ship.
+ * Replace OAuth2 auth with `{ type: 'none' }` when the user opts out
+ * of importing OAuth configs — on requests AND on the collection/folder
+ * ancestor-auth slots (an inherited oauth2 config runs on every child
+ * send). The recipient configures auth from scratch; everything else
+ * still ships.
  */
 function omitOAuthAuth<T extends { auth?: { type: string } }>(entity: T, omit: boolean): T {
   if (!omit) return entity;
@@ -331,9 +334,11 @@ export function buildImportPlan(
     diff: diff.collections,
     overrides: strategies.collections,
     // Ancestor script slots follow the same strip toggle as request
-    // scripts — they run on every child send. Rule collections never
-    // carry the fields, so the stamp is a no-op for the rules tree.
-    stamp: (c) => stripRequestScripts(c, strip),
+    // scripts — they run on every child send; ancestor auth follows
+    // the same oauth2 omit toggle as request auth. Rule collections
+    // never carry the fields, so the stamps are no-ops for the rules
+    // tree.
+    stamp: (c) => omitOAuthAuth(stripRequestScripts(c, strip), omitOAuth),
   });
   // Keep-target-order override: on `update`, preserve the target
   // collection's `order` instead of taking export's. Indexed walk —
@@ -353,8 +358,8 @@ export function buildImportPlan(
   const folders = resolveArrayBase<LocalFolder>({
     diff: diff.folders,
     overrides: strategies.folders,
-    // See the collections stamp — same toggle for folder script slots.
-    stamp: (f) => stripRequestScripts(f, strip),
+    // See the collections stamp — same toggles for folder slots.
+    stamp: (f) => omitOAuthAuth(stripRequestScripts(f, strip), omitOAuth),
   });
   const rules = resolveArrayBase<Rule>({
     diff: diff.rules,

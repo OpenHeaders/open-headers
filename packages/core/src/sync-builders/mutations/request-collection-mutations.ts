@@ -14,6 +14,7 @@ import {
   type MutationBatch,
   type MutatorContext,
   type MutatorIntent,
+  mintBatch,
   newBatchId,
   newMutationId,
   PRE_BOOTSTRAP_ORG_ID,
@@ -25,7 +26,8 @@ import {
   setRequestCollectionScripts,
   setRequestCollectionVar,
 } from '@openheaders/core/sync';
-import type { Variable } from '@openheaders/core/types';
+import { synthesizeFieldDiff } from '@openheaders/core/sync-builders';
+import type { AuthConfig, Variable } from '@openheaders/core/types';
 
 export type RequestCollectionMutationPayload = MutatorIntent;
 
@@ -96,6 +98,38 @@ export function buildSetRequestCollectionScriptsBatch(
   ctx: MutatorContext,
 ): RequestCollectionMutationPayload {
   return setRequestCollectionScripts(ctx, input);
+}
+
+export interface SetRequestCollectionAuthInput {
+  collectionUid: string;
+  /** New ancestor default auth; `undefined` clears the field (the
+   *  level goes transparent — the inherit walk passes through it). */
+  auth: AuthConfig | undefined;
+  /** Current materialized auth — the per-leaf diff baseline. */
+  currentAuth: AuthConfig | undefined;
+}
+
+/**
+ * Ancestor auth rides create payloads flattened to per-leaf paths
+ * (`auth.type`, …), so edits mirror that granularity through
+ * {@link synthesizeFieldDiff} — a whole-object `setField('auth', …)`
+ * would let the stale create-time discriminant clobber the edit at
+ * materialize time (same trap `buildUpdateBatch` documents for
+ * request auth). A no-op edit yields an empty batch; callers
+ * short-circuit on it.
+ */
+export function buildSetRequestCollectionAuthBatch(
+  input: SetRequestCollectionAuthInput,
+  ctx: MutatorContext,
+): RequestCollectionMutationPayload {
+  const bodies = synthesizeFieldDiff({
+    type: REQUEST_COLLECTION_ENTITY_TYPE,
+    id: input.collectionUid,
+    basePath: 'auth',
+    oldValue: input.currentAuth,
+    newValue: input.auth,
+  });
+  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }
 
 export interface SetRequestCollectionVarInput {

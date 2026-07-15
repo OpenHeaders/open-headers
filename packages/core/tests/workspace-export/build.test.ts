@@ -252,6 +252,31 @@ describe('buildWorkspaceExport — strip rules', () => {
     expect('clientSecret' in builtAuth).toBe(false);
   });
 
+  it('removes OAuth2 clientSecret from collection + folder ancestor auth', () => {
+    const input = baseInput();
+    const oauth: OAuth2Auth = {
+      type: 'oauth2',
+      credentialRef: 'cred-anc',
+      flow: 'client-credentials',
+      tokenEndpoint: 'https://example.openheaders.io/token',
+      clientId: 'client-id-public',
+      clientSecret: 'super-sensitive-DO-NOT-EXPORT',
+      scopes: ['read'],
+    };
+    input.entities.collections = [makeCollection({ auth: oauth })];
+    input.entities.folders = [makeFolder({ auth: oauth })];
+
+    const exp = buildWorkspaceExport(input);
+    const collectionAuth = exp.entities.collections[0].auth;
+    expect(collectionAuth?.type).toBe('oauth2');
+    if (collectionAuth?.type !== 'oauth2') throw new Error('unreachable');
+    expect('clientSecret' in collectionAuth).toBe(false);
+    const folderAuth = exp.entities.folders[0].auth;
+    expect(folderAuth?.type).toBe('oauth2');
+    if (folderAuth?.type !== 'oauth2') throw new Error('unreachable');
+    expect('clientSecret' in folderAuth).toBe(false);
+  });
+
   it('canonicalizes path via toFolderName(name, uid) regardless of input', () => {
     const input = baseInput();
     input.entities.environments = [makeEnvironment({ path: 'totally-wrong-path', name: 'Staging' })];

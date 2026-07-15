@@ -211,6 +211,39 @@ describe('buildImportPlan — force-disable', () => {
     expect(createdFolder?.entity.postResponseScript).toBe('post');
   });
 
+  it('omits collection + folder ancestor oauth2 auth when omitOAuthConfigs=true', () => {
+    const input = baseInput();
+    const oauth = {
+      type: 'oauth2' as const,
+      credentialRef: 'oauth2-cred-anc00001',
+      flow: 'client-credentials' as const,
+      tokenEndpoint: 'https://auth.openheaders.io/token',
+      clientId: 'client-1',
+      scopes: [],
+    };
+    input.entities.collections = [{ ...collection('col00001', 'API', 'requests/api-col00001'), auth: oauth }];
+    input.entities.folders = [{ ...folder('fld00001', 'Auth', 'requests/api-col00001/auth-fld00001'), auth: oauth }];
+    const exp = buildWorkspaceExport(input);
+    const diff = diffWorkspaceExport(exp, emptyTarget());
+    const plan = buildImportPlan(exp, diff, emptyTarget(), {}, { omitOAuthConfigs: true });
+    expect(plan.collections.find((c) => c.action === 'create')?.entity.auth).toEqual({ type: 'none' });
+    expect(plan.folders.find((f) => f.action === 'create')?.entity.auth).toEqual({ type: 'none' });
+  });
+
+  it('preserves non-oauth2 ancestor auth regardless of omitOAuthConfigs', () => {
+    const input = baseInput();
+    input.entities.collections = [
+      { ...collection('col00001', 'API', 'requests/api-col00001'), auth: { type: 'bearer', token: '{{auth_token}}' } },
+    ];
+    const exp = buildWorkspaceExport(input);
+    const diff = diffWorkspaceExport(exp, emptyTarget());
+    const plan = buildImportPlan(exp, diff, emptyTarget(), {}, { omitOAuthConfigs: true });
+    expect(plan.collections.find((c) => c.action === 'create')?.entity.auth).toEqual({
+      type: 'bearer',
+      token: '{{auth_token}}',
+    });
+  });
+
   it('preserves request scripts when stripScripts is unset', () => {
     const input = baseInput();
     const req: Request = {

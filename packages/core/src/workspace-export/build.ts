@@ -15,7 +15,8 @@
  *     red banner in the modal warns the user.
  *
  * What the builder strips (every export, regardless of scope):
- *   - OAuth2 `clientSecret` from any `Request.auth.type === 'oauth2'`
+ *   - OAuth2 `clientSecret` from any `auth.type === 'oauth2'` — on
+ *     requests AND on the collection/folder ancestor-auth slots
  *     (always — recipient enters their own at first auth, per §3.1).
  *   - `path` reconstructed from `toFolderName(name, uid)` so the value
  *     is canonical regardless of what the caller passed in.
@@ -123,10 +124,10 @@ export class MissingSecretsBlockError extends Error {
 
 // ── Strip helpers ───────────────────────────────────────────────────
 
-function stripOAuthClientSecret<R extends Request>(req: R): R {
-  if (req.auth?.type !== 'oauth2') return req;
-  const { clientSecret: _omitted, ...authWithoutSecret } = req.auth;
-  return { ...req, auth: authWithoutSecret } as R;
+function stripOAuthClientSecret<E extends { auth?: Request['auth'] }>(entity: E): E {
+  if (entity.auth?.type !== 'oauth2') return entity;
+  const { clientSecret: _omitted, ...authWithoutSecret } = entity.auth;
+  return { ...entity, auth: authWithoutSecret };
 }
 
 function canonicalLeafPath(currentPath: string | undefined, name: string, uid: string): string {
@@ -154,8 +155,10 @@ export function buildWorkspaceExport(
   }
 
   const requests = input.entities.requests.map((req) => withCanonicalPath(stripOAuthClientSecret(req)));
-  const collections = input.entities.collections.map(withCanonicalPath);
-  const folders = input.entities.folders.map(withCanonicalPath);
+  // Ancestor default auth carries the same oauth2 config shape as
+  // request auth — its clientSecret is stripped the same way.
+  const collections = input.entities.collections.map((c) => withCanonicalPath(stripOAuthClientSecret(c)));
+  const folders = input.entities.folders.map((f) => withCanonicalPath(stripOAuthClientSecret(f)));
   const rules = input.entities.rules.map(withCanonicalPath);
   const templates = input.entities.templates.map(withCanonicalPath);
   const environments = input.entities.environments.map(withCanonicalPath);

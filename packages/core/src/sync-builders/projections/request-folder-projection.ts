@@ -12,6 +12,7 @@
  * legacy consumers expect.
  */
 
+import { AuthConfigSchema } from '@openheaders/core/schemas';
 import {
   type MaterializedEntity,
   type MutationBatch,
@@ -22,6 +23,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
 import { toFolderName } from '@openheaders/core/utils';
+import * as v from 'valibot';
 
 function fallbackPathSegment(name: string, uid: string): string {
   return toFolderName(name, uid);
@@ -46,6 +48,9 @@ export function seedRequestFolder(folder: Folder, ctx: MutatorContext): Mutation
       // ↔ no script).
       ...(folder.preRequestScript !== undefined ? { preRequestScript: folder.preRequestScript } : {}),
       ...(folder.postResponseScript !== undefined ? { postResponseScript: folder.postResponseScript } : {}),
+      // Ancestor default auth rides the seed when present (field absent
+      // ↔ transparent level).
+      ...(folder.auth !== undefined ? { auth: folder.auth } : {}),
     },
   };
   return mintBatch(ctx, [body]);
@@ -76,6 +81,10 @@ export function projectRequestFolder(materialized: MaterializedEntity, parentPat
     typeof data.pathSegment === 'string' && data.pathSegment.length > 0
       ? data.pathSegment
       : fallbackPathSegment(name, materialized.id);
+  // Ancestor default auth — carried only when the materialized blob
+  // holds a well-formed AuthConfig (per-leaf writes could transiently
+  // compose an invalid shape; projection stays fail-soft).
+  const auth = v.safeParse(AuthConfigSchema, data.auth);
   return {
     schemaVersion,
     uid: materialized.id,
@@ -84,6 +93,7 @@ export function projectRequestFolder(materialized: MaterializedEntity, parentPat
     // Ancestor script slots — carried when set (field absent ↔ no script).
     ...(typeof data.preRequestScript === 'string' ? { preRequestScript: data.preRequestScript } : {}),
     ...(typeof data.postResponseScript === 'string' ? { postResponseScript: data.postResponseScript } : {}),
+    ...(auth.success ? { auth: auth.output } : {}),
   };
 }
 

@@ -88,6 +88,29 @@ describe('yaml codec — round-trip parity', () => {
     expect(out.postResponseScript).toEqual({ fileName: 'post-response.js', content: post });
   });
 
+  it('_collection.yaml with ancestor auth — inline in the manifest, round-trips', () => {
+    const raw = loadFixture('_collection.yaml');
+    const parsed = parseCollection(raw, { path: 'requests/auth-c0ll1111' });
+    const write = mergePatch(parsed, (draft) => {
+      draft.auth = { type: 'bearer', token: '{{auth_token}}' };
+    });
+    const out = serializeCollection(write);
+    // Auth is data, not script source — it lands in the YAML itself,
+    // never in a sibling file.
+    expect(out.collectionYaml).toContain('auth:');
+    expect(out.preRequestScript).toBeNull();
+    expect(out.postResponseScript).toBeNull();
+    const reparsed = parseCollection(out.collectionYaml, { path: 'requests/auth-c0ll1111' });
+    expect(reparsed.value.auth).toEqual({ type: 'bearer', token: '{{auth_token}}' });
+    // Clearing the field removes the key — field absent ↔ transparent level.
+    const cleared = serializeCollection(
+      mergePatch(reparsed, (draft) => {
+        delete draft.auth;
+      }),
+    );
+    expect(cleared.collectionYaml).toBe(raw);
+  });
+
   it('_folder.yaml', () => {
     const raw = loadFixture('_folder.yaml');
     const parsed = parseFolder(raw, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });
@@ -113,6 +136,29 @@ describe('yaml codec — round-trip parity', () => {
     expect(out.folderYaml).toBe(raw);
     expect(out.preRequestScript).toEqual({ fileName: 'pre-request.js', content: pre });
     expect(out.postResponseScript).toBeNull();
+  });
+
+  it('_folder.yaml with ancestor auth — inline in the manifest, round-trips', () => {
+    const raw = loadFixture('_folder.yaml');
+    const parsed = parseFolder(raw, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });
+    const write = mergePatch(parsed, (draft) => {
+      draft.auth = { type: 'api-key', key: 'X-Api-Key', value: '{{vault.api_key}}', in: 'header' };
+    });
+    const out = serializeFolder(write);
+    expect(out.folderYaml).toContain('auth:');
+    const reparsed = parseFolder(out.folderYaml, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });
+    expect(reparsed.value.auth).toEqual({
+      type: 'api-key',
+      key: 'X-Api-Key',
+      value: '{{vault.api_key}}',
+      in: 'header',
+    });
+    const cleared = serializeFolder(
+      mergePatch(reparsed, (draft) => {
+        delete draft.auth;
+      }),
+    );
+    expect(cleared.folderYaml).toBe(raw);
   });
 
   const ruleFixtures = readdirSync(FIXTURE_DIR).filter((f) => f.startsWith('rule-') && f.endsWith('.yaml'));

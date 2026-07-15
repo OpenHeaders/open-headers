@@ -23,6 +23,7 @@
 import type { BackendReach } from '../protocol';
 import type { ScriptExecutionMode } from '../scripts';
 import type {
+  AuthConfig,
   BackendConnection,
   Collection,
   DaemonAuthToken,
@@ -193,6 +194,8 @@ export interface PersistedLocalFolder {
   /** Ancestor script slots (request folders only) — see `FolderSchema`. */
   preRequestScript?: string;
   postResponseScript?: string;
+  /** Ancestor default auth (request folders only) — see `FolderSchema`. */
+  auth?: AuthConfig;
 }
 
 // ── Global keys ──────────────────────────────────────────────────────

@@ -5,6 +5,7 @@
 
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { AuthConfigSchema } from './request';
 import { VariableSchema } from './variable';
 
 export const CollectionSchema = v.object({
@@ -30,6 +31,17 @@ export const CollectionSchema = v.object({
    */
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),
+  /**
+   * Ancestor default auth — meaningful under request-collection
+   * routing only, like the script slots. A request whose auth is
+   * `inherit` resolves up its ancestor chain at execute time: the
+   * innermost carrier (folder beats collection) whose auth is present
+   * and not itself `inherit` wins; `none` is a real carrier ("no
+   * auth", shadowing outer levels). Field ABSENT means transparent —
+   * the walk passes through this level. Persisted inline in
+   * `_collection.yaml` (auth is data, not script source).
+   */
+  auth: v.optional(AuthConfigSchema),
 });
 
 /**
@@ -49,4 +61,7 @@ export const FolderSchema = v.object({
    *  request-folder routing only; siblings of `_folder.yaml`. */
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),
+  /** See {@link CollectionSchema}'s `auth` — same contract,
+   *  request-folder routing only; inline in `_folder.yaml`. */
+  auth: v.optional(AuthConfigSchema),
 });

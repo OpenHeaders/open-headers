@@ -15,6 +15,7 @@ import {
   type MutationBatch,
   type MutatorContext,
   type MutatorIntent,
+  mintBatch,
   moveRequestFolder,
   newBatchId,
   newMutationId,
@@ -25,6 +26,8 @@ import {
   renameRequestFolder,
   setRequestFolderScripts,
 } from '@openheaders/core/sync';
+import { synthesizeFieldDiff } from '@openheaders/core/sync-builders';
+import type { AuthConfig } from '@openheaders/core/types';
 
 export type RequestFolderMutationPayload = MutatorIntent;
 
@@ -103,6 +106,31 @@ export function buildSetRequestFolderScriptsBatch(
   ctx: MutatorContext,
 ): RequestFolderMutationPayload {
   return setRequestFolderScripts(ctx, input);
+}
+
+export interface SetRequestFolderAuthInput {
+  folderUid: string;
+  /** New ancestor default auth; `undefined` clears the field (the
+   *  level goes transparent — the inherit walk passes through it). */
+  auth: AuthConfig | undefined;
+  /** Current materialized auth — the per-leaf diff baseline. */
+  currentAuth: AuthConfig | undefined;
+}
+
+/** See `buildSetRequestCollectionAuthBatch` — same per-leaf contract
+ *  through {@link synthesizeFieldDiff}, request-folder entity type. */
+export function buildSetRequestFolderAuthBatch(
+  input: SetRequestFolderAuthInput,
+  ctx: MutatorContext,
+): RequestFolderMutationPayload {
+  const bodies = synthesizeFieldDiff({
+    type: REQUEST_FOLDER_ENTITY_TYPE,
+    id: input.folderUid,
+    basePath: 'auth',
+    oldValue: input.currentAuth,
+    newValue: input.auth,
+  });
+  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }
 
 export interface MoveRequestFolderInput {
