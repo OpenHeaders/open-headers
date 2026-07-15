@@ -393,6 +393,27 @@ export const AwsSigV4AuthSchema = v.object({
   region: v.string(),
 });
 
+/**
+ * HTTP Digest authentication (RFC 7616 / 2617). Challenge/response —
+ * only the credentials are configuration: realm, nonce, algorithm, and
+ * qop all arrive on the server's 401 challenge at send time, so nothing
+ * else belongs here. The second leg (401 → `WWW-Authenticate` →
+ * recompute → resend) lives in the node transport; browser-runtime
+ * hosts skip the contribution like a disabled one and the target's 401
+ * is the actionable signal, so the editor labels the type as
+ * desktop/CLI-only.
+ *
+ * Both fields are templatable (`{{vault.camera_password}}` is the
+ * expected idiom); completeness mirrors basic auth — username
+ * non-empty, password may be blank.
+ */
+export const DigestAuthSchema = v.object({
+  type: v.literal('digest'),
+  disabled: AuthDisabledSchema,
+  username: v.string(),
+  password: v.string(),
+});
+
 export const AuthConfigSchema = v.variant('type', [
   v.object({ type: v.literal('none'), disabled: AuthDisabledSchema }),
   v.object({ type: v.literal('inherit'), disabled: AuthDisabledSchema }),
@@ -416,6 +437,7 @@ export const AuthConfigSchema = v.variant('type', [
   }),
   OAuth2AuthSchema,
   AwsSigV4AuthSchema,
+  DigestAuthSchema,
 ]);
 
 export const RequestHeaderSchema = v.object({

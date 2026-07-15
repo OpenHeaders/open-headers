@@ -24,6 +24,7 @@ import type {
   AwsSigV4AuthSchema,
   BodyTypeSchema,
   CredentialsModeSchema,
+  DigestAuthSchema,
   FileRefSchema,
   FormFieldSchema,
   HttpMethodSchema,
@@ -52,11 +53,12 @@ export type QueryParam = v.InferOutput<typeof QueryParamSchema>;
 
 // ── Authentication ─────────────────────────────────────────────────
 
-export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'api-key' | 'oauth2' | 'aws-sigv4';
+export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'api-key' | 'oauth2' | 'aws-sigv4' | 'digest';
 export type AuthConfig = v.InferOutput<typeof AuthConfigSchema>;
 export type OAuth2Flow = v.InferOutput<typeof OAuth2FlowSchema>;
 export type OAuth2Auth = v.InferOutput<typeof OAuth2AuthSchema>;
 export type AwsSigV4Auth = v.InferOutput<typeof AwsSigV4AuthSchema>;
+export type DigestAuth = v.InferOutput<typeof DigestAuthSchema>;
 
 // ── Body ───────────────────────────────────────────────────────────
 //

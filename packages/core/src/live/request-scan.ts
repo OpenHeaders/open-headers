@@ -71,6 +71,10 @@ export function collectRequestTemplateStrings(request: Request): string[] {
       if (request.auth.service) out.push(request.auth.service);
       if (request.auth.region) out.push(request.auth.region);
       break;
+    case 'digest':
+      if (request.auth.username) out.push(request.auth.username);
+      if (request.auth.password) out.push(request.auth.password);
+      break;
   }
 
   // ── Body ──

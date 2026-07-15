@@ -29,6 +29,8 @@
  *                                        been obtained is a runtime state
  *                                        (see oauth-token-store), not a
  *                                        request-completeness concern.
+ *     · `digest`                       — `username` non-empty (password may
+ *                                        be blank), mirroring basic.
  */
 
 import { collectRequestTemplateStrings } from '../live/request-scan';
@@ -77,6 +79,11 @@ export function isRequestComplete(
         auth.service.trim().length > 0 &&
         auth.region.trim().length > 0
       );
+    case 'digest':
+      // Mirrors basic: username is the non-negotiable bit; password may
+      // legitimately be blank. Everything else (realm, nonce, algorithm,
+      // qop) arrives on the server's challenge at send time.
+      return auth.username.trim().length > 0;
   }
 }
 
@@ -95,7 +102,8 @@ export type RequestIncompleteReason =
   | 'aws-sigv4-missing-access-key'
   | 'aws-sigv4-missing-secret-key'
   | 'aws-sigv4-missing-service'
-  | 'aws-sigv4-missing-region';
+  | 'aws-sigv4-missing-region'
+  | 'digest-missing-username';
 
 // ── Variable-resolution gating ─────────────────────────────────────
 
@@ -154,5 +162,7 @@ export function requestIncompleteReason(
       if (!auth.service.trim()) return 'aws-sigv4-missing-service';
       if (!auth.region.trim()) return 'aws-sigv4-missing-region';
       return null;
+    case 'digest':
+      return auth.username.trim().length > 0 ? null : 'digest-missing-username';
   }
 }

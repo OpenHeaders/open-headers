@@ -62,6 +62,7 @@ export {
   BodyTypeSchema,
   ClientCertificateRefSchema,
   CredentialsModeSchema,
+  DigestAuthSchema,
   HttpMethodSchema,
   isValidProxyUrl,
   isValidUnixSocketPath,
