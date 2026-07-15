@@ -12,8 +12,8 @@ export const PRIVACY_HEADERS: HeaderInfoEntries = [
       display: 'DNT',
       direction: 'request',
       category: 'Privacy',
-      summary: 'Do Not Track — `1` if the user opted out of tracking. Largely deprecated.',
-      body: ['Most major sites ignore it; the W3C dropped the spec in 2019. Compliance is voluntary.'],
+      summaryKey: 'shared.info.header.dnt.summary',
+      bodyKeys: ['shared.info.header.dnt.body1'],
     },
   ],
   [
@@ -22,8 +22,8 @@ export const PRIVACY_HEADERS: HeaderInfoEntries = [
       display: 'Sec-GPC',
       direction: 'request',
       category: 'Privacy',
-      summary: 'Global Privacy Control — `1` signals the user wants their data not sold or shared.',
-      body: ['Legally binding under CCPA in California; honored by some privacy-focused browsers (Brave, Firefox, DuckDuckGo).'],
+      summaryKey: 'shared.info.header.secGpc.summary',
+      bodyKeys: ['shared.info.header.secGpc.body1'],
     },
   ],
 ];

@@ -48,7 +48,7 @@ function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
   const { token } = theme.useToken();
   const t = useT();
   const [copied, copy] = useCopied();
-  const content = getHeaderInfoContentForRow(row.key, 'response', HEADER_CATEGORY_LABEL[categorizeHeader(row.key)]);
+  const content = getHeaderInfoContentForRow(t, row.key, 'response', HEADER_CATEGORY_LABEL[categorizeHeader(row.key)]);
   return (
     <div
       className="oh-resp-hdr-row"

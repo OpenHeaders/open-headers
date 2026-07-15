@@ -120,6 +120,7 @@ function CookieRow({ row }: { row: CookieGridRow }) {
  *  attribute, revealed on header-row hover. */
 function HeaderCell({ label, attrKey, first = false }: { label: string; attrKey?: string; first?: boolean }) {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <span
       style={{
@@ -133,7 +134,7 @@ function HeaderCell({ label, attrKey, first = false }: { label: string; attrKey?
       }}
     >
       {label}
-      {attrKey && <InfoTrigger content={getCookieAttributeInfoContent(attrKey)} className="oh-resp-hdr-info" />}
+      {attrKey && <InfoTrigger content={getCookieAttributeInfoContent(t, attrKey)} className="oh-resp-hdr-info" />}
     </span>
   );
 }

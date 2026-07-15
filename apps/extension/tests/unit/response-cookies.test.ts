@@ -180,14 +180,16 @@ describe('hostOfUrl', () => {
 });
 
 describe('getCookieAttributeInfoContent', () => {
+  const t = getTranslator(DEFAULT_LOCALE);
+
   it('returns curated copy case-insensitively', () => {
-    expect(getCookieAttributeInfoContent('httponly').title).toBe('HttpOnly');
-    expect(getCookieAttributeInfoContent('SameSite').summary).toContain('cross-site');
-    expect(getCookieAttributeInfoContent('max-age').title).toBe('Max-Age');
+    expect(getCookieAttributeInfoContent(t, 'httponly').title).toBe('HttpOnly');
+    expect(getCookieAttributeInfoContent(t, 'SameSite').summary).toContain('cross-site');
+    expect(getCookieAttributeInfoContent(t, 'max-age').title).toBe('Max-Age');
   });
 
   it('returns an honest fallback for unknown attributes', () => {
-    const content = getCookieAttributeInfoContent('X-Custom-Ext');
+    const content = getCookieAttributeInfoContent(t, 'X-Custom-Ext');
     expect(content.title).toBe('X-Custom-Ext');
     expect(content.summary).toContain('not documented');
   });

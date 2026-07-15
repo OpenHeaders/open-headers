@@ -5,6 +5,7 @@
  */
 
 import type { ResourceTimingEntry } from '@openheaders/core/resource-timing';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   getStatusCodeInfoContent,
   hasStatusCodeInfo,
@@ -183,32 +184,34 @@ describe('serializedHeaderListBytes', () => {
 });
 
 describe('getStatusCodeInfoContent', () => {
+  const t = getTranslator(DEFAULT_LOCALE);
+
   it('returns curated copy for known codes', () => {
-    const content = getStatusCodeInfoContent(404, 'Not Found');
+    const content = getStatusCodeInfoContent(t, 404, 'Not Found');
     expect(content.title).toBe('404 Not Found');
     expect(content.kicker).toContain('4xx');
     expect(content.summary).toContain('No resource exists');
   });
 
   it('supplies the canonical phrase when the server sent none', () => {
-    expect(getStatusCodeInfoContent(204, '').title).toBe('204 No Content');
+    expect(getStatusCodeInfoContent(t, 204, '').title).toBe('204 No Content');
   });
 
   it('surfaces a non-canonical server reason phrase', () => {
-    const content = getStatusCodeInfoContent(200, 'Everything Fine');
+    const content = getStatusCodeInfoContent(t, 200, 'Everything Fine');
     expect(content.title).toBe('200 OK');
     expect(String(content.description)).toContain('"Everything Fine"');
   });
 
   it('falls back to the range meaning for uncurated codes', () => {
-    const content = getStatusCodeInfoContent(299, 'Custom');
+    const content = getStatusCodeInfoContent(t, 299, 'Custom');
     expect(content.title).toBe('299 Custom');
     expect(content.kicker).toContain('2xx');
     expect(hasStatusCodeInfo(299)).toBe(false);
   });
 
   it('handles codes outside the standard ranges honestly', () => {
-    expect(getStatusCodeInfoContent(999, '').kicker).toContain('Non-standard');
+    expect(getStatusCodeInfoContent(t, 999, '').kicker).toContain('Non-standard');
   });
 
   it('covers every code the rule editor offers', () => {

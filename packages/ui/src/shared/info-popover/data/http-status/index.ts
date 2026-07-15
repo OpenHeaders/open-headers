@@ -3,18 +3,21 @@
  * status-chip popover. Same in-app-docs discipline as the http-headers
  * corpus: `getStatusCodeInfoContent` always returns content — curated
  * codes get specific copy, everything else gets an honest range-level
- * fallback.
+ * fallback. Prose lives in the i18n catalog (`shared.info.status.*`);
+ * codes and canonical reason phrases are wire vocabulary and stay raw.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '../../types';
 
 interface StatusInfoEntry {
   /** Canonical reason phrase, shown even when the server sent none. */
   display: string;
   /** One-sentence meaning. */
-  summary: string;
+  summaryKey: MessageKey;
   /** Optional extra guidance — what to look at next. */
-  body?: string;
+  bodyKey?: MessageKey;
 }
 
 const STATUS_INFO: ReadonlyMap<number, StatusInfoEntry> = new Map<number, StatusInfoEntry>([
@@ -22,426 +25,493 @@ const STATUS_INFO: ReadonlyMap<number, StatusInfoEntry> = new Map<number, Status
     100,
     {
       display: 'Continue',
-      summary: 'Interim response — the server got the request headers and the client should proceed to send the body.',
+      summaryKey: 'shared.info.status.s100.summary',
     },
   ],
   [
     101,
     {
       display: 'Switching Protocols',
-      summary: 'The server agreed to switch protocols as requested via the Upgrade header (e.g. to WebSocket).',
+      summaryKey: 'shared.info.status.s101.summary',
     },
   ],
   [
     102,
     {
       display: 'Processing',
-      summary: 'Interim WebDAV response — the server accepted the request but has not completed it yet.',
+      summaryKey: 'shared.info.status.s102.summary',
     },
   ],
   [
     103,
     {
       display: 'Early Hints',
-      summary: 'Interim response carrying headers (typically Link preloads) ahead of the final response.',
+      summaryKey: 'shared.info.status.s103.summary',
     },
   ],
-  [200, { display: 'OK', summary: 'The request succeeded and the response carries the result in its body.' }],
+  [
+    200,
+    {
+      display: 'OK',
+      summaryKey: 'shared.info.status.s200.summary',
+    },
+  ],
   [
     201,
     {
       display: 'Created',
-      summary: 'The request succeeded and a new resource was created.',
-      body: 'The Location response header usually points at the new resource.',
+      summaryKey: 'shared.info.status.s201.summary',
+      bodyKey: 'shared.info.status.s201.body',
     },
   ],
   [
     202,
     {
       display: 'Accepted',
-      summary: 'The request was accepted for processing, but processing has not completed.',
-      body: 'Common for async jobs — the result must be fetched later, often via a status URL in the body.',
+      summaryKey: 'shared.info.status.s202.summary',
+      bodyKey: 'shared.info.status.s202.body',
     },
   ],
   [
     203,
     {
       display: 'Non-Authoritative Information',
-      summary: 'The response succeeded but was modified by a transforming proxy between server and client.',
+      summaryKey: 'shared.info.status.s203.summary',
     },
   ],
   [
     204,
     {
       display: 'No Content',
-      summary: 'The request succeeded and there is deliberately no response body.',
-      body: 'An empty Body tab is expected here, not an error.',
+      summaryKey: 'shared.info.status.s204.summary',
+      bodyKey: 'shared.info.status.s204.body',
     },
   ],
   [
     205,
     {
       display: 'Reset Content',
-      summary: 'The request succeeded and the client should reset the view that sent it (e.g. clear the form).',
+      summaryKey: 'shared.info.status.s205.summary',
     },
   ],
   [
     206,
     {
       display: 'Partial Content',
-      summary: 'The server returned only the byte range asked for via the Range request header.',
-      body: 'Content-Range describes which slice of the full resource this body is.',
+      summaryKey: 'shared.info.status.s206.summary',
+      bodyKey: 'shared.info.status.s206.body',
     },
   ],
   [
     207,
     {
       display: 'Multi-Status',
-      summary: 'WebDAV batch response — the body carries a separate status for each sub-operation.',
+      summaryKey: 'shared.info.status.s207.summary',
     },
   ],
   [
     208,
     {
       display: 'Already Reported',
-      summary: 'WebDAV — this member was already listed earlier in the same multi-status response.',
+      summaryKey: 'shared.info.status.s208.summary',
     },
   ],
   [
     226,
     {
       display: 'IM Used',
-      summary: 'The response is a diff (instance manipulation) against a prior version, not the full resource.',
+      summaryKey: 'shared.info.status.s226.summary',
     },
   ],
   [
     300,
     {
       display: 'Multiple Choices',
-      summary: 'More than one representation is available and the server is not picking one.',
+      summaryKey: 'shared.info.status.s300.summary',
     },
   ],
   [
     301,
     {
       display: 'Moved Permanently',
-      summary: 'The resource moved permanently to the URL in the Location header.',
-      body: 'Clients and caches remember this; update the request URL to the new address.',
+      summaryKey: 'shared.info.status.s301.summary',
+      bodyKey: 'shared.info.status.s301.body',
     },
   ],
   [
     302,
     {
       display: 'Found',
-      summary: 'The resource is temporarily at the URL in the Location header.',
-      body: 'Browsers commonly rewrite the method to GET when following it — use 307 to preserve the method.',
+      summaryKey: 'shared.info.status.s302.summary',
+      bodyKey: 'shared.info.status.s302.body',
     },
   ],
   [
     303,
     {
       display: 'See Other',
-      summary: 'The result lives at the Location URL and should be fetched with GET.',
-      body: 'Typical after a POST, redirecting to the created or resulting page.',
+      summaryKey: 'shared.info.status.s303.summary',
+      bodyKey: 'shared.info.status.s303.body',
     },
   ],
   [
     304,
     {
       display: 'Not Modified',
-      summary: 'The cached copy is still valid — the server sent no body on purpose.',
-      body: 'Sent in reply to conditional requests (If-None-Match / If-Modified-Since).',
+      summaryKey: 'shared.info.status.s304.summary',
+      bodyKey: 'shared.info.status.s304.body',
     },
   ],
   [
     305,
     {
       display: 'Use Proxy',
-      summary: 'Deprecated — the resource must be accessed through the proxy in Location. Modern clients ignore it.',
+      summaryKey: 'shared.info.status.s305.summary',
     },
   ],
   [
     307,
     {
       display: 'Temporary Redirect',
-      summary: 'Temporarily at the Location URL; the method and body must be preserved when following.',
+      summaryKey: 'shared.info.status.s307.summary',
     },
   ],
   [
     308,
     {
       display: 'Permanent Redirect',
-      summary: 'Permanently at the Location URL; the method and body must be preserved when following.',
+      summaryKey: 'shared.info.status.s308.summary',
     },
   ],
   [
     400,
     {
       display: 'Bad Request',
-      summary: 'The server could not parse or accept the request as sent.',
-      body: 'Check the body syntax, query parameters, and required headers — the response body often names the offending field.',
+      summaryKey: 'shared.info.status.s400.summary',
+      bodyKey: 'shared.info.status.s400.body',
     },
   ],
   [
     401,
     {
       display: 'Unauthorized',
-      summary: 'The request lacks valid authentication credentials.',
-      body: 'The WWW-Authenticate response header names the expected scheme. Check the Authorization tab / token freshness.',
+      summaryKey: 'shared.info.status.s401.summary',
+      bodyKey: 'shared.info.status.s401.body',
     },
   ],
-  [402, { display: 'Payment Required', summary: 'Reserved code, used by some APIs for quota or billing limits.' }],
+  [
+    402,
+    {
+      display: 'Payment Required',
+      summaryKey: 'shared.info.status.s402.summary',
+    },
+  ],
   [
     403,
     {
       display: 'Forbidden',
-      summary: 'The server understood the request and the credentials, but refuses to allow it.',
-      body: 'Unlike 401, re-authenticating will not help — this identity lacks permission for this resource.',
+      summaryKey: 'shared.info.status.s403.summary',
+      bodyKey: 'shared.info.status.s403.body',
     },
   ],
   [
     404,
     {
       display: 'Not Found',
-      summary: 'No resource exists at this URL (or the server hides whether it exists).',
-      body: 'Check the path and any IDs in it; some APIs also return 404 instead of 403 to avoid leaking existence.',
+      summaryKey: 'shared.info.status.s404.summary',
+      bodyKey: 'shared.info.status.s404.body',
     },
   ],
   [
     405,
     {
       display: 'Method Not Allowed',
-      summary: 'The resource exists but not for this HTTP method.',
-      body: 'The Allow response header lists the methods this URL accepts.',
+      summaryKey: 'shared.info.status.s405.summary',
+      bodyKey: 'shared.info.status.s405.body',
     },
   ],
   [
     406,
     {
       display: 'Not Acceptable',
-      summary: 'The server cannot produce a representation matching the request Accept headers.',
+      summaryKey: 'shared.info.status.s406.summary',
     },
   ],
   [
     407,
     {
       display: 'Proxy Authentication Required',
-      summary: 'A proxy between you and the server requires credentials (Proxy-Authenticate names the scheme).',
+      summaryKey: 'shared.info.status.s407.summary',
     },
   ],
   [
     408,
     {
       display: 'Request Timeout',
-      summary: 'The server gave up waiting for the rest of the request and closed the exchange.',
+      summaryKey: 'shared.info.status.s408.summary',
     },
   ],
   [
     409,
     {
       display: 'Conflict',
-      summary: 'The request conflicts with the current state of the resource.',
-      body: 'Typical for concurrent edits or duplicate creates — re-read the resource and retry.',
+      summaryKey: 'shared.info.status.s409.summary',
+      bodyKey: 'shared.info.status.s409.body',
     },
   ],
-  [410, { display: 'Gone', summary: 'The resource existed but was intentionally and permanently removed.' }],
+  [
+    410,
+    {
+      display: 'Gone',
+      summaryKey: 'shared.info.status.s410.summary',
+    },
+  ],
   [
     411,
     {
       display: 'Length Required',
-      summary: 'The server requires a Content-Length header and refuses chunked or unsized bodies.',
+      summaryKey: 'shared.info.status.s411.summary',
     },
   ],
   [
     412,
     {
       display: 'Precondition Failed',
-      summary: 'A conditional header (If-Match, If-Unmodified-Since, …) did not hold, so the server refused to act.',
+      summaryKey: 'shared.info.status.s412.summary',
     },
   ],
-  [413, { display: 'Payload Too Large', summary: 'The request body exceeds what the server accepts.' }],
+  [
+    413,
+    {
+      display: 'Payload Too Large',
+      summaryKey: 'shared.info.status.s413.summary',
+    },
+  ],
   [
     414,
     {
       display: 'URI Too Long',
-      summary: "The request URL exceeds the server's limit — usually query-string data that belongs in a body.",
+      summaryKey: 'shared.info.status.s414.summary',
     },
   ],
   [
     415,
     {
       display: 'Unsupported Media Type',
-      summary: 'The server rejects the body format.',
-      body: 'Check the Content-Type request header against what the API expects.',
+      summaryKey: 'shared.info.status.s415.summary',
+      bodyKey: 'shared.info.status.s415.body',
     },
   ],
-  [416, { display: 'Range Not Satisfiable', summary: 'The Range request header asks for bytes outside the resource.' }],
+  [
+    416,
+    {
+      display: 'Range Not Satisfiable',
+      summaryKey: 'shared.info.status.s416.summary',
+    },
+  ],
   [
     417,
     {
       display: 'Expectation Failed',
-      summary: 'The server cannot meet the Expect request header (typically Expect: 100-continue).',
+      summaryKey: 'shared.info.status.s417.summary',
     },
   ],
-  [418, { display: "I'm a Teapot", summary: 'April-fools RFC code; some APIs use it as a playful refusal.' }],
+  [
+    418,
+    {
+      display: "I'm a Teapot",
+      summaryKey: 'shared.info.status.s418.summary',
+    },
+  ],
   [
     421,
     {
       display: 'Misdirected Request',
-      summary:
-        'The request reached a server that is not configured to answer for this authority (common with reused HTTP/2 connections).',
+      summaryKey: 'shared.info.status.s421.summary',
     },
   ],
   [
     422,
     {
       display: 'Unprocessable Entity',
-      summary: 'The body is syntactically valid but semantically wrong — validation failed.',
-      body: 'The response body usually lists per-field validation errors.',
+      summaryKey: 'shared.info.status.s422.summary',
+      bodyKey: 'shared.info.status.s422.body',
     },
   ],
-  [423, { display: 'Locked', summary: 'WebDAV — the resource is locked by another operation.' }],
+  [
+    423,
+    {
+      display: 'Locked',
+      summaryKey: 'shared.info.status.s423.summary',
+    },
+  ],
   [
     424,
     {
       display: 'Failed Dependency',
-      summary: 'WebDAV — this action failed because an earlier action it depended on failed.',
+      summaryKey: 'shared.info.status.s424.summary',
     },
   ],
   [
     425,
     {
       display: 'Too Early',
-      summary: 'The server refuses to process a request that might be replayed (early TLS data).',
+      summaryKey: 'shared.info.status.s425.summary',
     },
   ],
   [
     426,
     {
       display: 'Upgrade Required',
-      summary: 'The server insists on a different protocol — the Upgrade response header names it.',
+      summaryKey: 'shared.info.status.s426.summary',
     },
   ],
   [
     428,
     {
       display: 'Precondition Required',
-      summary: 'The server requires a conditional header (usually If-Match) to prevent lost updates.',
+      summaryKey: 'shared.info.status.s428.summary',
     },
   ],
   [
     429,
     {
       display: 'Too Many Requests',
-      summary: 'Rate limit hit — slow down.',
-      body: 'The Retry-After response header (when present) says how long to wait; many APIs also send RateLimit-* headers.',
+      summaryKey: 'shared.info.status.s429.summary',
+      bodyKey: 'shared.info.status.s429.body',
     },
   ],
   [
     431,
     {
       display: 'Request Header Fields Too Large',
-      summary:
-        "A request header (or all of them together) exceeds the server's size limit — often an oversized cookie.",
+      summaryKey: 'shared.info.status.s431.summary',
     },
   ],
   [
     451,
     {
       display: 'Unavailable For Legal Reasons',
-      summary: 'The server refuses access for legal reasons (censorship, court order, GDPR takedown).',
+      summaryKey: 'shared.info.status.s451.summary',
     },
   ],
   [
     500,
     {
       display: 'Internal Server Error',
-      summary: 'The server hit an unexpected condition — the failure is on the server side.',
-      body: 'Retrying may work if the fault is transient; otherwise the fix is in the server logs, not the request.',
+      summaryKey: 'shared.info.status.s500.summary',
+      bodyKey: 'shared.info.status.s500.body',
     },
   ],
   [
     501,
     {
       display: 'Not Implemented',
-      summary: 'The server does not support the functionality required — often an unrecognized method.',
+      summaryKey: 'shared.info.status.s501.summary',
     },
   ],
   [
     502,
     {
       display: 'Bad Gateway',
-      summary: 'A gateway or proxy got an invalid response from the upstream server.',
-      body: 'The origin behind the proxy is failing or unreachable — usually transient.',
+      summaryKey: 'shared.info.status.s502.summary',
+      bodyKey: 'shared.info.status.s502.body',
     },
   ],
   [
     503,
     {
       display: 'Service Unavailable',
-      summary: 'The server is temporarily unable to handle the request (overload or maintenance).',
-      body: 'Retry-After (when present) says when to try again.',
+      summaryKey: 'shared.info.status.s503.summary',
+      bodyKey: 'shared.info.status.s503.body',
     },
   ],
-  [504, { display: 'Gateway Timeout', summary: 'A gateway or proxy timed out waiting for the upstream server.' }],
+  [
+    504,
+    {
+      display: 'Gateway Timeout',
+      summaryKey: 'shared.info.status.s504.summary',
+    },
+  ],
   [
     505,
     {
       display: 'HTTP Version Not Supported',
-      summary: 'The server refuses the HTTP protocol version used in the request.',
+      summaryKey: 'shared.info.status.s505.summary',
     },
   ],
   [
     506,
     {
       display: 'Variant Also Negotiates',
-      summary: 'Server misconfiguration in content negotiation — the chosen variant negotiates itself.',
+      summaryKey: 'shared.info.status.s506.summary',
     },
   ],
-  [507, { display: 'Insufficient Storage', summary: 'WebDAV — the server cannot store what the request requires.' }],
+  [
+    507,
+    {
+      display: 'Insufficient Storage',
+      summaryKey: 'shared.info.status.s507.summary',
+    },
+  ],
   [
     508,
-    { display: 'Loop Detected', summary: 'WebDAV — the server found an infinite loop while processing the request.' },
+    {
+      display: 'Loop Detected',
+      summaryKey: 'shared.info.status.s508.summary',
+    },
   ],
-  [510, { display: 'Not Extended', summary: 'The request needs a further extension for the server to fulfill it.' }],
+  [
+    510,
+    {
+      display: 'Not Extended',
+      summaryKey: 'shared.info.status.s510.summary',
+    },
+  ],
   [
     511,
     {
       display: 'Network Authentication Required',
-      summary: 'The network (typically a captive portal) requires authentication before granting access.',
+      summaryKey: 'shared.info.status.s511.summary',
     },
   ],
 ]);
 
 interface StatusRange {
-  kicker: string;
-  fallbackSummary: string;
+  kickerKey: MessageKey;
+  fallbackSummaryKey: MessageKey;
 }
 
 function rangeFor(status: number): StatusRange {
   if (status >= 100 && status < 200)
     return {
-      kicker: '1xx Informational',
-      fallbackSummary: 'Interim response — the exchange is still in progress and a final status follows.',
+      kickerKey: 'shared.info.status.range1xx.kicker',
+      fallbackSummaryKey: 'shared.info.status.range1xx.fallback',
     };
   if (status >= 200 && status < 300)
-    return { kicker: '2xx Success', fallbackSummary: 'The request was received, understood, and accepted.' };
+    return {
+      kickerKey: 'shared.info.status.range2xx.kicker',
+      fallbackSummaryKey: 'shared.info.status.range2xx.fallback',
+    };
   if (status >= 300 && status < 400)
     return {
-      kicker: '3xx Redirection',
-      fallbackSummary: 'Further action is needed to complete the request — look at the Location response header.',
+      kickerKey: 'shared.info.status.range3xx.kicker',
+      fallbackSummaryKey: 'shared.info.status.range3xx.fallback',
     };
   if (status >= 400 && status < 500)
     return {
-      kicker: '4xx Client error',
-      fallbackSummary: 'The server rejected the request as sent — something in the request needs to change.',
+      kickerKey: 'shared.info.status.range4xx.kicker',
+      fallbackSummaryKey: 'shared.info.status.range4xx.fallback',
     };
   if (status >= 500 && status < 600)
     return {
-      kicker: '5xx Server error',
-      fallbackSummary: 'The server failed to fulfill an apparently valid request — the fault is on the server side.',
+      kickerKey: 'shared.info.status.range5xx.kicker',
+      fallbackSummaryKey: 'shared.info.status.range5xx.fallback',
     };
-  return { kicker: 'Non-standard', fallbackSummary: 'This code is outside the standard HTTP status ranges.' };
+  return {
+    kickerKey: 'shared.info.status.rangeOther.kicker',
+    fallbackSummaryKey: 'shared.info.status.rangeOther.fallback',
+  };
 }
 
 /** True when we have curated copy for this exact code. */
@@ -455,25 +525,26 @@ export function hasStatusCodeInfo(status: number): boolean {
  * `statusText` is what the server actually sent — shown when it
  * differs from the canonical reason phrase.
  */
-export function getStatusCodeInfoContent(status: number, statusText: string): InfoPopoverContent {
+export function getStatusCodeInfoContent(t: Translate, status: number, statusText: string): InfoPopoverContent {
   const range = rangeFor(status);
   const entry = STATUS_INFO.get(status);
   if (!entry) {
     return {
       title: `${status}${statusText ? ` ${statusText}` : ''}`,
-      kicker: `HTTP status · ${range.kicker}`,
-      summary: range.fallbackSummary,
-      description: 'This exact code is not documented in our registry — the range above is its standard meaning.',
+      kicker: t('shared.info.status.kicker', { range: t(range.kickerKey) }),
+      summary: t(range.fallbackSummaryKey),
+      description: t('shared.info.status.undocumented'),
     };
   }
   const serverPhraseDiffers = statusText !== '' && statusText.toLowerCase() !== entry.display.toLowerCase();
+  const body = entry.bodyKey === undefined ? undefined : t(entry.bodyKey);
   return {
     title: `${status} ${entry.display}`,
-    kicker: `HTTP status · ${range.kicker}`,
-    summary: entry.summary,
+    kicker: t('shared.info.status.kicker', { range: t(range.kickerKey) }),
+    summary: t(entry.summaryKey),
     description:
-      entry.body || serverPhraseDiffers
-        ? [entry.body, serverPhraseDiffers ? `The server sent the reason phrase "${statusText}".` : undefined]
+      body !== undefined || serverPhraseDiffers
+        ? [body, serverPhraseDiffers ? t('shared.info.status.serverPhrase', { statusText }) : undefined]
             .filter(Boolean)
             .join(' ')
         : undefined,

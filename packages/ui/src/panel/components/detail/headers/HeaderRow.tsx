@@ -1,4 +1,5 @@
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { getHeaderInfoContentForRow } from '@openheaders/ui/shared/info-popover/data/http-headers';
 import { useElementOverflow } from '@openheaders/ui/shared/hooks/dom/useElementOverflow';
@@ -76,7 +77,8 @@ function HeaderInfoTrigger({
   direction: 'request' | 'response';
   category: HeaderCategory;
 }) {
-  const content = getHeaderInfoContentForRow(name, direction, HEADER_CATEGORY_LABEL[category]);
+  const t = useT();
+  const content = getHeaderInfoContentForRow(t, name, direction, HEADER_CATEGORY_LABEL[category]);
   return <InfoTrigger content={content} className="dt-header-info-trigger" />;
 }
 

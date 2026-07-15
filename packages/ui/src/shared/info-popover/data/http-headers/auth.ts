@@ -12,8 +12,8 @@ export const AUTH_HEADERS: HeaderInfoEntries = [
       display: 'Authorization',
       direction: 'request',
       category: 'Auth',
-      summary: 'Credentials authenticating the client to the server.',
-      body: ['Format: `<scheme> <credentials>`. Common schemes: `Bearer <token>` (OAuth, JWT), `Basic <base64(user:pass)>`, `Digest`.'],
+      summaryKey: 'shared.info.header.authorization.summary',
+      bodyKeys: ['shared.info.header.authorization.body1'],
     },
   ],
   [
@@ -22,8 +22,8 @@ export const AUTH_HEADERS: HeaderInfoEntries = [
       display: 'Proxy-Authorization',
       direction: 'request',
       category: 'Auth',
-      summary: 'Credentials for an intervening proxy (not the origin server).',
-      body: ['Same syntax as `Authorization`, distinct in scope.'],
+      summaryKey: 'shared.info.header.proxyAuthorization.summary',
+      bodyKeys: ['shared.info.header.proxyAuthorization.body1'],
     },
   ],
   [
@@ -32,8 +32,8 @@ export const AUTH_HEADERS: HeaderInfoEntries = [
       display: 'WWW-Authenticate',
       direction: 'response',
       category: 'Auth',
-      summary: 'Server’s 401 challenge — tells the client which auth scheme to use.',
-      body: ['Sent with `401 Unauthorized`. Triggers the browser’s basic-auth dialog when the scheme is `Basic`.'],
+      summaryKey: 'shared.info.header.wwwAuthenticate.summary',
+      bodyKeys: ['shared.info.header.wwwAuthenticate.body1'],
     },
   ],
   [
@@ -42,7 +42,7 @@ export const AUTH_HEADERS: HeaderInfoEntries = [
       display: 'Proxy-Authenticate',
       direction: 'response',
       category: 'Auth',
-      summary: 'Proxy-equivalent of `WWW-Authenticate`, sent with `407 Proxy Authentication Required`.',
+      summaryKey: 'shared.info.header.proxyAuthenticate.summary',
     },
   ],
   [
@@ -51,7 +51,7 @@ export const AUTH_HEADERS: HeaderInfoEntries = [
       display: 'Authentication-Info',
       direction: 'response',
       category: 'Auth',
-      summary: 'Completes mutual authentication on success — Digest auth uses it to confirm the server too.',
+      summaryKey: 'shared.info.header.authenticationInfo.summary',
     },
   ],
 ];

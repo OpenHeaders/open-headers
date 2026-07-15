@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   getHeaderInfo,
   getHeaderInfoContent,
@@ -6,6 +7,8 @@ import {
 } from '@openheaders/ui/shared/info-popover/data/http-headers';
 import type { InfoPopoverSection } from '@openheaders/ui/shared/info-popover';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 describe('http-headers info registry', () => {
   it('covers a substantial set of common headers', () => {
@@ -20,7 +23,7 @@ describe('http-headers info registry', () => {
   });
 
   it('getHeaderInfoContent returns full popover content for known headers', () => {
-    const content = getHeaderInfoContent('Cache-Control');
+    const content = getHeaderInfoContent(t, 'Cache-Control');
     expect(content).not.toBeNull();
     if (!content) return;
     expect(content.title).toBe('Cache-Control');
@@ -33,10 +36,10 @@ describe('http-headers info registry', () => {
   });
 
   it('getHeaderInfoContent returns null for unknown headers', () => {
-    expect(getHeaderInfoContent('X-Made-Up')).toBeNull();
+    expect(getHeaderInfoContent(t, 'X-Made-Up')).toBeNull();
   });
 
-  it('every entry has a non-empty display, summary, and a known direction/category', () => {
+  it('every entry has a non-empty display, keyed summary, and a known direction/category', () => {
     const directions = new Set(['request', 'response', 'both']);
     const categories = new Set([
       'CORS',
@@ -65,7 +68,10 @@ describe('http-headers info registry', () => {
       expect(entry).not.toBeNull();
       if (!entry) continue;
       expect(entry.display.length).toBeGreaterThan(0);
-      expect(entry.summary.length).toBeGreaterThan(0);
+      // The summary is a catalog key — resolving it must yield prose,
+      // not the key echoed back (the runtime's miss fallback).
+      expect(t(entry.summaryKey)).not.toBe(entry.summaryKey);
+      expect(t(entry.summaryKey).length).toBeGreaterThan(0);
       expect(directions.has(entry.direction)).toBe(true);
       expect(categories.has(entry.category)).toBe(true);
     }

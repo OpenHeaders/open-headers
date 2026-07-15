@@ -12,8 +12,8 @@ export const TRACING_HEADERS: HeaderInfoEntries = [
       display: 'Server-Timing',
       direction: 'response',
       category: 'Tracing',
-      summary: 'Performance metrics the server attaches to the response.',
-      body: ['Surfaces in DevTools and `PerformanceServerTiming` JS API. Format: `<name>;dur=<ms>[;desc="..."]`, comma-separated.'],
+      summaryKey: 'shared.info.header.serverTiming.summary',
+      bodyKeys: ['shared.info.header.serverTiming.body1'],
     },
   ],
   [
@@ -22,8 +22,8 @@ export const TRACING_HEADERS: HeaderInfoEntries = [
       display: 'traceparent',
       direction: 'both',
       category: 'Tracing',
-      summary: 'W3C trace-context: identifies a span in a distributed trace.',
-      body: ['Format: `<version>-<trace-id>-<parent-id>-<flags>`. Carried across services so traces can be reassembled.'],
+      summaryKey: 'shared.info.header.traceparent.summary',
+      bodyKeys: ['shared.info.header.traceparent.body1'],
     },
   ],
   [
@@ -32,8 +32,8 @@ export const TRACING_HEADERS: HeaderInfoEntries = [
       display: 'tracestate',
       direction: 'both',
       category: 'Tracing',
-      summary: 'Vendor-specific trace-context companion to `traceparent`.',
-      body: ['Comma-separated `vendor=value` pairs. Each tracing vendor stores its own state here.'],
+      summaryKey: 'shared.info.header.tracestate.summary',
+      bodyKeys: ['shared.info.header.tracestate.body1'],
     },
   ],
   [
@@ -42,8 +42,8 @@ export const TRACING_HEADERS: HeaderInfoEntries = [
       display: 'X-Request-Id',
       direction: 'both',
       category: 'Tracing',
-      summary: 'Server-assigned identifier for this request — echoed in logs and across services.',
-      body: ['Non-standard but ubiquitous. Useful for correlating client behavior with server logs during debugging.'],
+      summaryKey: 'shared.info.header.xRequestId.summary',
+      bodyKeys: ['shared.info.header.xRequestId.body1'],
     },
   ],
   [
@@ -52,7 +52,7 @@ export const TRACING_HEADERS: HeaderInfoEntries = [
       display: 'X-Fastly-Request-Id',
       direction: 'response',
       category: 'Tracing',
-      summary: 'Fastly request identifier — correlate with Fastly logs / debugging.',
+      summaryKey: 'shared.info.header.xFastlyRequestId.summary',
     },
   ],
   [
@@ -61,10 +61,8 @@ export const TRACING_HEADERS: HeaderInfoEntries = [
       display: 'Reporting-Endpoints',
       direction: 'response',
       category: 'Tracing',
-      summary: 'Names destinations for browser-generated reports (CSP violations, deprecations, NEL, …).',
-      body: [
-        'Format: `name="https://reports.example.com", name2="https://..."`. Replaces the older `Report-To` header.',
-      ],
+      summaryKey: 'shared.info.header.reportingEndpoints.summary',
+      bodyKeys: ['shared.info.header.reportingEndpoints.body1'],
     },
   ],
   [
@@ -73,7 +71,7 @@ export const TRACING_HEADERS: HeaderInfoEntries = [
       display: 'Report-To',
       direction: 'response',
       category: 'Tracing',
-      summary: 'Older JSON-based reporting endpoint declaration — superseded by `Reporting-Endpoints`.',
+      summaryKey: 'shared.info.header.reportTo.summary',
     },
   ],
   [
@@ -82,8 +80,8 @@ export const TRACING_HEADERS: HeaderInfoEntries = [
       display: 'NEL',
       direction: 'response',
       category: 'Tracing',
-      summary: 'Network Error Logging policy — JSON config naming an endpoint to receive connection failures and protocol errors.',
-      body: ['The endpoint must already be registered via `Reporting-Endpoints` (or the older `Report-To`).'],
+      summaryKey: 'shared.info.header.nel.summary',
+      bodyKeys: ['shared.info.header.nel.body1'],
     },
   ],
   [
@@ -92,8 +90,8 @@ export const TRACING_HEADERS: HeaderInfoEntries = [
       display: 'CF-Ray',
       direction: 'response',
       category: 'Tracing',
-      summary: 'Cloudflare request identifier — used to correlate the request in Cloudflare logs.',
-      body: ['Format: `<request-id>-<colo-id>` where colo-id identifies the Cloudflare data center that served the request.'],
+      summaryKey: 'shared.info.header.cfRay.summary',
+      bodyKeys: ['shared.info.header.cfRay.body1'],
     },
   ],
 ];

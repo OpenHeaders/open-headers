@@ -12,8 +12,8 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'Sec-CH-UA',
       direction: 'request',
       category: 'Client Hints',
-      summary: 'Client Hint: the browser’s brand list.',
-      body: ['Replaces the freeform `User-Agent` for the parts servers should actually depend on.'],
+      summaryKey: 'shared.info.header.secChUa.summary',
+      bodyKeys: ['shared.info.header.secChUa.body1'],
     },
   ],
   [
@@ -22,7 +22,7 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'Sec-CH-UA-Mobile',
       direction: 'request',
       category: 'Client Hints',
-      summary: 'Client Hint: `?1` on mobile, `?0` on desktop.',
+      summaryKey: 'shared.info.header.secChUaMobile.summary',
     },
   ],
   [
@@ -31,7 +31,7 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'Sec-CH-UA-Platform',
       direction: 'request',
       category: 'Client Hints',
-      summary: 'Client Hint: the user’s OS (`"Windows"`, `"macOS"`, `"Linux"`, etc.).',
+      summaryKey: 'shared.info.header.secChUaPlatform.summary',
     },
   ],
   [
@@ -40,10 +40,8 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'User-Agent',
       direction: 'request',
       category: 'Client Hints',
-      summary: 'Legacy freeform string identifying the browser, OS, and engine.',
-      body: [
-        'Still sent by every request. The structured replacement is the `Sec-CH-UA-*` family — prefer those when servers care about browser identity.',
-      ],
+      summaryKey: 'shared.info.header.userAgent.summary',
+      bodyKeys: ['shared.info.header.userAgent.body1'],
     },
   ],
   [
@@ -52,8 +50,8 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'Accept-CH',
       direction: 'response',
       category: 'Client Hints',
-      summary: 'Lists which Client Hint headers the server wants on subsequent requests.',
-      body: ['Browsers only send hints the server has opted into here (except for the low-entropy defaults).'],
+      summaryKey: 'shared.info.header.acceptCh.summary',
+      bodyKeys: ['shared.info.header.acceptCh.body1'],
     },
   ],
   [
@@ -62,8 +60,8 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'Critical-CH',
       direction: 'response',
       category: 'Client Hints',
-      summary: 'Subset of `Accept-CH` the server considers critical — browsers will restart the request to include them.',
-      body: ['Use sparingly: every Critical-CH miss costs a round-trip.'],
+      summaryKey: 'shared.info.header.criticalCh.summary',
+      bodyKeys: ['shared.info.header.criticalCh.body1'],
     },
   ],
   [
@@ -72,8 +70,8 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'Save-Data',
       direction: 'request',
       category: 'Client Hints',
-      summary: '`on` when the user enabled a data-saver mode in their browser/OS.',
-      body: ['Use it to serve lower-bandwidth assets (lower image quality, defer below-the-fold work, etc.).'],
+      summaryKey: 'shared.info.header.saveData.summary',
+      bodyKeys: ['shared.info.header.saveData.body1'],
     },
   ],
   [
@@ -82,7 +80,7 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'Device-Memory',
       direction: 'request',
       category: 'Client Hints',
-      summary: 'Approximate device RAM in GiB, rounded to a small set of values (`0.25`, `0.5`, `1`, `2`, `4`, `8`).',
+      summaryKey: 'shared.info.header.deviceMemory.summary',
     },
   ],
   [
@@ -91,7 +89,7 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'Downlink',
       direction: 'request',
       category: 'Client Hints',
-      summary: 'Estimated downstream bandwidth in Mbps, rounded.',
+      summaryKey: 'shared.info.header.downlink.summary',
     },
   ],
   [
@@ -100,7 +98,7 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'ECT',
       direction: 'request',
       category: 'Client Hints',
-      summary: 'Effective Connection Type — `slow-2g`, `2g`, `3g`, or `4g`.',
+      summaryKey: 'shared.info.header.ect.summary',
     },
   ],
   [
@@ -109,7 +107,7 @@ export const CLIENT_HINTS_HEADERS: HeaderInfoEntries = [
       display: 'RTT',
       direction: 'request',
       category: 'Client Hints',
-      summary: 'Estimated round-trip time in milliseconds, rounded.',
+      summaryKey: 'shared.info.header.rtt.summary',
     },
   ],
 ];

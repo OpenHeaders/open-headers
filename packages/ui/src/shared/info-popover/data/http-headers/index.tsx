@@ -15,6 +15,8 @@
  * curated ones.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent, InfoPopoverSection } from '../../types';
 import { AUTH_HEADERS } from './auth';
 import { CACHING_HEADERS } from './caching';
@@ -53,10 +55,10 @@ const HEADER_INFO: ReadonlyMap<string, HeaderInfoEntry> = new Map<string, Header
   ...PROXY_HEADERS,
 ]);
 
-const DIRECTION_LABEL: Record<HeaderDirection, string> = {
-  request: 'Request header',
-  response: 'Response header',
-  both: 'Request / Response header',
+const DIRECTION_KEY: Record<HeaderDirection, MessageKey> = {
+  request: 'shared.info.header.direction.request',
+  response: 'shared.info.header.direction.response',
+  both: 'shared.info.header.direction.both',
 };
 
 /** True when we have a documented explanation for this header name. */
@@ -74,31 +76,31 @@ export function getHeaderInfo(name: string): HeaderInfoEntry | null {
  * `null` when the header isn't in the registry — most callers should
  * prefer `getHeaderInfoContentForRow` which always returns content.
  */
-export function getHeaderInfoContent(name: string): InfoPopoverContent | null {
+export function getHeaderInfoContent(t: Translate, name: string): InfoPopoverContent | null {
   const entry = HEADER_INFO.get(name.toLowerCase());
   if (!entry) return null;
   const sections: InfoPopoverSection[] = [];
   if (entry.directives && entry.directives.length > 0) {
     sections.push({
-      heading: 'Directives',
-      items: entry.directives.map((d) => ({ label: d.key, desc: d.desc })),
+      heading: t('shared.info.header.section.directives'),
+      items: entry.directives.map((d) => ({ label: d.key, desc: t(d.descKey) })),
     });
   }
   if (entry.commonValues && entry.commonValues.length > 0) {
     sections.push({
-      heading: 'Common values',
-      items: entry.commonValues.map((v) => ({ label: v.value, desc: v.desc })),
+      heading: t('shared.info.header.section.commonValues'),
+      items: entry.commonValues.map((v) => ({ label: v.value, desc: t(v.descKey) })),
     });
   }
   return {
     title: entry.display,
-    kicker: `${DIRECTION_LABEL[entry.direction]} · ${entry.category}`,
-    summary: entry.summary,
+    kicker: t('shared.info.header.kicker', { direction: t(DIRECTION_KEY[entry.direction]), category: entry.category }),
+    summary: t(entry.summaryKey),
     description:
-      entry.body && entry.body.length > 0
-        ? entry.body.map((p, i) => (
+      entry.bodyKeys && entry.bodyKeys.length > 0
+        ? entry.bodyKeys.map((k, i) => (
             <p key={`${entry.display}-p-${i}`} style={{ margin: i === 0 ? 0 : '4px 0 0' }}>
-              {p}
+              {t(k)}
             </p>
           ))
         : undefined,
@@ -121,19 +123,23 @@ export function headerInfoCount(): number {
  * is itself useful signal.
  */
 export function getHeaderInfoContentForRow(
+  t: Translate,
   name: string,
   direction: RowDirection,
   rowCategory: string,
 ): InfoPopoverContent {
-  const rich = getHeaderInfoContent(name);
+  const rich = getHeaderInfoContent(t, name);
   if (rich) return rich;
-  const directionLabel = direction === 'request' ? 'Request header' : 'Response header';
+  const directionLabel = t(DIRECTION_KEY[direction]);
   const isCustom = name.toLowerCase().startsWith('x-') || rowCategory.toLowerCase() === 'other';
   return {
     title: name,
-    kicker: isCustom ? `${directionLabel} · Custom or non-standard` : `${directionLabel} · ${rowCategory}`,
+    kicker: t('shared.info.header.kicker', {
+      direction: directionLabel,
+      category: isCustom ? t('shared.info.header.fallback.customCategory') : rowCategory,
+    }),
     summary: isCustom
-      ? 'This header is custom or non-standard — no documentation in our registry.'
-      : `${name} is not yet documented in our registry. The row classifies it as ${rowCategory}.`,
+      ? t('shared.info.header.fallback.customSummary')
+      : t('shared.info.header.fallback.unknownSummary', { name, category: rowCategory }),
   };
 }

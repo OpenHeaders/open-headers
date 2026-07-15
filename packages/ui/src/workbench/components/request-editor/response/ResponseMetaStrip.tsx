@@ -489,7 +489,7 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
     response.timing && response.timing.transferSize > 0 ? response.timing.transferSize : response.bodyBytes;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-      <InfoPopover content={getStatusCodeInfoContent(response.status, response.statusText)} trigger="hover">
+      <InfoPopover content={getStatusCodeInfoContent(t, response.status, response.statusText)} trigger="hover">
         <Tag
           color="default"
           // Styled status chip with no semantic role/name — the one

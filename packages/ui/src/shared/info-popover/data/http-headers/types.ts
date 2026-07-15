@@ -9,6 +9,8 @@
  * the master `HEADER_INFO` map.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
+
 export type HeaderDirection = 'request' | 'response' | 'both';
 
 export type HeaderCategory =
@@ -32,10 +34,10 @@ export interface HeaderInfoEntry {
   display: string;
   direction: HeaderDirection;
   category: HeaderCategory;
-  summary: string;
-  body?: ReadonlyArray<string>;
-  directives?: ReadonlyArray<{ key: string; desc: string }>;
-  commonValues?: ReadonlyArray<{ value: string; desc: string }>;
+  summaryKey: MessageKey;
+  bodyKeys?: ReadonlyArray<MessageKey>;
+  directives?: ReadonlyArray<{ key: string; descKey: MessageKey }>;
+  commonValues?: ReadonlyArray<{ value: string; descKey: MessageKey }>;
 }
 
 /** Per-category entries: lowercase name → entry. */

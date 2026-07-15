@@ -3,18 +3,22 @@
  * tab's per-attribute popovers. Same in-app-docs discipline as the
  * http-headers and http-status corpora: `getCookieAttributeInfoContent`
  * always returns content — curated attributes get specific copy,
- * anything else an honest fallback.
+ * anything else an honest fallback. Prose lives in the i18n catalog
+ * (`shared.info.cookie.*`); attribute names are wire vocabulary and
+ * stay raw.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '../../types';
 
 interface CookieAttributeEntry {
   /** Canonical spelling, shown regardless of the server's casing. */
   display: string;
   /** One-sentence meaning. */
-  summary: string;
+  summaryKey: MessageKey;
   /** Optional extra guidance. */
-  body?: string;
+  bodyKey?: MessageKey;
 }
 
 const ATTRIBUTE_INFO: ReadonlyMap<string, CookieAttributeEntry> = new Map<string, CookieAttributeEntry>([
@@ -22,89 +26,88 @@ const ATTRIBUTE_INFO: ReadonlyMap<string, CookieAttributeEntry> = new Map<string
     'domain',
     {
       display: 'Domain',
-      summary: 'The host the cookie is sent to — including subdomains when set.',
-      body: 'Without Domain, the cookie is scoped to exactly the responding host, excluding subdomains.',
+      summaryKey: 'shared.info.cookie.domain.summary',
+      bodyKey: 'shared.info.cookie.domain.body',
     },
   ],
   [
     'path',
     {
       display: 'Path',
-      summary: 'The URL path prefix that must be present for the browser to send the cookie.',
+      summaryKey: 'shared.info.cookie.path.summary',
     },
   ],
   [
     'expires',
     {
       display: 'Expires',
-      summary: 'Absolute expiry date — the cookie persists until this moment.',
-      body: 'Without Expires or Max-Age the cookie is a session cookie, discarded when the browser session ends.',
+      summaryKey: 'shared.info.cookie.expires.summary',
+      bodyKey: 'shared.info.cookie.expires.body',
     },
   ],
   [
     'max-age',
     {
       display: 'Max-Age',
-      summary: 'Lifetime in seconds from receipt; takes precedence over Expires when both are present.',
-      body: 'Zero or negative expires the cookie immediately — the standard way to delete one.',
+      summaryKey: 'shared.info.cookie.maxAge.summary',
+      bodyKey: 'shared.info.cookie.maxAge.body',
     },
   ],
   [
     'secure',
     {
       display: 'Secure',
-      summary: 'The cookie is only sent over HTTPS connections.',
-      body: 'Required for SameSite=None cookies — browsers reject cross-site cookies without it.',
+      summaryKey: 'shared.info.cookie.secure.summary',
+      bodyKey: 'shared.info.cookie.secure.body',
     },
   ],
   [
     'httponly',
     {
       display: 'HttpOnly',
-      summary: 'The cookie is invisible to page JavaScript (document.cookie) — sent on requests only.',
-      body: 'Standard defense against session-token theft via script injection.',
+      summaryKey: 'shared.info.cookie.httponly.summary',
+      bodyKey: 'shared.info.cookie.httponly.body',
     },
   ],
   [
     'samesite',
     {
       display: 'SameSite',
-      summary: 'Controls whether the cookie rides cross-site requests: Strict, Lax, or None.',
-      body: 'Strict: same-site only. Lax (the default): plus top-level navigations. None: everywhere, but requires Secure.',
+      summaryKey: 'shared.info.cookie.samesite.summary',
+      bodyKey: 'shared.info.cookie.samesite.body',
     },
   ],
   [
     'partitioned',
     {
       display: 'Partitioned',
-      summary: 'Stores the cookie per top-level site (CHIPS) — a third-party cookie that cannot track across sites.',
+      summaryKey: 'shared.info.cookie.partitioned.summary',
     },
   ],
   [
     'priority',
     {
       display: 'Priority',
-      summary: 'Chromium-specific eviction hint (Low / Medium / High) for when the cookie jar is full.',
+      summaryKey: 'shared.info.cookie.priority.summary',
     },
   ],
 ]);
 
-export function getCookieAttributeInfoContent(name: string): InfoPopoverContent {
+export function getCookieAttributeInfoContent(t: Translate, name: string): InfoPopoverContent {
   const entry = ATTRIBUTE_INFO.get(name.trim().toLowerCase());
   if (!entry) {
     return {
       title: name,
-      kicker: 'Set-Cookie attribute',
-      summary: 'This attribute is not documented in our registry.',
-      description:
-        'It may be a vendor-specific or experimental Set-Cookie extension; browsers ignore attributes they do not recognize.',
+      kicker: t('shared.info.cookie.kicker'),
+      summary: t('shared.info.cookie.fallbackSummary'),
+      description: t('shared.info.cookie.fallbackDescription'),
     };
   }
   return {
     title: entry.display,
-    kicker: 'Set-Cookie attribute',
-    summary: entry.summary,
-    ...(entry.body !== undefined ? { description: entry.body } : {}),
+    kicker: t('shared.info.cookie.kicker'),
+    summary: t(entry.summaryKey),
+    ...(entry.bodyKey !== undefined ? { description: t(entry.bodyKey) } : {}),
   };
 }
 
