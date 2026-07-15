@@ -14,6 +14,7 @@ import {
   buildClientCredentialsTokenBody,
   buildDeviceAuthorizationBody,
   buildDeviceCodeTokenBody,
+  buildPasswordCredentialsTokenBody,
   buildRefreshTokenBody,
   computeCodeChallenge,
   findOAuth2Preset,
@@ -24,6 +25,7 @@ import {
   type OAuth2TokenBundle,
   parseTokenResponse,
   secondsUntilExpiry,
+  usesPkce,
 } from '../../src/oauth';
 import type { OAuth2Auth } from '../../src/types/request';
 
@@ -136,6 +138,18 @@ describe('buildAuthorizationUrl', () => {
     expect(url).toContain('response_type=code');
   });
 
+  it('omits the PKCE pair when no challenge is passed (plain authorization-code)', () => {
+    const url = buildAuthorizationUrl({
+      config: makeConfig({ grantType: 'authorization-code' }),
+      redirectUri: 'https://x.chromiumapp.org/',
+      state: 's',
+    });
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get('response_type')).toBe('code');
+    expect(parsed.searchParams.has('code_challenge')).toBe(false);
+    expect(parsed.searchParams.has('code_challenge_method')).toBe(false);
+  });
+
   it('throws when the flow needs an authorization endpoint but none is set', () => {
     expect(() =>
       buildAuthorizationUrl({
@@ -177,6 +191,17 @@ describe('buildAuthorizationCodeTokenBody', () => {
     expect(body.get('client_secret')).toBe('shhh');
   });
 
+  it('omits code_verifier when none is passed (plain authorization-code)', () => {
+    const body = buildAuthorizationCodeTokenBody({
+      config: makeConfig({ grantType: 'authorization-code', clientSecret: 'shhh' }),
+      code: 'auth-code-xyz',
+      redirectUri: 'https://x.chromiumapp.org/',
+    });
+    expect(body.get('grant_type')).toBe('authorization_code');
+    expect(body.has('code_verifier')).toBe(false);
+    expect(body.get('client_secret')).toBe('shhh');
+  });
+
   it('threads extraTokenParams', () => {
     const body = buildAuthorizationCodeTokenBody({
       config: makeConfig({
@@ -214,6 +239,65 @@ describe('buildClientCredentialsTokenBody', () => {
       makeConfig({ flow: 'client-credentials', clientSecret: 's', scopes: [] }),
     );
     expect(body.has('scope')).toBe(false);
+  });
+});
+
+describe('usesPkce', () => {
+  it('is true by default and for the explicit PKCE grant type', () => {
+    expect(usesPkce(makeConfig())).toBe(true);
+    expect(usesPkce(makeConfig({ grantType: 'authorization-code-pkce' }))).toBe(true);
+  });
+
+  it('is false for the plain authorization-code grant type', () => {
+    expect(usesPkce(makeConfig({ grantType: 'authorization-code' }))).toBe(false);
+  });
+});
+
+describe('buildPasswordCredentialsTokenBody', () => {
+  function makePasswordConfig(overrides: Partial<OAuth2Auth> = {}): OAuth2Auth {
+    return makeConfig({
+      flow: 'password-credentials',
+      authorizationEndpoint: undefined,
+      username: 'ops@openheaders.io',
+      password: 'hunter2',
+      ...overrides,
+    });
+  }
+
+  it('emits grant_type=password with username + password + client_id', () => {
+    const body = buildPasswordCredentialsTokenBody(makePasswordConfig());
+    expect(body.get('grant_type')).toBe('password');
+    expect(body.get('username')).toBe('ops@openheaders.io');
+    expect(body.get('password')).toBe('hunter2');
+    expect(body.get('client_id')).toBe('client-123');
+    expect(body.has('client_secret')).toBe(false);
+    expect(body.get('scope')).toBe('read write');
+  });
+
+  it('includes client_secret when the config carries one', () => {
+    const body = buildPasswordCredentialsTokenBody(makePasswordConfig({ clientSecret: 'shhh' }));
+    expect(body.get('client_secret')).toBe('shhh');
+  });
+
+  it('drops client credentials from the body under basic-header auth', () => {
+    const body = buildPasswordCredentialsTokenBody(
+      makePasswordConfig({ clientSecret: 'shhh', clientAuthentication: 'basic-header' }),
+    );
+    expect(body.has('client_id')).toBe(false);
+    expect(body.has('client_secret')).toBe(false);
+  });
+
+  it('omits scope when scopes array is empty and threads extraTokenParams', () => {
+    const body = buildPasswordCredentialsTokenBody(
+      makePasswordConfig({ scopes: [], extraTokenParams: [{ uid: 'exttok001', key: 'audience', value: 'api' }] }),
+    );
+    expect(body.has('scope')).toBe(false);
+    expect(body.get('audience')).toBe('api');
+  });
+
+  it('throws when username or password is missing', () => {
+    expect(() => buildPasswordCredentialsTokenBody(makePasswordConfig({ username: undefined }))).toThrow(/username/);
+    expect(() => buildPasswordCredentialsTokenBody(makePasswordConfig({ password: undefined }))).toThrow(/password/);
   });
 });
 

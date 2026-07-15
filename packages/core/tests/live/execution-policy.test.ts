@@ -206,6 +206,15 @@ describe('deriveExecutionPolicy — OAuth flows', () => {
     expect(result.policy).toBe('exclusive');
     expect(result.reasons).toEqual([{ kind: 'rotating-oauth', credentialRef: 'cred-dev', flow: 'device-code' }]);
   });
+
+  it('leans exclusive for password-credentials (unknown rotation)', () => {
+    const req = makeRequest({ auth: oauthAuth('password-credentials', 'cred-ropc') });
+    const result = deriveExecutionPolicy(input({ requests: [req] }));
+    expect(result.policy).toBe('exclusive');
+    expect(result.reasons).toEqual([
+      { kind: 'rotating-oauth', credentialRef: 'cred-ropc', flow: 'password-credentials' },
+    ]);
+  });
 });
 
 // ── Opt-in ─────────────────────────────────────────────────────────

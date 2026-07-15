@@ -230,10 +230,24 @@ export const CredentialsModeSchema = v.picklist(['omit', 'include']);
  *   token endpoint with client_id + client_secret. No user prompt.
  * - `device-code` — for CLI parity / embedded surfaces; poll the
  *   token endpoint with the device_code until authorization completes.
+ * - `password-credentials` — RFC 6749 §4.3 resource-owner password;
+ *   POST direct to the token endpoint with username + password (+
+ *   client credentials). No browser leg. Deprecated by OAuth 2.1 but
+ *   still the only path some legacy IdPs offer.
  * - `refresh-token` — not user-selected; the token store refreshes
  *   silently via this flow before expiry (see §20 refresh machinery).
+ *
+ * Plain (non-PKCE) authorization-code is NOT a separate flow: it rides
+ * `authorization-code-pkce` with `grantType: 'authorization-code'`,
+ * which suppresses the PKCE parameters on the wire (see
+ * {@link OAuth2UiGrantTypeSchema} + `usesPkce` in `core/oauth`).
  */
-export const OAuth2FlowSchema = v.picklist(['authorization-code-pkce', 'client-credentials', 'device-code']);
+export const OAuth2FlowSchema = v.picklist([
+  'authorization-code-pkce',
+  'client-credentials',
+  'device-code',
+  'password-credentials',
+]);
 
 /**
  * UI-level grant-type choice. Independent of `flow` (the runtime wire
@@ -317,6 +331,15 @@ export const OAuth2AuthSchema = v.object({
   clientId: v.pipe(v.string(), v.minLength(1)),
   /** Optional — required for client-credentials; absent for public PKCE clients. */
   clientSecret: v.optional(v.string()),
+  /**
+   * Resource-owner credentials (password-credentials flow only).
+   * Plain strings like `clientSecret` — templates welcome;
+   * `{{vault.password}}` is the expected idiom for the password.
+   * Completeness is an exchange-time gate, not a schema constraint,
+   * so partial configs stay saveable.
+   */
+  username: v.optional(v.string()),
+  password: v.optional(v.string()),
   /** Space-joined on the wire; stored as an array for per-scope UI editing. */
   scopes: v.array(v.string()),
   /**

@@ -17,7 +17,7 @@
  *     within its window.
  *   - **Refresh-capable OAuth.** A step authed by an OAuth2 credential
  *     whose flow mints a refresh token (`authorization-code-pkce`,
- *     `device-code`). Rotation behaviour is *unknown* from config, and a
+ *     `device-code`, `password-credentials`). Rotation behaviour is *unknown* from config, and a
  *     missed rotating-refresh is a silent session revoke — so we lean
  *     exclusive (high recall over precision). `client-credentials` mints
  *     no refresh token (N valid tokens, never a revoke) ⇒ idempotent.
@@ -46,7 +46,7 @@ import type { VariableScopeSnapshot } from './variable-scan';
 export type ExecutionPolicy = 'idempotent' | 'exclusive';
 
 /** OAuth2 flows that mint a refresh token and so may rotate it. */
-export type RefreshableOAuthFlow = Extract<OAuth2Flow, 'authorization-code-pkce' | 'device-code'>;
+export type RefreshableOAuthFlow = Extract<OAuth2Flow, 'authorization-code-pkce' | 'device-code' | 'password-credentials'>;
 
 /**
  * Why a workflow was classified exclusive. Surfaced read-only in the
@@ -222,7 +222,7 @@ function collectTotpReasons(
 function collectOAuthReason(request: Request, out: ExclusivityReason[]): void {
   const auth = request.auth;
   if (auth.type !== 'oauth2') return;
-  if (auth.flow === 'authorization-code-pkce' || auth.flow === 'device-code') {
+  if (auth.flow === 'authorization-code-pkce' || auth.flow === 'device-code' || auth.flow === 'password-credentials') {
     out.push({ kind: 'rotating-oauth', credentialRef: auth.credentialRef, flow: auth.flow });
   }
 }

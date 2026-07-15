@@ -221,6 +221,18 @@ export function findOAuth2Preset(id: string | undefined): OAuth2ProviderPreset |
 // ── Authorization URL construction ────────────────────────────────
 
 /**
+ * Does this config's authorization-code exchange carry PKCE params?
+ * The wire flow is `authorization-code-pkce` either way — the plain
+ * RFC 6749 §4.1 grant is the same code-for-token exchange minus the
+ * `code_challenge` / `code_verifier` pair, persisted as
+ * `grantType: 'authorization-code'` (the UI-level choice the schema
+ * reserves for exactly this collapse).
+ */
+export function usesPkce(config: OAuth2Auth): boolean {
+  return config.grantType !== 'authorization-code';
+}
+
+/**
  * Build the authorization endpoint URL the SW will open with
  * `chrome.identity.launchWebAuthFlow`. Caller supplies the runtime
  * values (PKCE challenge, state, redirect URI) since those live
@@ -232,7 +244,9 @@ export function findOAuth2Preset(id: string | undefined): OAuth2ProviderPreset |
  *   - redirect_uri
  *   - scope (space-joined)
  *   - state (caller-supplied nonce; verified against the redirect)
- *   - code_challenge + code_challenge_method=S256 (PKCE)
+ *   - code_challenge + code_challenge_method=S256 (PKCE; omitted when
+ *     the caller passes no challenge — the plain authorization-code
+ *     grant)
  *
  * Plus any `extraAuthParams` from the config.
  */
@@ -240,7 +254,7 @@ export function buildAuthorizationUrl(input: {
   config: OAuth2Auth;
   redirectUri: string;
   state: string;
-  codeChallenge: string;
+  codeChallenge?: string;
   presetExtras?: ReadonlyArray<{ key: string; value: string }>;
 }): string {
   const { config, redirectUri, state, codeChallenge, presetExtras } = input;
@@ -253,8 +267,10 @@ export function buildAuthorizationUrl(input: {
   params.set('redirect_uri', redirectUri);
   params.set('scope', config.scopes.join(' '));
   params.set('state', state);
-  params.set('code_challenge', codeChallenge);
-  params.set('code_challenge_method', 'S256');
+  if (codeChallenge !== undefined) {
+    params.set('code_challenge', codeChallenge);
+    params.set('code_challenge_method', 'S256');
+  }
   for (const { key, value } of presetExtras ?? []) {
     params.set(key, value);
   }
@@ -272,8 +288,9 @@ export function buildAuthorizationUrl(input: {
 /**
  * Build the form-encoded body for the token-endpoint exchange after a
  * successful authorization-code redirect. RFC 6749 §4.1.3 plus PKCE
- * §4.5. Most providers reject the request if `code_verifier` is
- * missing, even for public clients.
+ * §4.5. Most PKCE providers reject the request if `code_verifier` is
+ * missing, even for public clients; the plain authorization-code
+ * grant passes no verifier at all.
  *
  * When `clientAuthentication === 'basic-header'`, the `client_id` +
  * `client_secret` are dropped from the body so the caller can attach
@@ -283,7 +300,7 @@ export function buildAuthorizationUrl(input: {
 export function buildAuthorizationCodeTokenBody(input: {
   config: OAuth2Auth;
   code: string;
-  codeVerifier: string;
+  codeVerifier?: string;
   redirectUri: string;
 }): URLSearchParams {
   const { config, code, codeVerifier, redirectUri } = input;
@@ -291,7 +308,7 @@ export function buildAuthorizationCodeTokenBody(input: {
   body.set('grant_type', 'authorization_code');
   body.set('code', code);
   body.set('redirect_uri', redirectUri);
-  body.set('code_verifier', codeVerifier);
+  if (codeVerifier !== undefined) body.set('code_verifier', codeVerifier);
   if (config.clientAuthentication !== 'basic-header') {
     body.set('client_id', config.clientId);
     if (config.clientSecret) body.set('client_secret', config.clientSecret);
@@ -315,6 +332,30 @@ export function buildClientCredentialsTokenBody(config: OAuth2Auth): URLSearchPa
   if (config.clientAuthentication !== 'basic-header') {
     body.set('client_id', config.clientId);
     body.set('client_secret', config.clientSecret);
+  }
+  if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
+  for (const { key, value } of config.extraTokenParams ?? []) {
+    body.set(key, value);
+  }
+  return body;
+}
+
+/**
+ * Resource-owner password token POST — RFC 6749 §4.3.2. Same
+ * `clientAuthentication` switch as the other bodies; `client_secret`
+ * stays optional (public clients are legal for this grant).
+ */
+export function buildPasswordCredentialsTokenBody(config: OAuth2Auth): URLSearchParams {
+  if (!config.username || !config.password) {
+    throw new Error('password-credentials flow requires username and password');
+  }
+  const body = new URLSearchParams();
+  body.set('grant_type', 'password');
+  body.set('username', config.username);
+  body.set('password', config.password);
+  if (config.clientAuthentication !== 'basic-header') {
+    body.set('client_id', config.clientId);
+    if (config.clientSecret) body.set('client_secret', config.clientSecret);
   }
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
   for (const { key, value } of config.extraTokenParams ?? []) {
