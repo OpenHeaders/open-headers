@@ -54,6 +54,13 @@
  *     stored names are reported on the response for snapshot
  *     attribution. Without the key, sends attach nothing and discard
  *     `Set-Cookie` — the historical behavior.
+ *   - **GET/HEAD with a body goes on the wire.** WHATWG fetch refuses
+ *     to construct such a request (the browser transport omits the body
+ *     and stamps `requestBodyOmitted`), but HTTP itself allows it and
+ *     real APIs use it (search endpoints taking a JSON query on GET).
+ *     Hops matching that shape drop to undici's `request()` — same
+ *     dispatcher, deadline, and error classification — and the response
+ *     adapts back onto the fetch surface (see {@link requestHop}).
  *   - **Hand-rolled redirect follow.** Every fetch goes out with
  *     `redirect: 'manual'` — server-side manual mode returns the REAL
  *     3xx with readable headers (no browser-style opaque filtering), so
@@ -66,7 +73,9 @@
  */
 
 import { createHash } from 'node:crypto';
+import { STATUS_CODES } from 'node:http';
 import { isIP, type LookupFunction } from 'node:net';
+import { Readable } from 'node:stream';
 import { createSecureContext, type SecureVersion } from 'node:tls';
 import { materializeBody } from '@openheaders/oracle/live/request-exec/body-decode';
 import {
@@ -74,10 +83,20 @@ import {
   type TransportBody,
   TransportError,
   type TransportHeader,
+  type TransportMultipartPart,
   type TransportRequest,
   type TransportResponse,
 } from '@openheaders/oracle/live/request-exec/transport';
-import { Agent, type Dispatcher, FormData, getSetCookies, ProxyAgent, fetch as undiciFetch } from 'undici';
+import {
+  Agent,
+  type Dispatcher,
+  FormData,
+  getSetCookies,
+  Headers,
+  ProxyAgent,
+  fetch as undiciFetch,
+  request as undiciRequest,
+} from 'undici';
 import { type CookieJar, cookieJarFor, type SetCookieInput } from './cookie-jar';
 
 /** The fetch pipeline behind the transport — undici's fetch in
@@ -85,12 +104,35 @@ import { type CookieJar, cookieJarFor, type SetCookieInput } from './cookie-jar'
  *  the dispatcher) without stubbing globals. */
 export type NodeFetchFn = typeof undiciFetch;
 
+/** The slice of an undici `request()` result the transport consumes —
+ *  the seam is typed to it so tests can hand back plain readables. */
+export interface NodeRequestResponse {
+  statusCode: number;
+  headers: Record<string, string | string[] | undefined>;
+  body: Readable;
+}
+
+/** The spec-free pipeline behind GET/HEAD-with-body hops — undici's
+ *  `request()` in production; injectable like {@link NodeFetchFn} and
+ *  typed to exactly what the transport sends and reads. */
+export type NodeRequestFn = (
+  url: string,
+  options: {
+    method: 'GET' | 'HEAD';
+    headers: Headers;
+    body?: string | FormData;
+    dispatcher?: Dispatcher;
+    signal?: AbortSignal;
+  },
+) => Promise<NodeRequestResponse>;
+
 /** undici's RequestInit — carries the `dispatcher` slot the DOM-shaped
  *  init type doesn't know about. */
 type NodeRequestInit = NonNullable<Parameters<NodeFetchFn>[1]>;
 
 export interface NodeRequestTransportOptions {
   fetchFn?: NodeFetchFn;
+  requestFn?: NodeRequestFn;
 }
 
 /** Seam value (`'1.2'`) → Node `tls.connect` version token (`'TLSv1.2'`). */
@@ -356,6 +398,27 @@ interface HopState {
   body: TransportBody;
 }
 
+/** What one wire round-trip yields to the redirect loop and the capped
+ *  body read — the slice of the fetch `Response` surface they actually
+ *  touch. A fetch hop returns its `Response` as-is; a `request()` hop
+ *  (GET/HEAD with a body) adapts onto the same shape. */
+type FetchResponse = Awaited<ReturnType<NodeFetchFn>>;
+interface HopResponse {
+  status: number;
+  statusText: string;
+  url: string;
+  headers: FetchResponse['headers'];
+  body: FetchResponse['body'];
+}
+
+/** True when the hop's method forbids a fetch() body — the WHATWG rule
+ *  for GET/HEAD — while the hop still carries one. Those hops take the
+ *  `request()` wire path, which enforces no such rule. */
+function bodylessMethodWithBody(hop: HopState): boolean {
+  const method = hop.method.toUpperCase();
+  return (method === 'GET' || method === 'HEAD') && hop.body.kind !== 'none';
+}
+
 /** Abort deadline over a whole send — see {@link startDeadline}. */
 type Deadline = ReturnType<typeof startDeadline>;
 
@@ -406,6 +469,7 @@ function captureJarCookies(jar: CookieJar, url: string, headers: Headers): strin
 
 export function createNodeRequestTransport(options: NodeRequestTransportOptions = {}): RequestTransport {
   const fetchFn = options.fetchFn ?? undiciFetch;
+  const requestFn = options.requestFn ?? undiciRequest;
   return {
     async send(request: TransportRequest): Promise<TransportResponse> {
       // A configured client certificate whose vault entry didn't
@@ -484,13 +548,13 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
               cookiesCaptured: [],
             };
           }
-          const response = await fetchHop(fetchFn, request, hop, deadline, dispatcher);
+          const response = await wireHop(fetchFn, requestFn, request, hop, deadline, dispatcher);
           if (jar !== undefined && jarActivity !== undefined) {
             jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
           }
           return await finalizeResponse(response, request, hop.url, deadline, false, jarActivity);
         }
-        return await followRedirectChain(fetchFn, request, deadline, dispatcher, jar);
+        return await followRedirectChain(fetchFn, requestFn, request, deadline, dispatcher, jar);
       } finally {
         deadline?.clear();
       }
@@ -509,6 +573,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
  */
 async function followRedirectChain(
   fetchFn: NodeFetchFn,
+  requestFn: NodeRequestFn,
   request: TransportRequest,
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
@@ -532,7 +597,7 @@ async function followRedirectChain(
       sendHop = { ...hop, headers };
       if (redirects === 0 && attached !== undefined) jarActivity = { ...jarActivity, cookieHeaderAttached: attached };
     }
-    const response = await fetchHop(fetchFn, request, sendHop, deadline, dispatcher);
+    const response = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher);
     if (jar !== undefined && jarActivity !== undefined) {
       jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
     }
@@ -595,7 +660,22 @@ function nextHop(
   return { hop: { url: nextUrl.toString(), method, headers, body }, authorizationForwarded };
 }
 
-/** One wire round-trip for a hop. Always `redirect: 'manual'` — the
+/** One wire round-trip for a hop, on whichever pipeline can carry it:
+ *  fetch for every ordinary hop, `request()` for a GET/HEAD hop with a
+ *  body (fetch refuses to construct those). */
+async function wireHop(
+  fetchFn: NodeFetchFn,
+  requestFn: NodeRequestFn,
+  request: TransportRequest,
+  hop: HopState,
+  deadline: Deadline,
+  dispatcher: Dispatcher | undefined,
+): Promise<HopResponse> {
+  if (bodylessMethodWithBody(hop)) return requestHop(requestFn, request, hop, deadline, dispatcher);
+  return fetchHop(fetchFn, request, hop, deadline, dispatcher);
+}
+
+/** One wire round-trip over fetch. Always `redirect: 'manual'` — the
  *  chain is chased (or surfaced) by the caller, never by undici. */
 async function fetchHop(
   fetchFn: NodeFetchFn,
@@ -603,7 +683,7 @@ async function fetchHop(
   hop: HopState,
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
-): Promise<Awaited<ReturnType<NodeFetchFn>>> {
+): Promise<HopResponse> {
   const init: NodeRequestInit = {
     method: hop.method,
     headers: buildHeaders(hop.headers),
@@ -625,6 +705,65 @@ async function fetchHop(
   }
 }
 
+/**
+ * One wire round-trip for a GET/HEAD hop that carries a body. WHATWG
+ * fetch refuses to construct such a request (spec rule), but HTTP
+ * itself allows it and real APIs use it — undici's `request()` puts
+ * the body on the wire, riding the same dispatcher, deadline, and
+ * error classification as the fetch path. `request()` never follows
+ * redirects on its own, matching the fetch path's `redirect: 'manual'`.
+ */
+async function requestHop(
+  requestFn: NodeRequestFn,
+  request: TransportRequest,
+  hop: HopState,
+  deadline: Deadline,
+  dispatcher: Dispatcher | undefined,
+): Promise<HopResponse> {
+  const { body, contentType } = buildRequestBody(hop.body);
+  const headers = buildHeaders(hop.headers);
+  if (contentType !== undefined && !headers.has('content-type')) headers.set('content-type', contentType);
+  try {
+    const response = await requestFn(hop.url, {
+      method: hop.method.toUpperCase() === 'HEAD' ? 'HEAD' : 'GET',
+      headers,
+      ...(body !== undefined ? { body } : {}),
+      ...(dispatcher !== undefined ? { dispatcher } : {}),
+      ...(deadline ? { signal: deadline.signal } : {}),
+    });
+    return adaptRequestResponse(hop.url, response);
+  } catch (err) {
+    if (deadline?.expired()) throw timeoutError(request.timeoutMs);
+    throw new TransportError(classifyFetchFailure(hop.url, err, request));
+  }
+}
+
+/**
+ * Map an undici `request()` result onto the hop surface: headers
+ * re-minted as fetch `Headers` (`set-cookie` arrays preserved
+ * entry-wise for the jar), the body's Node stream bridged to a web
+ * stream for the capped read, and the reason phrase from the canonical
+ * status table (`request()` does not surface one).
+ */
+function adaptRequestResponse(url: string, response: NodeRequestResponse): HopResponse {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(response.headers)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const v of value) headers.append(key, v);
+    } else {
+      headers.append(key, value);
+    }
+  }
+  return {
+    status: response.statusCode,
+    statusText: STATUS_CODES[response.statusCode] ?? '',
+    url,
+    headers,
+    body: Readable.toWeb(response.body),
+  };
+}
+
 /** Whether this request carries any TLS version / cipher tuning — the
  *  error classifier only points at those settings when they exist. */
 function tlsTuned(request: TransportRequest): boolean {
@@ -637,7 +776,7 @@ function tlsTuned(request: TransportRequest): boolean {
  *  seam's `TransportResponse`. Only ever called on the LAST hop —
  *  intermediate 3xx bodies are canceled, not read. */
 async function finalizeResponse(
-  response: Awaited<ReturnType<NodeFetchFn>>,
+  response: HopResponse,
   request: TransportRequest,
   finalUrl: string,
   deadline: Deadline,
@@ -704,7 +843,7 @@ function timeoutError(timeoutMs: number | undefined): TransportError {
  * cap plus one in-flight chunk, then `cancel()` the stream.
  */
 async function readCappedBody(
-  response: Awaited<ReturnType<NodeFetchFn>>,
+  response: HopResponse,
   maxBodyBytes: number,
 ): Promise<{ body: string; bodyEncoding?: 'base64'; bodyBytes: number; bodyTruncated: boolean }> {
   const stream = response.body;
@@ -781,24 +920,54 @@ function buildBody(body: TransportBody): NodeRequestInit['body'] {
       for (const f of body.fields) params.append(f.name, f.value);
       return params;
     }
-    case 'multipart': {
-      const form = new FormData();
-      for (const part of body.parts) {
-        if (part.kind === 'text') {
-          form.append(part.name, part.value);
-          continue;
-        }
-        // Retype the bytes with the part's MIME so the multipart boundary
-        // carries the right content-type rather than octet-stream.
-        const blob = new Blob([part.bytes], { type: part.mimeType });
-        form.append(part.name, blob, part.filename);
-      }
-      return form;
-    }
+    case 'multipart':
+      return buildFormData(body.parts);
     default: {
       const _exhaustive: never = body;
       void _exhaustive;
       return undefined;
+    }
+  }
+}
+
+function buildFormData(parts: ReadonlyArray<TransportMultipartPart>): FormData {
+  const form = new FormData();
+  for (const part of parts) {
+    if (part.kind === 'text') {
+      form.append(part.name, part.value);
+      continue;
+    }
+    // Retype the bytes with the part's MIME so the multipart boundary
+    // carries the right content-type rather than octet-stream.
+    const blob = new Blob([part.bytes], { type: part.mimeType });
+    form.append(part.name, blob, part.filename);
+  }
+  return form;
+}
+
+/**
+ * Materialize the data-only body for undici `request()`, whose body
+ * slot takes text / bytes / FormData but no URLSearchParams —
+ * urlencoded serializes here, alongside the Content-Type fetch would
+ * have let the object set (a user-set header wins at the call site).
+ */
+function buildRequestBody(body: TransportBody): { body?: string | FormData; contentType?: string } {
+  switch (body.kind) {
+    case 'none':
+      return {};
+    case 'raw':
+      return { body: body.content };
+    case 'urlencoded': {
+      const params = new URLSearchParams();
+      for (const f of body.fields) params.append(f.name, f.value);
+      return { body: params.toString(), contentType: 'application/x-www-form-urlencoded;charset=UTF-8' };
+    }
+    case 'multipart':
+      return { body: buildFormData(body.parts) };
+    default: {
+      const _exhaustive: never = body;
+      void _exhaustive;
+      return {};
     }
   }
 }
