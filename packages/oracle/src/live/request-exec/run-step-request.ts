@@ -156,6 +156,7 @@ export async function runStepRequest(
         url: wireResult.url,
         headers: wireResult.headers,
         body: wireResult.body,
+        ...(wireResult.bodyEncoding ? { bodyEncoding: wireResult.bodyEncoding } : {}),
         durationMs: wireResult.durationMs,
       },
       { strict: true },

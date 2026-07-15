@@ -124,6 +124,8 @@ function buildFetchAdapter(workspaceId: string, workflowUid: string, environment
         url: snapshot.url,
         headers: snapshot.headers,
         body: snapshot.body,
+        ...(snapshot.bodyEncoding ? { bodyEncoding: snapshot.bodyEncoding } : {}),
+        bodyBytes: snapshot.bodyBytes,
       };
     },
   };

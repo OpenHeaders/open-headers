@@ -72,7 +72,13 @@ interface OhResponse {
   readonly statusText: string;
   readonly url: string;
   readonly headers: ReadonlyArray<OhHeader>;
+  /** Response body. UTF-8 text verbatim; a binary payload arrives
+   *  base64-encoded with \`bodyEncoding\` set — lossless either way. */
   readonly body: string;
+  /** \`'base64'\` when \`body\` carries base64-encoded bytes (the payload
+   *  is not UTF-8 text). Absent = text. Check before \`JSON.parse\`;
+   *  decode with \`atob(oh.response.body)\` when you want the bytes. */
+  readonly bodyEncoding?: 'base64';
   readonly durationMs: number;
 }
 
@@ -131,7 +137,11 @@ interface OhAdHocResponse {
   statusText: string;
   url: string;
   headers: Array<OhHeader>;
+  /** UTF-8 text verbatim, or base64 when \`bodyEncoding\` is set. */
   body: string;
+  /** \`'base64'\` when \`body\` carries base64-encoded bytes (the payload
+   *  is not UTF-8 text). Absent = text. */
+  bodyEncoding?: 'base64';
   durationMs: number;
 }
 

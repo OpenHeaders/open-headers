@@ -116,6 +116,7 @@ export async function runInteractiveSend(
         url: wireResult.url,
         headers: wireResult.headers,
         body: wireResult.body,
+        ...(wireResult.bodyEncoding ? { bodyEncoding: wireResult.bodyEncoding } : {}),
         durationMs: wireResult.durationMs,
       },
       { strict: false },

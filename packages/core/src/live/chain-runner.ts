@@ -277,10 +277,12 @@ export async function runChain(args: {
     const response = attempt.response;
     stepAttempts.set(step.id, attempt.attempts);
 
-    // Record byte count — platform-agnostic (TextEncoder is on every
-    // supported runtime). Approximate for multi-byte UTF-8 in the
-    // body, which matches the extension's `MAX_BODY_BYTES` semantics.
-    stepResponseBytes.set(step.id, new TextEncoder().encode(response.body).byteLength);
+    // Record byte count — the adapter's wire-exact `bodyBytes` when it
+    // knows it (a base64 body re-measured through TextEncoder would
+    // inflate ~4/3). Fallback stays platform-agnostic (TextEncoder is
+    // on every supported runtime), approximate for multi-byte UTF-8,
+    // which matches the extension's `MAX_BODY_BYTES` semantics.
+    stepResponseBytes.set(step.id, response.bodyBytes ?? new TextEncoder().encode(response.body).byteLength);
     stepStatuses.set(step.id, response.status);
 
     // Apply this step's captures in declaration order. Any failure

@@ -108,10 +108,19 @@ describe('buildChainFetchAdapter', () => {
       url: 'https://api.openheaders.io/auth',
       headers: [{ key: 'content-type', value: 'application/json' }],
       body: '{"access_token":"tok"}',
+      bodyBytes: 22,
     });
     const [req, opts] = runStepRequestMock.mock.calls[0];
     expect(req).toEqual(makeRequest());
     expect(opts).toMatchObject({ workspaceId: 'ws-1', environmentId: 'env-prod', stepCaptures, transport });
+  });
+
+  it('carries the binary-body contract onto the StepResponse (bodyEncoding + wire bodyBytes)', async () => {
+    getRequestInWorkspaceMock.mockReturnValue(makeRequest());
+    runStepRequestMock.mockResolvedValue(makeSnapshot({ body: 'iVBORw0KGgo=', bodyEncoding: 'base64', bodyBytes: 8 }));
+    const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport });
+    const res = await adapter.executeStep(makeStep(), new Map(), ctx);
+    expect(res).toMatchObject({ body: 'iVBORw0KGgo=', bodyEncoding: 'base64', bodyBytes: 8 });
   });
 
   it('wraps the step fetch in the per-origin rate limiter keyed on the request URL', async () => {

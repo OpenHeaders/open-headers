@@ -121,6 +121,32 @@ describe('runChain — happy path', () => {
     if (outcome.ok) expect(outcome.stepResponseBytes.get('only')).toBe(3);
   });
 
+  it('prefers the adapter-provided wire byte count over re-encoding the body', async () => {
+    // A binary step body is the base64 carrier — re-encoding it would
+    // report ~4/3 of the true wire size. The adapter knows the wire count.
+    const wf = workflow([singleStep('only', 'reqonly01', [['v', { kind: 'whole-body' }]])]);
+    const adapter: FetchAdapter = {
+      async executeStep() {
+        return {
+          status: 200,
+          statusText: 'OK',
+          url: '',
+          headers: [],
+          body: 'iVBORw0KGgo=',
+          bodyEncoding: 'base64' as const,
+          bodyBytes: 8,
+        };
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.stepResponseBytes.get('only')).toBe(8);
+  });
+
   it('uses the injected clock for completedAt', async () => {
     const wf = workflow([singleStep('only', 'reqonly01', [])]);
     const adapter: FetchAdapter = {

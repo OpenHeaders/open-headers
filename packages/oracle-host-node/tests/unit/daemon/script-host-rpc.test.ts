@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   getTokenBundle: vi.fn(async (_ref: string, _wsId?: string): Promise<unknown> => null),
   getRefreshConfig: vi.fn(async (_ref: string, _wsId?: string): Promise<unknown> => null),
   putTokenBundle: vi.fn(async (): Promise<void> => {}),
+  executeRequestRpc: vi.fn(async (_input: unknown): Promise<unknown> => ({ success: false, error: 'not under test' })),
 }));
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
@@ -47,7 +48,7 @@ vi.mock('@openheaders/oracle/sync/service', () => ({
   nextSwMutatorContext: () => null,
 }));
 vi.mock('../../../src/daemon/execute-request-rpc', () => ({
-  handleExecuteRequestRpc: async () => ({ success: false, error: 'not under test' }),
+  handleExecuteRequestRpc: (input: unknown) => h.executeRequestRpc(input),
 }));
 
 import { __resetRateLimiterForTests } from '@openheaders/oracle/live/request-exec/rate-limiter';
@@ -87,6 +88,7 @@ beforeEach(() => {
   h.vault.mockReturnValue({ schemaVersion: 5, secrets: [] });
   h.getTokenBundle.mockResolvedValue(null);
   h.getRefreshConfig.mockResolvedValue(null);
+  h.executeRequestRpc.mockResolvedValue({ success: false, error: 'not under test' });
   fetchMock.mockResolvedValue(new Response(JSON.stringify({ access_token: 'at-fresh' }), { status: 200 }));
 });
 
@@ -131,5 +133,64 @@ describe('handleScriptHostRequest — vault.get', () => {
 
   it('answers null for an unknown ref', async () => {
     await expect(handleScriptHostRequest(vaultGet('missing'))).resolves.toMatchObject({ ok: true, value: null });
+  });
+});
+
+describe('handleScriptHostRequest — sendRequest', () => {
+  function sendRequest(): ScriptHostRequest {
+    return {
+      op: 'sendRequest',
+      executionId: 'e1',
+      rpcId: 'r1',
+      request: {
+        method: 'GET',
+        url: 'https://api.openheaders.io/logo',
+        headers: [],
+        params: [],
+        body: { type: 'none' },
+      },
+    } as ScriptHostRequest;
+  }
+
+  it('carries a binary body to the script marked bodyEncoding: base64', async () => {
+    h.executeRequestRpc.mockResolvedValue({
+      success: true,
+      snapshot: {
+        status: 200,
+        statusText: 'OK',
+        url: 'https://api.openheaders.io/logo',
+        headers: [{ key: 'content-type', value: 'image/png' }],
+        body: 'iVBORw0KGgo=',
+        bodyEncoding: 'base64',
+        bodyTruncated: false,
+        bodyBytes: 8,
+        durationMs: 5,
+        error: null,
+        scripts: null,
+      },
+    });
+    const reply = await handleScriptHostRequest(sendRequest());
+    expect(reply).toMatchObject({ ok: true, value: { body: 'iVBORw0KGgo=', bodyEncoding: 'base64' } });
+  });
+
+  it('leaves a text body unmarked', async () => {
+    h.executeRequestRpc.mockResolvedValue({
+      success: true,
+      snapshot: {
+        status: 200,
+        statusText: 'OK',
+        url: 'https://api.openheaders.io/ping',
+        headers: [],
+        body: '{"ok":true}',
+        bodyTruncated: false,
+        bodyBytes: 11,
+        durationMs: 5,
+        error: null,
+        scripts: null,
+      },
+    });
+    const reply = await handleScriptHostRequest(sendRequest());
+    expect(reply.ok).toBe(true);
+    if (reply.ok) expect((reply.value as { bodyEncoding?: string }).bodyEncoding).toBeUndefined();
   });
 });

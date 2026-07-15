@@ -227,6 +227,42 @@ describe('single-step workflow', () => {
     });
   });
 
+  it('carries the binary-body contract into the runner: whole-body captures base64, wire bytes recorded', async () => {
+    getRequestMock.mockReturnValue(makeRequest());
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot('iVBORw0KGgo=', { bodyEncoding: 'base64', bodyBytes: 8 }));
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow({
+        steps: [makeStep({ captures: [{ name: 'blob', extractor: { kind: 'whole-body' } }] })],
+      }),
+      environmentId: null,
+    });
+
+    expect(putWorkflowRunCacheMock).toHaveBeenCalledTimes(1);
+    const [input] = putWorkflowRunCacheMock.mock.calls[0];
+    expect(input.stepCaptures).toEqual({ login: { blob: 'iVBORw0KGgo=' } });
+    // Wire-exact count from the executor, not the base64 carrier's length.
+    expect(input.stepResponseBytes.login).toBe(8);
+  });
+
+  it('a json-path capture over a binary body fails the run with the binary cause', async () => {
+    getRequestMock.mockReturnValue(makeRequest());
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot('iVBORw0KGgo=', { bodyEncoding: 'base64', bodyBytes: 8 }));
+
+    await expect(
+      adapterModule.liveChainAdapter.refreshWorkflow({
+        workspaceId: 'ws-1',
+        workflow: makeWorkflow(),
+        environmentId: null,
+      }),
+    ).rejects.toThrow(/binary/);
+    expect(putWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(recordRefreshErrorMock).toHaveBeenCalledTimes(1);
+    const [errorInput] = recordRefreshErrorMock.mock.calls[0];
+    expect(errorInput.extractorOk).toBe(false);
+  });
+
   it('stamps workflowUid+stepId on the executor call (bypass header source)', async () => {
     getRequestMock.mockReturnValue(makeRequest());
     executeForLiveChainMock.mockResolvedValue(makeSnapshot('"ok"'));

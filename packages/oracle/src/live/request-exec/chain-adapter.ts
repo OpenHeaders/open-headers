@@ -88,6 +88,8 @@ export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): Fetch
         url: snapshot.url,
         headers: snapshot.headers,
         body: snapshot.body,
+        ...(snapshot.bodyEncoding ? { bodyEncoding: snapshot.bodyEncoding } : {}),
+        bodyBytes: snapshot.bodyBytes,
       };
     },
   };

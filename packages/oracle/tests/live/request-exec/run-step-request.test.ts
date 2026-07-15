@@ -535,6 +535,37 @@ describe('runStepRequest — step script hooks', () => {
     expect(snap.scripts?.postResponse?.assertions).toEqual([{ name: 'status is 200', passed: true }]);
   });
 
+  it('a binary wire body reaches the post-response script marked bodyEncoding: base64', async () => {
+    const { runner, inputs } = captureRunner({});
+    const binaryTransport: RequestTransport = {
+      async send(req): Promise<TransportResponse> {
+        return {
+          status: 200,
+          statusText: 'OK',
+          url: req.url,
+          headers: [{ key: 'content-type', value: 'image/png' }],
+          body: 'iVBORw0KGgo=',
+          bodyEncoding: 'base64',
+          bodyTruncated: false,
+          bodyBytes: 8,
+        };
+      },
+    };
+    const snap = await runStepRequest(scripted(), { ...opts(binaryTransport), scriptRunner: runner });
+    expect(snap.error).toBeNull();
+    const post = inputs.find((i) => i.kind === 'post-response');
+    expect(post?.response?.body).toBe('iVBORw0KGgo=');
+    expect(post?.response?.bodyEncoding).toBe('base64');
+  });
+
+  it('a text wire body reaches the post-response script with no bodyEncoding marker', async () => {
+    const { runner, inputs } = captureRunner({});
+    const { transport } = captureTransport();
+    await runStepRequest(scripted(), { ...opts(transport), scriptRunner: runner });
+    const post = inputs.find((i) => i.kind === 'post-response');
+    expect(post?.response?.bodyEncoding).toBeUndefined();
+  });
+
   it('skips the post-response hook when the wire fetch failed', async () => {
     const { runner, inputs } = captureRunner({});
     const failing: RequestTransport = {

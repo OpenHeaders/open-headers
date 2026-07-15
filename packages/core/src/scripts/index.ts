@@ -57,7 +57,14 @@ export interface ResponseSnapshot {
   statusText: string;
   url: string;
   headers: Array<{ key: string; value: string }>;
+  /** Response body. UTF-8 text verbatim; a binary payload arrives
+   *  base64-encoded with `bodyEncoding` set — lossless either way. */
   body: string;
+  /** Present (`'base64'`) when `body` carries base64-encoded wire bytes
+   *  because the payload is not valid UTF-8 text. Absent = text.
+   *  Scripts branch on this before parsing (a base64 `body` is never
+   *  JSON) or decode it themselves (`atob`) when they want the bytes. */
+  bodyEncoding?: 'base64';
   durationMs: number;
 }
 

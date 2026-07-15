@@ -166,6 +166,42 @@ describe('applyExtractor — body-regex', () => {
   });
 });
 
+describe('applyExtractor — binary body (bodyEncoding: base64)', () => {
+  // A PNG header carried the executor's lossless way: base64 + marker.
+  const binary = makeResponse({
+    body: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ',
+    bodyEncoding: 'base64',
+    headers: [{ key: 'Content-Type', value: 'image/png' }],
+  });
+
+  it('json-path refuses with unsupported-shape naming the real cause', () => {
+    const ex: Extractor = { kind: 'json-path', path: '$.x' };
+    const r = applyExtractor(ex, binary);
+    expect(r).toMatchObject({ ok: false, kind: 'unsupported-shape' });
+    if (!r.ok) expect(r.message).toContain('binary');
+  });
+
+  it('body-regex refuses instead of matching base64 noise', () => {
+    const ex: Extractor = { kind: 'body-regex', pattern: '[A-Za-z0-9+/=]+' };
+    const r = applyExtractor(ex, binary);
+    expect(r).toMatchObject({ ok: false, kind: 'unsupported-shape' });
+    if (!r.ok) expect(r.message).toContain('binary');
+  });
+
+  it('whole-body captures the base64 carrier verbatim', () => {
+    const ex: Extractor = { kind: 'whole-body' };
+    expect(applyExtractor(ex, binary)).toEqual({ ok: true, value: binary.body });
+  });
+
+  it('header + status-code stay unaffected', () => {
+    expect(applyExtractor({ kind: 'header', name: 'content-type' }, binary)).toEqual({
+      ok: true,
+      value: 'image/png',
+    });
+    expect(applyExtractor({ kind: 'status-code' }, binary)).toEqual({ ok: true, value: '200' });
+  });
+});
+
 describe('applyExtractor — whole-body + status-code', () => {
   it('whole-body returns the raw text body', () => {
     const ex: Extractor = { kind: 'whole-body' };

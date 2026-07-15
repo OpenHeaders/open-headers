@@ -29,9 +29,20 @@ export interface StepResponse {
   statusText: string;
   url: string;
   headers: readonly StepResponseHeader[];
-  /** Decoded text body. Binary responses round-trip via their source
-   *  encoding — the `whole-body` extractor treats this verbatim. */
+  /** Response body. UTF-8 text verbatim; a binary payload arrives
+   *  base64-encoded with `bodyEncoding` set — the executor's lossless
+   *  string carrier. The `whole-body` extractor treats this verbatim. */
   body: string;
+  /** Present (`'base64'`) when `body` carries base64-encoded wire bytes
+   *  because the payload is not valid UTF-8 text. Absent = text.
+   *  Attribution on the body — extractors that only make sense over
+   *  text (`json-path`, `body-regex`) refuse binary bodies outright
+   *  instead of chewing base64. */
+  bodyEncoding?: 'base64';
+  /** Wire byte count from the executor, when the adapter knows it.
+   *  Preferred over re-encoding `body` — a base64 body re-measures
+   *  ~4/3 of the true size. */
+  bodyBytes?: number;
 }
 
 // ── Result shape ──────────────────────────────────────────────────
@@ -51,16 +62,33 @@ export type ExtractorResult = { ok: true; value: string } | { ok: false; kind: E
 export function applyExtractor(extractor: Extractor, response: StepResponse): ExtractorResult {
   switch (extractor.kind) {
     case 'json-path':
+      // A binary body can't be JSON — fail with the real cause instead
+      // of the misleading "not valid JSON" a base64 parse would produce.
+      if (response.bodyEncoding === 'base64') return binaryBodyFailure('JSON path');
       return extractJsonPath(extractor.path, response.body);
     case 'header':
       return extractHeader(extractor.name, response.headers);
     case 'body-regex':
+      // Matching over the base64 carrier is never what the pattern was
+      // written against — refuse rather than silently match noise.
+      if (response.bodyEncoding === 'base64') return binaryBodyFailure('Body regex');
       return extractBodyRegex(extractor.pattern, extractor.group ?? 0, response.body);
     case 'whole-body':
+      // Verbatim — for a binary response that is the base64 carrier,
+      // the only lossless string form (usable as-is in data URIs or
+      // JSON payloads downstream).
       return { ok: true, value: response.body };
     case 'status-code':
       return { ok: true, value: String(response.status) };
   }
+}
+
+function binaryBodyFailure(what: string): ExtractorResult {
+  return {
+    ok: false,
+    kind: 'unsupported-shape',
+    message: `Response body is binary (not UTF-8 text) — ${what} extraction needs a text body. Use whole-body to capture it base64-encoded, or header / status-code extractors.`,
+  };
 }
 
 // ── json-path (minimal implementation) ────────────────────────────

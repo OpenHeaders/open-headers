@@ -205,6 +205,7 @@ async function dispatchAdHocRequest(snapshot: RequestSnapshot): Promise<Response
     url: result.snapshot.url,
     headers: result.snapshot.headers,
     body: result.snapshot.body,
+    ...(result.snapshot.bodyEncoding ? { bodyEncoding: result.snapshot.bodyEncoding } : {}),
     durationMs: result.snapshot.durationMs,
   };
 }
