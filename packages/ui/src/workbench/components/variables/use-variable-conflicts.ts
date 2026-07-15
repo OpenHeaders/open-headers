@@ -9,14 +9,8 @@
  */
 
 import type { Variable } from '@openheaders/core/types';
-import {
-  type EntityConflictsApi,
-  useEntityConflicts,
-} from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
-import {
-  type VariableEntity,
-  variableConflictAdapter,
-} from './variable-conflict-adapter';
+import { type EntityConflictsApi, useEntityConflicts } from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
+import { type VariableEntity, variableConflictAdapter } from './variable-conflict-adapter';
 
 export interface UseVariableConflictsArgs<E extends VariableEntity> {
   liveEntity: E | null | undefined;

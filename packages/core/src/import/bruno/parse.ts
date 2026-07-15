@@ -41,7 +41,11 @@ export function isBrunoImportPath(path: string): boolean {
  */
 export function stripBrunoRootPrefix<T extends { path: string }>(files: T[]): T[] {
   if (files.length === 0) return files;
-  const segmented = files.map((f) => normalizePath(f.path).split('/').filter((s) => s.length > 0));
+  const segmented = files.map((f) =>
+    normalizePath(f.path)
+      .split('/')
+      .filter((s) => s.length > 0),
+  );
   const head = segmented[0]?.[0];
   if (!head || head === 'environments') return files;
   if (!segmented.every((s) => s.length >= 2 && s[0] === head)) return files;
