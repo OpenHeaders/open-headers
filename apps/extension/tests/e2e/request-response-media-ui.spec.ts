@@ -34,6 +34,8 @@ const PROBE_REQUESTS = [
   'ansi-log',
   'json-seq',
   'tar',
+  'cbor',
+  'msgpack',
   'media',
   'latin1',
 ] as const;
@@ -222,6 +224,38 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     const hex = await workbench.responseHexText();
     expect(hex).toContain('ustar');
     await expect(workbench.responseHexMagic('TAR header')).toBeVisible();
+  });
+
+  test('CBOR defaults to Hex and decodes into the JSON tree Preview', async () => {
+    await sendProbe('cbor');
+    // Binary-like: Hex is the base view; the schema-less decode rides
+    // the Preview toggle, exactly the image/PDF pattern.
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Hex$/);
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    await workbench.responsePreviewToggle().click();
+    const tree = workbench.responseJsonPreview();
+    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    const text = await tree.innerText();
+    // int64 past double precision displays exactly (F3 law) …
+    expect(text).toContain('9007199254740993');
+    expect(text).toContain('18446744073709551616');
+    // … and non-JSON values render in diagnostic notation.
+    expect(text).toContain("h'00FF10'");
+    expect(text).toContain('1(1720000000)');
+    expect(text).toContain('undefined');
+  });
+
+  test('MessagePack defaults to Hex and decodes into the JSON tree Preview', async () => {
+    await sendProbe('msgpack');
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Hex$/);
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    await workbench.responsePreviewToggle().click();
+    const tree = workbench.responseJsonPreview();
+    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    const text = await tree.innerText();
+    expect(text).toContain('9007199254740993');
+    expect(text).toContain("h'00FF10'");
+    expect(text).toContain("ext(42, h'DEADBEEF')");
   });
 
   test('WAV opens on the media Preview with the byte views behind it', async () => {

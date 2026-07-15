@@ -54,6 +54,7 @@ import {
 } from './lossless-json';
 import { detectMagicSignatures } from './magic-signatures';
 import { ansiRunStyle, buildAnsiPalette, hasAnsiEscapes, parseAnsiBody, stripAnsiEscapes } from './response-ansi';
+import { binaryDecodeKind, decodeBinaryPreview } from './response-binary-decode';
 import './response-body.css';
 import {
   buildHexDump,
@@ -142,6 +143,9 @@ function PickerLabel({ icon, text }: { icon: string; text: string }) {
  *  text-free view), text on Pretty. */
 function initialMode(response: ExecutedRequestSnapshot): ViewMode {
   if (mediaPreviewKind(response.headers) !== null) return 'preview';
+  // CBOR/MessagePack bodies are binary-like whatever their bytes decode
+  // as — Hex is the base view; the decoded tree is a Preview on top.
+  if (binaryDecodeKind(response.headers) !== null) return 'hex';
   return response.bodyEncoding === 'base64' ? 'hex' : 'pretty';
 }
 
@@ -174,10 +178,20 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const isBinary = response.bodyEncoding === 'base64';
   const mediaKind = mediaPreviewKind(response.headers);
   const isPdf = isPdfResponse(response.headers);
+  // CBOR/MessagePack decode to a tree-previewable value — hand-rolled,
+  // memoized per body, decoded once up front (whether the Preview is
+  // offered at all depends on the decode succeeding). `null` when the
+  // bytes don't decode: no preview, no notice — the byte views stand.
+  const decodeKind = binaryDecodeKind(response.headers);
+  const decodedBinary = useMemo(
+    () => (decodeKind ? decodeBinaryPreview(decodeKind, snapshotBodyBytes(response)) : null),
+    [decodeKind, response],
+  );
   // Binary-LIKE drives the view set: a PDF keeps the Raw/Hex/Base64
   // picker even when its bytes happen to decode as text (all-ASCII
-  // PDFs exist; the document is still not a text body).
-  const binaryView = isBinary || isPdf;
+  // PDFs exist; the document is still not a text body) — CBOR and
+  // MessagePack bodies likewise.
+  const binaryView = isBinary || isPdf || decodeKind !== null;
   // Content-Type detection first; a plain-text body whose leading lines
   // fit the exposition grammar DEFAULTS to the Prometheus view (bare
   // text/plain /metrics endpoints) — a manual override always wins.
@@ -249,20 +263,23 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
 
   // Media previews come from the Content-Type (they name a RENDERER,
   // not the body's textness) and sit above the binary gate so a raster
-  // image still previews; html/json previews need parseable text.
+  // image still previews; a decoded CBOR/MessagePack body rides the
+  // JSON tree the same way; html/json previews need parseable text.
   const previewKind: 'pdf' | 'image' | 'media' | 'html' | 'json' | null = isPdf
     ? 'pdf'
     : mediaKind === 'image'
       ? 'image'
       : mediaKind === 'audio' || mediaKind === 'video'
         ? 'media'
-        : isBinary
-          ? null
-          : language === 'html'
-            ? 'html'
-            : parsedJson !== undefined
-              ? 'json'
-              : null;
+        : decodedBinary
+          ? 'json'
+          : isBinary
+            ? null
+            : language === 'html'
+              ? 'html'
+              : parsedJson !== undefined
+                ? 'json'
+                : null;
 
   // A language override can take Preview away while it's the active
   // mode (e.g. HTML body overridden to Text) — fall back to the body's
@@ -861,7 +878,9 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           kind={mediaKind === 'audio' ? 'audio' : 'video'}
         />
       )}
-      {mode === 'preview' && previewKind === 'json' && <ResponseJsonPreview value={parsedJson} />}
+      {mode === 'preview' && previewKind === 'json' && (
+        <ResponseJsonPreview value={decodedBinary ? decodedBinary.value : parsedJson} />
+      )}
       {mode === 'preview' && previewKind === 'html' && (
         <iframe
           title={t('workbench.editors.request.response.body.previewIframeTitle')}

@@ -11,6 +11,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { isJsonNumber } from './lossless-json';
+import { isDiagnosticText } from './response-binary-decode';
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -18,9 +19,10 @@ const cellFont: React.CSSProperties = {
 };
 
 function isContainer(value: unknown): value is Record<string, unknown> | unknown[] {
-  // A lossless-number leaf is an object at runtime but renders as a
-  // primitive — its source text, never an expandable row.
-  return typeof value === 'object' && value !== null && !isJsonNumber(value);
+  // A lossless-number or diagnostic-notation leaf is an object at
+  // runtime but renders as a primitive — its source/diagnostic text,
+  // never an expandable row.
+  return typeof value === 'object' && value !== null && !isJsonNumber(value) && !isDiagnosticText(value);
 }
 
 function entriesOf(value: Record<string, unknown> | unknown[]): Array<[string, unknown]> {
@@ -33,6 +35,7 @@ function countBadge(value: Record<string, unknown> | unknown[]): string {
 
 function formatPrimitive(value: unknown): string {
   if (isJsonNumber(value)) return value.source;
+  if (isDiagnosticText(value)) return value.text;
   if (typeof value === 'string') return JSON.stringify(value);
   if (value === undefined) return 'null';
   return String(value);
