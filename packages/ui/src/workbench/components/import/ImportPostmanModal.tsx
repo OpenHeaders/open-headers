@@ -62,6 +62,16 @@ interface ImportPostmanModalProps {
   createCollection: (name: string) => Promise<{ uid: string; path: string } | null>;
   /** Creates a folder under `parentPath`; returns the new folder's full path. */
   createFolder: (name: string, parentPath: string) => Promise<{ uid: string; path: string } | null>;
+  /** Lands collection-level scripts on the new collection's slots. */
+  setCollectionScripts?: (
+    collectionUid: string,
+    scripts: { preRequestScript?: string; postResponseScript?: string },
+  ) => Promise<boolean>;
+  /** Lands folder-level scripts on a new folder's slots. */
+  setFolderScripts?: (
+    folderUid: string,
+    scripts: { preRequestScript?: string; postResponseScript?: string },
+  ) => Promise<boolean>;
   /**
    * Creates a request under `parentPath`. We route through parentPath
    * directly (not collectionUid) so requests land inside the folder
@@ -106,6 +116,8 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
   onImported,
   createCollection,
   createFolder,
+  setCollectionScripts,
+  setFolderScripts,
   createRequest,
   createEnvironment,
   findPreviousReport,
@@ -218,6 +230,20 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
         setBusy(false);
         return;
       }
+      // Collection-level scripts land on the new collection's slots.
+      if (
+        setCollectionScripts &&
+        (result.collectionPreRequestScript !== undefined || result.collectionPostResponseScript !== undefined)
+      ) {
+        await setCollectionScripts(coll.uid, {
+          ...(result.collectionPreRequestScript !== undefined
+            ? { preRequestScript: result.collectionPreRequestScript }
+            : {}),
+          ...(result.collectionPostResponseScript !== undefined
+            ? { postResponseScript: result.collectionPostResponseScript }
+            : {}),
+        });
+      }
 
       // 2. Walk folders depth-first, record each folder's full path
       //    keyed by Postman path so requests can find their parent.
@@ -234,6 +260,12 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
         const created = await createFolder(name, parentPath);
         if (created) {
           folderPathMap.set(f.path.join('/'), created.path);
+          if (setFolderScripts && (f.preRequestScript !== undefined || f.postResponseScript !== undefined)) {
+            await setFolderScripts(created.uid, {
+              ...(f.preRequestScript !== undefined ? { preRequestScript: f.preRequestScript } : {}),
+              ...(f.postResponseScript !== undefined ? { postResponseScript: f.postResponseScript } : {}),
+            });
+          }
         }
       }
 
@@ -304,7 +336,18 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
     } finally {
       setBusy(false);
     }
-  }, [stage, collectionName, createCollection, createFolder, createRequest, createEnvironment, onImported, message]);
+  }, [
+    stage,
+    collectionName,
+    createCollection,
+    createFolder,
+    setCollectionScripts,
+    setFolderScripts,
+    createRequest,
+    createEnvironment,
+    onImported,
+    message,
+  ]);
 
   const confirmImport = useCallback(() => {
     if (canImport) void handleImport();

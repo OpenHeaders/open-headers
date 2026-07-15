@@ -100,17 +100,20 @@ describe('collection metadata', () => {
     });
   });
 
-  it('drops collection-level events with tracking', () => {
+  it('lands collection-level events on the collection script slots (translated)', () => {
     const result = parsePostman(
       postmanCollection({
         event: [
           { listen: 'prerequest', script: { exec: ['console.log("hi")'] } },
-          { listen: 'test', script: { exec: ['pm.test("ok")'] } },
+          { listen: 'test', script: { exec: ['pm.test("ok", function () { });'] } },
         ],
       }),
     );
-    expect(result.report.drops.filter((d) => d.path.includes('collection.event'))).toHaveLength(2);
-    expect(result.report.drops.every((d) => d.tracking === '#todo-scripts')).toBe(true);
+    expect(result.report.drops.filter((d) => d.path.includes('collection.event'))).toHaveLength(0);
+    expect(result.collectionPreRequestScript).toBe('console.log("hi")');
+    expect(result.collectionPostResponseScript).toContain('oh.test');
+    // Each landed event records a transform, exactly like request events.
+    expect(result.report.transforms.filter((t) => t.path.includes('collection.event'))).toHaveLength(2);
   });
 
   it('flags ignored collection-level auth as a transform', () => {
@@ -1288,9 +1291,11 @@ describe('events (scripts)', () => {
     expect(result.report.drops.filter((d) => d.tracking === '#todo-scripts')).toHaveLength(0);
     expect(result.report.transforms.filter((t) => t.path.includes('event'))).toHaveLength(0);
     expect(result.requests[0]?.request.postResponseScript).toBeUndefined();
+    expect(result.collectionPreRequestScript).toBeUndefined();
+    expect(result.folders[0]?.postResponseScript).toBeUndefined();
   });
 
-  it('keeps honest drops for non-empty folder/collection scripts', () => {
+  it('lands non-empty folder/collection scripts on their ancestor slots (translated)', () => {
     const result = parsePostman(
       postmanCollection({
         event: [{ listen: 'prerequest', script: { exec: ['pm.environment.set("a", "1")'] } }],
@@ -1303,10 +1308,12 @@ describe('events (scripts)', () => {
         ],
       }),
     );
-    const drops = result.report.drops.filter((d) => d.tracking === '#todo-scripts');
-    expect(drops).toHaveLength(2);
-    expect(drops[0]?.path).toBe('collection.event[prerequest]');
-    expect(drops[1]?.path).toBe('collection.item[0].event[test]');
+    expect(result.report.drops.filter((d) => d.tracking === '#todo-scripts')).toHaveLength(0);
+    expect(result.collectionPreRequestScript).toContain('oh.variables.set');
+    expect(result.folders[0]?.postResponseScript).toContain('oh.variables.set');
+    // One transform per landed event, same accounting as request events.
+    expect(result.report.transforms.filter((t) => t.path === 'collection.event[prerequest]')).toHaveLength(1);
+    expect(result.report.transforms.filter((t) => t.path === 'collection.item[0].event[test]')).toHaveLength(1);
   });
 
   it('concatenates multiple events of the same kind in order', () => {

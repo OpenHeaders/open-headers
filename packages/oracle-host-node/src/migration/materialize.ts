@@ -60,6 +60,7 @@ import { buildDeleteRequestCollectionBatch } from '@openheaders/core/sync-builde
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderEntityBatch,
+  buildSetRequestFolderScriptsBatch,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import {
   buildAddBatch as buildAddRequestBatch,
@@ -295,6 +296,12 @@ async function materializeCollection(
     })),
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
+    // Ancestor script slots ride the create shell — the seed batch
+    // carries the whole collection literal.
+    ...(parsed.collectionPreRequestScript !== undefined ? { preRequestScript: parsed.collectionPreRequestScript } : {}),
+    ...(parsed.collectionPostResponseScript !== undefined
+      ? { postResponseScript: parsed.collectionPostResponseScript }
+      : {}),
   };
   const collectionCtx = mintCtx();
   if (!collectionCtx) throw new Error('landing workspace is not loaded on this host');
@@ -320,6 +327,22 @@ async function materializeCollection(
         ctx,
       );
       await applyMigrationMutation(intent.batch, intent.sideEffects);
+      // Folder-level script slots land as a follow-up batch — the
+      // folder create payload is a fixed shell (name + pathSegment),
+      // and the scripts setter is the same write the editor uses.
+      if (folder.preRequestScript !== undefined || folder.postResponseScript !== undefined) {
+        const scriptsCtx = mintCtx();
+        if (!scriptsCtx) throw new Error('landing workspace is not loaded on this host');
+        const updates: Array<{ path: 'preRequestScript' | 'postResponseScript'; value: string | undefined }> = [];
+        if (folder.preRequestScript !== undefined) {
+          updates.push({ path: 'preRequestScript', value: folder.preRequestScript });
+        }
+        if (folder.postResponseScript !== undefined) {
+          updates.push({ path: 'postResponseScript', value: folder.postResponseScript });
+        }
+        const scriptsIntent = buildSetRequestFolderScriptsBatch({ folderUid, updates }, scriptsCtx);
+        await applyMigrationMutation(scriptsIntent.batch, scriptsIntent.sideEffects);
+      }
       folderMap.set(folder.path.join('/'), {
         type: 'request-folder',
         uid: folderUid,

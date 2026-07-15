@@ -44,11 +44,13 @@ import {
   applyRequestCollectionCreate,
   applyRequestCollectionDelete,
   applyRequestCollectionRename,
+  applyRequestCollectionSetScripts,
 } from '../shared/sync/request-collection-write-client';
 import {
   applyRequestFolderCreate,
   applyRequestFolderDelete,
   applyRequestFolderRename,
+  applyRequestFolderSetScripts,
 } from '../shared/sync/request-folder-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
 
@@ -90,6 +92,21 @@ export interface RequestsContextValue {
   renameFolder: (folderUid: string, name: string) => Promise<boolean>;
   deleteFolder: (folderUid: string) => Promise<boolean>;
 
+  /**
+   * Set a request collection's / folder's ancestor script slots.
+   * Override branch only (workbench surfaces — the import modals and
+   * the scripts editor); the legacy branch resolves `false` (system
+   * surfaces never edit ancestor scripts).
+   */
+  setCollectionScripts: (
+    collectionUid: string,
+    scripts: { preRequestScript?: string; postResponseScript?: string },
+  ) => Promise<boolean>;
+  setFolderScripts: (
+    folderUid: string,
+    scripts: { preRequestScript?: string; postResponseScript?: string },
+  ) => Promise<boolean>;
+
   execute: (input: {
     requestUid?: string;
     draft?: Request;
@@ -113,6 +130,8 @@ const defaultContextValue: RequestsContextValue = {
   createFolder: () => Promise.resolve(null),
   renameFolder: () => Promise.resolve(false),
   deleteFolder: () => Promise.resolve(false),
+  setCollectionScripts: () => Promise.resolve(false),
+  setFolderScripts: () => Promise.resolve(false),
   execute: () => Promise.resolve(null),
 };
 
@@ -480,6 +499,47 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId, resolveOverrideFolderParent],
   );
 
+  const setCollectionScripts = useCallback<RequestsContextValue['setCollectionScripts']>(
+    async (collectionUid, scripts) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const updates: Array<{ path: 'preRequestScript' | 'postResponseScript'; value: string | undefined }> = [];
+      if (scripts.preRequestScript !== undefined) {
+        updates.push({ path: 'preRequestScript', value: scripts.preRequestScript });
+      }
+      if (scripts.postResponseScript !== undefined) {
+        updates.push({ path: 'postResponseScript', value: scripts.postResponseScript });
+      }
+      if (updates.length === 0) return true;
+      const result = await applyRequestCollectionSetScripts(
+        { collectionUid, updates },
+        { workspaceId: wsId, surfaceId },
+      );
+      return result.ok;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const setFolderScripts = useCallback<RequestsContextValue['setFolderScripts']>(
+    async (folderUid, scripts) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const updates: Array<{ path: 'preRequestScript' | 'postResponseScript'; value: string | undefined }> = [];
+      if (scripts.preRequestScript !== undefined) {
+        updates.push({ path: 'preRequestScript', value: scripts.preRequestScript });
+      }
+      if (scripts.postResponseScript !== undefined) {
+        updates.push({ path: 'postResponseScript', value: scripts.postResponseScript });
+      }
+      if (updates.length === 0) return true;
+      const result = await applyRequestFolderSetScripts({ folderUid, updates }, { workspaceId: wsId, surfaceId });
+      return result.ok;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
   const execute = useCallback<RequestsContextValue['execute']>(async (input) => {
     const resp = await hostBridge.call('executeRequest', input).catch(() => null);
     return resp?.success ? (resp.snapshot ?? null) : null;
@@ -502,6 +562,8 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createFolder,
       renameFolder,
       deleteFolder,
+      setCollectionScripts,
+      setFolderScripts,
       execute,
     }),
     [
@@ -520,6 +582,8 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createFolder,
       renameFolder,
       deleteFolder,
+      setCollectionScripts,
+      setFolderScripts,
       execute,
     ],
   );

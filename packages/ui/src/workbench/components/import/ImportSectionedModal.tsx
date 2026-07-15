@@ -51,7 +51,11 @@ export type SectionedSourceKind = 'postman-backup' | 'insomnia' | 'bruno';
 
 interface SectionedCollection {
   name: string;
-  folders: Array<{ path: string[] }>;
+  /** Collection-level ancestor script slots (Postman backups carry
+   *  them; Insomnia/Bruno parsers keep their own drop notes). */
+  preRequestScript?: string;
+  postResponseScript?: string;
+  folders: Array<{ path: string[]; preRequestScript?: string; postResponseScript?: string }>;
   requests: Array<{ folderPath: string[]; request: CurlRequest }>;
 }
 
@@ -110,6 +114,10 @@ function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse
       return {
         collections: r.collections.map((c) => ({
           name: c.collectionName,
+          ...(c.collectionPreRequestScript !== undefined ? { preRequestScript: c.collectionPreRequestScript } : {}),
+          ...(c.collectionPostResponseScript !== undefined
+            ? { postResponseScript: c.collectionPostResponseScript }
+            : {}),
           folders: c.folders,
           requests: c.requests,
         })),
@@ -149,6 +157,16 @@ interface ImportSectionedModalProps {
   onImported: (result: { importedCollections: number; report: ImportReport }) => void;
   createCollection: (name: string) => Promise<{ uid: string; path: string } | null>;
   createFolder: (name: string, parentPath: string) => Promise<{ uid: string; path: string } | null>;
+  /** Lands collection-level scripts on a new collection's slots. */
+  setCollectionScripts?: (
+    collectionUid: string,
+    scripts: { preRequestScript?: string; postResponseScript?: string },
+  ) => Promise<boolean>;
+  /** Lands folder-level scripts on a new folder's slots. */
+  setFolderScripts?: (
+    folderUid: string,
+    scripts: { preRequestScript?: string; postResponseScript?: string },
+  ) => Promise<boolean>;
   createRequest: (payload: {
     name: string;
     parentPath: string;
@@ -203,6 +221,8 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   onImported,
   createCollection,
   createFolder,
+  setCollectionScripts,
+  setFolderScripts,
   createRequest,
   createEnvironment,
   createHeaderRules,
@@ -288,6 +308,15 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           continue;
         }
         collectionsImported++;
+        if (
+          setCollectionScripts &&
+          (section.preRequestScript !== undefined || section.postResponseScript !== undefined)
+        ) {
+          await setCollectionScripts(coll.uid, {
+            ...(section.preRequestScript !== undefined ? { preRequestScript: section.preRequestScript } : {}),
+            ...(section.postResponseScript !== undefined ? { postResponseScript: section.postResponseScript } : {}),
+          });
+        }
         const folderPathMap = new Map<string, string>();
         folderPathMap.set('', coll.path);
         const sortedFolders = [...section.folders].sort((a, b) => a.path.length - b.path.length);
@@ -297,7 +326,15 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           const folderName = f.path[f.path.length - 1];
           if (!parentPath || !folderName) continue;
           const created = await createFolder(folderName, parentPath);
-          if (created) folderPathMap.set(f.path.join('/'), created.path);
+          if (created) {
+            folderPathMap.set(f.path.join('/'), created.path);
+            if (setFolderScripts && (f.preRequestScript !== undefined || f.postResponseScript !== undefined)) {
+              await setFolderScripts(created.uid, {
+                ...(f.preRequestScript !== undefined ? { preRequestScript: f.preRequestScript } : {}),
+                ...(f.postResponseScript !== undefined ? { postResponseScript: f.postResponseScript } : {}),
+              });
+            }
+          }
         }
         for (const { folderPath, request } of section.requests) {
           const parentPath = folderPathMap.get(folderPath.join('/')) ?? coll.path;
@@ -378,7 +415,19 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
     } finally {
       setBusy(false);
     }
-  }, [stage, collectionNames, createCollection, createFolder, createRequest, createEnvironment, createHeaderRules, onImported, message]);
+  }, [
+    stage,
+    collectionNames,
+    createCollection,
+    createFolder,
+    setCollectionScripts,
+    setFolderScripts,
+    createRequest,
+    createEnvironment,
+    createHeaderRules,
+    onImported,
+    message,
+  ]);
 
   const confirmImport = useCallback(() => {
     if (canImport) void handleImport();

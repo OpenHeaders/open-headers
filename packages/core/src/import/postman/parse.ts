@@ -5,7 +5,7 @@ import { buildHeaders, promoteAuthHeader, resolveAuth } from './auth';
 import { buildBody } from './body';
 import { coerceMethod } from './method';
 import { buildExamples } from './responses';
-import { buildScriptFields, eventSource } from './scripts';
+import { buildScriptFields } from './scripts';
 import { mapProtocolProfileBehavior } from './settings';
 import type {
   PostmanCollection,
@@ -50,11 +50,13 @@ export function parsePostman(input: string, options: PostmanParseOptions = {}): 
   const collectionDescription = textOf(collection.info?.description) ?? '';
   const report = createReport('postman-v2.1', 0);
 
-  // Collection-level scripts have no landing slot yet (the request
-  // slots exist; collection/folder slots are model work). Non-empty
-  // ones keep an honest drop; empty ones are vendor UI residue with
-  // no logic to lose and vanish silently.
-  recordAncestorScripts(collection.event, 'collection', 'collection', report);
+  // Collection-level scripts land on the collection's ancestor script
+  // slots — translated to the oh.* API where possible, verbatim behind
+  // a marker otherwise, exactly like request-level events. At send
+  // time they compose ancestor-first: collection pre → folder pre →
+  // request pre. Empty scripts are vendor UI residue and vanish
+  // silently.
+  const collectionScripts = buildScriptFields(collection.event, 'collection', report);
 
   // Collection-level auth at the top level is inherited by every
   // request that doesn't override. We'd need a full inheritance
@@ -102,6 +104,12 @@ export function parsePostman(input: string, options: PostmanParseOptions = {}): 
     collectionName,
     collectionDescription,
     collectionVariables,
+    ...(collectionScripts.preRequestScript !== undefined
+      ? { collectionPreRequestScript: collectionScripts.preRequestScript }
+      : {}),
+    ...(collectionScripts.postResponseScript !== undefined
+      ? { collectionPostResponseScript: collectionScripts.postResponseScript }
+      : {}),
     folders,
     requests,
     report,
@@ -128,14 +136,14 @@ function walkItems(
     if (isFolder) {
       const folderName = (item.name ?? 'Untitled Folder').trim() || 'Untitled Folder';
       const path = [...parentPath, folderName];
+      // Folder-level scripts land on the folder's ancestor script
+      // slots — same translation + landing as the collection level.
+      const folderScripts = buildScriptFields(item.event, jsonPath, report);
       folders.push({
         path,
         description: textOf(item.description),
+        ...folderScripts,
       });
-
-      // Folder-level scripts — same no-landing-slot posture as the
-      // collection level.
-      recordAncestorScripts(item.event, 'folder', jsonPath, report);
 
       // Folder-level auth (same inheritance limitation as collection level).
       if (item.auth?.type && item.auth.type !== 'noauth') {
@@ -260,30 +268,6 @@ function tryConvertRequest(
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
-
-/**
- * Collection/folder-level scripts have no landing slot until the
- * model grows script fields on those levels — non-empty ones keep an
- * honest drop per event; empty ones (vendor UI residue) are silently
- * lossless.
- */
-function recordAncestorScripts(
-  events: PostmanItem['event'],
-  level: 'collection' | 'folder',
-  jsonPath: string,
-  report: ImportReport,
-): void {
-  if (!Array.isArray(events)) return;
-  for (const ev of events) {
-    if (!ev || ev.disabled) continue;
-    if (eventSource(ev).trim().length === 0) continue;
-    recordDrop(report, {
-      path: `${jsonPath}.event[${ev.listen ?? 'unknown'}]`,
-      reason: `${level === 'collection' ? 'Collection' : 'Folder'}-level ${ev.listen ?? 'unknown'} script not imported — ${level} scripts aren't supported yet; attach it to the requests that need it.`,
-      tracking: '#todo-scripts',
-    });
-  }
-}
 
 /**
  * Collection/folder-level `protocolProfileBehavior` would need

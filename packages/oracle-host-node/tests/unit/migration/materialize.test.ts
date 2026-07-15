@@ -281,6 +281,41 @@ describe('materializePostmanPull', () => {
     expect(scriptTransforms.some((t) => t.tracking === '#todo-script-translation')).toBe(true);
   });
 
+  it('lands collection + folder ancestor scripts on their slots', async () => {
+    const ancestorJson = JSON.stringify({
+      info: { name: 'Ancestors', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+      event: [{ listen: 'prerequest', script: { exec: ['pm.environment.set("root", "1");'] } }],
+      item: [
+        {
+          name: 'Admin',
+          event: [{ listen: 'test', script: { exec: ['console.log("folder check");'] } }],
+          item: [{ name: 'Ping', request: { method: 'GET', url: 'https://api.openheaders.io/ping' } }],
+        },
+      ],
+    });
+    await materializePostmanPull(
+      pullResult({
+        collections: [
+          { item: 'collection', id: 'c-a', name: 'Ancestors', json: ancestorJson, workspaceIds: ['pm-ws-1'] },
+        ],
+        environments: [],
+      }),
+      { ensureWorkspaceFor },
+    );
+
+    const [collection] = snapshotRequestCollectionPostStates(wsId).map((ps) => ps.collection);
+    expect(collection.preRequestScript).toBe('await oh.variables.set("root", "1");');
+    expect(collection.postResponseScript).toBeUndefined();
+
+    const [folder] = snapshotRequestFolderPostStates(wsId).map((ps) => ps.folder);
+    expect(folder.name).toBe('Admin');
+    expect(folder.postResponseScript).toBe('console.log("folder check");');
+    expect(folder.preRequestScript).toBeUndefined();
+
+    const [report] = await readRecordedReports();
+    expect(report.drops.filter((d) => d.tracking === '#todo-scripts')).toHaveLength(0);
+  });
+
   it('records ONE aggregated report with a sourceHash in the landing workspace ring', async () => {
     await materializePostmanPull(
       pullResult({

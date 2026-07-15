@@ -179,6 +179,10 @@ export interface PostmanParsedExample {
 export interface PostmanParsedFolder {
   path: string[];
   description?: string;
+  /** Folder-level event scripts, translated onto the folder's ancestor
+   *  script slots (Phase D landing). */
+  preRequestScript?: string;
+  postResponseScript?: string;
 }
 
 /**
@@ -208,6 +212,10 @@ export interface PostmanParseResult {
   collectionName: string;
   collectionDescription: string;
   collectionVariables: PostmanCollectionVariable[];
+  /** Collection-level event scripts, translated onto the collection's
+   *  ancestor script slots (Phase D landing). */
+  collectionPreRequestScript?: string;
+  collectionPostResponseScript?: string;
   folders: PostmanParsedFolder[];
   requests: PostmanParsedRequest[];
   report: ImportReport;

@@ -100,6 +100,10 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             });
             p.onCreateRequest?.({ collectionId, folderPath: node.path });
           };
+          // Post-import ancestor-script review badge — same treatment
+          // as request rows: warning chip until the user opens the
+          // folder's Scripts editor.
+          const folderScriptsPending = p.scriptsReviewPendingUids?.has(node.uid) ?? false;
           items.push({
             id: fid,
             kind: 'folder',
@@ -108,6 +112,22 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             expandable: true,
             parentId,
             icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+            ...(folderScriptsPending
+              ? {
+                  badge: composeBadge(
+                    null,
+                    false,
+                    [
+                      {
+                        label: t('workbench.sidebar.badge.scripts'),
+                        color: 'var(--ant-color-warning, #faad14)',
+                        title: t('workbench.sidebar.badge.scriptsTooltip'),
+                      },
+                    ],
+                    t,
+                  ),
+                }
+              : {}),
             canRename: true,
             canDelete: true,
             canAddChild: true,
@@ -332,6 +352,10 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
         });
       };
 
+      // Post-import ancestor-script review badge — same treatment as
+      // request rows: warning chip until the user opens the
+      // collection's Scripts editor.
+      const collectionScriptsPending = p.scriptsReviewPendingUids?.has(collection.uid) ?? false;
       items.push({
         id: colId,
         kind: 'group',
@@ -339,6 +363,22 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
         depth: 0,
         expandable: true,
         icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
+        ...(collectionScriptsPending
+          ? {
+              badge: composeBadge(
+                null,
+                false,
+                [
+                  {
+                    label: t('workbench.sidebar.badge.scripts'),
+                    color: 'var(--ant-color-warning, #faad14)',
+                    title: t('workbench.sidebar.badge.scriptsTooltip'),
+                  },
+                ],
+                t,
+              ),
+            }
+          : {}),
         canRename: true,
         canDelete: true,
         canAddChild: true,

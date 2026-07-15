@@ -507,8 +507,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openLiveVariables,
     openCollectionVariables,
     openRequestCollectionVariables,
-    openRequestCollectionScripts,
-    openRequestFolderScripts,
+    openRequestCollectionScripts: openRequestCollectionScriptsRaw,
+    openRequestFolderScripts: openRequestFolderScriptsRaw,
     openTemplateCollectionVariables,
     openRequestEditTab: openRequestEditTabRaw,
     openCreateRequestTab,
@@ -537,6 +537,28 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openRequestEditTabRaw(uid, name, method, autoRename);
     },
     [openRequestEditTabRaw, scriptsReviewPendingUids],
+  );
+
+  // Same clearing gesture for the ancestor slots: opening a collection's
+  // or folder's Scripts editor counts as reviewing its imported scripts.
+  const openRequestCollectionScripts = useCallback(
+    (uid: string, name: string) => {
+      if (scriptsReviewPendingUids.has(uid)) {
+        void hostBridge.call('clearRequestScriptsReviewPending', { uid });
+      }
+      openRequestCollectionScriptsRaw(uid, name);
+    },
+    [openRequestCollectionScriptsRaw, scriptsReviewPendingUids],
+  );
+
+  const openRequestFolderScripts = useCallback(
+    (uid: string, name: string) => {
+      if (scriptsReviewPendingUids.has(uid)) {
+        void hostBridge.call('clearRequestScriptsReviewPending', { uid });
+      }
+      openRequestFolderScriptsRaw(uid, name);
+    },
+    [openRequestFolderScriptsRaw, scriptsReviewPendingUids],
   );
 
   // Create-then-edit flow for the env selector. New envs are created

@@ -473,6 +473,8 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           const f = await requestsApi.createFolder(name, parentPath);
           return f ? { uid: f.uid, path: f.path } : null;
         }}
+        setCollectionScripts={requestsApi.setCollectionScripts}
+        setFolderScripts={requestsApi.setFolderScripts}
         createRequest={async ({ name, parentPath, seed }) => {
           const r = await requestsApi.createRequest({ name, parentPath, seed });
           return r ? { uid: r.uid } : null;
@@ -508,6 +510,8 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           const f = await requestsApi.createFolder(name, parentPath);
           return f ? { uid: f.uid, path: f.path } : null;
         }}
+        setCollectionScripts={requestsApi.setCollectionScripts}
+        setFolderScripts={requestsApi.setFolderScripts}
         createRequest={async ({ name, parentPath, seed }) => {
           const r = await requestsApi.createRequest({ name, parentPath, seed });
           return r ? { uid: r.uid } : null;

@@ -253,22 +253,30 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         plan.folders.filter((e) => e.action !== 'skip').length;
       report.summary = { ...report.summary, imported: importedCount };
 
-      // Collect imported requests carrying scripts so the sidebar can
-      // surface a "scripts" badge until the recipient opens each one in
-      // the inspector. Skipped entries are excluded; if `stripScripts`
-      // was on, the `stamp` already removed the script fields, so the
-      // post-strip check naturally yields an empty set.
+      // Collect imported entities carrying scripts — requests plus the
+      // ancestor slots (request collections + folders, which run on
+      // every child send) — so the sidebar can surface a "scripts"
+      // badge until the recipient opens each one. Skipped entries are
+      // excluded; if `stripScripts` was on, the `stamp` already removed
+      // the script fields, so the post-strip check naturally yields an
+      // empty set. Rule collections never carry the fields, so the
+      // collections walk is a no-op for the rules tree.
       const scriptsPendingUids: string[] = [];
-      for (const entry of plan.requests) {
-        if (entry.action === 'skip') continue;
-        const r = entry.entity as Request;
-        if (
-          (r.preRequestScript && r.preRequestScript.length > 0) ||
-          (r.postResponseScript && r.postResponseScript.length > 0)
-        ) {
-          scriptsPendingUids.push(r.uid);
+      const collectPending = (entries: ReadonlyArray<{ action: string; entity: unknown }>) => {
+        for (const entry of entries) {
+          if (entry.action === 'skip') continue;
+          const e = entry.entity as { uid: string; preRequestScript?: string; postResponseScript?: string };
+          if (
+            (e.preRequestScript && e.preRequestScript.length > 0) ||
+            (e.postResponseScript && e.postResponseScript.length > 0)
+          ) {
+            scriptsPendingUids.push(e.uid);
+          }
         }
-      }
+      };
+      collectPending(plan.requests);
+      collectPending(plan.collections);
+      collectPending(plan.folders);
 
       // If the target is the active workspace and the plan landed via
       // the wholesale storage write, reload in-memory state so the UI

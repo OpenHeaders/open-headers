@@ -14,10 +14,10 @@
 
 import {
   type MaterializedEntity,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
+  mintBatch,
   REQUEST_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
@@ -38,7 +38,15 @@ export function seedRequestFolder(folder: Folder, ctx: MutatorContext): Mutation
     kind: 'create',
     type: REQUEST_FOLDER_ENTITY_TYPE,
     id: folder.uid,
-    payload: { schemaVersion: folder.schemaVersion, name: folder.name, pathSegment },
+    payload: {
+      schemaVersion: folder.schemaVersion,
+      name: folder.name,
+      pathSegment,
+      // Ancestor script slots ride the seed when present (field absent
+      // ↔ no script).
+      ...(folder.preRequestScript !== undefined ? { preRequestScript: folder.preRequestScript } : {}),
+      ...(folder.postResponseScript !== undefined ? { postResponseScript: folder.postResponseScript } : {}),
+    },
   };
   return mintBatch(ctx, [body]);
 }
@@ -58,10 +66,7 @@ function lastSegment(path: string): string | null {
  * here. Returns `null` when the materialized data fails basic shape
  * checks.
  */
-export function projectRequestFolder(
-  materialized: MaterializedEntity,
-  parentPath: string,
-): Folder | null {
+export function projectRequestFolder(materialized: MaterializedEntity, parentPath: string): Folder | null {
   if (materialized.type !== REQUEST_FOLDER_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
@@ -76,6 +81,9 @@ export function projectRequestFolder(
     uid: materialized.id,
     path: `${parentPath}/${segment}`,
     name,
+    // Ancestor script slots — carried when set (field absent ↔ no script).
+    ...(typeof data.preRequestScript === 'string' ? { preRequestScript: data.preRequestScript } : {}),
+    ...(typeof data.postResponseScript === 'string' ? { postResponseScript: data.postResponseScript } : {}),
   };
 }
 
