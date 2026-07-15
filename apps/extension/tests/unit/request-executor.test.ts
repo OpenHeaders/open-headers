@@ -534,6 +534,22 @@ describe('fetch-failure classification', () => {
     }
   });
 
+  it('classifies the Firefox spelling of the opaque failure the same way', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('NetworkError when attempting to fetch resource.')));
+    try {
+      const req = makeRequest({ url: 'https://localhost:8080/v1/ping' });
+      const res = await executeRequestDraft(req, {});
+      expect(res.status).toBe(0);
+      expect(res.error).toMatch(/self-signed|certificate/i);
+      expect(res.errorHint).toEqual({ kind: 'open-in-tab', url: 'https://localhost:8080/v1/ping' });
+    } finally {
+      vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+        fetchMock(input, init);
+        return Promise.resolve(new Response('ok', { status: 200 }));
+      });
+    }
+  });
+
   it('tailors the message for loopback targets ("Is the service running?")', async () => {
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
     try {

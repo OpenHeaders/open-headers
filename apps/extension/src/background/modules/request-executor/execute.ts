@@ -306,7 +306,13 @@ export async function executeResolved(
     // settled (not canceled) to recover it; classification leads with
     // that code — the same string the browser's own Network panel
     // shows — and falls back to protocol/host heuristics without it.
-    const isGenericFetchFail = !timedOut && err instanceof TypeError && /failed to fetch/i.test(rawMessage);
+    // Chromium spells the opaque failure "Failed to fetch"; Firefox
+    // spells it "NetworkError when attempting to fetch resource." —
+    // both are the same generic TypeError with the real cause hidden.
+    const isGenericFetchFail =
+      !timedOut &&
+      err instanceof TypeError &&
+      /failed to fetch|networkerror when attempting to fetch/i.test(rawMessage);
     let netError: string | undefined;
     if (isGenericFetchFail) {
       netError = await wireCapture.settleNetError();

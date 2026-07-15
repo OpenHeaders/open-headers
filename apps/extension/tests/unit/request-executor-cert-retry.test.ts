@@ -246,6 +246,21 @@ describe('executor certificate retry', () => {
     });
   });
 
+  it('classifies Firefox wrapped NSS codes as certificate rejections with a compact code', async () => {
+    mockIsOffscreenSupported.mockReturnValue(false);
+    mockSettleNetError.mockResolvedValue(
+      'NS_ERROR_GENERATE_FAILURE(NS_ERROR_MODULE_SECURITY, MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT)',
+    );
+    const res = await executeRequestDraft(makeRequest(), {});
+    expect(res.status).toBe(0);
+    expect(res.error).toMatch(/untrusted or invalid certificate/i);
+    expect(res.errorHint).toEqual({
+      kind: 'open-in-tab',
+      url: 'https://localhost.openheaders.io:3443/echo',
+      netError: 'MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT',
+    });
+  });
+
   it('skips the retry when the runtime has no offscreen API (Firefox)', async () => {
     mockIsOffscreenSupported.mockReturnValue(false);
     const res = await executeRequestDraft(makeRequest(), {});

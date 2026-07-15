@@ -45,6 +45,40 @@ function defaultPort(protocol: string): string {
 }
 
 /**
+ * Certificate-family detection across engine spellings. Chromium:
+ * `net::ERR_CERT_*` / `net::ERR_SSL_*`. Firefox (webRequest surfaces
+ * NSS names, often wrapped like `NS_ERROR_GENERATE_FAILURE(
+ * NS_ERROR_MODULE_SECURITY, MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT)`):
+ * `MOZILLA_PKIX_ERROR_*`, `SEC_ERROR_*`, `SSL_ERROR_*`.
+ */
+function isCertFamilyCode(code: string): boolean {
+  return (
+    code.includes('CERT_') ||
+    code.includes('SSL_') ||
+    code.includes('MOZILLA_PKIX') ||
+    code.includes('SEC_ERROR') ||
+    code.includes('NS_ERROR_MODULE_SECURITY')
+  );
+}
+
+/**
+ * The searchable token for the title line. Chromium codes pass through
+ * verbatim; Firefox's wrapped spelling reduces to its inner-most
+ * segment (`…, MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT)` → that token) so
+ * the code beside the title stays one readable word.
+ */
+function compactNetCode(code: string): string {
+  const inner = code.match(/\(([^()]*)\)/)?.[1];
+  if (!inner) return code;
+  const last = inner
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .pop();
+  return last ?? code;
+}
+
+/**
  * Map a recovered net-stack code to an actionable message. The code
  * itself is always included verbatim — it is the ground truth the
  * browser's own Network panel shows, and searchable as-is.
@@ -72,7 +106,7 @@ function describeNetError(code: string, parsed: URL, hint: ExecutedRequestErrorH
       message: `${host}:${port} did not answer with HTTPS (${code}). The port likely serves plain HTTP — try http://${host}:${port}.`,
     };
   }
-  if (code.includes('CERT_') || code.includes('SSL_')) {
+  if (isCertFamilyCode(code)) {
     const localNote = local
       ? ' Local dev servers usually run with a self-signed certificate, which the browser rejects before the request is sent.'
       : '';
@@ -84,7 +118,7 @@ function describeNetError(code: string, parsed: URL, hint: ExecutedRequestErrorH
     const guidance = hint ? '' : ' Open the URL in a new tab, accept the certificate warning, then retry.';
     return {
       message: `${host} presented an untrusted or invalid certificate (${code}).${localNote}${guidance}`,
-      ...(hint ? { hint: { ...hint, netError: code } } : {}),
+      ...(hint ? { hint: { ...hint, netError: compactNetCode(code) } } : {}),
     };
   }
   if (code.includes('CONNECTION_RESET') || code.includes('CONNECTION_CLOSED') || code.includes('EMPTY_RESPONSE')) {
