@@ -46,6 +46,7 @@ import type {
 } from '../sync-bridge';
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
+import type { RequestStreamEventWire } from './requests';
 import type { SecretsStorageState } from './secrets';
 import type { AppUpdateState } from './updates';
 
@@ -139,6 +140,14 @@ export interface BridgeBroadcastContract {
    * ladder never emit it.
    */
   migrationPullEvent: { runId: string; seq: number; event: PostmanPullEvent };
+  /**
+   * Live frames of an in-flight interactive send (head as soon as it
+   * arrives, flush-batched body chunks, done) — the response panel's
+   * live-tail feed. Tagged with the caller-minted `sendId`; consumers
+   * filter on the id they passed to `executeRequest`. Display-only
+   * hints: the resolving RPC's snapshot supersedes every frame.
+   */
+  requestStreamEvent: RequestStreamEventWire;
   /**
    * Host-shell navigation request: open the Settings surface, optionally
    * at a category or a specific setting. Emitted by the desktop main

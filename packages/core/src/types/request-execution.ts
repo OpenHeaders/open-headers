@@ -183,6 +183,33 @@ export interface ExecutedRequestSnapshot {
     /** The executing machine's hostname label. */
     name: string;
   };
+  /**
+   * How a streamed interactive capture ended — present only when the
+   * live stream phase actually engaged (body chunks were pushed while
+   * the read was still in progress) or the read ended early:
+   *
+   *   - `'end'`     — the server closed the stream after live frames
+   *                    had been pushed (an SSE source that finished).
+   *   - `'stop'`    — the user stopped the send; the body is whatever
+   *                    arrived ("stop and snapshot" — NOT truncation).
+   *   - `'cap'`     — the byte cap aborted a live stream
+   *                    (`bodyTruncated` rides alongside as usual).
+   *   - `'timeout'` — the per-request deadline fired after the response
+   *                    head arrived; partial body materialized instead
+   *                    of an error snapshot.
+   *   - `'error'`   — the connection failed mid-body; partial body
+   *                    materialized, the failure text in `message`.
+   *
+   * Ordinary responses — even under a streaming read — complete before
+   * the first flush window and carry no rider. Attribution only:
+   * recorded from what the send did, never read back by the runtime.
+   */
+  streamedCapture?: {
+    endedBy: 'end' | 'stop' | 'cap' | 'timeout' | 'error';
+    /** Failure text for `endedBy: 'error'` — the classified network
+     *  error that ended the stream after bytes had arrived. */
+    message?: string;
+  };
   /** Non-null when the request failed before producing a response. */
   error: string | null;
   /** Actionable remedy for the failure — present only alongside

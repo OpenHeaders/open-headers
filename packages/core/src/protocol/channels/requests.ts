@@ -26,6 +26,39 @@ export interface CookieJarEntryWire {
   expiresAt?: number;
 }
 
+/**
+ * Response head of an in-flight interactive send, pushed on the
+ * `requestStreamEvent` broadcast as soon as the executing host sees it —
+ * status and headers render before the body finishes (or ever ends).
+ */
+export interface RequestStreamHeadWire {
+  status: number;
+  statusText: string;
+  url: string;
+  headers: Array<{ key: string; value: string }>;
+}
+
+/**
+ * One live frame of an in-flight interactive send. Display-only hints:
+ * the resolving `executeRequest` RPC's snapshot is the source of truth
+ * and supersedes every frame, so a dropped frame is harmless. `seq` is
+ * per-send monotonic so consumers can drop stale/duplicate deliveries.
+ * Chunk frames are flush-batched by the executing host (time/byte
+ * window), never per network chunk.
+ */
+export type RequestStreamEventWire =
+  | { sendId: string; seq: number; kind: 'head'; head: RequestStreamHeadWire }
+  | {
+      sendId: string;
+      seq: number;
+      kind: 'chunk';
+      /** Batched body bytes, base64 (JSON-safe on every bridge transport). */
+      chunkBase64: string;
+      /** Total body bytes read so far — drives the live byte counter. */
+      totalBytes: number;
+    }
+  | { sendId: string; seq: number; kind: 'done' };
+
 export interface RequestRpc {
   getLocalRequests: {
     req: Record<string, never>;
@@ -132,8 +165,29 @@ export interface RequestRpc {
       draft?: Request;
       environmentId?: string | null;
       workspaceId?: string;
+      /**
+       * Caller-minted id for this send. When present, the executing
+       * host pushes live `requestStreamEvent` frames tagged with it
+       * while the response body streams in, and `abortRequestSend`
+       * can stop the exchange. Hosts without the streaming leg ignore
+       * it — the RPC contract is unchanged either way.
+       */
+      sendId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
+  };
+  /**
+   * Stop an in-flight interactive send by its caller-minted `sendId`.
+   * The executing host aborts the exchange; the original
+   * `executeRequest` RPC still resolves — with a snapshot materialized
+   * from whatever arrived when a response head was already in
+   * (`streamedCapture.endedBy: 'stop'`), or an error snapshot when
+   * nothing had arrived yet. `success: false` = no such send (already
+   * settled, or a host without the streaming leg).
+   */
+  abortRequestSend: {
+    req: { sendId: string };
+    res: { success: boolean };
   };
   /**
    * Inspect a workspace's in-memory cookie jar on a node runtime.

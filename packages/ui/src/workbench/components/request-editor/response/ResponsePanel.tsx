@@ -29,6 +29,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
+import type { LiveSendStream } from '../useLiveSendStream';
 import ResponseAssertionsView from './ResponseAssertionsView';
 import ResponseBodyView from './ResponseBodyView';
 import ResponseConsoleView from './ResponseConsoleView';
@@ -36,6 +37,7 @@ import ResponseCookiesView from './ResponseCookiesView';
 import ResponseEmptyState from './ResponseEmptyState';
 import ResponseErrorState from './ResponseErrorState';
 import ResponseHeadersView from './ResponseHeadersView';
+import ResponseLiveTail from './ResponseLiveTail';
 import ResponseMetaStrip from './ResponseMetaStrip';
 import { setCookieLinesOf } from './response-cookies';
 import { detectBodyLanguage } from './response-format';
@@ -112,6 +114,13 @@ interface ResponsePanelProps {
   response: ExecutedRequestSnapshot | null;
   /** True while a Send is in flight — drives the "Sending…" empty state. */
   sending: boolean;
+  /**
+   * Live-tail feed of the in-flight send (head + body received so
+   * far). Non-null only while frames are arriving — the pane shows the
+   * stream live instead of "Sending…"; the materialized snapshot takes
+   * over when the send settles.
+   */
+  live?: LiveSendStream | null;
   /** Current split orientation — drives the active state of the toggle. */
   layout: RequestEditorLayout;
   /** Flip the request/response split orientation. */
@@ -143,6 +152,7 @@ interface ResponsePanelProps {
 const ResponsePanel: React.FC<ResponsePanelProps> = ({
   response,
   sending,
+  live,
   layout,
   onLayoutChange,
   onClear,
@@ -253,9 +263,12 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             </div>
           </div>
           {/* While a retry is in flight, the pane goes back to "Sending…"
-              instead of leaving the stale failure on screen. */}
+              instead of leaving the stale failure on screen — unless live
+              stream frames are arriving, which tail below instead. */}
           {response && !sending ? (
             <ResponseErrorState error={response.error ?? ''} hint={response.errorHint} layout={layout} />
+          ) : sending && live ? (
+            <ResponseLiveTail live={live} />
           ) : (
             <ResponseEmptyState sending={sending} />
           )}

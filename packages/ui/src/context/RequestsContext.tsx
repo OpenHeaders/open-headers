@@ -118,6 +118,10 @@ export interface RequestsContextValue {
     requestUid?: string;
     draft?: Request;
     environmentId?: string;
+    /** Caller-minted id — lets the send push `requestStreamEvent` live
+     *  frames and be stopped via `abortRequestSend` (hosts without the
+     *  streaming leg ignore it). */
+    sendId?: string;
   }) => Promise<ExecutedRequestSnapshot | null>;
 }
 

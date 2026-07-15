@@ -476,6 +476,8 @@ export const workbenchEditors = {
   'workbench.editors.request.send.unresolvedTooltip':
     'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.',
   'workbench.editors.request.send.remoteDispatchHint': 'Runs on {host} — the connected back-end',
+  'workbench.editors.request.send.stop': 'Stop',
+  'workbench.editors.request.send.stopTooltip': 'Stop the request and keep what has arrived',
   'workbench.editors.request.schemeHint':
     'Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in.',
 
@@ -1052,6 +1054,16 @@ export const workbenchEditors = {
     'Nothing — no stored cookie matched, or a Cookie header set on the request won.',
   'workbench.editors.request.response.meta.jarStoredLabel': 'Stored from Set-Cookie responses',
   'workbench.editors.request.response.meta.jarStoredNone': 'Nothing — no response set a cookie.',
+  'workbench.editors.request.response.meta.streamedEnd': 'Stream ended',
+  'workbench.editors.request.response.meta.streamedStop': 'Stopped',
+  'workbench.editors.request.response.meta.streamedCap': 'Stream capped',
+  'workbench.editors.request.response.meta.streamedTimeout': 'Timed out mid-stream',
+  'workbench.editors.request.response.meta.streamedError': 'Stream failed',
+  'workbench.editors.request.response.meta.streamedEndSummary':
+    'This response streamed in live until the server closed the stream. The body below is the complete capture.',
+  'workbench.editors.request.response.meta.streamedPartialSummary':
+    'The response was still streaming when the exchange ended, so the body below is the partial capture up to that point — everything that arrived was kept.',
+  'workbench.editors.request.response.streamReceiving': 'Receiving stream — {size}',
 
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': 'Response truncated at {cap} (original {size}).',

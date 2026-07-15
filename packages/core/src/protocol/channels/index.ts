@@ -82,7 +82,7 @@ export type {
   MigrationScanResult,
 } from './migration';
 export type { ProductTelemetryLogEntryWire, ProductTelemetrySnapshot } from './product-telemetry';
-export type { CookieJarEntryWire } from './requests';
+export type { CookieJarEntryWire, RequestStreamEventWire, RequestStreamHeadWire } from './requests';
 export type { SecretsStorageState } from './secrets';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 

@@ -63,3 +63,35 @@ describe('ResponseMetaStrip cookie-jar attribution', () => {
     expect(screen.queryByTestId('oh-response-auth-forwarded')).toBeNull();
   });
 });
+
+describe('ResponseMetaStrip streamed-capture attribution', () => {
+  it('shows no streamed tag on a run without the rider', () => {
+    renderStrip();
+    expect(screen.queryByTestId('oh-response-streamed')).toBeNull();
+  });
+
+  it('tags a user-stopped capture with warning tone (the body is partial)', () => {
+    renderStrip({ streamedCapture: { endedBy: 'stop' } });
+    const tag = screen.getByTestId('oh-response-streamed');
+    expect(tag.textContent).toBe('Stopped');
+    expect(tag.className).toContain('ant-tag-warning');
+  });
+
+  it('tags a naturally-ended stream neutral (the capture is complete)', () => {
+    renderStrip({ streamedCapture: { endedBy: 'end' } });
+    const tag = screen.getByTestId('oh-response-streamed');
+    expect(tag.textContent).toBe('Stream ended');
+    expect(tag.className).not.toContain('ant-tag-warning');
+  });
+
+  it('labels timeout / cap / error ends distinctly', () => {
+    renderStrip({ streamedCapture: { endedBy: 'timeout' } });
+    expect(screen.getByTestId('oh-response-streamed').textContent).toBe('Timed out mid-stream');
+    cleanup();
+    renderStrip({ streamedCapture: { endedBy: 'cap' } });
+    expect(screen.getByTestId('oh-response-streamed').textContent).toBe('Stream capped');
+    cleanup();
+    renderStrip({ streamedCapture: { endedBy: 'error', message: 'connection reset' } });
+    expect(screen.getByTestId('oh-response-streamed').textContent).toBe('Stream failed');
+  });
+});

@@ -21,6 +21,7 @@ import { graphqlWireText } from './body';
 import { classifyFetchFailure } from './failure-classify';
 import { isCertRejection, retryCertRejectedFetch } from './offscreen-retry';
 import type { ResolvedRequest } from './resolve';
+import { createStreamEmitter, registerActiveSend, type StreamEmitter } from './send-stream';
 import {
   estimateMultipartBytes,
   type MultipartFieldSize,
@@ -37,28 +38,45 @@ function maxBodyBytes(): number {
   return getSetting('requests.responseBodyCapMB') * 1024 * 1024;
 }
 
-/** Arm an abort deadline for the round-trip; `null` when the request
- *  carries no timeout. One deadline spans the whole exchange —
- *  connect, response, and body read — so a body stream stalled
- *  mid-read aborts too, which a fetch-only signal would miss. */
-function startDeadline(timeoutMs: number | undefined) {
-  if (timeoutMs === undefined) return null;
+/** Abort control spanning the whole exchange — connect, response, and
+ *  body read — so a body stream stalled mid-read aborts too, which a
+ *  fetch-only signal would miss. Two triggers share the one signal:
+ *  the per-request deadline (`expired`) and the user's Stop on an
+ *  interactive send carrying a `sendId` (`stopped`). `null` when
+ *  neither is in play, so signal-less sends stay exactly as before. */
+function startExchangeControl(timeoutMs: number | undefined, sendId: string | undefined) {
+  if (timeoutMs === undefined && sendId === undefined) return null;
   const controller = new AbortController();
   let expired = false;
-  const timer = setTimeout(() => {
-    expired = true;
-    controller.abort();
-  }, timeoutMs);
+  let stopped = false;
+  const timer =
+    timeoutMs === undefined
+      ? null
+      : setTimeout(() => {
+          expired = true;
+          controller.abort();
+        }, timeoutMs);
+  const unregister =
+    sendId === undefined
+      ? null
+      : registerActiveSend(sendId, () => {
+          stopped = true;
+          controller.abort();
+        });
   return {
     signal: controller.signal,
     expired: () => expired,
-    clear: () => clearTimeout(timer),
+    stopped: () => stopped,
+    clear: () => {
+      if (timer !== null) clearTimeout(timer);
+      unregister?.();
+    },
   };
 }
 
 export async function executeResolved(
   req: ResolvedRequest,
-  options: { silentStatus?: boolean } = {},
+  options: { silentStatus?: boolean; sendId?: string } = {},
 ): Promise<ExecutedRequestSnapshot> {
   const trimmed = req.url.trim();
   if (!trimmed) {
@@ -262,11 +280,11 @@ export async function executeResolved(
     ...(bodyApproximate ? { bodyApproximate: true } : {}),
   };
 
-  // Per-request timeout — the abort surfaces below with a message
-  // naming the configured ceiling, mirroring the node transport's
+  // Per-request timeout + interactive Stop — the abort surfaces below
+  // with a message naming what fired, mirroring the node transport's
   // "Request timed out after N ms." (the raw AbortError is useless).
-  const deadline = startDeadline(req.timeoutMs);
-  if (deadline) init.signal = deadline.signal;
+  const exchange = startExchangeControl(req.timeoutMs, options.sendId);
+  if (exchange) init.signal = exchange.signal;
 
   const startedAt = performance.now();
   // Window-scoped observer for this fetch's resource-timing entry —
@@ -283,7 +301,6 @@ export async function executeResolved(
     // Every user-facing fetch routes through withHostAccess — today a
     // pass-through, tomorrow the gate for a minimal-permissions SKU.
     const response = await withHostAccess(req.url, () => fetch(req.url, init));
-    const durationMs = Math.round(performance.now() - startedAt);
     // A successful fetch resets the Status pill — the user sees
     // green again on their next glance. A reset is a clean transition
     // from yellow (most recent failure) back to green (baseline).
@@ -303,19 +320,39 @@ export async function executeResolved(
       headers.push({ key, value });
     });
 
-    // Read the body as BYTES with the size cap applied byte-wise, then
-    // materialize: valid UTF-8 stays text, anything else goes base64
-    // (`bodyEncoding`) — lossless either way. `bodyBytes` counts the
-    // wire bytes, so binary sizes match the server's Content-Length
-    // instead of inflating through a lossy decode.
-    const rawBytes = new Uint8Array(await response.arrayBuffer());
-    const responseBodyBytes = rawBytes.byteLength;
+    // Read the body as BYTES, STREAMED, with the size cap applied
+    // byte-wise as it arrives — never a whole-body buffer (a response
+    // that streams forever would otherwise hang the send and grow
+    // memory without bound). Interactive sends carrying a `sendId`
+    // push live frames (head immediately, flush-batched chunks) so the
+    // response panel can tail the stream; a Stop / deadline / mid-body
+    // failure materializes the snapshot from what arrived instead of
+    // discarding it. Then materialize: valid UTF-8 stays text, anything
+    // else goes base64 (`bodyEncoding`) — lossless either way.
+    // `bodyBytes` counts the wire bytes read, so binary sizes match
+    // the server's Content-Length instead of inflating through a
+    // lossy decode.
     const capBytes = maxBodyBytes();
-    const truncated = responseBodyBytes > capBytes;
-    const { body, bodyEncoding } = materializeBody(truncated ? rawBytes.subarray(0, capBytes) : rawBytes, truncated);
+    const emitter = options.sendId ? createStreamEmitter(options.sendId) : null;
+    emitter?.head({
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url || req.url,
+      headers,
+    });
+    const read = await readInteractiveBody(response, capBytes, emitter);
+    emitter?.done();
+    const durationMs = Math.round(performance.now() - startedAt);
+    const { body, bodyEncoding } = materializeBody(read.bytes, read.truncated);
+    const streamedCapture = streamedCaptureOf(
+      read,
+      exchange?.expired() === true,
+      (emitter?.chunkFramesSent() ?? 0) > 0,
+    );
 
     // The entry queues once the body finishes downloading — which the
-    // completed arrayBuffer() read implies — so settle after the read.
+    // settled body read implies (an aborted read may never queue one;
+    // settle is bounded and returns undefined) — so settle after it.
     const timing = await capture.settle({ submittedUrl: req.url, finalUrl: response.url || req.url });
     const wire = await wireCapture.settle();
 
@@ -326,12 +363,13 @@ export async function executeResolved(
       headers,
       body,
       ...(bodyEncoding ? { bodyEncoding } : {}),
-      bodyTruncated: truncated,
-      ...(truncated ? { bodyCapBytes: capBytes } : {}),
-      bodyBytes: responseBodyBytes,
+      bodyTruncated: read.truncated,
+      ...(read.truncated ? { bodyCapBytes: capBytes } : {}),
+      bodyBytes: read.bytesRead,
       durationMs,
       ...(timing ? { timing } : {}),
       ...(wire ? { wire } : {}),
+      ...(streamedCapture ? { streamedCapture } : {}),
       requestSize,
       ...(requestBodyOmitted ? { requestBodyOmitted: true } : {}),
       error: null,
@@ -344,7 +382,11 @@ export async function executeResolved(
     // An expired per-request deadline aborts the exchange with an
     // opaque AbortError — replace it with a message naming the
     // configured ceiling (same string the node transport surfaces).
-    const timedOut = deadline?.expired() === true;
+    const timedOut = exchange?.expired() === true;
+    // A user Stop that fired before any response head reaches here the
+    // same way (nothing arrived, so there is nothing to materialize —
+    // a Stop mid-body materializes a partial snapshot above instead).
+    const stoppedByUser = !timedOut && exchange?.stopped() === true;
     // `fetch()` opaques every network error — DNS failure, connection
     // refused, bad certificate, missing host permission — into the
     // exact same `TypeError: Failed to fetch` with no `err.cause`
@@ -358,6 +400,7 @@ export async function executeResolved(
     // both are the same generic TypeError with the real cause hidden.
     const isGenericFetchFail =
       !timedOut &&
+      !stoppedByUser &&
       err instanceof TypeError &&
       /failed to fetch|networkerror when attempting to fetch/i.test(rawMessage);
     let netError: string | undefined;
@@ -404,9 +447,11 @@ export async function executeResolved(
     }
     const { message, hint } = timedOut
       ? { message: `Request timed out after ${req.timeoutMs} ms.`, hint: undefined }
-      : isGenericFetchFail
-        ? classifyFetchFailure(req.url, rawMessage, netError)
-        : { message: rawMessage, hint: undefined };
+      : stoppedByUser
+        ? { message: 'Request stopped before a response arrived.', hint: undefined }
+        : isGenericFetchFail
+          ? classifyFetchFailure(req.url, rawMessage, netError)
+          : { message: rawMessage, hint: undefined };
     logger.info('RequestExecutor', `fetch failed for ${req.url}: ${netError ?? rawMessage}`);
     recordLog({
       subsystem: 'request-executor',
@@ -448,7 +493,133 @@ export async function executeResolved(
       scripts: null,
     };
   } finally {
-    deadline?.clear();
+    exchange?.clear();
+  }
+}
+
+/** Outcome of the streamed interactive body read. */
+interface InteractiveBodyRead {
+  /** Retained (cap-bounded) wire bytes. */
+  bytes: Uint8Array;
+  /** Total bytes read off the wire before any truncation. */
+  bytesRead: number;
+  /** True when the cap aborted the read — `bytes` is the capped prefix. */
+  truncated: boolean;
+  /** How the read settled: the stream completed, the cap aborted it,
+   *  the exchange signal fired mid-read (Stop / deadline), or the
+   *  connection failed mid-body. */
+  ended: 'end' | 'cap' | 'aborted' | 'error';
+  /** Failure text for `ended: 'error'`. */
+  errorMessage?: string;
+}
+
+/**
+ * Stream the response body, retaining at most `capBytes` and aborting
+ * the read once the upstream overflows the cap (same discipline as the
+ * chain transport's capped read — the SW must never buffer an unbounded
+ * response). A read() rejection after the head arrived is a PARTIAL
+ * capture, not a loss: Stop, deadline, and mid-body connection failures
+ * all settle with whatever bytes made it, and the caller materializes a
+ * normal snapshot from them. Live frames (when an emitter rides along)
+ * carry only cap-bounded bytes, so the tail never shows bytes the
+ * snapshot won't keep.
+ */
+async function readInteractiveBody(
+  response: Response,
+  capBytes: number,
+  emitter: StreamEmitter | null,
+): Promise<InteractiveBodyRead> {
+  const stream = response.body;
+  if (!stream) return { bytes: new Uint8Array(0), bytesRead: 0, truncated: false, ended: 'end' };
+  const reader = stream.getReader();
+  const parts: Uint8Array[] = [];
+  let bytesRead = 0;
+  let ended: InteractiveBodyRead['ended'] = 'end';
+  let errorMessage: string | undefined;
+  try {
+    while (true) {
+      let result: ReadableStreamReadResult<Uint8Array>;
+      try {
+        result = await reader.read();
+      } catch (err) {
+        const aborted = err instanceof DOMException && err.name === 'AbortError';
+        ended = aborted ? 'aborted' : 'error';
+        if (!aborted) errorMessage = err instanceof Error ? err.message : String(err);
+        break;
+      }
+      if (result.done) break;
+      const value = result.value;
+      if (!value || value.byteLength === 0) continue;
+      const before = bytesRead;
+      parts.push(value);
+      bytesRead += value.byteLength;
+      if (emitter) {
+        const allowed = Math.min(value.byteLength, Math.max(0, capBytes - before));
+        if (allowed > 0) {
+          emitter.chunk(
+            allowed === value.byteLength ? value : value.subarray(0, allowed),
+            Math.min(bytesRead, capBytes),
+          );
+        }
+      }
+      if (bytesRead > capBytes) {
+        ended = 'cap';
+        try {
+          await reader.cancel();
+        } catch {
+          // Upstream already failed — the retained bytes still stand.
+        }
+        break;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const retained = Math.min(bytesRead, capBytes);
+  const buf = new Uint8Array(retained);
+  let offset = 0;
+  for (const part of parts) {
+    if (offset >= retained) break;
+    const take = Math.min(part.byteLength, retained - offset);
+    buf.set(part.subarray(0, take), offset);
+    offset += take;
+  }
+  return {
+    bytes: buf,
+    bytesRead,
+    truncated: ended === 'cap',
+    ended,
+    ...(errorMessage !== undefined ? { errorMessage } : {}),
+  };
+}
+
+/**
+ * Map a settled read onto the snapshot's `streamedCapture` attribution.
+ * Stop/deadline/mid-body failure always stamp (the body is partial —
+ * the surface must say so); a natural end or a cap abort stamp only
+ * when the live stream phase engaged (chunk frames actually went out),
+ * so ordinary responses — which complete before the first flush window
+ * — carry no rider.
+ */
+function streamedCaptureOf(
+  read: InteractiveBodyRead,
+  expired: boolean,
+  liveEngaged: boolean,
+): ExecutedRequestSnapshot['streamedCapture'] | undefined {
+  switch (read.ended) {
+    case 'aborted':
+      return { endedBy: expired ? 'timeout' : 'stop' };
+    case 'error':
+      return { endedBy: 'error', ...(read.errorMessage !== undefined ? { message: read.errorMessage } : {}) };
+    case 'cap':
+      return liveEngaged ? { endedBy: 'cap' } : undefined;
+    case 'end':
+      return liveEngaged ? { endedBy: 'end' } : undefined;
+    default: {
+      const _exhaustive: never = read.ended;
+      void _exhaustive;
+      return undefined;
+    }
   }
 }
 

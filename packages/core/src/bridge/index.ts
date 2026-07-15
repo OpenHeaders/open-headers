@@ -41,6 +41,8 @@ export type {
   MigrationScanResult,
   ProductTelemetryLogEntryWire,
   ProductTelemetrySnapshot,
+  RequestStreamEventWire,
+  RequestStreamHeadWire,
   SecretsStorageState,
   SiteDataTypeWire,
   SiteJarCookieWire,

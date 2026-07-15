@@ -389,6 +389,46 @@ function authForwardedContent(t: Translate): InfoPopoverContent {
   };
 }
 
+/** Tag label for a streamed capture — how the stream ended. */
+function streamedTagLabel(endedBy: NonNullable<ExecutedRequestSnapshot['streamedCapture']>['endedBy'], t: Translate) {
+  switch (endedBy) {
+    case 'end':
+      return t('workbench.editors.request.response.meta.streamedEnd');
+    case 'stop':
+      return t('workbench.editors.request.response.meta.streamedStop');
+    case 'cap':
+      return t('workbench.editors.request.response.meta.streamedCap');
+    case 'timeout':
+      return t('workbench.editors.request.response.meta.streamedTimeout');
+    case 'error':
+      return t('workbench.editors.request.response.meta.streamedError');
+    default: {
+      const _exhaustive: never = endedBy;
+      void _exhaustive;
+      return '';
+    }
+  }
+}
+
+/** Popover for the streamed-capture tag — attribution of how a live
+ *  stream ended and, for stop/cap/timeout/error, that the body is the
+ *  partial capture up to that point ("stop and snapshot"). */
+function streamedCaptureContent(
+  capture: NonNullable<ExecutedRequestSnapshot['streamedCapture']>,
+  t: Translate,
+): InfoPopoverContent {
+  const summary =
+    capture.endedBy === 'end'
+      ? t('workbench.editors.request.response.meta.streamedEndSummary')
+      : t('workbench.editors.request.response.meta.streamedPartialSummary');
+  return {
+    title: streamedTagLabel(capture.endedBy, t),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary,
+    ...(capture.message !== undefined ? { description: capture.message } : {}),
+  };
+}
+
 /** Body of the cookie-jar popover: what the jar attached on the first
  *  hop and what it stored across the chain — the snapshot's record of
  *  what the send actually did, never a live jar read. */
@@ -550,6 +590,20 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >
               {t('workbench.editors.request.response.meta.authForwarded')}
+            </Tag>
+          </InfoPopover>
+        </>
+      )}
+      {response.streamedCapture !== undefined && (
+        <>
+          <MetaDot />
+          <InfoPopover content={streamedCaptureContent(response.streamedCapture, t)} trigger="hover">
+            <Tag
+              color={response.streamedCapture.endedBy === 'end' ? 'default' : 'warning'}
+              data-testid="oh-response-streamed"
+              style={{ marginInlineEnd: 0, cursor: 'help' }}
+            >
+              {streamedTagLabel(response.streamedCapture.endedBy, t)}
             </Tag>
           </InfoPopover>
         </>

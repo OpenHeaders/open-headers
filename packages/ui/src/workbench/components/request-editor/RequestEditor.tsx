@@ -27,7 +27,8 @@
  * persisting first.
  */
 
-import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
+import { BorderOutlined, CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
+import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -72,6 +73,7 @@ import RequestUrlBar from './RequestUrlBar';
 import { takeHandoffResponse } from './response-handoff';
 import { capturedResponseFromSnapshot } from '../response-example/example-draft';
 import ResponsePanel from './response/ResponsePanel';
+import { useLiveSendStream } from './useLiveSendStream';
 import { useRequestEditorLayout } from './useRequestEditorLayout';
 import { useSectionUnresolved } from './useSectionUnresolved';
 import type { AutoSuggestionContextValue } from '../template-input';
@@ -174,6 +176,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const [liveRequest, setLiveRequest] = useState<Request | null>(null);
 
   const [sending, setSending] = useState(false);
+  // In-flight send id — mints per Send, backs the Stop button and tags
+  // the live stream frames the response panel tails.
+  const activeSendIdRef = useRef<string | null>(null);
+  const { live, beginStream, endStream } = useLiveSendStream();
   // Edit-mode mounts check the handoff stash: a draft saved to a
   // collection swaps tabs (remounting this editor) and parks its last
   // response there so the response panel survives the save.
@@ -531,10 +537,39 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       preRequestScript: draft.preRequestScript,
       postResponseScript: draft.postResponseScript,
     };
-    const snapshot = await execute({ draft: draftRequest });
+    // Mint the send id and open the live-stream feed BEFORE the RPC
+    // goes out — the head frame can arrive while the call is pending.
+    // The resolving snapshot supersedes every frame.
+    const sendId = crypto.randomUUID();
+    activeSendIdRef.current = sendId;
+    beginStream(sendId);
+    const snapshot = await execute({ draft: draftRequest, sendId });
+    activeSendIdRef.current = null;
+    endStream();
     setSending(false);
     setResponse(snapshot);
-  }, [sending, summary, draftName, draft, execute, preferredCollectionId, preferredFolderPath, requestCollections]);
+  }, [
+    sending,
+    summary,
+    draftName,
+    draft,
+    execute,
+    beginStream,
+    endStream,
+    preferredCollectionId,
+    preferredFolderPath,
+    requestCollections,
+  ]);
+
+  // Stop the in-flight send — the host aborts the exchange and the
+  // pending `execute` above resolves with a snapshot materialized from
+  // whatever arrived. Fire-and-forget: hosts without the streaming leg
+  // reject the RPC and the send simply runs to completion as before.
+  const handleStop = useCallback(() => {
+    const sendId = activeSendIdRef.current;
+    if (!sendId) return;
+    hostBridge.call('abortRequestSend', { sendId }).catch(() => {});
+  }, []);
 
   // ⌘/Ctrl+Enter sends from anywhere in the editor — same gate as the
   // Send button. Capture phase so Send owns the chord even when focus
@@ -597,7 +632,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     <Tooltip
       placement="bottom"
       title={
-        hasUnresolvedRefs ? (
+        sending ? (
+          t('workbench.editors.request.send.stopTooltip')
+        ) : hasUnresolvedRefs ? (
           t('workbench.editors.request.send.unresolvedTooltip')
         ) : (
           <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
@@ -611,16 +648,31 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         )
       }
     >
-      <Button
-        type="primary"
-        icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
-        size="small"
-        onClick={() => void handleSend()}
-        disabled={sending || hasUnresolvedRefs}
-        style={{ fontSize: 11 }}
-      >
-        {sending ? t('workbench.editors.request.send.sending') : t('workbench.editors.request.send.label')}
-      </Button>
+      {sending ? (
+        // Send morphs into Stop for EVERY in-flight send — streaming or
+        // not. Stopping materializes a snapshot from whatever arrived.
+        <Button
+          danger
+          icon={<BorderOutlined style={{ fontSize: 9 }} />}
+          size="small"
+          data-testid="oh-request-stop"
+          onClick={handleStop}
+          style={{ fontSize: 11 }}
+        >
+          {t('workbench.editors.request.send.stop')}
+        </Button>
+      ) : (
+        <Button
+          type="primary"
+          icon={<CaretRightOutlined />}
+          size="small"
+          onClick={() => void handleSend()}
+          disabled={hasUnresolvedRefs}
+          style={{ fontSize: 11 }}
+        >
+          {t('workbench.editors.request.send.label')}
+        </Button>
+      )}
     </Tooltip>
   );
 
@@ -757,6 +809,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                 <ResponsePanel
                   response={response}
                   sending={sending}
+                  live={live}
                   layout={layout}
                   onLayoutChange={setLayout}
                   onClear={() => setResponse(null)}

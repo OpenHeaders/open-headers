@@ -21,6 +21,7 @@ import {
   updateRequest,
 } from '@openheaders/oracle/entity/request-store';
 import { executeRequest, executeRequestDraft } from '../../request-executor';
+import { stopActiveSend } from '../../request-executor/send-stream';
 import type { HandlerMap } from '../types';
 
 export const requestHandlers: HandlerMap = {
@@ -161,10 +162,11 @@ export const requestHandlers: HandlerMap = {
     const requestUid = message.requestUid as string | undefined;
     const draft = message.draft as Request | undefined;
     const environmentId = message.environmentId as string | null | undefined;
+    const sendId = message.sendId as string | undefined;
     const exec = requestUid
-      ? executeRequest(requestUid, { environmentId })
+      ? executeRequest(requestUid, { environmentId, sendId })
       : draft
-        ? executeRequestDraft(draft, { environmentId })
+        ? executeRequestDraft(draft, { environmentId, sendId })
         : Promise.resolve(null);
     exec
       .then((snapshot) => {
@@ -176,5 +178,10 @@ export const requestHandlers: HandlerMap = {
       })
       .catch((error: Error) => respond({ success: false, error: error.message }));
     return true;
+  },
+
+  abortRequestSend: ({ message, respond }) => {
+    const sendId = message.sendId as string | undefined;
+    respond({ success: sendId !== undefined && stopActiveSend(sendId) });
   },
 };

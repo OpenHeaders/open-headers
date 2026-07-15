@@ -65,6 +65,13 @@ export interface ExecuteRequestOptions {
    * which triggers the same workflow).
    */
   skipScripts?: boolean;
+  /**
+   * Caller-minted id of this interactive send. When present, the wire
+   * leg pushes live `requestStreamEvent` frames tagged with it and the
+   * send is stoppable via `abortRequestSend` — see `send-stream.ts`.
+   * Chain/workflow fetches leave it unset.
+   */
+  sendId?: string;
 }
 
 /** Resolve + execute a persisted request by uid. */
@@ -137,7 +144,10 @@ export async function executeRequestDraft(
     if (preRun.outcome) scriptOutcome = { preRequest: preRun.outcome };
   }
 
-  const wireResult = await executeResolved(finalResolved, { silentStatus: options.silentStatus });
+  const wireResult = await executeResolved(finalResolved, {
+    silentStatus: options.silentStatus,
+    sendId: options.sendId,
+  });
 
   // ── TOTP cooldown record ───────────────────────────────────────
   // Only record on a successful round-trip — a fetch that never
