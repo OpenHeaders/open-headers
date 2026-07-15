@@ -20,6 +20,12 @@ export interface CliConfig {
   telemetry?: boolean;
   /** Set once the first-run telemetry notice has been printed; the notice never repeats. */
   telemetryNoticeShown?: boolean;
+  /** Random resettable install id (plan §4, amended 2026-07-16). Deleted when the channel is off. */
+  telemetryInstallId?: string;
+  /** ms since epoch the install id was minted; feeds the coarse sinceInstall bucket. */
+  telemetryInstalledAt?: number;
+  /** Once-ever `first_run` sent-bit; survives identity wipes so toggle cycles never inflate install counts. */
+  telemetryFirstRunSent?: boolean;
 }
 
 export function cliConfigPath(
@@ -63,6 +69,9 @@ export async function readCliConfig(filePath: string): Promise<CliConfig> {
   if (typeof parsed.token === 'string') config.token = parsed.token;
   if (typeof parsed.telemetry === 'boolean') config.telemetry = parsed.telemetry;
   if (typeof parsed.telemetryNoticeShown === 'boolean') config.telemetryNoticeShown = parsed.telemetryNoticeShown;
+  if (typeof parsed.telemetryInstallId === 'string') config.telemetryInstallId = parsed.telemetryInstallId;
+  if (typeof parsed.telemetryInstalledAt === 'number') config.telemetryInstalledAt = parsed.telemetryInstalledAt;
+  if (typeof parsed.telemetryFirstRunSent === 'boolean') config.telemetryFirstRunSent = parsed.telemetryFirstRunSent;
   return config;
 }
 

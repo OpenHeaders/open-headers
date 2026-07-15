@@ -19,10 +19,14 @@
  */
 
 import {
+  createInMemoryProductTelemetryInstallStore,
   createInMemoryProductTelemetrySessionStore,
+  mintTelemetryInstallId,
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
+  type ProductTelemetryInstallStore,
   parseTelemetryAppVersion,
+  type TelemetryChannelId,
   type TelemetryEnvelope,
   type TelemetryEvent,
   type TelemetryPlatform,
@@ -49,12 +53,83 @@ export interface CliProductTelemetryDeps {
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
   cliVersion?: string;
+  /** Distribution channel stamped on `first_run`; defaults to detection from the running script's path. */
+  channel?: TelemetryChannelId;
   /** First-run notice sink; production prints one stderr line. */
   notify?: (line: string) => void;
   configPath?: string;
   /** Test seams; production uses the aborting fetch transport + wall clock. */
   transport?: TelemetryTransport;
   now?: () => number;
+}
+
+/**
+ * Where this `oh` came from — a static fact of the installed path
+ * (Homebrew cellar vs an npm `node_modules` tree), never a request.
+ */
+export function detectCliChannel(scriptPath: string): TelemetryChannelId {
+  if (scriptPath.includes('/Cellar/') || scriptPath.includes('/homebrew/')) return 'brew';
+  if (scriptPath.includes('node_modules')) return 'npm';
+  return 'unknown';
+}
+
+/**
+ * Durable install identity inside `cli.json` (plan §4, amended
+ * 2026-07-16). Only constructed for a readable config — an unreadable
+ * file is never overwritten, so those runs get a one-invocation
+ * in-memory identity instead. Every write is best-effort: a failure
+ * means the identity re-mints next run, never that a command breaks.
+ */
+function createConfigInstallStore(configPath: string): ProductTelemetryInstallStore {
+  const load = (): Promise<CliConfig> => readCliConfig(configPath);
+  return {
+    async getRecord() {
+      try {
+        const config = await load();
+        return typeof config.telemetryInstallId === 'string' && typeof config.telemetryInstalledAt === 'number'
+          ? { installId: config.telemetryInstallId, installedAt: config.telemetryInstalledAt }
+          : null;
+      } catch {
+        return null;
+      }
+    },
+    async setRecord(record) {
+      try {
+        const config = await load();
+        await writeCliConfig(configPath, {
+          ...config,
+          telemetryInstallId: record.installId,
+          telemetryInstalledAt: record.installedAt,
+        });
+      } catch {
+        // Unwritable config = identity re-mints next run.
+      }
+    },
+    async clearRecord() {
+      try {
+        const { telemetryInstallId: _id, telemetryInstalledAt: _at, ...rest } = await load();
+        await writeCliConfig(configPath, rest);
+      } catch {
+        // Nothing readable to clear.
+      }
+    },
+    async wasFirstRunSent() {
+      try {
+        return (await load()).telemetryFirstRunSent === true;
+      } catch {
+        // When in doubt, never re-announce an install.
+        return true;
+      }
+    },
+    async markFirstRunSent() {
+      try {
+        const config = await load();
+        await writeCliConfig(configPath, { ...config, telemetryFirstRunSent: true });
+      } catch {
+        // Best effort; a repeat first_run beats a broken command.
+      }
+    },
+  };
 }
 
 /** `OH_TELEMETRY` decides when set; otherwise the config key; otherwise on. */
@@ -124,7 +199,15 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
       // read raises the loud fix-or-delete error.
       configReadable = false;
     }
-    if (!readTelemetryEnabled(env, config.telemetry)) return inert;
+    if (!readTelemetryEnabled(env, config.telemetry)) {
+      // Off means no identity: a disabled run wipes any stored install
+      // id (the first_run sent-bit stays — it carries no identity).
+      if (configReadable && (config.telemetryInstallId !== undefined || config.telemetryInstalledAt !== undefined)) {
+        const { telemetryInstallId: _id, telemetryInstalledAt: _at, ...rest } = config;
+        await writeCliConfig(configPath, rest).catch(() => undefined);
+      }
+      return inert;
+    }
 
     if (config.telemetryNoticeShown !== true) {
       (deps.notify ?? ((line) => console.error(line)))(TELEMETRY_NOTICE);
@@ -137,10 +220,19 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
       }
     }
 
+    const now = deps.now ?? Date.now;
+    // An unreadable config gets a one-invocation in-memory identity
+    // (pre-latched so it never announces a first_run) — the file is
+    // never overwritten; the command's own read raises the loud error.
+    const installStore = configReadable
+      ? createConfigInstallStore(configPath)
+      : createInMemoryProductTelemetryInstallStore({ installId: mintTelemetryInstallId(), installedAt: now() });
     const controller = new ProductTelemetryController({
       transport: deps.transport ?? abortingFetchTransport,
-      now: deps.now ?? Date.now,
+      now,
       sessionStore: createInMemoryProductTelemetrySessionStore(),
+      installStore,
+      channel: deps.channel ?? detectCliChannel(process.argv[1] ?? ''),
       getEnabled: () => true,
       subscribeEnabled: () => undefined,
       buildSessionStart: async () =>

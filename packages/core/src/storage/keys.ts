@@ -47,6 +47,7 @@ import type {
   WorkspaceRoleAssignment,
   WorkspaceVariables,
 } from '../types';
+import type { TelemetryInstallContext } from '../telemetry/client';
 import type { PauseMarker } from '../utils';
 
 // ── Core key type ────────────────────────────────────────────────────
@@ -225,6 +226,18 @@ export const OH = {
   viewMode: storageKey<ViewMode>('oh.viewMode', 'sync'),
   /** User-scope settings dict (global — never per-workspace). */
   settingsUser: storageKey<Record<string, unknown>>('oh.settings.user'),
+  /**
+   * Product-telemetry install identity (TELEMETRY_PLAN.md §4, amended
+   * 2026-07-16): a random resettable id + mint date. Deleted whenever
+   * the telemetry toggle goes off — off means no identity.
+   */
+  productTelemetryInstall: storageKey<TelemetryInstallContext>('oh.productTelemetry.install'),
+  /**
+   * The once-ever `first_run` sent-bit. Deliberately separate from the
+   * identity record: it survives toggle-off wipes (a plain boolean, no
+   * identity) so toggle cycles never inflate install counts.
+   */
+  productTelemetryFirstRunSent: storageKey<boolean>('oh.productTelemetry.firstRunSent'),
   /**
    * Observability ring-buffer snapshot. Capped at {@link DEFAULT_CAPACITY}
    * entries; persisted in full on each flush because a ring trimmed to

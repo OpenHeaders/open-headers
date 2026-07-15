@@ -10,7 +10,12 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { TelemetryEnvelope } from '@openheaders/core/telemetry';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { bootCliProductTelemetry, readTelemetryEnabled, TELEMETRY_NOTICE } from '../../src/product-telemetry';
+import {
+  bootCliProductTelemetry,
+  detectCliChannel,
+  readTelemetryEnabled,
+  TELEMETRY_NOTICE,
+} from '../../src/product-telemetry';
 
 let dir: string;
 
@@ -38,6 +43,7 @@ async function makeRig(options: RigOptions = {}) {
       env: options.env ?? {},
       platform: options.platform ?? 'darwin',
       cliVersion: options.cliVersion ?? '2026.7.2',
+      channel: 'npm',
       notify: (line) => notices.push(line),
       configPath,
       transport: {
@@ -92,15 +98,19 @@ describe('bootCliProductTelemetry — first-run notice', () => {
     expect(notices).toHaveLength(1);
   });
 
-  it('keeps existing config keys when persisting the flag', async () => {
+  it('keeps existing config keys when persisting the flag and the install identity', async () => {
     const { boot, configPath } = await makeRig();
     await writeConfig(configPath, { daemonUrl: 'https://daemon.openheaders.io', token: 'oh_secret' });
     await boot();
-    expect(JSON.parse(await readFile(configPath, 'utf8'))).toEqual({
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+    expect(config).toMatchObject({
       daemonUrl: 'https://daemon.openheaders.io',
       token: 'oh_secret',
       telemetryNoticeShown: true,
+      telemetryFirstRunSent: true,
     });
+    expect(config.telemetryInstallId).toMatch(/^[0-9a-f]{32}$/);
+    expect(typeof config.telemetryInstalledAt).toBe('number');
   });
 
   it('never prints when the channel is off — nothing is collected, nothing to disclose', async () => {
@@ -114,13 +124,16 @@ describe('bootCliProductTelemetry — first-run notice', () => {
 });
 
 describe('bootCliProductTelemetry — session_start', () => {
-  it('flushes one session_start with the cli identity on finish', async () => {
-    const { boot, sent } = await makeRig();
+  it('flushes first_run + session_start with the cli identity on a fresh install', async () => {
+    const { boot, sent, configPath } = await makeRig();
     const handle = await boot();
     await handle.finish();
     expect(sent).toHaveLength(1);
     expect(sent[0].sessionId).toMatch(/^[0-9a-f]{32}$/);
+    expect(sent[0].installId).toMatch(/^[0-9a-f]{32}$/);
+    expect(sent[0].sinceInstall).toBe('0');
     expect(sent[0].events).toEqual([
+      { name: 'first_run', channel: 'npm' },
       {
         name: 'session_start',
         host: 'cli',
@@ -129,6 +142,39 @@ describe('bootCliProductTelemetry — session_start', () => {
         locale: 'en',
       },
     ]);
+    expect(JSON.parse(await readFile(configPath, 'utf8'))).toMatchObject({
+      telemetryInstallId: sent[0].installId,
+      telemetryFirstRunSent: true,
+    });
+  });
+
+  it('keeps the install id across invocations and never repeats first_run', async () => {
+    const { boot, sent } = await makeRig();
+    await (await boot()).finish();
+    await (await boot()).finish();
+    expect(sent).toHaveLength(2);
+    expect(sent[1].installId).toBe(sent[0].installId);
+    expect(sent[1].sessionId).not.toBe(sent[0].sessionId);
+    expect(sent[1].events).toEqual([expect.objectContaining({ name: 'session_start' })]);
+  });
+
+  it('a disabled run wipes the stored identity but keeps the first_run sent-bit', async () => {
+    const { boot, sent, configPath } = await makeRig();
+    await (await boot()).finish();
+    expect(JSON.parse(await readFile(configPath, 'utf8')).telemetryInstallId).toBeDefined();
+
+    const disabled = await makeRig({ env: { OH_TELEMETRY: '0' } });
+    await (await disabled.boot()).finish();
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+    expect(config.telemetryInstallId).toBeUndefined();
+    expect(config.telemetryInstalledAt).toBeUndefined();
+    expect(config.telemetryFirstRunSent).toBe(true);
+
+    // Re-enabled: a fresh id, no second first_run.
+    await (await boot()).finish();
+    const last = sent[sent.length - 1];
+    expect(last.installId).not.toBe(sent[0].installId);
+    expect(last.events).toEqual([expect.objectContaining({ name: 'session_start' })]);
   });
 
   it('sends nothing when the config key opts out', async () => {
@@ -139,18 +185,27 @@ describe('bootCliProductTelemetry — session_start', () => {
     expect(sent).toEqual([]);
   });
 
-  it('skips the event on unmappable platforms instead of misreporting', async () => {
+  it('skips the event on unmappable platforms instead of misreporting (first_run still counts the install)', async () => {
     const { boot, sent } = await makeRig({ platform: 'freebsd' });
     const handle = await boot();
     await handle.finish();
-    expect(sent).toEqual([]);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].events).toEqual([{ name: 'first_run', channel: 'npm' }]);
   });
 
   it('maps the dev version stamp to zeros rather than failing', async () => {
     const { boot, sent } = await makeRig({ cliVersion: 'dev' });
     const handle = await boot();
     await handle.finish();
-    expect(sent[0].events[0]).toMatchObject({ appVersion: { year: 0, month: 0, patch: 0 } });
+    expect(sent[0].events[1]).toMatchObject({ appVersion: { year: 0, month: 0, patch: 0 } });
+  });
+});
+
+describe('detectCliChannel', () => {
+  it('reads homebrew cellars, npm trees, and everything else', () => {
+    expect(detectCliChannel('/opt/homebrew/Cellar/openheaders-cli/2026.7.2/bin/oh')).toBe('brew');
+    expect(detectCliChannel('/usr/local/lib/node_modules/@openheaders/cli/bin/oh')).toBe('npm');
+    expect(detectCliChannel('/Users/dev/oh/dist/oh')).toBe('unknown');
   });
 });
 

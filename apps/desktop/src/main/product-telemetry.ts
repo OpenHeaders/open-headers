@@ -18,12 +18,15 @@
 
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import type { HostStorage } from '@openheaders/core/storage';
-import { OH } from '@openheaders/core/storage';
+import { OH, wsKeys } from '@openheaders/core/storage';
 import {
+  bucketScale,
   createInMemoryProductTelemetrySessionStore,
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
+  type ProductTelemetryInstallStore,
   parseTelemetryAppVersion,
+  type TelemetryChannelId,
   type TelemetryEnvelope,
   type TelemetryEvent,
   type TelemetryPlatform,
@@ -33,11 +36,13 @@ import {
 const FLUSH_PERIOD_MS = 60_000;
 
 export interface ProductTelemetryHostDeps {
-  storage: Pick<HostStorage, 'get' | 'subscribe'>;
+  storage: Pick<HostStorage, 'get' | 'set' | 'remove' | 'subscribe'>;
   /** CalVer app version (`app.getVersion()`). */
   appVersion: string;
   /** `process.platform`; unmappable values skip `session_start` rather than misreport. */
   platform: NodeJS.Platform;
+  /** This build's distribution channel, stamped on `first_run` (packaged = github-release; dev = unknown). */
+  channel: TelemetryChannelId;
   /** Test seams; production uses the fetch transport + wall clock. */
   transport?: TelemetryTransport;
   now?: () => number;
@@ -48,9 +53,31 @@ export interface ProductTelemetryHandle {
   track(event: TelemetryEvent): void;
   /** The telemetry inspector's snapshot (bridge RPC). */
   snapshot(): Promise<ProductTelemetrySnapshot>;
+  /** Mint a fresh install id (settings affordance RPC). Null while the channel is off. */
+  resetInstallId(): Promise<string | null>;
   flush(): Promise<void>;
   /** Stop the flush cadence and fire one best-effort final flush. */
   dispose(): void;
+}
+
+/**
+ * Durable install identity on the file-backed host storage — the typed
+ * keys of `OH.productTelemetryInstall` / `OH.productTelemetryFirstRunSent`
+ * (identity record wiped on toggle-off; the sent-bit survives by design).
+ */
+function createStorageInstallStore(
+  storage: Pick<HostStorage, 'get' | 'set' | 'remove'>,
+): ProductTelemetryInstallStore {
+  return {
+    async getRecord() {
+      const record = await storage.get(OH.productTelemetryInstall);
+      return typeof record?.installId === 'string' && typeof record?.installedAt === 'number' ? record : null;
+    },
+    setRecord: (record) => storage.set(OH.productTelemetryInstall, record),
+    clearRecord: () => storage.remove(OH.productTelemetryInstall),
+    wasFirstRunSent: async () => (await storage.get(OH.productTelemetryFirstRunSent)) === true,
+    markFirstRunSent: () => storage.set(OH.productTelemetryFirstRunSent, true),
+  };
 }
 
 function readTelemetryEnabled(values: Record<string, unknown> | undefined): boolean {
@@ -64,7 +91,30 @@ function telemetryPlatform(platform: NodeJS.Platform): TelemetryPlatform | null 
   return null;
 }
 
-function buildSessionStart(platform: NodeJS.Platform, appVersion: string): TelemetryEvent | null {
+/**
+ * Coarse scale-of-use for `session_start`, read from the same storage
+ * the workbench writes. An empty workspace list means the keys aren't
+ * in use on this install — omit the buckets rather than misreport zero.
+ */
+async function readScaleBuckets(
+  storage: Pick<HostStorage, 'get'>,
+): Promise<Pick<Extract<TelemetryEvent, { name: 'session_start' }>, 'rules' | 'workspaces'>> {
+  try {
+    const workspaces = (await storage.get(OH.workspaces)) ?? [];
+    if (workspaces.length === 0) return {};
+    const activeId = (await storage.get(OH.runtimeActive)) ?? workspaces[0]?.id;
+    const rules = activeId ? ((await storage.get(wsKeys(activeId).rules)) ?? []) : [];
+    return { rules: bucketScale(rules.length), workspaces: bucketScale(workspaces.length) };
+  } catch {
+    return {};
+  }
+}
+
+async function buildSessionStart(
+  platform: NodeJS.Platform,
+  appVersion: string,
+  storage: Pick<HostStorage, 'get'>,
+): Promise<TelemetryEvent | null> {
   const mapped = telemetryPlatform(platform);
   if (!mapped) return null;
   return {
@@ -73,6 +123,7 @@ function buildSessionStart(platform: NodeJS.Platform, appVersion: string): Telem
     appVersion: parseTelemetryAppVersion(appVersion),
     platform: mapped,
     locale: 'en',
+    ...(await readScaleBuckets(storage)),
   };
 }
 
@@ -99,9 +150,11 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
     transport: deps.transport ?? fetchTransport,
     now: deps.now ?? Date.now,
     sessionStore: createInMemoryProductTelemetrySessionStore(),
+    installStore: createStorageInstallStore(deps.storage),
+    channel: deps.channel,
     getEnabled: () => enabled,
     subscribeEnabled: (fn) => enabledListeners.push(fn),
-    buildSessionStart: async () => buildSessionStart(deps.platform, deps.appVersion),
+    buildSessionStart: () => buildSessionStart(deps.platform, deps.appVersion, deps.storage),
   });
   await controller.init();
 
@@ -112,6 +165,7 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
   return {
     track: (event) => void controller.track(event),
     snapshot: () => controller.snapshot(),
+    resetInstallId: () => controller.resetInstallId(),
     flush: () => controller.flush(),
     dispose: () => {
       clearInterval(timer);

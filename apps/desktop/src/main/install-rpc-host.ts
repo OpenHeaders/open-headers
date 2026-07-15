@@ -189,6 +189,7 @@ export async function installRpcHost(): Promise<void> {
     storage: hostStorage,
     appVersion: app.getVersion(),
     platform: process.platform,
+    channel: app.isPackaged ? 'github-release' : 'unknown',
   });
 
   // Check-and-notify updates (docs/UPDATES_PLAN.md): the service only
@@ -386,6 +387,9 @@ export async function installRpcHost(): Promise<void> {
     }
     if (type === 'productTelemetryRead') {
       return productTelemetry.snapshot();
+    }
+    if (type === 'productTelemetryResetInstallId') {
+      return { installId: await productTelemetry.resetInstallId() };
     }
     // Import-report ring (ARCHITECTURE §23) — the shared workbench UI
     // (report modal, re-import diff, settings Data page) drives these
