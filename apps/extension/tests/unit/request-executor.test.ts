@@ -66,7 +66,7 @@ import {
   getVault,
   getWorkspaceVariables,
 } from '@openheaders/oracle/entity/environment-store';
-import { getRequestCollections } from '@openheaders/oracle/entity/request-store';
+import { getRequestCollections, getRequestFolders } from '@openheaders/oracle/entity/request-store';
 import { needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
 import { ensureScheme, executeRequestDraft } from '@/background/modules/request-executor';
 
@@ -75,6 +75,7 @@ const mockActiveEnvId = getActiveEnvironmentId as ReturnType<typeof vi.fn>;
 const mockWsVars = getWorkspaceVariables as ReturnType<typeof vi.fn>;
 const mockVault = getVault as ReturnType<typeof vi.fn>;
 const mockRequestCollections = getRequestCollections as ReturnType<typeof vi.fn>;
+const mockRequestFolders = getRequestFolders as ReturnType<typeof vi.fn>;
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
@@ -100,6 +101,7 @@ describe('RequestExecutor', () => {
     mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] });
     mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] });
     mockRequestCollections.mockReturnValue([]);
+    mockRequestFolders.mockReturnValue([]);
   });
 
   it('resolves workspace variables in URL', async () => {
@@ -187,6 +189,65 @@ describe('RequestExecutor', () => {
     await executeRequestDraft(makeRequest({ auth: { type: 'api-key', key: 'api_key', value: 'secret', in: 'query' } }));
     const [url] = fetchMock.mock.calls[0];
     expect(url).toBe('https://api.openheaders.io/v1/ping?api_key=secret');
+  });
+
+  it('skips a disabled auth contribution entirely', async () => {
+    await executeRequestDraft(makeRequest({ auth: { type: 'bearer', token: 'abc123', disabled: true } }));
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get('authorization')).toBeNull();
+  });
+
+  it('an inherit request resolves the collection-level bearer up the ancestor chain', async () => {
+    mockRequestCollections.mockReturnValue([
+      {
+        schemaVersion: 5,
+        uid: 'rc-1',
+        path: 'requests/auth-coll',
+        name: 'Auth',
+        variables: [],
+        pinnedEnvironmentIds: [],
+        defaultEnvironmentId: null,
+        auth: { type: 'bearer', token: 'tok-col' },
+      } satisfies Collection,
+    ]);
+    await executeRequestDraft(makeRequest({ path: 'requests/auth-coll/login-abcd', auth: { type: 'inherit' } }));
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get('authorization')).toBe('Bearer tok-col');
+  });
+
+  it('folder-level auth shadows the collection for inherit requests (innermost carrier wins)', async () => {
+    mockRequestCollections.mockReturnValue([
+      {
+        schemaVersion: 5,
+        uid: 'rc-1',
+        path: 'requests/auth-coll',
+        name: 'Auth',
+        variables: [],
+        pinnedEnvironmentIds: [],
+        defaultEnvironmentId: null,
+        auth: { type: 'bearer', token: 'tok-col' },
+      } satisfies Collection,
+    ]);
+    mockRequestFolders.mockReturnValue([
+      {
+        schemaVersion: 5,
+        uid: 'rf-1',
+        path: 'requests/auth-coll/tokens-rf1',
+        name: 'Tokens',
+        auth: { type: 'bearer', token: 'tok-folder' },
+      },
+    ]);
+    await executeRequestDraft(
+      makeRequest({ path: 'requests/auth-coll/tokens-rf1/login-abcd', auth: { type: 'inherit' } }),
+    );
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get('authorization')).toBe('Bearer tok-folder');
+  });
+
+  it('an inherit request with no ancestor carrier sends no Authorization header', async () => {
+    await executeRequestDraft(makeRequest({ auth: { type: 'inherit' } }));
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get('authorization')).toBeNull();
   });
 
   it('injects Content-Type when body type is set and user has no Content-Type header', async () => {

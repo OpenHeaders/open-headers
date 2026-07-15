@@ -8,6 +8,7 @@
 import type { CredentialsMode, HttpMethod, Request, RequestBody, VaultSecretTotp } from '@openheaders/core/types';
 import { isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
+import { resolveInheritedAuth } from '@openheaders/oracle/live/request-exec/ancestor-chain';
 import type { ExecuteRequestOptions } from './api';
 import { applyAuth } from './auth';
 import { buildResolvedBody, defaultContentType } from './body';
@@ -91,6 +92,18 @@ export async function resolveRequest(
     environmentId: options.environmentId,
   };
 
+  // `inherit` resolves against the ancestor chain BEFORE the
+  // resolvability gate — the inherited config's own templates (a
+  // collection-level `{{auth_token}}` bearer) must pass the same gate
+  // explicit request auth does, or a literal `{{ref}}` ships on the
+  // wire. A disabled inherit stays as-is: `applyAuth` skips it whole.
+  // Twin of the oracle resolver's leg (`resolve-request.ts`).
+  const effectiveAuth =
+    request.auth.type === 'inherit' && !request.auth.disabled
+      ? resolveInheritedAuth(request, scope.workspaceId)
+      : request.auth;
+  const gated: Request = { ...request, auth: effectiveAuth };
+
   // Architectural gate: refuse to dispatch when any `{{ref}}` in the
   // draft can't be resolved. Mirrors the DNR compile pipeline's
   // `getUnresolvableRuleUids` filter — shipping literal `{{env.var}}`
@@ -99,7 +112,7 @@ export async function resolveRequest(
   // block until that feature ships; `{{file.X}}` resolves here (the file
   // registry is fed above) and only blocks when the file is missing.
   const resolvable = isRequestResolvable(
-    request,
+    gated,
     (name) => resolver.resolve(name, context),
     (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
   );
@@ -160,7 +173,7 @@ export async function resolveRequest(
   // api-key-in-query + oauth2 `sendAs:'query'` push onto `enabledParams`,
   // so they ride the structured param list to the wire alongside the
   // user's params.
-  await applyAuth(request.auth, headers, enabledParams, resolveStr);
+  await applyAuth(effectiveAuth, headers, enabledParams, resolveStr);
 
   // ── Body ────────────────────────────────────────────────────────
   const resolvedBody = buildResolvedBody(request.body, resolveStr);

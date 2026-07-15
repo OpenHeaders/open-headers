@@ -29,6 +29,7 @@ import { resolveTemplate } from '@openheaders/core/variables';
 import { getTokenBundle } from '../../entity/oauth-token-store';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
+import { resolveInheritedAuth } from './ancestor-chain';
 import { buildResolver } from './resolver-scope';
 
 /** Resolved, wire-ready request. Auth + params are folded into `url`
@@ -160,10 +161,21 @@ export async function resolveRequest(
     environmentId: options.environmentId,
   };
 
+  // `inherit` resolves against the ancestor chain BEFORE the
+  // resolvability gate — the inherited config's own templates (a
+  // collection-level `{{auth_token}}` bearer) must pass the same gate
+  // explicit request auth does, or a literal `{{ref}}` ships on the
+  // wire. A disabled inherit stays as-is: `applyAuth` skips it whole.
+  const effectiveAuth =
+    request.auth.type === 'inherit' && !request.auth.disabled
+      ? resolveInheritedAuth(request, scope.workspaceId)
+      : request.auth;
+  const gated: Request = { ...request, auth: effectiveAuth };
+
   // Architectural gate: refuse to dispatch when any `{{ref}}` can't be
   // resolved.
   const resolvable = isRequestResolvable(
-    request,
+    gated,
     (name) => resolver.resolve(name, context),
     (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
   );
@@ -208,7 +220,7 @@ export async function resolveRequest(
     .map((h) => ({ key: resolveStr(h.key), value: resolveStr(h.value) }));
 
   // ── Auth folds into headers/params ──
-  await applyAuth(request.auth, headers, enabledParams, resolveStr, {
+  await applyAuth(effectiveAuth, headers, enabledParams, resolveStr, {
     workspaceId: scope.workspaceId ?? undefined,
     refreshOAuth: options.refreshOAuth,
   });

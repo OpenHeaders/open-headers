@@ -711,3 +711,88 @@ describe('runStepRequest — ancestor script chain', () => {
     ]);
   });
 });
+
+describe('runStepRequest — ancestor auth inheritance', () => {
+  const chainCollection = (over: Partial<Collection> = {}): Collection => ({
+    schemaVersion: 5,
+    uid: 'rcol0001',
+    path: 'requests/default',
+    name: 'Default',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+    ...over,
+  });
+
+  const chainFolder = (over: Partial<Folder> = {}): Folder => ({
+    schemaVersion: 5,
+    uid: 'rfold001',
+    path: 'requests/default/tokens-rfold001',
+    name: 'Tokens',
+    ...over,
+  });
+
+  const nestedRequest = (over: Partial<Request> = {}) =>
+    makeRequest({ path: 'requests/default/tokens-rfold001/r1', auth: { type: 'inherit' }, ...over });
+
+  const authHeader = (req: TransportRequest) => req.headers.find((h) => h.key === 'Authorization');
+
+  it('an inherit request sends the collection-level bearer', async () => {
+    requestCollections.mockReturnValue([chainCollection({ auth: { type: 'bearer', token: 'tok-col' } })]);
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(nestedRequest(), opts(transport));
+    expect(snap.error).toBeNull();
+    expect(authHeader(sent())).toEqual({ key: 'Authorization', value: 'Bearer tok-col' });
+  });
+
+  it('folder auth shadows collection auth (innermost carrier wins)', async () => {
+    requestCollections.mockReturnValue([chainCollection({ auth: { type: 'bearer', token: 'tok-col' } })]);
+    requestFolders.mockReturnValue([chainFolder({ auth: { type: 'bearer', token: 'tok-folder' } })]);
+    const { transport, sent } = captureTransport();
+    await runStepRequest(nestedRequest(), opts(transport));
+    expect(authHeader(sent())).toEqual({ key: 'Authorization', value: 'Bearer tok-folder' });
+  });
+
+  it("a folder-level `none` shadows the collection's bearer — no header ships", async () => {
+    requestCollections.mockReturnValue([chainCollection({ auth: { type: 'bearer', token: 'tok-col' } })]);
+    requestFolders.mockReturnValue([chainFolder({ auth: { type: 'none' } })]);
+    const { transport, sent } = captureTransport();
+    await runStepRequest(nestedRequest(), opts(transport));
+    expect(authHeader(sent())).toBeUndefined();
+  });
+
+  it('explicit request auth wins outright over ancestor carriers', async () => {
+    requestCollections.mockReturnValue([chainCollection({ auth: { type: 'bearer', token: 'tok-col' } })]);
+    const { transport, sent } = captureTransport();
+    await runStepRequest(nestedRequest({ auth: { type: 'bearer', token: 'tok-own' } }), opts(transport));
+    expect(authHeader(sent())).toEqual({ key: 'Authorization', value: 'Bearer tok-own' });
+  });
+
+  it('a chain with no carrier degrades to none (pre-D2 behavior)', async () => {
+    requestCollections.mockReturnValue([chainCollection()]);
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(nestedRequest(), opts(transport));
+    expect(snap.error).toBeNull();
+    expect(authHeader(sent())).toBeUndefined();
+  });
+
+  it('templates inside the inherited config resolve against the request scope', async () => {
+    wsVars.mockReturnValue({
+      schemaVersion: 5,
+      variables: [{ uid: '1abc6d8c', name: 'auth_token', value: 'tok-var', type: 'default' }],
+    });
+    requestCollections.mockReturnValue([chainCollection({ auth: { type: 'bearer', token: '{{auth_token}}' } })]);
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(nestedRequest(), opts(transport));
+    expect(snap.error).toBeNull();
+    expect(authHeader(sent())).toEqual({ key: 'Authorization', value: 'Bearer tok-var' });
+  });
+
+  it('an unresolvable template inside the inherited config trips the resolvability gate', async () => {
+    requestCollections.mockReturnValue([chainCollection({ auth: { type: 'bearer', token: '{{auth_token}}' } })]);
+    const { transport, calls } = captureTransport();
+    const snap = await runStepRequest(nestedRequest(), opts(transport));
+    expect(snap.error).toMatch(/unresolved variables/);
+    expect(calls()).toBe(0);
+  });
+});

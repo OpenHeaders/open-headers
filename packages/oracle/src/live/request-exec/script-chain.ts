@@ -13,8 +13,8 @@
  * contributed, durations sum, mutations spread-merge in application
  * order, assertions concatenate.
  *
- * Chain derivation is path-based — the same prefix mechanism
- * `collectionIdForRequest` uses: the collection whose `path` prefixes
+ * Chain derivation rides the shared ancestor carrier walk
+ * (`ancestor-chain.ts`) — the collection whose `path` prefixes
  * `request.path`, then every folder along the segments outer→inner. A
  * scratch draft matches no ancestors and composes to just its own
  * scripts, exactly today's behavior.
@@ -28,12 +28,7 @@ import type {
   ScriptExecutionResult,
 } from '@openheaders/core/scripts';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
-import {
-  getRequestCollections,
-  getRequestCollectionsForWorkspace,
-  getRequestFolders,
-  getRequestFoldersForWorkspace,
-} from '../../entity/request-store';
+import { collectAncestorCarriers } from './ancestor-chain';
 import type { StepScriptRunner } from './script-hooks';
 
 /** One script in the composed chain, labeled for error attribution. */
@@ -50,40 +45,18 @@ export interface RequestScriptChain {
   post: ChainScript[];
 }
 
-interface ScriptCarrier {
-  path: string;
-  name: string;
-  preRequestScript?: string;
-  postResponseScript?: string;
-}
-
 /**
  * Collect ONLY the ancestor levels' scripts (collection, then folders
- * outer→inner) — no request-level slots. `workspaceId: null` reads the
- * runtime-Active mirrors (the workbench Send path); a pinned id reads
- * that workspace's caches — the same tri-state every store read in the
- * executor follows. Whitespace-only sources are skipped. Also feeds
- * the definitional-freshness detector, which folds these sources into
+ * outer→inner) — no request-level slots. See
+ * {@link collectAncestorCarriers} for the workspace tri-state.
+ * Whitespace-only sources are skipped. Also feeds the
+ * definitional-freshness detector, which folds these sources into
  * each embedded request's executable fingerprint.
  */
 export function collectAncestorScripts(request: Request, workspaceId: string | null): RequestScriptChain {
-  const collections = workspaceId ? getRequestCollectionsForWorkspace(workspaceId) : getRequestCollections();
-  const folders = workspaceId ? getRequestFoldersForWorkspace(workspaceId) : getRequestFolders();
-
-  const carriers: Array<{ label: string; entity: ScriptCarrier }> = [];
-  const collection = collections.find((c) => request.path.startsWith(`${c.path}/`));
-  if (collection) carriers.push({ label: `Collection '${collection.name}'`, entity: collection });
-
-  const chainFolders = folders
-    .filter((f) => request.path.startsWith(`${f.path}/`))
-    .sort((a, b) => a.path.length - b.path.length);
-  for (const folder of chainFolders) {
-    carriers.push({ label: `Folder '${folder.name}'`, entity: folder });
-  }
-
   const pre: ChainScript[] = [];
   const post: ChainScript[] = [];
-  for (const { label, entity } of carriers) {
+  for (const { label, entity } of collectAncestorCarriers(request, workspaceId)) {
     if (entity.preRequestScript?.trim()) pre.push({ label, source: entity.preRequestScript });
     if (entity.postResponseScript?.trim()) post.push({ label, source: entity.postResponseScript });
   }

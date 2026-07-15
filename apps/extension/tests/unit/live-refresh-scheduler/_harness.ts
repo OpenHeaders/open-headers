@@ -20,6 +20,7 @@
 import type {
   Collection,
   Environment,
+  Folder,
   LiveVariable,
   LiveWorkflow,
   Request,
@@ -121,6 +122,7 @@ interface StoreState {
   vault: Vault;
   workspaceVars: WorkspaceVariables;
   requestCollections: Collection[];
+  requestFolders: Folder[];
   requestStoreHydrated: boolean;
   listeners: {
     workflow: Set<() => void>;
@@ -141,6 +143,7 @@ function freshStoreState(): StoreState {
     vault: EMPTY_VAULT,
     workspaceVars: EMPTY_WORKSPACE_VARS,
     requestCollections: [],
+    requestFolders: [],
     requestStoreHydrated: false,
     listeners: {
       workflow: new Set(),
@@ -192,6 +195,7 @@ vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
 vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: (uid: string) => storeState.requests.get(uid) ?? null,
   getRequestCollections: () => storeState.requestCollections,
+  getRequestFolders: () => storeState.requestFolders,
   isRequestStoreHydrated: () => storeState.requestStoreHydrated,
   onRequestStoreChange: (fn: () => void) => {
     storeState.listeners.request.add(fn);

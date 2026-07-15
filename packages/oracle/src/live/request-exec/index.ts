@@ -7,6 +7,12 @@
  * The browser SW and the desktop main process run this exact code.
  */
 
+export {
+  type AncestorCarrier,
+  type AncestorCarrierEntity,
+  collectAncestorCarriers,
+  resolveInheritedAuth,
+} from './ancestor-chain';
 export { buildChainFetchAdapter, type ChainFetchAdapterOptions } from './chain-adapter';
 export { errorSnapshot, executeOverTransport } from './execute';
 export {
