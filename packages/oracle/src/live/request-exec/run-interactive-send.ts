@@ -26,13 +26,8 @@ import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
 import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { errorSnapshot, executeOverTransport } from './execute';
 import { type OAuthRefreshFn, type ResolvedRequest, resolveRequest, UnresolvedRequestError } from './resolve-request';
-import {
-  applyScriptMutation,
-  resolvedToScriptSnapshot,
-  type StepScriptRunner,
-  toPostResponseOutcome,
-  toPreRequestOutcome,
-} from './script-hooks';
+import { collectScriptChain, runPostResponseChain, runPreRequestChain } from './script-chain';
+import { applyScriptMutation, resolvedToScriptSnapshot, type StepScriptRunner } from './script-hooks';
 import type { RequestTransport } from './transport';
 
 export interface RunInteractiveSendOptions {
@@ -76,24 +71,27 @@ export async function runInteractiveSend(
     }
   }
 
-  // ── Pre-request script (lenient) ──
-  // Mutations land on top of the RESOLVED request (after variable
-  // substitution). A failed script applies nothing and the send still
-  // reaches the wire — the outcome is on the snapshot for the surface.
+  // ── Pre-request scripts (lenient, ancestor-first) ──
+  // Collection pre → folder pre → request pre, each level its own
+  // sandbox run with mutations feeding the next. Mutations land on top
+  // of the RESOLVED request (after variable substitution). A failed
+  // level applies nothing, the remaining levels still run, and the
+  // send still reaches the wire — the folded outcome is on the
+  // snapshot for the surface.
+  const chain = collectScriptChain(request, options.workspaceId);
   let scripts: ExecutedRequestSnapshot['scripts'] = null;
   let finalResolved: ResolvedRequest = outcome.resolved;
 
-  if (request.preRequestScript?.trim()) {
-    const result = await options.scriptRunner({
-      kind: 'pre-request',
-      source: request.preRequestScript,
-      request: resolvedToScriptSnapshot(finalResolved),
-    });
-    scripts = { preRequest: toPreRequestOutcome(result) };
-    if (result.succeeded && result.mutation) {
-      finalResolved = applyScriptMutation(finalResolved, result.mutation);
-    }
-  }
+  const preRun = await runPreRequestChain(
+    chain.pre,
+    options.scriptRunner,
+    () => resolvedToScriptSnapshot(finalResolved),
+    (mutation) => {
+      finalResolved = applyScriptMutation(finalResolved, mutation);
+    },
+    { strict: false },
+  );
+  if (preRun.outcome) scripts = { preRequest: preRun.outcome };
 
   const wireResult = await executeOverTransport(finalResolved, options.transport, {});
 
@@ -104,15 +102,15 @@ export async function runInteractiveSend(
     }
   }
 
-  // ── Post-response script (lenient) ──
+  // ── Post-response scripts (lenient, ancestor-first) ──
   // Assertions and script errors are recorded, never mapped onto the
   // run's `error` — the Tests tab renders pass/fail counts.
-  if (request.postResponseScript?.trim() && wireResult.error == null) {
-    const result = await options.scriptRunner({
-      kind: 'post-response',
-      source: request.postResponseScript,
-      request: resolvedToScriptSnapshot(finalResolved),
-      response: {
+  if (chain.post.length > 0 && wireResult.error == null) {
+    const postRun = await runPostResponseChain(
+      chain.post,
+      options.scriptRunner,
+      resolvedToScriptSnapshot(finalResolved),
+      {
         status: wireResult.status,
         statusText: wireResult.statusText,
         url: wireResult.url,
@@ -120,8 +118,9 @@ export async function runInteractiveSend(
         body: wireResult.body,
         durationMs: wireResult.durationMs,
       },
-    });
-    scripts = { ...(scripts ?? {}), postResponse: toPostResponseOutcome(result) };
+      { strict: false },
+    );
+    if (postRun.outcome) scripts = { ...(scripts ?? {}), postResponse: postRun.outcome };
   }
 
   return scripts ? { ...wireResult, scripts } : wireResult;

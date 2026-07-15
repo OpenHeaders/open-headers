@@ -7,7 +7,7 @@
  */
 
 import type { ScriptExecutionResult } from '@openheaders/core/scripts';
-import type { Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
+import type { Collection, Environment, Folder, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStepRequest } from '../../../src/live/request-exec/run-step-request';
 import type { StepScriptInput, StepScriptRunner } from '../../../src/live/request-exec/script-hooks';
@@ -33,11 +33,16 @@ vi.mock('../../../src/entity/environment-store', () => ({
   getWorkspaceVariables: () => wsVars(),
   getWorkspaceVariablesForWorkspace: () => wsVars(),
 }));
+const requestCollections = vi.fn<() => Collection[]>(() => []);
+const requestFolders = vi.fn<() => Folder[]>(() => []);
+
 vi.mock('../../../src/entity/request-store', () => ({
   getRequest: () => null,
   getRequestInWorkspace: () => null,
-  getRequestCollections: () => [],
-  getRequestCollectionsForWorkspace: () => [],
+  getRequestCollections: () => requestCollections(),
+  getRequestCollectionsForWorkspace: () => requestCollections(),
+  getRequestFolders: () => requestFolders(),
+  getRequestFoldersForWorkspace: () => requestFolders(),
 }));
 vi.mock('../../../src/entity/rule-store', () => ({
   getCollections: () => [],
@@ -119,6 +124,8 @@ beforeEach(() => {
   activeEnvironmentId.mockReturnValue(null);
   checkCooldownMock.mockReturnValue({ inCooldown: false });
   recordUsageMock.mockReset();
+  requestCollections.mockReturnValue([]);
+  requestFolders.mockReturnValue([]);
 });
 
 afterEach(() => {
@@ -538,5 +545,138 @@ describe('runStepRequest — step script hooks', () => {
     const snap = await runStepRequest(scripted(), { ...opts(failing), scriptRunner: runner });
     expect(snap.error).toMatch(/network down/);
     expect(inputs.map((i) => i.kind)).toEqual(['pre-request']);
+  });
+});
+
+describe('runStepRequest — ancestor script chain', () => {
+  const scriptResult = (over: Partial<ScriptExecutionResult> = {}): ScriptExecutionResult => ({
+    executionId: 'exec-test',
+    succeeded: true,
+    assertions: [],
+    consoleLog: [],
+    durationMs: 1,
+    ...over,
+  });
+
+  /** Runner keyed by script SOURCE so each chain level gets its own result. */
+  function sourceRunner(bySource: Record<string, ScriptExecutionResult>): {
+    runner: StepScriptRunner;
+    inputs: StepScriptInput[];
+  } {
+    const inputs: StepScriptInput[] = [];
+    const runner: StepScriptRunner = async (input) => {
+      inputs.push(input);
+      return bySource[input.source] ?? scriptResult();
+    };
+    return { runner, inputs };
+  }
+
+  const chainCollection = (over: Partial<Collection> = {}): Collection => ({
+    schemaVersion: 5,
+    uid: 'rcol0001',
+    path: 'requests/default',
+    name: 'Default',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+    ...over,
+  });
+
+  const chainFolder = (over: Partial<Folder> = {}): Folder => ({
+    schemaVersion: 5,
+    uid: 'rfold001',
+    path: 'requests/default/tokens-rfold001',
+    name: 'Tokens',
+    ...over,
+  });
+
+  const nestedRequest = (over: Partial<Request> = {}) =>
+    makeRequest({ path: 'requests/default/tokens-rfold001/r1', ...over });
+
+  it('composes pre scripts ancestor-first: collection → folder → request', async () => {
+    requestCollections.mockReturnValue([chainCollection({ preRequestScript: 'colPre();' })]);
+    requestFolders.mockReturnValue([chainFolder({ preRequestScript: 'foldPre();' })]);
+    const { runner, inputs } = sourceRunner({});
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(nestedRequest({ preRequestScript: 'reqPre();' }), {
+      ...opts(transport),
+      scriptRunner: runner,
+    });
+    expect(snap.error).toBeNull();
+    expect(inputs.map((i) => i.source)).toEqual(['colPre();', 'foldPre();', 'reqPre();']);
+    expect(snap.scripts?.preRequest?.succeeded).toBe(true);
+  });
+
+  it('runs a collection script even when the request carries none of its own', async () => {
+    requestCollections.mockReturnValue([chainCollection({ preRequestScript: 'colPre();' })]);
+    const { runner, inputs } = sourceRunner({});
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(nestedRequest(), { ...opts(transport), scriptRunner: runner });
+    expect(snap.error).toBeNull();
+    expect(inputs.map((i) => i.source)).toEqual(['colPre();']);
+    expect(snap.scripts?.preRequest?.succeeded).toBe(true);
+  });
+
+  it('an ancestor pre mutation feeds the next level and reaches the wire', async () => {
+    requestCollections.mockReturnValue([chainCollection({ preRequestScript: 'colPre();' })]);
+    const { transport, sent } = captureTransport();
+    const { runner, inputs } = sourceRunner({
+      'colPre();': scriptResult({ mutation: { headers: [{ key: 'X-From-Collection', value: 'yes' }] } }),
+    });
+    await runStepRequest(nestedRequest({ preRequestScript: 'reqPre();' }), {
+      ...opts(transport),
+      scriptRunner: runner,
+    });
+    // The request-level script observed the collection's header.
+    const reqInput = inputs.find((i) => i.source === 'reqPre();');
+    expect(reqInput?.request.headers).toEqual([{ key: 'X-From-Collection', value: 'yes' }]);
+    expect(sent().headers).toEqual([{ key: 'X-From-Collection', value: 'yes' }]);
+  });
+
+  it('a failing collection pre stops the strict chain, names the level, and skips the wire', async () => {
+    requestCollections.mockReturnValue([chainCollection({ preRequestScript: 'colPre();' })]);
+    const { runner, inputs } = sourceRunner({
+      'colPre();': scriptResult({ succeeded: false, error: { name: 'Error', message: 'boom' } }),
+    });
+    const { transport, calls } = captureTransport();
+    const snap = await runStepRequest(nestedRequest({ preRequestScript: 'reqPre();' }), {
+      ...opts(transport),
+      scriptRunner: runner,
+    });
+    expect(snap.error).toBe("Pre-request script failed: Collection 'Default': boom");
+    expect(inputs.map((i) => i.source)).toEqual(['colPre();']);
+    expect(calls()).toBe(0);
+  });
+
+  it('post assertions concatenate across levels and an ancestor failure fails the run', async () => {
+    requestCollections.mockReturnValue([chainCollection({ postResponseScript: 'colPost();' })]);
+    const { runner } = sourceRunner({
+      'colPost();': scriptResult({ assertions: [{ name: 'collection check', passed: false, message: 'nope' }] }),
+      'reqPost();': scriptResult({ assertions: [{ name: 'request check', passed: true }] }),
+    });
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(nestedRequest({ postResponseScript: 'reqPost();' }), {
+      ...opts(transport),
+      scriptRunner: runner,
+    });
+    expect(snap.error).toBe('Assertion failed: collection check — nope');
+    expect(snap.scripts?.postResponse?.assertions).toHaveLength(2);
+  });
+
+  it('prefixes console entries with the level label when multiple levels contribute', async () => {
+    requestCollections.mockReturnValue([chainCollection({ preRequestScript: 'colPre();' })]);
+    const { runner } = sourceRunner({
+      'colPre();': scriptResult({ consoleLog: [{ level: 'log', args: ['hello'], timeMs: 1 }] }),
+      'reqPre();': scriptResult({ consoleLog: [{ level: 'log', args: ['world'], timeMs: 1 }] }),
+    });
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(nestedRequest({ preRequestScript: 'reqPre();' }), {
+      ...opts(transport),
+      scriptRunner: runner,
+    });
+    expect(snap.scripts?.preRequest?.consoleLog).toEqual([
+      { level: 'log', args: ["[Collection 'Default']", 'hello'], timeMs: 1 },
+      { level: 'log', args: ['[Request]', 'world'], timeMs: 1 },
+    ]);
   });
 });

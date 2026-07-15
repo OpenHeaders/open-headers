@@ -19,13 +19,12 @@ import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
 import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { errorSnapshot, executeOverTransport } from './execute';
 import { type OAuthRefreshFn, type ResolvedRequest, resolveRequest, UnresolvedRequestError } from './resolve-request';
+import { collectScriptChain, runPostResponseChain, runPreRequestChain } from './script-chain';
 import {
   applyScriptMutation,
   firstFailedAssertion,
   resolvedToScriptSnapshot,
   type StepScriptRunner,
-  toPostResponseOutcome,
-  toPreRequestOutcome,
 } from './script-hooks';
 import type { RequestTransport } from './transport';
 
@@ -98,29 +97,35 @@ export async function runStepRequest(
     }
   }
 
-  // ── Pre-request script hook ──
-  // Runs on top of the RESOLVED request (after variable substitution),
-  // same layering as the interactive executor. A script error fails the
-  // run before the wire — sending the unmutated request and committing
-  // its captures would cache silently-wrong data.
+  // ── Pre-request script hook (ancestor-first chain) ──
+  // Collection pre → folder pre → request pre, each level its own
+  // sandbox run with mutations feeding the next, on top of the
+  // RESOLVED request (after variable substitution) — same layering as
+  // the interactive executor. A script error fails the run before the
+  // wire (strict: remaining levels don't run) — sending the unmutated
+  // request and committing its captures would cache silently-wrong data.
   let scripts: ExecutedRequestSnapshot['scripts'] = null;
   let finalResolved: ResolvedRequest = outcome.resolved;
   const runner = options.scriptRunner;
+  const chain = runner ? collectScriptChain(request, options.workspaceId) : { pre: [], post: [] };
 
-  if (runner && request.preRequestScript?.trim()) {
-    const result = await runner({
-      kind: 'pre-request',
-      source: request.preRequestScript,
-      request: resolvedToScriptSnapshot(finalResolved),
-    });
-    scripts = { preRequest: toPreRequestOutcome(result) };
-    if (!result.succeeded) {
+  if (runner && chain.pre.length > 0) {
+    const preRun = await runPreRequestChain(
+      chain.pre,
+      runner,
+      () => resolvedToScriptSnapshot(finalResolved),
+      (mutation) => {
+        finalResolved = applyScriptMutation(finalResolved, mutation);
+      },
+      { strict: true },
+    );
+    scripts = { preRequest: preRun.outcome };
+    if (preRun.outcome && !preRun.outcome.succeeded) {
       return {
-        ...errorSnapshot(`Pre-request script failed: ${result.error?.message ?? 'unknown error'}`),
+        ...errorSnapshot(`Pre-request script failed: ${preRun.outcome.error?.message ?? 'unknown error'}`),
         scripts,
       };
     }
-    if (result.mutation) finalResolved = applyScriptMutation(finalResolved, result.mutation);
   }
 
   const wireResult = await executeOverTransport(finalResolved, options.transport, { timeoutMs: options.timeoutMs });
@@ -135,17 +140,17 @@ export async function runStepRequest(
     }
   }
 
-  // ── Post-response script hook ──
+  // ── Post-response script hook (ancestor-first chain) ──
   // A script error or a failed `oh.test` assertion fails the run — for
   // a chain step that gates the atomic capture commit, so last-good
   // values survive a response whose shape went wrong. The wire result's
   // response fields are kept on the failure snapshot for observability.
-  if (runner && request.postResponseScript?.trim() && wireResult.error == null) {
-    const result = await runner({
-      kind: 'post-response',
-      source: request.postResponseScript,
-      request: resolvedToScriptSnapshot(finalResolved),
-      response: {
+  if (runner && chain.post.length > 0 && wireResult.error == null) {
+    const postRun = await runPostResponseChain(
+      chain.post,
+      runner,
+      resolvedToScriptSnapshot(finalResolved),
+      {
         status: wireResult.status,
         statusText: wireResult.statusText,
         url: wireResult.url,
@@ -153,16 +158,17 @@ export async function runStepRequest(
         body: wireResult.body,
         durationMs: wireResult.durationMs,
       },
-    });
-    scripts = { ...(scripts ?? {}), postResponse: toPostResponseOutcome(result) };
-    if (!result.succeeded) {
+      { strict: true },
+    );
+    scripts = { ...(scripts ?? {}), postResponse: postRun.outcome };
+    if (postRun.outcome && !postRun.outcome.succeeded) {
       return {
         ...wireResult,
         scripts,
-        error: `Post-response script failed: ${result.error?.message ?? 'unknown error'}`,
+        error: `Post-response script failed: ${postRun.outcome.error?.message ?? 'unknown error'}`,
       };
     }
-    const failed = firstFailedAssertion(result.assertions);
+    const failed = postRun.outcome ? firstFailedAssertion(postRun.outcome.assertions) : undefined;
     if (failed) {
       return {
         ...wireResult,

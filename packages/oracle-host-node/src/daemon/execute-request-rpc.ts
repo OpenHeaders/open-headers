@@ -48,6 +48,7 @@ import { errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { runInteractiveSend } from '@openheaders/oracle/live/request-exec/run-interactive-send';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
+import { collectScriptChain } from '@openheaders/oracle/live/request-exec/script-chain';
 import type { RequestTransport } from '@openheaders/oracle/live/request-exec/transport';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createNodeRequestTransport } from '../live/node-request-transport';
@@ -102,7 +103,10 @@ export async function handleExecuteRequestRpc(
     // A frame stamped with a foreign workspace is a peer-forwarded send
     // — its scripts run Safe unconditionally (never this host's slot).
     const forwarded = requestedWorkspaceId !== undefined && requestedWorkspaceId !== getActiveWorkspaceId();
-    const hasScripts = Boolean(request.preRequestScript?.trim() || request.postResponseScript?.trim());
+    // The gate spans the full ancestor-first chain — a request with no
+    // own scripts still runs its collection's/folder's slots.
+    const chain = collectScriptChain(request, workspaceId);
+    const hasScripts = chain.pre.length > 0 || chain.post.length > 0;
     const resolved = hasScripts
       ? await resolveScriptRunner({
           workspaceId: workspaceId ?? getActiveWorkspaceId(),

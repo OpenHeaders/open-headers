@@ -47,6 +47,7 @@ export {
   deleteRequest,
   getRequest,
   getRequestCollectionsForWorkspace,
+  getRequestFoldersForWorkspace,
   getRequestInWorkspace,
   getRequestUidsForWorkspace,
   isRequestStoreHydrated,

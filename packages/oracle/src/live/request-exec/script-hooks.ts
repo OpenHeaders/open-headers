@@ -34,7 +34,6 @@ import type {
   ScriptKind,
   TestAssertion,
 } from '@openheaders/core/scripts';
-import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { ensureScheme } from '@openheaders/core/utils';
 import { defaultContentType, type ResolvedRequest } from './resolve-request';
 
@@ -116,28 +115,4 @@ function replaceUrlParams(url: string, params: Array<{ key: string; value: strin
 /** First failed assertion of a post-response run, if any. */
 export function firstFailedAssertion(assertions: readonly TestAssertion[]): TestAssertion | undefined {
   return assertions.find((a) => !a.passed);
-}
-
-type ScriptsOutcome = NonNullable<ExecutedRequestSnapshot['scripts']>;
-
-/** Map a sandbox result to the snapshot's `scripts.preRequest` shape. */
-export function toPreRequestOutcome(result: ScriptExecutionResult): ScriptsOutcome['preRequest'] {
-  return {
-    succeeded: result.succeeded,
-    error: result.error ? { name: result.error.name, message: result.error.message } : undefined,
-    consoleLog: result.consoleLog,
-    durationMs: result.durationMs,
-    mutation: result.mutation,
-  };
-}
-
-/** Map a sandbox result to the snapshot's `scripts.postResponse` shape. */
-export function toPostResponseOutcome(result: ScriptExecutionResult): ScriptsOutcome['postResponse'] {
-  return {
-    succeeded: result.succeeded,
-    error: result.error ? { name: result.error.name, message: result.error.message } : undefined,
-    assertions: result.assertions,
-    consoleLog: result.consoleLog,
-    durationMs: result.durationMs,
-  };
 }

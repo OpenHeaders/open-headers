@@ -6,11 +6,16 @@ import {
   buildDeleteBatch,
   buildUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/request-mutations';
-import type { Collection, Request } from '@openheaders/core/types';
+import type { Collection, Folder, Request } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import type { RequestCache } from '@openheaders/oracle/sync/caches/request-cache';
 import type { RequestCollectionCache } from '@openheaders/oracle/sync/caches/request-collection-cache';
-import { REQUEST_COLLECTION_REGISTRATION, REQUEST_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import type { RequestFolderCache } from '@openheaders/oracle/sync/caches/request-folder-cache';
+import {
+  REQUEST_COLLECTION_REGISTRATION,
+  REQUEST_FOLDER_REGISTRATION,
+  REQUEST_REGISTRATION,
+} from '@openheaders/oracle/sync/entity-registry';
 import {
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
@@ -132,6 +137,18 @@ export function isRequestStoreHydrated(): boolean {
 export function getRequestCollectionsForWorkspace(workspaceId: string): Collection[] {
   const cache = getCacheForWorkspace<RequestCollectionCache>(REQUEST_COLLECTION_REGISTRATION, workspaceId);
   return cache ? cache.getRequestCollections() : [];
+}
+
+/**
+ * Snapshot every request folder in an explicit workspace via its
+ * {@link RequestFolderCache}. Returns `[]` when no service is
+ * materialized for the workspace. Same contract as
+ * {@link getRequestCollectionsForWorkspace} — drives the ancestor
+ * script-chain lookup for executions pinned to a non-Active workspace.
+ */
+export function getRequestFoldersForWorkspace(workspaceId: string): Folder[] {
+  const cache = getCacheForWorkspace<RequestFolderCache>(REQUEST_FOLDER_REGISTRATION, workspaceId);
+  return cache ? cache.getRequestFolders() : [];
 }
 
 /**

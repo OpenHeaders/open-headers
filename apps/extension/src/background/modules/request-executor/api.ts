@@ -13,6 +13,11 @@ import {
   checkCooldown as checkTotpCooldown,
   recordUsage as recordTotpUsage,
 } from '@openheaders/oracle/entity/totp-cooldown-store';
+import {
+  collectScriptChain,
+  runPostResponseChain,
+  runPreRequestChain,
+} from '@openheaders/oracle/live/request-exec/script-chain';
 import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from '../offscreen-host';
 import { getActiveWorkspaceId } from '../workspace/workspace-store';
 import { defaultContentType } from './body';
@@ -109,32 +114,27 @@ export async function executeRequestDraft(
     }
   }
 
-  // ── Pre-request script hook ────────────────────────────────────
-  // Run BEFORE the wire fetch. Script mutations land on top of the
-  // resolved request (after variable substitution). Missing scripts
-  // / Firefox fallback / empty source are all no-ops.
+  // ── Pre-request script hook (ancestor-first chain) ─────────────
+  // Collection pre → folder pre → request pre, each level its own
+  // sandbox run with mutations feeding the next — run BEFORE the wire
+  // fetch, on top of the resolved request (after variable
+  // substitution). Missing scripts / Firefox fallback / empty sources
+  // are all no-ops; a failed level applies nothing and the remaining
+  // levels still run (interactive semantics).
+  const scriptsEnabled = !options.skipScripts && isOffscreenSupported();
+  const chain = scriptsEnabled ? collectScriptChain(request, options.workspaceId ?? null) : { pre: [], post: [] };
   let scriptOutcome: ExecutedRequestSnapshot['scripts'] = null;
   const finalResolved: ResolvedRequest = { ...outcome.resolved };
 
-  if (!options.skipScripts && request.preRequestScript?.trim() && isOffscreenSupported()) {
-    const snapshot = resolvedToSnapshot(finalResolved);
-    const result = await runScript({
-      kind: 'pre-request',
-      source: request.preRequestScript,
-      request: snapshot,
-    });
-    scriptOutcome = {
-      preRequest: {
-        succeeded: result.succeeded,
-        error: result.error ? { name: result.error.name, message: result.error.message } : undefined,
-        consoleLog: result.consoleLog,
-        durationMs: result.durationMs,
-        mutation: result.mutation,
-      },
-    };
-    if (result.succeeded && result.mutation) {
-      applyMutation(finalResolved, result.mutation);
-    }
+  if (chain.pre.length > 0) {
+    const preRun = await runPreRequestChain(
+      chain.pre,
+      (input) => runScript(input),
+      () => resolvedToSnapshot(finalResolved),
+      (mutation) => applyMutation(finalResolved, mutation),
+      { strict: false },
+    );
+    if (preRun.outcome) scriptOutcome = { preRequest: preRun.outcome };
   }
 
   const wireResult = await executeResolved(finalResolved, { silentStatus: options.silentStatus });
@@ -151,13 +151,8 @@ export async function executeRequestDraft(
     }
   }
 
-  // ── Post-response script hook ──────────────────────────────────
-  if (
-    !options.skipScripts &&
-    request.postResponseScript?.trim() &&
-    isOffscreenSupported() &&
-    wireResult.error == null
-  ) {
+  // ── Post-response script hook (ancestor-first chain) ───────────
+  if (chain.post.length > 0 && wireResult.error == null) {
     const responseSnap: ResponseSnapshot = {
       status: wireResult.status,
       statusText: wireResult.statusText,
@@ -166,22 +161,14 @@ export async function executeRequestDraft(
       body: wireResult.body,
       durationMs: wireResult.durationMs,
     };
-    const result = await runScript({
-      kind: 'post-response',
-      source: request.postResponseScript,
-      request: resolvedToSnapshot(finalResolved),
-      response: responseSnap,
-    });
-    scriptOutcome = {
-      ...(scriptOutcome ?? {}),
-      postResponse: {
-        succeeded: result.succeeded,
-        error: result.error ? { name: result.error.name, message: result.error.message } : undefined,
-        assertions: result.assertions,
-        consoleLog: result.consoleLog,
-        durationMs: result.durationMs,
-      },
-    };
+    const postRun = await runPostResponseChain(
+      chain.post,
+      (input) => runScript(input),
+      resolvedToSnapshot(finalResolved),
+      responseSnap,
+      { strict: false },
+    );
+    if (postRun.outcome) scriptOutcome = { ...(scriptOutcome ?? {}), postResponse: postRun.outcome };
   }
 
   return scriptOutcome ? { ...wireResult, scripts: scriptOutcome } : wireResult;

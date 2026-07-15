@@ -24,6 +24,16 @@ export { buildResolver, type ResolverContext } from './resolver-scope';
 export { type RunInteractiveSendOptions, runInteractiveSend } from './run-interactive-send';
 export { type RunStepRequestOptions, runStepRequest } from './run-step-request';
 export {
+  type ChainScript,
+  collectAncestorScripts,
+  collectScriptChain,
+  type PostChainRunResult,
+  type PreChainRunResult,
+  type RequestScriptChain,
+  runPostResponseChain,
+  runPreRequestChain,
+} from './script-chain';
+export {
   applyScriptMutation,
   firstFailedAssertion,
   resolvedToScriptSnapshot,

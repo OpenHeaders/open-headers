@@ -190,6 +190,9 @@ export interface PersistedLocalFolder {
   uid: string;
   path: string;
   name: string;
+  /** Ancestor script slots (request folders only) — see `FolderSchema`. */
+  preRequestScript?: string;
+  postResponseScript?: string;
 }
 
 // ── Global keys ──────────────────────────────────────────────────────
