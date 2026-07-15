@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Opena Headers — offscreen</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+    <title>Open Headers — offscreen</title>
+    <!-- connect-src mirrors the manifest's extension_pages CSP: the
+         wire.fetch retry (shared/wire-fetch) runs user requests from
+         this document, so it needs the same network reach as the SW.
+         Both policies apply (intersection wins) — without it, the
+         document-level default-src 'self' blocks every retry. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http: https: ws: wss: data: blob:;">
 </head>
 <body>
     <iframe id="oh-sandbox" src="./sandbox.html"></iframe>
