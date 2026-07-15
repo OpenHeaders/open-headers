@@ -60,7 +60,32 @@ describe('yaml codec — round-trip parity', () => {
     expect(parsed.value.uid).toBe('c0ll1111');
     expect(parsed.value.path).toBe('requests/auth-c0ll1111');
     const write = mergePatch(parsed, () => {});
-    expect(serializeCollection(write)).toBe(raw);
+    const out = serializeCollection(write);
+    expect(out.collectionYaml).toBe(raw);
+    expect(out.preRequestScript).toBeNull();
+    expect(out.postResponseScript).toBeNull();
+  });
+
+  it('_collection.yaml + pre-request.js + post-response.js siblings', () => {
+    const raw = loadFixture('_collection.yaml');
+    const pre = 'await oh.variables.set("token", "abc");\n';
+    const post = 'await oh.test("status ok", oh.response.status === 200);\n';
+    const parsed = parseCollection(raw, {
+      path: 'requests/auth-c0ll1111',
+      siblings: [
+        { fileName: 'pre-request.js', content: pre },
+        { fileName: 'post-response.js', content: post },
+      ],
+    });
+    expect(parsed.value.preRequestScript).toBe(pre);
+    expect(parsed.value.postResponseScript).toBe(post);
+    const write = mergePatch(parsed, () => {});
+    const out = serializeCollection(write);
+    // Scripts never land in the manifest — the YAML stays byte-identical
+    // while the source fans back out to the sibling files.
+    expect(out.collectionYaml).toBe(raw);
+    expect(out.preRequestScript).toEqual({ fileName: 'pre-request.js', content: pre });
+    expect(out.postResponseScript).toEqual({ fileName: 'post-response.js', content: post });
   });
 
   it('_folder.yaml', () => {
@@ -68,7 +93,26 @@ describe('yaml codec — round-trip parity', () => {
     const parsed = parseFolder(raw, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });
     expect(parsed.value.uid).toBe('f0ld3r12');
     const write = mergePatch(parsed, () => {});
-    expect(serializeFolder(write)).toBe(raw);
+    const out = serializeFolder(write);
+    expect(out.folderYaml).toBe(raw);
+    expect(out.preRequestScript).toBeNull();
+    expect(out.postResponseScript).toBeNull();
+  });
+
+  it('_folder.yaml + pre-request.js sibling', () => {
+    const raw = loadFixture('_folder.yaml');
+    const pre = 'oh.request.headers.set("X-Team", "tokens");\n';
+    const parsed = parseFolder(raw, {
+      path: 'requests/auth-c0ll1111/tokens-f0ld3r12',
+      siblings: [{ fileName: 'pre-request.js', content: pre }],
+    });
+    expect(parsed.value.preRequestScript).toBe(pre);
+    expect(parsed.value.postResponseScript).toBeUndefined();
+    const write = mergePatch(parsed, () => {});
+    const out = serializeFolder(write);
+    expect(out.folderYaml).toBe(raw);
+    expect(out.preRequestScript).toEqual({ fileName: 'pre-request.js', content: pre });
+    expect(out.postResponseScript).toBeNull();
   });
 
   const ruleFixtures = readdirSync(FIXTURE_DIR).filter((f) => f.startsWith('rule-') && f.endsWith('.yaml'));

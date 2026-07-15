@@ -22,11 +22,11 @@
  */
 
 export { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-export type { CollectionCodecContext } from './collection';
+export type { CollectionCodecContext, CollectionSerializeOutput } from './collection';
 export { parseCollection, serializeCollection } from './collection';
 export type { EnvironmentCodecInput, EnvironmentSerializeOutput } from './environment';
 export { parseEnvironment, serializeEnvironment } from './environment';
-export type { FolderCodecContext } from './folder';
+export type { FolderCodecContext, FolderSerializeOutput } from './folder';
 export { parseFolder, serializeFolder } from './folder';
 export type { LiveVariableCodecContext } from './live-variable';
 export { parseLiveVariable, serializeLiveVariable } from './live-variable';
@@ -51,6 +51,8 @@ export type { RequestCodecContext, RequestSerializeOutput, RequestSiblingFile } 
 export { canonicalizeRequest, parseRequest, serializeRequest } from './request';
 export type { RuleCodecContext } from './rule';
 export { canonicalizeRule, parseRule, serializeRule } from './rule';
+export type { ScriptFields, ScriptSiblingFile, ScriptSiblingOutputs } from './script-siblings';
+export { POST_RESPONSE_SCRIPT_FILE, PRE_REQUEST_SCRIPT_FILE } from './script-siblings';
 export type { TemplateCodecContext } from './template';
 export { canonicalizeTemplate, parseTemplate, serializeTemplate } from './template';
 export { parseVault, parseWorkspaceVariables, serializeVault, serializeWorkspaceVariables } from './variables';

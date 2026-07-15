@@ -111,13 +111,13 @@ describe('yaml codec — preserve-unknown on identity write', () => {
   it('_collection.yaml retains unknown top-level key', () => {
     const parsed = parseCollection(COLLECTION_WITH_UNKNOWN, { path: 'requests/auth-c0ll1111' });
     const write = mergePatch(parsed, () => {});
-    expect(serializeCollection(write)).toBe(COLLECTION_WITH_UNKNOWN);
+    expect(serializeCollection(write).collectionYaml).toBe(COLLECTION_WITH_UNKNOWN);
   });
 
   it('_folder.yaml retains unknown top-level key', () => {
     const parsed = parseFolder(FOLDER_WITH_UNKNOWN, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });
     const write = mergePatch(parsed, () => {});
-    expect(serializeFolder(write)).toBe(FOLDER_WITH_UNKNOWN);
+    expect(serializeFolder(write).folderYaml).toBe(FOLDER_WITH_UNKNOWN);
   });
 
   it('rule.yaml retains unknown top-level key (including nested map)', () => {

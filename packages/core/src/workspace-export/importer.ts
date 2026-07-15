@@ -124,9 +124,10 @@ export interface ImporterOptions {
    */
   trustExport?: boolean;
   /**
-   * Strip request scripts on import (design §5.5). Replaces every
-   * incoming `Request.preRequestScript` / `postResponseScript` with
-   * `undefined`. Surfaced as an Advanced toggle in the import preview.
+   * Strip scripts on import (design §5.5). Removes every incoming
+   * `preRequestScript` / `postResponseScript` — on requests AND on the
+   * ancestor slots (collections, folders), which run on every child
+   * send. Surfaced as an Advanced toggle in the import preview.
    */
   stripScripts?: boolean;
   /**
@@ -175,10 +176,12 @@ function forceDisabled<T extends { enabled?: boolean }>(entity: T, trust: boolea
 }
 
 /**
- * Strip pre-request / post-response script source. Returns the request
- * verbatim when `strip` is false. The fields are removed entirely
- * rather than blanked, so the importer's downstream "scripts present"
- * surface matches the rule "field absent ↔ no script."
+ * Strip pre-request / post-response script source. Returns the entity
+ * verbatim when `strip` is false. Generic over every script-carrying
+ * entity (requests, collections, folders — the ancestor slots). The
+ * fields are removed entirely rather than blanked, so the importer's
+ * downstream "scripts present" surface matches the rule "field absent
+ * ↔ no script."
  */
 function stripRequestScripts<T extends { preRequestScript?: string; postResponseScript?: string }>(
   entity: T,
@@ -327,6 +330,10 @@ export function buildImportPlan(
   const collections = resolveArrayBase<Collection>({
     diff: diff.collections,
     overrides: strategies.collections,
+    // Ancestor script slots follow the same strip toggle as request
+    // scripts — they run on every child send. Rule collections never
+    // carry the fields, so the stamp is a no-op for the rules tree.
+    stamp: (c) => stripRequestScripts(c, strip),
   });
   // Keep-target-order override: on `update`, preserve the target
   // collection's `order` instead of taking export's. Indexed walk —
@@ -346,6 +353,8 @@ export function buildImportPlan(
   const folders = resolveArrayBase<LocalFolder>({
     diff: diff.folders,
     overrides: strategies.folders,
+    // See the collections stamp — same toggle for folder script slots.
+    stamp: (f) => stripRequestScripts(f, strip),
   });
   const rules = resolveArrayBase<Rule>({
     diff: diff.rules,

@@ -204,11 +204,14 @@ export {
   REQUEST_COLLECTION_VARS_PATH,
   type RemoveRequestCollectionVarArgs,
   type RenameRequestCollectionArgs,
+  type RequestCollectionScriptPath,
   removeRequestCollectionVar,
   renameRequestCollection,
   type SetRequestCollectionPinnedAndDefaultArgs,
+  type SetRequestCollectionScriptArgs,
   type SetRequestCollectionVarArgs,
   setRequestCollectionPinnedAndDefault,
+  setRequestCollectionScript,
   setRequestCollectionVar,
 } from './request-collection';
 export {
@@ -224,8 +227,11 @@ export {
   type RenameRequestFolderArgs,
   type RequestFolderParentRef,
   type RequestFolderParentType,
+  type RequestFolderScriptPath,
   type RequestFolderSlot,
   renameRequestFolder,
+  type SetRequestFolderScriptArgs,
+  setRequestFolderScript,
 } from './request-folder';
 export {
   type CreateResponseExampleArgs,

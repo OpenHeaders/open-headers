@@ -172,6 +172,45 @@ describe('buildImportPlan — force-disable', () => {
     expect(created?.entity.postResponseScript).toBeUndefined();
   });
 
+  it('strips collection + folder ancestor scripts when stripScripts=true', () => {
+    const input = baseInput();
+    input.entities.collections = [
+      {
+        ...collection('col00001', 'API', 'requests/api-col00001'),
+        preRequestScript: 'pre',
+        postResponseScript: 'post',
+      },
+    ];
+    input.entities.folders = [
+      { ...folder('fld00001', 'Auth', 'requests/api-col00001/auth-fld00001'), preRequestScript: 'pre' },
+    ];
+    const exp = buildWorkspaceExport(input);
+    const diff = diffWorkspaceExport(exp, emptyTarget());
+    const plan = buildImportPlan(exp, diff, emptyTarget(), {}, { stripScripts: true });
+    const createdCol = plan.collections.find((c) => c.action === 'create');
+    expect(createdCol?.entity.preRequestScript).toBeUndefined();
+    expect(createdCol?.entity.postResponseScript).toBeUndefined();
+    const createdFolder = plan.folders.find((f) => f.action === 'create');
+    expect(createdFolder?.entity.preRequestScript).toBeUndefined();
+  });
+
+  it('preserves collection + folder ancestor scripts when stripScripts is unset', () => {
+    const input = baseInput();
+    input.entities.collections = [
+      { ...collection('col00001', 'API', 'requests/api-col00001'), preRequestScript: 'pre' },
+    ];
+    input.entities.folders = [
+      { ...folder('fld00001', 'Auth', 'requests/api-col00001/auth-fld00001'), postResponseScript: 'post' },
+    ];
+    const exp = buildWorkspaceExport(input);
+    const diff = diffWorkspaceExport(exp, emptyTarget());
+    const plan = buildImportPlan(exp, diff, emptyTarget(), {});
+    const createdCol = plan.collections.find((c) => c.action === 'create');
+    expect(createdCol?.entity.preRequestScript).toBe('pre');
+    const createdFolder = plan.folders.find((f) => f.action === 'create');
+    expect(createdFolder?.entity.postResponseScript).toBe('post');
+  });
+
   it('preserves request scripts when stripScripts is unset', () => {
     const input = baseInput();
     const req: Request = {
@@ -380,9 +419,7 @@ describe('buildImportPlan — singleton resolution', () => {
     const diff = diffWorkspaceExport(exp, target);
     const plan = buildImportPlan(exp, diff, target, { workspaceVars: 'replace' });
     expect(plan.workspaceVars.action).toBe('replace');
-    expect(plan.workspaceVars.variables).toEqual([
-      { uid: 'var-in-x', name: 'X', value: 'incoming', type: 'default' },
-    ]);
+    expect(plan.workspaceVars.variables).toEqual([{ uid: 'var-in-x', name: 'X', value: 'incoming', type: 'default' }]);
   });
 
   it('skip preserves the target workspace variables verbatim', () => {
@@ -400,9 +437,7 @@ describe('buildImportPlan — singleton resolution', () => {
     const diff = diffWorkspaceExport(exp, target);
     const plan = buildImportPlan(exp, diff, target, { workspaceVars: 'skip' });
     expect(plan.workspaceVars.action).toBe('skip');
-    expect(plan.workspaceVars.variables).toEqual([
-      { uid: 'var-tgt-y2', name: 'Y', value: 'target', type: 'default' },
-    ]);
+    expect(plan.workspaceVars.variables).toEqual([{ uid: 'var-tgt-y2', name: 'Y', value: 'target', type: 'default' }]);
   });
 
   it('vault stays skipped when the incoming export has no vault block', () => {

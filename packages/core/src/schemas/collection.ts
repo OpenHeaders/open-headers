@@ -19,6 +19,17 @@ export const CollectionSchema = v.object({
   order: v.optional(v.array(v.string())),
   pinnedEnvironmentIds: v.optional(v.array(UidSchema), []),
   defaultEnvironmentId: v.optional(v.nullable(UidSchema), null),
+  /**
+   * Ancestor script slots — meaningful under request-collection
+   * routing only (rule collections share this schema but no rule
+   * surface sets or executes them). A request's send composes scripts
+   * ancestor-first: collection pre → folder pre → request pre, and the
+   * same order post-response. Persisted as `pre-request.js` /
+   * `post-response.js` sibling files beside `_collection.yaml`
+   * (invariant #9, two-file scripts), never inline in the YAML.
+   */
+  preRequestScript: v.optional(v.string()),
+  postResponseScript: v.optional(v.string()),
 });
 
 /**
@@ -34,4 +45,8 @@ export const FolderSchema = v.object({
   path: RelativePathSchema,
   name: v.string(),
   order: v.optional(v.array(v.string())),
+  /** See {@link CollectionSchema}'s script slots — same contract,
+   *  request-folder routing only; siblings of `_folder.yaml`. */
+  preRequestScript: v.optional(v.string()),
+  postResponseScript: v.optional(v.string()),
 });
