@@ -152,9 +152,24 @@ export function resolveAuth(
         report,
       };
     }
-    case 'digest':
+    case 'digest': {
+      // Only the credentials are configuration — the vendor block's
+      // other params (realm, nonce, qop, algorithm, opaque, nc,
+      // cnonce, retry flags) are a stale capture of some past server
+      // challenge; the next live challenge re-supplies all of them,
+      // so they are silently lossless.
+      const params = asParams(raw.digest);
+      return {
+        auth: {
+          type: 'digest',
+          username: paramValue(params, 'username') ?? '',
+          password: paramValue(params, 'password') ?? '',
+        },
+        report,
+      };
+    }
     case 'oauth1': {
-      // Living schemes per the Phase F disposition — planned, not yet
+      // Living scheme per the Phase F disposition — planned, not yet
       // first-class.
       recordDrop(report, {
         path: authPath,

@@ -962,26 +962,77 @@ describe('request mapping — auth', () => {
     }
   });
 
-  it('drops digest / oauth1 as planned types with tracking', () => {
-    for (const t of ['digest', 'oauth1']) {
-      const result = parsePostman(
-        postmanCollection({
-          item: [
-            {
-              name: 'X',
-              request: {
-                method: 'GET',
-                url: 'https://api.openheaders.io/x',
-                auth: { type: t },
+  it('maps digest credentials, silently shedding stale challenge params', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'digest',
+                digest: [
+                  { key: 'username', value: 'cam-admin' },
+                  { key: 'password', value: 'hunter2' },
+                  // Stale capture of some past server challenge — the
+                  // next live 401 re-supplies every one of these.
+                  { key: 'realm', value: 'cam.openheaders.io' },
+                  { key: 'nonce', value: 'stale-nonce' },
+                  { key: 'algorithm', value: 'MD5' },
+                  { key: 'qop', value: 'auth' },
+                  { key: 'opaque', value: 'opq' },
+                  { key: 'nonceCount', value: '00000002' },
+                  { key: 'clientNonce', value: 'stale-cnonce' },
+                ],
               },
             },
-          ],
-        }),
-      );
-      expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
-      const drop = result.report.drops.find((d) => new RegExp(`${t} auth not imported yet`).test(d.reason));
-      expect(drop?.tracking).toBe('#todo-auth-types');
-    }
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({ type: 'digest', username: 'cam-admin', password: 'hunter2' });
+    expect(result.report.drops.some((d) => /digest/i.test(d.reason))).toBe(false);
+    expect(result.report.transforms.some((t) => /digest/i.test(t.reason))).toBe(false);
+  });
+
+  it('an empty digest block lands an empty digest config (the user chose the type)', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: { type: 'digest' },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({ type: 'digest', username: '', password: '' });
+  });
+
+  it('drops oauth1 as a planned type with tracking', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: { type: 'oauth1' },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
+    const drop = result.report.drops.find((d) => /oauth1 auth not imported yet/.test(d.reason));
+    expect(drop?.tracking).toBe('#todo-auth-types');
   });
 
   it('drops ntlm / edgegrid / hawk as permanent with accurate per-type reasons', () => {
