@@ -1,7 +1,7 @@
 /**
  * ExampleResponsePanel — the response half of the example editor's
  * split. Mirrors the live ResponsePanel's shell (one tab-bar row: Body ·
- * Headers tabs left, meta + layout toggle right). The status chip looks
+ * Headers tabs left, meta + a ⋯ split-orientation menu right). The status chip looks
  * exactly like the live meta strip's; clicking it swaps in a searchable
  * code picker (curated codes + canonical reason phrases) that commits
  * code + phrase together. Size · duration stay read-only facts — size
@@ -9,7 +9,7 @@
  * measurement. The captured final URL is carried through untouched.
  */
 
-import { AlignLeftOutlined, DownOutlined } from '@ant-design/icons';
+import { AlignLeftOutlined, DownOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { CapturedResponse, ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { AutoComplete, Button, ConfigProvider, Dropdown, type MenuProps, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
@@ -17,7 +17,7 @@ import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { listStatusCodes } from '@openheaders/ui/shared/info-popover/data/http-status';
-import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
+import { useSplitLayoutMenuItems } from '@openheaders/ui/shared/split-layout';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../languages/registry';
 import KeyValueTable from '../request-editor/KeyValueTable';
 import ResponseBodyView from '../request-editor/response/ResponseBodyView';
@@ -131,6 +131,7 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState<'body' | 'headers'>('body');
+  const layoutMenuItems = useSplitLayoutMenuItems(layout, onLayoutChange);
   const patch = (p: Partial<ExampleResponseDraft>) => onChange({ ...value, ...p });
 
   const headerRows = useMemo(
@@ -240,7 +241,14 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
                   {meta.durationMs} ms · {formatBytes(meta.bodyBytes)}
                 </Text>
               </Tooltip>
-              <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
+              <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} overlayStyle={{ minWidth: 220 }}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<EllipsisOutlined />}
+                  aria-label={t('workbench.editors.responseExample.moreActionsAria')}
+                />
+              </Dropdown>
             </div>
           ),
         }}

@@ -40,7 +40,7 @@ import { ConflictsProvider } from '@openheaders/ui/shared/conflicts/Field';
 import { useEditorShell } from '@openheaders/ui/shared/editor-shell';
 import { applyRuleCreate, applyRulePublish } from '@openheaders/ui/shared/sync/rule-write-client';
 import SectionInfo from '../shared/SectionInfo';
-import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
+import { useSplitLayoutMenuItems } from '@openheaders/ui/shared/split-layout';
 import { useRuleEditorLayout } from './useRuleEditorLayout';
 import type { RuleDraftData } from '../../hooks/useSaveRuleFlow';
 import { formatString } from '../../languages/prettier';
@@ -145,6 +145,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // Actions/conditions split orientation — global, persisted preference
   // shared with every rule tab (see useRuleEditorLayout).
   const [layout, setLayout] = useRuleEditorLayout();
+  const layoutMenuItems = useSplitLayoutMenuItems(layout, setLayout);
   const { rules, activeWorkspaceId, localCollections, templates: userTemplates, templateCollectionTrees } = useRules();
   const mutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
   const localInstanceId = useLocalInstanceId();
@@ -673,6 +674,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       label: t('workbench.editors.rule.saveAsTemplate'),
       onClick: openSaveAsTemplate,
     },
+    { type: 'divider' as const },
+    ...layoutMenuItems,
   ];
 
   return (
@@ -788,8 +791,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                             className="rules-thin-scrollbar rules-rule-editor rules-rule-editor--pane"
                             style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
                           >
-                            {/* Pane header — mirrors the Response pane: title
-                              left, layout toggle pinned right. */}
+                            {/* Pane header — mirrors the Response pane; the
+                              split orientation lives in the editor header's
+                              ⋯ menu. */}
                             <div
                               style={{
                                 display: 'flex',
@@ -825,9 +829,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                                 }}
                                 docId="conditions"
                               />
-                              <div style={{ marginLeft: 'auto' }}>
-                                <SplitLayoutToggle layout={layout} onChange={setLayout} />
-                              </div>
                             </div>
                             <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
                               <Form.Item name="conditions" style={{ marginBottom: 0 }}>

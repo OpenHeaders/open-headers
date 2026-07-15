@@ -2,13 +2,12 @@
  * Toolbar above a message-stream grid — Clear all, an optional
  * direction filter (Messages only), the standard filter input
  * (Aa / ab / .* toggles + clear), an optional action button right of
- * it and an optional right-aligned group (Messages only): the
- * grid/payload split-orientation toggle plus the `View ▾` menu.
- * Mirrors the host's Messages / EventStream toolbars; the views own
- * the filter state, this renders the controls.
+ * it and an optional right-aligned `View ▾` menu (Messages only),
+ * which also carries the grid/payload split orientation. Mirrors the
+ * host's Messages / EventStream toolbars; the views own the filter
+ * state, this renders the controls.
  */
 
-import { type SplitLayout, SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 import type { ReactNode } from 'react';
 import type { TextMatchConfig } from '../../../data/text-match';
 import { FilterInput } from '../../FilterInput';
@@ -31,13 +30,8 @@ interface StreamGridToolbarProps {
   /** Optional action button rendered right of the filter input —
    *  the Messages tab's connection-scoped "Override message". */
   action?: ReactNode;
-  /** Present on the Messages tab only — grid/payload split orientation. */
-  layoutToggle?: {
-    layout: SplitLayout;
-    onChange: (next: SplitLayout) => void;
-  };
   /** Present on the Messages tab only — the `View ▾` options menu,
-   *  rendered right of the split-orientation toggle. */
+   *  right-aligned after the action button. */
   viewMenu?: ReactNode;
 }
 
@@ -51,7 +45,6 @@ export default function StreamGridToolbar({
   filterError,
   filterPlaceholder,
   action,
-  layoutToggle,
   viewMenu,
 }: StreamGridToolbarProps) {
   return (
@@ -90,12 +83,7 @@ export default function StreamGridToolbar({
         ariaLabel="Filter stream messages"
       />
       {action}
-      {(layoutToggle || viewMenu) && (
-        <span className="dt-stream-toolbar-layout">
-          {layoutToggle && <SplitLayoutToggle layout={layoutToggle.layout} onChange={layoutToggle.onChange} />}
-          {viewMenu}
-        </span>
-      )}
+      {viewMenu && <span className="dt-stream-toolbar-layout">{viewMenu}</span>}
     </div>
   );
 }

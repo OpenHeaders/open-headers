@@ -1086,6 +1086,7 @@ export const workbenchEditors = {
   'workbench.editors.responseExample.editStatus': 'Edit status code',
   'workbench.editors.responseExample.statusPlaceholder': 'Enter response code',
   'workbench.editors.responseExample.capturedTooltip': 'Captured {date}',
+  'workbench.editors.responseExample.moreActionsAria': 'More response actions',
   'workbench.editors.responseExample.tab.body': 'Body',
   'workbench.editors.responseExample.tab.headers': 'Headers ({count})',
   'workbench.editors.responseExample.bodyLanguageAria': 'Body language',

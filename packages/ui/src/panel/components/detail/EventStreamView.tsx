@@ -11,8 +11,9 @@
  *     parked at the bottom.
  *   - Toolbar: Clear all (view-local), regex filter matching id, type
  *     and data (a modified event matches on either data side), the
- *     stream-scoped "Override event" create action, the split toggle
- *     and the `View ▾` layout menu (shared with the Messages grid).
+ *     stream-scoped "Override event" create action and the `View ▾`
+ *     layout menu (shared with the Messages grid, carrying the split
+ *     orientation too).
  *   - Hover actions per row: copy the payload; "Edit rule" when an sse
  *     rule accounts for THIS event (per-event attribution), otherwise
  *     "Override" opening the quick-create popover seeded from the event.
@@ -316,13 +317,14 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
             Override event
           </button>
         }
-        layoutToggle={showPreview ? { layout, onChange: setLayout } : undefined}
         viewMenu={
           <MessagesViewMenu
             layout={gridLayout}
+            splitLayout={layout}
             showPreview={showPreview}
             modified={viewMenuModified}
             onLayoutChange={setGridLayout}
+            onSplitLayoutChange={setLayout}
             onToggleShowPreview={() => setShowPreview(!showPreview)}
             onReset={resetViewMenu}
           />

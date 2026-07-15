@@ -5,9 +5,10 @@
  *   - Toolbar: Clear all, All / Send / Receive direction filter, regex
  *     filter (invalid patterns degrade to a literal match; a modified
  *     frame matches on either of its sides), the
- *     connection-scoped "Override message" create action, the
- *     grid/payload split toggle and the `View ▾` menu (compact / wide
- *     column layout, persisted via `devpanelNetwork.messagesLayout`).
+ *     connection-scoped "Override message" create action and the
+ *     `View ▾` menu (compact / wide column layout, persisted via
+ *     `devpanelNetwork.messagesLayout`, plus the grid/payload split
+ *     orientation).
  *   - Grid: fire rail | direction rail | Data | Length | Time. The fire
  *     rail mirrors the traffic table's — a per-frame dot where a fired
  *     `ws` rule accounts for the frame (see `message-fire-rail.ts`).
@@ -337,13 +338,14 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
             Override message
           </button>
         }
-        layoutToggle={showPreview ? { layout, onChange: setLayout } : undefined}
         viewMenu={
           <MessagesViewMenu
             layout={gridLayout}
+            splitLayout={layout}
             showPreview={showPreview}
             modified={viewMenuModified}
             onLayoutChange={setGridLayout}
+            onSplitLayoutChange={setLayout}
             onToggleShowPreview={() => setShowPreview(!showPreview)}
             onReset={resetViewMenu}
           />

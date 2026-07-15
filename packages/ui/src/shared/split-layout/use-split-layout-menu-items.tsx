@@ -1,8 +1,9 @@
 /**
- * Split-orientation entries for a ⋯ overflow menu — the dropdown
- * counterpart of `SplitLayoutToggle`, following the editor header's
- * "Header on Top / Header at Bottom" pattern: split glyph, label,
- * trailing check on the active orientation.
+ * Split-orientation entries for a ⋯ overflow menu, following the
+ * editor header's "Header on Top / Header at Bottom" pattern: split
+ * glyph, label, trailing check on the active orientation. Used by the
+ * request editor's request/response split, the example editor and the
+ * rule editor's actions/conditions split.
  */
 
 import { CheckOutlined } from '@ant-design/icons';
