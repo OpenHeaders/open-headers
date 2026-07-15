@@ -38,6 +38,7 @@ const AUTH_OPTIONS: AuthOption[] = [
   { value: 'oauth2', labelKey: 'workbench.editors.request.auth.type.oauth2' },
   { value: 'aws-sigv4', labelKey: 'workbench.editors.request.auth.type.awsSigV4' },
   { value: 'digest', labelKey: 'workbench.editors.request.auth.type.digest' },
+  { value: 'oauth1', labelKey: 'workbench.editors.request.auth.type.oauth1' },
 ];
 
 interface AuthorizationTabProps {
@@ -81,6 +82,14 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
       onChange({ type: 'aws-sigv4', accessKeyId: '', secretAccessKey: '', service: '', region: '' });
     } else if (type === 'digest') {
       onChange({ type: 'digest', username: '', password: '' });
+    } else if (type === 'oauth1') {
+      onChange({
+        type: 'oauth1',
+        consumerKey: '',
+        consumerSecret: '',
+        signatureMethod: 'HMAC-SHA1',
+        paramsLocation: 'header',
+      });
     }
   };
 
@@ -298,6 +307,8 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
 
         {auth.type === 'digest' && <DigestEditor auth={auth} onChange={onChange} />}
 
+        {auth.type === 'oauth1' && <OAuth1Editor auth={auth} onChange={onChange} />}
+
         {auth.type === 'oauth2' && <OAuth2AuthEditor auth={auth} onChange={onChange} />}
       </div>
     </div>
@@ -409,6 +420,103 @@ const DigestEditor: React.FC<{
           placeholder={t('workbench.editors.request.auth.passwordPlaceholder')}
         />
       </LabeledRow>
+    </div>
+  );
+};
+
+// ── OAuth 1.0a editor ──────────────────────────────────────────────
+//
+// Credential + signing fields; the oauth_* protocol params (signature,
+// nonce, timestamp) are derived at send time over the final wire
+// shape, so nothing else is configuration. The token pair is optional
+// — one-legged calls have neither — and an emptied Token / Token
+// Secret / Realm persists ABSENT (the empty string never lands on
+// disk, the Session Token pattern).
+
+const OAuth1Editor: React.FC<{
+  auth: Extract<AuthConfig, { type: 'oauth1' }>;
+  onChange: (auth: AuthConfig) => void;
+}> = ({ auth, onChange }) => {
+  const t = useT();
+  const setOptional = (field: 'token' | 'tokenSecret' | 'realm') => (next: string) => {
+    if (next) {
+      onChange({ ...auth, [field]: next });
+    } else {
+      const { [field]: _omit, ...rest } = auth;
+      onChange(rest);
+    }
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <LabeledRow label={t('workbench.editors.request.auth.oauth1ConsumerKey')}>
+        <TemplateInput
+          size="small"
+          value={auth.consumerKey}
+          onChange={(next) => onChange({ ...auth, consumerKey: next })}
+          placeholder={t('workbench.editors.request.auth.oauth1ConsumerKeyPlaceholder')}
+          style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.oauth1ConsumerSecret')}>
+        <SecretField
+          value={auth.consumerSecret}
+          onChange={(next) => onChange({ ...auth, consumerSecret: next })}
+          placeholder={t('workbench.editors.request.auth.oauth1ConsumerSecretPlaceholder')}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.oauth1Token')}>
+        <TemplateInput
+          size="small"
+          value={auth.token ?? ''}
+          onChange={setOptional('token')}
+          placeholder={t('workbench.editors.request.auth.oauth1TokenPlaceholder')}
+          style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.oauth1TokenSecret')}>
+        <SecretField
+          value={auth.tokenSecret ?? ''}
+          onChange={setOptional('tokenSecret')}
+          placeholder={t('workbench.editors.request.auth.oauth1TokenSecretPlaceholder')}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.oauth1SignatureMethod')}>
+        <Select
+          size="small"
+          data-testid="oh-auth-oauth1-signature-method"
+          value={auth.signatureMethod}
+          onChange={(next: 'HMAC-SHA1' | 'PLAINTEXT') => onChange({ ...auth, signatureMethod: next })}
+          options={[
+            { value: 'HMAC-SHA1', label: 'HMAC-SHA1' },
+            { value: 'PLAINTEXT', label: 'PLAINTEXT' },
+          ]}
+          style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
+      <LabeledRow label={t('workbench.editors.request.auth.addTo')}>
+        <Select
+          size="small"
+          data-testid="oh-auth-oauth1-params-location"
+          value={auth.paramsLocation}
+          onChange={(next: 'header' | 'query') => onChange({ ...auth, paramsLocation: next })}
+          options={[
+            { value: 'header', label: t('workbench.editors.request.auth.addToHeader') },
+            { value: 'query', label: t('workbench.editors.request.auth.addToQuery') },
+          ]}
+          style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
+      {auth.paramsLocation === 'header' && (
+        <LabeledRow label={t('workbench.editors.request.auth.oauth1Realm')}>
+          <TemplateInput
+            size="small"
+            value={auth.realm ?? ''}
+            onChange={setOptional('realm')}
+            placeholder={t('workbench.editors.request.auth.oauth1RealmPlaceholder')}
+            style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+      )}
     </div>
   );
 };

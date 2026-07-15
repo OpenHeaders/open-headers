@@ -98,6 +98,21 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
         ],
         params: [],
       };
+    case 'oauth1': {
+      const inQuery = auth.paramsLocation === 'query';
+      const entry: AuthPreviewEntry = inQuery
+        ? {
+            key: 'oauth_*',
+            value: t('workbench.editors.request.authPreview.oauth1QueryValue'),
+            hint: t('workbench.editors.request.authPreview.oauth1QueryHint'),
+          }
+        : {
+            key: 'Authorization',
+            value: t('workbench.editors.request.authPreview.oauth1Value'),
+            hint: t('workbench.editors.request.authPreview.oauth1Hint'),
+          };
+      return inQuery ? { headers: [], params: [entry] } : { headers: [entry], params: [] };
+    }
     case 'oauth2': {
       const inQuery = auth.sendAs === 'query';
       const entry: AuthPreviewEntry = inQuery

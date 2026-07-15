@@ -86,4 +86,25 @@ describe('previewAuthContributions', () => {
     expect(out.headers[0].value).not.toContain('hunter2');
     expect(out.params).toEqual([]);
   });
+
+  it('oauth1 advertises the signed header or query params per paramsLocation, never the secret', () => {
+    const base = {
+      type: 'oauth1' as const,
+      consumerKey: 'ck_openheaders',
+      consumerSecret: 'hunter2',
+      signatureMethod: 'HMAC-SHA1' as const,
+    };
+    const header = previewAuthContributions({ ...base, paramsLocation: 'header' } satisfies AuthConfig, t);
+    expect(header.headers).toHaveLength(1);
+    expect(header.headers[0].key).toBe('Authorization');
+    expect(header.headers[0].value).toMatch(/^OAuth /);
+    expect(header.headers[0].value).not.toContain('hunter2');
+    expect(header.params).toEqual([]);
+
+    const query = previewAuthContributions({ ...base, paramsLocation: 'query' }, t);
+    expect(query.headers).toEqual([]);
+    expect(query.params).toHaveLength(1);
+    expect(query.params[0].key).toBe('oauth_*');
+    expect(query.params[0].value).not.toContain('hunter2');
+  });
 });

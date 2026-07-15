@@ -105,6 +105,15 @@ const AUTH_UNION: FieldNode = union({
       username: leaf('string'),
       password: leaf('string'),
     }),
+    oauth1: obj({
+      consumerKey: leaf('string'),
+      consumerSecret: leaf('string'),
+      token: leaf('string', { coercion: 'optional-string' }),
+      tokenSecret: leaf('string', { coercion: 'optional-string' }),
+      signatureMethod: enumLeaf(['HMAC-SHA1', 'PLAINTEXT']),
+      paramsLocation: enumLeaf(['header', 'query']),
+      realm: leaf('string', { coercion: 'optional-string' }),
+    }),
   },
 });
 
