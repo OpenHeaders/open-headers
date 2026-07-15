@@ -23,6 +23,12 @@
  * revertible deletes and the report records the replacement). A
  * labeled PARTIAL pull appends without wiping — a half-pull never
  * destroys a complete previous import.
+ *
+ * Workspace globals land as workspace-scoped variables by UPSERT-BY-NAME
+ * (ratified): the variables singleton cannot tombstone per-import, so a
+ * colliding name refreshes that row in place (uid + position kept, one
+ * report transform names the refresh) and new names append after the
+ * tail. Partial pulls land globals too — the upsert is idempotent.
  */
 
 import {
@@ -34,16 +40,19 @@ import {
   type PostmanPullResult,
   type PulledCollection,
   type PulledEnvironment,
+  type PulledWorkspaceGlobals,
+  type PullGlobalVariable,
   type PullWorkspaceSummary,
   parsePostman,
   parsePostmanEnvironment,
   recordDrop,
   recordTransform,
 } from '@openheaders/core/import';
-import { EnvironmentSchema, RequestSchema, ResponseExampleSchema } from '@openheaders/core/schemas';
+import { EnvironmentSchema, RequestSchema, ResponseExampleSchema, VariableSchema } from '@openheaders/core/schemas';
 import {
   computeInverseSpec,
   ENVIRONMENT_ENTITY_TYPE,
+  keyBetween,
   type MutationBatch,
   type MutatorContext,
   REQUEST_COLLECTION_ENTITY_TYPE,
@@ -51,6 +60,9 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
   type SideEffectIntent,
+  WORKSPACE_VARIABLES_ENTITY_TYPE,
+  WORKSPACE_VARIABLES_ID,
+  WORKSPACE_VARIABLES_PATH,
 } from '@openheaders/core/sync';
 import {
   buildAddEnvironmentBatch,
@@ -71,6 +83,7 @@ import {
   buildAddResponseExampleBatch,
   buildDeleteResponseExampleBatch,
 } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
+import { buildSetWorkspaceVarBatch } from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { Collection, Environment, Request, ResponseExample, Variable } from '@openheaders/core/types';
 import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
@@ -166,9 +179,15 @@ function mergeSubReport(target: ImportReport, sub: ImportReport, prefix: string)
  * vendor workspace re-pulled must hash identically regardless of pull
  * order, so items sort by kind+id before concatenation.
  */
-function pullSourceText(collections: readonly PulledCollection[], environments: readonly PulledEnvironment[]): string {
-  return [...collections, ...environments]
-    .map((item) => ({ key: `${item.item}:${item.id}`, json: item.json }))
+function pullSourceText(
+  collections: readonly PulledCollection[],
+  environments: readonly PulledEnvironment[],
+  globals: readonly PulledWorkspaceGlobals[],
+): string {
+  return [
+    ...[...collections, ...environments].map((item) => ({ key: `${item.item}:${item.id}`, json: item.json })),
+    ...globals.map((entry) => ({ key: `globals:${entry.workspaceId}`, json: JSON.stringify(entry.variables) })),
+  ]
     .sort((a, b) => a.key.localeCompare(b.key))
     .map((item) => `${item.key}\n${item.json}`)
     .join('\n');
@@ -489,6 +508,80 @@ async function materializeEnvironment(
 }
 
 /**
+ * The live set-entry surface the globals landing needs — the workspace
+ * service's oracle satisfies it.
+ */
+interface LiveSetEntryReader {
+  liveOrderedSetItems(type: string, id: string, setPath: string): Array<{ itemId: string; item: unknown; key: string }>;
+}
+
+/**
+ * Land one workspace's pulled globals as workspace-scoped variables —
+ * upsert by name (ratified): a pulled row whose name already exists
+ * refreshes that row in place (uid and position kept), new names append
+ * after the current tail. The singleton is `observableWithoutCreate`,
+ * so per-row `addToSet` writes need no create shell. Returns the number
+ * of rows landed.
+ */
+async function materializeWorkspaceGlobals(
+  rows: readonly PullGlobalVariable[],
+  oracle: LiveSetEntryReader,
+  report: ImportReport,
+  mintCtx: MutatorContextMinter,
+): Promise<number> {
+  const live = oracle.liveOrderedSetItems(WORKSPACE_VARIABLES_ENTITY_TYPE, WORKSPACE_VARIABLES_ID, WORKSPACE_VARIABLES_PATH);
+  const byName = new Map<string, { uid: string; key: string }>();
+  for (const entry of live) {
+    const parsed = v.safeParse(VariableSchema, entry.item);
+    if (parsed.success) byName.set(parsed.output.name, { uid: parsed.output.uid, key: entry.key });
+  }
+  let tailKey = live.length > 0 ? (live[live.length - 1]?.key ?? null) : null;
+  let landed = 0;
+  let refreshed = 0;
+  for (const row of rows) {
+    const existing = byName.get(row.name);
+    let orderKey: string;
+    if (existing !== undefined) {
+      orderKey = existing.key;
+      refreshed++;
+    } else {
+      tailKey = keyBetween(tailKey, null);
+      orderKey = tailKey;
+    }
+    const variable: Variable = {
+      uid: existing?.uid ?? generateUid(),
+      name: row.name,
+      value: row.value,
+      type: row.type,
+      ...(row.enabled === false ? { enabled: false } : {}),
+    };
+    const ctx = mintCtx();
+    if (!ctx) throw new Error('landing workspace is not loaded on this host');
+    try {
+      const intent = buildSetWorkspaceVarBatch({ variable, orderKey }, ctx);
+      await applyMigrationMutation(intent.batch, intent.sideEffects);
+      landed++;
+    } catch (err) {
+      recordDrop(report, {
+        path: `pull.globals["${row.name}"]`,
+        reason: `Failed to land the "${row.name}" global as a workspace variable: ${failureReason(err)}`,
+        tracking: 'PERMANENT: write-path failure',
+      });
+    }
+  }
+  if (refreshed > 0) {
+    recordTransform(report, {
+      path: 'pull.globals',
+      from: `${refreshed} existing workspace variable${refreshed === 1 ? '' : 's'}`,
+      to: 'refreshed by this pull',
+      reason:
+        'A pulled global whose name already exists as a workspace variable overwrites that row in place — value, type, and enabled state follow the vendor.',
+    });
+  }
+  return landed;
+}
+
+/**
  * Land one vendor workspace's pulled items in its counterpart through
  * the standard import path. Per-item parse/write failures drop with
  * reasons and the run continues; only a missing counterpart workspace
@@ -508,12 +601,14 @@ async function materializeWorkspacePull(
   const wsEnvironments = result.environments
     .map((pulled, index) => ({ pulled, index }))
     .filter(({ pulled }) => pulled.workspaceIds.includes(workspace.id));
+  const wsGlobals = result.globals.filter((entry) => entry.workspaceId === workspace.id);
 
   const report: ImportReport = createReport('postman-pull', 0);
   report.sourceHash = await hashImportSource(
     pullSourceText(
       wsCollections.map(({ pulled }) => pulled),
       wsEnvironments.map(({ pulled }) => pulled),
+      wsGlobals,
     ),
   );
 
@@ -536,6 +631,7 @@ async function materializeWorkspacePull(
   let environments = 0;
   let requests = 0;
   let examples = 0;
+  let globals = 0;
   try {
     const mintCtx = contextMinter(target.id);
     await service.hydrated;
@@ -581,11 +677,23 @@ async function materializeWorkspacePull(
         });
       }
     }
+    for (const entry of wsGlobals) {
+      if (entry.variables.length === 0) continue;
+      try {
+        globals += await materializeWorkspaceGlobals(entry.variables, service.oracle, report, mintCtx);
+      } catch (err) {
+        recordDrop(report, {
+          path: 'pull.globals',
+          reason: `Workspace globals were not imported: ${failureReason(err)}`,
+          tracking: 'PERMANENT: write-path failure',
+        });
+      }
+    }
   } finally {
     releaseWorkspaceService(target.id);
   }
 
-  report.summary = { ...report.summary, imported: requests + environments + examples };
+  report.summary = { ...report.summary, imported: requests + environments + examples + globals };
   await recordImportReport(report, target.id);
 
   return {
@@ -595,6 +703,7 @@ async function materializeWorkspacePull(
     environments,
     requests,
     examples,
+    globals,
     drops: report.summary.dropped,
   };
 }
@@ -634,6 +743,7 @@ export async function materializePostmanPull(
     environments: workspaces.reduce((sum, ws) => sum + ws.environments, 0),
     requests: workspaces.reduce((sum, ws) => sum + ws.requests, 0),
     examples: workspaces.reduce((sum, ws) => sum + ws.examples, 0),
+    globals: workspaces.reduce((sum, ws) => sum + ws.globals, 0),
     drops: workspaces.reduce((sum, ws) => sum + ws.drops, 0),
   };
 }

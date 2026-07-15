@@ -13,6 +13,7 @@ import type { ImportReport, PostmanPullResult } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
 import { buildAddResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
+import { buildSetWorkspaceVarBatch } from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
 import type { Request } from '@openheaders/core/types';
 import { logger as consoleLogger, generateUid } from '@openheaders/core/utils';
 import { wsKeys } from '@openheaders/oracle/storage';
@@ -28,6 +29,7 @@ import {
   snapshotRequestFolderPostStates,
   snapshotRequestPostStates,
   snapshotResponseExamplePostStates,
+  snapshotWorkspaceVariablesPostStates,
 } from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { materializePostmanPull } from '../../../src/migration/materialize';
@@ -110,6 +112,7 @@ function pullResult(overrides: Partial<PostmanPullResult> = {}): PostmanPullResu
     environments: [
       { item: 'environment', id: 'e-1', name: 'Staging', json: ENVIRONMENT_JSON, workspaceIds: ['pm-ws-1'] },
     ],
+    globals: [],
     skipped: [],
     budget: {},
     callsMade: 5,
@@ -431,6 +434,100 @@ describe('materializePostmanPull', () => {
     expect(summary.environments).toBe(1);
     const [report] = await readRecordedReports();
     expect(report.drops.some((d) => d.path.startsWith('pull.environments[0]'))).toBe(true);
+  });
+
+  it('lands workspace globals as workspace variables — secret typing and disabled flags carried', async () => {
+    const summary = await materializePostmanPull(
+      pullResult({
+        globals: [
+          {
+            workspaceId: 'pm-ws-1',
+            variables: [
+              { name: 'api_host', value: 'api.openheaders.io', type: 'default' },
+              { name: 'api_token', value: 'tok-123', type: 'secret' },
+              { name: 'legacy_host', value: 'old.openheaders.io', type: 'default', enabled: false },
+            ],
+          },
+        ],
+      }),
+      { ensureWorkspaceFor },
+    );
+
+    expect(summary.globals).toBe(3);
+    expect(summary.workspaces[0]?.globals).toBe(3);
+    const [postState] = snapshotWorkspaceVariablesPostStates(wsId);
+    expect(postState.workspaceVariables.variables).toMatchObject([
+      { name: 'api_host', value: 'api.openheaders.io', type: 'default' },
+      { name: 'api_token', value: 'tok-123', type: 'secret' },
+      { name: 'legacy_host', value: 'old.openheaders.io', type: 'default', enabled: false },
+    ]);
+    expect(postState.workspaceVariables.variables[0].enabled).toBeUndefined();
+
+    const [report] = await readRecordedReports();
+    // Fresh landing — no collisions, so no refresh transform; the rows
+    // count as imported entities, not notes.
+    expect(report.transforms.filter((t) => t.path === 'pull.globals')).toHaveLength(0);
+    // 2 requests + 1 environment + 2 examples + 3 globals.
+    expect(report.summary.imported).toBe(8);
+  });
+
+  it('upserts globals by name — colliding rows refresh in place, others untouched, new names append', async () => {
+    const ctx = () => {
+      const minted = nextSwMutatorContextForWorkspace(wsId, { surfaceId: 'test' });
+      if (!minted) throw new Error('landing workspace is not loaded');
+      return minted;
+    };
+    const seed = async (uid: string, name: string, value: string, orderKey: string) => {
+      const intent = buildSetWorkspaceVarBatch(
+        { variable: { uid, name, value, type: 'default' }, orderKey },
+        ctx(),
+      );
+      const response = await applySyncRequest({ type: 'oh.sync.apply', batch: intent.batch, sideEffects: intent.sideEffects });
+      if (!response.ok) throw new Error('workspace var seed failed');
+    };
+    const hostUid = generateUid();
+    const mineUid = generateUid();
+    await seed(hostUid, 'api_host', 'stale.openheaders.io', 'm');
+    await seed(mineUid, 'my_note', 'hand-written', 'n');
+
+    const summary = await materializePostmanPull(
+      pullResult({
+        globals: [
+          {
+            workspaceId: 'pm-ws-1',
+            variables: [
+              { name: 'api_host', value: 'api.openheaders.io', type: 'default' },
+              { name: 'timeout_ms', value: '3000', type: 'default' },
+            ],
+          },
+        ],
+      }),
+      { ensureWorkspaceFor },
+    );
+
+    expect(summary.globals).toBe(2);
+    const [postState] = snapshotWorkspaceVariablesPostStates(wsId);
+    // Position and uid kept on the refreshed row; the user's own row is
+    // untouched; the new name appends after the tail.
+    expect(postState.workspaceVariables.variables).toMatchObject([
+      { uid: hostUid, name: 'api_host', value: 'api.openheaders.io' },
+      { uid: mineUid, name: 'my_note', value: 'hand-written' },
+      { name: 'timeout_ms', value: '3000' },
+    ]);
+
+    const [report] = await readRecordedReports();
+    const refresh = report.transforms.find((t) => t.path === 'pull.globals');
+    expect(refresh?.from).toBe('1 existing workspace variable');
+    expect(refresh?.to).toBe('refreshed by this pull');
+  });
+
+  it('an empty globals entry is wire truth and materializes nothing', async () => {
+    const summary = await materializePostmanPull(
+      pullResult({ globals: [{ workspaceId: 'pm-ws-1', variables: [] }] }),
+      { ensureWorkspaceFor },
+    );
+    expect(summary.globals).toBe(0);
+    expect(snapshotWorkspaceVariablesPostStates(wsId)[0]?.workspaceVariables.variables ?? []).toHaveLength(0);
   });
 
   it('a complete re-pull replaces the previous import, saved examples included', async () => {
