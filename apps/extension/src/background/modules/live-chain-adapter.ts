@@ -62,6 +62,7 @@ import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live
 import { logger } from '@utils/logger';
 import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh-scheduler';
 import { recordLog } from './observability-log';
+import { trackProductTelemetryEvent } from './product-telemetry';
 import { withRefreshRateLimit } from './refresh-scheduler';
 import { type ExecutedRequestSnapshot, executeForLiveChain } from './request-executor';
 
@@ -162,8 +163,15 @@ export const liveChainAdapter: LiveRefreshAdapter = {
 
     if (outcome.ok) {
       await commitSuccess(workspaceId, workflow, environmentId, outcome);
+      trackProductTelemetryEvent({ name: 'workflow_run', ok: true });
       return;
     }
+    // Record before commitFailure — it re-throws to the scheduler. The
+    // step-failure beacon lands here (the chain actually ran and a step
+    // failed); scheduler-level failures beacon `source-refresh-failed`
+    // in the provider's `onFailed` instead.
+    trackProductTelemetryEvent({ name: 'workflow_run', ok: false });
+    trackProductTelemetryEvent({ name: 'error_beacon', code: 'workflow-step-failed' });
     await commitFailure(workspaceId, workflow, environmentId, outcome, bypass);
   },
 };

@@ -39,6 +39,7 @@ import type { DedupMatchesResult } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
 import { useUiTheme } from '@openheaders/ui/context';
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
+import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { renderWorkspacePrefix } from '../workspace/workspace-prefix';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
 import { AdvancedTogglesList } from './preview/AdvancedPanel';
@@ -175,6 +176,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       setParseRejection({ kind: 'caller', details: initialError });
       setParsed(null);
       setSourceHash(null);
+      trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
       return;
     }
     if (rawText === null) {
@@ -188,6 +190,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       setParseRejection({ kind: 'parse', reason: result.reason, details: result.details });
       setParsed(null);
       setSourceHash(null);
+      trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
       return;
     }
     setParseRejection(null);
@@ -346,6 +349,13 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   // Deserializer, bundle-wide commit and MergeFile projection live in
   // `useImportMergeSession`; state stays here, setters go in.
   const closeMergeModal = useCallback(() => setMergePreviewOpen(false), []);
+  const handleImported = useCallback(
+    (result: { targetWorkspaceId: string; importedCount: number; sourceLabel: string }) => {
+      trackProductTelemetryEvent({ name: 'import_run', source: 'workspace', ok: true });
+      onImported(result);
+    },
+    [onImported],
+  );
   const { handleMergeApply, buildMergeFiles } = useImportMergeSession({
     effectiveEnvelope,
     preview,
@@ -361,7 +371,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setPreview,
     setStaleSnapshotHash,
     closeMergeModal,
-    onImported,
+    onImported: handleImported,
   });
 
   // ── Render ────────────────────────────────────────────────────────

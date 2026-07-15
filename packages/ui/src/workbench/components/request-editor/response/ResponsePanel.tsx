@@ -25,8 +25,9 @@ import type { ExecutedRequestSnapshot, LiveWorkflow } from '@openheaders/core/ty
 import { Button, Dropdown, Tabs, Tooltip, Typography, theme } from 'antd';
 import { ExampleChip } from '../../shared/ExampleChip';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import ResponseAssertionsView from './ResponseAssertionsView';
 import ResponseBodyView from './ResponseBodyView';
@@ -174,6 +175,12 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   const [activeTab, setActiveTab] = useState<ResponseTabKey>('body');
   const [bodyCopied, setBodyCopied] = useState(false);
   const layoutMenuItems = useSplitLayoutMenuItems(layout, onLayoutChange);
+
+  // Product telemetry: the panel is always mounted (empty state before
+  // the first Send), so "used" means a response actually rendered.
+  useEffect(() => {
+    if (response) noteFeatureUsed('response-panel');
+  }, [response]);
 
   const copyBody = () => {
     if (!response) return;

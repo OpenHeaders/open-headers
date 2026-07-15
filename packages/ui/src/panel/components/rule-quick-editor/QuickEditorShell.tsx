@@ -31,6 +31,7 @@ import {
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
+import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
 import { App, Button, Switch, Tooltip, theme } from 'antd';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
@@ -108,6 +109,12 @@ export function QuickEditorShell({
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const localInstanceId = useLocalInstanceId();
+
+  // Product telemetry: every quick-editor body mounts through this
+  // shell, so one mount = one quick-editor use gesture.
+  useEffect(() => {
+    noteFeatureUsed('quick-editor');
+  }, []);
 
   // Top-right enabled toggle — edit mode only (create bodies pass
   // `liveRule: null`). Applies INSTANTLY via the dedicated toggle seam

@@ -63,6 +63,13 @@ export interface OutboundMutationPlane {
    * falls back to count-only drop telemetry.
    */
   setPendingOutQueue(queue: PendingOutQueue | null): void;
+  /**
+   * Observe genuine outbound failures — a pending-out enqueue that threw
+   * (the envelope is at risk of loss) or a flush that died mid-drain.
+   * Routine queueing while disconnected never fires. Hosts hang failure
+   * observability off this; the plane stays observability-neutral.
+   */
+  setFailureObserver(fn: ((kind: 'enqueue' | 'flush') => void) | null): void;
   /** Forward one locally-committed envelope up its Org's wire (or queue it). */
   forward(event: OracleSyncBroadcastEvent): void;
   /** Drain one backend's pending-out cursor in HLC order and re-send. */
@@ -91,6 +98,7 @@ export function createOutboundMutationPlane(port: OutboundWirePort): OutboundMut
   let pendingQueue: PendingOutQueue | null = null;
   let droppedNoQueue = 0;
   let loggedDropOnce = false;
+  let failureObserver: ((kind: 'enqueue' | 'flush') => void) | null = null;
   const inflightFlushes = new Map<string, Promise<void>>();
 
   const forward = (event: OracleSyncBroadcastEvent): void => {
@@ -125,6 +133,7 @@ export function createOutboundMutationPlane(port: OutboundWirePort): OutboundMut
     if (pendingQueue) {
       void pendingQueue.enqueue(backendId, event.envelope).catch((err) => {
         logger.warn(SCOPE, 'enqueue to pending-out queue failed', err);
+        failureObserver?.('enqueue');
       });
       return;
     }
@@ -176,6 +185,7 @@ export function createOutboundMutationPlane(port: OutboundWirePort): OutboundMut
         }
       } catch (err) {
         logger.warn(SCOPE, 'pending-out flush failed mid-drain', err);
+        failureObserver?.('flush');
       } finally {
         inflightFlushes.delete(backendId);
       }
@@ -188,6 +198,9 @@ export function createOutboundMutationPlane(port: OutboundWirePort): OutboundMut
     setPendingOutQueue: (queue) => {
       pendingQueue = queue;
     },
+    setFailureObserver: (fn) => {
+      failureObserver = fn;
+    },
     forward,
     flush,
     applyPeerVector: async (backendId, peerVector) => {
@@ -199,6 +212,7 @@ export function createOutboundMutationPlane(port: OutboundWirePort): OutboundMut
       pendingQueue = null;
       droppedNoQueue = 0;
       loggedDropOnce = false;
+      failureObserver = null;
       inflightFlushes.clear();
     },
   };

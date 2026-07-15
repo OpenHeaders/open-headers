@@ -27,7 +27,7 @@ const FLUSH_ALARM = 'productTelemetryFlush';
 const FLUSH_PERIOD_MINUTES = 1;
 
 const SESSION_ID_KEY = 'oh.productTelemetry.sessionId';
-const SESSION_START_SENT_KEY = 'oh.productTelemetry.sessionStartSent';
+const LATCH_KEY_PREFIX = 'oh.productTelemetry.latch.';
 
 /**
  * `chrome.storage.session` survives SW eviction but lives in memory only
@@ -58,19 +58,21 @@ const sessionStore: ProductTelemetrySessionStore = {
     }
     await area.set({ [SESSION_ID_KEY]: id });
   },
-  async wasSessionStartSent() {
+  async wasLatched(key) {
+    const storageKey = LATCH_KEY_PREFIX + key;
     const area = sessionArea();
-    if (!area) return fallbackSession[SESSION_START_SENT_KEY] === true;
-    const items = await area.get(SESSION_START_SENT_KEY);
-    return items[SESSION_START_SENT_KEY] === true;
+    if (!area) return fallbackSession[storageKey] === true;
+    const items = await area.get(storageKey);
+    return items[storageKey] === true;
   },
-  async markSessionStartSent() {
+  async latch(key) {
+    const storageKey = LATCH_KEY_PREFIX + key;
     const area = sessionArea();
     if (!area) {
-      fallbackSession[SESSION_START_SENT_KEY] = true;
+      fallbackSession[storageKey] = true;
       return;
     }
-    await area.set({ [SESSION_START_SENT_KEY]: true });
+    await area.set({ [storageKey]: true });
   },
 };
 
@@ -135,9 +137,14 @@ export async function handleProductTelemetryAlarm(): Promise<void> {
   await controller.flush();
 }
 
-/** UI-surface entry (bridge RPC): record one vocabulary event. */
+/**
+ * Record one vocabulary event — UI surfaces reach it over the bridge
+ * RPC, SW modules call it directly. Fire-and-forget by law (plan §7):
+ * a failure (e.g. the settings store not yet hydrated on a cold call
+ * path) drops the event silently, never throws at a caller.
+ */
 export function trackProductTelemetryEvent(event: TelemetryEvent): void {
-  void controller.track(event);
+  void controller.track(event).catch(() => undefined);
 }
 
 /** UI-surface entry (bridge RPC): the inspector's snapshot. */

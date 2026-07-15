@@ -35,6 +35,7 @@ import {
   parseCurl,
 } from '@openheaders/core/import';
 import type { Collection, Request } from '@openheaders/core/types';
+import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { Alert, App as AntApp, Button, Input, type InputRef, Modal, Tag, Tooltip, Typography, theme } from 'antd';
 import type { TextAreaRef } from 'antd/es/input/TextArea';
 import type React from 'react';
@@ -57,6 +58,12 @@ interface ImportCurlModalProps {
    * runs on it immediately, so the modal opens on the confirm stage.
    */
   initialSource?: string;
+  /**
+   * What the hub actually detected — a curl command or a bare URL it
+   * synthesized into one. Product telemetry's `import_run` keeps the
+   * distinction; the modal behaves identically either way.
+   */
+  sourceKind?: 'curl' | 'url';
   onCancel: () => void;
   /** Called after a successful import. Payload includes the new uid
    *  and the name the user chose, so the caller can open the request
@@ -118,6 +125,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
   collections,
   initialCollectionId,
   initialSource,
+  sourceKind = 'curl',
   onCancel,
   onImported,
   createRequest,
@@ -182,6 +190,21 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       return { ok: false, message: msg };
     }
   }, [source]);
+
+  // A hub hand-off that fails to parse is committed input, not mid-typing
+  // churn — beacon it once per open. Live typing never fires: the source
+  // must still be the untouched hand-off text.
+  const handoffFailureNotedRef = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      handoffFailureNotedRef.current = false;
+      return;
+    }
+    if (handoffFailureNotedRef.current || !initialSource) return;
+    if (parsed?.ok !== false || source !== initialSource) return;
+    handoffFailureNotedRef.current = true;
+    trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
+  }, [open, initialSource, parsed, source]);
 
   // Suggested request name: the URL path alone — the collection
   // already carries the host (auto-created collections are named by
@@ -274,6 +297,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
         const collection = await createCollection(newCollectionName);
         if (!collection) {
           message.error('Failed to create collection');
+          trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
           return;
         }
         collectionUid = collection.uid;
@@ -295,10 +319,12 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       });
       if (!created) {
         message.error('Failed to create request');
+        trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
         return;
       }
       // Hydrate the report with the source hash (parser leaves it blank).
       const report: ImportReport = { ...parsed.report, sourceHash: hash };
+      trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: true });
       onImported({
         requestUid: created.uid,
         name: name.trim(),
@@ -314,10 +340,11 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       message.success(summary);
     } catch (err) {
       message.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
     } finally {
       setBusy(false);
     }
-  }, [parsed, source, name, targetCollectionId, createRequest, createCollection, newCollectionName, onImported, message]);
+  }, [parsed, source, name, targetCollectionId, createRequest, createCollection, newCollectionName, onImported, message, sourceKind]);
 
   const confirmImport = useCallback(() => {
     if (canImport) void handleImport();

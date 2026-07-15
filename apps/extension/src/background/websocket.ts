@@ -15,6 +15,7 @@ import {
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
 import { isSafari } from '@utils/browser-api';
+import { trackProductTelemetryEvent } from './modules/product-telemetry';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 
 async function checkServerReachable(wsUrl: string): Promise<boolean> {
@@ -43,6 +44,7 @@ installBackendConnectionManager({
   getMaxReconnectDelayMs: () => getSetting('backend.maxReconnectDelayMs'),
   getPingIntervalMs: () => getSetting('backend.pingIntervalMs'),
   onConnectionStatusChanged: (connected) => broadcast('connectionStatus', { connected }),
+  onConnectFailed: () => trackProductTelemetryEvent({ name: 'error_beacon', code: 'ws-connect-failed' }),
 });
 
 // Ping cadence changes take effect on the next tick without a reconnect.

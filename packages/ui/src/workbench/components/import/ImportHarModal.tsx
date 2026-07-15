@@ -29,6 +29,7 @@ import {
   selectHarEntries,
 } from '@openheaders/core/import';
 import type { Collection, Request } from '@openheaders/core/types';
+import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { Alert, App as AntApp, Button, Checkbox, Input, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -92,7 +93,9 @@ const MAX_ENTRIES_DISPLAY = 200;
 /**
  * Parses HAR text into a stage. Default to all entries selected —
  * users who imported the file usually want everything; they narrow
- * from there.
+ * from there. Committed input (picked file / hub hand-off) failing to
+ * parse beacons `import-parse-failed` — mid-typing churn never lands
+ * here.
  */
 function parseHarText(text: string): Stage {
   try {
@@ -101,6 +104,7 @@ function parseHarText(text: string): Stage {
     return { kind: 'parsed', source: text, result, selection };
   } catch (err) {
     const msg = err instanceof HarParseError ? err.message : `Failed to read HAR: ${String(err)}`;
+    trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
     return { kind: 'error', message: msg };
   }
 }
@@ -268,6 +272,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
         const collection = await createCollection(newCollectionName);
         if (!collection) {
           message.error('Failed to create collection');
+          trackProductTelemetryEvent({ name: 'import_run', source: 'har', ok: false });
           return;
         }
         collectionUid = collection.uid;
@@ -295,6 +300,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
         if (created) requestUids.push(created.uid);
       }
       const report: ImportReport = { ...narrowed.report, sourceHash: hash };
+      trackProductTelemetryEvent({ name: 'import_run', source: 'har', ok: true });
       onImported({ requestUids, collectionId: collectionUid, sourceHash: hash, report });
       const summaryLine = requestUids.length === 1 ? 'Imported 1 request' : `Imported ${requestUids.length} requests`;
       message.success(
@@ -304,6 +310,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       );
     } catch (err) {
       message.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      trackProductTelemetryEvent({ name: 'import_run', source: 'har', ok: false });
     } finally {
       setBusy(false);
     }

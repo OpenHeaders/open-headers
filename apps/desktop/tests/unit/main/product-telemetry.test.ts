@@ -158,6 +158,10 @@ describe('installProductTelemetry — inspector snapshot', () => {
     const { install } = makeRig();
     const handle = await install();
     handle.track({ name: 'feature_used', feature: 'variables' });
+    // track() is fire-and-forget and now consults the session-store
+    // latch before logging; settle the microtask queue so the snapshot
+    // read observes the appended entry.
+    await settle();
     const snapshot = await handle.snapshot();
     expect(snapshot.disclosed).toBe(false);
     expect(snapshot.sessionId).toMatch(/^[0-9a-f]{32}$/);

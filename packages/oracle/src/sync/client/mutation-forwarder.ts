@@ -36,6 +36,15 @@ export function setPendingOutQueue(queue: PendingOutQueue | null): void {
   plane.setPendingOutQueue(queue);
 }
 
+/**
+ * Observe genuine outbound failures (failed pending-out enqueue, flush
+ * died mid-drain) — see {@link OutboundMutationPlane.setFailureObserver}.
+ * The host boot wires its failure observability here.
+ */
+export function setOutboundSyncFailureObserver(fn: ((kind: 'enqueue' | 'flush') => void) | null): void {
+  plane.setFailureObserver(fn);
+}
+
 /** Forward one locally-committed envelope to its Org's backend (or queue it). */
 export function forwardMutationToBackend(event: OracleSyncBroadcastEvent): void {
   plane.forward(event);

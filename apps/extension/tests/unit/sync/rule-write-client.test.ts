@@ -32,12 +32,14 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import { type HostBridge, setHostBridge } from '@openheaders/core/bridge';
 import type { RendererContextHandle, RuleSyncMirror } from '@openheaders/ui/context';
 import {
   applyRuleCreate,
   applyRuleDelete,
   applyRuleToggle,
   applyRuleUpdate,
+  IMPORT_ATTRIBUTION_SURFACE_ID,
 } from '@openheaders/ui/shared/sync/rule-write-client';
 
 const headerRule: HeaderRule = {
@@ -423,6 +425,58 @@ describe('applyRuleCreate', () => {
       { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
     );
     expect(result).toEqual({ ok: false, reason: 'other', message: 'bridge dead' });
+  });
+});
+
+describe('applyRuleCreate — rule_created product telemetry', () => {
+  const createSeed: Omit<HeaderRule, 'uid' | 'path' | 'schemaVersion'> = {
+    name: 'New Header Rule',
+    enabled: true,
+    type: 'header',
+    conditions: [],
+    action: { requestHeaders: [], responseHeaders: [] },
+  };
+
+  function installTelemetrySpy() {
+    const track = vi.fn(async () => ({ success: true }));
+    setHostBridge({ call: track } as unknown as HostBridge);
+    return track;
+  }
+
+  it('records rule_created with the rule type on a successful create', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const track = installTelemetrySpy();
+    await applyRuleCreate(
+      { rule: createSeed, parentPath: 'rules/c-1' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+    );
+    expect(track).toHaveBeenCalledWith('productTelemetryTrack', {
+      event: { name: 'rule_created', ruleType: 'header' },
+    });
+  });
+
+  it('skips the event for import-attributed creates — import_run counts those', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const track = installTelemetrySpy();
+    await applyRuleCreate(
+      { rule: createSeed, parentPath: 'rules/c-1' },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: IMPORT_ATTRIBUTION_SURFACE_ID,
+        context: makeContextHandle('ws-1', IMPORT_ATTRIBUTION_SURFACE_ID),
+      },
+    );
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it('skips the event when the create is rejected', async () => {
+    mockCall.mockRejectedValue(new Error('bridge dead'));
+    const track = installTelemetrySpy();
+    await applyRuleCreate(
+      { rule: createSeed, parentPath: 'rules/c-1' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+    );
+    expect(track).not.toHaveBeenCalled();
   });
 });
 

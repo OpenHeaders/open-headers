@@ -23,26 +23,46 @@ import type { TelemetryTransport } from './client';
 import { TelemetryClient } from './client';
 import type { TelemetryEvent } from './vocabulary';
 
-/** Per-session state; RAM-backed on every host, never written to disk. */
+/**
+ * Per-session state; RAM-backed on every host, never written to disk.
+ * The keyed latch carries every once-per-session fact: the
+ * `session_start` sent-bit plus the per-member dedupe for
+ * `feature_used` and `error_beacon` (first occurrence per session
+ * counts; repeats are non-events, not suppressed entries).
+ */
 export interface ProductTelemetrySessionStore {
   getSessionId(): Promise<string | null>;
   setSessionId(id: string): Promise<void>;
-  wasSessionStartSent(): Promise<boolean>;
-  markSessionStartSent(): Promise<void>;
+  wasLatched(key: string): Promise<boolean>;
+  latch(key: string): Promise<void>;
+}
+
+/** Latch key for the once-per-session `session_start` sent-bit. */
+export const SESSION_START_LATCH_KEY = 'session_start';
+
+/**
+ * Latch key for events that fire once per session per union member
+ * (`feature_used` per feature, `error_beacon` per code); null for
+ * events that count every occurrence.
+ */
+export function oncePerSessionLatchKey(event: TelemetryEvent): string | null {
+  if (event.name === 'feature_used') return `feature_used:${event.feature}`;
+  if (event.name === 'error_beacon') return `error_beacon:${event.code}`;
+  return null;
 }
 
 /** Session store for hosts whose process lifetime IS the session (desktop main). */
 export function createInMemoryProductTelemetrySessionStore(): ProductTelemetrySessionStore {
   let sessionId: string | null = null;
-  let sessionStartSent = false;
+  const latched = new Set<string>();
   return {
     getSessionId: async () => sessionId,
     setSessionId: async (id) => {
       sessionId = id;
     },
-    wasSessionStartSent: async () => sessionStartSent,
-    markSessionStartSent: async () => {
-      sessionStartSent = true;
+    wasLatched: async (key) => latched.has(key),
+    latch: async (key) => {
+      latched.add(key);
     },
   };
 }
@@ -109,14 +129,26 @@ export class ProductTelemetryController {
   /** Fire `session_start` once per session, only after disclosure. */
   private async ensureSessionStart(): Promise<void> {
     if (!this.client?.isDisclosed) return;
-    if (await this.deps.sessionStore.wasSessionStartSent()) return;
+    if (await this.deps.sessionStore.wasLatched(SESSION_START_LATCH_KEY)) return;
     const event = await this.deps.buildSessionStart();
-    await this.deps.sessionStore.markSessionStartSent();
+    await this.deps.sessionStore.latch(SESSION_START_LATCH_KEY);
     if (event) this.client.track(event);
   }
 
+  /**
+   * Record one vocabulary event. Once-per-session events
+   * (`feature_used`, `error_beacon`) dedupe through the session-store
+   * latch — the first occurrence per member latches regardless of the
+   * gates (a suppressed first use is still the first use), and repeats
+   * never reach the client or its log.
+   */
   async track(event: TelemetryEvent): Promise<void> {
     await this.init();
+    const latchKey = oncePerSessionLatchKey(event);
+    if (latchKey) {
+      if (await this.deps.sessionStore.wasLatched(latchKey)) return;
+      await this.deps.sessionStore.latch(latchKey);
+    }
     this.client?.track(event);
   }
 

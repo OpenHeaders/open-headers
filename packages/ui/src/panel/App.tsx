@@ -40,7 +40,7 @@ import {
   useSeedNotifications,
 } from '@openheaders/ui/shared/notifications';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
-import { useProductTelemetryDisclosureNotification } from '@openheaders/ui/shared/product-telemetry';
+import { noteFeatureUsed, useProductTelemetryDisclosureNotification } from '@openheaders/ui/shared/product-telemetry';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
@@ -355,6 +355,17 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   const groups = useInspectorEditorGroups({ perTab, liveSessionToken: lifecycleClient.sessionToken });
   const tl = usePanelToolLayout(perTab);
+  // Product telemetry: an active tool window is the panel feature in
+  // use — network on first paint (the panel IS the traffic view),
+  // console/storage when their tab activates. `noteFeatureUsed` guards
+  // per document; the host session latch dedupes per browser session.
+  useEffect(() => {
+    for (const dock of Object.values(tl.state.docks)) {
+      if (dock.active === 'network') noteFeatureUsed('traffic-panel');
+      if (dock.active === 'console') noteFeatureUsed('console-panel');
+      if (dock.active === 'storage') noteFeatureUsed('storage-panel');
+    }
+  }, [tl.state.docks]);
   // Make `openDocs(sectionId)` from anywhere in the panel tree open the
   // docs tool-window. Effect runs on every `tl` identity change so the
   // ref always points at the current controller.

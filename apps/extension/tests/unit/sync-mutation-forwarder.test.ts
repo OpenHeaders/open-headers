@@ -28,6 +28,7 @@ import {
   __resetMutationForwarderForTests,
   flushPendingOutToBackend,
   forwardMutationToBackend,
+  setOutboundSyncFailureObserver,
   setPendingOutQueue,
 } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { installSyntheticIdentityForTests, TEST_BACKEND_ID } from './sync/_identity-test-setup';
@@ -213,5 +214,45 @@ describe('flushPendingOutToBackend', () => {
     expect(sendMock.mock.calls.every((c) => c[0] === TEST_BACKEND_ID)).toBe(true);
     expect(await queue.has('backend-other', 'm-foreign')).toBe(true);
     expect(await queue.size(TEST_BACKEND_ID)).toBe(0);
+  });
+});
+
+describe('setOutboundSyncFailureObserver', () => {
+  it('fires on a failed pending-out enqueue, never on routine queueing', async () => {
+    const observed: string[] = [];
+    setOutboundSyncFailureObserver((kind) => observed.push(kind));
+
+    const queue = new InMemoryPendingOutQueue();
+    setPendingOutQueue(queue);
+    sendMock.mockReturnValue(false);
+    forwardMutationToBackend(eventWith('m-ok', 1_000));
+    await Promise.resolve();
+    expect(observed).toEqual([]);
+
+    const rejectingQueue = new InMemoryPendingOutQueue();
+    rejectingQueue.enqueue = () => Promise.reject(new Error('idb gone'));
+    setPendingOutQueue(rejectingQueue);
+    forwardMutationToBackend(eventWith('m-lost', 2_000));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(observed).toEqual(['enqueue']);
+  });
+
+  it('fires when a flush dies mid-drain', async () => {
+    const observed: string[] = [];
+    setOutboundSyncFailureObserver((kind) => observed.push(kind));
+
+    const queue = new InMemoryPendingOutQueue();
+    setPendingOutQueue(queue);
+    sendMock.mockReturnValue(false);
+    isConnectedMock.mockReturnValue(false);
+    forwardMutationToBackend(eventWith('m-1', 1_000));
+    await Promise.resolve();
+
+    isConnectedMock.mockReturnValue(true);
+    queue.ackAll = () => Promise.reject(new Error('idb gone'));
+    sendMock.mockReturnValue(true);
+    await flushPendingOutToBackend(TEST_BACKEND_ID);
+    expect(observed).toEqual(['flush']);
   });
 });

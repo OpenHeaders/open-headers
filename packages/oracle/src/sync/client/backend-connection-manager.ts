@@ -51,6 +51,14 @@ export interface BackendConnectionManagerDeps {
   readonly getPingIntervalMs: () => number;
   /** Fired whenever the any-wire-connected aggregate may have changed. */
   readonly onConnectionStatusChanged?: (connected: boolean) => void;
+  /**
+   * Fired when a dial closes without ever opening — a connect attempt
+   * failed (refused, TLS, handshake never completed). Deliberate skips
+   * never land here: an unreachable probe opens no socket, and a drop
+   * of an established connection reports through `onClose` with
+   * `wasOpen`. Hosts hang failure observability off this.
+   */
+  readonly onConnectFailed?: (backendId: string) => void;
 }
 
 let managerDeps: BackendConnectionManagerDeps | null = null;
@@ -277,6 +285,7 @@ function createWire(rec: BackendConnection): ManagedWire {
     onClose: (info) => {
       logger.info(SCOPE, 'Connection closed');
       broadcastConnectionStatus();
+      if (!info.wasOpen && !managed.defunct) managerDeps?.onConnectFailed?.(backendId);
       if (info.peerRefused) {
         // The transport latched idle — this entry is the slot's final
         // word until a credential/URL change re-dials, so it must carry

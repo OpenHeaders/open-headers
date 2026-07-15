@@ -32,6 +32,7 @@ import { getLiveWorkflowInWorkspace, onLiveWorkflowStoreChange } from '@openhead
 import { canScheduleWorkflow } from '@openheaders/oracle/live/scheduling-gate';
 import { computeWorkflowDependencies } from '@openheaders/oracle/live/workflow-dependency-graph';
 import { recordLog } from '../observability-log';
+import { trackProductTelemetryEvent } from '../product-telemetry';
 import type { RefreshProvider } from '../refresh-scheduler';
 import { refreshAdapter } from './adapter';
 import { codec, LIVE_ALARM_PREFIX, type LiveAlarmPayload } from './codec';
@@ -336,6 +337,13 @@ export const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunC
   },
   onFailed(payload, err) {
     const { level, message, errorClass } = describeRefreshFailure(err, payload.u);
+    // Only genuine failures beacon (`level: 'error'`) — the deliberate
+    // no-op skips (offline, defer gates, circuit) are the state machine
+    // working. Chain failures already beaconed `workflow-step-failed`
+    // in the adapter before re-throwing.
+    if (level === 'error' && errorClass !== 'ChainRefreshError') {
+      trackProductTelemetryEvent({ name: 'error_beacon', code: 'source-refresh-failed' });
+    }
     recordLog({
       subsystem: 'live',
       op: 'refresh-failed',

@@ -13,18 +13,17 @@
  * call these functions directly with an explicit workspace id.
  */
 
+import { type MutationBody, mintBatch, RULE_ENTITY_TYPE, recompileDnrIntent } from '@openheaders/core/sync';
 import {
-  mintBatch,
-  type MutationBody,
-  recompileDnrIntent,
-  RULE_ENTITY_TYPE,
-} from '@openheaders/core/sync';
+  buildAddBatch,
+  buildDeleteBatch,
+  buildToggleBatch,
+  buildUpdateBatch,
+} from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
-import {
-  getRuleSyncMirrorForWorkspace,
-  type RuleSyncMirror,
-} from '../../context/mirrors/rule-sync-mirror';
+import { getRuleSyncMirrorForWorkspace, type RuleSyncMirror } from '../../context/mirrors/rule-sync-mirror';
+import { trackProductTelemetryEvent } from '../product-telemetry';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -32,12 +31,6 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import {
-  buildAddBatch,
-  buildDeleteBatch,
-  buildToggleBatch,
-  buildUpdateBatch,
-} from '@openheaders/core/sync-builders/mutations/rule-mutations';
 
 export type RuleUpdates = Partial<Omit<Rule, 'uid' | 'path' | 'schemaVersion'>>;
 
@@ -52,6 +45,13 @@ export interface RuleWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: RuleSyncMirror;
 }
+
+/**
+ * Surface attribution import flows write under. Rules materialized by
+ * an import are counted by `import_run`, never by `rule_created` — a
+ * bulk import must not inflate the rule-type distribution.
+ */
+export const IMPORT_ATTRIBUTION_SURFACE_ID = 'workbench-import';
 
 /**
  * Apply a partial Rule patch through the local oracle.
@@ -147,7 +147,12 @@ export async function applyRuleCreate(
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddBatch(created, ctx);
   const ack = await applySyncPayload(payload);
-  if (ack.ok) return { ok: true, rule: created };
+  if (ack.ok) {
+    if (opts.surfaceId !== IMPORT_ATTRIBUTION_SURFACE_ID) {
+      trackProductTelemetryEvent({ name: 'rule_created', ruleType: created.type });
+    }
+    return { ok: true, rule: created };
+  }
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
 }
@@ -159,10 +164,7 @@ export async function applyRuleCreate(
  * {@link applyRuleUpdate} which auto-unpublishes on the first
  * runtime-affecting edit (per `shouldAutoUnpublishOnUpdate`).
  */
-export async function applyRulePublish(
-  ruleUid: string,
-  opts: RuleWriteOptions,
-): Promise<RuleSimpleResult> {
+export async function applyRulePublish(ruleUid: string, opts: RuleWriteOptions): Promise<RuleSimpleResult> {
   const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
   await mirror.hydrated;
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
@@ -189,10 +191,7 @@ export async function applyRuleToggle(
   return applySyncPayload(payload);
 }
 
-export async function applyRuleDelete(
-  ruleUid: string,
-  opts: RuleWriteOptions,
-): Promise<RuleSimpleResult> {
+export async function applyRuleDelete(ruleUid: string, opts: RuleWriteOptions): Promise<RuleSimpleResult> {
   const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
   await mirror.hydrated;
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
@@ -208,10 +207,7 @@ export async function applyRuleDelete(
  * the orderKeys with `item: undefined` and the synthesizer falls back
  * to its content-unequal branch — correct, just one envelope per row.
  */
-function resolveRuleRows(
-  rule: Rule | undefined,
-  path: string,
-): ReadonlyArray<{ uid: string }> | null {
+function resolveRuleRows(rule: Rule | undefined, path: string): ReadonlyArray<{ uid: string }> | null {
   if (!rule) return null;
   if (path === 'conditions') return rule.conditions;
   if (rule.type !== 'header') return null;

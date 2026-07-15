@@ -8,11 +8,12 @@ import {
 } from '@openheaders/core/import';
 import type { RuleSeed } from '@openheaders/core/utils';
 import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
+import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
-import { applyRuleCreate } from '@openheaders/ui/shared/sync/rule-write-client';
+import { applyRuleCreate, IMPORT_ATTRIBUTION_SURFACE_ID } from '@openheaders/ui/shared/sync/rule-write-client';
 import { App as AntApp } from 'antd';
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -88,7 +89,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
 
   const [importCurlOpen, setImportCurlOpen] = useState(false);
   const [importCurlContext, setImportCurlContext] = useState<
-    { collectionId?: string; initialSource?: string } | undefined
+    { collectionId?: string; initialSource?: string; sourceKind?: 'curl' | 'url' } | undefined
   >(undefined);
   const [importHarOpen, setImportHarOpen] = useState(false);
   const [importHarContext, setImportHarContext] = useState<
@@ -208,10 +209,13 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     };
   }, [dropTargetRef]);
 
-  const openImportCurl = useCallback((ctx?: { collectionId?: string; initialSource?: string }) => {
-    setImportCurlContext(ctx);
-    setImportCurlOpen(true);
-  }, []);
+  const openImportCurl = useCallback(
+    (ctx?: { collectionId?: string; initialSource?: string; sourceKind?: 'curl' | 'url' }) => {
+      setImportCurlContext(ctx);
+      setImportCurlOpen(true);
+    },
+    [],
+  );
   const openImportHar = useCallback((ctx?: { collectionId?: string; initialText?: string }) => {
     setImportHarContext(ctx);
     setImportHarOpen(true);
@@ -229,6 +233,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
   const openImportSource = useCallback((ctx?: { collectionId?: string }) => {
     setImportSourceContext(ctx);
     setImportSourceModalOpen(true);
+    noteFeatureUsed('import-hub');
   }, []);
 
   // Migration surface (MIGRATION_STATUS.md S5 addendum). The ladder
@@ -259,10 +264,10 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
       setImportSourceModalOpen(false);
       switch (detected.kind) {
         case 'curl':
-          openImportCurl({ collectionId, initialSource: text });
+          openImportCurl({ collectionId, initialSource: text, sourceKind: 'curl' });
           break;
         case 'url':
-          openImportCurl({ collectionId, initialSource: `curl '${detected.url}'` });
+          openImportCurl({ collectionId, initialSource: `curl '${detected.url}'`, sourceKind: 'url' });
           break;
         case 'har':
           openImportHar({ collectionId, initialText: text });
@@ -330,7 +335,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         };
         const result = await applyRuleCreate(
           { rule: seed, parentPath: collection.path },
-          { workspaceId: editingScopeWorkspaceId, surfaceId: 'workbench-import' },
+          { workspaceId: editingScopeWorkspaceId, surfaceId: IMPORT_ATTRIBUTION_SURFACE_ID },
         );
         if (result.ok) created += 1;
       }
@@ -406,6 +411,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         collections={requestsApi.collections}
         initialCollectionId={importCurlContext?.collectionId}
         initialSource={importCurlContext?.initialSource}
+        sourceKind={importCurlContext?.sourceKind}
         onCancel={() => setImportCurlOpen(false)}
         createRequest={async ({ name, collectionUid, seed }) => {
           // The parser's output already carries every field the

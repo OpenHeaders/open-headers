@@ -19,9 +19,11 @@ export {
 } from './client';
 export {
   createInMemoryProductTelemetrySessionStore,
+  oncePerSessionLatchKey,
   ProductTelemetryController,
   type ProductTelemetryControllerDeps,
   type ProductTelemetrySessionStore,
+  SESSION_START_LATCH_KEY,
 } from './controller';
 export {
   parseTelemetryAppVersion,

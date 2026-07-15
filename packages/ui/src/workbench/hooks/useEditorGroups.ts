@@ -25,6 +25,7 @@ import {
   allTabs as treeAllTabs,
   updateTabInLeaf,
 } from '../editor-groups';
+import { noteTabFeatureUsed } from '../feature-usage';
 import type { ClosedTab, WorkbenchTab } from '../types';
 import {
   type EditorGroupsState,
@@ -121,6 +122,9 @@ export function useEditorGroups({ perTab }: UseEditorGroupsArgs): UseEditorGroup
       });
       // Reopening from recently-closed should remove from that list.
       setRecentlyClosed((prev) => prev.filter((c) => c.tab.id !== tab.id));
+      // Session-restored tabs never pass through here, so an added tab
+      // is a user gesture — the feature-usage signal's definition.
+      noteTabFeatureUsed(tab.mode);
     },
     [transform],
   );

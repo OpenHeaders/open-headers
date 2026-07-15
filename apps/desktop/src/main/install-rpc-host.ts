@@ -179,13 +179,38 @@ export async function installRpcHost(): Promise<void> {
     updateService.preferencesChanged();
   });
 
+  // Anonymous usage counting (TELEMETRY_PLAN.md §7): the desktop host's
+  // product-telemetry adapter. A host-shell concern the spine never
+  // learns — the daemon distribution stays hard-off by construction.
+  // Gates ride the same storage the renderer writes: `telemetry.enabled`
+  // in the settings blob and the disclosure flag the workbench's
+  // Notifications-panel card sets.
+  const productTelemetry = await installProductTelemetry({
+    storage: hostStorage,
+    appVersion: app.getVersion(),
+    platform: process.platform,
+  });
+
   // Check-and-notify updates (docs/UPDATES_PLAN.md): the service only
   // ever checks and stages; installing takes the user's explicit
   // restart action (or the next natural quit applying a staged
   // download). Unsupported where no updater can run — dev builds,
-  // deb/rpm — so it never dials a feed from a test harness.
+  // deb/rpm — so it never dials a feed from a test harness. The port
+  // wrap keeps the state machine host-free while a failed feed check
+  // beacons its typed error code.
+  const updaterPort = createElectronUpdaterPort();
   const updateService = createUpdateService({
-    updater: createElectronUpdaterPort(),
+    updater: {
+      ...updaterPort,
+      check: async () => {
+        try {
+          return await updaterPort.check();
+        } catch (err) {
+          productTelemetry.track({ name: 'error_beacon', code: 'update-check-failed' });
+          throw err;
+        }
+      },
+    },
     fetchSeverity: fetchDesktopSeverity,
     currentVersion: app.getVersion(),
     supported: updaterSupported(),
@@ -204,18 +229,6 @@ export async function installRpcHost(): Promise<void> {
     },
   });
   updateService.start();
-
-  // Anonymous usage counting (TELEMETRY_PLAN.md §7): the desktop host's
-  // product-telemetry adapter. A host-shell concern the spine never
-  // learns — the daemon distribution stays hard-off by construction.
-  // Gates ride the same storage the renderer writes: `telemetry.enabled`
-  // in the settings blob and the disclosure flag the workbench's
-  // Notifications-panel card sets.
-  const productTelemetry = await installProductTelemetry({
-    storage: hostStorage,
-    appVersion: app.getVersion(),
-    platform: process.platform,
-  });
 
   // Hand the native menu items their three consent actions. `dispatchRpc`
   // answers every `oh.updates.*` type with the post-action state; the
