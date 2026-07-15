@@ -415,7 +415,14 @@ describe('parseBrunoFiles — folder composition', () => {
       },
     ]);
     expect(result.environments).toEqual([
-      { name: 'staging', variables: [{ name: 'host', value: 'https://staging.openheaders.io', type: 'default' }] },
+      {
+        name: 'staging',
+        variables: [
+          { name: 'host', value: 'https://staging.openheaders.io', type: 'default' },
+          // Tilde-prefixed (disabled) rows import as disabled variables.
+          { name: 'legacy', value: '1', type: 'default', enabled: false },
+        ],
+      },
     ]);
     const secretDrop = result.report.drops.find((d) => d.path.includes('vars:secret'));
     expect(secretDrop?.reason).toContain('apiToken');

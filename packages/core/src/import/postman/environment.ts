@@ -24,12 +24,16 @@ interface PostmanEnvironmentFile {
 
 /**
  * Normalized variable — matches `Variable`. `type: 'secret'`
- * lands verbatim so the secret/default split is preserved.
+ * lands verbatim so the secret/default split is preserved. A vendor
+ * `enabled: false` row imports as a disabled row (`enabled: false`;
+ * the flag is ABSENT for enabled rows, matching the model's
+ * absent-means-enabled contract).
  */
 export interface PostmanParsedEnvironmentVariable {
   name: string;
   value: string;
   type: 'default' | 'secret';
+  enabled?: boolean;
   description?: string;
 }
 
@@ -42,9 +46,10 @@ export interface PostmanEnvironmentParseResult {
 /**
  * Parse a Postman environment JSON. Returns the name + a list of
  * variables ready to be attached to a fresh Environment.
- * Disabled entries are dropped with tracking. Non-string values are
- * coerced via `String(...)` rather than dropped — an environment
- * with a numeric port number is still useful to import.
+ * Disabled entries import as disabled rows (`enabled: false`).
+ * Non-string values are coerced via `String(...)` rather than
+ * dropped — an environment with a numeric port number is still
+ * useful to import.
  */
 export function parsePostmanEnvironment(input: string): PostmanEnvironmentParseResult {
   let parsed: unknown;
@@ -81,20 +86,15 @@ export function parsePostmanEnvironment(input: string): PostmanEnvironmentParseR
         });
         continue;
       }
-      if (v?.enabled === false) {
-        recordDrop(report, {
-          path: jsonPath,
-          reason: `Variable "${key}" is disabled — not imported.`,
-          tracking: 'PERMANENT: Postman disabled-variable policy',
-        });
-        continue;
-      }
       const value = typeof v?.value === 'string' ? v.value : String(v?.value ?? '');
       const type: 'default' | 'secret' = v?.type === 'secret' ? 'secret' : 'default';
       variables.push({
         name: key,
         value,
         type,
+        // Disabled rows import as disabled — the model carries the flag
+        // natively, so this is lossless and silent (no report note).
+        ...(v?.enabled === false ? { enabled: false } : {}),
         description: v?.description,
       });
     }

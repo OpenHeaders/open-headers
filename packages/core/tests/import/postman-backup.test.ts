@@ -279,9 +279,10 @@ describe('aggregate report', () => {
         headerPresets: [{ name: 'Auth', headers: [{ key: 'Authorization', value: `Bearer ${secret}` }] }],
       }),
     );
-    // The disabled secret variable produced a drop entry — its reason
-    // names the key, never the value.
-    expect(result.report.drops.some((d) => /"legacy"/.test(d.reason))).toBe(true);
+    // The disabled secret variable imports as a disabled row — no drop
+    // entry, and no report entry ever carries the value.
+    const prod = result.environments.find((e) => e.name === 'Prod');
+    expect(prod?.variables.find((v) => v.name === 'legacy')).toMatchObject({ enabled: false, type: 'secret' });
     expect(JSON.stringify(result.report)).not.toContain(secret);
   });
 });

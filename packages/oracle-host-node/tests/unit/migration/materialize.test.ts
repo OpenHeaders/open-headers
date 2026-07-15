@@ -96,6 +96,7 @@ const ENVIRONMENT_JSON = JSON.stringify({
   values: [
     { key: 'host', value: 'staging.openheaders.io', enabled: true },
     { key: 'token', value: 'shh', enabled: true, type: 'secret' },
+    { key: 'legacyHost', value: 'old.openheaders.io', enabled: false },
   ],
 });
 
@@ -215,7 +216,10 @@ describe('materializePostmanPull', () => {
     expect(environments[0].variables).toMatchObject([
       { name: 'host', value: 'staging.openheaders.io', type: 'default' },
       { name: 'token', value: 'shh', type: 'secret' },
+      // Vendor-disabled rows land as disabled variables, not drops.
+      { name: 'legacyHost', value: 'old.openheaders.io', type: 'default', enabled: false },
     ]);
+    expect(environments[0].variables[0].enabled).toBeUndefined();
 
     const examples = snapshotResponseExamplePostStates(wsId).map((ps) => ps.responseExample);
     expect(examples.map((e) => e.name).sort()).toEqual(['Charges page', 'Empty page']);

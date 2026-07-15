@@ -108,6 +108,10 @@ export interface PostmanVariable {
   key?: string;
   value?: string;
   type?: string;
+  /** Collection-file form of the participation flag. */
+  disabled?: boolean;
+  /** Data API / environment-file form of the participation flag. */
+  enabled?: boolean;
   description?: string;
 }
 
@@ -200,6 +204,9 @@ export interface PostmanCollectionVariable {
   name: string;
   value: string;
   type: 'default';
+  /** Present (as `false`) only for vendor-disabled rows — they import
+   *  as disabled variables; absent means enabled. */
+  enabled?: boolean;
   description?: string;
 }
 

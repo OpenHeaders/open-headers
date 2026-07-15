@@ -100,6 +100,26 @@ describe('collection metadata', () => {
     });
   });
 
+  it('imports disabled collection variables as disabled rows (both flag spellings)', () => {
+    const result = parsePostman(
+      postmanCollection({
+        variable: [
+          { key: 'on', value: '1' },
+          { key: 'offDisabled', value: '2', disabled: true },
+          { key: 'offEnabled', value: '3', enabled: false },
+          { key: 'explicitOn', value: '4', enabled: true },
+        ],
+      }),
+    );
+    expect(result.collectionVariables.map((v) => [v.name, v.enabled])).toEqual([
+      ['on', undefined],
+      ['offDisabled', false],
+      ['offEnabled', false],
+      ['explicitOn', undefined],
+    ]);
+    expect(result.report.drops).toHaveLength(0);
+  });
+
   it('lands collection-level events on the collection script slots (translated)', () => {
     const result = parsePostman(
       postmanCollection({
@@ -1531,7 +1551,7 @@ describe('parsePostmanEnvironment', () => {
     ]);
   });
 
-  it('drops disabled variables with tracking', () => {
+  it('imports disabled variables as disabled rows (no drop, no note)', () => {
     const r = parsePostmanEnvironment(
       JSON.stringify({
         name: 'E',
@@ -1542,9 +1562,13 @@ describe('parsePostmanEnvironment', () => {
         ],
       }),
     );
-    expect(r.variables).toHaveLength(1);
-    expect(r.variables[0]?.name).toBe('a');
-    expect(r.report.drops.some((d) => /disabled/.test(d.reason))).toBe(true);
+    expect(r.variables).toHaveLength(2);
+    expect(r.variables[0]).toMatchObject({ name: 'a' });
+    // enabled: true normalizes to ABSENT — only false is carried.
+    expect(r.variables[0]?.enabled).toBeUndefined();
+    expect(r.variables[1]).toMatchObject({ name: 'b', enabled: false });
+    expect(r.report.drops).toHaveLength(0);
+    expect(r.report.transforms).toHaveLength(0);
   });
 
   it('drops variables with no key', () => {
@@ -1591,8 +1615,9 @@ describe('parsePostmanEnvironment', () => {
         ],
       }),
     );
-    expect(r.report.summary.imported).toBe(2);
-    expect(r.report.summary.dropped).toBe(1);
+    // Disabled rows land too — they import as disabled variables.
+    expect(r.report.summary.imported).toBe(3);
+    expect(r.report.summary.dropped).toBe(0);
   });
 });
 

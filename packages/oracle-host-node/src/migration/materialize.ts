@@ -294,6 +294,7 @@ async function materializeCollection(
       name: cv.name,
       value: cv.value,
       type: cv.type,
+      ...(cv.enabled === false ? { enabled: false } : {}),
     })),
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
@@ -472,6 +473,7 @@ async function materializeEnvironment(
     name: row.name,
     value: row.value,
     type: row.type,
+    ...(row.enabled === false ? { enabled: false } : {}),
   }));
   const environment: Environment = v.parse(EnvironmentSchema, {
     schemaVersion: 5,

@@ -33,6 +33,7 @@ import {
 } from '@openheaders/core/import';
 import type { AuthConfig, Request, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { Alert, App as AntApp, Button, Divider, Input, type InputRef, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -103,12 +104,15 @@ type Stage =
     }
   | { kind: 'error'; message: string };
 
+// Committed input only lands here (picked file / hub hand-off), so a
+// parse failure beacons `import-parse-failed`.
 function parseCollectionText(text: string): Stage {
   try {
     const result = parsePostman(text);
     return { kind: 'parsed', source: text, result, envFile: null };
   } catch (err) {
     const msg = err instanceof PostmanParseError ? err.message : `Failed to read file: ${String(err)}`;
+    trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
     return { kind: 'error', message: msg };
   }
 }
@@ -233,6 +237,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       const coll = await createCollection(collectionName.trim());
       if (!coll) {
         message.error('Failed to create collection');
+        trackProductTelemetryEvent({ name: 'import_run', source: 'postman', ok: false });
         setBusy(false);
         return;
       }
@@ -317,6 +322,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
           name: v.name,
           value: v.value,
           type: v.type,
+          ...(v.enabled === false ? { enabled: false } : {}),
         }));
         const env = await createEnvironment({
           name: envFile.result.name,
@@ -329,6 +335,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       //    diff against it.
       const report: ImportReport = { ...result.report, sourceHash };
 
+      trackProductTelemetryEvent({ name: 'import_run', source: 'postman', ok: true });
       onImported({
         collectionUid: coll.uid,
         collectionName: collectionName.trim(),
@@ -348,6 +355,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       message.success(summaryParts.join(' · '));
     } catch (err) {
       message.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      trackProductTelemetryEvent({ name: 'import_run', source: 'postman', ok: false });
     } finally {
       setBusy(false);
     }

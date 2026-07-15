@@ -219,15 +219,9 @@ function parseEnvironmentFile(
   const vars = blocks.find((b) => b.name === 'vars');
   for (const e of vars?.entries ?? []) {
     if (!e.key) continue;
-    if (e.disabled) {
-      recordDrop(report, {
-        path: `${path}.vars.${e.key}`,
-        reason: `Variable "${e.key}" is disabled in the source — not imported.`,
-        tracking: 'PERMANENT: disabled-variable policy',
-      });
-      continue;
-    }
-    variables.push({ name: e.key, value: e.value, type: 'default' });
+    // Disabled rows import as disabled variables — the model carries
+    // the flag natively, so this is lossless and silent.
+    variables.push({ name: e.key, value: e.value, type: 'default', ...(e.disabled ? { enabled: false } : {}) });
   }
   const secret = blocks.find((b) => b.name === 'vars:secret');
   if (secret && secret.items.length > 0) {

@@ -36,6 +36,7 @@ import {
 } from '@openheaders/core/import';
 import type { AuthConfig, Request, RequestHeader, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { Alert, App as AntApp, Button, Divider, Input, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -63,7 +64,7 @@ interface SectionedCollection {
 
 interface SectionedEnvironment {
   name: string;
-  variables: Array<{ name: string; value: string; type: 'default' | 'secret' }>;
+  variables: Array<{ name: string; value: string; type: 'default' | 'secret'; enabled?: boolean }>;
 }
 
 interface SectionedPreset {
@@ -197,10 +198,13 @@ function toStageError(err: unknown): Stage {
   return { kind: 'error', message: known ? (err as Error).message : `Failed to read input: ${String(err)}` };
 }
 
+// Everything this modal parses is committed input (routed paste, picked
+// file or folder), so a parse failure beacons `import-parse-failed`.
 function parseText(sourceKind: SectionedSourceKind, text: string): Stage {
   try {
     return { kind: 'parsed', source: text, result: parseSectioned(sourceKind, text) };
   } catch (err) {
+    trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
     return toStageError(err);
   }
 }
@@ -215,6 +219,7 @@ function parseFiles(files: BrunoFile[]): Stage {
       .join('\n');
     return { kind: 'parsed', source, result: fromBrunoResult(parseBrunoFiles(files)) };
   } catch (err) {
+    trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
     return toStageError(err);
   }
 }
@@ -378,6 +383,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           name: v.name,
           value: v.value,
           type: v.type,
+          ...(v.enabled === false ? { enabled: false } : {}),
         }));
         const created = await createEnvironment({ name: env.name, variables });
         if (created) environmentsImported += 1;
@@ -411,6 +417,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
         }
       }
 
+      trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: true });
       onImported({ importedCollections: collectionsImported, report });
 
       const summaryParts: string[] = [];
@@ -427,11 +434,13 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
       message.success(summaryParts.length > 0 ? `Imported ${summaryParts.join(' · ')}` : 'Import finished — nothing to bring over');
     } catch (err) {
       message.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
     } finally {
       setBusy(false);
     }
   }, [
     stage,
+    sourceKind,
     collectionNames,
     createCollection,
     createFolder,

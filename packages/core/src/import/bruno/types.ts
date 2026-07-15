@@ -30,6 +30,9 @@ export interface BrunoParsedEnvironmentVariable {
   name: string;
   value: string;
   type: 'default';
+  /** Present (as `false`) only for source-disabled rows — they import
+   *  as disabled variables; absent means enabled. */
+  enabled?: boolean;
 }
 
 export interface BrunoParsedEnvironment {

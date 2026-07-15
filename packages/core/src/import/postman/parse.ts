@@ -80,6 +80,9 @@ export function parsePostman(input: string, options: PostmanParseOptions = {}): 
         name,
         value: typeof v.value === 'string' ? v.value : '',
         type: 'default',
+        // Both vendor spellings of the flag (collection files carry
+        // `disabled`, Data API rows `enabled`) land as a disabled row.
+        ...(v.disabled === true || v.enabled === false ? { enabled: false } : {}),
         description: v.description,
       });
     }
