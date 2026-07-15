@@ -51,6 +51,9 @@ export interface LocalRow {
   /** String-kind value, or seed-row stash when kind switches to TOTP and back. */
   value: string;
   isSensitive: boolean;
+  /** Variable-mode participation flag — persisted as `enabled: false`
+   *  only; a true flag serializes back to absent. Vault rows ignore it. */
+  isEnabled: boolean;
   isPlaceholder: boolean;
   // ── TOTP-only fields (defaulted on insert; ignored when kind='string') ──
   seed: string;
@@ -66,7 +69,15 @@ export interface LocalRow {
 
 export const TOTP_DEFAULTS = { algorithm: 'SHA1' as TotpAlgorithm, digits: 6, period: 30 };
 
-export const GRID_COLS = '28px 1fr 1fr 28px';
+// Variable mode carries an extra 28px enabled-checkbox column between
+// the drag handle and the name (the header/param grid idiom); vault
+// rows have no participation flag and keep the 4-column layout.
+const GRID_COLS_VAULT = '28px 1fr 1fr 28px';
+const GRID_COLS_VARIABLE = '28px 28px 1fr 1fr 28px';
+
+export function gridColsFor(mode: 'variable' | 'vault'): string {
+  return mode === 'vault' ? GRID_COLS_VAULT : GRID_COLS_VARIABLE;
+}
 
 // Local row uid doubles as the persisted schema uid — same shape (8-char
 // lowercase-alphanumeric per `UidSchema`) so dnd-kit and the sync-engine
@@ -82,6 +93,7 @@ export function emptyRow(isPlaceholder: boolean): LocalRow {
     name: '',
     value: '',
     isSensitive: false,
+    isEnabled: true,
     isPlaceholder,
     seed: '',
     algorithm: TOTP_DEFAULTS.algorithm,
@@ -99,6 +111,7 @@ export function variablesToLocal(variables: Variable[]): LocalRow[] {
     name: v.name,
     value: v.value,
     isSensitive: v.type === 'secret',
+    isEnabled: v.enabled !== false,
   }));
   rows.push(emptyRow(true));
   return rows;
@@ -113,13 +126,16 @@ export function variablesFromLocal(rows: LocalRow[]): Variable[] {
       name: row.name.trim(),
       value: row.value,
       type: row.isSensitive ? 'secret' : 'default',
+      // `enabled` persists only as `false` — an enabled row keeps the
+      // field ABSENT so untouched rows stay byte-stable on disk.
+      ...(row.isEnabled ? {} : { enabled: false }),
     });
   }
   return out;
 }
 
 export function variablesFingerprint(vars: Variable[]): string {
-  return JSON.stringify(vars.map((v) => [v.uid, v.name, v.value, v.type]));
+  return JSON.stringify(vars.map((v) => [v.uid, v.name, v.value, v.type, v.enabled !== false]));
 }
 
 export function secretsToLocal(secrets: VaultSecret[]): LocalRow[] {

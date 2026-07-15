@@ -20,7 +20,7 @@ export interface VariableEntity {
   variables: Variable[];
 }
 
-const VAR_LEAVES = ['name', 'value', 'type'] as const;
+const VAR_LEAVES = ['name', 'value', 'type', 'enabled'] as const;
 export type VariableLeafName = (typeof VAR_LEAVES)[number];
 
 const summarize = (row: { name?: string; value?: string }): string => `${row.name ?? ''} = ${row.value ?? ''}`;
@@ -36,6 +36,7 @@ const VARIABLE_SCHEMA = obj({
       name: leaf('string'),
       value: leaf('string'),
       type: enumLeaf(['default', 'secret']),
+      enabled: leaf('boolean', { coercion: 'enabled-default-true' }),
     }),
   }),
 });
@@ -45,9 +46,9 @@ const adapters = makeConflictAdapter<VariableEntity>({
   signature: (e) => e.uid,
 });
 
-const LEAF_LABEL: Record<VariableLeafName, string> = { name: 'name', value: 'value', type: 'type' };
+const LEAF_LABEL: Record<VariableLeafName, string> = { name: 'name', value: 'value', type: 'type', enabled: 'enabled' };
 
-const VAR_PATH_RE = /^variables\.([a-z0-9]{8})\.(name|value|type)$/;
+const VAR_PATH_RE = /^variables\.([a-z0-9]{8})\.(name|value|type|enabled)$/;
 
 function findRowName(entity: VariableEntity, uid: string): string | null {
   return entity.variables.find((v) => v.uid === uid)?.name ?? null;

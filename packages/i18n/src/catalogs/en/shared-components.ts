@@ -40,6 +40,7 @@ export const sharedComponents = {
   'shared.templateInput.emptyValue': '(empty)',
   'shared.templateInput.staleBadge': 'stale',
   'shared.templateInput.needsRerunBadge': 'needs re-run',
+  'shared.templateInput.disabledBadge': 'disabled',
   // Namespace-scaffold / reserved rows: core mints the English subtitle
   // for its own (locale-free) plane; the UI resolves these keys from the
   // row's kind + scope instead of rendering core's copy.

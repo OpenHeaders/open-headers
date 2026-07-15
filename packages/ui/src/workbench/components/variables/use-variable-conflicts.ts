@@ -49,6 +49,7 @@ export function projectVariablesToForm(variables: readonly Variable[]): Record<s
     out[`variables.${v.uid}.name`] = String(v.name ?? '');
     out[`variables.${v.uid}.value`] = String(v.value ?? '');
     out[`variables.${v.uid}.type`] = String(v.type ?? 'default');
+    out[`variables.${v.uid}.enabled`] = v.enabled === false ? 'false' : 'true';
   }
   return out;
 }

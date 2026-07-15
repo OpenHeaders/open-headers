@@ -37,7 +37,7 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   emptyRow,
-  GRID_COLS,
+  gridColsFor,
   type LocalRow,
   secretsFingerprint,
   secretsFromLocal,
@@ -260,12 +260,13 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: GRID_COLS,
+          gridTemplateColumns: gridColsFor(mode),
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
           background: token.colorFillQuaternary,
         }}
       >
         <div style={{ padding: '6px 8px' }} />
+        {!isVaultMode && <div style={{ padding: '6px 8px' }} />}
         <div
           style={{
             padding: '6px 10px',

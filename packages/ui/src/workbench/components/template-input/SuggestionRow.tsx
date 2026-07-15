@@ -132,6 +132,10 @@ const SuggestionRow: React.FC<SuggestionRowProps> = ({ suggestion, reveal }) => 
   const isStale = preview.kind === 'stale';
   const needsRerun =
     (preview.kind === 'value' || preview.kind === 'stale') && preview.definitionallyStale === true;
+  // Row whose backing variable is disabled (env / collection / workspace
+  // `enabled: false`) — pickable but dimmed + badged: the reference
+  // resolves unset until the row is re-enabled.
+  const entryDisabled = (preview.kind === 'value' || preview.kind === 'stale') && preview.entryDisabled === true;
   return (
     <div
       role="group"
@@ -141,7 +145,7 @@ const SuggestionRow: React.FC<SuggestionRowProps> = ({ suggestion, reveal }) => 
         alignItems: 'center',
         gap: 8,
         padding: '2px 0',
-        opacity: suggestion.disabled ? 0.5 : 1,
+        opacity: suggestion.disabled || entryDisabled ? 0.5 : 1,
       }}
     >
       {scopeKey && scopeBadge(scopeKey, 18)}
@@ -166,6 +170,11 @@ const SuggestionRow: React.FC<SuggestionRowProps> = ({ suggestion, reveal }) => 
         {needsRerun && (
           <Text type="danger" style={{ fontSize: 10 }}>
             {t('shared.templateInput.needsRerunBadge')}
+          </Text>
+        )}
+        {entryDisabled && (
+          <Text type="secondary" style={{ fontSize: 10 }}>
+            {t('shared.templateInput.disabledBadge')}
           </Text>
         )}
       </span>

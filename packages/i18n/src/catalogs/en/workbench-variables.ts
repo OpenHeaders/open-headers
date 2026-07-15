@@ -29,6 +29,8 @@ export const workbenchVariables = {
   'workbench.variables.table.valuePlaceholder': 'Value',
   'workbench.variables.table.addVariable': 'Add variable…',
   'workbench.variables.table.addSecret': 'Add secret…',
+  'workbench.variables.table.enableRow': 'Enable variable',
+  'workbench.variables.table.disableRow': 'Disable variable',
   'workbench.variables.table.markSensitive': 'Mark as sensitive',
   'workbench.variables.table.unmarkSensitive': 'Unmark as sensitive',
   'workbench.variables.table.showValue': 'Show value',

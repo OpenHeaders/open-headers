@@ -22,7 +22,7 @@ import { useCallback } from 'react';
 import { ConflictDiffChip, EntityField, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
 import TotpPreview from '../totp/TotpPreview';
 import {
-  GRID_COLS,
+  gridColsFor,
   type LocalRow,
   type RowKind,
   type VariableRowPath,
@@ -157,9 +157,13 @@ export function SortableRow({
       : null;
   const setRemove = setRemoveConflict?.kind === 'set-remove' ? setRemoveConflict : null;
 
+  // Disabled rows dim their content but keep every control interactive —
+  // the checkbox is the way back on.
+  const rowDimmed = !isVault && !row.isPlaceholder && !row.isEnabled;
+
   const style: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: GRID_COLS,
+    gridTemplateColumns: gridColsFor(mode),
     borderBottom: isLast ? undefined : `1px solid ${token.colorBorderSecondary}`,
     transform: CSS.Translate.toString(transform),
     transition,
@@ -177,6 +181,29 @@ export function SortableRow({
         )}
       </div>
 
+      {!isVault && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 30 }}>
+          {!row.isPlaceholder && (
+            <input
+              type="checkbox"
+              checked={row.isEnabled}
+              onChange={(e) => update(index, { isEnabled: e.target.checked })}
+              aria-label={
+                row.isEnabled
+                  ? t('workbench.variables.table.disableRow')
+                  : t('workbench.variables.table.enableRow')
+              }
+              title={
+                row.isEnabled
+                  ? t('workbench.variables.table.disableRow')
+                  : t('workbench.variables.table.enableRow')
+              }
+              style={{ width: 14, height: 14, cursor: 'pointer' }}
+            />
+          )}
+        </div>
+      )}
+
       <div
         style={{
           padding: '2px 4px',
@@ -185,6 +212,7 @@ export function SortableRow({
           gap: 4,
           borderLeft: `1px solid ${token.colorBorderSecondary}`,
           minHeight: 30,
+          opacity: rowDimmed ? 0.55 : 1,
         }}
       >
         {(() => {
@@ -279,6 +307,7 @@ export function SortableRow({
           borderLeft: `1px solid ${token.colorBorderSecondary}`,
           overflow: 'hidden',
           minWidth: 0,
+          opacity: rowDimmed ? 0.55 : 1,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, flex: 1 }}>
