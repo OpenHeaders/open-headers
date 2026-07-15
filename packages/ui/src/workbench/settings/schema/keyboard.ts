@@ -13,12 +13,18 @@
  * replace the hardcoded table without changing user-visible behavior.
  *
  * An empty string unbinds the action.
+ *
+ * Every binding's effective default is `presetAware`: the active
+ * `keyboard.preset` supplies the base chord where it defines one, the
+ * registered default otherwise (see `keyboard-presets.ts`).
+ * `keyboard.preset` registers FIRST — the store's load loops apply
+ * values in registration order, so the preset is live before any
+ * binding's modified state is computed against it.
  */
 
 import * as v from 'valibot';
-import { getCurrentHost } from '../../../shared/host-vocabulary';
-import { isMac } from '../../../shared/platform';
 import { registerSetting } from '../registry';
+import { hostChord, KEYBOARD_PRESET_IDS, type KeyboardPresetId, platformChord, presetAware } from './keyboard-presets';
 
 // Permissive chord validator: empty, or zero-or-more known modifiers
 // followed by a final key token. The key token is any non-whitespace
@@ -29,25 +35,9 @@ const chordSchema = v.pipe(
   v.regex(/^$|^(?:(?:mod|shift|alt|ctrl)\+)*[^\s+]+$/i, 'Must be a chord like "mod+k" or empty'),
 );
 
-// Per-host chord default. The extension workbench lives in a browser
-// tab where the classic chords (Cmd/Ctrl+W, +T, +N, +O) are
-// browser-reserved and never reach the page, so its defaults fall back
-// to the Alt cluster. The desktop host owns its whole keyboard, so it
-// ships the native-app conventions. Resolved via `getDefault` — lazily,
-// after the entry point has installed the host — never at registration.
-function hostChord(desktopChord: string, browserChord: string): () => string {
-  return () => (getCurrentHost() === 'desktop' ? desktopChord : browserChord);
-}
-
-// Per-platform chord default. Editor-scoped bindings mirror Monaco's
-// own defaults, and some of those split by platform rather than by
-// host (Replace is ⌥⌘F on macOS, Ctrl+H elsewhere).
-function platformChord(macChord: string, otherChord: string): () => string {
-  return () => (isMac ? macChord : otherChord);
-}
-
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
+    'keyboard.preset': KeyboardPresetId;
     'keyboard.toggleDebugMode': string;
     'keyboard.commandPalette': string;
     'keyboard.openSettings': string;
@@ -75,12 +65,29 @@ declare module '@openheaders/ui/workbench/settings/types' {
   }
 }
 
+registerSetting({
+  key: 'keyboard.preset',
+  type: 'enum',
+  default: 'openheaders',
+  schema: v.picklist(KEYBOARD_PRESET_IDS),
+  labelKey: 'workbench.settings.def.keyboard.preset.label',
+  descriptionKey: 'workbench.settings.def.keyboard.preset.description',
+  category: 'keyboard',
+  tags: ['keymap', 'preset', 'profile', 'scheme'],
+  scope: 'user',
+  enumOptions: [
+    { value: 'openheaders', labelKey: 'workbench.settings.def.keyboard.preset.option.openheaders.label' },
+    { value: 'vscode', labelKey: 'workbench.settings.def.keyboard.preset.option.vscode.label' },
+  ],
+});
+
 // Cross-surface: the one shortcut wired on every surface that mounts the
 // Debug mode control (popup, side panel, workbench, DevTools panel).
 registerSetting({
   key: 'keyboard.toggleDebugMode',
   type: 'keybinding',
   default: 'shift+d',
+  getDefault: presetAware('keyboard.toggleDebugMode', 'shift+d'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.toggleDebugMode.label',
   descriptionKey: 'workbench.settings.def.keyboard.toggleDebugMode.description',
@@ -96,6 +103,7 @@ registerSetting({
   key: 'keyboard.commandPalette',
   type: 'keybinding',
   default: 'mod+k',
+  getDefault: presetAware('keyboard.commandPalette', 'mod+k'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.commandPalette.label',
   descriptionKey: 'workbench.settings.def.keyboard.commandPalette.description',
@@ -109,6 +117,7 @@ registerSetting({
   key: 'keyboard.openSettings',
   type: 'keybinding',
   default: 'mod+,',
+  getDefault: presetAware('keyboard.openSettings', 'mod+,'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.openSettings.label',
   descriptionKey: 'workbench.settings.def.keyboard.openSettings.description',
@@ -124,6 +133,7 @@ registerSetting({
   key: 'keyboard.toggleLeftSidebar',
   type: 'keybinding',
   default: 'mod+[',
+  getDefault: presetAware('keyboard.toggleLeftSidebar', 'mod+['),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.toggleLeftSidebar.label',
   descriptionKey: 'workbench.settings.def.keyboard.toggleLeftSidebar.description',
@@ -137,6 +147,7 @@ registerSetting({
   key: 'keyboard.toggleRightSidebar',
   type: 'keybinding',
   default: 'mod+]',
+  getDefault: presetAware('keyboard.toggleRightSidebar', 'mod+]'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.toggleRightSidebar.label',
   descriptionKey: 'workbench.settings.def.keyboard.toggleRightSidebar.description',
@@ -150,6 +161,7 @@ registerSetting({
   key: 'keyboard.toggleBottomPanel',
   type: 'keybinding',
   default: "mod+'",
+  getDefault: presetAware('keyboard.toggleBottomPanel', "mod+'"),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.toggleBottomPanel.label',
   descriptionKey: 'workbench.settings.def.keyboard.toggleBottomPanel.description',
@@ -166,6 +178,7 @@ registerSetting({
   // actions on one default meant the later-registered handler silently
   // won and "Search tabs" opened the Activity Feed instead.
   default: 'shift+alt+a',
+  getDefault: presetAware('keyboard.toggleActivityFeed', 'shift+alt+a'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.toggleActivityFeed.label',
   descriptionKey: 'workbench.settings.def.keyboard.toggleActivityFeed.description',
@@ -181,7 +194,7 @@ registerSetting({
   // Browser: `mod+n` opens a new browser window, so the extension falls
   // back to `alt+n`. Desktop owns the chord.
   default: 'alt+n',
-  getDefault: hostChord('mod+n', 'alt+n'),
+  getDefault: presetAware('keyboard.newRule', hostChord('mod+n', 'alt+n')),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.newRule.label',
   descriptionKey: 'workbench.settings.def.keyboard.newRule.description',
@@ -197,7 +210,7 @@ registerSetting({
   // Browser: `mod+t` opens a new browser tab, so the extension falls
   // back to `alt+t`. Desktop owns the chord.
   default: 'alt+t',
-  getDefault: hostChord('mod+t', 'alt+t'),
+  getDefault: presetAware('keyboard.newTab', hostChord('mod+t', 'alt+t')),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.newTab.label',
   descriptionKey: 'workbench.settings.def.keyboard.newTab.description',
@@ -213,7 +226,7 @@ registerSetting({
   // Browser: `mod+o` opens the browser's file picker, so the extension
   // falls back to `alt+o`. Desktop owns the chord.
   default: 'alt+o',
-  getDefault: hostChord('mod+o', 'alt+o'),
+  getDefault: presetAware('keyboard.import', hostChord('mod+o', 'alt+o')),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.import.label',
   descriptionKey: 'workbench.settings.def.keyboard.import.description',
@@ -227,6 +240,7 @@ registerSetting({
   key: 'keyboard.save',
   type: 'keybinding',
   default: 'mod+s',
+  getDefault: presetAware('keyboard.save', 'mod+s'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.save.label',
   descriptionKey: 'workbench.settings.def.keyboard.save.description',
@@ -246,7 +260,7 @@ registerSetting({
   // what VS Code Web does for the same reason. Desktop owns `mod+w`.
   // Users can rebind in Settings → Keyboard.
   default: 'alt+w',
-  getDefault: hostChord('mod+w', 'alt+w'),
+  getDefault: presetAware('keyboard.closeTab', hostChord('mod+w', 'alt+w')),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.closeTab.label',
   descriptionKey: 'workbench.settings.def.keyboard.closeTab.description',
@@ -263,6 +277,7 @@ registerSetting({
   // the alt+bracket cluster, which doesn't conflict with the browser's
   // own back/forward chord either.
   default: 'alt+[',
+  getDefault: presetAware('keyboard.previousTab', 'alt+['),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.previousTab.label',
   descriptionKey: 'workbench.settings.def.keyboard.previousTab.description',
@@ -276,6 +291,7 @@ registerSetting({
   key: 'keyboard.nextTab',
   type: 'keybinding',
   default: 'alt+]',
+  getDefault: presetAware('keyboard.nextTab', 'alt+]'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.nextTab.label',
   descriptionKey: 'workbench.settings.def.keyboard.nextTab.description',
@@ -289,6 +305,7 @@ registerSetting({
   key: 'keyboard.tabSearch',
   type: 'keybinding',
   default: 'mod+shift+a',
+  getDefault: presetAware('keyboard.tabSearch', 'mod+shift+a'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.tabSearch.label',
   descriptionKey: 'workbench.settings.def.keyboard.tabSearch.description',
@@ -302,6 +319,7 @@ registerSetting({
   key: 'keyboard.focusSidebarFilter',
   type: 'keybinding',
   default: '/',
+  getDefault: presetAware('keyboard.focusSidebarFilter', '/'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.focusSidebarFilter.label',
   descriptionKey: 'workbench.settings.def.keyboard.focusSidebarFilter.description',
@@ -315,6 +333,7 @@ registerSetting({
   key: 'keyboard.focusLeftSidebar',
   type: 'keybinding',
   default: 'alt+1',
+  getDefault: presetAware('keyboard.focusLeftSidebar', 'alt+1'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.focusLeftSidebar.label',
   descriptionKey: 'workbench.settings.def.keyboard.focusLeftSidebar.description',
@@ -328,6 +347,7 @@ registerSetting({
   key: 'keyboard.focusEditor',
   type: 'keybinding',
   default: 'alt+2',
+  getDefault: presetAware('keyboard.focusEditor', 'alt+2'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.focusEditor.label',
   descriptionKey: 'workbench.settings.def.keyboard.focusEditor.description',
@@ -341,6 +361,7 @@ registerSetting({
   key: 'keyboard.focusRightSidebar',
   type: 'keybinding',
   default: 'alt+3',
+  getDefault: presetAware('keyboard.focusRightSidebar', 'alt+3'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.focusRightSidebar.label',
   descriptionKey: 'workbench.settings.def.keyboard.focusRightSidebar.description',
@@ -354,6 +375,7 @@ registerSetting({
   key: 'keyboard.focusBottomPanel',
   type: 'keybinding',
   default: 'alt+4',
+  getDefault: presetAware('keyboard.focusBottomPanel', 'alt+4'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.focusBottomPanel.label',
   descriptionKey: 'workbench.settings.def.keyboard.focusBottomPanel.description',
@@ -367,6 +389,7 @@ registerSetting({
   key: 'keyboard.showShortcutHelp',
   type: 'keybinding',
   default: 'shift+?',
+  getDefault: presetAware('keyboard.showShortcutHelp', 'shift+?'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.showShortcutHelp.label',
   descriptionKey: 'workbench.settings.def.keyboard.showShortcutHelp.description',
@@ -384,6 +407,7 @@ registerSetting({
   key: 'keyboard.find',
   type: 'keybinding',
   default: 'mod+f',
+  getDefault: presetAware('keyboard.find', 'mod+f'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.find.label',
   descriptionKey: 'workbench.settings.def.keyboard.find.description',
@@ -399,7 +423,7 @@ registerSetting({
   // Monaco's Replace default splits by platform, not host: ⌥⌘F on
   // macOS, Ctrl+H elsewhere.
   default: 'mod+h',
-  getDefault: platformChord('mod+alt+f', 'mod+h'),
+  getDefault: presetAware('keyboard.replace', platformChord('mod+alt+f', 'mod+h')),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.replace.label',
   descriptionKey: 'workbench.settings.def.keyboard.replace.description',
@@ -413,6 +437,7 @@ registerSetting({
   key: 'keyboard.formatCode',
   type: 'keybinding',
   default: 'shift+alt+f',
+  getDefault: presetAware('keyboard.formatCode', 'shift+alt+f'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.formatCode.label',
   descriptionKey: 'workbench.settings.def.keyboard.formatCode.description',

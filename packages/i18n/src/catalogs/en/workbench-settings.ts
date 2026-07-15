@@ -529,6 +529,13 @@ export const workbenchSettings = {
   'workbench.settings.keymapPane.conflictPrompt': '{chord} is already assigned to: {labels}',
   'workbench.settings.keymapPane.conflictReassign': 'Reassign',
   'workbench.settings.keymapPane.conflictKeepBoth': 'Keep both',
+  'workbench.settings.keymapPane.presetAria': 'Keymap preset',
+  'workbench.settings.keymapPane.presetRestore': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'Restore preset ({count} customization)',
+      other: 'Restore preset ({count} customizations)',
+    }),
+  'workbench.settings.keymapPane.presetRestoreTip': 'Reset every customized shortcut to the active preset.',
 
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
   'workbench.settings.daemonTokens.sectionTitle': 'Paired devices',
@@ -1441,6 +1448,11 @@ export const workbenchSettings = {
   'workbench.settings.def.keyboard.formatCode.label': 'Format Code',
   'workbench.settings.def.keyboard.formatCode.description':
     'Format the focused code editor buffer. Only fires when the editor has focus — does not interfere with global shortcuts.',
+  'workbench.settings.def.keyboard.preset.label': 'Keymap Preset',
+  'workbench.settings.def.keyboard.preset.description':
+    'The base set of shortcuts. Shortcuts you customize stay on top of the preset and survive switching it.',
+  'workbench.settings.def.keyboard.preset.option.openheaders.label': 'OpenHeaders defaults',
+  'workbench.settings.def.keyboard.preset.option.vscode.label': 'VS Code-style',
 
   // ── Keyboard popup defs ────────────────────────────────────────────
   'workbench.settings.def.keyboard.popup.toggleShortcutsHelp.label': 'Popup — Toggle Shortcuts Help',

@@ -78,11 +78,19 @@ afterEach(() => {
 });
 
 describe('KeymapPane', () => {
-  it('renders every keyboard def as a row anchored by data-setting-key', async () => {
+  it('renders every keyboard binding def as a row anchored by data-setting-key', async () => {
     const { container } = await setup();
-    for (const def of allDefs().filter((d) => d.category === 'keyboard')) {
+    for (const def of allDefs().filter((d) => d.category === 'keyboard' && d.type === 'keybinding')) {
       expect(container.querySelector(`[data-setting-key="${def.key}"]`)).not.toBeNull();
     }
+  });
+
+  it('renders the preset picker as pane chrome, not a row', async () => {
+    const { container } = await setup();
+    const anchor = container.querySelector('[data-setting-key="keyboard.preset"]');
+    expect(anchor).not.toBeNull();
+    expect(anchor?.classList.contains('settings-field-row')).toBe(false);
+    expect(anchor?.querySelector('[aria-label="Keymap preset"]')).not.toBeNull();
   });
 
   it('records a chord inline from the badge and flags the row modified', async () => {

@@ -104,7 +104,9 @@ describe('KeymapPane reverse lookup', () => {
     armLookup();
     act(() => press({ key: 'x', code: 'KeyX', ctrlKey: true, shiftKey: true }));
 
-    expect(container.querySelector('[data-setting-key]')).toBeNull();
+    // Only binding ROWS vanish — the preset picker keeps its deep-link
+    // anchor as pane chrome.
+    expect(container.querySelector('.settings-field-row[data-setting-key]')).toBeNull();
     expect(screen.getByText('No action is bound to Ctrl+Shift+X.')).toBeTruthy();
   });
 

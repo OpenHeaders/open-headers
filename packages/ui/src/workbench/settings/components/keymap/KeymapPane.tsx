@@ -16,10 +16,17 @@
  * The chord shows as a dismissible chip; Escape or the chip's close
  * clears it. Text query and chord lookup are mutually exclusive:
  * arming one clears the other.
+ *
+ * Presets: the dropdown on the search row switches the base keymap
+ * (`keyboard.preset`) — overrides survive the switch, non-overridden
+ * keys move to the new base (see keymap-preset-actions.ts). A restore
+ * button appears while overrides exist. Only keybinding defs become
+ * rows; the preset def itself is pane chrome, anchored by its setting
+ * key so settings-search deep links still land on it.
  */
 
-import { DownOutlined, RightOutlined, SearchOutlined, WarningOutlined } from '@ant-design/icons';
-import { Button, Input, Tag, Tooltip, theme } from 'antd';
+import { DownOutlined, RightOutlined, SearchOutlined, UndoOutlined, WarningOutlined } from '@ant-design/icons';
+import { Button, Input, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -27,14 +34,20 @@ import { KeyboardIcon } from '@openheaders/ui/shared/icons';
 import { getCurrentHost } from '../../../../shared/host-vocabulary';
 import { formatChord } from '../../../hooks/useWorkspaceShortcuts';
 import { useChordCapture } from '../../fields/use-chord-capture';
-import { useSettingsReady } from '../../hooks';
+import { useModifiedSettings, useSettingValue, useSettingsReady } from '../../hooks';
 import { resolveLabel, resolveOptionalDescription } from '../../localize';
 import type { CategoryPaneProps } from '../../types';
 import { buildKeymapConflicts } from './keymap-conflicts';
 import { buildKeymapGroups } from './keymap-groups';
+import { applyPresetSwitch, presetDomainDefs, restorePreset } from './keymap-preset-actions';
 import { reservedKindFor } from './keymap-reserved';
 import KeymapRow from './KeymapRow';
 import { useKeymapChordValues } from './use-keymap-chords';
+
+const PRESET_OPTIONS = [
+  { value: 'openheaders', labelKey: 'workbench.settings.def.keyboard.preset.option.openheaders.label' },
+  { value: 'vscode', labelKey: 'workbench.settings.def.keyboard.preset.option.vscode.label' },
+] as const;
 
 const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
@@ -45,10 +58,17 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const [conflictsOnly, setConflictsOnly] = useState(false);
   const [lookupChord, setLookupChord] = useState<string | null>(null);
 
-  const chordValues = useKeymapChordValues(defs);
+  // Only keybinding defs become keymap rows — `keyboard.preset` (and any
+  // future non-binding key on the category) is pane chrome, not a row.
+  const bindingDefs = useMemo(() => defs.filter((def) => def.type === 'keybinding'), [defs]);
+  const activePreset = useSettingValue('keyboard.preset');
+  const domainKeys = useMemo(() => presetDomainDefs(bindingDefs).map((def) => def.key), [bindingDefs]);
+  const overrides = useModifiedSettings(domainKeys);
+
+  const chordValues = useKeymapChordValues(bindingDefs);
   const conflicts = useMemo(
-    () => buildKeymapConflicts(defs, (key) => chordValues.get(key) ?? ''),
-    [defs, chordValues],
+    () => buildKeymapConflicts(bindingDefs, (key) => chordValues.get(key) ?? ''),
+    [bindingDefs, chordValues],
   );
   // The show-only-conflicts mode has no strip to leave through once the
   // last conflict resolves — drop it so a future conflict doesn't
@@ -76,11 +96,11 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const lookupMatches = useMemo(() => {
     if (lookupChord === null) return null;
     const matched = new Set<string>();
-    for (const def of defs) {
+    for (const def of bindingDefs) {
       if (chordValues.get(def.key) === lookupChord) matched.add(def.key);
     }
     return matched;
-  }, [defs, chordValues, lookupChord]);
+  }, [bindingDefs, chordValues, lookupChord]);
   const lookupReserved = lookupChord === null ? null : reservedKindFor(lookupChord, getCurrentHost());
 
   const restrictTo = useMemo(() => {
@@ -88,8 +108,8 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
     return conflictsOnly && conflicts.size > 0 ? new Set(conflicts.keys()) : null;
   }, [lookupMatches, conflictsOnly, conflicts]);
   const groups = useMemo(
-    () => buildKeymapGroups(category, defs, query, t, restrictTo),
-    [category, defs, query, t, restrictTo],
+    () => buildKeymapGroups(category, bindingDefs, query, t, restrictTo),
+    [category, bindingDefs, query, t, restrictTo],
   );
   // Any restriction counts as searching: hits must not hide inside
   // collapsed sections.
@@ -126,7 +146,7 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         )}
       </header>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <Input
           size="small"
           allowClear
@@ -159,6 +179,29 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
             {formatChord(lookupChord)}
           </Tag>
         )}
+        <span style={{ flex: 1 }} />
+        <div data-setting-key="keyboard.preset" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {overrides.size > 0 && (
+            <Tooltip title={t('workbench.settings.keymapPane.presetRestoreTip')}>
+              <Button
+                size="small"
+                type="text"
+                icon={<UndoOutlined style={{ fontSize: 11 }} />}
+                onClick={() => restorePreset(bindingDefs)}
+              >
+                {t('workbench.settings.keymapPane.presetRestore', { count: overrides.size })}
+              </Button>
+            </Tooltip>
+          )}
+          <Select
+            size="small"
+            value={activePreset}
+            onChange={(next) => applyPresetSwitch(bindingDefs, next)}
+            aria-label={t('workbench.settings.keymapPane.presetAria')}
+            options={PRESET_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+            style={{ width: 180 }}
+          />
+        </div>
       </div>
 
       {lookupReserved && (
@@ -218,7 +261,7 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
             {!isCollapsed && (
               <div className="settings-card">
                 {group.defs.map((def) => (
-                  <KeymapRow key={def.key} def={def} scopeDefs={defs} conflicts={conflicts.get(def.key)} />
+                  <KeymapRow key={def.key} def={def} scopeDefs={bindingDefs} conflicts={conflicts.get(def.key)} />
                 ))}
               </div>
             )}
