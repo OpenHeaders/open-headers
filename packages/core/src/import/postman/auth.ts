@@ -1,7 +1,7 @@
 import type { AuthConfig, RequestHeader } from '../../types/request';
 import { decodeBase64 } from '../../utils/base64';
 import { generateUid } from '../../utils/workspace';
-import { type ImportReport, recordDrop } from '../report';
+import { type ImportReport, recordDrop, recordTransform } from '../report';
 import { resolveOAuth2Auth } from './oauth2';
 import type { PostmanAuth, PostmanAuthParam, PostmanHeader } from './types';
 
@@ -125,22 +125,65 @@ export function resolveAuth(
       return { auth: mapped ?? concreteFallback(fallback), report };
     }
     case 'awsv4': {
+      const params = asParams(raw.awsv4);
+      const sessionToken = paramValue(params, 'sessionToken');
+      // Header signing is the only wire mode: presigned-URL (query)
+      // signing isn't supported, so a config that asked for it lands
+      // with its fields intact plus a transform naming the switch.
+      if (paramFlag(params, 'addAuthDataToQuery')) {
+        recordTransform(report, {
+          path: authPath,
+          from: 'awsv4/query-signing',
+          to: 'aws-sigv4/header-signing',
+          reason:
+            'AWS Signature v4 was set to sign via query parameters — imported to sign via request headers instead.',
+          tracking: 'PERMANENT: sigv4 header-signing only',
+        });
+      }
+      return {
+        auth: {
+          type: 'aws-sigv4',
+          accessKeyId: paramValue(params, 'accessKey') ?? '',
+          secretAccessKey: paramValue(params, 'secretKey') ?? '',
+          ...(sessionToken ? { sessionToken } : {}),
+          service: paramValue(params, 'service') ?? '',
+          region: paramValue(params, 'region') ?? '',
+        },
+        report,
+      };
+    }
+    case 'digest':
+    case 'oauth1': {
+      // Living schemes per the Phase F disposition — planned, not yet
+      // first-class.
       recordDrop(report, {
         path: authPath,
-        reason: 'AWS Signature v4 auth not imported — first-class support lands with §18.',
-        tracking: '#todo-aws-sigv4',
+        reason: `${raw.type} auth not imported yet — first-class support is planned.`,
+        tracking: '#todo-auth-types',
       });
       return { auth: concreteFallback(fallback), report };
     }
-    case 'digest':
-    case 'hawk':
-    case 'ntlm':
-    case 'edgegrid':
-    case 'oauth1': {
+    case 'ntlm': {
       recordDrop(report, {
         path: authPath,
-        reason: `${raw.type} auth not imported — only basic/bearer/apikey are supported in v1.`,
-        tracking: '#todo-auth-types',
+        reason: 'NTLM auth not imported — the protocol is being phased out by its vendor and is not supported.',
+        tracking: 'PERMANENT: ntlm phased out',
+      });
+      return { auth: concreteFallback(fallback), report };
+    }
+    case 'edgegrid': {
+      recordDrop(report, {
+        path: authPath,
+        reason: 'EdgeGrid auth not imported — the scheme is specific to one CDN vendor and is not supported.',
+        tracking: 'PERMANENT: edgegrid vendor-specific',
+      });
+      return { auth: concreteFallback(fallback), report };
+    }
+    case 'hawk': {
+      recordDrop(report, {
+        path: authPath,
+        reason: 'Hawk auth not imported — the scheme is discontinued upstream and is not supported.',
+        tracking: 'PERMANENT: hawk discontinued',
       });
       return { auth: concreteFallback(fallback), report };
     }
@@ -160,7 +203,9 @@ function asParams(x: unknown): PostmanAuthParam[] {
   if (x && typeof x === 'object') {
     return Object.entries(x as Record<string, unknown>).map(([key, value]) => ({
       key,
-      value: typeof value === 'string' ? value : undefined,
+      // Booleans stringify (the object form spells flags as real
+      // booleans — `addAuthDataToQuery: true`); anything else drops.
+      value: typeof value === 'string' ? value : typeof value === 'boolean' ? String(value) : undefined,
     }));
   }
   return [];
@@ -169,4 +214,12 @@ function asParams(x: unknown): PostmanAuthParam[] {
 function paramValue(params: PostmanAuthParam[], key: string): string | undefined {
   const hit = params.find((p) => p.key === key);
   return typeof hit?.value === 'string' ? hit.value : undefined;
+}
+
+/** Boolean-ish auth param — the array form carries real booleans
+ *  (`{key, value: true, type: 'boolean'}`), the object form strings. */
+function paramFlag(params: PostmanAuthParam[], key: string): boolean {
+  const hit = params.find((p) => p.key === key);
+  const value: unknown = hit?.value;
+  return value === true || value === 'true';
 }

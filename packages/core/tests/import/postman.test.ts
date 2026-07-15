@@ -183,7 +183,7 @@ describe('collection metadata', () => {
         item: [
           {
             name: 'Signed',
-            auth: { type: 'awsv4' },
+            auth: { type: 'hawk' },
             item: [{ name: 'R', request: { method: 'GET', url: 'https://api.openheaders.io/x' } }],
           },
         ],
@@ -191,7 +191,36 @@ describe('collection metadata', () => {
     );
     expect(result.folders[0]?.auth).toEqual({ type: 'none' });
     const drop = result.report.drops.find((d) => d.path === 'collection.item[0].auth');
-    expect(drop?.tracking).toBe('#todo-aws-sigv4');
+    expect(drop?.tracking).toBe('PERMANENT: hawk discontinued');
+  });
+
+  it('folder-level awsv4 lands as an aws-sigv4 ancestor carrier', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'Signed',
+            auth: {
+              type: 'awsv4',
+              awsv4: [
+                { key: 'accessKey', value: 'AKIDEXAMPLE' },
+                { key: 'secretKey', value: '{{vault.aws_secret}}' },
+                { key: 'service', value: 'execute-api' },
+                { key: 'region', value: 'us-east-1' },
+              ],
+            },
+            item: [{ name: 'R', request: { method: 'GET', url: 'https://api.openheaders.io/x' } }],
+          },
+        ],
+      }),
+    );
+    expect(result.folders[0]?.auth).toEqual({
+      type: 'aws-sigv4',
+      accessKeyId: 'AKIDEXAMPLE',
+      secretAccessKey: '{{vault.aws_secret}}',
+      service: 'execute-api',
+      region: 'us-east-1',
+    });
   });
 
   it("maps a request's explicit noauth to `none`, not inherit", () => {
@@ -847,7 +876,42 @@ describe('request mapping — auth', () => {
     }
   });
 
-  it('drops awsv4 with tracking', () => {
+  it('maps awsv4 onto aws-sigv4 with every credential + scope field', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'awsv4',
+                awsv4: [
+                  { key: 'accessKey', value: 'AKIDEXAMPLE' },
+                  { key: 'secretKey', value: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY' },
+                  { key: 'sessionToken', value: 'FQoGZXIvYXdzEXAMPLE' },
+                  { key: 'service', value: 's3' },
+                  { key: 'region', value: 'eu-west-1' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'aws-sigv4',
+      accessKeyId: 'AKIDEXAMPLE',
+      secretAccessKey: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
+      sessionToken: 'FQoGZXIvYXdzEXAMPLE',
+      service: 's3',
+      region: 'eu-west-1',
+    });
+    expect(result.report.drops.some((d) => /AWS Signature v4/.test(d.reason))).toBe(false);
+  });
+
+  it('an empty awsv4 block lands an empty aws-sigv4 config (the user chose the type)', () => {
     const result = parsePostman(
       postmanCollection({
         item: [
@@ -862,12 +926,44 @@ describe('request mapping — auth', () => {
         ],
       }),
     );
-    expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
-    expect(result.report.drops.some((d) => /AWS Signature v4/.test(d.reason))).toBe(true);
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'aws-sigv4',
+      accessKeyId: '',
+      secretAccessKey: '',
+      service: '',
+      region: '',
+    });
   });
 
-  it('drops digest / hawk / ntlm / edgegrid / oauth1', () => {
-    for (const t of ['digest', 'hawk', 'ntlm', 'edgegrid', 'oauth1']) {
+  it('awsv4 query-signing imports with a header-signing transform (both flag spellings)', () => {
+    for (const flag of [
+      { key: 'addAuthDataToQuery', value: 'true' },
+      { key: 'addAuthDataToQuery', value: true },
+    ]) {
+      const result = parsePostman(
+        postmanCollection({
+          item: [
+            {
+              name: 'X',
+              request: {
+                method: 'GET',
+                url: 'https://api.openheaders.io/x',
+                auth: {
+                  type: 'awsv4',
+                  awsv4: [{ key: 'accessKey', value: 'AKIDEXAMPLE' }, flag as { key: string; value: string }],
+                },
+              },
+            },
+          ],
+        }),
+      );
+      expect(result.requests[0]?.request.auth).toMatchObject({ type: 'aws-sigv4', accessKeyId: 'AKIDEXAMPLE' });
+      expect(result.report.transforms.some((t) => /sign via request headers/.test(t.reason))).toBe(true);
+    }
+  });
+
+  it('drops digest / oauth1 as planned types with tracking', () => {
+    for (const t of ['digest', 'oauth1']) {
       const result = parsePostman(
         postmanCollection({
           item: [
@@ -883,7 +979,47 @@ describe('request mapping — auth', () => {
         }),
       );
       expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
-      expect(result.report.drops.some((d) => new RegExp(`${t} auth not imported`).test(d.reason))).toBe(true);
+      const drop = result.report.drops.find((d) => new RegExp(`${t} auth not imported yet`).test(d.reason));
+      expect(drop?.tracking).toBe('#todo-auth-types');
+    }
+  });
+
+  it('drops ntlm / edgegrid / hawk as permanent with accurate per-type reasons', () => {
+    const cases = [
+      {
+        type: 'ntlm',
+        reason: /NTLM auth not imported — the protocol is being phased out/,
+        tracking: 'PERMANENT: ntlm phased out',
+      },
+      {
+        type: 'edgegrid',
+        reason: /EdgeGrid auth not imported — the scheme is specific to one CDN vendor/,
+        tracking: 'PERMANENT: edgegrid vendor-specific',
+      },
+      {
+        type: 'hawk',
+        reason: /Hawk auth not imported — the scheme is discontinued upstream/,
+        tracking: 'PERMANENT: hawk discontinued',
+      },
+    ];
+    for (const c of cases) {
+      const result = parsePostman(
+        postmanCollection({
+          item: [
+            {
+              name: 'X',
+              request: {
+                method: 'GET',
+                url: 'https://api.openheaders.io/x',
+                auth: { type: c.type },
+              },
+            },
+          ],
+        }),
+      );
+      expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
+      const drop = result.report.drops.find((d) => c.reason.test(d.reason));
+      expect(drop?.tracking).toBe(c.tracking);
     }
   });
 });
