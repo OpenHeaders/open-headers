@@ -10,10 +10,11 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { Button, Tag, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { useUntypedSetting } from '../hooks';
 import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
+import { useChordCapture } from './use-chord-capture';
 
 interface KeybindingFieldProps {
   def: ResolvedSettingDef;
@@ -32,42 +33,10 @@ function formatChord(chord: string): string {
     .toUpperCase();
 }
 
-function chordFromEvent(e: KeyboardEvent): string | null {
-  const parts: string[] = [];
-  if (e.metaKey || e.ctrlKey) parts.push('mod');
-  if (e.shiftKey) parts.push('shift');
-  if (e.altKey) parts.push('alt');
-  const key = e.key.toLowerCase();
-  // Ignore pure modifier presses — wait until a real key is struck.
-  if (key === 'control' || key === 'shift' || key === 'alt' || key === 'meta' || key === 'cmd') {
-    return null;
-  }
-  parts.push(key);
-  return parts.join('+');
-}
-
 const KeybindingField: React.FC<KeybindingFieldProps> = ({ def }) => {
   const { token } = theme.useToken();
   const [value, setValue] = useUntypedSetting(def.key);
-  const [recording, setRecording] = useState(false);
-
-  useEffect(() => {
-    if (!recording) return;
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setRecording(false);
-        return;
-      }
-      const chord = chordFromEvent(e);
-      if (!chord) return;
-      e.preventDefault();
-      setValue(chord);
-      setRecording(false);
-    };
-    window.addEventListener('keydown', onKey, { capture: true });
-    return () => window.removeEventListener('keydown', onKey, { capture: true });
-  }, [recording, setValue]);
+  const { recording, toggle } = useChordCapture(setValue);
 
   const clear = useCallback(() => setValue(''), [setValue]);
   const display = typeof value === 'string' && value.length > 0 ? formatChord(value) : '—';
@@ -98,7 +67,7 @@ const KeybindingField: React.FC<KeybindingFieldProps> = ({ def }) => {
             {display}
           </Tag>
         )}
-        <Button size="small" onClick={() => setRecording((r) => !r)}>
+        <Button size="small" onClick={toggle}>
           {recording ? 'Cancel' : 'Record'}
         </Button>
         {typeof value === 'string' && value.length > 0 && (

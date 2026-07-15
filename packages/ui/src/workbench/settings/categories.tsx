@@ -37,6 +37,7 @@ import { registerCategory } from './registry';
 const BackendPane = lazy(() => import('./components/BackendPane'));
 const McpPane = lazy(() => import('./components/mcp-pane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
+const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
 
 registerCategory({
   id: 'backend',
@@ -198,6 +199,7 @@ registerCategory({
   icon: <KeyboardIcon />,
   order: 80,
   descriptionKey: 'workbench.settings.category.keyboard.description',
+  renderPane: KeymapPane,
   subcategories: [
     { id: 'global', labelKey: 'workbench.settings.category.keyboard.sub.global', order: 5 },
     { id: 'workbench-general', labelKey: 'workbench.settings.category.keyboard.sub.workbench-general', order: 10 },

@@ -498,6 +498,17 @@ export const workbenchSettings = {
   'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Local LAN daemon back-end',
   'workbench.settings.backendPane.detail.aria.remote-self-hosted': 'Remote self-hosted back-end',
 
+  // ── Keymap pane body ───────────────────────────────────────────────
+  'workbench.settings.keymapPane.searchPlaceholder': 'Search shortcuts',
+  'workbench.settings.keymapPane.noMatches': 'No shortcuts match your search.',
+  'workbench.settings.keymapPane.recording': 'Press keys…',
+  'workbench.settings.keymapPane.unbound': 'Not bound',
+  'workbench.settings.keymapPane.recordTip': 'Click to record a new shortcut',
+  'workbench.settings.keymapPane.recordAria': 'Change shortcut for {label}',
+  'workbench.settings.keymapPane.unbind': 'Remove shortcut',
+  'workbench.settings.keymapPane.unbindAria': 'Remove shortcut for {label}',
+  'workbench.settings.keymapPane.resetAria': 'Reset shortcut for {label}',
+
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
   'workbench.settings.daemonTokens.sectionTitle': 'Paired devices',
   'workbench.settings.daemonTokens.sectionBlurb':
