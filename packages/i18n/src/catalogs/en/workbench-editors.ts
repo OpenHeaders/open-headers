@@ -1087,6 +1087,8 @@ export const workbenchEditors = {
     'Duplicate JSON keys — the last value is shown: {keys}',
   'workbench.editors.request.response.body.partialJsonNotice':
     'Truncated body — Preview and filter show only the values captured completely.',
+  'workbench.editors.request.response.body.schemalessDecodeNotice':
+    'Schema-less decode (best effort) — field numbers shown; nesting and text are inferred from the wire bytes.',
 
   // ── Response headers view ──────────────────────────────────────────
   'workbench.editors.request.response.headers.name': 'Name',
@@ -1097,6 +1099,7 @@ export const workbenchEditors = {
   'workbench.editors.request.response.headers.copyTitle': 'Copy header',
   'workbench.editors.request.response.headers.empty': 'No headers',
   'workbench.editors.request.response.headers.noMatch': 'No headers match “{query}”',
+  'workbench.editors.request.response.headers.trailers': 'Trailers',
 
   // ── Response cookies view (Set-Cookie attribute column names stay
   //    raw wire vocabulary: Domain / Path / Expires / HttpOnly /

@@ -36,6 +36,8 @@ const PROBE_REQUESTS = [
   'tar',
   'cbor',
   'msgpack',
+  'protobuf',
+  'grpc',
   'media',
   'latin1',
 ] as const;
@@ -256,6 +258,44 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(text).toContain('9007199254740993');
     expect(text).toContain("h'00FF10'");
     expect(text).toContain("ext(42, h'DEADBEEF')");
+  });
+
+  test('protobuf defaults to Hex; the structural decode rides the labeled Preview', async () => {
+    await sendProbe('protobuf');
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Hex$/);
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    await workbench.responsePreviewToggle().click();
+    // Schema-less: the tree is a structural guess and says so.
+    await expect(workbench.responseBodyNotice('Schema-less decode (best effort)')).toBeVisible();
+    const tree = workbench.responseJsonPreview();
+    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    const text = await tree.innerText();
+    // Field numbers key the tree; varints past double precision display
+    // exactly (F3 law); the guess ladder yields text, nested-message,
+    // fixed-word, and byte leaves.
+    expect(text).toContain('9007199254740993');
+    expect(text).toContain('api.openheaders.io');
+    expect(text).toContain('fixed64(4614256656552045848, double 3.141592653589793)');
+    expect(text).toContain("h'00FF10'");
+  });
+
+  test('gRPC unwraps its message framing into the labeled Preview', async () => {
+    await sendProbe('grpc');
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Hex$/);
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    await workbench.responsePreviewToggle().click();
+    const tree = workbench.responseJsonPreview();
+    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    // The compressed frame degrades to a primitive diagnostic — visible
+    // without expanding its (non-existent) children.
+    expect(await tree.innerText()).toContain('compressed(3 bytes)');
+    // Flag-0 message frames and the grpc-web trailers frame are
+    // containers — expand them to reach their leaves.
+    await tree.getByRole('button', { name: /^0\b/ }).click();
+    await tree.getByRole('button', { name: /^3\b/ }).click();
+    const text = await tree.innerText();
+    expect(text).toContain('unary-ok');
+    expect(text).toContain('grpc-status');
   });
 
   test('WAV opens on the media Preview with the byte views behind it', async () => {

@@ -8,9 +8,18 @@
  * stays the base view, and a body that does not decode simply offers no
  * preview (never a crash, never a reclassification).
  *
+ * Protobuf wire format is NOT self-describing — its decode here is
+ * STRUCTURAL (field numbers, wire types, nested guesses for
+ * length-delimited payloads), a best-effort view the caller labels as
+ * such. gRPC bodies unwrap their 5-byte message framing first
+ * (compressed frames don't decode and degrade to a diagnostic;
+ * grpc-web's in-body trailers frame surfaces as text).
+ *
  * Values JSON cannot carry render in CBOR diagnostic notation, kept
- * consistent across both decoders: byte strings as `h'…'`, CBOR tags as
+ * consistent across all decoders: byte strings as `h'…'`, CBOR tags as
  * `tag(content)`, MessagePack extensions as `ext(type, h'…')`,
+ * protobuf fixed words as `fixed64(u64, double d)` / `fixed32(u32,
+ * float f)` (both readings — schema-less can't know which), and
  * `undefined`/`simple(n)` verbatim. Integers past double precision ride
  * the F3 law — a {@link JsonNumber} leaf displays the exact value.
  */
@@ -35,17 +44,23 @@ export function isDiagnosticText(value: unknown): value is DiagnosticText {
   return value instanceof DiagnosticText;
 }
 
-export type BinaryDecodeKind = 'cbor' | 'msgpack';
+export type BinaryDecodeKind = 'cbor' | 'msgpack' | 'protobuf' | 'grpc';
 
-/** The decoder a response's Content-Type names — `application/cbor`
- *  and the MessagePack pair (`application/msgpack`, `…/x-msgpack`).
- *  Content-Type picks the RENDERER only (a preview to offer); whether
- *  the body is text or bytes stays decided by the bytes. `cbor-seq`
- *  is multi-item framing the single-item decoder does not cover. */
+/** The decoder a response's Content-Type names — `application/cbor`,
+ *  the MessagePack pair (`application/msgpack`, `…/x-msgpack`), the
+ *  protobuf family (`application/x-protobuf`, `…/protobuf`,
+ *  `…/vnd.google.protobuf`), and gRPC (`application/grpc*`, whose
+ *  bodies carry the 5-byte message framing — checked before protobuf
+ *  because `grpc+proto` contains both markers). Content-Type picks the
+ *  RENDERER only (a preview to offer); whether the body is text or
+ *  bytes stays decided by the bytes. `cbor-seq` is multi-item framing
+ *  the single-item decoder does not cover. */
 export function binaryDecodeKind(headers: ReadonlyArray<{ key: string; value: string }>): BinaryDecodeKind | null {
   const ct = contentTypeOf(headers);
   if (ct.includes('msgpack')) return 'msgpack';
   if (ct.includes('cbor') && !ct.includes('cbor-seq')) return 'cbor';
+  if (ct.includes('grpc')) return 'grpc';
+  if (ct.includes('protobuf')) return 'protobuf';
   return null;
 }
 
@@ -55,7 +70,21 @@ export function binaryDecodeKind(headers: ReadonlyArray<{ key: string; value: st
  *  strict: trailing bytes after the root item reject. */
 export function decodeBinaryPreview(kind: BinaryDecodeKind, bytes: Uint8Array): { value: unknown } | null {
   try {
-    return { value: kind === 'cbor' ? decodeCbor(bytes) : decodeMessagePack(bytes) };
+    switch (kind) {
+      case 'cbor':
+        return { value: decodeCbor(bytes) };
+      case 'msgpack':
+        return { value: decodeMessagePack(bytes) };
+      case 'protobuf':
+        return { value: decodeProtobuf(bytes) };
+      case 'grpc':
+        return { value: decodeGrpc(bytes) };
+      default: {
+        const _exhaustive: never = kind;
+        void _exhaustive;
+        return null;
+      }
+    }
   } catch {
     return null;
   }
@@ -316,6 +345,170 @@ function decodeCbor(bytes: Uint8Array): unknown {
   const value = readItem(0);
   if (cursor.pos !== bytes.length) fail();
   return value;
+}
+
+// ------------------------------------------------------------ Protobuf
+
+/** Highest legal protobuf field number (2^29 − 1) — the tag varint
+ *  reserves 3 bits for the wire type. */
+const FIELD_NUMBER_MAX = 536870911;
+
+/** Both readings of a fixed 64-bit word — schema-less can't know
+ *  whether the field is a fixed64/sfixed64 or a double, so the
+ *  diagnostic shows the unsigned integer and, when finite, the double. */
+function fixed64Diagnostic(view: DataView, at: number): DiagnosticText {
+  const word = view.getBigUint64(at, true);
+  const asDouble = view.getFloat64(at, true);
+  return new DiagnosticText(Number.isFinite(asDouble) ? `fixed64(${word}, double ${asDouble})` : `fixed64(${word})`);
+}
+
+/** Both readings of a fixed 32-bit word — see {@link fixed64Diagnostic}. */
+function fixed32Diagnostic(view: DataView, at: number): DiagnosticText {
+  const word = view.getUint32(at, true);
+  const asFloat = view.getFloat32(at, true);
+  return new DiagnosticText(Number.isFinite(asFloat) ? `fixed32(${word}, float ${asFloat})` : `fixed32(${word})`);
+}
+
+/**
+ * A length-delimited payload's display value — the structural guess
+ * ladder, in locked order: the bytes parse as a protobuf message → a
+ * nested tree; valid UTF-8 → text; anything else → `h'…'` bytes. The
+ * item budget is shared with the caller, so a failed guess's work
+ * still counts against the hostile-input ceiling.
+ */
+function lengthDelimitedValue(payload: Uint8Array, budget: Cursor, depth: number): unknown {
+  if (payload.length > 0) {
+    try {
+      return parseProtobufMessage(payload, budget, depth + 1);
+    } catch {
+      // Not a message — fall through the ladder.
+    }
+  }
+  try {
+    return UTF8_STRICT.decode(payload);
+  } catch {
+    return bytesDiagnostic(payload);
+  }
+}
+
+/**
+ * Parse one protobuf message covering EXACTLY the given bytes —
+ * throws on anything malformed (invalid wire types, field number out
+ * of range, truncated values, the deprecated group wire types).
+ * Fields keyed by field number; a number seen more than once collects
+ * into an array (repeated fields). Varints ride the F3 exact-display
+ * law; fixed words show both readings; length-delimited payloads run
+ * the guess ladder above.
+ */
+function parseProtobufMessage(bytes: Uint8Array, budget: Cursor, depth: number): Record<string, unknown> {
+  if (depth > MAX_DEPTH) fail();
+  if (bytes.length === 0) fail();
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let pos = 0;
+
+  const need = (n: number): number => {
+    if (pos + n > bytes.length) fail();
+    const at = pos;
+    pos += n;
+    return at;
+  };
+
+  /** Base-128 varint, 10 bytes max (the 64-bit ceiling). */
+  const readVarint = (): bigint => {
+    let value = 0n;
+    let shift = 0n;
+    for (let i = 0; i < 10; i++) {
+      const byte = bytes[need(1)];
+      value |= BigInt(byte & 0x7f) << shift;
+      if ((byte & 0x80) === 0) return value;
+      shift += 7n;
+    }
+    return fail();
+  };
+
+  const fields = new Map<number, unknown[]>();
+  while (pos < bytes.length) {
+    budget.items++;
+    if (budget.items > MAX_ITEMS) fail();
+    const tag = readVarint();
+    const fieldNumber = Number(tag >> 3n);
+    const wireType = Number(tag & 7n);
+    if (fieldNumber < 1 || fieldNumber > FIELD_NUMBER_MAX) fail();
+    let value: unknown;
+    switch (wireType) {
+      case 0:
+        value = intValue(readVarint());
+        break;
+      case 1:
+        value = fixed64Diagnostic(view, need(8));
+        break;
+      case 5:
+        value = fixed32Diagnostic(view, need(4));
+        break;
+      case 2: {
+        const length = Number(readVarint());
+        if (length > bytes.length - pos) fail();
+        const at = need(length);
+        value = lengthDelimitedValue(bytes.subarray(at, at + length), budget, depth);
+        break;
+      }
+      default:
+        // 3/4 are the deprecated group delimiters, 6/7 are unassigned.
+        return fail();
+    }
+    const seen = fields.get(fieldNumber);
+    if (seen === undefined) {
+      fields.set(fieldNumber, [value]);
+    } else {
+      seen.push(value);
+    }
+  }
+  if (fields.size === 0) fail();
+  const obj: Record<string, unknown> = {};
+  for (const [fieldNumber, values] of fields) obj[String(fieldNumber)] = values.length === 1 ? values[0] : values;
+  return obj;
+}
+
+function decodeProtobuf(bytes: Uint8Array): unknown {
+  return parseProtobufMessage(bytes, { pos: 0, items: 0 }, 0);
+}
+
+/**
+ * gRPC message framing: each frame is 1 flag byte + a 4-byte
+ * big-endian length + the payload. Flag 0 payloads run the protobuf
+ * guess ladder (so `grpc+json` frames still show as text); flag 1
+ * (compressed) doesn't decode without the codec — it degrades to a
+ * `compressed(N bytes)` diagnostic; flag 0x80 is grpc-web's in-body
+ * trailers frame — HTTP field lines, shown as text. A single frame
+ * IS the preview value; multiple frames list in arrival order.
+ */
+function decodeGrpc(bytes: Uint8Array): unknown {
+  if (bytes.length === 0) fail();
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const budget: Cursor = { pos: 0, items: 0 };
+  const frames: unknown[] = [];
+  let pos = 0;
+  while (pos < bytes.length) {
+    if (pos + 5 > bytes.length) fail();
+    const flag = bytes[pos];
+    const length = view.getUint32(pos + 1);
+    pos += 5;
+    if (length > bytes.length - pos) fail();
+    const payload = bytes.subarray(pos, pos + length);
+    pos += length;
+    budget.items++;
+    if (budget.items > MAX_ITEMS) fail();
+    if (flag === 0x80) {
+      frames.push({ trailers: UTF8_STRICT.decode(payload) });
+    } else if (flag === 1) {
+      frames.push(new DiagnosticText(`compressed(${length} bytes)`));
+    } else if (flag === 0) {
+      frames.push(lengthDelimitedValue(payload, budget, 0));
+    } else {
+      fail();
+    }
+  }
+  return frames.length === 1 ? frames[0] : frames;
 }
 
 // --------------------------------------------------------- MessagePack

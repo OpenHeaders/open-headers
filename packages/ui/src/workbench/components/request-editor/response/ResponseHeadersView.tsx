@@ -102,7 +102,12 @@ function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
   );
 }
 
-const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'] }> = ({ headers }) => {
+const ResponseHeadersView: React.FC<{
+  headers: ExecutedRequestSnapshot['headers'];
+  /** HTTP trailer fields, when the executing host captured any —
+   *  rendered under a "Trailers" divider after the header rows. */
+  trailers?: ExecutedRequestSnapshot['headers'];
+}> = ({ headers, trailers }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [query, setQuery] = useState('');
@@ -115,8 +120,9 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
   }, [headers]);
 
   const visible = filterHeaderRows(headers, query);
+  const visibleTrailers = filterHeaderRows(trailers ?? [], query);
 
-  if (headers.length === 0) {
+  if (headers.length === 0 && (trailers === undefined || trailers.length === 0)) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
@@ -153,7 +159,7 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
             type="text"
             icon={allCopied ? <CheckOutlined /> : <CopyOutlined />}
             aria-label={t('workbench.editors.request.response.headers.copyAll')}
-            onClick={() => copyAll(serializeHeaderLines(headers))}
+            onClick={() => copyAll(serializeHeaderLines([...headers, ...(trailers ?? [])]))}
             style={{ marginLeft: 'auto' }}
           />
         </Tooltip>
@@ -193,7 +199,30 @@ const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'
         {visible.map((h, i) => (
           <HeaderGridRow key={`${h.key}:${h.value}:${i}`} row={h} />
         ))}
-        {visible.length === 0 && (
+        {visibleTrailers.length > 0 && (
+          <>
+            {/* Trailer fields arrived AFTER the body (gRPC status lives
+                here) — kept apart from the headers so the distinction
+                stays visible. */}
+            <div
+              data-testid="oh-response-trailers-divider"
+              style={{
+                padding: '4px 8px',
+                background: `linear-gradient(${token.colorFillAlter}, ${token.colorFillAlter}), ${token.colorBgContainer}`,
+                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                fontSize: 12,
+                fontWeight: 500,
+                color: token.colorTextSecondary,
+              }}
+            >
+              {t('workbench.editors.request.response.headers.trailers')}
+            </div>
+            {visibleTrailers.map((h, i) => (
+              <HeaderGridRow key={`trailer:${h.key}:${h.value}:${i}`} row={h} />
+            ))}
+          </>
+        )}
+        {visible.length === 0 && visibleTrailers.length === 0 && (
           <div style={{ padding: '10px 12px' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
               {t('workbench.editors.request.response.headers.noMatch', { query: query.trim() })}

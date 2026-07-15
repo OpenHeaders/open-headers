@@ -76,6 +76,16 @@ export interface ExecutedRequestSnapshot {
   /** Final URL after redirects — might differ from the submitted one. */
   url: string;
   headers: Array<{ key: string; value: string }>;
+  /**
+   * HTTP trailer fields the final response carried after its body
+   * (gRPC's `grpc-status`/`grpc-message` live here). Present only when
+   * the executing host's network stack exposes trailers and the
+   * response sent some — browser fetch never does (the extension omits
+   * them, like other unhonorable knobs); the node runtime reads them
+   * off its `request()` wire path. Attribution only — recorded from
+   * what arrived, never a behavior change.
+   */
+  trailers?: Array<{ key: string; value: string }>;
   /** Response body. UTF-8 text verbatim by default; when the wire bytes
    *  don't decode as UTF-8 the executor stores them base64-encoded and
    *  marks `bodyEncoding` — lossless either way. */

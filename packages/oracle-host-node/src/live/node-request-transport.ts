@@ -61,6 +61,13 @@
  *     Hops matching that shape drop to undici's `request()` — same
  *     dispatcher, deadline, and error classification — and the response
  *     adapts back onto the fetch surface (see {@link requestHop}).
+ *   - **gRPC hops surface HTTP trailers.** gRPC puts its
+ *     `grpc-status`/`grpc-message` in trailers, which fetch drops on
+ *     the floor (WHATWG removed trailers from its surface — probed on
+ *     undici 7.24.6). Hops declaring `Content-Type: application/grpc*`
+ *     ride the `request()` pipeline too, whose trailers object fills
+ *     once the body is consumed; the final hop's trailers land on
+ *     {@link TransportResponse.trailers} for snapshot attribution.
  *   - **HTTP digest second leg.** A hop answering 401 with a `Digest`
  *     challenge (RFC 7616 / 2617) gets ONE authorized resend when the
  *     request carries `digestAuth` credentials — computed per hop over
@@ -118,20 +125,24 @@ import { type CookieJar, cookieJarFor, type SetCookieInput } from './cookie-jar'
 export type NodeFetchFn = typeof undiciFetch;
 
 /** The slice of an undici `request()` result the transport consumes —
- *  the seam is typed to it so tests can hand back plain readables. */
+ *  the seam is typed to it so tests can hand back plain readables.
+ *  `trailers` is undici's live view of the response's HTTP trailer
+ *  fields — empty until the body has been consumed, populated after. */
 export interface NodeRequestResponse {
   statusCode: number;
   headers: Record<string, string | string[] | undefined>;
   body: Readable;
+  trailers?: Record<string, string | string[] | undefined>;
 }
 
-/** The spec-free pipeline behind GET/HEAD-with-body hops — undici's
- *  `request()` in production; injectable like {@link NodeFetchFn} and
- *  typed to exactly what the transport sends and reads. */
+/** The spec-free pipeline behind GET/HEAD-with-body and gRPC hops —
+ *  undici's `request()` in production; injectable like
+ *  {@link NodeFetchFn} and typed to exactly what the transport sends
+ *  and reads. */
 export type NodeRequestFn = (
   url: string,
   options: {
-    method: 'GET' | 'HEAD';
+    method: string;
     headers: Headers;
     body?: string | FormData;
     dispatcher?: Dispatcher;
@@ -422,6 +433,12 @@ interface HopResponse {
   url: string;
   headers: FetchResponse['headers'];
   body: FetchResponse['body'];
+  /** HTTP trailer fields, read AFTER the body is consumed — a thunk
+   *  because undici populates its trailers object only once the body
+   *  stream ends. Absent on the fetch path: WHATWG fetch dropped
+   *  trailers from its surface entirely, so only `request()` hops can
+   *  report them. */
+  trailers?: () => TransportHeader[];
 }
 
 /** True when the hop's method forbids a fetch() body — the WHATWG rule
@@ -430,6 +447,19 @@ interface HopResponse {
 function bodylessMethodWithBody(hop: HopState): boolean {
   const method = hop.method.toUpperCase();
   return (method === 'GET' || method === 'HEAD') && hop.body.kind !== 'none';
+}
+
+/** True when the hop declares a gRPC exchange (`Content-Type:
+ *  application/grpc*`). Those hops take the `request()` wire path too —
+ *  the only pipeline that exposes HTTP trailers, where gRPC puts its
+ *  `grpc-status`/`grpc-message` (probed: undici fetch surfaces no
+ *  trailers at all). The trade — `request()` advertises no
+ *  Accept-Encoding and applies no transparent decompression — is moot
+ *  here: gRPC compresses per message frame, never the HTTP body. */
+function grpcHop(hop: HopState): boolean {
+  return hop.headers.some(
+    (h) => h.key.toLowerCase() === 'content-type' && h.value.toLowerCase().startsWith('application/grpc'),
+  );
 }
 
 /** Abort deadline over a whole send — see {@link startDeadline}. */
@@ -839,7 +869,8 @@ function nextHop(
 
 /** One wire round-trip for a hop, on whichever pipeline can carry it:
  *  fetch for every ordinary hop, `request()` for a GET/HEAD hop with a
- *  body (fetch refuses to construct those). */
+ *  body (fetch refuses to construct those) and for gRPC hops (fetch
+ *  exposes no trailers — see {@link grpcHop}). */
 async function wireHop(
   fetchFn: NodeFetchFn,
   requestFn: NodeRequestFn,
@@ -848,7 +879,7 @@ async function wireHop(
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
 ): Promise<HopResponse> {
-  if (bodylessMethodWithBody(hop)) return requestHop(requestFn, request, hop, deadline, dispatcher);
+  if (bodylessMethodWithBody(hop) || grpcHop(hop)) return requestHop(requestFn, request, hop, deadline, dispatcher);
   return fetchHop(fetchFn, request, hop, deadline, dispatcher);
 }
 
@@ -883,12 +914,13 @@ async function fetchHop(
 }
 
 /**
- * One wire round-trip for a GET/HEAD hop that carries a body. WHATWG
- * fetch refuses to construct such a request (spec rule), but HTTP
- * itself allows it and real APIs use it — undici's `request()` puts
- * the body on the wire, riding the same dispatcher, deadline, and
- * error classification as the fetch path. `request()` never follows
- * redirects on its own, matching the fetch path's `redirect: 'manual'`.
+ * One wire round-trip over undici `request()` — the pipeline for hops
+ * fetch cannot carry faithfully: a GET/HEAD hop with a body (WHATWG
+ * fetch refuses to construct one, but HTTP allows it and real APIs use
+ * it) and gRPC hops (fetch exposes no HTTP trailers, where gRPC puts
+ * its status). Rides the same dispatcher, deadline, and error
+ * classification as the fetch path; never follows redirects on its
+ * own, matching the fetch path's `redirect: 'manual'`.
  */
 async function requestHop(
   requestFn: NodeRequestFn,
@@ -902,7 +934,7 @@ async function requestHop(
   if (contentType !== undefined && !headers.has('content-type')) headers.set('content-type', contentType);
   try {
     const response = await requestFn(hop.url, {
-      method: hop.method.toUpperCase() === 'HEAD' ? 'HEAD' : 'GET',
+      method: hop.method.toUpperCase(),
       headers,
       ...(body !== undefined ? { body } : {}),
       ...(dispatcher !== undefined ? { dispatcher } : {}),
@@ -915,29 +947,40 @@ async function requestHop(
   }
 }
 
+/** Flatten undici's `Record<string, string | string[]>` field shape to
+ *  seam headers, arrays entry-wise. */
+function transportHeadersOf(record: Record<string, string | string[] | undefined>): TransportHeader[] {
+  const out: TransportHeader[] = [];
+  for (const [key, value] of Object.entries(record)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const v of value) out.push({ key, value: v });
+    } else {
+      out.push({ key, value });
+    }
+  }
+  return out;
+}
+
 /**
  * Map an undici `request()` result onto the hop surface: headers
  * re-minted as fetch `Headers` (`set-cookie` arrays preserved
  * entry-wise for the jar), the body's Node stream bridged to a web
- * stream for the capped read, and the reason phrase from the canonical
- * status table (`request()` does not surface one).
+ * stream for the capped read, the reason phrase from the canonical
+ * status table (`request()` does not surface one), and trailers as a
+ * thunk over undici's live trailers object — it fills only once the
+ * body has been consumed, so the reader must ask after the capped read.
  */
 function adaptRequestResponse(url: string, response: NodeRequestResponse): HopResponse {
   const headers = new Headers();
-  for (const [key, value] of Object.entries(response.headers)) {
-    if (value === undefined) continue;
-    if (Array.isArray(value)) {
-      for (const v of value) headers.append(key, v);
-    } else {
-      headers.append(key, value);
-    }
-  }
+  for (const { key, value } of transportHeadersOf(response.headers)) headers.append(key, value);
   return {
     status: response.statusCode,
     statusText: STATUS_CODES[response.statusCode] ?? '',
     url,
     headers,
     body: Readable.toWeb(response.body),
+    trailers: () => transportHeadersOf(response.trailers ?? {}),
   };
 }
 
@@ -971,11 +1014,17 @@ async function finalizeResponse(
     if (deadline?.expired()) throw timeoutError(request.timeoutMs);
     throw err;
   }
+  // Trailers arrive after the body — ask only now that the capped read
+  // has consumed it. Only `request()` hops carry the thunk (fetch
+  // exposes no trailers); a truncated read may have canceled the
+  // stream before they arrived, in which case the object is empty.
+  const trailers = response.trailers?.() ?? [];
   return {
     status: response.status,
     statusText: response.statusText,
     url: response.url || finalUrl,
     headers,
+    ...(trailers.length > 0 ? { trailers } : {}),
     body: read.body,
     ...(read.bodyEncoding ? { bodyEncoding: read.bodyEncoding } : {}),
     bodyBytes: read.bodyBytes,

@@ -333,8 +333,10 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             },
             {
               key: 'headers',
-              label: t('workbench.editors.request.response.tab.headers', { count: headerRows.length }),
-              children: <ResponseHeadersView headers={headerRows} />,
+              label: t('workbench.editors.request.response.tab.headers', {
+                count: headerRows.length + (response.trailers?.length ?? 0),
+              }),
+              children: <ResponseHeadersView headers={headerRows} trailers={response.trailers} />,
             },
             ...(setCookieCount > 0
               ? [

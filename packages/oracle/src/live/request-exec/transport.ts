@@ -261,6 +261,15 @@ export interface TransportResponse {
   url: string;
   headers: ReadonlyArray<TransportHeader>;
   /**
+   * HTTP trailer fields the FINAL response carried after its body —
+   * gRPC status codes travel here. Present only when the host's
+   * network stack exposes trailers (the node transport's `request()`
+   * wire path does; browser fetch never surfaces them — that host
+   * omits the field, the usual capability asymmetry) and the response
+   * sent at least one. Pure attribution for the executed-run snapshot.
+   */
+  trailers?: ReadonlyArray<TransportHeader>;
+  /**
    * Response body as text, already capped at {@link TransportRequest.maxBodyBytes}
    * by the transport (it streams + aborts past the cap to bound memory).
    * The executor surfaces this verbatim — it does NOT re-slice.

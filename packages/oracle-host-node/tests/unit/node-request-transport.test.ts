@@ -1140,6 +1140,93 @@ describe('createNodeRequestTransport — GET/HEAD with a body on the wire', () =
   });
 });
 
+describe('createNodeRequestTransport — gRPC hops and HTTP trailers', () => {
+  function requestResponse(bodyText: string, overrides: Partial<NodeRequestResponse> = {}): NodeRequestResponse {
+    return { statusCode: 200, headers: {}, body: Readable.from([Buffer.from(bodyText)]), ...overrides };
+  }
+
+  const GRPC_HEADERS = [{ key: 'Content-Type', value: 'application/grpc+proto' }];
+
+  it('routes a gRPC POST through request(), method preserved', async () => {
+    // fetch exposes no HTTP trailers (probed) — gRPC hops must ride the
+    // request() pipeline or grpc-status would never be capturable.
+    requestMock.mockResolvedValue(requestResponse('ok', { headers: { 'content-type': 'application/grpc+proto' } }));
+    const res = await transport().send(
+      makeRequest({ method: 'POST', headers: GRPC_HEADERS, body: { kind: 'raw', content: 'frame-bytes' } }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(requestMock).toHaveBeenCalledTimes(1);
+    expect(requestMock.mock.calls[0][1].method).toBe('POST');
+    expect(requestMock.mock.calls[0][1].body).toBe('frame-bytes');
+    expect(res.status).toBe(200);
+  });
+
+  it('surfaces the trailers undici reports after the body read', async () => {
+    requestMock.mockResolvedValue(requestResponse('ok', { trailers: { 'grpc-status': '0', 'grpc-message': 'OK' } }));
+    const res = await transport().send(
+      makeRequest({ method: 'POST', headers: GRPC_HEADERS, body: { kind: 'raw', content: 'q' } }),
+    );
+    expect(res.trailers).toEqual([
+      { key: 'grpc-status', value: '0' },
+      { key: 'grpc-message', value: 'OK' },
+    ]);
+  });
+
+  it('omits the trailers field when the response carried none', async () => {
+    requestMock.mockResolvedValue(requestResponse('ok'));
+    const res = await transport().send(
+      makeRequest({ method: 'POST', headers: GRPC_HEADERS, body: { kind: 'raw', content: 'q' } }),
+    );
+    expect(res.trailers).toBeUndefined();
+  });
+
+  it('a non-gRPC POST stays on the fetch path, which reports no trailers', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    const res = await transport().send(
+      makeRequest({
+        method: 'POST',
+        headers: [{ key: 'Content-Type', value: 'application/json' }],
+        body: { kind: 'raw', content: '{}' },
+      }),
+    );
+    expect(requestMock).not.toHaveBeenCalled();
+    expect(res.trailers).toBeUndefined();
+  });
+
+  it('captures real HTTP trailers off the wire (real undici pipeline)', async () => {
+    // The full path a mocked request() never exercises: undici's live
+    // trailers object fills only after the Readable→web-stream bridge
+    // drains through the capped read.
+    const server = createServer((_req, res) => {
+      res.writeHead(200, {
+        'Content-Type': 'application/grpc+proto',
+        Trailer: 'grpc-status, grpc-message',
+      });
+      res.write(Buffer.from([0, 0, 0, 0, 3, 8, 1, 16, 2]));
+      res.addTrailers({ 'grpc-status': '0', 'grpc-message': 'OK' });
+      res.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(
+        makeRequest({
+          method: 'POST',
+          url: `http://127.0.0.1:${port}/oh.probe.Service/Unary`,
+          headers: GRPC_HEADERS,
+          body: { kind: 'raw', content: '' },
+        }),
+      );
+      expect(res.status).toBe(200);
+      expect(res.trailers).toContainEqual({ key: 'grpc-status', value: '0' });
+      expect(res.trailers).toContainEqual({ key: 'grpc-message', value: 'OK' });
+      expect(res.headers.map((h) => h.key)).not.toContain('grpc-status');
+    } finally {
+      server.close();
+    }
+  });
+});
+
 describe('createNodeRequestTransport — hand-rolled redirect follow', () => {
   it('follows a redirect chain to the final response and reports the final URL', async () => {
     fetchMock

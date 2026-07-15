@@ -1,16 +1,19 @@
 /**
  * Schema-less binary decode laws for the response Preview: content-type
- * dispatch (CBOR / MessagePack, `cbor-seq` excluded), full decode
- * matrices for both formats (ints riding the F3 exact-display law,
- * diagnostic notation for byte strings / tags / extensions / non-string
- * map keys, indefinite lengths, half-precision floats), graceful
- * failure (`null`, never a throw) on malformed or truncated bytes, and
- * the hostile-input caps (depth, claimed lengths, byte-preview hex).
+ * dispatch (CBOR / MessagePack / protobuf / gRPC, `cbor-seq` excluded),
+ * full decode matrices for the formats (ints riding the F3
+ * exact-display law, diagnostic notation for byte strings / tags /
+ * extensions / fixed words / non-string map keys, indefinite lengths,
+ * half-precision floats, the protobuf guess ladder, gRPC frame
+ * unwrapping), graceful failure (`null`, never a throw) on malformed or
+ * truncated bytes, and the hostile-input caps (depth, claimed lengths,
+ * byte-preview hex).
  *
- * The probe fixtures mirror the playground's deterministic `/api/cbor`
- * and `/api/msgpack` bodies (`playground/server/api-binary.ts`, each
- * validated against a reference decoder) — the e2e sweep drives the
- * same bytes through the real viewer.
+ * The probe fixtures mirror the playground's deterministic `/api/cbor`,
+ * `/api/msgpack`, `/api/protobuf`, and `/api/grpc` bodies
+ * (`playground/server/api-binary.ts`, each validated against a
+ * reference decoder) — the e2e sweep drives the same bytes through the
+ * real viewer.
  */
 
 import { isJsonNumber } from '@openheaders/ui/workbench/components/request-editor/response/lossless-json';
@@ -60,6 +63,15 @@ describe('binaryDecodeKind', () => {
     expect(binaryDecodeKind(headersOf('application/msgpack'))).toBe('msgpack');
     expect(binaryDecodeKind(headersOf('application/x-msgpack'))).toBe('msgpack');
     expect(binaryDecodeKind(headersOf('application/vnd.msgpack'))).toBe('msgpack');
+  });
+
+  it('maps the protobuf family and gRPC, grpc winning over its +proto suffix', () => {
+    expect(binaryDecodeKind(headersOf('application/x-protobuf'))).toBe('protobuf');
+    expect(binaryDecodeKind(headersOf('application/protobuf'))).toBe('protobuf');
+    expect(binaryDecodeKind(headersOf('application/vnd.google.protobuf'))).toBe('protobuf');
+    expect(binaryDecodeKind(headersOf('application/grpc'))).toBe('grpc');
+    expect(binaryDecodeKind(headersOf('application/grpc+proto'))).toBe('grpc');
+    expect(binaryDecodeKind(headersOf('application/grpc-web+proto'))).toBe('grpc');
   });
 
   it('stays dark for cbor-seq (multi-item framing) and unrelated types', () => {
@@ -321,6 +333,151 @@ describe('MessagePack decode — graceful failure', () => {
   it('rejects hostile nesting past the depth cap, keeps sane nesting', () => {
     rejects(`${'91'.repeat(200)}01`);
     expect(msgpack(`${'91'.repeat(10)}01`)).toEqual([[[[[[[[[[1]]]]]]]]]]);
+  });
+});
+
+const protobuf = (hex: string): unknown => {
+  const result = decodeBinaryPreview('protobuf', bytesOf(hex));
+  expect(result).not.toBeNull();
+  return result?.value;
+};
+
+const grpc = (hex: string): unknown => {
+  const result = decodeBinaryPreview('grpc', bytesOf(hex));
+  expect(result).not.toBeNull();
+  return result?.value;
+};
+
+/** The `/api/protobuf` probe body, verbatim (validated against a
+ *  reference decoder at build time). */
+const PROTOBUF_PROBE = [
+  '08 9601', // 1: 150 (varint)
+  '12 12 6170692e6f70656e686561646572732e696f', // 2: "api.openheaders.io"
+  '18 8180808080808010', // 3: 9007199254740993 (2^53+1)
+  '22 08 082a 1204 6563686f', // 4: { 1: 42, 2: "echo" }
+  '29 182d4454fb210940', // 5: fixed64 — double pi
+  '35 0000c03f', // 6: fixed32 — float 1.5
+  '3a 03 00ff10', // 7: bytes 00 FF 10
+  '40 01 40 02', // 8: repeated varint [1, 2]
+].join('');
+
+describe('protobuf structural decode — probe fixture', () => {
+  it('decodes the full probe message, fields keyed by number', () => {
+    const value = protobuf(PROTOBUF_PROBE) as Record<string, unknown>;
+    expect(Object.keys(value)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8']);
+    expect(value['1']).toBe(150);
+    // The guess ladder: these bytes don't parse as a message, do decode
+    // as UTF-8 — a text leaf.
+    expect(value['2']).toBe('api.openheaders.io');
+    // Varints past double precision ride the F3 exact-display law.
+    expect(sourceOf(value['3'])).toBe('9007199254740993');
+    // A payload that parses as a message becomes a nested tree.
+    expect(value['4']).toEqual({ '1': 42, '2': 'echo' });
+    // Fixed words show both readings — schema-less can't know which.
+    expect(textOf(value['5'])).toBe('fixed64(4614256656552045848, double 3.141592653589793)');
+    expect(textOf(value['6'])).toBe('fixed32(1069547520, float 1.5)');
+    // Neither message nor UTF-8 → byte-string diagnostic.
+    expect(textOf(value['7'])).toBe("h'00FF10'");
+    // A repeated field number collects into an array.
+    expect(value['8']).toEqual([1, 2]);
+  });
+
+  it('never rewrites the input bytes (display-only law)', () => {
+    const input = bytesOf(PROTOBUF_PROBE);
+    const pristine = Uint8Array.from(input);
+    decodeBinaryPreview('protobuf', input);
+    expect(input).toEqual(pristine);
+  });
+});
+
+describe('protobuf structural decode — laws', () => {
+  const rejects = (hex: string) => expect(decodeBinaryPreview('protobuf', bytesOf(hex))).toBeNull();
+
+  it('wraps uint64 varints past safe range (F3 law)', () => {
+    const value = protobuf('08ffffffffffffffffff01') as Record<string, unknown>;
+    expect(sourceOf(value['1'])).toBe('18446744073709551615');
+  });
+
+  it('renders non-finite fixed64 words without the double reading', () => {
+    // 0x7FF0000000000000 = +Infinity as a double — integer reading only.
+    expect(textOf((protobuf('09000000000000f07f') as Record<string, unknown>)['1'])).toBe(
+      'fixed64(9218868437227405312)',
+    );
+  });
+
+  it('rejects malformed, truncated, and out-of-range inputs', () => {
+    rejects(''); // empty body
+    rejects('08'); // tag with no value
+    rejects('00 01'); // field number 0
+    rejects('0b'); // wire type 3 (deprecated group)
+    rejects('0f'); // wire type 7 (unassigned)
+    rejects('0a 05 01'); // length-delimited claiming past the end
+    rejects('08 ffffffffffffffffffff7f'); // varint past the 10-byte ceiling
+    rejects('09 0102'); // fixed64 with 2 bytes left
+    rejects('96 01'); // "150" without a preceding tag — field 18 wiretype 6
+  });
+
+  it('degrades hostile nesting past the depth cap to leaves instead of failing', () => {
+    // 150 nested length-delimited wrappers: the guess ladder stops
+    // descending at the depth cap and shows the remainder as a text or
+    // bytes leaf — the decode itself still succeeds.
+    let payload = bytesOf('12046563686f'); // { 2: "echo" }
+    for (let i = 0; i < 150; i++) {
+      const lenBytes: number[] = [];
+      let v = payload.length;
+      while (v > 0x7f) {
+        lenBytes.push((v & 0x7f) | 0x80);
+        v >>= 7;
+      }
+      lenBytes.push(v);
+      payload = Uint8Array.from([0x0a, ...lenBytes, ...payload]);
+    }
+    expect(decodeBinaryPreview('protobuf', payload)).not.toBeNull();
+  });
+});
+
+/** The `/api/grpc` probe body, verbatim (frames validated against a
+ *  reference decoder at build time). */
+const GRPC_PROBE = [
+  '00 0000000c 08011208756e6172792d6f6b', // frame 0: { 1: 1, 2: "unary-ok" }
+  '00 00000012 0802120e6f70656e686561646572732e696f', // frame 0: { 1: 2, 2: "openheaders.io" }
+  '01 00000003 1f8bff', // compressed frame — degrades
+  '80 00000022 677270632d7374617475733a20300d0a677270632d6d6573736167653a204f4b0d0a', // grpc-web trailers
+].join('');
+
+describe('gRPC framing decode', () => {
+  it('unwraps every frame of the probe body in arrival order', () => {
+    const frames = grpc(GRPC_PROBE) as unknown[];
+    expect(frames).toHaveLength(4);
+    expect(frames[0]).toEqual({ '1': 1, '2': 'unary-ok' });
+    expect(frames[1]).toEqual({ '1': 2, '2': 'openheaders.io' });
+    expect(textOf(frames[2])).toBe('compressed(3 bytes)');
+    expect(frames[3]).toEqual({ trailers: 'grpc-status: 0\r\ngrpc-message: OK\r\n' });
+  });
+
+  it('surfaces a single frame as the preview value itself', () => {
+    expect(grpc('00 0000000c 08011208756e6172792d6f6b')).toEqual({ '1': 1, '2': 'unary-ok' });
+  });
+
+  it('runs the guess ladder on frame payloads (grpc+json frames stay text)', () => {
+    // {"ok":true} — fails the message parse, decodes as UTF-8.
+    expect(grpc('00 0000000b 7b226f6b223a747275657d')).toBe('{"ok":true}');
+  });
+
+  it('rejects malformed framing', () => {
+    const rejects = (hex: string) => expect(decodeBinaryPreview('grpc', bytesOf(hex))).toBeNull();
+    rejects(''); // empty body
+    rejects('00 000000'); // truncated frame header
+    rejects('00 00000005 01'); // frame claiming past the end
+    rejects('02 00000000'); // unknown flag
+    rejects('00 0000000c 08011208756e6172792d6f6b ff'); // trailing garbage
+  });
+
+  it('never rewrites the input bytes (display-only law)', () => {
+    const input = bytesOf(GRPC_PROBE);
+    const pristine = Uint8Array.from(input);
+    decodeBinaryPreview('grpc', input);
+    expect(input).toEqual(pristine);
   });
 });
 

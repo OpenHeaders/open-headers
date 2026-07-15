@@ -157,6 +157,9 @@ export async function executeOverTransport(
       statusText: response.statusText,
       url: response.url || url,
       headers: [...response.headers],
+      // Trailers are attribution the transport could only read off its
+      // own wire path — surface them verbatim when any arrived.
+      ...(response.trailers !== undefined && response.trailers.length > 0 ? { trailers: [...response.trailers] } : {}),
       body: response.body,
       ...(response.bodyEncoding ? { bodyEncoding: response.bodyEncoding } : {}),
       bodyTruncated: response.bodyTruncated,

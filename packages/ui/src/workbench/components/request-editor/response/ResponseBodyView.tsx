@@ -143,8 +143,9 @@ function PickerLabel({ icon, text }: { icon: string; text: string }) {
  *  text-free view), text on Pretty. */
 function initialMode(response: ExecutedRequestSnapshot): ViewMode {
   if (mediaPreviewKind(response.headers) !== null) return 'preview';
-  // CBOR/MessagePack bodies are binary-like whatever their bytes decode
-  // as — Hex is the base view; the decoded tree is a Preview on top.
+  // CBOR/MessagePack/protobuf/gRPC bodies are binary-like whatever their
+  // bytes decode as — Hex is the base view; the decoded tree is a
+  // Preview on top.
   if (binaryDecodeKind(response.headers) !== null) return 'hex';
   return response.bodyEncoding === 'base64' ? 'hex' : 'pretty';
 }
@@ -178,10 +179,11 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const isBinary = response.bodyEncoding === 'base64';
   const mediaKind = mediaPreviewKind(response.headers);
   const isPdf = isPdfResponse(response.headers);
-  // CBOR/MessagePack decode to a tree-previewable value — hand-rolled,
-  // memoized per body, decoded once up front (whether the Preview is
-  // offered at all depends on the decode succeeding). `null` when the
-  // bytes don't decode: no preview, no notice — the byte views stand.
+  // CBOR/MessagePack/protobuf/gRPC decode to a tree-previewable value —
+  // hand-rolled, memoized per body, decoded once up front (whether the
+  // Preview is offered at all depends on the decode succeeding). `null`
+  // when the bytes don't decode: no preview, no notice — the byte views
+  // stand.
   const decodeKind = binaryDecodeKind(response.headers);
   const decodedBinary = useMemo(
     () => (decodeKind ? decodeBinaryPreview(decodeKind, snapshotBodyBytes(response)) : null),
@@ -879,7 +881,17 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
         />
       )}
       {mode === 'preview' && previewKind === 'json' && (
-        <ResponseJsonPreview value={decodedBinary ? decodedBinary.value : parsedJson} />
+        <>
+          {(decodeKind === 'protobuf' || decodeKind === 'grpc') && (
+            // Protobuf carries no schema on the wire — the tree is a
+            // structural guess (field numbers, inferred nesting), and
+            // the label says so.
+            <Text type="secondary" style={{ fontSize: 11, marginBottom: 4 }}>
+              {t('workbench.editors.request.response.body.schemalessDecodeNotice')}
+            </Text>
+          )}
+          <ResponseJsonPreview value={decodedBinary ? decodedBinary.value : parsedJson} />
+        </>
       )}
       {mode === 'preview' && previewKind === 'html' && (
         <iframe

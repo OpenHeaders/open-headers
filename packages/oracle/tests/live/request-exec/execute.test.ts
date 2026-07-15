@@ -422,6 +422,26 @@ describe('executeOverTransport', () => {
     expect(unmarked.authorizationForwarded).toBeUndefined();
   });
 
+  it('surfaces transport-reported trailers verbatim, omitted when none arrived', async () => {
+    // gRPC's status channel — only hosts whose network stack exposes
+    // trailers report them; the snapshot records what arrived.
+    const withTrailers = captureTransport({
+      trailers: [
+        { key: 'grpc-status', value: '0' },
+        { key: 'grpc-message', value: 'OK' },
+      ],
+    });
+    const marked = await executeOverTransport(makeResolved(), withTrailers.transport);
+    expect(marked.trailers).toEqual([
+      { key: 'grpc-status', value: '0' },
+      { key: 'grpc-message', value: 'OK' },
+    ]);
+
+    const quiet = captureTransport();
+    const unmarked = await executeOverTransport(makeResolved(), quiet.transport);
+    expect(unmarked.trailers).toBeUndefined();
+  });
+
   it('surfaces the transport-reported truncation + byte count verbatim (no re-slice)', async () => {
     // Capping moved into the transport (only it can stream + abort the
     // read); execute passes the already-capped result straight through.
