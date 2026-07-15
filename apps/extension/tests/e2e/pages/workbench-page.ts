@@ -641,6 +641,16 @@ export class WorkbenchPage {
     return this.page.getByTestId('oh-response-pdf-preview').filter({ visible: true });
   }
 
+  /** The image preview `<img>` — the captured bytes over a blob URL. */
+  responseImagePreview(): Locator {
+    return this.page.getByTestId('oh-response-image-preview').filter({ visible: true });
+  }
+
+  /** The audio/video preview element — the captured bytes over a blob URL. */
+  responseMediaPreview(): Locator {
+    return this.page.getByTestId('oh-response-media-preview').filter({ visible: true });
+  }
+
   /** Text of the response Body view picker — the language the viewer
    *  detected from the Content-Type (or the active encoding view). */
   async responseViewPickerLabel(): Promise<string> {
