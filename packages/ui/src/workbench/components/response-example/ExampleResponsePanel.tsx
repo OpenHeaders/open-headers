@@ -10,7 +10,7 @@
  */
 
 import { AlignLeftOutlined, DownOutlined } from '@ant-design/icons';
-import type { CapturedResponse } from '@openheaders/core/types';
+import type { CapturedResponse, ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { AutoComplete, Button, ConfigProvider, Dropdown, type MenuProps, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
@@ -20,7 +20,8 @@ import { listStatusCodes } from '@openheaders/ui/shared/info-popover/data/http-s
 import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../languages/registry';
 import KeyValueTable from '../request-editor/KeyValueTable';
-import { detectBodyLanguage, formatBytes } from '../request-editor/response/response-format';
+import ResponseBodyView from '../request-editor/response/ResponseBodyView';
+import { detectBodyLanguage, formatBytes, isPdfResponse } from '../request-editor/response/response-format';
 import { ViewPickerIcon } from '../request-editor/response/ViewPickerIcons';
 import type { RequestEditorLayout } from '../request-editor/useRequestEditorLayout';
 import CodeEditor from '../shared/CodeEditor';
@@ -111,8 +112,9 @@ const StatusCodePicker: React.FC<{
 interface ExampleResponsePanelProps {
   value: ExampleResponseDraft;
   onChange: (next: ExampleResponseDraft) => void;
-  /** Captured meta shown read-only beside the status chip. */
-  meta: Pick<CapturedResponse, 'bodyBytes' | 'durationMs'>;
+  /** Captured meta shown read-only beside the status chip; the
+   *  truncation facts feed the binary body pane's notice. */
+  meta: Pick<CapturedResponse, 'bodyBytes' | 'durationMs' | 'bodyTruncated' | 'bodyCapBytes'>;
   capturedAt: string;
   layout: RequestEditorLayout;
   onLayoutChange: (next: RequestEditorLayout) => void;
@@ -131,8 +133,47 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
   const [activeTab, setActiveTab] = useState<'body' | 'headers'>('body');
   const patch = (p: Partial<ExampleResponseDraft>) => onChange({ ...value, ...p });
 
-  const headerRows = value.headers.filter((r) => r.key.trim()).map((r) => ({ key: r.key, value: r.value }));
+  const headerRows = useMemo(
+    () => value.headers.filter((r) => r.key.trim()).map((r) => ({ key: r.key, value: r.value })),
+    [value.headers],
+  );
   const capturedAtDate = new Date(capturedAt);
+
+  // Binary-like bodies (captured base64, or a PDF media type — same
+  // law as the live panel) are not hand-editable text: the Body tab
+  // renders the live viewer (Raw / Hex / Base64 + Preview) read-only
+  // over the captured bytes instead of Monaco. The snapshot identity
+  // must hold across unrelated re-renders — ResponseBodyView resets
+  // its view mode when the response object changes.
+  const binaryView = value.bodyEncoding === 'base64' || isPdfResponse(headerRows);
+  const binarySnapshot = useMemo<ExecutedRequestSnapshot | null>(() => {
+    if (!binaryView) return null;
+    return {
+      status: value.status,
+      statusText: value.statusText,
+      url: value.url,
+      headers: headerRows,
+      body: value.body,
+      ...(value.bodyEncoding === undefined ? {} : { bodyEncoding: value.bodyEncoding }),
+      bodyTruncated: meta.bodyTruncated,
+      ...(meta.bodyCapBytes === undefined ? {} : { bodyCapBytes: meta.bodyCapBytes }),
+      bodyBytes: meta.bodyBytes,
+      durationMs: meta.durationMs,
+      error: null,
+    };
+  }, [
+    binaryView,
+    value.status,
+    value.statusText,
+    value.url,
+    value.body,
+    value.bodyEncoding,
+    headerRows,
+    meta.bodyTruncated,
+    meta.bodyCapBytes,
+    meta.bodyBytes,
+    meta.durationMs,
+  ]);
 
   // Body language: auto-detected from the (edited) Content-Type header,
   // user-overridable via the same picker the live response body offers.
@@ -207,7 +248,11 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
           {
             key: 'body',
             label: t('workbench.editors.responseExample.tab.body'),
-            children: (
+            children: binarySnapshot ? (
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <ResponseBodyView response={binarySnapshot} />
+              </div>
+            ) : (
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
                   <ConfigProvider theme={{ token: { fontSize: 12 }, components: { Dropdown: { paddingBlock: 3 } } }}>

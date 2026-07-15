@@ -13,11 +13,17 @@
  *     fingerprint carrying uids would read as a permanent phantom edit.
  */
 
-import type { CapturedRequest, CapturedResponse, ResponseExample } from '@openheaders/core/types';
+import type {
+  CapturedRequest,
+  CapturedResponse,
+  ExecutedRequestSnapshot,
+  ResponseExample,
+} from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { statusCodePhrase } from '@openheaders/ui/shared/info-popover/data/http-status';
 import { type Draft, draftFromRequest, rowsToHeaders, rowsToParams } from '../request-editor/draft';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
+import { detectBodyLanguage, prettyBody } from '../request-editor/response/response-format';
 
 export interface ExampleResponseDraft {
   status: number;
@@ -25,6 +31,10 @@ export interface ExampleResponseDraft {
   url: string;
   headers: KeyValueRow[];
   body: string;
+  /** Rides the captured fact through the draft: present when `body`
+   *  holds base64-encoded wire bytes. Not editable — the binary body
+   *  pane is read-only, so populate is the only writer. */
+  bodyEncoding?: 'base64';
 }
 
 export interface ExampleDraft {
@@ -55,6 +65,7 @@ export function exampleToDraft(example: ResponseExample): ExampleDraft {
       url: example.response.url,
       headers: example.response.headers.map((h) => makeKvRow({ key: h.key, value: h.value })),
       body: example.response.body,
+      ...(example.response.bodyEncoding === undefined ? {} : { bodyEncoding: example.response.bodyEncoding }),
     },
   };
 }
@@ -71,9 +82,12 @@ export function capturedRequestFromDraft(draft: Draft): CapturedRequest {
 
 /**
  * Persisted response from the edited rows. Body meta derives here: an
- * edited body is exactly what's stored, so its byte size recomputes and
- * any capture-time truncation stamp clears; an untouched body keeps the
- * captured meta. `durationMs` always stays the captured fact.
+ * edited body is exactly what's stored, so its byte size recomputes,
+ * any capture-time truncation stamp clears, and the binary marker
+ * drops (edited text IS the body — though the binary pane is
+ * read-only, so in practice a marked body never changes); an untouched
+ * body keeps the captured meta. `durationMs` always stays the captured
+ * fact.
  */
 export function capturedResponseFromDraft(
   response: ExampleResponseDraft,
@@ -86,10 +100,34 @@ export function capturedResponseFromDraft(
     url: response.url,
     headers: response.headers.filter((r) => r.key.trim()).map((r) => ({ key: r.key, value: r.value })),
     body: response.body,
+    ...(bodyChanged || canonical.bodyEncoding === undefined ? {} : { bodyEncoding: canonical.bodyEncoding }),
     bodyTruncated: bodyChanged ? false : canonical.bodyTruncated,
     ...(bodyChanged || canonical.bodyCapBytes === undefined ? {} : { bodyCapBytes: canonical.bodyCapBytes }),
     bodyBytes: bodyChanged ? new TextEncoder().encode(response.body).length : canonical.bodyBytes,
     durationMs: canonical.durationMs,
+  };
+}
+
+/**
+ * Capture side of "Save Response" — the persisted response block from
+ * an executed snapshot. Text bodies store display-ready (JSON pretty-
+ * printed — sync + lossless modulo whitespace; `bodyBytes` keeps the
+ * true wire size); a binary body (`bodyEncoding: 'base64'`) stores its
+ * base64 text verbatim and carries the marker, byte-for-byte lossless.
+ */
+export function capturedResponseFromSnapshot(response: ExecutedRequestSnapshot): CapturedResponse {
+  const binary = response.bodyEncoding === 'base64';
+  return {
+    status: response.status,
+    statusText: response.statusText,
+    url: response.url,
+    headers: response.headers,
+    body: binary ? response.body : prettyBody(response.body, detectBodyLanguage(response.headers)),
+    ...(binary ? { bodyEncoding: 'base64' as const } : {}),
+    bodyTruncated: response.bodyTruncated,
+    ...(response.bodyCapBytes === undefined ? {} : { bodyCapBytes: response.bodyCapBytes }),
+    bodyBytes: response.bodyBytes,
+    durationMs: response.durationMs,
   };
 }
 

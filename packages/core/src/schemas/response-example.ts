@@ -37,8 +37,12 @@ export const CapturedResponseSchema = v.object({
   /** Final URL after redirects. */
   url: v.string(),
   headers: v.array(v.object({ key: v.string(), value: v.string() })),
-  /** Response body as text. */
+  /** Response body as text. UTF-8 verbatim by default; base64-encoded
+   *  wire bytes when `bodyEncoding` marks the capture binary. */
   body: v.string(),
+  /** Present (`'base64'`) when `body` carries base64-encoded wire bytes
+   *  because the captured payload is not valid UTF-8 text. Absent = text. */
+  bodyEncoding: v.optional(v.literal('base64')),
   /** True when the body exceeded the executor's wire cap at capture. */
   bodyTruncated: v.boolean(),
   /** The cap applied when truncated — present only with `bodyTruncated`. */

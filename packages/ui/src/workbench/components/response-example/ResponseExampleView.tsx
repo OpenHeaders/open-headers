@@ -228,7 +228,12 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
               <ExampleResponsePanel
                 value={draft.response}
                 onChange={(response) => setDraft({ ...draft, response })}
-                meta={{ bodyBytes: example.response.bodyBytes, durationMs: example.response.durationMs }}
+                meta={{
+                  bodyBytes: example.response.bodyBytes,
+                  durationMs: example.response.durationMs,
+                  bodyTruncated: example.response.bodyTruncated,
+                  bodyCapBytes: example.response.bodyCapBytes,
+                }}
                 capturedAt={example.capturedAt}
                 layout={layout}
                 onLayoutChange={setLayout}

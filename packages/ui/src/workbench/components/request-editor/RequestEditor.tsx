@@ -70,7 +70,7 @@ import RequestTabContent from './RequestTabContent';
 import ScriptModeTag from './ScriptModeTag';
 import RequestUrlBar from './RequestUrlBar';
 import { takeHandoffResponse } from './response-handoff';
-import { detectBodyLanguage, prettyBody } from './response/response-format';
+import { capturedResponseFromSnapshot } from '../response-example/example-draft';
 import ResponsePanel from './response/ResponsePanel';
 import { useRequestEditorLayout } from './useRequestEditorLayout';
 import { useSectionUnresolved } from './useSectionUnresolved';
@@ -464,21 +464,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             params: rowsToParams(draft.params),
             body: draft.body,
           },
-          response: {
-            status: response.status,
-            statusText: response.statusText,
-            url: response.url,
-            headers: response.headers,
-            // Examples are documentation — JSON bodies store pretty-
-            // printed (sync + lossless modulo whitespace); `bodyBytes`
-            // keeps the true wire size. Other languages store the wire
-            // text; the example editor's Format action covers them.
-            body: prettyBody(response.body, detectBodyLanguage(response.headers)),
-            bodyTruncated: response.bodyTruncated,
-            bodyCapBytes: response.bodyCapBytes,
-            bodyBytes: response.bodyBytes,
-            durationMs: response.durationMs,
-          },
+          response: capturedResponseFromSnapshot(response),
         },
       },
       { workspaceId: editingScopeWorkspaceId, surfaceId: 'workbench' },

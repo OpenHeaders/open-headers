@@ -9,13 +9,19 @@
  *     example label, degrading gracefully when the request is missing
  */
 
-import type { CapturedResponse, CollectionTree, ResponseExample } from '@openheaders/core/types';
+import type {
+  CapturedResponse,
+  CollectionTree,
+  ExecutedRequestSnapshot,
+  ResponseExample,
+} from '@openheaders/core/types';
 import { buildEmptyRequest } from '@openheaders/core/utils';
 import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import { computeBreadcrumbs } from '@openheaders/ui/workbench/breadcrumbs';
 import {
   capturedRequestFromDraft,
   capturedResponseFromDraft,
+  capturedResponseFromSnapshot,
   exampleDraftFingerprint,
   exampleSignature,
   exampleToDraft,
@@ -148,6 +154,33 @@ describe('example-draft projections', () => {
     expect(saved.durationMs).toBe(truncated.durationMs);
   });
 
+  it('carries the binary marker through draft and save while the body is untouched', () => {
+    const binary: CapturedResponse = {
+      ...example.response,
+      headers: [{ key: 'content-type', value: 'application/pdf' }],
+      body: 'JVBERi0xLjQK/w==',
+      bodyEncoding: 'base64',
+      bodyBytes: 10,
+    };
+    const draft = exampleToDraft({ ...example, response: binary });
+    expect(draft.response.bodyEncoding).toBe('base64');
+    expect(capturedResponseFromDraft(draft.response, binary)).toEqual(binary);
+  });
+
+  it('drops the binary marker when the body was edited', () => {
+    const binary: CapturedResponse = {
+      ...example.response,
+      body: 'JVBERi0xLjQK/w==',
+      bodyEncoding: 'base64',
+      bodyBytes: 10,
+    };
+    const draft = exampleToDraft({ ...example, response: binary });
+    const saved = capturedResponseFromDraft({ ...draft.response, body: 'plain text now' }, binary);
+    expect(saved.bodyEncoding).toBeUndefined();
+    expect(saved.body).toBe('plain text now');
+    expect(saved.bodyBytes).toBe(14);
+  });
+
   it('preserves captured body meta when the body is untouched', () => {
     const truncated: CapturedResponse = {
       ...example.response,
@@ -160,6 +193,53 @@ describe('example-draft projections', () => {
     expect(saved.bodyTruncated).toBe(true);
     expect(saved.bodyCapBytes).toBe(1024);
     expect(saved.bodyBytes).toBe(4096);
+  });
+});
+
+describe('capturedResponseFromSnapshot', () => {
+  const snapshot: ExecutedRequestSnapshot = {
+    status: 200,
+    statusText: 'OK',
+    url: 'https://api.openheaders.io/users',
+    headers: [{ key: 'content-type', value: 'application/json' }],
+    body: '{"ok":true}',
+    bodyTruncated: false,
+    bodyBytes: 11,
+    durationMs: 42,
+    error: null,
+  };
+
+  it('pretty-prints a JSON text body and keeps the wire meta', () => {
+    const captured = capturedResponseFromSnapshot(snapshot);
+    expect(captured.body).toBe('{\n  "ok": true\n}');
+    expect(captured.bodyEncoding).toBeUndefined();
+    expect(captured.bodyBytes).toBe(11);
+    expect(captured).not.toHaveProperty('bodyCapBytes');
+  });
+
+  it('stores a binary body verbatim with its marker', () => {
+    const captured = capturedResponseFromSnapshot({
+      ...snapshot,
+      headers: [{ key: 'content-type', value: 'application/pdf' }],
+      body: 'JVBERi0xLjQK/w==',
+      bodyEncoding: 'base64',
+      bodyBytes: 10,
+    });
+    expect(captured.body).toBe('JVBERi0xLjQK/w==');
+    expect(captured.bodyEncoding).toBe('base64');
+    expect(captured.bodyBytes).toBe(10);
+  });
+
+  it('keeps the truncation stamp and cap', () => {
+    const captured = capturedResponseFromSnapshot({
+      ...snapshot,
+      bodyTruncated: true,
+      bodyCapBytes: 1024,
+      bodyBytes: 4096,
+    });
+    expect(captured.bodyTruncated).toBe(true);
+    expect(captured.bodyCapBytes).toBe(1024);
+    expect(captured.bodyBytes).toBe(4096);
   });
 });
 
