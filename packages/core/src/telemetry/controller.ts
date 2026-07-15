@@ -1,29 +1,50 @@
 /**
- * Product-telemetry controller — owns the host's single `TelemetryClient`
+ * Product-telemetry controller — owns a host's single `TelemetryClient`
  * (TELEMETRY_PLAN.md §7) behind injected seams so the whole gate matrix
- * (disclosure latch, enabled toggle, once-per-browser-session
- * `session_start`) is unit-testable without chrome APIs.
+ * (disclosure latch, enabled toggle, once-per-session `session_start`)
+ * is unit-testable without any platform API. Exactly one instance lives
+ * per host process (extension SW / desktop main); UI surfaces never
+ * construct one — they reach it over the `productTelemetry*` RPCs.
  *
- * "Product telemetry" everywhere: plain "telemetry" in this extension
+ * "Product telemetry" everywhere: plain "telemetry" in this codebase
  * already means the per-tab traffic telemetry the inspector shows.
  *
- * Session semantics: the service worker is evicted many times per
- * browser session, so the session id and the session_start-sent latch
- * live in the injected session store (`chrome.storage.session` — RAM
- * only, never on disk, cleared at browser exit). A session therefore
- * means one browser launch, not one SW wake.
+ * Session semantics are the host's to define through the injected
+ * session store. The extension service worker is evicted many times per
+ * browser session, so it persists the id and the session_start-sent
+ * latch in `chrome.storage.session` (RAM only, cleared at browser
+ * exit) — a session means one browser launch, not one SW wake. A
+ * persistent process (desktop main) is its own session and uses the
+ * in-memory store.
  */
 
-import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
-import type { TelemetryEvent, TelemetryTransport } from '@openheaders/core/telemetry';
-import { TelemetryClient } from '@openheaders/core/telemetry';
+import type { ProductTelemetrySnapshot } from '../protocol/channels/product-telemetry';
+import type { TelemetryTransport } from './client';
+import { TelemetryClient } from './client';
+import type { TelemetryEvent } from './vocabulary';
 
-/** RAM-backed per-browser-session state (`chrome.storage.session` in production). */
+/** Per-session state; RAM-backed on every host, never written to disk. */
 export interface ProductTelemetrySessionStore {
   getSessionId(): Promise<string | null>;
   setSessionId(id: string): Promise<void>;
   wasSessionStartSent(): Promise<boolean>;
   markSessionStartSent(): Promise<void>;
+}
+
+/** Session store for hosts whose process lifetime IS the session (desktop main). */
+export function createInMemoryProductTelemetrySessionStore(): ProductTelemetrySessionStore {
+  let sessionId: string | null = null;
+  let sessionStartSent = false;
+  return {
+    getSessionId: async () => sessionId,
+    setSessionId: async (id) => {
+      sessionId = id;
+    },
+    wasSessionStartSent: async () => sessionStartSent,
+    markSessionStartSent: async () => {
+      sessionStartSent = true;
+    },
+  };
 }
 
 export interface ProductTelemetryControllerDeps {
@@ -85,7 +106,7 @@ export class ProductTelemetryController {
     await applyDisclosure();
   }
 
-  /** Fire `session_start` once per browser session, only after disclosure. */
+  /** Fire `session_start` once per session, only after disclosure. */
   private async ensureSessionStart(): Promise<void> {
     if (!this.client?.isDisclosed) return;
     if (await this.deps.sessionStore.wasSessionStartSent()) return;

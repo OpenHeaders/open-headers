@@ -1,12 +1,14 @@
 /**
  * `@openheaders/core/telemetry` — anonymous product-analytics vocabulary
- * (typed allowlist) + fire-and-forget client (`TELEMETRY_PLAN.md`). Zero
- * platform deps; hosts inject the transport and drive flush cadence, UI
- * surfaces only call `track()`.
+ * (typed allowlist), fire-and-forget client, and the host controller
+ * that gates it (`TELEMETRY_PLAN.md`). Zero platform deps; hosts inject
+ * transport/session/gate seams and drive flush cadence, UI surfaces only
+ * call `track()` over the bridge.
  */
 
 export {
   mintTelemetrySessionId,
+  PRODUCT_TELEMETRY_ENDPOINT,
   TELEMETRY_MAX_LOG,
   TELEMETRY_MAX_QUEUE,
   TelemetryClient,
@@ -16,6 +18,13 @@ export {
   type TelemetryTransport,
 } from './client';
 export {
+  createInMemoryProductTelemetrySessionStore,
+  ProductTelemetryController,
+  type ProductTelemetryControllerDeps,
+  type ProductTelemetrySessionStore,
+} from './controller';
+export {
+  parseTelemetryAppVersion,
   TELEMETRY_SCHEMA_VERSION,
   type TelemetryAppVersion,
   TelemetryAppVersionSchema,

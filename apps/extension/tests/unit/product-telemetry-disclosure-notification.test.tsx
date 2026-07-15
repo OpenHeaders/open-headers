@@ -4,8 +4,9 @@
  * modal was rejected).
  *
  * Pins the disclosure contracts:
- *   - the card pushes sticky + dedupe-keyed on the extension host only,
- *     and pushing alone never sets the disclosure flag;
+ *   - the card pushes sticky + dedupe-keyed on the counting hosts only
+ *     (extension and desktop, never a daemon-served web workbench), and
+ *     pushing alone never sets the disclosure flag;
  *   - the card being seen (panel closed while it was up) sets
  *     `oh.productTelemetry.disclosed` — disclosure means the copy was
  *     on screen;
@@ -73,12 +74,18 @@ describe('useProductTelemetryDisclosureNotification', () => {
     expect(store[OH.productTelemetryDisclosed.key]).toBeUndefined();
   });
 
-  it('pushes nothing on non-extension hosts', async () => {
-    setCurrentHost('desktop');
+  it('pushes nothing on a daemon-served web workbench', async () => {
+    setCurrentHost('web');
     const { result } = renderHook(() => useHarness(() => {}));
     await act(async () => {});
     expect(result.current).toHaveLength(0);
     expect(store[OH.productTelemetryDisclosed.key]).toBeUndefined();
+  });
+
+  it('pushes the card on the desktop workbench too', async () => {
+    setCurrentHost('desktop');
+    const { result } = await renderDisclosure();
+    expect(result.current.some((e) => e.dedupeKey === PRODUCT_TELEMETRY_DISCLOSURE_KEY)).toBe(true);
   });
 
   it('sets the disclosure flag once the card is seen, keeping the card up', async () => {

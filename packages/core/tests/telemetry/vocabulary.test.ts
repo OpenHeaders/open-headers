@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { DetectedImportSource } from '../../src/import/detect';
 import { RuleTypeSchema } from '../../src/schemas/rule';
 import {
+  parseTelemetryAppVersion,
   TELEMETRY_SCHEMA_VERSION,
   type TelemetryEnvelope,
   TelemetryEnvelopeSchema,
@@ -145,5 +146,16 @@ describe('telemetry vocabulary — sync pins', () => {
       'workspace',
       'unknown',
     ]);
+  });
+});
+
+describe('parseTelemetryAppVersion', () => {
+  it('decomposes CalVer into the numeric triple', () => {
+    expect(parseTelemetryAppVersion('2026.7.3')).toEqual({ year: 2026, month: 7, patch: 3 });
+  });
+
+  it('zeroes malformed or missing segments instead of failing', () => {
+    expect(parseTelemetryAppVersion('2026.7')).toEqual({ year: 2026, month: 7, patch: 0 });
+    expect(parseTelemetryAppVersion('dev')).toEqual({ year: 0, month: 0, patch: 0 });
   });
 });

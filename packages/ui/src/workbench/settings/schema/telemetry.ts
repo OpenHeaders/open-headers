@@ -6,14 +6,17 @@
  *
  * Extension and desktop only — a workbench served by a daemon never
  * counts anything and shows no toggle (hard-off surfaces have no UI).
- * Desktop shows the rows once its host adapter lands; until then the
- * same host gate keeps them extension-only.
  */
 
 import { lazy } from 'react';
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { registerSetting } from '../registry';
+
+const isCountingHost = (): boolean => {
+  const host = getCurrentHost();
+  return host === 'extension' || host === 'desktop';
+};
 
 const ProductTelemetryEventsRow = lazy(() => import('../components/product-telemetry-events-row'));
 
@@ -35,7 +38,7 @@ registerSetting({
   category: 'general',
   tags: ['telemetry', 'privacy', 'analytics', 'usage', 'anonymous'],
   scope: 'user',
-  when: () => getCurrentHost() === 'extension',
+  when: isCountingHost,
 });
 
 registerSetting({
@@ -49,6 +52,6 @@ registerSetting({
   category: 'general',
   tags: ['telemetry', 'privacy', 'inspector', 'events', 'transparency'],
   scope: 'user',
-  when: () => getCurrentHost() === 'extension',
+  when: isCountingHost,
   customEditor: ProductTelemetryEventsRow,
 });

@@ -105,6 +105,19 @@ export const TelemetryAppVersionSchema = v.strictObject({
 });
 
 /**
+ * Decompose a CalVer version string into the numeric triple the wire
+ * carries. Malformed segments become 0 rather than failing — the version
+ * is context, never worth blocking an event over.
+ */
+export function parseTelemetryAppVersion(version: string): TelemetryAppVersion {
+  const [year = 0, month = 0, patch = 0] = version.split('.').map((part) => {
+    const n = Number.parseInt(part, 10);
+    return Number.isInteger(n) ? n : 0;
+  });
+  return { year, month, patch };
+}
+
+/**
  * The closed event union. Objects are strict: an event carrying any
  * property outside the allowlist fails validation and is dropped.
  */

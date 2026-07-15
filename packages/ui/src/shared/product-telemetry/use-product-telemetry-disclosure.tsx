@@ -16,8 +16,8 @@
  * The card body is the user-signed §8 copy, shipped verbatim, with the
  * lead-in sentence as the card title.
  *
- * Extension-only until the desktop host adapter lands; a workbench
- * served by a daemon never counts anything and never discloses.
+ * Extension and desktop only; a workbench served by a daemon never
+ * counts anything and never discloses.
  */
 
 import { hostStorage, OH } from '@openheaders/core/storage';
@@ -65,7 +65,8 @@ export function useProductTelemetryDisclosureNotification(openTelemetrySetting: 
   const [watchSeen, setWatchSeen] = useState(false);
 
   useEffect(() => {
-    if (getCurrentHost() !== 'extension') return;
+    const host = getCurrentHost();
+    if (host !== 'extension' && host !== 'desktop') return;
     if (isReviewed()) return;
     let cancelled = false;
     void hostStorage.get(OH.productTelemetryDisclosed).then((disclosed) => {

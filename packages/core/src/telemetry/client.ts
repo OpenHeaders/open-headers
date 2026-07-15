@@ -17,6 +17,9 @@
 import type { TelemetryEnvelope, TelemetryEvent } from './vocabulary';
 import { TELEMETRY_SCHEMA_VERSION } from './vocabulary';
 
+/** The one published ingestion endpoint (`docs/WIRE_TRANSPARENCY.md` §4); hosts' transports POST envelopes here. */
+export const PRODUCT_TELEMETRY_ENDPOINT = 'https://telemetry.openheaders.io/v1/events';
+
 export interface TelemetryTransport {
   /**
    * Deliver one envelope. Resolve `false` or throw to signal failure —

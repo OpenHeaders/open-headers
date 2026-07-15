@@ -1,10 +1,12 @@
-import type { TelemetryEnvelope, TelemetryEvent } from '@openheaders/core/telemetry';
 import { describe, expect, it } from 'vitest';
 import {
+  createInMemoryProductTelemetrySessionStore,
   ProductTelemetryController,
   type ProductTelemetryControllerDeps,
   type ProductTelemetrySessionStore,
-} from '../../src/background/modules/product-telemetry/controller';
+  type TelemetryEnvelope,
+  type TelemetryEvent,
+} from '../../src/telemetry';
 
 const SESSION_START: TelemetryEvent = {
   name: 'session_start',
@@ -163,5 +165,17 @@ describe('ProductTelemetryController — gates', () => {
     expect(snapshot.disclosed).toBe(false);
     expect(snapshot.entries[0].disposition).toBe('suppressed');
     expect(snapshot.sessionId).toMatch(/^[0-9a-f]{32}$/);
+  });
+});
+
+describe('createInMemoryProductTelemetrySessionStore', () => {
+  it('holds the id and the session_start latch for the process lifetime', async () => {
+    const store = createInMemoryProductTelemetrySessionStore();
+    expect(await store.getSessionId()).toBeNull();
+    expect(await store.wasSessionStartSent()).toBe(false);
+    await store.setSessionId('deadbeefdeadbeefdeadbeefdeadbeef');
+    await store.markSessionStartSent();
+    expect(await store.getSessionId()).toBe('deadbeefdeadbeefdeadbeefdeadbeef');
+    expect(await store.wasSessionStartSent()).toBe(true);
   });
 });

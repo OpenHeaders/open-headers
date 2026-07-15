@@ -45,6 +45,7 @@ import * as path from 'node:path';
 import type { ImportReport } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
+import type { TelemetryEvent } from '@openheaders/core/telemetry';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import {
   clearImportReports,
@@ -75,6 +76,7 @@ import { createElectronUpdaterPort, updaterSupported } from './electron-updater-
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
+import { installProductTelemetry } from './product-telemetry';
 import { installScriptSandbox } from './script-sandbox';
 import { createUpdateService, readUpdatePreferences } from './update-service';
 import { fetchDesktopSeverity } from './versions-manifest';
@@ -202,6 +204,18 @@ export async function installRpcHost(): Promise<void> {
     },
   });
   updateService.start();
+
+  // Anonymous usage counting (TELEMETRY_PLAN.md §7): the desktop host's
+  // product-telemetry adapter. A host-shell concern the spine never
+  // learns — the daemon distribution stays hard-off by construction.
+  // Gates ride the same storage the renderer writes: `telemetry.enabled`
+  // in the settings blob and the disclosure flag the workbench's
+  // Notifications-panel card sets.
+  const productTelemetry = await installProductTelemetry({
+    storage: hostStorage,
+    appVersion: app.getVersion(),
+    platform: process.platform,
+  });
 
   // Hand the native menu items their three consent actions. `dispatchRpc`
   // answers every `oh.updates.*` type with the post-action state; the
@@ -344,6 +358,16 @@ export async function installRpcHost(): Promise<void> {
       const dir = typeof message.dir === 'string' ? message.dir : '';
       return readInsomniaData(dir);
     }
+    // Product-telemetry seam (TELEMETRY_PLAN.md §6/§7): UI surfaces
+    // track through the bridge and the inspector row reads the session
+    // log; the client itself never leaves this process.
+    if (type === 'productTelemetryTrack') {
+      productTelemetry.track(message.event as TelemetryEvent);
+      return { success: true };
+    }
+    if (type === 'productTelemetryRead') {
+      return productTelemetry.snapshot();
+    }
     // Import-report ring (ARCHITECTURE §23) — the shared workbench UI
     // (report modal, re-import diff, settings Data page) drives these
     // through the host bridge; the extension SW answers the same
@@ -392,6 +416,7 @@ export async function installRpcHost(): Promise<void> {
   app.on('before-quit', () => {
     rpcDispatcher = null;
     updateService.dispose();
+    productTelemetry.dispose();
     scriptSandbox.dispose();
     void spine.dispose();
   });

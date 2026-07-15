@@ -10,14 +10,18 @@
 
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import { hostStorage, OH } from '@openheaders/core/storage';
-import type { TelemetryEnvelope, TelemetryEvent } from '@openheaders/core/telemetry';
+import {
+  PRODUCT_TELEMETRY_ENDPOINT,
+  ProductTelemetryController,
+  type ProductTelemetrySessionStore,
+  parseTelemetryAppVersion,
+  type TelemetryEnvelope,
+  type TelemetryEvent,
+} from '@openheaders/core/telemetry';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { alarms, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
-import { ProductTelemetryController, type ProductTelemetrySessionStore } from './controller';
 
 declare const browser: typeof chrome | undefined;
-
-export const PRODUCT_TELEMETRY_ENDPOINT = 'https://telemetry.openheaders.io/v1/events';
 
 const FLUSH_ALARM = 'productTelemetryFlush';
 const FLUSH_PERIOD_MINUTES = 1;
@@ -78,14 +82,6 @@ function detectBrowserKind(): 'chrome' | 'firefox' | 'edge' | 'safari' | 'other'
   return 'other';
 }
 
-function parseCalVer(version: string): { year: number; month: number; patch: number } {
-  const [year = 0, month = 0, patch = 0] = version.split('.').map((part) => {
-    const n = Number.parseInt(part, 10);
-    return Number.isInteger(n) ? n : 0;
-  });
-  return { year, month, patch };
-}
-
 async function buildSessionStart(): Promise<TelemetryEvent | null> {
   const api = typeof browser !== 'undefined' ? browser : chrome;
   const info = await api.runtime.getPlatformInfo();
@@ -95,7 +91,7 @@ async function buildSessionStart(): Promise<TelemetryEvent | null> {
   return {
     name: 'session_start',
     host: 'extension',
-    appVersion: parseCalVer(runtime.getManifest().version),
+    appVersion: parseTelemetryAppVersion(runtime.getManifest().version),
     platform: info.os,
     browser: detectBrowserKind(),
     locale: 'en',
