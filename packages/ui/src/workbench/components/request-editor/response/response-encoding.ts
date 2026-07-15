@@ -7,6 +7,7 @@
 
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import type { MagicMatch } from './magic-signatures';
+import { contentTypeCharset } from './response-format';
 
 /** Bytes the Hex view renders before cutting off — a full dump of the
  *  2 MB body cap would be a ~10 MB DOM string. */
@@ -65,10 +66,25 @@ export function snapshotBodyBytes(
 
 /** The body as display text for the Raw view — verbatim for text
  *  bodies; a binary body decodes lossily (U+FFFD where bytes aren't
- *  UTF-8), which is exactly what "the wire as text" looks like. The
- *  byte-faithful views are Hex/Base64. */
-export function decodeBodyTextLossy(response: Pick<ExecutedRequestSnapshot, 'body' | 'bodyEncoding'>): string {
-  return response.bodyEncoding === 'base64' ? new TextDecoder().decode(fromBase64(response.body)) : response.body;
+ *  UTF-8), which is exactly what "the wire as text" looks like. When
+ *  the Content-Type declares a charset, that decoder runs instead —
+ *  a latin-1 or shift-jis payload reads as its text rather than
+ *  replacement noise. Display-only: the capture stays byte-faithful
+ *  and the byte-faithful views stay Hex/Base64. */
+export function decodeBodyTextLossy(
+  response: Pick<ExecutedRequestSnapshot, 'body' | 'bodyEncoding' | 'headers'>,
+): string {
+  if (response.bodyEncoding !== 'base64') return response.body;
+  const bytes = fromBase64(response.body);
+  const charset = contentTypeCharset(response.headers);
+  if (charset && charset !== 'utf-8' && charset !== 'utf8') {
+    try {
+      return new TextDecoder(charset).decode(bytes);
+    } catch {
+      // Unknown decoder label — fall through to the utf-8 default.
+    }
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 /** Base64 wire width for the Base64 view — the classic MIME line. */

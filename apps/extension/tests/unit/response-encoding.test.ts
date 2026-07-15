@@ -55,12 +55,26 @@ describe('snapshotBodyBytes', () => {
 
 describe('decodeBodyTextLossy', () => {
   it('returns text bodies verbatim', () => {
-    expect(decodeBodyTextLossy({ body: '{"ok":true}' })).toBe('{"ok":true}');
+    expect(decodeBodyTextLossy({ body: '{"ok":true}', headers: [] })).toBe('{"ok":true}');
   });
 
   it('decodes binary bodies for display, minting U+FFFD for invalid bytes', () => {
     const wire = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xe2]);
-    expect(decodeBodyTextLossy({ body: toBase64(wire), bodyEncoding: 'base64' })).toBe('%PDF�');
+    expect(decodeBodyTextLossy({ body: toBase64(wire), bodyEncoding: 'base64', headers: [] })).toBe('%PDF�');
+  });
+
+  it('decodes with the declared charset when the Content-Type names one', () => {
+    // "café" in latin-1 — 0xE9 is invalid UTF-8, so the default decode
+    // would mint U+FFFD; the declared charset reads it as é.
+    const latin1 = new Uint8Array([0x63, 0x61, 0x66, 0xe9]);
+    const headers = [{ key: 'Content-Type', value: 'text/plain; charset=ISO-8859-1' }];
+    expect(decodeBodyTextLossy({ body: toBase64(latin1), bodyEncoding: 'base64', headers })).toBe('café');
+  });
+
+  it('falls back to utf-8 on an unknown charset label', () => {
+    const wire = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xe2]);
+    const headers = [{ key: 'Content-Type', value: 'text/plain; charset=not-a-charset' }];
+    expect(decodeBodyTextLossy({ body: toBase64(wire), bodyEncoding: 'base64', headers })).toBe('%PDF�');
   });
 });
 
