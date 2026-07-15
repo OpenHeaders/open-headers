@@ -292,4 +292,343 @@ export const workbenchDocs = {
     'messages.',
   'workbench.docs.body.resourceTypes.descPing': 'Beacon and ping requests typically used for analytics/tracking.',
   'workbench.docs.body.resourceTypes.descOther': "Anything that doesn't fit the above categories.",
+
+  // ── Concepts: System Status ─────────────────────────────────────────
+  'workbench.docs.body.systemStatus.term': 'System status',
+  'workbench.docs.body.systemStatus.intro1':
+    "is a live snapshot of the extension's health. The workbench footer shows it as a six-pill row — one " +
+    'pill per subsystem, each with its own colored dot. The popup and side-panel collapse it down to a single',
+  'workbench.docs.body.systemStatus.intro1Suffix':
+    "entry in their bottom footer, with the dot's color tracking the worst-state subsystem.",
+  'workbench.docs.body.systemStatus.workbenchCaption':
+    'In the workbench, the row sits in the footer with one pill per subsystem.',
+  'workbench.docs.body.systemStatus.popupCaption':
+    "Click the toolbar icon, and the same status surfaces as a single labeled pill in the popup's footer.",
+  'workbench.docs.body.systemStatus.worstLevel1':
+    'Each subsystem reports a single state and the worst level wins: red > yellow > green. One red anywhere ' +
+    'flips the composite dot red.',
+  'workbench.docs.body.systemStatus.worstLevelCaption':
+    'Six subsystem states fold into one composite via max — red beats yellow beats green.',
+  'workbench.docs.body.systemStatus.popover1':
+    'Clicking any pill opens the same details popover. Rows come in two groups: grey first (no events yet ' +
+    'this service-worker lifetime) and colored after (have reported at least once). Within each group the ' +
+    'canonical subsystem order is preserved. Full history lives in the Observability log — export from',
+  'workbench.docs.body.systemStatus.settingsExportPath': 'Settings → Data → Export Diagnostic Log',
+  'workbench.docs.body.systemStatus.popover1Suffix': '.',
+  'workbench.docs.body.systemStatus.popoverCaption':
+    'Greys above the divider, coloreds below; on first report a row migrates once.',
+  'workbench.docs.body.systemStatus.stateGreenLabel': 'green',
+  'workbench.docs.body.systemStatus.stateYellowLabel': 'yellow',
+  'workbench.docs.body.systemStatus.stateRedLabel': 'red',
+  'workbench.docs.body.systemStatus.syncName': 'Sync',
+  'workbench.docs.body.systemStatus.syncSubtitle': 'Desktop-app connection',
+  'workbench.docs.body.systemStatus.sync1Prefix':
+    "Mirrors the WebSocket connection between the extension's service worker and the OpenHeaders desktop " +
+    'app running on your machine. The link is loopback-only (',
+  'workbench.docs.body.systemStatus.sync1Suffix':
+    ') and carries dynamic variables, team workspace data, and presence — nothing leaves your device.',
+  'workbench.docs.body.systemStatus.syncTopologyCaption':
+    'Single WebSocket between the extension and the desktop app on localhost.',
+  'workbench.docs.body.systemStatus.sync2':
+    'The pill reflects the live connection state. A drop triggers exponential-backoff reconnects; periodic ' +
+    'pings detect silent disconnects behind strict corporate proxies.',
+  'workbench.docs.body.systemStatus.syncLifecycleCaption':
+    'Disabled and Connected are green; Connecting, Reconnecting, and URL rejected are yellow.',
+  'workbench.docs.body.systemStatus.syncGreenConnected': 'Connected to desktop',
+  'workbench.docs.body.systemStatus.syncGreenMiddle': '(handshake succeeded) or',
+  'workbench.docs.body.systemStatus.syncGreenDisabled': 'Desktop sync disabled',
+  'workbench.docs.body.systemStatus.syncGreenSuffix': '(auto-connect off).',
+  'workbench.docs.body.systemStatus.syncYellowConnecting': 'Connecting…',
+  'workbench.docs.body.systemStatus.syncYellowReconnecting': 'Reconnecting (attempt N)',
+  'workbench.docs.body.systemStatus.syncYellowOr': ', or',
+  'workbench.docs.body.systemStatus.syncYellowRejected': 'Desktop URL rejected by settings',
+  'workbench.docs.body.systemStatus.syncYellowSuffix': '.',
+  'workbench.docs.body.systemStatus.syncRed':
+    'Reserved for fatal desktop-sync failures; no code path emits this today.',
+  'workbench.docs.body.systemStatus.rulesName': 'Rules',
+  'workbench.docs.body.systemStatus.rulesSubtitle': 'declarativeNetRequest engine',
+  'workbench.docs.body.systemStatus.rules1Prefix':
+    'Reports on every DNR rebuild. Every save runs your rule through four stages before it goes live: ' +
+    'compile to DNR JSON, resolve',
+  'workbench.docs.body.systemStatus.rules1Middle':
+    "references, enforce the active-rule cap, then apply through Chrome's",
+  'workbench.docs.body.systemStatus.rules1Suffix': 'API. Each stage can flip the pill.',
+  'workbench.docs.body.systemStatus.rulesPipelineCaption':
+    'Four stages — each can emit a Status level if it goes sideways.',
+  'workbench.docs.body.systemStatus.rules2':
+    'The active-rule count maps to a state on a three-zone capacity bar. Rules over the cap are dropped in ' +
+    'match-order (top wins), and the yellow message carries the dropped count.',
+  'workbench.docs.body.systemStatus.rulesCapacityCaption':
+    'Green up to the warn threshold, yellow up to the cap, red beyond — but truncation keeps you out of the ' +
+    'red zone at runtime.',
+  'workbench.docs.body.systemStatus.rulesGreenActive': 'N active DNR rule(s)',
+  'workbench.docs.body.systemStatus.rulesGreenOr': 'or',
+  'workbench.docs.body.systemStatus.rulesGreenPaused': 'Rule execution paused',
+  'workbench.docs.body.systemStatus.rulesGreenSuffix': '.',
+  'workbench.docs.body.systemStatus.rulesYellowPrefix': 'Unresolved',
+  'workbench.docs.body.systemStatus.rulesYellowRefs': 'references (',
+  'workbench.docs.body.systemStatus.rulesYellowMsgUnresolved': 'N unresolved variables in M rules',
+  'workbench.docs.body.systemStatus.rulesYellowMiddle': '), the rule cap was exceeded (',
+  'workbench.docs.body.systemStatus.rulesYellowMsgDropped': 'Dropped N rules over cap',
+  'workbench.docs.body.systemStatus.rulesYellowMiddle2': "), or you're approaching DNR capacity (",
+  'workbench.docs.body.systemStatus.rulesYellowMsgCapacity': 'Approaching DNR capacity (N ≥ threshold)',
+  'workbench.docs.body.systemStatus.rulesYellowSuffix': ').',
+  'workbench.docs.body.systemStatus.rulesRedPrefix':
+    'Transport failure — Chrome rejected the dynamic or session rule update (',
+  'workbench.docs.body.systemStatus.rulesRedMsg': 'Failed to apply [dynamic|session] DNR rules',
+  'workbench.docs.body.systemStatus.rulesRedSuffix': ').',
+  'workbench.docs.body.systemStatus.requestsName': 'Requests',
+  'workbench.docs.body.systemStatus.requestsSubtitle': 'API request executor',
+  'workbench.docs.body.systemStatus.requests1Prefix':
+    "Reflects the last ad-hoc API request fired from the Request editor's",
+  'workbench.docs.body.systemStatus.requestsSend': 'Send',
+  'workbench.docs.body.systemStatus.requests1Middle': 'button. The pill flips green for',
+  'workbench.docs.body.systemStatus.requestsAny': 'any',
+  'workbench.docs.body.systemStatus.requests1Suffix':
+    'HTTP response — including 4xx and 5xx — because "the request completed" is a separate question from ' +
+    '"the server liked it." Only network-level failures with no response turn it yellow.',
+  'workbench.docs.body.systemStatus.requestsOutcomesCaption':
+    'Any status code = green. Yellow is reserved for failures with no response back.',
+  'workbench.docs.body.systemStatus.requests2Prefix':
+    "Background traffic doesn't update this pill: Live workflow refreshes pass",
+  'workbench.docs.body.systemStatus.requests2Suffix':
+    ', and webpage requests flow through the Rules engine, not the executor.',
+  'workbench.docs.body.systemStatus.requestsScopeCaption':
+    'Only ad-hoc Send-button traffic shapes this pill — everything else stays quiet.',
+  'workbench.docs.body.systemStatus.requestsGreenLabel': 'Last request:',
+  'workbench.docs.body.systemStatus.requestsGreenMiddle': '— any HTTP response (e.g.',
+  'workbench.docs.body.systemStatus.requestsGreenSuffix': ').',
+  'workbench.docs.body.systemStatus.requestsYellowLabel': 'Last request failed:',
+  'workbench.docs.body.systemStatus.requestsYellowMiddle': '— network-level failure before a response (e.g.',
+  'workbench.docs.body.systemStatus.requestsYellowSuffix': ', offline/DNS).',
+  'workbench.docs.body.systemStatus.permissionsName': 'Permissions',
+  'workbench.docs.body.systemStatus.permissionsSubtitle': 'Host permissions audit',
+  'workbench.docs.body.systemStatus.permissions1Prefix':
+    "DNR rules and content scripts targeting a host that's been revoked from",
+  'workbench.docs.body.systemStatus.permissions1Middle':
+    "don't error — they silently no-op. This audit's whole job is to surface that hidden state, since " +
+    "otherwise you'd spend 30 minutes debugging a rule that",
+  'workbench.docs.body.systemStatus.permissionsLooks': 'looks',
+  'workbench.docs.body.systemStatus.permissions1Suffix': 'fine.',
+  'workbench.docs.body.systemStatus.permissionsImpactCaption':
+    'Granted: the rule fires. Narrowed: the rule silently no-ops and the header never arrives.',
+  'workbench.docs.body.systemStatus.permissions2Prefix': 'The audit polls',
+  'workbench.docs.body.systemStatus.permissions2Suffix':
+    'on every service-worker wake. MV3 has no permission-change observer in Chromium, so poll-on-wake is ' +
+    'the cheapest signal we can get.',
+  'workbench.docs.body.systemStatus.permissionsAuditCaption':
+    'One call, three branches — green for granted, red for narrowed, yellow if the API call itself fails.',
+  'workbench.docs.body.systemStatus.permissionsGreenLabel': 'All host permissions granted',
+  'workbench.docs.body.systemStatus.permissionsGreenSuffix': 'is still in scope.',
+  'workbench.docs.body.systemStatus.permissionsYellowLabel': 'Could not audit host permissions',
+  'workbench.docs.body.systemStatus.permissionsYellowMiddle': "— unusual; the browser didn't expose",
+  'workbench.docs.body.systemStatus.permissionsYellowSuffix': '.',
+  'workbench.docs.body.systemStatus.permissionsRedLabel': 'Host permissions narrowed',
+  'workbench.docs.body.systemStatus.permissionsRedMiddle':
+    '— some rules will silently no-op on revoked hosts until access is restored from',
+  'workbench.docs.body.systemStatus.permissionsRedSuffix': '.',
+  'workbench.docs.body.systemStatus.secretsName': 'Secrets',
+  'workbench.docs.body.systemStatus.secretsSubtitle': 'Vault integrity',
+  'workbench.docs.body.systemStatus.secrets1Prefix': 'Tracks the per-workspace encrypted vault blob in',
+  'workbench.docs.body.systemStatus.secrets1Suffix':
+    '. On every service-worker wake, each stored secret is validated against the current schema; entries ' +
+    "that fail validation are dropped from the in-memory vault and the pill flips yellow until they're " +
+    're-saved.',
+  'workbench.docs.body.systemStatus.vaultHydrationCaption':
+    'Hydrate loads the blob; the schema validator keeps matches, drops drifts, and reports yellow.',
+  'workbench.docs.body.systemStatus.secrets2':
+    '"Drift" usually means a stored entry was written by an older build (missing a field that\'s now ' +
+    "required, or a field with the wrong type). The validator's job is to fail loud — silently inheriting " +
+    'unknown shapes is what causes the bug six versions later.',
+  'workbench.docs.body.systemStatus.vaultDriftCaption':
+    'Same two fields side by side: a valid entry vs a drift entry with a missing cipher and a wrongly-typed ' +
+    'createdAt.',
+  'workbench.docs.body.systemStatus.secretsGreen': 'Default — no schema-drift events this service-worker lifetime.',
+  'workbench.docs.body.systemStatus.secretsYellowLabel': 'Schema drift: dropped entry from',
+  'workbench.docs.body.systemStatus.secretsYellowMiddle':
+    "— at least one stored vault entry didn't match the current shape and was dropped on hydrate. Re-saving " +
+    'from the Vault editor restores it.',
+  'workbench.docs.body.systemStatus.secretsRed': 'Reserved for cipher decrypt failures; no code path emits this today.',
+  'workbench.docs.body.systemStatus.liveName': 'Live',
+  'workbench.docs.body.systemStatus.liveSubtitle': 'Live Variable workflow refresh',
+  'workbench.docs.body.systemStatus.live1Prefix':
+    'Each Live workflow refreshes on its own cadence. Per-workflow state turns on three checks: whether the ' +
+    'last extractor succeeded, whether the run is within',
+  'workbench.docs.body.systemStatus.live1Suffix':
+    "its cadence, and how many failures it's had in a row. The three states fold into the pill via " + '"worst wins".',
+  'workbench.docs.body.systemStatus.liveFreshnessCaption':
+    'Fresh = clean run · stale = past 2× cadence or 1–4 failures · failing = ≥ 5 consecutive failures.',
+  'workbench.docs.body.systemStatus.live2Prefix': 'Only the',
+  'workbench.docs.body.systemStatus.liveActiveWorkspace': "active workspace's",
+  'workbench.docs.body.systemStatus.live2Suffix':
+    "workflows contribute. Inactive workspaces are excluded — you can't see or act on those rules right " +
+    "now, so pilling on them would surface noise you can't reach. Switching workspaces recomputes the pill " +
+    'against the new active set.',
+  'workbench.docs.body.systemStatus.liveAggregationCaption':
+    'Active-workspace workflows fold into one pill via max(); other workspaces are skipped.',
+  'workbench.docs.body.systemStatus.liveGreenLabel': 'N workflows fresh',
+  'workbench.docs.body.systemStatus.liveGreenMiddle':
+    "— every active-workspace workflow's last run was OK and within 2× its cadence. Also shown as",
+  'workbench.docs.body.systemStatus.liveGreenNone': 'No workflows configured',
+  'workbench.docs.body.systemStatus.liveGreenSuffix': 'when there are none.',
+  'workbench.docs.body.systemStatus.liveYellowLabel': 'N workflows stale or failing',
+  'workbench.docs.body.systemStatus.liveYellowMiddle':
+    '— at least one run is past 2× cadence, the last extractor failed, or there are 1–4 consecutive failures.',
+  'workbench.docs.body.systemStatus.liveRedLabel': 'N workflows failing (5+ consecutive)',
+  'workbench.docs.body.systemStatus.liveRedMiddle':
+    '— any single workflow crossed five consecutive failures and is now considered failing.',
+  'workbench.docs.body.systemStatus.desktopNoteTitle': 'Desktop App — product note',
+  'workbench.docs.body.systemStatus.desktopNote1':
+    'The desktop app is in development and ships after the extension stabilizes. Workspaces, variables, and ' +
+    'team sync that integrate with the desktop app unlock then. The',
+  'workbench.docs.body.systemStatus.desktopNote2':
+    'subsystem flips from disabled to connecting automatically on first launch — no reinstall required.',
+
+  // ── Concepts: Variables ─────────────────────────────────────────────
+  'workbench.docs.body.variables.intro1Prefix':
+    'Any templatable field — a header value, a redirect URL, a request body, a workflow step — can ' +
+    'reference a variable with',
+  'workbench.docs.body.variables.intro1Suffix':
+    '. The value is substituted at use time, so one definition drives every rule, request, and workflow ' +
+    'that mentions it. Variables live in five scopes, each with its own home in the app and its own rank ' +
+    'when the same name exists in more than one.',
+  'workbench.docs.body.variables.ladderCaptionPrefix': 'A bare',
+  'workbench.docs.body.variables.ladderCaptionSuffix':
+    'walks four scopes top-down and stops at the first hit. Live and the other namespaced scopes sit ' +
+    'outside the walk.',
+  'workbench.docs.body.variables.scopesHeading': 'The five scopes',
+  'workbench.docs.body.variables.vaultHeading': 'Vault — secrets, this device only',
+  'workbench.docs.body.variables.vault1Prefix':
+    'The vault holds per-device secrets: API keys, passwords, TOTP seeds. Vault entries never sync and ' +
+    'never leave the device — they stay out of workspace exports and git history. Two kinds exist:',
+  'workbench.docs.body.variables.vaultKindString': 'string',
+  'workbench.docs.body.variables.vault1Middle': 'entries resolve verbatim, and',
+  'workbench.docs.body.variables.vaultKindTotp': 'TOTP',
+  'workbench.docs.body.variables.vault1Suffix':
+    'entries resolve to the current 6–8 digit code computed from the stored seed — the seed itself is never ' +
+    'exposed through a template. Vault ranks highest, so a vault secret always wins a bare reference.',
+  'workbench.docs.body.variables.vaultCaptionPrefix': 'Reference the secret with',
+  'workbench.docs.body.variables.vaultCaptionSuffix': 'from synced entities — never paste the raw value.',
+  'workbench.docs.body.variables.environmentHeading': 'Environment — switchable value sets',
+  'workbench.docs.body.variables.environment1Prefix': 'Environments are named sets of variables you swap as a unit —',
+  'workbench.docs.body.variables.environment1Suffix':
+    ", a teammate's local setup. The active environment is picked in the header selector; a name the active " +
+    "environment doesn't define falls back to the default environment before the walk continues downward. " +
+    'Running with no environment selected is a valid state — resolution simply skips the scope. Rows can be ' +
+    'marked secret so their values render masked in the editor.',
+  'workbench.docs.body.variables.environmentCaption':
+    'One name, a value per stage — switch the environment instead of duplicating rules.',
+  'workbench.docs.body.variables.collectionHeading': 'Collection — scoped to one collection',
+  'workbench.docs.body.variables.collection1':
+    'Collection variables are defined on a collection and resolve only for the rules and requests that ' +
+    "belong to it. They're the right home for values that are true of one API but not the whole workspace " +
+    '— a base URL, a tenant id, a version prefix.',
+  'workbench.docs.body.variables.collectionCaption':
+    'Collection variables resolve only inside their own collection — elsewhere the walk passes them by.',
+  'workbench.docs.body.variables.workspaceHeading': 'Workspace — shared with everyone',
+  'workbench.docs.body.variables.workspace1':
+    'Workspace variables are the workspace-wide globals — visible to every rule, request, and workflow, ' +
+    'and synced with the workspace. They rank lowest, which makes them the natural base layer: put the ' +
+    'common value here and let an environment or collection override it where needed.',
+  'workbench.docs.body.variables.workspaceCaption':
+    'The base layer — for values true everywhere. Not for secrets, not for per-stage values.',
+  'workbench.docs.body.variables.liveHeading': 'Live — published by a workflow run',
+  'workbench.docs.body.variables.live1Prefix':
+    'A live variable is backed by a Live Workflow — a chain of requests that signs in, fetches a token, and ' +
+    'exposes a captured value. Saving the workflow activates it; a successful run (manual or scheduled) ' +
+    'publishes the exposed value, and auto-refresh re-runs the workflow to keep it fresh. Live values are ' +
+    'reachable only as',
+  'workbench.docs.body.variables.live1Suffix':
+    "— never through a bare reference — so a rule template can't silently pick up an in-flight refresh " +
+    "value when a workspace or environment variable shares the name. Editing the workflow's recipe marks " +
+    'the published value stale until the next run.',
+  'workbench.docs.body.variables.liveRefCaptionPrefix': 'Always the prefix —',
+  'workbench.docs.body.variables.liveRefCaptionSuffix': '— and always workflow-backed, never a pasted token.',
+  'workbench.docs.body.variables.liveLifecycleCaptionPrefix': 'Run succeeds → exposed capture publishes as',
+  'workbench.docs.body.variables.liveLifecycleCaptionSuffix':
+    '→ rules and requests consume it. The schedule re-runs the workflow.',
+  'workbench.docs.body.variables.priorityHeading': 'Priority and shadowing',
+  'workbench.docs.body.variables.priority1Prefix': 'A bare',
+  'workbench.docs.body.variables.priority1Suffix':
+    'resolves through the four real scopes in strict order — vault, then the active environment (with ' +
+    'default-environment fallback), then the collection, then the workspace — and stops at the first scope ' +
+    "that defines the name. Lower definitions still exist; they're just shadowed.",
+  'workbench.docs.body.variables.shadowingCaptionPrefix': 'Environment beats workspace for the bare reference;',
+  'workbench.docs.body.variables.shadowingCaptionSuffix': 'still reads the shadowed value.',
+  'workbench.docs.body.variables.namespacePin1Prefix':
+    'Every scope also has a namespace that pins resolution to it, skipping the ladder entirely:',
+  'workbench.docs.body.variables.namespacePin1Suffix':
+    '. Use the bare form for the normal case and the namespaced form when you mean a specific scope ' +
+    "regardless of what's defined above it.",
+  'workbench.docs.body.variables.tipTitle': 'Keep secrets in the vault',
+  'workbench.docs.body.variables.tip1Prefix':
+    "Rules, requests, and workflows sync with the workspace — the vault doesn't. Reference",
+  'workbench.docs.body.variables.tip1Suffix':
+    'from a synced entity and each teammate supplies their own value locally; nothing sensitive ever lands ' +
+    'in the shared data.',
+  'workbench.docs.body.variables.rulesHeading': 'Variables in rules',
+  'workbench.docs.body.variables.rules1':
+    'Almost every string a rule carries is templatable: condition values (domains, URL patterns, header ' +
+    'names), header values, redirect URLs, query-param names and values, static request and response ' +
+    'bodies, injected code, WS / SSE payloads, and Basic-auth credentials. The rule editor highlights each ' +
+    "reference, shows the resolved value on hover, and banners any reference that doesn't resolve — an " +
+    "unresolved rule can't take effect until every reference has a value.",
+  'workbench.docs.body.variables.consumersCaption':
+    'One templated value feeding all three consumer surfaces — substituted where each one applies.',
+  'workbench.docs.body.variables.dynamicNoteTitle': 'Dynamic (JS) bodies are not templated',
+  'workbench.docs.body.variables.dynamicNote1Prefix': 'Request-body and response rules in',
+  'workbench.docs.body.variables.dynamicWord': 'dynamic',
+  'workbench.docs.body.variables.dynamicNote1Middle':
+    'mode run your JavaScript instead of substituting templates — the code computes its values itself. Only',
+  'workbench.docs.body.variables.staticWord': 'static',
+  'workbench.docs.body.variables.dynamicNote1Middle2': 'bodies participate in',
+  'workbench.docs.body.variables.dynamicNote1Suffix': 'substitution.',
+  'workbench.docs.body.variables.requestsHeading': 'Variables in requests',
+  'workbench.docs.body.variables.requests1Prefix':
+    'In the API client, the URL, query params, headers, auth fields, and body all resolve on Send — ' +
+    "including collection variables of the collection the request lives in. A reference that can't be " +
+    'resolved blocks the send with an error naming the missing variable, rather than putting a literal',
+  'workbench.docs.body.variables.requests1Suffix': 'on the wire.',
+  'workbench.docs.body.variables.workflowsHeading': 'Variables in workflows',
+  'workbench.docs.body.variables.workflows1Prefix':
+    'Each Live Workflow step resolves like a request, plus one extra scope:',
+  'workbench.docs.body.variables.workflows1Suffix':
+    'references a value captured by an earlier step in the same run — sign in with step 1, spend the ' +
+    'session token in step 2. Step references only exist while the chain is executing; captures marked as ' +
+    'exposed are what publish as live variables when the run succeeds.',
+  'workbench.docs.body.variables.namespacesHeading': 'Namespace-only helpers',
+  'workbench.docs.body.variables.helpers1': "Three more namespaces resolve values that aren't stored variables at all.",
+  'workbench.docs.body.variables.helpersDynamicMiddle': 'runs a built-in generator —',
+  'workbench.docs.body.variables.helpersFriends':
+    ', and friends — producing a fresh value on every resolution: per send in the API client, per compile ' +
+    'for static rules (the value is baked in until the next recompile).',
+  'workbench.docs.body.variables.helpersFileMiddle': 'references a stored file by name. And',
+  'workbench.docs.body.variables.helpersStepSuffix':
+    ', above, only has meaning inside a running workflow chain. None of them join the bare walk — ' +
+    "they're reachable only through their prefix.",
+  'workbench.docs.body.variables.inspectingHeading': 'Creating and inspecting',
+  'workbench.docs.body.variables.create1Prefix': 'Every scope is created from the sidebar:',
+  'workbench.docs.body.variables.sidebarVault': 'Vault',
+  'workbench.docs.body.variables.sidebarWorkspaceVars': 'Workspace Variables',
+  'workbench.docs.body.variables.createAnd': ', and',
+  'workbench.docs.body.variables.sidebarLiveVars': 'Live Variables',
+  'workbench.docs.body.variables.create1Middle': 'are top-level entries; environments are added under',
+  'workbench.docs.body.variables.sidebarEnvironments': 'Environments',
+  'workbench.docs.body.variables.create1Middle2': '; and each collection carries its own',
+  'workbench.docs.body.variables.sidebarVariables': 'Variables',
+  'workbench.docs.body.variables.create1Suffix': 'page.',
+  'workbench.docs.body.variables.creationMapCaption':
+    'Each variable home in the sidebar, annotated with the namespace it feeds.',
+  'workbench.docs.body.variables.inspect1Prefix': 'The',
+  'workbench.docs.body.variables.inspect1Middle': 'tool window is the inspection surface.',
+  'workbench.docs.body.variables.inScopeLabel': 'In scope',
+  'workbench.docs.body.variables.inspect1Middle2':
+    'lists the variables the focused rule, request, or template actually references — each resolved ' +
+    'through the full ladder so you see the exact value that will apply.',
+  'workbench.docs.body.variables.allScopesLabel': 'All scopes',
+  'workbench.docs.body.variables.inspect1Middle3':
+    'lists everything defined anywhere, grouped by priority. In any templatable field, typing',
+  'workbench.docs.body.variables.inspect1Suffix':
+    'opens the suggester with every resolvable name, and hovering a reference shows its resolved value and ' +
+    'winning scope.',
 } as const satisfies Catalog;
