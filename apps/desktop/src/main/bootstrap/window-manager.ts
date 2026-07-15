@@ -63,6 +63,10 @@ export function createMainWindow(): BrowserWindow {
       preload: join(__dirname, '..', 'preload', 'index.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Chromium's built-in PDF viewer is a plugin (default OFF in
+      // Electron) — the response panel's blob PDF preview iframe stays
+      // blank without it.
+      plugins: true,
     },
   });
 
@@ -163,6 +167,9 @@ export function createChildWindow(): BrowserWindow {
       preload: join(__dirname, '..', 'preload', 'index.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Same PDF-viewer plugin allowance as the main window — this
+      // window hosts the identical workbench renderer.
+      plugins: true,
     },
   });
 
