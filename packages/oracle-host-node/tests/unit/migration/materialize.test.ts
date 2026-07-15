@@ -478,11 +478,12 @@ describe('materializePostmanPull', () => {
       return minted;
     };
     const seed = async (uid: string, name: string, value: string, orderKey: string) => {
-      const intent = buildSetWorkspaceVarBatch(
-        { variable: { uid, name, value, type: 'default' }, orderKey },
-        ctx(),
-      );
-      const response = await applySyncRequest({ type: 'oh.sync.apply', batch: intent.batch, sideEffects: intent.sideEffects });
+      const intent = buildSetWorkspaceVarBatch({ variable: { uid, name, value, type: 'default' }, orderKey }, ctx());
+      const response = await applySyncRequest({
+        type: 'oh.sync.apply',
+        batch: intent.batch,
+        sideEffects: intent.sideEffects,
+      });
       if (!response.ok) throw new Error('workspace var seed failed');
     };
     const hostUid = generateUid();
@@ -522,10 +523,9 @@ describe('materializePostmanPull', () => {
   });
 
   it('an empty globals entry is wire truth and materializes nothing', async () => {
-    const summary = await materializePostmanPull(
-      pullResult({ globals: [{ workspaceId: 'pm-ws-1', variables: [] }] }),
-      { ensureWorkspaceFor },
-    );
+    const summary = await materializePostmanPull(pullResult({ globals: [{ workspaceId: 'pm-ws-1', variables: [] }] }), {
+      ensureWorkspaceFor,
+    });
     expect(summary.globals).toBe(0);
     expect(snapshotWorkspaceVariablesPostStates(wsId)[0]?.workspaceVariables.variables ?? []).toHaveLength(0);
   });

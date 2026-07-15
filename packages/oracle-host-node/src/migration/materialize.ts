@@ -529,7 +529,11 @@ async function materializeWorkspaceGlobals(
   report: ImportReport,
   mintCtx: MutatorContextMinter,
 ): Promise<number> {
-  const live = oracle.liveOrderedSetItems(WORKSPACE_VARIABLES_ENTITY_TYPE, WORKSPACE_VARIABLES_ID, WORKSPACE_VARIABLES_PATH);
+  const live = oracle.liveOrderedSetItems(
+    WORKSPACE_VARIABLES_ENTITY_TYPE,
+    WORKSPACE_VARIABLES_ID,
+    WORKSPACE_VARIABLES_PATH,
+  );
   const byName = new Map<string, { uid: string; key: string }>();
   for (const entry of live) {
     const parsed = v.safeParse(VariableSchema, entry.item);
