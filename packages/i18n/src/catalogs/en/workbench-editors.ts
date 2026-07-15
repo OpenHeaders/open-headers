@@ -1038,6 +1038,8 @@ export const workbenchEditors = {
     'The media data does not decode — see the Hex view for the raw bytes.',
   'workbench.editors.request.response.body.requestBodyOmittedNotice':
     'Request body not sent — the browser cannot attach a body to GET or HEAD requests.',
+  'workbench.editors.request.response.body.duplicateJsonKeysNotice':
+    'Duplicate JSON keys — the last value is shown: {keys}',
 
   // ── Response headers view ──────────────────────────────────────────
   'workbench.editors.request.response.headers.name': 'Name',

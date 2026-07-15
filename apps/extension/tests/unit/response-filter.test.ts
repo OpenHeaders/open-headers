@@ -1,4 +1,8 @@
 import {
+  JsonNumber,
+  parseLosslessJson,
+} from '@openheaders/ui/workbench/components/request-editor/response/lossless-json';
+import {
   evaluateJsonPath,
   evaluateXPath,
   normalizeFilterQuery,
@@ -67,6 +71,21 @@ describe('evaluateJsonPath', () => {
     expect(evaluateJsonPath(DOC, '$.items[?(@.name)]')).toEqual({ ok: false });
     expect(evaluateJsonPath(DOC, '$.items[0:2]')).toEqual({ ok: false });
     expect(evaluateJsonPath(DOC, '$$')).toEqual({ ok: false });
+  });
+
+  it('treats a lossless-number leaf as a primitive, never a container', () => {
+    const parsed = parseLosslessJson('{"id": 9007199254740993, "list": [9223372036854775807]}');
+    const root = parsed?.value;
+    // The leaf matches as itself…
+    const idMatch = evaluateJsonPath(root, '$.id');
+    expect(idMatch.ok && idMatch.matches[0]).toBeInstanceOf(JsonNumber);
+    // …its `source` field never matches a key query…
+    expect(evaluateJsonPath(root, '$..source')).toEqual({ ok: true, matches: [] });
+    expect(evaluateJsonPath(root, '$.id.source')).toEqual({ ok: true, matches: [] });
+    // …and wildcards don't descend into it.
+    const wild = evaluateJsonPath(root, '$.list[*]');
+    expect(wild.ok && wild.matches).toHaveLength(1);
+    expect(wild.ok && wild.matches[0]).toBeInstanceOf(JsonNumber);
   });
 });
 
@@ -159,6 +178,12 @@ describe('suggestJsonPathCompletions', () => {
   it('returns nothing for an unevaluable base or primitive level', () => {
     expect(suggestJsonPathCompletions(DOC, '$.nope.')).toEqual([]);
     expect(suggestJsonPathCompletions(DOC, '$.count.')).toEqual([]);
+  });
+
+  it('treats a lossless-number leaf as a primitive — no `source` completion, no separator', () => {
+    const parsed = parseLosslessJson('{"id": 9007199254740993}');
+    expect(suggestJsonPathCompletions(parsed?.value, '')).toEqual(['$.id']);
+    expect(suggestJsonPathCompletions(parsed?.value, '$.id.')).toEqual([]);
   });
 });
 

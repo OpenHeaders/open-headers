@@ -10,6 +10,7 @@ import { CaretRightOutlined } from '@ant-design/icons';
 import { theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { isJsonNumber } from './lossless-json';
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -17,7 +18,9 @@ const cellFont: React.CSSProperties = {
 };
 
 function isContainer(value: unknown): value is Record<string, unknown> | unknown[] {
-  return typeof value === 'object' && value !== null;
+  // A lossless-number leaf is an object at runtime but renders as a
+  // primitive — its source text, never an expandable row.
+  return typeof value === 'object' && value !== null && !isJsonNumber(value);
 }
 
 function entriesOf(value: Record<string, unknown> | unknown[]): Array<[string, unknown]> {
@@ -29,6 +32,7 @@ function countBadge(value: Record<string, unknown> | unknown[]): string {
 }
 
 function formatPrimitive(value: unknown): string {
+  if (isJsonNumber(value)) return value.source;
   if (typeof value === 'string') return JSON.stringify(value);
   if (value === undefined) return 'null';
   return String(value);

@@ -39,6 +39,7 @@ import ResponseJsonPreview from './ResponseJsonPreview';
 import ResponseMediaPreview from './ResponseMediaPreview';
 import ResponsePdfPreview from './ResponsePdfPreview';
 import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
+import { type LosslessParseResult, parseLosslessJson, stringifyLossless } from './lossless-json';
 import { detectMagicSignatures } from './magic-signatures';
 import './response-body.css';
 import {
@@ -175,19 +176,30 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // the body string is base64, whose digit-only edge cases would
   // otherwise "parse" as a JSON number. Newline-delimited JSON can
   // never whole-body-parse, so it parses line-wise into an array —
-  // the tree preview and JSONPath filter see the record list.
-  const parsedJson = useMemo<unknown>(() => {
+  // the tree preview and JSONPath filter see the record list. Parsing
+  // is lossless: numbers a double can't hold stay as source-text
+  // leaves, and duplicate object keys are reported (last value wins,
+  // like JSON.parse — the notice below says so).
+  const parsed = useMemo<LosslessParseResult | undefined>(() => {
     if (isBinary || language !== 'json') return undefined;
-    try {
-      if (isNdjson) {
-        const lines = response.body.split('\n').filter((line) => line.trim() !== '');
-        return lines.length > 0 ? lines.map((line) => JSON.parse(line)) : undefined;
+    if (isNdjson) {
+      const lines = response.body.split('\n').filter((line) => line.trim() !== '');
+      if (lines.length === 0) return undefined;
+      const records: unknown[] = [];
+      const duplicateKeys: string[] = [];
+      for (const line of lines) {
+        const record = parseLosslessJson(line);
+        if (record === null) return undefined;
+        records.push(record.value);
+        for (const key of record.duplicateKeys) {
+          if (!duplicateKeys.includes(key)) duplicateKeys.push(key);
+        }
       }
-      return JSON.parse(response.body);
-    } catch {
-      return undefined;
+      return { value: records, duplicateKeys };
     }
+    return parseLosslessJson(response.body) ?? undefined;
   }, [response.body, language, isBinary, isNdjson]);
+  const parsedJson = parsed?.value;
 
   // Media previews come from the Content-Type (they name a RENDERER,
   // not the body's textness) and sit above the binary gate so a raster
@@ -246,8 +258,9 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     useMemo(() => {
       if (!filterResult?.ok || filterResult.matches.length === 0) return null;
       if (filterKind === 'jsonpath') {
+        // Lossless print — a matched big number must show verbatim.
         const m = filterResult.matches;
-        return JSON.stringify(m.length === 1 ? m[0] : m, null, 2) ?? '';
+        return stringifyLossless(m.length === 1 ? m[0] : m);
       }
       return filterResult.matches.join('\n');
     }, [filterResult, filterKind]),
@@ -375,6 +388,13 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
       {response.requestBodyOmitted && (
         <Text type="warning" style={{ fontSize: 11, marginTop: 6 }}>
           {t('workbench.editors.request.response.body.requestBodyOmittedNotice')}
+        </Text>
+      )}
+      {parsed !== undefined && parsed.duplicateKeys.length > 0 && (
+        <Text type="warning" style={{ fontSize: 11, marginTop: 6 }}>
+          {t('workbench.editors.request.response.body.duplicateJsonKeysNotice', {
+            keys: parsed.duplicateKeys.join(', '),
+          })}
         </Text>
       )}
       {response.bodyTruncated && (

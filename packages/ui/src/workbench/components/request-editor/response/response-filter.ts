@@ -20,6 +20,8 @@
  * how to render one-vs-many.
  */
 
+import { isJsonNumber } from './lossless-json';
+
 export type JsonPathResult = { ok: true; matches: unknown[] } | { ok: false };
 
 type Segment =
@@ -51,7 +53,10 @@ function parsePath(path: string): Segment[] | null {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  // A lossless-number leaf is an object at runtime but a primitive to
+  // the path machinery — its `source` field must never match a key
+  // query or surface in completions.
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && !isJsonNumber(value);
 }
 
 function childValues(value: unknown): unknown[] {

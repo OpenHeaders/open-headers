@@ -5,6 +5,7 @@
  */
 
 import type { LanguageId } from '../../../languages/registry';
+import { parseLosslessJson, stringifyLossless } from './lossless-json';
 
 /**
  * Viewer language from the response `Content-Type`. Substring checks on
@@ -66,18 +67,17 @@ export function detectBodyLanguage(headers: ReadonlyArray<{ key: string; value: 
 }
 
 /**
- * Synchronous half of the Pretty view. JSON re-indents (falling back
- * to the wire text on parse failure); every other language passes
- * through — markup/code languages are pretty-printed asynchronously on
- * top of this by `useFormattedBody`.
+ * Synchronous half of the Pretty view. JSON re-indents losslessly —
+ * number tokens a double can't hold exactly (int64 ids, k8s
+ * resourceVersions) re-print as their wire source text instead of the
+ * rounded double (falling back to the wire text on parse failure);
+ * every other language passes through — markup/code languages are
+ * pretty-printed asynchronously on top of this by `useFormattedBody`.
  */
 export function prettyBody(body: string, language: LanguageId): string {
   if (language === 'json') {
-    try {
-      return JSON.stringify(JSON.parse(body), null, 2);
-    } catch {
-      return body;
-    }
+    const parsed = parseLosslessJson(body);
+    return parsed === null ? body : stringifyLossless(parsed.value);
   }
   return body;
 }
@@ -85,19 +85,17 @@ export function prettyBody(body: string, language: LanguageId): string {
 /**
  * Line-wise Pretty for newline-delimited JSON: a whole-body parse can
  * never succeed, so each line re-indents as its own record — blocks
- * back to back, jq-style. Lines that don't parse stay verbatim; empty
- * lines drop (they separate nothing in ndjson).
+ * back to back, jq-style, losslessly like {@link prettyBody}. Lines
+ * that don't parse stay verbatim; empty lines drop (they separate
+ * nothing in ndjson).
  */
 export function prettyNdjsonBody(body: string): string {
   return body
     .split('\n')
     .filter((line) => line.trim() !== '')
     .map((line) => {
-      try {
-        return JSON.stringify(JSON.parse(line), null, 2);
-      } catch {
-        return line;
-      }
+      const parsed = parseLosslessJson(line);
+      return parsed === null ? line : stringifyLossless(parsed.value);
     })
     .join('\n');
 }

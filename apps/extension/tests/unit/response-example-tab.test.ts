@@ -241,6 +241,15 @@ describe('capturedResponseFromSnapshot', () => {
     expect(captured.bodyBytes).toBe(10);
   });
 
+  it('pretty-prints without corrupting numbers beyond double precision', () => {
+    const captured = capturedResponseFromSnapshot({
+      ...snapshot,
+      body: '{"resourceVersion":9007199254740993}',
+      bodyBytes: 36,
+    });
+    expect(captured.body).toBe('{\n  "resourceVersion": 9007199254740993\n}');
+  });
+
   it('keeps the truncation stamp and cap', () => {
     const captured = capturedResponseFromSnapshot({
       ...snapshot,

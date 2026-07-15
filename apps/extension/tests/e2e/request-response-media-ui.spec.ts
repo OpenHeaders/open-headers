@@ -20,7 +20,19 @@ const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 const PROBE_URL = (name: string) => `http://127.0.0.1:3000/api/${name}`;
 
 /** Probe requests seeded once — names double as sidebar labels. */
-const PROBE_REQUESTS = ['image', 'svg', 'zip', 'gzip', 'wasm', 'csv', 'yaml', 'ndjson', 'media', 'latin1'] as const;
+const PROBE_REQUESTS = [
+  'image',
+  'svg',
+  'zip',
+  'gzip',
+  'wasm',
+  'csv',
+  'yaml',
+  'ndjson',
+  'bigint-json',
+  'media',
+  'latin1',
+] as const;
 
 let context: BrowserContext;
 let extensionId: string;
@@ -133,6 +145,20 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     // Line-wise parse feeds the tree preview — a whole-body JSON.parse
     // of the three records would fail and hide the toggle.
     expect(await workbench.responsePreviewToggle().count()).toBe(1);
+  });
+
+  test('big-number JSON displays losslessly with a duplicate-key notice', async () => {
+    await sendProbe('bigint-json');
+    expect(await workbench.responseViewPickerLabel()).toMatch(/JSON$/);
+    // JSON.parse-based display would round …993 to …992 and silently
+    // swallow the duplicate key.
+    await expect(workbench.responseBodyNotice('Duplicate JSON keys — the last value is shown: dup')).toBeVisible();
+    await workbench.responsePreviewToggle().click();
+    const tree = workbench.responseJsonPreview();
+    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    const text = await tree.innerText();
+    expect(text).toContain('9007199254740993');
+    expect(text).toContain('3.14159265358979323846');
   });
 
   test('WAV opens on the media Preview with the byte views behind it', async () => {

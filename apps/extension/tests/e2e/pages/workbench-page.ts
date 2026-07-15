@@ -651,6 +651,16 @@ export class WorkbenchPage {
     return this.page.getByTestId('oh-response-media-preview').filter({ visible: true });
   }
 
+  /** The JSON tree preview — collapsible key/value rows over the parsed body. */
+  responseJsonPreview(): Locator {
+    return this.page.getByTestId('oh-response-json-preview').filter({ visible: true });
+  }
+
+  /** A response body pane notice by its text (truncation, duplicate keys…). */
+  responseBodyNotice(text: string | RegExp): Locator {
+    return this.page.getByText(text).filter({ visible: true });
+  }
+
   /** Text of the response Body view picker — the language the viewer
    *  detected from the Content-Type (or the active encoding view). */
   async responseViewPickerLabel(): Promise<string> {

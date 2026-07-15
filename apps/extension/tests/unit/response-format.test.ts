@@ -10,6 +10,7 @@ import {
   detectBodyLanguage,
   isNdjsonResponse,
   mediaPreviewKind,
+  prettyBody,
   prettyNdjsonBody,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-format';
 import { describe, expect, it } from 'vitest';
@@ -62,7 +63,31 @@ describe('isNdjsonResponse', () => {
   });
 });
 
+describe('prettyBody', () => {
+  it('re-indents JSON and passes other languages through', () => {
+    expect(prettyBody('{"a":1}', 'json')).toBe('{\n  "a": 1\n}');
+    expect(prettyBody('<p>x</p>', 'html')).toBe('<p>x</p>');
+  });
+
+  it('keeps the wire text on a JSON parse failure', () => {
+    expect(prettyBody('{broken', 'json')).toBe('{broken');
+  });
+
+  it('preserves number tokens beyond double precision verbatim', () => {
+    expect(prettyBody('{"resourceVersion":9007199254740993,"count":2}', 'json')).toBe(
+      '{\n  "resourceVersion": 9007199254740993,\n  "count": 2\n}',
+    );
+    expect(prettyBody('{"pi":3.14159265358979323846}', 'json')).toBe('{\n  "pi": 3.14159265358979323846\n}');
+  });
+});
+
 describe('prettyNdjsonBody', () => {
+  it('preserves number tokens beyond double precision per record', () => {
+    expect(prettyNdjsonBody('{"id":9007199254740993}\n{"id":1}')).toBe(
+      '{\n  "id": 9007199254740993\n}\n{\n  "id": 1\n}',
+    );
+  });
+
   it('re-indents each record independently, blocks back to back', () => {
     expect(prettyNdjsonBody('{"a":1}\n{"b":[2,3]}')).toBe('{\n  "a": 1\n}\n{\n  "b": [\n    2,\n    3\n  ]\n}');
   });
