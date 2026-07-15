@@ -20,6 +20,9 @@ import { bucketSinceInstall, TELEMETRY_SCHEMA_VERSION } from './vocabulary';
 /** The one published ingestion endpoint (`docs/WIRE_TRANSPARENCY.md` §4); hosts' transports POST envelopes here. */
 export const PRODUCT_TELEMETRY_ENDPOINT = 'https://telemetry.openheaders.io/v1/events';
 
+/** The uninstall-ping route (§4): the extension's `setUninstallURL` target, carrying only the install id. */
+export const PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT = 'https://telemetry.openheaders.io/v1/uninstall';
+
 export interface TelemetryTransport {
   /**
    * Deliver one envelope. Resolve `false` or throw to signal failure —

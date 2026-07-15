@@ -309,6 +309,37 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
     await controller.init();
     expect((await controller.snapshot()).installId).toBe(INSTALL.installId);
   });
+
+  it('notifies onIdentityChanged at boot, on toggle transitions, and on reset', async () => {
+    const seen: Array<string | null> = [];
+    const gates = { enabled: true };
+    const listeners: Array<() => void> = [];
+    const controller = new ProductTelemetryController({
+      transport: { send: async () => true },
+      now: () => 1_760_000_000_000,
+      sessionStore: makeSessionStore().store,
+      installStore: createInMemoryProductTelemetryInstallStore(INSTALL),
+      channel: 'chrome-store',
+      getEnabled: () => gates.enabled,
+      subscribeEnabled: (fn) => listeners.push(fn),
+      buildSessionStart: async () => null,
+      onIdentityChanged: (id) => seen.push(id),
+    });
+    await controller.init();
+    expect(seen).toEqual([INSTALL.installId]);
+
+    gates.enabled = false;
+    for (const fn of listeners) fn();
+    await controller.snapshot();
+    expect(seen).toEqual([INSTALL.installId, null]);
+
+    gates.enabled = true;
+    for (const fn of listeners) fn();
+    const fresh = await controller.resetInstallId();
+    expect(seen).toHaveLength(4);
+    expect(seen[2]).toMatch(/^[0-9a-f]{32}$/);
+    expect(seen[3]).toBe(fresh);
+  });
 });
 
 describe('createInMemoryProductTelemetrySessionStore', () => {

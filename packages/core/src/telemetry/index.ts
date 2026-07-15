@@ -10,6 +10,7 @@ export {
   mintTelemetryInstallId,
   mintTelemetrySessionId,
   PRODUCT_TELEMETRY_ENDPOINT,
+  PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT,
   TELEMETRY_MAX_LOG,
   TELEMETRY_MAX_QUEUE,
   TelemetryClient,

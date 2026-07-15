@@ -121,6 +121,12 @@ export interface ProductTelemetryControllerDeps {
    * misreport — the allowlist grows by design discussion, not mapping).
    */
   buildSessionStart(): Promise<TelemetryEvent | null>;
+  /**
+   * Observe identity changes (boot, toggle transitions, resets) with the
+   * current install id — null while the channel is off. The extension
+   * keeps its uninstall URL in step through this; other hosts omit it.
+   */
+  onIdentityChanged?(installId: string | null): void;
 }
 
 export class ProductTelemetryController {
@@ -164,6 +170,7 @@ export class ProductTelemetryController {
     this.deps.subscribeEnabled(() => {
       this.gateWork = this.gateWork.then(() => this.onEnabledChange());
     });
+    this.deps.onIdentityChanged?.(this.installContext?.installId ?? null);
 
     await this.ensureSessionStart();
   }
@@ -187,6 +194,7 @@ export class ProductTelemetryController {
       this.installContext = null;
       await this.deps.installStore.clearRecord();
     }
+    this.deps.onIdentityChanged?.(this.installContext?.installId ?? null);
   }
 
   /** Load-or-mint the install record; announce a first run exactly once per install-store lifetime. */
@@ -215,6 +223,7 @@ export class ProductTelemetryController {
     const record: TelemetryInstallContext = { installId: mintTelemetryInstallId(), installedAt: this.deps.now() };
     await this.deps.installStore.setRecord(record);
     this.installContext = record;
+    this.deps.onIdentityChanged?.(record.installId);
     return record.installId;
   }
 
