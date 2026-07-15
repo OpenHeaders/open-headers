@@ -11,6 +11,7 @@
  */
 
 import type { Variable } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import type {
   ConflictResolveAdapter,
   ConflictTrackingAdapter,
@@ -31,9 +32,11 @@ const summarize = (row: { name?: string; value?: string }): string => `${row.nam
 const VARIABLE_SCHEMA = obj({
   variables: setByUid({
     summary: (row) => summarize(row as Variable),
-    rowLabel: (row) => {
+    rowLabel: (t, row) => {
       const v = row as Variable;
-      return v.name ? `Variable ${v.name}` : 'Variable';
+      return v.name
+        ? t('shared.conflicts.label.variable.rowNamed', { name: v.name })
+        : t('shared.conflicts.label.variable.row');
     },
     child: obj({
       name: leaf('string'),
@@ -49,7 +52,12 @@ const adapters = makeConflictAdapter<VariableEntity>({
   signature: (e) => e.uid,
 });
 
-const LEAF_LABEL: Record<VariableLeafName, string> = { name: 'name', value: 'value', type: 'type', enabled: 'enabled' };
+const LEAF_LABEL: Record<VariableLeafName, MessageKey> = {
+  name: 'shared.conflicts.label.variable.field.name',
+  value: 'shared.conflicts.label.variable.field.value',
+  type: 'shared.conflicts.label.variable.field.type',
+  enabled: 'shared.conflicts.label.variable.field.enabled',
+};
 
 const VAR_PATH_RE = /^variables\.([a-z0-9]{8})\.(name|value|type|enabled)$/;
 
@@ -61,14 +69,16 @@ export const variableConflictAdapter: ConflictTrackingAdapter<VariableEntity> = 
 
 export const variableResolveAdapter: ConflictResolveAdapter<VariableEntity> = {
   ...adapters.resolve,
-  prettyPath(entity, path) {
+  prettyPath(t, entity, path) {
     const leafMatch = VAR_PATH_RE.exec(path);
     if (leafMatch) {
       const name = findRowName(entity, leafMatch[1]);
-      const label = LEAF_LABEL[leafMatch[2] as VariableLeafName];
-      return name ? `Variable ${name} (${label})` : `Variable (${label})`;
+      const label = t(LEAF_LABEL[leafMatch[2] as VariableLeafName]);
+      return name
+        ? t('shared.conflicts.label.variable.leafNamed', { name, label })
+        : t('shared.conflicts.label.variable.leaf', { label });
     }
-    if (path.startsWith('reorder:')) return 'Variables — order changed';
-    return adapters.resolve.prettyPath(entity, path);
+    if (path.startsWith('reorder:')) return t('shared.conflicts.label.variable.orderChanged');
+    return adapters.resolve.prettyPath(t, entity, path);
   },
 };

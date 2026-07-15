@@ -9,13 +9,14 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { prettyPathMap } from '@openheaders/ui/shared/conflicts/conflict-adapters';
 import { ruleResolveAdapter } from './rule-resolve-adapter';
 
-export function prettyRulePath(rule: Rule, path: string): string {
-  return ruleResolveAdapter.prettyPath(rule, path);
+export function prettyRulePath(t: Translate, rule: Rule, path: string): string {
+  return ruleResolveAdapter.prettyPath(t, rule, path);
 }
 
-export function prettyRulePathMap(rule: Rule, paths: Iterable<string>): Map<string, string> {
-  return prettyPathMap(ruleResolveAdapter, rule, paths);
+export function prettyRulePathMap(t: Translate, rule: Rule, paths: Iterable<string>): Map<string, string> {
+  return prettyPathMap(t, ruleResolveAdapter, rule, paths);
 }

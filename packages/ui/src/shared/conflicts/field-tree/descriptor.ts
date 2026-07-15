@@ -9,6 +9,8 @@
  * of design review live in the node-kind union below.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
+
 export type CoercionPolicyName =
   | 'enabled-default-true'
   | 'published-default-false'
@@ -86,8 +88,9 @@ export type FieldNode =
       identity: 'uid';
       summary: (row: unknown) => string;
       child: FieldNode;
-      /** Optional human-friendly label for `prettyPath` on set-level keys. */
-      rowLabel?: (row: unknown) => string;
+      /** Optional human-friendly label for `prettyPath` on set-level keys.
+       *  Label vocabulary resolves through `t`; row data interpolates raw. */
+      rowLabel?: (t: Translate, row: unknown) => string;
       /** When true, row order carries semantic meaning beyond visual
        *  organization (e.g. DNR last-write-wins on duplicate header
        *  names; query-param append stacking). The conflict tracker
@@ -150,14 +153,12 @@ export const enumLeaf = (
 
 export const obj = (children: Record<string, FieldNode>): FieldNode => ({ kind: 'object', children });
 
-export const setByUid = (
-  args: {
-    summary: (row: unknown) => string;
-    rowLabel?: (row: unknown) => string;
-    child: FieldNode;
-    orderSensitive?: boolean;
-  },
-): FieldNode => ({
+export const setByUid = (args: {
+  summary: (row: unknown) => string;
+  rowLabel?: (t: Translate, row: unknown) => string;
+  child: FieldNode;
+  orderSensitive?: boolean;
+}): FieldNode => ({
   kind: 'set',
   identity: 'uid',
   summary: args.summary,

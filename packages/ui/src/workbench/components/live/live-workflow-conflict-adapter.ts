@@ -23,6 +23,7 @@
 
 import { canonicalJson } from '@openheaders/core/sync';
 import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import type {
   ConflictResolveAdapter,
@@ -273,32 +274,32 @@ export const liveWorkflowConflictAdapter: ConflictTrackingAdapter<LiveWorkflow> 
   snapshotSetsFromForm: (form) => snapshotSetsFromForm(form),
 };
 
-const LEAF_LABEL: Record<string, string> = {
-  [PATH_NAME]: 'name',
-  [PATH_DESCRIPTION]: 'description',
-  [PATH_ENABLED]: 'enabled',
-  [PATH_REFRESH_KIND]: 'refresh kind',
-  [PATH_REFRESH_SECONDS]: 'refresh interval',
-  [PATH_REFRESH_STEP_ID]: 'refresh step',
-  [PATH_REFRESH_CAPTURE_NAME]: 'refresh capture',
-  [PATH_REFRESH_LEAD_SECONDS]: 'refresh lead seconds',
+const LEAF_LABEL: Record<string, MessageKey> = {
+  [PATH_NAME]: 'shared.conflicts.label.workflow.field.name',
+  [PATH_DESCRIPTION]: 'shared.conflicts.label.workflow.field.description',
+  [PATH_ENABLED]: 'shared.conflicts.label.workflow.field.enabled',
+  [PATH_REFRESH_KIND]: 'shared.conflicts.label.workflow.field.refreshKind',
+  [PATH_REFRESH_SECONDS]: 'shared.conflicts.label.workflow.field.refreshSeconds',
+  [PATH_REFRESH_STEP_ID]: 'shared.conflicts.label.workflow.field.refreshStepId',
+  [PATH_REFRESH_CAPTURE_NAME]: 'shared.conflicts.label.workflow.field.refreshCaptureName',
+  [PATH_REFRESH_LEAD_SECONDS]: 'shared.conflicts.label.workflow.field.refreshLeadSeconds',
 };
 
-const STEP_LEAF_LABEL: Record<string, string> = {
-  id: 'id',
-  description: 'description',
-  requestUid: 'request',
-  dependsOn: 'dependsOn',
-  runIf: 'runIf',
-  priorityFrom: 'priorityFrom',
-  retry: 'retry policy',
-  timeoutMs: 'timeout',
-  runScripts: 'run scripts',
+const STEP_LEAF_LABEL: Record<string, MessageKey> = {
+  id: 'shared.conflicts.label.workflow.stepField.id',
+  description: 'shared.conflicts.label.workflow.stepField.description',
+  requestUid: 'shared.conflicts.label.workflow.stepField.requestUid',
+  dependsOn: 'shared.conflicts.label.workflow.stepField.dependsOn',
+  runIf: 'shared.conflicts.label.workflow.stepField.runIf',
+  priorityFrom: 'shared.conflicts.label.workflow.stepField.priorityFrom',
+  retry: 'shared.conflicts.label.workflow.stepField.retry',
+  timeoutMs: 'shared.conflicts.label.workflow.stepField.timeoutMs',
+  runScripts: 'shared.conflicts.label.workflow.stepField.runScripts',
 };
 
-const CAPTURE_LEAF_LABEL: Record<string, string> = {
-  name: 'name',
-  extractor: 'extractor',
+const CAPTURE_LEAF_LABEL: Record<string, MessageKey> = {
+  name: 'shared.conflicts.label.workflow.captureField.name',
+  extractor: 'shared.conflicts.label.workflow.captureField.extractor',
 };
 
 function writeStepLeaf(step: WorkflowStep, leaf: string, value: string): boolean {
@@ -420,22 +421,33 @@ export const liveWorkflowResolveAdapter: ConflictResolveAdapter<LiveWorkflow> = 
     // required fields. Whole-form re-prime handles kind transitions.
     return false;
   },
-  prettyPath(entity, path) {
-    const label = LEAF_LABEL[path];
-    if (label) return `Workflow (${label})`;
+  prettyPath(t, entity, path) {
+    const labelKey = LEAF_LABEL[path];
+    if (labelKey) return t('shared.conflicts.label.workflow.leaf', { label: t(labelKey) });
     const stepMatch = STEP_LEAF_RE.exec(path);
     if (stepMatch) {
       const step = findStep(entity, stepMatch[1]);
-      const stepLabel = step?.id || `step ${stepMatch[1].slice(0, 4)}`;
-      return `Step ${stepLabel} (${STEP_LEAF_LABEL[stepMatch[2]] ?? stepMatch[2]})`;
+      const stepLabel =
+        step?.id || t('shared.conflicts.label.workflow.stepFallback', { uid: stepMatch[1].slice(0, 4) });
+      const leafKey = STEP_LEAF_LABEL[stepMatch[2]];
+      return t('shared.conflicts.label.workflow.stepLeaf', {
+        step: stepLabel,
+        leaf: leafKey ? t(leafKey) : stepMatch[2],
+      });
     }
     const capMatch = CAPTURE_LEAF_RE.exec(path);
     if (capMatch) {
       const step = findStep(entity, capMatch[1]);
-      const stepLabel = step?.id || `step ${capMatch[1].slice(0, 4)}`;
+      const stepLabel = step?.id || t('shared.conflicts.label.workflow.stepFallback', { uid: capMatch[1].slice(0, 4) });
       const capture = step ? findCapture(step, capMatch[2]) : undefined;
-      const capLabel = capture?.name || `capture ${capMatch[2].slice(0, 4)}`;
-      return `Step ${stepLabel} → ${capLabel} (${CAPTURE_LEAF_LABEL[capMatch[3]] ?? capMatch[3]})`;
+      const capLabel =
+        capture?.name || t('shared.conflicts.label.workflow.captureFallback', { uid: capMatch[2].slice(0, 4) });
+      const leafKey = CAPTURE_LEAF_LABEL[capMatch[3]];
+      return t('shared.conflicts.label.workflow.captureLeaf', {
+        step: stepLabel,
+        capture: capLabel,
+        leaf: leafKey ? t(leafKey) : capMatch[3],
+      });
     }
     return path;
   },

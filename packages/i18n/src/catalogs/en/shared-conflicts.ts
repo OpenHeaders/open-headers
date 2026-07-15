@@ -1,11 +1,17 @@
 /**
- * Shared conflicts family — the entity-conflict rendering surfaces:
- * the editor-top aggregation banner, the merge-dialog shim, and the
- * two inline lightning-bolt chips (per-leaf value diff, set-row
- * removal). Shared-plane: every entity editor mounts them. The
- * adapter label plane (`prettyPath` / row summaries — pure-data
- * adapters, nine per-entity files) is a separate slice; its output
- * interpolates into these keys as data.
+ * Shared conflicts family — the entity-conflict rendering surfaces
+ * (the editor-top aggregation banner, the merge-dialog shim, the two
+ * inline lightning-bolt chips) plus the conflict-adapter label plane
+ * (`prettyPath` / `rowLabel` field vocabulary under
+ * `shared.conflicts.label.<entity>.*`). Shared-plane: every entity
+ * editor mounts the rendering surfaces; the label plane converts here
+ * as one family because all adapters implement the one
+ * `ConflictResolveAdapter` seam.
+ *
+ * Raw by design inside label sentences: schema paths, entity uids,
+ * header/param/step names ({name} / {step} / {uid} holes carry wire
+ * data), condition-type enum vocabulary, and set-member `summary`
+ * strings (data compositions rendered in monospace value blocks).
  */
 
 import type { Catalog } from '../../types';
@@ -36,4 +42,168 @@ export const sharedConflicts = {
   'shared.conflicts.rowChip.removedExternally': 'Row removed externally',
   'shared.conflicts.rowChip.lastSyncedRow': 'Last synced row',
   'shared.conflicts.rowChip.useSavedRemove': 'Use saved (remove)',
+
+  // ── Adapter label plane: field-tree walker fallback ────────────────
+  'shared.conflicts.label.walker.orderChanged': '{set} — order changed',
+
+  // ── Adapter label plane: action entities (rule + template) ─────────
+  'shared.conflicts.label.action.set.requestHeader': 'Request header',
+  'shared.conflicts.label.action.set.responseHeader': 'Response header',
+  'shared.conflicts.label.action.set.queryParam': 'Query param',
+  'shared.conflicts.label.action.set.param': 'Param',
+  'shared.conflicts.label.action.set.condition': 'Condition',
+  'shared.conflicts.label.action.orderChanged': '{set}s — order changed',
+  'shared.conflicts.label.action.setRowNamed': '{kind} {name}',
+  'shared.conflicts.label.action.name': 'Name',
+  'shared.conflicts.label.action.conditionLeafLabel': 'Condition {leaf}',
+  'shared.conflicts.label.action.requestHeaderLeafNamed': 'Request header {name} ({leaf})',
+  'shared.conflicts.label.action.requestHeaderLeaf': 'Request header ({leaf})',
+  'shared.conflicts.label.action.responseHeaderLeafNamed': 'Response header {name} ({leaf})',
+  'shared.conflicts.label.action.responseHeaderLeaf': 'Response header ({leaf})',
+  'shared.conflicts.label.action.queryParamLeafNamed': 'Query param {name} ({leaf})',
+  'shared.conflicts.label.action.queryParamLeaf': 'Query param ({leaf})',
+  'shared.conflicts.label.action.headerLeaf.value': 'value',
+  'shared.conflicts.label.action.headerLeaf.name': 'name',
+  'shared.conflicts.label.action.headerLeaf.operation': 'operation',
+  'shared.conflicts.label.action.headerLeaf.mergeSeparator': 'merge separator',
+  'shared.conflicts.label.action.paramLeaf.value': 'value',
+  'shared.conflicts.label.action.paramLeaf.name': 'name',
+  'shared.conflicts.label.action.paramLeaf.operation': 'operation',
+  'shared.conflicts.label.action.conditionLeaf.values': 'values',
+  'shared.conflicts.label.action.conditionLeaf.type': 'type',
+  'shared.conflicts.label.action.conditionLeaf.headerName': 'header name',
+  'shared.conflicts.label.action.scalar.redirectTo': 'Redirect URL',
+  'shared.conflicts.label.action.scalar.delayMs': 'Delay (ms)',
+  'shared.conflicts.label.action.scalar.injectType': 'Inject type',
+  'shared.conflicts.label.action.scalar.source': 'Inject source',
+  'shared.conflicts.label.action.scalar.code': 'Inject code',
+  'shared.conflicts.label.action.scalar.sourceUrl': 'Inject source URL',
+  'shared.conflicts.label.action.scalar.position': 'Inject position',
+  'shared.conflicts.label.action.scalar.requestBody': 'Request body',
+  'shared.conflicts.label.action.scalar.bodyType': 'Body type',
+  'shared.conflicts.label.action.scalar.resourceType': 'Resource type',
+  'shared.conflicts.label.action.scalar.statusCode': 'Response status code',
+  'shared.conflicts.label.action.scalar.responseBody': 'Response body',
+  'shared.conflicts.label.action.scalar.contentType': 'Response content type',
+  'shared.conflicts.label.action.scalar.operation': 'Operation',
+  'shared.conflicts.label.action.scalar.direction': 'Direction',
+  'shared.conflicts.label.action.scalar.eventName': 'Event name',
+  'shared.conflicts.label.action.scalar.payload': 'Message payload',
+  'shared.conflicts.label.action.scalar.injectTrigger': 'Inject trigger',
+  'shared.conflicts.label.action.messageFilter.matchType': 'Message filter type',
+  'shared.conflicts.label.action.messageFilter.value': 'Message filter value',
+
+  // ── Adapter label plane: variables ─────────────────────────────────
+  'shared.conflicts.label.variable.row': 'Variable',
+  'shared.conflicts.label.variable.rowNamed': 'Variable {name}',
+  'shared.conflicts.label.variable.leafNamed': 'Variable {name} ({label})',
+  'shared.conflicts.label.variable.leaf': 'Variable ({label})',
+  'shared.conflicts.label.variable.orderChanged': 'Variables — order changed',
+  'shared.conflicts.label.variable.field.name': 'name',
+  'shared.conflicts.label.variable.field.value': 'value',
+  'shared.conflicts.label.variable.field.type': 'type',
+  'shared.conflicts.label.variable.field.enabled': 'enabled',
+
+  // ── Adapter label plane: vault secrets ─────────────────────────────
+  'shared.conflicts.label.vault.row': 'Secret',
+  'shared.conflicts.label.vault.rowNamed': 'Secret {name}',
+  'shared.conflicts.label.vault.leafNamed': 'Secret {name} ({label})',
+  'shared.conflicts.label.vault.leaf': 'Secret ({label})',
+  'shared.conflicts.label.vault.orderChanged': 'Secrets — order changed',
+  'shared.conflicts.label.vault.field.name': 'name',
+  'shared.conflicts.label.vault.field.kind': 'kind',
+  'shared.conflicts.label.vault.field.value': 'value',
+  'shared.conflicts.label.vault.field.seed': 'seed',
+  'shared.conflicts.label.vault.field.algorithm': 'algorithm',
+  'shared.conflicts.label.vault.field.digits': 'digits',
+  'shared.conflicts.label.vault.field.period': 'period',
+  'shared.conflicts.label.vault.field.issuer': 'issuer',
+  'shared.conflicts.label.vault.field.cert': 'certificate',
+  'shared.conflicts.label.vault.field.key': 'private key',
+  'shared.conflicts.label.vault.field.passphrase': 'passphrase',
+
+  // ── Adapter label plane: live variables ────────────────────────────
+  'shared.conflicts.label.liveVariable.leaf': 'Live variable ({label})',
+  'shared.conflicts.label.liveVariable.field.name': 'name',
+  'shared.conflicts.label.liveVariable.field.description': 'description',
+  'shared.conflicts.label.liveVariable.field.enabled': 'enabled',
+  'shared.conflicts.label.liveVariable.field.requireFreshOnRuleBuild': 'wait for fresh value',
+  'shared.conflicts.label.liveVariable.field.workflowUid': 'workflow',
+  'shared.conflicts.label.liveVariable.field.stepId': 'step',
+  'shared.conflicts.label.liveVariable.field.captureName': 'capture',
+
+  // ── Adapter label plane: live workflows ────────────────────────────
+  'shared.conflicts.label.workflow.leaf': 'Workflow ({label})',
+  'shared.conflicts.label.workflow.stepLeaf': 'Step {step} ({leaf})',
+  'shared.conflicts.label.workflow.captureLeaf': 'Step {step} → {capture} ({leaf})',
+  'shared.conflicts.label.workflow.stepFallback': 'step {uid}',
+  'shared.conflicts.label.workflow.captureFallback': 'capture {uid}',
+  'shared.conflicts.label.workflow.field.name': 'name',
+  'shared.conflicts.label.workflow.field.description': 'description',
+  'shared.conflicts.label.workflow.field.enabled': 'enabled',
+  'shared.conflicts.label.workflow.field.refreshKind': 'refresh kind',
+  'shared.conflicts.label.workflow.field.refreshSeconds': 'refresh interval',
+  'shared.conflicts.label.workflow.field.refreshStepId': 'refresh step',
+  'shared.conflicts.label.workflow.field.refreshCaptureName': 'refresh capture',
+  'shared.conflicts.label.workflow.field.refreshLeadSeconds': 'refresh lead seconds',
+  'shared.conflicts.label.workflow.stepField.id': 'id',
+  'shared.conflicts.label.workflow.stepField.description': 'description',
+  'shared.conflicts.label.workflow.stepField.requestUid': 'request',
+  'shared.conflicts.label.workflow.stepField.dependsOn': 'dependsOn',
+  'shared.conflicts.label.workflow.stepField.runIf': 'runIf',
+  'shared.conflicts.label.workflow.stepField.priorityFrom': 'priorityFrom',
+  'shared.conflicts.label.workflow.stepField.retry': 'retry policy',
+  'shared.conflicts.label.workflow.stepField.timeoutMs': 'timeout',
+  'shared.conflicts.label.workflow.stepField.runScripts': 'run scripts',
+  'shared.conflicts.label.workflow.captureField.name': 'name',
+  'shared.conflicts.label.workflow.captureField.extractor': 'extractor',
+
+  // ── Adapter label plane: requests ──────────────────────────────────
+  'shared.conflicts.label.request.set.header': 'Header',
+  'shared.conflicts.label.request.set.queryParam': 'Query param',
+  'shared.conflicts.label.request.orderChanged': '{set}s — order changed',
+  'shared.conflicts.label.request.setRowNamed': '{kind} {name}',
+  'shared.conflicts.label.request.unionAuth': 'Authorization type',
+  'shared.conflicts.label.request.unionBody': 'Body type',
+  'shared.conflicts.label.request.headerLeafNamed': 'Header {name} ({leaf})',
+  'shared.conflicts.label.request.headerLeaf': 'Header ({leaf})',
+  'shared.conflicts.label.request.queryParamLeafNamed': 'Query param {name} ({leaf})',
+  'shared.conflicts.label.request.queryParamLeaf': 'Query param ({leaf})',
+  'shared.conflicts.label.request.authTail': 'Authorization · {path}',
+  'shared.conflicts.label.request.bodyTail': 'Body · {path}',
+  'shared.conflicts.label.request.headerField.key': 'name',
+  'shared.conflicts.label.request.headerField.value': 'value',
+  'shared.conflicts.label.request.headerField.description': 'description',
+  'shared.conflicts.label.request.headerField.enabled': 'enabled',
+  'shared.conflicts.label.request.paramField.key': 'name',
+  'shared.conflicts.label.request.paramField.value': 'value',
+  'shared.conflicts.label.request.paramField.description': 'description',
+  'shared.conflicts.label.request.paramField.enabled': 'enabled',
+  'shared.conflicts.label.request.paramField.hasEquals': 'separator',
+  'shared.conflicts.label.request.scalar.name': 'Name',
+  'shared.conflicts.label.request.scalar.description': 'Description',
+  'shared.conflicts.label.request.scalar.url': 'URL',
+  'shared.conflicts.label.request.scalar.method': 'Method',
+  'shared.conflicts.label.request.scalar.auth': 'Authorization',
+  'shared.conflicts.label.request.scalar.body': 'Body',
+  'shared.conflicts.label.request.scalar.credentialsMode': 'Credentials mode',
+  'shared.conflicts.label.request.scalar.followRedirects': 'Follow redirects',
+  'shared.conflicts.label.request.scalar.sslVerification': 'SSL verification',
+  'shared.conflicts.label.request.scalar.tlsMinVersion': 'TLS version minimum',
+  'shared.conflicts.label.request.scalar.tlsMaxVersion': 'TLS version maximum',
+  'shared.conflicts.label.request.scalar.tlsCipherSuites': 'TLS cipher suites',
+  'shared.conflicts.label.request.scalar.allowHttp2': 'Allow HTTP/2',
+  'shared.conflicts.label.request.scalar.resolveToAddress': 'Resolve to address',
+  'shared.conflicts.label.request.scalar.clientCertificateRef': 'Client certificate',
+  'shared.conflicts.label.request.scalar.proxyUrl': 'Proxy URL',
+  'shared.conflicts.label.request.scalar.proxyCredentialRef': 'Proxy credentials',
+  'shared.conflicts.label.request.scalar.unixSocketPath': 'Unix socket',
+  'shared.conflicts.label.request.scalar.cookieJar': 'Cookie jar',
+  'shared.conflicts.label.request.scalar.timeoutMs': 'Request timeout',
+  'shared.conflicts.label.request.scalar.maxResponseBytes': 'Response size limit',
+  'shared.conflicts.label.request.scalar.maxRedirects': 'Maximum redirects',
+  'shared.conflicts.label.request.scalar.followOriginalHttpMethod': 'Follow original HTTP method',
+  'shared.conflicts.label.request.scalar.followAuthorizationHeader': 'Follow Authorization header',
+  'shared.conflicts.label.request.scalar.preRequestScript': 'Pre-request script',
+  'shared.conflicts.label.request.scalar.postResponseScript': 'Post-response script',
 } as const satisfies Catalog;

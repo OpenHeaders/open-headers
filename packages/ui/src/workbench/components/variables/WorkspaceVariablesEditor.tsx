@@ -35,7 +35,6 @@ import {
   type ConflictResolution,
   EntityConflictBanner,
   EntityConflictDialog,
-  prettyPathMap,
   useAutoMergeForm,
 } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';

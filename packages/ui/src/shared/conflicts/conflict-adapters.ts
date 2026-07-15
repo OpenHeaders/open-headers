@@ -28,6 +28,7 @@
  * `EntityConflictsApi<E>` (typed identically for every entity).
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { FormInstance } from 'antd';
 import type { PathConflict } from './types';
 
@@ -117,10 +118,11 @@ export interface UnionBranchInfo {
 export interface ConflictResolveAdapter<E> {
   applyResolutionToForm(form: FormInstance, entity: E, path: string, conflict: PathConflict): boolean;
   applyResolutionToEntity(entity: E, path: string, conflict: PathConflict): boolean;
-  /** Pretty-print a path → human label for one entity. Called by the
-   *  banner + dialog row labels. Falls back to the raw path string
-   *  when the structure isn't recognized. */
-  prettyPath(entity: E, path: string): string;
+  /** Pretty-print a path → human label for one entity. Label vocabulary
+   *  resolves through `t` (`shared.conflicts.label.*`); wire data (names,
+   *  uids, schema paths) interpolates raw. Falls back to the raw path
+   *  string when the structure isn't recognized. */
+  prettyPath(t: Translate, entity: E, path: string): string;
 }
 
 /**
@@ -128,11 +130,12 @@ export interface ConflictResolveAdapter<E> {
  * around the per-entity `prettyPath` adapter method.
  */
 export function prettyPathMap<E>(
+  t: Translate,
   adapter: Pick<ConflictResolveAdapter<E>, 'prettyPath'>,
   entity: E,
   paths: Iterable<string>,
 ): Map<string, string> {
   const out = new Map<string, string>();
-  for (const p of paths) out.set(p, adapter.prettyPath(entity, p));
+  for (const p of paths) out.set(p, adapter.prettyPath(t, entity, p));
   return out;
 }

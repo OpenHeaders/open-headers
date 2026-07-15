@@ -79,9 +79,10 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
       header: obj({
         requestHeaders: setByUid({
           summary: summarizeHeader,
-          rowLabel: (row) => {
+          rowLabel: (t, row) => {
             const h = row as { headerName?: string };
-            return h.headerName ? `Request header ${h.headerName}` : 'Request header';
+            const kind = t('shared.conflicts.label.action.set.requestHeader');
+            return h.headerName ? t('shared.conflicts.label.action.setRowNamed', { kind, name: h.headerName }) : kind;
           },
           child: HEADER_MOD_ROW,
           // Order is semantic — DNR processes same-name actions in order
@@ -91,9 +92,10 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
         }),
         responseHeaders: setByUid({
           summary: summarizeHeader,
-          rowLabel: (row) => {
+          rowLabel: (t, row) => {
             const h = row as { headerName?: string };
-            return h.headerName ? `Response header ${h.headerName}` : 'Response header';
+            const kind = t('shared.conflicts.label.action.set.responseHeader');
+            return h.headerName ? t('shared.conflicts.label.action.setRowNamed', { kind, name: h.headerName }) : kind;
           },
           child: HEADER_MOD_ROW,
           orderSensitive: true,
@@ -102,9 +104,10 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
       'query-param': obj({
         [paths.queryParamKey]: setByUid({
           summary: summarizeQueryParam,
-          rowLabel: (row) => {
+          rowLabel: (t, row) => {
             const p = row as { param?: string };
-            return p.param ? `Param ${p.param}` : 'Param';
+            const kind = t('shared.conflicts.label.action.set.param');
+            return p.param ? t('shared.conflicts.label.action.setRowNamed', { kind, name: p.param }) : kind;
           },
           child: QUERY_PARAM_ROW,
           orderSensitive: true,

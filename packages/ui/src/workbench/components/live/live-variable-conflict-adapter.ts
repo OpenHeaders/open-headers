@@ -9,7 +9,11 @@
  */
 
 import type { LiveVariable } from '@openheaders/core/types';
-import type { ConflictResolveAdapter, ConflictTrackingAdapter } from '@openheaders/ui/shared/conflicts/conflict-adapters';
+import type { MessageKey } from '@openheaders/i18n';
+import type {
+  ConflictResolveAdapter,
+  ConflictTrackingAdapter,
+} from '@openheaders/ui/shared/conflicts/conflict-adapters';
 import { leaf, obj } from '@openheaders/ui/shared/conflicts/field-tree/descriptor';
 import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
 
@@ -28,22 +32,22 @@ const adapters = makeConflictAdapter<LiveVariable>({
   signature: (e) => e.uid,
 });
 
-const LEAF_LABEL: Record<string, string> = {
-  name: 'name',
-  description: 'description',
-  enabled: 'enabled',
-  requireFreshOnRuleBuild: 'wait for fresh value',
-  workflowUid: 'workflow',
-  stepId: 'step',
-  captureName: 'capture',
+const LEAF_LABEL: Record<string, MessageKey> = {
+  name: 'shared.conflicts.label.liveVariable.field.name',
+  description: 'shared.conflicts.label.liveVariable.field.description',
+  enabled: 'shared.conflicts.label.liveVariable.field.enabled',
+  requireFreshOnRuleBuild: 'shared.conflicts.label.liveVariable.field.requireFreshOnRuleBuild',
+  workflowUid: 'shared.conflicts.label.liveVariable.field.workflowUid',
+  stepId: 'shared.conflicts.label.liveVariable.field.stepId',
+  captureName: 'shared.conflicts.label.liveVariable.field.captureName',
 };
 
 export const liveVariableConflictAdapter: ConflictTrackingAdapter<LiveVariable> = adapters.tracking;
 
 export const liveVariableResolveAdapter: ConflictResolveAdapter<LiveVariable> = {
   ...adapters.resolve,
-  prettyPath(_entity, path) {
-    const label = LEAF_LABEL[path];
-    return label ? `Live variable (${label})` : path;
+  prettyPath(t, _entity, path) {
+    const labelKey = LEAF_LABEL[path];
+    return labelKey ? t('shared.conflicts.label.liveVariable.leaf', { label: t(labelKey) }) : path;
   },
 };

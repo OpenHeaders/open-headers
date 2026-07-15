@@ -1,9 +1,12 @@
 import type { LiveWorkflow } from '@openheaders/core/types';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   liveWorkflowConflictAdapter,
   liveWorkflowResolveAdapter,
 } from '@openheaders/ui/workbench/components/live/live-workflow-conflict-adapter';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 const STEP_UID = 's0000001';
 const CAP_UID = 'c0000001';
@@ -311,8 +314,8 @@ describe('liveWorkflowResolveAdapter', () => {
         },
       ],
     });
-    expect(liveWorkflowResolveAdapter.prettyPath(wf, `steps.${STEP_UID}.id`)).toBe('Step login (id)');
-    expect(liveWorkflowResolveAdapter.prettyPath(wf, `steps.${STEP_UID}.captures.${CAP_UID}.name`)).toBe(
+    expect(liveWorkflowResolveAdapter.prettyPath(t, wf, `steps.${STEP_UID}.id`)).toBe('Step login (id)');
+    expect(liveWorkflowResolveAdapter.prettyPath(t, wf, `steps.${STEP_UID}.captures.${CAP_UID}.name`)).toBe(
       'Step login → token (name)',
     );
   });

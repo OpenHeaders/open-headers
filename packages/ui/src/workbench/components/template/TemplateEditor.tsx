@@ -40,7 +40,6 @@ import {
   EntityConflictDialog,
   hasDialogOnlyConflict,
   type PathConflict,
-  prettyPathMap,
   useAutoMergeForm,
 } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
@@ -306,14 +305,6 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
       return '';
     }
   }, [isConflictDialogOpen, liveTemplate, formValues]);
-
-  const conflictPathLabels = useMemo(
-    () =>
-      liveTemplate
-        ? prettyPathMap(templateResolveAdapter, liveTemplate, allConflicts.keys())
-        : new Map<string, string>(),
-    [liveTemplate, allConflicts],
-  );
 
   // Init: populate form from the live template once, then let useReprime's
   // auto-rebase advance primedFingerprint + conflict baseline.

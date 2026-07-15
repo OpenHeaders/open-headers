@@ -24,6 +24,8 @@
  */
 
 import type { Rule, RuleCondition } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { FormInstance } from 'antd';
 import type { ActionPathBundle } from '../awareness';
 import type {
@@ -342,39 +344,47 @@ function reorderRows<T extends { uid?: string }>(rows: readonly T[], savedOrder:
   return out;
 }
 
-const HEADER_LEAF_LABEL: Record<string, string> = {
-  value: 'value',
-  headerName: 'name',
-  operation: 'operation',
-  mergeSeparator: 'merge separator',
+const HEADER_LEAF_LABEL: Record<string, MessageKey> = {
+  value: 'shared.conflicts.label.action.headerLeaf.value',
+  headerName: 'shared.conflicts.label.action.headerLeaf.name',
+  operation: 'shared.conflicts.label.action.headerLeaf.operation',
+  mergeSeparator: 'shared.conflicts.label.action.headerLeaf.mergeSeparator',
 };
-const PARAM_LEAF_LABEL: Record<string, string> = { value: 'value', param: 'name', operation: 'operation' };
-const CONDITION_LEAF_LABEL: Record<string, string> = { values: 'values', type: 'type', headerName: 'header name' };
-const SCALAR_LABEL: Record<string, string> = {
-  redirectTo: 'Redirect URL',
-  delayMs: 'Delay (ms)',
-  injectType: 'Inject type',
-  source: 'Inject source',
-  code: 'Inject code',
-  sourceUrl: 'Inject source URL',
-  position: 'Inject position',
-  requestBody: 'Request body',
-  bodyType: 'Body type',
-  resourceType: 'Resource type',
-  statusCode: 'Response status code',
-  responseBody: 'Response body',
-  contentType: 'Response content type',
-  operation: 'Operation',
-  direction: 'Direction',
-  eventName: 'Event name',
-  payload: 'Message payload',
-  injectTrigger: 'Inject trigger',
+const PARAM_LEAF_LABEL: Record<string, MessageKey> = {
+  value: 'shared.conflicts.label.action.paramLeaf.value',
+  param: 'shared.conflicts.label.action.paramLeaf.name',
+  operation: 'shared.conflicts.label.action.paramLeaf.operation',
+};
+const CONDITION_LEAF_LABEL: Record<string, MessageKey> = {
+  values: 'shared.conflicts.label.action.conditionLeaf.values',
+  type: 'shared.conflicts.label.action.conditionLeaf.type',
+  headerName: 'shared.conflicts.label.action.conditionLeaf.headerName',
+};
+const SCALAR_LABEL: Record<string, MessageKey> = {
+  redirectTo: 'shared.conflicts.label.action.scalar.redirectTo',
+  delayMs: 'shared.conflicts.label.action.scalar.delayMs',
+  injectType: 'shared.conflicts.label.action.scalar.injectType',
+  source: 'shared.conflicts.label.action.scalar.source',
+  code: 'shared.conflicts.label.action.scalar.code',
+  sourceUrl: 'shared.conflicts.label.action.scalar.sourceUrl',
+  position: 'shared.conflicts.label.action.scalar.position',
+  requestBody: 'shared.conflicts.label.action.scalar.requestBody',
+  bodyType: 'shared.conflicts.label.action.scalar.bodyType',
+  resourceType: 'shared.conflicts.label.action.scalar.resourceType',
+  statusCode: 'shared.conflicts.label.action.scalar.statusCode',
+  responseBody: 'shared.conflicts.label.action.scalar.responseBody',
+  contentType: 'shared.conflicts.label.action.scalar.contentType',
+  operation: 'shared.conflicts.label.action.scalar.operation',
+  direction: 'shared.conflicts.label.action.scalar.direction',
+  eventName: 'shared.conflicts.label.action.scalar.eventName',
+  payload: 'shared.conflicts.label.action.scalar.payload',
+  injectTrigger: 'shared.conflicts.label.action.scalar.injectTrigger',
 };
 
 /** WS/SSE message-filter nested leaves — the one non-set dotted action subtree. */
-const MESSAGE_FILTER_LABEL: Record<string, string> = {
-  matchType: 'Message filter type',
-  value: 'Message filter value',
+const MESSAGE_FILTER_LABEL: Record<string, MessageKey> = {
+  matchType: 'shared.conflicts.label.action.messageFilter.matchType',
+  value: 'shared.conflicts.label.action.messageFilter.value',
 };
 
 /** Schema-path tail → prefixed form-name suffix for ws/sse fields
@@ -471,11 +481,11 @@ function makeResolveAdapter<E extends { uid: string }>(
     return false;
   }
 
-  function setPathSummary(setPath: string): string {
-    if (setPath === paths.headerSet('request')) return 'Request header';
-    if (setPath === paths.headerSet('response')) return 'Response header';
-    if (setPath === paths.queryParamSet) return 'Query param';
-    if (setPath === 'conditions') return 'Condition';
+  function setPathSummary(t: Translate, setPath: string): string {
+    if (setPath === paths.headerSet('request')) return t('shared.conflicts.label.action.set.requestHeader');
+    if (setPath === paths.headerSet('response')) return t('shared.conflicts.label.action.set.responseHeader');
+    if (setPath === paths.queryParamSet) return t('shared.conflicts.label.action.set.queryParam');
+    if (setPath === 'conditions') return t('shared.conflicts.label.action.set.condition');
     return setPath;
   }
 
@@ -491,65 +501,79 @@ function makeResolveAdapter<E extends { uid: string }>(
     return arr?.find((p) => p.uid === uid)?.param ?? null;
   }
 
-  function prettyPath(entity: E, path: string): string {
+  function prettyPath(t: Translate, entity: E, path: string): string {
     if (path.startsWith('reorder:')) {
       const setPath = path.slice('reorder:'.length);
-      return `${setPathSummary(setPath)}s — order changed`;
+      return t('shared.conflicts.label.action.orderChanged', { set: setPathSummary(t, setPath) });
     }
     if (path.startsWith('set:')) {
       const m = /^set:(.+)\.([a-z0-9]{8})$/.exec(path);
       if (!m) return path;
       const setPath = m[1];
       const uid = m[2];
-      const kind = setPathSummary(setPath);
+      const kind = setPathSummary(t, setPath);
       if (setPath === paths.headerSet('request') || setPath === paths.headerSet('response')) {
         const dir = setPath === paths.headerSet('request') ? 'requestHeaders' : 'responseHeaders';
         const name = findHeaderName(entity, dir, uid);
-        return name ? `${kind} ${name}` : kind;
+        return name ? t('shared.conflicts.label.action.setRowNamed', { kind, name }) : kind;
       }
       if (setPath === paths.queryParamSet) {
         const name = findParamName(entity, uid);
-        return name ? `${kind} ${name}` : kind;
+        return name ? t('shared.conflicts.label.action.setRowNamed', { kind, name }) : kind;
       }
       if (setPath === 'conditions') {
         const found = accessors.getConditions(entity).find((c) => c.uid === uid);
-        return found ? `${kind} ${found.type}` : kind;
+        return found ? t('shared.conflicts.label.action.setRowNamed', { kind, name: found.type }) : kind;
       }
       return kind;
     }
-    if (path === 'name') return 'Name';
+    if (path === 'name') return t('shared.conflicts.label.action.name');
     const condM = /^conditions\.([a-z0-9]{8})\.(values|type|headerName)$/.exec(path);
     if (condM) {
-      const leaf = CONDITION_LEAF_LABEL[condM[2]] ?? condM[2];
-      return `Condition ${leaf}`;
+      const leafKey = CONDITION_LEAF_LABEL[condM[2]];
+      const leaf = leafKey ? t(leafKey) : condM[2];
+      return t('shared.conflicts.label.action.conditionLeafLabel', { leaf });
     }
     if (!path.startsWith(`${a}.`)) return path;
     const headerMod = headerModRe.exec(path);
     if (headerMod) {
       const set = headerMod[1] as 'requestHeaders' | 'responseHeaders';
       const uid = headerMod[2];
-      const leaf = HEADER_LEAF_LABEL[headerMod[3]] ?? headerMod[3];
-      const dir = set === 'requestHeaders' ? 'Request' : 'Response';
+      const leafKey = HEADER_LEAF_LABEL[headerMod[3]];
+      const leaf = leafKey ? t(leafKey) : headerMod[3];
       const name = findHeaderName(entity, set, uid);
-      return name ? `${dir} header ${name} (${leaf})` : `${dir} header (${leaf})`;
+      if (set === 'requestHeaders') {
+        return name
+          ? t('shared.conflicts.label.action.requestHeaderLeafNamed', { name, leaf })
+          : t('shared.conflicts.label.action.requestHeaderLeaf', { leaf });
+      }
+      return name
+        ? t('shared.conflicts.label.action.responseHeaderLeafNamed', { name, leaf })
+        : t('shared.conflicts.label.action.responseHeaderLeaf', { leaf });
     }
     const queryParam = queryParamRe.exec(path);
     if (queryParam) {
       const uid = queryParam[1];
-      const leaf = PARAM_LEAF_LABEL[queryParam[2]] ?? queryParam[2];
+      const leafKey = PARAM_LEAF_LABEL[queryParam[2]];
+      const leaf = leafKey ? t(leafKey) : queryParam[2];
       const name = findParamName(entity, uid);
-      return name ? `Query param ${name} (${leaf})` : `Query param (${leaf})`;
+      return name
+        ? t('shared.conflicts.label.action.queryParamLeafNamed', { name, leaf })
+        : t('shared.conflicts.label.action.queryParamLeaf', { leaf });
     }
     const responseHeader = responseHeaderRe.exec(path);
     if (responseHeader) {
       const headerName = responseHeader[1];
-      const leaf = responseHeader[2];
-      return `Response header ${headerName} (${leaf})`;
+      const leafKey = HEADER_LEAF_LABEL[responseHeader[2] === 'name' ? 'headerName' : 'value'];
+      return t('shared.conflicts.label.action.responseHeaderLeafNamed', { name: headerName, leaf: t(leafKey) });
     }
     const tail = path.slice(a.length + 1);
-    if (!tail.includes('.') && SCALAR_LABEL[tail]) return SCALAR_LABEL[tail];
+    if (!tail.includes('.') && SCALAR_LABEL[tail]) return t(SCALAR_LABEL[tail]);
     const filterM = /^messageFilter\.(matchType|value)$/.exec(tail);
-    if (filterM) return MESSAGE_FILTER_LABEL[filterM[1]] ?? path;
+    if (filterM) {
+      const filterKey = MESSAGE_FILTER_LABEL[filterM[1]];
+      return filterKey ? t(filterKey) : path;
+    }
     return path;
   }
 

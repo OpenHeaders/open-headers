@@ -13,6 +13,7 @@
  */
 
 import type { Vault, VaultSecret } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import type {
   ConflictResolveAdapter,
   ConflictTrackingAdapter,
@@ -32,9 +33,11 @@ const VAULT_SCHEMA = obj({
       if (s.kind === 'client-certificate') return `${s.name} (certificate)`;
       return s.name;
     },
-    rowLabel: (row) => {
+    rowLabel: (t, row) => {
       const s = row as VaultSecret;
-      return s.name ? `Secret ${s.name}` : 'Secret';
+      return s.name
+        ? t('shared.conflicts.label.vault.rowNamed', { name: s.name })
+        : t('shared.conflicts.label.vault.row');
     },
     child: union({
       discriminator: 'kind',
@@ -69,18 +72,18 @@ const VAULT_SCHEMA = obj({
 const SECRET_PATH_RE =
   /^secrets\.([a-z0-9]{8})\.(name|kind|value|seed|algorithm|digits|period|issuer|cert|key|passphrase)$/;
 
-const LEAF_LABEL: Record<string, string> = {
-  name: 'name',
-  kind: 'kind',
-  value: 'value',
-  seed: 'seed',
-  algorithm: 'algorithm',
-  digits: 'digits',
-  period: 'period',
-  issuer: 'issuer',
-  cert: 'certificate',
-  key: 'private key',
-  passphrase: 'passphrase',
+const LEAF_LABEL: Record<string, MessageKey> = {
+  name: 'shared.conflicts.label.vault.field.name',
+  kind: 'shared.conflicts.label.vault.field.kind',
+  value: 'shared.conflicts.label.vault.field.value',
+  seed: 'shared.conflicts.label.vault.field.seed',
+  algorithm: 'shared.conflicts.label.vault.field.algorithm',
+  digits: 'shared.conflicts.label.vault.field.digits',
+  period: 'shared.conflicts.label.vault.field.period',
+  issuer: 'shared.conflicts.label.vault.field.issuer',
+  cert: 'shared.conflicts.label.vault.field.cert',
+  key: 'shared.conflicts.label.vault.field.key',
+  passphrase: 'shared.conflicts.label.vault.field.passphrase',
 };
 
 type VaultEntity = Vault & { uid: string };
@@ -107,21 +110,23 @@ export const vaultConflictAdapter: ConflictTrackingAdapter<VaultEntity> = adapte
 
 export const vaultResolveAdapter: ConflictResolveAdapter<VaultEntity> = {
   ...adapters.resolve,
-  prettyPath(vault, path) {
-    if (path.startsWith('reorder:')) return 'Secrets — order changed';
+  prettyPath(t, vault, path) {
+    if (path.startsWith('reorder:')) return t('shared.conflicts.label.vault.orderChanged');
     if (path.startsWith('set:')) {
       const m = /^set:secrets\.([a-z0-9]{8})$/.exec(path);
       if (m) {
         const name = findSecretName(vault, m[1]);
-        return name ? `Secret ${name}` : 'Secret';
+        return name ? t('shared.conflicts.label.vault.rowNamed', { name }) : t('shared.conflicts.label.vault.row');
       }
     }
     const leafMatch = SECRET_PATH_RE.exec(path);
     if (leafMatch) {
       const name = findSecretName(vault, leafMatch[1]);
-      const label = LEAF_LABEL[leafMatch[2]];
-      return name ? `Secret ${name} (${label})` : `Secret (${label})`;
+      const label = t(LEAF_LABEL[leafMatch[2]]);
+      return name
+        ? t('shared.conflicts.label.vault.leafNamed', { name, label })
+        : t('shared.conflicts.label.vault.leaf', { label });
     }
-    return adapters.resolve.prettyPath(vault, path);
+    return adapters.resolve.prettyPath(t, vault, path);
   },
 };

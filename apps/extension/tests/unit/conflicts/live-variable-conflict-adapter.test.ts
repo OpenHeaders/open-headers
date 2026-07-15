@@ -1,9 +1,12 @@
 import type { LiveVariable } from '@openheaders/core/types';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   liveVariableConflictAdapter,
   liveVariableResolveAdapter,
 } from '@openheaders/ui/workbench/components/live/live-variable-conflict-adapter';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 function makeLv(overrides: Partial<LiveVariable> = {}): LiveVariable {
   return {
@@ -77,8 +80,8 @@ describe('liveVariableResolveAdapter', () => {
 
   it('produces human labels for known leaves', () => {
     const lv = makeLv();
-    expect(liveVariableResolveAdapter.prettyPath(lv, 'name')).toContain('name');
-    expect(liveVariableResolveAdapter.prettyPath(lv, 'requireFreshOnRuleBuild')).toContain('fresh');
-    expect(liveVariableResolveAdapter.prettyPath(lv, 'unknown.path')).toBe('unknown.path');
+    expect(liveVariableResolveAdapter.prettyPath(t, lv, 'name')).toContain('name');
+    expect(liveVariableResolveAdapter.prettyPath(t, lv, 'requireFreshOnRuleBuild')).toContain('fresh');
+    expect(liveVariableResolveAdapter.prettyPath(t, lv, 'unknown.path')).toBe('unknown.path');
   });
 });

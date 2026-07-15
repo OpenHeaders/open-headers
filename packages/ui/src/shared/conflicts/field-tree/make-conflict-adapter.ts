@@ -14,6 +14,7 @@
  * factory that binds them into the two adapters.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { FormInstance } from 'antd';
 import { stableStringify } from '../../forms/fingerprint';
 import type { ConflictResolveAdapter, ConflictTrackingAdapter, PathMap } from '../conflict-adapters';
@@ -48,8 +49,6 @@ interface Adapters<E> {
 export interface MakeAdapterArgs<E> {
   schema: FieldNode;
   signature: (entity: E) => string;
-  /** Pretty-print the entity-level prefix used in `prettyPath`. */
-  entityLabel?: (entity: E) => string;
   /** Optional override hook so the entity bundle can intercept specific
    *  leaf writes (Rule's name routes to the sidebar mutator, etc.).
    *
@@ -86,9 +85,9 @@ function isReorderPayload(p: unknown): p is ReorderPayload {
 
 // ── Pretty path ──────────────────────────────────────────────────
 
-function prettyPath<E>(args: MakeAdapterArgs<E>, entity: E, path: string): string {
+function prettyPath<E>(args: MakeAdapterArgs<E>, t: Translate, entity: E, path: string): string {
   const reorder = decodeReorderConflictKey(path);
-  if (reorder) return `${reorder.setPath} — order changed`;
+  if (reorder) return t('shared.conflicts.label.walker.orderChanged', { set: reorder.setPath });
 
   const setKey = decodeSetConflictKey(path);
   if (setKey) {
@@ -97,7 +96,7 @@ function prettyPath<E>(args: MakeAdapterArgs<E>, entity: E, path: string): strin
     const set = sets.find((s) => s.setPath === setKey.setPath);
     if (set?.node.identity === 'uid' && set.node.rowLabel) {
       const row = set.rows.find((r) => (r as { uid?: string })?.uid === setKey.uid);
-      if (row) return set.node.rowLabel(row);
+      if (row) return set.node.rowLabel(t, row);
     }
     return `${setKey.setPath} (${setKey.uid})`;
   }
@@ -321,7 +320,7 @@ export function makeConflictAdapter<E>(args: MakeAdapterArgs<E>): Adapters<E> {
       }
       return writeLeafByPath(args.schema, entity, path, conflict.theirs);
     },
-    prettyPath: (entity, path) => prettyPath(args, entity, path),
+    prettyPath: (t, entity, path) => prettyPath(args, t, entity, path),
   };
 
   return { tracking, resolve };
