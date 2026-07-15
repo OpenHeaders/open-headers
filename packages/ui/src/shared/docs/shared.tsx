@@ -11,9 +11,11 @@ import {
   StopOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import { Tag } from 'antd';
 import type React from 'react';
 import { createContext, useCallback, useContext, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useDocsNav } from './use-docs-nav';
 
 export type SectionRegister = (id: string, el: HTMLDivElement | null) => void;
@@ -59,6 +61,7 @@ export function Example({
   /** Lines for "Won't apply" — each line can contain a suggestion prefixed with "→ " */
   wontApply?: string[];
 }) {
+  const t = useT();
   const codeStyle: React.CSSProperties = { display: 'block', paddingLeft: 12, opacity: 0.85, whiteSpace: 'pre' };
   return (
     <div
@@ -74,11 +77,13 @@ export function Example({
       }}
     >
       <div style={{ fontWeight: 600, marginBottom: 2 }}>
-        Rule: <code>{rule}</code>
+        {t('shared.docs.example.rule')} <code>{rule}</code>
       </div>
       {before && (
         <div>
-          <span style={{ color: 'var(--ant-color-text-tertiary)', fontWeight: 600 }}>Before:</span>
+          <span style={{ color: 'var(--ant-color-text-tertiary)', fontWeight: 600 }}>
+            {t('shared.docs.example.before')}
+          </span>
           {before.map((line, i) => (
             <code key={i} style={codeStyle}>
               {line}
@@ -89,7 +94,7 @@ export function Example({
       {after && (
         <div style={{ marginTop: 2 }}>
           <span style={{ color: 'var(--ant-color-success)', fontWeight: 600 }}>
-            {before ? 'After:' : 'Applies to:'}
+            {before ? t('shared.docs.example.after') : t('shared.docs.example.appliesTo')}
           </span>
           {after.map((line, i) => (
             <code key={i} style={codeStyle}>
@@ -107,7 +112,9 @@ export function Example({
             <>
               {negatives.length > 0 && (
                 <div style={{ marginTop: 4, borderTop: '1px dashed var(--ant-color-border-secondary)', paddingTop: 4 }}>
-                  <span style={{ color: 'var(--ant-color-error)', fontWeight: 600 }}>Won't apply:</span>
+                  <span style={{ color: 'var(--ant-color-error)', fontWeight: 600 }}>
+                    {t('shared.docs.example.wontApply')}
+                  </span>
                   {negatives.map((line, i) => (
                     <div key={i} style={{ paddingLeft: 12, opacity: 0.7 }}>
                       {line}
@@ -117,7 +124,7 @@ export function Example({
               )}
               {suggestions.length > 0 && (
                 <div style={{ marginTop: 4 }}>
-                  <span style={{ fontWeight: 600 }}>Suggestion:</span>
+                  <span style={{ fontWeight: 600 }}>{t('shared.docs.example.suggestion')}</span>
                   {suggestions.map((line, i) => (
                     <div key={i} style={{ paddingLeft: 12, opacity: 0.7 }}>
                       {line.replace(/^→\s*/, '')}
@@ -184,11 +191,11 @@ export function DocHeading({ level = 3, children }: { level?: 3 | 4; children: R
 
 type CalloutKind = 'note' | 'warn' | 'tip' | 'limitation';
 
-const CALLOUT_STYLES: Record<CalloutKind, { color: string; icon: React.ReactNode; label: string }> = {
-  note: { color: 'var(--ant-color-info)', icon: <InfoCircleOutlined />, label: 'Note' },
-  warn: { color: 'var(--ant-color-warning)', icon: <WarningOutlined />, label: 'Warning' },
-  tip: { color: 'var(--ant-color-success)', icon: <BulbOutlined />, label: 'Tip' },
-  limitation: { color: 'var(--ant-color-error)', icon: <StopOutlined />, label: 'Limitation' },
+const CALLOUT_STYLES: Record<CalloutKind, { color: string; icon: React.ReactNode; labelKey: MessageKey }> = {
+  note: { color: 'var(--ant-color-info)', icon: <InfoCircleOutlined />, labelKey: 'shared.docs.callout.note' },
+  warn: { color: 'var(--ant-color-warning)', icon: <WarningOutlined />, labelKey: 'shared.docs.callout.warning' },
+  tip: { color: 'var(--ant-color-success)', icon: <BulbOutlined />, labelKey: 'shared.docs.callout.tip' },
+  limitation: { color: 'var(--ant-color-error)', icon: <StopOutlined />, labelKey: 'shared.docs.callout.limitation' },
 };
 
 /**
@@ -196,6 +203,7 @@ const CALLOUT_STYLES: Record<CalloutKind, { color: string; icon: React.ReactNode
  * Use sparingly; default flow is plain prose with `DocParagraph`.
  */
 export function Callout({ kind, title, children }: { kind: CalloutKind; title?: string; children: React.ReactNode }) {
+  const t = useT();
   const style = CALLOUT_STYLES[kind];
   return (
     <div
@@ -223,7 +231,7 @@ export function Callout({ kind, title, children }: { kind: CalloutKind; title?: 
         }}
       >
         <span style={{ display: 'inline-flex' }}>{style.icon}</span>
-        <span>{title ?? style.label}</span>
+        <span>{title ?? t(style.labelKey)}</span>
       </div>
       <div style={{ color: 'var(--ant-color-text-secondary)' }}>{children}</div>
     </div>
@@ -235,6 +243,7 @@ export function Callout({ kind, title, children }: { kind: CalloutKind; title?: 
  * snippets; for single-token inline code, use plain `<code>`.
  */
 export function CodeBlock({ children, language }: { children: string; language?: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const onCopy = useCallback(() => {
     navigator.clipboard?.writeText(children).then(() => {
@@ -262,7 +271,7 @@ export function CodeBlock({ children, language }: { children: string; language?:
       <button
         type="button"
         onClick={onCopy}
-        aria-label="Copy code"
+        aria-label={t('shared.docs.copyCode')}
         style={{
           position: 'absolute',
           top: 4,
@@ -295,7 +304,8 @@ export function CodeBlock({ children, language }: { children: string; language?:
  * earn their own dedicated component, never a fifth color.
  */
 export function EngineTag({ kind }: { kind: 'dnr' | 'script' }) {
-  return kind === 'dnr' ? <Tag color="blue">DNR</Tag> : <Tag color="purple">Script-based</Tag>;
+  const t = useT();
+  return kind === 'dnr' ? <Tag color="blue">DNR</Tag> : <Tag color="purple">{t('shared.docs.engineScript')}</Tag>;
 }
 
 export function BrowserTag({ min }: { min: string }) {
@@ -340,6 +350,7 @@ function OnThisPageLink({ id, title }: { id: string; title: string }) {
 }
 
 export function OnThisPage({ entries }: { entries: { id: string; title: string }[] }) {
+  const t = useT();
   if (entries.length < ON_THIS_PAGE_THRESHOLD) return null;
   return (
     <div
@@ -359,7 +370,7 @@ export function OnThisPage({ entries }: { entries: { id: string; title: string }
           marginBottom: 4,
         }}
       >
-        On this page
+        {t('shared.docs.onThisPage')}
       </div>
       {entries.map((e) => (
         <OnThisPageLink key={e.id} id={e.id} title={e.title} />
@@ -385,11 +396,25 @@ export function OnThisPage({ entries }: { entries: { id: string; title: string }
 export type DocSurface = 'popup' | 'side-panel' | 'workbench' | 'devtools';
 
 const SURFACE_ORDER: DocSurface[] = ['popup', 'side-panel', 'workbench', 'devtools'];
+
+/**
+ * Raw labels stay for the SVG-internal glyph `<title>`s and the
+ * settings backend-details scenes (both English by the diagram
+ * boundary); the visible tile captions under the glyphs resolve
+ * through `SURFACE_LABEL_KEYS` instead.
+ */
 export const SURFACE_LABELS: Record<DocSurface, string> = {
   popup: 'Popup',
   'side-panel': 'Side panel',
   workbench: 'Workbench',
   devtools: 'DevTools',
+};
+
+const SURFACE_LABEL_KEYS: Record<DocSurface, MessageKey> = {
+  popup: 'shared.docs.surfaces.popup',
+  'side-panel': 'shared.docs.surfaces.sidePanel',
+  workbench: 'shared.docs.surfaces.workbench',
+  devtools: 'shared.docs.surfaces.devtools',
 };
 
 /**
@@ -426,6 +451,7 @@ export function SurfaceGlyph({ surface, accent }: { surface: DocSurface; accent:
 }
 
 export function SurfaceContext({ surfaces }: { surfaces: DocSurface[] }) {
+  const t = useT();
   const set = new Set(surfaces);
   return (
     <div
@@ -450,7 +476,7 @@ export function SurfaceContext({ surfaces }: { surfaces: DocSurface[] }) {
           textAlign: 'center',
         }}
       >
-        Where you'll see this
+        {t('shared.docs.surfaces.header')}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-around', gap: 8 }}>
         {SURFACE_ORDER.map((s) => {
@@ -479,7 +505,7 @@ export function SurfaceContext({ surfaces }: { surfaces: DocSurface[] }) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {SURFACE_LABELS[s]}
+                {t(SURFACE_LABEL_KEYS[s])}
               </div>
             </div>
           );

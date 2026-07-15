@@ -399,4 +399,28 @@ export const sharedComponents = {
   'shared.docs.next': 'Next',
   'shared.docs.previousTooltip': 'Previous: {title}',
   'shared.docs.nextTooltip': 'Next: {title}',
+
+  // ── Docs section primitives (shared: workbench + devtools panel).
+  //    Callout kind labels, the Example block's structural labels, the
+  //    surface-context banner, and the in-section TOC header. The DNR
+  //    engine tag, BrowserTag versions, and every SVG-internal label
+  //    (incl. the surface-glyph <title>s) stay raw. ────────────────────
+  'shared.docs.callout.note': 'Note',
+  'shared.docs.callout.warning': 'Warning',
+  'shared.docs.callout.tip': 'Tip',
+  'shared.docs.callout.limitation': 'Limitation',
+  'shared.docs.example.rule': 'Rule:',
+  'shared.docs.example.before': 'Before:',
+  'shared.docs.example.after': 'After:',
+  'shared.docs.example.appliesTo': 'Applies to:',
+  'shared.docs.example.wontApply': "Won't apply:",
+  'shared.docs.example.suggestion': 'Suggestion:',
+  'shared.docs.onThisPage': 'On this page',
+  'shared.docs.copyCode': 'Copy code',
+  'shared.docs.surfaces.header': "Where you'll see this",
+  'shared.docs.surfaces.popup': 'Popup',
+  'shared.docs.surfaces.sidePanel': 'Side panel',
+  'shared.docs.surfaces.workbench': 'Workbench',
+  'shared.docs.surfaces.devtools': 'DevTools',
+  'shared.docs.engineScript': 'Script-based',
 } as const satisfies Catalog;

@@ -10,8 +10,8 @@
 
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { resolveDocSummary, resolveDocTitle } from '@openheaders/ui/shared/docs/registry';
-import { findSection } from '../docs/registry';
+import { resolveDocGroupLabel, resolveDocSummary, resolveDocTitle } from '@openheaders/ui/shared/docs/registry';
+import { findGroup, findSection } from '../docs/registry';
 import { resolveDocLink } from '../docs/doc-ids';
 import { DOC_ANCHOR_INFO } from './doc-anchor-info';
 import SectionInfo from './SectionInfo';
@@ -26,11 +26,12 @@ const DocInfo: React.FC<DocInfoProps> = ({ docId }) => {
   const t = useT();
   const { section } = resolveDocLink(docId);
   const sectionDef = findSection(section);
+  const groupDef = sectionDef ? findGroup(sectionDef.group) : null;
   const anchor = DOC_ANCHOR_INFO[docId];
   const content = anchor
     ? { kicker: sectionDef ? resolveDocTitle(sectionDef, t) : undefined, title: anchor.title, summary: anchor.summary }
     : {
-        kicker: sectionDef?.group,
+        kicker: groupDef ? resolveDocGroupLabel(groupDef, t) : sectionDef?.group,
         title: sectionDef ? resolveDocTitle(sectionDef, t) : docId,
         summary: sectionDef ? resolveDocSummary(sectionDef, t) : '',
       };

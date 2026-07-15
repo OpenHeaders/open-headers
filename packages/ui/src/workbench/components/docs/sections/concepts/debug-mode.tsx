@@ -3,6 +3,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   DebugModeReachDiagram,
   DebugModeScopeDiagram,
@@ -11,106 +12,116 @@ import {
 } from '../../diagrams';
 import { Callout, DiagramFrame, DocHeading, DocLink, DocParagraph, StateRow, SurfaceContext } from '../../shared';
 
-export const DebugModeSection: React.FC = () => (
-  <>
-    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
-    <DocParagraph>
-      <strong>Debug mode</strong> attaches Open Headers to the browser's debugging protocol so it can inspect and change
-      traffic that ordinary extension APIs can't reach. It's the same machinery the browser's own developer tools use —
-      which is why, while it's on, the browser shows an <em>"OH started debugging this browser"</em> banner.
-    </DocParagraph>
-    <DocParagraph>
-      Standard mode (debug mode off) already covers most rules — header, block, redirect, query-param, and the
-      page-context body / response / inject rules. Debug mode is the opt-in upgrade for what those can't reach:
-      navigations, workers, cross-origin frames, and tab-wide environment changes.
-    </DocParagraph>
+export const DebugModeSection: React.FC = () => {
+  const t = useT();
+  return (
+    <>
+      <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
+      <DocParagraph>
+        <strong>{t('workbench.docs.body.debugMode.term')}</strong> {t('workbench.docs.body.debugMode.intro1')}{' '}
+        <em>{t('workbench.docs.body.debugMode.introBanner')}</em> {t('workbench.docs.body.debugMode.intro1Suffix')}
+      </DocParagraph>
+      <DocParagraph>{t('workbench.docs.body.debugMode.intro2')}</DocParagraph>
 
-    <DocHeading level={3}>Where you control it</DocHeading>
-    <DocParagraph>
-      The <code>● Debug mode</code> pill sits in the footer of every surface, just left of{' '}
-      <DocLink to="system-status">System status</DocLink>. The inline switch turns it on and off, the colored dot tracks
-      its health, and the dot + label open a popover with everything else — scope, per-tab pins, and the list of
-      currently attached tabs.
-    </DocParagraph>
-    <DiagramFrame caption="The inline switch turns it on; the dot + label open the popover for everything else.">
-      <DebugModeSurfaceDiagram />
-    </DiagramFrame>
+      <DocHeading level={3}>{t('workbench.docs.body.debugMode.controlHeading')}</DocHeading>
+      <DocParagraph>
+        {t('workbench.docs.body.debugMode.control1Prefix')} <code>● Debug mode</code>{' '}
+        {t('workbench.docs.body.debugMode.control1Middle')}{' '}
+        <DocLink to="system-status">{t('workbench.docs.body.debugMode.systemStatusLink')}</DocLink>
+        {t('workbench.docs.body.debugMode.control1Suffix')}
+      </DocParagraph>
+      <DiagramFrame caption={t('workbench.docs.body.debugMode.surfaceCaption')}>
+        <DebugModeSurfaceDiagram />
+      </DiagramFrame>
 
-    <DocHeading level={3}>Choosing what to inspect</DocHeading>
-    <DocParagraph>
-      The <strong>Attach to</strong> dropdown decides which tabs debug mode attaches to —{' '}
-      <strong>Where DevTools is open</strong> (only tabs with the Open Headers panel open; the narrowest default),{' '}
-      <strong>The focused tab</strong> (follows the active tab as you switch), or <strong>Both</strong> (the union of
-      the two).
-    </DocParagraph>
-    <DocParagraph>
-      Picking a scope <em>is</em> the consent for the browser banner — there's no separate prompt. When the current tab
-      isn't already covered by the scope, an <strong>Include this browser tab</strong> pin appears, so you can attach
-      that one tab without widening the scope for everything else.
-    </DocParagraph>
-    <DocParagraph>
-      The <strong>Attached tabs</strong> list shows every tab debug mode is currently driving, each with a jump-to-tab
-      action. The attached set is always recomputed from your scope, your pins, and which panels are open — so it
-      reflects the present, never a stale snapshot.
-    </DocParagraph>
-    <DiagramFrame caption="The attached set is derived every time — re-attach replays it, nothing is stored.">
-      <DebugModeScopeDiagram />
-    </DiagramFrame>
+      <DocHeading level={3}>{t('workbench.docs.body.debugMode.scopeHeading')}</DocHeading>
+      <DocParagraph>
+        {t('workbench.docs.body.debugMode.scope1Prefix')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.attachTo')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.scope1Middle')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.scopeDevtools')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.scope1DevtoolsParen')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.scopeFocused')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.scope1FocusedParen')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.scopeBoth')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.scope1BothParen')}
+      </DocParagraph>
+      <DocParagraph>
+        {t('workbench.docs.body.debugMode.consent1Prefix')} <em>{t('workbench.docs.body.debugMode.consentIs')}</em>{' '}
+        {t('workbench.docs.body.debugMode.consent1Middle')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.includeTabPin')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.consent1Suffix')}
+      </DocParagraph>
+      <DocParagraph>
+        {t('workbench.docs.body.debugMode.attached1Prefix')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.attachedTabs')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.attached1Suffix')}
+      </DocParagraph>
+      <DiagramFrame caption={t('workbench.docs.body.debugMode.scopeCaption')}>
+        <DebugModeScopeDiagram />
+      </DiagramFrame>
 
-    <Callout kind="warn" title="The banner is browser-wide">
-      While debug mode is on, the browser's "OH started debugging this browser" banner shows on <em>every</em> tab — not
-      just the ones it's attached to. That's the browser's own behavior; turning debug mode off removes it immediately.
-    </Callout>
+      <Callout kind="warn" title={t('workbench.docs.body.debugMode.bannerCalloutTitle')}>
+        {t('workbench.docs.body.debugMode.banner1Prefix')} <em>{t('workbench.docs.body.debugMode.bannerEvery')}</em>{' '}
+        {t('workbench.docs.body.debugMode.banner1Suffix')}
+      </Callout>
 
-    <DocHeading level={3}>What it unlocks</DocHeading>
-    <DocParagraph>On an attached tab, rules and controls reach past the page context:</DocParagraph>
-    <DocParagraph>
-      <strong>Any request, any context.</strong> Mock or rewrite top-level navigations, worker requests, and
-      cross-origin iframes — not just page <code>fetch</code> / <code>XHR</code>. Request and response bodies can be
-      read and transformed on those same contexts, and HTTP authentication challenges answered automatically for dev
-      proxies and staging.
-    </DocParagraph>
-    <DocParagraph>
-      <strong>Stronger injection.</strong> Script injection becomes race-free and CSP-proof, and reaches inside workers
-      and cross-origin frames the standard page-context path can't touch.
-    </DocParagraph>
-    <DocParagraph>
-      <strong>Tab environment.</strong> Exact cache disable, network throttle / offline, and user-agent / locale /
-      timezone / media overrides — set per tab from the panel toolbar and the <strong>Overrides</strong> surface.
-    </DocParagraph>
-    <DiagramFrame caption="Standard mode covers page fetch / XHR; an attached tab extends the same rules to everything else.">
-      <DebugModeReachDiagram />
-    </DiagramFrame>
+      <DocHeading level={3}>{t('workbench.docs.body.debugMode.unlocksHeading')}</DocHeading>
+      <DocParagraph>{t('workbench.docs.body.debugMode.unlocksIntro')}</DocParagraph>
+      <DocParagraph>
+        <strong>{t('workbench.docs.body.debugMode.anyRequestLead')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.anyRequest1')} <code>fetch</code> / <code>XHR</code>
+        {t('workbench.docs.body.debugMode.anyRequest2')}
+      </DocParagraph>
+      <DocParagraph>
+        <strong>{t('workbench.docs.body.debugMode.injectionLead')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.injection1')}
+      </DocParagraph>
+      <DocParagraph>
+        <strong>{t('workbench.docs.body.debugMode.tabEnvLead')}</strong> {t('workbench.docs.body.debugMode.tabEnv1')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.overrides')}</strong> {t('workbench.docs.body.debugMode.tabEnv2')}
+      </DocParagraph>
+      <DiagramFrame caption={t('workbench.docs.body.debugMode.reachCaption')}>
+        <DebugModeReachDiagram />
+      </DiagramFrame>
 
-    <DocHeading level={3}>Rules never fail silently</DocHeading>
-    <DocParagraph>
-      A rule that needs debug mode to take full effect shows a <strong>Debug mode off</strong> badge in the rules list
-      while it's off, and a <strong>Tab out of scope</strong> note in the panel when it's on but the tab isn't in scope.
-      The rule still runs everything it <em>can</em> through the standard page-context path — arming debug mode only
-      extends the same rule to the contexts page injection can't reach.
-    </DocParagraph>
+      <DocHeading level={3}>{t('workbench.docs.body.debugMode.silentHeading')}</DocHeading>
+      <DocParagraph>
+        {t('workbench.docs.body.debugMode.silent1Prefix')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.badgeOff')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.silent1Middle')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.badgeOutOfScope')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.silent1Middle2')} <em>{t('workbench.docs.body.debugMode.silentCan')}</em>{' '}
+        {t('workbench.docs.body.debugMode.silent1Suffix')}
+      </DocParagraph>
 
-    <DocHeading level={3}>Status colors</DocHeading>
-    <DocParagraph>
-      The dot mirrors the <DocLink to="system-status">System status</DocLink> <code>Debug mode</code> row:
-    </DocParagraph>
-    <DiagramFrame caption="Grey when off; green / yellow / red once it's on.">
-      <DebugModeStatesDiagram />
-    </DiagramFrame>
-    <StateRow color="success" label="green">
-      <strong>On</strong> and attached cleanly. (When it's off the dot is simply grey.)
-    </StateRow>
-    <StateRow color="warning" label="yellow">
-      A tab <strong>fell back to heuristic</strong> — usually because the browser's debug banner was dismissed, so that
-      tab reverts to standard observation.
-    </StateRow>
-    <StateRow color="error" label="red">
-      A tab <strong>failed to attach</strong> — the debugging protocol couldn't be engaged for it.
-    </StateRow>
+      <DocHeading level={3}>{t('workbench.docs.body.debugMode.colorsHeading')}</DocHeading>
+      <DocParagraph>
+        {t('workbench.docs.body.debugMode.colors1Prefix')}{' '}
+        <DocLink to="system-status">{t('workbench.docs.body.debugMode.systemStatusLink')}</DocLink>{' '}
+        <code>Debug mode</code> {t('workbench.docs.body.debugMode.colors1Suffix')}
+      </DocParagraph>
+      <DiagramFrame caption={t('workbench.docs.body.debugMode.statesCaption')}>
+        <DebugModeStatesDiagram />
+      </DiagramFrame>
+      <StateRow color="success" label={t('workbench.docs.body.debugMode.stateGreenLabel')}>
+        <strong>{t('workbench.docs.body.debugMode.stateOn')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.stateOnRest')}
+      </StateRow>
+      <StateRow color="warning" label={t('workbench.docs.body.debugMode.stateYellowLabel')}>
+        {t('workbench.docs.body.debugMode.stateYellowPrefix')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.stateYellowTerm')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.stateYellowSuffix')}
+      </StateRow>
+      <StateRow color="error" label={t('workbench.docs.body.debugMode.stateRedLabel')}>
+        {t('workbench.docs.body.debugMode.stateRedPrefix')}{' '}
+        <strong>{t('workbench.docs.body.debugMode.stateRedTerm')}</strong>{' '}
+        {t('workbench.docs.body.debugMode.stateRedSuffix')}
+      </StateRow>
 
-    <Callout kind="note" title="Chromium only">
-      Debug mode relies on a debugging protocol only Chromium-based browsers expose to extensions. On Firefox and Safari
-      the pill stays hidden; the standard-mode rules above work everywhere.
-    </Callout>
-  </>
-);
+      <Callout kind="note" title={t('workbench.docs.body.debugMode.chromiumTitle')}>
+        {t('workbench.docs.body.debugMode.chromium1')}
+      </Callout>
+    </>
+  );
+};

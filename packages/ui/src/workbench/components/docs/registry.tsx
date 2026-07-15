@@ -292,5 +292,9 @@ export function findSection(id: string): DocSection | null {
   return SECTION_BY_ID.get(id) ?? null;
 }
 
+export function findGroup(id: string): DocGroup | null {
+  return DOC_GROUPS.find((g) => g.id === id) ?? null;
+}
+
 /** Default section opened on first mount when no deep-link is pending. */
 export const DEFAULT_SECTION_ID = 'paradigm';
