@@ -9,109 +9,105 @@
  * "More information" jump.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
+
 export interface DocAnchorInfo {
-  title: string;
-  summary: string;
+  titleKey: MessageKey;
+  summaryKey: MessageKey;
 }
 
 export const DOC_ANCHOR_INFO: Record<string, DocAnchorInfo> = {
   // ── Header operations ────────────────────────────────────────────
   override: {
-    title: 'Add / Replace',
-    summary: 'Sets the header to this value — added when missing, replacing any existing value.',
+    titleKey: 'workbench.docs.anchor.override.title',
+    summaryKey: 'workbench.docs.anchor.override.summary',
   },
   append: {
-    title: 'Append',
-    summary:
-      'Appends this value to the header’s existing value. Only standard list-valued headers support appending — on others the rule is saved as a draft.',
+    titleKey: 'workbench.docs.anchor.append.title',
+    summaryKey: 'workbench.docs.anchor.append.summary',
   },
   remove: {
-    title: 'Remove',
-    summary: 'Strips the header from matching traffic entirely; the value field is unused.',
+    titleKey: 'workbench.docs.anchor.remove.title',
+    summaryKey: 'workbench.docs.anchor.remove.summary',
   },
   merge: {
-    title: 'Merge',
-    summary: 'Merges this value into the header’s existing list, skipping values already present.',
+    titleKey: 'workbench.docs.anchor.merge.title',
+    summaryKey: 'workbench.docs.anchor.merge.summary',
   },
   // ── Query-param operations ───────────────────────────────────────
   'qp-add': {
-    title: 'Add / Replace',
-    summary: 'Sets the parameter on the URL — added when missing, replaced when already present.',
+    titleKey: 'workbench.docs.anchor.qpAdd.title',
+    summaryKey: 'workbench.docs.anchor.qpAdd.summary',
   },
   'qp-override': {
-    title: 'Replace Only',
-    summary: 'Replaces the parameter’s value only when the URL already carries it; URLs without it pass unchanged.',
+    titleKey: 'workbench.docs.anchor.qpOverride.title',
+    summaryKey: 'workbench.docs.anchor.qpOverride.summary',
   },
   'qp-remove': {
-    title: 'Remove',
-    summary: 'Removes the parameter from matching URLs.',
+    titleKey: 'workbench.docs.anchor.qpRemove.title',
+    summaryKey: 'workbench.docs.anchor.qpRemove.summary',
   },
   'qp-remove-all': {
-    title: 'Remove All',
-    summary:
-      'Strips the entire query string from matching URLs. Other operations in the same rule are ignored while it is present.',
+    titleKey: 'workbench.docs.anchor.qpRemoveAll.title',
+    summaryKey: 'workbench.docs.anchor.qpRemoveAll.summary',
   },
   // ── Condition types ──────────────────────────────────────────────
   'url-pattern': {
-    title: 'URL Pattern',
-    summary: 'Matches the request URL against a urlFilter pattern — * wildcards, || domain anchors, ^ separators.',
+    titleKey: 'workbench.docs.anchor.urlPattern.title',
+    summaryKey: 'workbench.docs.anchor.urlPattern.summary',
   },
   'url-regex': {
-    title: 'URL Regex',
-    summary:
-      'Matches the request URL against a regular expression; capture groups feed \\1, \\2 substitutions in redirect targets.',
+    titleKey: 'workbench.docs.anchor.urlRegex.title',
+    summaryKey: 'workbench.docs.anchor.urlRegex.summary',
   },
   'request-domains': {
-    title: 'Request Domains',
-    summary: 'Matches requests whose target host is one of the listed domains, subdomains included.',
+    titleKey: 'workbench.docs.anchor.requestDomains.title',
+    summaryKey: 'workbench.docs.anchor.requestDomains.summary',
   },
   'exclude-domains': {
-    title: 'Exclude Domains',
-    summary: 'Matches every request except those whose target host is listed.',
+    titleKey: 'workbench.docs.anchor.excludeDomains.title',
+    summaryKey: 'workbench.docs.anchor.excludeDomains.summary',
   },
   'initiator-domains': {
-    title: 'Initiator Domains',
-    summary:
-      'Matches by the page that issued the request rather than the request URL itself. The Excl. variant inverts the list.',
+    titleKey: 'workbench.docs.anchor.initiatorDomains.title',
+    summaryKey: 'workbench.docs.anchor.initiatorDomains.summary',
   },
   methods: {
-    title: 'Methods',
-    summary: 'Matches on the HTTP method (GET, POST, …). The Excl. variant inverts the list.',
+    titleKey: 'workbench.docs.anchor.methods.title',
+    summaryKey: 'workbench.docs.anchor.methods.summary',
   },
   'condition-resource-types': {
-    title: 'Resource Types',
-    summary:
-      'Matches on what the browser is fetching — documents, scripts, XHR/fetch, images, … The Excl. variant inverts the list.',
+    titleKey: 'workbench.docs.anchor.conditionResourceTypes.title',
+    summaryKey: 'workbench.docs.anchor.conditionResourceTypes.summary',
   },
   'domain-type': {
-    title: 'Domain Type',
-    summary: 'First-party matches requests to the same site as the page; third-party matches cross-site requests.',
+    titleKey: 'workbench.docs.anchor.domainType.title',
+    summaryKey: 'workbench.docs.anchor.domainType.summary',
   },
   headers: {
-    title: 'Response Header',
-    summary: 'Matches on a header of the received response — by presence, or by value when one is given.',
+    titleKey: 'workbench.docs.anchor.headers.title',
+    summaryKey: 'workbench.docs.anchor.headers.summary',
   },
   // ── Redirect ─────────────────────────────────────────────────────
   'redirect-regex': {
-    title: 'Regex Substitution',
-    summary: 'With a URL Regex condition, \\1, \\2 … insert the captured groups into the redirect target.',
+    titleKey: 'workbench.docs.anchor.redirectRegex.title',
+    summaryKey: 'workbench.docs.anchor.redirectRegex.summary',
   },
   // ── Body modes ───────────────────────────────────────────────────
   'request-body-dynamic': {
-    title: 'Dynamic (JavaScript)',
-    summary: 'Runs your JavaScript against each matching request to build the outgoing body from the original.',
+    titleKey: 'workbench.docs.anchor.requestBodyDynamic.title',
+    summaryKey: 'workbench.docs.anchor.requestBodyDynamic.summary',
   },
   'response-dynamic': {
-    title: 'Dynamic (JavaScript)',
-    summary:
-      'Runs your JavaScript for each matching response — transforming the real reply (network) or building one from scratch (mock).',
+    titleKey: 'workbench.docs.anchor.responseDynamic.title',
+    summaryKey: 'workbench.docs.anchor.responseDynamic.summary',
   },
   'request-body-graphql': {
-    title: 'GraphQL Operation Filter',
-    summary: 'Additionally gates the rule on the GraphQL operation name found in the request payload.',
+    titleKey: 'workbench.docs.anchor.requestBodyGraphql.title',
+    summaryKey: 'workbench.docs.anchor.requestBodyGraphql.summary',
   },
   'response-graphql': {
-    title: 'GraphQL Operation Filter',
-    summary: 'Additionally gates the rule on the GraphQL operation name found in the request payload.',
+    titleKey: 'workbench.docs.anchor.responseGraphql.title',
+    summaryKey: 'workbench.docs.anchor.responseGraphql.summary',
   },
 };

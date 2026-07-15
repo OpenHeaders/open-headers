@@ -1217,4 +1217,76 @@ export const workbenchDocs = {
     'above). The focus right now is finishing the roadmap, not running and maintaining free cloud infrastructure ' +
     "for end users. Happy to help if you're setting up a self-hosted deployment and run into trouble; just not in a " +
     'position to provide hosting itself.',
+
+  // ── Docs sub-anchor (i) popovers (DOC_ANCHOR_INFO) ──────────────────
+  'workbench.docs.anchor.override.title': 'Add / Replace',
+  'workbench.docs.anchor.override.summary':
+    'Sets the header to this value — added when missing, replacing any existing value.',
+  'workbench.docs.anchor.append.title': 'Append',
+  'workbench.docs.anchor.append.summary':
+    'Appends this value to the header’s existing value. Only standard list-valued headers support appending — on ' +
+    'others the rule is saved as a draft.',
+  'workbench.docs.anchor.remove.title': 'Remove',
+  'workbench.docs.anchor.remove.summary':
+    'Strips the header from matching traffic entirely; the value field is unused.',
+  'workbench.docs.anchor.merge.title': 'Merge',
+  'workbench.docs.anchor.merge.summary':
+    'Merges this value into the header’s existing list, skipping values already present.',
+  'workbench.docs.anchor.qpAdd.title': 'Add / Replace',
+  'workbench.docs.anchor.qpAdd.summary':
+    'Sets the parameter on the URL — added when missing, replaced when already present.',
+  'workbench.docs.anchor.qpOverride.title': 'Replace Only',
+  'workbench.docs.anchor.qpOverride.summary':
+    'Replaces the parameter’s value only when the URL already carries it; URLs without it pass unchanged.',
+  'workbench.docs.anchor.qpRemove.title': 'Remove',
+  'workbench.docs.anchor.qpRemove.summary': 'Removes the parameter from matching URLs.',
+  'workbench.docs.anchor.qpRemoveAll.title': 'Remove All',
+  'workbench.docs.anchor.qpRemoveAll.summary':
+    'Strips the entire query string from matching URLs. Other operations in the same rule are ignored while it is ' +
+    'present.',
+  'workbench.docs.anchor.urlPattern.title': 'URL Pattern',
+  'workbench.docs.anchor.urlPattern.summary':
+    'Matches the request URL against a urlFilter pattern — * wildcards, || domain anchors, ^ separators.',
+  'workbench.docs.anchor.urlRegex.title': 'URL Regex',
+  'workbench.docs.anchor.urlRegex.summary':
+    'Matches the request URL against a regular expression; capture groups feed \\1, \\2 substitutions in redirect ' +
+    'targets.',
+  'workbench.docs.anchor.requestDomains.title': 'Request Domains',
+  'workbench.docs.anchor.requestDomains.summary':
+    'Matches requests whose target host is one of the listed domains, subdomains included.',
+  'workbench.docs.anchor.excludeDomains.title': 'Exclude Domains',
+  'workbench.docs.anchor.excludeDomains.summary': 'Matches every request except those whose target host is listed.',
+  'workbench.docs.anchor.initiatorDomains.title': 'Initiator Domains',
+  'workbench.docs.anchor.initiatorDomains.summary':
+    'Matches by the page that issued the request rather than the request URL itself. The Excl. variant inverts the ' +
+    'list.',
+  'workbench.docs.anchor.methods.title': 'Methods',
+  'workbench.docs.anchor.methods.summary':
+    'Matches on the HTTP method (GET, POST, …). The Excl. variant inverts the list.',
+  'workbench.docs.anchor.conditionResourceTypes.title': 'Resource Types',
+  'workbench.docs.anchor.conditionResourceTypes.summary':
+    'Matches on what the browser is fetching — documents, scripts, XHR/fetch, images, … The Excl. variant inverts ' +
+    'the list.',
+  'workbench.docs.anchor.domainType.title': 'Domain Type',
+  'workbench.docs.anchor.domainType.summary':
+    'First-party matches requests to the same site as the page; third-party matches cross-site requests.',
+  'workbench.docs.anchor.headers.title': 'Response Header',
+  'workbench.docs.anchor.headers.summary':
+    'Matches on a header of the received response — by presence, or by value when one is given.',
+  'workbench.docs.anchor.redirectRegex.title': 'Regex Substitution',
+  'workbench.docs.anchor.redirectRegex.summary':
+    'With a URL Regex condition, \\1, \\2 … insert the captured groups into the redirect target.',
+  'workbench.docs.anchor.requestBodyDynamic.title': 'Dynamic (JavaScript)',
+  'workbench.docs.anchor.requestBodyDynamic.summary':
+    'Runs your JavaScript against each matching request to build the outgoing body from the original.',
+  'workbench.docs.anchor.responseDynamic.title': 'Dynamic (JavaScript)',
+  'workbench.docs.anchor.responseDynamic.summary':
+    'Runs your JavaScript for each matching response — transforming the real reply (network) or building one from ' +
+    'scratch (mock).',
+  'workbench.docs.anchor.requestBodyGraphql.title': 'GraphQL Operation Filter',
+  'workbench.docs.anchor.requestBodyGraphql.summary':
+    'Additionally gates the rule on the GraphQL operation name found in the request payload.',
+  'workbench.docs.anchor.responseGraphql.title': 'GraphQL Operation Filter',
+  'workbench.docs.anchor.responseGraphql.summary':
+    'Additionally gates the rule on the GraphQL operation name found in the request payload.',
 } as const satisfies Catalog;

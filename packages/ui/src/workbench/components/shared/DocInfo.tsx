@@ -29,7 +29,11 @@ const DocInfo: React.FC<DocInfoProps> = ({ docId }) => {
   const groupDef = sectionDef ? findGroup(sectionDef.group) : null;
   const anchor = DOC_ANCHOR_INFO[docId];
   const content = anchor
-    ? { kicker: sectionDef ? resolveDocTitle(sectionDef, t) : undefined, title: anchor.title, summary: anchor.summary }
+    ? {
+        kicker: sectionDef ? resolveDocTitle(sectionDef, t) : undefined,
+        title: t(anchor.titleKey),
+        summary: t(anchor.summaryKey),
+      }
     : {
         kicker: groupDef ? resolveDocGroupLabel(groupDef, t) : sectionDef?.group,
         title: sectionDef ? resolveDocTitle(sectionDef, t) : docId,
