@@ -5,9 +5,9 @@
  */
 
 import type { AuthConfig, Request, RequestBody } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
 import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
 import { REQUEST_SCHEMA } from '@openheaders/ui/shared/conflicts/field-tree/request-schema';
+import { describe, expect, it } from 'vitest';
 
 const adapter = makeConflictAdapter<Request>({
   schema: REQUEST_SCHEMA,
@@ -58,9 +58,7 @@ describe('REQUEST_SCHEMA — Auth (OAuth2) per-leaf', () => {
   });
 
   it('readPath returns leaf value for an oauth2 sub-leaf', () => {
-    expect(adapter.tracking.readPath(req, 'auth.tokenEndpoint')).toBe(
-      'https://openheaders.io/oauth/token',
-    );
+    expect(adapter.tracking.readPath(req, 'auth.tokenEndpoint')).toBe('https://openheaders.io/oauth/token');
   });
 
   it('applyResolutionToEntity writes a per-leaf change into the auth object', () => {
@@ -70,9 +68,7 @@ describe('REQUEST_SCHEMA — Auth (OAuth2) per-leaf', () => {
       theirs: 'https://openheaders.io/oauth/token-v2',
     });
     expect(ok).toBe(true);
-    expect((target.auth as { tokenEndpoint: string }).tokenEndpoint).toBe(
-      'https://openheaders.io/oauth/token-v2',
-    );
+    expect((target.auth as { tokenEndpoint: string }).tokenEndpoint).toBe('https://openheaders.io/oauth/token-v2');
   });
 
   it('union:auth whole-branch resolution swaps the auth branch + discriminator', () => {

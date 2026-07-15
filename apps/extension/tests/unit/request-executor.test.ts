@@ -200,7 +200,9 @@ describe('RequestExecutor', () => {
   it('signs aws-sigv4 requests at the wire, resolving templated credentials', async () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
-      variables: [{ uid: 'awssec01', name: 'AWS_SECRET', value: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', type: 'secret' }],
+      variables: [
+        { uid: 'awssec01', name: 'AWS_SECRET', value: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', type: 'secret' },
+      ],
     });
     await executeRequestDraft(
       makeRequest({

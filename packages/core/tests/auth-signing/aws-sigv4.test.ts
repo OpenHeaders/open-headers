@@ -39,7 +39,10 @@ function refSign(
   input: { method: string; url: string; payloadHash: string; now: Date; contentType?: string },
 ): { signature: string; signedHeaders: string } {
   const url = new URL(input.url);
-  const amzDate = input.now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const amzDate = input.now
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}/, '');
   const dateStamp = amzDate.slice(0, 8);
 
   const canonicalHeaders = new Map<string, string>([
@@ -60,7 +63,9 @@ function refSign(
           .map((s) => refEncode(s))
           .join('/');
   const queryPairs: Array<[string, string]> = [];
-  url.searchParams.forEach((value, key) => queryPairs.push([refEncode(key), refEncode(value)]));
+  url.searchParams.forEach((value, key) => {
+    queryPairs.push([refEncode(key), refEncode(value)]);
+  });
   queryPairs.sort((a, b) => (a[0] === b[0] ? (a[1] < b[1] ? -1 : 1) : a[0] < b[0] ? -1 : 1));
 
   const canonicalRequest = [

@@ -168,7 +168,10 @@ function compareStrings(a: string, b: string): number {
 
 /** `YYYYMMDD'T'HHMMSS'Z'` — ISO 8601 basic format, UTC. */
 function toAmzDate(now: Date): string {
-  return now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  return now
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}/, '');
 }
 
 // ── Crypto primitives ───────────────────────────────────────────────

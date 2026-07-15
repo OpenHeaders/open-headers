@@ -538,10 +538,7 @@ describe('executeOverTransport — AWS SigV4 signing', () => {
       type: 'form',
       formParts: [{ uid: 'ffield01', key: 'grant type', value: 'client&credentials' }],
     };
-    await executeOverTransport(
-      makeResolved({ method: 'POST', awsSigV4: credentials, body, headers: [] }),
-      transport,
-    );
+    await executeOverTransport(makeResolved({ method: 'POST', awsSigV4: credentials, body, headers: [] }), transport);
     const headers = new Map(sent().headers.map((h) => [h.key.toLowerCase(), h.value]));
     const amzDate = headers.get('x-amz-date') ?? '';
     const wireBytes = new URLSearchParams([['grant type', 'client&credentials']]).toString();
