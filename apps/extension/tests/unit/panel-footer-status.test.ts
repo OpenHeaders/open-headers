@@ -8,6 +8,7 @@
  * equal republish must not mint a new snapshot.
  */
 
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   buildStorageFooterStatus,
   countConsoleLevels,
@@ -115,24 +116,26 @@ describe('countConsoleLevels', () => {
 });
 
 describe('searchFooterLine', () => {
+  const t = getTranslator(DEFAULT_LOCALE);
+
   it('is empty while idle so the footer falls back to the Network line', () => {
-    expect(searchFooterLine({ status: 'idle', done: 0, total: 0, matches: 0, files: 0, elapsedMs: 0 })).toBe('');
+    expect(searchFooterLine(t, { status: 'idle', done: 0, total: 0, matches: 0, files: 0, elapsedMs: 0 })).toBe('');
   });
 
   it('reports scan progress while running', () => {
-    expect(searchFooterLine({ status: 'running', done: 12, total: 40, matches: 3, files: 2, elapsedMs: 150 })).toBe(
+    expect(searchFooterLine(t, { status: 'running', done: 12, total: 40, matches: 3, files: 2, elapsedMs: 150 })).toBe(
       'Searching… 12 / 40',
     );
   });
 
   it('mirrors the panel summary when done', () => {
-    expect(searchFooterLine({ status: 'done', done: 40, total: 40, matches: 17, files: 5, elapsedMs: 342 })).toBe(
+    expect(searchFooterLine(t, { status: 'done', done: 40, total: 40, matches: 17, files: 5, elapsedMs: 342 })).toBe(
       'Found 17 matches in 5 files · 342 ms',
     );
-    expect(searchFooterLine({ status: 'done', done: 40, total: 40, matches: 1, files: 1, elapsedMs: 1500 })).toBe(
+    expect(searchFooterLine(t, { status: 'done', done: 40, total: 40, matches: 1, files: 1, elapsedMs: 1500 })).toBe(
       'Found 1 match in 1 file · 1.50 s',
     );
-    expect(searchFooterLine({ status: 'done', done: 40, total: 40, matches: 0, files: 0, elapsedMs: 90 })).toBe(
+    expect(searchFooterLine(t, { status: 'done', done: 40, total: 40, matches: 0, files: 0, elapsedMs: 90 })).toBe(
       'No results · 90 ms',
     );
   });

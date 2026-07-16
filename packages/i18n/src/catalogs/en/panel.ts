@@ -445,4 +445,37 @@ export const panel = {
   'panel.console.prompt.placeholder': 'Run JavaScript in the selected context',
   'panel.console.prompt.aria': 'Console prompt',
   'panel.console.prompt.previewAria': 'Eager evaluation preview',
+
+  // ── Search tool window (station: search family) ─────────────────────
+  // Raw by design: match-text lines, section labels (doc-plane vocabulary
+  // shared with the filter grammar), #ordinal / line:col figures, doc
+  // names/origins, timing figures (ms / s), and the · separators. The
+  // source chips and group badges reuse the tool-window label keys.
+  'panel.search.placeholder': 'Search (press Enter)',
+  'panel.search.inputAria': 'Search captured data',
+  'panel.search.syntaxHelp': 'Search syntax help',
+  'panel.search.run': 'Search',
+  'panel.search.runTitle': 'Run search (Enter)',
+  'panel.search.cancel': 'Cancel',
+  'panel.search.cancelTitle': 'Cancel search',
+  'panel.search.idleHintMin': 'Enter a query (min 2 characters) and press Enter to search.',
+  'panel.search.idleHintShort': 'Press Enter to search.',
+  'panel.search.noMatches': 'No matches found.',
+
+  // Session status lines (panel status strip + published footer line)
+  'panel.search.status.searching': 'Searching… {done} / {total}',
+  'panel.search.status.noResults': 'No results · {elapsed}',
+  'panel.search.status.found': ({ matches, files, elapsed }, locale) => {
+    const found = plural(locale, Number(matches), { one: 'Found {count} match', other: 'Found {count} matches' });
+    const where = plural(locale, Number(files), { one: '{count} file', other: '{count} files' });
+    return `${found} in ${where} · ${elapsed}`;
+  },
+  'panel.search.status.capped': 'showing the first {shown} — refine the query to see the rest',
+
+  // Result groups + rows
+  'panel.search.group.countTitle': '{count} matches in this file',
+  'panel.search.group.countTitleCapped': '{count} matches in this file — showing the first {shown}',
+  'panel.search.row.lineCol': 'Line {line}, Col {col}',
+  'panel.search.row.line': 'Line {line}',
+  'panel.search.row.matchesOnLine': '{count} matches on this line',
 } as const satisfies Catalog;

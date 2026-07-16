@@ -6,6 +6,7 @@
  */
 
 import type { ConsoleLevel } from '@openheaders/core/console-stream';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { StorageSection } from './storage/use-storage-inspector';
 
 // ── Storage ──────────────────────────────────────────────────────────
@@ -130,14 +131,16 @@ function formatSearchElapsed(ms: number): string {
 }
 
 /** The footer's one-line search summary — empty while idle (the bar
- *  falls back to the Network line). */
-export function searchFooterLine(status: SearchFooterStatus): string {
-  if (status.status === 'running') return `Searching… ${status.done} / ${status.total}`;
+ *  falls back to the Network line). Timing figures stay in the raw
+ *  ms / s parity scale inside the keyed sentences. */
+export function searchFooterLine(t: Translate, status: SearchFooterStatus): string {
+  if (status.status === 'running') {
+    return t('panel.search.status.searching', { done: status.done, total: status.total });
+  }
   if (status.status === 'done') {
-    if (status.matches === 0) return `No results · ${formatSearchElapsed(status.elapsedMs)}`;
-    return `Found ${status.matches} match${status.matches === 1 ? '' : 'es'} in ${status.files} file${
-      status.files === 1 ? '' : 's'
-    } · ${formatSearchElapsed(status.elapsedMs)}`;
+    const elapsed = formatSearchElapsed(status.elapsedMs);
+    if (status.matches === 0) return t('panel.search.status.noResults', { elapsed });
+    return t('panel.search.status.found', { matches: status.matches, files: status.files, elapsed });
   }
   return '';
 }

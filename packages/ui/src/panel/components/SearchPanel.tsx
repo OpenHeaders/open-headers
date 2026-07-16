@@ -1,3 +1,5 @@
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildResultView, type DisplayRow, trimLineForViewport } from '../data/search/search-display';
@@ -24,17 +26,24 @@ interface SearchPanelProps {
   onToggleDocs: () => void;
 }
 
-const SOURCE_CHIPS: ReadonlyArray<{ kind: SearchSourceKind; label: string }> = [
-  { kind: 'network', label: 'Network' },
-  { kind: 'storage', label: 'Storage' },
-  { kind: 'console', label: 'Console' },
+// Chips and group badges name their source tool windows — they reuse the
+// registry label keys.
+const SOURCE_CHIPS: ReadonlyArray<{ kind: SearchSourceKind; labelKey: MessageKey }> = [
+  { kind: 'network', labelKey: 'panel.toolWindows.network' },
+  { kind: 'storage', labelKey: 'panel.toolWindows.storage' },
+  { kind: 'console', labelKey: 'panel.toolWindows.console' },
 ];
 
-const SOURCE_BADGES: Record<SearchSourceKind, string | null> = {
-  network: null,
-  storage: 'Storage',
-  console: 'Console',
-};
+/** Chrome strings for the streamed result groups, resolved once per locale
+ *  by the panel — the per-row render loop never calls `t()`. */
+interface SearchResultLabels {
+  badges: Record<SearchSourceKind, string | null>;
+  groupCount: (count: number) => string;
+  groupCountCapped: (count: number, shown: number) => string;
+  lineCol: (line: number, col: number) => string;
+  line: (line: number) => string;
+  matchesOnLine: (count: number) => string;
+}
 
 /** Length of the hidden span used to measure the monospace char width. */
 const CAPACITY_PROBE_CHARS = 24;
@@ -140,6 +149,7 @@ interface ResultRowProps {
   rows: readonly DisplayRow[];
   query: string;
   config: TextMatchConfig;
+  labels: SearchResultLabels;
   onResultClick: SearchPanelProps['onResultClick'];
   /** Absolute index of this group's first display row in the flat
    *  result list — used to derive per-row global indices for
@@ -164,12 +174,13 @@ const ResultGroup = memo(function ResultGroup({
   rows,
   query,
   config,
+  labels,
   onResultClick,
   firstFlatIndex,
   activeGlobalIndex,
   textCapacityCh,
 }: ResultRowProps) {
-  const sourceBadge = SOURCE_BADGES[group.source];
+  const sourceBadge = labels.badges[group.source];
   return (
     <details className="dt-search-group" open>
       <summary>
@@ -184,8 +195,8 @@ const ResultGroup = memo(function ResultGroup({
           className="dt-search-group-count"
           title={
             group.totalMatches > group.matches.length
-              ? `${group.totalMatches} matches in this file — showing the first ${group.matches.length}`
-              : `${group.totalMatches} matches in this file`
+              ? labels.groupCountCapped(group.totalMatches, group.matches.length)
+              : labels.groupCount(group.totalMatches)
           }
         >
           {group.totalMatches}
@@ -201,8 +212,8 @@ const ResultGroup = memo(function ResultGroup({
         const showLineCol = sectionHasLineColumn(r.section);
         const ordinalLabel = r.count > 1 ? `#${r.firstOrdinal}-#${r.lastOrdinal}` : `#${r.firstOrdinal}`;
         const titleParts = [
-          showLineCol ? `Line ${r.lineNumber}, Col ${r.column}` : `Line ${r.lineNumber}`,
-          r.count > 1 ? `${r.count} matches on this line` : null,
+          showLineCol ? labels.lineCol(r.lineNumber, r.column) : labels.line(r.lineNumber),
+          r.count > 1 ? labels.matchesOnLine(r.count) : null,
         ].filter(Boolean);
         return (
           <button
@@ -235,7 +246,27 @@ const ResultGroup = memo(function ResultGroup({
 });
 
 export function SearchPanel({ session, onClose, onResultClick, docsActive, onToggleDocs }: SearchPanelProps) {
+  const t = useT();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
+
+  // Result-group chrome strings resolve ONCE per locale — the streamed
+  // per-row loop stays free of t() calls; tooltips resolve lazily through
+  // the stable closures.
+  const resultLabels = useMemo<SearchResultLabels>(
+    () => ({
+      badges: {
+        network: null,
+        storage: t('panel.toolWindows.storage'),
+        console: t('panel.toolWindows.console'),
+      },
+      groupCount: (count: number) => t('panel.search.group.countTitle', { count }),
+      groupCountCapped: (count: number, shown: number) => t('panel.search.group.countTitleCapped', { count, shown }),
+      lineCol: (line: number, col: number) => t('panel.search.row.lineCol', { line, col }),
+      line: (line: number) => t('panel.search.row.line', { line }),
+      matchesOnLine: (count: number) => t('panel.search.row.matchesOnLine', { count }),
+    }),
+    [t],
+  );
   const {
     search: { state, run, cancel },
     draftQuery,
@@ -377,7 +408,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
         wiring={headerWiring}
         title={
           <div className="dt-header-filter-row">
-            <strong className="dt-header-panel-name">Search</strong>
+            <strong className="dt-header-panel-name">{t('panel.toolWindows.search')}</strong>
             <div className="dt-filter-separator" />
             <FilterInput
               value={draftQuery}
@@ -385,16 +416,16 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
               config={draftConfig}
               onConfigChange={setDraftConfig}
               hasError={hasError}
-              placeholder="Search (press Enter)"
+              placeholder={t('panel.search.placeholder')}
               onKeyDown={handleInputKeyDown}
-              ariaLabel="Search captured data"
+              ariaLabel={t('panel.search.inputAria')}
             />
             <button
               type="button"
               className="dt-toolbar-icon"
               data-active={docsActive}
               onClick={onToggleDocs}
-              title="Search syntax help"
+              title={t('panel.search.syntaxHelp')}
             >
               <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
                 <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -423,7 +454,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
                   data-active={draftSources.includes(chip.kind)}
                   onClick={() => toggleDraftSource(chip.kind)}
                 >
-                  {chip.label}
+                  {t(chip.labelKey)}
                 </button>
               ))}
             </div>
@@ -433,9 +464,9 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
                 type="button"
                 className="dt-btn dt-btn-secondary dt-search-submit"
                 onClick={cancel}
-                title="Cancel search"
+                title={t('panel.search.cancelTitle')}
               >
-                Cancel
+                {t('panel.search.cancel')}
               </button>
             ) : (
               <button
@@ -443,9 +474,9 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
                 className="dt-btn dt-btn-primary dt-search-submit"
                 onClick={submit}
                 disabled={hasError || draftQuery.trim().length < 2}
-                title="Run search (Enter)"
+                title={t('panel.search.runTitle')}
               >
-                Search
+                {t('panel.search.run')}
               </button>
             )}
           </div>
@@ -456,7 +487,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
         <>
           <SearchProgressBar done={state.progress.done} total={state.progress.total} />
           <div className="dt-search-panel-status dt-search-panel-status--running">
-            Searching… {state.progress.done} / {state.progress.total}
+            {t('panel.search.status.searching', { done: state.progress.done, total: state.progress.total })}
             {state.progress.current != null ? ` · ${state.progress.current}` : ''}
             {state.progress.currentSection ? ` (${state.progress.currentSection})` : ''}
             {state.progress.sectionTotal != null && state.progress.sectionTotal > 64 * 1024
@@ -477,9 +508,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
         </span>
         {state.status === 'idle' && !hasError && (
           <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
-            {draftQuery.trim().length < 2
-              ? 'Enter a query (min 2 characters) and press Enter to search.'
-              : 'Press Enter to search.'}
+            {draftQuery.trim().length < 2 ? t('panel.search.idleHintMin') : t('panel.search.idleHintShort')}
           </div>
         )}
         {state.status === 'running' && state.results.length === 0 && <SearchSkeleton />}
@@ -490,6 +519,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
             rows={rows}
             query={state.committedQuery}
             config={state.committedConfig}
+            labels={resultLabels}
             onResultClick={onResultClick}
             firstFlatIndex={firstFlatIndex}
             activeGlobalIndex={activeGlobalIndex}
@@ -498,7 +528,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
         ))}
         {state.status === 'done' && state.results.length === 0 && (
           <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
-            No matches found.
+            {t('panel.search.noMatches')}
           </div>
         )}
       </div>
@@ -511,10 +541,11 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
             // native search. Streamed rows can be fewer.
             const foundMatches = state.progress.totalMatchCount ?? totalMatches;
             const foundFiles = state.progress.matchedFileCount ?? totalFiles;
-            if (foundMatches === 0) return `No results · ${formatElapsed(state.progress.elapsedMs)}`;
-            const summary = `Found ${foundMatches} match${foundMatches === 1 ? '' : 'es'} in ${foundFiles} file${foundFiles === 1 ? '' : 's'} · ${formatElapsed(state.progress.elapsedMs)}`;
+            const elapsed = formatElapsed(state.progress.elapsedMs);
+            if (foundMatches === 0) return t('panel.search.status.noResults', { elapsed });
+            const summary = t('panel.search.status.found', { matches: foundMatches, files: foundFiles, elapsed });
             return foundMatches > totalMatches
-              ? `${summary} · showing the first ${totalMatches} — refine the query to see the rest`
+              ? `${summary} · ${t('panel.search.status.capped', { shown: totalMatches })}`
               : summary;
           })()}
         </div>

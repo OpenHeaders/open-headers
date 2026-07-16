@@ -264,7 +264,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   const focusedTool = useFocusedToolWindow(tl);
   const storageStatus = useStorageFooterStatus();
   const consoleStatus = useConsoleFooterStatus();
-  const searchLine = searchFooterLine(searchStatus);
+  const searchLine = searchFooterLine(t, searchStatus);
   const scopedTool: PanelToolWindowId = footerScope === 'focused' ? focusedTool : 'network';
   const footerTool: 'network' | 'storage' | 'console' | 'search' =
     scopedTool === 'storage' && storageStatus !== null && (storageStatus.summary !== '' || storageStatus.alert !== '')
