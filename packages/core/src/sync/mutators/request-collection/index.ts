@@ -10,6 +10,11 @@ export {
   setRequestCollectionScripts,
 } from './scripts';
 export { INVALIDATE_RESOLVER, invalidateResolverIntent } from './side-effects';
+export {
+  REQUEST_COLLECTION_SPEC_LINK_PATH,
+  type SetRequestCollectionSpecLinkArgs,
+  setRequestCollectionSpecLink,
+} from './spec-link';
 export { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_COLLECTION_VARS_PATH } from './types';
 export {
   type RemoveRequestCollectionVarArgs,

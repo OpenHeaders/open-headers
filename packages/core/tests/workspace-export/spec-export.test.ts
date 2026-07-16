@@ -5,7 +5,7 @@
  * environments).
  */
 
-import type { Spec } from '@openheaders/core/types';
+import type { Collection, Spec } from '@openheaders/core/types';
 import {
   buildImportPlan,
   buildWorkspaceExport,
@@ -173,5 +173,28 @@ describe('buildImportPlan — specs', () => {
     const diff = diffWorkspaceExport(exp, target);
     const plan = buildImportPlan(exp, diff, target, { specs: { spc00001: 'skip' } });
     expect(plan.specs[0].action).toBe('skip');
+  });
+
+  it('rebinds a generated collection specLink through the spec uid remap', () => {
+    const linked: Collection = {
+      schemaVersion: 5,
+      uid: 'c0110001',
+      path: 'requests/openheaders-api-c0110001',
+      name: 'OpenHeaders API',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+      specLink: { specUid: 'spc00001', sourceHash: 'sha256:abc' },
+    };
+    const input = baseInput([makeSpec()]);
+    input.entities.collections = [linked];
+    const exp = buildWorkspaceExport(input);
+    const target = emptyTarget();
+    const plan = buildImportPlan(exp, diffWorkspaceExport(exp, target), target);
+    const specEntry = plan.specs[0];
+    const collEntry = plan.collections[0];
+    expect(collEntry.action).toBe('create');
+    expect(collEntry.entity.specLink?.specUid).toBe(specEntry.entity.uid);
+    expect(collEntry.entity.specLink?.sourceHash).toBe('sha256:abc');
   });
 });

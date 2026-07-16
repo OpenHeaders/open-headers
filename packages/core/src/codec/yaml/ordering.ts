@@ -18,6 +18,7 @@ export const COLLECTION_FIELD_ORDER = [
   'pinnedEnvironmentIds',
   'defaultEnvironmentId',
   'auth',
+  'specLink',
   'variables',
 ] as const;
 

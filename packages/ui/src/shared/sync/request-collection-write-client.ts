@@ -21,13 +21,14 @@ import {
   buildSetRequestCollectionAuthBatch,
   buildSetRequestCollectionPinnedAndDefaultBatch,
   buildSetRequestCollectionScriptsBatch,
+  buildSetRequestCollectionSpecLinkBatch,
   buildSetRequestCollectionVarBatch,
   type SetRequestCollectionScriptsInput,
 } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
 import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
-import type { AuthConfig, Collection, Variable } from '@openheaders/core/types';
+import type { AuthConfig, Collection, SpecLink, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
   getRequestCollectionSyncMirrorForWorkspace,
@@ -166,6 +167,27 @@ export async function applyRequestCollectionSetAuth(
   );
   if (payload.batch.mutations.length === 0) return { ok: true };
   return applySyncPayload(payload);
+}
+
+export interface ApplyRequestCollectionSetSpecLinkInput {
+  collectionUid: string;
+  /** New generation bookkeeping; `undefined` clears the link. */
+  specLink: SpecLink | undefined;
+}
+
+/** Persist the collection's spec generation bookkeeping — written once
+ *  right after a Generate Collection run lands its entities. */
+export async function applyRequestCollectionSetSpecLink(
+  input: ApplyRequestCollectionSetSpecLinkInput,
+  opts: RequestCollectionWriteOptions,
+): Promise<RequestCollectionSimpleResult> {
+  const mirror = resolveMirror(opts, getRequestCollectionSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  if (!mirror.getRequestCollectionMirror(input.collectionUid)) return { ok: false, reason: 'not-found' };
+  const ctx = resolveRendererContext(opts).next({
+    batchId: opts.batchId ?? `request-collection-spec-link-${input.collectionUid}`,
+  });
+  return applySyncPayload(buildSetRequestCollectionSpecLinkBatch(input, ctx));
 }
 
 export interface ApplyRequestCollectionDeleteInput {

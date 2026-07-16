@@ -24,13 +24,16 @@
  */
 
 import type * as v from 'valibot';
-import type { CollectionSchema, FolderSchema } from '../schemas/collection';
+import type { CollectionSchema, FolderSchema, SpecLinkSchema } from '../schemas/collection';
 import type { HttpMethod } from './request';
 import type { RuleType } from './rule';
 
 // ── Collection ─────────────────────────────────────────────────────
 
 export type Collection = v.InferOutput<typeof CollectionSchema>;
+
+/** Generation bookkeeping on a spec-generated collection (per link). */
+export type SpecLink = v.InferOutput<typeof SpecLinkSchema>;
 
 /**
  * `_folder.yaml` — the lightweight grouping folder inside a collection.

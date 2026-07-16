@@ -29,6 +29,7 @@ export type {
   FolderNode,
   RequestNode,
   RuleNode,
+  SpecLink,
   TemplateNode,
   TreeNode,
 } from './collection';

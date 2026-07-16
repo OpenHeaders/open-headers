@@ -1239,6 +1239,28 @@ export const workbenchEditors = {
   'workbench.editors.spec.outline.add.schema': 'Add schema',
   'workbench.editors.spec.outline.add.securityScheme': 'Add security scheme',
   'workbench.editors.spec.outline.add.securityRequirement': 'Add security requirement',
+  'workbench.editors.spec.generate.button': 'Generate Collection',
+  'workbench.editors.spec.generate.collectionsButton': 'Collections',
+  'workbench.editors.spec.generate.popoverTitle': 'Generated collections',
+  'workbench.editors.spec.generate.modalTitle': 'GENERATE COLLECTION',
+  'workbench.editors.spec.generate.blurb':
+    'Generate a collection from this specification. Operations become requests under a baseUrl collection variable, tags become folders, and security schemes map to auth. The collection stays linked to this spec.',
+  'workbench.editors.spec.generate.namePlaceholder': 'Collection name',
+  'workbench.editors.spec.generate.nameRequired': 'The collection needs a name',
+  'workbench.editors.spec.generate.dirtyHint':
+    'Unsaved editor changes are not included — generation uses the last saved document.',
+  'workbench.editors.spec.generate.parseFailed': "This specification doesn't parse",
+  'workbench.editors.spec.generate.requestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} request', other: '{count} requests' }),
+  'workbench.editors.spec.generate.foldersCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} folder', other: '{count} folders' }),
+  'workbench.editors.spec.generate.variablesCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} collection variable', other: '{count} collection variables' }),
+  'workbench.editors.spec.generate.action': 'Generate',
+  'workbench.editors.spec.generate.success': 'Generated "{name}" — {summary}',
+  'workbench.editors.spec.generate.failed': 'Could not create the collection.',
+  'workbench.editors.spec.generate.linkFailed':
+    'The collection was generated, but recording its spec link failed — it will not appear in this list.',
 
   // ── Script editor (snippets/packages menus, save-to-package flow,
   //    ScriptsTab's own Monaco context-menu actions). Snippet code

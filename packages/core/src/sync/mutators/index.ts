@@ -201,6 +201,7 @@ export {
   invalidateResolverIntent as requestCollectionInvalidateResolverIntent,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_MUTATOR_VERSION,
+  REQUEST_COLLECTION_SPEC_LINK_PATH,
   REQUEST_COLLECTION_VARS_PATH,
   type RemoveRequestCollectionVarArgs,
   type RenameRequestCollectionArgs,
@@ -209,9 +210,11 @@ export {
   renameRequestCollection,
   type SetRequestCollectionPinnedAndDefaultArgs,
   type SetRequestCollectionScriptsArgs,
+  type SetRequestCollectionSpecLinkArgs,
   type SetRequestCollectionVarArgs,
   setRequestCollectionPinnedAndDefault,
   setRequestCollectionScripts,
+  setRequestCollectionSpecLink,
   setRequestCollectionVar,
 } from './request-collection';
 export {

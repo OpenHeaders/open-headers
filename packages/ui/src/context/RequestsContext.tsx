@@ -32,7 +32,7 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
-import type { Collection, CollectionTree, Request, Variable } from '@openheaders/core/types';
+import type { Collection, CollectionTree, Request, SpecLink, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
@@ -46,6 +46,7 @@ import {
   applyRequestCollectionRename,
   applyRequestCollectionSetAuth,
   applyRequestCollectionSetScripts,
+  applyRequestCollectionSetSpecLink,
   applyRequestCollectionVariablesReplacement,
 } from '../shared/sync/request-collection-write-client';
 import {
@@ -120,6 +121,10 @@ export interface RequestsContextValue {
    *  discipline as the other ancestor setters. */
   setCollectionVariables: (collectionUid: string, variables: Variable[]) => Promise<boolean>;
 
+  /** Spec generation bookkeeping — written once by the spec editor's
+   *  Generate Collection landing. Same override-branch discipline. */
+  setCollectionSpecLink: (collectionUid: string, specLink: SpecLink) => Promise<boolean>;
+
   execute: (input: {
     requestUid?: string;
     draft?: Request;
@@ -152,6 +157,7 @@ const defaultContextValue: RequestsContextValue = {
   setCollectionAuth: () => Promise.resolve(false),
   setFolderAuth: () => Promise.resolve(false),
   setCollectionVariables: () => Promise.resolve(false),
+  setCollectionSpecLink: () => Promise.resolve(false),
   execute: () => Promise.resolve(null),
 };
 
@@ -596,6 +602,17 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
+  const setCollectionSpecLink = useCallback<RequestsContextValue['setCollectionSpecLink']>(
+    async (collectionUid, specLink) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const result = await applyRequestCollectionSetSpecLink({ collectionUid, specLink }, { workspaceId: wsId, surfaceId });
+      return result.ok;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
   const execute = useCallback<RequestsContextValue['execute']>(async (input) => {
     const resp = await hostBridge.call('executeRequest', input).catch(() => null);
     return resp?.success ? (resp.snapshot ?? null) : null;
@@ -623,6 +640,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setCollectionAuth,
       setFolderAuth,
       setCollectionVariables,
+      setCollectionSpecLink,
       execute,
     }),
     [
@@ -646,6 +664,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setCollectionAuth,
       setFolderAuth,
       setCollectionVariables,
+      setCollectionSpecLink,
       execute,
     ],
   );

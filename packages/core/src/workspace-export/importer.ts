@@ -501,6 +501,18 @@ export function buildImportPlan(
     };
   }
 
+  // Spec-generated collections rebind their specLink through uidRemap
+  // (the spec regens above). A spec that didn't ride the export leaves
+  // the link untouched — ids-only identity, dangling is legal.
+  for (const entry of collections.entries) {
+    if (entry.action !== 'create' || !entry.entity.specLink) continue;
+    const { specLink } = entry.entity;
+    entry.entity = {
+      ...entry.entity,
+      specLink: { ...specLink, specUid: uidRemap[specLink.specUid] ?? specLink.specUid },
+    };
+  }
+
   // ── Singletons: workspaceVars + vault ───────────────────────────
   const workspaceVars = resolveWorkspaceVarsSingleton(
     incoming.entities.workspaceVars,

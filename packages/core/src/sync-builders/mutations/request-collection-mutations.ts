@@ -24,10 +24,11 @@ import {
   renameRequestCollection,
   setRequestCollectionPinnedAndDefault,
   setRequestCollectionScripts,
+  setRequestCollectionSpecLink,
   setRequestCollectionVar,
 } from '@openheaders/core/sync';
 import { synthesizeFieldDiff } from '@openheaders/core/sync-builders';
-import type { AuthConfig, Variable } from '@openheaders/core/types';
+import type { AuthConfig, SpecLink, Variable } from '@openheaders/core/types';
 
 export type RequestCollectionMutationPayload = MutatorIntent;
 
@@ -98,6 +99,25 @@ export function buildSetRequestCollectionScriptsBatch(
   ctx: MutatorContext,
 ): RequestCollectionMutationPayload {
   return setRequestCollectionScripts(ctx, input);
+}
+
+export interface SetRequestCollectionSpecLinkInput {
+  collectionUid: string;
+  /** New generation bookkeeping; `undefined` clears the link. */
+  specLink: SpecLink | undefined;
+}
+
+/**
+ * Whole-object `setField('specLink', …)` is deliberate here — unlike
+ * auth, the field never rides a create payload (generation links a
+ * collection AFTER it exists), so there are no flattened create-time
+ * leaves to clobber; both members always change together.
+ */
+export function buildSetRequestCollectionSpecLinkBatch(
+  input: SetRequestCollectionSpecLinkInput,
+  ctx: MutatorContext,
+): RequestCollectionMutationPayload {
+  return setRequestCollectionSpecLink(ctx, input);
 }
 
 export interface SetRequestCollectionAuthInput {

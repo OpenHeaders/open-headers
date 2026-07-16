@@ -111,6 +111,25 @@ describe('yaml codec — round-trip parity', () => {
     expect(cleared.collectionYaml).toBe(raw);
   });
 
+  it('_collection.yaml with specLink — inline generation bookkeeping, round-trips', () => {
+    const raw = loadFixture('_collection.yaml');
+    const parsed = parseCollection(raw, { path: 'requests/auth-c0ll1111' });
+    const write = mergePatch(parsed, (draft) => {
+      draft.specLink = { specUid: 'spec1234', sourceHash: 'sha256:0123abcd' };
+    });
+    const out = serializeCollection(write);
+    expect(out.collectionYaml).toContain('specLink:');
+    const reparsed = parseCollection(out.collectionYaml, { path: 'requests/auth-c0ll1111' });
+    expect(reparsed.value.specLink).toEqual({ specUid: 'spec1234', sourceHash: 'sha256:0123abcd' });
+    // Clearing removes the key — field absent ↔ not spec-generated.
+    const cleared = serializeCollection(
+      mergePatch(reparsed, (draft) => {
+        delete draft.specLink;
+      }),
+    );
+    expect(cleared.collectionYaml).toBe(raw);
+  });
+
   it('_folder.yaml', () => {
     const raw = loadFixture('_folder.yaml');
     const parsed = parseFolder(raw, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });

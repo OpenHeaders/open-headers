@@ -8,6 +8,20 @@ import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { AuthConfigSchema } from './request';
 import { VariableSchema } from './variable';
 
+/**
+ * Per-link generation bookkeeping on a collection generated from a
+ * spec document. `specUid` is the source spec (ids-only identity — the
+ * spec may be deleted later; consumers derive link health at read
+ * time). `sourceHash` is the spec root file's content hash at
+ * generation time — drift is judged by comparing it against the
+ * current content, never by caching live state. One spec links to
+ * many collections; each collection carries its own link.
+ */
+export const SpecLinkSchema = v.object({
+  specUid: UidSchema,
+  sourceHash: v.string(),
+});
+
 export const CollectionSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
@@ -42,6 +56,8 @@ export const CollectionSchema = v.object({
    * `_collection.yaml` (auth is data, not script source).
    */
   auth: v.optional(AuthConfigSchema),
+  /** Present only on collections generated from a spec document. */
+  specLink: v.optional(SpecLinkSchema),
 });
 
 /**

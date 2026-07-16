@@ -21,7 +21,6 @@ import {
   type BrunoFile,
   BrunoParseError,
   type BrunoParseResult,
-  type CurlRequest,
   diffImportReports,
   hashImportSource,
   type ImportReport,
@@ -43,6 +42,7 @@ import { Alert, App as AntApp, Button, Divider, Input, Modal, Space, Tag, Toolti
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import ImportReportPanel from './ImportReportPanel';
+import { landSectionedCollections, type SectionedCollection } from './land-collections';
 import ReimportDiffPanel from './ReimportDiffPanel';
 import { useImportShortcut } from './use-import-shortcut';
 
@@ -51,22 +51,6 @@ const { Text, Paragraph } = Typography;
 // ── Source-neutral parse shape ─────────────────────────────────────
 
 export type SectionedSourceKind = 'postman-backup' | 'insomnia' | 'bruno' | 'openapi';
-
-interface SectionedCollection {
-  name: string;
-  /** Collection-level ancestor script slots (Postman backups carry
-   *  them; Insomnia/Bruno parsers keep their own drop notes). */
-  preRequestScript?: string;
-  postResponseScript?: string;
-  /** Collection-level default auth (Postman backups and OpenAPI
-   *  documents carry it). */
-  auth?: AuthConfig;
-  /** Collection variables (OpenAPI: `{{baseUrl}}` + valued path
-   *  parameters — load-bearing, every imported URL references them). */
-  variables?: Array<{ name: string; value: string; type: 'default' | 'secret' }>;
-  folders: Array<{ path: string[]; preRequestScript?: string; postResponseScript?: string; auth?: AuthConfig }>;
-  requests: Array<{ folderPath: string[]; request: CurlRequest }>;
-}
 
 interface SectionedEnvironment {
   name: string;
@@ -351,99 +335,25 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
       const report: ImportReport = { ...result.report, sourceHash };
 
       // 1. Collections — auto-created from the (possibly renamed)
-      //    source names; folders depth-first so parents exist.
-      let requestsImported = 0;
-      let collectionsImported = 0;
-      for (let i = 0; i < result.collections.length; i++) {
-        const section = result.collections[i];
-        if (!section) continue;
-        const name = (collectionNames[i] ?? section.name).trim() || section.name;
-        const coll = await createCollection(name);
-        if (!coll) {
-          recordDrop(report, {
-            path: `collections[${i}]`,
-            reason: `Failed to create collection "${name}" — its requests were not imported.`,
-            tracking: 'PERMANENT: write-path failure',
-          });
-          continue;
-        }
-        collectionsImported++;
-        if (
-          setCollectionScripts &&
-          (section.preRequestScript !== undefined || section.postResponseScript !== undefined)
-        ) {
-          await setCollectionScripts(coll.uid, {
-            ...(section.preRequestScript !== undefined ? { preRequestScript: section.preRequestScript } : {}),
-            ...(section.postResponseScript !== undefined ? { postResponseScript: section.postResponseScript } : {}),
-          });
-        }
-        if (setCollectionAuth && section.auth !== undefined) {
-          await setCollectionAuth(coll.uid, section.auth);
-        }
-        if (section.variables !== undefined && section.variables.length > 0) {
-          if (setCollectionVariables) {
-            const rows: Variable[] = section.variables.map((v) => ({
-              uid: generateUid(),
-              name: v.name,
-              value: v.value,
-              type: v.type,
-            }));
-            const landed = await setCollectionVariables(coll.uid, rows);
-            if (!landed) {
-              recordDrop(report, {
-                path: `collections[${i}].variables`,
-                reason: `${rows.length} collection variable${rows.length === 1 ? '' : 's'} failed to write — set them on the collection's Variables page.`,
-                tracking: 'PERMANENT: write-path failure',
-              });
-            }
-          } else {
-            recordDrop(report, {
-              path: `collections[${i}].variables`,
-              reason: `${section.variables.length} collection variable${section.variables.length === 1 ? '' : 's'} not imported — this surface has no collection-variable write leg.`,
-              tracking: '#todo-file-import-collection-variables',
-            });
-          }
-        }
-        const folderPathMap = new Map<string, string>();
-        folderPathMap.set('', coll.path);
-        const sortedFolders = [...section.folders].sort((a, b) => a.path.length - b.path.length);
-        for (const f of sortedFolders) {
-          const parentKey = f.path.slice(0, -1).join('/');
-          const parentPath = folderPathMap.get(parentKey);
-          const folderName = f.path[f.path.length - 1];
-          if (!parentPath || !folderName) continue;
-          const created = await createFolder(folderName, parentPath);
-          if (created) {
-            folderPathMap.set(f.path.join('/'), created.path);
-            if (setFolderScripts && (f.preRequestScript !== undefined || f.postResponseScript !== undefined)) {
-              await setFolderScripts(created.uid, {
-                ...(f.preRequestScript !== undefined ? { preRequestScript: f.preRequestScript } : {}),
-                ...(f.postResponseScript !== undefined ? { postResponseScript: f.postResponseScript } : {}),
-              });
-            }
-            if (setFolderAuth && f.auth !== undefined) {
-              await setFolderAuth(created.uid, f.auth);
-            }
-          }
-        }
-        for (const { folderPath, request } of section.requests) {
-          const parentPath = folderPathMap.get(folderPath.join('/')) ?? coll.path;
-          const seed: Partial<Request> = {
-            ...(request.description !== undefined ? { description: request.description } : {}),
-            ...request.settings,
-            ...(request.preRequestScript !== undefined ? { preRequestScript: request.preRequestScript } : {}),
-            ...(request.postResponseScript !== undefined ? { postResponseScript: request.postResponseScript } : {}),
-            method: request.method,
-            url: request.url,
-            headers: request.headers,
-            params: request.params,
-            auth: request.auth,
-            body: request.body,
-          };
-          const created = await createRequest({ name: request.name, parentPath, seed });
-          if (created) requestsImported += 1;
-        }
-      }
+      //    source names; folders depth-first so parents exist. The
+      //    loop is the shared landing path (`land-collections.ts`) —
+      //    the spec editor's Generate Collection rides the same one.
+      const landed = await landSectionedCollections(
+        result.collections,
+        collectionNames,
+        {
+          createCollection,
+          createFolder,
+          ...(setCollectionScripts ? { setCollectionScripts } : {}),
+          ...(setFolderScripts ? { setFolderScripts } : {}),
+          ...(setCollectionAuth ? { setCollectionAuth } : {}),
+          ...(setFolderAuth ? { setFolderAuth } : {}),
+          ...(setCollectionVariables ? { setCollectionVariables } : {}),
+          createRequest,
+        },
+        report,
+      );
+      const { collectionsImported, requestsImported } = landed;
 
       // 2. Environments.
       let environmentsImported = 0;
