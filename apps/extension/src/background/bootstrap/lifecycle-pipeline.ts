@@ -33,6 +33,7 @@ import {
   startDevtoolsPortPresence,
   startExtensionTrafficLifecycles,
   startLifecycleHost,
+  startOwnBundleTerminalFloor,
 } from '../correlator-host';
 import { mainFrameUrlOf } from '../correlator-host/main-frame-registry';
 import { messageCaptureSource } from '../correlator-host/message-capture-source';
@@ -111,6 +112,14 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // request-id space — the per-tab router invariant is untouched.
   startExtensionTrafficLifecycles({
     subscribeExtensionTraffic: (listener) => lifecycleHost.webRequestSource.subscribeExtensionTraffic(listener),
+    apply: (update) => lifecycleHost.store.apply(update),
+  });
+  // Tab-bound loads of our own packaged assets (a dedicated worker's main
+  // script on the workbench) get no completion events from webRequest and
+  // are invisible to the devtools HAR join — floor them to the browser's
+  // status-less "Finished" at the send.
+  startOwnBundleTerminalFloor({
+    subscribe: (listener) => lifecycleHost.webRequestSource.subscribe(listener),
     apply: (update) => lifecycleHost.store.apply(update),
   });
   startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge, bus: tabLifecycleBus });

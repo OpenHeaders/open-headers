@@ -51,6 +51,8 @@ export type { ExtensionTrafficLifecycles, ExtensionTrafficLifecyclesOptions } fr
 export { startExtensionTrafficLifecycles } from './extension-traffic-lifecycles';
 export type { LifecycleHost } from './lifecycle-host';
 export { startLifecycleHost } from './lifecycle-host';
+export type { OwnBundleTerminalFloor, OwnBundleTerminalFloorOptions } from './own-bundle-terminal-floor';
+export { startOwnBundleTerminalFloor } from './own-bundle-terminal-floor';
 export type { TabLifecycleBridgeOptions } from './tab-lifecycle-bridge';
 export { installTabLifecycleBridge } from './tab-lifecycle-bridge';
 export { originOfTab } from './tab-origin';
