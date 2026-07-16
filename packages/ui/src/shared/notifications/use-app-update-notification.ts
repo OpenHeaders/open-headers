@@ -15,6 +15,7 @@ import type { AppUpdateState } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { useEffect } from 'react';
 import { readIgnoredVersion } from '../updates/release-notes';
 import { pushNotification } from './store';
@@ -59,7 +60,14 @@ function pushFromState(t: Translate, state: AppUpdateState): void {
 
 export function useAppUpdateNotification(): void {
   const t = useT();
+  // Entries capture copy at push time — hold the mount hydration until
+  // the settings store resolves `general.language`, or a fast getState/
+  // probe response bakes the default locale in (dedupe drops re-pushes).
+  // Broadcasts missed while waiting are covered by the getState hydrate
+  // that runs when readiness flips this effect on.
+  const ready = useSettingsReady();
   useEffect(() => {
+    if (!ready) return;
     const probe = getCapability('getAppUpdate');
     if (!probe) return;
     let cancelled = false;
@@ -92,5 +100,5 @@ export function useAppUpdateNotification(): void {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [ready, t]);
 }

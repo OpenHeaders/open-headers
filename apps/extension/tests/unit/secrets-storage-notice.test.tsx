@@ -20,8 +20,20 @@ import {
 } from '@openheaders/ui/shared/notifications';
 import type { StatusEntry } from '@openheaders/ui/shared/status';
 import { productStatusInlineActions } from '@openheaders/ui/shared/status';
+import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
+import { __resetStoreForTests, configureSettingsStorage, initSettingsStore } from '@openheaders/ui/workbench/settings/store';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+class NoopDictStorage implements DictStorage {
+  async load(_scope: SettingScope): Promise<Record<string, unknown>> {
+    return {};
+  }
+  async save(): Promise<void> {}
+  subscribe(): () => void {
+    return () => {};
+  }
+}
 
 interface BridgeFake {
   bridge: HostBridge;
@@ -62,9 +74,18 @@ function useNoticeHarness() {
 }
 
 describe('useSecretsStorageNotice', () => {
+  // The hook gates pushes on settings readiness (push-time copy waits
+  // for the persisted locale), so the store must be initialized.
+  beforeEach(async () => {
+    __resetStoreForTests();
+    configureSettingsStorage(new NoopDictStorage());
+    await initSettingsStore();
+  });
+
   afterEach(() => {
     cleanup();
     __resetNotificationsForTests();
+    __resetStoreForTests();
   });
 
   it('pushes one error suggestion with the platform remedy and the relaunch action', async () => {

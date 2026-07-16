@@ -8,12 +8,18 @@
  * retires itself permanently when its link is followed (persisted per
  * nudge), and dedupe keys keep re-mounts within a session from
  * stacking them.
+ *
+ * Standing nudges, not historical records: unlike event entries they
+ * follow a live locale switch — the producer retires both cards and
+ * reissues them under the new locale (push-time capture stays the
+ * store's law; this is the sanctioned dismiss-and-reissue path).
  */
 
 import { LikeTwoTone, SmileTwoTone } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useEffect } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
+import { useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { dismissByKey, pushNotification } from './store';
 
 const GITHUB_URL = 'https://github.com/OpenHeaders/open-headers-releases';
@@ -41,9 +47,29 @@ function openExternal(url: string): void {
   else window.open(url, '_blank', 'noopener');
 }
 
+// Locale the current cards were pushed under. Guards the retire-and-
+// reissue below so re-mounts within a session leave timestamps alone —
+// only an actual locale change reissues.
+let pushedLocale: string | null = null;
+
+/** Test hook — reset the pushed-locale guard between cases. */
+export function __resetSeedNotificationsForTests(): void {
+  pushedLocale = null;
+}
+
 export function useSeedNotifications(): void {
-  const t = useT();
+  const { locale, t } = useLocale();
+  // Entries capture copy at push time, so the first push must wait for
+  // the settings store — pushing before `general.language` hydrates
+  // would bake the default locale in and dedupe drops the re-push.
+  const ready = useSettingsReady();
   useEffect(() => {
+    if (!ready) return;
+    if (pushedLocale !== null && pushedLocale !== locale) {
+      dismissByKey('visit-website');
+      dismissByKey('help-us-grow');
+    }
+    pushedLocale = locale;
     // Pushed first so Help Us Grow lands on top of the timeline.
     if (!isDone('oh.websiteVisited')) {
       pushNotification({
@@ -95,5 +121,5 @@ export function useSeedNotifications(): void {
         ],
       });
     }
-  }, [t]);
+  }, [ready, locale, t]);
 }

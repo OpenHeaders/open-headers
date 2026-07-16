@@ -27,4 +27,4 @@ export {
 } from './store';
 export { useAppUpdateNotification } from './use-app-update-notification';
 export { useSecretsStorageNotice } from './use-secrets-storage-notice';
-export { useSeedNotifications } from './use-seed-notifications';
+export { __resetSeedNotificationsForTests, useSeedNotifications } from './use-seed-notifications';
