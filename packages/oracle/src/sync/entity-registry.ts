@@ -59,6 +59,8 @@ import {
   RESPONSE_EXAMPLE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   SCRIPT_PACKAGE_ENTITY_TYPE,
+  SPEC_ENTITY_TYPE,
+  SPEC_FILES_PATH,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_VARS_PATH,
   TEMPLATE_CONDITIONS_PATH,
@@ -89,6 +91,7 @@ import { createRequestFolderCache } from './caches/request-folder-cache';
 import { createResponseExampleCache } from './caches/response-example-cache';
 import { createRuleCache } from './caches/rule-cache';
 import { createScriptPackageCache } from './caches/script-package-cache';
+import { createSpecCache } from './caches/spec-cache';
 import { createTemplateCache } from './caches/template-cache';
 import { createTemplateCollectionCache } from './caches/template-collection-cache';
 import { createTemplateFolderCache } from './caches/template-folder-cache';
@@ -122,6 +125,7 @@ import { projectRequestByUid, projectRequestPostState } from './post-state/reque
 import { projectResponseExampleByUid, projectResponseExamplePostState } from './post-state/response-example-post-state';
 import { projectRuleByUid, projectRulePostState } from './post-state/rule-post-state';
 import { projectScriptPackageByUid, projectScriptPackagePostState } from './post-state/script-package-post-state';
+import { projectSpecByUid, projectSpecPostState } from './post-state/spec-post-state';
 import {
   projectTemplateCollectionByUid,
   projectTemplateCollectionPostState,
@@ -384,6 +388,15 @@ export const SCRIPT_PACKAGE_REGISTRATION = flatEntity({
   projectByUid: projectScriptPackageByUid,
 });
 
+export const SPEC_REGISTRATION = flatEntity({
+  entityType: SPEC_ENTITY_TYPE,
+  createCache: createSpecCache,
+  postStateKey: 'specPostState',
+  projectPostState: projectSpecPostState,
+  projectByUid: projectSpecByUid,
+  setPaths: [SPEC_FILES_PATH],
+});
+
 export const RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
   entityType: RESPONSE_EXAMPLE_ENTITY_TYPE,
   createCache: createResponseExampleCache,
@@ -486,6 +499,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   LIVE_VARIABLE_REGISTRATION,
   LIVE_WORKFLOW_REGISTRATION,
   SCRIPT_PACKAGE_REGISTRATION,
+  SPEC_REGISTRATION,
   LIVE_VALUE_REGISTRATION,
   LIVE_FALLBACK_PRIORITY_REGISTRATION,
   OAUTH_BUNDLE_REGISTRATION,

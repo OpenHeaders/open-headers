@@ -234,6 +234,8 @@ export type {
 export type { ScriptPackage } from './script-package';
 // ── Shadow arbitration ─────────────────────────────────────────────
 export type { ShadowAttribution, ShadowKind } from './shadow';
+// ── Specs ──────────────────────────────────────────────────────────
+export type { Spec, SpecFile, SpecFormat } from './spec';
 // ── Subsystem status snapshot ──────────────────────────────────────
 export type {
   BackendSyncStatus,

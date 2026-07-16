@@ -53,6 +53,22 @@ export const TEMPLATE_FIELD_ORDER = [
   'updatedAt',
 ] as const;
 
+/**
+ * Spec manifest (`spec.yaml`): identity + scalar metadata, then the
+ * file catalog. Source text never serializes into the manifest — each
+ * `files[]` row's content fans out into its own verbatim sibling file
+ * (see `spec.ts`).
+ */
+export const SPEC_FIELD_ORDER = [
+  'schemaVersion',
+  'uid',
+  'name',
+  'description',
+  'format',
+  'rootFileUid',
+  'files',
+] as const;
+
 export const WORKSPACE_VARIABLES_FIELD_ORDER = ['schemaVersion', 'variables'] as const;
 
 export const VAULT_FIELD_ORDER = ['schemaVersion', 'secrets'] as const;

@@ -25,6 +25,7 @@ import type {
   ResponseExample,
   Rule,
   ScriptPackage,
+  Spec,
   Template,
   Vault,
   WorkspaceVariables,
@@ -357,6 +358,20 @@ export interface SyncResponseExamplePostState {
 }
 
 /**
+ * Post-commit projection for a spec envelope. Carries the materialized
+ * {@link Spec} plus the live member view of the one set-modeled path
+ * (`files`, identity = file uid) so renderer-side mirrors can emit
+ * position-preserving upserts (§23.5) without a round-trip.
+ */
+export interface SyncSpecPostState {
+  spec: Spec;
+  /** Live file uids per set path — the set-member identity view. */
+  setItemIds: Record<string, string[]>;
+  /** Live `(itemId, orderKey)` pairs at the `files` set (§23.5). */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
+}
+
+/**
  * Post-commit projection for a live-value envelope. Singleton entity per
  * workspace — one materialized record at the fixed id `live-value`. The
  * single set-modeled path `values` is projected back into a Record keyed
@@ -628,6 +643,12 @@ export interface SyncBroadcastEvent {
    * batches leave it `undefined`.
    */
   responseExamplePostState?: SyncResponseExamplePostState;
+  /**
+   * Populated for spec envelopes whose batch left a materialized spec
+   * in place. Tombstoned specs and rolled-back batches leave it
+   * `undefined`.
+   */
+  specPostState?: SyncSpecPostState;
   /**
    * Populated for live-value envelopes whose batch left a materialized
    * record in place. Tombstoned (singleton deletion is a workspace-level

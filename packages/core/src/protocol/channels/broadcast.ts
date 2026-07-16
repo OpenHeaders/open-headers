@@ -38,6 +38,7 @@ import type {
   SyncResponseExamplePostState,
   SyncRulePostState,
   SyncScriptPackagePostState,
+  SyncSpecPostState,
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
@@ -363,6 +364,11 @@ export interface BridgeBroadcastContract {
      * flat record — no itemId map.
      */
     responseExamplePostState?: SyncResponseExamplePostState;
+    /**
+     * Post-commit projection for spec envelopes. Carries the live
+     * member view of the `files` set alongside the entity.
+     */
+    specPostState?: SyncSpecPostState;
     /**
      * Post-commit projection for live-value envelopes (WS-C C6).
      * Singleton entity. Sensitive — stripped from snapshots crossing a

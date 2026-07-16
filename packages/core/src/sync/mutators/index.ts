@@ -265,6 +265,22 @@ export {
   type VariableMutatorBindings,
   type VariableMutators,
 } from './shared/variable-mutators';
+export {
+  type DeleteSpecArgs,
+  deleteSpec,
+  type RemoveSpecFileArgs,
+  removeSpecFile,
+  type SetSpecFieldArgs,
+  type SetSpecFileArgs,
+  SPEC_ENTITY_TYPE,
+  SPEC_FILES_PATH,
+  SPEC_MUTATOR_VERSION,
+  type SpecScalarPath,
+  setSpecField,
+  setSpecFile,
+  type UnsetSpecFieldArgs,
+  unsetSpecField,
+} from './spec';
 export { liveOrderedItemsAt, newEntityState, writeSetOrderIfNewer } from './state';
 export {
   type AddTemplateConditionArgs,

@@ -24,6 +24,7 @@ import type {
   SyncResponseExamplePostState,
   SyncRulePostState,
   SyncScriptPackagePostState,
+  SyncSpecPostState,
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
@@ -205,6 +206,16 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotResponseExamples': {
     req: { workspaceId?: string };
     res: { entries: SyncResponseExamplePostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full spec oracle state. Each entry
+   * carries `{ spec, setItemIds, setOrderKeys }` — the `files` set is
+   * set-modeled (identity = file uid), matching the broadcast
+   * `specPostState` payload.
+   */
+  'oh.sync.snapshotSpecs': {
+    req: { workspaceId?: string };
+    res: { entries: SyncSpecPostState[] };
   };
   /**
    * Snapshot the active workspace's singleton oauth-bundle oracle

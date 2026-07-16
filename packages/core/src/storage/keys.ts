@@ -22,6 +22,7 @@
 
 import type { BackendReach } from '../protocol';
 import type { ScriptExecutionMode } from '../scripts';
+import type { TelemetryInstallContext } from '../telemetry/client';
 import type {
   AuthConfig,
   BackendConnection,
@@ -40,6 +41,7 @@ import type {
   ResponseExample,
   Rule,
   ScriptPackage,
+  Spec,
   SyntheticIdentityRecord,
   Template,
   Vault,
@@ -47,7 +49,6 @@ import type {
   WorkspaceRoleAssignment,
   WorkspaceVariables,
 } from '../types';
-import type { TelemetryInstallContext } from '../telemetry/client';
 import type { PauseMarker } from '../utils';
 
 // ── Core key type ────────────────────────────────────────────────────
@@ -448,6 +449,11 @@ export interface WorkspaceKeys {
    */
   responseExamples: StorageKey<ResponseExample[]>;
   /**
+   * Specs — first-class API specification documents (name + verbatim
+   * source-file set) a collection can be generated from.
+   */
+  specs: StorageKey<Spec[]>;
+  /**
    * Live workflow-run cache. Blob keyed by `(workflowUid, environmentId)`
    * holds the most recent extraction per workflow per active env.
    * Opaque at storage layer — shape in `live-cache-store.ts`.
@@ -582,6 +588,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     liveVariables: storageKey<LiveVariable[]>(`${p}.liveVariables`),
     scriptPackages: storageKey<ScriptPackage[]>(`${p}.scriptPackages`),
     responseExamples: storageKey<ResponseExample[]>(`${p}.responseExamples`),
+    specs: storageKey<Spec[]>(`${p}.specs`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     liveFallbackPriority: storageKey<LiveFallbackPrioritySnapshot>(`${p}.liveFallbackPriority`),
     variableRecents: storageKey<unknown>(`${p}.variableRecents`),

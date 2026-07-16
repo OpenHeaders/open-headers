@@ -81,6 +81,7 @@ export {
   snapshotResponseExamplePostStates,
   snapshotRulePostStates,
   snapshotScriptPackagePostStates,
+  snapshotSpecPostStates,
   snapshotTemplateCollectionPostStates,
   snapshotTemplateFolderPostStates,
   snapshotTemplatePostStates,

@@ -21,6 +21,7 @@ import type {
   SyncResponseExamplePostState,
   SyncRulePostState,
   SyncScriptPackagePostState,
+  SyncSpecPostState,
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
@@ -46,6 +47,7 @@ import {
   RESPONSE_EXAMPLE_REGISTRATION,
   RULE_REGISTRATION,
   SCRIPT_PACKAGE_REGISTRATION,
+  SPEC_REGISTRATION,
   singletonSnapshot,
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,
@@ -153,6 +155,11 @@ export function snapshotScriptPackagePostStates(workspaceId?: string): SyncScrip
 export function snapshotResponseExamplePostStates(workspaceId?: string): SyncResponseExamplePostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, RESPONSE_EXAMPLE_REGISTRATION) : [];
+}
+
+export function snapshotSpecPostStates(workspaceId?: string): SyncSpecPostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? flatSnapshot(o, SPEC_REGISTRATION) : [];
 }
 
 export function snapshotLiveWorkflowPostStates(workspaceId?: string): SyncLiveWorkflowPostState[] {

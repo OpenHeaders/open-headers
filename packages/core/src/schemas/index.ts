@@ -144,6 +144,7 @@ export {
 } from './rule';
 export { RuleDraftSchema } from './rule-draft';
 export { ScriptPackageNameSchema, ScriptPackageSchema } from './script-package';
+export { SPEC_FORMATS, SpecFileNameSchema, SpecFileSchema, SpecFormatSchema, SpecSchema } from './spec';
 export { TemplateIncludesSchema, TemplateSchema } from './template';
 export {
   EnvironmentSchema,

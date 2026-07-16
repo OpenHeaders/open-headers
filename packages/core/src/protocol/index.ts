@@ -110,6 +110,7 @@ export type {
   SyncResponseExamplePostState,
   SyncRulePostState,
   SyncScriptPackagePostState,
+  SyncSpecPostState,
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,

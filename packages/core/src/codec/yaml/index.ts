@@ -42,6 +42,7 @@ export {
   REQUEST_FIELD_ORDER,
   RULE_FIELD_ORDER,
   RUNTIME_ONLY_FIELDS,
+  SPEC_FIELD_ORDER,
   TEMPLATE_FIELD_ORDER,
   VAULT_FIELD_ORDER,
   WORKSPACE_FIELD_ORDER,
@@ -53,6 +54,8 @@ export type { RuleCodecContext } from './rule';
 export { canonicalizeRule, parseRule, serializeRule } from './rule';
 export type { ScriptFields, ScriptSiblingFile, ScriptSiblingOutputs } from './script-siblings';
 export { POST_RESPONSE_SCRIPT_FILE, PRE_REQUEST_SCRIPT_FILE } from './script-siblings';
+export type { SpecCodecContext, SpecSerializeOutput, SpecSiblingFile } from './spec';
+export { parseSpec, serializeSpec } from './spec';
 export type { TemplateCodecContext } from './template';
 export { canonicalizeTemplate, parseTemplate, serializeTemplate } from './template';
 export { parseVault, parseWorkspaceVariables, serializeVault, serializeWorkspaceVariables } from './variables';
