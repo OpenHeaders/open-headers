@@ -10,12 +10,12 @@
  * effect of viewing the report.
  */
 
-import { CheckCircleFilled, ExclamationCircleFilled } from '@ant-design/icons';
+import { CheckCircleFilled, CopyOutlined, DownloadOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import type { ImportReport, PostmanImportedWorkspace, PostmanImportSummary } from '@openheaders/core/import';
-import { Button, Collapse, Modal, Skeleton, Typography, theme } from 'antd';
+import { App, Button, Collapse, Modal, Skeleton, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import ImportReportPanel from './ImportReportPanel';
 
 const { Text, Paragraph } = Typography;
@@ -28,6 +28,25 @@ interface WorkspaceReportEntry {
 /** The newest pull report in a ring is the run's — rings are oldest-first. */
 function newestPullReport(reports: ImportReport[]): ImportReport | null {
   return [...reports].reverse().find((r) => r.source === 'postman-pull') ?? null;
+}
+
+/**
+ * The full run as portable JSON — the debugging hand-off for a GitHub
+ * issue: the summary plus each workspace's report (drops/transforms).
+ * Never contains credentials (reports are key-free by the key law).
+ */
+function serializeReport(summary: PostmanImportSummary, entries: WorkspaceReportEntry[]): string {
+  return JSON.stringify(
+    {
+      source: 'postman-pull',
+      generatedAt: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      summary,
+      workspaces: entries.map(({ workspace, report }) => ({ ...workspace, report })),
+    },
+    null,
+    2,
+  );
 }
 
 const WorkspaceReportBody: React.FC<{ entry: WorkspaceReportEntry }> = ({ entry }) => {
@@ -61,8 +80,28 @@ const MigrationReportModal: React.FC<{
   onOpenWorkspace?: (workspaceId: string) => void;
 }> = ({ open, summary, onClose, onOpenWorkspace }) => {
   const { token } = theme.useToken();
+  const { message } = App.useApp();
   const [entries, setEntries] = useState<WorkspaceReportEntry[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const copyReport = useCallback(() => {
+    if (!summary) return;
+    navigator.clipboard
+      .writeText(serializeReport(summary, entries))
+      .then(() => message.success('Report copied as JSON'))
+      .catch(() => message.error('The report could not be copied.'));
+  }, [summary, entries, message]);
+
+  const downloadReport = useCallback(() => {
+    if (!summary) return;
+    const blob = new Blob([serializeReport(summary, entries)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `openheaders-postman-import-report-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [summary, entries]);
 
   useEffect(() => {
     if (!open || !summary) return;
@@ -147,9 +186,20 @@ const MigrationReportModal: React.FC<{
       title="Postman import report"
       open={open}
       onCancel={onClose}
-      onOk={onClose}
-      cancelButtonProps={{ style: { display: 'none' } }}
-      okText="Close"
+      footer={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Button icon={<CopyOutlined />} onClick={copyReport} disabled={loading || !summary}>
+            Copy report
+          </Button>
+          <Button icon={<DownloadOutlined />} onClick={downloadReport} disabled={loading || !summary}>
+            Download
+          </Button>
+          <div style={{ flex: 1 }} />
+          <Button type="primary" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      }
       width={840}
       centered
       maskClosable={false}
