@@ -273,6 +273,69 @@ export function normalizeEventSourceMessageReceived(
   };
 }
 
+/**
+ * Method-dispatched raw → typed mapping for the consumed `Network.*`
+ * subset — the single normalization both planes route through: the tab
+ * plane (`chrome-debugger-source`, session-keyed) and the browser-target
+ * plane (`browser-target-network`, `target:<id>`-keyed). Returns `null`
+ * for an event outside the consumed subset.
+ */
+export function normalizeNetworkEvent(
+  tabId: number,
+  sessionId: string,
+  method: string,
+  params: object,
+): CdpNetworkEvent | null {
+  switch (method) {
+    case 'Network.requestWillBeSent':
+      return normalizeRequestWillBeSent(tabId, sessionId, params as RawRequestWillBeSent);
+    case 'Network.responseReceived':
+      return normalizeResponseReceived(tabId, sessionId, params as RawResponseReceived);
+    case 'Network.dataReceived':
+      return normalizeDataReceived(tabId, sessionId, params as RawDataReceived);
+    case 'Network.loadingFinished':
+      return normalizeLoadingFinished(tabId, sessionId, params as RawLoadingFinished);
+    case 'Network.loadingFailed':
+      return normalizeLoadingFailed(tabId, sessionId, params as RawLoadingFailed);
+    case 'Network.requestWillBeSentExtraInfo':
+      return normalizeRequestWillBeSentExtraInfo(tabId, sessionId, params as RawRequestWillBeSentExtraInfo);
+    case 'Network.responseReceivedExtraInfo':
+      return normalizeResponseReceivedExtraInfo(tabId, sessionId, params as RawResponseReceivedExtraInfo);
+    case 'Network.webSocketCreated':
+      return normalizeWebSocketCreated(tabId, sessionId, params as RawWebSocketCreated);
+    case 'Network.webSocketWillSendHandshakeRequest':
+      return normalizeWebSocketWillSendHandshakeRequest(
+        tabId,
+        sessionId,
+        params as RawWebSocketWillSendHandshakeRequest,
+      );
+    case 'Network.webSocketHandshakeResponseReceived':
+      return normalizeWebSocketHandshakeResponseReceived(
+        tabId,
+        sessionId,
+        params as RawWebSocketHandshakeResponseReceived,
+      );
+    case 'Network.webSocketFrameSent':
+      return normalizeWebSocketFrame('Network.webSocketFrameSent', tabId, sessionId, params as RawWebSocketFrameEvent);
+    case 'Network.webSocketFrameReceived':
+      return normalizeWebSocketFrame(
+        'Network.webSocketFrameReceived',
+        tabId,
+        sessionId,
+        params as RawWebSocketFrameEvent,
+      );
+    case 'Network.webSocketFrameError':
+      return normalizeWebSocketFrameError(tabId, sessionId, params as RawWebSocketFrameError);
+    case 'Network.webSocketClosed':
+      return normalizeWebSocketClosed(tabId, sessionId, params as RawWebSocketClosed);
+    case 'Network.eventSourceMessageReceived':
+      return normalizeEventSourceMessageReceived(tabId, sessionId, params as RawEventSourceMessageReceived);
+    default:
+      // Other Network.* events are not part of the consumed subset.
+      return null;
+  }
+}
+
 // ── fetch-domain normalizer (control-input) ──────────────────────────
 
 export function normalizeRequestPaused(tabId: number, sessionId: string, p: RawRequestPaused): CdpRequestPaused {

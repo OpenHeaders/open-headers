@@ -50,27 +50,14 @@ import { type BrowserAPI, getBrowserAPI } from '@/types/browser';
 import {
   normalizeAuthRequired,
   normalizeConsoleApiCalled,
-  normalizeDataReceived,
-  normalizeEventSourceMessageReceived,
   normalizeExceptionThrown,
   normalizeExecutionContextCreated,
   normalizeFrameNavigated,
   normalizeFrameStoppedLoading,
-  normalizeLoadingFailed,
-  normalizeLoadingFinished,
   normalizeLogEntryAdded,
+  normalizeNetworkEvent,
   normalizePageLifecycle,
   normalizeRequestPaused,
-  normalizeRequestWillBeSent,
-  normalizeRequestWillBeSentExtraInfo,
-  normalizeResponseReceived,
-  normalizeResponseReceivedExtraInfo,
-  normalizeWebSocketClosed,
-  normalizeWebSocketCreated,
-  normalizeWebSocketFrame,
-  normalizeWebSocketFrameError,
-  normalizeWebSocketHandshakeResponseReceived,
-  normalizeWebSocketWillSendHandshakeRequest,
   parseBindingFire,
 } from './cdp-normalizers';
 import type {
@@ -78,9 +65,7 @@ import type {
   RawAuthRequired,
   RawBindingCalled,
   RawConsoleApiCalled,
-  RawDataReceived,
   RawDetachedFromTarget,
-  RawEventSourceMessageReceived,
   RawExceptionThrown,
   RawExecutionContextCreated,
   RawExecutionContextDestroyed,
@@ -89,23 +74,11 @@ import type {
   RawFrameTreeNode,
   RawGetFrameTree,
   RawGetResponseBody,
-  RawLoadingFailed,
-  RawLoadingFinished,
   RawLogEntryAdded,
   RawPageLifecycleTimestamp,
   RawRequestPaused,
-  RawRequestWillBeSent,
-  RawRequestWillBeSentExtraInfo,
-  RawResponseReceived,
-  RawResponseReceivedExtraInfo,
   RawStorageUpdated,
   RawStreamResourceContent,
-  RawWebSocketClosed,
-  RawWebSocketCreated,
-  RawWebSocketFrameError,
-  RawWebSocketFrameEvent,
-  RawWebSocketHandshakeResponseReceived,
-  RawWebSocketWillSendHandshakeRequest,
 } from './cdp-raw-payloads';
 import { type CdpBindingFire, type ChildTargetKind, type KeptChildSession, ROOT_SESSION_ID } from './cdp-session';
 import { clearFrameRegistry, frameUrlOf, isMainFrame, setFrameUrl, setMainFrameId } from './main-frame-registry';
@@ -710,66 +683,8 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   }
 
   private handleNetworkEvent(method: string, tabId: number, sessionId: string, params: object): void {
-    switch (method) {
-      case 'Network.requestWillBeSent':
-        this.fan(normalizeRequestWillBeSent(tabId, sessionId, params as RawRequestWillBeSent));
-        return;
-      case 'Network.responseReceived':
-        this.fan(normalizeResponseReceived(tabId, sessionId, params as RawResponseReceived));
-        return;
-      case 'Network.dataReceived':
-        this.fan(normalizeDataReceived(tabId, sessionId, params as RawDataReceived));
-        return;
-      case 'Network.loadingFinished':
-        this.fan(normalizeLoadingFinished(tabId, sessionId, params as RawLoadingFinished));
-        return;
-      case 'Network.loadingFailed':
-        this.fan(normalizeLoadingFailed(tabId, sessionId, params as RawLoadingFailed));
-        return;
-      case 'Network.requestWillBeSentExtraInfo':
-        this.fan(normalizeRequestWillBeSentExtraInfo(tabId, sessionId, params as RawRequestWillBeSentExtraInfo));
-        return;
-      case 'Network.responseReceivedExtraInfo':
-        this.fan(normalizeResponseReceivedExtraInfo(tabId, sessionId, params as RawResponseReceivedExtraInfo));
-        return;
-      case 'Network.webSocketCreated':
-        this.fan(normalizeWebSocketCreated(tabId, sessionId, params as RawWebSocketCreated));
-        return;
-      case 'Network.webSocketWillSendHandshakeRequest':
-        this.fan(
-          normalizeWebSocketWillSendHandshakeRequest(tabId, sessionId, params as RawWebSocketWillSendHandshakeRequest),
-        );
-        return;
-      case 'Network.webSocketHandshakeResponseReceived':
-        this.fan(
-          normalizeWebSocketHandshakeResponseReceived(
-            tabId,
-            sessionId,
-            params as RawWebSocketHandshakeResponseReceived,
-          ),
-        );
-        return;
-      case 'Network.webSocketFrameSent':
-        this.fan(
-          normalizeWebSocketFrame('Network.webSocketFrameSent', tabId, sessionId, params as RawWebSocketFrameEvent),
-        );
-        return;
-      case 'Network.webSocketFrameReceived':
-        this.fan(
-          normalizeWebSocketFrame('Network.webSocketFrameReceived', tabId, sessionId, params as RawWebSocketFrameEvent),
-        );
-        return;
-      case 'Network.webSocketFrameError':
-        this.fan(normalizeWebSocketFrameError(tabId, sessionId, params as RawWebSocketFrameError));
-        return;
-      case 'Network.webSocketClosed':
-        this.fan(normalizeWebSocketClosed(tabId, sessionId, params as RawWebSocketClosed));
-        return;
-      case 'Network.eventSourceMessageReceived':
-        this.fan(normalizeEventSourceMessageReceived(tabId, sessionId, params as RawEventSourceMessageReceived));
-        return;
-    }
-    // Other Network.* events are not part of the consumed subset.
+    const event = normalizeNetworkEvent(tabId, sessionId, method, params);
+    if (event !== null) this.fan(event);
   }
 
   private handlePageEvent(method: string, tabId: number, params: object): void {

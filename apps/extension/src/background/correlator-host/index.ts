@@ -13,6 +13,8 @@ export type {
 export { BrowserTargetAttachController } from './browser-target-attach-controller';
 export type { BrowserTargetFanout, BrowserTargetFanoutOptions } from './browser-target-fanout';
 export { startBrowserTargetFanout } from './browser-target-fanout';
+export type { BodyFetcherLeg, BrowserTargetNetwork, BrowserTargetNetworkOptions } from './browser-target-network';
+export { createBodyFetchRouter, startBrowserTargetNetwork } from './browser-target-network';
 export type { BrowserTargetDescriptor, BrowserTargetJsContextEvent } from './browser-target-source';
 export { browserTargetSessionKey, ChromeBrowserTargetSource } from './browser-target-source';
 export type { CdpActiveTab, CdpActiveTabOptions } from './cdp-active-tab';

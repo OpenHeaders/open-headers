@@ -16,11 +16,12 @@
  * tab plane already auto-attaches); it carries NO `tabId`, so ownership is
  * resolved by origin match, not by the enumeration.
  *
- * An attached target gets `Runtime.enable` + `Log.enable` only —
- * contexts, console and browser log. Network capture from SW targets is an
- * explicit non-goal of this plane. Events carry no `tabId`; they are
- * keyed by the synthetic session `target:<targetId>` and fanned per owning
- * tab downstream (`browser-target-fanout`).
+ * An attached target gets `Runtime.enable` + `Log.enable` + `Network.enable`
+ * — contexts, console, browser log, and the worker's own network requests
+ * (the browser's gear-prefixed rows; SW-network Phase A). Events carry no
+ * `tabId`; they are keyed by the synthetic session `target:<targetId>` and
+ * fanned per owning tab downstream (`browser-target-fanout` for
+ * contexts/console, `browser-target-network` for the Network stream).
  */
 
 import type { ConsoleEntry } from '@openheaders/core/console-stream';
@@ -72,11 +73,20 @@ export type BrowserTargetJsContextEvent =
 
 type ContextsListener = (event: BrowserTargetJsContextEvent) => void;
 type ConsoleListener = (targetId: string, entry: ConsoleEntry) => void;
+type NetworkListener = (targetId: string, method: string, params: object) => void;
 type DetachListener = (targetId: string, reason: string) => void;
 type DebuggerApi = BrowserAPI['debugger'];
 
 /** Protocol version handed to `chrome.debugger.attach`. */
 const CDP_PROTOCOL_VERSION = '1.3';
+
+/**
+ * `Network.enable` buffer sizes — the same pair the tab plane's adapter
+ * passes (`chrome-debugger-source`), matched to the browser's own DevTools
+ * session so body retention behaves identically on worker targets.
+ */
+const MAX_RESPONSE_BODY_TOTAL_BUFFER_BYTES = 250 * 1024 * 1024;
+const MAX_EAGER_POST_BODY_BYTES = 64 * 1024;
 
 /**
  * The `getTargets()` title prefix that separates a service worker from a
@@ -88,6 +98,7 @@ const SERVICE_WORKER_TITLE_PREFIX = 'Service Worker ';
 export class ChromeBrowserTargetSource {
   private readonly contextsListeners = new Set<ContextsListener>();
   private readonly consoleListeners = new Set<ConsoleListener>();
+  private readonly networkListeners = new Set<NetworkListener>();
   private readonly detachListeners = new Set<DetachListener>();
   /** Targets we hold a `chrome.debugger` attachment for. */
   private readonly attachedTargets = new Set<string>();
@@ -117,12 +128,14 @@ export class ChromeBrowserTargetSource {
   }
 
   /**
-   * Attach to a service-worker target and enable its Runtime + Log domains.
-   * The enable replays the target's live contexts as `executionContextCreated`
-   * and buffered console output as `consoleAPICalled` — self-seeding, no
-   * snapshot pull. Idempotent for a live target; tolerant of the
-   * "already attached" race (a re-attach after SW wake). Rejects on a real
-   * failure so the reconciler never marks an unestablished attachment.
+   * Attach to a service-worker target and enable its Runtime + Log +
+   * Network domains. The Runtime enable replays the target's live contexts
+   * as `executionContextCreated` and buffered console output as
+   * `consoleAPICalled` — self-seeding, no snapshot pull (Network has no
+   * such replay; rows exist from the enable forward). Idempotent for a
+   * live target; tolerant of the "already attached" race (a re-attach
+   * after SW wake). Rejects on a real failure so the reconciler never
+   * marks an unestablished attachment.
    */
   async attach(targetId: string): Promise<void> {
     const api = this.api();
@@ -139,6 +152,10 @@ export class ChromeBrowserTargetSource {
     this.attachedTargets.add(targetId);
     await this.send(targetId, 'Runtime.enable');
     await this.send(targetId, 'Log.enable');
+    await this.send(targetId, 'Network.enable', {
+      maxTotalBufferSize: MAX_RESPONSE_BODY_TOTAL_BUFFER_BYTES,
+      maxPostDataSize: MAX_EAGER_POST_BODY_BYTES,
+    });
   }
 
   /**
@@ -189,6 +206,20 @@ export class ChromeBrowserTargetSource {
     };
   }
 
+  /**
+   * Raw `Network.*` params from attached targets (target-keyed) — the
+   * worker's own network requests (SW-network Phase A). Raw at this seam:
+   * the raw → typed mapping and the per-owner fan both live downstream in
+   * `browser-target-network`, which stamps each owner tab's `tabId` onto
+   * the normalized event.
+   */
+  subscribeNetwork(listener: NetworkListener): () => void {
+    this.networkListeners.add(listener);
+    return () => {
+      this.networkListeners.delete(listener);
+    };
+  }
+
   /** Chrome-initiated detach of one of our targets (target died, user cancel). */
   onDetach(listener: DetachListener): () => void {
     this.detachListeners.add(listener);
@@ -204,6 +235,7 @@ export class ChromeBrowserTargetSource {
     for (const targetId of [...this.attachedTargets]) void this.detach(targetId);
     this.contextsListeners.clear();
     this.consoleListeners.clear();
+    this.networkListeners.clear();
     this.detachListeners.clear();
     this.attachedTargets.clear();
   }
@@ -246,6 +278,10 @@ export class ChromeBrowserTargetSource {
       return;
     }
     if (params === undefined) return;
+    if (method.startsWith('Network.')) {
+      this.fanNetwork(targetId, method, params);
+      return;
+    }
     if (method === 'Runtime.executionContextCreated') {
       this.fanContexts({
         kind: 'context-created',
@@ -298,6 +334,10 @@ export class ChromeBrowserTargetSource {
 
   private fanConsole(targetId: string, entry: ConsoleEntry): void {
     for (const listener of this.consoleListeners) listener(targetId, entry);
+  }
+
+  private fanNetwork(targetId: string, method: string, params: object): void {
+    for (const listener of this.networkListeners) listener(targetId, method, params);
   }
 
   private api(): DebuggerApi | undefined {

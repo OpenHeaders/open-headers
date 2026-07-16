@@ -19,6 +19,7 @@ import {
   ChromeCdpEvalPort,
   ChromeCdpRequestControlPort,
   ChromeCdpTabControlPort,
+  createBodyFetchRouter,
   createCdpControlReplay,
   createConsoleEval,
   deriveTabControlState,
@@ -26,6 +27,7 @@ import {
   originOfTab,
   ROOT_SESSION_ID,
   startBrowserTargetFanout,
+  startBrowserTargetNetwork,
   startCdpActiveTab,
   startCdpFetchInterceptor,
   startDevtoolsPortPresence,
@@ -309,6 +311,31 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // tries to re-attach a dead tab.
   installCdpPinTabCleanup({ bus: tabLifecycleBus, controller: cdpAttachController });
 
+  // Browser-scoped service-worker targets: the second chrome.debugger plane,
+  // keyed by targetId (JS contexts Phase B founded it; SW-network Phase A
+  // rides the same attachments). Its reconciler mirrors the tab one —
+  // attachedTargets = { targets whose owner-set ∩ cdp-attached tabs ≠ ∅ }
+  // ∩ { master switch ON } — with owners resolved by origin match between the
+  // worker script URL and each attached tab's main-frame URL (`getTargets`
+  // gives a worker no tabId). Discovery is a poll (no push over
+  // chrome.debugger), re-run on tab attach-set changes, main-frame
+  // navigations, and a low-frequency interval.
+  const browserTargetSource = new ChromeBrowserTargetSource();
+  const browserTargetController = new BrowserTargetAttachController({
+    source: browserTargetSource,
+    originOf: originOfTab,
+  });
+  // SW-network plane (Phase A): the worker's own network requests — the
+  // browser's gear-prefixed rows — fan per owner tab into a dedicated CDP
+  // correlator instance over the `target:<id>` synthetic session, landing in
+  // the SAME store (`target:`-prefixed request ids, disjoint by construction
+  // from page-session and webRequest rows).
+  const browserTargetNetwork = startBrowserTargetNetwork({
+    source: browserTargetSource,
+    controller: browserTargetController,
+    apply: (update) => lifecycleHost.store.apply(update),
+  });
+
   // Watch-session floors persist per-tab so a panel reconnect/remount (or
   // an SW restart) restores the session rather than dropping in-flight rows.
   const sessionFloors = createPersistentWatchSessionFloors();
@@ -321,9 +348,12 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     hub: lifecycleHub,
     ready: sessionFloors.ready,
     provenance: lifecycleHost.router,
-    // The CDP correlator fetches response bodies on demand; it gates on its
-    // own attach set, so a heuristic-owned tab is a clean no-op.
-    bodyFetcher: lifecycleHost.cdpCorrelator,
+    // On-demand response bodies, routed by store-id prefix so exactly one
+    // correlator instance answers (`target:` → the SW plane, everything else
+    // → the tab plane — see the clobber trap on `createBodyFetchRouter`).
+    // Each instance still gates on its own attach set, so a heuristic-owned
+    // tab is a clean no-op.
+    bodyFetcher: createBodyFetchRouter(browserTargetNetwork, lifecycleHost.cdpCorrelator),
   });
 
   // Page stream: two sources, one per tab-owner (same ownership the request
@@ -392,23 +422,10 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     }
   });
 
-  // Browser-scoped service-worker targets (JS contexts Phase B): the second
-  // chrome.debugger plane, keyed by targetId. Its reconciler mirrors the tab
-  // one — attachedTargets = { targets whose owner-set ∩ cdp-attached tabs ≠ ∅ }
-  // ∩ { master switch ON } — with owners resolved by origin match between the
-  // worker script URL and each attached tab's main-frame URL (`getTargets`
-  // gives a worker no tabId). Discovery is a poll (no push over
-  // chrome.debugger), re-run on tab attach-set changes, main-frame
-  // navigations, and a low-frequency interval. Attached targets feed
-  // Runtime + Log only (SW network capture is a non-goal); the fanout
-  // resolves each target-keyed event against the committed owner mapping and
-  // fans it into the SAME context/console hubs the tab plane feeds, so a
-  // page's service-worker output lands in its tab's streams (browser parity).
-  const browserTargetSource = new ChromeBrowserTargetSource();
-  const browserTargetController = new BrowserTargetAttachController({
-    source: browserTargetSource,
-    originOf: originOfTab,
-  });
+  // Browser-target context/console fanout (JS contexts Phase B): resolves
+  // each target-keyed event against the committed owner mapping and fans it
+  // into the SAME context/console hubs the tab plane feeds, so a page's
+  // service-worker output lands in its tab's streams (browser parity).
   startBrowserTargetFanout({
     source: browserTargetSource,
     controller: browserTargetController,

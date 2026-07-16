@@ -5,11 +5,12 @@
  * Coverage:
  *   - discovery filter: `type: 'worker'` + `Service Worker` title prefix +
  *     http(s) URL; pages, dedicated workers, and extension workers drop;
- *   - attach handshake (`Runtime.enable` + `Log.enable`), idempotency,
- *     already-attached tolerance, real-failure rejection;
+ *   - attach handshake (`Runtime.enable` + `Log.enable` + `Network.enable`),
+ *     idempotency, already-attached tolerance, real-failure rejection;
  *   - event routing: the three Runtime context events (incl. the no-params
  *     `executionContextsCleared`), console + exception + Log entries, all
- *     keyed `target:<id>`; unattached targets and tab-session events drop;
+ *     keyed `target:<id>`, plus the raw `Network.*` fan (SW-network Phase
+ *     A); unattached targets and tab-session events drop;
  *   - teardown: our detach and the chrome-initiated one both fan
  *     `target-cleared` (contexts are live state, not history).
  */
@@ -98,11 +99,15 @@ describe('ChromeBrowserTargetSource', () => {
   });
 
   describe('attach / detach', () => {
-    it('attaches by targetId and enables Runtime + Log', async () => {
+    it('attaches by targetId and enables Runtime + Log + Network', async () => {
       await source.attach(TARGET);
       expect(chromeMock.debugger.attach).toHaveBeenCalledWith({ targetId: TARGET }, '1.3');
       expect(chromeMock.debugger.sendCommand).toHaveBeenCalledWith({ targetId: TARGET }, 'Runtime.enable', undefined);
       expect(chromeMock.debugger.sendCommand).toHaveBeenCalledWith({ targetId: TARGET }, 'Log.enable', undefined);
+      expect(chromeMock.debugger.sendCommand).toHaveBeenCalledWith({ targetId: TARGET }, 'Network.enable', {
+        maxTotalBufferSize: 250 * 1024 * 1024,
+        maxPostDataSize: 64 * 1024,
+      });
     });
 
     it('is idempotent for a live target', async () => {
@@ -191,7 +196,17 @@ describe('ChromeBrowserTargetSource', () => {
       expect(consoleEvents[1].entry.source).toBe('browser');
     });
 
+    it('fans raw Network.* params target-keyed', () => {
+      const networkEvents: Array<{ targetId: string; method: string; params: object }> = [];
+      source.subscribeNetwork((targetId, method, params) => networkEvents.push({ targetId, method, params }));
+      const params = { requestId: 'R1', timestamp: 100.0 };
+      chromeMock.debugger.emitEvent({ targetId: TARGET }, 'Network.loadingFinished', params);
+      expect(networkEvents).toEqual([{ targetId: TARGET, method: 'Network.loadingFinished', params }]);
+    });
+
     it('drops events from unattached targets and from tab sessions', () => {
+      const networkEvents: object[] = [];
+      source.subscribeNetwork((_targetId, _method, params) => networkEvents.push(params));
       chromeMock.debugger.emitEvent({ targetId: 'OTHER' }, 'Runtime.executionContextCreated', rawContextCreated(1));
       chromeMock.debugger.emitEvent(
         { tabId: 7, targetId: TARGET },
@@ -199,7 +214,10 @@ describe('ChromeBrowserTargetSource', () => {
         rawContextCreated(1),
       );
       chromeMock.debugger.emitEvent({ tabId: 7 }, 'Runtime.executionContextCreated', rawContextCreated(1));
+      chromeMock.debugger.emitEvent({ targetId: 'OTHER' }, 'Network.loadingFinished', { requestId: 'R1' });
+      chromeMock.debugger.emitEvent({ tabId: 7, targetId: TARGET }, 'Network.loadingFinished', { requestId: 'R1' });
       expect(contextEvents).toEqual([]);
+      expect(networkEvents).toEqual([]);
     });
   });
 
