@@ -12,6 +12,8 @@ const KIND_BY_TYPE: Record<string, InsomniaDoc['kind']> = {
   Request: 'request',
   environment: 'environment',
   Environment: 'environment',
+  api_spec: 'apispec',
+  ApiSpec: 'apispec',
 };
 
 /**
@@ -28,7 +30,10 @@ export function normalizeDoc(raw: unknown, index: number): InsomniaDoc | null {
     parentId: typeof raw.parentId === 'string' && raw.parentId.length > 0 ? raw.parentId : null,
     kind: KIND_BY_TYPE[rawType] ?? 'unsupported',
     rawType,
-    name: (typeof raw.name === 'string' ? raw.name.trim() : '') || defaultNameFor(KIND_BY_TYPE[rawType]),
+    name:
+      (typeof raw.name === 'string' ? raw.name.trim() : '') ||
+      (typeof raw.fileName === 'string' ? raw.fileName.trim() : '') ||
+      defaultNameFor(KIND_BY_TYPE[rawType]),
   };
   if (typeof raw.description === 'string' && raw.description.length > 0) doc.description = raw.description;
   if (typeof raw.metaSortKey === 'number') doc.sortKey = raw.metaSortKey;
@@ -39,6 +44,7 @@ export function normalizeDoc(raw: unknown, index: number): InsomniaDoc | null {
   if (isRecord(raw.body)) doc.body = toBody(raw.body);
   if (isRecord(raw.authentication)) doc.authentication = toAuthentication(raw.authentication);
   if (isRecord(raw.data)) doc.data = raw.data;
+  if (typeof raw.contents === 'string') doc.contents = raw.contents;
   return doc;
 }
 
@@ -52,6 +58,8 @@ function defaultNameFor(kind: InsomniaDoc['kind'] | undefined): string {
       return 'Untitled Request';
     case 'environment':
       return 'Imported Environment';
+    case 'apispec':
+      return 'API Spec';
     default:
       return '';
   }

@@ -1,4 +1,6 @@
+import type { AuthConfig } from '../../types/request';
 import type { CurlRequest } from '../curl';
+import type { OpenApiCollectionVariable } from '../openapi/types';
 import type { ImportReport } from '../report';
 
 // ── Types we read ──────────────────────────────────────────────────
@@ -48,7 +50,7 @@ export interface InsomniaAuthentication {
 export interface InsomniaDoc {
   id: string;
   parentId: string | null;
-  kind: 'workspace' | 'request-group' | 'request' | 'environment' | 'unsupported';
+  kind: 'workspace' | 'request-group' | 'request' | 'environment' | 'apispec' | 'unsupported';
   /** The source discriminator verbatim (`request_group`, `Request`, …) for report reasons. */
   rawType: string;
   name: string;
@@ -61,6 +63,9 @@ export interface InsomniaDoc {
   body?: InsomniaBody;
   authentication?: InsomniaAuthentication;
   data?: Record<string, unknown>;
+  /** Raw spec text on an `api_spec` resource (design documents carry
+   *  their OpenAPI source verbatim) — parsed through `parseOpenApi`. */
+  contents?: string;
 }
 
 // ── Output ─────────────────────────────────────────────────────────
@@ -93,6 +98,13 @@ export interface InsomniaParsedCollection {
   description: string;
   folders: InsomniaParsedFolder[];
   requests: InsomniaParsedRequest[];
+  /** Collection variables — present on collections minted from an
+   *  embedded API spec (`{{baseUrl}}` + valued path parameters). */
+  variables?: OpenApiCollectionVariable[];
+  /** Collection-level default auth — present when an embedded API
+   *  spec declares document-level security; its requests import as
+   *  `inherit` and resolve this at send time. */
+  auth?: AuthConfig;
 }
 
 export interface InsomniaParseResult {

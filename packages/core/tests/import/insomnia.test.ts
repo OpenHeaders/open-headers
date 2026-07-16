@@ -132,6 +132,87 @@ describe('v4 export — workspace / folder / request tree', () => {
   });
 });
 
+// ── Embedded API specs ─────────────────────────────────────────────
+
+describe('v4 api_spec resources', () => {
+  const SPEC_YAML = [
+    'openapi: 3.0.3',
+    'info:',
+    '  title: Openheaders Public API',
+    '  version: 1.0.0',
+    'servers:',
+    '  - url: https://api.openheaders.io/v1',
+    'security:',
+    '  - bearer: []',
+    'components:',
+    '  securitySchemes:',
+    '    bearer:',
+    '      type: http',
+    '      scheme: bearer',
+    'paths:',
+    '  /rules:',
+    '    get:',
+    '      summary: List rules',
+    '      tags: [Rules]',
+    '',
+  ].join('\n');
+
+  function specResource(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      _id: 'spc_1',
+      _type: 'api_spec',
+      parentId: 'wrk_1',
+      fileName: 'openapi.yaml',
+      contents: SPEC_YAML,
+      contentType: 'yaml',
+      ...overrides,
+    };
+  }
+
+  it('imports the embedded spec as its own collection through the OpenAPI importer', () => {
+    const result = parseInsomnia(v4Export([WORKSPACE, v4Request(), specResource()]));
+    expect(result.collections).toHaveLength(2);
+    const spec = result.collections[1];
+    expect(spec?.name).toBe('Openheaders Public API');
+    expect(spec?.requests).toHaveLength(1);
+    expect(spec?.requests[0]?.request.url).toBe('{{baseUrl}}/rules');
+    expect(spec?.requests[0]?.request.auth).toEqual({ type: 'inherit' });
+    expect(spec?.folders.map((f) => f.path)).toEqual([['Rules']]);
+    expect(spec?.variables).toEqual([
+      { name: 'baseUrl', value: 'https://api.openheaders.io/v1', type: 'default' },
+    ]);
+    expect(spec?.auth).toEqual({ type: 'bearer', token: '' });
+    const marker = result.report.transforms.find((t) => t.path === 'resources[spc_1]');
+    expect(marker?.reason).toMatch(/OpenAPI importer/);
+  });
+
+  it('folds the spec parser notes under the resource path', () => {
+    const withWebhooks = SPEC_YAML.concat('webhooks:\n  ping:\n    post:\n      summary: Ping\n');
+    const result = parseInsomnia(v4Export([WORKSPACE, specResource({ contents: withWebhooks })]));
+    expect(result.report.drops.some((d) => d.path === 'resources[spc_1].webhooks')).toBe(true);
+  });
+
+  it('drops an empty spec with a reason', () => {
+    const result = parseInsomnia(v4Export([WORKSPACE, specResource({ contents: '   ' })]));
+    expect(result.collections).toHaveLength(1);
+    const drop = result.report.drops.find((d) => d.path === 'resources[spc_1]');
+    expect(drop?.reason).toMatch(/"openapi.yaml" carries no contents/);
+  });
+
+  it('drops a Swagger 2.0 spec with the honest convert-to-3.x error', () => {
+    const swagger = 'swagger: "2.0"\ninfo:\n  title: Legacy\npaths: {}\n';
+    const result = parseInsomnia(v4Export([WORKSPACE, specResource({ contents: swagger })]));
+    expect(result.collections).toHaveLength(1);
+    const drop = result.report.drops.find((d) => d.path === 'resources[spc_1]');
+    expect(drop?.reason).toMatch(/convert to OpenAPI 3\.x/);
+  });
+
+  it('counts spec requests into the summary', () => {
+    const result = parseInsomnia(v4Export([WORKSPACE, specResource()]));
+    expect(result.report.summary.imported).toBe(1);
+  });
+});
+
 // ── Request mapping ────────────────────────────────────────────────
 
 describe('v4 request mapping', () => {

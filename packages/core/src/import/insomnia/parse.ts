@@ -1,5 +1,6 @@
 import { parse as parseYaml } from 'yaml';
-import { createReport, type ImportReport, recordDrop } from '../report';
+import { parseOpenApi } from '../openapi/parse';
+import { createReport, type ImportReport, recordDrop, recordTransform } from '../report';
 import { collectEnvironments } from './environment';
 import { isRecord, normalizeDoc } from './normalize';
 import { convertRequest } from './request';
@@ -148,6 +149,54 @@ function assemble(rawDocs: unknown[], report: ImportReport): InsomniaParseResult
     }
   }
 
+  // Embedded API specs — design documents carry their OpenAPI source
+  // verbatim in `contents`; each importable spec becomes its own
+  // collection through the OpenAPI importer, with that parser's notes
+  // folded in under the resource path. Unparseable specs drop with
+  // the parser's own honest error (Swagger 2.0 names the conversion).
+  for (const spec of docs.filter((d) => d.kind === 'apispec')) {
+    const contents = typeof spec.contents === 'string' ? spec.contents.trim() : '';
+    if (contents === '') {
+      recordDrop(report, {
+        path: `resources[${spec.id}]`,
+        reason: `API spec "${spec.name}" carries no contents — nothing to import.`,
+      });
+      continue;
+    }
+    try {
+      const parsed = parseOpenApi(contents);
+      collections.push({
+        name: parsed.collectionName,
+        description: parsed.collectionDescription,
+        folders: parsed.folders.map((f) => ({
+          path: f.path,
+          ...(f.description !== undefined ? { description: f.description } : {}),
+        })),
+        requests: parsed.requests.map((r) => ({ folderPath: r.folderPath, request: r.request })),
+        ...(parsed.collectionVariables.length > 0 ? { variables: parsed.collectionVariables } : {}),
+        ...(parsed.collectionAuth !== undefined ? { auth: parsed.collectionAuth } : {}),
+      });
+      recordTransform(report, {
+        path: `resources[${spec.id}]`,
+        from: 'API spec resource',
+        to: `collection "${parsed.collectionName}"`,
+        reason:
+          'The embedded OpenAPI document imported through the OpenAPI importer — its notes follow under this resource path.',
+      });
+      for (const drop of parsed.report.drops) {
+        recordDrop(report, { ...drop, path: `resources[${spec.id}].${drop.path}` });
+      }
+      for (const transform of parsed.report.transforms) {
+        recordTransform(report, { ...transform, path: `resources[${spec.id}].${transform.path}` });
+      }
+    } catch (err) {
+      recordDrop(report, {
+        path: `resources[${spec.id}]`,
+        reason: `API spec "${spec.name}" not imported — ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+  }
+
   const environments = collectEnvironments(docs, report);
   const requestCount = collections.reduce((n, c) => n + c.requests.length, 0);
   report.summary = { ...report.summary, imported: requestCount + environments.length };
@@ -162,12 +211,6 @@ function unsupportedDrop(rawType: string, count: number): { reason: string; trac
     return {
       reason: `${label} of type "${rawType}" not imported — cookie jars are session state, not authoring data.`,
       tracking: 'PERMANENT: cookies out of scope',
-    };
-  }
-  if (kind === 'apispec') {
-    return {
-      reason: `${label} of type "${rawType}" not imported — API specs belong to the OpenAPI importer (own epic).`,
-      tracking: '#todo-openapi',
     };
   }
   if (kind === 'websocketrequest' || kind === 'grpcrequest') {
