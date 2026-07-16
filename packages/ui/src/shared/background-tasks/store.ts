@@ -33,6 +33,19 @@ export interface BackgroundTaskFootnote {
   hint?: string;
 }
 
+/**
+ * A task that can actually be stopped. When present, the ✕ affordance
+ * asks for confirmation and calls `run` (which cancels the underlying
+ * work) instead of merely hiding the entry — the terminal state then
+ * arrives through the producer like any other update.
+ */
+export interface BackgroundTaskCancel {
+  /** Confirmation prompt shown before stopping. */
+  confirm: string;
+  /** Producers must pass a stable reference — upserts compare it by identity. */
+  run: () => void;
+}
+
 export interface BackgroundTask {
   /** Stable producer-chosen identity — upserts replace by id. */
   id: string;
@@ -55,6 +68,9 @@ export interface BackgroundTask {
   /** Follow-up rendered as a button under the task in the Processes
    *  panel (e.g. "View report"). */
   action?: BackgroundTaskAction;
+  /** Present while the underlying work can be stopped — turns the ✕
+   *  into a confirm-then-cancel affordance. */
+  cancel?: BackgroundTaskCancel;
 }
 
 let tasks: readonly BackgroundTask[] = [];
@@ -90,7 +106,9 @@ export function upsertBackgroundTask(task: BackgroundTask): void {
     existing.done === task.done &&
     existing.action?.label === task.action?.label &&
     existing.action?.note === task.action?.note &&
-    existing.action?.run === task.action?.run
+    existing.action?.run === task.action?.run &&
+    existing.cancel?.confirm === task.cancel?.confirm &&
+    existing.cancel?.run === task.cancel?.run
   )
     return;
   const next = tasks.slice();

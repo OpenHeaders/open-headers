@@ -16,7 +16,7 @@
  */
 
 import { CheckCircleFilled, CloseOutlined, InfoCircleOutlined, MinusOutlined } from '@ant-design/icons';
-import { Button, Progress, Tooltip, theme } from 'antd';
+import { Button, Popconfirm, Progress, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -91,6 +91,27 @@ const BackgroundTasksIndicator: React.FC = () => {
     </button>
   );
 
+  // A cancelable task's ✕ stops the actual work behind a confirm; a
+  // plain task's ✕ only hides the entry (the work, if any, continues).
+  const taskClose = (task: BackgroundTask): React.ReactNode =>
+    task.cancel ? (
+      <Popconfirm
+        title={task.cancel.confirm}
+        okText="Stop"
+        okButtonProps={{ danger: true }}
+        cancelText="Keep running"
+        onConfirm={() => task.cancel?.run()}
+        placement="topRight"
+      >
+        {circleClose((e) => e.stopPropagation(), 'Stop background task')}
+      </Popconfirm>
+    ) : (
+      circleClose((e) => {
+        e.stopPropagation();
+        setHiddenIds((prev) => new Set(prev).add(task.id));
+      }, 'Hide background task')
+    );
+
   const panel = panelOpen
     ? createPortal(
         <div
@@ -154,10 +175,7 @@ const BackgroundTasksIndicator: React.FC = () => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {taskProgress(task)}
-                  {circleClose((e) => {
-                    e.stopPropagation();
-                    setHiddenIds((prev) => new Set(prev).add(task.id));
-                  }, 'Hide background task')}
+                  {taskClose(task)}
                 </div>
                 {task.detail && (
                   <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 2, whiteSpace: 'pre-line' }}>
@@ -265,10 +283,7 @@ const BackgroundTasksIndicator: React.FC = () => {
               {anchor.title}
             </span>
             {taskProgress(anchor, 80)}
-            {circleClose((e) => {
-              e.stopPropagation();
-              setHiddenIds((prev) => new Set(prev).add(anchor.id));
-            }, 'Hide background task')}
+            {taskClose(anchor)}
           </>
         ) : (
           <span style={{ fontSize: 10, color: token.colorTextTertiary }}>Processes</span>

@@ -95,4 +95,14 @@ export interface MigrationRpc {
    * with the same core `foldPullEvent` reducer.
    */
   'oh.migration.postmanPull.getState': { req: Record<string, never>; res: MigrationPullRunState };
+  /**
+   * Stop the in-flight run. Only the pull phase is stoppable — a
+   * canceled pull never materializes, so nothing lands and there is
+   * nothing to clean up; once materialization started the data is
+   * already local and the landing finishes. Answers `stopped: false`
+   * when there is nothing stoppable (no run, already importing, or
+   * already settled). The terminal state arrives like any other run
+   * end: a `finished` event with the `canceled` outcome.
+   */
+  'oh.migration.postmanPull.stop': { req: Record<string, never>; res: { stopped: boolean } };
 }

@@ -108,7 +108,7 @@ export interface PostmanPullSkip {
   workspaceIds?: string[];
 }
 
-export type PostmanPullOutcome = 'complete' | 'partial' | 'failed';
+export type PostmanPullOutcome = 'complete' | 'partial' | 'failed' | 'canceled';
 
 export interface PostmanPullResult {
   outcome: PostmanPullOutcome;

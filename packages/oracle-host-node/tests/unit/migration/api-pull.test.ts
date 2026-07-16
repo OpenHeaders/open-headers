@@ -132,6 +132,44 @@ describe('pullPostmanData', () => {
     expect(events.at(-1)).toMatchObject({ kind: 'finished', outcome: 'complete' });
   });
 
+  it('stops at the next checkpoint when isCanceled flips — canceled outcome, no further calls', async () => {
+    const { fetchFn, calls } = fetchStub(happyRoutes());
+    const events: PostmanPullEvent[] = [];
+    let canceled = false;
+
+    const result = await pullPostmanData({
+      apiKey: API_KEY,
+      fetchFn,
+      sleep: () => Promise.resolve(),
+      onEvent: (event) => {
+        events.push(event);
+        // The user stops right after the plan lands — before any item pull.
+        if (event.kind === 'planned') canceled = true;
+      },
+      isCanceled: () => canceled,
+    });
+
+    expect(result.outcome).toBe('canceled');
+    expect(result.stopReason).toContain('You stopped the import');
+    expect(result.collections).toEqual([]);
+    expect(result.environments).toEqual([]);
+    // Enumeration ran (list + detail + globals); no item call followed.
+    expect(calls.map((call) => call.url)).toEqual([LIST_URL, DETAIL_URL, GLOBALS_URL]);
+    expect(events.at(-1)).toMatchObject({ kind: 'finished', outcome: 'canceled' });
+  });
+
+  it('a cancel before enumeration pulls nothing at all', async () => {
+    const { fetchFn, calls } = fetchStub(happyRoutes());
+    const result = await pullPostmanData({
+      apiKey: API_KEY,
+      fetchFn,
+      sleep: () => Promise.resolve(),
+      isCanceled: () => true,
+    });
+    expect(result.outcome).toBe('canceled');
+    expect(calls).toEqual([]);
+  });
+
   it('sends the key as X-Api-Key and never leaks it into events or results', async () => {
     const { fetchFn, calls } = fetchStub(happyRoutes());
     const events: PostmanPullEvent[] = [];

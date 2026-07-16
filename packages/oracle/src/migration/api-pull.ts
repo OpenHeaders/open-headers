@@ -78,6 +78,12 @@ export interface PullPostmanDataOptions {
   fetchFn: PullFetchFn;
   sleep?: SleepFn;
   onEvent?: (event: PostmanPullEvent) => void;
+  /**
+   * Polled between calls — true ends the run with the `canceled`
+   * outcome (the user's stop, not a failure). A canceled result never
+   * materializes, so nothing lands.
+   */
+  isCanceled?: () => boolean;
 }
 
 const defaultSleep: SleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -223,9 +229,13 @@ export async function listPostmanWorkspaces(
   }
 }
 
+/** The `canceled` outcome's stop reason — the user's words back at them. */
+export const PULL_CANCELED_REASON = 'You stopped the import — nothing was imported.';
+
 export async function pullPostmanData(options: PullPostmanDataOptions): Promise<PostmanPullResult> {
   const sleep = options.sleep ?? defaultSleep;
   const emit = options.onEvent ?? (() => {});
+  const isCanceled = options.isCanceled ?? (() => false);
   const caller = createApiCaller({
     apiKey: options.apiKey,
     ...(options.apiOrigin !== undefined ? { apiOrigin: options.apiOrigin } : {}),
@@ -265,6 +275,7 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
 
   // Enumeration — serial, paced to the 10-per-10s bucket.
   emit({ kind: 'enumerating', step: 'workspace-list', completedCalls: 0 });
+  if (isCanceled()) return finish('canceled', PULL_CANCELED_REASON);
   let listText: string;
   try {
     listText = await callApi(workspaceListUrl());
@@ -289,6 +300,7 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
 
   const details: WorkspaceDetail[] = [];
   for (const workspace of workspaces) {
+    if (isCanceled()) return finish('canceled', PULL_CANCELED_REASON);
     await sleep(ENUMERATION_CALL_SPACING_MS);
     try {
       const detail = readWorkspaceDetail(workspace.id, await callApi(workspaceDetailUrl(workspace.id)));
@@ -404,6 +416,7 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
   // Item pulls — launched under the 300 rpm global limit.
   let completedItems = 0;
   for (const [index, item] of plan.items.entries()) {
+    if (isCanceled()) return finish('canceled', PULL_CANCELED_REASON);
     await sleep(ITEM_CALL_SPACING_MS);
     try {
       const text = await callApi(item.item === 'collection' ? collectionUrl(item.id) : environmentUrl(item.id));

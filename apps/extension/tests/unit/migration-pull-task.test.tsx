@@ -28,12 +28,26 @@ import {
   __resetBackgroundTasksForTests,
   BackgroundTasksIndicator,
   deriveMigrationPullTask,
+  removeBackgroundTask,
   upsertBackgroundTask,
   useBackgroundTasks,
   useMigrationPullTask,
 } from '@openheaders/ui/shared/background-tasks';
-import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The stop confirm rides an antd Popconfirm; jsdom has no ResizeObserver.
+beforeAll(() => {
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
 
 const RUN_ID = 'run-1';
 
@@ -78,13 +92,17 @@ const IMPORTED: PostmanPullEvent = {
 interface BridgeFake {
   bridge: HostBridge;
   emit: (runId: string, seq: number, event: PostmanPullEvent) => void;
+  calls: string[];
 }
 
 function createBridgeFake(getState: () => Promise<MigrationPullRunState>): BridgeFake {
   const listeners = new Set<(payload: unknown) => void>();
+  const calls: string[] = [];
   const bridge: HostBridge = {
     async call(type, ..._args) {
+      calls.push(String(type));
       if (type === 'oh.migration.postmanPull.getState') return (await getState()) as never;
+      if (type === 'oh.migration.postmanPull.stop') return { stopped: true } as never;
       throw new Error(`unexpected rpc ${String(type)}`);
     },
     broadcast: () => {},
@@ -100,6 +118,7 @@ function createBridgeFake(getState: () => Promise<MigrationPullRunState>): Bridg
     emit: (runId, seq, event) => {
       for (const fn of listeners) fn({ runId, seq, event });
     },
+    calls,
   };
 }
 
@@ -108,6 +127,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   vi.useRealTimers();
 });
 
@@ -205,7 +225,12 @@ describe('deriveMigrationPullTask', () => {
         drops: 0,
         workspaces: [
           { ...IMPORTED.summary.workspaces[0], drops: 0 },
-          { ...IMPORTED.summary.workspaces[0], workspaceId: 'ws-2', workspaceName: 'Imported from Postman 2', drops: 0 },
+          {
+            ...IMPORTED.summary.workspaces[0],
+            workspaceId: 'ws-2',
+            workspaceName: 'Imported from Postman 2',
+            drops: 0,
+          },
         ],
       },
     } satisfies PostmanPullEvent;
@@ -270,6 +295,68 @@ describe('deriveMigrationPullTask', () => {
     const task = deriveMigrationPullTask(state, null);
     expect(task?.title).toBe('Postman migration finished');
     expect(task?.error).toBeUndefined();
+  });
+
+  it('mints per-run task ids so a dismissed entry never hides a later run', () => {
+    const first = deriveMigrationPullTask(startPullRunState('run-a'), null);
+    const second = deriveMigrationPullTask(startPullRunState('run-b'), null);
+    expect(first?.id).toBeTruthy();
+    expect(first?.id).not.toBe(second?.id);
+  });
+
+  it('offers the stop affordance while the pull can still be canceled — and only then', () => {
+    const onCancel = vi.fn();
+    const enumerating = deriveMigrationPullTask(startPullRunState(RUN_ID), null, undefined, onCancel);
+    expect(enumerating?.cancel?.confirm).toContain('Stop the Postman import?');
+    const pulling = deriveMigrationPullTask(fold(PLANNED, PROGRESS), null, undefined, onCancel);
+    expect(pulling?.cancel).toBeTruthy();
+    const paused = deriveMigrationPullTask(
+      fold(PLANNED, PROGRESS, { kind: 'rate-limit-pause', retryAfterSeconds: 7 }),
+      null,
+      undefined,
+      onCancel,
+    );
+    expect(paused?.cancel).toBeTruthy();
+    pulling?.cancel?.run();
+    expect(onCancel).toHaveBeenCalledTimes(1);
+
+    // Materialization can't be stopped — the data is already local.
+    const importing = deriveMigrationPullTask(
+      fold(
+        PLANNED,
+        { kind: 'finished', outcome: 'complete', collections: 8, environments: 4, skipped: 0 },
+        {
+          kind: 'importing',
+        },
+      ),
+      null,
+      undefined,
+      onCancel,
+    );
+    expect(importing?.cancel).toBeUndefined();
+    const done = deriveMigrationPullTask(
+      fold(PLANNED, { kind: 'finished', outcome: 'complete', collections: 0, environments: 0, skipped: 0 }),
+      null,
+      undefined,
+      onCancel,
+    );
+    expect(done?.cancel).toBeUndefined();
+  });
+
+  it('surfaces a canceled run as a settled stop, not a failure', () => {
+    const state = fold({
+      kind: 'finished',
+      outcome: 'canceled',
+      stopReason: 'You stopped the import — nothing was imported.',
+      collections: 0,
+      environments: 0,
+      skipped: 0,
+    });
+    const task = deriveMigrationPullTask(state, null);
+    expect(task?.title).toBe('Postman import stopped');
+    expect(task?.detail).toContain('nothing was imported');
+    expect(task?.error).toBeUndefined();
+    expect(task?.done).toBe(true);
   });
 });
 
@@ -375,7 +462,26 @@ describe('useMigrationPullTask', () => {
       fake.emit(RUN_ID, 2, { kind: 'finished', outcome: 'complete', collections: 8, environments: 4, skipped: 0 });
       fake.emit('run-2', 1, { kind: 'enumerating', step: 'workspace-list', completedCalls: 0 });
     });
+    // The previous run's entry is removed with its id — one task, the new run's.
+    expect(tasks.result.current).toHaveLength(1);
     expect(tasks.result.current[0].detail).toContain('Finding workspaces');
+  });
+
+  it('routes the stop affordance to the host stop RPC', async () => {
+    const fake = createBridgeFake(async () => fold(PLANNED));
+    setHostBridge(fake.bridge);
+    renderHook(() => useMigrationPullTask());
+    const tasks = renderHook(() => useBackgroundTasks());
+
+    act(() => {
+      fake.emit(RUN_ID, 1, PLANNED);
+      fake.emit(RUN_ID, 2, PROGRESS);
+    });
+    expect(tasks.result.current[0].cancel).toBeTruthy();
+    await act(async () => {
+      tasks.result.current[0].cancel?.run();
+    });
+    expect(fake.calls).toContain('oh.migration.postmanPull.stop');
   });
 
   it('mints no task on a host without the migration ladder', async () => {
@@ -420,5 +526,46 @@ describe('BackgroundTasksIndicator', () => {
     // affordance with the visible-task count; clicking it closes.
     fireEvent.click(getByText('Hide processes (1)'));
     expect(queryByRole('dialog', { name: 'Processes' })).toBeNull();
+  });
+
+  it('a dismissed entry stays hidden only for its own run — a new run shows again', () => {
+    const { getByText, getByLabelText, queryByText } = render(<BackgroundTasksIndicator />);
+    act(() => {
+      upsertBackgroundTask({ id: 'migration-pull:run-a', title: 'Postman import failed', percent: 100, error: true });
+    });
+    fireEvent.click(getByLabelText('Hide background task'));
+    expect(queryByText('Postman import failed')).toBeNull();
+
+    // The next run mints a new id; its entry must be visible even
+    // though the previous one was dismissed.
+    act(() => {
+      removeBackgroundTask('migration-pull:run-a');
+      upsertBackgroundTask({ id: 'migration-pull:run-b', title: 'Migrating from Postman', percent: 10 });
+    });
+    expect(getByText('Migrating from Postman')).toBeTruthy();
+  });
+
+  it('a cancelable task’s ✕ confirms, then stops the work instead of hiding the entry', async () => {
+    const stop = vi.fn();
+    const { getByText, getByLabelText, findByText } = render(<BackgroundTasksIndicator />);
+    act(() => {
+      upsertBackgroundTask({
+        id: 'migration-pull:run-a',
+        title: 'Migrating from Postman',
+        percent: 25,
+        cancel: { confirm: 'Stop the Postman import?', run: stop },
+      });
+    });
+
+    fireEvent.click(getByLabelText('Stop background task'));
+    // The confirm renders with the producer's prompt; nothing hidden yet.
+    await findByText('Stop the Postman import?');
+    expect(getByText('Migrating from Postman')).toBeTruthy();
+    expect(stop).not.toHaveBeenCalled();
+
+    fireEvent.click(getByText('Stop'));
+    expect(stop).toHaveBeenCalledTimes(1);
+    // The entry stays — the terminal state arrives from the producer.
+    expect(getByText('Migrating from Postman')).toBeTruthy();
   });
 });

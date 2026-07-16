@@ -61,6 +61,13 @@ export interface SwMigrationRunHost {
    * right after acceptance is already resumable.
    */
   start(apiKey: string, workspaceIds?: string[]): Promise<MigrationPullStartResult>;
+  /**
+   * Stop the in-flight run (the runner's pull-phase cancel — a canceled
+   * pull never materializes, so nothing lands). False when there is
+   * nothing stoppable. Settling clears the marker and session key like
+   * any other run end.
+   */
+  stop(): boolean;
   getState(): MigrationPullRunState;
   /** True for any run this host started in its lifetime. */
   isLocalRun(runId: string): boolean;
@@ -85,7 +92,7 @@ export interface SwMigrationRunHost {
  * the job without duplicates.
  */
 export const MIGRATION_PULL_INTERRUPTED_REASON =
-  'The import was interrupted by a browser restart before it finished. Run it again to finish — anything already imported is replaced, not duplicated.';
+  'The import was interrupted before it finished — the browser or the extension restarted. Run it again to finish — anything already imported is replaced, not duplicated.';
 
 export function createSwMigrationRunHost(options: SwMigrationRunHostOptions = {}): SwMigrationRunHost {
   const fetchFn = options.fetchFn ?? swPullFetch;
@@ -133,6 +140,7 @@ export function createSwMigrationRunHost(options: SwMigrationRunHostOptions = {}
       });
       return result;
     },
+    stop: () => runner.stop(),
     getState: () => {
       const state = runner.getState();
       return state.runId === null && interrupted !== null ? interrupted : state;
@@ -164,4 +172,12 @@ export function getSwMigrationRunHost(): SwMigrationRunHost {
  */
 export function isLocalMigrationPullRun(runId: string): boolean {
   return singleton?.isLocalRun(runId) ?? false;
+}
+
+/**
+ * Stop the local in-flight run, if any. Never constructs the host — no
+ * local run can be in flight if it doesn't exist yet.
+ */
+export function stopLocalMigrationPull(): boolean {
+  return singleton?.stop() ?? false;
 }

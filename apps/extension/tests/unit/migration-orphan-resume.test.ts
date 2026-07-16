@@ -110,6 +110,26 @@ describe('resumeOrphanedMigrationPull', () => {
     expect(mockHost.start).toHaveBeenCalledWith('PMAK-test-key', undefined);
   });
 
+  it('falls back to the honest interruption when the silent resume is refused', async () => {
+    installStorage();
+    await writeMigrationRunMarker(MARKER);
+    await writeMigrationSessionKey('run-orphan', 'PMAK-test-key');
+    mockHost.start.mockResolvedValueOnce({ started: false, reason: 'refused' });
+
+    await resumeOrphanedMigrationPull();
+    expect(mockHost.adoptInterruptedRun).toHaveBeenCalledWith(MARKER);
+  });
+
+  it('falls back to the honest interruption when the silent resume throws', async () => {
+    installStorage();
+    await writeMigrationRunMarker(MARKER);
+    await writeMigrationSessionKey('run-orphan', 'PMAK-test-key');
+    mockHost.start.mockRejectedValueOnce(new Error('boom'));
+
+    await resumeOrphanedMigrationPull();
+    expect(mockHost.adoptInterruptedRun).toHaveBeenCalledWith(MARKER);
+  });
+
   it('surfaces the run as interrupted when the session key is gone (browser restart)', async () => {
     installStorage();
     await writeMigrationRunMarker(MARKER);

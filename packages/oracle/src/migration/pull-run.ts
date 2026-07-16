@@ -43,6 +43,7 @@ export interface MigrationPullRunnerOptions {
     apiKey: string;
     workspaceIds?: string[];
     onEvent: (event: PostmanPullEvent) => void;
+    isCanceled?: () => boolean;
   }) => Promise<PostmanPullResult>;
   materialize?: typeof materializePostmanPull;
 }
@@ -54,6 +55,15 @@ export interface MigrationPullRunner {
    * omitted, every workspace on the account pulls.
    */
   start(apiKey: string, workspaceIds?: string[]): MigrationPullStartResult;
+  /**
+   * Stop the in-flight run. Only the pull phase is stoppable — the
+   * puller notices at its next checkpoint and finishes with the
+   * `canceled` outcome, which never materializes, so nothing lands.
+   * False when there is nothing stoppable: no run, materialization
+   * already started (the data is local; the landing finishes), or the
+   * run already settled.
+   */
+  stop(): boolean;
   getState(): MigrationPullRunState;
   /** Resolves once the in-flight run (if any) settles — test hook. */
   settled(): Promise<void>;
@@ -72,6 +82,7 @@ export function createMigrationPullRunner(options: MigrationPullRunnerOptions): 
 
   let state: MigrationPullRunState = initialPullRunState();
   let running = false;
+  let cancelRequested = false;
   let inFlight: Promise<void> = Promise.resolve();
 
   function emit(runId: string, seq: () => number, event: PostmanPullEvent): void {
@@ -90,15 +101,17 @@ export function createMigrationPullRunner(options: MigrationPullRunnerOptions): 
         apiKey,
         ...(workspaceIds !== undefined ? { workspaceIds } : {}),
         onEvent: (event) => emit(runId, seq, event),
+        isCanceled: () => cancelRequested,
       });
-      // A failed run never enumerated anything; an empty one has
+      // A failed run never enumerated anything; a canceled one is the
+      // user's stop — nothing lands by contract; an empty one has
       // nothing to land. Everything else materializes — a labeled
       // partial included, so what DID arrive isn't discarded.
       const hasPayload =
         result.collections.length > 0 ||
         result.environments.length > 0 ||
         result.globals.some((entry) => entry.variables.length > 0);
-      if (result.outcome === 'failed' || !hasPayload) return;
+      if (result.outcome === 'failed' || result.outcome === 'canceled' || !hasPayload) return;
       emit(runId, seq, { kind: 'importing' });
       const summary = await materialize(result);
       emit(runId, seq, { kind: 'imported', summary });
@@ -118,9 +131,15 @@ export function createMigrationPullRunner(options: MigrationPullRunnerOptions): 
       }
       const runId = generateUid();
       running = true;
+      cancelRequested = false;
       state = startPullRunState(runId);
       inFlight = run(runId, apiKey, workspaceIds);
       return { started: true, runId };
+    },
+    stop(): boolean {
+      if (!running || state.phase === 'importing') return false;
+      cancelRequested = true;
+      return true;
     },
     getState: () => state,
     settled: () => inFlight,

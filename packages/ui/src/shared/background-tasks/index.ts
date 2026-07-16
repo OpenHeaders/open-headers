@@ -2,6 +2,7 @@ export { default as BackgroundTasksIndicator } from './BackgroundTasksIndicator'
 export {
   __resetBackgroundTasksForTests,
   type BackgroundTask,
+  type BackgroundTaskCancel,
   type BackgroundTaskFootnote,
   type BackgroundTaskStat,
   removeBackgroundTask,

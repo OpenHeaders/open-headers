@@ -70,7 +70,11 @@ function makeHarness(options: {
   result?: PostmanPullResult;
   events?: PostmanPullEvent[];
   materialize?: (result: PostmanPullResult) => Promise<PostmanImportSummary>;
-  pull?: (opts: { apiKey: string; onEvent: (event: PostmanPullEvent) => void }) => Promise<PostmanPullResult>;
+  pull?: (opts: {
+    apiKey: string;
+    onEvent: (event: PostmanPullEvent) => void;
+    isCanceled?: () => boolean;
+  }) => Promise<PostmanPullResult>;
 }) {
   const broadcasts: BroadcastRecord[] = [];
   const runner = createMigrationPullRunner({
@@ -235,6 +239,72 @@ describe('createMigrationPullRunner', () => {
     expect(runner.getState().importError).toContain('landing workspace exploded');
     expect(runner.start(API_KEY).started).toBe(true);
     await runner.settled();
+  });
+
+  it('stop() cancels the in-flight pull — the puller sees the flag and a canceled result never materializes', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let materialized = 0;
+    const { runner, broadcasts } = makeHarness({
+      pull: async ({ onEvent, isCanceled }) => {
+        await gate;
+        expect(isCanceled?.()).toBe(true);
+        onEvent({
+          kind: 'finished',
+          outcome: 'canceled',
+          stopReason: 'You stopped the import — nothing was imported.',
+          collections: 1,
+          environments: 0,
+          skipped: 0,
+        });
+        // Items pulled before the stop ride the result — they must
+        // still not materialize.
+        return pullResult({ outcome: 'canceled', stopReason: 'You stopped the import — nothing was imported.' });
+      },
+      materialize: async () => {
+        materialized++;
+        return SUMMARY;
+      },
+    });
+    runner.start(API_KEY);
+    expect(runner.stop()).toBe(true);
+    release();
+    await runner.settled();
+
+    expect(materialized).toBe(0);
+    expect(broadcasts.map((b) => b.payload.event.kind)).toEqual(['finished']);
+    expect(runner.getState()).toMatchObject({ phase: 'done', outcome: 'canceled' });
+    expect(runner.start(API_KEY).started).toBe(true);
+    await runner.settled();
+  });
+
+  it('stop() answers false when nothing is stoppable — idle, settled, or already materializing', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let materialized = 0;
+    const { runner } = makeHarness({
+      materialize: async () => {
+        await gate;
+        materialized++;
+        return SUMMARY;
+      },
+    });
+    expect(runner.stop()).toBe(false);
+
+    runner.start(API_KEY);
+    // The injected puller settles synchronously, so the run reaches the
+    // materialization phase within a tick — too late to stop.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(runner.getState().phase).toBe('importing');
+    expect(runner.stop()).toBe(false);
+    release();
+    await runner.settled();
+    expect(materialized).toBe(1);
+    expect(runner.stop()).toBe(false);
   });
 
   it('never leaks the key through broadcasts or state', async () => {

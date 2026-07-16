@@ -5,8 +5,11 @@
  * ONE derivation of run state — never a parallel reducer here) and
  * mirrors the folded state into the store: per-item progress while
  * pulling, a live 429 pause countdown, the remaining monthly API
- * budget, and the "Import finished" flip whose "View report" action
- * button the host supplies via `onViewReport`.
+ * budget, a stop affordance while the pull phase can still be canceled
+ * (wired to `oh.migration.postmanPull.stop`), and the "Import finished"
+ * flip whose "View report" action button the host supplies via
+ * `onViewReport`. Task ids are per run so a dismissed entry never
+ * hides a later run's progress.
  *
  * No-op on hosts without the migration ladder (the hydration RPC
  * rejects and no `migrationPullEvent` ever arrives).
@@ -28,20 +31,36 @@ import {
   upsertBackgroundTask,
 } from './store';
 
-const TASK_ID = 'migration-pull';
+/**
+ * Task identity is PER RUN — the ✕ dismissal is remembered by id, so a
+ * constant id would keep every later run's progress hidden once one
+ * entry was dismissed. A new run minting a new id starts visible; the
+ * hook removes the previous run's entry when the id changes.
+ */
+function migrationPullTaskId(runId: string): string {
+  return `migration-pull:${runId}`;
+}
+
+/** Confirmation the ✕ shows while the pull can still be stopped. */
+const STOP_CONFIRM = 'Stop the Postman import? Nothing has been imported yet — items already pulled are discarded.';
 
 /**
  * Pure task derivation from the folded run state. `pauseSecondsLeft` is
  * the hook's live countdown (the folded `pause.retryAfterSeconds` is
- * the pause's initial value, not a ticking clock). Returns null when
- * there is nothing to show.
+ * the pause's initial value, not a ticking clock). `onCancel` is the
+ * host stop RPC — attached while the pull phase can still be stopped
+ * (materialization can't be: the data is already local and the landing
+ * finishes). Returns null when there is nothing to show.
  */
 export function deriveMigrationPullTask(
   state: MigrationPullRunState,
   pauseSecondsLeft: number | null,
   onViewReport?: () => void,
+  onCancel?: () => void,
 ): BackgroundTask | null {
   if (state.runId === null || state.phase === 'idle') return null;
+  const TASK_ID = migrationPullTaskId(state.runId);
+  const cancelable = onCancel ? { cancel: { confirm: STOP_CONFIRM, run: onCancel } } : {};
 
   const footnote: BackgroundTaskFootnote | undefined =
     state.budget.remainingMonth !== undefined
@@ -62,6 +81,7 @@ export function deriveMigrationPullTask(
         detail: 'Finding workspaces, collections, and environments…',
         percent: null,
         ...budgetNote,
+        ...cancelable,
       };
     case 'pulling': {
       if (state.pause) {
@@ -72,6 +92,7 @@ export function deriveMigrationPullTask(
           detail: `Rate limited — resuming in ${seconds}s`,
           percent: state.totalItems > 0 ? Math.round((state.completedItems / state.totalItems) * 100) : null,
           ...budgetNote,
+          ...cancelable,
         };
       }
       const last = state.lastItem;
@@ -88,6 +109,7 @@ export function deriveMigrationPullTask(
           ...(itemLine ? { detail: itemLine } : {}),
           footnote: { ...footnote, text: `${itemsText} · ${footnote.text}` },
           percent,
+          ...cancelable,
         };
       }
       return {
@@ -95,6 +117,7 @@ export function deriveMigrationPullTask(
         title: 'Migrating from Postman',
         detail: itemLine ? `${itemLine}\n${itemsText}` : itemsText,
         percent,
+        ...cancelable,
       };
     }
     case 'importing':
@@ -126,7 +149,8 @@ export function deriveMigrationPullTask(
         const only = s.workspaces.length === 1 ? s.workspaces[0] : undefined;
         const notes = s.drops > 0 ? `${s.drops} import notes` : undefined;
         const detailParts: string[] = [];
-        if (state.outcome === 'partial') detailParts.push(only ? `Partial import into “${only.workspaceName}”` : 'Partial import');
+        if (state.outcome === 'partial')
+          detailParts.push(only ? `Partial import into “${only.workspaceName}”` : 'Partial import');
         else if (only) detailParts.push(`Imported into “${only.workspaceName}”`);
         if (!onViewReport && notes) detailParts.push(notes);
         return {
@@ -148,6 +172,15 @@ export function deriveMigrationPullTask(
           detail: state.importError,
           percent: 100,
           error: true,
+        };
+      }
+      if (state.outcome === 'canceled') {
+        return {
+          id: TASK_ID,
+          title: 'Postman import stopped',
+          detail: state.stopReason ?? 'You stopped the import — nothing was imported.',
+          percent: 100,
+          done: true,
         };
       }
       if (state.outcome === 'failed') {
@@ -188,19 +221,33 @@ export function useMigrationPullTask(options?: MigrationPullTaskOptions): void {
     let state: MigrationPullRunState | null = null;
     let pauseSecondsLeft: number | null = null;
     let ticker: ReturnType<typeof setInterval> | null = null;
+    /** The id last upserted — removed when a new run mints a new one. */
+    let taskId: string | null = null;
 
     // One stable closure per effect run — the store compares
-    // `action.run` by identity on upsert.
+    // `action.run` / `cancel.run` by identity on upsert.
     const activate = (): void => {
       const summary = state?.imported;
       if (summary) onViewReportRef.current?.(summary);
     };
+    const requestStop = (): void => {
+      // The stopped state arrives like any other run end — a
+      // `finished` event with the `canceled` outcome. A host with
+      // nothing stoppable answers `stopped: false` and nothing changes.
+      void bridge.call('oh.migration.postmanPull.stop').catch(() => {});
+    };
 
     const apply = (): void => {
       if (!state) return;
-      const task = deriveMigrationPullTask(state, pauseSecondsLeft, activate);
-      if (task) upsertBackgroundTask(task);
-      else removeBackgroundTask(TASK_ID);
+      const task = deriveMigrationPullTask(state, pauseSecondsLeft, activate, requestStop);
+      if (task) {
+        if (taskId !== null && taskId !== task.id) removeBackgroundTask(taskId);
+        upsertBackgroundTask(task);
+        taskId = task.id;
+      } else if (taskId !== null) {
+        removeBackgroundTask(taskId);
+        taskId = null;
+      }
       syncTicker();
     };
 

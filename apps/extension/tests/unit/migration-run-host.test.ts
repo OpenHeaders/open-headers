@@ -220,6 +220,40 @@ describe('createSwMigrationRunHost', () => {
     await host.settled();
   });
 
+  describe('stop', () => {
+    it('cancels the in-flight pull — canceled terminal state, no materialization, slots cleared', async () => {
+      const { local, session } = installStorage();
+      const { pull, emit, release } = deferredPull();
+      const materialize = vi.fn(async () => SUMMARY);
+      const host = createSwMigrationRunHost({ pull, materialize });
+
+      expect(host.stop()).toBe(false);
+      const result = await host.start(API_KEY, ['ws-1']);
+      expect(host.stop()).toBe(true);
+
+      emit({
+        kind: 'finished',
+        outcome: 'canceled',
+        stopReason: 'You stopped the import — nothing was imported.',
+        collections: 0,
+        environments: 0,
+        skipped: 0,
+      });
+      release({
+        ...completeResult(),
+        outcome: 'canceled',
+        stopReason: 'You stopped the import — nothing was imported.',
+      });
+      await host.settled();
+      expect(materialize).not.toHaveBeenCalled();
+      expect(host.getState()).toMatchObject({ runId: result.runId, phase: 'done', outcome: 'canceled' });
+      await vi.waitFor(() => {
+        expect(local.store).toEqual({});
+        expect(session.store).toEqual({});
+      });
+    });
+  });
+
   describe('adoptInterruptedRun', () => {
     const ORPHAN = { runId: 'run-orphan', workspaceIds: ['ws-1'], seq: 12, startedAt: '2026-07-16T10:00:00.000Z' };
 

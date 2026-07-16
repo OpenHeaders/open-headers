@@ -36,12 +36,18 @@ export async function resumeOrphanedMigrationPull(): Promise<void> {
   const key = await readMigrationSessionKey();
   if (key !== null && key.runId === marker.runId) {
     logger.info(SCOPE, 'resuming an interrupted migration pull with the session key');
-    const result = await host.start(key.apiKey, marker.workspaceIds);
-    if (!result.started) {
+    try {
+      const result = await host.start(key.apiKey, marker.workspaceIds);
+      if (result.started) return;
       logger.info(SCOPE, `silent resume was refused: ${result.reason ?? 'unknown reason'}`);
+    } catch (err) {
+      logger.warn(SCOPE, `silent resume failed: ${(err as Error).message}`);
     }
-    return;
+    // A resume that could not start must not die silently — fall
+    // through to the honest interruption so the user sees the run
+    // ended and knows re-running finishes it.
+  } else {
+    logger.info(SCOPE, 'orphaned migration pull found with no session key — surfacing as interrupted');
   }
-  logger.info(SCOPE, 'orphaned migration pull found with no session key — surfacing as interrupted');
   host.adoptInterruptedRun(marker);
 }

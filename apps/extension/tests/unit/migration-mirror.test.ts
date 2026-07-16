@@ -21,10 +21,11 @@
 import { initialPullRunState } from '@openheaders/core/import';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBroadcast, mockWsRequest, mockIsLocalRun, mockHost } = vi.hoisted(() => ({
+const { mockBroadcast, mockWsRequest, mockIsLocalRun, mockStopLocal, mockHost } = vi.hoisted(() => ({
   mockBroadcast: vi.fn(),
   mockWsRequest: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => undefined),
   mockIsLocalRun: vi.fn(() => false),
+  mockStopLocal: vi.fn(() => false),
   mockHost: {
     listWorkspaces: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({
       ok: true,
@@ -49,6 +50,7 @@ vi.mock('@/background/ws-request', () => ({
 vi.mock('@/background/modules/migration-run/run-host', () => ({
   getSwMigrationRunHost: () => mockHost,
   isLocalMigrationPullRun: mockIsLocalRun,
+  stopLocalMigrationPull: mockStopLocal,
 }));
 
 import { migrationHandlers } from '@/background/modules/message-handler/handlers/migration';
@@ -66,6 +68,8 @@ beforeEach(() => {
   mockHost.start.mockClear();
   mockHost.getState.mockReset();
   mockHost.getState.mockReturnValue(initialPullRunState());
+  mockStopLocal.mockReset();
+  mockStopLocal.mockReturnValue(false);
 });
 
 function invoke(type: string, extra: Record<string, unknown> = {}, connected = false) {
@@ -179,5 +183,20 @@ describe('oh.migration.postmanPull.getState handler', () => {
     mockWsRequest.mockRejectedValueOnce(new Error('timeout'));
     const { respond } = invoke('oh.migration.postmanPull.getState', {}, true);
     await vi.waitFor(() => expect(respond).toHaveBeenCalledWith(initialPullRunState()));
+  });
+});
+
+describe('oh.migration.postmanPull.stop handler', () => {
+  it('stops the local run and answers the outcome', () => {
+    mockStopLocal.mockReturnValue(true);
+    const { respond } = invoke('oh.migration.postmanPull.stop');
+    expect(respond).toHaveBeenCalledWith({ stopped: true });
+    expect(mockStopLocal).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers stopped: false when nothing local is stoppable — never touches the wire', () => {
+    const { respond } = invoke('oh.migration.postmanPull.stop', {}, true);
+    expect(respond).toHaveBeenCalledWith({ stopped: false });
+    expect(mockWsRequest).not.toHaveBeenCalled();
   });
 });

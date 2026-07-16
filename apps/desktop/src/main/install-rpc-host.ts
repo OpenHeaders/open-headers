@@ -347,6 +347,11 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'oh.migration.postmanPull.getState') {
       return migrationPullRunner.getState();
     }
+    // Stop the in-flight pull — only the pull phase is stoppable; a
+    // canceled pull never materializes, so nothing lands.
+    if (type === 'oh.migration.postmanPull.stop') {
+      return { stopped: migrationPullRunner.stop() };
+    }
     // Ladder rungs 1–2 behind consent click 1 (MIGRATION_PLAN.md §5.1):
     // both run only when the renderer's migration surface asks, never on
     // a timer. `readBackup` re-validates against the scan allowlist

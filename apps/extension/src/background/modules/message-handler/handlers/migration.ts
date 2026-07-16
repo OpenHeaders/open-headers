@@ -17,12 +17,13 @@
 
 import { initialPullRunState } from '@openheaders/core/import';
 import { wsRequest } from '../../../ws-request';
-import { getSwMigrationRunHost } from '../../migration-run/run-host';
+import { getSwMigrationRunHost, stopLocalMigrationPull } from '../../migration-run/run-host';
 import type { HandlerMap } from '../types';
 
 const LIST_WORKSPACES_CHANNEL = 'oh.migration.postmanPull.listWorkspaces';
 const START_CHANNEL = 'oh.migration.postmanPull.start';
 const GET_STATE_CHANNEL = 'oh.migration.postmanPull.getState';
+const STOP_CHANNEL = 'oh.migration.postmanPull.stop';
 
 export const migrationHandlers: HandlerMap = {
   [LIST_WORKSPACES_CHANNEL]: ({ message, respond }) => {
@@ -66,5 +67,11 @@ export const migrationHandlers: HandlerMap = {
       .then((state) => respond(state))
       .catch(() => respond(initialPullRunState()));
     return true;
+  },
+  // Stops only a LOCAL run — a desktop-run pull mirrored here answers
+  // `stopped: false` (stopping a remote peer's run is not this host's
+  // call). Never constructs the run host: no host, no run to stop.
+  [STOP_CHANNEL]: ({ respond }) => {
+    respond({ stopped: stopLocalMigrationPull() });
   },
 };
