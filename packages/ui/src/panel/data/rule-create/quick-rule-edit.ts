@@ -32,7 +32,6 @@ import type {
   SseRule,
   WsRule,
 } from '@openheaders/core/types';
-import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import {
   generateUid,
   getHeaderOperationCapability,
@@ -40,6 +39,7 @@ import {
   validateHeaderName,
   validateHeaderValue,
 } from '@openheaders/core/utils';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { type QueryParamQuickRow, queryParamEntryFromRow } from './payload-rule-create';
 
 /** The shared tail of every quick-edit payload — the conditions-when-
@@ -142,8 +142,7 @@ export function buildInjectRuleUpdate(
   draft: InjectQuickEditDraft,
   conditions?: RuleCondition[],
 ): Partial<InjectRule> {
-  const actionPatch =
-    rule.action.source === 'url' ? { sourceUrl: draft.sourceUrl ?? '' } : { code: draft.code ?? '' };
+  const actionPatch = rule.action.source === 'url' ? { sourceUrl: draft.sourceUrl ?? '' } : { code: draft.code ?? '' };
   return {
     action: { ...rule.action, ...actionPatch },
     ...quickEditBase(rule, conditions),

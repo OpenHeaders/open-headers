@@ -12,6 +12,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule, SseRule, WsRule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -33,7 +34,11 @@ import { useActionDraft } from './use-action-draft';
 import { useConditionsDraft } from './use-conditions-draft';
 import { useQuickEditSave } from './use-quick-edit-save';
 
-const OPERATION_LABEL = { modify: 'Replace', inject: 'Inject', drop: 'Drop' } as const;
+const OPERATION_LABEL_KEY = {
+  modify: 'workbench.editors.rule.fields.message.opReplace',
+  inject: 'workbench.editors.rule.fields.message.opInject',
+  drop: 'workbench.editors.rule.fields.message.opDrop',
+} as const;
 
 export interface MessageQuickEditorProps {
   anchorEl: HTMLElement;
@@ -55,6 +60,7 @@ export function MessageQuickEditor({
 }: MessageQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
@@ -120,7 +126,7 @@ export function MessageQuickEditor({
       isDirty={isDirty}
       tags={
         operation ? (
-          <Tag style={{ marginInlineEnd: 0, fontSize: 10 }}>{OPERATION_LABEL[operation]}</Tag>
+          <Tag style={{ marginInlineEnd: 0, fontSize: 10 }}>{t(OPERATION_LABEL_KEY[operation])}</Tag>
         ) : undefined
       }
       conditions={
@@ -138,7 +144,19 @@ export function MessageQuickEditor({
     >
       {editable && draft.payload !== null ? (
         <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
-          <div style={fieldLabelStyle}>{operation === 'inject' ? `Injected ${unit}` : `Replacement ${unit}`}</div>
+          <div style={fieldLabelStyle}>
+            {operation === 'inject'
+              ? t(
+                  unit === 'event'
+                    ? 'workbench.editors.rule.fields.message.injectedEvent'
+                    : 'workbench.editors.rule.fields.message.injectedFrame',
+                )
+              : t(
+                  unit === 'event'
+                    ? 'workbench.editors.rule.fields.message.replacementEvent'
+                    : 'workbench.editors.rule.fields.message.replacementFrame',
+                )}
+          </div>
           <EntityField path={RULE_FIELD.messagePayload}>
             <TemplateInput
               multiline
@@ -159,17 +177,29 @@ export function MessageQuickEditor({
           </EntityField>
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
             {operation === 'inject'
-              ? `Injected on matching ${liveRule.type === 'sse' ? 'streams' : 'connections'} before listeners see it.`
-              : `Matching ${unit}s are replaced with this payload before they are seen.`}
+              ? t(
+                  liveRule.type === 'sse'
+                    ? 'panel.quickEditor.message.injectedStreamsHint'
+                    : 'panel.quickEditor.message.injectedConnectionsHint',
+                )
+              : t(
+                  unit === 'event'
+                    ? 'panel.quickEditor.message.replacedEventsHint'
+                    : 'panel.quickEditor.message.replacedFramesHint',
+                )}
           </div>
         </EntityScopeProvider>
       ) : editable ? (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          Matching {unit}s are dropped before they are seen. Adjust the conditions below to retarget the rule.
+          {`${t(
+            unit === 'event'
+              ? 'panel.quickEditor.message.droppedEventsHint'
+              : 'panel.quickEditor.message.droppedFramesHint',
+          )} ${t('panel.quickEditor.retargetHint')}`}
         </div>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          Open in workspace to inspect or change this rule.
+          {t('panel.quickEditor.openToInspect')}
         </div>
       )}
     </QuickEditorShell>

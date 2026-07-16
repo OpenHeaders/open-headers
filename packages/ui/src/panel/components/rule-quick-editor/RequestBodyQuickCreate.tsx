@@ -10,6 +10,7 @@
  */
 
 import type { RequestBodyRuleDraft } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -53,6 +54,7 @@ export function RequestBodyQuickCreate({
 }: RequestBodyQuickCreateProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
   const { rules } = useRules();
@@ -120,7 +122,7 @@ export function RequestBodyQuickCreate({
       onMouseLeave={onMouseLeave}
       visible={visible}
     >
-      <div style={fieldLabelStyle}>Request Body</div>
+      <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.requestBody.bodyLabel')}</div>
       <TemplateInput
         multiline
         maxRows={12}
@@ -138,7 +140,7 @@ export function RequestBodyQuickCreate({
         }}
       />
       <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-        Matching requests are sent with this body instead of the page's.
+        {t('panel.quickEditor.requestBody.hint')}
       </div>
     </QuickEditorShell>
   );

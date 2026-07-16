@@ -11,6 +11,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { AuthRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -50,6 +51,7 @@ export function AuthQuickEditor({
 }: AuthQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
@@ -136,7 +138,7 @@ export function AuthQuickEditor({
       {editable ? (
         <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
           <Text type="secondary" style={fieldLabelStyle}>
-            Username
+            {t('workbench.editors.rule.fields.auth.username')}
           </Text>
           <div style={{ width: '100%', minWidth: 0, marginBottom: 10 }}>
             <EntityField path={RULE_FIELD.authUsername}>
@@ -157,7 +159,7 @@ export function AuthQuickEditor({
             </EntityField>
           </div>
           <Text type="secondary" style={fieldLabelStyle}>
-            Password
+            {t('workbench.editors.rule.fields.auth.password')}
           </Text>
           <div style={{ width: '100%', minWidth: 0 }}>
             <EntityField path={RULE_FIELD.authPassword}>
@@ -179,17 +181,17 @@ export function AuthQuickEditor({
           </div>
           {credentialsResolve ? (
             <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-              Answers server (401) and proxy (407) authentication challenges on matching requests.
+              {t('panel.quickEditor.auth.challengesHint')}
             </div>
           ) : (
             <div style={{ marginTop: 6, fontSize: 11, color: token.colorWarning, lineHeight: 1.4 }}>
-              Variable missing — hover the red reference to create it and enable Save.
+              {t('panel.quickEditor.variableMissing')}
             </div>
           )}
         </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          Open in workspace to inspect or change this rule.
+          {t('panel.quickEditor.openToInspect')}
         </div>
       )}
     </QuickEditorShell>

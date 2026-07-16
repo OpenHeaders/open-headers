@@ -10,11 +10,12 @@
  */
 
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { CONTENT_TYPE_OPTIONS, STATUS_CODES } from '@openheaders/ui/workbench/components/rule-fields/status-codes';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { AutoComplete, Select, theme } from 'antd';
-import type { ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import type { ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 
 export interface ResponseQuickFieldsProps {
@@ -27,10 +28,13 @@ export interface ResponseQuickFieldsProps {
   collectionId?: string;
 }
 
-const STATUS_OPTIONS = [{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES];
-
 export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionId }: ResponseQuickFieldsProps) {
+  const t = useT();
   const { token } = theme.useToken();
+  const statusOptions = useMemo(
+    () => [{ value: 0, label: t('workbench.editors.rule.fields.response.keepOriginalStatus') }, ...STATUS_CODES],
+    [t],
+  );
 
   const fieldLabelStyle: React.CSSProperties = {
     fontSize: 10,
@@ -49,7 +53,7 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionI
           width below so JSON payloads have room to breathe. */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={fieldLabelStyle}>Status Code</div>
+          <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.response.statusCode')}</div>
           {field(
             RULE_FIELD.responseStatusCode,
             <Select
@@ -57,7 +61,7 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionI
               showSearch
               value={draft.statusCode}
               onChange={(code) => updateDraft({ statusCode: code })}
-              options={STATUS_OPTIONS}
+              options={statusOptions}
               style={{ width: '100%' }}
               // Popover container's stacking context is z=1080 — lift
               // the dropdown above it, same as the header popover.
@@ -70,7 +74,7 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionI
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={fieldLabelStyle}>Content-Type</div>
+          <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.response.contentType')}</div>
           {field(
             RULE_FIELD.responseContentType,
             <AutoComplete
@@ -90,7 +94,7 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionI
         </div>
       </div>
       <div>
-        <div style={fieldLabelStyle}>Response Body</div>
+        <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.response.bodyLabel')}</div>
         {field(
           RULE_FIELD.responseBody,
           <TemplateInput

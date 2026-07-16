@@ -8,6 +8,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { DelayRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -43,6 +44,7 @@ export function DelayQuickEditor({
 }: DelayQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
@@ -106,7 +108,7 @@ export function DelayQuickEditor({
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-              Delay
+              {t('workbench.editors.rule.fields.delay.label')}
             </Text>
             <InputNumber
               size="small"
@@ -120,16 +122,16 @@ export function DelayQuickEditor({
               onChange={(v) => updateDraft({ delayMs: v })}
             />
             <Text type="secondary" style={{ fontSize: 11 }}>
-              Max 30,000 ms
+              {t('workbench.editors.rule.fields.delay.maxNote')}
             </Text>
           </div>
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-            Navigations are delayed up to 30,000 ms; XHR/fetch is capped at 5,000 ms. Sub-resources are not delayed.
+            {t('panel.quickEditor.delay.hint')}
           </div>
         </>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          Open in workspace to inspect or change this rule.
+          {t('panel.quickEditor.openToInspect')}
         </div>
       )}
     </QuickEditorShell>

@@ -14,6 +14,7 @@
  */
 
 import type { ResponseRuleDraft } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -52,6 +53,7 @@ export function ResponseQuickCreate({
   visible = true,
 }: ResponseQuickCreateProps) {
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
   const { rules } = useRules();
@@ -105,7 +107,7 @@ export function ResponseQuickCreate({
       isDirty={isDirty}
       tags={
         <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color={isNetwork ? 'blue' : 'purple'}>
-          {isNetwork ? 'Modify' : 'Mock'}
+          {isNetwork ? t('panel.quickEditor.response.tagModify') : t('panel.quickEditor.response.tagMock')}
         </Tag>
       }
       destination={<QuickDestinationRow api={dest} />}

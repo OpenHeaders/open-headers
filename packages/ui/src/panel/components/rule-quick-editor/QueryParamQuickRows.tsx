@@ -7,6 +7,7 @@
  */
 
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { DetectedValueInput } from '@openheaders/ui/workbench/components/value-editors';
 import { Button, Select, Typography, theme } from 'antd';
@@ -17,13 +18,13 @@ import {
 
 const { Text } = Typography;
 
-// Same casing + wording as the workbench editor ("Replace Only" =
-// skips URLs without the param).
-const OPERATION_OPTIONS = [
-  { value: 'add', label: 'Add / Replace' },
-  { value: 'override', label: 'Replace Only' },
-  { value: 'remove', label: 'Remove' },
-  { value: 'remove-all', label: 'Remove All' },
+// Same wording as the workbench editor ("Replace Only" = skips URLs
+// without the param) — the labels reuse its keys.
+const OPERATION_OPTION_META = [
+  { value: 'add', labelKey: 'workbench.editors.rule.fields.opAddReplace' },
+  { value: 'override', labelKey: 'workbench.editors.rule.fields.opReplaceOnly' },
+  { value: 'remove', labelKey: 'workbench.editors.rule.fields.opRemove' },
+  { value: 'remove-all', labelKey: 'workbench.editors.rule.fields.opRemoveAll' },
 ] as const;
 
 export interface QueryParamQuickRowsProps {
@@ -35,7 +36,9 @@ export interface QueryParamQuickRowsProps {
 }
 
 export function QueryParamQuickRows({ rows, setRows, collectionId }: QueryParamQuickRowsProps) {
+  const t = useT();
   const { token } = theme.useToken();
+  const operationOptions = OPERATION_OPTION_META.map(({ value, labelKey }) => ({ value, label: t(labelKey) }));
 
   const updateRow = (uid: string, patch: Partial<QueryParamQuickRow>) => {
     setRows((prev) => prev.map((r) => (r.uid === uid ? { ...r, ...patch } : r)));
@@ -55,13 +58,13 @@ export function QueryParamQuickRows({ rows, setRows, collectionId }: QueryParamQ
             size="small"
             value={row.operation}
             onChange={(op) => updateRow(row.uid, { operation: op })}
-            options={[...OPERATION_OPTIONS]}
+            options={operationOptions}
             style={{ width: 125, flexShrink: 0 }}
             dropdownStyle={{ zIndex: 1090 }}
           />
           {row.operation === 'remove-all' ? (
             <Text type="secondary" style={{ fontSize: 11, flex: 1 }}>
-              Removes all query parameters from the URL
+              {t('workbench.editors.rule.fields.queryParam.removesAllNote')}
             </Text>
           ) : (
             <>
@@ -74,7 +77,7 @@ export function QueryParamQuickRows({ rows, setRows, collectionId }: QueryParamQ
                   allowClear
                   value={row.param}
                   onChange={(v) => updateRow(row.uid, { param: v })}
-                  placeholder="Param Name"
+                  placeholder={t('workbench.editors.rule.fields.queryParam.namePlaceholder')}
                   suggestionContext={{ collectionId }}
                 />
               </div>
@@ -89,7 +92,7 @@ export function QueryParamQuickRows({ rows, setRows, collectionId }: QueryParamQ
                     allowClear
                     value={row.value}
                     onChange={(v) => updateRow(row.uid, { value: v })}
-                    placeholder="Param Value"
+                    placeholder={t('workbench.editors.rule.fields.queryParam.valuePlaceholder')}
                     suggestionContext={{ collectionId }}
                   />
                 </div>
@@ -113,11 +116,11 @@ export function QueryParamQuickRows({ rows, setRows, collectionId }: QueryParamQ
         size="small"
         style={{ fontSize: 12 }}
       >
-        Add action
+        {t('panel.quickEditor.queryParam.addAction')}
       </Button>
       {hasRemoveAll && hasOtherOps && (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorWarning, lineHeight: 1.4 }}>
-          Remove All strips the entire query string — the other operations in this rule will be ignored.
+          {t('panel.quickEditor.queryParam.removeAllWarning')}
         </div>
       )}
     </>

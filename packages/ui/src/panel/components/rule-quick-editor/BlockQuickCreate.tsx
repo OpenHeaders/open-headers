@@ -9,6 +9,7 @@
 
 import { StopOutlined } from '@ant-design/icons';
 import type { BlockRuleDraft } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -47,6 +48,7 @@ export function BlockQuickCreate({
 }: BlockQuickCreateProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
   const { rules } = useRules();
@@ -106,7 +108,7 @@ export function BlockQuickCreate({
         <StopOutlined style={{ color: token.colorTextTertiary, fontSize: 14, marginTop: 2 }} />
         <div style={{ minWidth: 0 }}>
           <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>
-            Block requests to
+            {t('panel.quickEditor.block.blockRequestsTo')}
           </Text>
           <Text
             style={{ fontSize: 11, fontFamily: token.fontFamilyCode, wordBreak: 'break-all', display: 'block' }}
@@ -114,7 +116,7 @@ export function BlockQuickCreate({
             {draft.url}
           </Text>
           <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.5 }}>
-            Matching requests are canceled before they leave the browser — the page sees a network error.
+            {t('panel.quickEditor.block.createHint')}
           </Text>
         </div>
       </div>

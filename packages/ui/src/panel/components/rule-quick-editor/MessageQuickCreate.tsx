@@ -13,6 +13,7 @@
  */
 
 import type { SseRuleDraft, WsDirection, WsRuleDraft } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -58,6 +59,7 @@ export function MessageQuickCreate({
 }: MessageQuickCreateProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
   const { rules } = useRules();
@@ -132,9 +134,9 @@ export function MessageQuickCreate({
           value={quick.operation}
           onChange={(e) => patch({ operation: e.target.value })}
           options={[
-            { value: 'modify', label: 'Replace' },
-            { value: 'inject', label: 'Inject' },
-            { value: 'drop', label: 'Drop' },
+            { value: 'modify', label: t('workbench.editors.rule.fields.message.opReplace') },
+            { value: 'inject', label: t('workbench.editors.rule.fields.message.opInject') },
+            { value: 'drop', label: t('workbench.editors.rule.fields.message.opDrop') },
           ]}
           optionType="button"
         />
@@ -145,25 +147,31 @@ export function MessageQuickCreate({
             value={quick.direction}
             onChange={patchDirection}
             options={[
-              { value: 'receive', label: 'Incoming ⬇' },
-              { value: 'send', label: 'Outgoing ⬆' },
+              { value: 'receive', label: t('panel.quickEditor.message.incoming') },
+              { value: 'send', label: t('panel.quickEditor.message.outgoing') },
             ]}
           />
         )}
       </div>
       {quick.kind === 'sse' && (
         <div style={{ marginBottom: 10 }}>
-          <div style={fieldLabelStyle}>Event name</div>
+          <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.message.eventName')}</div>
           <Input
             size="small"
             value={quick.eventName}
             onChange={(e) => patchEventName(e.target.value)}
-            placeholder="Empty = default message events"
+            placeholder={t('workbench.editors.rule.fields.message.eventNamePlaceholder')}
           />
         </div>
       )}
       <div style={{ marginBottom: 10 }}>
-        <div style={fieldLabelStyle}>{quick.kind === 'sse' ? 'Data filter' : 'Frame filter'}</div>
+        <div style={fieldLabelStyle}>
+          {t(
+            quick.kind === 'sse'
+              ? 'workbench.editors.rule.fields.message.dataFilter'
+              : 'workbench.editors.rule.fields.message.frameFilter',
+          )}
+        </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Select
             size="small"
@@ -171,9 +179,16 @@ export function MessageQuickCreate({
             value={quick.filterType}
             onChange={(v) => patch({ filterType: v })}
             options={[
-              { value: 'none', label: `Every ${unit}` },
-              { value: 'contains', label: 'Contains' },
-              { value: 'regex', label: 'Regex' },
+              {
+                value: 'none',
+                label: t(
+                  unit === 'event'
+                    ? 'workbench.editors.rule.fields.message.everyEvent'
+                    : 'workbench.editors.rule.fields.message.everyFrame',
+                ),
+              },
+              { value: 'contains', label: t('workbench.editors.rule.fields.operatorContains') },
+              { value: 'regex', label: t('workbench.editors.rule.fields.message.filterRegex') },
             ]}
           />
           {showFilterValue && (
@@ -189,21 +204,47 @@ export function MessageQuickCreate({
       </div>
       {quick.operation === 'inject' && (
         <div style={{ marginBottom: 10 }}>
-          <div style={fieldLabelStyle}>Inject when</div>
+          <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.message.injectWhen')}</div>
           <Radio.Group
             size="small"
             value={quick.injectTrigger}
             onChange={(e) => patch({ injectTrigger: e.target.value })}
             options={[
-              { value: 'open', label: quick.kind === 'sse' ? 'Stream opens' : 'Connection opens' },
-              { value: 'message', label: `A matching ${unit} arrives` },
+              {
+                value: 'open',
+                label: t(
+                  quick.kind === 'sse'
+                    ? 'workbench.editors.rule.fields.message.streamOpens'
+                    : 'workbench.editors.rule.fields.message.connectionOpens',
+                ),
+              },
+              {
+                value: 'message',
+                label: t(
+                  unit === 'event'
+                    ? 'workbench.editors.rule.fields.message.matchingEventArrives'
+                    : 'workbench.editors.rule.fields.message.matchingFrameArrives',
+                ),
+              },
             ]}
           />
         </div>
       )}
       {quick.operation !== 'drop' ? (
         <>
-          <div style={fieldLabelStyle}>{quick.operation === 'inject' ? `Injected ${unit}` : `Replacement ${unit}`}</div>
+          <div style={fieldLabelStyle}>
+            {quick.operation === 'inject'
+              ? t(
+                  unit === 'event'
+                    ? 'workbench.editors.rule.fields.message.injectedEvent'
+                    : 'workbench.editors.rule.fields.message.injectedFrame',
+                )
+              : t(
+                  unit === 'event'
+                    ? 'workbench.editors.rule.fields.message.replacementEvent'
+                    : 'workbench.editors.rule.fields.message.replacementFrame',
+                )}
+          </div>
           <TemplateInput
             multiline
             maxRows={12}
@@ -222,13 +263,25 @@ export function MessageQuickCreate({
           />
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
             {quick.operation === 'inject'
-              ? `Injected on matching ${quick.kind === 'sse' ? 'streams' : 'connections'} before listeners see it.`
-              : `Matching ${unit}s are replaced with this payload before they are seen.`}
+              ? t(
+                  quick.kind === 'sse'
+                    ? 'panel.quickEditor.message.injectedStreamsHint'
+                    : 'panel.quickEditor.message.injectedConnectionsHint',
+                )
+              : t(
+                  unit === 'event'
+                    ? 'panel.quickEditor.message.replacedEventsHint'
+                    : 'panel.quickEditor.message.replacedFramesHint',
+                )}
           </div>
         </>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          Matching {unit}s are dropped before they are seen.
+          {t(
+            unit === 'event'
+              ? 'panel.quickEditor.message.droppedEventsHint'
+              : 'panel.quickEditor.message.droppedFramesHint',
+          )}
         </div>
       )}
     </QuickEditorShell>

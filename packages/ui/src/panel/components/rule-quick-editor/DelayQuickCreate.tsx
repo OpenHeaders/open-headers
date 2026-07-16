@@ -7,6 +7,7 @@
  */
 
 import type { DelayRuleDraft } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -51,6 +52,7 @@ export function DelayQuickCreate({
 }: DelayQuickCreateProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
   const { rules } = useRules();
@@ -110,7 +112,7 @@ export function DelayQuickCreate({
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-          Delay
+          {t('workbench.editors.rule.fields.delay.label')}
         </Text>
         <InputNumber
           size="small"
@@ -124,11 +126,11 @@ export function DelayQuickCreate({
           onChange={(v) => setQuick({ delayMs: v })}
         />
         <Text type="secondary" style={{ fontSize: 11 }}>
-          Max 30,000 ms
+          {t('workbench.editors.rule.fields.delay.maxNote')}
         </Text>
       </div>
       <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-        Navigations are delayed up to 30,000 ms; XHR/fetch is capped at 5,000 ms. Sub-resources are not delayed.
+        {t('panel.quickEditor.delay.hint')}
       </div>
     </QuickEditorShell>
   );

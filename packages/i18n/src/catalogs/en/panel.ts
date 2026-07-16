@@ -1001,8 +1001,7 @@ export const panel = {
   'panel.quickEditor.toast.changedElsewhere': 'Rule changed elsewhere — close and reopen the popover.',
   'panel.quickEditor.toast.noWorkspace': 'No active workspace',
   'panel.quickEditor.toast.collectionCreateFailed': 'Failed to create a collection for the rule',
-  'panel.quickEditor.toast.folderCreateFailed':
-    'Couldn’t create the “{name}” folder — saving at the collection root.',
+  'panel.quickEditor.toast.folderCreateFailed': 'Couldn’t create the “{name}” folder — saving at the collection root.',
   'panel.quickEditor.toast.createFailed': 'Failed to create rule',
   'panel.quickEditor.toast.createdDraft': 'Rule created as a draft — publish it from the workspace.',
   'panel.quickEditor.toast.created': 'Rule created',
@@ -1033,6 +1032,45 @@ export const panel = {
   // {operation} interpolates the raw schema operation the one-click fix
   // would switch to (e.g. add).
   'panel.quickEditor.validation.switchTo': 'Switch to {operation}',
+
+  // Typed bodies — popover-only copy. Field labels / option words that
+  // mirror a workbench control reuse its key (see the station comment
+  // above); the ws direction words differ from the workbench's
+  // parenthesized pair, so they are popover-local (glyphs ride raw).
+  'panel.quickEditor.redirect.targetPlaceholder': 'e.g. https://openheaders.io/redirected',
+  'panel.quickEditor.redirect.hint': 'Matching requests are sent to this URL before they reach the network.',
+  'panel.quickEditor.delay.hint':
+    'Navigations are delayed up to 30,000 ms; XHR/fetch is capped at 5,000 ms. Sub-resources are not delayed.',
+  'panel.quickEditor.block.editHint': 'Matching requests are blocked before they reach the network.',
+  'panel.quickEditor.block.blockRequestsTo': 'Block requests to',
+  'panel.quickEditor.block.createHint':
+    'Matching requests are canceled before they leave the browser — the page sees a network error.',
+  'panel.quickEditor.response.tagModify': 'Modify',
+  'panel.quickEditor.response.tagMock': 'Mock',
+  'panel.quickEditor.response.dynamicBody':
+    'This rule builds its response with JavaScript. Open in workspace to edit the script.',
+  'panel.quickEditor.requestBody.hint': "Matching requests are sent with this body instead of the page's.",
+  'panel.quickEditor.requestBody.dynamicBody':
+    'This rule builds its body with JavaScript. Open in workspace to edit the script.',
+  'panel.quickEditor.inject.sourceUrlLabel': 'Source URL',
+  'panel.quickEditor.inject.loadsStylesheetHint': 'Matching pages load this stylesheet as they load.',
+  'panel.quickEditor.inject.loadsScriptHint': 'Matching pages load this script as they load.',
+  'panel.quickEditor.inject.injectedHint': 'Injected into matching pages as they load.',
+  'panel.quickEditor.message.incoming': 'Incoming ⬇',
+  'panel.quickEditor.message.outgoing': 'Outgoing ⬆',
+  'panel.quickEditor.message.injectedConnectionsHint': 'Injected on matching connections before listeners see it.',
+  'panel.quickEditor.message.injectedStreamsHint': 'Injected on matching streams before listeners see it.',
+  'panel.quickEditor.message.replacedFramesHint':
+    'Matching frames are replaced with this payload before they are seen.',
+  'panel.quickEditor.message.replacedEventsHint':
+    'Matching events are replaced with this payload before they are seen.',
+  'panel.quickEditor.message.droppedFramesHint': 'Matching frames are dropped before they are seen.',
+  'panel.quickEditor.message.droppedEventsHint': 'Matching events are dropped before they are seen.',
+  'panel.quickEditor.queryParam.addAction': 'Add action',
+  'panel.quickEditor.queryParam.removeAllWarning':
+    'Remove All strips the entire query string — the other operations in this rule will be ignored.',
+  'panel.quickEditor.auth.challengesHint':
+    'Answers server (401) and proxy (407) authentication challenges on matching requests.',
 
   // ── Rule hover popover (fire-snapshot plane) ─────────────────────────
   // Raw by design: header names/values, `{{template}}` text, the

@@ -10,6 +10,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { QueryParamRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -51,6 +52,7 @@ export function QueryParamQuickEditor({
 }: QueryParamQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
@@ -127,7 +129,7 @@ export function QueryParamQuickEditor({
         </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          Open in workspace to inspect or change this rule.
+          {t('panel.quickEditor.openToInspect')}
         </div>
       )}
     </QuickEditorShell>

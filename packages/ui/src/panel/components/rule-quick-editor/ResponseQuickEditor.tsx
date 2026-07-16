@@ -16,6 +16,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ResponseRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -52,6 +53,7 @@ export function ResponseQuickEditor({
 }: ResponseQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
@@ -123,7 +125,7 @@ export function ResponseQuickEditor({
       tags={
         responseRule && (
           <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color={isNetwork ? 'blue' : 'purple'}>
-            {isNetwork ? 'Modify' : 'Mock'}
+            {isNetwork ? t('panel.quickEditor.response.tagModify') : t('panel.quickEditor.response.tagMock')}
           </Tag>
         )
       }
@@ -149,9 +151,7 @@ export function ResponseQuickEditor({
         />
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          {responseRule
-            ? 'This rule builds its response with JavaScript. Open in workspace to edit the script.'
-            : 'Open in workspace to inspect or change this rule.'}
+          {responseRule ? t('panel.quickEditor.response.dynamicBody') : t('panel.quickEditor.openToInspect')}
         </div>
       )}
     </QuickEditorShell>

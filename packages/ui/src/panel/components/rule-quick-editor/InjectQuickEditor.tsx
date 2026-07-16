@@ -11,6 +11,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { InjectRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -47,6 +48,7 @@ export function InjectQuickEditor({
 }: InjectQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
@@ -134,24 +136,26 @@ export function InjectQuickEditor({
     >
       {editable && urlSource ? (
         <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
-          <div style={fieldLabelStyle}>Source URL</div>
+          <div style={fieldLabelStyle}>{t('panel.quickEditor.inject.sourceUrlLabel')}</div>
           <EntityField path={RULE_FIELD.injectSourceUrl}>
             <Input
               size="small"
               allowClear
               value={draft.sourceUrl ?? ''}
               onChange={(e) => updateDraft({ sourceUrl: e.target.value })}
-              placeholder="Enter Source URL (relative or absolute)"
+              placeholder={t('workbench.editors.rule.fields.inject.sourceUrlPlaceholder')}
               style={{ width: '100%' }}
             />
           </EntityField>
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-            Matching pages load this {injectRule.action.injectType === 'css' ? 'stylesheet' : 'script'} as they load.
+            {injectRule.action.injectType === 'css'
+              ? t('panel.quickEditor.inject.loadsStylesheetHint')
+              : t('panel.quickEditor.inject.loadsScriptHint')}
           </div>
         </EntityScopeProvider>
       ) : editable ? (
         <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
-          <div style={fieldLabelStyle}>Code</div>
+          <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.inject.code')}</div>
           <EntityField path={RULE_FIELD.injectCode}>
             <TemplateInput
               multiline
@@ -171,12 +175,12 @@ export function InjectQuickEditor({
             />
           </EntityField>
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-            Injected into matching pages as they load.
+            {t('panel.quickEditor.inject.injectedHint')}
           </div>
         </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          Open in workspace to inspect or change this rule.
+          {t('panel.quickEditor.openToInspect')}
         </div>
       )}
     </QuickEditorShell>

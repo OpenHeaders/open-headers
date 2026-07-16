@@ -9,6 +9,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { RequestBodyRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -45,6 +46,7 @@ export function RequestBodyQuickEditor({
 }: RequestBodyQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
@@ -129,7 +131,7 @@ export function RequestBodyQuickEditor({
     >
       {editable ? (
         <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
-          <div style={fieldLabelStyle}>Request Body</div>
+          <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.requestBody.bodyLabel')}</div>
           <EntityField path={RULE_FIELD.requestBody}>
             <TemplateInput
               multiline
@@ -149,14 +151,12 @@ export function RequestBodyQuickEditor({
             />
           </EntityField>
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-            Matching requests are sent with this body instead of the page's.
+            {t('panel.quickEditor.requestBody.hint')}
           </div>
         </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          {bodyRule
-            ? 'This rule builds its body with JavaScript. Open in workspace to edit the script.'
-            : 'Open in workspace to inspect or change this rule.'}
+          {bodyRule ? t('panel.quickEditor.requestBody.dynamicBody') : t('panel.quickEditor.openToInspect')}
         </div>
       )}
     </QuickEditorShell>

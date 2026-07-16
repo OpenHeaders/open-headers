@@ -10,6 +10,7 @@
 
 import type { RedirectRuleDraft } from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -60,6 +61,7 @@ export function RedirectQuickCreate({
 }: RedirectQuickCreateProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
   const { rules } = useRules();
@@ -132,7 +134,7 @@ export function RedirectQuickCreate({
       visible={visible}
     >
       <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-        Redirects to
+        {t('workbench.editors.rule.fields.redirect.redirectsTo')}
       </Text>
       <div style={{ width: '100%', minWidth: 0 }}>
         <DetectedValueInput
@@ -144,7 +146,7 @@ export function RedirectQuickCreate({
           allowClear
           value={quick.redirectTo}
           onChange={(v) => setQuick({ redirectTo: v })}
-          placeholder="e.g. https://openheaders.io/redirected"
+          placeholder={t('panel.quickEditor.redirect.targetPlaceholder')}
           suggestionContext={{ collectionId }}
           flagUnresolved
           style={{ width: '100%' }}
@@ -152,11 +154,11 @@ export function RedirectQuickCreate({
       </div>
       {trimmedTarget && !targetResolves ? (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorWarning, lineHeight: 1.4 }}>
-          Variable missing — hover the red reference to create it and enable Save.
+          {t('panel.quickEditor.variableMissing')}
         </div>
       ) : (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-          Matching requests are sent to this URL before they reach the network.
+          {t('panel.quickEditor.redirect.hint')}
         </div>
       )}
     </QuickEditorShell>

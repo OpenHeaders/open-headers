@@ -8,6 +8,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { BlockRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -39,6 +40,7 @@ export function BlockQuickEditor({
 }: BlockQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
@@ -88,8 +90,8 @@ export function BlockQuickEditor({
     >
       <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
         {editable
-          ? 'Matching requests are blocked before they reach the network. Adjust the conditions below to retarget the rule.'
-          : 'Open in workspace to inspect or change this rule.'}
+          ? `${t('panel.quickEditor.block.editHint')} ${t('panel.quickEditor.retargetHint')}`
+          : t('panel.quickEditor.openToInspect')}
       </div>
     </QuickEditorShell>
   );
