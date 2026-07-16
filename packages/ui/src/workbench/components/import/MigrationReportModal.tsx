@@ -95,20 +95,31 @@ const MigrationReportModal: React.FC<{
     return {
       key: workspace.workspaceId,
       label: (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        // Aligned to the FIRST line (not centered): the Collapse caret
+        // rides the header's first text line, so icon, name, and the
+        // counts' first line all share its 22px rhythm even when the
+        // counts wrap.
+        <span style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
           {report !== null &&
             (clean ? (
-              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13 }} />
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13, marginTop: 4.5 }} />
             ) : (
-              <ExclamationCircleFilled style={{ color: token.colorWarning, fontSize: 13 }} />
+              <ExclamationCircleFilled style={{ color: token.colorWarning, fontSize: 13, marginTop: 4.5 }} />
             ))}
           <Text
             strong
-            style={{ whiteSpace: 'nowrap', flex: 'none', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}
+            style={{
+              whiteSpace: 'nowrap',
+              flex: 'none',
+              maxWidth: 280,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              lineHeight: '22px',
+            }}
           >
             {workspace.workspaceName}
           </Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12, lineHeight: '22px', minWidth: 0 }}>
             {workspace.collections} collections · {workspace.environments} environments · {workspace.requests}{' '}
             requests{workspace.examples > 0 ? ` · ${workspace.examples} saved examples` : ''}
             {workspace.globals > 0 ? ` · ${workspace.globals} global variables` : ''}
