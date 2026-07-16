@@ -1232,6 +1232,22 @@ export const panel = {
   'panel.inspector.preview.notAvailableForType': 'Preview not available for this content type.',
   'panel.inspector.preview.imageAlt': 'response preview',
 
+  // Shared body-viewer toolbars. Raw by design: Base64 / UTF-8 encoding
+  // names, keyboard chords, the { } pretty-print glyph, and the sniffer
+  // format nouns (JSON / XML / …) riding through as {format}.
+  'panel.inspector.viewer.prettyPrintTitle': 'Pretty print',
+  'panel.inspector.viewer.revertTitle': 'Revert to declared Content-Type',
+  'panel.inspector.viewer.parsedAsRevert': 'Parsed as {format} · revert',
+  'panel.inspector.viewer.looksLikeParse': 'Looks like {format} · parse',
+  'panel.inspector.viewer.looksLikeTitle':
+    'Content-Type looks off — the body parses as {format}. Click to reinterpret.',
+  'panel.inspector.viewer.cursorInfo': 'Line {line}, Column {col}',
+  'panel.inspector.viewer.lineCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} line', other: '{count} lines' }),
+  'panel.inspector.viewer.hexViewer': 'Hex Viewer',
+  'panel.inspector.viewer.find': 'Find',
+  'panel.inspector.viewer.findTitle': 'Find ({chord})',
+
   // Payload tab chrome. The section titles carry the captured MIME raw.
   'panel.inspector.payload.queryStringParameters': 'Query String Parameters',
   'panel.inspector.payload.requestBody': 'Request Body ({mime})',

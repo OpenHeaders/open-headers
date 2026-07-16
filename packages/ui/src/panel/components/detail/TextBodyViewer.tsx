@@ -10,6 +10,7 @@
  *   - `TextBodyToolbar` shows pretty-print + sniffer + cursor info
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useWholeBufferDecode } from '@openheaders/ui/workbench/components/value-editors/useWholeBufferDecode';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { canPrettyPrint, detectLanguage } from '../../data/mime';
@@ -49,6 +50,7 @@ export default function TextBodyViewer({
   toolbarAction,
   toolbarTrailing,
 }: TextBodyViewerProps) {
+  const t = useT();
   const sniffed = useSniffedContent(text, declaredMime);
   const lang = detectLanguage(sniffed.effectiveMime);
   const showPrettyPrint = canPrettyPrint(sniffed.effectiveMime);
@@ -83,8 +85,8 @@ export default function TextBodyViewer({
 
   const togglePrettyPrint = useCallback(() => setPrettyPrint((p) => !p), []);
   const handleCursorChange = useCallback(
-    (line: number, col: number) => setCursorInfo(`Line ${line}, Column ${col}`),
-    [],
+    (line: number, col: number) => setCursorInfo(t('panel.inspector.viewer.cursorInfo', { line, col })),
+    [t],
   );
 
   // Decode affordance for the plain-text branch — the Monaco branch
@@ -135,7 +137,7 @@ export default function TextBodyViewer({
   }
 
   const displayText = prettyPrint && formattedText ? formattedText : text;
-  const lineInfo = cursorInfo ?? `${displayText.split('\n').length} lines`;
+  const lineInfo = cursorInfo ?? t('panel.inspector.viewer.lineCount', { count: displayText.split('\n').length });
 
   const content = lang ? (
     <Suspense fallback={<Skeleton />}>

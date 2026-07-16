@@ -4,6 +4,8 @@
  * file no longer needs to juggle pretty-print or sniffer state.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
+
 type ViewMode = 'utf8' | 'hex' | 'base64';
 
 interface ResponseViewerToolbarProps {
@@ -19,6 +21,7 @@ interface ResponseViewerToolbarProps {
 export type { ViewMode };
 
 export default function ResponseViewerToolbar({ mode, onModeChange, action, trailing }: ResponseViewerToolbarProps) {
+  const t = useT();
   return (
     <div className="dt-response-toolbar">
       <div className="dt-response-toolbar-left">
@@ -35,7 +38,7 @@ export default function ResponseViewerToolbar({ mode, onModeChange, action, trai
             className={`dt-response-toolbar-btn ${mode === 'hex' ? 'active' : ''}`}
             onClick={() => onModeChange('hex')}
           >
-            Hex Viewer
+            {t('panel.inspector.viewer.hexViewer')}
           </button>
           <button
             type="button"

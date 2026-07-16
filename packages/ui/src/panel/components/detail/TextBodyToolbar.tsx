@@ -6,6 +6,7 @@
  * response bodies.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { DetectedFormat } from '../../data/content-sniff';
 import { detectedFormatLabel } from '../../data/content-sniff';
 
@@ -36,6 +37,7 @@ export default function TextBodyToolbar({
   action,
   trailing,
 }: TextBodyToolbarProps) {
+  const t = useT();
   return (
     <div className="dt-response-toolbar">
       <div className="dt-response-toolbar-left">
@@ -44,7 +46,7 @@ export default function TextBodyToolbar({
             type="button"
             className={`dt-response-toolbar-btn ${prettyPrint ? 'active' : ''}`}
             onClick={onTogglePrettyPrint}
-            title="Pretty print"
+            title={t('panel.inspector.viewer.prettyPrintTitle')}
           >
             {'{ }'}
           </button>
@@ -54,18 +56,18 @@ export default function TextBodyToolbar({
             type="button"
             className="dt-response-toolbar-btn dt-response-toolbar-btn--override-active"
             onClick={onClearOverride}
-            title="Revert to declared Content-Type"
+            title={t('panel.inspector.viewer.revertTitle')}
           >
-            Parsed as {detectedFormatLabel(override)} · revert
+            {t('panel.inspector.viewer.parsedAsRevert', { format: detectedFormatLabel(override) })}
           </button>
         ) : suggestedFormat && onApplyOverride ? (
           <button
             type="button"
             className="dt-response-toolbar-btn dt-response-toolbar-btn--suggest"
             onClick={() => onApplyOverride(suggestedFormat)}
-            title={`Content-Type looks off — the body parses as ${detectedFormatLabel(suggestedFormat)}. Click to reinterpret.`}
+            title={t('panel.inspector.viewer.looksLikeTitle', { format: detectedFormatLabel(suggestedFormat) })}
           >
-            Looks like {detectedFormatLabel(suggestedFormat)} · parse
+            {t('panel.inspector.viewer.looksLikeParse', { format: detectedFormatLabel(suggestedFormat) })}
           </button>
         ) : null}
         {lineInfo && <span className="dt-response-toolbar-info">{lineInfo}</span>}

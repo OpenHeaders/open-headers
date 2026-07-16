@@ -20,6 +20,7 @@
 
 import Editor from '@monaco-editor/react';
 import { useTheme } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useMonacoJwtEdit } from '@openheaders/ui/workbench/components/value-editors/useMonacoJwtEdit';
 import { useWholeBufferDecode } from '@openheaders/ui/workbench/components/value-editors/useWholeBufferDecode';
 import type * as monaco from 'monaco-editor';
@@ -28,7 +29,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import '@openheaders/ui/workbench/components/monaco/bootstrap';
 
 const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
-const FIND_TITLE = `Find (${IS_MAC ? '⌘F' : 'Ctrl+F'})`;
+const FIND_CHORD = IS_MAC ? '⌘F' : 'Ctrl+F';
 
 interface CodeViewerProps {
   value: string;
@@ -66,6 +67,7 @@ export default function CodeViewer({
   jwtDetection = true,
   decodeAffordance = true,
 }: CodeViewerProps) {
+  const t = useT();
   const { monacoTheme } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
@@ -174,8 +176,8 @@ export default function CodeViewer({
       <button
         type="button"
         className="dt-codeviewer-find"
-        title={FIND_TITLE}
-        aria-label="Find"
+        title={t('panel.inspector.viewer.findTitle', { chord: FIND_CHORD })}
+        aria-label={t('panel.inspector.viewer.find')}
         onClick={() => {
           const editor = editorRef.current;
           if (!editor) return;
