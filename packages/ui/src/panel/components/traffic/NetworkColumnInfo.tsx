@@ -7,8 +7,14 @@
  * as a compact card; the column's own slice of that request is the
  * highlighted token, so reading across all the popovers builds one
  * coherent picture of a single request seen column by column.
+ *
+ * Titles are the raw column names (they name the raw header cells —
+ * network-table parity vocabulary); item labels are wire vocabulary
+ * (GET, 2xx, h2, (pending), net::ERR_…, ST/RT/…) and ride raw, while
+ * the summaries, descriptions, and section headings key.
  */
 
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type { ColumnKey } from './columns';
 
@@ -77,13 +83,14 @@ const HIGHLIGHT: Record<ColumnKey, readonly TokenId[]> = {
 };
 
 function ExampleCard({ column }: { column: ColumnKey }) {
+  const t = useT();
   const lit = new Set<TokenId>(HIGHLIGHT[column]);
   const tok = (id: TokenId, text: string, extra = '') => (
     <span className={`dt-col-eg-tok${extra ? ` ${extra}` : ''}${lit.has(id) ? ' dt-col-eg-hl' : ''}`}>{text}</span>
   );
   return (
     <div className="dt-col-eg">
-      <div className="dt-col-eg-cap">Example request</div>
+      <div className="dt-col-eg-cap">{t('panel.network.colInfo.exampleCaption')}</div>
       <div className="dt-col-eg-card">
         <div className="dt-col-eg-line">
           {tok('num', `#${EX.num}`)}
@@ -123,217 +130,250 @@ function ExampleCard({ column }: { column: ColumnKey }) {
   );
 }
 
-const NETWORK_COLUMN_INFO: Record<ColumnKey, InfoPopoverContent> = {
-  name: {
-    title: 'Name',
-    kicker: 'Network',
-    summary: 'The resource\'s file name or last path segment — the quickest way to recognise a row.',
-    description: 'The leading icon encodes the resource type; the row tooltip and the detail view carry the full URL, headers, payload, and timing.',
-    diagram: <ExampleCard column="name" />,
-  },
-  path: {
-    title: 'Path',
-    kicker: 'Network',
-    summary: 'Everything after the host — the URL path plus its query string.',
-    diagram: <ExampleCard column="path" />,
-  },
-  url: {
-    title: 'URL',
-    kicker: 'Network',
-    summary: 'The complete request URL: scheme, host, path, and query, end to end.',
-    diagram: <ExampleCard column="url" />,
-  },
-  requestNumber: {
-    title: 'Request #',
-    kicker: 'Network',
-    summary: 'A stable index assigned in the order requests were discovered while recording, starting at 1.',
-    description: 'It never changes when you re-sort, so it doubles as a reference back to the original capture order.',
-    diagram: <ExampleCard column="requestNumber" />,
-  },
-  method: {
-    title: 'Method',
-    kicker: 'Network',
-    summary: 'The HTTP verb the request used.',
-    diagram: <ExampleCard column="method" />,
-    sections: [
-      {
-        heading: 'Common verbs',
-        items: [
-          { label: 'GET', desc: 'Read a resource — no body, safe to repeat.' },
-          { label: 'POST', desc: 'Create or submit — carries a request body.' },
-          { label: 'PUT / PATCH', desc: 'Replace or partially update a resource.' },
-          { label: 'DELETE', desc: 'Remove a resource.' },
+function networkColumnInfo(t: Translate, infoKey: ColumnKey): InfoPopoverContent {
+  const kicker = t('panel.toolWindows.network');
+  const diagram = <ExampleCard column={infoKey} />;
+  switch (infoKey) {
+    case 'name':
+      return {
+        title: 'Name',
+        kicker,
+        summary: t('panel.network.colInfo.name.summary'),
+        description: t('panel.network.colInfo.name.description'),
+        diagram,
+      };
+    case 'path':
+      return { title: 'Path', kicker, summary: t('panel.network.colInfo.path.summary'), diagram };
+    case 'url':
+      return { title: 'URL', kicker, summary: t('panel.network.colInfo.url.summary'), diagram };
+    case 'requestNumber':
+      return {
+        title: 'Request #',
+        kicker,
+        summary: t('panel.network.colInfo.requestNumber.summary'),
+        description: t('panel.network.colInfo.requestNumber.description'),
+        diagram,
+      };
+    case 'method':
+      return {
+        title: 'Method',
+        kicker,
+        summary: t('panel.network.colInfo.method.summary'),
+        diagram,
+        sections: [
+          {
+            heading: t('panel.network.colInfo.method.commonVerbsHeading'),
+            items: [
+              { label: 'GET', desc: t('panel.network.colInfo.method.getDesc') },
+              { label: 'POST', desc: t('panel.network.colInfo.method.postDesc') },
+              { label: 'PUT / PATCH', desc: t('panel.network.colInfo.method.putPatchDesc') },
+              { label: 'DELETE', desc: t('panel.network.colInfo.method.deleteDesc') },
+            ],
+          },
         ],
-      },
-    ],
-  },
-  status: {
-    title: 'Status',
-    kicker: 'Network',
-    summary: 'The HTTP response code (e.g. 200, 404), or a short state label when there is no code.',
-    description:
-      'Status ranges are not colour-coded. A genuine failure — a wire error, any 4xx/5xx, or a CORS rejection — turns the whole row red; a cache hit or a no-status row dims the cell grey. The reason phrase (e.g. "Not Found") rides in the cell tooltip.',
-    diagram: <ExampleCard column="status" />,
-    sections: [
-      {
-        heading: 'Code ranges',
-        items: [
-          { label: '2xx', desc: 'Success — the request was received and handled (e.g. 200 OK).' },
-          { label: '3xx', desc: 'Redirection — follow the Location header to the next URL.' },
-          { label: '4xx', desc: 'Client error — the request was malformed, unauthorized, or not found.', labelClassName: 'dt-col-status--error' },
-          { label: '5xx', desc: 'Server error — the server failed to fulfil a valid request.', labelClassName: 'dt-col-status--error' },
+      };
+    case 'status':
+      return {
+        title: 'Status',
+        kicker,
+        summary: t('panel.network.colInfo.status.summary'),
+        description: t('panel.network.colInfo.status.description'),
+        diagram,
+        sections: [
+          {
+            heading: t('panel.network.colInfo.status.codeRangesHeading'),
+            items: [
+              { label: '2xx', desc: t('panel.network.colInfo.status.s2xxDesc') },
+              { label: '3xx', desc: t('panel.network.colInfo.status.s3xxDesc') },
+              {
+                label: '4xx',
+                desc: t('panel.network.colInfo.status.s4xxDesc'),
+                labelClassName: 'dt-col-status--error',
+              },
+              {
+                label: '5xx',
+                desc: t('panel.network.colInfo.status.s5xxDesc'),
+                labelClassName: 'dt-col-status--error',
+              },
+            ],
+          },
+          {
+            heading: t('panel.network.colInfo.status.insteadHeading'),
+            items: [
+              {
+                label: '(pending)',
+                desc: t('panel.network.colInfo.status.pendingDesc'),
+                labelClassName: 'dt-col-status--dim',
+              },
+              {
+                label: '(failed) net::ERR_…',
+                desc: t('panel.network.colInfo.status.failedDesc'),
+                labelClassName: 'dt-col-status--error',
+              },
+              {
+                label: '(canceled)',
+                desc: t('panel.network.colInfo.status.canceledDesc'),
+                labelClassName: 'dt-col-status--error',
+              },
+              {
+                label: '(blocked:reason)',
+                desc: t('panel.network.colInfo.status.blockedDesc'),
+                labelClassName: 'dt-col-status--error',
+              },
+              {
+                label: 'CORS error',
+                desc: t('panel.network.colInfo.status.corsDesc'),
+                labelClassName: 'dt-col-status--error',
+              },
+              {
+                label: '(data)',
+                desc: t('panel.network.colInfo.status.dataDesc'),
+                labelClassName: 'dt-col-status--dim',
+              },
+              {
+                label: 'Finished',
+                desc: t('panel.network.colInfo.status.finishedDesc'),
+                labelClassName: 'dt-col-status--dim',
+              },
+            ],
+          },
         ],
-      },
-      {
-        heading: 'Instead of a code',
-        items: [
-          { label: '(pending)', desc: 'Sent, but no response has arrived yet — grey while in flight.', labelClassName: 'dt-col-status--dim' },
-          { label: '(failed) net::ERR_…', desc: 'A wire-level failure (DNS, TLS, timeout, lost connection); the net-stack code shows inline.', labelClassName: 'dt-col-status--error' },
-          { label: '(canceled)', desc: 'The request was aborted before it completed.', labelClassName: 'dt-col-status--error' },
-          { label: '(blocked:reason)', desc: 'The browser refused it for a policy reason — e.g. csp, or other for an extension / ad-block.', labelClassName: 'dt-col-status--error' },
-          { label: 'CORS error', desc: 'A cross-origin check rejected the response.', labelClassName: 'dt-col-status--error' },
-          { label: '(data)', desc: 'A data: URL — served inline, never hit the network.', labelClassName: 'dt-col-status--dim' },
-          { label: 'Finished', desc: 'A response that carried no status code.', labelClassName: 'dt-col-status--dim' },
+      };
+    case 'protocol':
+      return {
+        title: 'Protocol',
+        kicker,
+        summary: t('panel.network.colInfo.protocol.summary'),
+        diagram,
+        sections: [
+          {
+            heading: t('panel.network.colInfo.protocol.valuesHeading'),
+            items: [
+              { label: 'http/1.1', desc: t('panel.network.colInfo.protocol.http11Desc') },
+              { label: 'h2', desc: t('panel.network.colInfo.protocol.h2Desc') },
+              { label: 'h3', desc: t('panel.network.colInfo.protocol.h3Desc') },
+            ],
+          },
         ],
-      },
-    ],
-  },
-  protocol: {
-    title: 'Protocol',
-    kicker: 'Network',
-    summary: 'The HTTP version the connection negotiated, picked at handshake time.',
-    diagram: <ExampleCard column="protocol" />,
-    sections: [
-      {
-        heading: 'Values',
-        items: [
-          { label: 'http/1.1', desc: 'Text-based, one request in flight per connection.' },
-          { label: 'h2', desc: 'HTTP/2 — binary and multiplexed over a single connection.' },
-          { label: 'h3', desc: 'HTTP/3 — runs on QUIC over UDP for faster handshakes.' },
+      };
+    case 'scheme':
+      return { title: 'Scheme', kicker, summary: t('panel.network.colInfo.scheme.summary'), diagram };
+    case 'domain':
+      return { title: 'Domain', kicker, summary: t('panel.network.colInfo.domain.summary'), diagram };
+    case 'remoteAddress':
+      return {
+        title: 'Remote address',
+        kicker,
+        summary: t('panel.network.colInfo.remoteAddress.summary'),
+        description: t('panel.network.colInfo.remoteAddress.description'),
+        diagram,
+      };
+    case 'type':
+      return {
+        title: 'Type',
+        kicker,
+        summary: t('panel.network.colInfo.type.summary'),
+        diagram,
+        sections: [
+          {
+            heading: t('panel.network.colInfo.type.examplesHeading'),
+            items: [
+              { label: 'document', desc: t('panel.network.colInfo.type.documentDesc') },
+              { label: 'fetch / xhr', desc: t('panel.network.colInfo.type.fetchXhrDesc') },
+              { label: 'script / css', desc: t('panel.network.colInfo.type.scriptCssDesc') },
+              { label: 'img / font / media', desc: t('panel.network.colInfo.type.imgFontMediaDesc') },
+            ],
+          },
         ],
-      },
-    ],
-  },
-  scheme: {
-    title: 'Scheme',
-    kicker: 'Network',
-    summary: 'The URL scheme — `https`, `http`, `ws`, or `wss`.',
-    diagram: <ExampleCard column="scheme" />,
-  },
-  domain: {
-    title: 'Domain',
-    kicker: 'Network',
-    summary: 'The host name the request was addressed to.',
-    diagram: <ExampleCard column="domain" />,
-  },
-  remoteAddress: {
-    title: 'Remote address',
-    kicker: 'Network',
-    summary: 'The IP address and port the connection actually reached.',
-    description: 'Differs from the domain when DNS returns several IPs, a CDN routes by anycast, or a local proxy intercepts the connection.',
-    diagram: <ExampleCard column="remoteAddress" />,
-  },
-  type: {
-    title: 'Type',
-    kicker: 'Network',
-    summary: 'The resource type the browser assigned — it drives the row icon and the filter chips above the table.',
-    diagram: <ExampleCard column="type" />,
-    sections: [
-      {
-        heading: 'Examples',
-        items: [
-          { label: 'document', desc: 'A top-level or framed HTML navigation.' },
-          { label: 'fetch / xhr', desc: 'A data request made from JavaScript.' },
-          { label: 'script / css', desc: 'Page resources loaded by the parser.' },
-          { label: 'img / font / media', desc: 'Static assets.' },
+      };
+    case 'initiator':
+      return {
+        title: 'Initiator',
+        kicker,
+        summary: t('panel.network.colInfo.initiator.summary'),
+        diagram,
+        sections: [
+          {
+            heading: t('panel.network.colInfo.initiator.kindsHeading'),
+            items: [
+              { label: 'script', desc: t('panel.network.colInfo.initiator.scriptDesc') },
+              { label: 'parser', desc: t('panel.network.colInfo.initiator.parserDesc') },
+              { label: 'redirect', desc: t('panel.network.colInfo.initiator.redirectDesc') },
+              { label: 'other', desc: t('panel.network.colInfo.initiator.otherDesc') },
+            ],
+          },
         ],
-      },
-    ],
-  },
-  initiator: {
-    title: 'Initiator',
-    kicker: 'Network',
-    summary: 'What caused the request to be sent.',
-    diagram: <ExampleCard column="initiator" />,
-    sections: [
-      {
-        heading: 'Kinds',
-        items: [
-          { label: 'script', desc: 'Fired from JavaScript — the cell links to the call site.' },
-          { label: 'parser', desc: 'The HTML parser found the resource (a `<script>`, `<img>`, `<link>`…).' },
-          { label: 'redirect', desc: 'A `3xx` response sent the browser here.' },
-          { label: 'other', desc: 'A navigation, a preload, or an unattributed source.' },
+      };
+    case 'cookies':
+      return { title: 'Cookies', kicker, summary: t('panel.network.colInfo.cookies.summary'), diagram };
+    case 'setCookies':
+      return {
+        title: 'Set Cookies',
+        kicker,
+        summary: t('panel.network.colInfo.setCookies.summary'),
+        description: t('panel.network.colInfo.setCookies.description'),
+        diagram,
+      };
+    case 'size':
+      return {
+        title: 'Size',
+        kicker,
+        summary: t('panel.network.colInfo.size.summary'),
+        diagram,
+        sections: [
+          {
+            heading: t('panel.network.colInfo.size.insteadHeading'),
+            items: [
+              { label: '(disk cache)', desc: t('panel.network.colInfo.size.diskCacheDesc') },
+              { label: '(memory cache)', desc: t('panel.network.colInfo.size.memoryCacheDesc') },
+              { label: 'Pending', desc: t('panel.network.colInfo.size.pendingDesc') },
+            ],
+          },
         ],
-      },
-    ],
-  },
-  cookies: {
-    title: 'Cookies',
-    kicker: 'Network',
-    summary: 'How many cookies the browser attached to the request in its `Cookie` header. Blank when none.',
-    diagram: <ExampleCard column="cookies" />,
-  },
-  setCookies: {
-    title: 'Set Cookies',
-    kicker: 'Network',
-    summary: 'How many `Set-Cookie` headers the response returned. Blank when none.',
-    description: 'Open the request\'s Cookies tab to see whether the browser accepted or dropped each one.',
-    diagram: <ExampleCard column="setCookies" />,
-  },
-  size: {
-    title: 'Size',
-    kicker: 'Network',
-    summary: 'Bytes that crossed the wire, response headers and compression overhead included.',
-    diagram: <ExampleCard column="size" />,
-    sections: [
-      {
-        heading: 'Instead of a number',
-        items: [
-          { label: '(disk cache)', desc: 'Served from the on-disk cache — nothing hit the network.' },
-          { label: '(memory cache)', desc: 'Served from the in-memory cache for the current page.' },
-          { label: 'Pending', desc: 'The request has not finished yet.' },
+      };
+    case 'time':
+      return {
+        title: 'Time',
+        kicker,
+        summary: t('panel.network.colInfo.time.summary'),
+        description: t('panel.network.colInfo.time.description'),
+        diagram,
+      };
+    case 'priority':
+      return {
+        title: 'Priority',
+        kicker,
+        summary: t('panel.network.colInfo.priority.summary'),
+        description: t('panel.network.colInfo.priority.description'),
+        diagram,
+      };
+    case 'waterfall':
+      return {
+        title: 'Waterfall',
+        kicker,
+        summary: t('panel.network.colInfo.waterfall.summary'),
+        diagram,
+        sections: [
+          {
+            heading: t('panel.network.colInfo.waterfall.metricTagsHeading'),
+            items: [
+              { label: 'ST', desc: t('panel.network.colInfo.waterfall.stDesc') },
+              { label: 'RT', desc: t('panel.network.colInfo.waterfall.rtDesc') },
+              { label: 'ET', desc: t('panel.network.colInfo.waterfall.etDesc') },
+              { label: 'TD', desc: t('panel.network.colInfo.waterfall.tdDesc') },
+              { label: 'L', desc: t('panel.network.colInfo.waterfall.lDesc') },
+            ],
+          },
         ],
-      },
-    ],
-  },
-  time: {
-    title: 'Time',
-    kicker: 'Network',
-    summary: 'Active duration from request sent to the last response byte — time spent queued is excluded.',
-    description: 'Reads `0 ms` for an instant response; stays blank while a request is still in flight.',
-    diagram: <ExampleCard column="time" />,
-  },
-  priority: {
-    title: 'Priority',
-    kicker: 'Network',
-    summary: 'The fetch priority the browser assigned, from `Highest` down to `Lowest`.',
-    description: 'Higher-priority resources are requested sooner and given more of the connection. A page can nudge it with the `fetchpriority` attribute.',
-    diagram: <ExampleCard column="priority" />,
-  },
-  waterfall: {
-    title: 'Waterfall',
-    kicker: 'Network',
-    summary: 'A timeline bar per request. The header menu picks the metric, shown as a short tag like `Waterfall (ST)`.',
-    diagram: <ExampleCard column="waterfall" />,
-    sections: [
-      {
-        heading: 'Metric tags',
-        items: [
-          { label: 'ST', desc: 'Start time — bars sit on a shared timeline by when each request began.' },
-          { label: 'RT', desc: 'Response time — placed by when the first response byte arrived.' },
-          { label: 'ET', desc: 'End time — placed by when each request finished.' },
-          { label: 'TD', desc: 'Total duration — zero-aligned bars sized by full request duration.' },
-          { label: 'L', desc: 'Latency — zero-aligned bars split where the response started.' },
-        ],
-      },
-    ],
-  },
-};
+      };
+  }
+}
 
 export function NetworkColumnInfo({ infoKey }: { infoKey: ColumnKey }) {
+  const t = useT();
   return (
     <InfoTrigger
-      content={NETWORK_COLUMN_INFO[infoKey]}
+      content={networkColumnInfo(t, infoKey)}
       className="dt-header-info-trigger dt-col-info-trigger"
     />
   );

@@ -696,4 +696,113 @@ export const panel = {
   'panel.network.sortInfo.groupingDesc': 'Cluster by type, domain, or rule-modified.',
   'panel.network.sortInfo.custom': 'Custom',
   'panel.network.sortInfo.customDesc': 'Click a column header, or build a multi-key nested sort.',
+
+  // Network column `(i)` corpora. Titles are the raw column names
+  // (they name the raw header cells); item labels are wire vocabulary
+  // (GET, 2xx, h2, (pending), net::ERR_…, csp, ST/RT/…) and ride raw;
+  // the kicker reuses the tool-window label key.
+  'panel.network.colInfo.exampleCaption': 'Example request',
+  'panel.network.colInfo.name.summary':
+    "The resource's file name or last path segment — the quickest way to recognise a row.",
+  'panel.network.colInfo.name.description':
+    'The leading icon encodes the resource type; the row tooltip and the detail view carry the full URL, headers, payload, and timing.',
+  'panel.network.colInfo.path.summary': 'Everything after the host — the URL path plus its query string.',
+  'panel.network.colInfo.url.summary': 'The complete request URL: scheme, host, path, and query, end to end.',
+  'panel.network.colInfo.requestNumber.summary':
+    'A stable index assigned in the order requests were discovered while recording, starting at 1.',
+  'panel.network.colInfo.requestNumber.description':
+    'It never changes when you re-sort, so it doubles as a reference back to the original capture order.',
+  'panel.network.colInfo.method.summary': 'The HTTP verb the request used.',
+  'panel.network.colInfo.method.commonVerbsHeading': 'Common verbs',
+  'panel.network.colInfo.method.getDesc': 'Read a resource — no body, safe to repeat.',
+  'panel.network.colInfo.method.postDesc': 'Create or submit — carries a request body.',
+  'panel.network.colInfo.method.putPatchDesc': 'Replace or partially update a resource.',
+  'panel.network.colInfo.method.deleteDesc': 'Remove a resource.',
+  'panel.network.colInfo.status.summary':
+    'The HTTP response code (e.g. 200, 404), or a short state label when there is no code.',
+  'panel.network.colInfo.status.description':
+    'Status ranges are not colour-coded. A genuine failure — a wire error, any 4xx/5xx, or a CORS rejection — turns the whole row red; a cache hit or a no-status row dims the cell grey. The reason phrase (e.g. "Not Found") rides in the cell tooltip.',
+  'panel.network.colInfo.status.codeRangesHeading': 'Code ranges',
+  'panel.network.colInfo.status.s2xxDesc': 'Success — the request was received and handled (e.g. 200 OK).',
+  'panel.network.colInfo.status.s3xxDesc': 'Redirection — follow the Location header to the next URL.',
+  'panel.network.colInfo.status.s4xxDesc': 'Client error — the request was malformed, unauthorized, or not found.',
+  'panel.network.colInfo.status.s5xxDesc': 'Server error — the server failed to fulfil a valid request.',
+  'panel.network.colInfo.status.insteadHeading': 'Instead of a code',
+  'panel.network.colInfo.status.pendingDesc': 'Sent, but no response has arrived yet — grey while in flight.',
+  'panel.network.colInfo.status.failedDesc':
+    'A wire-level failure (DNS, TLS, timeout, lost connection); the net-stack code shows inline.',
+  'panel.network.colInfo.status.canceledDesc': 'The request was aborted before it completed.',
+  'panel.network.colInfo.status.blockedDesc':
+    'The browser refused it for a policy reason — e.g. csp, or other for an extension / ad-block.',
+  'panel.network.colInfo.status.corsDesc': 'A cross-origin check rejected the response.',
+  'panel.network.colInfo.status.dataDesc': 'A data: URL — served inline, never hit the network.',
+  'panel.network.colInfo.status.finishedDesc': 'A response that carried no status code.',
+  'panel.network.colInfo.protocol.summary': 'The HTTP version the connection negotiated, picked at handshake time.',
+  'panel.network.colInfo.protocol.valuesHeading': 'Values',
+  'panel.network.colInfo.protocol.http11Desc': 'Text-based, one request in flight per connection.',
+  'panel.network.colInfo.protocol.h2Desc': 'HTTP/2 — binary and multiplexed over a single connection.',
+  'panel.network.colInfo.protocol.h3Desc': 'HTTP/3 — runs on QUIC over UDP for faster handshakes.',
+  'panel.network.colInfo.scheme.summary': 'The URL scheme — `https`, `http`, `ws`, or `wss`.',
+  'panel.network.colInfo.domain.summary': 'The host name the request was addressed to.',
+  'panel.network.colInfo.remoteAddress.summary': 'The IP address and port the connection actually reached.',
+  'panel.network.colInfo.remoteAddress.description':
+    'Differs from the domain when DNS returns several IPs, a CDN routes by anycast, or a local proxy intercepts the connection.',
+  'panel.network.colInfo.type.summary':
+    'The resource type the browser assigned — it drives the row icon and the filter chips above the table.',
+  'panel.network.colInfo.type.examplesHeading': 'Examples',
+  'panel.network.colInfo.type.documentDesc': 'A top-level or framed HTML navigation.',
+  'panel.network.colInfo.type.fetchXhrDesc': 'A data request made from JavaScript.',
+  'panel.network.colInfo.type.scriptCssDesc': 'Page resources loaded by the parser.',
+  'panel.network.colInfo.type.imgFontMediaDesc': 'Static assets.',
+  'panel.network.colInfo.initiator.summary': 'What caused the request to be sent.',
+  'panel.network.colInfo.initiator.kindsHeading': 'Kinds',
+  'panel.network.colInfo.initiator.scriptDesc': 'Fired from JavaScript — the cell links to the call site.',
+  'panel.network.colInfo.initiator.parserDesc':
+    'The HTML parser found the resource (a `<script>`, `<img>`, `<link>`…).',
+  'panel.network.colInfo.initiator.redirectDesc': 'A `3xx` response sent the browser here.',
+  'panel.network.colInfo.initiator.otherDesc': 'A navigation, a preload, or an unattributed source.',
+  'panel.network.colInfo.cookies.summary':
+    'How many cookies the browser attached to the request in its `Cookie` header. Blank when none.',
+  'panel.network.colInfo.setCookies.summary': 'How many `Set-Cookie` headers the response returned. Blank when none.',
+  'panel.network.colInfo.setCookies.description':
+    "Open the request's Cookies tab to see whether the browser accepted or dropped each one.",
+  'panel.network.colInfo.size.summary':
+    'Bytes that crossed the wire, response headers and compression overhead included.',
+  'panel.network.colInfo.size.insteadHeading': 'Instead of a number',
+  'panel.network.colInfo.size.diskCacheDesc': 'Served from the on-disk cache — nothing hit the network.',
+  'panel.network.colInfo.size.memoryCacheDesc': 'Served from the in-memory cache for the current page.',
+  'panel.network.colInfo.size.pendingDesc': 'The request has not finished yet.',
+  'panel.network.colInfo.time.summary':
+    'Active duration from request sent to the last response byte — time spent queued is excluded.',
+  'panel.network.colInfo.time.description':
+    'Reads `0 ms` for an instant response; stays blank while a request is still in flight.',
+  'panel.network.colInfo.priority.summary':
+    'The fetch priority the browser assigned, from `Highest` down to `Lowest`.',
+  'panel.network.colInfo.priority.description':
+    'Higher-priority resources are requested sooner and given more of the connection. A page can nudge it with the `fetchpriority` attribute.',
+  'panel.network.colInfo.waterfall.summary':
+    'A timeline bar per request. The header menu picks the metric, shown as a short tag like `Waterfall (ST)`.',
+  'panel.network.colInfo.waterfall.metricTagsHeading': 'Metric tags',
+  'panel.network.colInfo.waterfall.stDesc':
+    'Start time — bars sit on a shared timeline by when each request began.',
+  'panel.network.colInfo.waterfall.rtDesc': 'Response time — placed by when the first response byte arrived.',
+  'panel.network.colInfo.waterfall.etDesc': 'End time — placed by when each request finished.',
+  'panel.network.colInfo.waterfall.tdDesc': 'Total duration — zero-aligned bars sized by full request duration.',
+  'panel.network.colInfo.waterfall.lDesc': 'Latency — zero-aligned bars split where the response started.',
+
+  // OH-native rail header popovers (the ● / ⚠ / ℹ glyphs ride raw)
+  'panel.network.fireRail.summary': 'A dot marks each request that one of your rules acted on.',
+  'panel.network.fireRail.dotColorsHeading': 'Dot colors',
+  'panel.network.fireRail.appliedDesc':
+    'Applied — the rule engine confirmed the rule executed, our in-page reporter confirmed the action ran, or the modification is visible in the captured headers.',
+  'panel.network.fireRail.inferredDesc': 'Inferred — the rule matched, application not verifiable for this request.',
+  'panel.network.fireRail.contradictedDesc':
+    'Contradicted — the rule claimed a header change the captured headers disprove.',
+  'panel.network.annotationRail.summary':
+    'Flags what OpenHeaders knows beyond what the columns show. Hover a glyph for the explanation; click it to open the details.',
+  'panel.network.annotationRail.glyphsHeading': 'Glyphs',
+  'panel.network.annotationRail.warnDesc':
+    'The row is not what it looks like — e.g. a transfer interrupted mid-download.',
+  'panel.network.annotationRail.infoDesc':
+    'Provenance or fidelity context — never finished, capture gap, synthesized row.',
 } as const satisfies Catalog;
