@@ -7,9 +7,12 @@
  * warnings — the document is valid but a generated collection would
  * lose those spots. Local only: no network, no external linters.
  *
- * `useSpecValidation` debounces the pure check behind an idle delay so
- * typing never parses per keystroke (performance law); the last result
- * stays on screen while the next parse is pending.
+ * `useSpecAnalysis` debounces the pure checks behind an idle delay so
+ * typing never parses per keystroke (performance law); each idle tick
+ * produces the validation result AND the derived outline in one pass.
+ * The last validation result stays on screen while the next parse is
+ * pending; the outline keeps the last GOOD tree when the buffer stops
+ * parsing (a half-typed edit shouldn't blank the structure pane).
  *
  * Syntax derives from the file extension (invariant #15) — the
  * `specFileLanguage` / `specFileSyntaxLabel` pair is the single
@@ -19,6 +22,7 @@
 import { OpenApiParseError, parseOpenApi, SCHEMA_ONLY_RESPONSES_DROP_PATH } from '@openheaders/core/import';
 import { useEffect, useState } from 'react';
 import type { LanguageId } from '../../languages/registry';
+import { buildSpecOutline, type SpecOutline } from './spec-outline';
 
 export interface SpecValidationResult {
   /** Parse failures — the document does not parse at all. */
@@ -61,15 +65,28 @@ export function validateSpecSource(content: string): SpecValidationResult {
 /** Idle delay before the buffer re-parses. */
 const PARSE_IDLE_MS = 500;
 
+export interface SpecAnalysis {
+  /** Latest settled validation, null until the first parse lands. */
+  validation: SpecValidationResult | null;
+  /** Last GOOD outline — held through parse failures so a half-typed
+   *  edit doesn't blank the structure pane; null until the buffer has
+   *  parsed once. */
+  outline: SpecOutline | null;
+}
+
 /**
- * Debounced validation of the live buffer. Returns `null` until the
- * first parse lands; afterwards always the latest settled result.
+ * Debounced analysis of the live buffer — validation and outline from
+ * one idle tick, never per keystroke.
  */
-export function useSpecValidation(content: string): SpecValidationResult | null {
-  const [result, setResult] = useState<SpecValidationResult | null>(null);
+export function useSpecAnalysis(content: string): SpecAnalysis {
+  const [analysis, setAnalysis] = useState<SpecAnalysis>({ validation: null, outline: null });
   useEffect(() => {
-    const timer = setTimeout(() => setResult(validateSpecSource(content)), PARSE_IDLE_MS);
+    const timer = setTimeout(() => {
+      const validation = validateSpecSource(content);
+      const outline = buildSpecOutline(content);
+      setAnalysis((prev) => ({ validation, outline: outline ?? prev.outline }));
+    }, PARSE_IDLE_MS);
     return () => clearTimeout(timer);
   }, [content]);
-  return result;
+  return analysis;
 }
