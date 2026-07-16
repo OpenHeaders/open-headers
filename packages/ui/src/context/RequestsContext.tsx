@@ -32,7 +32,7 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
-import type { Collection, CollectionTree, Request } from '@openheaders/core/types';
+import type { Collection, CollectionTree, Request, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
@@ -46,6 +46,7 @@ import {
   applyRequestCollectionRename,
   applyRequestCollectionSetAuth,
   applyRequestCollectionSetScripts,
+  applyRequestCollectionVariablesReplacement,
 } from '../shared/sync/request-collection-write-client';
 import {
   applyRequestFolderCreate,
@@ -114,6 +115,11 @@ export interface RequestsContextValue {
   setCollectionAuth: (collectionUid: string, auth: AuthConfig) => Promise<boolean>;
   setFolderAuth: (folderUid: string, auth: AuthConfig) => Promise<boolean>;
 
+  /** Replace a collection's variables list — import-modal landing leg
+   *  (fresh collections; rows arrive uid-minted). Same override-branch
+   *  discipline as the other ancestor setters. */
+  setCollectionVariables: (collectionUid: string, variables: Variable[]) => Promise<boolean>;
+
   execute: (input: {
     requestUid?: string;
     draft?: Request;
@@ -145,6 +151,7 @@ const defaultContextValue: RequestsContextValue = {
   setFolderScripts: () => Promise.resolve(false),
   setCollectionAuth: () => Promise.resolve(false),
   setFolderAuth: () => Promise.resolve(false),
+  setCollectionVariables: () => Promise.resolve(false),
   execute: () => Promise.resolve(null),
 };
 
@@ -575,6 +582,20 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
+  const setCollectionVariables = useCallback<RequestsContextValue['setCollectionVariables']>(
+    async (collectionUid, variables) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const result = await applyRequestCollectionVariablesReplacement(collectionUid, variables, [], {
+        workspaceId: wsId,
+        surfaceId,
+      });
+      return result.ok;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
   const execute = useCallback<RequestsContextValue['execute']>(async (input) => {
     const resp = await hostBridge.call('executeRequest', input).catch(() => null);
     return resp?.success ? (resp.snapshot ?? null) : null;
@@ -601,6 +622,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setFolderScripts,
       setCollectionAuth,
       setFolderAuth,
+      setCollectionVariables,
       execute,
     }),
     [
@@ -623,6 +645,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setFolderScripts,
       setCollectionAuth,
       setFolderAuth,
+      setCollectionVariables,
       execute,
     ],
   );

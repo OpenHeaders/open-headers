@@ -278,6 +278,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         case 'postman-backup':
         case 'insomnia':
         case 'bruno':
+        case 'openapi':
           setImportSectionedState({ open: true, kind: detected.kind, text });
           break;
         case 'workspace':
@@ -522,6 +523,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         setFolderScripts={requestsApi.setFolderScripts}
         setCollectionAuth={requestsApi.setCollectionAuth}
         setFolderAuth={requestsApi.setFolderAuth}
+        setCollectionVariables={requestsApi.setCollectionVariables}
         createRequest={async ({ name, parentPath, seed }) => {
           const r = await requestsApi.createRequest({ name, parentPath, seed });
           return r ? { uid: r.uid } : null;

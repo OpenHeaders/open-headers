@@ -27,10 +27,12 @@ import {
   type ImportReport,
   type ImportReportDiff,
   InsomniaParseError,
+  OpenApiParseError,
   PostmanBackupParseError,
   parseBruno,
   parseBrunoFiles,
   parseInsomnia,
+  parseOpenApi,
   parsePostmanBackup,
   recordDrop,
 } from '@openheaders/core/import';
@@ -48,7 +50,7 @@ const { Text, Paragraph } = Typography;
 
 // ── Source-neutral parse shape ─────────────────────────────────────
 
-export type SectionedSourceKind = 'postman-backup' | 'insomnia' | 'bruno';
+export type SectionedSourceKind = 'postman-backup' | 'insomnia' | 'bruno' | 'openapi';
 
 interface SectionedCollection {
   name: string;
@@ -56,8 +58,12 @@ interface SectionedCollection {
    *  them; Insomnia/Bruno parsers keep their own drop notes). */
   preRequestScript?: string;
   postResponseScript?: string;
-  /** Collection-level default auth (Postman backups carry it). */
+  /** Collection-level default auth (Postman backups and OpenAPI
+   *  documents carry it). */
   auth?: AuthConfig;
+  /** Collection variables (OpenAPI: `{{baseUrl}}` + valued path
+   *  parameters — load-bearing, every imported URL references them). */
+  variables?: Array<{ name: string; value: string; type: 'default' | 'secret' }>;
   folders: Array<{ path: string[]; preRequestScript?: string; postResponseScript?: string; auth?: AuthConfig }>;
   requests: Array<{ folderPath: string[]; request: CurlRequest }>;
 }
@@ -99,6 +105,13 @@ const SOURCE_LABELS: Record<SectionedSourceKind, { title: string; blurb: string 
       'basic/bearer/api-key auth are preserved; a folder brings its folder tree, ordering, and environments; ' +
       'scripts, tests, and docs blocks are tracked as drops.',
   },
+  openapi: {
+    title: 'IMPORT FROM OPENAPI',
+    blurb:
+      'Import an OpenAPI 3.x document (JSON or YAML). Operations become requests under {{baseUrl}}, tags become ' +
+      'folders, parameters and request bodies are preserved (schema-only bodies get a placeholder scaffold), and ' +
+      'security schemes map to auth — fill in the {{clientId}}/{{clientSecret}} placeholders after importing.',
+  },
 };
 
 function fromBrunoResult(r: BrunoParseResult): SectionedParse {
@@ -136,7 +149,13 @@ function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse
     case 'insomnia': {
       const r = parseInsomnia(text);
       return {
-        collections: r.collections.map((c) => ({ name: c.name, folders: c.folders, requests: c.requests })),
+        collections: r.collections.map((c) => ({
+          name: c.name,
+          ...(c.auth !== undefined ? { auth: c.auth } : {}),
+          ...(c.variables !== undefined && c.variables.length > 0 ? { variables: c.variables } : {}),
+          folders: c.folders,
+          requests: c.requests,
+        })),
         environments: r.environments.map((e) => ({ name: e.name, variables: e.variables })),
         headerPresets: [],
         report: r.report,
@@ -144,6 +163,26 @@ function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse
     }
     case 'bruno':
       return fromBrunoResult(parseBruno(text));
+    case 'openapi': {
+      // Response examples stay off — this modal has no example write
+      // leg yet, so the parser keeps the honest aggregate note instead
+      // of emitting payloads that would be silently discarded.
+      const r = parseOpenApi(text);
+      return {
+        collections: [
+          {
+            name: r.collectionName,
+            ...(r.collectionAuth !== undefined ? { auth: r.collectionAuth } : {}),
+            ...(r.collectionVariables.length > 0 ? { variables: r.collectionVariables } : {}),
+            folders: r.folders,
+            requests: r.requests,
+          },
+        ],
+        environments: [],
+        headerPresets: [],
+        report: r.report,
+      };
+    }
   }
 }
 
@@ -175,6 +214,9 @@ interface ImportSectionedModalProps {
   setCollectionAuth?: (collectionUid: string, auth: AuthConfig) => Promise<boolean>;
   /** Lands folder-level default auth on a new folder. */
   setFolderAuth?: (folderUid: string, auth: AuthConfig) => Promise<boolean>;
+  /** Lands collection variables on a new collection (OpenAPI's
+   *  `{{baseUrl}}` — every imported URL references it). */
+  setCollectionVariables?: (collectionUid: string, variables: Variable[]) => Promise<boolean>;
   createRequest: (payload: {
     name: string;
     parentPath: string;
@@ -194,7 +236,10 @@ type Stage = { kind: 'empty' } | { kind: 'parsed'; source: string; result: Secti
 
 function toStageError(err: unknown): Stage {
   const known =
-    err instanceof PostmanBackupParseError || err instanceof InsomniaParseError || err instanceof BrunoParseError;
+    err instanceof PostmanBackupParseError ||
+    err instanceof InsomniaParseError ||
+    err instanceof BrunoParseError ||
+    err instanceof OpenApiParseError;
   return { kind: 'error', message: known ? (err as Error).message : `Failed to read input: ${String(err)}` };
 }
 
@@ -237,6 +282,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   setFolderScripts,
   setCollectionAuth,
   setFolderAuth,
+  setCollectionVariables,
   createRequest,
   createEnvironment,
   createHeaderRules,
@@ -333,6 +379,30 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
         }
         if (setCollectionAuth && section.auth !== undefined) {
           await setCollectionAuth(coll.uid, section.auth);
+        }
+        if (section.variables !== undefined && section.variables.length > 0) {
+          if (setCollectionVariables) {
+            const rows: Variable[] = section.variables.map((v) => ({
+              uid: generateUid(),
+              name: v.name,
+              value: v.value,
+              type: v.type,
+            }));
+            const landed = await setCollectionVariables(coll.uid, rows);
+            if (!landed) {
+              recordDrop(report, {
+                path: `collections[${i}].variables`,
+                reason: `${rows.length} collection variable${rows.length === 1 ? '' : 's'} failed to write — set them on the collection's Variables page.`,
+                tracking: 'PERMANENT: write-path failure',
+              });
+            }
+          } else {
+            recordDrop(report, {
+              path: `collections[${i}].variables`,
+              reason: `${section.variables.length} collection variable${section.variables.length === 1 ? '' : 's'} not imported — this surface has no collection-variable write leg.`,
+              tracking: '#todo-file-import-collection-variables',
+            });
+          }
         }
         const folderPathMap = new Map<string, string>();
         folderPathMap.set('', coll.path);
@@ -448,6 +518,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
     setFolderScripts,
     setCollectionAuth,
     setFolderAuth,
+    setCollectionVariables,
     createRequest,
     createEnvironment,
     createHeaderRules,
@@ -555,6 +626,11 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
                     <Tag icon={<FolderOutlined />}>
                       Folders: <strong>{c.folders.length}</strong>
                     </Tag>
+                    {c.variables !== undefined && c.variables.length > 0 && (
+                      <Tag>
+                        Collection vars: <strong>{c.variables.length}</strong>
+                      </Tag>
+                    )}
                   </Space>
                 </div>
               ))}

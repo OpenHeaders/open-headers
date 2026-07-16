@@ -195,8 +195,8 @@ const ImportSourceModal: React.FC<Props> = ({
               </div>
               {pasteText.trim().length > 0 && !recognized && (
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
-                  Not recognized yet — paste a curl command, a URL, a HAR, a Postman / Insomnia / Bruno export, or a
-                  workspace export.
+                  Not recognized yet — paste a curl command, a URL, a HAR, a Postman / Insomnia / Bruno export, an
+                  OpenAPI document, or a workspace export.
                 </Text>
               )}
             </div>
@@ -261,6 +261,7 @@ const ImportSourceModal: React.FC<Props> = ({
                 <li>
                   Bruno <code>.bru</code> file or collection folder
                 </li>
+                <li>OpenAPI 3.x document</li>
                 <li>
                   <code>.openheaders.yaml</code> workspace export
                 </li>
