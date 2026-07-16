@@ -14,6 +14,9 @@ interface NodeBufferCtor {
   from(input: string, encoding: string): NodeBufferLike;
   from(input: Uint8Array): NodeBufferLike;
 }
+interface NodeBufferBytesCtor {
+  from(input: string, encoding: string): Uint8Array;
+}
 
 const nodeBuffer = (globalThis as { Buffer?: NodeBufferCtor }).Buffer;
 
@@ -33,6 +36,26 @@ export function encodeBase64Bytes(bytes: Uint8Array): string {
   }
   if (nodeBuffer) return nodeBuffer.from(bytes).toString('base64');
   throw new Error('No base64 encoder available in this environment');
+}
+
+/** Decode standard or URL-safe base64 to raw bytes (padding optional);
+ *  returns `null` on malformed input. */
+export function decodeBase64Bytes(value: string): Uint8Array | null {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+  try {
+    if (typeof atob === 'function') {
+      const binary = atob(padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+    const nodeBufferBytes = (globalThis as { Buffer?: NodeBufferBytesCtor }).Buffer;
+    if (nodeBufferBytes) return nodeBufferBytes.from(padded, 'base64');
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /** Decode standard base64 to a UTF-8 string; returns `null` on malformed input. */
