@@ -25,7 +25,9 @@ import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWo
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useAllResponseExamples } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
+import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
+import { applySpecUpdate } from '@openheaders/ui/shared/sync/spec-write-client';
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
@@ -316,6 +318,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // All examples in the editing-scope workspace — feeds the live tab
   // display-label lookup for response-example viewer tabs.
   const responseExamples = useAllResponseExamples(editingScopeWorkspaceId);
+  // All specs in the editing-scope workspace — feeds the spec-edit tab
+  // display-label lookup and the deleted-spec tab cleanup.
+  const specs = useSpecs(editingScopeWorkspaceId);
   // ── Editor groups (recursive split tree) ──────────────────────
   const groups = useEditorGroups({ perTab });
   // ── Sidebar tree-expansion state (lifted into the per-tab snapshot) ─
@@ -501,6 +506,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openWorkspaceManager,
     openDaemonAdmin,
     openEnvironmentEdit,
+    openSpecEdit,
     openWorkspaceVariables,
     openVault,
     openScriptPackages,
@@ -834,6 +840,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     templateCollectionTrees,
     liveVariables: liveVarsApi.variables,
     liveWorkflows: liveWorkflowsApi.workflows,
+    specs,
     allTabs,
     updateTab,
     closeTab: rawCloseTab,
@@ -883,6 +890,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     liveVariables: liveVarsApi.variables,
     liveWorkflows: liveWorkflowsApi.workflows,
     responseExamples,
+    specs,
     workspaces: workspacesApi.workspaces,
     editingScopeWorkspaceId,
     updateTab,
@@ -901,6 +909,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         updateTab(tab.id, { label: newName });
       } else if (tab.mode === 'env-edit' && tab.environmentUid) {
         void envApi.renameEnvironment(tab.environmentUid, newName);
+        updateTab(tab.id, { label: newName });
+      } else if (tab.mode === 'spec-edit' && tab.specUid && editingScopeWorkspaceId) {
+        void applySpecUpdate(
+          tab.specUid,
+          { name: newName },
+          { workspaceId: editingScopeWorkspaceId, surfaceId: 'workbench' },
+        );
         updateTab(tab.id, { label: newName });
       } else if (tab.mode === 'request-edit' && tab.requestUid) {
         void requestsApi.updateRequest(tab.requestUid, { name: newName });
@@ -929,6 +944,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       liveWorkflowsApi,
       updateTab,
       setPendingRenameTabId,
+      editingScopeWorkspaceId,
     ],
   );
 
@@ -1165,6 +1181,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       viewActivityEntity(entityType, entityId, {
         openEditTab,
         openEnvironmentEdit,
+        openSpecEdit,
         openRequestEditTab,
         openTemplateEditTab,
         openLiveVariableEdit,
@@ -1182,6 +1199,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     [
       openEditTab,
       openEnvironmentEdit,
+      openSpecEdit,
       openRequestEditTab,
       openTemplateEditTab,
       openLiveVariableEdit,
@@ -1219,6 +1237,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openTemplateCollectionOverview={openTemplateCollectionOverview}
         openTemplateFolderOverview={openTemplateFolderOverview}
         openEnvironmentEdit={openEnvironmentEdit}
+        openSpecEdit={openSpecEdit}
         openCreateEnvironment={() => {
           void handleCreateEnvironment();
         }}
@@ -1265,6 +1284,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       tl,
       activeTab,
       openEnvironmentEdit,
+      openSpecEdit,
       handleCreateEnvironment,
       openVault,
       openWorkspaceVariables,

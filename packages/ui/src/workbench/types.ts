@@ -27,6 +27,7 @@ export type TabMode =
   | 'workspace-manager'
   | 'daemon-admin'
   | 'env-edit'
+  | 'spec-edit'
   | 'workspace-vars'
   | 'vault'
   | 'script-packages'
@@ -125,6 +126,8 @@ export interface WorkbenchTab {
    * surfaces independent).
    */
   environmentUid?: string;
+  /** For spec-edit tabs: the Spec uid being edited. */
+  specUid?: string;
   /** For collection-vars tabs: the collection uid whose variables are being edited. */
   collectionUid?: string;
   /** For request-edit tabs: the Request uid being edited. For

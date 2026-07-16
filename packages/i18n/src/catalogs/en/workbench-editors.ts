@@ -1078,6 +1078,27 @@ export const workbenchEditors = {
     'The response was still streaming when the exchange ended, so the body below is the partial capture up to that point — everything that arrived was kept.',
   'workbench.editors.request.response.streamReceiving': 'Receiving stream — {size}',
 
+  // ── SSE event list (event names like `message`/`comment` are wire
+  //    grammar terms and stay untranslated) ────────────────────────────
+  'workbench.editors.request.response.sse.connected': 'Connected to {url}',
+  'workbench.editors.request.response.sse.closed': 'Connection closed',
+  'workbench.editors.request.response.sse.stopped': 'Connection stopped',
+  'workbench.editors.request.response.sse.capped': 'Capture capped — the body limit was reached',
+  'workbench.editors.request.response.sse.timedOut': 'Connection timed out',
+  'workbench.editors.request.response.sse.failed': 'Connection failed',
+  'workbench.editors.request.response.sse.searchEvents': 'Search events',
+  'workbench.editors.request.response.sse.noMatches': 'No events match.',
+  'workbench.editors.request.response.sse.waiting': 'Waiting for events…',
+  'workbench.editors.request.response.sse.eventCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} event', other: '{count} events' }),
+  'workbench.editors.request.response.sse.clearEvents': 'Clear events (display only)',
+  'workbench.editors.request.response.sse.showOlder': ({ count }, locale) =>
+    plural(locale, Number(count), { one: 'Show {count} older event', other: 'Show {count} older events' }),
+  'workbench.editors.request.response.sse.infoId': 'ID',
+  'workbench.editors.request.response.sse.infoSize': 'Size',
+  'workbench.editors.request.response.sse.infoRetry': 'Retry',
+  'workbench.editors.request.response.sse.eventInfoAria': 'Event details',
+
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': 'Response truncated at {cap} (original {size}).',
   'workbench.editors.request.response.body.increaseLimit': 'Increase limit',
@@ -1183,6 +1204,9 @@ export const workbenchEditors = {
   'workbench.editors.responseExample.format': 'Format',
   'workbench.editors.responseExample.formatBody': 'Format body',
   'workbench.editors.responseExample.noFormatter': 'No formatter for {language}',
+
+  // ── Spec editor (API specification documents) ─────────────────────
+  'workbench.editors.spec.notFound': 'Specification not found.',
 
   // ── Script editor (snippets/packages menus, save-to-package flow,
   //    ScriptsTab's own Monaco context-menu actions). Snippet code

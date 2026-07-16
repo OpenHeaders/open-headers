@@ -27,6 +27,7 @@ const SECTION_VIEW_OWNERSHIP: Record<string, SidebarView | 'multi'> = {
   rules: 'http-rules',
   templates: 'http-rules',
   'api-requests': 'api-requests',
+  specs: 'api-requests',
   workflows: 'workflows',
   environments: 'multi',
 };
@@ -100,6 +101,16 @@ export function useSelectOpenedTab({
       nodeId = activeTabId;
       if (shouldAutoExpandSection('environments', view)) {
         setSectionsExpanded((prev) => ({ ...prev, environments: true }));
+      }
+      setFocusedId(nodeId);
+      setTimeout(() => {
+        containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
+    } else if (activeTabId.startsWith('spec-')) {
+      nodeId = activeTabId;
+      if (shouldAutoExpandSection('specs', view)) {
+        setSectionsExpanded((prev) => ({ ...prev, specs: true }));
       }
       setFocusedId(nodeId);
       setTimeout(() => {

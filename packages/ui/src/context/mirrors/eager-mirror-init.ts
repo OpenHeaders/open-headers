@@ -63,6 +63,7 @@ import { getRequestCollectionSyncMirrorForWorkspace } from './request-collection
 import { getRequestFolderSyncMirrorForWorkspace } from './request-folder-sync-mirror';
 import { getRequestSyncMirrorForWorkspace } from './request-sync-mirror';
 import { getRuleSyncMirrorForWorkspace } from './rule-sync-mirror';
+import { getSpecSyncMirrorForWorkspace } from './spec-sync-mirror';
 import { getTemplateCollectionSyncMirrorForWorkspace } from './template-collection-sync-mirror';
 import { getTemplateFolderSyncMirrorForWorkspace } from './template-folder-sync-mirror';
 import { getTemplateSyncMirrorForWorkspace } from './template-sync-mirror';
@@ -88,6 +89,7 @@ function instantiateMirrorsForWorkspace(workspaceId: string): void {
   getRequestFolderSyncMirrorForWorkspace(workspaceId);
   getRequestSyncMirrorForWorkspace(workspaceId);
   getRuleSyncMirrorForWorkspace(workspaceId);
+  getSpecSyncMirrorForWorkspace(workspaceId);
   getTemplateCollectionSyncMirrorForWorkspace(workspaceId);
   getTemplateFolderSyncMirrorForWorkspace(workspaceId);
   getTemplateSyncMirrorForWorkspace(workspaceId);

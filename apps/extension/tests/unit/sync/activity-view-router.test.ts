@@ -23,6 +23,7 @@ import {
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
+  SPEC_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
@@ -46,6 +47,7 @@ function makeRoutes(): ActivityViewRoutes & {
   return {
     openEditTab: record('openEditTab'),
     openEnvironmentEdit: record('openEnvironmentEdit'),
+    openSpecEdit: record('openSpecEdit'),
     openRequestEditTab: record('openRequestEditTab'),
     openTemplateEditTab: record('openTemplateEditTab'),
     openLiveVariableEdit: record('openLiveVariableEdit'),
@@ -73,6 +75,12 @@ describe('viewActivityEntity', () => {
     const routes = makeRoutes();
     expect(viewActivityEntity(ENVIRONMENT_ENTITY_TYPE, 'env-1', routes)).toBe(true);
     expect(routes.__calls.openEnvironmentEdit).toEqual(['env-1', 'Environment']);
+  });
+
+  it('routes spec entries to openSpecEdit(uid, label)', () => {
+    const routes = makeRoutes();
+    expect(viewActivityEntity(SPEC_ENTITY_TYPE, 'spec-1', routes)).toBe(true);
+    expect(routes.__calls.openSpecEdit).toEqual(['spec-1', 'Spec']);
   });
 
   it('routes request entries to openRequestEditTab(uid, label)', () => {

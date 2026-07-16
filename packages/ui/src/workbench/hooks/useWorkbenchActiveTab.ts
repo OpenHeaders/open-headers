@@ -7,6 +7,7 @@ import {
   REQUEST_ENTITY_TYPE,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
+  SPEC_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
@@ -24,6 +25,7 @@ import type {
   Request,
   ResponseExample,
   Rule,
+  Spec,
   Template,
 } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -52,6 +54,7 @@ interface UseWorkbenchActiveTabOptions {
   liveVariables: LiveVariable[];
   liveWorkflows: LiveWorkflow[];
   responseExamples: readonly ResponseExample[];
+  specs: readonly Spec[];
   workspaces: ExtensionWorkspace[];
   editingScopeWorkspaceId: string | null;
   /** Tab patcher from `useEditorGroups` — backs the env-switcher's
@@ -93,6 +96,7 @@ export function useWorkbenchActiveTab({
   liveVariables,
   liveWorkflows,
   responseExamples,
+  specs,
   workspaces,
   editingScopeWorkspaceId,
   updateTab,
@@ -138,6 +142,8 @@ export function useWorkbenchActiveTab({
         return activeTab.environmentUid
           ? { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: activeTab.environmentUid }
           : null;
+      case 'spec-edit':
+        return activeTab.specUid ? { entityType: SPEC_ENTITY_TYPE, entityId: activeTab.specUid } : null;
       case 'workspace-vars':
         // Singleton entity — fixed id; the publisher composes presence
         // from the editor's `useEditorDirty` + `EntityScopeProvider`.
@@ -188,6 +194,7 @@ export function useWorkbenchActiveTab({
       liveVariables,
       liveWorkflows,
       responseExamples,
+      specs,
     }),
     [
       rules,
@@ -200,6 +207,7 @@ export function useWorkbenchActiveTab({
       liveVariables,
       liveWorkflows,
       responseExamples,
+      specs,
     ],
   );
   const getTabDisplayLabel = useCallback(

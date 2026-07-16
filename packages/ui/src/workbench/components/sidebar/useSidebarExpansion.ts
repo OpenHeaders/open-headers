@@ -131,9 +131,9 @@ export function useSidebarExpansion({
 
     if (view === 'api-requests') {
       const reqOpen = sectionsExpanded['api-requests'] === true;
-      const allClosed = !reqOpen && sectionsExpanded.environments !== true;
+      const allClosed = !reqOpen && sectionsExpanded.specs !== true && sectionsExpanded.environments !== true;
       if (allClosed) {
-        setSectionsExpanded({ 'api-requests': true, environments: true });
+        setSectionsExpanded({ 'api-requests': true, specs: true, environments: true });
       }
       const ownedKeys = new Set<string>();
       if (reqOpen || allClosed) {

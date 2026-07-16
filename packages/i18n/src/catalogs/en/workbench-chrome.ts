@@ -36,6 +36,7 @@ export const workbenchChrome = {
   'workbench.sidebar.section.workspaceVariables': 'WORKSPACE VARIABLES',
   'workbench.sidebar.section.liveVariables': 'LIVE VARIABLES',
   'workbench.sidebar.section.packageLibrary': 'PACKAGE LIBRARY',
+  'workbench.sidebar.section.specs': 'SPECS',
 
   // ── Sidebar: per-view header title ──────────────────────────────────
   'workbench.sidebar.view.httpRules': 'HTTP Rules',
@@ -47,6 +48,7 @@ export const workbenchChrome = {
   'workbench.sidebar.header.newRule': 'New rule',
   'workbench.sidebar.header.addRequest': 'Add request',
   'workbench.sidebar.header.createNewEnvironment': 'Create new environment',
+  'workbench.sidebar.header.createNewSpec': 'Create new specification',
   'workbench.sidebar.header.newWorkflow': 'New workflow',
   'workbench.sidebar.header.newTemplateCollection': 'New template collection',
   'workbench.sidebar.header.exportSelected': 'Export {count} selected…',
@@ -164,6 +166,9 @@ export const workbenchChrome = {
   'workbench.sidebar.toast.deleteExampleFailed': 'Failed to delete example',
   'workbench.sidebar.toast.createRequestCollectionFailed': 'Failed to create request collection',
   'workbench.sidebar.toast.createEnvironmentFailed': 'Failed to create environment',
+  'workbench.sidebar.toast.createSpecFailed': 'Failed to create specification',
+  'workbench.sidebar.toast.renameSpecFailed': 'Failed to rename specification',
+  'workbench.sidebar.toast.deleteSpecFailed': 'Failed to delete specification',
 
   // ── Sidebar: folder drag-and-drop ───────────────────────────────────
   'workbench.sidebar.dnd.dragToReorderFolder': 'Drag to reorder folder',
@@ -347,6 +352,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.workspaces': 'Workspaces',
   'workbench.shell.breadcrumbs.daemonAdmin': 'Daemon admin',
   'workbench.shell.breadcrumbs.environments': 'Environments',
+  'workbench.shell.breadcrumbs.specs': 'Specs',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Workspace Variables',
   'workbench.shell.breadcrumbs.vault': 'Vault',
   'workbench.shell.breadcrumbs.packageLibrary': 'Package Library',

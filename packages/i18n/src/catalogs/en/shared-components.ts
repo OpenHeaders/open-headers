@@ -256,6 +256,7 @@ export const sharedComponents = {
   'shared.defaults.newRulesCollection': 'New Rules Collection',
   'shared.defaults.newRequestsCollection': 'New Requests Collection',
   'shared.defaults.newEnvironment': 'New Environment',
+  'shared.defaults.newSpec': 'New Specification',
 
   // ── Rule-type registry (multi-surface: workbench create menus +
   //    overviews + command palette + tool-window info, popup

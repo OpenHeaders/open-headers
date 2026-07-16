@@ -98,6 +98,7 @@ export function tabIcon(
   if (tab.mode === 'workspace-manager') return <AppstoreOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'daemon-admin') return <TeamOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'env-edit') return scopeBadge('environment');
+  if (tab.mode === 'spec-edit') return <FileTextOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');
   if (tab.mode === 'vault') return scopeBadge('vault');
   if (tab.mode === 'script-packages') return <CodeSandboxOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;

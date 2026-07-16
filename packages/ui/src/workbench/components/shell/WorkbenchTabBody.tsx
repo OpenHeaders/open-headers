@@ -32,6 +32,7 @@ import RequestEditor from '../request-editor/RequestEditor';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import ResponseExampleView from '../response-example/ResponseExampleView';
 import RuleEditor from '../rule/RuleEditor';
+import SpecEditorTab from '../specs/SpecEditorTab';
 import TemplateCollectionOverview from '../overviews/TemplateCollectionOverview';
 import TemplateEditor from '../template/TemplateEditor';
 import TemplateFolderOverview from '../overviews/TemplateFolderOverview';
@@ -270,6 +271,9 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
     );
+  }
+  if (tab.mode === 'spec-edit' && tab.specUid) {
+    return <SpecEditorTab specUid={tab.specUid} workspaceId={editingScopeWorkspaceId} />;
   }
   if (tab.mode === 'workspace-vars') {
     return (

@@ -23,6 +23,7 @@ import {
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
+  SPEC_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
@@ -38,6 +39,7 @@ import {
 export interface ActivityViewRoutes {
   openEditTab: (uid: string) => void;
   openEnvironmentEdit: (uid: string, name: string) => void;
+  openSpecEdit: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string) => void;
   openTemplateEditTab: (uid: string) => void;
   openLiveVariableEdit: (uid: string, name: string) => void;
@@ -60,6 +62,7 @@ export interface ActivityViewRoutes {
  */
 const PLACEHOLDER_LABELS: Readonly<Record<string, string>> = {
   [ENVIRONMENT_ENTITY_TYPE]: 'Environment',
+  [SPEC_ENTITY_TYPE]: 'Spec',
   [REQUEST_ENTITY_TYPE]: 'Request',
   [LIVE_VARIABLE_ENTITY_TYPE]: 'Live Variable',
   [LIVE_WORKFLOW_ENTITY_TYPE]: 'Workflow',
@@ -84,6 +87,7 @@ const PLACEHOLDER_LABELS: Readonly<Record<string, string>> = {
 const VIEWABLE_ENTITY_TYPES = new Set<string>([
   RULE_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
+  SPEC_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
@@ -119,6 +123,9 @@ export function viewActivityEntity(
       return true;
     case ENVIRONMENT_ENTITY_TYPE:
       routes.openEnvironmentEdit(entityId, label);
+      return true;
+    case SPEC_ENTITY_TYPE:
+      routes.openSpecEdit(entityId, label);
       return true;
     case REQUEST_ENTITY_TYPE:
       routes.openRequestEditTab(entityId, label);

@@ -23,12 +23,14 @@ import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWo
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
+import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import {
   applyResponseExampleDelete,
   applyResponseExampleDuplicate,
   applyResponseExampleRename,
 } from '@openheaders/ui/shared/sync/response-example-write-client';
+import { applySpecCreate, applySpecDelete, applySpecUpdate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { isRuleResolvable } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
@@ -47,6 +49,8 @@ import EnvironmentsSection from './EnvironmentsSection';
 import { SectionOpenerRow } from './SectionHeader';
 import RequestsSection from './RequestsSection';
 import RulesSection from './RulesSection';
+import SpecsSection from './SpecsSection';
+import { createBlankSpecSeed } from '../specs/spec-scaffold';
 import SidebarHeaderActions from './SidebarHeaderActions';
 import type { SidebarView, TreeNode } from './types';
 import VariablesSection from './VariablesSection';
@@ -61,6 +65,7 @@ import { useSidebarCreateActions } from './useSidebarCreateActions';
 import { useSidebarExpansion } from './useSidebarExpansion';
 import { useSidebarInteraction } from './useSidebarInteraction';
 import { useSidebarNodeRenderers } from './useSidebarNodeRenderers';
+import { useSpecNodes } from './useSpecNodes';
 import { useTemplateTreeNodes } from './useTemplateTreeNodes';
 import { useVariableSingletonNodes } from './useVariableSingletonNodes';
 import { useWorkflowNodes } from './useWorkflowNodes';
@@ -100,6 +105,8 @@ interface SidebarProps {
   onOpenTemplateCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenTemplateFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onSelectEnvironment?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open a spec's editor tab (Specs section row / create reveal). */
+  onSelectSpec?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenWorkspaceVariables?: () => void;
   onOpenVault?: () => void;
   onOpenLiveVariables?: () => void;
@@ -162,6 +169,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenTemplateCollectionOverview,
   onOpenTemplateFolderOverview,
   onSelectEnvironment,
+  onSelectSpec,
   onOpenWorkspaceVariables,
   onOpenVault,
   onOpenLiveVariables,
@@ -378,6 +386,36 @@ const Sidebar: React.FC<SidebarProps> = ({
     [responseExamplesByRequest],
   );
 
+  // ── Specs (workspace-level API specification documents) ──────────
+  const specs = useSpecs(activeWorkspaceId);
+  const createSpecEntity = useCallback(
+    async (name: string) => {
+      if (!activeWorkspaceId) return null;
+      const result = await applySpecCreate(
+        { spec: createBlankSpecSeed(name) },
+        { workspaceId: activeWorkspaceId, surfaceId: 'workbench' },
+      );
+      return result.ok ? result.spec : null;
+    },
+    [activeWorkspaceId],
+  );
+  const renameSpec = useCallback(
+    async (uid: string, name: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applySpecUpdate(uid, { name }, { workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.renameSpecFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const deleteSpecEntity = useCallback(
+    async (uid: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applySpecDelete(uid, { workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.deleteSpecFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+
   // ── Folder reorder dnd configs (one per tree) ─────────────────────
   const { rulesFolderDndConfig, requestFolderDndConfig, templateFolderDndConfig } = useFolderDndConfigs({
     activeWorkspaceId,
@@ -501,6 +539,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     onExportEntity,
   });
 
+  const specNodes = useSpecNodes({
+    specs,
+    filterText,
+    setRenamingId,
+    confirmDelete,
+    renameSpec,
+    deleteSpec: deleteSpecEntity,
+    onSelectSpec,
+  });
+
   const workflowNodes = useWorkflowNodes({
     liveWorkflows,
     liveVariables,
@@ -528,23 +576,31 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // ── Create-new entrypoints ─────────────────────────────────────
 
-  const { createNewCollection, createNewRequestCollection, createNewTemplateCollection, createNewEnvironment } =
-    useSidebarCreateActions({
-      localCollections,
-      requestCollections,
-      templateCollections,
-      environments,
-      createLocalCollection,
-      createRequestCollectionRpc,
-      createTemplateCollection,
-      createEnvironment,
-      setSectionsExpanded,
-      setExpandedKeys,
-      onOpenCollectionOverview,
-      onOpenTemplateCollectionOverview,
-      onSelectEnvironment,
-      message,
-    });
+  const {
+    createNewCollection,
+    createNewRequestCollection,
+    createNewTemplateCollection,
+    createNewEnvironment,
+    createNewSpec,
+  } = useSidebarCreateActions({
+    localCollections,
+    requestCollections,
+    templateCollections,
+    environments,
+    specs,
+    createLocalCollection,
+    createRequestCollectionRpc,
+    createTemplateCollection,
+    createEnvironment,
+    createSpec: createSpecEntity,
+    setSectionsExpanded,
+    setExpandedKeys,
+    onOpenCollectionOverview,
+    onOpenTemplateCollectionOverview,
+    onSelectEnvironment,
+    onSelectSpec,
+    message,
+  });
 
   // ── Flat items for keyboard nav ──────────────────────────────
   // Only nodes from sections THIS view actually renders.
@@ -557,6 +613,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     } else if (view === 'api-requests') {
       if (sectionsExpanded['api-requests']) items.push(...requestNodes);
+      if (sectionsExpanded.specs) items.push(...specNodes);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     } else if (view === 'workflows') {
       if (sectionsExpanded.workflows) items.push(...workflowNodes);
@@ -573,6 +630,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     environmentNodes,
     workflowNodes,
     requestNodes,
+    specNodes,
   ]);
 
   // ── Selection / interaction subsystem ─────────────────────────
@@ -711,6 +769,13 @@ const Sidebar: React.FC<SidebarProps> = ({
               requestFolderDndConfig={requestFolderDndConfig}
               createNewRequestCollection={createNewRequestCollection}
               renderFolderDndNodes={renderFolderDndNodes}
+            />
+            <SpecsSection
+              sectionsExpanded={sectionsExpanded}
+              toggleSection={toggleSection}
+              createNewSpec={createNewSpec}
+              specNodes={specNodes}
+              renderNodes={renderNodes}
             />
             {(!filterText ||
               t('workbench.sidebar.section.packageLibrary').toLowerCase().includes(filterText.toLowerCase())) && (

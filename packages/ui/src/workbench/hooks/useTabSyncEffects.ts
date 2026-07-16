@@ -29,7 +29,17 @@
  *     fires for actual disappearances.
  */
 
-import type { CollectionTree, Environment, LiveVariable, LiveWorkflow, Request, Rule, Template, TreeNode } from '@openheaders/core/types';
+import type {
+  CollectionTree,
+  Environment,
+  LiveVariable,
+  LiveWorkflow,
+  Request,
+  Rule,
+  Spec,
+  Template,
+  TreeNode,
+} from '@openheaders/core/types';
 import { useEffect, useRef } from 'react';
 import type { WorkbenchTab } from '../types';
 
@@ -43,6 +53,7 @@ interface UseTabSyncEffectsOptions {
   templateCollectionTrees: CollectionTree[];
   liveVariables: LiveVariable[];
   liveWorkflows: LiveWorkflow[];
+  specs: readonly Spec[];
   allTabs: WorkbenchTab[];
   updateTab: (tabId: string, updates: Partial<WorkbenchTab>) => void;
   closeTab: (tabId: string, force?: boolean) => void;
@@ -58,6 +69,7 @@ export function useTabSyncEffects({
   templateCollectionTrees,
   liveVariables,
   liveWorkflows,
+  specs,
   allTabs,
   updateTab,
   closeTab,
@@ -117,6 +129,7 @@ export function useTabSyncEffects({
     }
     for (const lv of liveVariables) currentIds.add(lv.uid);
     for (const wf of liveWorkflows) currentIds.add(wf.uid);
+    for (const spec of specs) currentIds.add(spec.uid);
 
     if (prevEntityIds.current.size > 0) {
       for (const tab of allTabs) {
@@ -129,6 +142,7 @@ export function useTabSyncEffects({
           tab.entityId ??
           tab.collectionUid ??
           tab.environmentUid ??
+          tab.specUid ??
           tab.requestUid ??
           tab.liveVariableUid ??
           tab.liveWorkflowUid;
@@ -153,6 +167,7 @@ export function useTabSyncEffects({
     templateCollectionTrees,
     liveVariables,
     liveWorkflows,
+    specs,
     allTabs,
     closeTab,
   ]);

@@ -32,6 +32,7 @@ import type {
   Request,
   ResponseExample,
   Rule,
+  Spec,
   Template,
   TreeNode,
 } from '@openheaders/core/types';
@@ -49,6 +50,7 @@ export interface TabDisplayLookups {
   liveVariables: readonly LiveVariable[];
   liveWorkflows: readonly LiveWorkflow[];
   responseExamples: readonly ResponseExample[];
+  specs: readonly Spec[];
 }
 
 function findFolderNameInTrees(trees: readonly CollectionTree[], uid: string): string | null {
@@ -80,6 +82,11 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t
       if (!tab.environmentUid) return tab.label;
       const env = lookups.environments.find((e) => e.uid === tab.environmentUid);
       return env ? env.name : tab.label;
+    }
+    case 'spec-edit': {
+      if (!tab.specUid) return tab.label;
+      const spec = lookups.specs.find((s) => s.uid === tab.specUid);
+      return spec ? spec.name : tab.label;
     }
     case 'request-edit': {
       if (!tab.requestUid) return tab.label;

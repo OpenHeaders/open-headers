@@ -15,6 +15,7 @@ export type WorkspaceOpeners = Pick<
   | 'openWorkspaceManager'
   | 'openDaemonAdmin'
   | 'openEnvironmentEdit'
+  | 'openSpecEdit'
   | 'openWorkspaceVariables'
   | 'openVault'
   | 'openScriptPackages'
@@ -113,6 +114,27 @@ export function useWorkspaceOpeners({
     [allTabs, addTab, switchTab, setPendingRenameTabId],
   );
 
+  const openSpecEdit = useCallback(
+    (uid: string, name: string, autoRename = false) => {
+      const id = `spec-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        if (autoRename) setPendingRenameTabId(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        ruleType: '',
+        dirty: false,
+        mode: 'spec-edit',
+        specUid: uid,
+      });
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [allTabs, addTab, switchTab, setPendingRenameTabId],
+  );
+
   const openWorkspaceVariables = useCallback(() => {
     const id = 'workspace-vars';
     if (allTabs.some((t) => t.id === id)) {
@@ -164,6 +186,7 @@ export function useWorkspaceOpeners({
     openWorkspaceManager,
     openDaemonAdmin,
     openEnvironmentEdit,
+    openSpecEdit,
     openWorkspaceVariables,
     openVault,
     openScriptPackages,

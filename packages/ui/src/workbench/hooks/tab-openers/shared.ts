@@ -88,6 +88,8 @@ export interface UseTabOpenersApi {
    *  probe-gated, the server gates every call regardless). */
   openDaemonAdmin: () => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open a spec document's editor tab (Specs sidebar section). */
+  openSpecEdit: (uid: string, name: string, autoRename?: boolean) => void;
   openWorkspaceVariables: () => void;
   openVault: () => void;
   openScriptPackages: () => void;

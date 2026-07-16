@@ -109,6 +109,7 @@ const emptyLookups: TabDisplayLookups = {
   liveVariables: [],
   liveWorkflows: [],
   responseExamples: [],
+  specs: [],
 };
 
 describe('example-draft projections', () => {
