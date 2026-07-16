@@ -1,5 +1,5 @@
 export type { DynamicGenerator, DynamicRuntime } from './dynamic';
-export { defaultDynamicRuntime, DYNAMIC_GENERATORS, resolveDynamicValue } from './dynamic';
+export { DYNAMIC_GENERATORS, defaultDynamicRuntime, resolveDynamicValue } from './dynamic';
 export type {
   ParseResult,
   ScopeNamespace,
@@ -19,6 +19,7 @@ export type {
   LiveRegistry,
   ResolutionEnvSnapshot,
   ResolutionError,
+  ResolutionErrorParams,
   ResolutionErrorReason,
   ResolvedLiveValue,
   ScopedLookupFn,

@@ -1,4 +1,5 @@
 import type { ResolvedVariable } from '../../types';
+import type { DomainIssueKind } from '../../utils/condition-validation';
 import { parseReference, type VariableNamespace } from '../namespaces';
 
 /**
@@ -45,6 +46,17 @@ export interface ScopedResolution {
   failureReason?: ResolutionErrorReason;
 }
 
+/**
+ * Structured facts behind a hint, for reasons whose message carries
+ * site-specific data. UI-side keyed hint rendering consumes these
+ * instead of parsing the English `hint` string.
+ */
+export interface ResolutionErrorParams {
+  /** Dominant domain-issue kind for `invalid-resolved-value` errors
+   *  raised by post-resolve domain sanitization. */
+  domainIssueKind?: DomainIssueKind;
+}
+
 export interface ResolutionError {
   /** The raw text between the braces, trimmed. E.g. "env.API_URL" or "foo.X". */
   reference: string;
@@ -61,8 +73,12 @@ export interface ResolutionError {
   activeEnvironmentId: string | null;
   /** Default env uid at resolution time, or null if none is configured. */
   defaultEnvironmentId: string | null;
-  /** Short human-readable fix hint. UI may replace with a richer message. */
+  /** Short human-readable fix hint — the operational-plane English
+   *  fallback. UI surfaces render a keyed hint from `reason` +
+   *  `params` instead where possible. */
   hint: string;
+  /** Structured facts behind the hint, when the reason carries them. */
+  params?: ResolutionErrorParams;
 }
 
 /**
@@ -75,13 +91,15 @@ export interface ResolutionError {
  * `reference` is the raw text between the braces, e.g. `'env.API_HOST'`
  * or `'API_HOST'`. The `customHint` overrides the default per-reason
  * hint when the caller has site-specific advice (e.g. "got
- * `https://...` — drop the scheme").
+ * `https://...` — drop the scheme"); `params` carries the same facts
+ * structurally so keyed UI hints don't have to parse the English.
  */
 export function buildPostResolveError(
   reference: string,
   reason: ResolutionErrorReason,
   env: ResolutionEnvSnapshot | undefined,
   customHint?: string,
+  params?: ResolutionErrorParams,
 ): ResolutionError {
   const trimmed = reference.trim();
   const parsed = parseReference(trimmed);
@@ -101,6 +119,7 @@ export function buildPostResolveError(
     activeEnvironmentId,
     defaultEnvironmentId,
     hint: customHint ?? buildHint(reason, namespace, activeEnvironmentId),
+    ...(params ? { params } : {}),
   };
 }
 

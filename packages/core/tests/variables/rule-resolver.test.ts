@@ -244,6 +244,23 @@ describe('resolveRuleWithDiagnostics', () => {
     expect(resolved.conditions[0].values).toEqual(['https://a.com/path,with,commas']);
   });
 
+  it('post-resolve domain sanitization carries the dominant issue kind as structured params', () => {
+    resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOST', 'https://api.openheaders.io')]));
+    const rule = makeHeaderRule({
+      conditions: [{ uid: 'cnd00014', type: 'request-domains', values: ['{{HOST}}'] }],
+      action: {
+        requestHeaders: [{ uid: 'hmd00010', operation: 'override', headerName: 'X-Debug', value: 'true' }],
+        responseHeaders: [],
+      },
+    });
+    const { rule: resolved, errors } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(resolved.conditions[0].values).toEqual(['api.openheaders.io']);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].reason).toBe('invalid-resolved-value');
+    expect(errors[0].params).toEqual({ domainIssueKind: 'scheme' });
+    expect(errors[0].hint).toContain('contains a scheme');
+  });
+
   it('list expansion mixes literal entries + template-expanded entries', () => {
     // The user can have one row with `{{HOSTS}}` AND another row with
     // a literal hostname; both flow through expansion.

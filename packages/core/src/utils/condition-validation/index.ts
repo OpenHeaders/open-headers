@@ -29,6 +29,7 @@ export {
   DOMAIN_ISSUE_SUMMARY,
   type DomainIssueKind,
   type DomainValueIssue,
+  dominantDomainIssueKind,
   summarizeDomainIssues,
   validateDomainValues,
 } from './domain-values';

@@ -6,8 +6,8 @@
  * editing surface: when the draft's conditions or action contain a
  * `{{VAR}}` that doesn't resolve against the active env / vault /
  * collection / workspace scope, show an Ant `Alert` above the form
- * with the list of unresolved references + the resolver's per-error
- * `hint` text.
+ * with the list of unresolved references + the keyed per-error hint
+ * (`resolutionHint` over the resolver's structured fields).
  *
  * Why client-side (not bridge RPC over `getLastResolutionErrors`):
  *   - `getLastResolutionErrors` only tracks *saved* rules — drafts
@@ -36,6 +36,7 @@ import type React from 'react';
 import { useMemo } from 'react';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { resolutionHint } from '@openheaders/ui/shared/variables';
 import { collectTemplateStrings } from '../../variable-references';
 
 const { Text } = Typography;
@@ -206,9 +207,6 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
                 ? err.reference
                 : null;
             const liveDx = liveBareName ? liveDiagnostics.get(liveBareName) : undefined;
-            // `err.hint` stays the resolver's raw English — the shared
-            // resolution-hint plane (SW status pill + popup) converts as
-            // one unit in a later slice.
             const enrichedHint =
               liveDx?.kind === 'no-cache-for-env'
                 ? t('workbench.editors.rule.resolution.hint.noCacheForEnv', { envName: liveDx.envName })
@@ -216,7 +214,7 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
                   ? t('workbench.editors.rule.resolution.hint.disabledLv')
                   : liveDx?.kind === 'draft-lv'
                     ? t('workbench.editors.rule.resolution.hint.draftLv')
-                    : err.hint;
+                    : resolutionHint(t, err);
             return (
               <div key={err.reference} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                 <Tag color="warning" style={{ fontSize: 10, marginTop: 2, minWidth: 88, textAlign: 'center' }}>

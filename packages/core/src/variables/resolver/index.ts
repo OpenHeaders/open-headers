@@ -16,6 +16,7 @@ export {
   buildPostResolveError,
   type ResolutionEnvSnapshot,
   type ResolutionError,
+  type ResolutionErrorParams,
   type ResolutionErrorReason,
   type ScopedResolution,
 } from './errors';

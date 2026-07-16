@@ -26,7 +26,12 @@ import type {
   WsRule,
 } from '../types';
 import { isListShapedConditionType } from '../utils/condition-metadata';
-import { applyDomainValueCleanup, summarizeDomainIssues, validateDomainValues } from '../utils/condition-validation';
+import {
+  applyDomainValueCleanup,
+  dominantDomainIssueKind,
+  summarizeDomainIssues,
+  validateDomainValues,
+} from '../utils/condition-validation';
 import { buildPostResolveError, type ResolutionError, type VariableResolver } from './resolver';
 
 // ── Single-rule resolution ────────────────────────────────────────
@@ -197,6 +202,7 @@ function resolveConditions(
       if (errors && domainIssues.length > 0) {
         const env = resolver.getEnvSnapshot(context);
         const issueSummary = summarizeDomainIssues(domainIssues);
+        const issueKind = dominantDomainIssueKind(domainIssues);
         const refsSeen = new Set<string>();
         for (const original of c.values) {
           for (const ref of resolver.extractVariableNames(original)) {
@@ -208,6 +214,7 @@ function resolveConditions(
                 'invalid-resolved-value',
                 env,
                 `Variable resolved to a value Chrome rejects in this slot — ${issueSummary}. Use bare hostnames separated by commas.`,
+                issueKind ? { domainIssueKind: issueKind } : undefined,
               ),
             );
           }

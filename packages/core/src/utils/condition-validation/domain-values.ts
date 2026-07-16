@@ -21,18 +21,29 @@ export const DOMAIN_ISSUE_SUMMARY: Readonly<Record<DomainIssueKind, string>> = O
 });
 
 /**
- * Most-informative-first summary across a set of domain issues. Used
- * by post-resolve diagnostics to enrich the `invalid-resolved-value`
- * hint with the specific shape problem found. Order matches the
- * dependency order of strips inside `inspectDomainValue`.
+ * Most-informative-first issue kind across a set of domain issues.
+ * Order matches the dependency order of strips inside
+ * `inspectDomainValue`. Post-resolve diagnostics carry this kind as
+ * the structured `params.domainIssueKind` on `ResolutionError` so the
+ * UI can render a keyed hint instead of parsing the English one.
  */
-export function summarizeDomainIssues(issues: ReadonlyArray<{ kind: DomainIssueKind }>): string {
+export function dominantDomainIssueKind(issues: ReadonlyArray<{ kind: DomainIssueKind }>): DomainIssueKind | null {
   const kinds = new Set(issues.map((i) => i.kind));
   const order: DomainIssueKind[] = ['whitespace', 'scheme', 'wildcard', 'port', 'uppercase', 'non-ascii', 'empty'];
   for (const k of order) {
-    if (kinds.has(k)) return DOMAIN_ISSUE_SUMMARY[k];
+    if (kinds.has(k)) return k;
   }
-  return 'is not a valid bare hostname';
+  return null;
+}
+
+/**
+ * Most-informative-first summary across a set of domain issues. Used
+ * by post-resolve diagnostics to enrich the `invalid-resolved-value`
+ * hint with the specific shape problem found.
+ */
+export function summarizeDomainIssues(issues: ReadonlyArray<{ kind: DomainIssueKind }>): string {
+  const kind = dominantDomainIssueKind(issues);
+  return kind ? DOMAIN_ISSUE_SUMMARY[kind] : 'is not a valid bare hostname';
 }
 
 export interface DomainValueIssue {

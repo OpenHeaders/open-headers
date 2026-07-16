@@ -1,15 +1,15 @@
 /**
  * Structured-error list shown below the in-context variable rows. Each
  * entry renders `{{reference}}` + a tag for the failure reason + the
- * resolver's concrete fix hint. The resolver owns hint generation (see
- * `@openheaders/core/variables/resolver.ts`) — this is a rendering layer
- * only.
+ * keyed fix hint (`resolutionHint` over the resolver's structured
+ * fields) — this is a rendering layer only.
  */
 
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ResolutionError } from '@openheaders/core/variables';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { resolutionHint } from '@openheaders/ui/shared/variables';
 import { Tag, Tooltip, Typography, theme } from 'antd';
 
 const { Text } = Typography;
@@ -73,7 +73,7 @@ function ResolutionErrorRow({ error }: { error: ResolutionError }) {
         </Tag>
       </div>
       <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
-        {error.hint}
+        {resolutionHint(t, error)}
       </Text>
     </div>
   );

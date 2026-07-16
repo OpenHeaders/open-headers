@@ -34,6 +34,7 @@ export type {
 export {
   applyDomainValueCleanup,
   DOMAIN_ISSUE_SUMMARY,
+  dominantDomainIssueKind,
   summarizeDomainIssues,
   validateConditionStructure,
   validateConditionValues,

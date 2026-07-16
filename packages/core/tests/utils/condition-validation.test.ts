@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { RuleCondition } from '../../src/types';
 import {
   applyDomainValueCleanup,
+  dominantDomainIssueKind,
   validateConditionStructure,
   validateConditionValues,
   validateDomainValues,
@@ -68,6 +69,18 @@ describe('validateDomainValues', () => {
     const issues = validateDomainValues(cond('request-domains', ['*.']));
     // `*.` cleans to '' — the wildcard rule fires first; cleanup drops it.
     expect(issues[0]).toMatchObject({ kind: 'wildcard', cleaned: '' });
+  });
+});
+
+describe('dominantDomainIssueKind', () => {
+  it('picks the most-informative kind in strip order', () => {
+    expect(dominantDomainIssueKind([{ kind: 'port' }, { kind: 'scheme' }])).toBe('scheme');
+    expect(dominantDomainIssueKind([{ kind: 'empty' }, { kind: 'whitespace' }])).toBe('whitespace');
+    expect(dominantDomainIssueKind([{ kind: 'uppercase' }])).toBe('uppercase');
+  });
+
+  it('returns null for an empty issue list', () => {
+    expect(dominantDomainIssueKind([])).toBeNull();
   });
 });
 

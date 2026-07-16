@@ -15,6 +15,7 @@ import { sharedInfoHeaders } from './shared-info-headers';
 import { sharedInfoStatus } from './shared-info-status';
 import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
+import { sharedResolutionHints } from './shared-resolution-hints';
 import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
 import { workbenchDocs } from './workbench-docs';
@@ -32,6 +33,7 @@ export const en = {
   ...sharedInfoStatus,
   ...sharedMergeEditor,
   ...sharedNotifications,
+  ...sharedResolutionHints,
   ...popup,
   ...workbench,
   ...workbenchChrome,
