@@ -127,7 +127,7 @@ export function describeOrg(snapshot: IdentitySnapshot | null, orgId: string): O
  * The identity label for an Org — its display name. The home Org and a
  * joined Org both read by their stored `name`; the user renames the home
  * Org through `renameHomeOrg`. Home-ness is conveyed separately by the
- * Org icon and the {@link orgHostKindHint} sub-label, never baked into
+ * Org icon and the {@link orgHostHintKind} sub-label, never baked into
  * the name. `isPrivate` plays no part in the label — it records
  * whether a backend hosts the Org, not whose Org it is.
  */
@@ -136,40 +136,28 @@ export function orgIdentityLabel(descriptor: OrgDescriptor): string {
 }
 
 /**
- * Second-person host-kind hint for the *home* Org — "This browser" /
- * "This device" / "Local server" / "Remote server" — shown as a
- * secondary sub-label beneath {@link orgIdentityLabel} where space
- * allows. `null` for a joined Org: a backend the user joined isn't
- * "this" anything.
+ * Second-person host-kind hint classification for the *home* Org —
+ * which "this is where you are" sub-label the Org carries beneath
+ * {@link orgIdentityLabel} ("This browser" / "This device" / "Local
+ * server" / "Remote server" in the UI's wording). `null` for a joined
+ * Org: a backend the user joined isn't "this" anything.
  *
  * Daemon hosts disambiguate by `reach` ({@link BackendReach}):
- * `wan` → "Remote server" (a public deployment), anything else →
- * "Local server" (loopback / LAN bind). The two non-daemon kinds
- * ignore `reach`; they read the same regardless of binding.
+ * `wan` → `daemon-remote` (a public deployment), anything else →
+ * `daemon-local` (loopback / LAN bind). The two non-daemon kinds
+ * ignore `reach`; they classify the same regardless of binding.
+ *
+ * Display copy lives with the render layer (the UI translates each
+ * kind); core only classifies.
  */
-const HOST_KIND_HINT: Record<Exclude<HostKind, 'daemon'>, string> = {
-  browser: 'This browser',
-  desktop: 'This device',
-};
+export type OrgHostHintKind = 'browser' | 'desktop' | 'daemon-local' | 'daemon-remote';
 
-export function orgHostKindHint(descriptor: OrgDescriptor, reach?: BackendReach | null): string | null {
+export function orgHostHintKind(descriptor: OrgDescriptor, reach?: BackendReach | null): OrgHostHintKind | null {
   if (!descriptor.isHome) return null;
   if (descriptor.hostKind === 'daemon') {
-    return reach === 'wan' ? 'Remote server' : 'Local server';
+    return reach === 'wan' ? 'daemon-remote' : 'daemon-local';
   }
-  return HOST_KIND_HINT[descriptor.hostKind];
-}
-
-/**
- * Full single-line label combining {@link orgHostKindHint} with the Org's
- * stored name — `"This browser: Chrome"`, `"This device: my-mac"`. Used
- * by surfaces (workspace dropdown, workspace manager) where there is room
- * to spell out which machine the home Org represents, instead of just
- * the rename-able name. Joined Orgs (no hint) fall through to the name.
- */
-export function orgFullLabel(descriptor: OrgDescriptor, reach?: BackendReach | null): string {
-  const hint = orgHostKindHint(descriptor, reach);
-  return hint ? `${hint}: ${descriptor.name}` : descriptor.name;
+  return descriptor.hostKind;
 }
 
 /**

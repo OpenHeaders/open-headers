@@ -60,7 +60,7 @@ function makeTarget(overrides: Partial<PublishTarget> = {}): PublishTarget {
     orgId: 'org-staging',
     orgName: 'Staging',
     healthy: true,
-    annotation: { tone: 'quiet', text: 'via Desktop app' },
+    annotation: { tone: 'quiet', kind: 'synced', backendLabel: 'Desktop app' },
     ...overrides,
   };
 }
@@ -74,7 +74,12 @@ function renderModal(targets: PublishTarget[]): { onSubmit: ReturnType<typeof vi
 describe('PublishWorkspaceModal', () => {
   it('submits the duplicate options: pre-filled name, first healthy target, secrets off', async () => {
     const { onSubmit } = renderModal([
-      makeTarget({ orgId: 'org-down', orgName: 'Down', healthy: false, annotation: { tone: 'warning', text: 'via Box — disconnected' } }),
+      makeTarget({
+        orgId: 'org-down',
+        orgName: 'Down',
+        healthy: false,
+        annotation: { tone: 'warning', kind: 'disconnected', backendLabel: 'Box' },
+      }),
       makeTarget(),
     ]);
 
@@ -92,7 +97,12 @@ describe('PublishWorkspaceModal', () => {
   it('two or more targets render the picker with unhealthy options disabled', async () => {
     renderModal([
       makeTarget(),
-      makeTarget({ orgId: 'org-team', orgName: 'Team', healthy: false, annotation: { tone: 'warning', text: 'via Work VM — re-pair needed' } }),
+      makeTarget({
+        orgId: 'org-team',
+        orgName: 'Team',
+        healthy: false,
+        annotation: { tone: 'warning', kind: 'repair', backendLabel: 'Work VM' },
+      }),
     ]);
 
     fireEvent.mouseDown(screen.getByRole('combobox'));
@@ -123,7 +133,7 @@ describe('PublishWorkspaceModal', () => {
 
   it('a lone unhealthy target disables OK', () => {
     renderModal([
-      makeTarget({ healthy: false, annotation: { tone: 'warning', text: 'via Desktop app — off, not syncing' } }),
+      makeTarget({ healthy: false, annotation: { tone: 'warning', kind: 'off', backendLabel: 'Desktop app' } }),
     ]);
     const ok = screen.getByRole('button', { name: 'Publish to Staging' }) as HTMLButtonElement;
     expect(ok.disabled).toBe(true);

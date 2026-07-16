@@ -32,7 +32,6 @@ import {
   type IdentitySnapshot,
   type OrgDescriptor,
   orgCatalogue,
-  orgFullLabel,
 } from '@openheaders/core/identity';
 import type { BackendReach } from '@openheaders/core/protocol';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
@@ -41,6 +40,7 @@ import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
+import { orgFullLabelText } from '@openheaders/ui/shared/workspace-org/org-copy';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
 import type React from 'react';
@@ -357,7 +357,7 @@ const NewWorkspaceOrgPreference: React.FC<{
           label: (
             <Space size={6}>
               <OrgIcon descriptor={descriptor} size={13} />
-              {orgFullLabel(descriptor, reach)}
+              {orgFullLabelText(t, descriptor, reach)}
             </Space>
           ),
         }))}
@@ -389,7 +389,7 @@ const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null; reach: Backen
           color: token.colorTextTertiary,
         }}
       >
-        {descriptor ? orgFullLabel(descriptor, reach) : t('workbench.workspace.otherWorkspaces')}
+        {descriptor ? orgFullLabelText(t, descriptor, reach) : t('workbench.workspace.otherWorkspaces')}
       </Text>
     </div>
   );
@@ -749,7 +749,7 @@ const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
                 label: (
                   <Space size={6}>
                     <OrgIcon descriptor={descriptor} size={13} />
-                    {orgFullLabel(descriptor, reach)}
+                    {orgFullLabelText(t, descriptor, reach)}
                   </Space>
                 ),
               }))}

@@ -2,7 +2,7 @@
  * HomeOrgIdentityCard — the home-Org identity row at the top of the
  * WorkspaceManager. Shows the Org's identity glyph, its renameable name
  * (`orgIdentityLabel`), and the second-person host-kind hint
- * (`orgHostKindHint`), with a pencil that opens a small modal calling
+ * (`orgHostHintText`), with a pencil that opens a small modal calling
  * `renameHomeOrg` and a logo action that manages the Org's custom brand
  * mark via `setHomeOrgLogo`.
  *
@@ -23,7 +23,6 @@ import { DeleteOutlined, EditOutlined, PictureOutlined, UploadOutlined } from '@
 import {
   MAX_ORG_NAME_LENGTH,
   orgCatalogue,
-  orgHostKindHint,
   orgIdentityLabel,
   renameHomeOrg,
   setHomeOrgLogo,
@@ -31,6 +30,7 @@ import {
 import { ORG_LOGO_MAX_BYTES, type OrgLogoRejectReason, validateOrgLogoDataUri } from '@openheaders/core/utils';
 import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
+import { orgHostHintText } from '@openheaders/ui/shared/workspace-org/org-copy';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Form, Input, Modal, Typography, Upload, theme } from 'antd';
 import type { MessageKey } from '@openheaders/i18n';
@@ -52,7 +52,7 @@ const HomeOrgIdentityCard: React.FC = () => {
   const home = useMemo(() => orgCatalogue(snapshot).find((d) => d.isHome) ?? null, [snapshot]);
   if (!home) return null;
 
-  const hint = orgHostKindHint(home, reach);
+  const hint = orgHostHintText(t, home, reach);
 
   return (
     <>

@@ -2,27 +2,30 @@
  * org-scope-vocabulary — two decoupled vocabularies the workspace
  * org-binding UI reads from (UNIFIED_ORACLE_MODEL.md §6.2 / §6.4):
  *
- *   - sync-reach    — keyed by {@link OrgScopeKind}: the picker wording,
- *                     the one-line reach explanation, and the tag colour.
+ *   - sync-reach    — keyed by {@link OrgScopeKind}: the one-line reach
+ *                     explanation and the tag colour.
  *   - host-kind     — keyed by {@link HostKind}: the base identity glyph
  *                     for the host process that minted the Org.
  *
  * The identity *label* itself is `orgIdentityLabel` from core — every Org
- * reads by its stored `name`; `orgHostKindHint` adds the home Org's
- * second-person host-kind sub-label. `isPrivate` drives neither
- * vocabulary; it records whether a backend hosts the Org.
+ * reads by its stored `name`; `orgHostHintText` (org-copy.ts) adds the
+ * home Org's second-person host-kind sub-label. `isPrivate` drives
+ * neither vocabulary; it records whether a backend hosts the Org.
  *
  * Per-scope describers — separation of concerns: each scope kind owns
  * its own description function (`describeLocalScope`, `describePersonalScope`,
  * `describeTeamScope`). `describeOrgScope` is the public dispatcher; the
- * `orgScopeVisual` accessor composes (pickerLabel + tagColor) from the
- * static {@link SCOPE_VOCABULARY} with the contextual description.
+ * `orgScopeVisual` accessor composes the tag colour from the static
+ * {@link SCOPE_TAG_COLOR} with the contextual description. All copy is
+ * t-first — descriptions render in the viewer's locale.
  */
 
 import { CloudServerOutlined, DesktopOutlined, GlobalOutlined } from '@ant-design/icons';
 import type { OrgDescriptor, OrgScopeKind } from '@openheaders/core/identity';
 import type { BackendReach } from '@openheaders/core/protocol';
 import type { HostKind } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { BackendMode } from '@openheaders/ui/workbench/settings/schema/backend';
 import type * as React from 'react';
 
@@ -30,26 +33,23 @@ type IconComponent = React.ComponentType<{ style?: React.CSSProperties; classNam
 
 /** The sync-reach vocabulary for one scope kind. */
 export interface OrgScopeVisual {
-  /** Sync-scope picker row label, phrased as the §6.4 table. */
-  pickerLabel: string;
-  /** One-line explanation of the scope's reach. */
+  /** One-line explanation of the scope's reach, translated. */
   description: string;
   /** antd `Tag` colour token. */
   tagColor: string;
 }
 
-/** Picker label + tag colour per scope. Description is contextual — see `describeOrgScope`. */
-const SCOPE_VOCABULARY: Record<OrgScopeKind, Omit<OrgScopeVisual, 'description'>> = {
-  local: { pickerLabel: 'Local to this device', tagColor: 'default' },
-  personal: { pickerLabel: 'Synced across my devices', tagColor: 'blue' },
-  team: { pickerLabel: 'Shared with team', tagColor: 'purple' },
+const SCOPE_TAG_COLOR: Record<OrgScopeKind, string> = {
+  local: 'default',
+  personal: 'blue',
+  team: 'purple',
 };
 
 /** Generic fallback descriptions when no `OrgScopeContext` is available. */
-const SCOPE_FALLBACK_DESCRIPTION: Record<OrgScopeKind, string> = {
-  local: 'Stays on this device.',
-  personal: 'Synced across your devices.',
-  team: 'Shared with everyone in this team.',
+const SCOPE_FALLBACK_KEY: Record<OrgScopeKind, MessageKey> = {
+  local: 'shared.org.scope.local.generic',
+  personal: 'shared.org.scope.personal.generic',
+  team: 'shared.org.scope.team.generic',
 };
 
 /** Context a contextual scope description needs to read accurately. */
@@ -73,27 +73,27 @@ export interface OrgScopeContext {
  * Mode semantics referenced here:
  *   - `desktop-app` — self-hosting desktop (its ws-server is accepting joins)
  */
-function describeLocalScope(descriptor: OrgDescriptor, ctx: OrgScopeContext): string {
+function describeLocalScope(t: Translate, descriptor: OrgDescriptor, ctx: OrgScopeContext): string {
   const { hostKind } = descriptor;
   const { mode, reach } = ctx;
 
   if (hostKind === 'browser') {
-    return 'Stays on this device, inside this browser. Never synced anywhere.';
+    return t('shared.org.scope.local.browser');
   }
   if (hostKind === 'desktop') {
     if (mode !== 'desktop-app') {
       // Desktop in daemon-client mode — its own ws-server isn't
       // accepting joins, so the home Org stays put.
-      return 'Stays on this device, inside the desktop app. Never synced anywhere.';
+      return t('shared.org.scope.local.desktopClient');
     }
     // Self-hosting; `ws-server` only emits `loopback` or `lan`.
-    if (reach === 'lan') return 'Stays on your devices. Synced over local network (LAN).';
-    return 'Stays on this device — synced between the desktop app and connected browsers.';
+    if (reach === 'lan') return t('shared.org.scope.local.desktopLan');
+    return t('shared.org.scope.local.desktopLoopback');
   }
   // daemon, isHome — admin view.
-  if (reach === 'lan') return 'Shared on this server. Synced over local network (LAN).';
-  if (reach === 'wan') return 'Shared on this server. Synced over the internet (WAN).';
-  return 'Lives on this server — only this machine can connect.';
+  if (reach === 'lan') return t('shared.org.scope.local.daemonLan');
+  if (reach === 'wan') return t('shared.org.scope.local.daemonWan');
+  return t('shared.org.scope.local.daemonLoopback');
 }
 
 /**
@@ -104,7 +104,7 @@ function describeLocalScope(descriptor: OrgDescriptor, ctx: OrgScopeContext): st
  * Org's `hostKind` first (what kind of backend hosts it) and on the
  * viewer's connection mode/reach for the daemon case.
  */
-function describePersonalScope(descriptor: OrgDescriptor, ctx: OrgScopeContext): string {
+function describePersonalScope(t: Translate, descriptor: OrgDescriptor, ctx: OrgScopeContext): string {
   const { hostKind } = descriptor;
   const { mode } = ctx;
 
@@ -112,52 +112,51 @@ function describePersonalScope(descriptor: OrgDescriptor, ctx: OrgScopeContext):
     // The most common case in v5: extension joined to its loopback
     // desktop. Honest, accurate, no caveat about "this device" vs "your
     // devices" — the user is on both ends.
-    return 'Stays on this device — synced between this browser and the desktop app.';
+    return t('shared.org.scope.personal.desktop');
   }
   if (hostKind === 'daemon') {
-    if (mode === 'remote-self-hosted') return 'Synced with your server over the internet (WAN).';
-    return 'Synced with your server over the local network (LAN).';
+    if (mode === 'remote-self-hosted') return t('shared.org.scope.personal.daemonWan');
+    return t('shared.org.scope.personal.daemonLan');
   }
   // hostKind === 'browser' here = a connected browser Org (future). Generic
   // is fine — the home browser Org doesn't connect on its own today.
-  return SCOPE_FALLBACK_DESCRIPTION.personal;
+  return t(SCOPE_FALLBACK_KEY.personal);
 }
 
 /**
  * **Team** scope = a multi-user daemon Org. Wording specializes on the
  * viewer's connection reach.
  */
-function describeTeamScope(_descriptor: OrgDescriptor, ctx: OrgScopeContext): string {
-  if (ctx.mode === 'remote-self-hosted') return 'Shared with the team over the internet (WAN).';
-  return 'Shared with the team over the local network (LAN).';
+function describeTeamScope(t: Translate, _descriptor: OrgDescriptor, ctx: OrgScopeContext): string {
+  if (ctx.mode === 'remote-self-hosted') return t('shared.org.scope.team.wan');
+  return t('shared.org.scope.team.lan');
 }
 
 /**
  * Public dispatcher — pick the right per-scope describer for `descriptor`.
  * Returns a generic fallback when no context is supplied.
  */
-export function describeOrgScope(descriptor: OrgDescriptor, ctx?: OrgScopeContext): string {
-  if (!ctx) return SCOPE_FALLBACK_DESCRIPTION[descriptor.scopeKind];
+export function describeOrgScope(t: Translate, descriptor: OrgDescriptor, ctx?: OrgScopeContext): string {
+  if (!ctx) return t(SCOPE_FALLBACK_KEY[descriptor.scopeKind]);
   switch (descriptor.scopeKind) {
     case 'local':
-      return describeLocalScope(descriptor, ctx);
+      return describeLocalScope(t, descriptor, ctx);
     case 'personal':
-      return describePersonalScope(descriptor, ctx);
+      return describePersonalScope(t, descriptor, ctx);
     case 'team':
-      return describeTeamScope(descriptor, ctx);
+      return describeTeamScope(t, descriptor, ctx);
   }
 }
 
 /**
- * Resolve the sync-reach visual for an Org. Composes the static
- * picker-label + tag-colour from {@link SCOPE_VOCABULARY} with the
- * contextual {@link describeOrgScope} description. Surfaces without the
- * live signal can omit `ctx`; the description falls back to a generic
+ * Resolve the sync-reach visual for an Org. Composes the static tag
+ * colour from {@link SCOPE_TAG_COLOR} with the contextual
+ * {@link describeOrgScope} description. Surfaces without the live
+ * signal can omit `ctx`; the description falls back to a generic
  * per-scope line.
  */
-export function orgScopeVisual(descriptor: OrgDescriptor, ctx?: OrgScopeContext): OrgScopeVisual {
-  const base = SCOPE_VOCABULARY[descriptor.scopeKind];
-  return { ...base, description: describeOrgScope(descriptor, ctx) };
+export function orgScopeVisual(t: Translate, descriptor: OrgDescriptor, ctx?: OrgScopeContext): OrgScopeVisual {
+  return { tagColor: SCOPE_TAG_COLOR[descriptor.scopeKind], description: describeOrgScope(t, descriptor, ctx) };
 }
 
 /** The base identity glyph for the host process that minted the Org. */

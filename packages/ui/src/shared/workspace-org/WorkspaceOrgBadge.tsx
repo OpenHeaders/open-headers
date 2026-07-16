@@ -13,6 +13,7 @@
  */
 
 import { type OrgDescriptor, orgIdentityLabel } from '@openheaders/core/identity';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tag, Tooltip } from 'antd';
 import type React from 'react';
 import { useBackendMode } from '../hooks/useBackendMode';
@@ -32,9 +33,10 @@ export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor
   // far this host's server reaches, not a joined backend's tier.
   const { self: reach } = useBackendReach();
   const mode = useBackendMode();
+  const t = useT();
   if (!descriptor) return null;
 
-  const visual = orgScopeVisual(descriptor, { mode, reach });
+  const visual = orgScopeVisual(t, descriptor, { mode, reach });
   const label = orgIdentityLabel(descriptor);
 
   return (

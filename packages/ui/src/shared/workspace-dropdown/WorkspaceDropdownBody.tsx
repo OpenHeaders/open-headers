@@ -31,16 +31,23 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import type { OrgDescriptor } from '@openheaders/core/identity';
-import { orgFullLabel, resolveOrgActiveWorkspace } from '@openheaders/core/identity';
+import { resolveOrgActiveWorkspace } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { InputRef } from 'antd';
 import { Divider, Input, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace/workspace-prefix';
-import { type OrgSyncAnnotation, orphanedOrgAnnotation, useOrgSyncAnnotations } from '../backend';
+import {
+  type OrgSyncAnnotation,
+  orgSyncAnnotationText,
+  orphanedOrgAnnotation,
+  useOrgSyncAnnotations,
+} from '../backend';
 import { useBackendReach } from '../hooks/useBackendReach';
+import { orgFullLabelText } from '../workspace-org/org-copy';
 import { OrgIcon } from '../workspace-org/OrgIcon';
 import { WorkspaceOrgBadge } from '../workspace-org/WorkspaceOrgBadge';
 import './WorkspaceDropdownBody.css';
@@ -147,6 +154,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   popoverPlacement = 'right',
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   // widest drives the "extend your reach" ladder (a step already reached
   // anywhere drops out); self labels the home Org's host-kind hint.
   const { widest: reach, self: selfReach } = useBackendReach();
@@ -237,10 +245,10 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
       rows.push({
         key: 'multi-browser',
         icon: <GlobalOutlined style={{ fontSize: 12 }} />,
-        label: 'Sync across browsers on this device',
+        label: t('shared.workspaceDropdown.reach.multiBrowser'),
         popover: renderPopoverBlock(
-          'Multi-browser',
-          'Install the desktop app — every browser on this device then shares the same workspaces.',
+          t('shared.workspaceDropdown.reach.multiBrowserTitle'),
+          t('shared.workspaceDropdown.reach.multiBrowserBody'),
         ),
       });
     }
@@ -248,10 +256,10 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
       rows.push({
         key: 'multi-device',
         icon: <DesktopOutlined style={{ fontSize: 12 }} />,
-        label: 'Sync across your devices',
+        label: t('shared.workspaceDropdown.reach.multiDevice'),
         popover: renderPopoverBlock(
-          'Multi-device',
-          'In the desktop app, turn on “Sync with devices on your network” so your devices on the same network share workspaces.',
+          t('shared.workspaceDropdown.reach.multiDeviceTitle'),
+          t('shared.workspaceDropdown.reach.multiDeviceBody'),
         ),
       });
     }
@@ -259,15 +267,15 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
       rows.push({
         key: 'multi-user',
         icon: <TeamOutlined style={{ fontSize: 12 }} />,
-        label: 'Sync with your team',
+        label: t('shared.workspaceDropdown.reach.multiUser'),
         popover: renderPopoverBlock(
-          'Multi-user',
-          'Connect to a shared server — on your network or over the internet — so everyone on it works in the same workspaces.',
+          t('shared.workspaceDropdown.reach.multiUserTitle'),
+          t('shared.workspaceDropdown.reach.multiUserBody'),
         ),
       });
     }
     return rows;
-  }, [reach, onOpenBackendSettings]);
+  }, [reach, onOpenBackendSettings, t]);
 
   const handleClose = (): void => {
     setSearchText('');
@@ -362,8 +370,8 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
             mouseEnterDelay={0.3}
             zIndex={token.zIndexPopupBase + 100}
             content={renderPopoverBlock(
-              'Active workspace',
-              'The rule engine is injecting this workspace’s http rules for changing live traffic. Only one workspace can be active at a time, per browser.',
+              t('shared.workspaceDropdown.activePopoverTitle'),
+              t('shared.workspaceDropdown.activePopoverBody'),
             )}
           >
             <Text
@@ -376,17 +384,29 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              ACTIVE
+              {t('shared.workspaceDropdown.activeTag')}
             </Text>
           </Popover>
         )}
         {mode === 'workbench' ? (
           <div className="oh-env-row-actions">
-            <Tooltip title={isActive ? 'Active workspace' : 'Set active'} placement="top" mouseEnterDelay={0.3}>
+            <Tooltip
+              title={
+                isActive
+                  ? t('shared.workspaceDropdown.checkActiveTooltip')
+                  : t('shared.workspaceDropdown.setActiveTooltip')
+              }
+              placement="top"
+              mouseEnterDelay={0.3}
+            >
               <span
                 role="button"
                 tabIndex={-1}
-                aria-label={isActive ? 'Active workspace' : `Make "${w.name}" the active workspace`}
+                aria-label={
+                  isActive
+                    ? t('shared.workspaceDropdown.checkActiveTooltip')
+                    : t('shared.workspaceDropdown.makeActiveAria', { name: w.name })
+                }
                 className="oh-env-row-action"
                 style={isActive ? { opacity: 1, cursor: 'default' } : undefined}
                 onClick={(e) => {
@@ -423,29 +443,29 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     const currentId = mode === 'workbench' ? selectedId : activeId;
     const currentWs = currentId ? (workspaces.find((w) => w.id === currentId) ?? null) : null;
     const currentOrg = currentWs && orgGrouping ? orgGrouping.describe(currentWs.orgId) : null;
-    const currentOrgLabel = currentOrg ? orgFullLabel(currentOrg, selfReach) : null;
-    const reason = targetWs
+    const currentOrgLabel = currentOrg ? orgFullLabelText(t, currentOrg, selfReach) : null;
+    const landsOn = targetWs
       ? orgPrefs.remembered[orgId] === targetWs.id
-        ? 'it’s the workspace you last used in this Org'
+        ? t('shared.workspaceDropdown.orgSwitch.landsOnLastUsed', { name: targetWs.name })
         : orgPrefs.defaults[orgId] === targetWs.id
-          ? 'it’s this Org’s default workspace'
-          : 'it’s this Org’s first workspace'
+          ? t('shared.workspaceDropdown.orgSwitch.landsOnDefault', { name: targetWs.name })
+          : t('shared.workspaceDropdown.orgSwitch.landsOnFirst', { name: targetWs.name })
       : null;
     return (
       <div style={{ maxWidth: 280 }}>
         <Text strong style={{ fontSize: 12 }}>
-          {`Switch to ${label}`}
+          {t('shared.workspaceDropdown.orgSwitch.title', { label })}
         </Text>
         {!targetWs ? (
           <div>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              This Org has no workspaces yet, so there is nothing to switch to.
+              {t('shared.workspaceDropdown.orgSwitch.noWorkspaces')}
             </Text>
           </div>
         ) : targetWs.id === currentWs?.id ? (
           <div>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              {`You’re already on “${targetWs.name}” in this Org.`}
+              {t('shared.workspaceDropdown.orgSwitch.alreadyOn', { name: targetWs.name })}
             </Text>
           </div>
         ) : (
@@ -453,20 +473,20 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
             {currentOrgLabel && currentWs && currentWs.orgId !== orgId && (
               <div>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  {`Org: ${currentOrgLabel} → ${label}`}
+                  {t('shared.workspaceDropdown.orgSwitch.orgLine', { from: currentOrgLabel, to: label })}
                 </Text>
               </div>
             )}
             {currentWs && (
               <div>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  {`Workspace: ${currentWs.name} → ${targetWs.name}`}
+                  {t('shared.workspaceDropdown.orgSwitch.workspaceLine', { from: currentWs.name, to: targetWs.name })}
                 </Text>
               </div>
             )}
             <div style={{ marginTop: 4 }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                {`Lands on “${targetWs.name}” because ${reason}.`}
+                {landsOn}
               </Text>
             </div>
           </>
@@ -478,12 +498,16 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
     // A null descriptor in grouped mode means the Org left the identity
     // snapshot — its backend record was removed with local copies kept.
-    const label = descriptor ? orgFullLabel(descriptor, selfReach) : 'No longer syncing';
+    const label = descriptor
+      ? orgFullLabelText(t, descriptor, selfReach)
+      : t('shared.workspaceDropdown.orphanedOrgHeader');
     const annotation: OrgSyncAnnotation | null = descriptor ? annotateOrg(orgId) : orphanedOrgAnnotation();
     // Name the workspace the switch lands on — the header shows the Org's
     // intent; the popover makes the concrete consequence visible.
     const targetWs = resolveOrgTarget(orgId);
-    const ariaLabel = targetWs ? `Switch to ${label} → ${targetWs.name}` : `Switch to ${label}`;
+    const ariaLabel = targetWs
+      ? t('shared.workspaceDropdown.orgSwitch.ariaWithTarget', { label, name: targetWs.name })
+      : t('shared.workspaceDropdown.orgSwitch.aria', { label });
     return (
       <Popover
         placement={popoverPlacement}
@@ -536,7 +560,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
                 flexShrink: 0,
               }}
             >
-              {annotation.text}
+              {orgSyncAnnotationText(t, annotation)}
             </Text>
           )}
         </div>
@@ -560,7 +584,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
         <Input
           ref={searchRef}
           size="small"
-          placeholder="Search workspaces…"
+          placeholder={t('shared.workspaceDropdown.searchPlaceholder')}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           allowClear
@@ -575,7 +599,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
       {filtered.length === 0 && (
         <div style={{ padding: '8px 8px 10px', textAlign: 'center' }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {searchText.trim() ? 'No workspaces match your search.' : 'No workspaces yet.'}
+            {searchText.trim() ? t('shared.workspaceDropdown.noMatch') : t('shared.workspaceDropdown.empty')}
           </Text>
         </div>
       )}
@@ -596,7 +620,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           <Divider style={{ margin: '4px 0' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px' }}>
             <Text type="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
-              Active:
+              {t('shared.workspaceDropdown.activeFooterLabel')}
             </Text>
             <Text style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {activeWorkspace.name}
@@ -644,11 +668,15 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           Deliberately the LAST row so the destructive-adjacent data
           actions sit at the popup's edge, away from the switch rows. */}
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
-        {footerSegment(<ExportOutlined style={{ fontSize: 12 }} />, 'Export', onExport)}
+        {footerSegment(<ExportOutlined style={{ fontSize: 12 }} />, t('shared.workspaceDropdown.export'), onExport)}
         <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
-        {footerSegment(<SettingOutlined style={{ fontSize: 12 }} />, 'Manage workspaces', onOpenManager)}
+        {footerSegment(
+          <SettingOutlined style={{ fontSize: 12 }} />,
+          t('shared.workspaceDropdown.manage'),
+          onOpenManager,
+        )}
         <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
-        {footerSegment(<ImportOutlined style={{ fontSize: 12 }} />, 'Import', onImport)}
+        {footerSegment(<ImportOutlined style={{ fontSize: 12 }} />, t('shared.workspaceDropdown.import'), onImport)}
       </div>
     </div>
   );

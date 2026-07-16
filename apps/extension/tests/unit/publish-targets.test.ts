@@ -57,32 +57,35 @@ describe('derivePublishTargets', () => {
       [BACKEND_A]: { state: 'green', message: 'Synced' },
     });
     const staging = targets.find((t) => t.orgId === ORG_A.id);
-    expect(staging).toMatchObject({ healthy: true, annotation: { tone: 'quiet', text: 'via Desktop app' } });
+    expect(staging).toMatchObject({
+      healthy: true,
+      annotation: { tone: 'quiet', kind: 'synced', backendLabel: 'Desktop app' },
+    });
   });
 
   it('a connecting backend (no slot yet) stays selectable', () => {
     const staging = derive().find((t) => t.orgId === ORG_A.id);
     expect(staging?.healthy).toBe(true);
-    expect(staging?.annotation.text).toBe('via Desktop app — connecting…');
+    expect(staging?.annotation).toEqual({ tone: 'quiet', kind: 'connecting', backendLabel: 'Desktop app' });
   });
 
-  it('off / re-pair / disconnected targets list unhealthy with the annotation wording', () => {
+  it('off / re-pair / disconnected targets list unhealthy with the annotation kind', () => {
     const targets = derive([makeTestBackend({ id: BACKEND_A, label: 'Desktop app', enabled: false }), RECORD_B], {
       [BACKEND_B]: { state: 'red', message: 'auth', context: { reason: 'auth-required' } },
     });
     expect(targets.find((t) => t.orgId === ORG_A.id)).toMatchObject({
       healthy: false,
-      annotation: { tone: 'warning', text: 'via Desktop app — off, not syncing' },
+      annotation: { tone: 'warning', kind: 'off', backendLabel: 'Desktop app' },
     });
     expect(targets.find((t) => t.orgId === ORG_B.id)).toMatchObject({
       healthy: false,
-      annotation: { tone: 'warning', text: 'via Work VM — re-pair needed' },
+      annotation: { tone: 'warning', kind: 'repair', backendLabel: 'Work VM' },
     });
   });
 
   it('a binding whose record vanished reads unhealthy no-longer-syncing', () => {
     const staging = derive([RECORD_B]).find((t) => t.orgId === ORG_A.id);
-    expect(staging).toMatchObject({ healthy: false, annotation: { tone: 'warning', text: 'no longer syncing' } });
+    expect(staging).toMatchObject({ healthy: false, annotation: { tone: 'warning', kind: 'removed' } });
   });
 
   it('a null snapshot yields no targets', () => {

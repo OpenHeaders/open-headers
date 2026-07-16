@@ -62,8 +62,8 @@ export {
   findDaemonUserByEmail,
   listDaemonUsers,
   type PersonalSeatRefusalReason,
-  replacePersonalSeatArtifact,
   type ResolveDaemonPeerUserResult,
+  replacePersonalSeatArtifact,
   resolveDaemonPeerUser,
   type SetDaemonUserPasswordResult,
   type SetDaemonUserWorkspaceCreateResult,
@@ -85,10 +85,10 @@ export {
   defaultNewWorkspaceOrgId,
   describeOrg,
   type OrgDescriptor,
+  type OrgHostHintKind,
   type OrgScopeKind,
   orgCatalogue,
-  orgFullLabel,
-  orgHostKindHint,
+  orgHostHintKind,
   orgIdentityLabel,
 } from './org-catalogue';
 export { resolveOrgActiveWorkspace } from './org-workspace';

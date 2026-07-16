@@ -15,14 +15,43 @@
 
 import { getOrgBackendBindings, isPinnedBackendId } from '@openheaders/core/identity';
 import type { BackendConnection, BackendSyncStatusSnapshot } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { useIdentitySnapshot } from '../hooks/useIdentitySnapshot';
 import { useBackends } from './backend-registry';
 
+/** Which provenance state the annotation words — render sites translate. */
+export type OrgSyncAnnotationKind =
+  | 'removed'
+  | 'off'
+  | 'connecting'
+  | 'synced'
+  | 'repair'
+  | 'disconnected'
+  | 'orphaned';
+
 export interface OrgSyncAnnotation {
   /** `quiet` renders tertiary; `warning` renders in the warning tone. */
   tone: 'quiet' | 'warning';
-  text: string;
+  kind: OrgSyncAnnotationKind;
+  /** Providing backend's display label (label, or URL fallback) — raw data. */
+  backendLabel?: string;
+}
+
+const ANNOTATION_KEYS: Record<OrgSyncAnnotationKind, MessageKey> = {
+  removed: 'shared.org.sync.removed',
+  off: 'shared.org.sync.off',
+  connecting: 'shared.org.sync.connecting',
+  synced: 'shared.org.sync.synced',
+  repair: 'shared.org.sync.repair',
+  disconnected: 'shared.org.sync.disconnected',
+  orphaned: 'shared.org.sync.orphaned',
+};
+
+/** Render-side wording for an annotation — the backend label rides raw. */
+export function orgSyncAnnotationText(t: Translate, annotation: OrgSyncAnnotation): string {
+  return t(ANNOTATION_KEYS[annotation.kind], { label: annotation.backendLabel ?? '' });
 }
 
 /**
@@ -45,19 +74,18 @@ export function deriveOrgSyncAnnotation(
     // sync rides the wire, so it is NOT a removed backend. Nothing to
     // annotate, exactly like the home Org.
     if (isPinnedBackend(backendId)) return null;
-    return { tone: 'warning', text: 'no longer syncing' };
+    return { tone: 'warning', kind: 'removed' };
   }
-  const label = record.label.trim() || record.url;
-  if (!record.enabled) return { tone: 'warning', text: `via ${label} — off, not syncing` };
+  const backendLabel = record.label.trim() || record.url;
+  if (!record.enabled) return { tone: 'warning', kind: 'off', backendLabel };
   const slot = snapshot[backendId];
-  if (!slot) return { tone: 'quiet', text: `via ${label} — connecting…` };
-  if (slot.state === 'green') return { tone: 'quiet', text: `via ${label}` };
+  if (!slot) return { tone: 'quiet', kind: 'connecting', backendLabel };
+  if (slot.state === 'green') return { tone: 'quiet', kind: 'synced', backendLabel };
   if (slot.state === 'red') {
-    const text =
-      slot.context?.reason === 'auth-required' ? `via ${label} — re-pair needed` : `via ${label} — disconnected`;
-    return { tone: 'warning', text };
+    const kind = slot.context?.reason === 'auth-required' ? 'repair' : 'disconnected';
+    return { tone: 'warning', kind, backendLabel };
   }
-  return { tone: 'quiet', text: `via ${label} — connecting…` };
+  return { tone: 'quiet', kind: 'connecting', backendLabel };
 }
 
 export function useOrgSyncAnnotations(): (orgId: string) => OrgSyncAnnotation | null {
@@ -74,5 +102,5 @@ export function useOrgSyncAnnotations(): (orgId: string) => OrgSyncAnnotation | 
 
 /** Annotation for a workspace group whose Org left the identity snapshot. */
 export function orphanedOrgAnnotation(): OrgSyncAnnotation {
-  return { tone: 'warning', text: 'back-end removed — local copies' };
+  return { tone: 'warning', kind: 'orphaned' };
 }

@@ -10,7 +10,7 @@
  */
 
 import type { ExtensionWorkspace } from '@openheaders/core/types';
-import type { PublishTarget } from '@openheaders/ui/shared/backend';
+import { orgSyncAnnotationText, type PublishTarget } from '@openheaders/ui/shared/backend';
 import { Checkbox, Form, Input, Modal, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
@@ -114,7 +114,7 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
                     color: single.annotation.tone === 'warning' ? token.colorWarningText : token.colorTextTertiary,
                   }}
                 >
-                  {single.annotation.text}
+                  {orgSyncAnnotationText(t, single.annotation)}
                 </Text>
               </div>
             </>
@@ -137,7 +137,7 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
                           color: target.annotation.tone === 'warning' ? token.colorWarningText : token.colorTextTertiary,
                         }}
                       >
-                        {target.annotation.text}
+                        {orgSyncAnnotationText(t, target.annotation)}
                       </Text>
                     </span>
                   ),

@@ -10,7 +10,7 @@ import {
   describeOrg,
   type OrgDescriptor,
   orgCatalogue,
-  orgHostKindHint,
+  orgHostHintKind,
   orgIdentityLabel,
 } from '../../src/identity/org-catalogue';
 import type { IdentitySnapshot } from '../../src/identity/resolver';
@@ -129,26 +129,26 @@ describe('orgIdentityLabel', () => {
   });
 });
 
-describe('orgHostKindHint', () => {
-  it('gives the home Org a second-person host-kind hint', () => {
+describe('orgHostHintKind', () => {
+  it('classifies the home Org into a second-person host-kind hint', () => {
     const browserHome = describeOrg(makeSnapshot([privateHome], LOCAL_ORG), LOCAL_ORG);
-    expect(browserHome && orgHostKindHint(browserHome)).toBe('This browser');
+    expect(browserHome && orgHostHintKind(browserHome)).toBe('browser');
 
     const desktopHome = describeOrg(makeSnapshot([realHome], HOME_ORG), HOME_ORG);
-    expect(desktopHome && orgHostKindHint(desktopHome)).toBe('This device');
+    expect(desktopHome && orgHostHintKind(desktopHome)).toBe('desktop');
 
     const daemonHome = describeOrg(makeSnapshot([realTeam], TEAM_ORG), TEAM_ORG);
     // Daemon hint disambiguates by reach — unknown / loopback / lan all
-    // read as "Local server"; only wan deployments report "Remote server".
-    expect(daemonHome && orgHostKindHint(daemonHome)).toBe('Local server');
-    expect(daemonHome && orgHostKindHint(daemonHome, 'lan')).toBe('Local server');
-    expect(daemonHome && orgHostKindHint(daemonHome, 'wan')).toBe('Remote server');
+    // classify as daemon-local; only wan deployments classify as remote.
+    expect(daemonHome && orgHostHintKind(daemonHome)).toBe('daemon-local');
+    expect(daemonHome && orgHostHintKind(daemonHome, 'lan')).toBe('daemon-local');
+    expect(daemonHome && orgHostHintKind(daemonHome, 'wan')).toBe('daemon-remote');
   });
 
   it('gives a joined (non-home) Org no hint', () => {
     const snap = makeSnapshot([privateHome, realHome, realTeam], HOME_ORG);
-    expect(orgHostKindHint(describeOrg(snap, TEAM_ORG) as OrgDescriptor)).toBeNull();
-    expect(orgHostKindHint(describeOrg(snap, LOCAL_ORG) as OrgDescriptor)).toBeNull();
+    expect(orgHostHintKind(describeOrg(snap, TEAM_ORG) as OrgDescriptor)).toBeNull();
+    expect(orgHostHintKind(describeOrg(snap, LOCAL_ORG) as OrgDescriptor)).toBeNull();
   });
 });
 
