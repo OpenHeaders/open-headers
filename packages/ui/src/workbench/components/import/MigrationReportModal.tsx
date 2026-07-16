@@ -13,14 +13,14 @@
 import { CheckCircleFilled, CopyOutlined, DownloadOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import type { ImportReport, PostmanImportedWorkspace, PostmanImportSummary } from '@openheaders/core/import';
-import { App, Button, Collapse, Modal, Skeleton, Typography, theme } from 'antd';
+import { App, Button, Checkbox, Collapse, Modal, Skeleton, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import ImportReportPanel from './ImportReportPanel';
 
 const { Text, Paragraph } = Typography;
 
-interface WorkspaceReportEntry {
+export interface WorkspaceReportEntry {
   workspace: PostmanImportedWorkspace;
   report: ImportReport | null;
 }
@@ -34,15 +34,67 @@ function newestPullReport(reports: ImportReport[]): ImportReport | null {
  * The full run as portable JSON — the debugging hand-off for a GitHub
  * issue: the summary plus each workspace's report (drops/transforms).
  * Never contains credentials (reports are key-free by the key law).
+ *
+ * With `anonymize` the payload is safe to post publicly: workspace
+ * names become stable "Workspace N" aliases (including inside note
+ * strings) and transform from/to values are redacted to their length.
+ * Paths, reasons, counts, and tracking links stay — they carry the
+ * debugging signal.
  */
-function serializeReport(summary: PostmanImportSummary, entries: WorkspaceReportEntry[]): string {
+export function serializeReport(
+  summary: PostmanImportSummary,
+  entries: WorkspaceReportEntry[],
+  anonymize: boolean,
+): string {
+  const aliases = new Map<string, string>();
+  const alias = (name: string): string => {
+    const existing = aliases.get(name);
+    if (existing) return existing;
+    const next = `Workspace ${aliases.size + 1}`;
+    aliases.set(name, next);
+    return next;
+  };
+  if (anonymize) for (const workspace of summary.workspaces) alias(workspace.workspaceName);
+  const scrub = (text: string): string => {
+    let out = text;
+    for (const [name, replacement] of aliases) out = out.split(name).join(replacement);
+    return out;
+  };
+  const redact = (value: string): string => `[redacted ${value.length} chars]`;
+  const cleanReport = (report: ImportReport | null): ImportReport | null => {
+    if (!anonymize || report === null) return report;
+    return {
+      ...report,
+      drops: report.drops.map((drop) => ({ ...drop, path: scrub(drop.path), reason: scrub(drop.reason) })),
+      transforms: report.transforms.map((transform) => ({
+        ...transform,
+        path: scrub(transform.path),
+        reason: scrub(transform.reason),
+        from: redact(transform.from),
+        to: redact(transform.to),
+      })),
+    };
+  };
   return JSON.stringify(
     {
       source: 'postman-pull',
       generatedAt: new Date().toISOString(),
       userAgent: navigator.userAgent,
-      summary,
-      workspaces: entries.map(({ workspace, report }) => ({ ...workspace, report })),
+      anonymized: anonymize,
+      summary: anonymize
+        ? {
+            ...summary,
+            workspaces: summary.workspaces.map((workspace) => ({
+              ...workspace,
+              workspaceName: alias(workspace.workspaceName),
+            })),
+          }
+        : summary,
+      workspaces: entries.map(({ workspace, report }) => ({
+        ...workspace,
+        ...(anonymize ? { workspaceName: alias(workspace.workspaceName) } : {}),
+        report: cleanReport(report),
+      })),
     },
     null,
     2,
@@ -83,25 +135,27 @@ const MigrationReportModal: React.FC<{
   const { message } = App.useApp();
   const [entries, setEntries] = useState<WorkspaceReportEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [anonymize, setAnonymize] = useState(false);
 
   const copyReport = useCallback(() => {
     if (!summary) return;
     navigator.clipboard
-      .writeText(serializeReport(summary, entries))
-      .then(() => message.success('Report copied as JSON'))
+      .writeText(serializeReport(summary, entries, anonymize))
+      .then(() => message.success(anonymize ? 'Anonymized report copied as JSON' : 'Report copied as JSON'))
       .catch(() => message.error('The report could not be copied.'));
-  }, [summary, entries, message]);
+  }, [summary, entries, anonymize, message]);
 
   const downloadReport = useCallback(() => {
     if (!summary) return;
-    const blob = new Blob([serializeReport(summary, entries)], { type: 'application/json' });
+    const blob = new Blob([serializeReport(summary, entries, anonymize)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `openheaders-postman-import-report-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+    const stamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    anchor.download = `openheaders-postman-import-report${anonymize ? '-anonymized' : ''}-${stamp}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [summary, entries]);
+  }, [summary, entries, anonymize]);
 
   useEffect(() => {
     if (!open || !summary) return;
@@ -194,6 +248,11 @@ const MigrationReportModal: React.FC<{
           <Button icon={<DownloadOutlined />} onClick={downloadReport} disabled={loading || !summary}>
             Download
           </Button>
+          <Tooltip title="For sharing publicly (e.g. a GitHub issue): workspace names become “Workspace N” and rewritten values are redacted. Paths, reasons, and counts stay so the report is still debuggable.">
+            <Checkbox checked={anonymize} onChange={(e) => setAnonymize(e.target.checked)} style={{ fontSize: 12 }}>
+              Anonymize
+            </Checkbox>
+          </Tooltip>
           <div style={{ flex: 1 }} />
           <Button type="primary" onClick={onClose}>
             Close
