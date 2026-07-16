@@ -1,3 +1,5 @@
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type {
   DevpanelNetworkLayoutSetting,
   DevpanelNetworkWaterfallPopoverLayoutSetting,
@@ -35,23 +37,35 @@ export const NETWORK_VIEW_MENU_KEYS: readonly SettingKey[] = [
 ];
 
 const WATERFALL_METRICS: readonly WaterfallMetric[] = ['startTime', 'responseTime', 'endTime', 'duration', 'latency'];
-const WATERFALL_VALUES_OPTIONS: ReadonlyArray<{ value: DevpanelNetworkWaterfallValuesSetting; label: string }> = [
-  { value: 'always', label: 'Always' },
-  { value: 'hover', label: 'On hover' },
-  { value: 'off', label: 'Off' },
+const WATERFALL_VALUES_OPTIONS: ReadonlyArray<{
+  value: DevpanelNetworkWaterfallValuesSetting;
+  labelKey: MessageKey;
+}> = [
+  { value: 'always', labelKey: 'panel.network.view.valuesAlways' },
+  { value: 'hover', labelKey: 'panel.network.view.valuesHover' },
+  { value: 'off', labelKey: 'panel.network.view.valuesOff' },
 ];
-const VALUE_FORMAT_OPTIONS: ReadonlyArray<{ value: DevpanelNetworkWaterfallValueFormatSetting; label: string }> = [
-  { value: 'relative', label: 'Relative' },
-  { value: 'timestamp', label: 'Timestamp' },
+const VALUE_FORMAT_OPTIONS: ReadonlyArray<{
+  value: DevpanelNetworkWaterfallValueFormatSetting;
+  labelKey: MessageKey;
+}> = [
+  { value: 'relative', labelKey: 'panel.network.view.formatRelative' },
+  { value: 'timestamp', labelKey: 'panel.network.view.formatTimestamp' },
 ];
-const TIMESTAMP_TZ_OPTIONS: ReadonlyArray<{ value: DevpanelNetworkWaterfallTimestampTzSetting; label: string }> = [
-  { value: 'local', label: 'Local' },
-  { value: 'utc', label: 'UTC' },
+const TIMESTAMP_TZ_OPTIONS: ReadonlyArray<{
+  value: DevpanelNetworkWaterfallTimestampTzSetting;
+  labelKey: MessageKey;
+}> = [
+  { value: 'local', labelKey: 'panel.network.view.tzLocal' },
+  { value: 'utc', labelKey: 'panel.network.view.tzUtc' },
 ];
-const POPOVER_LAYOUT_OPTIONS: ReadonlyArray<{ value: DevpanelNetworkWaterfallPopoverLayoutSetting; label: string }> = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'vertical', label: 'Compact' },
-  { value: 'horizontal', label: 'Wide' },
+const POPOVER_LAYOUT_OPTIONS: ReadonlyArray<{
+  value: DevpanelNetworkWaterfallPopoverLayoutSetting;
+  labelKey: MessageKey;
+}> = [
+  { value: 'auto', labelKey: 'panel.network.view.popoverAuto' },
+  { value: 'vertical', labelKey: 'panel.network.view.popoverCompact' },
+  { value: 'horizontal', labelKey: 'panel.network.view.popoverWide' },
 ];
 
 export function NetworkViewMenu({
@@ -96,24 +110,30 @@ export function NetworkViewMenu({
   /** View settings that differ from their registered default. */
   modified: ReadonlySet<SettingKey>;
 }) {
+  const t = useT();
   const activeCount = modified.size;
   return (
-    <ToolbarMenuPopover label="View" activeCount={activeCount} menuClassName="dt-network-view-menu">
+    <ToolbarMenuPopover
+      label={t('panel.network.view.label')}
+      activeCount={activeCount}
+      menuClassName="dt-network-view-menu"
+    >
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Layout
+          {t('panel.network.view.layout')}
           <MenuNonDefaultDot show={modified.has('devpanelNetwork.layout')} />
         </span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as DevpanelNetworkLayoutSetting)}>
-          <option value="compact">Compact</option>
-          <option value="wide">Wide</option>
+          <option value="compact">{t('panel.network.view.layoutCompact')}</option>
+          <option value="wide">{t('panel.network.view.layoutWide')}</option>
         </select>
       </label>
       <div className="dt-morefilters-divider" />
+      {/* Parity vocabulary — the Waterfall column name stays raw (I18N_PLAN §3). */}
       <div className="dt-sortmode-heading">Waterfall</div>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Value number
+          {t('panel.network.view.valueNumber')}
           <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallMetric')} />
         </span>
         <select
@@ -129,7 +149,7 @@ export function NetworkViewMenu({
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Show value
+          {t('panel.network.view.showValue')}
           <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallValues')} />
         </span>
         <select
@@ -138,14 +158,14 @@ export function NetworkViewMenu({
         >
           {WATERFALL_VALUES_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(o.labelKey)}
             </option>
           ))}
         </select>
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Value format
+          {t('panel.network.view.valueFormat')}
           <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallValueFormat')} />
         </span>
         <select
@@ -154,37 +174,37 @@ export function NetworkViewMenu({
         >
           {VALUE_FORMAT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(o.labelKey)}
             </option>
           ))}
         </select>
       </label>
       {waterfallValueFormat === 'timestamp' && (
         <label className="dt-morefilters-item dt-morefilters-item--select">
-          <span className="dt-morefilters-item-label">Timezone</span>
+          <span className="dt-morefilters-item-label">{t('panel.network.view.timezone')}</span>
           <select
             value={waterfallTimestampTz}
             onChange={(e) => onWaterfallTimestampTzChange(e.target.value as DevpanelNetworkWaterfallTimestampTzSetting)}
           >
             {TIMESTAMP_TZ_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
         </label>
       )}
-      <label className="dt-morefilters-item" title="In the hover popover, highlight the rows that make up the total and show their sum.">
+      <label className="dt-morefilters-item" title={t('panel.network.view.explainValueTitle')}>
         <input type="checkbox" checked={waterfallExplainValue} onChange={onToggleExplainValue} />
-        Explain value
+        {t('panel.network.view.explainValue')}
         <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallExplainValue')} />
       </label>
       <label
         className="dt-morefilters-item dt-morefilters-item--select"
-        title="Orientation of the hover timing breakdown. Auto picks by panel width — horizontal when wide, vertical when narrow."
+        title={t('panel.network.view.popoverTitle')}
       >
         <span className="dt-morefilters-item-label">
-          Popover
+          {t('panel.network.view.popover')}
           <MenuNonDefaultDot show={modified.has('devpanelNetwork.waterfallPopoverLayout')} />
         </span>
         <select
@@ -195,7 +215,7 @@ export function NetworkViewMenu({
         >
           {POPOVER_LAYOUT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(o.labelKey)}
             </option>
           ))}
         </select>
@@ -203,12 +223,12 @@ export function NetworkViewMenu({
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showFireDots} onChange={onToggleShowFireDots} />
-        Show rule-fire dots
+        {t('panel.network.view.showFireDots')}
         <MenuNonDefaultDot show={modified.has('devpanelNetwork.showFireDots')} />
       </label>
       <div className="dt-morefilters-divider" />
       <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeCount === 0}>
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </ToolbarMenuPopover>
   );

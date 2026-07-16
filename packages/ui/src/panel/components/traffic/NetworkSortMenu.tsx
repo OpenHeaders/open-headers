@@ -1,6 +1,8 @@
 import { Popover } from 'antd';
 import { CheckOutlined, RightOutlined } from '@ant-design/icons';
 import { useMemo } from 'react';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type {
   DevpanelNetworkSortBySetting,
   DevpanelNetworkSortDirSetting,
@@ -31,20 +33,20 @@ import { COLUMN_DEFS, type ColumnKey } from './columns';
 
 const GROUPS: ReadonlyArray<{
   id: 'priority' | 'grouping';
-  label: string;
-  hint: string;
+  labelKey: MessageKey;
+  hintKey: MessageKey;
   modes: readonly NetworkSortMode[];
 }> = [
   {
     id: 'priority',
-    label: 'Priority',
-    hint: 'What needs your attention first.',
+    labelKey: 'panel.network.sort.groupPriority',
+    hintKey: 'panel.network.sort.groupPriorityHint',
     modes: ['failures', 'slowest', 'largest', 'browserPriority'],
   },
   {
     id: 'grouping',
-    label: 'Grouping',
-    hint: 'Cluster requests by category.',
+    labelKey: 'panel.network.sort.groupGrouping',
+    hintKey: 'panel.network.sort.groupGroupingHint',
     modes: ['byType', 'byDomain', 'ruleModified'],
   },
 ];
@@ -53,12 +55,14 @@ const SORTABLE_COLUMN_KEYS: ReadonlyArray<ColumnKey> = (Object.keys(COLUMN_DEFS)
   (k) => COLUMN_DEFS[k].sortable,
 );
 
-const WATERFALL_METRICS: ReadonlyArray<{ value: WaterfallMetric; subtitle: string }> = [
-  { value: 'startTime', subtitle: 'When the request started.' },
-  { value: 'responseTime', subtitle: 'When the first response byte arrived.' },
-  { value: 'endTime', subtitle: 'When the request finished.' },
-  { value: 'duration', subtitle: 'How long it took — bars zero-aligned.' },
-  { value: 'latency', subtitle: 'Time to first byte — bars zero-aligned.' },
+// The metric names themselves (Start time / … / Latency) are parity
+// vocabulary and stay raw; only the explanatory subtitles key.
+const WATERFALL_METRICS: ReadonlyArray<{ value: WaterfallMetric; subtitleKey: MessageKey }> = [
+  { value: 'startTime', subtitleKey: 'panel.network.sortMetric.startTime' },
+  { value: 'responseTime', subtitleKey: 'panel.network.sortMetric.responseTime' },
+  { value: 'endTime', subtitleKey: 'panel.network.sortMetric.endTime' },
+  { value: 'duration', subtitleKey: 'panel.network.sortMetric.duration' },
+  { value: 'latency', subtitleKey: 'panel.network.sortMetric.latency' },
 ];
 
 const MAX_NESTED_LEVELS = 4;
@@ -94,6 +98,7 @@ export function NetworkSortMenu({
   /** Restore the sort selection to its registered default. */
   onReset: () => void;
 }) {
+  const t = useT();
   const waterfallActive = sortKind === 'column' && sortBy === 'waterfall';
   // Waterfall has its own row, so "Custom (column-click)" represents only the
   // non-waterfall column-header sorts — otherwise sorting by Waterfall would
@@ -114,24 +119,30 @@ export function NetworkSortMenu({
   const activeSubtitle = useMemo<string>(() => {
     if (sortKind === 'column') {
       const label = sortBy === 'waterfall' ? WATERFALL_METRIC_LABELS[waterfallMetric] : sortByLabel;
-      return `${label} · ${sortDir === 'asc' ? 'Ascending' : 'Descending'}`;
+      // Raw column / metric label · keyed direction — an independent-clause
+      // join, not fragment stitching.
+      return `${label} · ${sortDir === 'asc' ? t('panel.network.sort.ascending') : t('panel.network.sort.descending')}`;
     }
     if (sortKind === 'customNested') {
-      if (customNested.length === 0) return 'No levels yet — open the builder.';
+      if (customNested.length === 0) return t('panel.network.sort.noLevelsYet');
       return customNested.map((l) => `${labelFor(l.key)} ${l.dir === 'asc' ? '↑' : '↓'}`).join(' · ');
     }
-    return NETWORK_SORT_MODE_META[sortMode].subtitle;
-  }, [sortKind, sortMode, sortDir, sortBy, waterfallMetric, sortByLabel, customNested]);
+    return t(NETWORK_SORT_MODE_META[sortMode].subtitleKey);
+  }, [sortKind, sortMode, sortDir, sortBy, waterfallMetric, sortByLabel, customNested, t]);
 
   const activeTitle = useMemo<string>(() => {
-    if (sortKind === 'column') return sortBy === 'waterfall' ? 'Waterfall' : 'Custom (column-click)';
-    if (sortKind === 'customNested') return 'Custom (nested)';
-    return NETWORK_SORT_MODE_META[sortMode].title;
-  }, [sortKind, sortMode, sortBy]);
+    if (sortKind === 'column') return sortBy === 'waterfall' ? 'Waterfall' : t('panel.network.sort.columnClick');
+    if (sortKind === 'customNested') return t('panel.network.sort.customNested');
+    return t(NETWORK_SORT_MODE_META[sortMode].titleKey);
+  }, [sortKind, sortMode, sortBy, t]);
 
   return (
-    <ToolbarMenuPopover label="Sort" activeCount={activeBadgeCount} menuClassName="dt-network-view-menu">
-      <div className="dt-sortmode-heading">Sort order</div>
+    <ToolbarMenuPopover
+      label={t('panel.network.sort.label')}
+      activeCount={activeBadgeCount}
+      menuClassName="dt-network-view-menu"
+    >
+      <div className="dt-sortmode-heading">{t('panel.network.sort.heading')}</div>
       <div className="dt-sortmode-active">
         <div className="dt-sortmode-active-title">{activeTitle}</div>
         <div className="dt-sortmode-active-subtitle">{activeSubtitle}</div>
@@ -146,8 +157,8 @@ export function NetworkSortMenu({
       {GROUPS.map((g) => (
         <SortGroupRow
           key={g.id}
-          label={g.label}
-          hint={g.hint}
+          label={t(g.labelKey)}
+          hint={t(g.hintKey)}
           modes={g.modes}
           active={!!groupActive(g.id)}
           activeMode={sortKind === 'mode' ? sortMode : null}
@@ -155,12 +166,12 @@ export function NetworkSortMenu({
         />
       ))}
       <SortRow
-        title="Custom (column-click)"
+        title={t('panel.network.sort.columnClick')}
         subtitle={
           sortBy === 'waterfall'
-            ? 'Click a column header to sort by it.'
-            : `${sortByLabel} · ${sortDir === 'asc' ? 'Ascending' : 'Descending'}${
-                columnClickActive ? '' : ' · click a column header to use this'
+            ? t('panel.network.sort.columnClickIdle')
+            : `${sortByLabel} · ${sortDir === 'asc' ? t('panel.network.sort.ascending') : t('panel.network.sort.descending')}${
+                columnClickActive ? '' : ` · ${t('panel.network.sort.columnClickUse')}`
               }`
         }
         active={columnClickActive}
@@ -174,7 +185,7 @@ export function NetworkSortMenu({
         onClick={onReset}
         disabled={sortIsDefault && customNested.length === 0}
       >
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </ToolbarMenuPopover>
   );
@@ -223,6 +234,7 @@ function SortGroupRow({
   activeMode: NetworkSortMode | null;
   onPick: (m: NetworkSortMode) => void;
 }) {
+  const t = useT();
   const submenu = (
     <div className="dt-sortmode-submenu" role="menu">
       {modes.map((m) => {
@@ -231,8 +243,8 @@ function SortGroupRow({
         return (
           <button key={m} type="button" className="dt-sortmode-item" onClick={() => onPick(m)}>
             <div className="dt-sortmode-item-body">
-              <div className="dt-sortmode-item-title">{meta.title}</div>
-              <div className="dt-sortmode-item-subtitle">{meta.subtitle}</div>
+              <div className="dt-sortmode-item-title">{t(meta.titleKey)}</div>
+              <div className="dt-sortmode-item-subtitle">{t(meta.subtitleKey)}</div>
             </div>
             {isActive && (
               <span className="dt-sortmode-item-check" aria-hidden="true">
@@ -281,6 +293,7 @@ function WaterfallSortRow({
   activeMetric: WaterfallMetric;
   onPick: (metric: WaterfallMetric) => void;
 }) {
+  const t = useT();
   const submenu = (
     <div className="dt-sortmode-submenu" role="menu">
       {WATERFALL_METRICS.map((m) => {
@@ -289,7 +302,7 @@ function WaterfallSortRow({
           <button key={m.value} type="button" className="dt-sortmode-item" onClick={() => onPick(m.value)}>
             <div className="dt-sortmode-item-body">
               <div className="dt-sortmode-item-title">{WATERFALL_METRIC_LABELS[m.value]}</div>
-              <div className="dt-sortmode-item-subtitle">{m.subtitle}</div>
+              <div className="dt-sortmode-item-subtitle">{t(m.subtitleKey)}</div>
             </div>
             {isActive && (
               <span className="dt-sortmode-item-check" aria-hidden="true">
@@ -313,8 +326,9 @@ function WaterfallSortRow({
     >
       <div className="dt-sortmode-item dt-sortmode-item--group">
         <div className="dt-sortmode-item-body">
+          {/* Parity vocabulary — the Waterfall column name stays raw. */}
           <div className="dt-sortmode-item-title">Waterfall</div>
-          <div className="dt-sortmode-item-subtitle">Sort by time.</div>
+          <div className="dt-sortmode-item-subtitle">{t('panel.network.sort.byTime')}</div>
         </div>
         {active && (
           <span className="dt-sortmode-item-check" aria-hidden="true">
@@ -340,14 +354,15 @@ function SortCustomNestedRow({
   onChange: (next: NetworkCustomNestedLevel[]) => void;
   onActivate: () => void;
 }) {
+  const t = useT();
   const subtitle =
     levels.length === 0
-      ? 'Multi-key sort — column by column.'
-      : `${levels.length} level${levels.length === 1 ? '' : 's'} — open to edit.`;
+      ? t('panel.network.sort.customNestedIdle')
+      : t('panel.network.sort.customNestedLevels', { count: levels.length });
   const submenu = (
     <div className="dt-sortmode-submenu dt-sortmode-submenu--builder" role="menu">
-      <div className="dt-sortmode-builder-title">Sort by, in order</div>
-      {levels.length === 0 && <div className="dt-sortmode-builder-empty">No levels yet. Add one below.</div>}
+      <div className="dt-sortmode-builder-title">{t('panel.network.sort.builderTitle')}</div>
+      {levels.length === 0 && <div className="dt-sortmode-builder-empty">{t('panel.network.sort.builderEmpty')}</div>}
       {levels.map((lvl, i) => (
         <div key={i} className="dt-sortmode-builder-row">
           <span className="dt-sortmode-builder-step">{i + 1}.</span>
@@ -373,13 +388,13 @@ function SortCustomNestedRow({
               onChange(next);
             }}
           >
-            <option value="asc">Asc</option>
-            <option value="desc">Desc</option>
+            <option value="asc">{t('panel.network.sort.asc')}</option>
+            <option value="desc">{t('panel.network.sort.desc')}</option>
           </select>
           <button
             type="button"
             className="dt-sortmode-builder-remove"
-            aria-label={`Remove level ${i + 1}`}
+            aria-label={t('panel.network.sort.removeLevel', { n: i + 1 })}
             onClick={() => onChange(levels.filter((_, j) => j !== i))}
           >
             ×
@@ -392,18 +407,18 @@ function SortCustomNestedRow({
           className="dt-sortmode-builder-add"
           onClick={() => onChange([...levels, { key: defaultLevelKey(levels), dir: 'asc' }])}
         >
-          + Add level
+          {t('panel.network.sort.addLevel')}
         </button>
       )}
       <div className="dt-sortmode-builder-footer">
-        <span className="dt-sortmode-builder-tiebreak">Final tiebreak: start time</span>
+        <span className="dt-sortmode-builder-tiebreak">{t('panel.network.sort.finalTiebreak')}</span>
         <button
           type="button"
           className="dt-sortmode-builder-apply"
           onClick={onActivate}
           disabled={levels.length === 0 || active}
         >
-          {active ? 'Active' : 'Apply'}
+          {active ? t('panel.network.sort.active') : t('panel.network.sort.apply')}
         </button>
       </div>
     </div>
@@ -420,7 +435,7 @@ function SortCustomNestedRow({
     >
       <div className="dt-sortmode-item dt-sortmode-item--group">
         <div className="dt-sortmode-item-body">
-          <div className="dt-sortmode-item-title">Custom (nested)</div>
+          <div className="dt-sortmode-item-title">{t('panel.network.sort.customNested')}</div>
           <div className="dt-sortmode-item-subtitle">{subtitle}</div>
         </div>
         {active && (

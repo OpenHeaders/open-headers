@@ -12,6 +12,7 @@
  * clicks a column header.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import type { NetworkCustomNestedLevel } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import { rowFireTier } from './fire-evidence';
 import type { InspectorRowWithFires } from './inspector-row-projection';
@@ -31,38 +32,38 @@ export const NETWORK_SORT_MODES = [
 export type NetworkSortMode = (typeof NETWORK_SORT_MODES)[number];
 
 export interface NetworkSortModeMeta {
-  title: string;
-  subtitle: string;
+  titleKey: MessageKey;
+  subtitleKey: MessageKey;
 }
 
 export const NETWORK_SORT_MODE_META: Record<NetworkSortMode, NetworkSortModeMeta> = {
   failures: {
-    title: 'Failures first',
-    subtitle: 'Failed → pending → redirected → success · start time within each.',
+    titleKey: 'panel.network.sortMode.failures',
+    subtitleKey: 'panel.network.sortMode.failuresSubtitle',
   },
   slowest: {
-    title: 'Slowest first',
-    subtitle: 'Longest duration first · start time keeps waterfall order on ties.',
+    titleKey: 'panel.network.sortMode.slowest',
+    subtitleKey: 'panel.network.sortMode.slowestSubtitle',
   },
   largest: {
-    title: 'Largest first',
-    subtitle: 'Biggest wire bytes first · start time within ties.',
+    titleKey: 'panel.network.sortMode.largest',
+    subtitleKey: 'panel.network.sortMode.largestSubtitle',
   },
   browserPriority: {
-    title: 'Browser priority',
-    subtitle: 'Highest → Lowest by the browser’s reported priority · start time within each.',
+    titleKey: 'panel.network.sortMode.browserPriority',
+    subtitleKey: 'panel.network.sortMode.browserPrioritySubtitle',
   },
   byType: {
-    title: 'By resource type',
-    subtitle: 'Document → XHR/Fetch → Script → Style → Image → Font → Media → WS → Other · start time within each.',
+    titleKey: 'panel.network.sortMode.byType',
+    subtitleKey: 'panel.network.sortMode.byTypeSubtitle',
   },
   byDomain: {
-    title: 'By domain',
-    subtitle: 'Group by hostname (A → Z) · start time within each domain.',
+    titleKey: 'panel.network.sortMode.byDomain',
+    subtitleKey: 'panel.network.sortMode.byDomainSubtitle',
   },
   ruleModified: {
-    title: 'Rule-modified first',
-    subtitle: 'Applied rules → inferred → no fire · start time within each.',
+    titleKey: 'panel.network.sortMode.ruleModified',
+    subtitleKey: 'panel.network.sortMode.ruleModifiedSubtitle',
   },
 };
 

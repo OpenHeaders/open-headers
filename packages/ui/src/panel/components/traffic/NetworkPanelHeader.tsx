@@ -1,10 +1,11 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { type ReactNode, useMemo } from 'react';
 import type { FilterConfig } from '../../data/filter-engine';
 import { FilterInput } from '../FilterInput';
 import { ResourceFilter } from '../ResourceFilter';
-import { RESOURCE_FILTER_INFO, SORT_INFO } from './filter-strip-info';
+import { getResourceFilterInfo, getSortInfo } from './filter-strip-info';
 
 interface NetworkPanelHeaderProps {
   urlFilter: string;
@@ -37,9 +38,10 @@ export function NetworkPanelHeader({
   viewMenu,
   sortMenu,
 }: NetworkPanelHeaderProps) {
+  const t = useT();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   if (!showFilter) {
-    return <PanelHeader wiring={headerWiring} title={<strong>Network</strong>} />;
+    return <PanelHeader wiring={headerWiring} title={<strong>{t('panel.toolWindows.network')}</strong>} />;
   }
 
   return (
@@ -47,7 +49,7 @@ export function NetworkPanelHeader({
       wiring={headerWiring}
       title={
         <div className="dt-header-filter-row">
-          <strong className="dt-header-panel-name">Network</strong>
+          <strong className="dt-header-panel-name">{t('panel.toolWindows.network')}</strong>
           <div className="dt-filter-separator" />
           <FilterInput
             value={urlFilter}
@@ -55,14 +57,14 @@ export function NetworkPanelHeader({
             config={filterConfig}
             onConfigChange={onFilterConfigChange}
             hasError={filterError}
-            placeholder="Filter"
+            placeholder={t('panel.filter.placeholder')}
           />
           <button
             type="button"
             className="dt-toolbar-icon"
             data-active={docsActive}
             onClick={onToggleDocs}
-            title="Filter syntax help"
+            title={t('panel.network.filterSyntaxHelp')}
           >
             <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
               <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -83,18 +85,18 @@ export function NetworkPanelHeader({
           <span className="dt-debug-control">
             <ResourceFilter value={filter} onChange={onFilterChange} compact />
             <InfoTrigger
-              content={RESOURCE_FILTER_INFO}
+              content={getResourceFilterInfo(t)}
               className="dt-header-info-trigger dt-debug-info-trigger"
-              ariaLabel="About request type filters"
+              ariaLabel={t('panel.network.aboutTypeFilters')}
             />
           </span>
           <div className="dt-filter-separator" />
           <span className="dt-debug-control">
             {sortMenu}
             <InfoTrigger
-              content={SORT_INFO}
+              content={getSortInfo(t)}
               className="dt-header-info-trigger dt-debug-info-trigger"
-              ariaLabel="About sorting"
+              ariaLabel={t('panel.network.aboutSorting')}
             />
           </span>
           <div className="dt-filter-separator" />

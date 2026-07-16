@@ -552,4 +552,148 @@ export const panel = {
   'panel.ruleActivity.contradicted': '{count} contradicted',
   'panel.ruleActivity.offHar': '{count} off-HAR',
   'panel.ruleActivity.offHarTitle': "Off-HAR — the panel didn't capture a HAR shell for this fire",
+
+  // ── Network tool window — header chrome + menus (station: traffic
+  // menus) ─────────────────────────────────────────────────────────────
+  // Raw by design (network-table parity vocabulary): the column names
+  // (Name / Status / Type / … / Waterfall) everywhere they appear —
+  // header cells, the column-visibility menu rows, the nested-sort
+  // builder options, the closed-state sort subtitles — and the Waterfall
+  // metric names (Start time / Response time / End time / Total duration
+  // / Latency) plus their header tags (ST / RT / ET / TD / L). The menu
+  // chrome AROUND them localizes; the vocabulary itself does not.
+  'panel.network.filterSyntaxHelp': 'Filter syntax help',
+  'panel.network.aboutTypeFilters': 'About request type filters',
+  'panel.network.aboutSorting': 'About sorting',
+
+  // View ▾ menu
+  'panel.network.view.label': 'View',
+  'panel.network.view.layout': 'Layout',
+  'panel.network.view.layoutCompact': 'Compact',
+  'panel.network.view.layoutWide': 'Wide',
+  'panel.network.view.valueNumber': 'Value number',
+  'panel.network.view.showValue': 'Show value',
+  'panel.network.view.valuesAlways': 'Always',
+  'panel.network.view.valuesHover': 'On hover',
+  'panel.network.view.valuesOff': 'Off',
+  'panel.network.view.valueFormat': 'Value format',
+  'panel.network.view.formatRelative': 'Relative',
+  'panel.network.view.formatTimestamp': 'Timestamp',
+  'panel.network.view.timezone': 'Timezone',
+  'panel.network.view.tzLocal': 'Local',
+  'panel.network.view.tzUtc': 'UTC',
+  'panel.network.view.explainValue': 'Explain value',
+  'panel.network.view.explainValueTitle':
+    'In the hover popover, highlight the rows that make up the total and show their sum.',
+  'panel.network.view.popover': 'Popover',
+  'panel.network.view.popoverTitle':
+    'Orientation of the hover timing breakdown. Auto picks by panel width — horizontal when wide, vertical when narrow.',
+  'panel.network.view.popoverAuto': 'Auto',
+  'panel.network.view.popoverCompact': 'Compact',
+  'panel.network.view.popoverWide': 'Wide',
+  'panel.network.view.showFireDots': 'Show rule-fire dots',
+
+  // Sort ▾ menu
+  'panel.network.sort.label': 'Sort',
+  'panel.network.sort.heading': 'Sort order',
+  'panel.network.sort.byTime': 'Sort by time.',
+  'panel.network.sort.groupPriority': 'Priority',
+  'panel.network.sort.groupPriorityHint': 'What needs your attention first.',
+  'panel.network.sort.groupGrouping': 'Grouping',
+  'panel.network.sort.groupGroupingHint': 'Cluster requests by category.',
+  'panel.network.sort.ascending': 'Ascending',
+  'panel.network.sort.descending': 'Descending',
+  'panel.network.sort.customNested': 'Custom (nested)',
+  'panel.network.sort.customNestedIdle': 'Multi-key sort — column by column.',
+  'panel.network.sort.customNestedLevels': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} level — open to edit.',
+      other: '{count} levels — open to edit.',
+    }),
+  'panel.network.sort.noLevelsYet': 'No levels yet — open the builder.',
+  'panel.network.sort.builderTitle': 'Sort by, in order',
+  'panel.network.sort.builderEmpty': 'No levels yet. Add one below.',
+  'panel.network.sort.asc': 'Asc',
+  'panel.network.sort.desc': 'Desc',
+  'panel.network.sort.removeLevel': 'Remove level {n}',
+  'panel.network.sort.addLevel': '+ Add level',
+  'panel.network.sort.finalTiebreak': 'Final tiebreak: start time',
+  'panel.network.sort.active': 'Active',
+  'panel.network.sort.apply': 'Apply',
+  'panel.network.sort.columnClick': 'Custom (column-click)',
+  'panel.network.sort.columnClickIdle': 'Click a column header to sort by it.',
+  'panel.network.sort.columnClickUse': 'click a column header to use this',
+
+  // Named sort modes (OH product vocabulary, not browser parity)
+  'panel.network.sortMode.failures': 'Failures first',
+  'panel.network.sortMode.failuresSubtitle': 'Failed → pending → redirected → success · start time within each.',
+  'panel.network.sortMode.slowest': 'Slowest first',
+  'panel.network.sortMode.slowestSubtitle': 'Longest duration first · start time keeps waterfall order on ties.',
+  'panel.network.sortMode.largest': 'Largest first',
+  'panel.network.sortMode.largestSubtitle': 'Biggest wire bytes first · start time within ties.',
+  'panel.network.sortMode.browserPriority': 'Browser priority',
+  'panel.network.sortMode.browserPrioritySubtitle':
+    'Highest → Lowest by the browser’s reported priority · start time within each.',
+  'panel.network.sortMode.byType': 'By resource type',
+  'panel.network.sortMode.byTypeSubtitle':
+    'Document → XHR/Fetch → Script → Style → Image → Font → Media → WS → Other · start time within each.',
+  'panel.network.sortMode.byDomain': 'By domain',
+  'panel.network.sortMode.byDomainSubtitle': 'Group by hostname (A → Z) · start time within each domain.',
+  'panel.network.sortMode.ruleModified': 'Rule-modified first',
+  'panel.network.sortMode.ruleModifiedSubtitle': 'Applied rules → inferred → no fire · start time within each.',
+
+  // Waterfall sort submenu subtitles (the metric names above them stay raw)
+  'panel.network.sortMetric.startTime': 'When the request started.',
+  'panel.network.sortMetric.responseTime': 'When the first response byte arrived.',
+  'panel.network.sortMetric.endTime': 'When the request finished.',
+  'panel.network.sortMetric.duration': 'How long it took — bars zero-aligned.',
+  'panel.network.sortMetric.latency': 'Time to first byte — bars zero-aligned.',
+
+  // The two OH-native rails (also the rail-header popover titles)
+  'panel.network.railFires': 'Rule fires',
+  'panel.network.railAnnotations': 'Annotations',
+
+  // Row context menu (menu-local keys; cURL / fetch / HAR ride raw)
+  'panel.requestMenu.openInNewTab': 'Open in new tab',
+  'panel.requestMenu.createApiRequest': 'Create API request',
+  'panel.requestMenu.copy': 'Copy',
+  'panel.requestMenu.copyUrl': 'Copy URL',
+  'panel.requestMenu.copyAsCurl': 'Copy as cURL',
+  'panel.requestMenu.copyAsFetch': 'Copy as fetch',
+  'panel.requestMenu.copyRequestHeaders': 'Copy request headers',
+  'panel.requestMenu.copyResponseHeaders': 'Copy response headers',
+  'panel.requestMenu.copyResponse': 'Copy response',
+  'panel.requestMenu.copyAsHar': 'Copy as HAR',
+  'panel.requestMenu.copyAsHarSanitized': 'Copy as HAR (sanitized)',
+  'panel.requestMenu.copyAllUrls': 'Copy all URLs',
+  'panel.requestMenu.copyAllAsCurl': 'Copy all as cURL',
+  'panel.requestMenu.copyAllAsHar': 'Copy all as HAR',
+  'panel.requestMenu.copyAllAsHarSanitized': 'Copy all as HAR (sanitized)',
+  'panel.requestMenu.blockRequests': 'Block requests',
+  'panel.requestMenu.blockUrl': 'Block request URL',
+  'panel.requestMenu.blockDomain': 'Block request domain',
+  'panel.requestMenu.saveAs': 'Save as...',
+  'panel.requestMenu.saveThisAsHar': 'Save this as HAR',
+  'panel.requestMenu.saveThisAsHarSanitized': 'Save this as HAR (sanitized)',
+  'panel.requestMenu.saveAllAsHar': 'Save all as HAR',
+  'panel.requestMenu.saveAllAsHarSanitized': 'Save all as HAR (sanitized)',
+
+  // Filter-strip `(i)` corpora (pill vocabulary rides raw in the labels)
+  'panel.network.typeInfo.title': 'Request types',
+  'panel.network.typeInfo.summary':
+    'Narrows the list to one or more request types. "All" shows everything; pick types to filter, or combine several.',
+  'panel.network.typeInfo.inlineHeading': 'Inline',
+  'panel.network.typeInfo.fetchXhrDesc': 'API calls — fetch() and XMLHttpRequest.',
+  'panel.network.typeInfo.socketDesc': 'WebSocket connections.',
+  'panel.network.typeInfo.underMoreHeading': 'Under More',
+  'panel.network.typeInfo.docCssJsDesc': 'Documents, stylesheets, and scripts.',
+  'panel.network.typeInfo.fontImgMediaDesc': 'Fonts, images, and audio / video.',
+  'panel.network.typeInfo.manifestWasmOtherDesc': 'Web app manifests, WebAssembly, and everything else.',
+  'panel.network.sortInfo.summary': 'Chooses how the request list is ordered. Hover a group to pick a specific mode.',
+  'panel.network.sortInfo.modesHeading': 'Modes',
+  'panel.network.sortInfo.waterfallDesc': 'By time — start, response, end, duration, or latency.',
+  'panel.network.sortInfo.priorityDesc': 'What needs attention first — failures, slowest, largest.',
+  'panel.network.sortInfo.groupingDesc': 'Cluster by type, domain, or rule-modified.',
+  'panel.network.sortInfo.custom': 'Custom',
+  'panel.network.sortInfo.customDesc': 'Click a column header, or build a multi-key nested sort.',
 } as const satisfies Catalog;

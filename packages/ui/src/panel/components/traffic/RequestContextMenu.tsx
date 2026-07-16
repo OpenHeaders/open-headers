@@ -15,6 +15,7 @@
  */
 
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { handOffApiRequestSeed } from '../../data/api-request-handoff';
 import { currentResponseBody, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { formatCurl, formatFetch, formatRequestHeaders, formatResponseHeaders } from '../../data/request-formatters';
@@ -120,6 +121,7 @@ export function RequestContextMenu({
   onSaveAllAsHar,
   onCopyAllAsHar,
 }: RequestContextMenuProps) {
+  const t = useT();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -166,34 +168,34 @@ export function RequestContextMenu({
 
   return (
     <div ref={menuRef} className="dt-ctx-menu" style={{ left: state.x, top: state.y }}>
-      {item('Open in new tab', openInNewTab)}
-      {item('Create API request', () => handOffApiRequestSeed(lc))}
+      {item(t('panel.requestMenu.openInNewTab'), openInNewTab)}
+      {item(t('panel.requestMenu.createApiRequest'), () => handOffApiRequestSeed(lc))}
       <div className="dt-ctx-sep" />
-      <SubmenuRow label="Copy">
-        {item('Copy URL', () => copyText(lc.url))}
-        {item('Copy as cURL', () => copyText(formatCurl(lc)))}
-        {item('Copy as fetch', () => copyText(formatFetch(lc)))}
-        {item('Copy request headers', () => copyText(formatRequestHeaders(lc)))}
-        {item('Copy response headers', () => copyText(formatResponseHeaders(lc)))}
-        {item('Copy response', () => copyText(responseBody), responseBody.length === 0)}
-        {item('Copy as HAR', () => onCopyAsHar(row, false))}
-        {item('Copy as HAR (sanitized)', () => onCopyAsHar(row, true))}
+      <SubmenuRow label={t('panel.requestMenu.copy')}>
+        {item(t('panel.requestMenu.copyUrl'), () => copyText(lc.url))}
+        {item(t('panel.requestMenu.copyAsCurl'), () => copyText(formatCurl(lc)))}
+        {item(t('panel.requestMenu.copyAsFetch'), () => copyText(formatFetch(lc)))}
+        {item(t('panel.requestMenu.copyRequestHeaders'), () => copyText(formatRequestHeaders(lc)))}
+        {item(t('panel.requestMenu.copyResponseHeaders'), () => copyText(formatResponseHeaders(lc)))}
+        {item(t('panel.requestMenu.copyResponse'), () => copyText(responseBody), responseBody.length === 0)}
+        {item(t('panel.requestMenu.copyAsHar'), () => onCopyAsHar(row, false))}
+        {item(t('panel.requestMenu.copyAsHarSanitized'), () => onCopyAsHar(row, true))}
         <div className="dt-ctx-sep" />
-        {item('Copy all URLs', () => copyText(allUrls), allRows.length === 0)}
-        {item('Copy all as cURL', () => copyText(allCurls), allRows.length === 0)}
-        {item('Copy all as HAR', () => onCopyAllAsHar(false), allRows.length === 0)}
-        {item('Copy all as HAR (sanitized)', () => onCopyAllAsHar(true), allRows.length === 0)}
+        {item(t('panel.requestMenu.copyAllUrls'), () => copyText(allUrls), allRows.length === 0)}
+        {item(t('panel.requestMenu.copyAllAsCurl'), () => copyText(allCurls), allRows.length === 0)}
+        {item(t('panel.requestMenu.copyAllAsHar'), () => onCopyAllAsHar(false), allRows.length === 0)}
+        {item(t('panel.requestMenu.copyAllAsHarSanitized'), () => onCopyAllAsHar(true), allRows.length === 0)}
       </SubmenuRow>
-      <SubmenuRow label="Block requests">
-        {item('Block request URL', () => blockRequest(lc.url, 'url'))}
-        {item('Block request domain', () => blockRequest(lc.url, 'domain'))}
+      <SubmenuRow label={t('panel.requestMenu.blockRequests')}>
+        {item(t('panel.requestMenu.blockUrl'), () => blockRequest(lc.url, 'url'))}
+        {item(t('panel.requestMenu.blockDomain'), () => blockRequest(lc.url, 'domain'))}
       </SubmenuRow>
       <div className="dt-ctx-sep" />
-      <SubmenuRow label="Save as...">
-        {item('Save this as HAR', () => onSaveAsHar(row, false))}
-        {item('Save this as HAR (sanitized)', () => onSaveAsHar(row, true))}
-        {item('Save all as HAR', () => onSaveAllAsHar(false), allRows.length === 0)}
-        {item('Save all as HAR (sanitized)', () => onSaveAllAsHar(true), allRows.length === 0)}
+      <SubmenuRow label={t('panel.requestMenu.saveAs')}>
+        {item(t('panel.requestMenu.saveThisAsHar'), () => onSaveAsHar(row, false))}
+        {item(t('panel.requestMenu.saveThisAsHarSanitized'), () => onSaveAsHar(row, true))}
+        {item(t('panel.requestMenu.saveAllAsHar'), () => onSaveAllAsHar(false), allRows.length === 0)}
+        {item(t('panel.requestMenu.saveAllAsHarSanitized'), () => onSaveAllAsHar(true), allRows.length === 0)}
       </SubmenuRow>
     </div>
   );

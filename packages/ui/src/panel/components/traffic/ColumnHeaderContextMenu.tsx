@@ -22,11 +22,16 @@
  *
  * The Name column is mandatory (Chrome does the same); "Reset columns"
  * restores the default visible set.
+ *
+ * Column names and the Waterfall metric names are network-table parity
+ * vocabulary and stay raw (I18N_PLAN §3); the OH-native rail rows and the
+ * reset row localize.
  */
 
 import { Popover } from 'antd';
 import { Fragment, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type WaterfallMetric, WATERFALL_METRIC_LABELS } from '../../data/network-columns';
 import { type ColumnDef, type ColumnKey, DEFAULT_VISIBLE_COLUMNS } from './columns';
 
@@ -65,6 +70,7 @@ export function ColumnHeaderContextMenu({
   waterfallMetric,
   onWaterfallMetricChange,
 }: ColumnHeaderContextMenuProps) {
+  const t = useT();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -123,11 +129,11 @@ export function ColumnHeaderContextMenu({
             (checked, greyed, unclickable). */}
         <button type="button" className="dt-ctx-item dt-ctx-check disabled" disabled>
           <span className="dt-ctx-check-mark">✓</span>
-          <span>Rule fires</span>
+          <span>{t('panel.network.railFires')}</span>
         </button>
         <button type="button" className="dt-ctx-item dt-ctx-check disabled" disabled>
           <span className="dt-ctx-check-mark">✓</span>
-          <span>Annotations</span>
+          <span>{t('panel.network.railAnnotations')}</span>
         </button>
         <div className="dt-ctx-sep" />
         {columns.map((col) => {
@@ -164,7 +170,7 @@ export function ColumnHeaderContextMenu({
           }}
           disabled={isDefault}
         >
-          Reset to default
+          {t('panel.menu.resetToDefault')}
         </button>
         <div className="dt-ctx-sep" />
         <Popover
