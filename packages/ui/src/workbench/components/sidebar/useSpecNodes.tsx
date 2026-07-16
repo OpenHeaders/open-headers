@@ -2,11 +2,14 @@ import { DeleteOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icon
 import { SPEC_ENTITY_TYPE } from '@openheaders/core/sync';
 import { createElement, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { iconEl } from './icons';
+import { composeBadge, iconEl } from './icons';
 import type { TreeNode } from './types';
 
 interface UseSpecNodesParams {
   specs: readonly { uid: string; name: string }[];
+  /** Specs with ≥1 drifted linked collection — drives the row badge
+   *  (drift is derived at read time, never cached; Phase F). */
+  driftedSpecUids: ReadonlySet<string>;
   filterText: string;
   setRenamingId: (id: string | null) => void;
   confirmDelete: (name: string, onConfirm: () => void) => void;
@@ -31,7 +34,17 @@ export function useSpecNodes(p: UseSpecNodesParams): TreeNode[] {
         depth: 0,
         expandable: false,
         icon: iconEl(FileTextOutlined, 'var(--ant-color-text-tertiary, #999)'),
-        badge: undefined,
+        badge: p.driftedSpecUids.has(spec.uid)
+          ? composeBadge(
+              {
+                label: t('workbench.sidebar.badge.specDrift'),
+                color: 'var(--ant-color-warning, #faad14)',
+              },
+              false,
+              undefined,
+              t,
+            )
+          : undefined,
         canRename: true,
         canDelete: true,
         canAddChild: false,
@@ -65,5 +78,5 @@ export function useSpecNodes(p: UseSpecNodesParams): TreeNode[] {
       });
     }
     return items;
-  }, [p.specs, lowerFilter, p.renameSpec, p.deleteSpec, p.confirmDelete, p.onSelectSpec, p.setRenamingId, t]);
+  }, [p.specs, p.driftedSpecUids, lowerFilter, p.renameSpec, p.deleteSpec, p.confirmDelete, p.onSelectSpec, p.setRenamingId, t]);
 }

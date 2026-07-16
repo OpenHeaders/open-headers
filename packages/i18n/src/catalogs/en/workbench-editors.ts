@@ -1261,6 +1261,39 @@ export const workbenchEditors = {
   'workbench.editors.spec.generate.failed': 'Could not create the collection.',
   'workbench.editors.spec.generate.linkFailed':
     'The collection was generated, but recording its spec link failed — it will not appear in this list.',
+  'workbench.editors.spec.update.button': 'Update',
+  'workbench.editors.spec.update.inSyncBadge': 'In sync with the saved document',
+  'workbench.editors.spec.update.driftedBadge': 'The specification changed since the last update',
+  'workbench.editors.spec.update.modalTitle': 'UPDATE COLLECTION',
+  'workbench.editors.spec.update.blurb':
+    'Review the differences between the saved document and "{name}", then apply the selected updates. Unchecked rows are left untouched.',
+  'workbench.editors.spec.update.dirtyHint':
+    'Unsaved editor changes are not included — the update uses the last saved document.',
+  'workbench.editors.spec.update.parseFailed': "This specification doesn't parse",
+  'workbench.editors.spec.update.inSync':
+    'No request-level differences — applying marks the collection in sync with the saved document.',
+  'workbench.editors.spec.update.groupAdded': 'Added ({count})',
+  'workbench.editors.spec.update.groupChanged': 'Changed ({count})',
+  'workbench.editors.spec.update.groupRemoved': 'Removed from spec ({count})',
+  'workbench.editors.spec.update.removeHint': 'Unchecked requests stay in the collection.',
+  'workbench.editors.spec.update.groupCollection': 'Collection',
+  'workbench.editors.spec.update.variablesRow': 'Collection variables',
+  'workbench.editors.spec.update.authRow': 'Collection auth',
+  'workbench.editors.spec.update.field.name': 'name',
+  'workbench.editors.spec.update.field.description': 'description',
+  'workbench.editors.spec.update.field.headers': 'headers',
+  'workbench.editors.spec.update.field.params': 'params',
+  'workbench.editors.spec.update.field.auth': 'auth',
+  'workbench.editors.spec.update.field.body': 'body',
+  'workbench.editors.spec.update.action': ({ count }, locale) =>
+    plural(locale, Number(count), { one: 'Apply {count} update', other: 'Apply {count} updates' }),
+  'workbench.editors.spec.update.markInSync': 'Mark in sync',
+  'workbench.editors.spec.update.hashNote':
+    'Applying records this document version on the collection link, so the link reads in sync even if rows were left unchecked.',
+  'workbench.editors.spec.update.success': 'Updated "{name}" — {count} applied',
+  'workbench.editors.spec.update.partial':
+    '{applied} applied, {failed} failed — the collection may be partially updated.',
+  'workbench.editors.spec.update.failed': 'Could not update the collection.',
 
   // ── Script editor (snippets/packages menus, save-to-package flow,
   //    ScriptsTab's own Monaco context-menu actions). Snippet code

@@ -27,13 +27,14 @@ import {
   FileTextOutlined,
   FolderOutlined,
   PlusOutlined,
+  SyncOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import { SPEC_FORMATS } from '@openheaders/core/schemas';
 import { SPEC_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { SpecFile } from '@openheaders/core/types';
+import type { Collection, SpecFile } from '@openheaders/core/types';
 import { Allotment } from 'allotment';
-import { App, Button, Empty, Popover, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Badge, Button, Empty, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -50,6 +51,8 @@ import GenerateCollectionModal from './GenerateCollectionModal';
 import SpecOutlinePane from './SpecOutlinePane';
 import { planSpecInsertion, type SpecInsertTarget } from './spec-outline-insert';
 import { specFileLanguage, specFileSyntaxLabel, useSpecAnalysis } from './spec-validation';
+import UpdateCollectionModal from './UpdateCollectionModal';
+import { useSpecSourceHash } from './use-spec-drift';
 
 /** Header badge label per format — presentation of the picklist value. */
 const FORMAT_LABELS: Record<(typeof SPEC_FORMATS)[number], string> = {
@@ -108,6 +111,16 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
     [requestsApi.collections, specUid],
   );
   const [generateOpen, setGenerateOpen] = useState(false);
+
+  // Drift (Phase F) — judged per link against the SAVED source's hash,
+  // derived at read time; a dirty buffer never drifts anything.
+  const savedHash = useSpecSourceHash(rootFile?.content ?? null);
+  const isDrifted = useCallback(
+    (c: Collection) => savedHash !== null && c.specLink !== undefined && c.specLink.sourceHash !== savedHash,
+    [savedHash],
+  );
+  const anyDrift = useMemo(() => linkedCollections.some(isDrifted), [linkedCollections, isDrifted]);
+  const [updateTarget, setUpdateTarget] = useState<Collection | null>(null);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -234,15 +247,41 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
           </span>
         }
         content={
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 220 }}>
-            {linkedCollections.map((c) => (
-              <div key={c.uid} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                <FolderOutlined style={{ color: token.colorTextTertiary }} />
-                <Typography.Text style={{ fontSize: 12 }} ellipsis>
-                  {c.name}
-                </Typography.Text>
-              </div>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 260 }}>
+            {linkedCollections.map((c) => {
+              const drifted = isDrifted(c);
+              return (
+                <div key={c.uid} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                  <FolderOutlined style={{ color: token.colorTextTertiary }} />
+                  <Typography.Text style={{ fontSize: 12, flex: 1, minWidth: 0 }} ellipsis>
+                    {c.name}
+                  </Typography.Text>
+                  <Tooltip
+                    title={t(
+                      drifted ? 'workbench.editors.spec.update.driftedBadge' : 'workbench.editors.spec.update.inSyncBadge',
+                    )}
+                  >
+                    {drifted ? (
+                      <SyncOutlined style={{ color: token.colorWarning }} data-testid={`spec-link-drifted-${c.uid}`} />
+                    ) : (
+                      <CheckCircleOutlined
+                        style={{ color: token.colorSuccess }}
+                        data-testid={`spec-link-in-sync-${c.uid}`}
+                      />
+                    )}
+                  </Tooltip>
+                  <Button
+                    size="small"
+                    style={{ fontSize: 11 }}
+                    disabled={!drifted}
+                    onClick={() => setUpdateTarget(c)}
+                    data-testid={`spec-link-update-${c.uid}`}
+                  >
+                    {t('workbench.editors.spec.update.button')}
+                  </Button>
+                </div>
+              );
+            })}
             <Button
               size="small"
               type="text"
@@ -256,9 +295,11 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
           </div>
         }
       >
-        <Button size="small" style={{ fontSize: 11 }} data-testid="spec-collections-popover">
-          {t('workbench.editors.spec.generate.collectionsButton')} ({linkedCollections.length})
-        </Button>
+        <Badge dot={anyDrift} offset={[-2, 2]} title={anyDrift ? t('workbench.editors.spec.update.driftedBadge') : undefined}>
+          <Button size="small" style={{ fontSize: 11 }} data-testid="spec-collections-popover">
+            {t('workbench.editors.spec.generate.collectionsButton')} ({linkedCollections.length})
+          </Button>
+        </Badge>
       </Popover>
     );
 
@@ -320,6 +361,16 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
           editorDirty={isDirty}
           onCancel={() => setGenerateOpen(false)}
         />
+        {updateTarget !== null && (
+          <UpdateCollectionModal
+            open
+            spec={spec}
+            content={rootFile.content}
+            collection={updateTarget}
+            editorDirty={isDirty}
+            onCancel={() => setUpdateTarget(null)}
+          />
+        )}
         <div
           style={{
             display: 'flex',

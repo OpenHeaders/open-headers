@@ -97,6 +97,7 @@ export const workbenchChrome = {
   'workbench.sidebar.badge.incomplete': 'incomplete',
   'workbench.sidebar.badge.scratch': 'scratch',
   'workbench.sidebar.badge.scripts': 'scripts',
+  'workbench.sidebar.badge.specDrift': 'changed',
   'workbench.sidebar.badge.scriptsTooltip':
     'This imported request will execute JavaScript when run. Open it to review the scripts.',
   'workbench.sidebar.badge.dirtyAria': 'unsaved changes',

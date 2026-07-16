@@ -24,6 +24,7 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
+import { useDriftedSpecUids } from '../specs/use-spec-drift';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import {
   applyResponseExampleDelete,
@@ -539,8 +540,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     onExportEntity,
   });
 
+  const driftedSpecUids = useDriftedSpecUids(specs, requestCollections);
   const specNodes = useSpecNodes({
     specs,
+    driftedSpecUids,
     filterText,
     setRenamingId,
     confirmDelete,
