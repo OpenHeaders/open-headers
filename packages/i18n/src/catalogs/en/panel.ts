@@ -1175,5 +1175,67 @@ export const panel = {
     'Edit the rule that produced this response — changes apply to future requests',
   'panel.inspector.overrideCta.overrideResponse': 'Override Response',
   'panel.inspector.overrideCta.overrideResponseTitle': 'Create a rule that serves this response as an editable mock',
-  'panel.inspector.overrideCta.fullResponse': 'Full response',
+  'panel.inspector.overrideCta.editQueryParams': 'Edit query params override',
+  'panel.inspector.overrideCta.editQueryParamsTitle':
+    'Edit the rule that rewrote these query parameters — changes apply to future requests',
+  'panel.inspector.overrideCta.overrideQueryParams': 'Override query params',
+  'panel.inspector.overrideCta.overrideQueryParamsTitle': 'Create a rule that rewrites these query parameters',
+  'panel.inspector.overrideCta.editRequestBody': 'Edit request body override',
+  'panel.inspector.overrideCta.editRequestBodyTitle':
+    'Edit the rule that replaced this request body — changes apply to future requests',
+  'panel.inspector.overrideCta.overrideRequestBody': 'Override request body',
+  'panel.inspector.overrideCta.overrideRequestBodyTitle':
+    'Create a rule that replaces this request body with an editable static body',
+
+  // Dual-view controls (Response / Preview / Payload two-sided views).
+  'panel.inspector.dualView.diff': 'Diff',
+  'panel.inspector.dualView.fullResponse': 'Full response',
+  'panel.inspector.dualView.fullRequest': 'Full request',
+  'panel.inspector.dualView.swapSides': 'Swap sides',
+  'panel.inspector.dualView.hideUnchanged': 'Hide unchanged',
+
+  // Delivery-path pane captions for the two-sided views — phrased as
+  // the delivery path; the server/page arrows ride raw inside the value.
+  'panel.inspector.paneCaption.responseOriginal': 'Original · server → page',
+  'panel.inspector.paneCaption.responseModified': 'Modified · server → Open Headers → page',
+  'panel.inspector.paneCaption.requestOriginal': 'Original · page → server',
+  'panel.inspector.paneCaption.requestModified': 'Modified · page → Open Headers → server',
+  'panel.inspector.paneCaption.wsRecvDropped': 'Dropped · never reached the page',
+  'panel.inspector.paneCaption.wsSendDropped': 'Dropped · never reached the server',
+
+  // Body-state notices (Response tab + Preview tab twins). Wire vocab
+  // (HEAD / CONNECT / status codes / WebSocket) rides raw inside values.
+  'panel.inspector.bodyState.noResponseBodyTitle': 'No response body',
+  'panel.inspector.bodyState.noPreviewTitle': 'No preview available',
+  'panel.inspector.bodyState.nothingToPreviewTitle': 'Nothing to preview',
+  'panel.inspector.bodyState.noResponseDetail': 'This request has no response data available',
+  'panel.inspector.bodyState.failedTitle': 'Failed to load response data',
+  'panel.inspector.bodyState.emptyTitle': '(empty response body)',
+  'panel.inspector.bodyState.emptyDetail': 'The server returned an empty body.',
+  'panel.inspector.bodyState.binaryPayloadBytes': 'Binary payload ({count} bytes).',
+  'panel.inspector.bodyState.notApplicable.preflight': 'No content available for preflight request',
+  'panel.inspector.bodyState.notApplicable.head': 'No response body for HEAD request',
+  'panel.inspector.bodyState.notApplicable.connect': 'No response body for CONNECT request',
+  'panel.inspector.bodyState.notApplicable.status204': 'No content (204 No Content)',
+  'panel.inspector.bodyState.notApplicable.status205': 'No content (205 Reset Content)',
+  'panel.inspector.bodyState.notApplicable.status304': 'Not modified — body served from browser cache',
+  'panel.inspector.bodyState.notApplicable.informational': 'No content (informational response)',
+  'panel.inspector.bodyState.notApplicable.websocket': 'WebSocket connection upgraded — see the Messages tab',
+  'panel.inspector.bodyState.unavailable.opaque': 'Response body not available — opaque cross-origin response',
+  'panel.inspector.bodyState.unavailable.cache':
+    'Body not available — response was served from cache before DevTools opened',
+  'panel.inspector.bodyState.unavailable.redirect': 'No content available because this request was redirected',
+  'panel.inspector.bodyState.unavailable.unknown':
+    'Body not captured. The host returned no content — the response was streamed without buffering or served from cache.',
+
+  // Preview tab's own chrome.
+  'panel.inspector.preview.notAvailableForType': 'Preview not available for this content type.',
+  'panel.inspector.preview.imageAlt': 'response preview',
+
+  // Payload tab chrome. The section titles carry the captured MIME raw.
+  'panel.inspector.payload.queryStringParameters': 'Query String Parameters',
+  'panel.inspector.payload.requestBody': 'Request Body ({mime})',
+  'panel.inspector.payload.viewSource': 'View source',
+  'panel.inspector.payload.viewParsed': 'View parsed',
+  'panel.inspector.payload.viewUrlEncoded': 'View URL-encoded',
 } as const satisfies Catalog;

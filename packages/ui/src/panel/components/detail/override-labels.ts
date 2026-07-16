@@ -3,16 +3,30 @@
  * Phrased as the delivery path so the reader can see where each body
  * came from and where Open Headers sat in the middle — response bodies
  * travel server → page, request bodies page → server.
+ *
+ * WebSocket frame captions ride the same pairs per direction: a receive
+ * frame reads as a response (server → page), a send frame as a request
+ * (page → server); only the dropped captions are WS-specific.
  */
 
-export const RESPONSE_ORIGINAL_LABEL = 'Original · server → page';
-export const RESPONSE_MODIFIED_LABEL = 'Modified · server → Open Headers → page';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 
-export const REQUEST_ORIGINAL_LABEL = 'Original · page → server';
-export const REQUEST_MODIFIED_LABEL = 'Modified · page → Open Headers → server';
+export interface OverrideLabels {
+  readonly responseOriginal: string;
+  readonly responseModified: string;
+  readonly requestOriginal: string;
+  readonly requestModified: string;
+  readonly wsRecvDropped: string;
+  readonly wsSendDropped: string;
+}
 
-/** WebSocket frame captions — per direction, since a frame travels one
- *  way: a receive frame reads as a response (server → page), a send
- *  frame as a request (page → server), so those pairs are shared. */
-export const WS_RECV_DROPPED_LABEL = 'Dropped · never reached the page';
-export const WS_SEND_DROPPED_LABEL = 'Dropped · never reached the server';
+export function overrideLabels(t: Translate): OverrideLabels {
+  return {
+    responseOriginal: t('panel.inspector.paneCaption.responseOriginal'),
+    responseModified: t('panel.inspector.paneCaption.responseModified'),
+    requestOriginal: t('panel.inspector.paneCaption.requestOriginal'),
+    requestModified: t('panel.inspector.paneCaption.requestModified'),
+    wsRecvDropped: t('panel.inspector.paneCaption.wsRecvDropped'),
+    wsSendDropped: t('panel.inspector.paneCaption.wsSendDropped'),
+  };
+}

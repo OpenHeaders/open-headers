@@ -1,7 +1,8 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useMemo, useState } from 'react';
 import { base64ToBytes } from '../../data/base64';
 import { isTextMime } from '../../data/mime';
-import type { BodyState } from '../../data/response-body-state';
+import { type BodyState, notApplicableMessage, unavailableMessage } from '../../data/response-body-state';
 import HexViewer from './HexViewer';
 import ResponseViewerToolbar, { type ViewMode } from './ResponseViewerToolbar';
 import Skeleton from './Skeleton';
@@ -48,6 +49,7 @@ export default function BodyStateView({
   toolbarTrailing,
   fallbackByteCount,
 }: BodyStateViewProps) {
+  const t = useT();
   const highlight = searchHighlight ?? '';
   const [viewMode, setViewMode] = useState<ViewMode>('hex');
 
@@ -85,15 +87,37 @@ export default function BodyStateView({
 
   // ── Non-body states ──────────────────────────────────────
   if (state.kind === 'loading') return shell(<Skeleton />);
-  if (state.kind === 'not-applicable') return shell(<ResponseNotice title="No response body" detail={state.message} />);
+  if (state.kind === 'not-applicable') {
+    return shell(
+      <ResponseNotice
+        title={t('panel.inspector.bodyState.noResponseBodyTitle')}
+        detail={notApplicableMessage(t, state.reason)}
+      />,
+    );
+  }
   if (state.kind === 'no-response') {
-    return shell(<ResponseNotice title="Nothing to preview" detail="This request has no response data available" />);
+    return shell(
+      <ResponseNotice
+        title={t('panel.inspector.bodyState.nothingToPreviewTitle')}
+        detail={t('panel.inspector.bodyState.noResponseDetail')}
+      />,
+    );
   }
   if (state.kind === 'unavailable') {
-    return shell(<ResponseNotice title="Failed to load response data" detail={state.message} />);
+    return shell(
+      <ResponseNotice
+        title={t('panel.inspector.bodyState.failedTitle')}
+        detail={unavailableMessage(t, state.reason)}
+      />,
+    );
   }
   if (state.kind === 'empty') {
-    return shell(<ResponseNotice title="(empty response body)" detail="The server returned an empty body." />);
+    return shell(
+      <ResponseNotice
+        title={t('panel.inspector.bodyState.emptyTitle')}
+        detail={t('panel.inspector.bodyState.emptyDetail')}
+      />,
+    );
   }
 
   // ── Binary content ─────────────────────────────────────────
@@ -106,7 +130,11 @@ export default function BodyStateView({
     } else if (bytes) {
       content = <HexViewer data={bytes} />;
     } else {
-      content = <span className="dt-col-muted">Binary payload ({fallbackByteCount ?? 0} bytes).</span>;
+      content = (
+        <span className="dt-col-muted">
+          {t('panel.inspector.bodyState.binaryPayloadBytes', { count: fallbackByteCount ?? 0 })}
+        </span>
+      );
     }
 
     // A binary body under a text-ish mime (base64-encoded JSON) can still be

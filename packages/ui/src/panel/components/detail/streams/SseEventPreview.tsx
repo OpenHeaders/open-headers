@@ -10,13 +10,11 @@
  * two sides to split).
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { useMemo } from 'react';
 import type { MessageFrameAttribution } from '../../../data/message-fire-rail';
-import {
-  RESPONSE_MODIFIED_LABEL,
-  RESPONSE_ORIGINAL_LABEL,
-  WS_RECV_DROPPED_LABEL,
-} from '../override-labels';
+import { overrideLabels } from '../override-labels';
 import SplitBodyView from '../SplitBodyView';
 import { TextPayload } from './MessagePreview';
 import type { SseDisplayEvent } from './sse-events';
@@ -51,6 +49,8 @@ const INFERRED_DROPPED_INFO: InfoPopoverContent = {
 };
 
 export default function SseEventPreview({ event, attribution = null }: SseEventPreviewProps) {
+  const t = useT();
+  const labels = useMemo(() => overrideLabels(t), [t]);
   if (!event) {
     return (
       <div className="dt-msg-preview-empty">
@@ -71,9 +71,9 @@ export default function SseEventPreview({ event, attribution = null }: SseEventP
       return (
         <div className="dt-msg-preview-dual">
           <SplitBodyView
-            startLabel={RESPONSE_ORIGINAL_LABEL}
+            startLabel={labels.responseOriginal}
             start={<TextPayload text={event.data} />}
-            endLabel={WS_RECV_DROPPED_LABEL}
+            endLabel={labels.wsRecvDropped}
             end={
               <div className="dt-msg-preview-content">
                 <span className="dt-col-muted">
@@ -90,9 +90,9 @@ export default function SseEventPreview({ event, attribution = null }: SseEventP
     return (
       <div className="dt-msg-preview-dual">
         <SplitBodyView
-          startLabel={RESPONSE_ORIGINAL_LABEL}
+          startLabel={labels.responseOriginal}
           start={<TextPayload text={event.data} />}
-          endLabel={RESPONSE_MODIFIED_LABEL}
+          endLabel={labels.responseModified}
           end={<TextPayload text={modification.modified} />}
           headerAction={inferredInfo}
         />

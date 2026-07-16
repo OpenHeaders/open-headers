@@ -14,14 +14,15 @@
  * threading another condition through two UI files.
  */
 
-import type { InspectorResponseSnapshot } from '@openheaders/core/request-lifecycle';
-import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { InspectorResponseSnapshot, RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { currentHarEntry, currentResponseBody, servedResponseBody } from './inspector-row-projection';
 import { classifyRequestState, isRequestFailed } from './request-state';
 
 export type BodyState =
   | { kind: 'loading' }
-  | { kind: 'not-applicable'; reason: NotApplicableReason; message: string }
+  | { kind: 'not-applicable'; reason: NotApplicableReason }
   | { kind: 'empty' }
   /** The request never delivered a response body — it was blocked, canceled,
    *  or failed on the wire (with or without a status code). The browser shows
@@ -30,7 +31,7 @@ export type BodyState =
   /** A response arrived but its body can't be shown (opaque cross-origin, or
    *  evicted from cache before it could be read). The browser's "Failed to
    *  load response data" state. */
-  | { kind: 'unavailable'; reason: UnavailableReason; message: string }
+  | { kind: 'unavailable'; reason: UnavailableReason }
   | { kind: 'text'; content: string }
   | { kind: 'binary'; base64: string };
 
@@ -46,24 +47,34 @@ export type NotApplicableReason =
 
 export type UnavailableReason = 'opaque' | 'cache' | 'redirect' | 'unknown';
 
-const NOT_APPLICABLE_COPY: Record<NotApplicableReason, string> = {
-  preflight: 'No content available for preflight request',
-  head: 'No response body for HEAD request',
-  connect: 'No response body for CONNECT request',
-  'status-204': 'No content (204 No Content)',
-  'status-205': 'No content (205 Reset Content)',
-  'status-304': 'Not modified — body served from browser cache',
-  informational: 'No content (informational response)',
-  websocket: 'WebSocket connection upgraded — see the Messages tab',
+const NOT_APPLICABLE_KEY: Record<NotApplicableReason, MessageKey> = {
+  preflight: 'panel.inspector.bodyState.notApplicable.preflight',
+  head: 'panel.inspector.bodyState.notApplicable.head',
+  connect: 'panel.inspector.bodyState.notApplicable.connect',
+  'status-204': 'panel.inspector.bodyState.notApplicable.status204',
+  'status-205': 'panel.inspector.bodyState.notApplicable.status205',
+  'status-304': 'panel.inspector.bodyState.notApplicable.status304',
+  informational: 'panel.inspector.bodyState.notApplicable.informational',
+  websocket: 'panel.inspector.bodyState.notApplicable.websocket',
 };
 
-const UNAVAILABLE_COPY: Record<UnavailableReason, string> = {
-  opaque: 'Response body not available — opaque cross-origin response',
-  cache: 'Body not available — response was served from cache before DevTools opened',
-  redirect: 'No content available because this request was redirected',
-  unknown:
-    'Body not captured. The host returned no content — the response was streamed without buffering or served from cache.',
+const UNAVAILABLE_KEY: Record<UnavailableReason, MessageKey> = {
+  opaque: 'panel.inspector.bodyState.unavailable.opaque',
+  cache: 'panel.inspector.bodyState.unavailable.cache',
+  redirect: 'panel.inspector.bodyState.unavailable.redirect',
+  unknown: 'panel.inspector.bodyState.unavailable.unknown',
 };
+
+/** Notice detail for a `not-applicable` body — the Response and Preview
+ *  tabs render the same sentence under their own titles. */
+export function notApplicableMessage(t: Translate, reason: NotApplicableReason): string {
+  return t(NOT_APPLICABLE_KEY[reason]);
+}
+
+/** Notice detail for an `unavailable` body. */
+export function unavailableMessage(t: Translate, reason: UnavailableReason): string {
+  return t(UNAVAILABLE_KEY[reason]);
+}
 
 function isInformational(status: number | undefined): boolean {
   return status != null && status >= 100 && status < 200 && status !== 101;
@@ -118,28 +129,28 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
 
   // ── Per-protocol "no body" rules ─────────────────────────
   if (resourceType === 'preflight') {
-    return { kind: 'not-applicable', reason: 'preflight', message: NOT_APPLICABLE_COPY.preflight };
+    return { kind: 'not-applicable', reason: 'preflight' };
   }
   if (method === 'HEAD') {
-    return { kind: 'not-applicable', reason: 'head', message: NOT_APPLICABLE_COPY.head };
+    return { kind: 'not-applicable', reason: 'head' };
   }
   if (method === 'CONNECT') {
-    return { kind: 'not-applicable', reason: 'connect', message: NOT_APPLICABLE_COPY.connect };
+    return { kind: 'not-applicable', reason: 'connect' };
   }
   if (status === 101 || resourceType === 'websocket') {
-    return { kind: 'not-applicable', reason: 'websocket', message: NOT_APPLICABLE_COPY.websocket };
+    return { kind: 'not-applicable', reason: 'websocket' };
   }
   if (status === 204) {
-    return { kind: 'not-applicable', reason: 'status-204', message: NOT_APPLICABLE_COPY['status-204'] };
+    return { kind: 'not-applicable', reason: 'status-204' };
   }
   if (status === 205) {
-    return { kind: 'not-applicable', reason: 'status-205', message: NOT_APPLICABLE_COPY['status-205'] };
+    return { kind: 'not-applicable', reason: 'status-205' };
   }
   if (status === 304) {
-    return { kind: 'not-applicable', reason: 'status-304', message: NOT_APPLICABLE_COPY['status-304'] };
+    return { kind: 'not-applicable', reason: 'status-304' };
   }
   if (isInformational(status)) {
-    return { kind: 'not-applicable', reason: 'informational', message: NOT_APPLICABLE_COPY.informational };
+    return { kind: 'not-applicable', reason: 'informational' };
   }
 
   // ── Request-level failure ────────────────────────────────
@@ -171,7 +182,7 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
   if (body == null) {
     // A redirect hop never delivers a readable body — don't spin forever.
     if (isFollowedRedirectStatus(status)) {
-      return { kind: 'unavailable', reason: 'redirect', message: UNAVAILABLE_COPY.redirect };
+      return { kind: 'unavailable', reason: 'redirect' };
     }
     return { kind: 'loading' };
   }
@@ -180,12 +191,12 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
   if (body.content === '') {
     if (contentLengthZero(lifecycle)) return { kind: 'empty' };
     if (isOpaqueResponse(lifecycle)) {
-      return { kind: 'unavailable', reason: 'opaque', message: UNAVAILABLE_COPY.opaque };
+      return { kind: 'unavailable', reason: 'opaque' };
     }
     if (servedFromCache(lifecycle)) {
-      return { kind: 'unavailable', reason: 'cache', message: UNAVAILABLE_COPY.cache };
+      return { kind: 'unavailable', reason: 'cache' };
     }
-    return { kind: 'unavailable', reason: 'unknown', message: UNAVAILABLE_COPY.unknown };
+    return { kind: 'unavailable', reason: 'unknown' };
   }
 
   // ── Has content ──────────────────────────────────────────

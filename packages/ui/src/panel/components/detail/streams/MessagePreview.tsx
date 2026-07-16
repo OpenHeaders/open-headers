@@ -17,20 +17,14 @@
  *     split view never claims more than the fire rail does.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useMemo, useState } from 'react';
 import { base64ToBytes } from '../../../data/base64';
 import type { MessageFrameAttribution } from '../../../data/message-fire-rail';
 import { JsonTree } from '../../JsonTree';
 import HexViewer from '../HexViewer';
-import {
-  REQUEST_MODIFIED_LABEL,
-  REQUEST_ORIGINAL_LABEL,
-  RESPONSE_MODIFIED_LABEL,
-  RESPONSE_ORIGINAL_LABEL,
-  WS_RECV_DROPPED_LABEL,
-  WS_SEND_DROPPED_LABEL,
-} from '../override-labels';
+import { overrideLabels } from '../override-labels';
 import ResponseViewerToolbar, { type ViewMode } from '../ResponseViewerToolbar';
 import SplitBodyView from '../SplitBodyView';
 import { type WsDisplayFrame, WS_OPCODE_BINARY } from './ws-frames';
@@ -190,6 +184,8 @@ function FramePayload({ frame }: { frame: WsDisplayFrame }) {
 }
 
 export default function MessagePreview({ frame, attribution = null }: MessagePreviewProps) {
+  const t = useT();
+  const labels = useMemo(() => overrideLabels(t), [t]);
   if (!frame) {
     return (
       <div className="dt-msg-preview-empty">
@@ -211,9 +207,9 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
       return (
         <div className="dt-msg-preview-dual">
           <SplitBodyView
-            startLabel={send ? REQUEST_ORIGINAL_LABEL : RESPONSE_ORIGINAL_LABEL}
+            startLabel={send ? labels.requestOriginal : labels.responseOriginal}
             start={<FramePayload frame={frame} />}
-            endLabel={send ? WS_SEND_DROPPED_LABEL : WS_RECV_DROPPED_LABEL}
+            endLabel={send ? labels.wsSendDropped : labels.wsRecvDropped}
             end={
               <div className="dt-msg-preview-content">
                 <span className="dt-col-muted">
@@ -250,9 +246,9 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
     return (
       <div className="dt-msg-preview-dual">
         <SplitBodyView
-          startLabel={send ? REQUEST_ORIGINAL_LABEL : RESPONSE_ORIGINAL_LABEL}
+          startLabel={send ? labels.requestOriginal : labels.responseOriginal}
           start={originalPane}
-          endLabel={send ? REQUEST_MODIFIED_LABEL : RESPONSE_MODIFIED_LABEL}
+          endLabel={send ? labels.requestModified : labels.responseModified}
           end={modifiedPane}
           headerAction={inferredInfo}
         />

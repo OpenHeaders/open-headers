@@ -1,11 +1,12 @@
 import type { ResponseRuleDraft, Rule } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useMemo, useState } from 'react';
 import { currentHarEntry, type InspectorRowWithFires, lifecycleMimeType, lifecycleTransferredBytes } from '../../data/inspector-row-projection';
 import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../../data/response-body-state';
 import { useRulePopover } from '../RulePopoverHost';
 import { SwapSidesButton } from './DualViewControls';
 import OverrideBodyButton from './OverrideBodyButton';
-import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './override-labels';
+import { overrideLabels } from './override-labels';
 import PreviewPane from './PreviewPane';
 import SplitBodyView from './SplitBodyView';
 
@@ -26,6 +27,8 @@ interface PreviewViewProps {
  * this component decides single-pane vs split and classifies each side.
  */
 export default function PreviewView({ row, buildOverrideDraft, firedResponseRule }: PreviewViewProps) {
+  const t = useT();
+  const labels = useMemo(() => overrideLabels(t), [t]);
   const rulePopover = useRulePopover();
   const lc = row.lifecycle;
   const [swapped, setSwapped] = useState(false);
@@ -39,14 +42,14 @@ export default function PreviewView({ row, buildOverrideDraft, firedResponseRule
   // create popover opens seeded from the capture.
   const overrideButton = firedResponseRule ? (
     <OverrideBodyButton
-      label="Edit override"
-      title="Edit the rule that produced this response — changes apply to future requests"
+      label={t('panel.inspector.overrideCta.editOverride')}
+      title={t('panel.inspector.overrideCta.editOverrideTitle')}
       onClick={(e) => rulePopover.open({ anchorEl: e.currentTarget, rule: firedResponseRule }, { pinned: true })}
     />
   ) : buildOverrideDraft ? (
     <OverrideBodyButton
-      label="Override Response"
-      title="Create a rule that serves this response as an editable mock"
+      label={t('panel.inspector.overrideCta.overrideResponse')}
+      title={t('panel.inspector.overrideCta.overrideResponseTitle')}
       onClick={(e) =>
         rulePopover.open(
           { mode: 'create-response', anchorEl: e.currentTarget, draft: buildOverrideDraft(), requestId: lc.requestId },
@@ -67,17 +70,17 @@ export default function PreviewView({ row, buildOverrideDraft, firedResponseRule
     const originalPane = <PreviewPane state={classifyResponseSnapshot(original)} mime={originalMime} size={size} />;
     return swapped ? (
       <SplitBodyView
-        startLabel={RESPONSE_ORIGINAL_LABEL}
+        startLabel={labels.responseOriginal}
         start={originalPane}
-        endLabel={RESPONSE_MODIFIED_LABEL}
+        endLabel={labels.responseModified}
         end={servedPane}
         headerAction={headerAction}
       />
     ) : (
       <SplitBodyView
-        startLabel={RESPONSE_MODIFIED_LABEL}
+        startLabel={labels.responseModified}
         start={servedPane}
-        endLabel={RESPONSE_ORIGINAL_LABEL}
+        endLabel={labels.responseOriginal}
         end={originalPane}
         headerAction={headerAction}
       />

@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 // Side-effect import: kicks Monaco's bootstrap (theme registration) at
 // module load.
 import '@openheaders/ui/workbench/components/monaco/bootstrap';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   DEFAULT_DIFF_VIEWER_OPTIONS,
   type DiffViewerOptions,
@@ -59,6 +60,7 @@ export default function DiffBodyView({
   onSwapSides,
   overrideAction,
 }: DiffBodyViewProps) {
+  const t = useT();
   const lang = detectLanguage(declaredMime);
   const shouldFormat = lang !== null && canPrettyPrint(declaredMime);
   const [pretty, setPretty] = useState<{ original: string; modified: string } | null>(null);
@@ -108,7 +110,7 @@ export default function DiffBodyView({
             className={`dt-response-toolbar-btn ${options.collapseUnchanged ? 'active' : ''}`}
             onClick={() => setOptions({ ...options, collapseUnchanged: !options.collapseUnchanged })}
           >
-            Hide unchanged
+            {t('panel.inspector.dualView.hideUnchanged')}
           </button>
           {overrideAction && (
             <>

@@ -1,10 +1,11 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import type { RequestOverride } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useRulePopover } from '../RulePopoverHost';
 import { type DualMode, DualModeButtons, SwapSidesButton } from './DualViewControls';
 import { HighlightedText } from './HighlightedText';
-import { REQUEST_MODIFIED_LABEL, REQUEST_ORIGINAL_LABEL } from './override-labels';
+import { overrideLabels } from './override-labels';
 import OverrideBodyButton from './OverrideBodyButton';
 import Skeleton from './Skeleton';
 import SplitBodyView from './SplitBodyView';
@@ -25,38 +26,22 @@ function buildUrlEncodedString(params: Array<{ name: string; value: string }>): 
 }
 
 function QsToggle({ mode, onModeChange }: { mode: QsViewMode; onModeChange: (m: QsViewMode) => void }) {
-  if (mode === 'parsed') {
-    return (
-      <span className="dt-payload-toggles">
-        <button type="button" className="dt-payload-toggle-btn" onClick={() => onModeChange('source')}>
-          View source
-        </button>
-        <button type="button" className="dt-payload-toggle-btn" onClick={() => onModeChange('url-encoded')}>
-          View URL-encoded
-        </button>
-      </span>
-    );
-  }
-  if (mode === 'source') {
-    return (
-      <span className="dt-payload-toggles">
-        <button type="button" className="dt-payload-toggle-btn" onClick={() => onModeChange('parsed')}>
-          View parsed
-        </button>
-        <button type="button" className="dt-payload-toggle-btn" onClick={() => onModeChange('url-encoded')}>
-          View URL-encoded
-        </button>
-      </span>
-    );
-  }
+  const t = useT();
+  // The two modes the current one can switch to — each button offers the
+  // view it is not currently showing.
+  const allModes: Array<{ target: QsViewMode; label: string }> = [
+    { target: 'parsed', label: t('panel.inspector.payload.viewParsed') },
+    { target: 'source', label: t('panel.inspector.payload.viewSource') },
+    { target: 'url-encoded', label: t('panel.inspector.payload.viewUrlEncoded') },
+  ];
+  const others = allModes.filter((o) => o.target !== mode);
   return (
     <span className="dt-payload-toggles">
-      <button type="button" className="dt-payload-toggle-btn" onClick={() => onModeChange('parsed')}>
-        View parsed
-      </button>
-      <button type="button" className="dt-payload-toggle-btn" onClick={() => onModeChange('source')}>
-        View source
-      </button>
+      {others.map((o) => (
+        <button key={o.target} type="button" className="dt-payload-toggle-btn" onClick={() => onModeChange(o.target)}>
+          {o.label}
+        </button>
+      ))}
     </span>
   );
 }
@@ -94,21 +79,29 @@ function RequestBodyDualView({
   onSwapSides,
   overrideAction,
 }: RequestBodyDualViewProps) {
-  const modeButtons = <DualModeButtons mode={dualMode} onModeChange={onDualModeChange} splitModeLabel="Full request" />;
+  const t = useT();
+  const labels = useMemo(() => overrideLabels(t), [t]);
+  const modeButtons = (
+    <DualModeButtons
+      mode={dualMode}
+      onModeChange={onDualModeChange}
+      splitModeLabel={t('panel.inspector.dualView.fullRequest')}
+    />
+  );
 
   if (dualMode === 'diff') {
     const sides = swapped
       ? {
           original: sentText,
           modified: originalText,
-          originalLabel: REQUEST_MODIFIED_LABEL,
-          modifiedLabel: REQUEST_ORIGINAL_LABEL,
+          originalLabel: labels.requestModified,
+          modifiedLabel: labels.requestOriginal,
         }
       : {
           original: originalText,
           modified: sentText,
-          originalLabel: REQUEST_ORIGINAL_LABEL,
-          modifiedLabel: REQUEST_MODIFIED_LABEL,
+          originalLabel: labels.requestOriginal,
+          modifiedLabel: labels.requestModified,
         };
     return (
       <div className="dt-payload-body-wrap">
@@ -152,17 +145,17 @@ function RequestBodyDualView({
     <div className="dt-payload-body-wrap">
       {swapped ? (
         <SplitBodyView
-          startLabel={REQUEST_ORIGINAL_LABEL}
+          startLabel={labels.requestOriginal}
           start={originalPane(false)}
-          endLabel={REQUEST_MODIFIED_LABEL}
+          endLabel={labels.requestModified}
           end={modifiedPane(true)}
           headerAction={headerAction}
         />
       ) : (
         <SplitBodyView
-          startLabel={REQUEST_MODIFIED_LABEL}
+          startLabel={labels.requestModified}
           start={modifiedPane(false)}
-          endLabel={REQUEST_ORIGINAL_LABEL}
+          endLabel={labels.requestOriginal}
           end={originalPane(true)}
           headerAction={headerAction}
         />
@@ -211,6 +204,7 @@ export default function PayloadView({
   firedQueryParamRule,
   requestOverride,
 }: PayloadViewProps) {
+  const t = useT();
   const rulePopover = useRulePopover();
   const queryString = har.request?.queryString ?? [];
   const postData = har.request?.postData;
@@ -226,27 +220,27 @@ export default function PayloadView({
   // scaffolding a second one over it — same dispatch as the Response tab.
   const queryOverrideAction = firedQueryParamRule ? (
     <OverrideBodyButton
-      label="Edit query params override"
-      title="Edit the rule that rewrote these query parameters — changes apply to future requests"
+      label={t('panel.inspector.overrideCta.editQueryParams')}
+      title={t('panel.inspector.overrideCta.editQueryParamsTitle')}
       onClick={(e) => rulePopover.open({ anchorEl: e.currentTarget, rule: firedQueryParamRule }, { pinned: true })}
     />
   ) : onOverrideQueryParams ? (
     <OverrideBodyButton
-      label="Override query params"
-      title="Create a rule that rewrites these query parameters"
+      label={t('panel.inspector.overrideCta.overrideQueryParams')}
+      title={t('panel.inspector.overrideCta.overrideQueryParamsTitle')}
       onClick={(e) => onOverrideQueryParams(e.currentTarget)}
     />
   ) : undefined;
   const bodyOverrideAction = firedRequestBodyRule ? (
     <OverrideBodyButton
-      label="Edit request body override"
-      title="Edit the rule that replaced this request body — changes apply to future requests"
+      label={t('panel.inspector.overrideCta.editRequestBody')}
+      title={t('panel.inspector.overrideCta.editRequestBodyTitle')}
       onClick={(e) => rulePopover.open({ anchorEl: e.currentTarget, rule: firedRequestBodyRule }, { pinned: true })}
     />
   ) : onOverrideRequestBody ? (
     <OverrideBodyButton
-      label="Override request body"
-      title="Create a rule that replaces this request body with an editable static body"
+      label={t('panel.inspector.overrideCta.overrideRequestBody')}
+      title={t('panel.inspector.overrideCta.overrideRequestBodyTitle')}
       onClick={(e) => onOverrideRequestBody(e.currentTarget)}
     />
   ) : undefined;
@@ -279,7 +273,7 @@ export default function PayloadView({
         {queryString.length > 0 && (
           <details className="dt-section" open>
             <summary>
-              Query String Parameters
+              {t('panel.inspector.payload.queryStringParameters')}
               <QsToggle mode={qsMode} onModeChange={setQsMode} />
             </summary>
             {qsMode === 'parsed' ? (
@@ -310,7 +304,7 @@ export default function PayloadView({
           // The raw-text body fills the remaining pane height so Monaco owns
           // the scroll; the structured form-param table stays natural-flow.
           <details className={hasStructuredPostData ? 'dt-section' : 'dt-section dt-payload-body-section'} open>
-            <summary>Request Body ({postData.mimeType})</summary>
+            <summary>{t('panel.inspector.payload.requestBody', { mime: postData.mimeType ?? '' })}</summary>
             {hasStructuredPostData ? (
               <div className="dt-payload-table">
                 {postData.params?.map((p, i) => (

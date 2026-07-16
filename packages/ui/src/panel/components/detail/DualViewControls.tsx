@@ -6,18 +6,21 @@
  * same anatomy.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
+
 type DualMode = 'diff' | 'split';
 
 interface DualModeButtonsProps {
   mode: DualMode;
   onModeChange: (mode: DualMode) => void;
   /** Label of the split-mode button — "Full response" / "Full request". */
-  splitModeLabel?: string;
+  splitModeLabel: string;
 }
 
 export type { DualMode };
 
-export function DualModeButtons({ mode, onModeChange, splitModeLabel = 'Full response' }: DualModeButtonsProps) {
+export function DualModeButtons({ mode, onModeChange, splitModeLabel }: DualModeButtonsProps) {
+  const t = useT();
   return (
     <div className="dt-response-toolbar-modes">
       <button
@@ -25,7 +28,7 @@ export function DualModeButtons({ mode, onModeChange, splitModeLabel = 'Full res
         className={`dt-response-toolbar-btn ${mode === 'diff' ? 'active' : ''}`}
         onClick={() => onModeChange('diff')}
       >
-        Diff
+        {t('panel.inspector.dualView.diff')}
       </button>
       <button
         type="button"
@@ -39,11 +42,12 @@ export function DualModeButtons({ mode, onModeChange, splitModeLabel = 'Full res
 }
 
 export function SwapSidesButton({ onSwap }: { onSwap: () => void }) {
+  const t = useT();
   return (
     <button
       type="button"
       className="dt-response-toolbar-btn dt-swap-sides-btn"
-      title="Swap sides"
+      title={t('panel.inspector.dualView.swapSides')}
       onClick={onSwap}
     >
       <svg viewBox="0 0 16 16" role="img" aria-hidden="true">

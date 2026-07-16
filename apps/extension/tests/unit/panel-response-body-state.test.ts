@@ -70,11 +70,7 @@ function makeLifecycle(opts: LifecycleOpts = {}): RequestLifecycle {
 describe('classifyBodyState — per-protocol no-body cases', () => {
   it('preflight OPTIONS returns not-applicable:preflight', () => {
     const lc = makeLifecycle({ method: 'OPTIONS', resourceType: 'preflight', body: makeBody('') });
-    expect(classifyBodyState(lc)).toEqual({
-      kind: 'not-applicable',
-      reason: 'preflight',
-      message: expect.stringContaining('preflight'),
-    });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'not-applicable', reason: 'preflight' });
   });
 
   it('HEAD request returns not-applicable:head', () => {
@@ -165,11 +161,7 @@ describe('classifyBodyState — followed redirects (no readable body)', () => {
 
   it('301 with no attached body returns unavailable:redirect, not loading (no infinite skeleton)', () => {
     const lc = makeLifecycle({ statusCode: 301, har: redirectHar, body: null });
-    expect(classifyBodyState(lc)).toEqual({
-      kind: 'unavailable',
-      reason: 'redirect',
-      message: 'No content available because this request was redirected',
-    });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'unavailable', reason: 'redirect' });
   });
 
   it.each([302, 303, 307, 308])('%d with no body returns unavailable:redirect', (status) => {

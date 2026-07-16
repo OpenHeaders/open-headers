@@ -1,5 +1,6 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import type { BodyState } from '../../data/response-body-state';
+import { type BodyState, notApplicableMessage, unavailableMessage } from '../../data/response-body-state';
 import { JsonTree } from '../JsonTree';
 import Skeleton from './Skeleton';
 
@@ -55,7 +56,7 @@ function aspectRatio(w: number, h: number): string {
   return `${w / d}:${h / d}`;
 }
 
-function ImageContent({ mime, body }: { mime: string; body: string }) {
+function ImageContent({ mime, body, alt }: { mime: string; body: string; alt: string }) {
   const imgRef = useRef<HTMLImageElement>(null);
   const [dimensions, setDimensions] = useState<{ w: number; h: number } | null>(null);
   const dataUrl = `data:${mime};base64,${body}`;
@@ -69,19 +70,21 @@ function ImageContent({ mime, body }: { mime: string; body: string }) {
     return () => img.removeEventListener('load', onLoad);
   }, []);
 
-  return { dimensions, node: <img ref={imgRef} src={dataUrl} alt="response preview" className="dt-body-image" /> };
+  return { dimensions, node: <img ref={imgRef} src={dataUrl} alt={alt} className="dt-body-image" /> };
 }
 
 function ImagePreview({
   mime,
   body,
+  alt,
   metaBar,
 }: {
   mime: string;
   body: string;
+  alt: string;
   metaBar: (extra: React.ReactNode) => React.ReactNode;
 }) {
-  const { dimensions, node } = ImageContent({ mime, body });
+  const { dimensions, node } = ImageContent({ mime, body, alt });
   return (
     <>
       <div className="dt-preview-image-container">{node}</div>
@@ -124,6 +127,7 @@ interface PreviewPaneProps {
  * view; the row-level classification (which body) is the caller's.
  */
 export default function PreviewPane({ state, mime, size, action }: PreviewPaneProps) {
+  const t = useT();
   const textContent = useMemo(() => {
     if (state.kind === 'text') return state.content;
     if (state.kind === 'binary') {
@@ -162,15 +166,37 @@ export default function PreviewPane({ state, mime, size, action }: PreviewPanePr
 
   // ── Non-body states — match Response tab messaging ───────
   if (state.kind === 'loading') return shell(<Skeleton />);
-  if (state.kind === 'not-applicable') return shell(<PreviewNotice title="No preview available" detail={state.message} />);
+  if (state.kind === 'not-applicable') {
+    return shell(
+      <PreviewNotice
+        title={t('panel.inspector.bodyState.noPreviewTitle')}
+        detail={notApplicableMessage(t, state.reason)}
+      />,
+    );
+  }
   if (state.kind === 'no-response') {
-    return shell(<PreviewNotice title="Nothing to preview" detail="This request has no response data available" />);
+    return shell(
+      <PreviewNotice
+        title={t('panel.inspector.bodyState.nothingToPreviewTitle')}
+        detail={t('panel.inspector.bodyState.noResponseDetail')}
+      />,
+    );
   }
   if (state.kind === 'unavailable') {
-    return shell(<PreviewNotice title="Failed to load response data" detail={state.message} />);
+    return shell(
+      <PreviewNotice
+        title={t('panel.inspector.bodyState.failedTitle')}
+        detail={unavailableMessage(t, state.reason)}
+      />,
+    );
   }
   if (state.kind === 'empty') {
-    return shell(<PreviewNotice title="(empty response body)" detail="The server returned an empty body." />);
+    return shell(
+      <PreviewNotice
+        title={t('panel.inspector.bodyState.emptyTitle')}
+        detail={t('panel.inspector.bodyState.emptyDetail')}
+      />,
+    );
   }
 
   let content: React.ReactNode;
@@ -185,7 +211,7 @@ export default function PreviewPane({ state, mime, size, action }: PreviewPanePr
   } else if (state.kind === 'binary' && isImageMime(mime)) {
     return (
       <div className="dt-response-view">
-        <ImagePreview mime={mime} body={state.base64} metaBar={metaBar} />
+        <ImagePreview mime={mime} body={state.base64} alt={t('panel.inspector.preview.imageAlt')} metaBar={metaBar} />
       </div>
     );
   } else if (state.kind === 'binary' && isFontMime(mime)) {
@@ -232,7 +258,7 @@ export default function PreviewPane({ state, mime, size, action }: PreviewPanePr
     } else {
       content = (
         <span className="dt-col-muted" style={{ padding: 12 }}>
-          Preview not available for this content type.
+          {t('panel.inspector.preview.notAvailableForType')}
         </span>
       );
     }

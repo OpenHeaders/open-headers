@@ -11,7 +11,7 @@ import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../da
 import BodyStateView from './detail/BodyStateView';
 import { type DualMode, DualModeButtons, SwapSidesButton } from './detail/DualViewControls';
 import OverrideBodyButton from './detail/OverrideBodyButton';
-import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './detail/override-labels';
+import { overrideLabels } from './detail/override-labels';
 import Skeleton from './detail/Skeleton';
 import SplitBodyView from './detail/SplitBodyView';
 import { useRulePopover } from './RulePopoverHost';
@@ -52,6 +52,7 @@ export function ResponseBodyView({
   firedResponseRule,
 }: ResponseBodyViewProps) {
   const t = useT();
+  const labels = useMemo(() => overrideLabels(t), [t]);
   const rulePopover = useRulePopover();
   const lc = row.lifecycle;
   const declaredMime = lifecycleMimeType(lc) ?? currentHarEntry(lc)?.response?.content?.mimeType ?? '';
@@ -113,7 +114,7 @@ export function ResponseBodyView({
       <DualModeButtons
         mode={dualMode}
         onModeChange={setDualMode}
-        splitModeLabel={t('panel.inspector.overrideCta.fullResponse')}
+        splitModeLabel={t('panel.inspector.dualView.fullResponse')}
       />
     ) : undefined;
 
@@ -122,14 +123,14 @@ export function ResponseBodyView({
         ? {
             original: servedState.content,
             modified: originalState.content,
-            originalLabel: RESPONSE_MODIFIED_LABEL,
-            modifiedLabel: RESPONSE_ORIGINAL_LABEL,
+            originalLabel: labels.responseModified,
+            modifiedLabel: labels.responseOriginal,
           }
         : {
             original: originalState.content,
             modified: servedState.content,
-            originalLabel: RESPONSE_ORIGINAL_LABEL,
-            modifiedLabel: RESPONSE_MODIFIED_LABEL,
+            originalLabel: labels.responseOriginal,
+            modifiedLabel: labels.responseModified,
           };
       return (
         <div className="dt-body-dual">
@@ -171,17 +172,17 @@ export function ResponseBodyView({
 
     return swapped ? (
       <SplitBodyView
-        startLabel={RESPONSE_ORIGINAL_LABEL}
+        startLabel={labels.responseOriginal}
         start={originalPane(false)}
-        endLabel={RESPONSE_MODIFIED_LABEL}
+        endLabel={labels.responseModified}
         end={modifiedPane(true)}
         headerAction={<SwapSidesButton onSwap={onSwapSides} />}
       />
     ) : (
       <SplitBodyView
-        startLabel={RESPONSE_MODIFIED_LABEL}
+        startLabel={labels.responseModified}
         start={modifiedPane(false)}
-        endLabel={RESPONSE_ORIGINAL_LABEL}
+        endLabel={labels.responseOriginal}
         end={originalPane(true)}
         headerAction={<SwapSidesButton onSwap={onSwapSides} />}
       />
