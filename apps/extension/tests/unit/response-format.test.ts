@@ -9,6 +9,7 @@ import {
   contentTypeCharset,
   detectBodyLanguage,
   isNdjsonResponse,
+  isNdjsonShapedBody,
   mediaPreviewKind,
   ndjsonRecordLines,
   prettyBody,
@@ -97,6 +98,28 @@ describe('isNdjsonResponse', () => {
     expect(isNdjsonResponse(ct('application/jsonl'))).toBe(true);
     expect(isNdjsonResponse(ct('application/json-seq'))).toBe(true);
     expect(isNdjsonResponse(ct('application/json'))).toBe(false);
+  });
+});
+
+describe('isNdjsonShapedBody', () => {
+  it('recognizes one-record-per-line bodies (the k8s watch pattern)', () => {
+    expect(isNdjsonShapedBody('{"type":"ADDED","object":{"name":"oh-1"}}\n{"type":"MODIFIED"}\n', false)).toBe(true);
+    expect(isNdjsonShapedBody('1\n"two"\ntrue\n', false)).toBe(true);
+  });
+
+  it('rejects single-record and pretty-printed bodies on the first line', () => {
+    expect(isNdjsonShapedBody('{"a":1}', false)).toBe(false);
+    expect(isNdjsonShapedBody('{\n  "a": 1\n}', false)).toBe(false);
+  });
+
+  it('rejects a mid-body parse failure regardless of the tail allowance', () => {
+    expect(isNdjsonShapedBody('{"a":1}\nnot json\n{"b":2}', true)).toBe(false);
+  });
+
+  it('allows only the LAST record to fail, and only for a partial capture', () => {
+    const cut = '{"a":1}\n{"b":2}\n{"c":';
+    expect(isNdjsonShapedBody(cut, false)).toBe(false);
+    expect(isNdjsonShapedBody(cut, true)).toBe(true);
   });
 });
 

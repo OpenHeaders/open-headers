@@ -31,6 +31,7 @@ const PROBE_REQUESTS = [
   'ndjson',
   'bigint-json',
   'metrics',
+  'sse',
   'ansi-log',
   'json-seq',
   'tar',
@@ -41,6 +42,14 @@ const PROBE_REQUESTS = [
   'media',
   'latin1',
 ] as const;
+
+/** Live streamers from the /net scenarios — the F1 streaming cases:
+ *  an SSE source that never ends inside the test window (Stop is the
+ *  only way out) and a finite k8s-watch-shaped ndjson stream. */
+const STREAM_REQUESTS: Record<string, string> = {
+  'sse-stream': 'http://127.0.0.1:3000/net/sse/9999?ms=300',
+  'watch-stream': 'http://127.0.0.1:3000/net/watch/3?ms=150',
+};
 
 let context: BrowserContext;
 let extensionId: string;
@@ -66,6 +75,18 @@ test.beforeAll(async () => {
         name: `GET ${name} probe`,
         method: 'GET',
         url: PROBE_URL(name),
+        auth: { type: 'none' },
+        body: { type: 'none' },
+      }),
+    );
+  }
+  for (const [name, url] of Object.entries(STREAM_REQUESTS)) {
+    seededUids.set(
+      name,
+      await workbench.seedRequest({
+        name: `GET ${name}`,
+        method: 'GET',
+        url,
         auth: { type: 'none' },
         body: { type: 'none' },
       }),
@@ -186,6 +207,40 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(filtered).not.toContain('oh_build_info');
   });
 
+  test('SSE parses event-wise: Pretty re-indents JSON data, the tree lists event records', async () => {
+    await sendProbe('sse');
+    // The body stays TEXT (picker law) — the event-wise treatment is a
+    // view, never a reclassification.
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
+    // Raw is the wire verbatim — framing, comments, split data lines.
+    const raw = await workbench.responseRawBody();
+    expect(raw).toContain(': openheaders playground sse probe');
+    expect(raw).toContain('data: {"seq":1,"resourceVersion":9007199254740993}');
+    expect(raw).toContain('data:   "kind": "sse-probe",');
+
+    // The parsed event records ride the JSON tree preview: named
+    // events, joined multi-line data, the heartbeat comment, and int64
+    // data tokens verbatim (F3 law). Record rows start collapsed —
+    // expand what each assertion reads.
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    await workbench.responsePreviewToggle().click();
+    const tree = workbench.responseJsonPreview();
+    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    await tree.getByRole('button', { name: /^1\b/ }).click();
+    await tree.getByRole('button', { name: /^data\b/ }).click();
+    await tree.getByRole('button', { name: /^2\b/ }).click();
+    await tree.getByRole('button', { name: /^4\b/ }).click();
+    const text = await tree.innerText();
+    expect(text).toContain('tick');
+    expect(text).toContain('9007199254740993');
+    expect(text).toContain('heartbeat');
+    expect(text).toContain('x-trace');
+
+    // JSONPath narrows over the record list, lossless in the result.
+    await workbench.filterResponseBody('$..resourceVersion');
+    expect(await workbench.responsePrettyText()).toContain('9007199254740993');
+  });
+
   test('ANSI log renders SGR colors in Raw; the toggle falls back to plain text', async () => {
     await sendProbe('ansi-log');
     expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
@@ -216,6 +271,8 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     await workbench.responsePreviewToggle().click();
     const tree = workbench.responseJsonPreview();
     await tree.waitFor({ state: 'visible', timeout: 15000 });
+    // Record rows start collapsed — open the second record to read it.
+    await tree.getByRole('button', { name: /^1\b/ }).click();
     expect(await tree.innerText()).toContain('api.openheaders.io');
   });
 
@@ -313,5 +370,55 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     // declared charset renders Raw as the text, not U+FFFD noise.
     expect(await workbench.responseViewPickerLabel()).toMatch(/Hex$/);
     expect(await workbench.responseRawBody()).toContain('café au lait à volonté');
+  });
+});
+
+test.describe('Response viewer — streaming sends (UI)', () => {
+  test('a live SSE send morphs Send into Stop, tails the body, and Stop materializes a partial snapshot', async () => {
+    await workbench.openRequest(seededUids.get('sse-stream')!);
+    await workbench.send();
+    // Send morphs into Stop for every in-flight send (S8 law 5).
+    await workbench.requestStopButton().waitFor({ state: 'visible', timeout: 15000 });
+    // The live phase: the head status paints as soon as it arrives,
+    // and the tail appends flush-batched body text mid-stream.
+    await workbench.responseLiveTail().waitFor({ state: 'visible', timeout: 15000 });
+    await expect(workbench.responseLiveStatus()).toContainText('200');
+    await expect(workbench.responseLiveTail()).toContainText('data: {"seq":1}', { timeout: 15000 });
+
+    // Stop-and-snapshot: the partial body materializes as a normal
+    // response (NOT truncation, NOT an error) with the streamed tag.
+    await workbench.requestStopButton().click();
+    expect(await workbench.responseStatusText()).toContain('200');
+    await expect(workbench.responseStreamedTag()).toBeVisible();
+    // The stopped capture still rides the event-wise format plane
+    // (assert the picker BEFORE reading Raw — that switches the view).
+    expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    const raw = await workbench.responseRawBody();
+    expect(raw).toContain(': oh-playground sse stream');
+    expect(raw).toContain('data: {"seq":1}');
+  });
+
+  test('a finite watch stream materializes with the streamed tag and rides line-wise JSON', async () => {
+    await workbench.openRequest(seededUids.get('watch-stream')!);
+    await workbench.send();
+    expect(await workbench.responseStatusText()).toContain('200');
+    // The server closed after live frames — neutral streamed attribution.
+    await expect(workbench.responseStreamedTag()).toBeVisible();
+    // application/json shaped one record per line (the k8s watch
+    // pattern) lights the ndjson line-wise machinery: the tree preview
+    // lists the records.
+    expect(await workbench.responseViewPickerLabel()).toMatch(/JSON$/);
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    await workbench.responsePreviewToggle().click();
+    const tree = workbench.responseJsonPreview();
+    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    // Rows start collapsed — walk down to the last record's name.
+    await tree.getByRole('button', { name: /^2\b/ }).click();
+    await tree.getByRole('button', { name: /^object\b/ }).click();
+    await tree.getByRole('button', { name: /^metadata\b/ }).click();
+    const text = await tree.innerText();
+    expect(text).toContain('MODIFIED');
+    expect(text).toContain('oh-probe-3');
   });
 });

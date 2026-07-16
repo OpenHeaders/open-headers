@@ -141,6 +141,26 @@ export function ndjsonRecordLines(body: string): string[] {
 }
 
 /**
+ * Shape fallback for streams served as plain `application/json` — the
+ * k8s watch pattern: one JSON record per line, so the whole body never
+ * parses but every line does. Lights the ndjson line-wise machinery as
+ * a DEFAULT only (the metrics-sniff precedent); the Content-Type kinds
+ * in {@link isNdjsonResponse} never need it. Cheap on ordinary JSON:
+ * a single-line body fails the line count, a pretty-printed body fails
+ * on its first line (`{`). `allowPartialTail` lets the LAST line fail —
+ * a capture cut mid-record by the byte cap or a stopped/failed stream.
+ */
+export function isNdjsonShapedBody(body: string, allowPartialTail: boolean): boolean {
+  const lines = ndjsonRecordLines(body);
+  if (lines.length < 2) return false;
+  for (let i = 0; i < lines.length; i++) {
+    if (parseLosslessJson(lines[i]) !== null) continue;
+    return allowPartialTail && i === lines.length - 1;
+  }
+  return true;
+}
+
+/**
  * Line-wise Pretty for newline-delimited JSON: a whole-body parse can
  * never succeed, so each line re-indents as its own record — blocks
  * back to back, jq-style, losslessly like {@link prettyBody}. Lines

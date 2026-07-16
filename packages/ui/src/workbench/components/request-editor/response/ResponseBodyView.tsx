@@ -76,6 +76,7 @@ import {
   detectBodyLanguage,
   formatBytes,
   isNdjsonResponse,
+  isNdjsonShapedBody,
   isPdfResponse,
   mediaPreviewKind,
   ndjsonRecordLines,
@@ -89,6 +90,7 @@ import {
   parseMetricsBody,
   suggestMetricsCompletions,
 } from './response-metrics-filter';
+import { isSseResponse, parseSseEvents, prettySseBody } from './response-sse';
 import { useFormattedBody } from './use-formatted-body';
 
 const { Text } = Typography;
@@ -203,15 +205,40 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     if (detected === 'text' && !isBinary && sniffsAsMetricsBody(response.body)) return 'prometheus';
     return detected;
   }, [langOverride, response.headers, response.body, isBinary]);
+  // A capture whose tail is missing: the byte cap, or a streamed send
+  // that ended early (stop / timeout / mid-body error — S8 law 6). The
+  // line-wise and prefix salvage paths gate on it: the last record of
+  // such a body may legitimately be cut mid-token.
+  const partialCapture =
+    response.bodyTruncated || (response.streamedCapture !== undefined && response.streamedCapture.endedBy !== 'end');
+  // Line-wise JSON: the ndjson media types, or a plain application/json
+  // body SHAPED as one record per line (the k8s watch pattern) — a
+  // display default only, and a manual language override wins as usual.
   const isNdjson = isNdjsonResponse(response.headers);
+  const ndjsonView = useMemo(
+    () =>
+      language === 'json' &&
+      !isBinary &&
+      (isNdjson || isNdjsonShapedBody(response.body, partialCapture)),
+    [language, isBinary, isNdjson, response.body, partialCapture],
+  );
+  // Server-Sent Events ride the event-wise format plane (works on any
+  // snapshot, streamed or saved); the body stays TEXT — an override to
+  // another language exits the treatment.
+  const sseView = !isBinary && language === 'text' && isSseResponse(response.headers);
   // JSON re-indents synchronously (newline-delimited JSON line-wise,
-  // each record its own block); markup/code languages swap in the
-  // Prettier result when it resolves (wire text paints first).
+  // each record its own block; SSE bodies event-wise); markup/code
+  // languages swap in the Prettier result when it resolves (wire text
+  // paints first).
   const pretty = useFormattedBody(
     useMemo(
       () =>
-        isNdjson && language === 'json' ? prettyNdjsonBody(response.body) : prettyBody(response.body, language),
-      [response.body, language, isNdjson],
+        sseView
+          ? prettySseBody(response.body)
+          : ndjsonView
+            ? prettyNdjsonBody(response.body)
+            : prettyBody(response.body, language),
+      [response.body, language, ndjsonView, sseView],
     ),
     language,
   );
@@ -226,8 +253,11 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // leaves, and duplicate object keys are reported (last value wins,
   // like JSON.parse — the notice below says so).
   const parsed = useMemo<LosslessParseResult | undefined>(() => {
+    // SSE bodies parse event-wise into display records — the tree and
+    // JSONPath filter see the event list, like the ndjson record list.
+    if (sseView) return parseSseEvents(response.body) ?? undefined;
     if (isBinary || language !== 'json') return undefined;
-    if (isNdjson) {
+    if (ndjsonView) {
       const lines = ndjsonRecordLines(response.body);
       if (lines.length === 0) return undefined;
       const records: unknown[] = [];
@@ -236,10 +266,11 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
       for (let i = 0; i < lines.length; i++) {
         const record = parseLosslessJson(lines[i]);
         if (record === null) {
-          // A capture cut at the cap runs through the last record —
-          // line-wise salvage drops it and keeps the complete ones. A
-          // failing record anywhere else is a genuine parse error.
-          if (response.bodyTruncated && i === lines.length - 1) {
+          // A capture cut at the cap (or a stream that ended early)
+          // runs through the last record — line-wise salvage drops it
+          // and keeps the complete ones. A failing record anywhere
+          // else is a genuine parse error.
+          if (partialCapture && i === lines.length - 1) {
             partial = true;
             break;
           }
@@ -255,12 +286,13 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     }
     const strict = parseLosslessJson(response.body);
     if (strict !== null) return strict;
-    // A whole-body parse lost to the byte cap salvages its longest
-    // valid prefix — tree and filter stay usable exactly when payloads
-    // are big; the partial notice below says the view is incomplete.
-    if (response.bodyTruncated) return parseLosslessJsonPrefix(response.body) ?? undefined;
+    // A whole-body parse lost to the byte cap (or a stream that ended
+    // early) salvages its longest valid prefix — tree and filter stay
+    // usable exactly when payloads are big; the partial notice below
+    // says the view is incomplete.
+    if (partialCapture) return parseLosslessJsonPrefix(response.body) ?? undefined;
     return undefined;
-  }, [response.body, response.bodyTruncated, language, isBinary, isNdjson]);
+  }, [response.body, partialCapture, language, isBinary, ndjsonView, sseView]);
   const parsedJson = parsed?.value;
 
   // Media previews come from the Content-Type (they name a RENDERER,
@@ -304,7 +336,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // which has no text to query.
   const filterKind: 'jsonpath' | 'xpath' | 'metrics' | null = isBinary
     ? null
-    : language === 'json' && parsedJson !== undefined
+    : (language === 'json' || sseView) && parsedJson !== undefined
       ? 'jsonpath'
       : language === 'xml' || language === 'html'
         ? 'xpath'

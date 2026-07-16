@@ -703,6 +703,30 @@ export class WorkbenchPage {
     return (await lines.innerText()).replace(/ /g, ' ');
   }
 
+  /** The in-flight Stop button — Send morphs into it for every send;
+   *  clicking it materializes a streamed send's partial snapshot. */
+  requestStopButton(): Locator {
+    return this.page.getByTestId('oh-request-stop').filter({ visible: true });
+  }
+
+  /** The streaming send's live phase — head status + live body tail,
+   *  rendered while frames arrive (before the snapshot materializes). */
+  responseLiveTail(): Locator {
+    return this.page.getByTestId('oh-response-live-tail').filter({ visible: true });
+  }
+
+  /** The live phase's status tag — the response head, shown as soon as
+   *  it arrives, while the body still streams. */
+  responseLiveStatus(): Locator {
+    return this.page.getByTestId('oh-response-live-status').filter({ visible: true });
+  }
+
+  /** The meta strip's streamed-capture attribution tag — present only
+   *  when the live stream phase engaged or the read ended early. */
+  responseStreamedTag(): Locator {
+    return this.page.getByTestId('oh-response-streamed').filter({ visible: true });
+  }
+
   /** Text of the response Body view picker — the language the viewer
    *  detected from the Content-Type (or the active encoding view). */
   async responseViewPickerLabel(): Promise<string> {
