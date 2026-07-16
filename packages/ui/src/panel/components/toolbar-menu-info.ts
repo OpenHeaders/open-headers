@@ -1,69 +1,62 @@
 /**
  * `(i)` info-popover content for the toolbar's menu dropdowns — "More
- * filters" and "View". Static (neither depends on the inspected tab's
- * mode), so plain constants rather than builders.
+ * filters" and "View". Neither depends on the inspected tab's mode —
+ * the builders exist only to thread the live translator through.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
-export const MORE_FILTERS_INFO: InfoPopoverContent = {
-  title: 'More filters',
-  summary: 'Secondary request filters tucked behind a menu — each narrows the list without taking up first-class toolbar space.',
-  sections: [
-    {
-      heading: 'Hide',
-      items: [
-        { label: 'Data URLs', desc: 'Exclude inline data: resources — base64 images, fonts, and the like.' },
-        { label: 'Extension URLs', desc: 'Exclude requests to browser-extension origins.' },
-      ],
-    },
-    {
-      heading: 'Only show',
-      items: [
-        { label: 'Blocked requests', desc: 'Restrict the list to requests a rule blocked.' },
-        { label: '3rd-party requests', desc: 'Restrict to requests whose origin differs from the page’s.' },
-      ],
-    },
-  ],
-};
+export function getMoreFiltersInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.moreFilters.label'),
+    summary: t('panel.info.moreFilters.summary'),
+    sections: [
+      {
+        heading: t('panel.info.moreFilters.hideHeading'),
+        items: [
+          { label: t('panel.info.moreFilters.dataUrls'), desc: t('panel.info.moreFilters.dataUrlsDesc') },
+          { label: t('panel.info.moreFilters.extensionUrls'), desc: t('panel.info.moreFilters.extensionUrlsDesc') },
+        ],
+      },
+      {
+        heading: t('panel.info.moreFilters.onlyHeading'),
+        items: [
+          { label: t('panel.info.moreFilters.blocked'), desc: t('panel.info.moreFilters.blockedDesc') },
+          { label: t('panel.info.moreFilters.thirdParty'), desc: t('panel.info.moreFilters.thirdPartyDesc') },
+        ],
+      },
+    ],
+  };
+}
 
-export const VIEW_INFO: InfoPopoverContent = {
-  title: 'Footer View',
-  summary: 'Chooses which optional stats the footer shows, beside the always-on request and transfer counts.',
-  sections: [
-    {
-      heading: 'Summary scope',
-      items: [
-        {
-          label: 'Focused tool',
-          desc: 'The footer follows the focused tool window — Storage, Console, and Search show their own summary lines; other tools fall back to the Network line.',
-        },
-        {
-          label: 'Network tool only',
-          desc: 'The footer always shows the Network figures, whichever tool window has focus.',
-        },
-      ],
-    },
-    {
-      heading: 'Footer counts',
-      items: [
-        { label: 'Modified', desc: 'How many requests a rule changed.' },
-        { label: 'Failed', desc: 'How many requests errored or were blocked.' },
-        { label: 'Cached', desc: 'How many responses were served from the cache.' },
-      ],
-    },
-    {
-      heading: 'Timing',
-      items: [
-        {
-          label: 'Current page label',
-          desc: 'Names the page the timing milestones describe when the log spans more than one navigation.',
-        },
-        {
-          label: 'Across all navigations',
-          desc: 'Finish / DOMContentLoaded / Load span the whole preserve-log timeline, not just the latest navigation.',
-        },
-      ],
-    },
-  ],
-};
+export function getViewInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.view.label'),
+    summary: t('panel.info.view.summary'),
+    sections: [
+      {
+        heading: t('panel.info.view.scopeHeading'),
+        items: [
+          { label: t('panel.info.view.focusedTool'), desc: t('panel.info.view.focusedToolDesc') },
+          { label: t('panel.info.view.networkOnly'), desc: t('panel.info.view.networkOnlyDesc') },
+        ],
+      },
+      {
+        heading: t('panel.info.view.countsHeading'),
+        items: [
+          { label: t('panel.info.view.modified'), desc: t('panel.info.view.modifiedDesc') },
+          { label: t('panel.info.view.failed'), desc: t('panel.info.view.failedDesc') },
+          { label: t('panel.info.view.cached'), desc: t('panel.info.view.cachedDesc') },
+        ],
+      },
+      {
+        heading: t('panel.info.view.timingHeading'),
+        items: [
+          { label: t('panel.info.view.pageLabel'), desc: t('panel.info.view.pageLabelDesc') },
+          { label: t('panel.info.view.allNavs'), desc: t('panel.info.view.allNavsDesc') },
+        ],
+      },
+    ],
+  };
+}

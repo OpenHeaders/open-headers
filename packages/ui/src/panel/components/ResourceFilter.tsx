@@ -1,6 +1,8 @@
 import { Popover } from 'antd';
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
+// Resource-type pills are Chrome parity vocabulary — permanently raw.
 const FILTERS: Array<{ key: string; label: string }> = [
   { key: 'all', label: 'All' },
   { key: 'xhr', label: 'Fetch/XHR' },
@@ -33,6 +35,7 @@ interface ResourceFilterProps {
 }
 
 export function ResourceFilter({ value, onChange, compact }: ResourceFilterProps) {
+  const t = useT();
   const [moreOpen, setMoreOpen] = useState(false);
   const isAll = value.size === 0;
 
@@ -74,7 +77,7 @@ export function ResourceFilter({ value, onChange, compact }: ResourceFilterProps
       {/* Default is "All" (no type filters) — reset clears every active type,
        * inline ones included, not just the overflow pills shown here. */}
       <button type="button" className="dt-morefilters-reset" onClick={() => onChange(new Set())} disabled={isAll}>
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </div>
   );
@@ -102,7 +105,7 @@ export function ResourceFilter({ value, onChange, compact }: ResourceFilterProps
           overlayClassName="dt-filter-pills-popover"
         >
           <button type="button" className="dt-filter-pill" data-active={overflowActiveCount > 0}>
-            More
+            {t('panel.filter.more')}
             {overflowActiveCount > 0 ? ` (${overflowActiveCount})` : ''}
             <span className="dt-filter-pill-caret">{'▾'}</span>
           </button>

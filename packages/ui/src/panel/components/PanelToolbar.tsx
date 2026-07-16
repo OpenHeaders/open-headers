@@ -5,6 +5,7 @@ import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
 import { LayoutMenuIcon, RegionToggle } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import EnvironmentSelector from '@openheaders/ui/workbench/components/shell/EnvironmentSelector';
 import { useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
@@ -18,7 +19,7 @@ import type { PanelToolWindowId } from '../data/tool-windows';
 import type { PanelViewState } from '../data/use-panel-tool-layout';
 import { DebugControlsCluster } from './DebugControlsCluster';
 import { PanelWorkspaceSelector } from './PanelWorkspaceSelector';
-import { PRESERVE_LOG_INFO } from './preserve-log-info';
+import { getPreserveLogInfo } from './preserve-log-info';
 import { RuleExecutionsHint } from './RuleExecutions';
 import {
   alignmentGlyph,
@@ -28,7 +29,7 @@ import {
   menuLabel,
 } from './toolbar-layout-menu';
 import { IconClear } from './toolbar-icons';
-import { MORE_FILTERS_INFO, VIEW_INFO } from './toolbar-menu-info';
+import { getMoreFiltersInfo, getViewInfo } from './toolbar-menu-info';
 import { ExportMenu, MoreFiltersMenu, ViewMenu } from './toolbar-menus';
 
 // Lazy so the settings UI (Monaco via CodeField) stays out of the
@@ -132,6 +133,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   onSwitchEnvironment,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
 
   // In-panel settings surface — the gear menu opens the shared modal
   // right here instead of bouncing the user out to the workbench tab.
@@ -179,6 +181,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   };
 
   const layoutMenu = buildPanelLayoutMenu({
+    t,
     token,
     tl,
     perTab,
@@ -209,11 +212,11 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             className="dt-toolbar-icon dt-toolbar-icon--record"
             data-active={recording}
             onClick={onToggleRecording}
-            title={recording ? 'Stop recording' : 'Record network log'}
+            title={recording ? t('panel.toolbar.stopRecording') : t('panel.toolbar.record')}
           >
             <IconRecord active={recording} />
           </button>
-          <button type="button" className="dt-toolbar-icon" onClick={onClear} title="Clear network log">
+          <button type="button" className="dt-toolbar-icon" onClick={onClear} title={t('panel.toolbar.clear')}>
             <IconClear />
           </button>
           <div className="dt-toolbar-separator" />
@@ -222,7 +225,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             className="dt-toolbar-icon"
             data-active={showFilter}
             onClick={onToggleFilter}
-            title="Filter"
+            title={t('panel.toolbar.filter')}
           >
             <IconFilter />
           </button>
@@ -231,20 +234,20 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             className="dt-toolbar-icon"
             data-active={searchActive}
             onClick={onToggleSearch}
-            title="Search"
+            title={t('panel.toolbar.search')}
           >
             <IconSearch />
           </button>
           <div className="dt-toolbar-separator" />
           <span className="dt-debug-control">
-            <label className="dt-checkbox" title="Keep requests across page navigations. Off clears the list on each navigation or reload, like the browser's own Network panel.">
+            <label className="dt-checkbox" title={t('panel.toolbar.preserveLogTitle')}>
               <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
-              Preserve log
+              {t('panel.toolbar.preserveLog')}
             </label>
             <InfoTrigger
-              content={PRESERVE_LOG_INFO}
+              content={getPreserveLogInfo(t)}
               className="dt-header-info-trigger dt-debug-info-trigger"
-              ariaLabel="About Preserve log"
+              ariaLabel={t('panel.toolbar.aboutPreserveLog')}
             />
           </span>
           <div className="dt-toolbar-separator" />
@@ -253,18 +256,18 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
           <span className="dt-debug-control">
             <MoreFiltersMenu filterConfig={filterConfig} onFilterConfigChange={onFilterConfigChange} />
             <InfoTrigger
-              content={MORE_FILTERS_INFO}
+              content={getMoreFiltersInfo(t)}
               className="dt-header-info-trigger dt-debug-info-trigger"
-              ariaLabel="About More filters"
+              ariaLabel={t('panel.toolbar.aboutMoreFilters')}
             />
           </span>
           <div className="dt-toolbar-separator" />
           <span className="dt-debug-control">
             <ViewMenu />
             <InfoTrigger
-              content={VIEW_INFO}
+              content={getViewInfo(t)}
               className="dt-header-info-trigger dt-debug-info-trigger"
-              ariaLabel="About Footer View"
+              ariaLabel={t('panel.toolbar.aboutFooterView')}
             />
           </span>
           <div className="dt-toolbar-separator" />
@@ -318,22 +321,22 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
               <div className="dt-toolbar-separator" />
               <div className="rules-panel-toggles">
                 <RegionToggle
-                  title="Left sidebar"
-                  ariaTitle="Left sidebar"
+                  title={t('panel.toolbar.leftSidebar')}
+                  ariaTitle={t('panel.toolbar.leftSidebar')}
                   active={tl.isRegionOpen('left')}
                   position="left"
                   onClick={() => tl.toggleRegion('left')}
                 />
                 <RegionToggle
-                  title="Bottom panel"
-                  ariaTitle="Bottom panel"
+                  title={t('panel.toolbar.bottomPanel')}
+                  ariaTitle={t('panel.toolbar.bottomPanel')}
                   active={tl.isRegionOpen('bottom')}
                   position="bottom"
                   onClick={() => tl.toggleRegion('bottom')}
                 />
                 <RegionToggle
-                  title="Right sidebar"
-                  ariaTitle="Right sidebar"
+                  title={t('panel.toolbar.rightSidebar')}
+                  ariaTitle={t('panel.toolbar.rightSidebar')}
                   active={tl.isRegionOpen('right')}
                   position="right"
                   onClick={() => tl.toggleRegion('right')}
@@ -346,10 +349,10 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
                   menu={{
                     items: (
                       [
-                        { key: 'center', label: 'Center (nested)' },
-                        { key: 'left', label: 'Left' },
-                        { key: 'right', label: 'Right' },
-                        { key: 'justify', label: 'Justify (full width)' },
+                        { key: 'center', label: t('panel.layout.alignCenter') },
+                        { key: 'left', label: t('panel.layout.alignLeft') },
+                        { key: 'right', label: t('panel.layout.alignRight') },
+                        { key: 'justify', label: t('panel.layout.alignJustify') },
                       ] as { key: BottomPanelAlignmentSetting; label: string }[]
                     ).map((opt) => ({
                       key: `topbar-bottom-${opt.key}`,
@@ -362,12 +365,12 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
                   <Tooltip
                     title={
                       bottomPanelAlignment === 'center'
-                        ? 'Bottom panel: center (nested)'
+                        ? t('panel.toolbar.bottomAlignTooltip.center')
                         : bottomPanelAlignment === 'left'
-                          ? 'Bottom panel: left-aligned'
+                          ? t('panel.toolbar.bottomAlignTooltip.left')
                           : bottomPanelAlignment === 'right'
-                            ? 'Bottom panel: right-aligned'
-                            : 'Bottom panel: full width'
+                            ? t('panel.toolbar.bottomAlignTooltip.right')
+                            : t('panel.toolbar.bottomAlignTooltip.justify')
                     }
                     placement="bottom"
                     open={bottomAlignDropdownOpen ? false : undefined}
@@ -376,7 +379,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
                       className="rules-panel-toggle"
                       role="button"
                       tabIndex={0}
-                      aria-label="Choose bottom panel alignment"
+                      aria-label={t('panel.toolbar.chooseBottomAlignment')}
                     >
                       <LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} size={16} />
                     </div>
@@ -404,7 +407,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
                   className="rules-statusbar-item rules-layout-toggle"
                   role="button"
                   tabIndex={0}
-                  aria-label="Layout options"
+                  aria-label={t('panel.toolbar.layoutOptions')}
                   style={{ cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center' }}
                 >
                   <LayoutOutlined style={{ fontSize: 13 }} />

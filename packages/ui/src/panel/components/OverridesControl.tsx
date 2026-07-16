@@ -17,6 +17,7 @@
  */
 
 import type { TabEmulatedMedia, TabSystemOverrides } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { Input, Popover, Segmented, Select, Tooltip } from 'antd';
 import type React from 'react';
@@ -108,6 +109,7 @@ export const OverridesControl: React.FC<OverridesControlProps> = ({
   cdpOwned,
   onEnableDebug,
 }) => {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<OverridesDraft>(EMPTY_DRAFT);
 
@@ -145,16 +147,14 @@ export const OverridesControl: React.FC<OverridesControlProps> = ({
 
   const form = (
     <div className="dt-overrides-form dt-scrollbar" style={maxHeight != null ? { maxHeight } : undefined}>
-      <p className="dt-overrides-group-hint">
-        Sent on requests and reported to page scripts while this tab stays in Debug mode.
-      </p>
+      <p className="dt-overrides-group-hint">{t('panel.overrides.wireHint')}</p>
       <label className="dt-overrides-row dt-overrides-row--stacked">
         <span className="dt-overrides-label">User-Agent</span>
         <Input.TextArea
           size="small"
           value={draft.userAgent}
           onChange={(e) => setDraft({ ...draft, userAgent: e.target.value })}
-          placeholder="Custom User-Agent string"
+          placeholder={t('panel.overrides.uaPlaceholder')}
           autoSize={{ minRows: 2, maxRows: 5 }}
         />
       </label>
@@ -164,29 +164,27 @@ export const OverridesControl: React.FC<OverridesControlProps> = ({
           size="small"
           value={draft.acceptLanguage}
           onChange={(e) => setDraft({ ...draft, acceptLanguage: e.target.value })}
-          placeholder="e.g. fr-FR,fr;q=0.9"
+          placeholder={t('panel.overrides.alPlaceholder')}
         />
       </label>
       <label className="dt-overrides-row">
-        <span className="dt-overrides-label">Platform</span>
+        <span className="dt-overrides-label">{t('panel.overrides.platform')}</span>
         <Input
           size="small"
           value={draft.platform}
           onChange={(e) => setDraft({ ...draft, platform: e.target.value })}
-          placeholder="navigator.platform, e.g. Linux"
+          placeholder={t('panel.overrides.platformPlaceholder')}
         />
       </label>
 
-      <p className="dt-overrides-group-hint">
-        Page only — these change what the page’s own scripts and CSS observe, not requests.
-      </p>
+      <p className="dt-overrides-group-hint">{t('panel.overrides.pageOnlyHint')}</p>
       <label className="dt-overrides-row">
-        <span className="dt-overrides-label">Locale</span>
+        <span className="dt-overrides-label">{t('panel.overrides.locale')}</span>
         <Select
           size="small"
           showSearch
           allowClear
-          placeholder="Real locale"
+          placeholder={t('panel.overrides.localePlaceholder')}
           optionFilterProp="label"
           options={[...LOCALE_OPTIONS]}
           value={draft.locale || undefined}
@@ -196,12 +194,12 @@ export const OverridesControl: React.FC<OverridesControlProps> = ({
         />
       </label>
       <label className="dt-overrides-row">
-        <span className="dt-overrides-label">Timezone</span>
+        <span className="dt-overrides-label">{t('panel.overrides.timezone')}</span>
         <Select
           size="small"
           showSearch
           allowClear
-          placeholder="Real timezone"
+          placeholder={t('panel.overrides.timezonePlaceholder')}
           optionFilterProp="label"
           options={[...TIMEZONE_OPTIONS]}
           value={draft.timezoneId || undefined}
@@ -211,7 +209,7 @@ export const OverridesControl: React.FC<OverridesControlProps> = ({
         />
       </label>
       <div className="dt-overrides-row">
-        <span className="dt-overrides-label">Color scheme</span>
+        <span className="dt-overrides-label">{t('panel.overrides.colorScheme')}</span>
         <Segmented
           size="small"
           value={draft.colorScheme}
@@ -219,14 +217,14 @@ export const OverridesControl: React.FC<OverridesControlProps> = ({
             if (value === '' || value === 'light' || value === 'dark') setDraft({ ...draft, colorScheme: value });
           }}
           options={[
-            { label: 'Auto', value: '' },
-            { label: 'Light', value: 'light' },
-            { label: 'Dark', value: 'dark' },
+            { label: t('panel.overrides.auto'), value: '' },
+            { label: t('panel.overrides.light'), value: 'light' },
+            { label: t('panel.overrides.dark'), value: 'dark' },
           ]}
         />
       </div>
       <div className="dt-overrides-row">
-        <span className="dt-overrides-label">Reduced motion</span>
+        <span className="dt-overrides-label">{t('panel.overrides.reducedMotion')}</span>
         <Segmented
           size="small"
           value={draft.reducedMotion}
@@ -235,31 +233,31 @@ export const OverridesControl: React.FC<OverridesControlProps> = ({
               setDraft({ ...draft, reducedMotion: value });
           }}
           options={[
-            { label: 'Auto', value: '' },
-            { label: 'Reduce', value: 'reduce' },
-            { label: 'No pref', value: 'no-preference' },
+            { label: t('panel.overrides.auto'), value: '' },
+            { label: t('panel.overrides.reduce'), value: 'reduce' },
+            { label: t('panel.overrides.noPref'), value: 'no-preference' },
           ]}
         />
       </div>
       <div className="dt-overrides-row">
-        <span className="dt-overrides-label">Print media</span>
+        <span className="dt-overrides-label">{t('panel.overrides.printMedia')}</span>
         <Segmented
           size="small"
           value={draft.print ? 'print' : ''}
           onChange={(value) => setDraft({ ...draft, print: value === 'print' })}
           options={[
-            { label: 'Screen', value: '' },
-            { label: 'Print', value: 'print' },
+            { label: t('panel.overrides.screen'), value: '' },
+            { label: t('panel.overrides.print'), value: 'print' },
           ]}
         />
       </div>
 
       <div className="dt-overrides-footer">
         <button type="button" className="dt-overrides-reset" disabled={!overrides} onClick={resetToDefault}>
-          Reset all
+          {t('panel.overrides.resetAll')}
         </button>
         <button type="button" className="dt-sortmode-builder-apply" onClick={apply}>
-          Apply
+          {t('panel.debug.apply')}
         </button>
       </div>
     </div>
@@ -272,7 +270,7 @@ export const OverridesControl: React.FC<OverridesControlProps> = ({
       className={`dt-toolbar-dropdown dt-overrides-trigger${count > 0 ? ' dt-toolbar-dropdown--active' : ''}`}
       disabled={!cdpOwned}
     >
-      <span>Overrides</span>
+      <span>{t('panel.overrides.trigger')}</span>
       {count > 0 && <span className="dt-toolbar-dropdown-count">{count}</span>}
       <span className="dt-toolbar-dropdown-caret">▾</span>
     </button>
@@ -295,18 +293,15 @@ export const OverridesControl: React.FC<OverridesControlProps> = ({
           {triggerButton}
         </Popover>
       ) : (
-        <Tooltip
-          title="System overrides are available only in Debug mode. Enable Debug mode to override this tab."
-          placement="bottom"
-        >
+        <Tooltip title={t('panel.overrides.disabledTooltip')} placement="bottom">
           {/* span wrapper so the tooltip shows over the disabled trigger */}
           <span className="dt-overrides-disabled-wrap">{triggerButton}</span>
         </Tooltip>
       )}
       <InfoTrigger
-        content={buildOverridesInfo({ cdpOwned, onEnableDebug })}
+        content={buildOverridesInfo(t, { cdpOwned, onEnableDebug })}
         className="dt-header-info-trigger dt-debug-info-trigger"
-        ariaLabel="About system overrides"
+        ariaLabel={t('panel.overrides.aboutAria')}
       />
     </span>
   );

@@ -14,13 +14,14 @@
  */
 
 import { CheckOutlined, RightOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import type { NetworkThrottleConditions } from '@openheaders/core/types';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Popover, Tooltip } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import {
-  NO_THROTTLE_LABEL,
   THROTTLE_PRESETS,
   type ThrottlePreset,
   type ThrottleProfileKey,
@@ -43,18 +44,18 @@ export interface NetworkThrottleControlProps {
 const BYTES_PER_KBIT = 125;
 
 /** One-line speed/latency hint under each preset, mirroring the (i) popover. */
-const PRESET_SUBTITLES: Record<ThrottlePreset['key'], string> = {
-  fiber: '≈500 Mbit/s · 2 ms latency',
-  cable: '≈200 Mbit/s · 8 ms latency',
-  dsl: '≈20 Mbit/s · 25 ms latency',
-  'fast-5g': '≈100 Mbit/s · 8 ms latency',
-  'slow-5g': '≈30 Mbit/s · 18 ms latency',
-  'fast-4g': '≈8.1 Mbit/s · 165 ms latency',
-  'slow-4g': '≈1.44 Mbit/s · 562.5 ms latency',
-  '3g': '≈400 kbit/s · 2000 ms latency',
-  'fast-2g': '≈280 kbit/s · 2000 ms latency',
-  'slow-2g': '≈100 kbit/s · 3000 ms latency',
-  offline: 'Blocks all network traffic for the tab.',
+const PRESET_SUBTITLE_KEYS: Record<ThrottlePreset['key'], MessageKey> = {
+  fiber: 'panel.throttle.subtitle.fiber',
+  cable: 'panel.throttle.subtitle.cable',
+  dsl: 'panel.throttle.subtitle.dsl',
+  'fast-5g': 'panel.throttle.subtitle.fast5g',
+  'slow-5g': 'panel.throttle.subtitle.slow5g',
+  'fast-4g': 'panel.throttle.subtitle.fast4g',
+  'slow-4g': 'panel.throttle.subtitle.slow4g',
+  '3g': 'panel.throttle.subtitle.3g',
+  'fast-2g': 'panel.throttle.subtitle.fast2g',
+  'slow-2g': 'panel.throttle.subtitle.slow2g',
+  offline: 'panel.throttle.subtitle.offline',
 };
 
 // The directly-shown mobile defaults, the standalone Offline row, and the two
@@ -71,6 +72,7 @@ export const NetworkThrottleControl: React.FC<NetworkThrottleControlProps> = ({
   cdpOwned,
   onEnableDebug,
 }) => {
+  const t = useT();
   const [downloadKbit, setDownloadKbit] = useState(1000);
   const [uploadKbit, setUploadKbit] = useState(1000);
   const [latencyMs, setLatencyMs] = useState(0);
@@ -95,29 +97,30 @@ export const NetworkThrottleControl: React.FC<NetworkThrottleControlProps> = ({
   };
 
   const trigger = cdpOwned ? (
-    <ToolbarMenuPopover label={profileLabel(profileKey)} activeCount={0} active={false} placement="bottomLeft">
-      <ThrottleRow title={NO_THROTTLE_LABEL} active={profileKey === 'none'} onClick={() => setConditions(null)} />
+    <ToolbarMenuPopover label={profileLabel(t, profileKey)} activeCount={0} active={false} placement="bottomLeft">
+      <ThrottleRow title={t('panel.throttle.none')} active={profileKey === 'none'} onClick={() => setConditions(null)} />
       <div className="dt-morefilters-divider" />
       {COMMON_PRESETS.map((preset) => (
         <ThrottleRow
           key={preset.key}
           title={preset.label}
-          subtitle={PRESET_SUBTITLES[preset.key]}
+          subtitle={t(PRESET_SUBTITLE_KEYS[preset.key])}
           active={profileKey === preset.key}
           onClick={() => setConditions(preset.conditions)}
         />
       ))}
-      <MorePresetsRow activeKey={profileKey} onPick={setConditions} />
+      <MorePresetsRow t={t} activeKey={profileKey} onPick={setConditions} />
       {OFFLINE_PRESET && (
         <ThrottleRow
           title={OFFLINE_PRESET.label}
-          subtitle={PRESET_SUBTITLES.offline}
+          subtitle={t(PRESET_SUBTITLE_KEYS.offline)}
           active={profileKey === 'offline'}
           onClick={() => setConditions(OFFLINE_PRESET.conditions)}
         />
       )}
       <div className="dt-morefilters-divider" />
       <CustomThrottleRow
+        t={t}
         active={profileKey === 'custom'}
         download={downloadKbit}
         upload={uploadKbit}
@@ -129,14 +132,11 @@ export const NetworkThrottleControl: React.FC<NetworkThrottleControlProps> = ({
       />
     </ToolbarMenuPopover>
   ) : (
-    <Tooltip
-      title="Network throttling is available only in Debug mode. Enable Debug mode to throttle this tab."
-      placement="bottom"
-    >
+    <Tooltip title={t('panel.throttle.disabledTooltip')} placement="bottom">
       {/* span wrapper so the tooltip shows over the disabled trigger */}
       <span className="dt-throttle-disabled-wrap">
         <button type="button" className="dt-toolbar-dropdown dt-throttle-trigger" disabled>
-          <span>{profileLabel(profileKey)}</span>
+          <span>{profileLabel(t, profileKey)}</span>
           <span className="dt-toolbar-dropdown-caret">▾</span>
         </button>
       </span>
@@ -147,9 +147,9 @@ export const NetworkThrottleControl: React.FC<NetworkThrottleControlProps> = ({
     <span className="dt-debug-control">
       {trigger}
       <InfoTrigger
-        content={buildThrottleInfo({ cdpOwned, onEnableDebug })}
+        content={buildThrottleInfo(t, { cdpOwned, onEnableDebug })}
         className="dt-header-info-trigger dt-debug-info-trigger"
-        ariaLabel="About network throttling"
+        ariaLabel={t('panel.throttle.aboutAria')}
       />
     </span>
   );
@@ -186,9 +186,11 @@ function ThrottleRow({
 /** The "More presets" group row — hovering it opens a submenu with the wider
  *  catalogue (wired + extra mobile tiers), the same shape as the Sort groups. */
 function MorePresetsRow({
+  t,
   activeKey,
   onPick,
 }: {
+  t: Translate;
   activeKey: ThrottleProfileKey;
   onPick: (conditions: NetworkThrottleConditions) => void;
 }) {
@@ -198,17 +200,17 @@ function MorePresetsRow({
       <ThrottleRow
         key={p.key}
         title={p.label}
-        subtitle={PRESET_SUBTITLES[p.key]}
+        subtitle={t(PRESET_SUBTITLE_KEYS[p.key])}
         active={activeKey === p.key}
         onClick={() => onPick(p.conditions)}
       />
     ));
   const submenu = (
     <div className="dt-sortmode-submenu dt-scrollbar" role="menu">
-      <div className="dt-sortmode-heading">Wired</div>
+      <div className="dt-sortmode-heading">{t('panel.throttle.wired')}</div>
       {rows(WIRED_PRESETS)}
       <div className="dt-morefilters-divider" />
-      <div className="dt-sortmode-heading">Mobile</div>
+      <div className="dt-sortmode-heading">{t('panel.throttle.mobile')}</div>
       {rows(MOBILE_PRESETS)}
     </div>
   );
@@ -224,8 +226,8 @@ function MorePresetsRow({
     >
       <div className="dt-sortmode-item dt-sortmode-item--group">
         <div className="dt-sortmode-item-body">
-          <div className="dt-sortmode-item-title">More presets</div>
-          <div className="dt-sortmode-item-subtitle">Fiber, cable, DSL, 5G, 2G.</div>
+          <div className="dt-sortmode-item-title">{t('panel.throttle.morePresets')}</div>
+          <div className="dt-sortmode-item-subtitle">{t('panel.throttle.morePresetsSubtitle')}</div>
         </div>
         {active && (
           <span className="dt-sortmode-item-check" aria-hidden="true">
@@ -243,6 +245,7 @@ function MorePresetsRow({
 /** The "Custom…" group row — hovering it opens a builder submenu with the
  *  download / upload / latency fields, the same shape as the Sort builder. */
 function CustomThrottleRow({
+  t,
   active,
   download,
   upload,
@@ -252,6 +255,7 @@ function CustomThrottleRow({
   onLatency,
   onApply,
 }: {
+  t: Translate;
   active: boolean;
   download: number;
   upload: number;
@@ -263,31 +267,31 @@ function CustomThrottleRow({
 }) {
   const submenu = (
     <div className="dt-sortmode-submenu dt-sortmode-submenu--builder dt-scrollbar" role="menu">
-      <div className="dt-sortmode-builder-title">Custom throttling</div>
+      <div className="dt-sortmode-builder-title">{t('panel.throttle.customTitle')}</div>
       <label className="dt-throttle-custom-row">
-        <span className="dt-throttle-custom-label">Download</span>
+        <span className="dt-throttle-custom-label">{t('panel.throttle.download')}</span>
         <input type="number" min={0} value={download} onChange={(e) => onDownload(Number(e.target.value) || 0)} />
         <span className="dt-throttle-custom-unit">kbit/s</span>
       </label>
       <label className="dt-throttle-custom-row">
-        <span className="dt-throttle-custom-label">Upload</span>
+        <span className="dt-throttle-custom-label">{t('panel.throttle.upload')}</span>
         <input type="number" min={0} value={upload} onChange={(e) => onUpload(Number(e.target.value) || 0)} />
         <span className="dt-throttle-custom-unit">kbit/s</span>
       </label>
       <label className="dt-throttle-custom-row">
-        <span className="dt-throttle-custom-label">Latency</span>
+        <span className="dt-throttle-custom-label">{t('panel.throttle.latency')}</span>
         <input type="number" min={0} value={latency} onChange={(e) => onLatency(Number(e.target.value) || 0)} />
         <span className="dt-throttle-custom-unit">ms</span>
       </label>
       <div className="dt-sortmode-builder-footer">
-        <span className="dt-sortmode-builder-tiebreak">Applies to this tab</span>
+        <span className="dt-sortmode-builder-tiebreak">{t('panel.throttle.appliesToTab')}</span>
         <button type="button" className="dt-sortmode-builder-apply" onClick={onApply}>
-          Apply
+          {t('panel.debug.apply')}
         </button>
       </div>
     </div>
   );
-  const subtitle = active ? `${download}/${upload} kbit/s · ${latency} ms` : 'Set download, upload, and latency.';
+  const subtitle = active ? `${download}/${upload} kbit/s · ${latency} ms` : t('panel.throttle.customHint');
   return (
     <Popover
       content={submenu}
@@ -300,7 +304,7 @@ function CustomThrottleRow({
     >
       <div className="dt-sortmode-item dt-sortmode-item--group">
         <div className="dt-sortmode-item-body">
-          <div className="dt-sortmode-item-title">Custom…</div>
+          <div className="dt-sortmode-item-title">{t('panel.throttle.customEllipsis')}</div>
           <div className="dt-sortmode-item-subtitle">{subtitle}</div>
         </div>
         {active && (

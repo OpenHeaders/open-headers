@@ -6,6 +6,7 @@
  */
 
 import type { Catalog } from '../../types';
+import { panel } from './panel';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
@@ -36,6 +37,7 @@ export const en = {
   ...sharedMergeEditor,
   ...sharedNotifications,
   ...sharedResolutionHints,
+  ...panel,
   ...popup,
   ...workbench,
   ...workbenchChrome,

@@ -3,9 +3,12 @@
  * toggle, the throttle dropdown, and the system overrides. Built as
  * functions (not static data) so
  * the copy can switch on the inspected tab's mode and so the "Enable Debug
- * mode" call-to-action can carry a live handler.
+ * mode" call-to-action can carry a live handler. Section item labels are
+ * wire/CDP vocabulary (`Cache-Control: no-cache`, `Network.setCacheDisabled`,
+ * preset tier names) and stay raw.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
 interface DebugInfoParams {
@@ -15,106 +18,100 @@ interface DebugInfoParams {
   onEnableDebug?: () => void;
 }
 
-function enableDebugAction(onEnableDebug?: () => void): InfoPopoverContent['actions'] {
-  return onEnableDebug ? [{ label: 'Enable Debug mode', onClick: onEnableDebug, primary: true }] : undefined;
+function enableDebugAction(t: Translate, onEnableDebug?: () => void): InfoPopoverContent['actions'] {
+  return onEnableDebug ? [{ label: t('panel.debug.enableDebugMode'), onClick: onEnableDebug, primary: true }] : undefined;
 }
 
-export function buildCacheInfo({ cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
+export function buildCacheInfo(t: Translate, { cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
   return {
-    title: 'Disable cache',
-    summary: 'Stops this tab from serving responses out of the cache.',
-    description: cdpOwned
-      ? 'This tab is in Debug mode: the cache is disabled at the network-stack level — the in-memory cache too — matching the browser’s native Disable cache.'
-      : 'This tab is in standard mode: only the HTTP cache is bypassed, by asking the server to revalidate. Enable Debug mode for a full network-stack disable that also clears the in-memory cache.',
+    title: t('panel.cache.label'),
+    summary: t('panel.info.cache.summary'),
+    description: cdpOwned ? t('panel.info.cache.debugDesc') : t('panel.info.cache.standardDesc'),
     sections: [
       {
-        heading: 'Standard mode',
+        heading: t('panel.info.cache.standardHeading'),
         items: [
           {
             label: 'Cache-Control: no-cache',
-            desc: 'Added to every request so the server re-checks freshness. Bypasses the HTTP cache only.',
+            desc: t('panel.info.cache.revalidateDesc'),
           },
         ],
       },
       {
-        heading: 'Debug mode',
+        heading: t('panel.info.cache.debugHeading'),
         items: [
           {
             label: 'Network.setCacheDisabled',
-            desc: 'Disables the cache for the whole tab at the network-stack level, including the in-memory cache.',
+            desc: t('panel.info.cache.cdpDesc'),
           },
         ],
       },
     ],
-    actions: cdpOwned ? undefined : enableDebugAction(onEnableDebug),
+    actions: cdpOwned ? undefined : enableDebugAction(t, onEnableDebug),
   };
 }
 
-export function buildOverridesInfo({ cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
+export function buildOverridesInfo(t: Translate, { cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
   return {
-    title: 'System overrides',
-    summary: 'Pins this tab’s system identity — User-Agent, locale, timezone, and emulated media — to see how a site responds to a different client.',
-    description: cdpOwned
-      ? 'Active on this tab through Debug mode. The User-Agent facets apply to requests and to page scripts; locale, timezone, and media change only what the page’s own scripts and CSS observe. Reset all restores the real values.'
-      : 'System overrides need Debug mode — there is no standard-mode fallback. Enable Debug mode and keep this tab in scope to override it.',
+    title: t('panel.info.overrides.title'),
+    summary: t('panel.info.overrides.summary'),
+    description: cdpOwned ? t('panel.info.overrides.debugDesc') : t('panel.info.overrides.standardDesc'),
     sections: [
       {
-        heading: 'On the wire + page scripts',
+        heading: t('panel.info.overrides.wireHeading'),
         items: [
           {
             label: 'Network.setUserAgentOverride',
-            desc: 'Sets the User-Agent / Accept-Language headers, the platform, and the matching navigator.* values.',
+            desc: t('panel.info.overrides.uaDesc'),
           },
         ],
       },
       {
-        heading: 'Page only',
+        heading: t('panel.info.overrides.pageHeading'),
         items: [
-          { label: 'Emulation.setLocaleOverride', desc: 'Changes the locale page scripts read.' },
-          { label: 'Emulation.setTimezoneOverride', desc: 'Changes the timezone Date and Intl resolve to.' },
-          { label: 'Emulation.setEmulatedMedia', desc: 'Forces color-scheme / reduced-motion / print media queries.' },
+          { label: 'Emulation.setLocaleOverride', desc: t('panel.info.overrides.localeDesc') },
+          { label: 'Emulation.setTimezoneOverride', desc: t('panel.info.overrides.timezoneDesc') },
+          { label: 'Emulation.setEmulatedMedia', desc: t('panel.info.overrides.mediaDesc') },
         ],
       },
     ],
-    actions: cdpOwned ? undefined : enableDebugAction(onEnableDebug),
+    actions: cdpOwned ? undefined : enableDebugAction(t, onEnableDebug),
   };
 }
 
-export function buildThrottleInfo({ cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
+export function buildThrottleInfo(t: Translate, { cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
   return {
-    title: 'Network throttling',
-    summary: 'Simulates slower connections by capping this tab’s bandwidth and adding latency.',
-    description: cdpOwned
-      ? 'Active on this tab through Debug mode. Pick a preset — the defaults plus fiber / cable / DSL and 5G / 2G under More presets — go Offline, or set a custom download / upload / latency.'
-      : 'Throttling needs Debug mode — there is no standard-mode fallback. Enable Debug mode and keep this tab in scope to throttle it.',
+    title: t('panel.info.throttle.title'),
+    summary: t('panel.info.throttle.summary'),
+    description: cdpOwned ? t('panel.info.throttle.debugDesc') : t('panel.info.throttle.standardDesc'),
     sections: [
       {
-        heading: 'Presets',
+        heading: t('panel.info.throttle.presetsHeading'),
         items: [
-          { label: 'Fast 4G', desc: '≈8.1 Mbit/s down, 165 ms latency.' },
-          { label: 'Slow 4G', desc: '≈1.44 Mbit/s down, 562.5 ms latency.' },
-          { label: '3G', desc: '≈400 kbit/s, 2000 ms latency.' },
-          { label: 'Offline', desc: 'Blocks all network traffic for the tab.' },
+          { label: 'Fast 4G', desc: t('panel.info.throttle.fast4gDesc') },
+          { label: 'Slow 4G', desc: t('panel.info.throttle.slow4gDesc') },
+          { label: '3G', desc: t('panel.info.throttle.3gDesc') },
+          { label: 'Offline', desc: t('panel.info.throttle.offlineDesc') },
         ],
       },
       {
-        heading: 'More presets · Wired',
+        heading: t('panel.info.throttle.wiredHeading'),
         items: [
-          { label: 'Fiber', desc: '≈500 Mbit/s, 2 ms latency.' },
-          { label: 'Cable', desc: '≈200 Mbit/s down, 8 ms latency.' },
-          { label: 'DSL', desc: '≈20 Mbit/s down, 25 ms latency.' },
+          { label: 'Fiber', desc: t('panel.info.throttle.fiberDesc') },
+          { label: 'Cable', desc: t('panel.info.throttle.cableDesc') },
+          { label: 'DSL', desc: t('panel.info.throttle.dslDesc') },
         ],
       },
       {
-        heading: 'More presets · Mobile',
+        heading: t('panel.info.throttle.mobileHeading'),
         items: [
-          { label: 'Fast 5G', desc: '≈100 Mbit/s down, 8 ms latency.' },
-          { label: 'Slow 5G', desc: '≈30 Mbit/s down, 18 ms latency.' },
-          { label: 'Fast 2G', desc: '≈280 kbit/s, 2000 ms latency.' },
-          { label: 'Slow 2G', desc: '≈100 kbit/s, 3000 ms latency.' },
+          { label: 'Fast 5G', desc: t('panel.info.throttle.fast5gDesc') },
+          { label: 'Slow 5G', desc: t('panel.info.throttle.slow5gDesc') },
+          { label: 'Fast 2G', desc: t('panel.info.throttle.fast2gDesc') },
+          { label: 'Slow 2G', desc: t('panel.info.throttle.slow2gDesc') },
         ],
       },
     ],
-    actions: cdpOwned ? undefined : enableDebugAction(onEnableDebug),
+    actions: cdpOwned ? undefined : enableDebugAction(t, onEnableDebug),
   };
 }

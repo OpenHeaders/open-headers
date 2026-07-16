@@ -3,6 +3,7 @@
  * mapping that backs the toolbar dropdown. Pure logic; no chrome / rendering.
  */
 
+import { getTranslator } from '@openheaders/i18n';
 import type { NetworkThrottleConditions } from '@openheaders/core/types';
 import {
   conditionsForPreset,
@@ -11,6 +12,8 @@ import {
   THROTTLE_PRESETS,
 } from '@openheaders/ui/panel/data/network-throttle-presets';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator('en');
 
 describe('conditionsForPreset', () => {
   it('returns the documented Fast 4G figures', () => {
@@ -68,15 +71,15 @@ describe('matchProfileKey', () => {
 });
 
 describe('profileLabel', () => {
-  it('labels the special keys', () => {
-    expect(profileLabel('none')).toBe('No throttling');
-    expect(profileLabel('custom')).toBe('Custom');
+  it('labels the special keys through the catalog', () => {
+    expect(profileLabel(t, 'none')).toBe('No throttling');
+    expect(profileLabel(t, 'custom')).toBe('Custom');
   });
 
-  it('labels the named presets', () => {
-    expect(profileLabel('fast-4g')).toBe('Fast 4G');
-    expect(profileLabel('slow-4g')).toBe('Slow 4G');
-    expect(profileLabel('3g')).toBe('3G');
-    expect(profileLabel('offline')).toBe('Offline');
+  it('labels the named presets raw (tier names are English-boundary vocabulary)', () => {
+    expect(profileLabel(t, 'fast-4g')).toBe('Fast 4G');
+    expect(profileLabel(t, 'slow-4g')).toBe('Slow 4G');
+    expect(profileLabel(t, '3g')).toBe('3G');
+    expect(profileLabel(t, 'offline')).toBe('Offline');
   });
 });

@@ -12,6 +12,7 @@
  */
 
 import type { NetworkThrottleConditions } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 
 export type ThrottlePresetKey =
   | 'offline'
@@ -35,9 +36,6 @@ export interface ThrottlePreset {
   readonly group: 'common' | 'wired' | 'mobile';
   readonly conditions: NetworkThrottleConditions;
 }
-
-export const NO_THROTTLE_LABEL = 'No throttling';
-export const CUSTOM_LABEL = 'Custom';
 
 /** Every named preset. `common` ones surface directly; `wired` / `mobile` ones
  *  sit under the "More presets" submenu, in this order within each group. */
@@ -137,9 +135,11 @@ export function matchProfileKey(conditions: NetworkThrottleConditions | null): T
   return preset ? preset.key : 'custom';
 }
 
-/** Display label for the dropdown trigger given the active profile. */
-export function profileLabel(key: ThrottleProfileKey): string {
-  if (key === 'none') return NO_THROTTLE_LABEL;
-  if (key === 'custom') return CUSTOM_LABEL;
-  return THROTTLE_PRESETS.find((p) => p.key === key)?.label ?? NO_THROTTLE_LABEL;
+/** Display label for the dropdown trigger given the active profile.
+ *  Preset tier names (Fast 4G, Fiber, …) are raw technical vocabulary;
+ *  only the none/custom states carry translated chrome. */
+export function profileLabel(t: Translate, key: ThrottleProfileKey): string {
+  if (key === 'none') return t('panel.throttle.none');
+  if (key === 'custom') return t('panel.throttle.custom');
+  return THROTTLE_PRESETS.find((p) => p.key === key)?.label ?? t('panel.throttle.none');
 }

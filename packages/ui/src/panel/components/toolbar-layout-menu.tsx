@@ -7,6 +7,7 @@
  */
 
 import { InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
 import { DockSlotIcon, LayoutMenuIcon, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
@@ -41,6 +42,7 @@ export const alignmentGlyph = (
   a === 'justify' ? 'bottom-full' : a === 'left' ? 'bottom-left' : a === 'right' ? 'bottom-right' : 'bottom-nested';
 
 export interface PanelLayoutMenuOptions {
+  t: Translate;
   token: GlobalToken;
   tl: DockLayoutApi<PanelToolWindowId>;
   perTab: EditingScopeViewStateApi<PanelViewState>;
@@ -59,6 +61,7 @@ export interface PanelLayoutMenuOptions {
  * value that must be referentially stable.
  */
 export function buildPanelLayoutMenu({
+  t,
   token,
   tl,
   perTab,
@@ -73,13 +76,13 @@ export function buildPanelLayoutMenu({
     {
       key: 'bottom-alignment',
       icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} />),
-      label: 'Bottom Panel Alignment',
+      label: t('panel.layout.bottomAlignment'),
       children: (
         [
-          { key: 'center', label: 'Center (nested)' },
-          { key: 'left', label: 'Left' },
-          { key: 'right', label: 'Right' },
-          { key: 'justify', label: 'Justify (full width)' },
+          { key: 'center', label: t('panel.layout.alignCenter') },
+          { key: 'left', label: t('panel.layout.alignLeft') },
+          { key: 'right', label: t('panel.layout.alignRight') },
+          { key: 'justify', label: t('panel.layout.alignJustify') },
         ] as { key: BottomPanelAlignmentSetting; label: string }[]
       ).map((opt) => ({
         key: `bottom-${opt.key}`,
@@ -91,19 +94,19 @@ export function buildPanelLayoutMenu({
     {
       key: 'show-labels',
       icon: menuIconWrap(<LayoutMenuIcon kind={showLabels ? 'show-labels' : 'hide-labels'} />),
-      label: menuLabel(showLabels, 'Show Tool Window Names'),
+      label: menuLabel(showLabels, t('panel.layout.showToolWindowNames')),
       onClick: () => setShowLabels(!showLabels),
     },
     {
       key: 'sidebar-layout',
       icon: menuIconWrap(<SidebarLayoutIcon variant={sidebarLayout} />),
-      label: 'Activity Bar Layout',
+      label: t('panel.layout.activityBarLayout'),
       children: (
         [
-          { key: 'proportional', label: 'Proportional (even halves)' },
-          { key: 'compact', label: 'Compact (bottom pinned)' },
-          { key: 'stacked', label: 'Stacked (all at top)' },
-          { key: 'dynamic', label: 'Dynamic (follows panel heights)' },
+          { key: 'proportional', label: t('panel.layout.sidebarProportional') },
+          { key: 'compact', label: t('panel.layout.sidebarCompact') },
+          { key: 'stacked', label: t('panel.layout.sidebarStacked') },
+          { key: 'dynamic', label: t('panel.layout.sidebarDynamic') },
         ] as { key: SidebarLayoutVariantSetting; label: string }[]
       ).map((opt) => ({
         key: `sidebar-${opt.key}`,
@@ -119,14 +122,16 @@ export function buildPanelLayoutMenu({
       label: (
         <Space size={6}>
           <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
-            {perTab.isDonor ? `Default layout ${instanceLabel()}` : 'Inherits default layout'}
+            {perTab.isDonor
+              ? t('panel.layout.defaultLayoutDonor', { unit: instanceLabel() })
+              : t('panel.layout.inheritsDefault')}
           </span>
           <Tooltip
             trigger={['hover', 'click']}
             title={
               perTab.isDonor
-                ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
-                : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`
+                ? t('panel.layout.donorTooltip', { unit: instanceLabel(), units: instanceLabelPlural() })
+                : t('panel.layout.nonDonorTooltip', { unit: instanceLabel(), units: instanceLabelPlural() })
             }
           >
             <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
@@ -138,14 +143,14 @@ export function buildPanelLayoutMenu({
     {
       key: 'reset-layout',
       icon: menuIconWrap(<ReloadOutlined style={{ fontSize: 12 }} />),
-      label: 'Reset layout to defaults',
+      label: t('panel.layout.resetToDefaults'),
       onClick: () => perTab.resetToDefaults(),
     },
     { type: 'divider' },
     {
       key: 'restore',
       icon: menuIconWrap(<LayoutMenuIcon kind="restore-hidden" />),
-      label: 'Restore Hidden Activity Bar Tools',
+      label: t('panel.layout.restoreHidden'),
       disabled: tl.state.hidden.length === 0,
       children:
         tl.state.hidden.length === 0

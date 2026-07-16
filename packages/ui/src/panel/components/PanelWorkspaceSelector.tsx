@@ -10,6 +10,7 @@
 
 import { DownOutlined } from '@ant-design/icons';
 import { describeOrg, orgCatalogue } from '@openheaders/core/identity';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import { useSurface } from '@openheaders/ui/shared/surface';
@@ -24,6 +25,7 @@ import { useMemo, useState } from 'react';
 const { Text } = Typography;
 
 export const PanelWorkspaceSelector: React.FC = () => {
+  const t = useT();
   const { token } = theme.useToken();
   const surface = useSurface();
   const { workspaces, activeWorkspaceId, activeWorkspace, setActiveWorkspace } = useWorkspaces();
@@ -70,7 +72,7 @@ export const PanelWorkspaceSelector: React.FC = () => {
     >
       <Button
         size="small"
-        aria-label={`Active workspace: ${activeWorkspace.name}`}
+        aria-label={t('panel.toolbar.activeWorkspaceAria', { name: activeWorkspace.name })}
         style={{
           padding: '0 8px',
           height: 24,

@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useIsModified, useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { FilterConfig } from '../data/filter-engine';
 import { ToolbarMenuPopover } from './ToolbarMenuPopover';
@@ -38,6 +39,7 @@ export function MoreFiltersMenu({
   filterConfig: FilterConfig;
   onFilterConfigChange: (cfg: FilterConfig) => void;
 }) {
+  const t = useT();
   const thirdPartyReady = filterConfig.pageOrigin != null;
   const flags = [
     filterConfig.hideDataUrls,
@@ -49,7 +51,7 @@ export function MoreFiltersMenu({
   const active = activeCount > 0;
 
   return (
-    <ToolbarMenuPopover label="More filters" activeCount={activeCount} placement="bottomLeft">
+    <ToolbarMenuPopover label={t('panel.moreFilters.label')} activeCount={activeCount} placement="bottomLeft">
       {/* Hide-* filters: exclude matching rows from the list. */}
       <label className="dt-morefilters-item">
         <input
@@ -57,7 +59,7 @@ export function MoreFiltersMenu({
           checked={filterConfig.hideDataUrls}
           onChange={(e) => onFilterConfigChange({ ...filterConfig, hideDataUrls: e.target.checked })}
         />
-        Hide data URLs
+        {t('panel.moreFilters.hideDataUrls')}
       </label>
       <label className="dt-morefilters-item">
         <input
@@ -65,7 +67,7 @@ export function MoreFiltersMenu({
           checked={filterConfig.hideExtensionUrls}
           onChange={(e) => onFilterConfigChange({ ...filterConfig, hideExtensionUrls: e.target.checked })}
         />
-        Hide extension URLs
+        {t('panel.moreFilters.hideExtensionUrls')}
       </label>
       <div className="dt-morefilters-divider" />
       {/* Only-* filters: restrict the list to matching rows. */}
@@ -75,11 +77,11 @@ export function MoreFiltersMenu({
           checked={filterConfig.onlyBlockedRequests}
           onChange={(e) => onFilterConfigChange({ ...filterConfig, onlyBlockedRequests: e.target.checked })}
         />
-        Blocked requests
+        {t('panel.moreFilters.blockedRequests')}
       </label>
       <label
         className={`dt-morefilters-item${!thirdPartyReady ? ' dt-morefilters-item--disabled' : ''}`}
-        title={!thirdPartyReady ? 'Page origin not yet available' : undefined}
+        title={!thirdPartyReady ? t('panel.moreFilters.pageOriginPending') : undefined}
       >
         <input
           type="checkbox"
@@ -87,7 +89,7 @@ export function MoreFiltersMenu({
           disabled={!thirdPartyReady}
           onChange={(e) => onFilterConfigChange({ ...filterConfig, onlyThirdParty: e.target.checked })}
         />
-        3rd-party requests
+        {t('panel.moreFilters.thirdParty')}
       </label>
       <div className="dt-morefilters-divider" />
       <button
@@ -104,7 +106,7 @@ export function MoreFiltersMenu({
           });
         }}
       >
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </ToolbarMenuPopover>
   );
@@ -117,6 +119,7 @@ export function MoreFiltersMenu({
  * stats currently surfaced beyond the always-on counts.
  */
 export function ViewMenu() {
+  const t = useT();
   const [footerScope, setFooterScope] = useSetting('devpanelLayout.footerScope');
   const [showModified, setShowModified] = useSetting('devpanelLayout.footerShowModified');
   const [showFailed, setShowFailed] = useSetting('devpanelLayout.footerShowFailed');
@@ -148,70 +151,58 @@ export function ViewMenu() {
 
   return (
     <ToolbarMenuPopover
-      label="Footer View"
+      label={t('panel.view.label')}
       activeCount={activeCount}
       active={false}
       placement="bottomLeft"
-      title="Choose which footer stats to show"
+      title={t('panel.view.title')}
     >
       {/* Footer scope — a radio pair: the summary follows the focused
           tool window (Storage/Console/Search get their own lines), or
           always shows the Network figures. */}
-      <label
-        className="dt-morefilters-item"
-        title="The footer follows the focused tool window — Storage, Console, and Search show their own summaries; other tools fall back to the Network line."
-      >
+      <label className="dt-morefilters-item" title={t('panel.view.focusedToolTitle')}>
         <input
           type="radio"
           name="dt-footer-scope"
           checked={footerScope === 'focused'}
           onChange={() => setFooterScope('focused')}
         />
-        Focused tool
+        {t('panel.view.focusedTool')}
       </label>
-      <label
-        className="dt-morefilters-item"
-        title="The footer always shows the Network figures, whichever tool window has focus."
-      >
+      <label className="dt-morefilters-item" title={t('panel.view.networkOnlyTitle')}>
         <input
           type="radio"
           name="dt-footer-scope"
           checked={footerScope === 'network'}
           onChange={() => setFooterScope('network')}
         />
-        Network tool only
+        {t('panel.view.networkOnly')}
       </label>
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showModified} onChange={(e) => setShowModified(e.target.checked)} />
-        Modified count
+        {t('panel.view.modifiedCount')}
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showFailed} onChange={(e) => setShowFailed(e.target.checked)} />
-        Failed count
+        {t('panel.view.failedCount')}
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showCached} onChange={(e) => setShowCached(e.target.checked)} />
-        Cached count
+        {t('panel.view.cachedCount')}
       </label>
       <div className="dt-morefilters-divider" />
-      <label
-        className="dt-morefilters-item"
-        title="When the log spans more than one navigation, name the page the timing milestones describe."
-      >
+      <label className="dt-morefilters-item" title={t('panel.view.pageLabelTitle')}>
         <input type="checkbox" checked={showPageContext} onChange={(e) => setShowPageContext(e.target.checked)} />
-        Current page label
+        {t('panel.view.pageLabel')}
       </label>
-      <label
-        className="dt-morefilters-item"
-        title="Finish / DOMContentLoaded / Load span the whole preserve-log timeline from the first navigation (the browser default). Uncheck to report only the latest navigation."
-      >
+      <label className="dt-morefilters-item" title={t('panel.view.timingAllNavsTitle')}>
         <input
           type="checkbox"
           checked={timingMode !== 'lastNav'}
           onChange={(e) => setTimingMode(e.target.checked ? 'aggregate' : 'lastNav')}
         />
-        Timing across all navigations
+        {t('panel.view.timingAllNavs')}
       </label>
       <div className="dt-morefilters-divider" />
       <button
@@ -227,7 +218,7 @@ export function ViewMenu() {
           resetTimingMode();
         }}
       >
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </ToolbarMenuPopover>
   );
@@ -238,6 +229,7 @@ export function ExportMenu({
   onCopy,
   disabled,
 }: { onExport: (sanitize?: boolean) => void; onCopy: (sanitize?: boolean) => void; disabled: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -263,7 +255,7 @@ export function ExportMenu({
         type="button"
         className="dt-toolbar-icon"
         onClick={() => !disabled && setOpen((v) => !v)}
-        title="Export traffic"
+        title={t('panel.export.title')}
         disabled={disabled}
       >
         <IconDownload />
@@ -278,7 +270,7 @@ export function ExportMenu({
               setOpen(false);
             }}
           >
-            Export all as HAR
+            {t('panel.export.exportAll')}
           </button>
           <button
             type="button"
@@ -288,7 +280,7 @@ export function ExportMenu({
               setOpen(false);
             }}
           >
-            Export all as HAR (sanitized)
+            {t('panel.export.exportAllSanitized')}
           </button>
           <button
             type="button"
@@ -298,7 +290,7 @@ export function ExportMenu({
               setOpen(false);
             }}
           >
-            Copy all as HAR
+            {t('panel.export.copyAll')}
           </button>
           <button
             type="button"
@@ -308,7 +300,7 @@ export function ExportMenu({
               setOpen(false);
             }}
           >
-            Copy all as HAR (sanitized)
+            {t('panel.export.copyAllSanitized')}
           </button>
         </div>
       )}

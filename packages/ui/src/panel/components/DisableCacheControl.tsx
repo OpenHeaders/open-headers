@@ -7,6 +7,7 @@
  * popover and the mode-aware tooltip explain the difference.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Tooltip } from 'antd';
 import type React from 'react';
@@ -27,21 +28,20 @@ export const DisableCacheControl: React.FC<DisableCacheControlProps> = ({
   cdpOwned,
   onEnableDebug,
 }) => {
-  const tooltip = cdpOwned
-    ? 'Disabling the cache at the network-stack level (Debug mode) — matches the browser’s native Disable cache.'
-    : 'Bypasses the HTTP cache by forcing revalidation. Enable Debug mode for a full network-stack disable (the in-memory cache too).';
+  const t = useT();
+  const tooltip = cdpOwned ? t('panel.cache.tooltipDebug') : t('panel.cache.tooltipStandard');
   return (
     <span className="dt-debug-control">
       <Tooltip title={tooltip} placement="bottom">
         <label className="dt-checkbox">
           <input type="checkbox" checked={enabled} onChange={onToggle} />
-          Disable cache
+          {t('panel.cache.label')}
         </label>
       </Tooltip>
       <InfoTrigger
-        content={buildCacheInfo({ cdpOwned, onEnableDebug })}
+        content={buildCacheInfo(t, { cdpOwned, onEnableDebug })}
         className="dt-header-info-trigger dt-debug-info-trigger"
-        ariaLabel="About Disable cache"
+        ariaLabel={t('panel.cache.aboutAria')}
       />
     </span>
   );

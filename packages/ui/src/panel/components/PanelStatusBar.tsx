@@ -12,7 +12,9 @@
  */
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import { useTheme } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import {
   productStatusExtras,
@@ -34,10 +36,10 @@ declare const __APP_VERSION__: string;
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 
-const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string }> = {
-  light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, text: 'Light' },
-  dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, text: 'Dark' },
-  auto: { icon: <span style={{ fontSize: 12 }}>{'◐'}</span>, text: 'Auto' },
+const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; textKey: MessageKey }> = {
+  light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, textKey: 'panel.status.theme.light' },
+  dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, textKey: 'panel.status.theme.dark' },
+  auto: { icon: <span style={{ fontSize: 12 }}>{'◐'}</span>, textKey: 'panel.status.theme.auto' },
 };
 
 /**
@@ -141,6 +143,7 @@ const NetworkFooterCluster: React.FC<NetworkFooterClusterProps> = ({
   pageOrigin,
   hasTiming,
 }) => {
+  const t = useT();
   const { token } = theme.useToken();
   return (
     <>
@@ -148,58 +151,60 @@ const NetworkFooterCluster: React.FC<NetworkFooterClusterProps> = ({
           while a filter hides rows (browser summary-bar parity). */}
       <span className="rules-statusbar-item">
         {subset
-          ? `${subset.requestCount} / ${requestCount} requests`
-          : `${requestCount} request${requestCount === 1 ? '' : 's'}`}
+          ? t('panel.status.requestsSubset', { subset: subset.requestCount, total: requestCount })
+          : t('panel.status.requests', { count: requestCount })}
       </span>
       {showModified && (
         <span
           className="rules-statusbar-item"
           style={{ color: modifiedCount > 0 ? token.colorPrimary : token.colorTextTertiary }}
-          title="Requests your rules modified"
+          title={t('panel.status.modifiedTitle')}
         >
-          {modifiedCount} modified
+          {t('panel.status.modified', { count: modifiedCount })}
         </span>
       )}
       {showFailed && (
         <span
           className="rules-statusbar-item"
           style={{ color: failedCount > 0 ? token.colorError : token.colorTextTertiary }}
-          title="Failed or error-status requests"
+          title={t('panel.status.failedTitle')}
         >
-          {failedCount} failed
+          {t('panel.status.failed', { count: failedCount })}
         </span>
       )}
       {showCached && (
-        <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title="Requests served from cache">
-          {cachedCount} cached
+        <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title={t('panel.status.cachedTitle')}>
+          {t('panel.status.cached', { count: cachedCount })}
         </span>
       )}
       {subset ? (
         <>
           <span className="rules-statusbar-item">
-            {subset.transferredSize} / {subset.totalTransferredSize} transferred
+            {t('panel.status.transferredSubset', { subset: subset.transferredSize, total: subset.totalTransferredSize })}
           </span>
           <span className="rules-statusbar-item">
-            {subset.resourceSize} / {subset.totalResourceSize} resources
+            {t('panel.status.resourcesSubset', { subset: subset.resourceSize, total: subset.totalResourceSize })}
           </span>
         </>
       ) : (
         <span className="rules-statusbar-item">
-          {transferredSize} transferred
-          {resourceSize && resourceSize !== transferredSize ? ` / ${resourceSize} resources` : ''}
+          {resourceSize && resourceSize !== transferredSize
+            ? t('panel.status.transferredAndResources', { transferred: transferredSize, resources: resourceSize })
+            : t('panel.status.transferredOnly', { size: transferredSize })}
         </span>
       )}
 
       {/* This-navigation milestones. The per-item dividers (panel-shell.css)
-          already separate Finish from the cumulative counts. */}
-      {finishTime && <span className="rules-statusbar-item">Finish: {finishTime}</span>}
+          already separate Finish from the cumulative counts. DOMContentLoaded
+          and Load figures keep the raw event names (English boundary). */}
+      {finishTime && <span className="rules-statusbar-item">{t('panel.status.finish', { time: finishTime })}</span>}
       {dclText && (
         <span className="rules-statusbar-item" style={{ color: '#1a73e8' }} title="DOMContentLoaded">
           DOMContentLoaded: {dclText}
         </span>
       )}
       {loadText && (
-        <span className="rules-statusbar-item" style={{ color: '#d93025' }} title="Load event">
+        <span className="rules-statusbar-item" style={{ color: '#d93025' }} title={t('panel.status.loadEventTitle')}>
           Load: {loadText}
         </span>
       )}
@@ -229,6 +234,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   tl,
   searchStatus,
 }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
 
@@ -312,22 +318,22 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
           <>
             <span className="rules-statusbar-item">
               {consoleStatus.visibleCount !== consoleStatus.totalCount
-                ? `${consoleStatus.visibleCount} of ${consoleStatus.totalCount} messages`
-                : `${consoleStatus.totalCount} message${consoleStatus.totalCount === 1 ? '' : 's'}`}
+                ? t('panel.status.messagesOf', { visible: consoleStatus.visibleCount, total: consoleStatus.totalCount })
+                : t('panel.status.messages', { count: consoleStatus.totalCount })}
             </span>
             <span
               className="rules-statusbar-item"
               style={{ color: consoleStatus.errorCount > 0 ? token.colorError : token.colorTextTertiary }}
-              title="Console messages at the error level"
+              title={t('panel.status.errorsTitle')}
             >
-              {consoleStatus.errorCount} error{consoleStatus.errorCount === 1 ? '' : 's'}
+              {t('panel.status.errors', { count: consoleStatus.errorCount })}
             </span>
             <span
               className="rules-statusbar-item"
               style={{ color: consoleStatus.warningCount > 0 ? token.colorWarning : token.colorTextTertiary }}
-              title="Console messages at the warning level"
+              title={t('panel.status.warningsTitle')}
             >
-              {consoleStatus.warningCount} warning{consoleStatus.warningCount === 1 ? '' : 's'}
+              {t('panel.status.warnings', { count: consoleStatus.warningCount })}
             </span>
           </>
         ) : footerTool === 'search' ? (
@@ -354,18 +360,14 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
           />
         )}
 
-        {tabCount > 0 && (
-          <span className="rules-statusbar-item">
-            {tabCount} tab{tabCount === 1 ? '' : 's'}
-          </span>
-        )}
+        {tabCount > 0 && <span className="rules-statusbar-item">{t('panel.status.tabs', { count: tabCount })}</span>}
       </div>
       <div className="rules-statusbar-right">
         <DebugModeDormantNotice tabSource="inspected" hasRealizableRule={hasRealizableDebugRule} />
         <DebugModePill tabSource="inspected" onOpenDocs={handleOpenDocs} />
         <StatusPill
           density="full"
-          label="System status"
+          label={t('panel.status.systemStatus')}
           renderSubsystemExtras={productStatusExtras}
           renderSubsystemInlineAction={productStatusInlineActions}
           onOpenDocs={handleOpenDocs}
@@ -380,7 +382,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
                   label: (
                     <Space size={4}>
                       {THEME_DISPLAY[mode].icon}
-                      <span>{THEME_DISPLAY[mode].text}</span>
+                      <span>{t(THEME_DISPLAY[mode].textKey)}</span>
                       {themeMode === mode && <span style={{ marginLeft: 4 }}>{'✓'}</span>}
                     </Space>
                   ),
@@ -403,7 +405,9 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
                 }}
               >
                 {THEME_DISPLAY[themeMode as ThemeMode]?.icon}
-                <span style={{ fontSize: 10 }}>{THEME_DISPLAY[themeMode as ThemeMode]?.text}</span>
+                <span style={{ fontSize: 10 }}>
+                  {THEME_DISPLAY[themeMode as ThemeMode] ? t(THEME_DISPLAY[themeMode as ThemeMode].textKey) : null}
+                </span>
               </div>
             </Dropdown>
           </>

@@ -1,24 +1,26 @@
 /**
  * `(i)` info-popover content for the toolbar's "Preserve log" checkbox.
- * Static (the behaviour doesn't change with the inspected tab's mode), so
- * a plain constant rather than a builder.
+ * The behaviour doesn't change with the inspected tab's mode — the
+ * builder exists only to thread the live translator through.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
-export const PRESERVE_LOG_INFO: InfoPopoverContent = {
-  title: 'Preserve log',
-  summary: 'Keeps recorded requests across page navigations and reloads instead of clearing the list each time the page changes.',
-  description:
-    'On — the log carries over every navigation, so requests that fired just before a redirect, form submit, or reload stay visible. Off — the list clears on each navigation or reload, like the browser’s own Network panel, showing only the current page’s traffic.',
-  sections: [
-    {
-      heading: 'Reach for it when',
-      items: [
-        { label: 'Redirects', desc: 'Inspect the request that triggered a navigation before the new page wipes it.' },
-        { label: 'Form submits / logins', desc: 'Keep a POST and its response visible after the page reloads.' },
-        { label: 'Reload loops', desc: 'See what fired just before the page reloaded itself.' },
-      ],
-    },
-  ],
-};
+export function getPreserveLogInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.toolbar.preserveLog'),
+    summary: t('panel.info.preserveLog.summary'),
+    description: t('panel.info.preserveLog.description'),
+    sections: [
+      {
+        heading: t('panel.info.preserveLog.whenHeading'),
+        items: [
+          { label: t('panel.info.preserveLog.redirects'), desc: t('panel.info.preserveLog.redirectsDesc') },
+          { label: t('panel.info.preserveLog.forms'), desc: t('panel.info.preserveLog.formsDesc') },
+          { label: t('panel.info.preserveLog.reloadLoops'), desc: t('panel.info.preserveLog.reloadLoopsDesc') },
+        ],
+      },
+    ],
+  };
+}

@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { TextMatchConfig } from '../data/text-match';
 
 /**
@@ -30,6 +31,7 @@ export function FilterInput<C extends TextMatchConfig>({
   ariaLabel,
   onKeyDown,
 }: FilterInputProps<C>) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const toggle = (key: keyof TextMatchConfig) => {
@@ -66,7 +68,7 @@ export function FilterInput<C extends TextMatchConfig>({
         ref={inputRef}
         type="text"
         className={`dt-filter-input ${hasError ? 'dt-filter-input--error' : ''}`}
-        placeholder={placeholder ?? 'Filter'}
+        placeholder={placeholder ?? t('panel.filter.placeholder')}
         aria-label={ariaLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -74,7 +76,13 @@ export function FilterInput<C extends TextMatchConfig>({
       />
       <div className="dt-filter-input-toggles">
         {value && (
-          <button type="button" className="dt-filter-clear" onClick={clear} title="Clear" aria-label="Clear filter">
+          <button
+            type="button"
+            className="dt-filter-clear"
+            onClick={clear}
+            title={t('panel.filter.clear')}
+            aria-label={t('panel.filter.clearAria')}
+          >
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
               <circle cx="6" cy="6" r="5.2" fill="currentColor" />
               <path d="M4 4l4 4M8 4l-4 4" stroke="var(--dt-input-bg)" strokeWidth="1.3" strokeLinecap="round" />
@@ -86,7 +94,7 @@ export function FilterInput<C extends TextMatchConfig>({
           className="dt-filter-toggle"
           data-active={config.matchCase}
           onClick={() => toggle('matchCase')}
-          title="Match Case (Alt+C)"
+          title={t('panel.filter.matchCase')}
         >
           Aa
         </button>
@@ -95,7 +103,7 @@ export function FilterInput<C extends TextMatchConfig>({
           className="dt-filter-toggle"
           data-active={config.wholeWord}
           onClick={() => toggle('wholeWord')}
-          title="Match Whole Word (Alt+W)"
+          title={t('panel.filter.wholeWord')}
         >
           ab
         </button>
@@ -104,7 +112,7 @@ export function FilterInput<C extends TextMatchConfig>({
           className="dt-filter-toggle"
           data-active={config.regexMode}
           onClick={() => toggle('regexMode')}
-          title="Use Regular Expression (Alt+R)"
+          title={t('panel.filter.regex')}
         >
           .*
         </button>

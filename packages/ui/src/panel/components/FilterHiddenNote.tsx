@@ -12,6 +12,7 @@
  */
 
 import { useEffect } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 export interface FilterHiddenHint {
   /** Bumped per trigger so a repeat jump restarts the dismiss timer. */
@@ -29,6 +30,7 @@ interface FilterHiddenNoteProps {
 const AUTO_DISMISS_MS = 8000;
 
 export function FilterHiddenNote({ hint, message, onClearFilter, onDismiss }: FilterHiddenNoteProps) {
+  const t = useT();
   useEffect(() => {
     if (hint === null) return;
     const timer = setTimeout(onDismiss, AUTO_DISMISS_MS);
@@ -40,9 +42,9 @@ export function FilterHiddenNote({ hint, message, onClearFilter, onDismiss }: Fi
     <div className="dt-filter-hidden-note" role="status">
       <span className="dt-filter-hidden-note-text">{message}</span>
       <button type="button" className="dt-filter-hidden-note-clear" onClick={onClearFilter}>
-        Clear filter
+        {t('panel.filter.hiddenClearFilter')}
       </button>
-      <button type="button" className="dt-filter-hidden-note-close" onClick={onDismiss} title="Dismiss">
+      <button type="button" className="dt-filter-hidden-note-close" onClick={onDismiss} title={t('panel.filter.hiddenDismiss')}>
         ×
       </button>
     </div>
