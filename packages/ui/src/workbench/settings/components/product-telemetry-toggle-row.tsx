@@ -1,22 +1,25 @@
 /**
- * Product-telemetry inspector row — the "view every event, byte for
- * byte" affordance that ships beside the telemetry toggle
- * (`TELEMETRY_PLAN.md` §6). Reads the host client's session log over
- * `productTelemetryRead`: every event since launch, including the ones
- * suppressed while the switch was off, rendered exactly as they travel
- * on the wire. The log lives with the host client, so the open modal
- * re-polls the snapshot — the poll only runs while the modal is on
- * screen, keeping the read path one-shot RPCs with no standing wire.
+ * Product-telemetry toggle row — the anonymous usage counting checkbox
+ * with the "view every event, byte for byte" affordance folded into its
+ * `(i)` popover (`TELEMETRY_PLAN.md` §6): the popover's "View events"
+ * action opens the inspector modal, so the toggle and the transparency
+ * affordance ship as one row. The modal reads the host client's session
+ * log over `productTelemetryRead`: every event since launch, including
+ * the ones suppressed while the switch was off, rendered exactly as
+ * they travel on the wire. The log lives with the host client, so the
+ * open modal re-polls the snapshot — the poll only runs while the modal
+ * is on screen, keeping the read path one-shot RPCs with no standing
+ * wire.
  */
 
-import { EyeOutlined } from '@ant-design/icons';
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
-import { Button, Empty, Modal, Tag, Typography } from 'antd';
+import { Button, Checkbox, Empty, Modal, Tag, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../fields/FieldRow';
+import { useUntypedSetting } from '../hooks';
 import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
 
@@ -31,8 +34,9 @@ const DISPOSITION_COLOR: Record<string, string> = {
   dropped: 'orange',
 };
 
-const ProductTelemetryEventsRow: React.FC<{ def: SettingDef }> = ({ def }) => {
+const ProductTelemetryToggleRow: React.FC<{ def: SettingDef }> = ({ def }) => {
   const t = useT();
+  const [value, setValue] = useUntypedSetting(def.key);
   const [open, setOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<ProductTelemetrySnapshot | null>(null);
 
@@ -65,11 +69,19 @@ const ProductTelemetryEventsRow: React.FC<{ def: SettingDef }> = ({ def }) => {
     return () => clearInterval(timer);
   }, [open, refresh]);
 
+  const label = resolveLabel(def, t);
+
   return (
-    <FieldRow settingKey={def.key} label={resolveLabel(def, t)} description={resolveDescription(def, t)} resettable={false}>
-      <Button size="small" icon={<EyeOutlined />} onClick={show} data-testid="product-telemetry-view-events">
-        View events
-      </Button>
+    <FieldRow
+      settingKey={def.key}
+      label={label}
+      description={resolveDescription(def, t)}
+      labelInControl
+      infoActions={[{ label: 'View events', onClick: show, primary: true }]}
+    >
+      <Checkbox checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} style={{ fontSize: 13 }}>
+        {label}
+      </Checkbox>
       <Modal
         title="Telemetry events this session"
         open={open}
@@ -121,4 +133,4 @@ const ProductTelemetryEventsRow: React.FC<{ def: SettingDef }> = ({ def }) => {
   );
 };
 
-export default ProductTelemetryEventsRow;
+export default ProductTelemetryToggleRow;

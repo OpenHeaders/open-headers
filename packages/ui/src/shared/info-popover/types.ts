@@ -52,6 +52,8 @@ export interface InfoPopoverSection {
 
 export interface InfoPopoverAction {
   label: string;
+  /** Runs on click; the popover dismisses itself first, so the action
+   *  can open a modal or navigate without the popover lingering. */
   onClick: () => void;
   /** First primary action gets the accent button styling. At most one
    *  primary action per popover; subsequent ones render as secondary. */

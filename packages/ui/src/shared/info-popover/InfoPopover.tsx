@@ -63,14 +63,14 @@ export function InfoPopover({
       classNames={{ root: 'oh-info-popover-overlay' }}
       styles={{ root: { maxWidth } }}
       {...(resolveContainer ? { getPopupContainer } : {})}
-      content={<InfoPopoverBody content={content} />}
+      content={<InfoPopoverBody content={content} onActionClick={() => setOpen(false)} />}
     >
       {children}
     </Popover>
   );
 }
 
-function InfoPopoverBody({ content }: { content: InfoPopoverContent }) {
+function InfoPopoverBody({ content, onActionClick }: { content: InfoPopoverContent; onActionClick: () => void }) {
   return (
     // Outer is a flex column with a bounded max-height — the title and
     // actions stay pinned, and the middle scrolls. Critical for the
@@ -148,7 +148,10 @@ function InfoPopoverBody({ content }: { content: InfoPopoverContent }) {
               key={action.label}
               type="button"
               className={`oh-info-popover-action${action.primary ? ' oh-info-popover-action--primary' : ''}`}
-              onClick={action.onClick}
+              onClick={() => {
+                onActionClick();
+                action.onClick();
+              }}
             >
               {action.label}
             </button>

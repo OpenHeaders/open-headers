@@ -1,8 +1,8 @@
 /**
- * Product telemetry — the one-switch anonymous usage counting toggle and
- * its inspector row (`TELEMETRY_PLAN.md` §2/§6). The two rows ship
- * together by law: the toggle never appears without the "view every
- * event" affordance beside it.
+ * Product telemetry — the one-switch anonymous usage counting toggle
+ * (`TELEMETRY_PLAN.md` §2/§6). The toggle never ships without the "view
+ * every event" affordance by law: its `(i)` popover carries the "View
+ * events" action that opens the byte-for-byte inspector modal.
  *
  * Extension and desktop only — a workbench served by a daemon never
  * counts anything and shows no toggle (hard-off surfaces have no UI).
@@ -18,12 +18,11 @@ const isCountingHost = (): boolean => {
   return host === 'extension' || host === 'desktop';
 };
 
-const ProductTelemetryEventsRow = lazy(() => import('../components/product-telemetry-events-row'));
+const ProductTelemetryToggleRow = lazy(() => import('../components/product-telemetry-toggle-row'));
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'telemetry.enabled': boolean;
-    'telemetry.viewEvents': string;
   }
 }
 
@@ -34,24 +33,10 @@ registerSetting({
   schema: v.boolean(),
   label: 'Anonymous usage counting',
   description:
-    'Count which features get used — nothing more. No URLs, no headers, no request or response data, no account identity, nothing derived from your device. A random install identifier groups the counts; it identifies this install, not you — reset it anytime, and turning the switch off deletes it. Every event is visible byte for byte in "View telemetry events" below. Off means off: the channel goes completely silent.',
+    'Count which features get used — nothing more. No URLs, no headers, no request or response data, no account identity, nothing derived from your device. A random install identifier groups the counts; it identifies this install, not you — reset it anytime, and turning the switch off deletes it. Every event is visible byte for byte in "View events" below. Off means off: the channel goes completely silent.',
   category: 'general',
-  tags: ['telemetry', 'privacy', 'analytics', 'usage', 'anonymous'],
+  tags: ['telemetry', 'privacy', 'analytics', 'usage', 'anonymous', 'events', 'transparency', 'inspector'],
   scope: 'user',
   when: isCountingHost,
-});
-
-registerSetting({
-  key: 'telemetry.viewEvents',
-  type: 'info',
-  default: '',
-  schema: v.string(),
-  label: 'View telemetry events',
-  description:
-    'Every telemetry event of this session, exactly as sent — or as it would have been sent while the switch is off.',
-  category: 'general',
-  tags: ['telemetry', 'privacy', 'inspector', 'events', 'transparency'],
-  scope: 'user',
-  when: isCountingHost,
-  customEditor: ProductTelemetryEventsRow,
+  customEditor: ProductTelemetryToggleRow,
 });

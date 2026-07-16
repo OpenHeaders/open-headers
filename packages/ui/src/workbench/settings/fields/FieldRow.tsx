@@ -15,7 +15,7 @@ import { DisconnectOutlined, UndoOutlined } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { type InfoPopoverAction, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useSettingsConnection } from '../ConnectionContext';
 import { useIsModified, useResetSetting } from '../hooks';
 import type { SettingKey } from '../types';
@@ -62,6 +62,11 @@ interface FieldRowProps {
   onReset?: () => void;
   /** Reset-button tooltip. Defaults to the reset-to-default meaning. */
   resetTooltip?: string;
+  /**
+   * Footer CTAs for the `(i)` popover (e.g. the telemetry row's
+   * "View events"). Clicking one dismisses the popover before it runs.
+   */
+  infoActions?: ReadonlyArray<InfoPopoverAction>;
 }
 
 const FieldRow: React.FC<FieldRowProps> = ({
@@ -79,6 +84,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
   modified: modifiedOverride,
   onReset,
   resetTooltip,
+  infoActions,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -114,7 +120,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
 
   const info = description ? (
     <InfoTrigger
-      content={{ title: label, summary: description }}
+      content={{ title: label, summary: description, actions: infoActions }}
       ariaLabel={t('workbench.settings.row.aboutAria', { label })}
     />
   ) : null;
