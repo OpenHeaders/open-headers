@@ -532,3 +532,65 @@ describe('handleExecuteRequestRpc — input errors', () => {
     expect(calls()).toBe(0);
   });
 });
+
+describe('handleExecuteRequestRpc — streaming capture mode (sendId)', () => {
+  /** A transport whose streaming leg answers immediately — enough to
+   *  prove the RPC threads the sendId + frame sink through to it. */
+  function streamingCaptureTransport(): { transport: RequestTransport; streamingCalls: () => number } {
+    let n = 0;
+    const transport: RequestTransport = {
+      async send(req): Promise<TransportResponse> {
+        return {
+          status: 200,
+          statusText: 'OK',
+          url: req.url,
+          headers: [],
+          body: 'buffered',
+          bodyTruncated: false,
+          bodyBytes: 8,
+        };
+      },
+      async sendStreaming(req, observer): Promise<TransportResponse> {
+        n += 1;
+        observer.onHead({ status: 200, statusText: 'OK', url: req.url, headers: [] });
+        return {
+          status: 200,
+          statusText: 'OK',
+          url: req.url,
+          headers: [],
+          body: 'streamed',
+          bodyTruncated: false,
+          bodyBytes: 8,
+        };
+      },
+    };
+    return { transport, streamingCalls: () => n };
+  }
+
+  it('a frame carrying a sendId rides the streaming leg and emits head + done to the sink', async () => {
+    const { transport, streamingCalls } = streamingCaptureTransport();
+    const frames: Array<{ sendId: string; seq: number; kind: string }> = [];
+    const result = await handleExecuteRequestRpc(
+      { type: 'executeRequest', draft: makeRequest(), sendId: 'send-rpc' },
+      transport,
+      (event) => frames.push(event),
+    );
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.body).toBe('streamed');
+    expect(streamingCalls()).toBe(1);
+    expect(frames.map((f) => f.kind)).toEqual(['head', 'done']);
+    expect(frames.every((f) => f.sendId === 'send-rpc')).toBe(true);
+  });
+
+  it('a frame without a sendId keeps the buffered send and emits nothing', async () => {
+    const { transport, streamingCalls } = streamingCaptureTransport();
+    const frames: unknown[] = [];
+    const result = await handleExecuteRequestRpc({ type: 'executeRequest', draft: makeRequest() }, transport, (event) =>
+      frames.push(event),
+    );
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.body).toBe('buffered');
+    expect(streamingCalls()).toBe(0);
+    expect(frames).toHaveLength(0);
+  });
+});

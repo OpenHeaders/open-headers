@@ -24,7 +24,7 @@
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
 import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
-import { errorSnapshot, executeOverTransport } from './execute';
+import { type ExecuteStreamOptions, errorSnapshot, executeOverTransport } from './execute';
 import { type OAuthRefreshFn, type ResolvedRequest, resolveRequest, UnresolvedRequestError } from './resolve-request';
 import { collectScriptChain, runPostResponseChain, runPreRequestChain } from './script-chain';
 import { applyScriptMutation, resolvedToScriptSnapshot, type StepScriptRunner } from './script-hooks';
@@ -42,6 +42,9 @@ export interface RunInteractiveSendOptions {
   scriptRunner: StepScriptRunner;
   /** Optional host hook to refresh an expired OAuth token before send. */
   refreshOAuth?: OAuthRefreshFn;
+  /** Streaming capture mode for this interactive send — see
+   *  {@link ExecuteStreamOptions}. */
+  stream?: ExecuteStreamOptions;
 }
 
 export async function runInteractiveSend(
@@ -93,7 +96,11 @@ export async function runInteractiveSend(
   );
   if (preRun.outcome) scripts = { preRequest: preRun.outcome };
 
-  const wireResult = await executeOverTransport(finalResolved, options.transport, {});
+  const wireResult = await executeOverTransport(
+    finalResolved,
+    options.transport,
+    options.stream !== undefined ? { stream: options.stream } : {},
+  );
 
   // ── TOTP cooldown record ── (only on a successful round-trip)
   if (wireResult.error == null) {

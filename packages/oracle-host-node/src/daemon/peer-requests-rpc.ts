@@ -1,7 +1,7 @@
 /**
  * Peer-facing request-execution plane — answers the workbench request
- * channels (`executeRequest`, the cookie-jar trio, and the
- * script-posture fact) for WS peers, with
+ * channels (`executeRequest` + its `abortRequestSend` stop counterpart,
+ * the cookie-jar trio, and the script-posture fact) for WS peers, with
  * the per-frame gating law the peer admin plane established: the PEER's
  * identity snapshot resolves fresh on every call (a revocation bites
  * the next frame), the decision gates on a workspace CAPABILITY as the
@@ -26,6 +26,7 @@
  * is the operator by construction.
  */
 
+import type { RequestStreamEventWire } from '@openheaders/core/bridge';
 import {
   type Capability,
   emitAuditEntry,
@@ -33,12 +34,14 @@ import {
   resolveDaemonPeerIdentitySnapshot,
 } from '@openheaders/core/identity';
 import { hostStorage, OH } from '@openheaders/core/storage';
+import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
 import { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
 import { hostDisplayLabel } from './host-os';
 import { getHostScriptCapability } from './script-capability';
+import { getWsPeerServer } from './ws-peer-slot';
 
 /** Honest opt-in refusal — the web seam renders it on the Send surface. */
 export const PEER_EXECUTE_DISABLED_MESSAGE =
@@ -57,7 +60,10 @@ const CAPABILITY_BY_CHANNEL: Record<string, Capability> = {
 
 export interface PeerRequestsRpcOptions {
   /** Injectable for tests; defaults to the real handler (shared transport singleton). */
-  executeRequest?: (message: Record<string, unknown>) => Promise<ExecuteRequestRpcResult>;
+  executeRequest?: (
+    message: Record<string, unknown>,
+    emitStreamFrame: (event: RequestStreamEventWire) => void,
+  ) => Promise<ExecuteRequestRpcResult>;
 }
 
 async function peerExecuteAllowed(): Promise<boolean> {
@@ -65,15 +71,46 @@ async function peerExecuteAllowed(): Promise<boolean> {
   return (values as Record<string, unknown>)['backend.allowPeerExecute'] === true;
 }
 
+/**
+ * Live-frame sink for a peer-forwarded send: frames go back down the
+ * backend wire to the CALLING user's connected peers (the same-user law
+ * the awareness fan-out holds — the caller's surface filters by its
+ * minted `sendId`; the user's other surfaces ignore unknown ids). The
+ * server slot is re-read per frame so bind swaps flow through; frames
+ * are display-only hints, so a dead slot just drops them.
+ */
+function peerStreamFrameSink(userId: string): (event: RequestStreamEventWire) => void {
+  return (event) => {
+    getWsPeerServer()?.broadcastFrame(
+      { type: 'requestStreamEvent', payload: event },
+      { filterPeer: (peer) => peer.userId === userId },
+    );
+  };
+}
+
 export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsPeerRpcHooks {
-  const executeRequest = options.executeRequest ?? handleExecuteRequestRpc;
+  const executeRequest =
+    options.executeRequest ??
+    ((message: Record<string, unknown>, emitStreamFrame: (event: RequestStreamEventWire) => void) =>
+      handleExecuteRequestRpc(message, undefined, emitStreamFrame));
 
   return {
     owns(type: string): boolean {
-      return type in CAPABILITY_BY_CHANNEL;
+      return type === 'abortRequestSend' || type in CAPABILITY_BY_CHANNEL;
     },
     async dispatch(message: Record<string, unknown>, peer: WsPeerRpcContext): Promise<unknown> {
       const type = message.type as string;
+
+      // Stop rides ahead of the capability tier: the frame carries no
+      // workspace to gate on, and the caller-minted `sendId` (an
+      // unguessable UUID handed out by this host's own executeRequest
+      // admission) IS the authorization — the action only cancels the
+      // caller's own exchange, it reads nothing. Authenticated
+      // admission still gates entry; no capability decision is made,
+      // so no audit row (the opt-in tier precedent).
+      if (type === 'abortRequestSend') {
+        return { success: typeof message.sendId === 'string' && stopActiveSend(message.sendId) };
+      }
 
       // Opt-in tier first — like the MCP tier gate it refuses before
       // any identity resolution and emits no audit row (no capability
@@ -102,7 +139,7 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
           // network locale, not the calling surface's. Stamped at run
           // time on success and error snapshots alike; refusals throw
           // above and carry no snapshot to stamp.
-          const result = await executeRequest(message);
+          const result = await executeRequest(message, peerStreamFrameSink(peer.userId));
           return result.snapshot
             ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
             : result;

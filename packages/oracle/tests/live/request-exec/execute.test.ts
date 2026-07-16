@@ -6,15 +6,18 @@
  */
 
 import { type OAuth1Credentials, sha256Hex, signAwsSigV4, signOAuth1 } from '@openheaders/core/auth-signing';
+import type { RequestStreamEventWire } from '@openheaders/core/bridge';
 import type { RequestBody } from '@openheaders/core/types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { executeOverTransport } from '../../../src/live/request-exec/execute';
 import type { ResolvedRequest } from '../../../src/live/request-exec/resolve-request';
+import { stopActiveSend } from '../../../src/live/request-exec/send-stream';
 import {
   type RequestTransport,
   TransportError,
   type TransportRequest,
   type TransportResponse,
+  type TransportStreamObserver,
 } from '../../../src/live/request-exec/transport';
 
 const getFileBlobMock = vi.fn();
@@ -699,5 +702,232 @@ describe('executeOverTransport — digest carry', () => {
     const { transport, sent } = captureTransport();
     await executeOverTransport(makeResolved(), transport);
     expect('digestAuth' in sent()).toBe(false);
+  });
+});
+
+describe('executeOverTransport — streaming capture mode (F1)', () => {
+  const encoder = new TextEncoder();
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  interface FrameLog {
+    frames: RequestStreamEventWire[];
+    ofKind(kind: RequestStreamEventWire['kind']): RequestStreamEventWire[];
+  }
+
+  function frameLog(): FrameLog {
+    const frames: RequestStreamEventWire[] = [];
+    return {
+      frames,
+      ofKind: (kind) => frames.filter((f) => f.kind === kind),
+    };
+  }
+
+  function baseResponse(url: string, body: string, extra?: Partial<TransportResponse>): TransportResponse {
+    return {
+      status: 200,
+      statusText: 'OK',
+      url,
+      headers: [{ key: 'content-type', value: 'text/event-stream' }],
+      body,
+      bodyTruncated: false,
+      bodyBytes: encoder.encode(body).byteLength,
+      ...extra,
+    };
+  }
+
+  /** A transport whose streaming leg is scripted by the test. `send`
+   *  throws, so a test proves the streaming leg was actually taken. */
+  function streamingTransport(
+    run: (
+      observer: TransportStreamObserver,
+      signal: AbortSignal | undefined,
+      url: string,
+    ) => Promise<TransportResponse>,
+  ): RequestTransport {
+    return {
+      async send() {
+        throw new Error('unexpected buffered send — the streaming leg should have been taken');
+      },
+      async sendStreaming(request, observer, signal) {
+        return run(observer, signal, request.url);
+      },
+    };
+  }
+
+  it('ordinary response: head + done frames only, no chunk frames, no rider', async () => {
+    const log = frameLog();
+    const transport = streamingTransport(async (observer, _signal, url) => {
+      observer.onHead({
+        status: 200,
+        statusText: 'OK',
+        url,
+        headers: [{ key: 'content-type', value: 'application/json' }],
+      });
+      observer.onChunk(encoder.encode('{"ok":true}'), 11);
+      return baseResponse(url, '{"ok":true}');
+    });
+    const snap = await executeOverTransport(makeResolved(), transport, {
+      stream: { sendId: 'send-ordinary', emitFrame: (e) => log.frames.push(e) },
+    });
+    expect(snap.error).toBeNull();
+    expect(snap.body).toBe('{"ok":true}');
+    expect(snap.streamedCapture).toBeUndefined();
+    expect(log.ofKind('head')).toHaveLength(1);
+    expect(log.ofKind('head')[0]).toMatchObject({ sendId: 'send-ordinary', head: { status: 200 } });
+    // The body completed inside the first flush window — no chunk frame.
+    expect(log.ofKind('chunk')).toHaveLength(0);
+    expect(log.ofKind('done')).toHaveLength(1);
+  });
+
+  it('live stream: flush-batched chunk frames, endedBy "end", monotonic seq', async () => {
+    const log = frameLog();
+    const transport = streamingTransport(async (observer, _signal, url) => {
+      observer.onHead({ status: 200, statusText: 'OK', url, headers: [] });
+      observer.onChunk(encoder.encode('data: one\n\n'), 11);
+      // Past the 100ms flush window so the live phase engages.
+      await sleep(150);
+      observer.onChunk(encoder.encode('data: two\n\n'), 22);
+      return baseResponse(url, 'data: one\n\ndata: two\n\n');
+    });
+    const snap = await executeOverTransport(makeResolved(), transport, {
+      stream: { sendId: 'send-live', emitFrame: (e) => log.frames.push(e) },
+    });
+    expect(snap.error).toBeNull();
+    expect(snap.streamedCapture).toEqual({ endedBy: 'end' });
+    expect(log.ofKind('chunk').length).toBeGreaterThanOrEqual(1);
+    const seqs = log.frames.map((f) => f.seq);
+    expect(seqs).toEqual([...seqs].sort((a, b) => a - b));
+  });
+
+  it('Stop mid-stream: partial materialization with endedBy "stop", registry unregisters on settle', async () => {
+    const log = frameLog();
+    const transport = streamingTransport(async (observer, signal, url) => {
+      observer.onHead({ status: 200, statusText: 'OK', url, headers: [] });
+      observer.onChunk(encoder.encode('data: partial\n\n'), 15);
+      await new Promise<void>((resolve) => {
+        signal?.addEventListener('abort', () => resolve());
+      });
+      return baseResponse(url, 'data: partial\n\n', { streamEndedEarly: { reason: 'aborted' } });
+    });
+    const pending = executeOverTransport(makeResolved(), transport, {
+      stream: { sendId: 'send-stop', emitFrame: (e) => log.frames.push(e) },
+    });
+    await sleep(20);
+    expect(stopActiveSend('send-stop')).toBe(true);
+    const snap = await pending;
+    expect(snap.error).toBeNull();
+    expect(snap.status).toBe(200);
+    expect(snap.body).toBe('data: partial\n\n');
+    expect(snap.bodyTruncated).toBe(false);
+    expect(snap.streamedCapture).toEqual({ endedBy: 'stop' });
+    expect(log.ofKind('done')).toHaveLength(1);
+    // Settled sends leave the registry — a second Stop finds nothing.
+    expect(stopActiveSend('send-stop')).toBe(false);
+  });
+
+  it('deadline abort without a Stop maps to endedBy "timeout"', async () => {
+    const transport = streamingTransport(async (observer, _signal, url) => {
+      observer.onHead({ status: 200, statusText: 'OK', url, headers: [] });
+      observer.onChunk(encoder.encode('tick 1\n'), 7);
+      return baseResponse(url, 'tick 1\n', { streamEndedEarly: { reason: 'aborted' } });
+    });
+    const snap = await executeOverTransport(makeResolved(), transport, {
+      stream: { sendId: 'send-timeout', emitFrame: () => undefined },
+    });
+    expect(snap.error).toBeNull();
+    expect(snap.streamedCapture).toEqual({ endedBy: 'timeout' });
+  });
+
+  it('mid-body connection failure maps to endedBy "error" with the message', async () => {
+    const transport = streamingTransport(async (observer, _signal, url) => {
+      observer.onHead({ status: 200, statusText: 'OK', url, headers: [] });
+      observer.onChunk(encoder.encode('partial payload'), 15);
+      return baseResponse(url, 'partial payload', {
+        streamEndedEarly: { reason: 'error', message: 'connection reset' },
+      });
+    });
+    const snap = await executeOverTransport(makeResolved(), transport, {
+      stream: { sendId: 'send-err', emitFrame: () => undefined },
+    });
+    expect(snap.error).toBeNull();
+    expect(snap.streamedCapture).toEqual({ endedBy: 'error', message: 'connection reset' });
+  });
+
+  it('cap truncation stamps endedBy "cap" only when the live phase engaged', async () => {
+    // Engaged: a chunk frame went out before the cap tripped.
+    const engaged = streamingTransport(async (observer, _signal, url) => {
+      observer.onHead({ status: 200, statusText: 'OK', url, headers: [] });
+      observer.onChunk(encoder.encode('x'.repeat(64)), 64);
+      await sleep(150);
+      return baseResponse(url, 'x'.repeat(64), { bodyTruncated: true });
+    });
+    const withFrames = await executeOverTransport(makeResolved(), engaged, {
+      stream: { sendId: 'send-cap-live', emitFrame: () => undefined },
+    });
+    expect(withFrames.streamedCapture).toEqual({ endedBy: 'cap' });
+    expect(withFrames.bodyTruncated).toBe(true);
+
+    // Not engaged: everything arrived inside the first flush window —
+    // the cap abort is ordinary truncation, not a live-stream fact.
+    const quiet = streamingTransport(async (observer, _signal, url) => {
+      observer.onHead({ status: 200, statusText: 'OK', url, headers: [] });
+      observer.onChunk(encoder.encode('x'.repeat(64)), 64);
+      return baseResponse(url, 'x'.repeat(64), { bodyTruncated: true });
+    });
+    const noFrames = await executeOverTransport(makeResolved(), quiet, {
+      stream: { sendId: 'send-cap-quiet', emitFrame: () => undefined },
+    });
+    expect(noFrames.streamedCapture).toBeUndefined();
+    expect(noFrames.bodyTruncated).toBe(true);
+  });
+
+  it('Stop before any response head yields an error snapshot with the canonical message', async () => {
+    const log = frameLog();
+    const transport = streamingTransport(async (_observer, signal) => {
+      await new Promise<void>((resolve) => {
+        signal?.addEventListener('abort', () => resolve());
+      });
+      throw new TransportError('This operation was aborted.');
+    });
+    const pending = executeOverTransport(makeResolved(), transport, {
+      stream: { sendId: 'send-prehead', emitFrame: (e) => log.frames.push(e) },
+    });
+    await sleep(20);
+    expect(stopActiveSend('send-prehead')).toBe(true);
+    const snap = await pending;
+    expect(snap.status).toBe(0);
+    expect(snap.error).toBe('Request stopped before a response arrived.');
+    expect(snap.streamedCapture).toBeUndefined();
+    // Nothing arrived — the feed never opened, so no frames at all.
+    expect(log.frames).toHaveLength(0);
+  });
+
+  it('falls back to buffered send when the transport has no streaming leg — no frames, no rider', async () => {
+    const log = frameLog();
+    const { transport } = captureTransport();
+    const snap = await executeOverTransport(makeResolved(), transport, {
+      stream: { sendId: 'send-fallback', emitFrame: (e) => log.frames.push(e) },
+    });
+    expect(snap.error).toBeNull();
+    expect(snap.streamedCapture).toBeUndefined();
+    expect(log.frames).toHaveLength(0);
+    // No streaming leg means no Stop hook either.
+    expect(stopActiveSend('send-fallback')).toBe(false);
+  });
+
+  it('never takes the streaming leg without the stream option', async () => {
+    let streamingCalled = false;
+    const transport: RequestTransport = {
+      async send(request) {
+        return baseResponse(request.url, 'buffered');
+      },
+      async sendStreaming(request) {
+        streamingCalled = true;
+        return baseResponse(request.url, 'streamed');
+      },
+    };
+    const snap = await executeOverTransport(makeResolved(), transport);
+    expect(snap.body).toBe('buffered');
+    expect(streamingCalled).toBe(false);
   });
 });

@@ -79,6 +79,7 @@ import {
 } from '@openheaders/oracle/entity/request-scripts-review-store';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
+import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
@@ -733,6 +734,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // lives. Same channel contract the extension SW handles.
     if (type === 'executeRequest') {
       return await handleExecuteRequestRpc(message);
+    }
+    // Stop an in-flight interactive send by its caller-minted id — the
+    // host-neutral active-send registry the executor registered into.
+    // `success: false` = no such send (already settled, never started).
+    if (type === 'abortRequestSend') {
+      return { success: typeof message.sendId === 'string' && stopActiveSend(message.sendId) };
     }
     // Workspace-export import — the host-neutral orchestrator (the
     // extension SW answers the same channels). Local surface = the

@@ -19,8 +19,9 @@
  *   the initiator so the next socket re-runs the handshake.
  *
  * Inbound frames route: handshake-flow → the initiator; migration pull
- * broadcasts → `wire-migration-mirror.ts`; mutation + awareness →
- * `wire-inbound.ts`; `pong` and anything else drop.
+ * broadcasts → `wire-migration-mirror.ts`; live send-stream frames →
+ * `wire-request-stream.ts`; mutation + awareness → `wire-inbound.ts`;
+ * `pong` and anything else drop.
  */
 
 import { getOrgBackendBindings, recordJoinedOrg } from '@openheaders/core/identity';
@@ -45,6 +46,7 @@ import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 import { handleInboundWireFrame } from './wire-inbound';
 import { handleIncomingMigrationPullFrame } from './wire-migration-mirror';
 import { applyPeerVectorToPendingOut, flushPendingOut, forwardAwarenessOverWire, setWireSender } from './wire-outbound';
+import { handleIncomingRequestStreamFrame } from './wire-request-stream';
 import { handleWireRpcResponseFrame, setWireRpcSender } from './wire-rpc';
 
 const SCOPE = 'DaemonWire';
@@ -213,6 +215,8 @@ export function installDaemonWire(): DaemonWire {
       // Migration pull broadcasts — synchronous claim into the in-tab
       // fan-out, same posture as the RPC responses.
       if (handleIncomingMigrationPullFrame(frame)) return;
+      // Live send-stream frames for a forwarded Send — same posture.
+      if (handleIncomingRequestStreamFrame(frame)) return;
       const claimed = await handleInboundWireFrame(frame);
       if (claimed) return;
       const type = (frame as { type?: unknown })?.type;

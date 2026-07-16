@@ -1,5 +1,5 @@
 /**
- * Peer-facing request-execution plane — the gating laws over the five
+ * Peer-facing request-execution plane — the gating laws over the six
  * workbench channels: `executeRequest` refuses (honestly, naming the
  * setting) while `backend.allowPeerExecute` is off, with no identity
  * resolution and no audit row; past the opt-in, every channel resolves
@@ -7,8 +7,10 @@
  * (`workspace.write` for send + clear + per-entry delete,
  * `workspace.read` for the summary and the script-posture fact),
  * audits the decision, and only then reaches the handler.
- * The target workspace is the frame's, falling back to the host's
- * active one.
+ * `abortRequestSend` rides ahead of the capability tier (the
+ * caller-minted sendId is the authorization); a forwarded send's live
+ * frames fan to the calling user's peers only. The target workspace is
+ * the frame's, falling back to the host's active one.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -43,9 +45,13 @@ vi.mock('../../../src/live/cookie-jar', () => ({
   peekCookieJar: (key: string) => h.jars.get(key),
 }));
 
+import type { RequestStreamEventWire } from '@openheaders/core/bridge';
+import { registerActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import type { ExecuteRequestRpcResult } from '../../../src/daemon/execute-request-rpc';
 import { createPeerRequestsRpc, PEER_EXECUTE_DISABLED_MESSAGE } from '../../../src/daemon/peer-requests-rpc';
 import { setHostScriptCapabilities } from '../../../src/daemon/script-capability';
+import { setWsPeerServer } from '../../../src/daemon/ws-peer-slot';
+import type { OracleWsServer, PeerSummary } from '../../../src/host-runtime/ws-server';
 
 const PEER = { userId: 'user-1' };
 
@@ -59,15 +65,45 @@ beforeEach(() => {
 });
 
 describe('createPeerRequestsRpc — ownership', () => {
-  it('owns exactly the five request channels', () => {
+  it('owns exactly the six request channels', () => {
     const rpc = createPeerRequestsRpc();
     expect(rpc.owns('executeRequest')).toBe(true);
+    expect(rpc.owns('abortRequestSend')).toBe(true);
     expect(rpc.owns('getCookieJarSummary')).toBe(true);
     expect(rpc.owns('clearCookieJar')).toBe(true);
     expect(rpc.owns('deleteCookieJarEntry')).toBe(true);
     expect(rpc.owns('getScriptRuntimeInfo')).toBe(true);
     expect(rpc.owns('getStatusSnapshot')).toBe(false);
     expect(rpc.owns('oh.daemon.users.list')).toBe(false);
+  });
+});
+
+describe('createPeerRequestsRpc — abortRequestSend', () => {
+  it('stops a registered send by its id without identity resolution or an audit row', async () => {
+    let stopped = false;
+    const unregister = registerActiveSend('send-abc', () => {
+      stopped = true;
+    });
+    try {
+      const rpc = createPeerRequestsRpc();
+      await expect(rpc.dispatch({ type: 'abortRequestSend', sendId: 'send-abc' }, PEER)).resolves.toEqual({
+        success: true,
+      });
+      expect(stopped).toBe(true);
+      // The sendId IS the authorization — no capability tier runs.
+      expect(h.resolveSnapshot).not.toHaveBeenCalled();
+      expect(h.audits).toHaveLength(0);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('answers success: false for an unknown or already-settled send', async () => {
+    const rpc = createPeerRequestsRpc();
+    await expect(rpc.dispatch({ type: 'abortRequestSend', sendId: 'never-registered' }, PEER)).resolves.toEqual({
+      success: false,
+    });
+    await expect(rpc.dispatch({ type: 'abortRequestSend' }, PEER)).resolves.toEqual({ success: false });
   });
 });
 
@@ -119,7 +155,36 @@ describe('createPeerRequestsRpc — executeRequest', () => {
     expect(h.audits).toEqual([
       { actorUserId: 'user-1', capability: 'workspace.write', workspaceId: 'ws-tab', decision: { allow: true } },
     ]);
-    expect(execute).toHaveBeenCalledWith(message);
+    expect(execute).toHaveBeenCalledWith(message, expect.any(Function));
+  });
+
+  it("hands the handler a frame sink that fans requestStreamEvent frames to the calling user's peers", async () => {
+    const frames: Array<{ frame: Record<string, unknown>; opts?: { filterPeer?: (peer: PeerSummary) => boolean } }> =
+      [];
+    setWsPeerServer({
+      broadcastFrame: (frame: Record<string, unknown>, opts?: { filterPeer?: (peer: PeerSummary) => boolean }) => {
+        frames.push({ frame, ...(opts !== undefined ? { opts } : {}) });
+      },
+    } as unknown as OracleWsServer);
+    try {
+      const event = { sendId: 's-1', seq: 0, kind: 'done' };
+      const execute = vi.fn(
+        async (_message: Record<string, unknown>, emitStreamFrame: (e: RequestStreamEventWire) => void) => {
+          emitStreamFrame(event as RequestStreamEventWire);
+          return { success: true };
+        },
+      );
+      const rpc = createPeerRequestsRpc({ executeRequest: execute });
+      await rpc.dispatch({ type: 'executeRequest', draft: {} }, PEER);
+      expect(frames).toHaveLength(1);
+      expect(frames[0].frame).toEqual({ type: 'requestStreamEvent', payload: event });
+      // Same-user law: only the calling user's peers see the frames.
+      const filterPeer = frames[0].opts?.filterPeer;
+      expect(filterPeer?.({ userId: 'user-1' } as PeerSummary)).toBe(true);
+      expect(filterPeer?.({ userId: 'user-2' } as PeerSummary)).toBe(false);
+    } finally {
+      setWsPeerServer(null);
+    }
   });
 
   it('falls back to the host active workspace when the frame names none', async () => {

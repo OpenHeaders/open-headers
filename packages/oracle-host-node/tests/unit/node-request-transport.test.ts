@@ -12,7 +12,13 @@ import type { AddressInfo } from 'node:net';
 import { Readable } from 'node:stream';
 import { createSecureContext } from 'node:tls';
 import { zstdCompressSync, zstdDecompressSync } from 'node:zlib';
-import { TransportError, type TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
+import {
+  TransportError,
+  type TransportRequest,
+  type TransportResponse,
+  type TransportStreamHead,
+  type TransportStreamObserver,
+} from '@openheaders/oracle/live/request-exec/transport';
 import { Agent, FormData, Headers, ProxyAgent, Response } from 'undici';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCookieJars } from '../../src/live/cookie-jar';
@@ -1701,5 +1707,240 @@ describe('createNodeRequestTransport — HTTP digest second leg', () => {
     const res = await transport().send(makeRequest({ digestAuth, redirect: 'manual' }));
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(res.status).toBe(200);
+  });
+});
+
+describe('createNodeRequestTransport — streaming interactive read (sendStreaming)', () => {
+  const encoder = new TextEncoder();
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** Observer that records everything it saw (chunk bytes copied — the
+   *  transport may hand out subarray views of a shared buffer). */
+  function collectStream() {
+    const heads: TransportStreamHead[] = [];
+    const chunks: Array<{ bytes: Uint8Array; totalBytes: number }> = [];
+    const observer: TransportStreamObserver = {
+      onHead: (head) => {
+        heads.push(head);
+      },
+      onChunk: (bytes, totalBytes) => {
+        chunks.push({ bytes: Uint8Array.from(bytes), totalBytes });
+      },
+    };
+    return { observer, heads, chunks };
+  }
+
+  function streamingSend(
+    request: TransportRequest,
+    observer: TransportStreamObserver,
+    signal?: AbortSignal,
+  ): Promise<TransportResponse> {
+    const t = transport();
+    const fn = t.sendStreaming;
+    if (!fn) throw new Error('the node transport must implement sendStreaming');
+    return fn.call(t, request, observer, signal);
+  }
+
+  /** A fetch stub whose Response body is a caller-scripted stream wired
+   *  to the exchange signal — aborting errors the stream mid-read,
+   *  exactly as real undici propagates an abort. */
+  function scriptedStreamFetch(
+    script: (controller: ReadableStreamDefaultController<Uint8Array>) => void,
+    init?: { status?: number; headers?: Record<string, string> },
+  ): void {
+    fetchMock.mockImplementation((_input, fetchInit) => {
+      const signal = fetchInit?.signal ?? undefined;
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          signal?.addEventListener('abort', () => {
+            controller.error(Object.assign(new Error('This operation was aborted.'), { name: 'AbortError' }));
+          });
+          script(controller);
+        },
+      });
+      return Promise.resolve(
+        new Response(stream, {
+          status: init?.status ?? 200,
+          statusText: 'OK',
+          headers: init?.headers ?? { 'content-type': 'text/event-stream' },
+        }),
+      );
+    });
+  }
+
+  it('surfaces the head, streams cap-bounded chunks in order, and resolves the same TransportResponse', async () => {
+    scriptedStreamFetch((controller) => {
+      controller.enqueue(encoder.encode('data: one\n\n'));
+      controller.enqueue(encoder.encode('data: two\n\n'));
+      controller.close();
+    });
+    const { observer, heads, chunks } = collectStream();
+    const res = await streamingSend(makeRequest(), observer);
+    expect(heads).toHaveLength(1);
+    expect(heads[0].status).toBe(200);
+    expect(heads[0].headers).toContainEqual({ key: 'content-type', value: 'text/event-stream' });
+    const joined = chunks.map((c) => new TextDecoder().decode(c.bytes)).join('');
+    expect(joined).toBe('data: one\n\ndata: two\n\n');
+    expect(chunks.at(-1)?.totalBytes).toBe(joined.length);
+    expect(res.body).toBe('data: one\n\ndata: two\n\n');
+    expect(res.bodyTruncated).toBe(false);
+    expect(res.streamEndedEarly).toBeUndefined();
+  });
+
+  it('caps live chunks at maxBodyBytes — the tail never sees bytes the snapshot drops', async () => {
+    scriptedStreamFetch((controller) => {
+      controller.enqueue(encoder.encode('x'.repeat(64)));
+      controller.close();
+    });
+    const { observer, chunks } = collectStream();
+    const res = await streamingSend(makeRequest({ maxBodyBytes: 16 }), observer);
+    expect(res.bodyTruncated).toBe(true);
+    expect(res.body).toBe('x'.repeat(16));
+    // The cap abort is ordinary truncation, not an early end.
+    expect(res.streamEndedEarly).toBeUndefined();
+    const emitted = chunks.reduce((sum, c) => sum + c.bytes.byteLength, 0);
+    expect(emitted).toBe(16);
+    expect(chunks.at(-1)?.totalBytes).toBe(16);
+  });
+
+  it('an abort mid-body resolves the partial body with streamEndedEarly "aborted", never a throw', async () => {
+    scriptedStreamFetch((controller) => {
+      controller.enqueue(encoder.encode('data: partial\n\n'));
+      // …then the stream hangs forever; only the abort ends it.
+    });
+    const controller = new AbortController();
+    const { observer, chunks } = collectStream();
+    const pending = streamingSend(makeRequest(), observer, controller.signal);
+    while (chunks.length === 0) await sleep(5);
+    controller.abort();
+    const res = await pending;
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('data: partial\n\n');
+    expect(res.bodyTruncated).toBe(false);
+    expect(res.streamEndedEarly).toEqual({ reason: 'aborted' });
+  });
+
+  it('a mid-body connection failure resolves the partial body with streamEndedEarly "error" + message', async () => {
+    scriptedStreamFetch((controller) => {
+      controller.enqueue(encoder.encode('partial payload'));
+      setTimeout(() => controller.error(new Error('read ECONNRESET')), 10);
+    });
+    const { observer } = collectStream();
+    const res = await streamingSend(makeRequest(), observer);
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('partial payload');
+    expect(res.streamEndedEarly).toEqual({ reason: 'error', message: 'read ECONNRESET' });
+  });
+
+  it('an abort before any response head still throws, exactly like send', async () => {
+    fetchMock.mockImplementation(
+      (_input, fetchInit) =>
+        new Promise((_resolve, reject) => {
+          fetchInit?.signal?.addEventListener('abort', () => {
+            reject(Object.assign(new TypeError('fetch failed'), { cause: new Error('aborted') }));
+          });
+        }),
+    );
+    const controller = new AbortController();
+    const { observer, heads } = collectStream();
+    const pending = streamingSend(makeRequest(), observer, controller.signal);
+    await sleep(10);
+    controller.abort();
+    await expect(pending).rejects.toBeInstanceOf(TransportError);
+    expect(heads).toHaveLength(0);
+  });
+
+  it('the buffered send keeps its contract — a mid-body failure still throws', async () => {
+    scriptedStreamFetch((controller) => {
+      controller.enqueue(encoder.encode('partial'));
+      setTimeout(() => controller.error(new Error('read ECONNRESET')), 10);
+    });
+    await expect(transport().send(makeRequest())).rejects.toThrow('read ECONNRESET');
+  });
+
+  it('the head reports the FINAL hop after a redirect — intermediate hops stay silent', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(302, '/moved'));
+    scriptedStreamFetch((controller) => {
+      controller.enqueue(encoder.encode('landed'));
+      controller.close();
+    });
+    // mockResolvedValueOnce wins for call 1; the scripted implementation
+    // (registered second) answers call 2.
+    const { observer, heads } = collectStream();
+    const res = await streamingSend(makeRequest(), observer);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(heads).toHaveLength(1);
+    expect(heads[0].status).toBe(200);
+    expect(res.body).toBe('landed');
+  });
+
+  it('the request() pipeline streams too — gRPC hops keep trailers after a streamed read', async () => {
+    requestMock.mockResolvedValue({
+      statusCode: 200,
+      headers: { 'content-type': 'application/grpc+proto' },
+      body: Readable.from([Buffer.from([0, 0, 0, 0, 3]), Buffer.from([8, 1, 16])]),
+      trailers: { 'grpc-status': '0' },
+    });
+    const { observer, heads, chunks } = collectStream();
+    const res = await streamingSend(
+      makeRequest({
+        method: 'POST',
+        headers: [{ key: 'Content-Type', value: 'application/grpc+proto' }],
+        body: { kind: 'raw', content: '' },
+      }),
+      observer,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(heads).toHaveLength(1);
+    expect(chunks.length).toBeGreaterThanOrEqual(1);
+    expect(res.trailers).toContainEqual({ key: 'grpc-status', value: '0' });
+    expect(res.streamEndedEarly).toBeUndefined();
+  });
+
+  it('wire bytes stay exact through the streamed read (base64 body for non-UTF-8)', async () => {
+    const wire = new Uint8Array([0x00, 0x01, 0xfe, 0xff, 0x41, 0x42]);
+    scriptedStreamFetch((controller) => {
+      controller.enqueue(wire);
+      controller.close();
+    });
+    const { observer, chunks } = collectStream();
+    const res = await streamingSend(makeRequest(), observer);
+    expect(res.bodyEncoding).toBe('base64');
+    expect(Array.from(Buffer.from(res.body, 'base64'))).toEqual(Array.from(wire));
+    expect(Array.from(chunks[0].bytes)).toEqual(Array.from(wire));
+  });
+
+  it('stops a real chunked wire stream mid-flight (real undici pipeline)', async () => {
+    // The full abort path a mocked fetch never exercises: undici's
+    // socket teardown mid-read must surface as the partial-materializing
+    // 'aborted' end, with the bytes that made it retained.
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.write('data: one\n\n');
+      const timer = setInterval(() => res.write('data: tick\n\n'), 25);
+      res.on('close', () => clearInterval(timer));
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const controller = new AbortController();
+      const { observer, heads, chunks } = collectStream();
+      const t = createNodeRequestTransport();
+      if (!t.sendStreaming) throw new Error('the node transport must implement sendStreaming');
+      const pending = t.sendStreaming(
+        makeRequest({ url: `http://127.0.0.1:${port}/net/sse` }),
+        observer,
+        controller.signal,
+      );
+      while (chunks.length === 0) await sleep(5);
+      controller.abort();
+      const res = await pending;
+      expect(heads[0]?.status).toBe(200);
+      expect(res.streamEndedEarly).toEqual({ reason: 'aborted' });
+      expect(res.body.startsWith('data: one\n\n')).toBe(true);
+      expect(res.bodyTruncated).toBe(false);
+    } finally {
+      server.close();
+    }
   });
 });

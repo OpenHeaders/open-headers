@@ -12,10 +12,12 @@
  */
 
 import { AWS_SIGV4_UNSIGNED_PAYLOAD, sha256Hex, signAwsSigV4, signOAuth1 } from '@openheaders/core/auth-signing';
+import type { RequestStreamEventWire } from '@openheaders/core/bridge';
 import type { ExecutedRequestSnapshot, RequestBody } from '@openheaders/core/types';
 import { appendQueryParams, ensureScheme } from '@openheaders/core/utils';
 import { getFileBlob } from '../../entity/files-store';
 import type { ResolvedRequest } from './resolve-request';
+import { createStreamEmitter, registerActiveSend } from './send-stream';
 import {
   type RequestTransport,
   type TransportBody,
@@ -23,6 +25,7 @@ import {
   type TransportHeader,
   type TransportMultipartPart,
   type TransportRequest,
+  type TransportResponse,
 } from './transport';
 
 /** Body read cap — the transport streams up to this many bytes and aborts
@@ -31,6 +34,20 @@ import {
  *  the exact ceiling on what the chain extractor ever reads, so aborting
  *  here discards only bytes that would have been sliced off anyway. */
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
+/**
+ * The streaming leg of an INTERACTIVE send — set only by the hosts'
+ * `executeRequest` handlers when the caller minted a `sendId`. Chains,
+ * MCP sends, and workflow steps never set it, so they keep the buffered
+ * contract untouched.
+ */
+export interface ExecuteStreamOptions {
+  /** Caller-minted id — the live frames' tag and the Stop handle. */
+  sendId: string;
+  /** Host broadcast the flush-batched `requestStreamEvent` frames ride
+   *  (chrome messages / `webContents.send` / daemon WS frames). */
+  emitFrame: (event: RequestStreamEventWire) => void;
+}
 
 export interface ExecuteOverTransportOptions {
   /**
@@ -42,6 +59,15 @@ export interface ExecuteOverTransportOptions {
    * default for sends without one.
    */
   timeoutMs?: number;
+  /**
+   * Streaming capture mode — the send rides the transport's
+   * `sendStreaming` leg when it has one (live head + flush-batched
+   * chunk frames, the Stop registry, partial materialization on
+   * stop/timeout/mid-body failure, the `streamedCapture` rider).
+   * Transports without the leg fall back to buffered `send` and emit
+   * nothing — the RPC contract is unchanged either way.
+   */
+  stream?: ExecuteStreamOptions;
 }
 
 export async function executeOverTransport(
@@ -145,9 +171,47 @@ export async function executeOverTransport(
   // success and error paths mark alike.
   const tlsFloorLowered = resolved.tlsMinVersion === '1.0' || resolved.tlsMinVersion === '1.1';
 
+  // ── Streaming leg (interactive sends only) ──
+  // The emitter batches live frames (time-engaged flush — an ordinary
+  // response completes inside the first window and emits no chunk
+  // frame); the registry hook is what `abortRequestSend` fires. Both
+  // exist only while the exchange is in flight.
+  const stream = transport.sendStreaming !== undefined ? options.stream : undefined;
+  const emitter = stream !== undefined ? createStreamEmitter(stream.sendId, stream.emitFrame) : null;
+  const controller = stream !== undefined ? new AbortController() : null;
+  let stopped = false;
+  let headArrived = false;
+  const unregister =
+    stream !== undefined && controller !== null
+      ? registerActiveSend(stream.sendId, () => {
+          stopped = true;
+          controller.abort();
+        })
+      : null;
+
   const startedAt = performance.now();
   try {
-    const response = await transport.send(request);
+    const response =
+      emitter !== null && controller !== null && transport.sendStreaming !== undefined
+        ? await transport.sendStreaming(
+            request,
+            {
+              onHead: (head) => {
+                headArrived = true;
+                emitter.head({
+                  status: head.status,
+                  statusText: head.statusText,
+                  url: head.url,
+                  headers: [...head.headers],
+                });
+              },
+              onChunk: (bytes, totalBytes) => emitter.chunk(bytes, totalBytes),
+            },
+            controller.signal,
+          )
+        : await transport.send(request);
+    emitter?.done();
+    const streamedCapture = streamedCaptureOf(response, stopped, (emitter?.chunkFramesSent() ?? 0) > 0);
     const durationMs = Math.round(performance.now() - startedAt);
     // The transport already streamed + capped the body at `maxBodyBytes`,
     // so we surface its result verbatim — no re-slice, no full-body
@@ -179,21 +243,62 @@ export async function executeOverTransport(
       // so the run stays reproducible after the jar changes.
       ...(response.cookieHeaderAttached !== undefined ? { cookieHeaderAttached: response.cookieHeaderAttached } : {}),
       ...(response.cookiesCaptured !== undefined ? { cookiesCaptured: response.cookiesCaptured } : {}),
+      ...(streamedCapture !== undefined ? { streamedCapture } : {}),
       error: null,
       scripts: null,
     };
   } catch (err) {
+    // A pre-head failure emitted no frames, so the feed needs no close;
+    // a post-head throw (defensive — the streaming transport resolves
+    // partial once the head is in) settles it.
+    if (headArrived) emitter?.done();
     const durationMs = Math.round(performance.now() - startedAt);
-    // The transport classifies network failures into a user-actionable
-    // message; anything else surfaces its raw message.
-    const message = err instanceof TransportError ? err.message : err instanceof Error ? err.message : String(err);
+    // A user Stop that fired before any response head arrived reaches
+    // here as the transport's opaque abort — name what happened (a Stop
+    // mid-body materializes a partial snapshot above instead).
+    const message =
+      stopped && !headArrived
+        ? 'Request stopped before a response arrived.'
+        : // The transport classifies network failures into a user-
+          // actionable message; anything else surfaces its raw message.
+          err instanceof TransportError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : String(err);
     return {
       ...errorSnapshot(message),
       durationMs,
       ...(verificationOff ? { sslVerificationDisabled: true } : {}),
       ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
     };
+  } finally {
+    unregister?.();
   }
+}
+
+/**
+ * Map a settled streamed exchange onto the snapshot's `streamedCapture`
+ * attribution (the browser SW executor's exact laws): a Stop, deadline,
+ * or mid-body failure always stamps (the body is partial — the surface
+ * must say so); a natural end or a cap abort stamps only when the live
+ * stream phase engaged (chunk frames actually went out), so ordinary
+ * responses — which complete before the first flush window — carry no
+ * rider. Buffered sends never stamp: without the streaming leg there is
+ * no early end and no engagement.
+ */
+function streamedCaptureOf(
+  response: TransportResponse,
+  stopped: boolean,
+  liveEngaged: boolean,
+): ExecutedRequestSnapshot['streamedCapture'] | undefined {
+  const early = response.streamEndedEarly;
+  if (early !== undefined) {
+    if (early.reason === 'aborted') return { endedBy: stopped ? 'stop' : 'timeout' };
+    return { endedBy: 'error', ...(early.message !== undefined ? { message: early.message } : {}) };
+  }
+  if (!liveEngaged) return undefined;
+  return { endedBy: response.bodyTruncated ? 'cap' : 'end' };
 }
 
 /**

@@ -42,9 +42,10 @@
  * `(workspace, null)` live mirror, exactly the caller's own view.
  */
 
+import { hostBridge, type RequestStreamEventWire } from '@openheaders/core/bridge';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { getRequest } from '@openheaders/oracle/entity/request-store';
-import { errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
+import { type ExecuteStreamOptions, errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { runInteractiveSend } from '@openheaders/oracle/live/request-exec/run-interactive-send';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
@@ -66,19 +67,38 @@ export interface ExecuteRequestRpcResult {
 const nodeTransport = createNodeRequestTransport();
 
 /**
+ * Default live-frame sink for an in-process caller — the host's local
+ * broadcast (desktop: `webContents.send` to every open renderer). A
+ * peer-forwarded send passes its own sink instead, so frames reach the
+ * CALLING surface across the backend wire (see `peer-requests-rpc.ts`).
+ */
+function broadcastStreamFrameLocally(event: RequestStreamEventWire): void {
+  hostBridge.broadcast('requestStreamEvent', event);
+}
+
+/**
  * Handle one `executeRequest` bridge message. `requestUid` takes
  * precedence over `draft` (the channel contract); a run that fails
  * before or on the wire still resolves `success: true` with an error
  * snapshot — the response surface renders `snapshot.error` — and
  * `success: false` is reserved for missing input and unexpected throws,
  * mirroring the extension SW handler.
+ *
+ * A frame carrying a `sendId` runs in streaming capture mode: live
+ * `requestStreamEvent` frames go to `emitStreamFrame` while the body
+ * streams in, and `abortRequestSend` can stop the exchange (the
+ * host-neutral registry in oracle's `send-stream`).
  */
 export async function handleExecuteRequestRpc(
   message: Record<string, unknown>,
   transport: RequestTransport = nodeTransport,
+  emitStreamFrame: (event: RequestStreamEventWire) => void = broadcastStreamFrameLocally,
 ): Promise<ExecuteRequestRpcResult> {
   const requestUid = typeof message.requestUid === 'string' ? message.requestUid : undefined;
   const draft = message.draft as Request | undefined;
+  const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
+  const stream: ExecuteStreamOptions | undefined =
+    sendId !== undefined ? { sendId, emitFrame: emitStreamFrame } : undefined;
   const environmentId =
     typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
   const requestedWorkspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
@@ -131,8 +151,15 @@ export async function handleExecuteRequestRpc(
           transport,
           scriptRunner: resolved.runner,
           refreshOAuth,
+          ...(stream !== undefined ? { stream } : {}),
         })
-      : await runStepRequest(request, { workspaceId, environmentId, transport, refreshOAuth });
+      : await runStepRequest(request, {
+          workspaceId,
+          environmentId,
+          transport,
+          refreshOAuth,
+          ...(stream !== undefined ? { stream } : {}),
+        });
     // Stamp the mode the scripted portion actually ran under — snapshot
     // attribution, never a live-settings read (the SSL-off precedent).
     const stamped =

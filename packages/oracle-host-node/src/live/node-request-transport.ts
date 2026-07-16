@@ -106,6 +106,7 @@ import {
   type TransportMultipartPart,
   type TransportRequest,
   type TransportResponse,
+  type TransportStreamObserver,
 } from '@openheaders/oracle/live/request-exec/transport';
 import {
   Agent,
@@ -646,109 +647,131 @@ async function digestRetryHop(
   };
 }
 
+/** The streaming leg of one send — the observer live frames feed plus
+ *  the caller's abort signal (Stop). `null` = buffered `send`. */
+interface StreamingLeg {
+  observer: TransportStreamObserver;
+  signal?: AbortSignal;
+}
+
 export function createNodeRequestTransport(options: NodeRequestTransportOptions = {}): RequestTransport {
   const fetchFn = options.fetchFn ?? undiciFetch;
   const requestFn = options.requestFn ?? undiciRequest;
-  return {
-    async send(request: TransportRequest): Promise<TransportResponse> {
-      // A configured client certificate whose vault entry didn't
-      // resolve on this device fails BEFORE the wire — silently
-      // dialing a mutual-TLS gateway without the certificate would
-      // surface as an opaque handshake failure instead of the real
-      // problem.
-      if (request.clientCertificateRef !== undefined && request.clientCertificatePem === undefined) {
+  const dispatchSend = async (
+    request: TransportRequest,
+    streaming: StreamingLeg | null,
+  ): Promise<TransportResponse> => {
+    // A configured client certificate whose vault entry didn't
+    // resolve on this device fails BEFORE the wire — silently
+    // dialing a mutual-TLS gateway without the certificate would
+    // surface as an opaque handshake failure instead of the real
+    // problem.
+    if (request.clientCertificateRef !== undefined && request.clientCertificatePem === undefined) {
+      throw new TransportError(
+        `The request's client-certificate setting references the vault entry "${request.clientCertificateRef}", which doesn't exist on this device. Add a client-certificate entry with that name to the vault, or clear the setting.`,
+      );
+    }
+    if (request.unixSocketPath !== undefined) {
+      // A socket-pinned send never opens a TCP connection, so a
+      // CONNECT tunnel has nowhere to run — silently picking one of
+      // the two would downgrade the other.
+      if (request.proxyUrl !== undefined) {
         throw new TransportError(
-          `The request's client-certificate setting references the vault entry "${request.clientCertificateRef}", which doesn't exist on this device. Add a client-certificate entry with that name to the vault, or clear the setting.`,
+          "The request sets both a proxy and a Unix socket target, but a proxy tunnel can't dial a local socket. Clear one of the two settings.",
         );
       }
-      if (request.unixSocketPath !== undefined) {
-        // A socket-pinned send never opens a TCP connection, so a
-        // CONNECT tunnel has nowhere to run — silently picking one of
-        // the two would downgrade the other.
-        if (request.proxyUrl !== undefined) {
-          throw new TransportError(
-            "The request sets both a proxy and a Unix socket target, but a proxy tunnel can't dial a local socket. Clear one of the two settings.",
-          );
-        }
-        // Likewise nothing is resolved on a socket dial — the address
-        // pin can't apply.
-        if (request.resolveToAddress !== undefined) {
-          throw new TransportError(
-            "The request sets both a Unix socket target and resolve-to-address, but a socket dial resolves no hostname — the address pin can't apply. Clear one of the two settings.",
-          );
-        }
+      // Likewise nothing is resolved on a socket dial — the address
+      // pin can't apply.
+      if (request.resolveToAddress !== undefined) {
+        throw new TransportError(
+          "The request sets both a Unix socket target and resolve-to-address, but a socket dial resolves no hostname — the address pin can't apply. Clear one of the two settings.",
+        );
       }
-      if (request.proxyUrl !== undefined) {
-        // A resolve-to-address pin cannot be honored through a proxy —
-        // the proxy resolves the hostname itself, and the target leg
-        // rides the tunnel socket, never a local lookup. Silently
-        // letting the proxy win would downgrade the pin.
-        if (request.resolveToAddress !== undefined) {
-          throw new TransportError(
-            "The request sets both a proxy and resolve-to-address, but a proxy resolves the hostname itself — the address pin can't apply. Clear one of the two settings.",
-          );
-        }
-        // Configured proxy credentials whose vault entry didn't resolve
-        // on this device fail BEFORE the wire — silently dialing the
-        // proxy unauthenticated would surface as an opaque 407 instead
-        // of the real problem.
-        if (request.proxyCredentialRef !== undefined && request.proxyCredential === undefined) {
-          throw new TransportError(
-            `The request's proxy-credentials setting references the vault entry "${request.proxyCredentialRef}", which doesn't exist on this device. Add a string entry with that name (holding user:password) to the vault, or clear the setting.`,
-          );
-        }
+    }
+    if (request.proxyUrl !== undefined) {
+      // A resolve-to-address pin cannot be honored through a proxy —
+      // the proxy resolves the hostname itself, and the target leg
+      // rides the tunnel socket, never a local lookup. Silently
+      // letting the proxy win would downgrade the pin.
+      if (request.resolveToAddress !== undefined) {
+        throw new TransportError(
+          "The request sets both a proxy and resolve-to-address, but a proxy resolves the hostname itself — the address pin can't apply. Clear one of the two settings.",
+        );
       }
-      // ONE deadline spans the whole send — every hop of a redirect
-      // chain plus the final body read; the abort also cancels a body
-      // stream stalled mid-read, which a fetch-only signal would miss.
-      const deadline = startDeadline(request.timeoutMs);
-      // ONE dispatcher per send — the connection options can't change
-      // across hops, and the cache lookup here keeps `fetchHop` the
-      // single place a dispatcher is applied.
-      const dispatcher = dispatcherFor(request);
-      // ONE jar per send, looked up by the request's key — absent key
-      // means no cookies attached, Set-Cookie discarded.
-      const jar = request.cookieJarKey !== undefined ? cookieJarFor(request.cookieJarKey) : undefined;
-      try {
-        if (request.redirect === 'manual') {
-          // Single-shot: surface the first response verbatim, 3xx included.
-          let hop: HopState = {
-            url: request.url,
-            method: request.method,
-            headers: request.headers,
-            body: request.body,
+      // Configured proxy credentials whose vault entry didn't resolve
+      // on this device fail BEFORE the wire — silently dialing the
+      // proxy unauthenticated would surface as an opaque 407 instead
+      // of the real problem.
+      if (request.proxyCredentialRef !== undefined && request.proxyCredential === undefined) {
+        throw new TransportError(
+          `The request's proxy-credentials setting references the vault entry "${request.proxyCredentialRef}", which doesn't exist on this device. Add a string entry with that name (holding user:password) to the vault, or clear the setting.`,
+        );
+      }
+    }
+    // ONE deadline spans the whole send — every hop of a redirect
+    // chain plus the final body read; the abort also cancels a body
+    // stream stalled mid-read, which a fetch-only signal would miss.
+    // A streaming leg's caller signal (Stop) merges onto the same
+    // abort, so both triggers cancel connection AND read alike.
+    const deadline = startDeadline(request.timeoutMs, streaming?.signal);
+    // ONE dispatcher per send — the connection options can't change
+    // across hops, and the cache lookup here keeps `fetchHop` the
+    // single place a dispatcher is applied.
+    const dispatcher = dispatcherFor(request);
+    // ONE jar per send, looked up by the request's key — absent key
+    // means no cookies attached, Set-Cookie discarded.
+    const jar = request.cookieJarKey !== undefined ? cookieJarFor(request.cookieJarKey) : undefined;
+    try {
+      if (request.redirect === 'manual') {
+        // Single-shot: surface the first response verbatim, 3xx included.
+        let hop: HopState = {
+          url: request.url,
+          method: request.method,
+          headers: request.headers,
+          body: request.body,
+        };
+        let jarActivity: JarActivity | undefined;
+        if (jar !== undefined) {
+          const { headers, attached } = withJarCookie(jar, hop);
+          hop = { ...hop, headers };
+          jarActivity = {
+            ...(attached !== undefined ? { cookieHeaderAttached: attached } : {}),
+            cookiesCaptured: [],
           };
-          let jarActivity: JarActivity | undefined;
-          if (jar !== undefined) {
-            const { headers, attached } = withJarCookie(jar, hop);
-            hop = { ...hop, headers };
-            jarActivity = {
-              ...(attached !== undefined ? { cookieHeaderAttached: attached } : {}),
-              cookiesCaptured: [],
-            };
-          }
-          let response = await wireHop(fetchFn, requestFn, request, hop, deadline, dispatcher);
-          if (jar !== undefined && jarActivity !== undefined) {
-            jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
-          }
-          // Digest second leg — manual mode owns REDIRECT policy, not
-          // auth, so the challenge dance runs here too.
-          const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar);
-          if (retry !== null) {
-            response = retry.response;
-            if (jarActivity !== undefined) {
-              if (jarActivity.cookieHeaderAttached === undefined && retry.jarAttached !== undefined) {
-                jarActivity.cookieHeaderAttached = retry.jarAttached;
-              }
-              jarActivity.cookiesCaptured.push(...retry.jarCaptured);
-            }
-          }
-          return await finalizeResponse(response, request, hop.url, deadline, false, jarActivity);
         }
-        return await followRedirectChain(fetchFn, requestFn, request, deadline, dispatcher, jar);
-      } finally {
-        deadline?.clear();
+        let response = await wireHop(fetchFn, requestFn, request, hop, deadline, dispatcher);
+        if (jar !== undefined && jarActivity !== undefined) {
+          jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
+        }
+        // Digest second leg — manual mode owns REDIRECT policy, not
+        // auth, so the challenge dance runs here too.
+        const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar);
+        if (retry !== null) {
+          response = retry.response;
+          if (jarActivity !== undefined) {
+            if (jarActivity.cookieHeaderAttached === undefined && retry.jarAttached !== undefined) {
+              jarActivity.cookieHeaderAttached = retry.jarAttached;
+            }
+            jarActivity.cookiesCaptured.push(...retry.jarCaptured);
+          }
+        }
+        return await finalizeResponse(response, request, hop.url, deadline, false, jarActivity, streaming);
       }
+      return await followRedirectChain(fetchFn, requestFn, request, deadline, dispatcher, jar, streaming);
+    } finally {
+      deadline?.clear();
+    }
+  };
+  return {
+    send(request: TransportRequest): Promise<TransportResponse> {
+      return dispatchSend(request, null);
+    },
+    sendStreaming(
+      request: TransportRequest,
+      observer: TransportStreamObserver,
+      signal?: AbortSignal,
+    ): Promise<TransportResponse> {
+      return dispatchSend(request, { observer, ...(signal !== undefined ? { signal } : {}) });
     },
   };
 }
@@ -769,6 +792,7 @@ async function followRedirectChain(
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
   jar: CookieJar | undefined,
+  streaming: StreamingLeg | null,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
@@ -810,7 +834,7 @@ async function followRedirectChain(
     }
     const location = REDIRECT_STATUSES.has(response.status) ? response.headers.get('location') : null;
     if (location === null)
-      return finalizeResponse(response, request, hop.url, deadline, authorizationForwarded, jarActivity);
+      return finalizeResponse(response, request, hop.url, deadline, authorizationForwarded, jarActivity, streaming);
     await response.body?.cancel();
     if (redirects >= maxRedirects) {
       throw new TransportError(`Stopped after ${maxRedirects} redirects — the request's redirect limit.`);
@@ -994,22 +1018,40 @@ function tlsTuned(request: TransportRequest): boolean {
 
 /** Read the final response's body under the cap and map it to the
  *  seam's `TransportResponse`. Only ever called on the LAST hop —
- *  intermediate 3xx bodies are canceled, not read. */
+ *  intermediate 3xx bodies are canceled, not read. A streaming leg
+ *  surfaces the head to the observer BEFORE the read (so status +
+ *  headers render while the body streams) and rides its chunks through
+ *  the capped read; a mid-body abort or connection failure then
+ *  materializes the partial body with `streamEndedEarly` instead of
+ *  throwing — once the head is in, arrived bytes are never discarded. */
 async function finalizeResponse(
   response: HopResponse,
   request: TransportRequest,
   finalUrl: string,
   deadline: Deadline,
   authorizationForwarded: boolean,
-  jarActivity?: JarActivity,
+  jarActivity: JarActivity | undefined,
+  streaming: StreamingLeg | null,
 ): Promise<TransportResponse> {
   const headers: TransportHeader[] = [];
   response.headers.forEach((value, key) => {
     headers.push({ key, value });
   });
+  streaming?.observer.onHead({
+    status: response.status,
+    statusText: response.statusText,
+    url: response.url || finalUrl,
+    headers,
+  });
   let read: Awaited<ReturnType<typeof readCappedBody>>;
   try {
-    read = await readCappedBody(response, request.maxBodyBytes);
+    read = await readCappedBody(
+      response,
+      request.maxBodyBytes,
+      streaming !== null
+        ? { onChunk: (bytes, totalBytes) => streaming.observer.onChunk(bytes, totalBytes), deadline }
+        : undefined,
+    );
   } catch (err) {
     if (deadline?.expired()) throw timeoutError(request.timeoutMs);
     throw err;
@@ -1029,6 +1071,7 @@ async function finalizeResponse(
     ...(read.bodyEncoding ? { bodyEncoding: read.bodyEncoding } : {}),
     bodyBytes: read.bodyBytes,
     bodyTruncated: read.bodyTruncated,
+    ...(read.endedEarly !== undefined ? { streamEndedEarly: read.endedEarly } : {}),
     ...(authorizationForwarded ? { authorizationForwarded: true } : {}),
     ...(jarActivity?.cookieHeaderAttached !== undefined
       ? { cookieHeaderAttached: jarActivity.cookieHeaderAttached }
@@ -1039,19 +1082,36 @@ async function finalizeResponse(
   };
 }
 
-/** Arm an abort deadline for the round-trip; `null` when no timeout is set. */
-function startDeadline(timeoutMs: number | undefined) {
-  if (timeoutMs === undefined) return null;
+/**
+ * Arm an abort deadline for the round-trip; `null` when neither trigger
+ * exists. A streaming leg's external signal (the executor's Stop hook)
+ * merges onto the same controller so one signal spans connection and
+ * body read for both triggers — `expired()` still names only the
+ * timeout, which is how callers tell the two apart.
+ */
+function startDeadline(timeoutMs: number | undefined, externalSignal?: AbortSignal) {
+  if (timeoutMs === undefined && externalSignal === undefined) return null;
   const controller = new AbortController();
   let expired = false;
-  const timer = setTimeout(() => {
-    expired = true;
-    controller.abort();
-  }, timeoutMs);
+  const timer =
+    timeoutMs === undefined
+      ? null
+      : setTimeout(() => {
+          expired = true;
+          controller.abort();
+        }, timeoutMs);
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal !== undefined) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener('abort', onExternalAbort);
+  }
   return {
     signal: controller.signal,
     expired: () => expired,
-    clear: () => clearTimeout(timer),
+    clear: () => {
+      if (timer !== null) clearTimeout(timer);
+      externalSignal?.removeEventListener('abort', onExternalAbort);
+    },
   };
 }
 
@@ -1068,10 +1128,25 @@ function timeoutError(timeoutMs: number | undefined): TransportError {
  * process before any post-read cap could apply. We accumulate at most the
  * cap plus one in-flight chunk, then `cancel()` the stream.
  */
+/** The streaming leg's slice of the capped read — per-chunk surfacing
+ *  plus the merged deadline signal that classifies a read rejection
+ *  (signal fired = aborted; anything else = mid-body failure). */
+interface CappedReadStreaming {
+  onChunk(bytes: Uint8Array, totalBytes: number): void;
+  deadline: Deadline;
+}
+
 async function readCappedBody(
   response: HopResponse,
   maxBodyBytes: number,
-): Promise<{ body: string; bodyEncoding?: 'base64'; bodyBytes: number; bodyTruncated: boolean }> {
+  streaming?: CappedReadStreaming,
+): Promise<{
+  body: string;
+  bodyEncoding?: 'base64';
+  bodyBytes: number;
+  bodyTruncated: boolean;
+  endedEarly?: { reason: 'aborted' | 'error'; message?: string };
+}> {
   const stream = response.body;
   if (!stream) {
     // No readable stream (empty body / HEAD) — nothing to bound.
@@ -1081,23 +1156,59 @@ async function readCappedBody(
   const parts: Uint8Array[] = [];
   let bytesRead = 0;
   let truncated = false;
+  let endedEarly: { reason: 'aborted' | 'error'; message?: string } | undefined;
   try {
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      let result: Awaited<ReturnType<typeof reader.read>>;
+      try {
+        result = await reader.read();
+      } catch (err) {
+        // Buffered reads keep today's contract — the rejection
+        // propagates (deadline expiry maps to the timeout error at the
+        // caller). A streaming read materializes the partial instead:
+        // an abort (Stop or deadline, told apart by the executor) and a
+        // mid-body connection failure both settle with what arrived.
+        if (streaming === undefined) throw err;
+        const aborted = streaming.deadline?.signal.aborted === true;
+        endedEarly = aborted
+          ? { reason: 'aborted' }
+          : { reason: 'error', message: err instanceof Error ? err.message : String(err) };
+        break;
+      }
+      if (result.done) break;
+      const value = result.value;
       if (!value || value.byteLength === 0) continue;
+      const before = bytesRead;
       parts.push(value);
       bytesRead += value.byteLength;
+      if (streaming !== undefined) {
+        // Live chunks carry only cap-bounded bytes, so the tail never
+        // shows bytes the materialized body won't keep.
+        const allowed = Math.min(value.byteLength, Math.max(0, maxBodyBytes - before));
+        if (allowed > 0) {
+          streaming.onChunk(
+            allowed === value.byteLength ? value : value.subarray(0, allowed),
+            Math.min(bytesRead, maxBodyBytes),
+          );
+        }
+      }
       if (bytesRead > maxBodyBytes) {
         truncated = true;
-        await reader.cancel();
+        try {
+          await reader.cancel();
+        } catch {
+          // Upstream already failed — the retained bytes still stand.
+        }
         break;
       }
     }
   } finally {
     reader.releaseLock();
   }
-  return decodeCapped(parts, bytesRead, maxBodyBytes, truncated);
+  return {
+    ...decodeCapped(parts, bytesRead, maxBodyBytes, truncated),
+    ...(endedEarly !== undefined ? { endedEarly } : {}),
+  };
 }
 
 /** Concatenate the retained chunks, cap to `maxBodyBytes`, and

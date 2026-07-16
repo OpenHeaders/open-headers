@@ -17,7 +17,7 @@
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
 import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
-import { errorSnapshot, executeOverTransport } from './execute';
+import { type ExecuteStreamOptions, errorSnapshot, executeOverTransport } from './execute';
 import { type OAuthRefreshFn, type ResolvedRequest, resolveRequest, UnresolvedRequestError } from './resolve-request';
 import { collectScriptChain, runPostResponseChain, runPreRequestChain } from './script-chain';
 import {
@@ -60,6 +60,13 @@ export interface RunStepRequestOptions {
    * a failed assertion fails the run (see `script-hooks.ts`).
    */
   scriptRunner?: StepScriptRunner;
+  /**
+   * Streaming capture mode — set ONLY by the node hosts' interactive
+   * `executeRequest` handler (the scriptless Send rides this runner).
+   * Chain steps and MCP sends never set it, keeping their buffered
+   * contract untouched. See {@link ExecuteStreamOptions}.
+   */
+  stream?: ExecuteStreamOptions;
 }
 
 export async function runStepRequest(
@@ -128,7 +135,10 @@ export async function runStepRequest(
     }
   }
 
-  const wireResult = await executeOverTransport(finalResolved, options.transport, { timeoutMs: options.timeoutMs });
+  const wireResult = await executeOverTransport(finalResolved, options.transport, {
+    timeoutMs: options.timeoutMs,
+    ...(options.stream !== undefined ? { stream: options.stream } : {}),
+  });
 
   // ── TOTP cooldown record ──
   // Only on a successful round-trip — a fetch that never reached the wire

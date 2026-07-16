@@ -282,6 +282,18 @@ export interface TransportResponse {
   /** True when the upstream body exceeded `maxBodyBytes` and the read was
    *  aborted — i.e. `body` is the capped prefix, not the whole response. */
   bodyTruncated: boolean;
+  /**
+   * Present ONLY on a {@link RequestTransport.sendStreaming} response
+   * whose body read ended before the wire did: the caller's abort
+   * signal fired mid-body (`'aborted'` — the executor knows whether
+   * that was a user Stop or its deadline) or the connection failed
+   * mid-body (`'error'`, with the failure text). Either way `body`
+   * carries the partial bytes that arrived — a streamed read never
+   * discards them into a thrown error once the head is in. Absent on
+   * every buffered `send` response and on a streamed read that ended
+   * naturally or at the byte cap.
+   */
+  streamEndedEarly?: { reason: 'aborted' | 'error'; message?: string };
   /** Bytes retained in `body` (== `maxBodyBytes` when `bodyTruncated`). */
   bodyBytes: number;
   /**
@@ -326,6 +338,49 @@ export class TransportError extends Error {
   }
 }
 
+/** Response head of an in-flight streamed send, pushed to the observer
+ *  as soon as the FINAL hop's head arrives (redirect hops stay silent). */
+export interface TransportStreamHead {
+  status: number;
+  statusText: string;
+  /** Final URL after any redirects. */
+  url: string;
+  headers: ReadonlyArray<TransportHeader>;
+}
+
+/**
+ * In-process observer for {@link RequestTransport.sendStreaming} — a
+ * host capability, never a wire shape. Callbacks fire per network
+ * chunk; batching for any broadcast is the CALLER's concern (the
+ * executor's flush-batched emitter), so the transport stays dumb.
+ */
+export interface TransportStreamObserver {
+  onHead(head: TransportStreamHead): void;
+  /**
+   * One cap-bounded slice of body bytes, in arrival order.
+   * `totalBytes` is the cap-bounded running total — the tail never
+   * shows bytes the snapshot won't keep.
+   */
+  onChunk(bytes: Uint8Array, totalBytes: number): void;
+}
+
 export interface RequestTransport {
   send(request: TransportRequest): Promise<TransportResponse>;
+  /**
+   * OPTIONAL streaming twin of `send` for the interactive Send: same
+   * request in, same materialized {@link TransportResponse} out (capped,
+   * downstream mapping unchanged) — but the response head and body
+   * chunks additionally surface live through `observer` as they arrive,
+   * and `signal` aborts the whole exchange (the Stop button). An abort
+   * or connection failure AFTER the head arrived resolves with the
+   * partial body and {@link TransportResponse.streamEndedEarly} instead
+   * of throwing; before the head it throws a {@link TransportError}
+   * exactly like `send`. Hosts without a streamable network stack omit
+   * the method and interactive sends fall back to buffered `send`.
+   */
+  sendStreaming?(
+    request: TransportRequest,
+    observer: TransportStreamObserver,
+    signal?: AbortSignal,
+  ): Promise<TransportResponse>;
 }

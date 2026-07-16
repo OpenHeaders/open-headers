@@ -1,8 +1,10 @@
 /**
  * Workbench request channels over the web tab's single wire —
- * `executeRequest` and the cookie-jar channels travel to the serving
- * daemon and answer from its spine (the tab oracle has no network
- * transport and no jar).
+ * `executeRequest` (and its `abortRequestSend` stop counterpart) and
+ * the cookie-jar channels travel to the serving daemon and answer from
+ * its spine (the tab oracle has no network transport and no jar). The
+ * daemon's live `requestStreamEvent` frames for a forwarded send come
+ * back down the same wire — `wire-request-stream.ts` claims them.
  *
  * The daemon resolves an unstated workspace to ITS runtime-Active one
  * and an unstated environment to ITS active pointer — both host-local
@@ -34,7 +36,13 @@ const EXECUTE_DEFAULT_TIMEOUT_MS = 120_000;
 /** Slack past the request's own timeout for daemon-side resolve + transit. */
 const EXECUTE_TIMEOUT_MARGIN_MS = 15_000;
 
-const FORWARDED_CHANNELS = ['executeRequest', 'getCookieJarSummary', 'clearCookieJar', 'deleteCookieJarEntry'] as const;
+const FORWARDED_CHANNELS = [
+  'executeRequest',
+  'abortRequestSend',
+  'getCookieJarSummary',
+  'clearCookieJar',
+  'deleteCookieJarEntry',
+] as const;
 
 registerWireRpcChannels(FORWARDED_CHANNELS);
 
