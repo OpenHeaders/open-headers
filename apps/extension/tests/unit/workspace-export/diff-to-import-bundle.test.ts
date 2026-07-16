@@ -104,6 +104,45 @@ describe('diffResultToImportBundle', () => {
     ]);
   });
 
+  it('projects spec entries with collision lookup and strategy mapping', () => {
+    const incoming = { uid: 'spc-a', name: 'OpenHeaders API', path: 'specs/openheaders-api-spc-a' };
+    const local = { uid: 'spc-a', name: 'OpenHeaders API (local)', path: 'specs/openheaders-api-spc-a' };
+    const { bundle, workspace } = diffResultToImportBundle({
+      ...emptyDiff,
+      specs: [entry(incoming, local)] as DiffEntry<unknown>[] as DiffResult['specs'],
+    });
+    expect(bundle.entities).toHaveLength(1);
+    expect(bundle.entities[0].entityType).toBe('spec');
+    expect(workspace.findByPathOrUid(bundle.entities[0])).toBe(local);
+
+    const out = applyMergeResultsToEnvelope({
+      envelope: {
+        kind: 'workspace-export',
+        entities: { specs: [incoming] },
+      } as unknown as WorkspaceExport,
+      files: [
+        {
+          id: 'spc-a',
+          label: 'spc-a',
+          language: 'yaml',
+          group: 'spec',
+          kind: 'modify',
+          theirs: '',
+          mine: '',
+          initialResult: '',
+        },
+      ],
+      results: new Map([['spc-a', 'yaml-text']]),
+      diff: {
+        ...emptyDiff,
+        specs: [entry(incoming, local)] as DiffEntry<unknown>[] as DiffResult['specs'],
+      },
+      deserialize: vi.fn().mockReturnValue({ ...incoming, name: 'Resolved' }),
+    });
+    expect(out.strategies).toEqual({ specs: { 'spc-a': 'update' } });
+    expect((out.envelope.entities.specs as unknown as Array<{ name: string }>)[0]?.name).toBe('Resolved');
+  });
+
   it('falls back to entity.name then entity.uid when path is absent', () => {
     const noPath = { uid: 'rule-x', name: 'Header rule' };
     const noNameOrPath = { uid: 'rule-y' };

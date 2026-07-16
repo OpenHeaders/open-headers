@@ -43,4 +43,5 @@ export {
   OpenApiParseError,
   type OpenApiParseOptions,
   type OpenApiParseResult,
+  type OpenApiSpecFormat,
 } from './types';

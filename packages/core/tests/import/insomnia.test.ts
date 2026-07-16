@@ -209,6 +209,30 @@ describe('v4 api_spec resources', () => {
     const result = parseInsomnia(v4Export([WORKSPACE, specResource()]));
     expect(result.report.summary.imported).toBe(1);
   });
+
+  it('retains the parseable spec verbatim in specs[], paired to its collection', () => {
+    const result = parseInsomnia(v4Export([WORKSPACE, v4Request(), specResource()]));
+    expect(result.specs).toHaveLength(1);
+    const retained = result.specs[0]!;
+    expect(retained.name).toBe('openapi.yaml');
+    expect(retained.contents).toBe(SPEC_YAML);
+    expect(retained.format).toBe('openapi-3.0');
+    expect(result.collections[retained.collectionIndex]?.name).toBe('Openheaders Public API');
+  });
+
+  it('derives openapi-3.1 format from a 3.1 document', () => {
+    const spec31 = SPEC_YAML.replace('openapi: 3.0.3', 'openapi: 3.1.0');
+    const result = parseInsomnia(v4Export([WORKSPACE, specResource({ contents: spec31 })]));
+    expect(result.specs[0]?.format).toBe('openapi-3.1');
+  });
+
+  it('does not retain unparseable or empty specs', () => {
+    const swagger = 'swagger: "2.0"\ninfo:\n  title: Legacy\npaths: {}\n';
+    const result = parseInsomnia(
+      v4Export([WORKSPACE, specResource({ contents: swagger }), specResource({ _id: 'spc_2', contents: '  ' })]),
+    );
+    expect(result.specs).toEqual([]);
+  });
 });
 
 // ── Request mapping ────────────────────────────────────────────────

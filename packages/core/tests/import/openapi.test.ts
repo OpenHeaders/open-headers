@@ -50,6 +50,12 @@ describe('parseOpenApi — entry gate', () => {
     expect(result.requests).toHaveLength(1);
   });
 
+  it('derives the spec format from the version field', () => {
+    expect(parseOpenApi(doc()).specFormat).toBe('openapi-3.0');
+    expect(parseOpenApi(doc({ openapi: '3.1.0' })).specFormat).toBe('openapi-3.1');
+    expect(parseOpenApi(doc({ openapi: '3.2.0' })).specFormat).toBe('openapi-3.1');
+  });
+
   it('parses YAML documents', () => {
     const yaml = [
       'openapi: 3.0.3',

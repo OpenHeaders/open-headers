@@ -106,10 +106,19 @@ export interface OpenApiParseOptions {
   responseExamples?: boolean;
 }
 
+/**
+ * Spec-entity format value for a parsed document — the `Spec.format`
+ * vocabulary subset an OpenAPI 3.x source can carry. 3.0.x maps to
+ * `openapi-3.0`; every later 3.x minor reads as `openapi-3.1`.
+ */
+export type OpenApiSpecFormat = 'openapi-3.0' | 'openapi-3.1';
+
 /** One OpenAPI document — maps onto one destination collection. */
 export interface OpenApiParseResult {
   collectionName: string;
   collectionDescription: string;
+  /** Format vocabulary value derived from the `openapi` version field. */
+  specFormat: OpenApiSpecFormat;
   collectionVariables: OpenApiCollectionVariable[];
   /** Document-level `security` mapped onto the collection's ancestor
    *  auth slot — requests without their own security import as

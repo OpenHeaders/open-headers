@@ -93,6 +93,7 @@ export async function emitPlanAsLocalMutations(args: EmitPlanArgs): Promise<bool
         environments: target.environments ?? [],
         liveWorkflows: target.liveWorkflows ?? [],
         liveVariables: target.liveVariables ?? [],
+        specs: target.specs ?? [],
         ruleCollections: target.collections ?? [],
         requestCollections: target.requestCollections ?? [],
         templateCollections: target.templateCollections ?? [],

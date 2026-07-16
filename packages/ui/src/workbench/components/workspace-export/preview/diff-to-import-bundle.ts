@@ -22,8 +22,8 @@ import type {
   StrategyMap,
   WorkspaceExport,
 } from '@openheaders/core/workspace-export';
-import type { MergeFile } from '@openheaders/ui/shared/merge-editor';
 import type { ImportBundle, ImportBundleEntity, ImportWorkspaceSnapshot } from '@openheaders/ui/shared/conflicts';
+import type { MergeFile } from '@openheaders/ui/shared/merge-editor';
 
 /** Mirrors `SerializableEntityKind` from `@openheaders/core/workspace-export`.
  *  Both bucket entities and singletons share the union — the merge
@@ -37,6 +37,7 @@ export type ImportEntityType =
   | 'environment'
   | 'liveWorkflow'
   | 'liveVariable'
+  | 'spec'
   | 'workspaceVars'
   | 'vault';
 
@@ -93,10 +94,7 @@ function addSingleton(
   if (hasTarget) targets.set(uid, singleton.target);
 }
 
-export function diffResultToImportBundle(
-  diff: DiffResult,
-  envelope?: WorkspaceExport,
-): DiffToImportBundleResult {
+export function diffResultToImportBundle(diff: DiffResult, envelope?: WorkspaceExport): DiffToImportBundleResult {
   const entries: ImportBundleEntity[] = [];
   const targets = new Map<string, unknown>();
 
@@ -108,6 +106,7 @@ export function diffResultToImportBundle(
   addBucket('environment', diff.environments, entries, targets);
   addBucket('liveWorkflow', diff.liveWorkflows, entries, targets);
   addBucket('liveVariable', diff.liveVariables, entries, targets);
+  addBucket('spec', diff.specs, entries, targets);
 
   if (envelope) {
     addSingleton(
@@ -147,6 +146,7 @@ const BUCKET_BY_TYPE: Record<
   environment: 'environments',
   liveWorkflow: 'liveWorkflows',
   liveVariable: 'liveVariables',
+  spec: 'specs',
 };
 
 function collisionStateOf(diff: DiffResult, entityType: ImportEntityType, uid: string): CollisionState | undefined {

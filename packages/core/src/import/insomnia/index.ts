@@ -31,9 +31,12 @@
  *   • Bodies — json / xml / graphql (JSON envelope unwrapped) /
  *     urlencoded / multipart (file parts → placeholder FileRefs) /
  *     octet-stream (one-part multipart placeholder) / plain text.
- *   • Cookie jars, API specs, ws/grpc requests and other resource
- *     types drop with per-type aggregate report entries — never
- *     silently.
+ *   • API specs (design documents) convert to collections through the
+ *     OpenAPI importer AND retain their verbatim source in `specs[]`
+ *     so the landing surface mints the spec entity beside the
+ *     collection; unparseable specs drop with the parser's error.
+ *   • Cookie jars, ws/grpc requests and other resource types drop
+ *     with per-type aggregate report entries — never silently.
  */
 
 export { flattenEnvironmentData } from './environment';
@@ -45,6 +48,7 @@ export {
   type InsomniaParsedEnvironmentVariable,
   type InsomniaParsedFolder,
   type InsomniaParsedRequest,
+  type InsomniaParsedSpec,
   InsomniaParseError,
   type InsomniaParseResult,
 } from './types';

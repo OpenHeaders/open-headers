@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as YAML from 'yaml';
-import { parseSpec, serializeSpec } from '../../src/codec/yaml';
+import { parseSpec, parseSpecInline, serializeSpec } from '../../src/codec/yaml';
 import { freshDocument, mergePatch } from '../../src/schemas/document';
+import { serializeEntityYaml } from '../../src/workspace-export';
 import type { Spec } from '../../src/types';
 
 const ROOT_CONTENT = [
@@ -95,5 +96,19 @@ describe('parseSpec', () => {
     const out = serializeSpec(freshDocument(spec({ description: 'ordered' })));
     const keys = Object.keys(YAML.parse(out.specYaml) as Record<string, unknown>);
     expect(keys).toEqual(['schemaVersion', 'uid', 'name', 'description', 'format', 'rootFileUid', 'files']);
+  });
+});
+
+describe('parseSpecInline', () => {
+  it('round-trips the entity-yaml inline shape (merge-editor contract)', () => {
+    const entity = spec({ description: 'inline round-trip' });
+    const inline = serializeEntityYaml('spec', entity);
+    expect(inline).toContain('openapi:'); // content rides in-row, unlike the manifest
+    const parsed = parseSpecInline(inline, { path: entity.path });
+    expect(parsed.value).toEqual(entity);
+  });
+
+  it('throws on a document that fails the Spec schema', () => {
+    expect(() => parseSpecInline('name: broken\n', { path: 'specs/broken' })).toThrow();
   });
 });

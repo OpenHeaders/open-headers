@@ -42,11 +42,11 @@ import {
   keyBetween,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
   type MutatorIntent,
+  mintBatch,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
   REQUEST_ENTITY_TYPE,
@@ -55,15 +55,17 @@ import {
   type RequestFolderParentRef,
   RULE_ENTITY_TYPE,
   type SideEffectIntent,
+  SPEC_ENTITY_TYPE,
+  SPEC_FILES_PATH,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_VARS_PATH,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ENTITY_TYPE,
   type TemplateFolderParentRef,
+  VAULT_ENTITY_TYPE,
   VAULT_ID,
   VAULT_PATH,
-  VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
   WORKSPACE_VARIABLES_PATH,
@@ -76,33 +78,35 @@ import type {
   LiveWorkflow,
   Request,
   Rule,
+  Spec,
   Template,
+  Variable,
   Vault,
   VaultSecret,
-  Variable,
   WorkspaceVariables,
 } from '@openheaders/core/types';
 import type { ImportPlan, LocalFolder, PlanEntry } from '@openheaders/core/workspace-export';
+import { seedCollection } from '../projections/collection-projection';
+import { seedEnvironment } from '../projections/env-projection';
+import { seedRequestCollection } from '../projections/request-collection-projection';
+import { seedSpec } from '../projections/spec-projection';
+import { seedTemplateCollection } from '../projections/template-collection-projection';
+import { seedVault } from '../projections/vault-projection';
+import { seedWorkspaceVariables } from '../projections/workspace-variables-projection';
 import { buildCreateFolderBatch } from './folder-mutations';
+import { buildAddLiveVariableBatch, buildUpdateLiveVariableBatch } from './live-variable-mutations';
+import { buildAddLiveWorkflowBatch, buildUpdateLiveWorkflowBatch } from './live-workflow-mutations';
 import { buildCreateRequestFolderBatch } from './request-folder-mutations';
-import { buildCreateTemplateFolderBatch } from './template-folder-mutations';
 import {
   buildAddBatch as buildAddRequestBatch,
   buildUpdateBatch as buildUpdateRequestBatch,
 } from './request-mutations';
 import { buildAddBatch as buildAddRuleBatch, buildUpdateBatch as buildUpdateRuleBatch } from './rule-mutations';
+import { buildCreateTemplateFolderBatch } from './template-folder-mutations';
 import {
   buildAddBatch as buildAddTemplateBatch,
   buildUpdateBatch as buildUpdateTemplateBatch,
 } from './template-mutations';
-import { buildAddLiveVariableBatch, buildUpdateLiveVariableBatch } from './live-variable-mutations';
-import { buildAddLiveWorkflowBatch, buildUpdateLiveWorkflowBatch } from './live-workflow-mutations';
-import { seedCollection } from '../projections/collection-projection';
-import { seedEnvironment } from '../projections/env-projection';
-import { seedRequestCollection } from '../projections/request-collection-projection';
-import { seedTemplateCollection } from '../projections/template-collection-projection';
-import { seedVault } from '../projections/vault-projection';
-import { seedWorkspaceVariables } from '../projections/workspace-variables-projection';
 
 /** One applicable unit: a minted batch plus its derived side effects. */
 export interface EmissionBatch {
@@ -138,6 +142,7 @@ export interface ImportEmissionPrev {
   environments: Environment[];
   liveWorkflows: LiveWorkflow[];
   liveVariables: LiveVariable[];
+  specs: Spec[];
   ruleCollections: Collection[];
   requestCollections: Collection[];
   templateCollections: Collection[];
@@ -168,9 +173,33 @@ export function synthesizeImportEmission(
   const { plan } = slices;
 
   // ── Collections (parents first: folder creates addToSet their slots) ──
-  emitCollections(out, slices.ruleCollections, prev.ruleCollections, COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH, seedCollection, deps);
-  emitCollections(out, slices.requestCollections, prev.requestCollections, REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_COLLECTION_VARS_PATH, seedRequestCollection, deps);
-  emitCollections(out, slices.templateCollections, prev.templateCollections, TEMPLATE_COLLECTION_ENTITY_TYPE, TEMPLATE_COLLECTION_VARS_PATH, seedTemplateCollection, deps);
+  emitCollections(
+    out,
+    slices.ruleCollections,
+    prev.ruleCollections,
+    COLLECTION_ENTITY_TYPE,
+    COLLECTION_VARS_PATH,
+    seedCollection,
+    deps,
+  );
+  emitCollections(
+    out,
+    slices.requestCollections,
+    prev.requestCollections,
+    REQUEST_COLLECTION_ENTITY_TYPE,
+    REQUEST_COLLECTION_VARS_PATH,
+    seedRequestCollection,
+    deps,
+  );
+  emitCollections(
+    out,
+    slices.templateCollections,
+    prev.templateCollections,
+    TEMPLATE_COLLECTION_ENTITY_TYPE,
+    TEMPLATE_COLLECTION_VARS_PATH,
+    seedTemplateCollection,
+    deps,
+  );
 
   // ── Folders (depth order; parent slot rides the create batch) ──
   emitFolders<FolderParentRef>(out, {
@@ -251,6 +280,9 @@ export function synthesizeImportEmission(
   // ── Environments (name scalar + uid-keyed variables set) ──
   emitEnvironments(out, plan.environments, prev.environments, deps);
 
+  // ── Specs (scalars + uid-keyed files set) ──
+  emitSpecs(out, plan.specs, prev.specs, deps);
+
   // ── Live workflows / variables (flat scalars) ──
   emitLeaves(out, plan.liveWorkflows, prev.liveWorkflows, 'live-workflow', {
     create: (wf, ctx) => buildAddLiveWorkflowBatch(wf, ctx),
@@ -268,7 +300,12 @@ export function synthesizeImportEmission(
   });
 
   // ── Singletons ──
-  emitVariablesSingleton(out, plan.workspaceVars.action !== 'skip' ? plan.workspaceVars.variables : null, prev.workspaceVars, deps);
+  emitVariablesSingleton(
+    out,
+    plan.workspaceVars.action !== 'skip' ? plan.workspaceVars.variables : null,
+    prev.workspaceVars,
+    deps,
+  );
   emitVaultSingleton(out, plan.vault.action !== 'skip' ? plan.vault.secrets : null, prev.vault, deps);
 
   return out.filter((e) => e.batch.mutations.length > 0);
@@ -452,10 +489,7 @@ interface FolderEmissionArgs<P extends { type: string; uid: string }> {
   deps: ImportEmissionDeps;
 }
 
-function emitFolders<P extends { type: string; uid: string }>(
-  out: EmissionBatch[],
-  args: FolderEmissionArgs<P>,
-): void {
+function emitFolders<P extends { type: string; uid: string }>(out: EmissionBatch[], args: FolderEmissionArgs<P>): void {
   const prevByUid = byUid(args.prevFolders);
 
   // Parent lookup by path — target collections/folders plus the plan's
@@ -584,6 +618,52 @@ function emitEnvironments(
       );
     }
     if (bodies.length > 0) out.push(bodiesBatch(`environment:${uid} (update)`, bodies, deps.nextCtx()));
+  }
+}
+
+// ── Specs ──────────────────────────────────────────────────────────
+
+const SPEC_SKIP = new Set(['uid', 'path', 'files']);
+
+function emitSpecs(
+  out: EmissionBatch[],
+  entries: PlanEntry<Spec>[],
+  prevItems: readonly Spec[],
+  deps: ImportEmissionDeps,
+): void {
+  const prevByUid = byUid(prevItems);
+  for (const entry of entries) {
+    if (entry.action === 'skip') continue;
+    const uid = entry.entity.uid;
+    const prevEntity = entry.action === 'update' ? prevByUid.get(uid) : undefined;
+    if (entry.action === 'create' || !prevEntity) {
+      out.push(seedBatch(`spec:${uid} (create)`, seedSpec(entry.entity, deps.nextCtx())));
+      continue;
+    }
+    const { updates, removedKeys } = diffKeys(
+      prevEntity as unknown as Record<string, unknown>,
+      entry.entity as unknown as Record<string, unknown>,
+      SPEC_SKIP,
+    );
+    const bodies: MutationBody[] = [];
+    for (const [key, value] of Object.entries(updates)) {
+      bodies.push({ kind: 'setField', type: SPEC_ENTITY_TYPE, id: uid, path: key, value });
+    }
+    for (const key of removedKeys) {
+      bodies.push({ kind: 'unsetField', type: SPEC_ENTITY_TYPE, id: uid, path: key });
+    }
+    if (changed(prevEntity.files, entry.entity.files)) {
+      bodies.push(
+        ...synthesizeSetDiff({
+          type: SPEC_ENTITY_TYPE,
+          id: uid,
+          path: SPEC_FILES_PATH,
+          live: deps.liveSetEntries(SPEC_ENTITY_TYPE, uid, SPEC_FILES_PATH),
+          newItems: entry.entity.files,
+        }),
+      );
+    }
+    if (bodies.length > 0) out.push(bodiesBatch(`spec:${uid} (update)`, bodies, deps.nextCtx()));
   }
 }
 

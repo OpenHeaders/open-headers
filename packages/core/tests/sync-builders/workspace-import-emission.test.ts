@@ -18,7 +18,7 @@ import {
   type ImportEmissionPrev,
   synthesizeImportEmission,
 } from '../../src/sync-builders/mutations/workspace-import-emission';
-import type { Collection, Environment, HeaderRule, Rule } from '../../src/types';
+import type { Collection, Environment, HeaderRule, Rule, Spec } from '../../src/types';
 import type { ImportPlan, LocalFolder, PlanEntry } from '../../src/workspace-export';
 
 let hlcMs = 1_000;
@@ -83,6 +83,7 @@ function emptyPrev(overrides: Partial<ImportEmissionPrev> = {}): ImportEmissionP
     environments: [],
     liveWorkflows: [],
     liveVariables: [],
+    specs: [],
     ruleCollections: [],
     requestCollections: [],
     templateCollections: [],
@@ -374,6 +375,86 @@ describe('synthesizeImportEmission — environments + singletons', () => {
       slicesFor(emptyPlan({ vault: { action: 'skip', secrets: [] } })),
       emptyPrev(),
       { nextCtx, liveSetEntries: () => [] },
+    );
+    expect(batches).toHaveLength(0);
+  });
+});
+
+describe('synthesizeImportEmission — specs', () => {
+  const spec: Spec = {
+    schemaVersion: 5,
+    uid: 'spc00001',
+    path: 'specs/openheaders-api-spc00001',
+    name: 'OpenHeaders API',
+    format: 'openapi-3.1',
+    rootFileUid: 'fil00001',
+    files: [{ uid: 'fil00001', fileName: 'index.yaml', content: 'openapi: 3.1.0\ninfo:\n  title: OpenHeaders API\n' }],
+  } as Spec;
+
+  it('spec create emits a seed batch that materializes files as set members', () => {
+    const client = new InMemoryDocumentStore();
+    const batches = synthesizeImportEmission(
+      slicesFor(emptyPlan({ specs: [{ action: 'create', entity: spec }] })),
+      emptyPrev(),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
+    );
+    expect(batches).toHaveLength(1);
+    expect(batches[0].batch.mutations[0].body.kind).toBe('create');
+
+    const peer = new InMemoryDocumentStore();
+    applyTo(client, batches);
+    applyTo(peer, batches);
+    const data = peer.materializeOne('spec', 'spc00001')?.data as Spec;
+    expect(data.name).toBe('OpenHeaders API');
+    expect(data.format).toBe('openapi-3.1');
+    const files = peer.liveOrderedSetItems('spec', 'spc00001', 'files');
+    expect(files.map((f) => f.itemId)).toEqual(['fil00001']);
+  });
+
+  it('spec update emits scalar diffs + a uid-keyed file diff that converges without duplicates', () => {
+    const client = new InMemoryDocumentStore();
+    const seed = synthesizeImportEmission(
+      slicesFor(emptyPlan({ specs: [{ action: 'create', entity: spec }] })),
+      emptyPrev(),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
+    );
+    applyTo(client, seed);
+
+    const updated: Spec = {
+      ...spec,
+      name: 'OpenHeaders API v2',
+      files: [
+        { uid: 'fil00001', fileName: 'index.yaml', content: 'openapi: 3.1.0\ninfo:\n  title: Renamed\n' },
+        { uid: 'fil00002', fileName: 'components.yaml', content: 'components: {}\n' },
+      ],
+    } as Spec;
+    const batches = synthesizeImportEmission(
+      slicesFor(emptyPlan({ specs: [{ action: 'update', targetUid: 'spc00001', entity: updated }] })),
+      emptyPrev({ specs: [spec] }),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
+    );
+    applyTo(client, batches);
+
+    const data = client.materializeOne('spec', 'spc00001')?.data as Spec;
+    expect(data.name).toBe('OpenHeaders API v2');
+    const files = client.liveOrderedSetItems('spec', 'spc00001', 'files');
+    expect(files.map((f) => f.itemId).sort()).toEqual(['fil00001', 'fil00002']);
+    const root = files.find((f) => f.itemId === 'fil00001')?.item as Spec['files'][number];
+    expect(root.content).toContain('Renamed');
+  });
+
+  it('an unchanged spec update collision emits nothing', () => {
+    const client = new InMemoryDocumentStore();
+    const seed = synthesizeImportEmission(
+      slicesFor(emptyPlan({ specs: [{ action: 'create', entity: spec }] })),
+      emptyPrev(),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
+    );
+    applyTo(client, seed);
+    const batches = synthesizeImportEmission(
+      slicesFor(emptyPlan({ specs: [{ action: 'update', targetUid: 'spc00001', entity: spec }] })),
+      emptyPrev({ specs: [spec] }),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
     );
     expect(batches).toHaveLength(0);
   });

@@ -156,19 +156,6 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         materializeIfAbsent: targetMode === 'new',
       });
 
-      if (emitted) {
-        // The emission path has no spec leg yet — spec import execution
-        // lands with the Phase G import legs. Surface the drop honestly
-        // rather than silently narrowing coverage.
-        const droppedSpecs = plan.specs.filter((e) => e.action !== 'skip').length;
-        if (droppedSpecs > 0) {
-          logger.warn(
-            'WorkspaceImportOrchestrator',
-            `emission: ${droppedSpecs} spec(s) in the plan were not emitted (spec emission leg pending)`,
-          );
-        }
-      }
-
       if (!emitted) {
         // Demux flattened collection / folder arrays back into the three
         // per-tree storage keys via the path prefix.

@@ -1,6 +1,6 @@
 import type { AuthConfig } from '../../types/request';
 import type { CurlRequest } from '../curl';
-import type { OpenApiCollectionVariable } from '../openapi/types';
+import type { OpenApiCollectionVariable, OpenApiSpecFormat } from '../openapi/types';
 import type { ImportReport } from '../report';
 
 // ── Types we read ──────────────────────────────────────────────────
@@ -107,9 +107,26 @@ export interface InsomniaParsedCollection {
   auth?: AuthConfig;
 }
 
+/**
+ * One retained embedded API spec — the design document's verbatim
+ * source paired with the collection it generated, so the landing
+ * surface can mint the spec entity AND bind the collection's
+ * `specLink` (API Specs epic Phase G).
+ */
+export interface InsomniaParsedSpec {
+  name: string;
+  /** The `api_spec` resource's source text, verbatim. */
+  contents: string;
+  format: OpenApiSpecFormat;
+  /** Index into `collections[]` of the collection this spec generated. */
+  collectionIndex: number;
+}
+
 export interface InsomniaParseResult {
   collections: InsomniaParsedCollection[];
   environments: InsomniaParsedEnvironment[];
+  /** Importable embedded API specs, in `collections[]` pairing order. */
+  specs: InsomniaParsedSpec[];
   report: ImportReport;
 }
 

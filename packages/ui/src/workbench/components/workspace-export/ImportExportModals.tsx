@@ -14,6 +14,7 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import { applyRuleCreate, IMPORT_ATTRIBUTION_SURFACE_ID } from '@openheaders/ui/shared/sync/rule-write-client';
+import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { App as AntApp } from 'antd';
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -22,6 +23,7 @@ import ImportCurlModal from '../import/ImportCurlModal';
 import ImportHarModal from '../import/ImportHarModal';
 import ImportPostmanModal from '../import/ImportPostmanModal';
 import ImportSectionedModal, { type SectionedPreset, type SectionedSourceKind } from '../import/ImportSectionedModal';
+import { createImportedSpecSeed } from '../specs/spec-scaffold';
 import MigrateAccountPullModal from '../import/MigrateAccountPullModal';
 import MigrateToolModal from '../import/MigrateToolModal';
 import ExportModal, { type ExportModalScope } from './ExportModal';
@@ -531,6 +533,15 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           const r = await requestsApi.createRequest({ name, parentPath, seed });
           return r ? { uid: r.uid } : null;
         }}
+        createSpec={async ({ name, content, format }) => {
+          if (!editingScopeWorkspaceId) return null;
+          const result = await applySpecCreate(
+            { spec: createImportedSpecSeed(name, content, format) },
+            { workspaceId: editingScopeWorkspaceId, surfaceId: IMPORT_ATTRIBUTION_SURFACE_ID },
+          );
+          return result.ok ? { uid: result.spec.uid } : null;
+        }}
+        setCollectionSpecLink={requestsApi.setCollectionSpecLink}
         createEnvironment={async ({ name, variables }) => {
           const e = await envApi.createEnvironment(name, variables);
           return e ? { uid: e.uid } : null;

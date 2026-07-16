@@ -17,6 +17,7 @@ import type {
   OpenApiParseOptions,
   OpenApiParseResult,
   OpenApiServer,
+  OpenApiSpecFormat,
 } from './types';
 import { OpenApiParseError } from './types';
 
@@ -54,6 +55,7 @@ export function parseOpenApi(input: string, options: OpenApiParseOptions = {}): 
     throw new OpenApiParseError('Not a recognized OpenAPI document — expected an `openapi: 3.x` version field.');
   }
 
+  const specFormat: OpenApiSpecFormat = doc.openapi.startsWith('3.0') ? 'openapi-3.0' : 'openapi-3.1';
   const report = createReport('openapi', 0);
   const resolver = createRefResolver(doc);
 
@@ -111,6 +113,7 @@ export function parseOpenApi(input: string, options: OpenApiParseOptions = {}): 
   return {
     collectionName,
     collectionDescription: descriptionParts.join('\n\n'),
+    specFormat,
     collectionVariables: [...variables.values()],
     ...(collectionAuth !== undefined ? { collectionAuth } : {}),
     folders: assembly.folders,

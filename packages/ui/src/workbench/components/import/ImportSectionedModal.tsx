@@ -16,7 +16,7 @@
  * per run, identical to the curl / HAR / Postman flows.
  */
 
-import { ExperimentOutlined, FolderOutlined, ImportOutlined, TagsOutlined } from '@ant-design/icons';
+import { ExperimentOutlined, FileTextOutlined, FolderOutlined, ImportOutlined, TagsOutlined } from '@ant-design/icons';
 import {
   type BrunoFile,
   BrunoParseError,
@@ -27,6 +27,7 @@ import {
   type ImportReportDiff,
   InsomniaParseError,
   OpenApiParseError,
+  type OpenApiSpecFormat,
   PostmanBackupParseError,
   parseBruno,
   parseBrunoFiles,
@@ -38,7 +39,7 @@ import {
 import type { AuthConfig, Request, RequestHeader, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
-import { Alert, App as AntApp, Button, Divider, Input, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
+import { Alert, App as AntApp, Button, Divider, Input, Modal, Radio, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import ImportReportPanel from './ImportReportPanel';
@@ -62,10 +63,21 @@ interface SectionedPreset {
   headers: RequestHeader[];
 }
 
+/** One importable spec document — verbatim source paired (by index)
+ *  with the collection it generated, so the landing step can mint the
+ *  spec entity and bind the collection's `specLink`. */
+interface SectionedSpec {
+  name: string;
+  content: string;
+  format: OpenApiSpecFormat;
+  collectionIndex: number | null;
+}
+
 interface SectionedParse {
   collections: SectionedCollection[];
   environments: SectionedEnvironment[];
   headerPresets: SectionedPreset[];
+  specs: SectionedSpec[];
   report: ImportReport;
 }
 
@@ -80,7 +92,8 @@ const SOURCE_LABELS: Record<SectionedSourceKind, { title: string; blurb: string 
     title: 'IMPORT FROM INSOMNIA',
     blurb:
       'Import an Insomnia export (v4 JSON or v5 YAML). Workspaces become collections with their folder trees; ' +
-      'environments flatten (sub-environments merge over their base) and {{ _.var }} references rewrite to {{var}}.',
+      'environments flatten (sub-environments merge over their base) and {{ _.var }} references rewrite to {{var}}; ' +
+      'embedded API specs are kept as editable specifications linked to their generated collections.',
   },
   bruno: {
     title: 'IMPORT FROM BRUNO',
@@ -94,7 +107,8 @@ const SOURCE_LABELS: Record<SectionedSourceKind, { title: string; blurb: string 
     blurb:
       'Import an OpenAPI 3.x document (JSON or YAML). Operations become requests under {{baseUrl}}, tags become ' +
       'folders, parameters and request bodies are preserved (schema-only bodies get a placeholder scaffold), and ' +
-      'security schemes map to auth — fill in the {{clientId}}/{{clientSecret}} placeholders after importing.',
+      'security schemes map to auth — fill in the {{clientId}}/{{clientSecret}} placeholders after importing. ' +
+      'The document can also live on as an editable specification linked to the generated collection.',
   },
 };
 
@@ -103,6 +117,7 @@ function fromBrunoResult(r: BrunoParseResult): SectionedParse {
     collections: [{ name: r.collectionName, folders: r.folders, requests: r.requests }],
     environments: r.environments.map((e) => ({ name: e.name, variables: e.variables })),
     headerPresets: [],
+    specs: [],
     report: r.report,
   };
 }
@@ -127,6 +142,7 @@ function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse
           variables: e.variables,
         })),
         headerPresets: r.headerPresets,
+        specs: [],
         report: r.report,
       };
     }
@@ -142,6 +158,14 @@ function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse
         })),
         environments: r.environments.map((e) => ({ name: e.name, variables: e.variables })),
         headerPresets: [],
+        // Retained embedded design documents — each pairs (by index)
+        // with the collection the OpenAPI importer minted from it.
+        specs: r.specs.map((s) => ({
+          name: s.name,
+          content: s.contents,
+          format: s.format,
+          collectionIndex: s.collectionIndex,
+        })),
         report: r.report,
       };
     }
@@ -164,6 +188,9 @@ function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse
         ],
         environments: [],
         headerPresets: [],
+        // The document itself is importable as a spec entity — the
+        // chooser (vendor shape) decides whether this bucket lands.
+        specs: [{ name: r.collectionName, content: text, format: r.specFormat, collectionIndex: 0 }],
         report: r.report,
       };
     }
@@ -206,6 +233,15 @@ interface ImportSectionedModalProps {
     parentPath: string;
     seed: Partial<Request>;
   }) => Promise<{ uid: string } | null>;
+  /** Lands an imported document as a spec entity (API Specs Phase G).
+   *  Absent on hosts without a spec plane — importable documents then
+   *  drop from the spec leg with a report entry. */
+  createSpec?: (payload: { name: string; content: string; format: OpenApiSpecFormat }) => Promise<{
+    uid: string;
+  } | null>;
+  /** Binds a landed collection to the spec it was generated from —
+   *  the Generate Collection link contract ({specUid, sourceHash}). */
+  setCollectionSpecLink?: (collectionUid: string, link: { specUid: string; sourceHash: string }) => Promise<boolean>;
   createEnvironment: (payload: { name: string; variables: Variable[] }) => Promise<{ uid: string } | null>;
   /**
    * Materialize header presets as unpublished header rules (extension
@@ -268,6 +304,8 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   setFolderAuth,
   setCollectionVariables,
   createRequest,
+  createSpec,
+  setCollectionSpecLink,
   createEnvironment,
   createHeaderRules,
   findPreviousReport,
@@ -278,6 +316,11 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   const [collectionNames, setCollectionNames] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [diff, setDiff] = useState<ImportReportDiff | null>(null);
+  // OpenAPI chooser (vendor shape): "Specification with a Collection"
+  // (default — the document lives on as a spec entity) vs "Collection"
+  // (convert-only). Other sources have no chooser: Insomnia's embedded
+  // specs always retain; the rest carry no documents.
+  const [includeSpec, setIncludeSpec] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -290,6 +333,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
     setCollectionNames(next.kind === 'parsed' ? next.result.collections.map((c) => c.name) : []);
     setBusy(false);
     setDiff(null);
+    setIncludeSpec(true);
   }, [open, sourceKind, initialText, initialFiles]);
 
   // Re-import-diff lookup on every parse — same contract as the other
@@ -355,6 +399,53 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
       );
       const { collectionsImported, requestsImported } = landed;
 
+      // 1.5 Spec entities (API Specs Phase G): the OpenAPI chooser's
+      //     "Specification with a Collection" and Insomnia's retained
+      //     `api_spec` documents land verbatim, then bind their
+      //     generated collection's specLink — born in sync (the hash
+      //     is over the exact content the entity stores).
+      let specsImported = 0;
+      const specsToLand = sourceKind === 'openapi' && !includeSpec ? [] : result.specs;
+      if (specsToLand.length > 0 && !createSpec) {
+        recordDrop(report, {
+          path: 'specs',
+          reason: `${specsToLand.length} specification${specsToLand.length === 1 ? '' : 's'} not retained — this surface has no spec plane.`,
+          tracking: 'PERMANENT: spec plane availability',
+        });
+      }
+      if (createSpec) {
+        for (let i = 0; i < specsToLand.length; i++) {
+          const spec = specsToLand[i];
+          if (!spec) continue;
+          const created = await createSpec({ name: spec.name, content: spec.content, format: spec.format });
+          if (!created) {
+            recordDrop(report, {
+              path: `specs[${i}]`,
+              reason: `Failed to create specification "${spec.name}" — the document was not retained.`,
+              tracking: 'PERMANENT: write-path failure',
+            });
+            continue;
+          }
+          specsImported += 1;
+          const collectionUid =
+            spec.collectionIndex !== null ? (landed.collectionUids[spec.collectionIndex] ?? null) : null;
+          if (collectionUid !== null && setCollectionSpecLink) {
+            const specSourceHash = await hashImportSource(spec.content);
+            const linked = await setCollectionSpecLink(collectionUid, {
+              specUid: created.uid,
+              sourceHash: specSourceHash,
+            });
+            if (!linked) {
+              recordDrop(report, {
+                path: `specs[${i}].specLink`,
+                reason: `The collection generated from "${spec.name}" could not record its spec link — it will not appear under the spec's Collections.`,
+                tracking: 'PERMANENT: write-path failure',
+              });
+            }
+          }
+        }
+      }
+
       // 2. Environments.
       let environmentsImported = 0;
       for (const env of result.environments) {
@@ -404,6 +495,9 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
       if (requestsImported > 0) {
         summaryParts.push(`${requestsImported} request${requestsImported === 1 ? '' : 's'}`);
       }
+      if (specsImported > 0) {
+        summaryParts.push(`${specsImported} specification${specsImported === 1 ? '' : 's'}`);
+      }
       if (environmentsImported > 0) {
         summaryParts.push(`${environmentsImported} environment${environmentsImported === 1 ? '' : 's'}`);
       }
@@ -422,6 +516,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
     stage,
     sourceKind,
     collectionNames,
+    includeSpec,
     createCollection,
     createFolder,
     setCollectionScripts,
@@ -430,6 +525,8 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
     setFolderAuth,
     setCollectionVariables,
     createRequest,
+    createSpec,
+    setCollectionSpecLink,
     createEnvironment,
     createHeaderRules,
     onImported,
@@ -510,6 +607,45 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
       {stage.kind === 'parsed' && (
         <>
           {diff?.hasChanges && <ReimportDiffPanel diff={diff} />}
+
+          {sourceKind === 'openapi' && createSpec !== undefined && stage.result.specs.length > 0 && (
+            <SectionBox title="IMPORT AS" token={token}>
+              <Radio.Group
+                value={includeSpec ? 'spec-collection' : 'collection'}
+                onChange={(e) => setIncludeSpec(e.target.value === 'spec-collection')}
+                disabled={busy}
+              >
+                <Space direction="vertical" size={2}>
+                  <Radio value="spec-collection" style={{ fontSize: 12 }}>
+                    Specification with a Collection
+                  </Radio>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginLeft: 24 }}>
+                    The document lives on as an editable spec, linked to the generated collection.
+                  </Text>
+                  <Radio value="collection" style={{ fontSize: 12 }}>
+                    Collection
+                  </Radio>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginLeft: 24 }}>
+                    Convert only — the document itself is not kept.
+                  </Text>
+                </Space>
+              </Radio.Group>
+            </SectionBox>
+          )}
+
+          {createSpec !== undefined &&
+            (sourceKind !== 'openapi' || includeSpec) &&
+            stage.result.specs.length > 0 && (
+              <SectionBox title={`SPECIFICATIONS · ${stage.result.specs.length}`} token={token}>
+                <Space size={6} wrap>
+                  {stage.result.specs.map((s, i) => (
+                    <Tag key={i} icon={<FileTextOutlined />}>
+                      {s.name} · {s.format === 'openapi-3.0' ? 'OpenAPI 3.0' : 'OpenAPI 3.1'}
+                    </Tag>
+                  ))}
+                </Space>
+              </SectionBox>
+            )}
 
           {stage.result.collections.length > 0 && (
             <SectionBox title={`COLLECTIONS · ${stage.result.collections.length}`} token={token}>

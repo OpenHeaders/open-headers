@@ -116,6 +116,7 @@ export {
   type InsomniaParsedEnvironmentVariable,
   type InsomniaParsedFolder,
   type InsomniaParsedRequest,
+  type InsomniaParsedSpec,
   InsomniaParseError,
   type InsomniaParseResult,
   parseInsomnia,
@@ -142,6 +143,7 @@ export {
   OpenApiParseError,
   type OpenApiParseOptions,
   type OpenApiParseResult,
+  type OpenApiSpecFormat,
   parseOpenApi,
   SCHEMA_ONLY_RESPONSES_DROP_PATH,
 } from './openapi';

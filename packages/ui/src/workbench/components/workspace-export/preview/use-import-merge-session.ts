@@ -15,6 +15,7 @@ import {
   parseLiveWorkflow,
   parseRequest,
   parseRule,
+  parseSpecInline,
   parseTemplate,
   parseVault,
   parseWorkspaceVariables,
@@ -96,6 +97,7 @@ export function useImportMergeSession({
           ent.environments,
           ent.liveWorkflows,
           ent.liveVariables,
+          ent.specs,
         ];
         for (const list of lists) {
           const found = list.find((e) => e.uid === uid);
@@ -120,6 +122,10 @@ export function useImportMergeSession({
           return parseLiveWorkflow(text, { path: findPath(file.id) }).value;
         case 'liveVariable':
           return parseLiveVariable(text, { path: findPath(file.id) }).value;
+        case 'spec':
+          // Inline shape — the envelope carries file contents in-row,
+          // so the merge round-trip never touches sibling files.
+          return parseSpecInline(text, { path: findPath(file.id) }).value;
         case 'workspaceVars':
           return parseWorkspaceVariables(text).value;
         case 'vault':

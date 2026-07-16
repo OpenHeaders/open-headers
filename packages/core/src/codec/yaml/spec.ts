@@ -68,6 +68,21 @@ export function parseSpec(yaml: string, context: SpecCodecContext): ParsedDocume
   return makeParsed(value, doc);
 }
 
+/**
+ * Parse the INLINE spec shape — `files[]` rows carrying their content
+ * — the representation the workspace-export envelope and
+ * `serializeEntityYaml` use. No sibling splicing applies: the text is
+ * self-contained. This is the deserializer for surfaces that
+ * round-trip a spec through one document (the import preview's merge
+ * editor); on-disk specs parse through `parseSpec` above.
+ */
+export function parseSpecInline(yaml: string, context: { path: string }): ParsedDocument<Spec> {
+  const doc = YAML.parseDocument(yaml);
+  const raw = doc.toJS() as Record<string, unknown>;
+  const value = v.parse(SpecSchema, { ...raw, path: context.path });
+  return makeParsed(value, doc);
+}
+
 export interface SpecSerializeOutput {
   /** `spec.yaml` contents. */
   specYaml: string;

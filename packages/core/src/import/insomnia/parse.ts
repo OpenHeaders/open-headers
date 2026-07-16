@@ -4,7 +4,7 @@ import { createReport, type ImportReport, recordDrop, recordTransform } from '..
 import { collectEnvironments } from './environment';
 import { isRecord, normalizeDoc } from './normalize';
 import { convertRequest } from './request';
-import type { InsomniaDoc, InsomniaParsedCollection, InsomniaParseResult } from './types';
+import type { InsomniaDoc, InsomniaParsedCollection, InsomniaParsedSpec, InsomniaParseResult } from './types';
 import { InsomniaParseError } from './types';
 
 // ── Entry points ───────────────────────────────────────────────────
@@ -152,10 +152,15 @@ function assemble(rawDocs: unknown[], report: ImportReport): InsomniaParseResult
   // Embedded API specs — design documents carry their OpenAPI source
   // verbatim in `contents`; each importable spec becomes its own
   // collection through the OpenAPI importer, with that parser's notes
-  // folded in under the resource path. Unparseable specs drop with
-  // the parser's own honest error (Swagger 2.0 names the conversion).
+  // folded in under the resource path, AND is retained verbatim in
+  // `specs[]` so the landing surface can mint the spec entity beside
+  // the collection. Unparseable specs drop with the parser's own
+  // honest error (Swagger 2.0 names the conversion) — only parseable
+  // documents retain (the format vocabulary has no value for them).
+  const specs: InsomniaParsedSpec[] = [];
   for (const spec of docs.filter((d) => d.kind === 'apispec')) {
-    const contents = typeof spec.contents === 'string' ? spec.contents.trim() : '';
+    const raw = typeof spec.contents === 'string' ? spec.contents : '';
+    const contents = raw.trim();
     if (contents === '') {
       recordDrop(report, {
         path: `resources[${spec.id}]`,
@@ -165,6 +170,7 @@ function assemble(rawDocs: unknown[], report: ImportReport): InsomniaParseResult
     }
     try {
       const parsed = parseOpenApi(contents);
+      specs.push({ name: spec.name, contents: raw, format: parsed.specFormat, collectionIndex: collections.length });
       collections.push({
         name: parsed.collectionName,
         description: parsed.collectionDescription,
@@ -201,7 +207,7 @@ function assemble(rawDocs: unknown[], report: ImportReport): InsomniaParseResult
   const requestCount = collections.reduce((n, c) => n + c.requests.length, 0);
   report.summary = { ...report.summary, imported: requestCount + environments.length };
 
-  return { collections, environments, report };
+  return { collections, environments, specs, report };
 }
 
 function unsupportedDrop(rawType: string, count: number): { reason: string; tracking: string } {
