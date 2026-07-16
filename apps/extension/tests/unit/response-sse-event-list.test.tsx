@@ -210,9 +210,9 @@ describe('ResponseSseEventList sort order', () => {
     const ended = screen.getByTestId('oh-sse-lifecycle-row');
     expect(connected.compareDocumentPosition(rows[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(rows[2].compareDocumentPosition(ended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Flipping back restores newest-first.
-    fireEvent.click(screen.getByTestId('oh-sse-sort'));
-    fireEvent.click(await screen.findByText('Newest first'));
+    // Selecting keeps the popover OPEN (the app's popover convention) —
+    // the next option is clickable directly, no trigger re-click.
+    fireEvent.click(screen.getByText('Newest first'));
     expect(screen.getAllByTestId('oh-sse-event-row')[0].textContent).toContain('heartbeat');
   });
 });
@@ -234,6 +234,9 @@ describe('ResponseSseEventList group by event name', () => {
   async function enableGrouping() {
     fireEvent.click(screen.getByTestId('oh-sse-sort'));
     fireEvent.click(await screen.findByText('Group by event name'));
+    // Selection keeps the menu open by design — close it via the
+    // outside click so repeated helper calls start from closed.
+    fireEvent.mouseDown(document.body);
   }
 
   it('clusters rows under name headers — anchored to first appearance, arrival order within', async () => {

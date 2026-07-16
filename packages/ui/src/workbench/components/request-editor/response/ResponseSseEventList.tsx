@@ -293,6 +293,11 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   const { token } = theme.useToken();
   const t = useT();
   const [search, setSearch] = useState('');
+  // Sort-menu visibility is controlled: selecting an option keeps the
+  // menu OPEN (the app's popover convention — only an outside click or
+  // a trigger re-click closes), and the trigger's tooltip suppresses
+  // while the menu shows.
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   // Display-only clear: rows below this index hide; the capture (and
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
@@ -782,6 +787,13 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
         <Dropdown
           trigger={['click']}
           placement="bottomRight"
+          open={sortMenuOpen}
+          onOpenChange={(open, info) => {
+            // Menu-item clicks keep the popover open; only the trigger
+            // and outside clicks change visibility.
+            if (info.source === 'menu') return;
+            setSortMenuOpen(open);
+          }}
           menu={{
             items: [
               {
@@ -835,7 +847,11 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             ],
           }}
         >
-          <Tooltip title={t('workbench.editors.request.response.sse.sortOrder')} placement="bottom">
+          <Tooltip
+            title={t('workbench.editors.request.response.sse.sortOrder')}
+            placement="bottom"
+            open={sortMenuOpen ? false : undefined}
+          >
             <Button
               size="small"
               type="text"

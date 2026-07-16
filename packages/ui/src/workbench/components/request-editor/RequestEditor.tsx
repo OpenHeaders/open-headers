@@ -587,19 +587,25 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   }, []);
 
   // ⌘/Ctrl+Enter sends from anywhere in the editor — same gate as the
-  // Send button. Capture phase so Send owns the chord even when focus
-  // sits inside a Monaco surface (script editors, the response body
-  // view, the filter input), all of which would otherwise claim
-  // ⌘+Enter for insert-line-below and starve the shortcut.
+  // Send button, and the same MORPH: while a send is in flight the
+  // chord stops it instead. Capture phase so Send owns the chord even
+  // when focus sits inside a Monaco surface (script editors, the
+  // response body view, the filter input), all of which would
+  // otherwise claim ⌘+Enter for insert-line-below and starve the
+  // shortcut.
   const handleEditorKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
       e.preventDefault();
       e.stopPropagation();
-      if (sending || hasUnresolvedRefs) return;
+      if (sending) {
+        handleStop();
+        return;
+      }
+      if (hasUnresolvedRefs) return;
       void handleSend();
     },
-    [sending, hasUnresolvedRefs, handleSend],
+    [sending, hasUnresolvedRefs, handleSend, handleStop],
   );
 
   if (!isCreateMode && !summary) {
@@ -646,15 +652,18 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const headerActions = (
     <Tooltip
       placement="bottom"
-      // Pressing Stop suppresses the tooltip until the pointer leaves —
-      // the hint must not linger over the morphed button.
+      // Pressing Send/Stop suppresses the tooltip so the hint never
+      // pops over the freshly morphed button; the wrapper's mouse-leave
+      // re-arms it (antd fires no onOpenChange for an already-closed
+      // tooltip, so leave is the one reliable reset signal).
       open={sendTooltipSuppressed ? false : undefined}
-      onOpenChange={(open) => {
-        if (!open) setSendTooltipSuppressed(false);
-      }}
       title={
         sending ? (
-          t('workbench.editors.request.send.stopTooltip')
+          // The chord morphs with the button — ⌘/Ctrl+Enter stops an
+          // in-flight send, so the Stop hint carries the same keycaps.
+          <ShortcutHintTitle label={SEND_SHORTCUT}>
+            {t('workbench.editors.request.send.stopTooltip')}
+          </ShortcutHintTitle>
         ) : hasUnresolvedRefs ? (
           t('workbench.editors.request.send.unresolvedTooltip')
         ) : (
@@ -669,44 +678,50 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         )
       }
     >
-      {sending ? (
-        // Send morphs into Stop for EVERY in-flight send — streaming or
-        // not. Stopping materializes a snapshot from whatever arrived.
-        // The error token darkens one notch — a solid Stop at the base
-        // error red reads glaring next to the muted editor chrome.
-        <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+      <span style={{ display: 'inline-flex' }} onMouseLeave={() => setSendTooltipSuppressed(false)}>
+        {sending ? (
+          // Send morphs into Stop for EVERY in-flight send — streaming
+          // or not. Stopping materializes a snapshot from whatever
+          // arrived. The error token darkens one notch — a solid Stop
+          // at the base error red reads glaring next to the muted
+          // editor chrome.
+          <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+            <Button
+              type="primary"
+              danger
+              icon={
+                <span
+                  aria-hidden="true"
+                  style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
+                />
+              }
+              size="small"
+              data-testid="oh-request-stop"
+              onClick={() => {
+                setSendTooltipSuppressed(true);
+                handleStop();
+              }}
+              style={{ fontSize: 11 }}
+            >
+              {t('workbench.editors.request.send.stop')}
+            </Button>
+          </ConfigProvider>
+        ) : (
           <Button
             type="primary"
-            danger
-            icon={
-              <span
-                aria-hidden="true"
-                style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
-              />
-            }
+            icon={<CaretRightOutlined />}
             size="small"
-            data-testid="oh-request-stop"
             onClick={() => {
               setSendTooltipSuppressed(true);
-              handleStop();
+              void handleSend();
             }}
+            disabled={hasUnresolvedRefs}
             style={{ fontSize: 11 }}
           >
-            {t('workbench.editors.request.send.stop')}
+            {t('workbench.editors.request.send.label')}
           </Button>
-        </ConfigProvider>
-      ) : (
-        <Button
-          type="primary"
-          icon={<CaretRightOutlined />}
-          size="small"
-          onClick={() => void handleSend()}
-          disabled={hasUnresolvedRefs}
-          style={{ fontSize: 11 }}
-        >
-          {t('workbench.editors.request.send.label')}
-        </Button>
-      )}
+        )}
+      </span>
     </Tooltip>
   );
 
