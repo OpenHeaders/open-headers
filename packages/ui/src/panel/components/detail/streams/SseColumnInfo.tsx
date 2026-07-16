@@ -5,7 +5,9 @@
  * rendered as a compact card, the column's own slice highlighted.
  */
 
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { useMemo } from 'react';
 import type { SseColumnKey } from './sse-grid';
 
 /** The single event every column popover illustrates. */
@@ -19,12 +21,13 @@ const EX = {
 type TokenId = SseColumnKey;
 
 function ExampleCard({ column }: { column: SseColumnKey }) {
+  const t = useT();
   const tok = (id: TokenId, text: string) => (
     <span className={`dt-col-eg-tok${column === id ? ' dt-col-eg-hl' : ''}`}>{text}</span>
   );
   return (
     <div className="dt-col-eg">
-      <div className="dt-col-eg-cap">Example event</div>
+      <div className="dt-col-eg-cap">{t('panel.inspector.sse.columnInfo.exampleCaption')}</div>
       <div className="dt-col-eg-card">
         <div className="dt-col-eg-line">
           {tok('type', EX.type)} {tok('data', EX.data)}
@@ -40,77 +43,72 @@ function ExampleCard({ column }: { column: SseColumnKey }) {
   );
 }
 
-const SSE_COLUMN_INFO: Record<SseColumnKey, InfoPopoverContent> = {
-  id: {
-    title: 'Id',
-    kicker: 'EventStream',
-    summary: "The event's `id:` field — the reconnection cursor the server hands out.",
-    description:
-      'Empty when the server sends no id. On reconnect the browser echoes the last id back as ' +
-      '`Last-Event-ID`, so the server can resume the stream where it left off.',
-    diagram: <ExampleCard column="id" />,
-  },
-  type: {
-    title: 'Type',
-    kicker: 'EventStream',
-    summary: "The event's `event:` field — `message` for default events.",
-    description:
-      'Page code subscribes per type: `onmessage` only sees default events; named events need ' +
-      'an `addEventListener` for that exact type.',
-    diagram: <ExampleCard column="type" />,
-  },
-  data: {
-    title: 'Data',
-    kicker: 'EventStream',
-    summary: 'The event payload — always text; multi-line `data:` fields arrive joined.',
-    description: 'Select a row to open the payload viewer: a JSON tree when the text parses, verbatim otherwise.',
-    diagram: <ExampleCard column="data" />,
-  },
-  time: {
-    title: 'Time',
-    kicker: 'EventStream',
-    summary: 'The wall-clock moment the event arrived.',
-    description:
-      'Sortable, ascending by default. Events parsed out of a finished response body carry no time — the SSE ' +
-      'wire format has none — so their cells stay empty.',
-    diagram: <ExampleCard column="time" />,
-  },
-};
+function sseColumnInfo(t: Translate, key: SseColumnKey): InfoPopoverContent {
+  const kicker = t('panel.inspector.sections.eventStream');
+  switch (key) {
+    case 'id':
+      return {
+        title: 'Id',
+        kicker,
+        summary: t('panel.inspector.sse.columnInfo.id.summary'),
+        description: t('panel.inspector.sse.columnInfo.id.description'),
+        diagram: <ExampleCard column="id" />,
+      };
+    case 'type':
+      return {
+        title: 'Type',
+        kicker,
+        summary: t('panel.inspector.sse.columnInfo.type.summary'),
+        description: t('panel.inspector.sse.columnInfo.type.description'),
+        diagram: <ExampleCard column="type" />,
+      };
+    case 'data':
+      return {
+        title: 'Data',
+        kicker,
+        summary: t('panel.inspector.sse.columnInfo.data.summary'),
+        description: t('panel.inspector.sse.columnInfo.data.description'),
+        diagram: <ExampleCard column="data" />,
+      };
+    case 'time':
+      return {
+        title: 'Time',
+        kicker,
+        summary: t('panel.inspector.sse.columnInfo.time.summary'),
+        description: t('panel.inspector.sse.columnInfo.time.description'),
+        diagram: <ExampleCard column="time" />,
+      };
+  }
+}
 
 /** The fire rail's whole-cell hover popover — honest about inference:
  * events carry no rule attribution, so a capture-less dot is derived
- * from the request's rule fires × each rule's event selector. */
-export const SSE_FIRE_RAIL_INFO: InfoPopoverContent = {
-  title: 'Rule fires',
-  kicker: 'OpenHeaders',
-  summary:
-    'A dot marks each event an SSE message rule acted on. A wrapper-recorded capture is proof; without one the ' +
-    "dot is derived: this request's fired SSE rules, each rule's event selector re-run against the event.",
-  sections: [
-    {
-      heading: 'Dot colors',
-      items: [
-        {
-          label: '●',
-          labelClassName: 'dt-fire-eg--auth',
-          desc: 'Applied — the wrapper recorded acting on this exact event, or an injected payload matches.',
-        },
-        {
-          label: '●',
-          labelClassName: 'dt-fire-eg--inferred',
-          desc:
-            "Inferred — the rule's event name and data filter select this event, but application is not " +
-            'verifiable from the wire alone.',
-        },
-      ],
-    },
-  ],
-  description:
-    'Server-sent events only travel server → page, and the wire records them before the rule acts: a dropped ' +
-    'event keeps its row, marked "Dropped — never delivered to the page"; an injected event never crosses the ' +
-    'wire and shows as a synthetic row.',
-};
+ * from the request's rule fires × each rule's event selector. The
+ * kicker is the raw brand mark. */
+export function sseFireRailInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.inspector.streams.fireRail.title'),
+    kicker: 'OpenHeaders',
+    summary: t('panel.inspector.sse.fireRail.summary'),
+    sections: [
+      {
+        heading: t('panel.inspector.streams.fireRail.dotColorsHeading'),
+        items: [
+          { label: '●', labelClassName: 'dt-fire-eg--auth', desc: t('panel.inspector.sse.fireRail.appliedDesc') },
+          {
+            label: '●',
+            labelClassName: 'dt-fire-eg--inferred',
+            desc: t('panel.inspector.sse.fireRail.inferredDesc'),
+          },
+        ],
+      },
+    ],
+    description: t('panel.inspector.sse.fireRail.description'),
+  };
+}
 
 export function SseColumnInfo({ infoKey }: { infoKey: SseColumnKey }) {
-  return <InfoTrigger content={SSE_COLUMN_INFO[infoKey]} className="dt-header-info-trigger dt-col-info-trigger" />;
+  const t = useT();
+  const content = useMemo(() => sseColumnInfo(t, infoKey), [t, infoKey]);
+  return <InfoTrigger content={content} className="dt-header-info-trigger dt-col-info-trigger" />;
 }

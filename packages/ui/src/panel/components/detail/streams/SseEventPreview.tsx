@@ -10,7 +10,7 @@
  * two sides to split).
  */
 
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useMemo } from 'react';
 import type { MessageFrameAttribution } from '../../../data/message-fire-rail';
@@ -28,25 +28,25 @@ interface SseEventPreviewProps {
 
 /** The Modified caption's (i) — shown only at the inferred tier, where
  *  the split renders a derived payload rather than a captured one. */
-const INFERRED_MODIFIED_INFO: InfoPopoverContent = {
-  title: 'Derived, not captured',
-  kicker: 'EventStream',
-  summary: "This side shows the rule's replacement payload — the capture plane only ever saw the wire event.",
-  description:
-    'The wire recorded the original event; the modification happened inside the page after capture. That this ' +
-    "exact event took the replacement is inferred from the rule's event selector, matching the amber fire dot.",
-};
+function inferredModifiedInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.inspector.sse.inferredModified.title'),
+    kicker: t('panel.inspector.sections.eventStream'),
+    summary: t('panel.inspector.sse.inferredModified.summary'),
+    description: t('panel.inspector.sse.inferredModified.description'),
+  };
+}
 
 /** The Dropped caption's (i) — the drop, like the replacement, happens
  *  inside the page after wire capture, so it is selector-inferred too. */
-const INFERRED_DROPPED_INFO: InfoPopoverContent = {
-  title: 'Dropped, inferred',
-  kicker: 'EventStream',
-  summary: 'The wire recorded this event, but the rule stopped its delivery inside the page.',
-  description:
-    'The drop happens after capture, so nothing can record the non-delivery itself. That this exact event was ' +
-    "dropped is inferred from the rule's event selector, matching the amber fire dot.",
-};
+function inferredDroppedInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.inspector.sse.inferredDropped.title'),
+    kicker: t('panel.inspector.sections.eventStream'),
+    summary: t('panel.inspector.sse.inferredDropped.summary'),
+    description: t('panel.inspector.sse.inferredDropped.description'),
+  };
+}
 
 export default function SseEventPreview({ event, attribution = null }: SseEventPreviewProps) {
   const t = useT();
@@ -54,8 +54,8 @@ export default function SseEventPreview({ event, attribution = null }: SseEventP
   if (!event) {
     return (
       <div className="dt-msg-preview-empty">
-        <strong>No event selected</strong>
-        <span className="dt-col-muted">Select an event to browse its content.</span>
+        <strong>{t('panel.inspector.streams.preview.noEventTitle')}</strong>
+        <span className="dt-col-muted">{t('panel.inspector.streams.preview.noEventHint')}</span>
       </div>
     );
   }
@@ -64,7 +64,7 @@ export default function SseEventPreview({ event, attribution = null }: SseEventP
   if (modification && modification.kind !== 'replaced-on-wire') {
     const inferredInfo =
       attribution?.tier === 'inferred' ? (
-        <InfoTrigger content={modification.kind === 'dropped' ? INFERRED_DROPPED_INFO : INFERRED_MODIFIED_INFO} />
+        <InfoTrigger content={modification.kind === 'dropped' ? inferredDroppedInfo(t) : inferredModifiedInfo(t)} />
       ) : undefined;
 
     if (modification.kind === 'dropped') {
@@ -76,9 +76,7 @@ export default function SseEventPreview({ event, attribution = null }: SseEventP
             endLabel={labels.wsRecvDropped}
             end={
               <div className="dt-msg-preview-content">
-                <span className="dt-col-muted">
-                  The rule dropped this event — it reached the browser but was never delivered to the page.
-                </span>
+                <span className="dt-col-muted">{t('panel.inspector.sse.preview.droppedPane')}</span>
               </div>
             }
             headerAction={inferredInfo}
@@ -105,9 +103,7 @@ export default function SseEventPreview({ event, attribution = null }: SseEventP
   if (event.synthetic) {
     return (
       <>
-        <div className="dt-msg-preview-synthetic-note">
-          Synthetic event — injected by a rule inside the page; it never crossed the wire.
-        </div>
+        <div className="dt-msg-preview-synthetic-note">{t('panel.inspector.sse.preview.syntheticNote')}</div>
         <TextPayload text={event.data} />
       </>
     );

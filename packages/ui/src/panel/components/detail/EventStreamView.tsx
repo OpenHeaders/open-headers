@@ -27,6 +27,7 @@
  */
 
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { Rule } from '@openheaders/core/types';
 import { InfoPopover } from '@openheaders/ui/shared/info-popover';
@@ -55,7 +56,7 @@ import { CONNECTION_FRAME, useRulePopover } from '../RulePopoverHost';
 import { useColumnResize } from '../use-column-resize';
 import { walkListSelection } from '../walk-list-selection';
 import { MESSAGES_VIEW_MENU_KEYS, MessagesViewMenu } from './streams/MessagesViewMenu';
-import { SSE_FIRE_RAIL_INFO, SseColumnInfo } from './streams/SseColumnInfo';
+import { SseColumnInfo, sseFireRailInfo } from './streams/SseColumnInfo';
 import SseEventPreview from './streams/SseEventPreview';
 import { SSE_COLUMNS, sseColumnMinWidth, sseGridTemplate } from './streams/sse-grid';
 import { type SseDisplayEvent, sseDisplayEvents } from './streams/sse-events';
@@ -87,22 +88,42 @@ const FIRE_DOT_CLASS: Record<MessageFireTier, string> = {
   inferred: 'dt-fire-dot--inferred',
 };
 
+// Row copy resolved once per locale — the virtualized event loop reads
+// this object, never `t()` (per-row law).
+function buildRowLabels(t: Translate) {
+  return {
+    fire: {
+      applied: t('panel.inspector.streams.fire.appliedEvent'),
+      inferred: t('panel.inspector.streams.fire.inferredEvent'),
+      injected: t('panel.inspector.streams.fire.injectedEvent'),
+      replaced: t('panel.inspector.streams.fire.replacedEvent'),
+      dropped: t('panel.inspector.streams.fire.droppedEvent'),
+    },
+    copied: t('panel.inspector.streams.row.copied'),
+    copyPayload: t('panel.inspector.streams.row.copyPayload'),
+    editRule: t('panel.inspector.streams.row.editRule'),
+    override: t('panel.inspector.streams.row.override'),
+    editRuleTitle: t('panel.inspector.sse.editRuleTitle'),
+    createRuleTitle: t('panel.inspector.sse.createRuleTitle'),
+    droppedRecvCell: t('panel.inspector.streams.row.droppedRecvCell'),
+    syntheticTitle: t('panel.inspector.sse.syntheticTitle'),
+  };
+}
+type RowLabels = ReturnType<typeof buildRowLabels>;
+
 /** Dot tooltip — a capture-backed dot states what the wrapper recorded;
  *  the derived tiers keep the generic tier copy. */
 function fireDotTitle(
+  labels: RowLabels,
   event: SseDisplayEvent,
   tier: MessageFireTier,
   modification: MessageFrameAttribution['modification'],
 ): string {
   const op = event.capture?.op;
-  if (op === 'injected') return 'Rule applied — this event was injected by the rule';
-  if (op === 'replaced') return 'Rule applied — the rule replaced this event';
-  if (op === 'dropped' || modification?.kind === 'dropped') {
-    return 'Rule dropped this event — the page never received it';
-  }
-  return tier === 'applied'
-    ? "Rule applied — the event's payload matches the rule's payload"
-    : 'Rule matched — application not verifiable for this event';
+  if (op === 'injected') return labels.fire.injected;
+  if (op === 'replaced') return labels.fire.replaced;
+  if (op === 'dropped' || modification?.kind === 'dropped') return labels.fire.dropped;
+  return tier === 'applied' ? labels.fire.applied : labels.fire.inferred;
 }
 
 interface EventStreamViewProps {
@@ -115,6 +136,9 @@ interface EventStreamViewProps {
 }
 
 export default function EventStreamView({ lifecycle, source, fires, rulesByUid }: EventStreamViewProps) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildRowLabels(t), [t]);
+  const fireRailInfo = useMemo(() => sseFireRailInfo(t), [t]);
   const [filterText, setFilterText] = useState('');
   const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [sortColumn, setSortColumn] = useState<SortColumn>('time');
@@ -246,14 +270,12 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
     return (
       <div className="dt-empty" style={{ padding: 24 }}>
         {syntheticOnly
-          ? 'No events crossed the wire — an inject rule fired here, and injected events are delivered ' +
-            'synthetically inside the page, invisible to the network capture.'
+          ? t('panel.inspector.sse.emptySynthetic')
           : body
-            ? 'No parseable SSE events in the response body.'
+            ? t('panel.inspector.sse.emptyUnparseable')
             : source !== 'cdp'
-              ? 'No events captured. Without debug mode, server-sent streams are only materialized once the ' +
-                'request finishes; long-running streams may not populate here until the connection closes.'
-              : 'No events received yet.'}
+              ? t('panel.inspector.sse.emptyNoDebug')
+              : t('panel.inspector.sse.emptyNone')}
       </div>
     );
   }
@@ -306,15 +328,15 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
         filterConfig={filterConfig}
         onFilterConfigChange={setFilterConfig}
         filterError={filterPredicate.error}
-        filterPlaceholder="Filter events"
+        filterPlaceholder={t('panel.inspector.sse.filterPlaceholder')}
         action={
           <button
             type="button"
             className="dt-btn dt-btn--oh"
-            title="Create a message rule for this stream"
+            title={t('panel.inspector.sse.overrideEventTitle')}
             onClick={openStreamOverride}
           >
-            Override event
+            {t('panel.inspector.sse.overrideEvent')}
           </button>
         }
         viewMenu={
@@ -332,7 +354,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
       />
       {dropped > 0 && (
         <div className="dt-sse-truncation">
-          Showing the latest {all.length} events — {dropped} older {dropped === 1 ? 'event' : 'events'} dropped.
+          {t('panel.inspector.sse.truncation', { shown: all.length, count: dropped })}
         </div>
       )}
       {/* Allotment captures its orientation at mount — remount on layout
@@ -345,12 +367,12 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
               ref={listRef}
               onScroll={onScroll}
               role="listbox"
-              aria-label="Server-sent events"
+              aria-label={t('panel.inspector.sse.listAria')}
               tabIndex={0}
               onKeyDown={handleListKeyDown}
             >
               <div className="dt-sse-row dt-sse-row-header">
-                <InfoPopover content={SSE_FIRE_RAIL_INFO} trigger="hover" placement="bottomLeft">
+                <InfoPopover content={fireRailInfo} trigger="hover" placement="bottomLeft">
                   <span className="dt-rail-head">
                     <span className="dt-rail-head-dot" />
                   </span>
@@ -364,7 +386,11 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
                       type="button"
                       className="dt-col-sort"
                       disabled={sortKey === null}
-                      title={sortKey === null ? undefined : `Sort by ${col.label.toLowerCase()}`}
+                      title={
+                        sortKey === null
+                          ? undefined
+                          : t('panel.inspector.streams.sortByTitle', { column: col.label.toLowerCase() })
+                      }
                       onClick={sortKey === null ? undefined : () => onSort(sortKey)}
                     >
                       {col.label}
@@ -374,7 +400,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
                       type="button"
                       tabIndex={-1}
                       className="dt-col-resizer"
-                      aria-label={`Resize ${col.label} column`}
+                      aria-label={t('panel.inspector.streams.resizeColumnAria', { column: col.label })}
                       onPointerDown={(e) => beginResize(e, col.key)}
                       onDoubleClick={() => resetColumnWidth(col.key)}
                     />
@@ -392,11 +418,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
                   <div
                     key={`sse-${ev.index}`}
                     className={`dt-sse-row${isSelected ? ' dt-sse-row--selected' : ''}${ev.synthetic ? ' dt-sse-row--synthetic' : ''}`}
-                    title={
-                      ev.synthetic
-                        ? 'Synthetic event — injected by a rule inside the page; never crossed the wire'
-                        : undefined
-                    }
+                    title={ev.synthetic ? rowLabels.syntheticTitle : undefined}
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => setSelectedIndex(ev.index)}
@@ -405,7 +427,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
                       {fireTier !== null && (
                         <span
                           className={`dt-fire-dot ${FIRE_DOT_CLASS[fireTier]}`}
-                          title={fireDotTitle(ev, fireTier, modification)}
+                          title={fireDotTitle(rowLabels, ev, fireTier, modification)}
                         />
                       )}
                     </span>
@@ -424,7 +446,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
                         <span className="dt-sse-data-side">
                           {modification.kind === 'replaced-in-page' && modification.modified}
                           {modification.kind === 'dropped' && (
-                            <span className="dt-col-muted">Dropped — never delivered to the page</span>
+                            <span className="dt-col-muted">{rowLabels.droppedRecvCell}</span>
                           )}
                         </span>
                       </span>
@@ -436,8 +458,8 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
                       <button
                         type="button"
                         className="dt-btn dt-btn-primary dt-ws-action dt-ws-action--icon"
-                        title={copiedIndex === ev.index ? 'Copied' : 'Copy payload'}
-                        aria-label={copiedIndex === ev.index ? 'Copied' : 'Copy payload'}
+                        title={copiedIndex === ev.index ? rowLabels.copied : rowLabels.copyPayload}
+                        aria-label={copiedIndex === ev.index ? rowLabels.copied : rowLabels.copyPayload}
                         onClick={(e) => handleCopy(e, ev)}
                       >
                         {copiedIndex === ev.index ? <CheckOutlined /> : <CopyOutlined />}
@@ -445,14 +467,10 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
                       <button
                         type="button"
                         className="dt-btn dt-btn--oh dt-ws-action"
-                        title={
-                          editRuleForEvent(ev)
-                            ? 'Edit the message rule that acted on this event'
-                            : 'Create a message rule seeded from this event'
-                        }
+                        title={editRuleForEvent(ev) ? rowLabels.editRuleTitle : rowLabels.createRuleTitle}
                         onClick={(e) => openRuleAction(e, ev)}
                       >
-                        {editRuleForEvent(ev) ? 'Edit rule' : 'Override'}
+                        {editRuleForEvent(ev) ? rowLabels.editRule : rowLabels.override}
                       </button>
                     </span>
                   </div>

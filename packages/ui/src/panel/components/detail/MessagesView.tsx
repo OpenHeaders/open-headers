@@ -41,6 +41,7 @@
  */
 
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
 import { InfoPopover } from '@openheaders/ui/shared/info-popover';
@@ -68,7 +69,7 @@ import { CONNECTION_FRAME, useRulePopover } from '../RulePopoverHost';
 import { useColumnResize } from '../use-column-resize';
 import { walkListSelection } from '../walk-list-selection';
 import MessagePreview from './streams/MessagePreview';
-import { MessagesColumnInfo, WS_DIRECTION_INFO, WS_FIRE_RAIL_INFO } from './streams/MessagesColumnInfo';
+import { MessagesColumnInfo, wsDirectionInfo, wsFireRailInfo } from './streams/MessagesColumnInfo';
 import { MESSAGES_VIEW_MENU_KEYS, MessagesViewMenu } from './streams/MessagesViewMenu';
 import StreamGridToolbar, { type WsDirectionFilter } from './streams/StreamGridToolbar';
 import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
@@ -108,27 +109,49 @@ const FIRE_DOT_CLASS: Record<MessageFireTier, string> = {
   inferred: 'dt-fire-dot--inferred',
 };
 
-const FIRE_DOT_TITLE: Record<MessageFireTier, string> = {
-  applied: "Rule applied — the frame's payload matches the rule's payload",
-  inferred: 'Rule matched — application not verifiable for this frame',
-};
+// Row copy resolved once per locale — the virtualized frame loop reads
+// this object, never `t()` (per-row law).
+function buildRowLabels(t: Translate) {
+  return {
+    fire: {
+      applied: t('panel.inspector.streams.fire.appliedFrame'),
+      inferred: t('panel.inspector.streams.fire.inferredFrame'),
+      injected: t('panel.inspector.streams.fire.injectedFrame'),
+      replaced: t('panel.inspector.streams.fire.replacedFrame'),
+      droppedSend: t('panel.inspector.streams.fire.droppedSendFrame'),
+      droppedRecv: t('panel.inspector.streams.fire.droppedRecvFrame'),
+    },
+    copied: t('panel.inspector.streams.row.copied'),
+    copyPayload: t('panel.inspector.streams.row.copyPayload'),
+    editRule: t('panel.inspector.streams.row.editRule'),
+    override: t('panel.inspector.streams.row.override'),
+    editRuleTitle: t('panel.inspector.messages.editRuleTitle'),
+    createRuleTitle: t('panel.inspector.messages.createRuleTitle'),
+    droppedSendCell: t('panel.inspector.streams.row.droppedSendCell'),
+    droppedRecvCell: t('panel.inspector.streams.row.droppedRecvCell'),
+    notCaptured: t('panel.inspector.streams.row.notCaptured'),
+    syntheticDroppedTitle: t('panel.inspector.messages.syntheticDroppedTitle'),
+    syntheticInjectedTitle: t('panel.inspector.messages.syntheticInjectedTitle'),
+    sortByTime: t('panel.inspector.streams.sortByTitle', { column: 'time' }),
+  };
+}
+type RowLabels = ReturnType<typeof buildRowLabels>;
 
 /** Dot tooltip — a capture-backed dot states what the wrapper recorded;
  *  the derived tiers keep the generic tier copy. */
 function fireDotTitle(
+  labels: RowLabels,
   frame: WsDisplayFrame,
   tier: MessageFireTier,
   modification: MessageFrameAttribution['modification'],
 ): string {
   const op = frame.capture?.op;
-  if (op === 'injected') return 'Rule applied — this frame was injected by the rule';
-  if (op === 'replaced') return 'Rule applied — the rule replaced this frame';
+  if (op === 'injected') return labels.fire.injected;
+  if (op === 'replaced') return labels.fire.replaced;
   if (op === 'dropped' || modification?.kind === 'dropped') {
-    return frame.type === 'send'
-      ? 'Rule dropped this frame — it was never sent to the server'
-      : 'Rule dropped this frame — the page never received it';
+    return frame.type === 'send' ? labels.fire.droppedSend : labels.fire.droppedRecv;
   }
-  return FIRE_DOT_TITLE[tier];
+  return labels.fire[tier];
 }
 
 function directionClass(type: WsDisplayFrame['type']): string {
@@ -144,6 +167,10 @@ function directionArrow(type: WsDisplayFrame['type']): string {
 }
 
 export default function MessagesView({ lifecycle, har, source, fires, rulesByUid }: MessagesViewProps) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildRowLabels(t), [t]);
+  const fireRailInfo = useMemo(() => wsFireRailInfo(t), [t]);
+  const directionInfo = useMemo(() => wsDirectionInfo(t), [t]);
   const [direction, setDirection] = useState<WsDirectionFilter>('all');
   const [filterText, setFilterText] = useState('');
   const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
@@ -278,11 +305,10 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
     return (
       <div className="dt-empty" style={{ padding: 24 }}>
         {source !== 'cdp'
-          ? 'WebSocket frames are only visible with debug mode enabled for this tab.'
+          ? t('panel.inspector.messages.emptyNoDebug')
           : syntheticOnly
-            ? 'No frames crossed the wire — an inject rule fired here, and injected frames are delivered ' +
-              'synthetically inside the page, invisible to the network capture.'
-            : 'No WebSocket frames exchanged yet.'}
+            ? t('panel.inspector.messages.emptySynthetic')
+            : t('panel.inspector.messages.emptyNone')}
       </div>
     );
   }
@@ -327,15 +353,15 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
         filterConfig={filterConfig}
         onFilterConfigChange={setFilterConfig}
         filterError={filterPredicate.error}
-        filterPlaceholder="Filter messages"
+        filterPlaceholder={t('panel.inspector.messages.filterPlaceholder')}
         action={
           <button
             type="button"
             className="dt-btn dt-btn--oh"
-            title="Create a message rule for this connection"
+            title={t('panel.inspector.messages.overrideMessageTitle')}
             onClick={openConnectionOverride}
           >
-            Override message
+            {t('panel.inspector.messages.overrideMessage')}
           </button>
         }
         viewMenu={
@@ -353,7 +379,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
       />
       {dropped > 0 && (
         <div className="dt-ws-truncation">
-          Showing the latest {all.length} frames — {dropped} older {dropped === 1 ? 'frame' : 'frames'} dropped.
+          {t('panel.inspector.messages.truncation', { shown: all.length, count: dropped })}
         </div>
       )}
       {/* Allotment captures its orientation at mount and ignores later
@@ -367,17 +393,17 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
               ref={listRef}
               onScroll={onScroll}
               role="listbox"
-              aria-label="WebSocket messages"
+              aria-label={t('panel.inspector.messages.listAria')}
               tabIndex={0}
               onKeyDown={handleListKeyDown}
             >
               <div className="dt-ws-row dt-ws-row-header">
-                <InfoPopover content={WS_FIRE_RAIL_INFO} trigger="hover" placement="bottomLeft">
+                <InfoPopover content={fireRailInfo} trigger="hover" placement="bottomLeft">
                   <span className="dt-rail-head">
                     <span className="dt-rail-head-dot" />
                   </span>
                 </InfoPopover>
-                <InfoPopover content={WS_DIRECTION_INFO} trigger="hover" placement="bottomLeft">
+                <InfoPopover content={directionInfo} trigger="hover" placement="bottomLeft">
                   <span className="dt-ws-dir dt-ws-dir-head">⇅</span>
                 </InfoPopover>
                 {WS_COLUMNS.map((col) => (
@@ -387,7 +413,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       type="button"
                       className="dt-col-sort"
                       disabled={col.key !== 'time'}
-                      title={col.key === 'time' ? 'Sort by time' : undefined}
+                      title={col.key === 'time' ? rowLabels.sortByTime : undefined}
                       onClick={
                         col.key === 'time' ? () => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')) : undefined
                       }
@@ -399,7 +425,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       type="button"
                       tabIndex={-1}
                       className="dt-col-resizer"
-                      aria-label={`Resize ${col.label} column`}
+                      aria-label={t('panel.inspector.streams.resizeColumnAria', { column: col.label })}
                       onPointerDown={(e) => beginResize(e, col.key)}
                       onDoubleClick={() => resetColumnWidth(col.key)}
                     />
@@ -412,8 +438,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                 const attribution = attributionByIndex.get(m.index) ?? null;
                 const fireTier = attribution?.tier ?? null;
                 const modification = attribution?.modification ?? null;
-                const droppedCopy =
-                  m.type === 'send' ? 'Dropped — never sent to the server' : 'Dropped — never delivered to the page';
+                const droppedCopy = m.type === 'send' ? rowLabels.droppedSendCell : rowLabels.droppedRecvCell;
                 return (
                   <div
                     key={`ws-${m.index}`}
@@ -421,8 +446,8 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                     title={
                       m.synthetic
                         ? m.capture?.op === 'dropped'
-                          ? 'Synthetic row — the page produced this frame; the rule dropped it before send'
-                          : 'Synthetic frame — injected by a rule inside the page; never crossed the wire'
+                          ? rowLabels.syntheticDroppedTitle
+                          : rowLabels.syntheticInjectedTitle
                         : opcodeDescription(m.opcode, m.mask)
                     }
                     role="option"
@@ -433,7 +458,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       {fireTier !== null && (
                         <span
                           className={`dt-fire-dot ${FIRE_DOT_CLASS[fireTier]}`}
-                          title={fireDotTitle(m, fireTier, modification)}
+                          title={fireDotTitle(rowLabels, m, fireTier, modification)}
                         />
                       )}
                     </span>
@@ -450,7 +475,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       <span className="dt-ws-data dt-ws-data--split">
                         <span className="dt-ws-data-side">
                           {modification.kind === 'replaced-on-wire'
-                            ? (modification.original ?? <span className="dt-col-muted">Not captured</span>)
+                            ? (modification.original ?? <span className="dt-col-muted">{rowLabels.notCaptured}</span>)
                             : frameDataLabel(m)}
                         </span>
                         <span className="dt-ws-data-split-divider" aria-hidden="true" />
@@ -469,8 +494,8 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       <button
                         type="button"
                         className="dt-btn dt-btn-primary dt-ws-action dt-ws-action--icon"
-                        title={copiedIndex === m.index ? 'Copied' : 'Copy payload'}
-                        aria-label={copiedIndex === m.index ? 'Copied' : 'Copy payload'}
+                        title={copiedIndex === m.index ? rowLabels.copied : rowLabels.copyPayload}
+                        aria-label={copiedIndex === m.index ? rowLabels.copied : rowLabels.copyPayload}
                         onClick={(e) => handleCopy(e, m)}
                       >
                         {copiedIndex === m.index ? <CheckOutlined /> : <CopyOutlined />}
@@ -478,14 +503,10 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       <button
                         type="button"
                         className="dt-btn dt-btn--oh dt-ws-action"
-                        title={
-                          editRuleForFrame(m)
-                            ? 'Edit the message rule that acted on this frame'
-                            : 'Create a message rule seeded from this frame'
-                        }
+                        title={editRuleForFrame(m) ? rowLabels.editRuleTitle : rowLabels.createRuleTitle}
                         onClick={(e) => openRuleAction(e, m)}
                       >
-                        {editRuleForFrame(m) ? 'Edit rule' : 'Override'}
+                        {editRuleForFrame(m) ? rowLabels.editRule : rowLabels.override}
                       </button>
                     </span>
                   </div>

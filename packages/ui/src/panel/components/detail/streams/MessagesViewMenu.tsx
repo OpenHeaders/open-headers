@@ -6,6 +6,7 @@
  * Sits at the right end of the stream toolbar.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { SplitLayout } from '@openheaders/ui/shared/split-layout';
 import type { DevpanelNetworkLayoutSetting } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
@@ -40,42 +41,47 @@ export function MessagesViewMenu({
   /** Restore every View option to its registered default. */
   onReset: () => void;
 }) {
+  const t = useT();
   const activeCount = modified.size;
   return (
-    <ToolbarMenuPopover label="View" activeCount={activeCount} menuClassName="dt-messages-view-menu">
+    <ToolbarMenuPopover
+      label={t('panel.inspector.streams.view.label')}
+      activeCount={activeCount}
+      menuClassName="dt-messages-view-menu"
+    >
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Layout
+          {t('panel.inspector.streams.view.layout')}
           <MenuNonDefaultDot show={modified.has('devpanelNetwork.messagesLayout')} />
         </span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as DevpanelNetworkLayoutSetting)}>
-          <option value="compact">Compact</option>
-          <option value="wide">Wide</option>
+          <option value="compact">{t('panel.inspector.streams.view.layoutCompact')}</option>
+          <option value="wide">{t('panel.inspector.streams.view.layoutWide')}</option>
         </select>
       </label>
       <label
         className="dt-morefilters-item dt-morefilters-item--select"
-        title={showPreview ? undefined : 'Enable the payload preview to split the pane'}
+        title={showPreview ? undefined : t('panel.inspector.streams.view.splitDisabledTitle')}
       >
-        <span className="dt-morefilters-item-label">Split</span>
+        <span className="dt-morefilters-item-label">{t('panel.inspector.streams.view.split')}</span>
         <select
           value={splitLayout}
           disabled={!showPreview}
           onChange={(e) => onSplitLayoutChange(e.target.value as SplitLayout)}
         >
-          <option value="horizontal">Side by side</option>
-          <option value="vertical">Stacked</option>
+          <option value="horizontal">{t('panel.inspector.streams.view.splitSideBySide')}</option>
+          <option value="vertical">{t('panel.inspector.streams.view.splitStacked')}</option>
         </select>
       </label>
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showPreview} onChange={onToggleShowPreview} />
-        Show payload preview
+        {t('panel.inspector.streams.view.showPreview')}
         <MenuNonDefaultDot show={modified.has('devpanelNetwork.messagesShowPreview')} />
       </label>
       <div className="dt-morefilters-divider" />
       <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeCount === 0}>
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </ToolbarMenuPopover>
   );

@@ -8,6 +8,7 @@
  * state, this renders the controls.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { ReactNode } from 'react';
 import type { TextMatchConfig } from '../../../data/text-match';
 import { FilterInput } from '../../FilterInput';
@@ -47,14 +48,15 @@ export default function StreamGridToolbar({
   action,
   viewMenu,
 }: StreamGridToolbarProps) {
+  const t = useT();
   return (
     <div className="dt-stream-toolbar">
       <button
         type="button"
         className="dt-stream-toolbar-clear"
         onClick={onClear}
-        title="Clear all"
-        aria-label="Clear all"
+        title={t('panel.inspector.streams.clearAll')}
+        aria-label={t('panel.inspector.streams.clearAll')}
       >
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
           <circle cx="7" cy="7" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
@@ -66,11 +68,11 @@ export default function StreamGridToolbar({
           className="dt-stream-toolbar-select"
           value={directionFilter.value}
           onChange={(e) => directionFilter.onChange(e.target.value as WsDirectionFilter)}
-          title="Filter by direction"
+          title={t('panel.inspector.streams.directionFilterTitle')}
         >
-          <option value="all">All</option>
-          <option value="send">Send</option>
-          <option value="receive">Receive</option>
+          <option value="all">{t('panel.inspector.streams.directionAll')}</option>
+          <option value="send">{t('panel.inspector.streams.directionSend')}</option>
+          <option value="receive">{t('panel.inspector.streams.directionReceive')}</option>
         </select>
       )}
       <FilterInput
@@ -80,7 +82,7 @@ export default function StreamGridToolbar({
         onConfigChange={onFilterConfigChange}
         hasError={filterError}
         placeholder={filterPlaceholder}
-        ariaLabel="Filter stream messages"
+        ariaLabel={t('panel.inspector.streams.filterAria')}
       />
       {action}
       {viewMenu && <span className="dt-stream-toolbar-layout">{viewMenu}</span>}

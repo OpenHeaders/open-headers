@@ -17,7 +17,7 @@
  *     split view never claims more than the fire rail does.
  */
 
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useMemo, useState } from 'react';
 import { base64ToBytes } from '../../../data/base64';
@@ -38,25 +38,25 @@ interface MessagePreviewProps {
 
 /** The Modified caption's (i) — shown only at the inferred tier, where
  *  the split renders a derived payload rather than a captured one. */
-const INFERRED_MODIFIED_INFO: InfoPopoverContent = {
-  title: 'Derived, not captured',
-  kicker: 'Messages',
-  summary: "This side shows the rule's replacement payload — the capture plane only ever saw the wire frame.",
-  description:
-    'The wire recorded the original frame; the modification happened inside the page after capture. That this ' +
-    "exact frame took the replacement is inferred from the rule's frame selector, matching the amber fire dot.",
-};
+function inferredModifiedInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.inspector.messages.inferredModified.title'),
+    kicker: t('panel.inspector.sections.messages'),
+    summary: t('panel.inspector.messages.inferredModified.summary'),
+    description: t('panel.inspector.messages.inferredModified.description'),
+  };
+}
 
 /** The Dropped caption's (i) — the drop, like the replacement, happens
  *  inside the page after wire capture, so it is selector-inferred too. */
-const INFERRED_DROPPED_INFO: InfoPopoverContent = {
-  title: 'Dropped, inferred',
-  kicker: 'Messages',
-  summary: 'The wire recorded this frame, but the rule stopped its delivery inside the page.',
-  description:
-    "The drop happens after capture, so nothing can record the non-delivery itself. That this exact frame was " +
-    "dropped is inferred from the rule's frame selector, matching the amber fire dot.",
-};
+function inferredDroppedInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.inspector.messages.inferredDropped.title'),
+    kicker: t('panel.inspector.sections.messages'),
+    summary: t('panel.inspector.messages.inferredDropped.summary'),
+    description: t('panel.inspector.messages.inferredDropped.description'),
+  };
+}
 
 function tryParseJson(text: string): unknown | undefined {
   const trimmed = text.trim();
@@ -75,6 +75,7 @@ function toHexText(bytes: Uint8Array): string {
 }
 
 function BinaryPreview({ frame }: { frame: WsDisplayFrame }) {
+  const t = useT();
   const [mode, setMode] = useState<ViewMode>('hex');
   const [copied, setCopied] = useState(false);
 
@@ -107,7 +108,7 @@ function BinaryPreview({ frame }: { frame: WsDisplayFrame }) {
   } else if (bytes) {
     content = <HexViewer data={bytes} />;
   } else {
-    content = <span className="dt-col-muted">Binary payload could not be decoded.</span>;
+    content = <span className="dt-col-muted">{t('panel.inspector.streams.preview.decodeFailed')}</span>;
   }
 
   return (
@@ -117,8 +118,13 @@ function BinaryPreview({ frame }: { frame: WsDisplayFrame }) {
         mode={mode}
         onModeChange={setMode}
         trailing={
-          <button type="button" className="dt-response-toolbar-btn" onClick={copy} title="Copy to clipboard">
-            {copied ? 'Copied' : 'Copy'}
+          <button
+            type="button"
+            className="dt-response-toolbar-btn"
+            onClick={copy}
+            title={t('panel.inspector.streams.preview.copyTitle')}
+          >
+            {copied ? t('panel.inspector.streams.preview.copied') : t('panel.inspector.streams.preview.copy')}
           </button>
         }
       />
@@ -135,6 +141,7 @@ function BinaryPreview({ frame }: { frame: WsDisplayFrame }) {
  * payloads are always text, so this is its whole payload story.
  */
 export function TextPayload({ text }: { text: string }) {
+  const t = useT();
   const json = useMemo(() => tryParseJson(text), [text]);
   const [raw, setRaw] = useState(false);
   const showJson = json !== undefined && !raw;
@@ -165,7 +172,7 @@ export function TextPayload({ text }: { text: string }) {
                 className={`dt-response-toolbar-btn ${raw ? 'active' : ''}`}
                 onClick={() => setRaw(true)}
               >
-                Raw
+                {t('panel.inspector.streams.preview.raw')}
               </button>
             </div>
           </div>
@@ -189,8 +196,8 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
   if (!frame) {
     return (
       <div className="dt-msg-preview-empty">
-        <strong>No message selected</strong>
-        <span className="dt-col-muted">Select message to browse its content.</span>
+        <strong>{t('panel.inspector.streams.preview.noMessageTitle')}</strong>
+        <span className="dt-col-muted">{t('panel.inspector.streams.preview.noMessageHint')}</span>
       </div>
     );
   }
@@ -200,7 +207,7 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
     const send = frame.type === 'send';
     const inferredInfo =
       attribution?.tier === 'inferred' ? (
-        <InfoTrigger content={modification.kind === 'dropped' ? INFERRED_DROPPED_INFO : INFERRED_MODIFIED_INFO} />
+        <InfoTrigger content={modification.kind === 'dropped' ? inferredDroppedInfo(t) : inferredModifiedInfo(t)} />
       ) : undefined;
 
     if (modification.kind === 'dropped') {
@@ -214,8 +221,8 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
               <div className="dt-msg-preview-content">
                 <span className="dt-col-muted">
                   {send
-                    ? 'The rule dropped this frame — the page produced it, but it was never sent to the server.'
-                    : 'The rule dropped this frame — it reached the browser but was never delivered to the page.'}
+                    ? t('panel.inspector.messages.preview.droppedSendPane')
+                    : t('panel.inspector.messages.preview.droppedRecvPane')}
                 </span>
               </div>
             }
@@ -232,9 +239,7 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
         <TextPayload text={modification.original} />
       ) : (
         <div className="dt-msg-preview-content">
-          <span className="dt-col-muted">
-            The frame the page produced was not captured — only the modified frame crossed the wire.
-          </span>
+          <span className="dt-col-muted">{t('panel.inspector.messages.preview.originalNotCaptured')}</span>
         </div>
       );
     const modifiedPane =
@@ -261,9 +266,7 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
   if (frame.synthetic) {
     return (
       <>
-        <div className="dt-msg-preview-synthetic-note">
-          Synthetic frame — injected by a rule inside the page; it never crossed the wire.
-        </div>
+        <div className="dt-msg-preview-synthetic-note">{t('panel.inspector.messages.preview.syntheticNote')}</div>
         <FramePayload frame={frame} />
       </>
     );
