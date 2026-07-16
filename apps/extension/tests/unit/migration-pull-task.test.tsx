@@ -126,13 +126,11 @@ describe('deriveMigrationPullTask', () => {
     const state = fold(PLANNED, PROGRESS, { kind: 'budget', limitMonth: 10000, remainingMonth: 9876 });
     const task = deriveMigrationPullTask(state, null);
     expect(task?.percent).toBe(25);
-    expect(task?.detail).toContain('Pulled Users API');
-    expect(task?.detail).toContain('3/12 items');
-    // The budget rides the structured footnote (own line + hover hint
-    // naming Postman as the quota's source), not the detail string.
+    expect(task?.detail).toBe('Pulled Users API');
+    // The items count and the budget share one dot-separated footnote
+    // line, with the hover hint naming Postman as the quota's source.
     // Grouping separator is locale-dependent — match around it.
-    expect(task?.detail).not.toContain('API calls');
-    expect(task?.footnote?.text).toMatch(/^9.?876 API calls left this month$/);
+    expect(task?.footnote?.text).toMatch(/^3\/12 items · 9.?876 API calls left this month$/);
     expect(task?.footnote?.hint).toContain('Postman');
     expect(task?.footnote?.hint).toContain('not an Open Headers limit');
   });
@@ -197,6 +195,30 @@ describe('deriveMigrationPullTask', () => {
     const task = deriveMigrationPullTask(state, null);
     expect(task?.action).toBeUndefined();
     expect(task?.detail).toContain('3 import notes');
+  });
+
+  it('drops the detail line when several workspaces land — the stat grid counts them', () => {
+    const twoWorkspaces = {
+      ...IMPORTED,
+      summary: {
+        ...IMPORTED.summary,
+        drops: 0,
+        workspaces: [
+          { ...IMPORTED.summary.workspaces[0], drops: 0 },
+          { ...IMPORTED.summary.workspaces[0], workspaceId: 'ws-2', workspaceName: 'Imported from Postman 2', drops: 0 },
+        ],
+      },
+    } satisfies PostmanPullEvent;
+    const state = fold(
+      PLANNED,
+      PROGRESS,
+      { kind: 'finished', outcome: 'complete', collections: 8, environments: 4, skipped: 0 },
+      { kind: 'importing' },
+      twoWorkspaces,
+    );
+    const task = deriveMigrationPullTask(state, null, vi.fn());
+    expect(task?.detail).toBeUndefined();
+    expect(task?.stats?.[0]).toEqual({ value: '2', label: 'workspaces' });
   });
 
   it('labels a partial run on the completion flip', () => {

@@ -75,13 +75,26 @@ export function deriveMigrationPullTask(
         };
       }
       const last = state.lastItem;
-      const itemNote = last ? `${last.status === 'pulled' ? 'Pulled' : 'Skipped'} ${last.name ?? last.id}\n` : '';
+      const itemLine = last ? `${last.status === 'pulled' ? 'Pulled' : 'Skipped'} ${last.name ?? last.id}` : '';
+      const itemsText = `${state.completedItems}/${state.totalItems} items`;
+      const percent = state.totalItems > 0 ? Math.round((state.completedItems / state.totalItems) * 100) : null;
+      // With a known budget the items count and the quota share one
+      // dot-separated footnote line; otherwise the count stays in the
+      // detail.
+      if (footnote) {
+        return {
+          id: TASK_ID,
+          title: 'Migrating from Postman',
+          ...(itemLine ? { detail: itemLine } : {}),
+          footnote: { ...footnote, text: `${itemsText} · ${footnote.text}` },
+          percent,
+        };
+      }
       return {
         id: TASK_ID,
         title: 'Migrating from Postman',
-        detail: `${itemNote}${state.completedItems}/${state.totalItems} items`,
-        percent: state.totalItems > 0 ? Math.round((state.completedItems / state.totalItems) * 100) : null,
-        ...budgetNote,
+        detail: itemLine ? `${itemLine}\n${itemsText}` : itemsText,
+        percent,
       };
     }
     case 'importing':
@@ -106,14 +119,20 @@ export function deriveMigrationPullTask(
         ];
         if (s.examples > 0) stats.push(stat(s.examples, 'saved example', 'saved examples'));
         if (s.globals > 0) stats.push(stat(s.globals, 'global variable', 'global variables'));
+        // The stat grid already counts the workspaces — the detail line
+        // only carries what the grid can't: the single-workspace landing
+        // name, the partial marker, and the notes count when there is no
+        // report click-through.
         const only = s.workspaces.length === 1 ? s.workspaces[0] : undefined;
-        const target = only ? `into “${only.workspaceName}”` : `into ${s.workspaces.length} workspaces`;
         const notes = s.drops > 0 ? `${s.drops} import notes` : undefined;
-        const partial = state.outcome === 'partial' ? 'Partial import' : 'Imported';
+        const detailParts: string[] = [];
+        if (state.outcome === 'partial') detailParts.push(only ? `Partial import into “${only.workspaceName}”` : 'Partial import');
+        else if (only) detailParts.push(`Imported into “${only.workspaceName}”`);
+        if (!onViewReport && notes) detailParts.push(notes);
         return {
           id: TASK_ID,
           title: 'Import finished',
-          detail: `${partial} ${target}${!onViewReport && notes ? ` · ${notes}` : ''}`,
+          ...(detailParts.length > 0 ? { detail: detailParts.join(' · ') } : {}),
           stats,
           percent: 100,
           done: true,

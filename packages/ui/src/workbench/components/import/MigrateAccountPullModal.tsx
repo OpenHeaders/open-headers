@@ -51,12 +51,17 @@ const MigrateAccountPullModal: React.FC<MigrateAccountPullModalProps> = ({
       onClose();
       return;
     }
+    // The safe choice ("Keep selecting") is the primary OK on the right;
+    // the destructive discard rides the red cancel slot on the left.
+    // Esc is off so it can't fire the discard side unnoticed.
     modal.confirm({
       title: 'Close the import?',
       content: 'Your workspace selection will be discarded. Nothing has been imported yet.',
-      okText: 'Discard and close',
-      cancelText: 'Keep selecting',
-      onOk: onClose,
+      okText: 'Keep selecting',
+      cancelText: 'Discard and close',
+      cancelButtonProps: { danger: true },
+      keyboard: false,
+      onCancel: onClose,
     });
   }, [stepperAdvanced, modal, onClose]);
 
