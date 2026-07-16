@@ -1,6 +1,8 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { matchesPanelFilters } from '@openheaders/ui/panel/components/traffic/row-filter';
 import { DEFAULT_FILTER_CONFIG, passesRowFilters } from '@openheaders/ui/panel/data/filter-engine';
+import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 
 function lifecycle(url: string, overrides: Partial<RequestLifecycle> = {}): RequestLifecycle {
@@ -101,5 +103,50 @@ describe('passesRowFilters', () => {
   it('returns true when url is unparseable and pageOrigin is set', () => {
     const cfg = { ...DEFAULT_FILTER_CONFIG, onlyThirdParty: true, pageOrigin: 'https://app.openheaders.io' };
     expect(passesRowFilters(lifecycle('not-a-url'), cfg)).toBe(true);
+  });
+
+  it('onlySwRequests keeps worker-issued and SW-served rows, drops the rest', () => {
+    const cfg = { ...DEFAULT_FILTER_CONFIG, onlySwRequests: true };
+    const workerIssued = lifecycle('https://api.openheaders.io/beacon', { issuedByWorker: 'service-worker' });
+    expect(passesRowFilters(workerIssued, cfg)).toBe(true);
+
+    const plain = lifecycle('https://api.openheaders.io/page');
+    const swServed = lifecycle('https://api.openheaders.io/cached', {
+      har: [
+        {
+          ...(plain.har[0] as InspectorHarEntry),
+          response: { ...(plain.har[0] as InspectorHarEntry).response!, _fetchedViaServiceWorker: true },
+        },
+      ],
+    });
+    expect(passesRowFilters(swServed, cfg)).toBe(true);
+    expect(passesRowFilters(plain, cfg)).toBe(false);
+  });
+});
+
+describe('matchesPanelFilters — onlyRuleApplied', () => {
+  const noFacets = { filter: new Set<string>(), filterTokens: [] };
+
+  it('keeps rows with an applied fire, drops fire-less and inferred-only rows', () => {
+    const filterConfig = { ...DEFAULT_FILTER_CONFIG, onlyRuleApplied: true };
+    const lc = lifecycle('https://api.openheaders.io/x');
+    const applied: InspectorFire = {
+      ruleUid: 'r1',
+      t: 1,
+      pattern: 'api.openheaders.io/*',
+      authoritative: true,
+      evidence: 'confirmed',
+    };
+    const inferred: InspectorFire = { ...applied, authoritative: false, evidence: 'matched' };
+
+    expect(matchesPanelFilters(lc, { ...noFacets, filterConfig }, [applied])).toBe(true);
+    expect(matchesPanelFilters(lc, { ...noFacets, filterConfig }, [inferred])).toBe(false);
+    expect(matchesPanelFilters(lc, { ...noFacets, filterConfig }, [])).toBe(false);
+    expect(matchesPanelFilters(lc, { ...noFacets, filterConfig })).toBe(false);
+  });
+
+  it('is inert when the flag is off', () => {
+    const lc = lifecycle('https://api.openheaders.io/x');
+    expect(matchesPanelFilters(lc, { ...noFacets, filterConfig: DEFAULT_FILTER_CONFIG })).toBe(true);
   });
 });

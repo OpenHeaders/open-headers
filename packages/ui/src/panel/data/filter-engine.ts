@@ -18,6 +18,10 @@ export interface FilterConfig extends TextMatchConfig {
   onlyThirdParty: boolean;
   /** Show ONLY requests the host reported as blocked. */
   onlyBlockedRequests: boolean;
+  /** Show ONLY service-worker exchanges — worker-issued (⚙) or SW-served rows. */
+  onlySwRequests: boolean;
+  /** Show ONLY rows an Open Headers rule verifiably applied to. */
+  onlyRuleApplied: boolean;
   /** Inspected-window origin, used as the same-origin baseline for `onlyThirdParty`. */
   pageOrigin: string | null;
 }
@@ -30,6 +34,8 @@ export const DEFAULT_FILTER_CONFIG: FilterConfig = {
   hideExtensionUrls: false,
   onlyThirdParty: false,
   onlyBlockedRequests: false,
+  onlySwRequests: false,
+  onlyRuleApplied: false,
   pageOrigin: null,
 };
 
@@ -245,9 +251,25 @@ function isFirstParty(url: string, pageOrigin: string): boolean {
 }
 
 /**
+ * A service-worker exchange, from either side of the worker: a row the
+ * worker itself issued (the ⚙ family — both capture planes stamp
+ * `issuedByWorker` on their mints), or a page row whose response was
+ * served by the worker's `respondWith` (the host HAR's verdict — the
+ * same fact the Size column's "(ServiceWorker)" state reads).
+ */
+function isServiceWorkerExchange(lc: RequestLifecycle): boolean {
+  if (lc.issuedByWorker !== undefined) return true;
+  return currentHarEntry(lc)?.response?._fetchedViaServiceWorker === true;
+}
+
+/**
  * Coarse row filters applied before the URL-filter token pass. Kept
  * separate so the URL filter stays purely about URL/header/method
  * token semantics and toolbar toggles stay an obvious pre-filter.
+ *
+ * `onlyRuleApplied` is NOT decided here — rule fires live beside the
+ * lifecycle on the row, so the row-level bridge (`matchesPanelFilters`)
+ * owns that flag.
  */
 export function passesRowFilters(lc: RequestLifecycle, config: FilterConfig): boolean {
   if (config.hideDataUrls && isDataOrBlobUrl(lc.url)) return false;
@@ -257,5 +279,6 @@ export function passesRowFilters(lc: RequestLifecycle, config: FilterConfig): bo
     const s = classifyRequestState(lc);
     if (s.kind !== 'blocked' && s.kind !== 'failed') return false;
   }
+  if (config.onlySwRequests && !isServiceWorkerExchange(lc)) return false;
   return true;
 }

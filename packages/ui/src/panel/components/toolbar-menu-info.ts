@@ -24,6 +24,8 @@ export function getMoreFiltersInfo(t: Translate): InfoPopoverContent {
         items: [
           { label: t('panel.info.moreFilters.blocked'), desc: t('panel.info.moreFilters.blockedDesc') },
           { label: t('panel.info.moreFilters.thirdParty'), desc: t('panel.info.moreFilters.thirdPartyDesc') },
+          { label: t('panel.info.moreFilters.swRequests'), desc: t('panel.info.moreFilters.swRequestsDesc') },
+          { label: t('panel.info.moreFilters.ruleApplied'), desc: t('panel.info.moreFilters.ruleAppliedDesc') },
         ],
       },
     ],

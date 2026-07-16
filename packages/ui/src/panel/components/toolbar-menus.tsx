@@ -46,6 +46,8 @@ export function MoreFiltersMenu({
     filterConfig.hideExtensionUrls,
     filterConfig.onlyBlockedRequests,
     filterConfig.onlyThirdParty,
+    filterConfig.onlySwRequests,
+    filterConfig.onlyRuleApplied,
   ];
   const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
   const active = activeCount > 0;
@@ -91,6 +93,22 @@ export function MoreFiltersMenu({
         />
         {t('panel.moreFilters.thirdParty')}
       </label>
+      <label className="dt-morefilters-item">
+        <input
+          type="checkbox"
+          checked={filterConfig.onlySwRequests}
+          onChange={(e) => onFilterConfigChange({ ...filterConfig, onlySwRequests: e.target.checked })}
+        />
+        {t('panel.moreFilters.swRequests')}
+      </label>
+      <label className="dt-morefilters-item">
+        <input
+          type="checkbox"
+          checked={filterConfig.onlyRuleApplied}
+          onChange={(e) => onFilterConfigChange({ ...filterConfig, onlyRuleApplied: e.target.checked })}
+        />
+        {t('panel.moreFilters.ruleApplied')}
+      </label>
       <div className="dt-morefilters-divider" />
       <button
         type="button"
@@ -103,6 +121,8 @@ export function MoreFiltersMenu({
             hideExtensionUrls: false,
             onlyBlockedRequests: false,
             onlyThirdParty: false,
+            onlySwRequests: false,
+            onlyRuleApplied: false,
           });
         }}
       >

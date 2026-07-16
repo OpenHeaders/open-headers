@@ -480,7 +480,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // owner — and shared with both the table and the footer subset so the two
   // can never disagree about which rows passed.
   const filteredRows = useMemo(
-    () => data.rows.filter((r) => matchesPanelFilters(r.lifecycle, { filter, filterTokens, filterConfig })),
+    () => data.rows.filter((r) => matchesPanelFilters(r.lifecycle, { filter, filterTokens, filterConfig }, r.fires)),
     [data.rows, filter, filterTokens, filterConfig],
   );
 

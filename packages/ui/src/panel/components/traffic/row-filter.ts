@@ -11,6 +11,8 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { type FilterConfig, type FilterToken, matchesUrlFilter, passesRowFilters } from '../../data/filter-engine';
+import { rowFireTier } from '../../data/fire-evidence';
+import type { InspectorFire } from '../../data/types';
 import { matchesResourceType } from './resource-types';
 
 export interface PanelRowFilters {
@@ -25,8 +27,12 @@ export interface PanelRowFilters {
 export function matchesPanelFilters(
   lc: RequestLifecycle,
   { filter, filterTokens, filterConfig }: PanelRowFilters,
+  fires: readonly InspectorFire[] = [],
 ): boolean {
   if (!passesRowFilters(lc, filterConfig)) return false;
+  // Rule fires ride the row, not the lifecycle, so this coarse flag is
+  // decided here — same "applied" verdict the footer's Modified count uses.
+  if (filterConfig.onlyRuleApplied && rowFireTier(lc, fires) !== 'applied') return false;
   if (!matchesResourceType(lc.resourceType, filter)) return false;
   if (filterTokens.length > 0 && !matchesUrlFilter(lc, filterTokens)) return false;
   return true;

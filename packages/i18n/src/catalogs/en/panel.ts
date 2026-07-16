@@ -82,6 +82,8 @@ export const panel = {
   'panel.moreFilters.hideExtensionUrls': 'Hide extension URLs',
   'panel.moreFilters.blockedRequests': 'Blocked requests',
   'panel.moreFilters.thirdParty': '3rd-party requests',
+  'panel.moreFilters.swRequests': 'Service worker requests',
+  'panel.moreFilters.ruleApplied': 'Rule-applied requests',
   'panel.moreFilters.pageOriginPending': 'Page origin not yet available',
 
   // ── Footer-View menu ────────────────────────────────────────────────
@@ -205,6 +207,11 @@ export const panel = {
   'panel.info.moreFilters.blockedDesc': 'Restrict the list to requests a rule blocked.',
   'panel.info.moreFilters.thirdParty': '3rd-party requests',
   'panel.info.moreFilters.thirdPartyDesc': 'Restrict to requests whose origin differs from the page’s.',
+  'panel.info.moreFilters.swRequests': 'Service worker requests',
+  'panel.info.moreFilters.swRequestsDesc':
+    'Restrict to service-worker exchanges — requests the worker issued itself (⚙ rows) and page requests its fetch handler answered.',
+  'panel.info.moreFilters.ruleApplied': 'Rule-applied requests',
+  'panel.info.moreFilters.ruleAppliedDesc': 'Restrict to requests an Open Headers rule verifiably modified.',
 
   // ── (i) corpora — Footer View ───────────────────────────────────────
   'panel.info.view.summary':
