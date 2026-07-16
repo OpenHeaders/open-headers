@@ -6,38 +6,66 @@
  * metric ("explain"), the absent-rung wording, and the warm-socket hint — lives
  * here as a single source of truth, so the two views can never drift. The
  * renderers add no timing math of their own.
+ *
+ * t-first: the OH-invented copy planes (band names, absent-step reasons,
+ * key-moment narrative, footnote sentences, terminal details) word through
+ * the passed translator; the rung labels and µs/ms/s figures riding inside
+ * them are browser Timing-tab parity vocabulary and stay raw.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { WaterfallMetric } from '../network-columns';
 import { formatTimeMs } from './format-time';
 import type { RungState, TimingBand, TimingLadder, TimingRungKey } from './timing-ladder';
 
+/** Why a terminal request never received a response: it reached the wire and
+ *  got no answer, or it died in browser-side scheduling first. */
+export type WaterfallTerminalDetail = 'no-response' | 'never-reached';
+
 /**
  * Outcome for a terminal request that never received a response — blocked
  * before the wire, or a wire failure before any response. `label` mirrors the
- * Status cell (`(blocked:other)`, `(canceled)`, `(failed) net::ERR_…`); `detail`
- * is the one-line explanation. When present, a popover hides the Response /
+ * Status cell (`(blocked:other)`, `(canceled)`, `(failed) net::ERR_…`) and
+ * stays raw; `detail` is the one-line explanation kind, worded at render via
+ * {@link terminalDetailText}. When present, a popover hides the Response /
  * Ended instants (there was no response to time) and shows this marker instead.
  */
 export interface WaterfallTerminal {
   label: string;
-  detail: string;
+  detail: WaterfallTerminalDetail;
+}
+
+/** The one-line explanation for a terminal marker's detail kind. */
+export function terminalDetailText(t: Translate, detail: WaterfallTerminalDetail): string {
+  return detail === 'no-response'
+    ? t('panel.network.timing.terminalDetail.noResponse')
+    : t('panel.network.timing.terminalDetail.neverReached');
 }
 
 /** Band display name — the high-level stage each rung belongs to. */
-export const BAND_LABEL: Record<TimingBand, string> = {
-  'before-wire': 'Scheduling',
-  connecting: 'Connecting',
-  exchange: 'Transferring',
-};
+export function bandLabel(t: Translate, band: TimingBand): string {
+  switch (band) {
+    case 'before-wire':
+      return t('panel.network.timing.band.beforeWire');
+    case 'connecting':
+      return t('panel.network.timing.band.connecting');
+    case 'exchange':
+      return t('panel.network.timing.band.exchange');
+  }
+}
 
 /** Where each band runs — the wire story, spelled out: local, the handshake
  *  round-trips, then data flowing over the network. */
-export const BAND_WHERE: Record<TimingBand, string> = {
-  'before-wire': '(Browser)',
-  connecting: '(Browser ↔ Network)',
-  exchange: '(Network)',
-};
+export function bandWhere(t: Translate, band: TimingBand): string {
+  switch (band) {
+    case 'before-wire':
+      return t('panel.network.timing.where.beforeWire');
+    case 'connecting':
+      return t('panel.network.timing.where.connecting');
+    case 'exchange':
+      return t('panel.network.timing.where.exchange');
+  }
+}
 
 export const BAND_ORDER: readonly TimingBand[] = ['before-wire', 'connecting', 'exchange'];
 
@@ -45,21 +73,21 @@ export const BAND_ORDER: readonly TimingBand[] = ['before-wire', 'connecting', '
  *  already established off this request's clock (preconnect or a warm path;
  *  `connectStart == secureConnectionStart`). Hedges the likely cause, claims no
  *  mechanism the timings can't prove. */
-export const WARM_SOCKET_TITLE =
-  "No TCP handshake on this request's clock — the socket was already established (likely preconnected). " +
-  'Only TLS ran here.';
+export function warmSocketTitle(t: Translate): string {
+  return t('panel.network.timing.warmSocketTitle');
+}
 
 /** The reason an absent rung did not run, shown in place of a duration. */
-export function absentText(state: Exclude<RungState, { kind: 'elapsed' }>): string {
+export function absentText(t: Translate, state: Exclude<RungState, { kind: 'elapsed' }>): string {
   switch (state.kind) {
     case 'reused':
-      return 'connection reused';
+      return t('panel.network.timing.absent.reused');
     case 'not-reached':
-      return 'not reached';
+      return t('panel.network.timing.absent.notReached');
     case 'na':
-      return 'n/a';
+      return t('panel.network.timing.absent.na');
     case 'unknown':
-      return 'no data';
+      return t('panel.network.timing.absent.unknown');
   }
 }
 
@@ -82,16 +110,36 @@ export interface KeyMoment {
  * both the popover header and the Timing tab, so the two can't disagree on which
  * instants exist or what they mean.
  */
-export function keyMoments(ladder: TimingLadder): KeyMoment[] {
+export function keyMoments(t: Translate, ladder: TimingLadder): KeyMoment[] {
   const moments: KeyMoment[] = [
-    { key: 'queued', label: 'Queued', localMs: 0, why: 'request created' },
-    { key: 'started', label: 'Started', localMs: ladder.startedMs, why: 'left the queue' },
+    {
+      key: 'queued',
+      label: t('panel.network.timing.moment.queued'),
+      localMs: 0,
+      why: t('panel.network.timing.momentWhy.queued'),
+    },
+    {
+      key: 'started',
+      label: t('panel.network.timing.moment.started'),
+      localMs: ladder.startedMs,
+      why: t('panel.network.timing.momentWhy.started'),
+    },
   ];
   if (ladder.responseMs != null) {
-    moments.push({ key: 'response', label: 'Response', localMs: ladder.responseMs, why: 'first byte (TTFB)' });
+    moments.push({
+      key: 'response',
+      label: t('panel.network.timing.moment.response'),
+      localMs: ladder.responseMs,
+      why: t('panel.network.timing.momentWhy.response'),
+    });
   }
   if (ladder.endedMs != null) {
-    moments.push({ key: 'ended', label: 'Ended', localMs: ladder.endedMs, why: 'last byte, done' });
+    moments.push({
+      key: 'ended',
+      label: t('panel.network.timing.moment.ended'),
+      localMs: ladder.endedMs,
+      why: t('panel.network.timing.momentWhy.ended'),
+    });
   }
   return moments;
 }
@@ -179,20 +227,23 @@ export function ladderGaps(ladder: TimingLadder): LadderGap[] {
  * Empty for a cursor (dialect) ladder — its phases are contiguous by
  * construction, so there is nothing to note.
  */
-export function ladderFootnotes(ladder: TimingLadder): string[] {
+export function ladderFootnotes(t: Translate, ladder: TimingLadder): string[] {
   if (!ladder.instantAnchored) return [];
   const lines: string[] = [];
   const gaps = ladderGaps(ladder);
   if (gaps.length > 0) {
     const parts = gaps.map((g) => `${g.fromLabel} → ${g.toLabel} ${formatTimeMs(g.ms)}`);
-    lines.push(`Untracked gaps: ${parts.join(' · ')}`);
+    lines.push(t('panel.network.timing.untrackedGaps', { parts: parts.join(' · ') }));
   }
   const tcp = ladder.rungs.find((r) => r.key === 'connect')?.state;
   const tls = ladder.rungs.find((r) => r.key === 'ssl')?.state;
   if (tcp?.kind === 'elapsed' && tls?.kind === 'elapsed' && tls.ms > 0) {
     lines.push(
-      `Chrome-equivalent: Initial connection = TCP ${formatTimeMs(tcp.ms)} + TLS ${formatTimeMs(tls.ms)}` +
-        ` = ${formatTimeMs(tcp.ms + tls.ms)} (SSL drawn inside it)`,
+      t('panel.network.timing.chromeEquivalent', {
+        tcp: formatTimeMs(tcp.ms),
+        tls: formatTimeMs(tls.ms),
+        total: formatTimeMs(tcp.ms + tls.ms),
+      }),
     );
   }
   return lines;

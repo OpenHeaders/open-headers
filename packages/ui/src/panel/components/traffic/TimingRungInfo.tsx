@@ -10,10 +10,17 @@
  * deliberately includes the two untracked gaps (the slivers between
  * phases the network stack attributes to neither side), so the
  * "Timing notes" popover can light them up the same way.
+ *
+ * Rung and terminal titles stay raw — they name the raw rung rows and the
+ * Status-cell labels (browser parity vocabulary) — as do the wire tokens
+ * in item labels (csp, net::ERR_…, the schematic strip segment names).
+ * Band / moment / notes titles reuse the keys of the labels they name.
  */
 
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type { TimingBand, TimingRungKey } from '../../data/timing/timing-ladder';
+import { bandLabel } from '../../data/timing/timing-popover-model';
 
 /** One canonical example request, in wire order. `gap` slots are the
  * untracked slivers between phases; ms values are schematic but realistic
@@ -41,12 +48,18 @@ type StripHighlight = TimingRungKey | 'gap' | TimingBand | StripMoment | 'stop';
 /** Where the example's terminal request dies: right after its DNS lookup. */
 const STOP_AT_MS = 34;
 
-const MOMENT_LABEL: Record<StripMoment, string> = {
-  queued: 'Queued',
-  started: 'Started',
-  response: 'Response',
-  ended: 'Ended',
-};
+function momentLabel(t: Translate, moment: StripMoment): string {
+  switch (moment) {
+    case 'queued':
+      return t('panel.network.timing.moment.queued');
+    case 'started':
+      return t('panel.network.timing.moment.started');
+    case 'response':
+      return t('panel.network.timing.moment.response');
+    case 'ended':
+      return t('panel.network.timing.moment.ended');
+  }
+}
 
 /** Cumulative ms position of a moment on the example strip — the boundary
  * instant the moment marks. */
@@ -62,12 +75,6 @@ function momentAtMs(moment: StripMoment): number {
   return acc;
 }
 
-const BAND_IDS: Record<TimingBand, ReadonlyArray<TimingRungKey>> = {
-  'before-wire': ['queueing', 'stalled'],
-  connecting: ['dns', 'connect', 'ssl'],
-  exchange: ['send', 'wait', 'receive'],
-};
-
 function isMoment(h: StripHighlight): h is StripMoment {
   return h === 'queued' || h === 'started' || h === 'response' || h === 'ended';
 }
@@ -77,17 +84,19 @@ function isBand(h: StripHighlight): h is TimingBand {
 }
 
 /** The caption under the strip, naming exactly what is lit / marked. */
-function stripLine(highlight: StripHighlight): string {
-  if (highlight === 'stop') return 'marked: where the request stopped — the later phases never ran';
-  if (isMoment(highlight)) return `marked: ${MOMENT_LABEL[highlight]} at ${momentAtMs(highlight)} ms`;
-  if (highlight === 'gap') return 'highlighted: the untracked gaps (3 + 4 ms)';
+function stripLine(t: Translate, highlight: StripHighlight): string {
+  if (highlight === 'stop') return t('panel.network.rungInfo.stripStop');
+  if (isMoment(highlight)) {
+    return t('panel.network.rungInfo.stripMarked', { label: momentLabel(t, highlight), ms: momentAtMs(highlight) });
+  }
+  if (highlight === 'gap') return t('panel.network.rungInfo.stripGaps');
   if (isBand(highlight)) {
     const segs = EXAMPLE_STRIP.filter((s) => s.band === highlight);
     const sum = segs.reduce((a, s) => a + s.ms, 0);
-    return `highlighted: ${segs.map((s) => s.label).join(' + ')} (${sum} ms)`;
+    return t('panel.network.rungInfo.stripHighlighted', { segs: segs.map((s) => s.label).join(' + '), ms: sum });
   }
   const seg = EXAMPLE_STRIP.find((s) => s.id === highlight);
-  return `highlighted: ${seg?.label} (${seg?.ms} ms)`;
+  return t('panel.network.rungInfo.stripHighlighted', { segs: seg?.label ?? '', ms: seg?.ms ?? 0 });
 }
 
 /**
@@ -98,6 +107,7 @@ function stripLine(highlight: StripHighlight): string {
  * with a small floor so the sub-ms phases stay visible.
  */
 function ExampleStrip({ highlight }: { highlight: StripHighlight }) {
+  const t = useT();
   const marker = highlight === 'stop' ? STOP_AT_MS : isMoment(highlight) ? momentAtMs(highlight) : null;
   let cursor = 0;
   const lit = (seg: (typeof EXAMPLE_STRIP)[number], startMs: number): boolean => {
@@ -108,7 +118,7 @@ function ExampleStrip({ highlight }: { highlight: StripHighlight }) {
   };
   return (
     <div className="dt-rung-eg">
-      <div className="dt-rung-eg-cap">Example request — {EXAMPLE_TOTAL_MS} ms end to end</div>
+      <div className="dt-rung-eg-cap">{t('panel.network.rungInfo.stripCaption', { ms: EXAMPLE_TOTAL_MS })}</div>
       <div className="dt-rung-eg-track">
         {EXAMPLE_STRIP.map((seg, i) => {
           const startMs = cursor;
@@ -128,163 +138,183 @@ function ExampleStrip({ highlight }: { highlight: StripHighlight }) {
           />
         )}
       </div>
-      <div className="dt-rung-eg-line">{stripLine(highlight)}</div>
+      <div className="dt-rung-eg-line">{stripLine(t, highlight)}</div>
     </div>
   );
 }
 
-const RUNG_INFO: Record<TimingRungKey, InfoPopoverContent> = {
-  queueing: {
-    title: 'Queueing',
-    kicker: 'Timing',
-    summary: 'Time the request spent waiting in the browser before it was allowed to start.',
-    description:
-      'The browser defers requests for lower-priority resources, while higher-priority ones load first, and while it checks the disk cache. On HTTP/1.x it also waits here when all sockets to the host are busy.',
-    diagram: <ExampleStrip highlight="queueing" />,
-  },
-  stalled: {
-    title: 'Stalled',
-    kicker: 'Timing',
-    summary: 'Allowed to start, but waiting for a usable connection before any network work could begin.',
-    description: 'Typically waiting for a socket to become available or for a proxy decision. Ends the moment the first network step (DNS, TCP, or sending) starts.',
-    diagram: <ExampleStrip highlight="stalled" />,
-  },
-  dns: {
-    title: 'DNS Lookup',
-    kicker: 'Timing',
-    summary: 'Resolving the host name to an IP address to connect to.',
-    description: 'Shows "connection reused" when the request rode an already-open connection — no lookup was needed on this request\'s clock.',
-    diagram: <ExampleStrip highlight="dns" />,
-  },
-  connect: {
-    title: 'TCP',
-    kicker: 'Timing',
-    summary: 'The TCP handshake only — the round trip that opens the socket to the server.',
-    description:
-      'Chrome\'s Timing tab draws one "Initial connection" bar spanning this AND the TLS handshake (its SSL bar is drawn inside it). We split them into separate, non-overlapping phases so every millisecond is counted exactly once — TCP + TLS here equals Chrome\'s Initial connection bar.',
-    diagram: <ExampleStrip highlight="connect" />,
-  },
-  ssl: {
-    title: 'TLS',
-    kicker: 'Timing',
-    summary: 'The TLS handshake — negotiating keys and verifying certificates so the connection is encrypted.',
-    description: 'Only on https:// requests (n/a on plain http://). "Connection reused" means an earlier request already paid this cost on the same socket.',
-    diagram: <ExampleStrip highlight="ssl" />,
-  },
-  send: {
-    title: 'Request sent',
-    kicker: 'Timing',
-    summary: 'Pushing the request bytes — headers and any body — onto the wire.',
-    description: 'Usually well under a millisecond for header-only requests; grows with large uploads.',
-    diagram: <ExampleStrip highlight="send" />,
-  },
-  wait: {
-    title: 'Waiting for server',
-    kicker: 'Timing',
-    summary: 'From the last request byte sent to the first response byte received (time to first byte).',
-    description: 'Server think time plus one network round trip — the phase backend work shows up in.',
-    diagram: <ExampleStrip highlight="wait" />,
-  },
-  receive: {
-    title: 'Content Download',
-    kicker: 'Timing',
-    summary: 'Downloading the response body, first byte to last.',
-    description: 'Grows live while a response is still streaming; the caution line below the chart flags a download that never finished.',
-    diagram: <ExampleStrip highlight="receive" />,
-  },
-};
+function rungInfo(t: Translate, rung: TimingRungKey): InfoPopoverContent {
+  const kicker = t('panel.network.rungInfo.kicker');
+  switch (rung) {
+    case 'queueing':
+      return {
+        title: 'Queueing',
+        kicker,
+        summary: t('panel.network.rungInfo.queueing.summary'),
+        description: t('panel.network.rungInfo.queueing.description'),
+        diagram: <ExampleStrip highlight="queueing" />,
+      };
+    case 'stalled':
+      return {
+        title: 'Stalled',
+        kicker,
+        summary: t('panel.network.rungInfo.stalled.summary'),
+        description: t('panel.network.rungInfo.stalled.description'),
+        diagram: <ExampleStrip highlight="stalled" />,
+      };
+    case 'dns':
+      return {
+        title: 'DNS Lookup',
+        kicker,
+        summary: t('panel.network.rungInfo.dns.summary'),
+        description: t('panel.network.rungInfo.dns.description'),
+        diagram: <ExampleStrip highlight="dns" />,
+      };
+    case 'connect':
+      return {
+        title: 'TCP',
+        kicker,
+        summary: t('panel.network.rungInfo.connect.summary'),
+        description: t('panel.network.rungInfo.connect.description'),
+        diagram: <ExampleStrip highlight="connect" />,
+      };
+    case 'ssl':
+      return {
+        title: 'TLS',
+        kicker,
+        summary: t('panel.network.rungInfo.ssl.summary'),
+        description: t('panel.network.rungInfo.ssl.description'),
+        diagram: <ExampleStrip highlight="ssl" />,
+      };
+    case 'send':
+      return {
+        title: 'Request sent',
+        kicker,
+        summary: t('panel.network.rungInfo.send.summary'),
+        description: t('panel.network.rungInfo.send.description'),
+        diagram: <ExampleStrip highlight="send" />,
+      };
+    case 'wait':
+      return {
+        title: 'Waiting for server',
+        kicker,
+        summary: t('panel.network.rungInfo.wait.summary'),
+        description: t('panel.network.rungInfo.wait.description'),
+        diagram: <ExampleStrip highlight="wait" />,
+      };
+    case 'receive':
+      return {
+        title: 'Content Download',
+        kicker,
+        summary: t('panel.network.rungInfo.receive.summary'),
+        description: t('panel.network.rungInfo.receive.description'),
+        diagram: <ExampleStrip highlight="receive" />,
+      };
+  }
+}
 
-const TIMING_NOTES_INFO: InfoPopoverContent = {
-  title: 'Timing notes',
-  kicker: 'Timing',
-  summary:
-    'Bookkeeping for the slivers of time between phases — recorded end to end, but belonging to no phase.',
-  description:
-    'Each phase is measured between its own start and stop instants, while the total is measured end to end — so tiny "untracked gaps" can sit between two phases (e.g. between the DNS answer arriving and the TCP handshake starting). They are why the phases don\'t always sum to the total. Chrome\'s Timing tab has the same gaps and simply doesn\'t draw them; we list them so every millisecond stays accounted for.',
-  diagram: <ExampleStrip highlight="gap" />,
-  sections: [
-    {
-      heading: 'The lines',
-      items: [
-        {
-          label: 'Untracked gaps',
-          desc: 'Each gap, named by the phases around it, with its duration.',
-        },
-        {
-          label: 'Chrome-equivalent',
-          desc: 'How our split TCP + TLS phases map onto Chrome\'s single "Initial connection" bar (its SSL bar is drawn inside that bar, not after it).',
-        },
-      ],
-    },
-  ],
-};
+function timingNotesInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.network.timing.timingNotes'),
+    kicker: t('panel.network.rungInfo.kicker'),
+    summary: t('panel.network.rungInfo.notes.summary'),
+    description: t('panel.network.rungInfo.notes.description'),
+    diagram: <ExampleStrip highlight="gap" />,
+    sections: [
+      {
+        heading: t('panel.network.rungInfo.notes.linesHeading'),
+        items: [
+          {
+            label: t('panel.network.rungInfo.notes.gapsLabel'),
+            desc: t('panel.network.rungInfo.notes.gapsDesc'),
+          },
+          {
+            label: t('panel.network.rungInfo.notes.chromeLabel'),
+            desc: t('panel.network.rungInfo.notes.chromeDesc'),
+          },
+        ],
+      },
+    ],
+  };
+}
 
-const BAND_INFO: Record<TimingBand, InfoPopoverContent> = {
-  'before-wire': {
-    title: 'Scheduling',
-    kicker: 'Timing · Browser',
-    summary: 'Time spent entirely inside the browser before any network work — nothing has left the machine yet.',
-    description:
-      'Queueing (waiting for permission to start) plus Stalled (waiting for a usable connection). A request heavy here is being held back locally — by priorities, connection limits, or proxy decisions — not by the server.',
-    diagram: <ExampleStrip highlight="before-wire" />,
-  },
-  connecting: {
-    title: 'Connecting',
-    kicker: 'Timing · Browser ↔ Network',
-    summary: 'Setting up the path to the server: resolve the name, open the socket, encrypt it.',
-    description:
-      'DNS Lookup + TCP + TLS — the handshake round trips. Paid once per connection: a request that rides an already-open socket skips this whole band ("connection reused").',
-    diagram: <ExampleStrip highlight="connecting" />,
-  },
-  exchange: {
-    title: 'Transferring',
-    kicker: 'Timing · Network',
-    summary: 'The actual exchange over the wire: send the request, wait for the server, download the response.',
-    description:
-      'Request sent + Waiting for server (TTFB) + Content Download. Server-side slowness shows up in Waiting; large responses or slow links show up in Content Download.',
-    diagram: <ExampleStrip highlight="exchange" />,
-  },
-};
+function bandInfo(t: Translate, band: TimingBand): InfoPopoverContent {
+  const title = bandLabel(t, band);
+  switch (band) {
+    case 'before-wire':
+      return {
+        title,
+        kicker: t('panel.network.rungInfo.kickerBrowser'),
+        summary: t('panel.network.rungInfo.band.beforeWire.summary'),
+        description: t('panel.network.rungInfo.band.beforeWire.description'),
+        diagram: <ExampleStrip highlight="before-wire" />,
+      };
+    case 'connecting':
+      return {
+        title,
+        kicker: t('panel.network.rungInfo.kickerBrowserNetwork'),
+        summary: t('panel.network.rungInfo.band.connecting.summary'),
+        description: t('panel.network.rungInfo.band.connecting.description'),
+        diagram: <ExampleStrip highlight="connecting" />,
+      };
+    case 'exchange':
+      return {
+        title,
+        kicker: t('panel.network.rungInfo.kickerNetwork'),
+        summary: t('panel.network.rungInfo.band.exchange.summary'),
+        description: t('panel.network.rungInfo.band.exchange.description'),
+        diagram: <ExampleStrip highlight="exchange" />,
+      };
+  }
+}
 
-const MOMENT_INFO: Record<StripMoment, InfoPopoverContent> = {
-  queued: {
-    title: 'Queued',
-    kicker: 'Timing · Instant',
-    summary: 'The instant the browser created the request — the zero every phase in this breakdown measures from.',
-    description: 'The "at" value is the offset from the first request in view, so rows can be compared on one shared clock.',
-    diagram: <ExampleStrip highlight="queued" />,
-  },
-  started: {
-    title: 'Started',
-    kicker: 'Timing · Instant',
-    summary: 'The instant the request left the queue and work on it actually began.',
-    description: 'Queued + Queueing. Everything before this mark is browser scheduling; everything after is the request making real progress.',
+function momentInfo(t: Translate, moment: StripMoment): InfoPopoverContent {
+  const kicker = t('panel.network.rungInfo.kickerInstant');
+  switch (moment) {
+    case 'queued':
+      return {
+        title: momentLabel(t, moment),
+        kicker,
+        summary: t('panel.network.rungInfo.moment.queued.summary'),
+        description: t('panel.network.rungInfo.moment.queued.description'),
+        diagram: <ExampleStrip highlight="queued" />,
+      };
+    case 'started':
+      return {
+        title: momentLabel(t, moment),
+        kicker,
+        summary: t('panel.network.rungInfo.moment.started.summary'),
+        description: t('panel.network.rungInfo.moment.started.description'),
+        diagram: <ExampleStrip highlight="started" />,
+      };
+    case 'response':
+      return {
+        title: momentLabel(t, moment),
+        kicker,
+        summary: t('panel.network.rungInfo.moment.response.summary'),
+        description: t('panel.network.rungInfo.moment.response.description'),
+        diagram: <ExampleStrip highlight="response" />,
+      };
+    case 'ended':
+      return {
+        title: momentLabel(t, moment),
+        kicker,
+        summary: t('panel.network.rungInfo.moment.ended.summary'),
+        description: t('panel.network.rungInfo.moment.ended.description'),
+        diagram: <ExampleStrip highlight="ended" />,
+      };
+  }
+}
+
+function keyMomentsInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.network.timing.keyMoments'),
+    kicker: t('panel.network.rungInfo.kicker'),
+    summary: t('panel.network.rungInfo.keyMoments.summary'),
+    description: t('panel.network.rungInfo.keyMoments.description'),
     diagram: <ExampleStrip highlight="started" />,
-  },
-  response: {
-    title: 'Response',
-    kicker: 'Timing · Instant',
-    summary: 'The instant the first response byte arrived (time to first byte).',
-    description: 'The server has answered; from here the body is downloading. Absent when no response ever arrived (blocked or failed first).',
-    diagram: <ExampleStrip highlight="response" />,
-  },
-  ended: {
-    title: 'Ended',
-    kicker: 'Timing · Instant',
-    summary: 'The instant the last response byte arrived — the request is done.',
-    description: 'Ended − Queued is the total time shown below the breakdown; Ended − Started is the active duration the Time column shows.',
-    diagram: <ExampleStrip highlight="ended" />,
-  },
-};
-
-const KEY_MOMENTS_INFO: InfoPopoverContent = {
-  title: 'Key moments',
-  kicker: 'Timing',
-  summary: 'The boundary instants of the request\'s life — where one stage hands over to the next.',
-  description:
-    'Queued and Started always exist; Response and Ended only once a response actually arrived (a request that was blocked or failed first shows its outcome marker instead). The phases below are the spans between these instants.',
-  diagram: <ExampleStrip highlight="started" />,
-};
+  };
+}
 
 /** Status-cell label families a terminal stop marker can carry. */
 type TerminalFamily = 'canceled' | 'blocked' | 'cors' | 'failed';
@@ -297,101 +327,126 @@ function terminalFamily(label: string): TerminalFamily {
 }
 
 /** Shared section explaining the marker's one-line detail wording. */
-const TERMINAL_WHERE_SECTION = {
-  heading: 'Where it stopped',
-  items: [
-    { label: 'no response received', desc: 'It reached the network, but no answer ever made it back.' },
-    { label: 'never reached the network', desc: 'It died in browser-side scheduling — nothing was sent.' },
-  ],
-} as const;
+function terminalWhereSection(t: Translate) {
+  return {
+    heading: t('panel.network.rungInfo.terminal.whereHeading'),
+    items: [
+      {
+        label: t('panel.network.timing.terminalDetail.noResponse'),
+        desc: t('panel.network.rungInfo.terminal.noResponseDesc'),
+      },
+      {
+        label: t('panel.network.timing.terminalDetail.neverReached'),
+        desc: t('panel.network.rungInfo.terminal.neverReachedDesc'),
+      },
+    ],
+  };
+}
 
-const TERMINAL_INFO: Record<TerminalFamily, InfoPopoverContent> = {
-  canceled: {
-    title: '(canceled)',
-    kicker: 'Timing · Outcome',
-    summary: 'The request was aborted before it completed — the ✗ marks where it stopped; later phases never ran.',
-    description:
-      'Typical causes: the page navigated away mid-load, script aborted the fetch, or the user stopped the load. Nothing was wrong with the network — the browser simply gave up on the answer.',
-    diagram: <ExampleStrip highlight="stop" />,
-    sections: [TERMINAL_WHERE_SECTION],
-  },
-  blocked: {
-    title: '(blocked:reason)',
-    kicker: 'Timing · Outcome',
-    summary: 'The browser refused the request for a policy reason — the word after the colon names which policy.',
-    description: 'The ✗ marks where it stopped; later phases never ran.',
-    diagram: <ExampleStrip highlight="stop" />,
-    sections: [
-      {
-        heading: 'Common reasons',
-        items: [
-          { label: 'csp', desc: 'The page\'s Content-Security-Policy forbids this destination.' },
-          { label: 'mixed-content', desc: 'An insecure http:// resource on an https:// page.' },
-          { label: 'other', desc: 'An extension, ad-blocker, or an internal browser rule refused it.' },
+function terminalInfo(t: Translate, family: TerminalFamily): InfoPopoverContent {
+  const kicker = t('panel.network.rungInfo.kickerOutcome');
+  const diagram = <ExampleStrip highlight="stop" />;
+  switch (family) {
+    case 'canceled':
+      return {
+        title: '(canceled)',
+        kicker,
+        summary: t('panel.network.rungInfo.terminal.canceled.summary'),
+        description: t('panel.network.rungInfo.terminal.canceled.description'),
+        diagram,
+        sections: [terminalWhereSection(t)],
+      };
+    case 'blocked':
+      return {
+        title: '(blocked:reason)',
+        kicker,
+        summary: t('panel.network.rungInfo.terminal.blocked.summary'),
+        description: t('panel.network.rungInfo.terminal.stoppedHere'),
+        diagram,
+        sections: [
+          {
+            heading: t('panel.network.rungInfo.terminal.blocked.reasonsHeading'),
+            items: [
+              { label: 'csp', desc: t('panel.network.rungInfo.terminal.blocked.cspDesc') },
+              { label: 'mixed-content', desc: t('panel.network.rungInfo.terminal.blocked.mixedContentDesc') },
+              { label: 'other', desc: t('panel.network.rungInfo.terminal.blocked.otherDesc') },
+            ],
+          },
+          terminalWhereSection(t),
         ],
-      },
-      TERMINAL_WHERE_SECTION,
-    ],
-  },
-  cors: {
-    title: 'CORS error',
-    kicker: 'Timing · Outcome',
-    summary: 'A cross-origin check rejected the response — the server answered, but the page was not allowed to read it.',
-    description:
-      'The server must opt in with Access-Control-Allow-Origin (and friends) for a cross-origin page to read its response. The ✗ marks where the rejection landed.',
-    diagram: <ExampleStrip highlight="stop" />,
-    sections: [TERMINAL_WHERE_SECTION],
-  },
-  failed: {
-    title: '(failed) net::ERR_…',
-    kicker: 'Timing · Outcome',
-    summary: 'A wire-level failure — the connection itself broke, and the net:: code names the exact cause.',
-    description: 'The ✗ marks where it stopped; later phases never ran.',
-    diagram: <ExampleStrip highlight="stop" />,
-    sections: [
-      {
-        heading: 'Common codes',
-        items: [
-          { label: 'ERR_NAME_NOT_RESOLVED', desc: 'DNS could not find the host.' },
-          { label: 'ERR_CONNECTION_REFUSED / _RESET', desc: 'The server rejected or dropped the socket.' },
-          { label: 'ERR_TIMED_OUT', desc: 'No answer within the network stack\'s time limit.' },
-          { label: 'ERR_CERT_…', desc: 'The TLS certificate failed validation.' },
+      };
+    case 'cors':
+      return {
+        title: 'CORS error',
+        kicker,
+        summary: t('panel.network.rungInfo.terminal.cors.summary'),
+        description: t('panel.network.rungInfo.terminal.cors.description'),
+        diagram,
+        sections: [terminalWhereSection(t)],
+      };
+    case 'failed':
+      return {
+        title: '(failed) net::ERR_…',
+        kicker,
+        summary: t('panel.network.rungInfo.terminal.failed.summary'),
+        description: t('panel.network.rungInfo.terminal.stoppedHere'),
+        diagram,
+        sections: [
+          {
+            heading: t('panel.network.rungInfo.terminal.failed.codesHeading'),
+            items: [
+              { label: 'ERR_NAME_NOT_RESOLVED', desc: t('panel.network.rungInfo.terminal.failed.nameNotResolvedDesc') },
+              {
+                label: 'ERR_CONNECTION_REFUSED / _RESET',
+                desc: t('panel.network.rungInfo.terminal.failed.connectionRefusedDesc'),
+              },
+              { label: 'ERR_TIMED_OUT', desc: t('panel.network.rungInfo.terminal.failed.timedOutDesc') },
+              { label: 'ERR_CERT_…', desc: t('panel.network.rungInfo.terminal.failed.certDesc') },
+            ],
+          },
+          terminalWhereSection(t),
         ],
-      },
-      TERMINAL_WHERE_SECTION,
-    ],
-  },
-};
+      };
+  }
+}
 
 /** Hover-revealed `(i)` for a terminal stop marker (`✗ (blocked:other)`, …).
  * The popover title carries the row's own label so the explanation reads
  * specific, while the body explains its family. */
 export function TimingTerminalInfo({ label }: { label: string }) {
-  const content = { ...TERMINAL_INFO[terminalFamily(label)], title: label };
+  const t = useT();
+  const content = { ...terminalInfo(t, terminalFamily(label)), title: label };
   return <InfoTrigger content={content} className="dt-wf-rung-info-trigger" />;
 }
 
 /** Hover-revealed `(i)` for one ladder phase row. */
 export function TimingRungInfo({ rung }: { rung: TimingRungKey }) {
-  return <InfoTrigger content={RUNG_INFO[rung]} className="dt-wf-rung-info-trigger" />;
+  const t = useT();
+  return <InfoTrigger content={rungInfo(t, rung)} className="dt-wf-rung-info-trigger" />;
 }
 
 /** Hover-revealed `(i)` for a phase-group (band) head or bracket. */
 export function TimingBandInfo({ band }: { band: TimingBand }) {
-  return <InfoTrigger content={BAND_INFO[band]} className="dt-wf-rung-info-trigger" />;
+  const t = useT();
+  return <InfoTrigger content={bandInfo(t, band)} className="dt-wf-rung-info-trigger" />;
 }
 
 /** Hover-revealed `(i)` for one key-moment instant (Queued / Started / …). */
 export function TimingMomentInfo({ moment }: { moment: StripMoment }) {
-  return <InfoTrigger content={MOMENT_INFO[moment]} className="dt-wf-rung-info-trigger" />;
+  const t = useT();
+  return <InfoTrigger content={momentInfo(t, moment)} className="dt-wf-rung-info-trigger" />;
 }
 
 /** Hover-revealed `(i)` for the "Key moments" section head. */
 export function TimingKeyMomentsInfo() {
-  return <InfoTrigger content={KEY_MOMENTS_INFO} className="dt-wf-rung-info-trigger" />;
+  const t = useT();
+  return <InfoTrigger content={keyMomentsInfo(t)} className="dt-wf-rung-info-trigger" />;
 }
 
 /** `(i)` for the "Timing notes" section head (untracked gaps + Chrome mapping). */
 export function TimingNotesInfo() {
-  return <InfoTrigger content={TIMING_NOTES_INFO} className="dt-wf-rung-info-trigger dt-wf-notes-info-trigger" />;
+  const t = useT();
+  return (
+    <InfoTrigger content={timingNotesInfo(t)} className="dt-wf-rung-info-trigger dt-wf-notes-info-trigger" />
+  );
 }

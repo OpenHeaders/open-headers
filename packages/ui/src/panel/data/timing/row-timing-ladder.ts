@@ -58,8 +58,8 @@ export function noResponseTerminal(row: InspectorRowWithFires, ladder: TimingLad
   if (kind !== 'blocked' && kind !== 'failed') return undefined;
   // Phase-aware detail: a request that did any network step (an `onWire` rung
   // elapsed) reached the network, then got no response; one with only local
-  // scheduling / stalled time died before any wire activity.
+  // scheduling / stalled time died before any wire activity. Worded at render
+  // via `terminalDetailText`.
   const reachedNetwork = ladder.rungs.some((r) => r.onWire && r.state.kind === 'elapsed');
-  const detail = reachedNetwork ? 'no response received' : 'never reached the network';
-  return { label: statusCellText(row.lifecycle), detail };
+  return { label: statusCellText(row.lifecycle), detail: reachedNetwork ? 'no-response' : 'never-reached' };
 }

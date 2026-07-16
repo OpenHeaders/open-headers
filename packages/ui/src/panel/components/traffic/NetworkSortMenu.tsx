@@ -170,9 +170,11 @@ export function NetworkSortMenu({
         subtitle={
           sortBy === 'waterfall'
             ? t('panel.network.sort.columnClickIdle')
-            : `${sortByLabel} · ${sortDir === 'asc' ? t('panel.network.sort.ascending') : t('panel.network.sort.descending')}${
-                columnClickActive ? '' : ` · ${t('panel.network.sort.columnClickUse')}`
-              }`
+            : [
+                sortByLabel,
+                sortDir === 'asc' ? t('panel.network.sort.ascending') : t('panel.network.sort.descending'),
+                ...(columnClickActive ? [] : [t('panel.network.sort.columnClickUse')]),
+              ].join(' · ')
         }
         active={columnClickActive}
         disabled={columnClickActive}

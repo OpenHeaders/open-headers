@@ -21,20 +21,22 @@
  */
 
 import { Fragment } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatTimeMs } from '../../data/timing/format-time';
 import type { WaterfallMetric } from '../../data/network-columns';
 import type { TimingLadder } from '../../data/timing/timing-ladder';
 import {
   absentText,
-  BAND_LABEL,
   BAND_ORDER,
-  BAND_WHERE,
+  bandLabel,
+  bandWhere,
   explainSpec,
   isWarmSocketConnect,
   type KeyMoment,
   keyMoments,
   ladderFootnotes,
-  WARM_SOCKET_TITLE,
+  terminalDetailText,
+  warmSocketTitle,
   type WaterfallTerminal,
 } from '../../data/timing/timing-popover-model';
 import {
@@ -69,6 +71,7 @@ export function WaterfallTimingPopover({
   /** Display name of the request that opened this row's reused connection. */
   reusedOpener?: string;
 }) {
+  const t = useT();
   const at = (localMs: number) => formatTimeMs(queuedAtMs + localMs);
   const spec = explain ? explainSpec(metric) : null;
   // Every rung's bar is positioned on the same [0, duration] track, so the rows
@@ -83,7 +86,7 @@ export function WaterfallTimingPopover({
   // (where it died) — inline in the steps, not as a trailing block.
   const lastReachedKey = [...ladder.rungs].reverse().find((r) => r.state.kind === 'elapsed')?.key;
   // Instant-anchored ladders only: untracked gaps + the browser-row mapping.
-  const footnotes = ladderFootnotes(ladder);
+  const footnotes = ladderFootnotes(t, ladder);
 
   // A milestone: the moment a key boundary happened (offset from the first
   // request in view), with a plain-language meaning. Computed cumulatively from
@@ -112,11 +115,11 @@ export function WaterfallTimingPopover({
     <div className="dt-waterfall-pop" onClick={(e) => e.stopPropagation()}>
       <div className="dt-waterfall-pop-start">
         <div className="dt-waterfall-pop-head">
-          <span>Key moments</span>
-          <span className="dt-waterfall-pop-where">(since the first request)</span>
+          <span>{t('panel.network.timing.keyMoments')}</span>
+          <span className="dt-waterfall-pop-where">{t('panel.network.timing.sinceFirstRequest')}</span>
           <TimingKeyMomentsInfo />
         </div>
-        {keyMoments(ladder).map(moment)}
+        {keyMoments(t, ladder).map(moment)}
       </div>
       {/* The steps run top-to-bottom in sequence; each row's cumulative mini-bar
           flows right over a shared elapsed-time track, so the rows stack into a
@@ -125,12 +128,14 @@ export function WaterfallTimingPopover({
         {BAND_ORDER.map((band) => (
           <div key={band} className="dt-waterfall-pop-group">
           <div className="dt-waterfall-pop-head">
-            <span>{BAND_LABEL[band]}</span>
-            <span className="dt-waterfall-pop-where">{BAND_WHERE[band]}</span>
+            <span>{bandLabel(t, band)}</span>
+            <span className="dt-waterfall-pop-where">{bandWhere(t, band)}</span>
             <TimingBandInfo band={band} />
           </div>
           {band === 'connecting' && anyReused && reusedOpener && (
-            <div className="dt-waterfall-pop-note">↳ connection opened by {reusedOpener}</div>
+            <div className="dt-waterfall-pop-note">
+              {t('panel.network.timing.connectionOpenedBy', { name: reusedOpener })}
+            </div>
           )}
           {ladder.rungs
             .filter((r) => r.band === band)
@@ -142,7 +147,7 @@ export function WaterfallTimingPopover({
                 <Fragment key={r.key}>
                   <div
                     className={`dt-waterfall-pop-row${absent ? ' dt-waterfall-pop-row--absent' : ''}${hl}`}
-                    title={warmSocket ? WARM_SOCKET_TITLE : undefined}
+                    title={warmSocket ? warmSocketTitle(t) : undefined}
                   >
                     <span className={`dt-waterfall-pop-swatch dt-wf-fill--${r.key}`} aria-hidden="true" />
                     <span className="dt-waterfall-pop-label">
@@ -156,16 +161,18 @@ export function WaterfallTimingPopover({
                             className={`dt-waterfall-pop-seg dt-wf-fill--${r.key}`}
                             style={{ left: pct(r.startMs), width: pct(r.state.ms) }}
                           />
-                          {warmSocket && <span className="dt-waterfall-pop-hint">warm socket</span>}
+                          {warmSocket && (
+                            <span className="dt-waterfall-pop-hint">{t('panel.network.timing.warmSocketHint')}</span>
+                          )}
                         </span>
                         <span className="dt-waterfall-pop-ms">{formatTimeMs(r.state.ms)}</span>
                       </>
                     ) : (
-                      <span className="dt-waterfall-pop-absent-text">{absentText(r.state)}</span>
+                      <span className="dt-waterfall-pop-absent-text">{absentText(t, r.state)}</span>
                     )}
                   </div>
                   {terminal && r.key === lastReachedKey && (
-                    <div className="dt-waterfall-pop-stop" title={terminal.detail}>
+                    <div className="dt-waterfall-pop-stop" title={terminalDetailText(t, terminal.detail)}>
                       <span className="dt-waterfall-pop-stop-text">✗ {terminal.label}</span>
                       <TimingTerminalInfo label={terminal.label} />
                       <span className="dt-waterfall-pop-stop-rule" aria-hidden="true" />
@@ -178,14 +185,16 @@ export function WaterfallTimingPopover({
           </div>
         ))}
       </div>
-      {unfinished && <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>}
+      {unfinished && (
+        <div className="dt-waterfall-pop-caution">{t('panel.network.timing.notFinishedCaution')}</div>
+      )}
       {/* Instant-anchored ladders only: the untracked gaps (why the phases
           don't sum to the total) and the browser-row mapping for the split
           connection, under their own delimited head like the bands above. */}
       {footnotes.length > 0 && (
         <div className="dt-waterfall-pop-group">
           <div className="dt-waterfall-pop-head">
-            <span>Timing notes</span>
+            <span>{t('panel.network.timing.timingNotes')}</span>
             <TimingNotesInfo />
           </div>
           {footnotes.map((line) => (
@@ -197,7 +206,8 @@ export function WaterfallTimingPopover({
       )}
       <div className={`dt-waterfall-pop-total${spec?.total ? ' dt-wf-pop-hl' : ''}`}>
         <span>
-          Total time <span className="dt-waterfall-pop-where">(queued → ended)</span>
+          {t('panel.network.timing.totalTime')}{' '}
+          <span className="dt-waterfall-pop-where">{t('panel.network.timing.queuedToEnded')}</span>
         </span>
         <span>{formatTimeMs(ladder.durationMs)}</span>
       </div>

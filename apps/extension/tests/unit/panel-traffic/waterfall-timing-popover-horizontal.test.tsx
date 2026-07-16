@@ -8,6 +8,7 @@
  * popover, since both read one ladder.
  */
 
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { WaterfallTimingPopoverHorizontal } from '@openheaders/ui/panel/components/traffic/WaterfallTimingPopoverHorizontal';
 import { layoutHorizontal } from '@openheaders/ui/panel/data/timing/horizontal-timing-layout';
@@ -231,7 +232,7 @@ describe('WaterfallTimingPopoverHorizontal — no-response terminal', () => {
         metric="duration"
         queuedAtMs={8970}
         explain={false}
-        terminal={{ label: '(blocked:other)', detail: 'never reached the network' }}
+        terminal={{ label: '(blocked:other)', detail: 'never-reached' }}
       />,
     );
     // All four instants present; the two that never happened read "not reached".
@@ -266,7 +267,7 @@ describe('WaterfallTimingPopoverHorizontal — responded request', () => {
 describe('layoutHorizontal — label de-collision (degenerate timings)', () => {
   it('keeps the bar one cell per rung and never overlaps Queued / Started when queueing is 0', () => {
     // A blocked request: queueing 0, big Stalled, the rest never reached.
-    const layout = layoutHorizontal(ladderOf(BLOCKED, { reachedResponse: false }), true);
+    const layout = layoutHorizontal(getTranslator(DEFAULT_LOCALE), ladderOf(BLOCKED, { reachedResponse: false }), true);
     expect(layout.cells).toHaveLength(8);
     // All four instants are laid out; Queued and Started are pushed at least a
     // label-width apart even though their true marks are µs apart (Started leadered).
@@ -279,7 +280,7 @@ describe('layoutHorizontal — label de-collision (degenerate timings)', () => {
   });
 
   it('leaves a normal request instant labels on their marks (no leaders)', () => {
-    const layout = layoutHorizontal(ladderOf(NORMAL));
+    const layout = layoutHorizontal(getTranslator(DEFAULT_LOCALE), ladderOf(NORMAL));
     // Queued sits at 0; with roomy phases the rest stay on their true marks.
     expect(layout.ticks.every((t) => t.leader === false)).toBe(true);
     expect(layout.failure).toBeNull();

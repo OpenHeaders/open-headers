@@ -10,6 +10,7 @@
  * timing math of its own.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatTimeMs } from '../../data/timing/format-time';
 import type { WaterfallMetric } from '../../data/network-columns';
 import type { TimingLadder } from '../../data/timing/timing-ladder';
@@ -41,6 +42,7 @@ export function WaterfallTimingPopoverHorizontal({
   /** Display name of the request that opened this row's reused connection. */
   reusedOpener?: string;
 }) {
+  const t = useT();
   const spec = explain ? explainSpec(metric) : null;
   const anyReused = ladder.rungs.some((r) => r.state.kind === 'reused');
 
@@ -51,23 +53,30 @@ export function WaterfallTimingPopoverHorizontal({
     // biome-ignore lint/a11y/useKeyWithClickEvents: guard only, not an interactive element
     <div className="dt-waterfall-pop dt-waterfall-pop--h" onClick={(e) => e.stopPropagation()}>
       <div className="dt-waterfall-pop-head">
-        <span>Key moments</span>
-        <span className="dt-waterfall-pop-where">(since the first request)</span>
+        <span>{t('panel.network.timing.keyMoments')}</span>
+        <span className="dt-waterfall-pop-where">{t('panel.network.timing.sinceFirstRequest')}</span>
         <TimingKeyMomentsInfo />
       </div>
 
       <HorizontalTimingChart ladder={ladder} queuedAtMs={queuedAtMs} spec={spec} terminal={terminal} />
 
       <TimingLadderLegend ladder={ladder} spec={spec} />
-      {anyReused && reusedOpener && <div className="dt-waterfall-pop-note">↳ connection opened by {reusedOpener}</div>}
+      {anyReused && reusedOpener && (
+        <div className="dt-waterfall-pop-note">
+          {t('panel.network.timing.connectionOpenedBy', { name: reusedOpener })}
+        </div>
+      )}
 
       {/* A terminal row marks where it stopped on the bar above (the red ▼ +
           status); no separate "never reached the network" line — the hatched
           cells past the stop say it. */}
-      {unfinished && <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>}
+      {unfinished && (
+        <div className="dt-waterfall-pop-caution">{t('panel.network.timing.notFinishedCaution')}</div>
+      )}
       <div className={`dt-waterfall-pop-total${spec?.total ? ' dt-wf-pop-hl' : ''}`}>
         <span>
-          Total time <span className="dt-waterfall-pop-where">(queued → ended)</span>
+          {t('panel.network.timing.totalTime')}{' '}
+          <span className="dt-waterfall-pop-where">{t('panel.network.timing.queuedToEnded')}</span>
         </span>
         <span>{formatTimeMs(ladder.durationMs)}</span>
       </div>

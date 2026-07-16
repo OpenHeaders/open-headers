@@ -9,6 +9,7 @@
  * this identical legend over the same {@link TimingLadder}, so they can't drift.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatTimeMs } from '../../data/timing/format-time';
 import type { TimingLadder } from '../../data/timing/timing-ladder';
 import {
@@ -17,13 +18,14 @@ import {
   type ExplainSpec,
   isWarmSocketConnect,
   ladderFootnotes,
-  WARM_SOCKET_TITLE,
+  warmSocketTitle,
 } from '../../data/timing/timing-popover-model';
 import { TimingNotesInfo, TimingRungInfo } from './TimingRungInfo';
 
 export function TimingLadderLegend({ ladder, spec }: { ladder: TimingLadder; spec?: ExplainSpec | null }) {
+  const t = useT();
   const warmConnect = isWarmSocketConnect(ladder);
-  const footnotes = ladderFootnotes(ladder);
+  const footnotes = ladderFootnotes(t, ladder);
   return (
     <div className="dt-wf-h-legend">
       {BAND_ORDER.map((band) => (
@@ -37,17 +39,17 @@ export function TimingLadderLegend({ ladder, spec }: { ladder: TimingLadder; spe
               <div
                 key={r.key}
                 className={`dt-wf-h-legend-item${absent ? ' dt-waterfall-pop-row--absent' : ''}${hl}`}
-                title={warmSocket ? WARM_SOCKET_TITLE : undefined}
+                title={warmSocket ? warmSocketTitle(t) : undefined}
               >
                 <span className="dt-waterfall-pop-stepno">{i + 1}.</span>
                 <span className={`dt-waterfall-pop-swatch dt-wf-fill--${r.key}`} aria-hidden="true" />
                 <span className="dt-wf-h-legend-name">{r.label}</span>
                 <TimingRungInfo rung={r.key} />
-                {warmSocket && <span className="dt-wf-h-legend-hint">warm socket</span>}
+                {warmSocket && <span className="dt-wf-h-legend-hint">{t('panel.network.timing.warmSocketHint')}</span>}
                 {r.state.kind === 'elapsed' ? (
                   <span className="dt-waterfall-pop-ms">{formatTimeMs(r.state.ms)}</span>
                 ) : (
-                  <span className="dt-waterfall-pop-absent-text">{absentText(r.state)}</span>
+                  <span className="dt-waterfall-pop-absent-text">{absentText(t, r.state)}</span>
                 )}
               </div>
             );
@@ -61,7 +63,7 @@ export function TimingLadderLegend({ ladder, spec }: { ladder: TimingLadder; spe
       {footnotes.length > 0 && (
         <div className="dt-wf-h-legend-footnotes">
           <div className="dt-waterfall-pop-head">
-            <span>Timing notes</span>
+            <span>{t('panel.network.timing.timingNotes')}</span>
             <TimingNotesInfo />
           </div>
           {footnotes.map((line) => (

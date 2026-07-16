@@ -5,6 +5,7 @@
  * clamped headers-received instant, and the total as the range span.
  */
 
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import type { InspectorRawTiming } from '@openheaders/core/types';
 import type { LadderContext } from '@openheaders/ui/panel/data/timing/timing-ladder';
 import { computeRawTimingLadder, rawFirstByteMs, rawSpanMs } from '@openheaders/ui/panel/data/timing/timing-ladder-raw';
@@ -100,7 +101,7 @@ describe('computeRawTimingLadder — tab-exact decomposition', () => {
   });
 
   it('footnotes carry the gaps line and the Chrome-equivalent connection line', () => {
-    const notes = ladderFootnotes(ladder(FULL));
+    const notes = ladderFootnotes(getTranslator(DEFAULT_LOCALE), ladder(FULL));
     expect(notes).toHaveLength(2);
     expect(notes[0]).toContain('DNS Lookup → TCP');
     expect(notes[0]).toContain('TLS → Request sent');
@@ -152,7 +153,7 @@ describe('computeRawTimingLadder — reused connection / partial blocks', () => 
       receive: expect.closeTo(20, 6), // 40 → 60
     });
     expect(ladderGaps(l)).toHaveLength(0);
-    expect(ladderFootnotes(l)).toHaveLength(0); // contiguous + no TLS to map
+    expect(ladderFootnotes(getTranslator(DEFAULT_LOCALE), l)).toHaveLength(0); // contiguous + no TLS to map
   });
 
   it('marks TLS n/a on a plaintext request', () => {

@@ -217,7 +217,7 @@ describe('WaterfallTimingPopover — no-response terminal', () => {
         metric="duration"
         queuedAtMs={8970}
         explain={false}
-        terminal={{ label: '(blocked:other)', detail: 'never reached the network' }}
+        terminal={{ label: '(blocked:other)', detail: 'never-reached' }}
       />,
     );
     const h = header(container);
@@ -256,7 +256,7 @@ describe('noResponseTerminal', () => {
       },
       { reachedResponse: false },
     );
-    expect(noResponseTerminal(row, ladder)).toEqual({ label: '(blocked:other)', detail: 'never reached the network' });
+    expect(noResponseTerminal(row, ladder)).toEqual({ label: '(blocked:other)', detail: 'never-reached' });
   });
 
   it('marks a wire failure that reached the network "no response received"', () => {
@@ -275,7 +275,7 @@ describe('noResponseTerminal', () => {
     );
     expect(noResponseTerminal(row, ladder)).toEqual({
       label: '(failed) net::ERR_NAME_NOT_RESOLVED',
-      detail: 'no response received',
+      detail: 'no-response',
     });
   });
 

@@ -776,15 +776,13 @@ export const panel = {
     'Active duration from request sent to the last response byte — time spent queued is excluded.',
   'panel.network.colInfo.time.description':
     'Reads `0 ms` for an instant response; stays blank while a request is still in flight.',
-  'panel.network.colInfo.priority.summary':
-    'The fetch priority the browser assigned, from `Highest` down to `Lowest`.',
+  'panel.network.colInfo.priority.summary': 'The fetch priority the browser assigned, from `Highest` down to `Lowest`.',
   'panel.network.colInfo.priority.description':
     'Higher-priority resources are requested sooner and given more of the connection. A page can nudge it with the `fetchpriority` attribute.',
   'panel.network.colInfo.waterfall.summary':
     'A timeline bar per request. The header menu picks the metric, shown as a short tag like `Waterfall (ST)`.',
   'panel.network.colInfo.waterfall.metricTagsHeading': 'Metric tags',
-  'panel.network.colInfo.waterfall.stDesc':
-    'Start time — bars sit on a shared timeline by when each request began.',
+  'panel.network.colInfo.waterfall.stDesc': 'Start time — bars sit on a shared timeline by when each request began.',
   'panel.network.colInfo.waterfall.rtDesc': 'Response time — placed by when the first response byte arrived.',
   'panel.network.colInfo.waterfall.etDesc': 'End time — placed by when each request finished.',
   'panel.network.colInfo.waterfall.tdDesc': 'Total duration — zero-aligned bars sized by full request duration.',
@@ -805,4 +803,164 @@ export const panel = {
     'The row is not what it looks like — e.g. a transfer interrupted mid-download.',
   'panel.network.annotationRail.infoDesc':
     'Provenance or fidelity context — never finished, capture gap, synthesized row.',
+
+  // ── Timing plane (waterfall popovers + ladder legend + Timing tab) ──
+  // Raw by design: the eight rung names (Queueing / Stalled / DNS Lookup
+  // / TCP / TLS / Request sent / Waiting for server / Content Download —
+  // browser Timing-tab parity), the terminal outcome labels mirroring
+  // the Status cell ((canceled), (blocked:…), CORS error, (failed)
+  // net::ERR_…), the Connection Start section name, and every µs/ms/s
+  // figure. The OH-invented band names, absent-step reasons, key-moment
+  // narrative, and footnote sentences key.
+  'panel.network.timing.band.beforeWire': 'Scheduling',
+  'panel.network.timing.band.connecting': 'Connecting',
+  'panel.network.timing.band.exchange': 'Transferring',
+  'panel.network.timing.where.beforeWire': '(Browser)',
+  'panel.network.timing.where.connecting': '(Browser ↔ Network)',
+  'panel.network.timing.where.exchange': '(Network)',
+  'panel.network.timing.absent.reused': 'connection reused',
+  'panel.network.timing.absent.notReached': 'not reached',
+  'panel.network.timing.absent.na': 'n/a',
+  'panel.network.timing.absent.unknown': 'no data',
+  'panel.network.timing.warmSocketTitle':
+    "No TCP handshake on this request's clock — the socket was already established (likely preconnected). Only TLS ran here.",
+  'panel.network.timing.warmSocketHint': 'warm socket',
+  'panel.network.timing.moment.queued': 'Queued',
+  'panel.network.timing.moment.started': 'Started',
+  'panel.network.timing.moment.response': 'Response',
+  'panel.network.timing.moment.ended': 'Ended',
+  'panel.network.timing.momentWhy.queued': 'request created',
+  'panel.network.timing.momentWhy.started': 'left the queue',
+  'panel.network.timing.momentWhy.response': 'first byte (TTFB)',
+  'panel.network.timing.momentWhy.ended': 'last byte, done',
+  'panel.network.timing.untrackedGaps': 'Untracked gaps: {parts}',
+  'panel.network.timing.chromeEquivalent':
+    'Chrome-equivalent: Initial connection = TCP {tcp} + TLS {tls} = {total} (SSL drawn inside it)',
+  'panel.network.timing.terminalDetail.noResponse': 'no response received',
+  'panel.network.timing.terminalDetail.neverReached': 'never reached the network',
+  'panel.network.timing.keyMoments': 'Key moments',
+  'panel.network.timing.sinceFirstRequest': '(since the first request)',
+  'panel.network.timing.timingNotes': 'Timing notes',
+  'panel.network.timing.totalTime': 'Total time',
+  'panel.network.timing.queuedToEnded': '(queued → ended)',
+  'panel.network.timing.connectionOpenedBy': '↳ connection opened by {name}',
+  'panel.network.timing.notFinishedCaution': 'CAUTION: request is not finished yet!',
+  'panel.network.timing.queuedAt': 'Queued at {time}',
+  'panel.network.timing.startedAt': 'Started at {time}',
+  // Separate referent from the rung-state 'not reached': this one marks an
+  // instant tick a terminal request never got to.
+  'panel.network.timing.tickNotReached': 'not reached',
+  'panel.network.timing.onTheWire': '🌐 on the wire',
+  'panel.network.timing.cdpExplainer':
+    'Enable CDP and reload before navigating for the full connection breakdown as it runs.',
+
+  // Timing `(i)` corpora. Rung / terminal titles stay raw (they name the
+  // raw rung rows and Status-cell labels); band, moment, key-moments, and
+  // notes titles reuse the keys of the labels they name.
+  'panel.network.rungInfo.kicker': 'Timing',
+  'panel.network.rungInfo.kickerBrowser': 'Timing · Browser',
+  'panel.network.rungInfo.kickerBrowserNetwork': 'Timing · Browser ↔ Network',
+  'panel.network.rungInfo.kickerNetwork': 'Timing · Network',
+  'panel.network.rungInfo.kickerInstant': 'Timing · Instant',
+  'panel.network.rungInfo.kickerOutcome': 'Timing · Outcome',
+  'panel.network.rungInfo.stripCaption': 'Example request — {ms} ms end to end',
+  'panel.network.rungInfo.stripStop': 'marked: where the request stopped — the later phases never ran',
+  'panel.network.rungInfo.stripMarked': 'marked: {label} at {ms} ms',
+  'panel.network.rungInfo.stripGaps': 'highlighted: the untracked gaps (3 + 4 ms)',
+  'panel.network.rungInfo.stripHighlighted': 'highlighted: {segs} ({ms} ms)',
+  'panel.network.rungInfo.queueing.summary':
+    'Time the request spent waiting in the browser before it was allowed to start.',
+  'panel.network.rungInfo.queueing.description':
+    'The browser defers requests for lower-priority resources, while higher-priority ones load first, and while it checks the disk cache. On HTTP/1.x it also waits here when all sockets to the host are busy.',
+  'panel.network.rungInfo.stalled.summary':
+    'Allowed to start, but waiting for a usable connection before any network work could begin.',
+  'panel.network.rungInfo.stalled.description':
+    'Typically waiting for a socket to become available or for a proxy decision. Ends the moment the first network step (DNS, TCP, or sending) starts.',
+  'panel.network.rungInfo.dns.summary': 'Resolving the host name to an IP address to connect to.',
+  'panel.network.rungInfo.dns.description':
+    'Shows "connection reused" when the request rode an already-open connection — no lookup was needed on this request\'s clock.',
+  'panel.network.rungInfo.connect.summary':
+    'The TCP handshake only — the round trip that opens the socket to the server.',
+  'panel.network.rungInfo.connect.description':
+    'Chrome\'s Timing tab draws one "Initial connection" bar spanning this AND the TLS handshake (its SSL bar is drawn inside it). We split them into separate, non-overlapping phases so every millisecond is counted exactly once — TCP + TLS here equals Chrome\'s Initial connection bar.',
+  'panel.network.rungInfo.ssl.summary':
+    'The TLS handshake — negotiating keys and verifying certificates so the connection is encrypted.',
+  'panel.network.rungInfo.ssl.description':
+    'Only on https:// requests (n/a on plain http://). "Connection reused" means an earlier request already paid this cost on the same socket.',
+  'panel.network.rungInfo.send.summary': 'Pushing the request bytes — headers and any body — onto the wire.',
+  'panel.network.rungInfo.send.description':
+    'Usually well under a millisecond for header-only requests; grows with large uploads.',
+  'panel.network.rungInfo.wait.summary':
+    'From the last request byte sent to the first response byte received (time to first byte).',
+  'panel.network.rungInfo.wait.description':
+    'Server think time plus one network round trip — the phase backend work shows up in.',
+  'panel.network.rungInfo.receive.summary': 'Downloading the response body, first byte to last.',
+  'panel.network.rungInfo.receive.description':
+    'Grows live while a response is still streaming; the caution line below the chart flags a download that never finished.',
+  'panel.network.rungInfo.notes.summary':
+    'Bookkeeping for the slivers of time between phases — recorded end to end, but belonging to no phase.',
+  'panel.network.rungInfo.notes.description':
+    "Each phase is measured between its own start and stop instants, while the total is measured end to end — so tiny \"untracked gaps\" can sit between two phases (e.g. between the DNS answer arriving and the TCP handshake starting). They are why the phases don't always sum to the total. Chrome's Timing tab has the same gaps and simply doesn't draw them; we list them so every millisecond stays accounted for.",
+  'panel.network.rungInfo.notes.linesHeading': 'The lines',
+  'panel.network.rungInfo.notes.gapsLabel': 'Untracked gaps',
+  'panel.network.rungInfo.notes.gapsDesc': 'Each gap, named by the phases around it, with its duration.',
+  'panel.network.rungInfo.notes.chromeLabel': 'Chrome-equivalent',
+  'panel.network.rungInfo.notes.chromeDesc':
+    'How our split TCP + TLS phases map onto Chrome\'s single "Initial connection" bar (its SSL bar is drawn inside that bar, not after it).',
+  'panel.network.rungInfo.band.beforeWire.summary':
+    'Time spent entirely inside the browser before any network work — nothing has left the machine yet.',
+  'panel.network.rungInfo.band.beforeWire.description':
+    'Queueing (waiting for permission to start) plus Stalled (waiting for a usable connection). A request heavy here is being held back locally — by priorities, connection limits, or proxy decisions — not by the server.',
+  'panel.network.rungInfo.band.connecting.summary':
+    'Setting up the path to the server: resolve the name, open the socket, encrypt it.',
+  'panel.network.rungInfo.band.connecting.description':
+    'DNS Lookup + TCP + TLS — the handshake round trips. Paid once per connection: a request that rides an already-open socket skips this whole band ("connection reused").',
+  'panel.network.rungInfo.band.exchange.summary':
+    'The actual exchange over the wire: send the request, wait for the server, download the response.',
+  'panel.network.rungInfo.band.exchange.description':
+    'Request sent + Waiting for server (TTFB) + Content Download. Server-side slowness shows up in Waiting; large responses or slow links show up in Content Download.',
+  'panel.network.rungInfo.moment.queued.summary':
+    'The instant the browser created the request — the zero every phase in this breakdown measures from.',
+  'panel.network.rungInfo.moment.queued.description':
+    'The "at" value is the offset from the first request in view, so rows can be compared on one shared clock.',
+  'panel.network.rungInfo.moment.started.summary':
+    'The instant the request left the queue and work on it actually began.',
+  'panel.network.rungInfo.moment.started.description':
+    'Queued + Queueing. Everything before this mark is browser scheduling; everything after is the request making real progress.',
+  'panel.network.rungInfo.moment.response.summary': 'The instant the first response byte arrived (time to first byte).',
+  'panel.network.rungInfo.moment.response.description':
+    'The server has answered; from here the body is downloading. Absent when no response ever arrived (blocked or failed first).',
+  'panel.network.rungInfo.moment.ended.summary': 'The instant the last response byte arrived — the request is done.',
+  'panel.network.rungInfo.moment.ended.description':
+    'Ended − Queued is the total time shown below the breakdown; Ended − Started is the active duration the Time column shows.',
+  'panel.network.rungInfo.keyMoments.summary':
+    "The boundary instants of the request's life — where one stage hands over to the next.",
+  'panel.network.rungInfo.keyMoments.description':
+    'Queued and Started always exist; Response and Ended only once a response actually arrived (a request that was blocked or failed first shows its outcome marker instead). The phases below are the spans between these instants.',
+  'panel.network.rungInfo.terminal.whereHeading': 'Where it stopped',
+  'panel.network.rungInfo.terminal.noResponseDesc': 'It reached the network, but no answer ever made it back.',
+  'panel.network.rungInfo.terminal.neverReachedDesc': 'It died in browser-side scheduling — nothing was sent.',
+  'panel.network.rungInfo.terminal.canceled.summary':
+    'The request was aborted before it completed — the ✗ marks where it stopped; later phases never ran.',
+  'panel.network.rungInfo.terminal.canceled.description':
+    'Typical causes: the page navigated away mid-load, script aborted the fetch, or the user stopped the load. Nothing was wrong with the network — the browser simply gave up on the answer.',
+  'panel.network.rungInfo.terminal.blocked.summary':
+    'The browser refused the request for a policy reason — the word after the colon names which policy.',
+  'panel.network.rungInfo.terminal.stoppedHere': 'The ✗ marks where it stopped; later phases never ran.',
+  'panel.network.rungInfo.terminal.blocked.reasonsHeading': 'Common reasons',
+  'panel.network.rungInfo.terminal.blocked.cspDesc': "The page's Content-Security-Policy forbids this destination.",
+  'panel.network.rungInfo.terminal.blocked.mixedContentDesc': 'An insecure http:// resource on an https:// page.',
+  'panel.network.rungInfo.terminal.blocked.otherDesc':
+    'An extension, ad-blocker, or an internal browser rule refused it.',
+  'panel.network.rungInfo.terminal.cors.summary':
+    'A cross-origin check rejected the response — the server answered, but the page was not allowed to read it.',
+  'panel.network.rungInfo.terminal.cors.description':
+    'The server must opt in with Access-Control-Allow-Origin (and friends) for a cross-origin page to read its response. The ✗ marks where the rejection landed.',
+  'panel.network.rungInfo.terminal.failed.summary':
+    'A wire-level failure — the connection itself broke, and the net:: code names the exact cause.',
+  'panel.network.rungInfo.terminal.failed.codesHeading': 'Common codes',
+  'panel.network.rungInfo.terminal.failed.nameNotResolvedDesc': 'DNS could not find the host.',
+  'panel.network.rungInfo.terminal.failed.connectionRefusedDesc': 'The server rejected or dropped the socket.',
+  'panel.network.rungInfo.terminal.failed.timedOutDesc': "No answer within the network stack's time limit.",
+  'panel.network.rungInfo.terminal.failed.certDesc': 'The TLS certificate failed validation.',
 } as const satisfies Catalog;

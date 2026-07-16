@@ -13,15 +13,17 @@
  * consumers render this identical component, so the bar can never drift.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatTimeMs } from '../../data/timing/format-time';
 import { layoutHorizontal } from '../../data/timing/horizontal-timing-layout';
 import type { TimingLadder } from '../../data/timing/timing-ladder';
 import {
-  BAND_LABEL,
-  BAND_WHERE,
+  bandLabel,
+  bandWhere,
   type ExplainSpec,
   isWarmSocketConnect,
-  WARM_SOCKET_TITLE,
+  terminalDetailText,
+  warmSocketTitle,
   type WaterfallTerminal,
 } from '../../data/timing/timing-popover-model';
 import { TimingBandInfo, TimingMomentInfo, TimingTerminalInfo } from './TimingRungInfo';
@@ -46,9 +48,10 @@ export function HorizontalTimingChart({
   /** A terminal request that never received a response — marks where it stopped. */
   terminal?: WaterfallTerminal;
 }) {
+  const t = useT();
   const at = (localMs: number) => formatTimeMs(queuedAtMs + localMs);
   const warmConnect = isWarmSocketConnect(ladder);
-  const layout = layoutHorizontal(ladder, terminal != null);
+  const layout = layoutHorizontal(t, ladder, terminal != null);
 
   return (
     <div className="dt-wf-h-chart">
@@ -58,9 +61,9 @@ export function HorizontalTimingChart({
         <div className="dt-wf-h-axis" style={{ height: AXIS_H }}>
           <svg className="dt-wf-h-leaders" width={layout.chartPx} height={AXIS_H} aria-hidden="true">
             {layout.ticks
-              .filter((t) => t.leader)
-              .map((t) => (
-                <line key={t.line} x1={t.markPx} y1={AXIS_H - 2} x2={t.labelCenterPx} y2={AXIS_H - 16} />
+              .filter((tick) => tick.leader)
+              .map((tick) => (
+                <line key={tick.line} x1={tick.markPx} y1={AXIS_H - 2} x2={tick.labelCenterPx} y2={AXIS_H - 16} />
               ))}
             {layout.failure?.leader && (
               <line
@@ -72,35 +75,42 @@ export function HorizontalTimingChart({
               />
             )}
           </svg>
-          {layout.ticks.map((t) => {
-            const isAnchor = spec?.anchor === t.line;
+          {layout.ticks.map((tick) => {
+            const isAnchor = spec?.anchor === tick.line;
+            const unreached = tick.reached ? '' : ' dt-wf-h-tick--unreached';
             return (
               <span
-                key={`l-${t.line}`}
-                className={`dt-wf-h-tick${isAnchor ? ' dt-wf-pop-anchor' : ''}${t.reached ? '' : ' dt-wf-h-tick--unreached'}`}
-                style={{ left: t.labelCenterPx }}
+                key={`l-${tick.line}`}
+                className={`dt-wf-h-tick${isAnchor ? ' dt-wf-pop-anchor' : ''}${unreached}`}
+                style={{ left: tick.labelCenterPx }}
               >
                 <span className="dt-wf-h-tick-label">
-                  {t.label}
-                  <TimingMomentInfo moment={t.line} />
+                  {tick.label}
+                  <TimingMomentInfo moment={tick.line} />
                   {isAnchor && <span className="dt-wf-pop-down"> ↓</span>}
                 </span>
-                <span className="dt-wf-h-tick-value">{t.reached ? at(t.localMs) : 'not reached'}</span>
-                <span className="dt-wf-h-tick-why">{t.why}</span>
+                <span className="dt-wf-h-tick-value">
+                  {tick.reached ? at(tick.localMs) : t('panel.network.timing.tickNotReached')}
+                </span>
+                <span className="dt-wf-h-tick-why">{tick.why}</span>
               </span>
             );
           })}
           {terminal && layout.failure && (
-            <span className="dt-wf-h-stop-label" style={{ left: layout.failure.labelCenterPx }} title={terminal.detail}>
+            <span
+              className="dt-wf-h-stop-label"
+              style={{ left: layout.failure.labelCenterPx }}
+              title={terminalDetailText(t, terminal.detail)}
+            >
               {terminal.label}
               <TimingTerminalInfo label={terminal.label} />
             </span>
           )}
-          {layout.ticks.map((t) => (
+          {layout.ticks.map((tick) => (
             <span
-              key={`m-${t.line}`}
-              className={`dt-wf-h-tick-mark${t.reached ? '' : ' dt-wf-h-tick-mark--unreached'}`}
-              style={{ left: t.markPx }}
+              key={`m-${tick.line}`}
+              className={`dt-wf-h-tick-mark${tick.reached ? '' : ' dt-wf-h-tick-mark--unreached'}`}
+              style={{ left: tick.markPx }}
               aria-hidden="true"
             >
               ▼
@@ -129,7 +139,7 @@ export function HorizontalTimingChart({
                 key={c.key}
                 className={`dt-wf-h-cell${fill}${spec?.rungs.has(c.key) ? ' dt-wf-h-cell--hl' : ''}`}
                 style={{ width: c.widthPx, flex: 'none' }}
-                title={warmSocket ? WARM_SOCKET_TITLE : undefined}
+                title={warmSocket ? warmSocketTitle(t) : undefined}
               >
                 {/* Skipped (hatched) cells keep their step number too — the
                     legend still lists 3/4/5 as "connection reused", so an
@@ -166,16 +176,16 @@ export function HorizontalTimingChart({
           {layout.bands.map((b) => (
             <span key={`lbl-${b.band}`} className="dt-wf-h-bracket-label" style={{ left: b.labelCenterPx }}>
               <span className="dt-wf-h-bracket-name">
-                {BAND_LABEL[b.band]}
+                {bandLabel(t, b.band)}
                 <TimingBandInfo band={b.band} />
               </span>
-              <span className="dt-waterfall-pop-where">{BAND_WHERE[b.band]}</span>
+              <span className="dt-waterfall-pop-where">{bandWhere(t, b.band)}</span>
             </span>
           ))}
         </div>
         <div className="dt-wf-h-wirerow">
           <span className="dt-wf-h-wirespan" style={{ left: layout.wire.leftPx, width: layout.wire.widthPx }}>
-            🌐 on the wire
+            {t('panel.network.timing.onTheWire')}
           </span>
         </div>
       </div>

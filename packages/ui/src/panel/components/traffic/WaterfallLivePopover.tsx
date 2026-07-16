@@ -20,6 +20,7 @@
  *     breakdown (no link out).
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatTimeMs } from '../../data/timing/format-time';
 import { computeInFlightTiming } from '../../data/timing/in-flight-timing';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
@@ -41,16 +42,18 @@ export function WaterfallLivePopover({
   // network start); for a request still stalled it never started, so showing
   // "Started == Queued" would be a misleading duplicate — omit it, and show the
   // open Stalled phase instead.
+  const t = useT();
   const { queuedAtMs, startedAtMs, networkStarted } = computeInFlightTiming(row.lifecycle, t0);
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: guard only, not interactive
     <div className="dt-waterfall-pop" onClick={(e) => e.stopPropagation()}>
       <div className="dt-waterfall-pop-start">
-        <div>Queued at {formatTimeMs(queuedAtMs)}</div>
-        {networkStarted && <div>Started at {formatTimeMs(startedAtMs)}</div>}
+        <div>{t('panel.network.timing.queuedAt', { time: formatTimeMs(queuedAtMs) })}</div>
+        {networkStarted && <div>{t('panel.network.timing.startedAt', { time: formatTimeMs(startedAtMs) })}</div>}
       </div>
       {!networkStarted && (
         <div className="dt-waterfall-pop-group">
+          {/* Chrome's own popover section name + rung label — parity vocabulary, raw. */}
           <div className="dt-waterfall-pop-head">Connection Start</div>
           <div className="dt-waterfall-pop-row">
             <span className="dt-waterfall-pop-swatch dt-wf-fill--stalled" aria-hidden="true" />
@@ -59,11 +62,9 @@ export function WaterfallLivePopover({
           </div>
         </div>
       )}
-      <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>
+      <div className="dt-waterfall-pop-caution">{t('panel.network.timing.notFinishedCaution')}</div>
       {!cdpEnhanced && (
-        <div className="dt-waterfall-pop-explainer">
-          Enable CDP and reload before navigating for the full connection breakdown as it runs.
-        </div>
+        <div className="dt-waterfall-pop-explainer">{t('panel.network.timing.cdpExplainer')}</div>
       )}
     </div>
   );

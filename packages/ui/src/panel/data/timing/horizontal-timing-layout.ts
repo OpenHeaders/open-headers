@@ -20,6 +20,7 @@
  * tiny phases); the exact durations live in the cells + legend + ticks.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { TimingBand, TimingLadder, TimingRungKey } from './timing-ladder';
 import { type Anchor, BAND_ORDER } from './timing-popover-model';
 
@@ -107,7 +108,7 @@ function spread(pos: readonly number[], minGap: number, hi: number): number[] {
  *  terminal row) the failure marker — everything the renderer positions, derived
  *  from the ladder. `hasFailure` folds the failure marker into the label
  *  de-collision so it never overlaps the instant ticks. */
-export function layoutHorizontal(ladder: TimingLadder, hasFailure = false): HLayout {
+export function layoutHorizontal(t: Translate, ladder: TimingLadder, hasFailure = false): HLayout {
   const rungs = ladder.rungs;
   const kinds = rungs.map<HCell['kind']>((r) =>
     r.state.kind !== 'elapsed' ? 'absent' : r.state.ms === 0 ? 'zero' : 'elapsed',
@@ -149,28 +150,35 @@ export function layoutHorizontal(ladder: TimingLadder, hasFailure = false): HLay
   // Always all four instants; a terminal row's Response / Ended sit at their
   // would-be boundary marked "not reached".
   const raw: Array<Omit<HTick, 'labelCenterPx' | 'leader'>> = [
-    { line: 'queued', label: 'Queued', localMs: 0, why: 'request created', reached: true, markPx: 0 },
+    {
+      line: 'queued',
+      label: t('panel.network.timing.moment.queued'),
+      localMs: 0,
+      why: t('panel.network.timing.momentWhy.queued'),
+      reached: true,
+      markPx: 0,
+    },
     {
       line: 'started',
-      label: 'Started',
+      label: t('panel.network.timing.moment.started'),
       localMs: ladder.startedMs,
-      why: 'left the queue',
+      why: t('panel.network.timing.momentWhy.started'),
       reached: true,
       markPx: rightOf('queueing'),
     },
     {
       line: 'response',
-      label: 'Response',
+      label: t('panel.network.timing.moment.response'),
       localMs: ladder.responseMs ?? 0,
-      why: 'first byte (TTFB)',
+      why: t('panel.network.timing.momentWhy.response'),
       reached: ladder.responseMs != null,
       markPx: rightOf('wait'),
     },
     {
       line: 'ended',
-      label: 'Ended',
+      label: t('panel.network.timing.moment.ended'),
       localMs: ladder.endedMs ?? 0,
-      why: 'last byte, done',
+      why: t('panel.network.timing.momentWhy.ended'),
       reached: ladder.endedMs != null,
       markPx: total,
     },
