@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import { ApiRequestsIcon } from '@openheaders/ui/shared/icons';
 import { CtaMenu } from './headers/CtaMenu';
@@ -41,7 +42,7 @@ import {
   lifecycleMimeType,
   lifecycleTransferredBytes,
 } from '../../data/inspector-row-projection';
-import type { RowAnnotation } from '../../data/row-annotations';
+import { buildRowAnnotationMessages, type RowAnnotation } from '../../data/row-annotations';
 import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
 import { DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
 import { FilterInput } from '../FilterInput';
@@ -126,6 +127,7 @@ export function HeadersView({
   searchSection,
   searchLineNumber,
 }: HeadersViewProps) {
+  const t = useT();
   const lc = row.lifecycle;
   const har = currentHarEntry(lc);
   // Filter text stays per-tab — it's request-specific scratch state.
@@ -189,15 +191,16 @@ export function HeadersView({
   const mime = lifecycleMimeType(lc);
   const insights = useMemo<readonly HeaderInsight[]>(
     () =>
-      computeHeaderInsights({
+      computeHeaderInsights(t, {
         url: lc.url,
         mimeType: mime,
         statusCode: lc.statusCode ?? null,
         requestHeaders,
         responseHeaders,
       }),
-    [lc.url, mime, lc.statusCode, requestHeaders, responseHeaders],
+    [t, lc.url, mime, lc.statusCode, requestHeaders, responseHeaders],
   );
+  const annotationMessages = useMemo(() => buildRowAnnotationMessages(t), [t]);
 
   const futureMatches = useFutureMatches(row, rulesByUid);
   const footprint = useMemo(
@@ -258,8 +261,8 @@ export function HeadersView({
           config={filterConfig}
           onConfigChange={setFilterConfig}
           hasError={filterHasError}
-          placeholder="Filter — text, name:cookie, value:no-cache, is:rule, is:security, is:overridable, …"
-          ariaLabel="Filter headers"
+          placeholder={t('panel.inspector.headers.filterPlaceholder')}
+          ariaLabel={t('panel.inspector.headers.filterAria')}
         />
         <HeaderMoreFiltersMenu
           ruleOnly={ruleOnly}
@@ -291,13 +294,13 @@ export function HeadersView({
         <button
           type="button"
           className="dt-header-footprint dt-header-footprint--link"
-          title={`${footprint.ruleNames.join(', ')} — click to open Matched Rules`}
+          title={t('panel.inspector.headers.footprintTitle', { rules: footprint.ruleNames.join(', ') })}
           onClick={onShowMatchedRules}
         >
           <span className="dt-header-footprint-dot" aria-hidden="true" />
           <span className="dt-header-footprint-text">{footprintText}</span>
           <span className="dt-header-footprint-open" aria-hidden="true">
-            Matched Rules →
+            {t('panel.toolWindows.matchedRules')} →
           </span>
         </button>
       )}
@@ -311,7 +314,12 @@ export function HeadersView({
           {rowAnnotations.map((a) => (
             <InsightCard
               key={a.kind}
-              insight={{ id: `row-annotation-${a.kind}`, severity: a.severity, title: a.label, detail: a.detail }}
+              insight={{
+                id: `row-annotation-${a.kind}`,
+                severity: a.severity,
+                title: annotationMessages.label(a),
+                detail: annotationMessages.detail(a),
+              }}
               onAction={handleInsightAction}
             />
           ))}
@@ -344,12 +352,12 @@ export function HeadersView({
               e.preventDefault();
               onCreateApiRequest();
             }}
-            title="Open this request in the workbench's API client as a pre-filled draft — nothing is saved until you save it"
+            title={t('panel.inspector.headers.createApiRequestTitle')}
           >
             <ApiRequestsIcon style={{ fontSize: 10, marginRight: 4 }} />
-            Create API request
+            {t('panel.inspector.headers.createApiRequest')}
           </button>
-          General
+          {t('panel.inspector.headers.generalSection')}
           <span className="dt-header-general-ctas">
             <RedirectCtaMenu
               onCreateRedirect={onCreateRedirect}
@@ -363,56 +371,66 @@ export function HeadersView({
                 e.preventDefault();
                 onOverrideQueryParams(e.currentTarget);
               }}
-              title="Add, replace or remove this request's query parameters"
+              title={t('panel.inspector.headers.overrideQueryParamsTitle')}
             >
-              Override query params
+              {t('panel.inspector.overrideCta.overrideQueryParams')}
             </button>
             <CtaMenu
-              label="More"
-              title="More request actions"
+              label={t('panel.inspector.headers.more.label')}
+              title={t('panel.inspector.headers.more.title')}
               items={[
-                { label: 'Delay request', title: 'Delay this request', onPick: onCreateDelay },
-                { label: 'Block request', title: 'Block / cancel this request', onPick: onCreateCancel },
+                {
+                  label: t('panel.inspector.headers.more.delay'),
+                  title: t('panel.inspector.headers.more.delayTitle'),
+                  onPick: onCreateDelay,
+                },
+                {
+                  label: t('panel.inspector.headers.more.block'),
+                  title: t('panel.inspector.headers.more.blockTitle'),
+                  onPick: onCreateCancel,
+                },
               ]}
             />
           </span>
         </summary>
-        <GeneralRow label="Request URL" infoKey="request-url">
+        <GeneralRow infoKey="request-url">
           <span className="dt-kv-val" style={{ wordBreak: 'break-all' }}>{lc.url}</span>
         </GeneralRow>
-        <GeneralRow label="Request Method" infoKey="request-method">
+        <GeneralRow infoKey="request-method">
           <span className="dt-kv-val">{lc.method}</span>
         </GeneralRow>
-        <GeneralRow label="Status Code" infoKey="status-code">
+        <GeneralRow infoKey="status-code">
           <span className={`dt-kv-val ${statusClass}`} title={statusCellTitle(lc)}>
             {statusCodeNum != null ? `${statusCodeNum}${lc.statusText ? ` ${lc.statusText}` : ''}` : statusLabel}
           </span>
         </GeneralRow>
         {remoteAddr && (
-          <GeneralRow label="Remote Address" infoKey="remote-address">
+          <GeneralRow infoKey="remote-address">
             <span className="dt-kv-val">{remoteAddr}</span>
           </GeneralRow>
         )}
         {httpVersion && (
-          <GeneralRow label="HTTP Version" infoKey="http-version">
+          <GeneralRow infoKey="http-version">
             <span className="dt-kv-val" title={`ALPN: ${httpVersion}`}>{formatHttpVersion(httpVersion)}</span>
           </GeneralRow>
         )}
         {contentEncoding && (
-          <GeneralRow label="Compression" infoKey="compression">
+          <GeneralRow infoKey="compression">
             <span className="dt-kv-val">{contentEncoding}</span>
           </GeneralRow>
         )}
         {bytesIn != null && bytesIn > 0 && (
-          <GeneralRow label="Transferred" infoKey="transferred">
+          <GeneralRow infoKey="transferred">
             <span className="dt-kv-val">
               {formatBytes(bytesIn)}
-              {decodedSize != null && decodedSize > 0 && decodedSize !== bytesIn ? ` (decoded ${formatBytes(decodedSize)})` : ''}
+              {decodedSize != null && decodedSize > 0 && decodedSize !== bytesIn
+                ? ` ${t('panel.inspector.headers.general.decodedSuffix', { size: formatBytes(decodedSize) })}`
+                : ''}
             </span>
           </GeneralRow>
         )}
         {referrerPolicy && (
-          <GeneralRow label="Referrer Policy" infoKey="referrer-policy">
+          <GeneralRow infoKey="referrer-policy">
             <span className="dt-kv-val">{referrerPolicy}</span>
           </GeneralRow>
         )}

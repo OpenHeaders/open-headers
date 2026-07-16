@@ -1,4 +1,5 @@
 import { validateHeaderName } from '@openheaders/core/utils';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useMemo, useState } from 'react';
 import {
   type AnnotatedHeader,
@@ -91,8 +92,17 @@ export function HeaderSection({
   banner,
   provisional: provisionalOverride,
 }: HeaderSectionProps) {
+  const t = useT();
   const [rawView, setRawView] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
+
+  // `label` stays the raw SectionLabel identifier (the search plane and
+  // the rows' highlight join compare against it) — only the display
+  // form localizes, mapped here at the render site.
+  const displayLabel =
+    label === 'Response Headers'
+      ? t('panel.inspector.headers.section.responseHeaders')
+      : t('panel.inspector.headers.section.requestHeaders');
 
   // Build per-row meta once for filter + categorization. `originalIndex`
   // is captured BEFORE any filter/sort so the search-highlight machinery
@@ -175,8 +185,8 @@ export function HeaderSection({
   return (
     <details className="dt-section" open>
       <summary>
-        {label}
-        <span className="dt-header-section-count" aria-label="visible header count">
+        {displayLabel}
+        <span className="dt-header-section-count" aria-label={t('panel.inspector.headers.section.countAria')}>
           {filtered.length}
           {hiddenByFilter > 0 ? ` / ${rows.length}` : ''}
         </span>
@@ -188,7 +198,7 @@ export function HeaderSection({
             onOverrideHeader(direction, '', '', e.currentTarget);
           }}
         >
-          + Add Header
+          + {t('panel.inspector.headers.section.addHeader')}
         </button>
         <button
           type="button"
@@ -199,9 +209,9 @@ export function HeaderSection({
             e.preventDefault();
             setRawView((v) => !v);
           }}
-          title="Show as plain text (Name: Value)"
+          title={t('panel.inspector.headers.section.rawTitle')}
         >
-          Raw
+          {t('panel.inspector.headers.section.raw')}
         </button>
         <div className="dt-header-section-copy">
           <button
@@ -212,12 +222,12 @@ export function HeaderSection({
               setCopyOpen((v) => !v);
             }}
           >
-            Copy ▾
+            {t('panel.inspector.headers.section.copy')} ▾
           </button>
           {copyOpen && (
             <div className="dt-header-copy-menu" role="menu">
               <button type="button" role="menuitem" onClick={() => handleCopy('all')}>
-                Copy all
+                {t('panel.inspector.headers.section.copyAll')}
               </button>
               <button
                 type="button"
@@ -225,15 +235,15 @@ export function HeaderSection({
                 onClick={() => handleCopy('filtered')}
                 disabled={filtered.length === rows.length}
               >
-                Copy filtered
+                {t('panel.inspector.headers.section.copyFiltered')}
               </button>
               {direction === 'request' && (
                 <>
                   <button type="button" role="menuitem" onClick={() => handleCopy('curl')}>
-                    Copy as cURL
+                    {t('panel.inspector.headers.section.copyCurl')}
                   </button>
                   <button type="button" role="menuitem" onClick={() => handleCopy('fetch')}>
-                    Copy as fetch
+                    {t('panel.inspector.headers.section.copyFetch')}
                   </button>
                 </>
               )}
@@ -245,7 +255,7 @@ export function HeaderSection({
       {banner}
 
       {rows.length === 0 ? (
-        <div className="dt-kv dt-col-muted">None captured.</div>
+        <div className="dt-kv dt-col-muted">{t('panel.inspector.headers.section.noneCaptured')}</div>
       ) : rawView ? (
         <pre className="dt-header-raw">
           {formatHeadersBlock(sortedItems.map((f) => ({ name: formatHeaderName(f.row.name, nameCase), value: f.row.value })))}
@@ -253,7 +263,7 @@ export function HeaderSection({
       ) : (
         <>
           {sortedItems.length === 0 ? (
-            <div className="dt-kv dt-col-muted">No headers match the filter.</div>
+            <div className="dt-kv dt-col-muted">{t('panel.inspector.headers.section.noFilterMatch')}</div>
           ) : layout === 'flat' ? (
             <div className="dt-header-category">
               {sortedItems.map(({ row: header, meta, originalIndex }) => (

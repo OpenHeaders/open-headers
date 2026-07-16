@@ -1,5 +1,8 @@
+import { getTranslator } from '@openheaders/i18n';
 import { computeHeaderInsights, type HeaderInsight } from '@openheaders/ui/panel/data/headers/header-insights';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator('en');
 
 function h(name: string, value: string) {
   return { name, value };
@@ -11,7 +14,7 @@ function findInsight(insights: readonly HeaderInsight[], id: string): HeaderInsi
 
 describe('computeHeaderInsights', () => {
   it('flags CORS wildcard + credentials with an override action', () => {
-    const out = computeHeaderInsights({
+    const out = computeHeaderInsights(t, {
       url: 'https://api.openheaders.io/v1',
       mimeType: 'application/json',
       statusCode: 200,
@@ -27,7 +30,7 @@ describe('computeHeaderInsights', () => {
   });
 
   it('flags CORS request with no Access-Control-Allow-Origin', () => {
-    const out = computeHeaderInsights({
+    const out = computeHeaderInsights(t, {
       url: 'https://api.openheaders.io/v1',
       mimeType: 'application/json',
       statusCode: 200,
@@ -40,7 +43,7 @@ describe('computeHeaderInsights', () => {
   });
 
   it('does not flag missing CSP / HSTS for non-HTML responses', () => {
-    const out = computeHeaderInsights({
+    const out = computeHeaderInsights(t, {
       url: 'https://api.openheaders.io/v1',
       mimeType: 'application/json',
       statusCode: 200,
@@ -52,7 +55,7 @@ describe('computeHeaderInsights', () => {
   });
 
   it('flags missing CSP on HTML HTTPS responses', () => {
-    const out = computeHeaderInsights({
+    const out = computeHeaderInsights(t, {
       url: 'https://www.openheaders.io',
       mimeType: 'text/html; charset=utf-8',
       statusCode: 200,
@@ -66,7 +69,7 @@ describe('computeHeaderInsights', () => {
   });
 
   it('flags cookies missing Secure over HTTPS', () => {
-    const out = computeHeaderInsights({
+    const out = computeHeaderInsights(t, {
       url: 'https://www.openheaders.io',
       mimeType: 'text/html',
       statusCode: 200,
@@ -79,7 +82,7 @@ describe('computeHeaderInsights', () => {
   });
 
   it('does not emit an info-only cache summary (chip on the row carries it)', () => {
-    const out = computeHeaderInsights({
+    const out = computeHeaderInsights(t, {
       url: 'https://api.openheaders.io/x',
       mimeType: 'application/json',
       statusCode: 200,
@@ -94,6 +97,7 @@ describe('computeHeaderInsights', () => {
     const exp = 1_700_000_000;
     const payload = Buffer.from(JSON.stringify({ sub: 'u', exp })).toString('base64url');
     const out = computeHeaderInsights(
+      t,
       {
         url: 'https://api.openheaders.io/me',
         mimeType: 'application/json',
@@ -111,6 +115,7 @@ describe('computeHeaderInsights', () => {
     const exp = 1_700_000_000;
     const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url');
     const out = computeHeaderInsights(
+      t,
       {
         url: 'https://api.openheaders.io/x',
         mimeType: 'application/json',
@@ -124,7 +129,7 @@ describe('computeHeaderInsights', () => {
   });
 
   it('does not emit a compression insight (General row + chip carry it)', () => {
-    const out = computeHeaderInsights({
+    const out = computeHeaderInsights(t, {
       url: 'https://www.openheaders.io',
       mimeType: 'text/html',
       statusCode: 200,

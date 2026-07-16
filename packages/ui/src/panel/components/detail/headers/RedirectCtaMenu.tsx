@@ -9,6 +9,7 @@
  * entry opens the create popover anchored to the trigger button.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { CtaMenu } from './CtaMenu';
 
 export function RedirectCtaMenu({
@@ -20,25 +21,26 @@ export function RedirectCtaMenu({
   onCreateReplaceHost: (anchorEl: HTMLElement) => void;
   onCreateLocalhost: (anchorEl: HTMLElement) => void;
 }) {
+  const t = useT();
   return (
     <CtaMenu
-      label="Redirect"
+      label={t('panel.inspector.headers.redirect.label')}
       ohTrigger
-      title="Send matching requests somewhere else — pick how the target is pre-filled"
+      title={t('panel.inspector.headers.redirect.title')}
       items={[
         {
-          label: 'Redirect URL…',
-          title: 'Send matching requests to a different URL — the target seeds as a per-domain variable',
+          label: t('panel.inspector.headers.redirect.url'),
+          title: t('panel.inspector.headers.redirect.urlTitle'),
           onPick: onCreateRedirect,
         },
         {
-          label: 'Replace host…',
-          title: 'Keep path and query, swap the host — seeds a per-domain host variable',
+          label: t('panel.inspector.headers.redirect.replaceHost'),
+          title: t('panel.inspector.headers.redirect.replaceHostTitle'),
           onPick: onCreateReplaceHost,
         },
         {
-          label: 'Point to localhost…',
-          title: 'Keep path and query, send to your local dev server over http — seeds a per-domain port variable',
+          label: t('panel.inspector.headers.redirect.localhost'),
+          title: t('panel.inspector.headers.redirect.localhostTitle'),
           onPick: onCreateLocalhost,
         },
       ]}

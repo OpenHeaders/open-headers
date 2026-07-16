@@ -73,6 +73,7 @@ function TrafficRowImpl({
       <RowAnnotationCell
         lifecycle={row.lifecycle}
         ctx={ctx.annotationCtx}
+        messages={ctx.annotationMessages}
         redirectRewrite={row.redirectRewrite}
         onJump={ctx.onAnnotationJump}
       />

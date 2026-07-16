@@ -17,7 +17,7 @@ import {
   type ResolvedFramePosition,
   sourceFileLabel,
 } from '../../data/initiator/use-resolved-frames';
-import type { RowAnnotationContext } from '../../data/row-annotations';
+import type { RowAnnotationContext, RowAnnotationMessages } from '../../data/row-annotations';
 import { formatBytesToKb, formatSizeInfo, type SizeInfo } from '../../data/size-info';
 import type { ColumnDef } from './columns';
 import { extractName, formatInitiator, getInitiatorFrame } from './formatters';
@@ -51,6 +51,9 @@ export interface CellContext {
   /** Classifier context for the OH annotation rail — the same supersession
    *  anchor plus provenance, bundled once per render pass. */
   annotationCtx: RowAnnotationContext;
+  /** Annotation copy resolved once per locale — the rail row loop is hot
+   *  and never calls `t()` itself. */
+  annotationMessages: RowAnnotationMessages;
   /** Open the row's inspector tab at the annotation's detail section. */
   onAnnotationJump: (requestId: string) => void;
 }

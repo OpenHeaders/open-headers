@@ -17,12 +17,19 @@
  * rail noise. Severity is two-tier: `warn` for "this row is not what it
  * looks like", `info` for provenance/fidelity context.
  *
+ * The classifier returns typed messages only — display copy resolves at
+ * the render seams via `buildRowAnnotationMessages(t)`, resolved once per
+ * locale so the hot rail loop never calls `t()` per row. A new message
+ * kind must add its catalog keys and both map entries (compile-enforced).
+ *
  * Derived at render time from the lifecycle + panel context; never cached
  * onto the lifecycle.
  */
 
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { currentResponseBody, lifecycleTransferredBytes } from './inspector-row-projection';
 import type { DetailSection } from './inspector-tab';
 import type { RedirectRewriteKind } from './redirect-hop-rows';
@@ -42,15 +49,27 @@ export type RowAnnotationKind =
   | 'debug-paused'
   | 'rule-rewrite';
 
+/** One copy variant per message — finer than `kind` where one kind has
+ *  two wordings (the two synthesized-row provenances). */
+export type RowAnnotationMessage =
+  | 'interrupted'
+  | 'never-finished'
+  | 'fidelity-gap'
+  | 'synthetic-har'
+  | 'synthetic-memory'
+  | 'debug-paused'
+  | 'query-param-rewrite'
+  | 'redirect-rule';
+
 export type RowAnnotationSeverity = 'warn' | 'info';
 
 export interface RowAnnotation {
   readonly kind: RowAnnotationKind;
   readonly severity: RowAnnotationSeverity;
-  /** Short rail/tooltip label ("Transfer interrupted"). */
-  readonly label: string;
-  /** One-sentence explanation — the insight card's body. */
-  readonly detail: string;
+  /** Which copy this annotation renders with (label + detail). */
+  readonly message: RowAnnotationMessage;
+  /** Measured debug-interception hold — part of the `debug-paused` copy. */
+  readonly pausedMs?: number;
   /** Detail-pane section a rail click should land on. */
   readonly section: DetailSection;
 }
@@ -64,94 +83,112 @@ export interface RowAnnotationContext {
   readonly source: LifecycleSource;
 }
 
+const LABEL_KEY: Record<RowAnnotationMessage, MessageKey> = {
+  interrupted: 'panel.rowAnnotations.interrupted.label',
+  'never-finished': 'panel.rowAnnotations.neverFinished.label',
+  'fidelity-gap': 'panel.rowAnnotations.fidelityGap.label',
+  'synthetic-har': 'panel.rowAnnotations.syntheticHar.label',
+  'synthetic-memory': 'panel.rowAnnotations.syntheticMemory.label',
+  'debug-paused': 'panel.rowAnnotations.debugPaused.label',
+  'query-param-rewrite': 'panel.rowAnnotations.queryParamRewrite.label',
+  'redirect-rule': 'panel.rowAnnotations.redirectRule.label',
+};
+
+const DETAIL_KEY: Record<RowAnnotationMessage, MessageKey> = {
+  interrupted: 'panel.rowAnnotations.interrupted.detail',
+  'never-finished': 'panel.rowAnnotations.neverFinished.detail',
+  'fidelity-gap': 'panel.rowAnnotations.fidelityGap.detail',
+  'synthetic-har': 'panel.rowAnnotations.syntheticHar.detail',
+  'synthetic-memory': 'panel.rowAnnotations.syntheticMemory.detail',
+  'debug-paused': 'panel.rowAnnotations.debugPaused.detail',
+  'query-param-rewrite': 'panel.rowAnnotations.queryParamRewrite.detail',
+  'redirect-rule': 'panel.rowAnnotations.redirectRule.detail',
+};
+
+/** Resolved annotation copy for one locale. Labels and the static
+ *  details are resolved eagerly; the `debug-paused` detail formats its
+ *  measured hold lazily (rare rows only), so consumers hold ONE stable
+ *  object per locale — build it with `useMemo` on `t` and thread it,
+ *  never `t()` inside a row loop. */
+export interface RowAnnotationMessages {
+  readonly label: (a: RowAnnotation) => string;
+  readonly detail: (a: RowAnnotation) => string;
+  readonly alsoOnThisRow: string;
+  readonly openDetails: string;
+}
+
+export function buildRowAnnotationMessages(t: Translate): RowAnnotationMessages {
+  const labels = Object.fromEntries(
+    (Object.keys(LABEL_KEY) as RowAnnotationMessage[]).map((m) => [m, t(LABEL_KEY[m])]),
+  ) as Record<RowAnnotationMessage, string>;
+  return {
+    label: (a) => labels[a.message],
+    detail: (a) =>
+      a.message === 'debug-paused'
+        ? t(DETAIL_KEY[a.message], { ms: Math.round(a.pausedMs ?? 0) })
+        : t(DETAIL_KEY[a.message]),
+    alsoOnThisRow: t('panel.rowAnnotations.alsoOnThisRow'),
+    openDetails: t('panel.rowAnnotations.openDetails'),
+  };
+}
+
 /** Synthesized-row requestId prefixes (disjoint from chrome's ids). */
 const SYNTHETIC_PREFIXES = ['oh-har:', 'oh-mem:'] as const;
 
 const INTERRUPTED: RowAnnotation = {
   kind: 'interrupted',
   severity: 'warn',
-  label: 'Transfer interrupted',
-  detail:
-    'The download was canceled before it finished. The status reflects the headers that arrived before the ' +
-    'interruption, and the received data is incomplete — the row is otherwise indistinguishable from a completed one.',
+  message: 'interrupted',
   section: 'headers',
 };
 
 const NEVER_FINISHED: RowAnnotation = {
   kind: 'never-finished',
   severity: 'info',
-  label: 'Never finished',
-  detail:
-    'The page that issued this request unloaded while it was still in flight, so no outcome was ever recorded — ' +
-    'that is why Status and Time read "(unknown)".',
+  message: 'never-finished',
   section: 'headers',
 };
 
 const FIDELITY_GAP: RowAnnotation = {
   kind: 'fidelity-gap',
   severity: 'info',
-  label: 'Capture-fidelity gap',
-  detail:
-    'Transferred bytes and the response body are not visible to the default capture path for requests that never ' +
-    'finished — CDP-enhanced inspection records them.',
+  message: 'fidelity-gap',
   section: 'headers',
 };
 
 const SYNTHETIC_HAR: RowAnnotation = {
   kind: 'synthetic',
   severity: 'info',
-  label: 'Synthesized row',
-  detail:
-    'This row was reconstructed from a capture record that never joined a live request, so some columns cannot be ' +
-    'filled.',
+  message: 'synthetic-har',
   section: 'headers',
 };
 
 const SYNTHETIC_MEMORY: RowAnnotation = {
   kind: 'synthetic',
   severity: 'info',
-  label: 'Synthesized row',
-  detail:
-    'This row was reconstructed from the page’s Resource Timing (a memory-cache hit never reaches the network ' +
-    'stack), so headers and cookies are not available.',
+  message: 'synthetic-memory',
   section: 'headers',
 };
 
 const QUERY_PARAM_REWRITE: RowAnnotation = {
   kind: 'rule-rewrite',
   severity: 'info',
-  label: 'Query-param rewrite',
-  detail:
-    'This redirect is Open Headers applying a query-param rule, not the server. Rewriting a URL’s query string is ' +
-    'performed as an internal redirect, so it shows as its own hop; the request then continues to the rewritten ' +
-    'URL with its method, body, cookies, and headers carried across unchanged.',
+  message: 'query-param-rewrite',
   section: 'headers',
 };
 
 const REDIRECT_RULE_REWRITE: RowAnnotation = {
   kind: 'rule-rewrite',
   severity: 'info',
-  label: 'Redirect rule',
-  detail:
-    'This redirect is Open Headers applying a redirect rule, not the server. It is performed as an internal ' +
-    'redirect, so the original request shows as its own hop before the request continues to the rewritten URL.',
+  message: 'redirect-rule',
   section: 'headers',
 };
 
 // Built per-row because the held duration is part of the copy. The hold is a
 // measured fact stamped on the lifecycle by the control plane (`pausedByDebugMs`);
 // the rail re-checks materiality as defence in depth against an immaterial value.
-function debugPausedAnnotation(pausedByDebugMs: number): RowAnnotation {
-  return {
-    kind: 'debug-paused',
-    severity: 'info',
-    label: 'Debug-mode hold',
-    detail:
-      `${Math.round(pausedByDebugMs)} ms of this row’s time was spent paused in debug-mode interception, not ` +
-      'waiting on the server or network — debug mode held the request while it inspected it, so the row’s total ' +
-      'time runs longer than the request itself took.',
-    section: 'timing',
-  };
+function debugPausedAnnotation(pausedMs: number): RowAnnotation {
+  return { kind: 'debug-paused', severity: 'info', message: 'debug-paused', pausedMs, section: 'timing' };
 }
 
 /**

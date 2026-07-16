@@ -1,3 +1,4 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Popover } from 'antd';
 import type { AnnotatedHeader } from '../../../data/headers/header-attribution';
 import type { HeaderRowMeta } from '../../../data/headers/header-filter';
@@ -8,6 +9,7 @@ export type RowItem = { row: AnnotatedHeader; meta: HeaderRowMeta; originalIndex
  *  `Hide noise` toggle is currently hiding. Hover opens a popover
  *  listing the actual names so the user never has to guess. */
 export function HiddenNoiseHint({ items }: { items: readonly RowItem[] }) {
+  const t = useT();
   return (
     <Popover
       trigger="hover"
@@ -23,7 +25,7 @@ export function HiddenNoiseHint({ items }: { items: readonly RowItem[] }) {
       }
     >
       <div className="dt-header-noise-hint dt-col-muted">
-        {items.length} noise header{items.length === 1 ? '' : 's'} hidden — hover for names
+        {t('panel.inspector.headers.section.noiseHidden', { count: items.length })}
       </div>
     </Popover>
   );

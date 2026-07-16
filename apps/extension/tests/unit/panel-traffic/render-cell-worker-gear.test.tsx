@@ -5,9 +5,11 @@
  * started-only provenance field alone.
  */
 
+import { getTranslator } from '@openheaders/i18n';
 import { COLUMN_DEFS } from '@openheaders/ui/panel/components/traffic/columns';
 import { type CellContext, renderCell } from '@openheaders/ui/panel/components/traffic/render-cell';
 import { classifyRequestState } from '@openheaders/ui/panel/data/request-state';
+import { buildRowAnnotationMessages } from '@openheaders/ui/panel/data/row-annotations';
 import { getSizeInfo } from '@openheaders/ui/panel/data/size-info';
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -34,6 +36,7 @@ const CTX: CellContext = {
   connectionOpeners: new Map(),
   resolvedInitiators: new Map(),
   annotationCtx: { anchor: { latestNavStartedAtMs: 0, navStartsMs: [] }, source: 'cdp' },
+  annotationMessages: buildRowAnnotationMessages(getTranslator('en')),
   onAnnotationJump: () => {},
 };
 

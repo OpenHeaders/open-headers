@@ -1,4 +1,6 @@
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { useMemo } from 'react';
 
 /**
  * The warning shown above the Request Headers list when the lifecycle's
@@ -8,33 +10,36 @@ import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/inf
  * external doc link) via the shared info-popover.
  */
 
-const PROVISIONAL_INFO: InfoPopoverContent = {
-  title: 'Provisional headers',
-  kicker: 'Request',
-  summary:
-    'These are the headers the browser assembled and intended to send — not a confirmed capture of what crossed the wire. The on-the-wire set can differ (the network stack adds cookies, credentials, and connection headers later).',
-  sections: [
-    {
-      heading: 'Why a request shows only provisional headers',
-      items: [
-        {
-          label: 'Served from cache',
-          desc: 'Answered locally (memory/disk cache or a service worker) — nothing was sent on the wire this time, so the original sent headers were never stored.',
-        },
-        {
-          label: 'Never reached the network',
-          desc: 'Blocked or failed before a header exchange completed (an invalid URL, a CORS/CSP block, a connection error).',
-        },
-        {
-          label: 'Still in flight',
-          desc: 'The on-the-wire set has not been reported yet; it resolves once the request completes.',
-        },
-      ],
-    },
-  ],
-};
+function provisionalInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.inspector.headers.provisional.title'),
+    kicker: t('panel.inspector.headers.provisional.kicker'),
+    summary: t('panel.inspector.headers.provisional.summary'),
+    sections: [
+      {
+        heading: t('panel.inspector.headers.provisional.whyHeading'),
+        items: [
+          {
+            label: t('panel.inspector.headers.provisional.cacheLabel'),
+            desc: t('panel.inspector.headers.provisional.cacheDesc'),
+          },
+          {
+            label: t('panel.inspector.headers.provisional.blockedLabel'),
+            desc: t('panel.inspector.headers.provisional.blockedDesc'),
+          },
+          {
+            label: t('panel.inspector.headers.provisional.inFlightLabel'),
+            desc: t('panel.inspector.headers.provisional.inFlightDesc'),
+          },
+        ],
+      },
+    ],
+  };
+}
 
 export function ProvisionalHeadersBanner({ cached }: { cached: boolean }) {
+  const t = useT();
+  const info = useMemo(() => provisionalInfo(t), [t]);
   return (
     <div className="dt-provisional-banner" role="note">
       <span className="dt-provisional-banner-icon" aria-hidden="true">
@@ -42,10 +47,10 @@ export function ProvisionalHeadersBanner({ cached }: { cached: boolean }) {
       </span>
       <span className="dt-provisional-banner-text">
         {cached
-          ? 'Provisional headers are shown — served from cache, so the original sent headers aren’t stored.'
-          : 'Provisional headers are shown — the on-the-wire set hasn’t been confirmed yet.'}
+          ? t('panel.inspector.headers.provisional.bannerCached')
+          : t('panel.inspector.headers.provisional.bannerPending')}
       </span>
-      <InfoTrigger content={PROVISIONAL_INFO} className="dt-header-info-trigger" />
+      <InfoTrigger content={info} className="dt-header-info-trigger" />
     </div>
   );
 }

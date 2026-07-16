@@ -8,8 +8,12 @@
  * Keep the list short. The Headers tab is information-dense already —
  * never emit more than ~5 insights, and only when the condition is
  * unambiguous. Don't nag.
+ *
+ * Copy is t-first (`panel.inspector.headers.insights.*`); origins,
+ * cookie names, HSTS summaries, and durations ride as raw holes.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { parseAuthorization, parseHsts, parseSetCookie } from './header-value-introspection';
 
 export type InsightSeverity = 'info' | 'warn' | 'err';
@@ -82,7 +86,11 @@ function originOf(url: string): string | null {
   }
 }
 
-export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.now()): readonly HeaderInsight[] {
+export function computeHeaderInsights(
+  t: Translate,
+  inputs: HeaderInsightInputs,
+  nowMs = Date.now(),
+): readonly HeaderInsight[] {
   const out: HeaderInsight[] = [];
   const { requestHeaders, responseHeaders, mimeType, url, statusCode } = inputs;
 
@@ -94,16 +102,15 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
     out.push({
       id: 'cors-wildcard-with-creds',
       severity: 'err',
-      title: 'CORS misconfigured',
-      detail:
-        '`Access-Control-Allow-Origin: *` cannot be combined with credentials — the browser will reject this response.',
+      title: t('panel.inspector.headers.insights.corsWildcard.title'),
+      detail: t('panel.inspector.headers.insights.corsWildcard.detail'),
       action: origin
         ? {
             kind: 'override-header',
             direction: 'response',
             headerName: 'Access-Control-Allow-Origin',
             value: origin,
-            label: `Override with ${origin}`,
+            label: t('panel.inspector.headers.insights.corsWildcard.action', { origin }),
           }
         : undefined,
     });
@@ -115,14 +122,14 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
     out.push({
       id: 'cors-missing-acao',
       severity: 'warn',
-      title: 'CORS request without Access-Control-Allow-Origin',
-      detail: `Request carried \`Origin: ${requestOrigin}\` but the response has no \`Access-Control-Allow-Origin\`. The browser will block the response.`,
+      title: t('panel.inspector.headers.insights.corsMissingAcao.title'),
+      detail: t('panel.inspector.headers.insights.corsMissingAcao.detail', { origin: requestOrigin }),
       action: {
         kind: 'add-header',
         direction: 'response',
         headerName: 'Access-Control-Allow-Origin',
         value: requestOrigin,
-        label: `Add Access-Control-Allow-Origin: ${requestOrigin}`,
+        label: t('panel.inspector.headers.insights.corsMissingAcao.action', { origin: requestOrigin }),
       },
     });
   }
@@ -139,9 +146,9 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
         severity: 'warn',
         title:
           missingSecure.length === 1
-            ? `Cookie \`${first.name}\` missing \`Secure\``
-            : `${missingSecure.length} cookies missing \`Secure\``,
-        detail: 'Cookies set over HTTPS should carry `Secure` so they cannot be sent over plain HTTP.',
+            ? t('panel.inspector.headers.insights.cookieMissingSecure.titleOne', { name: first.name })
+            : t('panel.inspector.headers.insights.cookieMissingSecure.titleMany', { count: missingSecure.length }),
+        detail: t('panel.inspector.headers.insights.cookieMissingSecure.detail'),
       });
     }
   }
@@ -153,13 +160,13 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
       out.push({
         id: 'missing-csp',
         severity: 'warn',
-        title: 'No Content-Security-Policy on HTML response',
+        title: t('panel.inspector.headers.insights.missingCsp.title'),
         action: {
           kind: 'add-header',
           direction: 'response',
           headerName: 'Content-Security-Policy',
           value: "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'",
-          label: 'Add a baseline CSP',
+          label: t('panel.inspector.headers.insights.missingCsp.action'),
         },
       });
     }
@@ -176,8 +183,8 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
       out.push({
         id: 'hsts-short',
         severity: 'warn',
-        title: `HSTS max-age is very short (${parsed.summary})`,
-        detail: 'Most policies recommend at least 6 months; preload requires 1 year.',
+        title: t('panel.inspector.headers.insights.hstsShort.title', { summary: parsed.summary }),
+        detail: t('panel.inspector.headers.insights.hstsShort.detail'),
       });
     }
   }
@@ -193,14 +200,14 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
           out.push({
             id: 'jwt-expired',
             severity: 'err',
-            title: 'JWT in Authorization header is expired',
-            detail: `Expired ${formatRelative(-exp)} ago.`,
+            title: t('panel.inspector.headers.insights.jwtExpired.title'),
+            detail: t('panel.inspector.headers.insights.jwtExpired.detail', { duration: formatRelative(-exp) }),
           });
         } else if (exp < 300) {
           out.push({
             id: 'jwt-expiring',
             severity: 'warn',
-            title: `JWT expires in ${formatRelative(exp)}`,
+            title: t('panel.inspector.headers.insights.jwtExpiring.title', { duration: formatRelative(exp) }),
           });
         }
         // Non-expired JWT: row chips already show alg + exp; no insight.
@@ -215,13 +222,13 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
     out.push({
       id: 'missing-content-type',
       severity: 'warn',
-      title: 'Response has no Content-Type',
+      title: t('panel.inspector.headers.insights.missingContentType.title'),
       action: {
         kind: 'add-header',
         direction: 'response',
         headerName: 'Content-Type',
         value: 'application/octet-stream',
-        label: 'Add Content-Type',
+        label: t('panel.inspector.headers.insights.missingContentType.action'),
       },
     });
   }

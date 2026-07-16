@@ -1,3 +1,4 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
 import type { HeaderNameCase } from '../../../data/headers/header-name-case';
 import { MenuNonDefaultDot, ToolbarMenuPopover } from '../../ToolbarMenuPopover';
@@ -36,6 +37,7 @@ export function HeaderMoreFiltersMenu({
   onToggleOverridableOnly: () => void;
   onToggleHideNoise: () => void;
 }) {
+  const t = useT();
   const activeCount = [ruleOnly, securityOnly, overridableOnly, hideNoise].reduce((n, v) => n + (v ? 1 : 0), 0);
   const reset = () => {
     if (ruleOnly) onToggleRuleOnly();
@@ -44,26 +46,26 @@ export function HeaderMoreFiltersMenu({
     if (hideNoise) onToggleHideNoise();
   };
   return (
-    <ToolbarMenuPopover label="More filters" activeCount={activeCount}>
+    <ToolbarMenuPopover label={t('panel.inspector.headers.moreFilters.label')} activeCount={activeCount}>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={ruleOnly} onChange={onToggleRuleOnly} />
-        Rule-modified only
+        {t('panel.inspector.headers.moreFilters.ruleOnly')}
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={securityOnly} onChange={onToggleSecurityOnly} />
-        Security headers only
+        {t('panel.inspector.headers.moreFilters.securityOnly')}
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={overridableOnly} onChange={onToggleOverridableOnly} />
-        Overridable only
+        {t('panel.inspector.headers.moreFilters.overridableOnly')}
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={hideNoise} onChange={onToggleHideNoise} />
-        Hide noise (Accept-*, Sec-Fetch-*, User-Agent, …)
+        {t('panel.inspector.headers.moreFilters.hideNoise')}
       </label>
       <div className="dt-morefilters-divider" />
       <button type="button" className="dt-morefilters-reset" onClick={reset} disabled={activeCount === 0}>
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </ToolbarMenuPopover>
   );
@@ -106,54 +108,55 @@ export function HeaderViewMenu({
   /** Restore every View option to its registered default. */
   onReset: () => void;
 }) {
+  const t = useT();
   const activeCount = modified.size;
   return (
-    <ToolbarMenuPopover label="View" activeCount={activeCount}>
+    <ToolbarMenuPopover label={t('panel.inspector.headers.view.label')} activeCount={activeCount}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Layout
+          {t('panel.inspector.headers.view.layout')}
           <MenuNonDefaultDot show={modified.has('devpanelHeaders.layout')} />
         </span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as HeaderLayoutMode)}>
-          <option value="grouped">Grouped</option>
-          <option value="flat">Flat</option>
+          <option value="grouped">{t('panel.inspector.headers.view.layoutGrouped')}</option>
+          <option value="flat">{t('panel.inspector.headers.view.layoutFlat')}</option>
         </select>
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Sort
+          {t('panel.inspector.headers.view.sort')}
           <MenuNonDefaultDot show={modified.has('devpanelHeaders.sortMode')} />
         </span>
         <select value={sortMode} onChange={(e) => onSortChange(e.target.value as HeaderSortMode)}>
-          <option value="original">Original</option>
-          <option value="az">A → Z</option>
-          <option value="rule-first">Rule-modified first</option>
+          <option value="original">{t('panel.inspector.headers.view.sortOriginal')}</option>
+          <option value="az">{t('panel.inspector.headers.view.sortAz')}</option>
+          <option value="rule-first">{t('panel.inspector.headers.view.sortRuleFirst')}</option>
         </select>
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Name case
+          {t('panel.inspector.headers.view.nameCase')}
           <MenuNonDefaultDot show={modified.has('devpanelHeaders.nameCase')} />
         </span>
         <select value={nameCase} onChange={(e) => onNameCaseChange(e.target.value as HeaderNameCase)}>
-          <option value="train">Train-Case</option>
-          <option value="original">Original (raw)</option>
+          <option value="train">{t('panel.inspector.headers.view.nameCaseTrain')}</option>
+          <option value="original">{t('panel.inspector.headers.view.nameCaseOriginal')}</option>
         </select>
       </label>
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showChips} onChange={onToggleShowChips} />
-        Show tags
+        {t('panel.inspector.headers.view.showTags')}
         <MenuNonDefaultDot show={modified.has('devpanelHeaders.showChips')} />
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showInsights} onChange={onToggleShowInsights} />
-        Show suggestions
+        {t('panel.inspector.headers.view.showSuggestions')}
         <MenuNonDefaultDot show={modified.has('devpanelHeaders.showInsights')} />
       </label>
       <div className="dt-morefilters-divider" />
       <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeCount === 0}>
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </ToolbarMenuPopover>
   );

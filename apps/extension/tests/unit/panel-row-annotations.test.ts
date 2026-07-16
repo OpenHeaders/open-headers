@@ -1,9 +1,16 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { getTranslator } from '@openheaders/i18n';
 import type { SupersessionAnchor } from '@openheaders/ui/panel/data/request-state';
-import { classifyRowAnnotations, type RowAnnotationContext } from '@openheaders/ui/panel/data/row-annotations';
+import {
+  buildRowAnnotationMessages,
+  classifyRowAnnotations,
+  type RowAnnotationContext,
+} from '@openheaders/ui/panel/data/row-annotations';
 import { describe, expect, it } from 'vitest';
+
+const messages = buildRowAnnotationMessages(getTranslator('en'));
 
 function makeLifecycle(
   opts: Omit<Partial<RequestLifecycle>, 'har'> & { har?: Partial<InspectorHarEntry> | null } = {},
@@ -174,7 +181,9 @@ describe('classifyRowAnnotations — debug-mode interception hold', () => {
     const annotations = classifyRowAnnotations(lc, ctx({ source: 'cdp' }));
     expect(annotations.map((a) => a.kind)).toEqual(['debug-paused']);
     expect(annotations[0].severity).toBe('info');
-    expect(annotations[0].detail).toContain('42 ms');
+    expect(annotations[0].message).toBe('debug-paused');
+    expect(annotations[0].pausedMs).toBe(42);
+    expect(messages.detail(annotations[0])).toContain('42 ms');
     expect(annotations[0].section).toBe('timing');
   });
 
@@ -211,14 +220,16 @@ describe('classifyRowAnnotations — synthesized rows', () => {
     });
     const annotations = classifyRowAnnotations(lc, ctx());
     expect(annotations.map((a) => a.kind)).toEqual(['synthetic']);
-    expect(annotations[0].detail).toContain('never joined');
+    expect(annotations[0].message).toBe('synthetic-har');
+    expect(messages.detail(annotations[0])).toContain('never joined');
   });
 
   it('oh-mem: memory-cache row', () => {
     const lc = makeLifecycle({ requestId: 'oh-mem:1', completedAtMs: 1_200 });
     const annotations = classifyRowAnnotations(lc, ctx());
     expect(annotations.map((a) => a.kind)).toEqual(['synthetic']);
-    expect(annotations[0].detail).toContain('Resource Timing');
+    expect(annotations[0].message).toBe('synthetic-memory');
+    expect(messages.detail(annotations[0])).toContain('Resource Timing');
   });
 });
 
@@ -231,15 +242,17 @@ describe('classifyRowAnnotations — rule-induced redirect hops', () => {
     const annotations = classifyRowAnnotations(hop, ctx(), 'query-param');
     expect(annotations.map((a) => a.kind)).toEqual(['rule-rewrite']);
     expect(annotations[0].severity).toBe('info');
-    expect(annotations[0].label).toBe('Query-param rewrite');
-    expect(annotations[0].detail).toContain('query-param rule, not the server');
+    expect(annotations[0].message).toBe('query-param-rewrite');
+    expect(messages.label(annotations[0])).toBe('Query-param rewrite');
+    expect(messages.detail(annotations[0])).toContain('query-param rule, not the server');
     expect(annotations[0].section).toBe('headers');
   });
 
   it('redirect rule → rule-rewrite with the redirect-rule copy', () => {
     const annotations = classifyRowAnnotations(hop, ctx(), 'redirect');
     expect(annotations.map((a) => a.kind)).toEqual(['rule-rewrite']);
-    expect(annotations[0].label).toBe('Redirect rule');
+    expect(annotations[0].message).toBe('redirect-rule');
+    expect(messages.label(annotations[0])).toBe('Redirect rule');
   });
 
   it('no rewrite kind → no annotation (a server redirect hop stays blank)', () => {

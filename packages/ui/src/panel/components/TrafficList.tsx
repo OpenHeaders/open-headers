@@ -9,8 +9,10 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { FilterConfig } from '../data/filter-engine';
 import { currentHarEntry, type InspectorRowWithFires } from '../data/inspector-row-projection';
+import { buildRowAnnotationMessages } from '../data/row-annotations';
 import { WATERFALL_METRIC_ABBR, waterfallSortValue } from '../data/network-columns';
 import { supersessionAnchorFromPages } from '../data/request-state';
 import { pageMarkers, waterfallWindow } from '../data/timing/waterfall-geometry';
@@ -417,6 +419,11 @@ export function TrafficList({
   // such rows out via the nav-clear floor).
   const superseded = useMemo(() => supersessionAnchorFromPages(pages), [pages]);
 
+  // Annotation copy resolved once per locale — the rail cells are a hot
+  // row loop and read these pre-resolved strings off the cell context.
+  const t = useT();
+  const annotationMessages = useMemo(() => buildRowAnnotationMessages(t), [t]);
+
   // Connection-opener index over the full row set (not the filtered view) so a
   // reused-connection row can name its opener even when that row is scrolled out.
   const connectionOpeners = useMemo(() => buildConnectionOpenerIndex(rows), [rows]);
@@ -447,6 +454,7 @@ export function TrafficList({
       connectionOpeners,
       resolvedInitiators,
       annotationCtx: { anchor: superseded, source: cdpEnhanced ? 'cdp' : 'heuristic' },
+      annotationMessages,
       onAnnotationJump,
     }),
     [
@@ -457,6 +465,7 @@ export function TrafficList({
       cdpEnhanced,
       connectionOpeners,
       resolvedInitiators,
+      annotationMessages,
       onAnnotationJump,
     ],
   );

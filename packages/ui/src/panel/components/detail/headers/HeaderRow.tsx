@@ -1,4 +1,5 @@
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { getHeaderInfoContentForRow } from '@openheaders/ui/shared/info-popover/data/http-headers';
@@ -84,30 +85,34 @@ function HeaderInfoTrigger({
 
 type SinceFireKind = 'deleted' | 'disabled' | 'rule' | 'value';
 
-const SINCE_FIRE_CHIP: Record<SinceFireKind, { label: string; title: string }> = {
+const SINCE_FIRE_CHIP: Record<SinceFireKind, { label: MessageKey; title: MessageKey }> = {
   deleted: {
-    label: '· rule deleted since',
-    title: 'Rule has been deleted since this request — it will not apply to future requests',
+    label: 'panel.inspector.headers.row.sinceFire.deleted',
+    title: 'panel.inspector.headers.row.sinceFire.deletedTitle',
   },
   disabled: {
-    label: '· rule disabled since',
-    title: 'Rule has been disabled since this request — it will not apply to future requests',
+    label: 'panel.inspector.headers.row.sinceFire.disabled',
+    title: 'panel.inspector.headers.row.sinceFire.disabledTitle',
   },
   rule: {
-    label: '· rule edited since',
-    title: 'Rule has been edited since this request — current rule applies only to future requests',
+    label: 'panel.inspector.headers.row.sinceFire.edited',
+    title: 'panel.inspector.headers.row.sinceFire.editedTitle',
   },
   value: {
-    label: '· variable changed since',
-    title: 'A variable referenced by this rule resolves to a different value now — applies only to future requests',
+    label: 'panel.inspector.headers.row.sinceFire.value',
+    title: 'panel.inspector.headers.row.sinceFire.valueTitle',
   },
 };
 
 function EditedSinceFireChip({ kind }: { kind: SinceFireKind }) {
+  const t = useT();
   const { label, title } = SINCE_FIRE_CHIP[kind];
   return (
-    <span title={title} style={{ marginLeft: 8, fontSize: 10, fontStyle: 'italic', opacity: 0.7, userSelect: 'none' }}>
-      {label}
+    <span
+      title={t(title)}
+      style={{ marginLeft: 8, fontSize: 10, fontStyle: 'italic', opacity: 0.7, userSelect: 'none' }}
+    >
+      · {t(label)}
     </span>
   );
 }
@@ -127,6 +132,7 @@ export function AttributedHeaderRow({
   showChips,
   onOverride,
 }: AttributedHeaderRowProps) {
+  const t = useT();
   const rulePopover = useRulePopover();
   const { name, value, attribution } = row;
   const displayName = formatHeaderName(name, nameCase);
@@ -250,7 +256,8 @@ export function AttributedHeaderRow({
 
   const showResolvedValue = kind === 'added' || kind === 'modified' || kind === 'system';
 
-  const systemTitle = kind === 'system' ? `Injected by ${attribution.label} (Open Headers system feature)` : undefined;
+  const systemTitle =
+    kind === 'system' ? t('panel.inspector.headers.row.systemTitle', { feature: attribution.label }) : undefined;
 
   // Override creates a rule against a server header. On rows that already
   // come from Open Headers — a user rule (added/modified/removed) or a
@@ -269,12 +276,12 @@ export function AttributedHeaderRow({
     <EditedSinceFireChip kind={ruleDeleted ? 'deleted' : ruleDisabled ? 'disabled' : ruleEdited ? 'rule' : 'value'} />
   ) : null;
   const overrideTitle = isProtected
-    ? `${displayName} is a protected header — the browser's Declarative Net Request engine refuses to let extensions override it. Common protected names include host, content-length, connection, sec-fetch-*, sec-ch-ua-*.`
+    ? t('panel.inspector.headers.row.overrideProtectedTitle', { name: displayName })
     : kind === 'system'
-      ? `${displayName} is injected by ${attribution.label}, an Open Headers system feature — not overridable with a rule.`
+      ? t('panel.inspector.headers.row.overrideSystemTitle', { name: displayName, feature: attribution.label })
       : isOhRow
-        ? `${displayName} is already managed by one of your rules — edit the rule from its popover instead of overriding.`
-        : 'Create a rule to override this header';
+        ? t('panel.inspector.headers.row.overrideManagedTitle', { name: displayName })
+        : t('panel.inspector.headers.row.overrideTitle');
 
   return (
     <>
@@ -295,7 +302,11 @@ export function AttributedHeaderRow({
               <button
                 type="button"
                 className="dt-kv-value-caret"
-                aria-label={expanded ? 'Collapse value' : 'Expand value'}
+                aria-label={
+                  expanded
+                    ? t('panel.inspector.headers.row.collapseValue')
+                    : t('panel.inspector.headers.row.expandValue')
+                }
                 aria-expanded={expanded}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -318,8 +329,8 @@ export function AttributedHeaderRow({
           <button
             type="button"
             className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
-            title={copied ? 'Copied' : 'Copy value'}
-            aria-label={copied ? 'Copied' : 'Copy value'}
+            title={copied ? t('panel.inspector.headers.row.copied') : t('panel.inspector.headers.row.copyValue')}
+            aria-label={copied ? t('panel.inspector.headers.row.copied') : t('panel.inspector.headers.row.copyValue')}
             onClick={handleCopy}
           >
             {copied ? <CheckOutlined /> : <CopyOutlined />}
@@ -328,10 +339,10 @@ export function AttributedHeaderRow({
             <button
               type="button"
               className="dt-btn dt-btn--oh dt-kv-action"
-              title="Edit the rule that set this header"
+              title={t('panel.inspector.headers.row.editTitle')}
               onClick={openEditPopover}
             >
-              Edit
+              {t('panel.inspector.headers.row.edit')}
             </button>
           )}
           <button
@@ -346,7 +357,7 @@ export function AttributedHeaderRow({
               onOverride(name, value, e.currentTarget);
             }}
           >
-            Override
+            {t('panel.inspector.headers.row.override')}
           </button>
         </span>
       </div>
