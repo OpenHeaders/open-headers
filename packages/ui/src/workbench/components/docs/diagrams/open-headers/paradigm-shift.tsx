@@ -96,7 +96,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
       name: 'Pricing & Trust',
       rows: [
         {
-          us: { primary: 'Everything today, on every tier', sub: 'free ≤ 5 users · paid = team seats' },
+          us: { primary: 'Everything today, on every tier', sub: 'free ≤ 3 users · paid = team seats' },
           them: { primary: 'Feature-gated tiers', sub: 'core capabilities behind upsells' },
           usCornerStamp: 'FREE STAYS FREE',
         },

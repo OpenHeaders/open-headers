@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { FREE_SEAT_LIMIT, RESERVED_ENTITLEMENTS } from '../../src/licensing';
 
 describe('entitlement vocabulary', () => {
-  it('pins the free seat limit at 5', () => {
-    expect(FREE_SEAT_LIMIT).toBe(5);
+  it('pins the free seat limit at 3', () => {
+    expect(FREE_SEAT_LIMIT).toBe(3);
   });
 
   it('reserves the v1 capability strings', () => {

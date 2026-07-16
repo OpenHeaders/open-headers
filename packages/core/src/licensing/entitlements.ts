@@ -15,9 +15,10 @@ export const RESERVED_ENTITLEMENTS = ['mock-server', 'workflows', 'scim', 'group
 export type ReservedEntitlement = (typeof RESERVED_ENTITLEMENTS)[number];
 
 /**
- * Active daemon users admitted without a license — one full squad free;
- * pay on growth. The seat gate (`LICENSING_PLAN.md` §4) compares
- * against `license?.seats ?? FREE_SEAT_LIMIT`; degradation after grace
- * reverts to this limit for NEW user creation only.
+ * Active daemon users admitted without a license — enough to evaluate
+ * team mode for real; actual teams pay. The seat gate
+ * (`LICENSING_PLAN.md` §4) compares against
+ * `license?.seats ?? FREE_SEAT_LIMIT`; degradation after grace reverts
+ * to this limit for NEW user creation only.
  */
-export const FREE_SEAT_LIMIT = 5;
+export const FREE_SEAT_LIMIT = 3;
