@@ -149,6 +149,50 @@ describe('startExtensionTrafficLifecycles', () => {
     expect(startedTabs().sort()).toEqual([3, 4]);
   });
 
+  it('stamps issuedByWorker on every started mint — the gear-glyph provenance', () => {
+    setCurrentTabs([extensionTab(5)]);
+    disposers.push(start().dispose);
+    feed(exchange('1010', 25_000));
+
+    const started = applied.find((u) => u.kind === 'started');
+    expect(started?.kind === 'started' && started.lifecycle.issuedByWorker).toBe('service-worker');
+  });
+
+  it('synthesizes a status-less terminal for own-bundle loads at onSendHeaders', () => {
+    setCurrentTabs([extensionTab(6), extensionTab(8)]);
+    disposers.push(start().dispose);
+    const url = `${OWN_ORIGIN}/assets/editor.worker.js`;
+    const base = {
+      tabId: -1,
+      requestId: '1011',
+      url,
+      method: 'GET',
+      type: 'script',
+      initiator: OWN_ORIGIN,
+      frameId: 0,
+    };
+    feed([
+      { ...base, method_kind: 'onBeforeRequest', timeStamp: 35_000 },
+      { ...base, method_kind: 'onSendHeaders', timeStamp: 35_001, requestHeaders: [{ name: 'Accept', value: '*/*' }] },
+    ]);
+
+    const terminals = applied.filter((u) => u.kind === 'phase' && u.patch.phase === 'completed');
+    expect(terminals.map((u) => (u.kind === 'phase' ? u.tabId : -1)).sort()).toEqual([6, 8]);
+    for (const terminal of terminals) {
+      expect(terminal.kind === 'phase' && terminal.patch.statusCode).toBeUndefined();
+      expect(terminal.kind === 'phase' && terminal.patch.completedAtMs).toBe(35_001);
+    }
+  });
+
+  it('never synthesizes a terminal for network URLs — their own onCompleted resolves them', () => {
+    setCurrentTabs([extensionTab(12)]);
+    disposers.push(start().dispose);
+    const [before, send] = exchange('1012', 45_000);
+    feed([before, send]);
+
+    expect(applied.some((u) => u.kind === 'phase' && u.patch.phase === 'completed')).toBe(false);
+  });
+
   it('adopts a tab that navigates into the extension origin and releases one that leaves', () => {
     disposers.push(start().dispose);
     tabsMock.onUpdated.emit(9, { url: WORKBENCH_URL } as chrome.tabs.OnUpdatedInfo, extensionTab(9));

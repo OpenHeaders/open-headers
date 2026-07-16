@@ -78,12 +78,42 @@ export function startExtensionTrafficLifecycles(
     },
   };
   const correlator = new HeuristicCorrelator({ webRequest: rekeySource, har: { subscribe: () => () => {} } });
-  const unsubscribeStore = correlator.subscribe(options.apply);
+  // Provenance: everything on this channel is issued by the extension's own
+  // worker plane (SW / offscreen — tab-less by definition), so stamp the
+  // additive `issuedByWorker` fact onto each `started` mint, exactly as the
+  // browser-target plane stamps its worker rows (started-only; never
+  // patched). The panel's gear glyph gates on it — the browser's own panel
+  // gears these rows too.
+  const unsubscribeStore = correlator.subscribe((update) => {
+    options.apply(
+      update.kind === 'started'
+        ? { ...update, lifecycle: { ...update.lifecycle, issuedByWorker: 'service-worker' } }
+        : update,
+    );
+  });
   const unsubscribeTraffic = options.subscribeExtensionTraffic((event) => {
     if (owners.size === 0) return;
     for (const tabId of owners) {
       const rekeyed: WebRequestEvent = { ...event, tabId };
       for (const listener of rekeyListeners) listener(rekeyed);
+    }
+    // Own-bundle terminal floor: a tab-less load of the extension's own
+    // packaged asset (a dedicated worker's main script) never crosses the
+    // network stack — Chromium delivers onBeforeRequest/onSendHeaders and
+    // then nothing, so the row would read "(pending)" forever. The browser's
+    // panel resolves these as a status-less "Finished"; mirror it by
+    // synthesizing the terminal at the send, status-less so the cell reads
+    // the same. A real completion arriving anyway refines in place
+    // (completed → completed is a legal same-rank patch).
+    if (event.method_kind === 'onSendHeaders' && isOwnUrl(event.url)) {
+      for (const tabId of owners) {
+        options.apply({
+          kind: 'phase',
+          tabId,
+          requestId: event.requestId,
+          patch: { phase: 'completed', completedAtMs: event.timeStamp },
+        });
+      }
     }
   });
 
