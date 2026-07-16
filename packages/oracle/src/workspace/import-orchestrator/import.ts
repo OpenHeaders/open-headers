@@ -156,6 +156,19 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         materializeIfAbsent: targetMode === 'new',
       });
 
+      if (emitted) {
+        // The emission path has no spec leg yet — spec import execution
+        // lands with the Phase G import legs. Surface the drop honestly
+        // rather than silently narrowing coverage.
+        const droppedSpecs = plan.specs.filter((e) => e.action !== 'skip').length;
+        if (droppedSpecs > 0) {
+          logger.warn(
+            'WorkspaceImportOrchestrator',
+            `emission: ${droppedSpecs} spec(s) in the plan were not emitted (spec emission leg pending)`,
+          );
+        }
+      }
+
       if (!emitted) {
         // Demux flattened collection / folder arrays back into the three
         // per-tree storage keys via the path prefix.
@@ -173,6 +186,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         const nextEnvironments = applyPlanArray(target.environments ?? [], plan.environments);
         const nextLiveWorkflows = applyPlanArray(target.liveWorkflows ?? [], plan.liveWorkflows);
         const nextLiveVariables = applyPlanArray(target.liveVariables ?? [], plan.liveVariables);
+        const nextSpecs = applyPlanArray(target.specs ?? [], plan.specs);
 
         const nextRuleCollections = applyPlanArray(target.collections ?? [], collectionsRulesPlan);
         const nextRequestCollections = applyPlanArray(target.requestCollections ?? [], collectionsRequestsPlan);
@@ -218,6 +232,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
           [k.workspaceVars, nextWorkspaceVars],
           [k.liveWorkflows, nextLiveWorkflows],
           [k.liveVariables, nextLiveVariables],
+          [k.specs, nextSpecs],
           ...(nextVault ? [[k.vault, nextVault] as const] : []),
         ];
 
@@ -250,7 +265,8 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         plan.liveWorkflows.filter((e) => e.action !== 'skip').length +
         plan.liveVariables.filter((e) => e.action !== 'skip').length +
         plan.collections.filter((e) => e.action !== 'skip').length +
-        plan.folders.filter((e) => e.action !== 'skip').length;
+        plan.folders.filter((e) => e.action !== 'skip').length +
+        plan.specs.filter((e) => e.action !== 'skip').length;
       report.summary = { ...report.summary, imported: importedCount };
 
       // Collect imported entities carrying scripts — requests plus the
@@ -383,5 +399,6 @@ function capturePerEntityStrategies(plan: ImportPlan): PerEntityStrategies {
   rec('environments', plan.environments);
   rec('liveWorkflows', plan.liveWorkflows);
   rec('liveVariables', plan.liveVariables);
+  rec('specs', plan.specs);
   return out;
 }

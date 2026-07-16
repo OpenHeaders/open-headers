@@ -33,6 +33,7 @@ import type {
   LiveWorkflow,
   Request,
   Rule,
+  Spec,
   Template,
   Vault,
   WorkspaceVariables,
@@ -99,6 +100,7 @@ export interface DiffResult {
   environments: DiffEntry<Environment>[];
   liveWorkflows: DiffEntry<LiveWorkflow>[];
   liveVariables: DiffEntry<LiveVariable>[];
+  specs: DiffEntry<Spec>[];
   workspaceVars: DiffSingleton<WorkspaceVariables>;
   vault: DiffSingleton<Vault>;
 }
@@ -112,6 +114,7 @@ export interface TargetWorkspaceState {
   environments: Environment[];
   liveWorkflows: LiveWorkflow[];
   liveVariables: LiveVariable[];
+  specs: Spec[];
   workspaceVars?: WorkspaceVariables;
   vault?: Vault;
 }
@@ -126,6 +129,7 @@ const TEMPLATE_STRATEGIES: readonly CollisionStrategy[] = ['new-uid', 'update', 
 const ENVIRONMENT_STRATEGIES: readonly CollisionStrategy[] = ['new-uid', 'update', 'skip', 'merge-vars'];
 const LIVE_WORKFLOW_STRATEGIES: readonly CollisionStrategy[] = ['new-uid', 'update', 'skip'];
 const LIVE_VARIABLE_STRATEGIES: readonly CollisionStrategy[] = ['new-uid', 'update', 'skip'];
+const SPEC_STRATEGIES: readonly CollisionStrategy[] = ['new-uid', 'update', 'skip'];
 const SINGLETON_STRATEGIES: readonly CollisionStrategy[] = ['merge-by-name', 'replace', 'skip'];
 
 // ── Match helpers ───────────────────────────────────────────────────
@@ -310,6 +314,15 @@ export function diffWorkspaceExport(incoming: WorkspaceExport, target: TargetWor
       exportedAt,
     }),
   );
+  const specs = incoming.entities.specs.map<DiffEntry<Spec>>((s) =>
+    buildEntry(s, {
+      // Specs are workspace-wide, not parent-scoped — same as environments.
+      match: matchByUidThenName(s, target.specs),
+      defaultStrategy: 'new-uid',
+      allowedStrategies: SPEC_STRATEGIES,
+      exportedAt,
+    }),
+  );
 
   return {
     collections,
@@ -320,6 +333,7 @@ export function diffWorkspaceExport(incoming: WorkspaceExport, target: TargetWor
     environments,
     liveWorkflows,
     liveVariables,
+    specs,
     workspaceVars: diffWorkspaceVarsSingleton(target.workspaceVars),
     vault: diffVaultSingleton(target.vault),
   };
@@ -352,5 +366,6 @@ export function applyBackupRestoreToggle(diff: DiffResult): DiffResult {
     environments: flip(diff.environments),
     liveWorkflows: flip(diff.liveWorkflows),
     liveVariables: flip(diff.liveVariables),
+    specs: flip(diff.specs),
   };
 }

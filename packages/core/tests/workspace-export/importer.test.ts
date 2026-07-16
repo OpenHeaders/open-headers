@@ -48,6 +48,7 @@ function baseInput(): Parameters<typeof buildWorkspaceExport>[0] {
       workspaceVars: makeWorkspaceVars(),
       liveWorkflows: [],
       liveVariables: [],
+      specs: [],
     },
   };
 }
@@ -62,6 +63,7 @@ function emptyTarget(): Parameters<typeof diffWorkspaceExport>[1] {
     environments: [],
     liveWorkflows: [],
     liveVariables: [],
+    specs: [],
   };
 }
 

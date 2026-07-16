@@ -54,6 +54,7 @@ function emptyPlan(overrides: Partial<ImportPlan> = {}): ImportPlan {
     environments: [],
     liveWorkflows: [],
     liveVariables: [],
+    specs: [],
     workspaceVars: { action: 'skip', variables: [] },
     vault: { action: 'skip', secrets: [] },
     uidRemap: {},

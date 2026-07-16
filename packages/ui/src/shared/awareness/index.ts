@@ -63,6 +63,7 @@ export type { SurfaceAwarenessPublisherProps } from './SurfaceAwarenessPublisher
 export { SurfaceAwarenessPublisher } from './SurfaceAwarenessPublisher';
 export type { SurfaceChipProps, SurfaceDotProps } from './SurfaceChip';
 export { default as SurfaceChip, SurfaceDot } from './SurfaceChip';
+export { SPEC_PATHS, type SpecFileLeaf, type SpecPathBundle, type SpecScalarLeaf } from './spec-paths';
 export type { SurfaceIdentityHandle } from './surface-identity';
 export { surfaceDisplayLabel, surfaceKindColor, surfaceKindLabel } from './surface-label';
 export { TabActiveProvider, useTabActive } from './TabActiveContext';

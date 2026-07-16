@@ -27,6 +27,7 @@ const emptyDiff: DiffResult = {
   environments: [],
   liveWorkflows: [],
   liveVariables: [],
+  specs: [],
   workspaceVars: {
     state: 'no-collision',
     defaultStrategy: 'skip',

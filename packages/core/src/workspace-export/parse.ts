@@ -42,6 +42,7 @@ import {
   LiveWorkflowSchema,
   RequestSchema,
   RuleSchema,
+  SpecSchema,
   TemplateSchema,
   VaultSchema,
   WorkspaceVariablesSchema,
@@ -273,6 +274,7 @@ export function parseWorkspaceExport(input: string, opts: ParseOptions = {}): Pa
     'entities.liveVariables',
     drops,
   );
+  const specs = validateEntityArray(rawEntitiesRec.specs, SpecSchema, 'entities.specs', drops);
 
   const workspaceVarsParsed = v.safeParse(WorkspaceVariablesSchema, rawEntitiesRec.workspaceVars);
   let workspaceVars: v.InferOutput<typeof WorkspaceVariablesSchema>;
@@ -314,6 +316,7 @@ export function parseWorkspaceExport(input: string, opts: ParseOptions = {}): Pa
       workspaceVars,
       liveWorkflows,
       liveVariables,
+      specs,
       ...(vault !== undefined ? { vault } : {}),
     },
   };
@@ -346,5 +349,6 @@ function emptyEntitiesShell(): WorkspaceExport['entities'] {
     workspaceVars: { schemaVersion: 5, variables: [] },
     liveWorkflows: [],
     liveVariables: [],
+    specs: [],
   };
 }

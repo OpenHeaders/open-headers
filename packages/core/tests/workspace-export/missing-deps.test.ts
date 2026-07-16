@@ -39,6 +39,7 @@ function baseInput(): Parameters<typeof buildWorkspaceExport>[0] {
       workspaceVars: makeWorkspaceVars(),
       liveWorkflows: [],
       liveVariables: [],
+      specs: [],
     },
   };
 }
@@ -53,6 +54,7 @@ function emptyTarget(): TargetWorkspaceState {
     environments: [],
     liveWorkflows: [],
     liveVariables: [],
+    specs: [],
   };
 }
 

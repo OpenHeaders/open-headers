@@ -24,7 +24,16 @@ const ENVELOPE_BASE = {
   workspace: { uid: 'wuid0001', name: 'WS' },
   meta: {
     redactions: { vault: 'omitted' as const, liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
-    counts: { rules: 0, requests: 0, environments: 0, liveWorkflows: 0, liveVariables: 0, templates: 0, secrets: 0 },
+    counts: {
+      rules: 0,
+      requests: 0,
+      environments: 0,
+      liveWorkflows: 0,
+      liveVariables: 0,
+      templates: 0,
+      secrets: 0,
+      specs: 0,
+    },
   },
 };
 
@@ -68,6 +77,7 @@ function envelope(rules: HeaderRule[], requests: Request[] = []): WorkspaceExpor
       workspaceVars: { schemaVersion: 5, variables: [] },
       liveWorkflows: [],
       liveVariables: [],
+      specs: [],
     },
   } as WorkspaceExport;
 }

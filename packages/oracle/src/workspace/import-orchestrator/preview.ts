@@ -76,6 +76,7 @@ function emptyTargetState(): TargetWorkspaceState {
     environments: [],
     liveWorkflows: [],
     liveVariables: [],
+    specs: [],
   };
 }
 
@@ -95,6 +96,7 @@ async function hashDiffSnapshot(diff: ReturnType<typeof diffWorkspaceExport>): P
     environments: diff.environments.map((e) => [e.entity.uid, e.state, e.matchedTarget?.uid ?? null]),
     liveWorkflows: diff.liveWorkflows.map((e) => [e.entity.uid, e.state, e.matchedTarget?.uid ?? null]),
     liveVariables: diff.liveVariables.map((e) => [e.entity.uid, e.state, e.matchedTarget?.uid ?? null]),
+    specs: diff.specs.map((e) => [e.entity.uid, e.state, e.matchedTarget?.uid ?? null]),
     workspaceVars: [diff.workspaceVars.state, diff.workspaceVars.targetHasContent],
     vault: [diff.vault.state, diff.vault.targetHasContent],
   };

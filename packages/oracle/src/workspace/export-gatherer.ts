@@ -33,6 +33,7 @@ import type {
   LiveWorkflow,
   Request,
   Rule,
+  Spec,
   Template,
   WorkspaceVariables,
 } from '@openheaders/core/types';
@@ -382,6 +383,7 @@ export async function gatherWorkspaceExport(
     workspaceVars: k.workspaceVars,
     liveWorkflows: k.liveWorkflows,
     liveVariables: k.liveVariables,
+    specs: k.specs,
     defaultEnvironmentId: k.defaultEnvironmentId,
     vault: k.vault,
   });
@@ -392,6 +394,7 @@ export async function gatherWorkspaceExport(
   const allEnvironments: Environment[] = src.environments ?? [];
   const allLiveWorkflows: LiveWorkflow[] = src.liveWorkflows ?? [];
   const allLiveVariables: LiveVariable[] = src.liveVariables ?? [];
+  const allSpecs: Spec[] = src.specs ?? [];
 
   // Three parallel trees flatten into single arrays in the envelope.
   // Path prefix (`rules/...` / `requests/...` / `templates/...`)
@@ -415,6 +418,7 @@ export async function gatherWorkspaceExport(
   let folders: Folder[];
   let liveWorkflows: LiveWorkflow[];
   let liveVariables: LiveVariable[];
+  let specs: Spec[];
   let envelopeScope: BuildWorkspaceExportInput['scope'];
   let workspaceVarsOut: WorkspaceVariables | undefined;
 
@@ -427,6 +431,7 @@ export async function gatherWorkspaceExport(
     folders = allFolders;
     liveWorkflows = allLiveWorkflows;
     liveVariables = allLiveVariables;
+    specs = allSpecs;
     envelopeScope = 'workspace';
     workspaceVarsOut = src.workspaceVars;
   } else {
@@ -462,6 +467,9 @@ export async function gatherWorkspaceExport(
     liveVariables = allLiveVariables.filter((v) => picked.liveVariables.has(v.uid));
     collections = allCollections.filter((c) => picked.collections.has(c.uid));
     folders = allFolders.filter((f) => picked.folders.has(f.uid));
+    // Specs are not selectable yet (`ExportSelection` carries no spec
+    // uids); selection-scope envelopes ship none.
+    specs = [];
     envelopeScope = 'selection';
 
     // Filter workspaceVars to only the names referenced by the
@@ -502,6 +510,7 @@ export async function gatherWorkspaceExport(
       workspaceVars: workspaceVarsOut ?? { schemaVersion: 5, variables: [] },
       liveWorkflows,
       liveVariables,
+      specs,
       ...(src.vault ? { vault: src.vault } : {}),
     },
   };

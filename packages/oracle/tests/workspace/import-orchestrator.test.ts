@@ -204,10 +204,20 @@ function makeExport(overrides: Partial<WorkspaceExport> = {}): WorkspaceExport {
       workspaceVars: { schemaVersion: 5, variables: [] },
       liveWorkflows: [],
       liveVariables: [],
+      specs: [],
     },
     meta: {
       redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
-      counts: { rules: 1, requests: 0, environments: 0, liveWorkflows: 0, liveVariables: 0, templates: 0, secrets: 0 },
+      counts: {
+        rules: 1,
+        requests: 0,
+        environments: 0,
+        liveWorkflows: 0,
+        liveVariables: 0,
+        templates: 0,
+        secrets: 0,
+        specs: 0,
+      },
     },
     ...overrides,
   } as WorkspaceExport;
@@ -380,6 +390,7 @@ describe('importWorkspace — scripts review pending set', () => {
         workspaceVars: { schemaVersion: 5, variables: [] },
         liveWorkflows: [],
         liveVariables: [],
+        specs: [],
       },
       meta: {
         redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
@@ -391,6 +402,7 @@ describe('importWorkspace — scripts review pending set', () => {
           liveVariables: 0,
           templates: 0,
           secrets: 0,
+          specs: 0,
         },
       },
     } as Partial<WorkspaceExport>);
@@ -484,6 +496,7 @@ describe('importWorkspace — quota pre-check (best-effort, warn-only)', () => {
         workspaceVars: { schemaVersion: 5, variables: [] },
         liveWorkflows: [],
         liveVariables: [],
+        specs: [],
       },
       meta: {
         redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
@@ -495,6 +508,7 @@ describe('importWorkspace — quota pre-check (best-effort, warn-only)', () => {
           liveVariables: 0,
           templates: 0,
           secrets: 0,
+          specs: 0,
         },
       },
     } as Partial<WorkspaceExport>);

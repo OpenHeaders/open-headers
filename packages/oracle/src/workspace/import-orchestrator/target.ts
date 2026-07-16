@@ -12,6 +12,7 @@ import type {
   LiveWorkflow,
   Request,
   Rule,
+  Spec,
   Template,
   Vault,
   WorkspaceVariables,
@@ -99,6 +100,7 @@ export interface ReadTargetResult {
     vault?: Vault;
     liveWorkflows?: LiveWorkflow[];
     liveVariables?: LiveVariable[];
+    specs?: Spec[];
   };
   targetState: TargetWorkspaceState;
 }
@@ -123,6 +125,7 @@ export async function readTargetWorkspaceState(workspaceId: string): Promise<Rea
     vault: k.vault,
     liveWorkflows: k.liveWorkflows,
     liveVariables: k.liveVariables,
+    specs: k.specs,
   });
   const targetState: TargetWorkspaceState = {
     collections: [
@@ -141,6 +144,7 @@ export async function readTargetWorkspaceState(workspaceId: string): Promise<Rea
     environments: target.environments ?? [],
     liveWorkflows: target.liveWorkflows ?? [],
     liveVariables: target.liveVariables ?? [],
+    specs: target.specs ?? [],
     ...(target.workspaceVars ? { workspaceVars: target.workspaceVars } : {}),
     ...(target.vault ? { vault: target.vault } : {}),
   };

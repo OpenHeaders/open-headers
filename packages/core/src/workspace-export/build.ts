@@ -39,6 +39,7 @@ import type {
   LiveWorkflow,
   Request,
   Rule,
+  Spec,
   Template,
   Vault,
   VaultSecret,
@@ -94,6 +95,8 @@ export interface BuildWorkspaceExportInput {
     workspaceVars: WorkspaceVariables;
     liveWorkflows: LiveWorkflow[];
     liveVariables: LiveVariable[];
+    /** Spec documents. Source text ships verbatim inside `files[]`. */
+    specs: Spec[];
     /**
      * Vault. Carried verbatim when `vaultMode === 'plaintext'`, dropped
      * when `'omitted'`, replaced by the encrypted `secretsBlock` when
@@ -180,6 +183,9 @@ export function buildWorkspaceExport(
   const rules = input.entities.rules.map(withCanonicalPath);
   const templates = input.entities.templates.map(withCanonicalPath);
   const environments = input.entities.environments.map(withCanonicalPath);
+  // Path canonicalizes like every entity; file contents ride untouched
+  // (spec source is verbatim — never normalized).
+  const specs = input.entities.specs.map(withCanonicalPath);
 
   // Vault inclusion: `plaintext` carries `entities.vault`; `encrypted`
   // and `omitted` drop it.
@@ -228,6 +234,7 @@ export function buildWorkspaceExport(
       rules,
       liveWorkflows: input.entities.liveWorkflows,
       liveVariables: input.entities.liveVariables,
+      specs,
       ...(vault ? { vault } : {}),
     },
     ...(opts.secretsBlock && vaultMode === 'encrypted' ? { secrets: opts.secretsBlock } : {}),
@@ -246,6 +253,7 @@ export function buildWorkspaceExport(
         liveVariables: input.entities.liveVariables.length,
         templates: templates.length,
         secrets: secretCount,
+        specs: specs.length,
       },
     },
   };

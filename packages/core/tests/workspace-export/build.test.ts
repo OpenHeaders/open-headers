@@ -171,6 +171,7 @@ function emptyEntities(): Parameters<typeof buildWorkspaceExport>[0]['entities']
     workspaceVars: makeWorkspaceVars(),
     liveWorkflows: [],
     liveVariables: [],
+    specs: [],
   };
 }
 

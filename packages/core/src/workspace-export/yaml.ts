@@ -33,6 +33,7 @@ import {
   LIVE_WORKFLOW_FIELD_ORDER,
   REQUEST_FIELD_ORDER,
   RULE_FIELD_ORDER,
+  SPEC_FIELD_ORDER,
   TEMPLATE_FIELD_ORDER,
   VAULT_FIELD_ORDER,
   WORKSPACE_VARIABLES_FIELD_ORDER,
@@ -98,6 +99,7 @@ function toCanonicalShape(exp: WorkspaceExport): Record<string, unknown> {
     rules: exp.entities.rules.map((r) => entityOrdered(r, RULE_FIELD_ORDER)),
     liveWorkflows: exp.entities.liveWorkflows.map((w) => entityOrdered(w, LIVE_WORKFLOW_FIELD_ORDER)),
     liveVariables: exp.entities.liveVariables.map((lv) => entityOrdered(lv, LIVE_VARIABLE_FIELD_ORDER)),
+    specs: exp.entities.specs.map((s) => entityOrdered(s, SPEC_FIELD_ORDER)),
   };
   // Reproject `entities` via the canonical entities-bag ordering.
   const orderedEntities = ordered(entities, WORKSPACE_EXPORT_ENTITIES_FIELD_ORDER);

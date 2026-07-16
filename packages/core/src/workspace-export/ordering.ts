@@ -41,6 +41,7 @@ export const WORKSPACE_EXPORT_ENTITIES_FIELD_ORDER = [
   'rules',
   'liveWorkflows',
   'liveVariables',
+  'specs',
 ] as const;
 
 export const WORKSPACE_EXPORT_META_FIELD_ORDER = ['redactions', 'counts'] as const;

@@ -21,6 +21,7 @@ import {
   LiveWorkflowSchema,
   RequestSchema,
   RuleSchema,
+  SpecSchema,
   TemplateSchema,
   UidSchema,
   UuidV7Schema,
@@ -88,6 +89,7 @@ export const ExportMetaSchema = v.object({
     liveVariables: v.pipe(v.number(), v.integer(), v.minValue(0)),
     templates: v.pipe(v.number(), v.integer(), v.minValue(0)),
     secrets: v.pipe(v.number(), v.integer(), v.minValue(0)),
+    specs: v.pipe(v.number(), v.integer(), v.minValue(0)),
   }),
 });
 
@@ -117,6 +119,9 @@ export const ExportEntitiesSchema = v.object({
   workspaceVars: WorkspaceVariablesSchema,
   liveWorkflows: v.array(LiveWorkflowSchema),
   liveVariables: v.array(LiveVariableSchema),
+  // Spec files export verbatim inside the entity — `content` is already
+  // inline on every `files[]` row, so no sibling-file indirection here.
+  specs: v.array(SpecSchema),
   vault: v.optional(VaultSchema),
 });
 

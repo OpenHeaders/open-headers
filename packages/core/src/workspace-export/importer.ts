@@ -37,6 +37,7 @@ import type {
   LiveWorkflow,
   Request,
   Rule,
+  Spec,
   Template,
   Variable,
   Vault,
@@ -87,6 +88,7 @@ export interface ImportPlan {
   environments: PlanEntry<Environment>[];
   liveWorkflows: PlanEntry<LiveWorkflow>[];
   liveVariables: PlanEntry<LiveVariable>[];
+  specs: PlanEntry<Spec>[];
   workspaceVars: PlanWorkspaceVariables;
   vault: PlanVault;
   /**
@@ -112,6 +114,7 @@ export interface StrategyMap {
   environments?: Record<string, CollisionStrategy>;
   liveWorkflows?: Record<string, CollisionStrategy>;
   liveVariables?: Record<string, CollisionStrategy>;
+  specs?: Record<string, CollisionStrategy>;
   workspaceVars?: PlanSingletonAction;
   vault?: PlanSingletonAction;
 }
@@ -389,6 +392,10 @@ export function buildImportPlan(
     overrides: strategies.liveVariables,
     stamp: (lv) => forceDisabled(lv, trust),
   });
+  const specs = resolveArrayBase<Spec>({
+    diff: diff.specs,
+    overrides: strategies.specs,
+  });
 
   // ── Tree-aware new-uid: rules / requests / templates ───────────
   // Folders + collections that belong to a given tree must regen with
@@ -475,8 +482,9 @@ export function buildImportPlan(
     }
   }
 
-  // ── new-uid for environments / live-* (no tree, just regen). ───
+  // ── new-uid for environments / specs / live-* (no tree, just regen). ───
   applyFlatNewUid(environments.entries, uidRemap);
+  applyFlatNewUid(specs.entries, uidRemap);
   applyFlatNewUid(liveWorkflows.entries, uidRemap);
   // Live variables rebind their workflowUid through uidRemap.
   applyFlatNewUid(liveVariables.entries, uidRemap, (lv) => {
@@ -511,6 +519,7 @@ export function buildImportPlan(
     environments: environments.entries,
     liveWorkflows: liveWorkflows.entries,
     liveVariables: liveVariables.entries,
+    specs: specs.entries,
     workspaceVars,
     vault,
     uidRemap,

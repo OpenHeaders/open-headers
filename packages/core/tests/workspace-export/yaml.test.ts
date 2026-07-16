@@ -36,6 +36,7 @@ function baseInput(): Parameters<typeof buildWorkspaceExport>[0] {
       workspaceVars: makeWorkspaceVars(),
       liveWorkflows: [],
       liveVariables: [],
+      specs: [],
     },
   };
 }

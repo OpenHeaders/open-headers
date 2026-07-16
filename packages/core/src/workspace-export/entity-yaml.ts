@@ -21,6 +21,7 @@ import {
   LIVE_WORKFLOW_FIELD_ORDER,
   REQUEST_FIELD_ORDER,
   RULE_FIELD_ORDER,
+  SPEC_FIELD_ORDER,
   TEMPLATE_FIELD_ORDER,
   VAULT_FIELD_ORDER,
   WORKSPACE_VARIABLES_FIELD_ORDER,
@@ -35,6 +36,7 @@ export type SerializableEntityKind =
   | 'liveVariable'
   | 'collection'
   | 'folder'
+  | 'spec'
   | 'workspaceVars'
   | 'vault';
 
@@ -47,6 +49,7 @@ const ORDER_BY_KIND: Record<SerializableEntityKind, readonly string[]> = {
   liveVariable: LIVE_VARIABLE_FIELD_ORDER,
   collection: COLLECTION_FIELD_ORDER,
   folder: FOLDER_FIELD_ORDER,
+  spec: SPEC_FIELD_ORDER,
   workspaceVars: WORKSPACE_VARIABLES_FIELD_ORDER,
   vault: VAULT_FIELD_ORDER,
 };

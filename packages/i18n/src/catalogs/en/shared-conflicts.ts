@@ -158,6 +158,19 @@ export const sharedConflicts = {
   'shared.conflicts.label.workflow.captureField.name': 'name',
   'shared.conflicts.label.workflow.captureField.extractor': 'extractor',
 
+  // ── Adapter label plane: specs ─────────────────────────────────────
+  'shared.conflicts.label.spec.leaf': 'Spec ({label})',
+  'shared.conflicts.label.spec.field.name': 'name',
+  'shared.conflicts.label.spec.field.description': 'description',
+  'shared.conflicts.label.spec.field.format': 'format',
+  'shared.conflicts.label.spec.field.rootFileUid': 'root file',
+  'shared.conflicts.label.spec.fileRow': 'Spec file',
+  'shared.conflicts.label.spec.fileRowNamed': 'Spec file {name}',
+  'shared.conflicts.label.spec.fileLeafNamed': 'Spec file {name} ({label})',
+  'shared.conflicts.label.spec.fileLeaf': 'Spec file ({label})',
+  'shared.conflicts.label.spec.fileField.fileName': 'file name',
+  'shared.conflicts.label.spec.fileField.content': 'content',
+
   // ── Adapter label plane: requests ──────────────────────────────────
   'shared.conflicts.label.request.set.header': 'Header',
   'shared.conflicts.label.request.set.queryParam': 'Query param',
