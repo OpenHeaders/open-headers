@@ -8,17 +8,25 @@
  * set for the Files group. Clicking a row hands its character offset
  * to the host, which moves the editor caret; group headers with a
  * source position navigate too.
+ *
+ * Add affordances (S6, YAML roots only): hover "+" on insertable group
+ * headers and path rows (affordance-visibility rules — hover on
+ * chrome), plus an inline "Add …" row inside empty groups (vendor
+ * evidence: "No servers defined. Add"). Both hand a `SpecInsertTarget`
+ * to the host, which splices the snippet into the Monaco buffer.
  */
 
+import { PlusOutlined } from '@ant-design/icons';
 import type { SpecFile } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
-import { Tree, Typography, theme } from 'antd';
+import { Tooltip, Tree, Typography, theme } from 'antd';
 import type { TreeDataNode } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { METHOD_COLORS } from '../sidebar/icons';
+import type { SpecInsertTarget } from './spec-outline-insert';
 import type { SpecOutline, SpecOutlineNode } from './spec-outline';
 
 interface SpecOutlinePaneProps {
@@ -26,6 +34,9 @@ interface SpecOutlinePaneProps {
   files: SpecFile[];
   rootFileUid: string;
   onNavigate: (offset: number) => void;
+  /** False hides every Add affordance — non-YAML roots (S6: YAML-only). */
+  canInsert: boolean;
+  onInsert: (target: SpecInsertTarget) => void;
 }
 
 /** Group-header keys → their catalog labels. */
@@ -42,20 +53,64 @@ const GROUP_LABEL_KEYS: Record<string, MessageKey> = {
 
 const GROUP_KEYS = Object.keys(GROUP_LABEL_KEYS);
 
-function groupTitle(key: string, count: number | null, t: Translate): React.ReactNode {
+/** Insertable group headers → their target + Add label. Components and
+ *  Files carry no affordance (subgroups / entity data). */
+const GROUP_INSERTS: Record<string, { target: SpecInsertTarget; label: MessageKey }> = {
+  servers: { target: { kind: 'server' }, label: 'workbench.editors.spec.outline.add.server' },
+  tags: { target: { kind: 'tag' }, label: 'workbench.editors.spec.outline.add.tag' },
+  paths: { target: { kind: 'path' }, label: 'workbench.editors.spec.outline.add.path' },
+  'components:schemas': { target: { kind: 'schema' }, label: 'workbench.editors.spec.outline.add.schema' },
+  'components:securitySchemes': {
+    target: { kind: 'securityScheme' },
+    label: 'workbench.editors.spec.outline.add.securityScheme',
+  },
+  security: {
+    target: { kind: 'securityRequirement' },
+    label: 'workbench.editors.spec.outline.add.securityRequirement',
+  },
+};
+
+interface AffordanceWiring {
+  canInsert: boolean;
+  onInsert: (target: SpecInsertTarget) => void;
+  t: Translate;
+}
+
+function addButton(target: SpecInsertTarget, label: string, wiring: AffordanceWiring): React.ReactNode {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600 }}>
-      {t(GROUP_LABEL_KEYS[key])}
+    <Tooltip title={label} placement="right">
+      <button
+        type="button"
+        className="oh-spec-outline-add"
+        aria-label={label}
+        onClick={(e) => {
+          // The row beneath navigates — adding must not also jump.
+          e.stopPropagation();
+          wiring.onInsert(target);
+        }}
+      >
+        <PlusOutlined style={{ fontSize: 10 }} />
+      </button>
+    </Tooltip>
+  );
+}
+
+function groupTitle(key: string, count: number | null, wiring: AffordanceWiring): React.ReactNode {
+  const insert = wiring.canInsert ? GROUP_INSERTS[key] : undefined;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, width: '100%' }}>
+      {wiring.t(GROUP_LABEL_KEYS[key])}
       {count !== null && count > 0 && (
         <Typography.Text type="secondary" style={{ fontSize: 10, fontWeight: 400 }}>
           {count}
         </Typography.Text>
       )}
+      {insert !== undefined && addButton(insert.target, wiring.t(insert.label), wiring)}
     </span>
   );
 }
 
-function entryTitle(node: SpecOutlineNode): React.ReactNode {
+function entryTitle(node: SpecOutlineNode, wiring: AffordanceWiring): React.ReactNode {
   if (node.kind === 'operation' && node.method !== undefined) {
     const color = METHOD_COLORS[node.method] ?? 'var(--ant-color-text, #1a1a1a)';
     return (
@@ -73,34 +128,83 @@ function entryTitle(node: SpecOutlineNode): React.ReactNode {
     <span
       style={{
         fontSize: 11,
-        display: 'block',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        width: '100%',
+        minWidth: 0,
       }}
     >
-      {node.label}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.label}</span>
+      {node.kind === 'path' &&
+        wiring.canInsert &&
+        addButton(
+          { kind: 'operation', pathKey: node.label },
+          wiring.t('workbench.editors.spec.outline.add.operation'),
+          wiring,
+        )}
     </span>
   );
 }
 
-const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({ outline, files, rootFileUid, onNavigate }) => {
+/** Muted inline "Add …" row inside an empty insertable group. */
+function emptyAddNode(groupKey: string, wiring: AffordanceWiring): TreeDataNode | null {
+  const insert = GROUP_INSERTS[groupKey];
+  if (insert === undefined) return null;
+  return {
+    key: `add:${groupKey}`,
+    selectable: false,
+    title: (
+      <span
+        role="button"
+        tabIndex={0}
+        className="oh-spec-outline-empty-add"
+        onClick={() => wiring.onInsert(insert.target)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            wiring.onInsert(insert.target);
+          }
+        }}
+      >
+        <PlusOutlined style={{ fontSize: 9 }} />
+        {wiring.t(insert.label)}
+      </span>
+    ),
+    children: [],
+  };
+}
+
+const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
+  outline,
+  files,
+  rootFileUid,
+  onNavigate,
+  canInsert,
+  onInsert,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
 
   // Tree data + the key → offset map the click handler resolves
   // against, built in one walk per outline recompute.
   const { treeData, offsets } = useMemo(() => {
+    const wiring: AffordanceWiring = { canInsert, onInsert, t };
     const offsetByKey = new Map<string, number>();
     const toDataNode = (node: SpecOutlineNode): TreeDataNode => {
       if (node.offset !== null) offsetByKey.set(node.key, node.offset);
       // Groups whose children are themselves groups (components) show
       // no count — the subgroup rows carry the real numbers.
       const count = node.children.some((child) => child.kind === 'group') ? null : node.children.length;
+      const children = node.children.map(toDataNode);
+      if (node.kind === 'group' && count === 0 && wiring.canInsert) {
+        const addRow = emptyAddNode(node.key, wiring);
+        if (addRow !== null) children.push(addRow);
+      }
       return {
         key: node.key,
-        title: node.kind === 'group' ? groupTitle(node.key, count, t) : entryTitle(node),
-        children: node.children.map(toDataNode),
+        title: node.kind === 'group' ? groupTitle(node.key, count, wiring) : entryTitle(node, wiring),
+        children,
       };
     };
 
@@ -116,7 +220,7 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({ outline, files, rootF
     }
     data.push({
       key: 'files',
-      title: groupTitle('files', files.length, t),
+      title: groupTitle('files', files.length, wiring),
       children: files.map((file) => {
         // The single v1 root file IS the open buffer — navigating to
         // its top is the honest "select this file" until multi-file.
@@ -149,7 +253,7 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({ outline, files, rootF
       }),
     });
     return { treeData: data, offsets: offsetByKey };
-  }, [outline, files, rootFileUid, t, token]);
+  }, [outline, files, rootFileUid, t, token, canInsert, onInsert]);
 
   return (
     <div
@@ -174,7 +278,10 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({ outline, files, rootF
           {t('workbench.editors.spec.outline.empty')}
         </Typography.Text>
       ) : (
-        <div className="rules-thin-scrollbar" style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: '0 4px 8px' }}>
+        <div
+          className="rules-thin-scrollbar oh-spec-outline-tree"
+          style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'none', padding: '0 4px 8px' }}
+        >
           <Tree
             blockNode
             defaultExpandedKeys={GROUP_KEYS}

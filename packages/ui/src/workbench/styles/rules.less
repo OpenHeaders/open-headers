@@ -2191,3 +2191,46 @@ body {
   text-underline-offset: 2px;
 }
 
+/*
+ * Spec outline Add affordances — hover-on-chrome (same reveal pattern
+ * as the sidebar item actions): the "+" sits invisible at the row end
+ * until its tree row is hovered. The empty-group inline "Add …" row is
+ * always visible (it IS the group's content).
+ */
+.oh-spec-outline-tree {
+  .oh-spec-outline-add {
+    opacity: 0;
+    margin-left: auto;
+    padding: 0 4px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+
+    &:hover {
+      background: rgba(128, 128, 128, 0.15);
+    }
+  }
+
+  .ant-tree-treenode:hover .oh-spec-outline-add,
+  .oh-spec-outline-add:focus-visible {
+    opacity: 1;
+  }
+
+  .oh-spec-outline-empty-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--ant-color-text-tertiary, #999);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--ant-color-text-secondary, #666);
+    }
+  }
+}
+

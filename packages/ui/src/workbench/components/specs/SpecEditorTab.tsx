@@ -14,7 +14,10 @@
  * Phase D: outline rail left of the editor (Allotment split, vendor
  * parity) over the same parse-on-idle tick — clicking an outline row
  * maps its character offset to a position and moves the caret. The
- * rail's visibility toggles from the header, session-local.
+ * rail's visibility toggles from the header, session-local. Add
+ * affordances (YAML roots only) splice scaffold snippets into the
+ * BUFFER via `executeEdits` — undoable, dirty derives, the mirror
+ * only ever sees a Save.
  */
 
 import {
@@ -37,9 +40,11 @@ import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@openhea
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { applySpecSetFile } from '@openheaders/ui/shared/sync/spec-write-client';
+import type { Monaco } from '@monaco-editor/react';
 import CodeEditor from '../shared/CodeEditor';
 import EditorHeader from '../shell/EditorHeader';
 import SpecOutlinePane from './SpecOutlinePane';
+import { planSpecInsertion, type SpecInsertTarget } from './spec-outline-insert';
 import { specFileLanguage, specFileSyntaxLabel, useSpecAnalysis } from './spec-validation';
 
 /** Header badge label per format — presentation of the picklist value. */
@@ -91,8 +96,10 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   const [outlineOpen, setOutlineOpen] = useState(true);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const handleEditorMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor) => {
+  const monacoRef = useRef<Monaco | null>(null);
+  const handleEditorMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monacoApi: Monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monacoApi;
   }, []);
 
   // Outline click → caret. The offset comes from the parse-on-idle
@@ -105,6 +112,36 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
     const position = model.getPositionAt(offset);
     editor.setPosition(position);
     editor.revealPositionInCenterIfOutsideViewport(position);
+    editor.focus();
+  }, []);
+
+  // Outline "+" → scaffold snippet spliced into the buffer at the
+  // AST-computed spot. `executeEdits` keeps it on the undo stack and
+  // routes through onChange, so dirty derives like any typed edit; the
+  // editable token ends up selected for immediate renaming. Planned
+  // off the LIVE model text (not the parse-on-idle draft) so the spot
+  // never trails a just-typed edit; a non-parsing buffer plans null —
+  // the validation strip is already explaining why.
+  const handleInsert = useCallback((target: SpecInsertTarget) => {
+    const editor = editorRef.current;
+    const monacoApi = monacoRef.current;
+    const model = editor?.getModel();
+    if (!editor || !monacoApi || !model) return;
+    const plan = planSpecInsertion(model.getValue(), target);
+    if (!plan) return;
+    const position = model.getPositionAt(plan.offset);
+    editor.pushUndoStop();
+    editor.executeEdits('spec-outline-add', [
+      {
+        range: new monacoApi.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+        text: plan.text,
+      },
+    ]);
+    editor.pushUndoStop();
+    const start = model.getPositionAt(plan.selectionStart);
+    const end = model.getPositionAt(plan.selectionEnd);
+    editor.setSelection(new monacoApi.Selection(start.lineNumber, start.column, end.lineNumber, end.column));
+    editor.revealPositionInCenterIfOutsideViewport(start);
     editor.focus();
   }, []);
 
@@ -189,6 +226,8 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
                 files={spec.files}
                 rootFileUid={spec.rootFileUid}
                 onNavigate={handleNavigate}
+                canInsert={specFileLanguage(rootFile.fileName) === 'yaml'}
+                onInsert={handleInsert}
               />
             </Allotment.Pane>
             <Allotment.Pane minSize={320}>

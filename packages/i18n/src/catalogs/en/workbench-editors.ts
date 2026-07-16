@@ -1232,6 +1232,13 @@ export const workbenchEditors = {
   'workbench.editors.spec.outline.groups.securitySchemes': 'Security Schemes',
   'workbench.editors.spec.outline.groups.security': 'Security',
   'workbench.editors.spec.outline.groups.files': 'Files',
+  'workbench.editors.spec.outline.add.server': 'Add server',
+  'workbench.editors.spec.outline.add.tag': 'Add tag',
+  'workbench.editors.spec.outline.add.path': 'Add path',
+  'workbench.editors.spec.outline.add.operation': 'Add operation',
+  'workbench.editors.spec.outline.add.schema': 'Add schema',
+  'workbench.editors.spec.outline.add.securityScheme': 'Add security scheme',
+  'workbench.editors.spec.outline.add.securityRequirement': 'Add security requirement',
 
   // ── Script editor (snippets/packages menus, save-to-package flow,
   //    ScriptsTab's own Monaco context-menu actions). Snippet code
