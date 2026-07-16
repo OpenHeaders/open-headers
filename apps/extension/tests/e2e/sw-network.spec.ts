@@ -187,7 +187,10 @@ test('an oh-fetch renders a pure ⚙ row with status, headers, and a fetchable b
   await panelPage.waitForTimeout(1_500);
   await expect(rows(marker)).toHaveCount(1);
 
-  await row.click();
+  // Click the NAME cell, not the row center — the row spans interactive
+  // cells (the Initiator link stopPropagations and jumps to Sources), so a
+  // center click can miss the row-select entirely.
+  await row.locator('.dt-col-name-text').click();
 
   // Headers pane: the General section carries URL + status, the response
   // section the served content type.
@@ -240,13 +243,18 @@ test("extension-self plane: a request-editor Send appears as a row in the workbe
   );
   expect(typeof workbenchTabId).toBe('number');
 
-  // A second panel inspecting the WORKBENCH tab — the webRequest-fed
-  // extension-self plane needs no CDP pin.
+  // The panel inspecting the WORKBENCH tab opens BEFORE the send — the
+  // epic's gap report scenario (webRequest ingestion is panel-watching
+  // gated, so rows exist while a panel observes the tab). No CDP pin:
+  // this is the webRequest-fed extension-self plane.
   const selfPanel = await context.newPage();
   selfPanel.on('pageerror', (err) => console.error('[self-panel pageerror]', err.stack ?? err.message));
   await selfPanel.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${workbenchTabId}`);
   await selfPanel.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
 
+  // Same drive recipe as the request-editor UI specs: seed, reload so the
+  // sidebar renders deterministically, requests view + docs collapsed,
+  // open, Send.
   const marker = 'oh-self-send-1';
   const uid = await workbench.seedRequest({
     name: 'SW network self-send',
@@ -255,7 +263,9 @@ test("extension-self plane: a request-editor Send appears as a row in the workbe
     auth: { type: 'none' },
     body: { type: 'none' },
   });
+  await workbench.reload();
   await workbench.showRequestsView();
+  await workbench.collapseDocsPanel();
   await workbench.openRequest(uid);
   await workbench.send();
   expect(await workbench.responseStatusText()).toContain('200');
