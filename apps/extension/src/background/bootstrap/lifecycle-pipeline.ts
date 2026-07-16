@@ -29,6 +29,7 @@ import {
   startCdpActiveTab,
   startCdpFetchInterceptor,
   startDevtoolsPortPresence,
+  startExtensionTrafficLifecycles,
   startLifecycleHost,
 } from '../correlator-host';
 import { mainFrameUrlOf } from '../correlator-host/main-frame-registry';
@@ -99,6 +100,17 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // adapter's extension-traffic channel — the SW's own fetches, which
   // the lifecycle pipeline itself never consumes.
   registerExtensionTrafficSource((listener) => lifecycleHost.webRequestSource.subscribeExtensionTraffic(listener));
+  // The same channel also mints lifecycle ROWS for the extension's own
+  // pages: a second heuristic correlator re-keys each self-traffic event
+  // (telemetry beacons, request-editor sends — `tabId === -1` on the wire)
+  // to every tab whose main frame lives on our extension origin, so the
+  // workbench's inspected tab shows the worker-initiated exchanges the
+  // browser's own network panel shows (gear rows). Same store, disjoint
+  // request-id space — the per-tab router invariant is untouched.
+  startExtensionTrafficLifecycles({
+    subscribeExtensionTraffic: (listener) => lifecycleHost.webRequestSource.subscribeExtensionTraffic(listener),
+    apply: (update) => lifecycleHost.store.apply(update),
+  });
   startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge, bus: tabLifecycleBus });
   startTabTelemetrySource({ store: lifecycleHost.store, bus: tabLifecycleBus });
 

@@ -45,6 +45,8 @@ export { createConsoleEval } from './console-eval';
 export { deriveTabControlState } from './derive-tab-control-state';
 export type { DevtoolsPortPresence, DevtoolsPortPresenceOptions } from './devtools-port-presence';
 export { startDevtoolsPortPresence } from './devtools-port-presence';
+export type { ExtensionTrafficLifecycles, ExtensionTrafficLifecyclesOptions } from './extension-traffic-lifecycles';
+export { startExtensionTrafficLifecycles } from './extension-traffic-lifecycles';
 export type { LifecycleHost } from './lifecycle-host';
 export { startLifecycleHost } from './lifecycle-host';
 export type { TabLifecycleBridgeOptions } from './tab-lifecycle-bridge';
