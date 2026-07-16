@@ -18,6 +18,14 @@ export interface ContextsStatus {
   controllerScriptUrl: string | null;
 }
 
+export interface WorkerFetchResult {
+  url: string;
+  ok: boolean;
+  status?: number;
+  bodyLength?: number;
+  error?: string;
+}
+
 export interface OhContextsApi {
   setup(): Promise<ContextsStatus>;
   logPage(tag: string): Promise<string>;
@@ -26,6 +34,7 @@ export interface OhContextsApi {
   logWorker(tag: string): Promise<string>;
   logSw(tag: string): Promise<string>;
   logAll(tag: string): Promise<string[]>;
+  fetchFromWorker(url: string): Promise<WorkerFetchResult>;
   status(): Promise<ContextsStatus>;
   teardown(): Promise<void>;
 }
