@@ -114,6 +114,15 @@ export interface UseTabOpenersApi {
    * fills in when no context is available.
    */
   openCreateRequestTab: (context?: { collectionId?: string; folderPath?: string }) => void;
+  /** Open a GrpcRequest in its dedicated edit tab. */
+  openGrpcRequestEditTab: (uid: string, name: string, autoRename?: boolean) => void;
+  /**
+   * Context-create a gRPC request. Unlike {@link openCreateRequestTab}
+   * there is no draft mode — the gesture always originates from a
+   * container's "+" menu with a known destination, so the entity is
+   * persisted immediately and opened as `grpc-edit` (born clean).
+   */
+  openCreateGrpcRequestTab: (context: { collectionId?: string; folderPath?: string }) => void;
   /**
    * Open a fresh `rule-create` scratch seeded with another tab's current
    * rule content ("Duplicate Tab"). The copy is a scratch regardless of

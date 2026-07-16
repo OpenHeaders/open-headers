@@ -25,6 +25,7 @@ import type {
   SyncExtensionWorkspacePostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGrpcRequestPostState,
   SyncLayoutStatePostState,
   SyncLiveFallbackPriorityPostState,
   SyncLiveValuePostState,
@@ -315,6 +316,13 @@ export interface BridgeBroadcastContract {
      * shape + live itemIds for set-modeled paths without round-tripping.
      */
     requestPostState?: SyncRequestPostState;
+    /**
+     * Post-commit projection for GrpcRequest envelopes. Renderer
+     * mirrors fold this so the gRPC editor sees post-commit shape +
+     * live itemIds for the set-modeled `metadata` path without
+     * round-tripping.
+     */
+    grpcRequestPostState?: SyncGrpcRequestPostState;
     /**
      * Post-commit projection for request-collection envelopes (Phase B).
      * Mirrors fold this so the request sidebar sees post-commit shape

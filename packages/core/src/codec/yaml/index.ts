@@ -28,6 +28,8 @@ export type { EnvironmentCodecInput, EnvironmentSerializeOutput } from './enviro
 export { parseEnvironment, serializeEnvironment } from './environment';
 export type { FolderCodecContext, FolderSerializeOutput } from './folder';
 export { parseFolder, serializeFolder } from './folder';
+export type { GrpcRequestCodecContext, GrpcRequestSerializeOutput, GrpcRequestSiblingFile } from './grpc-request';
+export { canonicalizeGrpcRequest, parseGrpcRequest, serializeGrpcRequest } from './grpc-request';
 export type { LiveVariableCodecContext } from './live-variable';
 export { parseLiveVariable, serializeLiveVariable } from './live-variable';
 export type { LiveWorkflowCodecContext } from './live-workflow';
@@ -37,6 +39,7 @@ export {
   COLLECTION_FIELD_ORDER,
   ENVIRONMENT_FIELD_ORDER,
   FOLDER_FIELD_ORDER,
+  GRPC_REQUEST_FIELD_ORDER,
   LIVE_VARIABLE_FIELD_ORDER,
   LIVE_WORKFLOW_FIELD_ORDER,
   REQUEST_FIELD_ORDER,

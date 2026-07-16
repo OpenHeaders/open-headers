@@ -27,6 +27,7 @@ export type {
   CollectionTree,
   Folder,
   FolderNode,
+  GrpcRequestNode,
   RequestNode,
   RuleNode,
   SpecLink,
@@ -62,6 +63,8 @@ export type {
   ExtensionWorkspaceKind,
   ExtensionWorkspaceSource,
 } from './extension-workspace';
+// ── gRPC request ───────────────────────────────────────────────────
+export type { GrpcMetadataPair, GrpcMethodRef, GrpcRequest, GrpcRequestSeed, GrpcSpecLink } from './grpc-request';
 export type {
   HarEventSourceMessage,
   HarSourceMessage,

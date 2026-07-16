@@ -75,6 +75,8 @@ interface WorkbenchToolWindowProps {
   openCreateLiveWorkflow: UseTabOpenersApi['openCreateLiveWorkflow'];
   openRequestEditTab: UseTabOpenersApi['openRequestEditTab'];
   openCreateRequestTab: UseTabOpenersApi['openCreateRequestTab'];
+  openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
+  openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
 
@@ -132,6 +134,8 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openCreateLiveWorkflow,
   openRequestEditTab,
   openCreateRequestTab,
+  openGrpcRequestEditTab,
+  openCreateGrpcRequestTab,
   openResponseExampleTab,
   openLiveVariableEdit,
   handleDeleteRule,
@@ -186,6 +190,8 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onCreateWorkflow={(context) => openCreateLiveWorkflow(context)}
           onSelectRequest={openRequestEditTab}
           onCreateRequest={openCreateRequestTab}
+          onSelectGrpcRequest={openGrpcRequestEditTab}
+          onCreateGrpcRequest={openCreateGrpcRequestTab}
           onSelectResponseExample={openResponseExampleTab}
           onImport={(ctx) => importExportRef.current?.openImportSource(ctx)}
           filterRef={(node: InputRef | null) => {

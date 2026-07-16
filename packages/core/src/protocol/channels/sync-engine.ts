@@ -12,6 +12,7 @@ import type {
   SyncExtensionWorkspacePostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGrpcRequestPostState,
   SyncLayoutStatePostState,
   SyncLiveFallbackPriorityPostState,
   SyncLiveVariablePostState,
@@ -120,6 +121,15 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotRequests': {
     req: { workspaceId?: string };
     res: { entries: SyncRequestPostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full GrpcRequest oracle state. Same
+   * semantics as `oh.sync.snapshotRequests` — `(grpcRequest, setItemIds)`
+   * per uid, matching the broadcast `grpcRequestPostState` payload.
+   */
+  'oh.sync.snapshotGrpcRequests': {
+    req: { workspaceId?: string };
+    res: { entries: SyncGrpcRequestPostState[] };
   };
   /**
    * Snapshot the active workspace's full request-collection oracle

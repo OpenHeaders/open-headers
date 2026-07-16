@@ -32,6 +32,7 @@ import type {
   DaemonUserRecord,
   Environment,
   ExtensionWorkspace,
+  GrpcRequest,
   LiveFallbackPrioritySnapshot,
   LiveVariable,
   LiveWorkflow,
@@ -393,6 +394,7 @@ export interface WorkspaceKeys {
   collections: StorageKey<Collection[]>;
   folders: StorageKey<PersistedLocalFolder[]>;
   requests: StorageKey<Request[]>;
+  grpcRequests: StorageKey<GrpcRequest[]>;
   requestCollections: StorageKey<Collection[]>;
   requestFolders: StorageKey<PersistedLocalFolder[]>;
   templates: StorageKey<Template[]>;
@@ -567,6 +569,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     collections: storageKey<Collection[]>(`${p}.collections`),
     folders: storageKey<PersistedLocalFolder[]>(`${p}.folders`),
     requests: storageKey<Request[]>(`${p}.requests`),
+    grpcRequests: storageKey<GrpcRequest[]>(`${p}.grpcRequests`),
     requestCollections: storageKey<Collection[]>(`${p}.requestCollections`),
     requestFolders: storageKey<PersistedLocalFolder[]>(`${p}.requestFolders`),
     templates: storageKey<Template[]>(`${p}.templates`),

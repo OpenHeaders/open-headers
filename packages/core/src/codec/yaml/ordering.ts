@@ -108,6 +108,25 @@ export const REQUEST_FIELD_ORDER = [
 ] as const;
 
 /**
+ * gRPC request manifest (`grpc.yaml`): identity + target + method +
+ * metadata + spec binding. The message text never serializes into the
+ * manifest — it fans out into the `message.json` sibling (see
+ * `grpc-request.ts`).
+ */
+export const GRPC_REQUEST_FIELD_ORDER = [
+  'schemaVersion',
+  'uid',
+  'name',
+  'description',
+  'url',
+  'tls',
+  'method',
+  'metadata',
+  'specLink',
+  'timeoutMs',
+] as const;
+
+/**
  * `path` is excluded from persisted YAML on purpose — it's the folder
  * name on disk (slug-uid), derivable from the filesystem. The runtime
  * Rule / Collection / Request value carries `path`; the codec strips it

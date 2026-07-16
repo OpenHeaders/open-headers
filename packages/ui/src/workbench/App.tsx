@@ -520,6 +520,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openTemplateCollectionVariables,
     openRequestEditTab: openRequestEditTabRaw,
     openCreateRequestTab,
+    openGrpcRequestEditTab,
+    openCreateGrpcRequestTab,
     openResponseExampleTab,
     openDuplicateRuleScratch,
     openDuplicateRequestScratch,
@@ -1252,6 +1254,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateLiveWorkflow={openCreateLiveWorkflow}
         openRequestEditTab={openRequestEditTab}
         openCreateRequestTab={openCreateRequestTab}
+        openGrpcRequestEditTab={openGrpcRequestEditTab}
+        openCreateGrpcRequestTab={openCreateGrpcRequestTab}
         openResponseExampleTab={openResponseExampleTab}
         openLiveVariableEdit={openLiveVariableEdit}
         handleDeleteRule={handleDeleteRule}
@@ -1294,6 +1298,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openTemplateCollectionVariables,
       openRequestEditTab,
       openCreateRequestTab,
+      openGrpcRequestEditTab,
+      openCreateGrpcRequestTab,
       openResponseExampleTab,
       openLiveWorkflowEdit,
       openCreateLiveWorkflow,

@@ -5,8 +5,9 @@
  */
 
 import type { Collection, Request } from '@openheaders/core/types';
-import { buildEmptyRequest, generateUid, toFolderName } from '@openheaders/core/utils';
+import { buildEmptyGrpcRequest, buildEmptyRequest, generateUid, toFolderName } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { applyGrpcRequestCreate } from '@openheaders/ui/shared/sync/grpc-request-write-client';
 import { applyRequestCreate } from '@openheaders/ui/shared/sync/request-write-client';
 import { useCallback } from 'react';
 import { resolveContextParentPath, type TabOpenerContext, type UseTabOpenersApi } from './shared';
@@ -32,6 +33,8 @@ export type RequestOpeners = Pick<
   | 'openRequestFolderAuth'
   | 'openRequestEditTab'
   | 'openCreateRequestTab'
+  | 'openGrpcRequestEditTab'
+  | 'openCreateGrpcRequestTab'
   | 'openDuplicateRequestScratch'
   | 'openResponseExampleTab'
 >;
@@ -241,6 +244,68 @@ export function useRequestOpeners(
     [allTabs, addTab, requestCollections, workspaceId, surfaceId, setPendingRenameTabId, t],
   );
 
+  const openGrpcRequestEditTab = useCallback(
+    (uid: string, name: string, autoRename = false) => {
+      const id = `grpc-request-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        if (autoRename) setPendingRenameTabId(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        // Tab icon reads `ruleType` as a free-form type hint — the
+        // gRPC tag mirrors the sidebar leaf tag.
+        ruleType: 'gRPC',
+        dirty: false,
+        mode: 'grpc-edit',
+        grpcRequestUid: uid,
+      });
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [allTabs, addTab, switchTab, setPendingRenameTabId],
+  );
+
+  const openCreateGrpcRequestTab = useCallback(
+    (context: { collectionId?: string; folderPath?: string }) => {
+      // Context-create only — no draft mode: the gesture always comes
+      // from a container's "+" menu, so the destination is known and
+      // the entity persists immediately (born clean, like the rule
+      // context-create path).
+      const parentPath = resolveContextParentPath(context, requestCollections);
+      if (!workspaceId || !parentPath) return;
+      const baseName = t('workbench.shell.tabLabel.newGrpcRequest');
+      const existingNames = new Set<string>();
+      for (const tab of allTabs) existingNames.add(tab.label);
+      let draftName = baseName;
+      let counter = 2;
+      while (existingNames.has(draftName)) {
+        draftName = `${baseName} (${counter++})`;
+      }
+      const uid = generateUid();
+      const seed = buildEmptyGrpcRequest({
+        uid,
+        name: draftName,
+        path: `${parentPath}/${toFolderName(draftName, uid)}`,
+      });
+      const tabId = `grpc-request-${uid}`;
+      void applyGrpcRequestCreate(seed, { workspaceId, surfaceId }).then((result) => {
+        if (!result.ok) return;
+        addTab({
+          id: tabId,
+          label: draftName,
+          ruleType: 'gRPC',
+          dirty: false,
+          mode: 'grpc-edit',
+          grpcRequestUid: uid,
+        });
+        setPendingRenameTabId(tabId);
+      });
+    },
+    [allTabs, addTab, requestCollections, workspaceId, surfaceId, setPendingRenameTabId, t],
+  );
+
   const openDuplicateRequestScratch = useCallback(
     (
       content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>,
@@ -298,6 +363,8 @@ export function useRequestOpeners(
     openRequestFolderAuth,
     openRequestEditTab,
     openCreateRequestTab,
+    openGrpcRequestEditTab,
+    openCreateGrpcRequestTab,
     openDuplicateRequestScratch,
     openResponseExampleTab,
   };

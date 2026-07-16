@@ -37,6 +37,8 @@ import {
   FILES_ENTITY_TYPE,
   FILES_REFS_PATH,
   FOLDER_ENTITY_TYPE,
+  GRPC_REQUEST_ENTITY_TYPE,
+  GRPC_REQUEST_METADATA_PATH,
   LAYOUT_STATE_ENTITY_TYPE,
   LIVE_FALLBACK_PRIORITY_ENTITY_TYPE,
   LIVE_FALLBACK_PRIORITY_MEMBERS_PATH,
@@ -78,6 +80,7 @@ import { createEnvironmentCache } from './caches/environment-cache';
 import { createExtensionWorkspaceCache } from './caches/extension-workspace-cache';
 import { createFilesCache } from './caches/files-cache';
 import { createFolderCache } from './caches/folder-cache';
+import { createGrpcRequestCache } from './caches/grpc-request-cache';
 import { createLayoutStateCache } from './caches/layout-state-cache';
 import { createLiveFallbackPriorityCache } from './caches/live-fallback-priority-cache';
 import { createLiveValueCache } from './caches/live-value-cache';
@@ -106,6 +109,7 @@ import {
 } from './post-state/extension-workspace-post-state';
 import { projectFilesPostState, projectFilesSingleton } from './post-state/files-post-state';
 import { projectFolderByUid, projectFolderPostState } from './post-state/folder-post-state';
+import { projectGrpcRequestByUid, projectGrpcRequestPostState } from './post-state/grpc-request-post-state';
 import { projectLayoutStatePostState, projectLayoutStateSingleton } from './post-state/layout-state-post-state';
 import {
   projectLiveFallbackPriorityPostState,
@@ -329,6 +333,15 @@ export const REQUEST_REGISTRATION = flatEntity({
   setPaths: [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH],
 });
 
+export const GRPC_REQUEST_REGISTRATION = flatEntity({
+  entityType: GRPC_REQUEST_ENTITY_TYPE,
+  createCache: createGrpcRequestCache,
+  postStateKey: 'grpcRequestPostState',
+  projectPostState: projectGrpcRequestPostState,
+  projectByUid: projectGrpcRequestByUid,
+  setPaths: [GRPC_REQUEST_METADATA_PATH],
+});
+
 export const REQUEST_COLLECTION_REGISTRATION = flatEntity({
   entityType: REQUEST_COLLECTION_ENTITY_TYPE,
   createCache: createRequestCollectionCache,
@@ -490,6 +503,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   WORKSPACE_VARIABLES_REGISTRATION,
   VAULT_REGISTRATION,
   REQUEST_REGISTRATION,
+  GRPC_REQUEST_REGISTRATION,
   REQUEST_COLLECTION_REGISTRATION,
   REQUEST_FOLDER_REGISTRATION,
   RESPONSE_EXAMPLE_REGISTRATION,

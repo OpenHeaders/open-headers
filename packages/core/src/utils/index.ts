@@ -41,6 +41,8 @@ export {
   validateDomainValues,
 } from './condition-validation';
 export { ensureScheme, inferSchemeForBareHost, needsSchemeNormalization } from './ensure-scheme';
+export type { BuildEmptyGrpcRequestInput } from './grpc-request-defaults';
+export { buildEmptyGrpcRequest } from './grpc-request-defaults';
 export type {
   HeaderDirection,
   HeaderNameValidation,

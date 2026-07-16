@@ -61,6 +61,13 @@ export interface RequestNode {
   method: HttpMethod;
 }
 
+export interface GrpcRequestNode {
+  type: 'grpc-request';
+  uid: string;
+  name: string;
+  path: string;
+}
+
 export interface RuleNode {
   type: 'rule';
   uid: string;
@@ -79,7 +86,7 @@ export interface TemplateNode {
   icon: string;
 }
 
-export type TreeNode = FolderNode | RequestNode | RuleNode | TemplateNode;
+export type TreeNode = FolderNode | RequestNode | GrpcRequestNode | RuleNode | TemplateNode;
 
 /** Collection with its full sidebar tree loaded. */
 export interface CollectionTree extends Collection {

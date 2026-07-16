@@ -38,6 +38,7 @@ export type EntityPostState = Partial<
     | 'vaultPostState'
     | 'folderPostState'
     | 'requestPostState'
+    | 'grpcRequestPostState'
     | 'requestCollectionPostState'
     | 'requestFolderPostState'
     | 'templatePostState'

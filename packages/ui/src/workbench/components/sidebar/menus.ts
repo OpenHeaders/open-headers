@@ -39,11 +39,13 @@ export interface ContainerAddMenuOptions {
   onAddRule?: (type: string) => void;
   /** Requests side — single "Add Request" item. */
   onAddRequest?: () => void;
+  /** Requests side — "Add gRPC Request" item (sibling entity kind). */
+  onAddGrpcRequest?: () => void;
   onAddFolder: () => void;
 }
 
 export function containerAddMenuItems(
-  { onAddRule, onAddRequest, onAddFolder }: ContainerAddMenuOptions,
+  { onAddRule, onAddRequest, onAddGrpcRequest, onAddFolder }: ContainerAddMenuOptions,
   t: Translate,
 ): ItemType[] {
   const items: ItemType[] = [];
@@ -61,6 +63,14 @@ export function containerAddMenuItems(
       icon: createElement(PlusOutlined),
       label: t('workbench.sidebar.menu.addRequest'),
       onClick: onAddRequest,
+    });
+  }
+  if (onAddGrpcRequest) {
+    items.push({
+      key: 'add-grpc-request',
+      icon: createElement(PlusOutlined),
+      label: t('workbench.sidebar.menu.addGrpcRequest'),
+      onClick: onAddGrpcRequest,
     });
   }
   items.push({

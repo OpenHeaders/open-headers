@@ -27,6 +27,7 @@ import LiveVariableEditor from '../live/LiveVariableEditor';
 import LiveWorkflowEditor from '../live/LiveWorkflowEditor';
 import AncestorAuthEditor from '../auth/AncestorAuthEditor';
 import AncestorScriptsEditor from '../scripts/AncestorScriptsEditor';
+import GrpcRequestEditor from '../grpc-request-editor/GrpcRequestEditor';
 import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
 import RequestEditor from '../request-editor/RequestEditor';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
@@ -407,6 +408,16 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           const wf = liveWorkflows.find((w) => w.uid === target.workflowUid);
           openLiveWorkflowEdit(target.workflowUid, wf?.name ?? t('workbench.shell.fallback.workflow'), [seedStep]);
         }}
+      />
+    );
+  }
+  if (tab.mode === 'grpc-edit' && tab.grpcRequestUid) {
+    return (
+      <GrpcRequestEditor
+        grpcRequestUid={tab.grpcRequestUid}
+        workspaceId={editingScopeWorkspaceId}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
     );
   }

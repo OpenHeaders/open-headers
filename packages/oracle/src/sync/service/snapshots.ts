@@ -8,6 +8,7 @@ import type {
   SyncEnvironmentPostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGrpcRequestPostState,
   SyncLayoutStatePostState,
   SyncLiveFallbackPriorityPostState,
   SyncLiveValuePostState,
@@ -34,6 +35,7 @@ import {
   FILES_REGISTRATION,
   FOLDER_REGISTRATION,
   flatSnapshot,
+  GRPC_REQUEST_REGISTRATION,
   LAYOUT_STATE_REGISTRATION,
   LIVE_FALLBACK_PRIORITY_REGISTRATION,
   LIVE_VALUE_REGISTRATION,
@@ -115,6 +117,11 @@ export function snapshotFolderPostStates(workspaceId?: string): SyncFolderPostSt
 export function snapshotRequestPostStates(workspaceId?: string): SyncRequestPostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, REQUEST_REGISTRATION) : [];
+}
+
+export function snapshotGrpcRequestPostStates(workspaceId?: string): SyncGrpcRequestPostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? flatSnapshot(o, GRPC_REQUEST_REGISTRATION) : [];
 }
 
 export function snapshotRequestCollectionPostStates(workspaceId?: string): SyncRequestCollectionPostState[] {

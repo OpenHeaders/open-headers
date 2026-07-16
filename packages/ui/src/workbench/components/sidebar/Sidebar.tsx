@@ -126,6 +126,10 @@ interface SidebarProps {
   onCreateWorkflow?: (context?: { seedSteps?: WorkflowSeedStep[]; name?: string }) => void;
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
+  /** Open a gRPC request's edit tab (sibling entity in the request tree). */
+  onSelectGrpcRequest?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Context-create a gRPC request from a container's "+" menu. */
+  onCreateGrpcRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   /** Opens the import hub (single "Import…" entry; formats auto-detected). */
@@ -182,6 +186,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateWorkflow,
   onSelectRequest,
   onCreateRequest,
+  onSelectGrpcRequest,
+  onCreateGrpcRequest,
   onSelectResponseExample,
   onImport,
   filterRef,
@@ -269,10 +275,13 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const {
     requests: allRequests,
+    grpcRequests: allGrpcRequests,
     collections: requestCollections,
     collectionTrees: requestCollectionTrees,
     updateRequest: updateRequestData,
     deleteRequest,
+    updateGrpcRequest: updateGrpcRequestData,
+    deleteGrpcRequest,
     createCollection: createRequestCollectionRpc,
     renameCollection: renameRequestCollectionRpc,
     deleteCollection: deleteRequestCollectionRpc,
@@ -493,6 +502,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     requestCollectionTrees,
     requestCollections,
     allRequests,
+    allGrpcRequests,
     resolver,
     dirtyRequestUids,
     scriptsReviewPendingUids,
@@ -510,6 +520,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     confirmDelete,
     updateRequestData,
     deleteRequest,
+    updateGrpcRequestData,
+    deleteGrpcRequest,
     createRequestFolderRpc,
     renameRequestFolderRpc,
     deleteRequestFolderRpc,
@@ -517,6 +529,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteRequestCollectionRpc,
     onSelectRequest,
     onCreateRequest,
+    onSelectGrpcRequest,
+    onCreateGrpcRequest,
     onSelectResponseExample,
     onExportEntity,
     onOpenCollectionVariables: onOpenRequestCollectionVariables,

@@ -17,6 +17,7 @@ import type {
   SyncExtensionWorkspacePostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGrpcRequestPostState,
   SyncLayoutStatePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
@@ -62,6 +63,7 @@ export interface OracleSyncBroadcastEvent {
   vaultPostState?: SyncVaultPostState;
   folderPostState?: SyncFolderPostState;
   requestPostState?: SyncRequestPostState;
+  grpcRequestPostState?: SyncGrpcRequestPostState;
   requestCollectionPostState?: SyncRequestCollectionPostState;
   requestFolderPostState?: SyncRequestFolderPostState;
   templatePostState?: SyncTemplatePostState;

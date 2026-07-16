@@ -32,7 +32,7 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
-import type { Collection, CollectionTree, Request, SpecLink, Variable } from '@openheaders/core/types';
+import type { Collection, CollectionTree, GrpcRequest, Request, SpecLink, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
@@ -56,12 +56,30 @@ import {
   applyRequestFolderSetAuth,
   applyRequestFolderSetScripts,
 } from '../shared/sync/request-folder-write-client';
+import {
+  applyGrpcRequestCreate,
+  applyGrpcRequestDelete,
+  applyGrpcRequestUpdate,
+  type GrpcRequestUpdates,
+} from '../shared/sync/grpc-request-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
 
 export type RequestWriteResult = BridgeRpcResponse<'updateLocalRequest'>;
 
+/** Structured ack for gRPC request writes (no legacy RPC shape to mirror). */
+export type GrpcRequestWriteResult =
+  | { ok: true }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message?: string };
+
 export interface RequestsContextValue {
   requests: Request[];
+  /**
+   * gRPC requests — the sibling entity kind sharing the collection
+   * tree. Populated on the override branch (workbench surfaces);
+   * system surfaces have no gRPC gesture and leave it empty.
+   */
+  grpcRequests: GrpcRequest[];
   collections: Collection[];
   /**
    * Flat request-folder list. Populated on the override branch
@@ -87,6 +105,19 @@ export interface RequestsContextValue {
     updates: Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
   ) => Promise<RequestWriteResult>;
   deleteRequest: (requestUid: string) => Promise<boolean>;
+
+  /**
+   * gRPC request CRUD — override branch only (the workbench is the
+   * only surface with gRPC gestures); the legacy branch resolves
+   * null/false.
+   */
+  createGrpcRequest: (input: {
+    name: string;
+    parentPath: string;
+    seed?: Partial<GrpcRequest>;
+  }) => Promise<GrpcRequest | null>;
+  updateGrpcRequest: (grpcRequestUid: string, updates: GrpcRequestUpdates) => Promise<GrpcRequestWriteResult>;
+  deleteGrpcRequest: (grpcRequestUid: string) => Promise<boolean>;
 
   createCollection: (name: string) => Promise<Collection | null>;
   renameCollection: (collectionUid: string, name: string) => Promise<boolean>;
@@ -138,6 +169,7 @@ export interface RequestsContextValue {
 
 const defaultContextValue: RequestsContextValue = {
   requests: [],
+  grpcRequests: [],
   collections: [],
   folders: [],
   collectionTrees: [],
@@ -146,6 +178,9 @@ const defaultContextValue: RequestsContextValue = {
   createRequest: () => Promise.resolve(null),
   updateRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
   deleteRequest: () => Promise.resolve(false),
+  createGrpcRequest: () => Promise.resolve(null),
+  updateGrpcRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
+  deleteGrpcRequest: () => Promise.resolve(false),
   createCollection: () => Promise.resolve(null),
   renameCollection: () => Promise.resolve(false),
   deleteCollection: () => Promise.resolve(false),
@@ -182,6 +217,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 }) => {
   const isOverridden = activeWorkspaceIdOverride !== undefined;
   const [requests, setRequests] = useState<Request[]>([]);
+  const [grpcRequests, setGrpcRequests] = useState<GrpcRequest[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [folders, setFolders] = useState<PersistedLocalFolder[]>([]);
   const [collectionTrees, setCollectionTrees] = useState<CollectionTree[]>([]);
@@ -247,6 +283,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     overrideIdRef.current = wsId;
     if (!wsId) {
       setRequests([]);
+      setGrpcRequests([]);
       setCollections([]);
       setFolders([]);
       setCollectionTrees([]);
@@ -256,16 +293,24 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 
     setIsReady(false);
     let currentRequests: Request[] = [];
+    let currentGrpcRequests: GrpcRequest[] = [];
     let currentCollections: Collection[] = [];
     let currentFolders: PersistedLocalFolder[] = [];
 
     const recomputeTrees = () => {
-      setCollectionTrees(buildRequestCollectionTrees(currentCollections, currentFolders, currentRequests));
+      setCollectionTrees(
+        buildRequestCollectionTrees(currentCollections, currentFolders, currentRequests, currentGrpcRequests),
+      );
     };
 
     const unsubRequests = hostStorage.subscribe(wsKeys(wsId).requests, (record) => {
       currentRequests = record ?? [];
       setRequests(currentRequests);
+      recomputeTrees();
+    });
+    const unsubGrpcRequests = hostStorage.subscribe(wsKeys(wsId).grpcRequests, (record) => {
+      currentGrpcRequests = record ?? [];
+      setGrpcRequests(currentGrpcRequests);
       recomputeTrees();
     });
     const unsubCollections = hostStorage.subscribe(wsKeys(wsId).requestCollections, (record) => {
@@ -282,15 +327,18 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 
     void Promise.all([
       hostStorage.get(wsKeys(wsId).requests),
+      hostStorage.get(wsKeys(wsId).grpcRequests),
       hostStorage.get(wsKeys(wsId).requestCollections),
       hostStorage.get(wsKeys(wsId).requestFolders),
-    ]).then(([reqRecord, colRecord, foldersRecord]) => {
+    ]).then(([reqRecord, grpcRecord, colRecord, foldersRecord]) => {
       if (overrideIdRef.current !== wsId) return;
       currentRequests = reqRecord ?? [];
+      currentGrpcRequests = grpcRecord ?? [];
       currentCollections = colRecord ?? [];
       currentFolders = foldersRecord ?? [];
       foldersRef.current = currentFolders;
       setRequests(currentRequests);
+      setGrpcRequests(currentGrpcRequests);
       setCollections(currentCollections);
       setFolders(currentFolders);
       recomputeTrees();
@@ -299,6 +347,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 
     return () => {
       unsubRequests();
+      unsubGrpcRequests();
       unsubCollections();
       unsubFolders();
     };
@@ -411,6 +460,56 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       }
       const resp = await hostBridge.call('deleteLocalRequest', { requestUid }).catch(() => null);
       return Boolean(resp?.success);
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const createGrpcRequest = useCallback<RequestsContextValue['createGrpcRequest']>(
+    async (input) => {
+      if (!isOverridden) return null;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return null;
+      const uid = generateUid();
+      const created: GrpcRequest = {
+        schemaVersion: 5,
+        uid,
+        path: `${input.parentPath}/${toFolderName(input.name, uid)}`,
+        name: input.name,
+        url: input.seed?.url ?? '',
+        tls: input.seed?.tls ?? true,
+        message: input.seed?.message ?? '',
+        metadata: input.seed?.metadata ?? [],
+        ...(input.seed?.description !== undefined ? { description: input.seed.description } : {}),
+        ...(input.seed?.method !== undefined ? { method: input.seed.method } : {}),
+        ...(input.seed?.specLink !== undefined ? { specLink: input.seed.specLink } : {}),
+        ...(input.seed?.timeoutMs !== undefined ? { timeoutMs: input.seed.timeoutMs } : {}),
+      };
+      const result = await applyGrpcRequestCreate(created, { workspaceId: wsId, surfaceId });
+      return result.ok ? created : null;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const updateGrpcRequest = useCallback<RequestsContextValue['updateGrpcRequest']>(
+    async (grpcRequestUid, updates) => {
+      if (!isOverridden) return { ok: false, reason: 'other', message: 'no provider' };
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return { ok: false, reason: 'other', message: 'no workspace' };
+      const result = await applyGrpcRequestUpdate(grpcRequestUid, updates, { workspaceId: wsId, surfaceId });
+      if (result.ok) return { ok: true };
+      if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
+      return { ok: false, reason: 'other', message: result.message ?? '' };
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const deleteGrpcRequest = useCallback<RequestsContextValue['deleteGrpcRequest']>(
+    async (grpcRequestUid) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const result = await applyGrpcRequestDelete(grpcRequestUid, { workspaceId: wsId, surfaceId });
+      return result.ok;
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
@@ -621,6 +720,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   const value = useMemo<RequestsContextValue>(
     () => ({
       requests,
+      grpcRequests,
       collections,
       folders,
       collectionTrees,
@@ -629,6 +729,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createRequest,
       updateRequest,
       deleteRequest,
+      createGrpcRequest,
+      updateGrpcRequest,
+      deleteGrpcRequest,
       createCollection,
       renameCollection,
       deleteCollection,
@@ -645,6 +748,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     }),
     [
       requests,
+      grpcRequests,
       collections,
       folders,
       collectionTrees,
@@ -653,6 +757,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createRequest,
       updateRequest,
       deleteRequest,
+      createGrpcRequest,
+      updateGrpcRequest,
+      deleteGrpcRequest,
       createCollection,
       renameCollection,
       deleteCollection,

@@ -17,6 +17,7 @@ import type {
   ExtensionWorkspace,
   FileRef,
   Folder,
+  GrpcRequest,
   LiveFallbackPriorityMember,
   LiveValueRecord,
   LiveVariable,
@@ -211,6 +212,21 @@ export interface SyncRequestPostState {
    * the diff to the moved row(s) only (§7.2 LWW per itemId, §7.3
    * fractional indexing).
    */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
+}
+
+/**
+ * Post-commit projection for a GrpcRequest envelope. Parallel to
+ * {@link SyncRequestPostState} — carries the materialized
+ * {@link GrpcRequest} and the live itemIds the oracle holds at the
+ * set-modeled `metadata` path.
+ */
+export interface SyncGrpcRequestPostState {
+  grpcRequest: GrpcRequest;
+  /** Map keyed by set path (`metadata`). */
+  setItemIds: Record<string, string[]>;
+  /** Live `(itemId, orderKey)` pairs at each set-modeled path — see
+   *  {@link SyncRequestPostState.setOrderKeys}. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
@@ -587,6 +603,12 @@ export interface SyncBroadcastEvent {
    * it `undefined`.
    */
   requestPostState?: SyncRequestPostState;
+  /**
+   * Populated for GrpcRequest envelopes whose batch left a materialized
+   * gRPC request in place. Tombstoned requests and rolled-back batches
+   * leave it `undefined`.
+   */
+  grpcRequestPostState?: SyncGrpcRequestPostState;
   /**
    * Populated for request-collection envelopes whose batch left a
    * materialized collection in place. Tombstoned collections and

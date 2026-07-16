@@ -41,6 +41,7 @@ export type TabMode =
   | 'template-collection-vars'
   | 'request-edit'
   | 'request-create'
+  | 'grpc-edit'
   | 'response-example'
   | 'rule-create'
   | 'live-variable-edit'
@@ -134,6 +135,8 @@ export interface WorkbenchTab {
    *  response-example tabs: the parent request's uid (drives the
    *  breadcrumb trail through the request tree). */
   requestUid?: string;
+  /** For grpc-edit tabs: the GrpcRequest uid being edited. */
+  grpcRequestUid?: string;
   /** For response-example tabs: the frozen example being viewed. */
   responseExampleUid?: string;
   /**

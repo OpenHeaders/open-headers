@@ -84,6 +84,14 @@ export {
 } from './folder';
 export { applyMutation } from './generic';
 export {
+  type DeleteGrpcRequestArgs,
+  deleteGrpcRequest,
+  GRPC_REQUEST_ENTITY_TYPE,
+  GRPC_REQUEST_METADATA_PATH,
+  GRPC_REQUEST_MUTATOR_VERSION,
+  type GrpcMetadataPairRow,
+} from './grpc-request';
+export {
   LAYOUT_STATE_ENTITY_TYPE,
   LAYOUT_STATE_ID,
   LAYOUT_STATE_MUTATOR_VERSION,

@@ -1,18 +1,19 @@
 import { FolderOpenOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import type { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import {
+  GRPC_REQUEST_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { Request, ResponseExample, TreeNode as CoreTreeNode } from '@openheaders/core/types';
+import type { GrpcRequest, Request, ResponseExample, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
-import { composeBadge, exampleTag, iconEl, methodTag } from './icons';
+import { composeBadge, exampleTag, grpcTag, iconEl, methodTag } from './icons';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
@@ -21,6 +22,7 @@ interface UseRequestTreeNodesParams {
   requestCollectionTrees: readonly { uid: string; name: string; path: string; tree: CoreTreeNode[] }[];
   requestCollections: readonly { uid: string; path: string }[];
   allRequests: readonly Request[];
+  allGrpcRequests: readonly GrpcRequest[];
   resolver: ReturnType<typeof useVariableResolver>;
   dirtyRequestUids?: ReadonlySet<string>;
   /** Post-import: imported request uids whose scripts the user hasn't
@@ -42,6 +44,8 @@ interface UseRequestTreeNodesParams {
   confirmDelete: (name: string, onConfirm: () => void) => void;
   updateRequestData: (uid: string, patch: Partial<Request>) => Promise<unknown> | unknown;
   deleteRequest: (uid: string) => Promise<unknown> | unknown;
+  updateGrpcRequestData: (uid: string, patch: Partial<GrpcRequest>) => Promise<unknown> | unknown;
+  deleteGrpcRequest: (uid: string) => Promise<unknown> | unknown;
   createRequestFolderRpc: (
     name: string,
     parentPath: string,
@@ -52,6 +56,8 @@ interface UseRequestTreeNodesParams {
   deleteRequestCollectionRpc: (uid: string) => Promise<unknown> | unknown;
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
+  onSelectGrpcRequest?: (uid: string, name: string, autoRename?: boolean) => void;
+  onCreateGrpcRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   onExportEntity?: (entity: SidebarExportEntity) => void;
@@ -100,6 +106,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             });
             p.onCreateRequest?.({ collectionId, folderPath: node.path });
           };
+          const onAddGrpcRequest = () => {
+            p.setExpandedKeys((prev) => {
+              const next = new Set(prev);
+              next.add(fid);
+              return next;
+            });
+            p.onCreateGrpcRequest?.({ collectionId, folderPath: node.path });
+          };
           // Post-import ancestor-script review badge — same treatment
           // as request rows: warning chip until the user opens the
           // folder's Scripts editor.
@@ -145,6 +159,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             addMenuItems: containerAddMenuItems(
               {
                 onAddRequest,
+                ...(p.onCreateGrpcRequest ? { onAddGrpcRequest } : {}),
                 onAddFolder,
               },
               t,
@@ -178,6 +193,44 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             const folderDraftNodes = folderDrafts.map((d) => p.buildRequestDraftNode(d, depth + 1, fid));
             items.push(...children, ...folderDraftNodes);
           }
+        } else if (node.type === 'grpc-request') {
+          if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
+          const gid = `grpc-request-${node.uid}`;
+          const fullGrpc = p.allGrpcRequests.find((r) => r.uid === node.uid);
+          // A gRPC request is complete once it has a target and a
+          // picked rpc — until then it renders as a draft, mirroring
+          // the HTTP request's completeness treatment.
+          const grpcComplete = !fullGrpc || (fullGrpc.url.trim().length > 0 && fullGrpc.method !== undefined);
+          const grpcBadge = composeBadge(
+            grpcComplete ? null : { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' },
+            p.dirtyRequestUids?.has(node.uid) ?? false,
+            undefined,
+            t,
+          );
+          items.push({
+            id: gid,
+            kind: 'leaf',
+            label: node.name,
+            depth,
+            expandable: false,
+            parentId,
+            icon: grpcTag(!grpcComplete),
+            badge: grpcBadge,
+            canRename: true,
+            canDelete: true,
+            canAddChild: false,
+            onOpen: () => {
+              p.onSelectGrpcRequest?.(node.uid, node.name);
+            },
+            onRename: async (name: string) => {
+              void p.updateGrpcRequestData(node.uid, { name });
+            },
+            onDelete: () =>
+              p.confirmDelete(node.name, () => {
+                void p.deleteGrpcRequest(node.uid);
+              }),
+            awareness: { entityType: GRPC_REQUEST_ENTITY_TYPE, entityId: node.uid },
+          });
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `request-${node.uid}`;
@@ -279,6 +332,11 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     },
     [
       p.allRequests,
+      p.allGrpcRequests,
+      p.updateGrpcRequestData,
+      p.deleteGrpcRequest,
+      p.onSelectGrpcRequest,
+      p.onCreateGrpcRequest,
       p.requestCollections,
       p.resolver,
       p.expandedKeys,
@@ -315,7 +373,8 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
 
     const hasRequestMatch = (nodes: CoreTreeNode[]): boolean => {
       for (const n of nodes) {
-        if (n.type === 'request' && n.name.toLowerCase().includes(lowerFilter)) return true;
+        if ((n.type === 'request' || n.type === 'grpc-request') && n.name.toLowerCase().includes(lowerFilter))
+          return true;
         if (n.type === 'folder') {
           if (n.name.toLowerCase().includes(lowerFilter)) return true;
           if (hasRequestMatch(n.children)) return true;
@@ -338,6 +397,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           return next;
         });
         p.onCreateRequest?.({ collectionId: collection.uid });
+      };
+      const onAddGrpcRequest = () => {
+        p.setExpandedKeys((prev) => {
+          const next = new Set(prev);
+          next.add(colId);
+          return next;
+        });
+        p.onCreateGrpcRequest?.({ collectionId: collection.uid });
       };
       const onAddFolder = () => {
         void p.createRequestFolderRpc(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
@@ -397,6 +464,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
         addMenuItems: containerAddMenuItems(
           {
             onAddRequest,
+            ...(p.onCreateGrpcRequest ? { onAddGrpcRequest } : {}),
             onAddFolder,
           },
           t,
@@ -478,6 +546,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.deleteRequestCollectionRpc,
     p.confirmDelete,
     p.onCreateRequest,
+    p.onCreateGrpcRequest,
     p.draftsByLocationRequest,
     p.buildRequestDraftNode,
     p.setExpandedKeys,

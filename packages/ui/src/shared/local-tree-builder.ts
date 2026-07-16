@@ -16,8 +16,16 @@
  * the same path-string parent filter we use here.
  */
 
-import type { Collection, CollectionTree, Request, Rule, Template, TreeNode } from '@openheaders/core/types';
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
+import type {
+  Collection,
+  CollectionTree,
+  GrpcRequest,
+  Request,
+  Rule,
+  Template,
+  TreeNode,
+} from '@openheaders/core/types';
 
 function parentPathOf(path: string): string {
   const slash = path.lastIndexOf('/');
@@ -70,15 +78,33 @@ export function buildRequestCollectionTrees(
   collections: Collection[],
   folders: PersistedLocalFolder[],
   requests: Request[],
+  grpcRequests: GrpcRequest[] = [],
 ): CollectionTree[] {
+  // Both request kinds share the collection tree (S8 scope law:
+  // collections hold both). Leaves are merged per parent — HTTP
+  // requests first, gRPC requests after, each in array order.
+  type RequestLeaf = { kind: 'http'; entity: Request } | { kind: 'grpc'; entity: GrpcRequest };
+  const leaves: RequestLeaf[] = [
+    ...requests.map((entity): RequestLeaf => ({ kind: 'http', entity })),
+    ...grpcRequests.map((entity): RequestLeaf => ({ kind: 'grpc', entity })),
+  ];
   return collections.map((collection) => ({
     ...collection,
     tree: buildFolderChildren(
       collection.path,
       folders,
-      requests,
-      (r) => r.path,
-      (r) => ({ type: 'request', uid: r.uid, name: r.name, path: r.path, method: r.method }),
+      leaves,
+      (leaf) => leaf.entity.path,
+      (leaf) =>
+        leaf.kind === 'http'
+          ? {
+              type: 'request',
+              uid: leaf.entity.uid,
+              name: leaf.entity.name,
+              path: leaf.entity.path,
+              method: leaf.entity.method,
+            }
+          : { type: 'grpc-request', uid: leaf.entity.uid, name: leaf.entity.name, path: leaf.entity.path },
     ),
   }));
 }

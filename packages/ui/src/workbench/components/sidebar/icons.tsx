@@ -53,6 +53,31 @@ export function methodTag(method: string, muted = false): React.ReactNode {
   );
 }
 
+/** Compact gRPC tag used as the leaf "icon" for gRPC request rows —
+ *  same footprint as {@link methodTag} so both kinds align in the tree.
+ *  `muted` greys the tag to signal an incomplete (draft) request. */
+export function grpcTag(muted = false): React.ReactNode {
+  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : 'var(--oh-method-grpc, #0b5cad)';
+  return createElement(
+    'span',
+    {
+      key: 'grpc',
+      style: {
+        display: 'inline-block',
+        minWidth: 44,
+        fontSize: 9,
+        fontWeight: 700,
+        color,
+        fontFamily: "'SF Mono', monospace",
+        textAlign: 'right',
+        opacity: muted ? 0.7 : 1,
+        flexShrink: 0,
+      },
+    },
+    'gRPC',
+  );
+}
+
 /** The shared "e.g." chip, right-aligned inside the {@link methodTag}
  *  footprint so example labels align with sibling request labels. */
 export function exampleTag(): React.ReactNode {

@@ -74,6 +74,7 @@ export const workbenchChrome = {
   'workbench.sidebar.menu.import': 'Import…',
   'workbench.sidebar.menu.addRule': 'Add Rule',
   'workbench.sidebar.menu.addRequest': 'Add Request',
+  'workbench.sidebar.menu.addGrpcRequest': 'Add gRPC Request',
   'workbench.sidebar.menu.addFolder': 'Add Folder',
   'workbench.sidebar.menu.rename': 'Rename',
   'workbench.sidebar.menu.editVariables': 'Edit Variables',
@@ -378,6 +379,7 @@ export const workbenchChrome = {
   'workbench.shell.tabLabel.collectionScripts': '{name} · Scripts',
   'workbench.shell.tabLabel.collectionAuth': '{name} · Authorization',
   'workbench.shell.tabLabel.newRequest': 'New Request',
+  'workbench.shell.tabLabel.newGrpcRequest': 'New gRPC Request',
   'workbench.shell.tabLabel.newWorkflow': 'New Workflow',
   'workbench.shell.tabLabel.newLiveVariable': 'New Live Variable',
 
